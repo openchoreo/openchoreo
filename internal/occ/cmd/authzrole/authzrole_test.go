@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/authzrole/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -114,7 +114,7 @@ func TestPrint_NilTimestamp(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaceRoles(mock.Anything, "default", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	r := New(mc)
@@ -123,7 +123,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaceRoles(mock.Anything, "default", mock.Anything).Return(&gen.AuthzRoleList{
 		Items:      []gen.AuthzRole{{Metadata: gen.ObjectMeta{Name: "admin-role"}}},
 		Pagination: gen.Pagination{},
@@ -139,7 +139,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaceRoles(mock.Anything, "default", mock.Anything).Return(&gen.AuthzRoleList{
 		Items: []gen.AuthzRole{
 			{Metadata: gen.ObjectMeta{Name: "admin-role", CreationTimestamp: &now}},
@@ -160,7 +160,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaceRoles(mock.Anything, "default", mock.Anything).Return(&gen.AuthzRoleList{
 		Items:      []gen.AuthzRole{},
 		Pagination: gen.Pagination{},
@@ -175,7 +175,7 @@ func TestList_Empty(t *testing.T) {
 }
 
 func TestList_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 
 	r := New(mc)
 	err := r.List(ListParams{Namespace: ""})
@@ -185,7 +185,7 @@ func TestList_ValidationError(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetNamespaceRole(mock.Anything, "default", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	r := New(mc)
@@ -194,7 +194,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetNamespaceRole(mock.Anything, "default", "admin-role").Return(&gen.AuthzRole{
 		Metadata: gen.ObjectMeta{Name: "admin-role"},
 	}, nil)
@@ -208,7 +208,7 @@ func TestGet_Success(t *testing.T) {
 }
 
 func TestGet_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 
 	r := New(mc)
 	err := r.Get(GetParams{Namespace: "", Name: "admin-role"})
@@ -218,7 +218,7 @@ func TestGet_ValidationError(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteNamespaceRole(mock.Anything, "default", "admin-role").Return(fmt.Errorf("forbidden: admin-role"))
 
 	r := New(mc)
@@ -227,7 +227,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteNamespaceRole(mock.Anything, "default", "admin-role").Return(nil)
 
 	r := New(mc)
@@ -239,7 +239,7 @@ func TestDelete_Success(t *testing.T) {
 }
 
 func TestDelete_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 
 	r := New(mc)
 	err := r.Delete(DeleteParams{Namespace: "", Name: "admin-role"})

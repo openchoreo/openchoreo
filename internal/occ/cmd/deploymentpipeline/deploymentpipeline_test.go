@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/deploymentpipeline/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -107,14 +107,14 @@ func TestDeleteParams_Getters(t *testing.T) {
 // --- List tests ---
 
 func TestList_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	dp := New(mc)
 	err := dp.List(ListParams{Namespace: ""})
 	assert.Error(t, err)
 }
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListDeploymentPipelines(mock.Anything, "my-org", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	dp := New(mc)
@@ -122,7 +122,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListDeploymentPipelines(mock.Anything, "my-org", mock.Anything).Return(&gen.DeploymentPipelineList{
 		Items:      []gen.DeploymentPipeline{{Metadata: gen.ObjectMeta{Name: "main-pipeline"}}},
 		Pagination: gen.Pagination{},
@@ -137,7 +137,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListDeploymentPipelines(mock.Anything, "my-org", mock.Anything).Return(&gen.DeploymentPipelineList{
 		Items: []gen.DeploymentPipeline{
 			{Metadata: gen.ObjectMeta{Name: "main-pipeline", CreationTimestamp: &now}},
@@ -155,7 +155,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListDeploymentPipelines(mock.Anything, "my-org", mock.Anything).Return(&gen.DeploymentPipelineList{
 		Items:      []gen.DeploymentPipeline{},
 		Pagination: gen.Pagination{},
@@ -171,14 +171,14 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	dp := New(mc)
 	err := dp.Get(GetParams{Namespace: "", DeploymentPipelineName: "main-pipeline"})
 	assert.Error(t, err)
 }
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetDeploymentPipeline(mock.Anything, "my-org", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	dp := New(mc)
@@ -186,7 +186,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetDeploymentPipeline(mock.Anything, "my-org", "main-pipeline").Return(&gen.DeploymentPipeline{
 		Metadata: gen.ObjectMeta{Name: "main-pipeline"},
 	}, nil)
@@ -201,14 +201,14 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	dp := New(mc)
 	err := dp.Delete(DeleteParams{Namespace: "", DeploymentPipelineName: "main-pipeline"})
 	assert.Error(t, err)
 }
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteDeploymentPipeline(mock.Anything, "my-org", "main-pipeline").Return(fmt.Errorf("forbidden"))
 
 	dp := New(mc)
@@ -216,7 +216,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteDeploymentPipeline(mock.Anything, "my-org", "main-pipeline").Return(nil)
 
 	dp := New(mc)

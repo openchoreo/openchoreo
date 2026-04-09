@@ -14,7 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
-func NewComponentCmd() *cobra.Command {
+func NewComponentCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "component",
 		Aliases: []string{"comp", "components"},
@@ -22,19 +22,19 @@ func NewComponentCmd() *cobra.Command {
 		Long:    `Manage components for OpenChoreo.`,
 	}
 	cmd.AddCommand(
-		newListCmd(),
-		newGetCmd(),
-		newDeleteCmd(),
-		newScaffoldCmd(),
-		newDeployCmd(),
+		newListCmd(f),
+		newGetCmd(f),
+		newDeleteCmd(f),
+		newScaffoldCmd(f),
+		newDeployCmd(f),
 		newLogsCmd(),
-		newWorkflowCmd(),
-		newWorkflowRunCmd(),
+		newWorkflowCmd(f),
+		newWorkflowRunCmd(f),
 	)
 	return cmd
 }
 
-func newListCmd() *cobra.Command {
+func newListCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List components",
@@ -43,7 +43,7 @@ func newListCmd() *cobra.Command {
   occ component list --namespace acme-corp --project online-store`,
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -58,7 +58,7 @@ func newListCmd() *cobra.Command {
 	return cmd
 }
 
-func newGetCmd() *cobra.Command {
+func newGetCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get [COMPONENT_NAME]",
 		Short: "Get a component",
@@ -68,7 +68,7 @@ func newGetCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -82,7 +82,7 @@ func newGetCmd() *cobra.Command {
 	return cmd
 }
 
-func newDeleteCmd() *cobra.Command {
+func newDeleteCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete [COMPONENT_NAME]",
 		Short: "Delete a component",
@@ -92,7 +92,7 @@ func newDeleteCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -106,7 +106,7 @@ func newDeleteCmd() *cobra.Command {
 	return cmd
 }
 
-func newScaffoldCmd() *cobra.Command {
+func newScaffoldCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "scaffold COMPONENT_NAME",
 		Short: "Scaffold a Component YAML from ComponentType and Traits",
@@ -141,7 +141,7 @@ Examples:
 			clusterWorkflow, _ := cmd.Flags().GetString("clusterworkflow")
 			skipComments, _ := cmd.Flags().GetBool("skip-comments")
 			skipOptional, _ := cmd.Flags().GetBool("skip-optional")
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -175,7 +175,7 @@ Examples:
 	return cmd
 }
 
-func newDeployCmd() *cobra.Command {
+func newDeployCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deploy [COMPONENT_NAME]",
 		Short: "Deploy or promote a component",
@@ -187,7 +187,7 @@ func newDeployCmd() *cobra.Command {
   occ component deploy api-service --namespace acme-corp --project online-store --to staging`,
 		Args: cmdutil.ExactOneArgWithUsage(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -248,7 +248,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 	return cmd
 }
 
-func newWorkflowCmd() *cobra.Command {
+func newWorkflowCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "workflow",
 		Aliases: []string{"wf"},
@@ -256,13 +256,13 @@ func newWorkflowCmd() *cobra.Command {
 		Long:    `Manage component workflows for OpenChoreo.`,
 	}
 	cmd.AddCommand(
-		newStartWorkflowCmd(),
+		newStartWorkflowCmd(f),
 		newWorkflowLogsCmd(),
 	)
 	return cmd
 }
 
-func newStartWorkflowCmd() *cobra.Command {
+func newStartWorkflowCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run [COMPONENT_NAME]",
 		Short: "Run a component's workflow",
@@ -272,7 +272,7 @@ func newStartWorkflowCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -318,7 +318,7 @@ Use --workflowrun to specify a particular run.`,
 	return cmd
 }
 
-func newWorkflowRunCmd() *cobra.Command {
+func newWorkflowRunCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "workflowrun",
 		Aliases: []string{"wfrun", "wr"},
@@ -326,13 +326,13 @@ func newWorkflowRunCmd() *cobra.Command {
 		Long:    `Manage workflow runs for a component.`,
 	}
 	cmd.AddCommand(
-		newListWorkflowRunCmd(),
+		newListWorkflowRunCmd(f),
 		newWorkflowRunLogsCmd(),
 	)
 	return cmd
 }
 
-func newListWorkflowRunCmd() *cobra.Command {
+func newListWorkflowRunCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list [COMPONENT_NAME]",
 		Short: "List workflow runs for a component",
@@ -342,7 +342,7 @@ func newListWorkflowRunCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}

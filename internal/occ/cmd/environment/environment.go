@@ -14,24 +14,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by Environment operations.
-type Client interface {
-	ListEnvironments(ctx context.Context, namespaceName string, params *gen.ListEnvironmentsParams) (*gen.EnvironmentList, error)
-	GetEnvironment(ctx context.Context, namespaceName string, environmentName string) (*gen.Environment, error)
-	DeleteEnvironment(ctx context.Context, namespaceName string, environmentName string) error
-}
-
 // Environment implements environment operations
 type Environment struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new environment implementation
-func New(client Client) *Environment {
-	return &Environment{client: client}
+func New(c client.Interface) *Environment {
+	return &Environment{client: c}
 }
 
 // List lists all environments in a namespace

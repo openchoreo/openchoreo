@@ -22,27 +22,21 @@ import (
 	occonfig "github.com/openchoreo/openchoreo/internal/occ/fsmode/config"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
 const releaseConfigFileName = "release-config.yaml"
 
-// Client defines the client methods used by ComponentRelease operations.
-type Client interface {
-	ListComponentReleases(ctx context.Context, namespaceName string, params *gen.ListComponentReleasesParams) (*gen.ComponentReleaseList, error)
-	GetComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) (*gen.ComponentRelease, error)
-	DeleteComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) error
-}
-
 // ComponentRelease implements component release operations
 type ComponentRelease struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new ComponentRelease
-func New(client Client) *ComponentRelease {
-	return &ComponentRelease{client: client}
+func New(c client.Interface) *ComponentRelease {
+	return &ComponentRelease{client: c}
 }
 
 // List lists all component releases for a component

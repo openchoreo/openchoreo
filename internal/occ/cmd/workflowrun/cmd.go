@@ -12,7 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
-func NewWorkflowRunCmd() *cobra.Command {
+func NewWorkflowRunCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "workflowrun",
 		Aliases: []string{"wr", "workflowruns"},
@@ -20,14 +20,14 @@ func NewWorkflowRunCmd() *cobra.Command {
 		Long:    `Manage workflow runs for OpenChoreo.`,
 	}
 	cmd.AddCommand(
-		newListCmd(),
-		newGetCmd(),
-		newLogsCmd(),
+		newListCmd(f),
+		newGetCmd(f),
+		newLogsCmd(f),
 	)
 	return cmd
 }
 
-func newListCmd() *cobra.Command {
+func newListCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List workflow runs",
@@ -36,7 +36,7 @@ func newListCmd() *cobra.Command {
   occ workflowrun list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -53,7 +53,7 @@ func newListCmd() *cobra.Command {
 	return cmd
 }
 
-func newGetCmd() *cobra.Command {
+func newGetCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get [WORKFLOW_RUN_NAME]",
 		Short: "Get a workflow run",
@@ -63,7 +63,7 @@ func newGetCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -77,7 +77,7 @@ func newGetCmd() *cobra.Command {
 	return cmd
 }
 
-func newLogsCmd() *cobra.Command {
+func newLogsCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs [WORKFLOW_RUN_NAME]",
 		Short: "Get logs for a workflow run",
@@ -92,7 +92,7 @@ or archived logs from the observer for completed runs.`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}

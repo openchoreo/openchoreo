@@ -16,7 +16,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
-func NewReleaseBindingCmd() *cobra.Command {
+func NewReleaseBindingCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "releasebinding",
 		Aliases: []string{"releasebindings", "rb"},
@@ -25,9 +25,9 @@ func NewReleaseBindingCmd() *cobra.Command {
 	}
 	cmd.AddCommand(
 		newGenerateCmd(),
-		newListCmd(),
-		newGetCmd(),
-		newDeleteCmd(),
+		newListCmd(f),
+		newGetCmd(f),
+		newDeleteCmd(f),
 	)
 	return cmd
 }
@@ -98,7 +98,7 @@ func newGenerateCmd() *cobra.Command {
 	return cmd
 }
 
-func newListCmd() *cobra.Command {
+func newListCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List release bindings",
@@ -107,7 +107,7 @@ func newListCmd() *cobra.Command {
   occ releasebinding list --namespace acme-corp --project online-store --component product-catalog`,
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -124,7 +124,7 @@ func newListCmd() *cobra.Command {
 	return cmd
 }
 
-func newGetCmd() *cobra.Command {
+func newGetCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get [RELEASE_BINDING_NAME]",
 		Short: "Get a release binding",
@@ -134,7 +134,7 @@ func newGetCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -148,7 +148,7 @@ func newGetCmd() *cobra.Command {
 	return cmd
 }
 
-func newDeleteCmd() *cobra.Command {
+func newDeleteCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete [RELEASE_BINDING_NAME]",
 		Short: "Delete a release binding",
@@ -158,7 +158,7 @@ func newDeleteCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}

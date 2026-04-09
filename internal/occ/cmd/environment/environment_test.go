@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/environment/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -119,14 +119,14 @@ func TestPrint_NilSpec(t *testing.T) {
 // --- List tests ---
 
 func TestList_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	e := New(mc)
 	err := e.List(ListParams{Namespace: ""})
 	assert.Error(t, err)
 }
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListEnvironments(mock.Anything, "my-org", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	e := New(mc)
@@ -134,7 +134,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListEnvironments(mock.Anything, "my-org", mock.Anything).Return(&gen.EnvironmentList{
 		Items:      []gen.Environment{{Metadata: gen.ObjectMeta{Name: "prod"}}},
 		Pagination: gen.Pagination{},
@@ -149,7 +149,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListEnvironments(mock.Anything, "my-org", mock.Anything).Return(&gen.EnvironmentList{
 		Items: []gen.Environment{
 			{Metadata: gen.ObjectMeta{Name: "prod", CreationTimestamp: &now}},
@@ -167,7 +167,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListEnvironments(mock.Anything, "my-org", mock.Anything).Return(&gen.EnvironmentList{
 		Items:      []gen.Environment{},
 		Pagination: gen.Pagination{},
@@ -183,14 +183,14 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	e := New(mc)
 	err := e.Get(GetParams{Namespace: "", EnvironmentName: "prod"})
 	assert.Error(t, err)
 }
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEnvironment(mock.Anything, "my-org", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	e := New(mc)
@@ -198,7 +198,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEnvironment(mock.Anything, "my-org", "prod").Return(&gen.Environment{
 		Metadata: gen.ObjectMeta{Name: "prod"},
 	}, nil)
@@ -213,14 +213,14 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	e := New(mc)
 	err := e.Delete(DeleteParams{Namespace: "", EnvironmentName: "prod"})
 	assert.Error(t, err)
 }
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteEnvironment(mock.Anything, "my-org", "prod").Return(fmt.Errorf("forbidden"))
 
 	e := New(mc)
@@ -228,7 +228,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteEnvironment(mock.Anything, "my-org", "prod").Return(nil)
 
 	e := New(mc)

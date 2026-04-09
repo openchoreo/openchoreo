@@ -31,15 +31,11 @@ type resourceInfo struct {
 }
 
 // Apply applies resources from the specified file or directory.
-func Apply(params Params) error {
+func Apply(c *client.Client, params Params) error {
 	if params.FilePath == "" {
 		return fmt.Errorf("file path is required")
 	}
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 	genClient := c.GetClient()
 
 	// Discover all resource files to process

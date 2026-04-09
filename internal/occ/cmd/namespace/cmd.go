@@ -11,7 +11,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
-func NewNamespaceCmd() *cobra.Command {
+func NewNamespaceCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "namespace",
 		Aliases: []string{"ns", "namespaces"},
@@ -19,14 +19,14 @@ func NewNamespaceCmd() *cobra.Command {
 		Long:    `Manage namespaces for OpenChoreo.`,
 	}
 	cmd.AddCommand(
-		newListCmd(),
-		newGetCmd(),
-		newDeleteCmd(),
+		newListCmd(f),
+		newGetCmd(f),
+		newDeleteCmd(f),
 	)
 	return cmd
 }
 
-func newListCmd() *cobra.Command {
+func newListCmd(f client.NewClientFunc) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List namespaces",
@@ -35,7 +35,7 @@ func newListCmd() *cobra.Command {
   occ namespace list`,
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -44,7 +44,7 @@ func newListCmd() *cobra.Command {
 	}
 }
 
-func newGetCmd() *cobra.Command {
+func newGetCmd(f client.NewClientFunc) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get [NAMESPACE_NAME]",
 		Short: "Get a namespace",
@@ -54,7 +54,7 @@ func newGetCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -63,7 +63,7 @@ func newGetCmd() *cobra.Command {
 	}
 }
 
-func newDeleteCmd() *cobra.Command {
+func newDeleteCmd(f client.NewClientFunc) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete [NAMESPACE_NAME]",
 		Short: "Delete a namespace",
@@ -73,7 +73,7 @@ func newDeleteCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}

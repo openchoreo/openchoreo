@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/project/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -95,14 +95,14 @@ func TestDeleteParams_Getters(t *testing.T) {
 // --- List tests ---
 
 func TestList_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	p := New(mc)
 	err := p.List(ListParams{Namespace: ""})
 	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListProjects(mock.Anything, "org-a", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	p := New(mc)
@@ -110,7 +110,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListProjects(mock.Anything, "org-a", mock.Anything).Return(&gen.ProjectList{
 		Items:      []gen.Project{{Metadata: gen.ObjectMeta{Name: "proj-a"}}},
 		Pagination: gen.Pagination{},
@@ -125,7 +125,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListProjects(mock.Anything, "org-a", mock.Anything).Return(&gen.ProjectList{
 		Items: []gen.Project{
 			{Metadata: gen.ObjectMeta{Name: "proj-a", CreationTimestamp: &now}},
@@ -143,7 +143,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListProjects(mock.Anything, "org-a", mock.Anything).Return(&gen.ProjectList{
 		Items:      []gen.Project{},
 		Pagination: gen.Pagination{},
@@ -159,14 +159,14 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	p := New(mc)
 	err := p.Get(GetParams{Namespace: "", ProjectName: "proj-a"})
 	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetProject(mock.Anything, "org-a", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	p := New(mc)
@@ -174,7 +174,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetProject(mock.Anything, "org-a", "proj-a").Return(&gen.Project{
 		Metadata: gen.ObjectMeta{Name: "proj-a"},
 	}, nil)
@@ -189,14 +189,14 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	p := New(mc)
 	err := p.Delete(DeleteParams{Namespace: "", ProjectName: "proj-a"})
 	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteProject(mock.Anything, "org-a", "proj-a").Return(fmt.Errorf("forbidden"))
 
 	p := New(mc)
@@ -204,7 +204,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteProject(mock.Anything, "org-a", "proj-a").Return(nil)
 
 	p := New(mc)

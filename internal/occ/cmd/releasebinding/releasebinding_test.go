@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -50,7 +50,7 @@ const testReleaseName = "rel-1"
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	rb := New(mc)
@@ -59,7 +59,7 @@ func TestList_APIError(t *testing.T) {
 
 func TestList_Success(t *testing.T) {
 	relName := testReleaseName
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{{
 			Metadata: gen.ObjectMeta{Name: "binding-1"},
@@ -81,7 +81,7 @@ func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
 	rel1 := testReleaseName
 	rel2 := "rel-2"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{
 			{Metadata: gen.ObjectMeta{Name: "binding-1", CreationTimestamp: &now}, Spec: &gen.ReleaseBindingSpec{Environment: "dev", ReleaseName: &rel1}},
@@ -102,7 +102,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items:      []gen.ReleaseBinding{},
 		Pagination: gen.Pagination{},
@@ -119,7 +119,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	rb := New(mc)
@@ -127,7 +127,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "binding-1").Return(&gen.ReleaseBinding{
 		Metadata: gen.ObjectMeta{Name: "binding-1"},
 	}, nil)
@@ -143,7 +143,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteReleaseBinding(mock.Anything, "ns", "binding-1").Return(fmt.Errorf("forbidden: binding-1"))
 
 	rb := New(mc)
@@ -151,7 +151,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteReleaseBinding(mock.Anything, "ns", "binding-1").Return(nil)
 
 	rb := New(mc)
@@ -165,28 +165,28 @@ func TestDelete_Success(t *testing.T) {
 // --- Validation error tests ---
 
 func TestList_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	err := rb.List(ListParams{Namespace: ""})
 	assert.ErrorContains(t, err, "Missing required parameter")
 }
 
 func TestGet_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	err := rb.Get(GetParams{Namespace: "", ReleaseBindingName: "binding-1"})
 	assert.ErrorContains(t, err, "Missing required parameter")
 }
 
 func TestDelete_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	err := rb.Delete(DeleteParams{Namespace: "", ReleaseBindingName: "binding-1"})
 	assert.ErrorContains(t, err, "Missing required parameter")
 }
 
 func TestDelete_ValidationError_MissingName(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	err := rb.Delete(DeleteParams{Namespace: "ns", ReleaseBindingName: ""})
 	assert.ErrorContains(t, err, "Missing required parameter")
@@ -195,7 +195,7 @@ func TestDelete_ValidationError_MissingName(t *testing.T) {
 // --- Constructor test ---
 
 func TestNew(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	assert.NotNil(t, rb)
 	assert.Equal(t, mc, rb.client)
@@ -319,7 +319,7 @@ func TestPrintReleaseBindings_EmptyConditions(t *testing.T) {
 // --- List with component filter ---
 
 func TestList_WithComponentFilter(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListReleaseBindingsParams) bool {
 		return p.Component != nil && *p.Component == "my-comp"
 	})).Return(&gen.ReleaseBindingList{
@@ -338,7 +338,7 @@ func TestList_WithComponentFilter(t *testing.T) {
 
 func TestList_Pagination(t *testing.T) {
 	next := "cursor-2"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 
 	// First page — no cursor
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListReleaseBindingsParams) bool {
@@ -365,7 +365,7 @@ func TestList_Pagination(t *testing.T) {
 }
 
 func TestList_NilTimestamp(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{
 			{Metadata: gen.ObjectMeta{Name: "binding-no-ts", CreationTimestamp: nil}},

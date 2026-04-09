@@ -24,6 +24,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/pipeline"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
@@ -34,21 +35,14 @@ const (
 	actionUpdated         = "Updated"
 )
 
-// Client defines the client methods used by ReleaseBinding operations.
-type Client interface {
-	ListReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListReleaseBindingsParams) (*gen.ReleaseBindingList, error)
-	GetReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string) (*gen.ReleaseBinding, error)
-	DeleteReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string) error
-}
-
 // ReleaseBinding implements release binding operations
 type ReleaseBinding struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new ReleaseBinding
-func New(client Client) *ReleaseBinding {
-	return &ReleaseBinding{client: client}
+func New(c client.Interface) *ReleaseBinding {
+	return &ReleaseBinding{client: c}
 }
 
 // List lists all release bindings for a component

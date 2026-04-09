@@ -13,24 +13,18 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by ClusterTrait operations.
-type Client interface {
-	ListClusterTraits(ctx context.Context, params *gen.ListClusterTraitsParams) (*gen.ClusterTraitList, error)
-	GetClusterTrait(ctx context.Context, clusterTraitName string) (*gen.ClusterTrait, error)
-	DeleteClusterTrait(ctx context.Context, clusterTraitName string) error
-}
-
 // ClusterTrait implements cluster trait operations
 type ClusterTrait struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new cluster trait implementation
-func New(client Client) *ClusterTrait {
-	return &ClusterTrait{client: client}
+func New(c client.Interface) *ClusterTrait {
+	return &ClusterTrait{client: c}
 }
 
 // List lists all cluster-scoped traits

@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/namespace/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -79,7 +79,7 @@ func TestPrintList_WithItems(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	n := New(mc)
@@ -87,7 +87,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
 		Items:      []gen.Namespace{{Metadata: gen.ObjectMeta{Name: "org-a"}}},
 		Pagination: gen.Pagination{},
@@ -102,7 +102,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
 		Items: []gen.Namespace{
 			{Metadata: gen.ObjectMeta{Name: "org-a", CreationTimestamp: &now}},
@@ -120,7 +120,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
 		Items:      []gen.Namespace{},
 		Pagination: gen.Pagination{},
@@ -136,7 +136,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetNamespace(mock.Anything, "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	n := New(mc)
@@ -144,7 +144,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetNamespace(mock.Anything, "org-a").Return(&gen.Namespace{
 		Metadata: gen.ObjectMeta{Name: "org-a"},
 	}, nil)
@@ -159,7 +159,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteNamespace(mock.Anything, "org-a").Return(fmt.Errorf("forbidden"))
 
 	n := New(mc)
@@ -167,7 +167,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteNamespace(mock.Anything, "org-a").Return(nil)
 
 	n := New(mc)

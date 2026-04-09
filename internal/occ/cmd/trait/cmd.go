@@ -12,7 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
-func NewTraitCmd() *cobra.Command {
+func NewTraitCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "trait",
 		Aliases: []string{"traits"},
@@ -20,14 +20,14 @@ func NewTraitCmd() *cobra.Command {
 		Long:    `Manage traits for OpenChoreo.`,
 	}
 	cmd.AddCommand(
-		newListCmd(),
-		newGetCmd(),
-		newDeleteCmd(),
+		newListCmd(f),
+		newGetCmd(f),
+		newDeleteCmd(f),
 	)
 	return cmd
 }
 
-func newListCmd() *cobra.Command {
+func newListCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List traits",
@@ -36,7 +36,7 @@ func newListCmd() *cobra.Command {
   occ trait list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -49,7 +49,7 @@ func newListCmd() *cobra.Command {
 	return cmd
 }
 
-func newGetCmd() *cobra.Command {
+func newGetCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get [TRAIT_NAME]",
 		Short: "Get a trait",
@@ -59,7 +59,7 @@ func newGetCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -73,7 +73,7 @@ func newGetCmd() *cobra.Command {
 	return cmd
 }
 
-func newDeleteCmd() *cobra.Command {
+func newDeleteCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete [TRAIT_NAME]",
 		Short: "Delete a trait",
@@ -83,7 +83,7 @@ func newDeleteCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}

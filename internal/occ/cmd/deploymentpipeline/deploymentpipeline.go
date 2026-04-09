@@ -14,24 +14,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by DeploymentPipeline operations.
-type Client interface {
-	ListDeploymentPipelines(ctx context.Context, namespaceName string, params *gen.ListDeploymentPipelinesParams) (*gen.DeploymentPipelineList, error)
-	GetDeploymentPipeline(ctx context.Context, namespaceName string, deploymentPipelineName string) (*gen.DeploymentPipeline, error)
-	DeleteDeploymentPipeline(ctx context.Context, namespaceName string, deploymentPipelineName string) error
-}
-
 // DeploymentPipeline implements deployment pipeline operations
 type DeploymentPipeline struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new deployment pipeline implementation
-func New(client Client) *DeploymentPipeline {
-	return &DeploymentPipeline{client: client}
+func New(c client.Interface) *DeploymentPipeline {
+	return &DeploymentPipeline{client: c}
 }
 
 // List lists all deployment pipelines in a namespace

@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -114,7 +114,7 @@ func TestLogs_InvalidSince(t *testing.T) {
 // --- Logs: GetWorkflowRunStatus error ---
 
 func TestLogs_StatusError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(nil, fmt.Errorf("status unavailable"))
 
 	wr := New(mc)
@@ -127,7 +127,7 @@ func TestLogs_StatusError(t *testing.T) {
 
 func TestLogs_LiveLogs_Success(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
 		&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil)
 	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
@@ -145,7 +145,7 @@ func TestLogs_LiveLogs_Success(t *testing.T) {
 }
 
 func TestLogs_LiveLogs_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
 		&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil)
 	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
@@ -159,7 +159,7 @@ func TestLogs_LiveLogs_APIError(t *testing.T) {
 
 func TestLogs_LiveLogs_WithSince(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
 		&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil)
 	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.MatchedBy(func(p *gen.GetWorkflowRunLogsParams) bool {
@@ -177,7 +177,7 @@ func TestLogs_LiveLogs_WithSince(t *testing.T) {
 
 func TestResolveObserverURL_ViaWorkflowPlane(t *testing.T) {
 	url := "http://observer.example.com"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "my-wf").Return(&gen.Workflow{
 		Spec: &gen.WorkflowSpec{
 			WorkflowPlaneRef: &gen.WorkflowPlaneRef{Kind: gen.WorkflowPlaneRefKindWorkflowPlane, Name: "my-wp"},
@@ -196,7 +196,7 @@ func TestResolveObserverURL_ViaWorkflowPlane(t *testing.T) {
 
 func TestResolveObserverURL_FallbackToDefault(t *testing.T) {
 	url := "http://default-observer.example.com"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	// Workflow not found — falls through to default plane lookup
 	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "missing-wf").Return(nil, fmt.Errorf("not found"))
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "default").Return(
@@ -210,7 +210,7 @@ func TestResolveObserverURL_FallbackToDefault(t *testing.T) {
 // --- followLiveLogs: context cancellation ---
 
 func TestFollowLiveLogs_ContextCancelled(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
 		[]gen.WorkflowRunLogEntry{}, nil)
 
@@ -225,7 +225,7 @@ func TestFollowLiveLogs_ContextCancelled(t *testing.T) {
 }
 
 func TestFollowLiveLogs_InitialFetchError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
 		nil, fmt.Errorf("initial fetch failed"))
 
@@ -237,7 +237,7 @@ func TestFollowLiveLogs_InitialFetchError(t *testing.T) {
 
 func TestFollowLiveLogs_RunCompleted(t *testing.T) {
 	// Initial fetch returns empty, then on first poll status shows no live observability
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
 		[]gen.WorkflowRunLogEntry{}, nil).Once()
 	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
@@ -251,7 +251,7 @@ func TestFollowLiveLogs_RunCompleted(t *testing.T) {
 }
 
 func TestFollowLiveLogs_PollStatusError_ThenCancel(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
 		[]gen.WorkflowRunLogEntry{}, nil).Once()
 
@@ -271,7 +271,7 @@ func TestFollowLiveLogs_PollStatusError_ThenCancel(t *testing.T) {
 
 func TestResolveObserverURLFromObsRef_NamespacedObsPlane(t *testing.T) {
 	url := "http://observer.example.com"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "my-obs").Return(
 		&gen.ObservabilityPlane{Spec: &gen.ObservabilityPlaneSpec{ObserverURL: &url}}, nil)
 
@@ -283,7 +283,7 @@ func TestResolveObserverURLFromObsRef_NamespacedObsPlane(t *testing.T) {
 
 func TestResolveObserverURLFromObsRef_ClusterObsPlaneViaObsRef(t *testing.T) {
 	url := "http://cluster-observer.example.com"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "my-cluster-obs").Return(
 		&gen.ClusterObservabilityPlane{Spec: &gen.ClusterObservabilityPlaneSpec{ObserverURL: &url}}, nil)
 
@@ -295,7 +295,7 @@ func TestResolveObserverURLFromObsRef_ClusterObsPlaneViaObsRef(t *testing.T) {
 
 func TestResolveObserverURLFromObsRef_ClusterObsPlaneViaClusterRef(t *testing.T) {
 	url := "http://cluster-observer.example.com"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "my-cluster-obs").Return(
 		&gen.ClusterObservabilityPlane{Spec: &gen.ClusterObservabilityPlaneSpec{ObserverURL: &url}}, nil)
 
@@ -307,7 +307,7 @@ func TestResolveObserverURLFromObsRef_ClusterObsPlaneViaClusterRef(t *testing.T)
 
 func TestResolveObserverURLFromObsRef_FallbackToDefaultObsPlane(t *testing.T) {
 	url := "http://default-observer.example.com"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "default").Return(
 		&gen.ObservabilityPlane{Spec: &gen.ObservabilityPlaneSpec{ObserverURL: &url}}, nil)
 
@@ -318,7 +318,7 @@ func TestResolveObserverURLFromObsRef_FallbackToDefaultObsPlane(t *testing.T) {
 
 func TestResolveObserverURLFromObsRef_FallbackToDefaultClusterObsPlane(t *testing.T) {
 	url := "http://default-cluster-observer.example.com"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "default").Return(nil, fmt.Errorf("not found"))
 	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "default").Return(
 		&gen.ClusterObservabilityPlane{Spec: &gen.ClusterObservabilityPlaneSpec{ObserverURL: &url}}, nil)
@@ -329,7 +329,7 @@ func TestResolveObserverURLFromObsRef_FallbackToDefaultClusterObsPlane(t *testin
 }
 
 func TestResolveObserverURLFromObsRef_NoObserverConfigured(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "default").Return(nil, fmt.Errorf("not found"))
 	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "default").Return(nil, fmt.Errorf("not found"))
 
@@ -339,7 +339,7 @@ func TestResolveObserverURLFromObsRef_NoObserverConfigured(t *testing.T) {
 }
 
 func TestResolveObserverURLFromObsRef_NamespacedObsPlaneError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "bad-obs").Return(nil, fmt.Errorf("forbidden"))
 
 	obsRef := &gen.ObservabilityPlaneRef{Kind: gen.ObservabilityPlaneRefKindObservabilityPlane, Name: "bad-obs"}
@@ -351,7 +351,7 @@ func TestResolveObserverURLFromObsRef_NamespacedObsPlaneError(t *testing.T) {
 // --- resolveWorkflowPlaneObsRef ---
 
 func TestResolveWorkflowPlaneObsRef_WorkflowPlane(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "my-wf").Return(&gen.Workflow{
 		Spec: &gen.WorkflowSpec{
 			WorkflowPlaneRef: &gen.WorkflowPlaneRef{Kind: gen.WorkflowPlaneRefKindWorkflowPlane, Name: "my-wp"},
@@ -369,7 +369,7 @@ func TestResolveWorkflowPlaneObsRef_WorkflowPlane(t *testing.T) {
 }
 
 func TestResolveWorkflowPlaneObsRef_ClusterWorkflowPlane(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "my-wf").Return(&gen.Workflow{
 		Spec: &gen.WorkflowSpec{
 			WorkflowPlaneRef: &gen.WorkflowPlaneRef{Kind: gen.WorkflowPlaneRefKindClusterWorkflowPlane, Name: "my-cwp"},
@@ -387,7 +387,7 @@ func TestResolveWorkflowPlaneObsRef_ClusterWorkflowPlane(t *testing.T) {
 }
 
 func TestResolveWorkflowPlaneObsRef_WorkflowNotFound(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflow(mock.Anything, "ns", "missing-wf").Return(nil, fmt.Errorf("not found"))
 
 	gotObs, gotCluster := resolveWorkflowPlaneObsRef(context.TODO(), mc, "ns", "missing-wf")
@@ -398,7 +398,7 @@ func TestResolveWorkflowPlaneObsRef_WorkflowNotFound(t *testing.T) {
 func TestFollowLiveLogs_PollNewLogs(t *testing.T) {
 	now := time.Now()
 	later := now.Add(time.Second)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 
 	// Initial fetch: one entry
 	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
@@ -427,7 +427,7 @@ func TestFollowLiveLogs_PollNewLogs(t *testing.T) {
 }
 
 func TestFollowLiveLogs_PollFetchError_ThenCancel(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
 		[]gen.WorkflowRunLogEntry{}, nil).Once()
 

@@ -291,7 +291,7 @@ func findRootEnvironment(pipeline *gen.DeploymentPipeline) (string, error) {
 // resolveObserverURL resolves the observer URL by traversing:
 // Environment → DataPlane/ClusterDataPlane → ObservabilityPlane/ClusterObservabilityPlane → observerURL
 // This mirrors the server-side GetEnvironmentObserverURL implementation.
-func resolveObserverURL(ctx context.Context, apiClient Client, namespace, envName string) (string, error) {
+func resolveObserverURL(ctx context.Context, apiClient client.Interface, namespace, envName string) (string, error) {
 	env, err := apiClient.GetEnvironment(ctx, namespace, envName)
 	if err != nil {
 		return "", fmt.Errorf("failed to get environment %s: %w", envName, err)
@@ -318,7 +318,7 @@ func resolveObserverURL(ctx context.Context, apiClient Client, namespace, envNam
 // resolveObserverURLFromDataPlane resolves the observer URL from a namespaced DataPlane.
 // If the DataPlane has an observabilityPlaneRef, it follows it (supports both ObservabilityPlane
 // and ClusterObservabilityPlane kinds). If nil, defaults to ObservabilityPlane named "default".
-func resolveObserverURLFromDataPlane(ctx context.Context, apiClient Client, namespace, dpName string) (string, error) {
+func resolveObserverURLFromDataPlane(ctx context.Context, apiClient client.Interface, namespace, dpName string) (string, error) {
 	dp, err := apiClient.GetDataPlane(ctx, namespace, dpName)
 	if err != nil {
 		return "", fmt.Errorf("failed to get data plane %s: %w", dpName, err)
@@ -343,7 +343,7 @@ func resolveObserverURLFromDataPlane(ctx context.Context, apiClient Client, name
 // resolveObserverURLFromClusterDataPlane resolves the observer URL from a ClusterDataPlane.
 // If the ClusterDataPlane has an observabilityPlaneRef, it follows it.
 // If nil, defaults to ClusterObservabilityPlane named "default".
-func resolveObserverURLFromClusterDataPlane(ctx context.Context, apiClient Client, cdpName string) (string, error) {
+func resolveObserverURLFromClusterDataPlane(ctx context.Context, apiClient client.Interface, cdpName string) (string, error) {
 	cdp, err := apiClient.GetClusterDataPlane(ctx, cdpName)
 	if err != nil {
 		return "", fmt.Errorf("failed to get cluster data plane %s: %w", cdpName, err)
@@ -358,7 +358,7 @@ func resolveObserverURLFromClusterDataPlane(ctx context.Context, apiClient Clien
 }
 
 // getObserverURLFromObservabilityPlane fetches a namespaced ObservabilityPlane and returns its observer URL.
-func getObserverURLFromObservabilityPlane(ctx context.Context, apiClient Client, namespace, name string) (string, error) {
+func getObserverURLFromObservabilityPlane(ctx context.Context, apiClient client.Interface, namespace, name string) (string, error) {
 	op, err := apiClient.GetObservabilityPlane(ctx, namespace, name)
 	if err != nil {
 		return "", fmt.Errorf("failed to get observability plane %s: %w", name, err)
@@ -370,7 +370,7 @@ func getObserverURLFromObservabilityPlane(ctx context.Context, apiClient Client,
 }
 
 // getObserverURLFromClusterObservabilityPlane fetches a ClusterObservabilityPlane and returns its observer URL.
-func getObserverURLFromClusterObservabilityPlane(ctx context.Context, apiClient Client, name string) (string, error) {
+func getObserverURLFromClusterObservabilityPlane(ctx context.Context, apiClient client.Interface, name string) (string, error) {
 	cop, err := apiClient.GetClusterObservabilityPlane(ctx, name)
 	if err != nil {
 		return "", fmt.Errorf("failed to get cluster observability plane %s: %w", name, err)

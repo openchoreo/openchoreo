@@ -21,61 +21,17 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	scaffold "github.com/openchoreo/openchoreo/internal/scaffold/component"
 )
 
-// Client defines the client methods used by Component operations.
-type Client interface {
-	// List/Get/Delete
-	ListComponents(ctx context.Context, namespaceName, projectName string, params *gen.ListComponentsParams) (*gen.ComponentList, error)
-	GetComponent(ctx context.Context, namespaceName, componentName string) (*gen.Component, error)
-	DeleteComponent(ctx context.Context, namespaceName, componentName string) error
-
-	// StartWorkflow (satisfies workflow.Client)
-	ListWorkflows(ctx context.Context, namespaceName string, params *gen.ListWorkflowsParams) (*gen.WorkflowList, error)
-	GetWorkflow(ctx context.Context, namespaceName, workflowName string) (*gen.Workflow, error)
-	DeleteWorkflow(ctx context.Context, namespaceName, workflowName string) error
-	CreateWorkflowRun(ctx context.Context, namespaceName string, req gen.WorkflowRun) (*gen.WorkflowRun, error)
-
-	// ListWorkflowRuns + Logs (satisfies workflowrun.Client)
-	ListWorkflowRuns(ctx context.Context, namespaceName string, params *gen.ListWorkflowRunsParams) (*gen.WorkflowRunList, error)
-	GetWorkflowRun(ctx context.Context, namespaceName, workflowRunName string) (*gen.WorkflowRun, error)
-	GetWorkflowRunStatus(ctx context.Context, namespaceName, runName string) (*gen.WorkflowRunStatusResponse, error)
-	GetWorkflowRunLogs(ctx context.Context, namespaceName, runName string, params *gen.GetWorkflowRunLogsParams) ([]gen.WorkflowRunLogEntry, error)
-	GetWorkflowPlane(ctx context.Context, namespaceName, workflowPlaneName string) (*gen.WorkflowPlane, error)
-	GetClusterWorkflowPlane(ctx context.Context, clusterWorkflowPlaneName string) (*gen.ClusterWorkflowPlane, error)
-	GetObservabilityPlane(ctx context.Context, namespaceName, observabilityPlaneName string) (*gen.ObservabilityPlane, error)
-	GetClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) (*gen.ClusterObservabilityPlane, error)
-
-	// Logs: environment → data plane → observability plane resolution
-	GetEnvironment(ctx context.Context, namespaceName, envName string) (*gen.Environment, error)
-	GetDataPlane(ctx context.Context, namespaceName, dpName string) (*gen.DataPlane, error)
-	GetClusterDataPlane(ctx context.Context, cdpName string) (*gen.ClusterDataPlane, error)
-
-	// Deploy
-	GenerateRelease(ctx context.Context, namespaceName, componentName string, req gen.GenerateReleaseRequest) (*gen.ComponentRelease, error)
-	GetProjectDeploymentPipeline(ctx context.Context, namespaceName, projectName string) (*gen.DeploymentPipeline, error)
-	GetReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string) (*gen.ReleaseBinding, error)
-	UpdateReleaseBinding(ctx context.Context, namespaceName, bindingName string, req gen.ReleaseBinding) (*gen.ReleaseBinding, error)
-	CreateReleaseBinding(ctx context.Context, namespaceName string, req gen.ReleaseBinding) (*gen.ReleaseBinding, error)
-	ListReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListReleaseBindingsParams) (*gen.ReleaseBindingList, error)
-
-	// Scaffold
-	GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (*json.RawMessage, error)
-	GetClusterComponentTypeSchema(ctx context.Context, cctName string) (*json.RawMessage, error)
-	GetTraitSchema(ctx context.Context, namespaceName, traitName string) (*json.RawMessage, error)
-	GetClusterTraitSchema(ctx context.Context, clusterTraitName string) (*json.RawMessage, error)
-	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (*json.RawMessage, error)
-	GetClusterWorkflowSchema(ctx context.Context, clusterWorkflowName string) (*json.RawMessage, error)
-}
-
 type Component struct {
-	client Client
+	client client.Interface
 }
 
-func New(client Client) *Component {
-	return &Component{client: client}
+func New(c client.Interface) *Component {
+	return &Component{client: c}
 }
 
 // List lists all components in a project
@@ -259,7 +215,7 @@ func (cp *Component) Deploy(params DeployParams) error {
 }
 
 // deployComponent deploys a component to the lowest environment in the pipeline
-func (cp *Component) deployComponent(ctx context.Context, c Client, params DeployParams) (*gen.ReleaseBinding, error) {
+func (cp *Component) deployComponent(ctx context.Context, c client.Interface, params DeployParams) (*gen.ReleaseBinding, error) {
 	releaseName := params.Release
 
 	// If no release specified, generate a new one
@@ -337,7 +293,7 @@ func (cp *Component) deployComponent(ctx context.Context, c Client, params Deplo
 }
 
 // promoteComponent promotes a component to the target environment
-func (cp *Component) promoteComponent(ctx context.Context, c Client, params DeployParams) (*gen.ReleaseBinding, error) {
+func (cp *Component) promoteComponent(ctx context.Context, c client.Interface, params DeployParams) (*gen.ReleaseBinding, error) {
 	pipeline, err := c.GetProjectDeploymentPipeline(ctx, params.Namespace, params.Project)
 	if err != nil {
 		return nil, err
@@ -607,7 +563,7 @@ func resolveScaffoldScope(params ScaffoldParams) (*scaffoldResolution, error) {
 
 func fetchScaffoldSchemas(
 	ctx context.Context,
-	apiClient Client,
+	apiClient client.Interface,
 	namespace string,
 	res *scaffoldResolution,
 ) (*extv1.JSONSchemaProps, map[string]*extv1.JSONSchemaProps, *extv1.JSONSchemaProps, error) {

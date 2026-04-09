@@ -13,24 +13,18 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by ClusterAuthzRoleBinding operations.
-type Client interface {
-	ListClusterRoleBindings(ctx context.Context, params *gen.ListClusterRoleBindingsParams) (*gen.ClusterAuthzRoleBindingList, error)
-	GetClusterRoleBinding(ctx context.Context, name string) (*gen.ClusterAuthzRoleBinding, error)
-	DeleteClusterRoleBinding(ctx context.Context, name string) error
-}
-
 // ClusterAuthzRoleBinding implements authz cluster role binding operations
 type ClusterAuthzRoleBinding struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new authz cluster role binding implementation
-func New(client Client) *ClusterAuthzRoleBinding {
-	return &ClusterAuthzRoleBinding{client: client}
+func New(c client.Interface) *ClusterAuthzRoleBinding {
+	return &ClusterAuthzRoleBinding{client: c}
 }
 
 // List lists all cluster-scoped role bindings

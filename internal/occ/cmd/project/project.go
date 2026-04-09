@@ -14,24 +14,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by Project operations.
-type Client interface {
-	ListProjects(ctx context.Context, namespaceName string, params *gen.ListProjectsParams) (*gen.ProjectList, error)
-	GetProject(ctx context.Context, namespaceName string, projectName string) (*gen.Project, error)
-	DeleteProject(ctx context.Context, namespaceName string, projectName string) error
-}
-
 // Project implements project operations
 type Project struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new project implementation
-func New(client Client) *Project {
-	return &Project{client: client}
+func New(c client.Interface) *Project {
+	return &Project{client: c}
 }
 
 // List lists all projects in a namespace

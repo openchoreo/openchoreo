@@ -7,9 +7,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
-func NewApplyCmd() *cobra.Command {
+func NewApplyCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Apply OpenChoreo resources by file name",
@@ -21,7 +22,11 @@ Examples:
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filePath, _ := cmd.Flags().GetString("file")
-			return Apply(Params{FilePath: filePath})
+			cl, err := f()
+			if err != nil {
+				return err
+			}
+			return Apply(cl.(*client.Client), Params{FilePath: filePath})
 		},
 	}
 	cmd.Flags().StringP("file", "f", "", "Path to the configuration file to apply (e.g., manifests/deployment.yaml)")

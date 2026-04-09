@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -173,7 +173,7 @@ func captureStdout(t *testing.T, fn func()) string {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	wr := New(mc)
@@ -181,7 +181,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRunList{
 		Items: []gen.WorkflowRun{{
 			Metadata: gen.ObjectMeta{Name: "run-1"},
@@ -201,7 +201,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRunList{
 		Items: []gen.WorkflowRun{
 			{Metadata: gen.ObjectMeta{Name: "run-1", CreationTimestamp: &now}, Spec: &gen.WorkflowRunSpec{Workflow: gen.WorkflowRunConfig{Name: "wf-a"}}},
@@ -220,7 +220,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRunList{
 		Items:      []gen.WorkflowRun{},
 		Pagination: gen.Pagination{},
@@ -237,7 +237,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRun(mock.Anything, "ns", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	wr := New(mc)
@@ -245,7 +245,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRun(mock.Anything, "ns", "run-1").Return(&gen.WorkflowRun{
 		Metadata: gen.ObjectMeta{Name: "run-1"},
 	}, nil)
@@ -261,7 +261,7 @@ func TestGet_Success(t *testing.T) {
 // --- FetchAll tests ---
 
 func TestFetchAll_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	wr := New(mc)
@@ -270,7 +270,7 @@ func TestFetchAll_APIError(t *testing.T) {
 }
 
 func TestFetchAll_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRunList{
 		Items: []gen.WorkflowRun{
 			{Metadata: gen.ObjectMeta{Name: "run-1"}},
@@ -288,7 +288,7 @@ func TestFetchAll_Success(t *testing.T) {
 
 func TestFetchAll_Pagination(t *testing.T) {
 	cursor := "next-page-token"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	// First page returns a cursor
 	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListWorkflowRunsParams) bool {
 		return p.Cursor == nil
@@ -311,7 +311,7 @@ func TestFetchAll_Pagination(t *testing.T) {
 }
 
 func TestFetchAll_WithWorkflowFilter(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListWorkflowRunsParams) bool {
 		return p.Workflow != nil && *p.Workflow == "my-wf"
 	})).Return(&gen.WorkflowRunList{

@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterdataplane/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -91,7 +91,7 @@ func TestPrint_NilTimestamp(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterDataPlanes(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	cdp := New(mc)
@@ -99,7 +99,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterDataPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterDataPlaneList{
 		Items:      []gen.ClusterDataPlane{{Metadata: gen.ObjectMeta{Name: "dp-prod"}}},
 		Pagination: gen.Pagination{},
@@ -114,7 +114,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterDataPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterDataPlaneList{
 		Items: []gen.ClusterDataPlane{
 			{Metadata: gen.ObjectMeta{Name: "dp-prod", CreationTimestamp: &now}},
@@ -132,7 +132,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterDataPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterDataPlaneList{
 		Items:      []gen.ClusterDataPlane{},
 		Pagination: gen.Pagination{},
@@ -148,7 +148,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterDataPlane(mock.Anything, "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	cdp := New(mc)
@@ -156,7 +156,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterDataPlane(mock.Anything, "dp-prod").Return(&gen.ClusterDataPlane{
 		Metadata: gen.ObjectMeta{Name: "dp-prod"},
 	}, nil)
@@ -171,7 +171,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterDataPlane(mock.Anything, "dp-prod").Return(fmt.Errorf("forbidden"))
 
 	cdp := New(mc)
@@ -179,7 +179,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterDataPlane(mock.Anything, "dp-prod").Return(nil)
 
 	cdp := New(mc)

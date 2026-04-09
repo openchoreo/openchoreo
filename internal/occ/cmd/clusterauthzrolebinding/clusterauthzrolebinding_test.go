@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterauthzrolebinding/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -108,7 +108,7 @@ func TestPrint_NilTimestamp(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterRoleBindings(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	crb := New(mc)
@@ -117,7 +117,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterRoleBindings(mock.Anything, mock.Anything).Return(&gen.ClusterAuthzRoleBindingList{
 		Items:      []gen.ClusterAuthzRoleBinding{{Metadata: gen.ObjectMeta{Name: "admin-cluster-binding"}}},
 		Pagination: gen.Pagination{},
@@ -133,7 +133,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterRoleBindings(mock.Anything, mock.Anything).Return(&gen.ClusterAuthzRoleBindingList{
 		Items: []gen.ClusterAuthzRoleBinding{
 			{Metadata: gen.ObjectMeta{Name: "admin-cluster-binding", CreationTimestamp: &now}},
@@ -154,7 +154,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterRoleBindings(mock.Anything, mock.Anything).Return(&gen.ClusterAuthzRoleBindingList{
 		Items:      []gen.ClusterAuthzRoleBinding{},
 		Pagination: gen.Pagination{},
@@ -171,7 +171,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterRoleBinding(mock.Anything, "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	crb := New(mc)
@@ -180,7 +180,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterRoleBinding(mock.Anything, "admin-cluster-binding").Return(&gen.ClusterAuthzRoleBinding{
 		Metadata: gen.ObjectMeta{Name: "admin-cluster-binding"},
 	}, nil)
@@ -196,7 +196,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterRoleBinding(mock.Anything, "admin-cluster-binding").Return(fmt.Errorf("forbidden: admin-cluster-binding"))
 
 	crb := New(mc)
@@ -205,7 +205,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterRoleBinding(mock.Anything, "admin-cluster-binding").Return(nil)
 
 	crb := New(mc)

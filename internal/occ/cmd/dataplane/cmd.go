@@ -12,7 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
-func NewDataPlaneCmd() *cobra.Command {
+func NewDataPlaneCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "dataplane",
 		Aliases: []string{"dp", "dataplanes"},
@@ -20,14 +20,14 @@ func NewDataPlaneCmd() *cobra.Command {
 		Long:    `Manage data planes for OpenChoreo.`,
 	}
 	cmd.AddCommand(
-		newListCmd(),
-		newGetCmd(),
-		newDeleteCmd(),
+		newListCmd(f),
+		newGetCmd(f),
+		newDeleteCmd(f),
 	)
 	return cmd
 }
 
-func newListCmd() *cobra.Command {
+func newListCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List data planes",
@@ -36,7 +36,7 @@ func newListCmd() *cobra.Command {
   occ dataplane list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -49,7 +49,7 @@ func newListCmd() *cobra.Command {
 	return cmd
 }
 
-func newGetCmd() *cobra.Command {
+func newGetCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get [DATAPLANE_NAME]",
 		Short: "Get a data plane",
@@ -59,7 +59,7 @@ func newGetCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -73,7 +73,7 @@ func newGetCmd() *cobra.Command {
 	return cmd
 }
 
-func newDeleteCmd() *cobra.Command {
+func newDeleteCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete [DATAPLANE_NAME]",
 		Short: "Delete a data plane",
@@ -83,7 +83,7 @@ func newDeleteCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}

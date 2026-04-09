@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/component/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -444,7 +444,7 @@ func captureStdout(t *testing.T, fn func()) string {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponents(mock.Anything, "ns", "", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	cp := New(mc)
@@ -452,7 +452,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponents(mock.Anything, "ns", "", mock.Anything).Return(&gen.ComponentList{
 		Items:      []gen.Component{{Metadata: gen.ObjectMeta{Name: "my-comp"}}},
 		Pagination: gen.Pagination{},
@@ -468,7 +468,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponents(mock.Anything, "ns", "", mock.Anything).Return(&gen.ComponentList{
 		Items: []gen.Component{
 			{Metadata: gen.ObjectMeta{Name: "comp-a", CreationTimestamp: &now}},
@@ -487,7 +487,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponents(mock.Anything, "ns", "", mock.Anything).Return(&gen.ComponentList{
 		Items:      []gen.Component{},
 		Pagination: gen.Pagination{},
@@ -504,7 +504,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponent(mock.Anything, "ns", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	cp := New(mc)
@@ -512,7 +512,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{
 		Metadata: gen.ObjectMeta{Name: "my-comp"},
 	}, nil)
@@ -528,7 +528,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteComponent(mock.Anything, "ns", "my-comp").Return(fmt.Errorf("forbidden: my-comp"))
 
 	cp := New(mc)
@@ -536,7 +536,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteComponent(mock.Anything, "ns", "my-comp").Return(nil)
 
 	cp := New(mc)
@@ -550,21 +550,21 @@ func TestDelete_Success(t *testing.T) {
 // --- StartWorkflow tests ---
 
 func TestStartWorkflow_MissingNamespace(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	cp := New(mc)
 	err := cp.StartWorkflow(StartWorkflowParams{ComponentName: "my-comp"})
 	assert.EqualError(t, err, "namespace is required")
 }
 
 func TestStartWorkflow_MissingComponentName(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	cp := New(mc)
 	err := cp.StartWorkflow(StartWorkflowParams{Namespace: "ns"})
 	assert.EqualError(t, err, "component name is required")
 }
 
 func TestStartWorkflow_GetComponentError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(nil, fmt.Errorf("not found"))
 
 	cp := New(mc)
@@ -573,7 +573,7 @@ func TestStartWorkflow_GetComponentError(t *testing.T) {
 }
 
 func TestStartWorkflow_NoWorkflowConfigured(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{
 		Metadata: gen.ObjectMeta{Name: "my-comp"},
 		Spec:     &gen.ComponentSpec{},
@@ -586,7 +586,7 @@ func TestStartWorkflow_NoWorkflowConfigured(t *testing.T) {
 
 func TestStartWorkflow_Success(t *testing.T) {
 	wfName := "my-workflow"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{
 		Metadata: gen.ObjectMeta{Name: "my-comp"},
 		Spec: &gen.ComponentSpec{
@@ -611,21 +611,21 @@ func TestStartWorkflow_Success(t *testing.T) {
 // --- ListWorkflowRuns tests ---
 
 func TestListWorkflowRuns_MissingNamespace(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	cp := New(mc)
 	err := cp.ListWorkflowRuns(ListWorkflowRunsParams{ComponentName: "my-comp"})
 	assert.EqualError(t, err, "namespace is required")
 }
 
 func TestListWorkflowRuns_MissingComponentName(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	cp := New(mc)
 	err := cp.ListWorkflowRuns(ListWorkflowRunsParams{Namespace: "ns"})
 	assert.EqualError(t, err, "component name is required")
 }
 
 func TestListWorkflowRuns_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	cp := New(mc)
@@ -634,7 +634,7 @@ func TestListWorkflowRuns_APIError(t *testing.T) {
 }
 
 func TestListWorkflowRuns_FiltersByComponent(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRunList{
 		Items: []gen.WorkflowRun{
 			{
@@ -662,7 +662,7 @@ func TestListWorkflowRuns_FiltersByComponent(t *testing.T) {
 }
 
 func TestListWorkflowRuns_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkflowRuns(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRunList{
 		Items:      []gen.WorkflowRun{},
 		Pagination: gen.Pagination{},
@@ -705,7 +705,7 @@ func makeLinearPipeline() *gen.DeploymentPipeline {
 func makeReleaseName(name string) *string { return &name }
 
 func TestDeploy_GenerateReleaseError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(nil, fmt.Errorf("generate failed"))
 
 	cp := New(mc)
@@ -718,7 +718,7 @@ func TestDeploy_GenerateReleaseError(t *testing.T) {
 }
 
 func TestDeploy_DeployToLowestEnv_CreateBinding(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
 		Metadata: gen.ObjectMeta{Name: testReleaseName},
 	}, nil)
@@ -746,7 +746,7 @@ func TestDeploy_DeployToLowestEnv_CreateBinding(t *testing.T) {
 
 func TestDeploy_DeployToLowestEnv_UpdateExistingBinding(t *testing.T) {
 	relName := "rel-2"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
 		Metadata: gen.ObjectMeta{Name: relName},
 	}, nil)
@@ -779,7 +779,7 @@ func TestDeploy_DeployToLowestEnv_UpdateExistingBinding(t *testing.T) {
 
 func TestDeploy_Promote_Success(t *testing.T) {
 	relName := testReleaseName
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{
@@ -820,7 +820,7 @@ func TestDeploy_Promote_Success(t *testing.T) {
 
 func TestDeploy_DeployWithSet_UpdateBinding(t *testing.T) {
 	relName := "rel-2"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
 		Metadata: gen.ObjectMeta{Name: relName},
 	}, nil)
@@ -848,7 +848,7 @@ func TestDeploy_DeployWithSet_UpdateBinding(t *testing.T) {
 
 func TestDeploy_Promote_UpdateExisting(t *testing.T) {
 	relName := "rel-1"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{
@@ -887,7 +887,7 @@ func TestDeploy_Promote_UpdateExisting(t *testing.T) {
 }
 
 func TestDeploy_Promote_NoSourceBinding(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{},
@@ -907,7 +907,7 @@ func TestDeploy_Promote_NoSourceBinding(t *testing.T) {
 
 func TestFetchScaffoldSchemas_ClusterCT(t *testing.T) {
 	schema := json.RawMessage(`{"type":"object"}`)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterComponentTypeSchema(mock.Anything, "web-app").Return(&schema, nil)
 
 	res := &scaffoldResolution{useClusterCT: true, componentTypeName: "web-app"}
@@ -921,7 +921,7 @@ func TestFetchScaffoldSchemas_ClusterCT(t *testing.T) {
 func TestFetchScaffoldSchemas_WithWorkflow(t *testing.T) {
 	schema := json.RawMessage(`{"type":"object"}`)
 	wfSchema := json.RawMessage(`{"type":"object"}`)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponentTypeSchema(mock.Anything, "ns", "web-app").Return(&schema, nil)
 	mc.EXPECT().GetWorkflowSchema(mock.Anything, "ns", "build-wf").Return(&wfSchema, nil)
 
@@ -935,7 +935,7 @@ func TestFetchScaffoldSchemas_WithWorkflow(t *testing.T) {
 func TestFetchScaffoldSchemas_WithClusterWorkflow(t *testing.T) {
 	schema := json.RawMessage(`{"type":"object"}`)
 	wfSchema := json.RawMessage(`{"type":"object"}`)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponentTypeSchema(mock.Anything, "ns", "web-app").Return(&schema, nil)
 	mc.EXPECT().GetClusterWorkflowSchema(mock.Anything, "build-wf").Return(&wfSchema, nil)
 
@@ -948,7 +948,7 @@ func TestFetchScaffoldSchemas_WithClusterWorkflow(t *testing.T) {
 func TestFetchScaffoldSchemas_WithClusterTrait(t *testing.T) {
 	schema := json.RawMessage(`{"type":"object"}`)
 	trSchema := json.RawMessage(`{"type":"object"}`)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponentTypeSchema(mock.Anything, "ns", "web-app").Return(&schema, nil)
 	mc.EXPECT().GetClusterTraitSchema(mock.Anything, "my-trait").Return(&trSchema, nil)
 
@@ -963,7 +963,7 @@ func TestFetchScaffoldSchemas_WithClusterTrait(t *testing.T) {
 }
 
 func TestFetchScaffoldSchemas_CTSchemaError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponentTypeSchema(mock.Anything, "ns", "web-app").Return(nil, fmt.Errorf("schema fetch failed"))
 
 	res := &scaffoldResolution{componentTypeName: "web-app"}
@@ -975,7 +975,7 @@ func TestFetchScaffoldSchemas_CTSchemaError(t *testing.T) {
 
 func TestWorkflowRunLogs_ResolvedFromComponent(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{
 		Spec: &gen.ComponentSpec{
 			Workflow: &gen.ComponentWorkflowConfig{Name: "build-wf"},
@@ -1006,7 +1006,7 @@ func TestWorkflowRunLogs_ResolvedFromComponent(t *testing.T) {
 // --- Scaffold tests ---
 
 func TestScaffold_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponentTypeSchema(mock.Anything, "ns", "web-app").Return(nil, fmt.Errorf("schema not found"))
 
 	cp := New(mc)
@@ -1020,7 +1020,7 @@ func TestScaffold_APIError(t *testing.T) {
 }
 
 func TestScaffold_MissingComponentName(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	cp := New(mc)
 	err := cp.Scaffold(ScaffoldParams{
 		Namespace:     "ns",
@@ -1031,7 +1031,7 @@ func TestScaffold_MissingComponentName(t *testing.T) {
 }
 
 func TestScaffold_MutuallyExclusiveFlags(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	cp := New(mc)
 	err := cp.Scaffold(ScaffoldParams{
 		ComponentName:        "my-comp",
@@ -1046,7 +1046,7 @@ func TestScaffold_MutuallyExclusiveFlags(t *testing.T) {
 // --- resolveComponentWorkflowName ---
 
 func TestResolveComponentWorkflowName_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{
 		Spec: &gen.ComponentSpec{
 			Workflow: &gen.ComponentWorkflowConfig{Name: "build-wf"},
@@ -1060,7 +1060,7 @@ func TestResolveComponentWorkflowName_Success(t *testing.T) {
 }
 
 func TestResolveComponentWorkflowName_NoWorkflow(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{
 		Spec: &gen.ComponentSpec{},
 	}, nil)
@@ -1072,7 +1072,7 @@ func TestResolveComponentWorkflowName_NoWorkflow(t *testing.T) {
 }
 
 func TestResolveComponentWorkflowName_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(nil, fmt.Errorf("not found"))
 
 	cp := New(mc)
@@ -1085,7 +1085,7 @@ func TestResolveComponentWorkflowName_APIError(t *testing.T) {
 
 func TestWorkflowRunLogs_WithRunName(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkflowRunStatus(mock.Anything, "ns", "run-1").Return(
 		&gen.WorkflowRunStatusResponse{HasLiveObservability: true}, nil)
 	mc.EXPECT().GetWorkflowRunLogs(mock.Anything, "ns", "run-1", mock.Anything).Return(
@@ -1135,7 +1135,7 @@ func makeEnvWithDataPlaneRef(kind gen.EnvironmentSpecDataPlaneRefKind, name stri
 
 func TestResolveObserverURL_ClusterDataPlane(t *testing.T) {
 	url := "http://cluster-observer.example.com"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEnvironment(mock.Anything, "ns", "dev").Return(
 		makeEnvWithDataPlaneRef(gen.EnvironmentSpecDataPlaneRefKindClusterDataPlane, "my-cdp"), nil)
 	mc.EXPECT().GetClusterDataPlane(mock.Anything, "my-cdp").Return(&gen.ClusterDataPlane{
@@ -1153,7 +1153,7 @@ func TestResolveObserverURL_ClusterDataPlane(t *testing.T) {
 
 func TestResolveObserverURL_DataPlane_NamespacedObsPlane(t *testing.T) {
 	url := "http://obs.example.com"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEnvironment(mock.Anything, "ns", "dev").Return(
 		makeEnvWithDataPlaneRef(gen.EnvironmentSpecDataPlaneRefKindDataPlane, "my-dp"), nil)
 	mc.EXPECT().GetDataPlane(mock.Anything, "ns", "my-dp").Return(&gen.DataPlane{
@@ -1173,7 +1173,7 @@ func TestResolveObserverURL_DataPlane_NamespacedObsPlane(t *testing.T) {
 }
 
 func TestResolveObserverURL_EnvironmentNotFound(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEnvironment(mock.Anything, "ns", "dev").Return(nil, fmt.Errorf("not found"))
 
 	_, err := resolveObserverURL(context.Background(), mc, "ns", "dev")
@@ -1182,7 +1182,7 @@ func TestResolveObserverURL_EnvironmentNotFound(t *testing.T) {
 }
 
 func TestResolveObserverURL_NoDataPlaneRef(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEnvironment(mock.Anything, "ns", "dev").Return(&gen.Environment{
 		Spec: &gen.EnvironmentSpec{},
 	}, nil)
@@ -1194,7 +1194,7 @@ func TestResolveObserverURL_NoDataPlaneRef(t *testing.T) {
 
 func TestResolveObserverURL_DataPlane_ClusterObsPlane(t *testing.T) {
 	url := "http://cluster-obs.example.com"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEnvironment(mock.Anything, "ns", "dev").Return(
 		makeEnvWithDataPlaneRef(gen.EnvironmentSpecDataPlaneRefKindDataPlane, "my-dp"), nil)
 	mc.EXPECT().GetDataPlane(mock.Anything, "ns", "my-dp").Return(&gen.DataPlane{
@@ -1214,7 +1214,7 @@ func TestResolveObserverURL_DataPlane_ClusterObsPlane(t *testing.T) {
 }
 
 func TestResolveObserverURL_DataPlane_UnsupportedKind(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEnvironment(mock.Anything, "ns", "dev").Return(
 		makeEnvWithDataPlaneRef(gen.EnvironmentSpecDataPlaneRefKindDataPlane, "my-dp"), nil)
 	mc.EXPECT().GetDataPlane(mock.Anything, "ns", "my-dp").Return(&gen.DataPlane{
@@ -1232,7 +1232,7 @@ func TestResolveObserverURL_DataPlane_UnsupportedKind(t *testing.T) {
 }
 
 func TestResolveObserverURL_DataPlane_GetError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEnvironment(mock.Anything, "ns", "dev").Return(
 		makeEnvWithDataPlaneRef(gen.EnvironmentSpecDataPlaneRefKindDataPlane, "my-dp"), nil)
 	mc.EXPECT().GetDataPlane(mock.Anything, "ns", "my-dp").Return(nil, fmt.Errorf("dp not found"))
@@ -1244,7 +1244,7 @@ func TestResolveObserverURL_DataPlane_GetError(t *testing.T) {
 
 func TestResolveObserverURL_ClusterDataPlane_NoObsRef(t *testing.T) {
 	url := "http://default-cluster-obs.example.com"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEnvironment(mock.Anything, "ns", "dev").Return(
 		makeEnvWithDataPlaneRef(gen.EnvironmentSpecDataPlaneRefKindClusterDataPlane, "my-cdp"), nil)
 	// ClusterDataPlane has no ObservabilityPlaneRef — falls back to "default"
@@ -1260,7 +1260,7 @@ func TestResolveObserverURL_ClusterDataPlane_NoObsRef(t *testing.T) {
 }
 
 func TestGetObserverURLFromObservabilityPlane_Error(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "my-obs").Return(nil, fmt.Errorf("not found"))
 
 	_, err := getObserverURLFromObservabilityPlane(context.Background(), mc, "ns", "my-obs")
@@ -1269,7 +1269,7 @@ func TestGetObserverURLFromObservabilityPlane_Error(t *testing.T) {
 }
 
 func TestGetObserverURLFromObservabilityPlane_NoURL(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "ns", "my-obs").Return(
 		&gen.ObservabilityPlane{Spec: &gen.ObservabilityPlaneSpec{}}, nil)
 
@@ -1279,7 +1279,7 @@ func TestGetObserverURLFromObservabilityPlane_NoURL(t *testing.T) {
 }
 
 func TestGetObserverURLFromClusterObservabilityPlane_Error(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "my-obs").Return(nil, fmt.Errorf("not found"))
 
 	_, err := getObserverURLFromClusterObservabilityPlane(context.Background(), mc, "my-obs")
@@ -1288,7 +1288,7 @@ func TestGetObserverURLFromClusterObservabilityPlane_Error(t *testing.T) {
 }
 
 func TestGetObserverURLFromClusterObservabilityPlane_NoURL(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "my-obs").Return(
 		&gen.ClusterObservabilityPlane{Spec: &gen.ClusterObservabilityPlaneSpec{}}, nil)
 
@@ -1299,7 +1299,7 @@ func TestGetObserverURLFromClusterObservabilityPlane_NoURL(t *testing.T) {
 
 func TestResolveObserverURL_DataPlane_DefaultObsPlane(t *testing.T) {
 	url := "http://default-obs.example.com"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEnvironment(mock.Anything, "ns", "dev").Return(
 		makeEnvWithDataPlaneRef(gen.EnvironmentSpecDataPlaneRefKindDataPlane, "my-dp"), nil)
 	// DataPlane has no ObservabilityPlaneRef — falls back to default
@@ -1318,7 +1318,7 @@ func TestResolveObserverURL_DataPlane_DefaultObsPlane(t *testing.T) {
 
 func TestList_Pagination(t *testing.T) {
 	cursor := "page2"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponents(mock.Anything, "ns", "", mock.MatchedBy(func(p *gen.ListComponentsParams) bool {
 		return p.Cursor == nil
 	})).Return(&gen.ComponentList{
@@ -1341,7 +1341,7 @@ func TestList_Pagination(t *testing.T) {
 }
 
 func TestList_WithProjectFilter(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponents(mock.Anything, "ns", "", mock.MatchedBy(func(p *gen.ListComponentsParams) bool {
 		return p.Project != nil && *p.Project == "my-project"
 	})).Return(&gen.ComponentList{
@@ -1359,7 +1359,7 @@ func TestList_WithProjectFilter(t *testing.T) {
 // --- deployComponent: error paths ---
 
 func TestDeploy_PipelineError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
 		Metadata: gen.ObjectMeta{Name: "rel-1"},
 	}, nil)
@@ -1371,7 +1371,7 @@ func TestDeploy_PipelineError(t *testing.T) {
 }
 
 func TestDeploy_GetReleaseBindingError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GenerateRelease(mock.Anything, "ns", "my-comp", mock.Anything).Return(&gen.ComponentRelease{
 		Metadata: gen.ObjectMeta{Name: "rel-1"},
 	}, nil)
@@ -1386,7 +1386,7 @@ func TestDeploy_GetReleaseBindingError(t *testing.T) {
 // --- promoteComponent: error paths ---
 
 func TestPromote_PipelineError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(nil, fmt.Errorf("pipeline not found"))
 
 	cp := New(mc)
@@ -1395,7 +1395,7 @@ func TestPromote_PipelineError(t *testing.T) {
 }
 
 func TestPromote_ListBindingsError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(nil, fmt.Errorf("list error"))
 
@@ -1406,7 +1406,7 @@ func TestPromote_ListBindingsError(t *testing.T) {
 
 func TestPromote_GetTargetBindingError(t *testing.T) {
 	relName := "rel-1"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "ns", "my-project").Return(makeLinearPipeline(), nil)
 	mc.EXPECT().ListReleaseBindings(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBindingList{
 		Items: []gen.ReleaseBinding{

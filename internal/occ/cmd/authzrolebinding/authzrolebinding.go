@@ -14,24 +14,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by AuthzRoleBinding operations.
-type Client interface {
-	ListNamespaceRoleBindings(ctx context.Context, namespaceName string, params *gen.ListNamespaceRoleBindingsParams) (*gen.AuthzRoleBindingList, error)
-	GetNamespaceRoleBinding(ctx context.Context, namespaceName, name string) (*gen.AuthzRoleBinding, error)
-	DeleteNamespaceRoleBinding(ctx context.Context, namespaceName, name string) error
-}
-
 // AuthzRoleBinding implements authz role binding operations
 type AuthzRoleBinding struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new authz role binding implementation
-func New(client Client) *AuthzRoleBinding {
-	return &AuthzRoleBinding{client: client}
+func New(c client.Interface) *AuthzRoleBinding {
+	return &AuthzRoleBinding{client: c}
 }
 
 // List lists all authz role bindings in a namespace

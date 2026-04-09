@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterauthzrole/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -114,7 +114,7 @@ func TestPrint_NilTimestamp(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterRoles(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	cr := New(mc)
@@ -123,7 +123,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterRoles(mock.Anything, mock.Anything).Return(&gen.ClusterAuthzRoleList{
 		Items:      []gen.ClusterAuthzRole{{Metadata: gen.ObjectMeta{Name: "cluster-admin"}}},
 		Pagination: gen.Pagination{},
@@ -139,7 +139,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterRoles(mock.Anything, mock.Anything).Return(&gen.ClusterAuthzRoleList{
 		Items: []gen.ClusterAuthzRole{
 			{Metadata: gen.ObjectMeta{Name: "cluster-admin", CreationTimestamp: &now}},
@@ -160,7 +160,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterRoles(mock.Anything, mock.Anything).Return(&gen.ClusterAuthzRoleList{
 		Items:      []gen.ClusterAuthzRole{},
 		Pagination: gen.Pagination{},
@@ -177,7 +177,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterRole(mock.Anything, "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	cr := New(mc)
@@ -186,7 +186,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterRole(mock.Anything, "cluster-admin").Return(&gen.ClusterAuthzRole{
 		Metadata: gen.ObjectMeta{Name: "cluster-admin"},
 	}, nil)
@@ -202,7 +202,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterRole(mock.Anything, "cluster-admin").Return(fmt.Errorf("forbidden: cluster-admin"))
 
 	cr := New(mc)
@@ -211,7 +211,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterRole(mock.Anything, "cluster-admin").Return(nil)
 
 	cr := New(mc)

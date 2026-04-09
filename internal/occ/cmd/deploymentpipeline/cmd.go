@@ -12,7 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
-func NewDeploymentPipelineCmd() *cobra.Command {
+func NewDeploymentPipelineCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "deploymentpipeline",
 		Aliases: []string{"deppipe", "deploymentpipelines"},
@@ -20,14 +20,14 @@ func NewDeploymentPipelineCmd() *cobra.Command {
 		Long:    `Manage deployment pipelines for OpenChoreo.`,
 	}
 	cmd.AddCommand(
-		newListCmd(),
-		newGetCmd(),
-		newDeleteCmd(),
+		newListCmd(f),
+		newGetCmd(f),
+		newDeleteCmd(f),
 	)
 	return cmd
 }
 
-func newListCmd() *cobra.Command {
+func newListCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List deployment pipelines",
@@ -36,7 +36,7 @@ func newListCmd() *cobra.Command {
   occ deploymentpipeline list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -49,7 +49,7 @@ func newListCmd() *cobra.Command {
 	return cmd
 }
 
-func newGetCmd() *cobra.Command {
+func newGetCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get [DEPLOYMENT_PIPELINE_NAME]",
 		Short: "Get a deployment pipeline",
@@ -59,7 +59,7 @@ func newGetCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -73,7 +73,7 @@ func newGetCmd() *cobra.Command {
 	return cmd
 }
 
-func newDeleteCmd() *cobra.Command {
+func newDeleteCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete [DEPLOYMENT_PIPELINE_NAME]",
 		Short: "Delete a deployment pipeline",
@@ -83,7 +83,7 @@ func newDeleteCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}

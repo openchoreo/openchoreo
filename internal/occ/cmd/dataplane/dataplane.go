@@ -14,24 +14,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by DataPlane operations.
-type Client interface {
-	ListDataPlanes(ctx context.Context, namespaceName string, params *gen.ListDataPlanesParams) (*gen.DataPlaneList, error)
-	GetDataPlane(ctx context.Context, namespaceName string, dataPlane string) (*gen.DataPlane, error)
-	DeleteDataPlane(ctx context.Context, namespaceName string, dataPlane string) error
-}
-
 // DataPlane implements data plane operations
 type DataPlane struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new data plane implementation
-func New(client Client) *DataPlane {
-	return &DataPlane{client: client}
+func New(c client.Interface) *DataPlane {
+	return &DataPlane{client: c}
 }
 
 // List lists all data planes in a namespace

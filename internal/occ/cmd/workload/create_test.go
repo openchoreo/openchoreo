@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/workload/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 )
 
@@ -122,7 +122,7 @@ func TestCreate_FileSystem_NewWorkload_DryRun(t *testing.T) {
 	})
 
 	repoDir := setupRepoWithComponent(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
 	out := captureStdout(t, func() {
@@ -149,7 +149,7 @@ func TestCreate_FileSystem_NewWorkload_Write(t *testing.T) {
 	})
 
 	repoDir := setupRepoWithComponent(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
 	out := captureStdout(t, func() {
@@ -191,7 +191,7 @@ func TestCreate_FileSystem_ExistingWorkload_ImageUpdate_DryRun(t *testing.T) {
 	})
 
 	repoDir := setupRepoWithWorkload(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
 	out := captureStdout(t, func() {
@@ -226,7 +226,7 @@ func TestCreate_FileSystem_ExistingWorkload_ImageUpdate_Write(t *testing.T) {
 	})
 
 	repoDir := setupRepoWithWorkload(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
 	out := captureStdout(t, func() {
@@ -263,7 +263,7 @@ func TestCreate_FileSystem_CustomOutputPath(t *testing.T) {
 	require.NoError(t, os.MkdirAll(outDir, 0755))
 	outFile := filepath.Join(outDir, "my-workload.yaml")
 
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
 	out := captureStdout(t, func() {
@@ -297,7 +297,7 @@ func TestCreate_FileSystem_SecondComponent_NewWorkload(t *testing.T) {
 	})
 
 	repoDir := setupRepoWithTwoComponents(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
 	out := captureStdout(t, func() {
@@ -338,7 +338,7 @@ spec:
 // --- Create: API server mode ---
 
 func TestCreate_APIServer_Stdout(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
 	out := captureStdout(t, func() {
@@ -356,7 +356,7 @@ func TestCreate_APIServer_Stdout(t *testing.T) {
 }
 
 func TestCreate_APIServer_DefaultMode(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
 	// Empty Mode defaults to api-server
@@ -374,7 +374,7 @@ func TestCreate_APIServer_DefaultMode(t *testing.T) {
 }
 
 func TestCreate_APIServer_OutputFile(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
 	outFile := filepath.Join(t.TempDir(), "workload.yaml")
@@ -399,7 +399,7 @@ func TestCreate_APIServer_OutputFile(t *testing.T) {
 }
 
 func TestCreate_APIServer_WithDescriptor(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 
 	// Write a workload descriptor file
@@ -428,7 +428,7 @@ func TestCreate_APIServer_WithDescriptor(t *testing.T) {
 // --- Create: validation errors ---
 
 func TestCreate_FileSystem_MissingImage(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 	err := w.Create(CreateParams{
 		Mode:          flags.ModeFileSystem,
@@ -440,7 +440,7 @@ func TestCreate_FileSystem_MissingImage(t *testing.T) {
 }
 
 func TestCreate_FileSystem_MissingNamespace(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 	err := w.Create(CreateParams{
 		Mode:          flags.ModeFileSystem,
@@ -452,7 +452,7 @@ func TestCreate_FileSystem_MissingNamespace(t *testing.T) {
 }
 
 func TestCreate_FileSystem_MissingProject(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 	err := w.Create(CreateParams{
 		Mode:          flags.ModeFileSystem,
@@ -464,7 +464,7 @@ func TestCreate_FileSystem_MissingProject(t *testing.T) {
 }
 
 func TestCreate_FileSystem_MissingComponent(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 	err := w.Create(CreateParams{
 		Mode:          flags.ModeFileSystem,

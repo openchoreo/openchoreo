@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/workload/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -79,7 +79,7 @@ func TestPrintWorkloadList_WithItems(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkloads(mock.Anything, "org-a", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	w := New(mc)
@@ -87,7 +87,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkloads(mock.Anything, "org-a", mock.Anything).Return(&gen.WorkloadList{
 		Items:      []gen.Workload{{Metadata: gen.ObjectMeta{Name: "workload-1"}}},
 		Pagination: gen.Pagination{},
@@ -102,7 +102,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkloads(mock.Anything, "org-a", mock.Anything).Return(&gen.WorkloadList{
 		Items: []gen.Workload{
 			{Metadata: gen.ObjectMeta{Name: "workload-1", CreationTimestamp: &now}},
@@ -120,7 +120,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkloads(mock.Anything, "org-a", mock.Anything).Return(&gen.WorkloadList{
 		Items:      []gen.Workload{},
 		Pagination: gen.Pagination{},
@@ -136,7 +136,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkload(mock.Anything, "org-a", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	w := New(mc)
@@ -144,7 +144,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkload(mock.Anything, "org-a", "workload-1").Return(&gen.Workload{
 		Metadata: gen.ObjectMeta{Name: "workload-1"},
 	}, nil)
@@ -159,7 +159,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteWorkload(mock.Anything, "org-a", "workload-1").Return(fmt.Errorf("forbidden"))
 
 	w := New(mc)
@@ -167,7 +167,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteWorkload(mock.Anything, "org-a", "workload-1").Return(nil)
 
 	w := New(mc)
@@ -180,35 +180,35 @@ func TestDelete_Success(t *testing.T) {
 // --- Validation error tests ---
 
 func TestList_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 	err := w.List(ListParams{Namespace: ""})
 	assert.ErrorContains(t, err, "Missing required parameter")
 }
 
 func TestGet_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 	err := w.Get(GetParams{Namespace: "", WorkloadName: "wl-1"})
 	assert.ErrorContains(t, err, "Missing required parameter")
 }
 
 func TestDelete_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 	err := w.Delete(DeleteParams{Namespace: "", WorkloadName: "wl-1"})
 	assert.ErrorContains(t, err, "Missing required parameter")
 }
 
 func TestDelete_ValidationError_MissingName(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 	err := w.Delete(DeleteParams{Namespace: "ns", WorkloadName: ""})
 	assert.ErrorContains(t, err, "Missing required parameter")
 }
 
 func TestCreate_ValidationError_MissingFields(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 	err := w.Create(CreateParams{
 		NamespaceName: "ns",
@@ -220,7 +220,7 @@ func TestCreate_ValidationError_MissingFields(t *testing.T) {
 }
 
 func TestCreate_UnsupportedMode(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 	err := w.Create(CreateParams{
 		NamespaceName: "ns",
@@ -235,7 +235,7 @@ func TestCreate_UnsupportedMode(t *testing.T) {
 // --- Constructor test ---
 
 func TestNew(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	w := New(mc)
 	assert.NotNil(t, w)
 	assert.Equal(t, mc, w.client)
@@ -259,7 +259,7 @@ func TestPrintWorkloadList_NilTimestamp(t *testing.T) {
 
 func TestList_Pagination(t *testing.T) {
 	next := "cursor-2"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 
 	// First page — no cursor
 	mc.EXPECT().ListWorkloads(mock.Anything, "org-a", mock.MatchedBy(func(p *gen.ListWorkloadsParams) bool {
@@ -286,7 +286,7 @@ func TestList_Pagination(t *testing.T) {
 }
 
 func TestList_NilTimestamp(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListWorkloads(mock.Anything, "org-a", mock.Anything).Return(&gen.WorkloadList{
 		Items: []gen.Workload{
 			{Metadata: gen.ObjectMeta{Name: "wl-no-ts", CreationTimestamp: nil}},
@@ -304,7 +304,7 @@ func TestList_NilTimestamp(t *testing.T) {
 // --- Get with spec ---
 
 func TestGet_SuccessWithSpec(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetWorkload(mock.Anything, "org-a", "wl-1").Return(&gen.Workload{
 		Metadata: gen.ObjectMeta{Name: "wl-1"},
 		Spec: &gen.WorkloadSpec{

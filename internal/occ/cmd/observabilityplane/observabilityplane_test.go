@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityplane/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -79,14 +79,14 @@ func TestPrintList_WithItems(t *testing.T) {
 // --- List tests ---
 
 func TestList_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	op := New(mc)
 	err := op.List(ListParams{Namespace: ""})
 	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListObservabilityPlanes(mock.Anything, "org-a", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	op := New(mc)
@@ -94,7 +94,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListObservabilityPlanes(mock.Anything, "org-a", mock.Anything).Return(&gen.ObservabilityPlaneList{
 		Items:      []gen.ObservabilityPlane{{Metadata: gen.ObjectMeta{Name: "obs-plane-1"}}},
 		Pagination: gen.Pagination{},
@@ -109,7 +109,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListObservabilityPlanes(mock.Anything, "org-a", mock.Anything).Return(&gen.ObservabilityPlaneList{
 		Items: []gen.ObservabilityPlane{
 			{Metadata: gen.ObjectMeta{Name: "obs-plane-1", CreationTimestamp: &now}},
@@ -127,7 +127,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListObservabilityPlanes(mock.Anything, "org-a", mock.Anything).Return(&gen.ObservabilityPlaneList{
 		Items:      []gen.ObservabilityPlane{},
 		Pagination: gen.Pagination{},
@@ -143,14 +143,14 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	op := New(mc)
 	err := op.Get(GetParams{Namespace: "", ObservabilityPlaneName: "obs-plane-1"})
 	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "org-a", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	op := New(mc)
@@ -158,7 +158,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetObservabilityPlane(mock.Anything, "org-a", "obs-plane-1").Return(&gen.ObservabilityPlane{
 		Metadata: gen.ObjectMeta{Name: "obs-plane-1"},
 	}, nil)
@@ -173,14 +173,14 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	op := New(mc)
 	err := op.Delete(DeleteParams{Namespace: "", ObservabilityPlaneName: "obs-plane-1"})
 	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteObservabilityPlane(mock.Anything, "org-a", "obs-plane-1").Return(fmt.Errorf("forbidden"))
 
 	op := New(mc)
@@ -188,7 +188,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteObservabilityPlane(mock.Anything, "org-a", "obs-plane-1").Return(nil)
 
 	op := New(mc)

@@ -14,24 +14,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by Trait operations.
-type Client interface {
-	ListTraits(ctx context.Context, namespaceName string, params *gen.ListTraitsParams) (*gen.TraitList, error)
-	GetTrait(ctx context.Context, namespaceName string, traitName string) (*gen.Trait, error)
-	DeleteTrait(ctx context.Context, namespaceName string, traitName string) error
-}
-
 // Trait implements trait operations
 type Trait struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new trait implementation
-func New(client Client) *Trait {
-	return &Trait{client: client}
+func New(c client.Interface) *Trait {
+	return &Trait{client: c}
 }
 
 // List lists all traits in a namespace

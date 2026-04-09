@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterobservabilityplane/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -91,7 +91,7 @@ func TestPrint_NilTimestamp(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterObservabilityPlanes(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	cop := New(mc)
@@ -99,7 +99,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterObservabilityPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterObservabilityPlaneList{
 		Items:      []gen.ClusterObservabilityPlane{{Metadata: gen.ObjectMeta{Name: "obs-prod"}}},
 		Pagination: gen.Pagination{},
@@ -114,7 +114,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterObservabilityPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterObservabilityPlaneList{
 		Items: []gen.ClusterObservabilityPlane{
 			{Metadata: gen.ObjectMeta{Name: "obs-prod", CreationTimestamp: &now}},
@@ -132,7 +132,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterObservabilityPlanes(mock.Anything, mock.Anything).Return(&gen.ClusterObservabilityPlaneList{
 		Items:      []gen.ClusterObservabilityPlane{},
 		Pagination: gen.Pagination{},
@@ -148,7 +148,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	cop := New(mc)
@@ -156,7 +156,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterObservabilityPlane(mock.Anything, "obs-prod").Return(&gen.ClusterObservabilityPlane{
 		Metadata: gen.ObjectMeta{Name: "obs-prod"},
 	}, nil)
@@ -171,7 +171,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterObservabilityPlane(mock.Anything, "obs-prod").Return(fmt.Errorf("forbidden"))
 
 	cop := New(mc)
@@ -179,7 +179,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterObservabilityPlane(mock.Anything, "obs-prod").Return(nil)
 
 	cop := New(mc)

@@ -14,10 +14,10 @@ import (
 	sigsyaml "sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
@@ -25,7 +25,7 @@ import (
 // --- Generate: mode validation (no filesystem needed) ---
 
 func TestGenerate_DefaultModeRejectsAPIServer(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	// Empty Mode defaults to "api-server" → rejected
 	err := rb.Generate(GenerateParams{})
@@ -35,7 +35,7 @@ func TestGenerate_DefaultModeRejectsAPIServer(t *testing.T) {
 }
 
 func TestGenerate_ExplicitAPIServerModeRejected(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	err := rb.Generate(GenerateParams{Mode: flags.ModeAPIServer})
 	require.Error(t, err)
@@ -43,7 +43,7 @@ func TestGenerate_ExplicitAPIServerModeRejected(t *testing.T) {
 }
 
 func TestGenerate_InvalidModeRejected(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	err := rb.Generate(GenerateParams{Mode: "invalid-mode"})
 	require.Error(t, err)
@@ -55,7 +55,7 @@ func TestGenerate_InvalidModeRejected(t *testing.T) {
 
 func TestGenerate_NoConfigFile_NoCurrentContext(t *testing.T) {
 	th.SetupTestHome(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	// file-system mode, but no config file → LoadStoredConfig returns empty → "no current context set"
 	err := rb.Generate(GenerateParams{Mode: flags.ModeFileSystem})
@@ -72,7 +72,7 @@ func TestGenerate_EmptyCurrentContext(t *testing.T) {
 		Contexts:       []config.Context{},
 	})
 
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	err := rb.Generate(GenerateParams{Mode: flags.ModeFileSystem})
 	require.Error(t, err)
@@ -88,7 +88,7 @@ func TestGenerate_CurrentContextNotFound(t *testing.T) {
 		},
 	})
 
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	err := rb.Generate(GenerateParams{Mode: flags.ModeFileSystem})
 	require.Error(t, err)
@@ -110,7 +110,7 @@ func TestGenerate_EmptyNamespaceInContext(t *testing.T) {
 	repoDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "dummy.yaml"), []byte("apiVersion: v1\nkind: Namespace\nmetadata:\n  name: x\n"), 0600))
 
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	err := rb.Generate(GenerateParams{
 		Mode:    flags.ModeFileSystem,
@@ -146,7 +146,7 @@ spec:
 	require.NoError(t, os.MkdirAll(projectDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(projectDir, "project.yaml"), []byte(projectYAML), 0600))
 
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	err := rb.Generate(GenerateParams{
 		Mode:        flags.ModeFileSystem,
@@ -170,7 +170,7 @@ func TestGenerate_UsePipelineRequiredForAll(t *testing.T) {
 	// empty repo is fine — deriveUsePipeline is checked before index-dependent pipeline lookup
 	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "dummy.yaml"), []byte("apiVersion: v1\nkind: Namespace\nmetadata:\n  name: x\n"), 0600))
 
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	err := rb.Generate(GenerateParams{
 		Mode:    flags.ModeFileSystem,
@@ -208,7 +208,7 @@ spec:
 	require.NoError(t, os.MkdirAll(filepath.Join(repoDir, "pipelines"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "pipelines", "my-pipeline.yaml"), []byte(pipelineYAML), 0600))
 
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	err := rb.Generate(GenerateParams{
 		Mode:        flags.ModeFileSystem,
@@ -247,7 +247,7 @@ spec:
 	require.NoError(t, os.MkdirAll(filepath.Join(repoDir, "pipelines"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(repoDir, "pipelines", "my-pipeline.yaml"), []byte(pipelineYAML), 0600))
 
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	err := rb.Generate(GenerateParams{
 		Mode:        flags.ModeFileSystem,
@@ -263,7 +263,7 @@ spec:
 // --- Generate: loadReleaseConfig ---
 
 func TestLoadReleaseConfig_NotFound_NotRequired(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	cfg, err := rb.loadReleaseConfig(t.TempDir(), false)
 	require.NoError(t, err)
@@ -271,7 +271,7 @@ func TestLoadReleaseConfig_NotFound_NotRequired(t *testing.T) {
 }
 
 func TestLoadReleaseConfig_NotFound_Required(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	dir := t.TempDir()
 	_, err := rb.loadReleaseConfig(dir, true)
@@ -281,7 +281,7 @@ func TestLoadReleaseConfig_NotFound_Required(t *testing.T) {
 }
 
 func TestLoadReleaseConfig_ValidFile(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	dir := t.TempDir()
 	content := `apiVersion: openchoreo.dev/v1alpha1
@@ -294,7 +294,7 @@ kind: ReleaseConfig
 }
 
 func TestLoadReleaseConfig_InvalidYAML(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "release-config.yaml"), []byte("{{invalid"), 0600))
@@ -306,7 +306,7 @@ func TestLoadReleaseConfig_InvalidYAML(t *testing.T) {
 // --- Generate: printYAML ---
 
 func TestPrintYAML_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	data := map[string]string{"name": "test"}
 	out := captureStdout(t, func() {
@@ -474,7 +474,7 @@ func TestGenerate_SingleComponent_DryRun(t *testing.T) {
 	})
 
 	repoDir := setupRepoForBinding(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
 	out := captureStdout(t, func() {
@@ -515,7 +515,7 @@ func TestGenerate_SingleComponent_Write(t *testing.T) {
 	})
 
 	repoDir := setupRepoForBinding(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
 	out := captureStdout(t, func() {
@@ -556,7 +556,7 @@ func TestGenerate_SingleComponent_CustomOutputPath(t *testing.T) {
 	repoDir := setupRepoForBinding(t)
 	outDir := filepath.Join(t.TempDir(), "custom-out")
 
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
 	out := captureStdout(t, func() {
@@ -584,7 +584,7 @@ func TestGenerate_Project_DryRun(t *testing.T) {
 	})
 
 	repoDir := setupRepoForBindingTwoComponents(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
 	out := captureStdout(t, func() {
@@ -613,7 +613,7 @@ func TestGenerate_Project_Write(t *testing.T) {
 	})
 
 	repoDir := setupRepoForBindingTwoComponents(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
 	out := captureStdout(t, func() {
@@ -653,7 +653,7 @@ func TestGenerate_All_DryRun(t *testing.T) {
 	})
 
 	repoDir := setupRepoForBindingTwoComponents(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
 	out := captureStdout(t, func() {
@@ -683,7 +683,7 @@ func TestGenerate_All_Write(t *testing.T) {
 	})
 
 	repoDir := setupRepoForBindingTwoComponents(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
 	out := captureStdout(t, func() {
@@ -724,7 +724,7 @@ func TestGenerate_PipelineDerivedFromProject(t *testing.T) {
 	})
 
 	repoDir := setupRepoForBinding(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
 	// Don't specify UsePipeline — it should be derived from the Project's deploymentPipelineRef
@@ -753,7 +753,7 @@ func TestGenerate_TargetEnvDefaultsToRoot(t *testing.T) {
 	})
 
 	repoDir := setupRepoForBinding(t)
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 
 	// Don't specify TargetEnv — it should default to pipeline root ("dev")

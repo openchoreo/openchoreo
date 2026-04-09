@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/componentrelease/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -48,7 +48,7 @@ func captureStdout(t *testing.T, fn func()) string {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentReleases(mock.Anything, "ns", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	cr := New(mc)
@@ -56,7 +56,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentReleases(mock.Anything, "ns", mock.Anything).Return(&gen.ComponentReleaseList{
 		Items:      []gen.ComponentRelease{{Metadata: gen.ObjectMeta{Name: "rel-1"}}},
 		Pagination: gen.Pagination{},
@@ -72,7 +72,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentReleases(mock.Anything, "ns", mock.Anything).Return(&gen.ComponentReleaseList{
 		Items: []gen.ComponentRelease{
 			{Metadata: gen.ObjectMeta{Name: "rel-1", CreationTimestamp: &now}, Spec: &gen.ComponentReleaseSpec{Owner: struct {
@@ -95,7 +95,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentReleases(mock.Anything, "ns", mock.Anything).Return(&gen.ComponentReleaseList{
 		Items:      []gen.ComponentRelease{},
 		Pagination: gen.Pagination{},
@@ -112,7 +112,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponentRelease(mock.Anything, "ns", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	cr := New(mc)
@@ -120,7 +120,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponentRelease(mock.Anything, "ns", "rel-1").Return(&gen.ComponentRelease{
 		Metadata: gen.ObjectMeta{Name: "rel-1"},
 	}, nil)
@@ -136,7 +136,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteComponentRelease(mock.Anything, "ns", "rel-1").Return(fmt.Errorf("forbidden: rel-1"))
 
 	cr := New(mc)
@@ -144,7 +144,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteComponentRelease(mock.Anything, "ns", "rel-1").Return(nil)
 
 	cr := New(mc)
@@ -158,28 +158,28 @@ func TestDelete_Success(t *testing.T) {
 // --- Validation error tests ---
 
 func TestList_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 	err := cr.List(ListParams{Namespace: ""})
 	assert.ErrorContains(t, err, "Missing required parameter")
 }
 
 func TestGet_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 	err := cr.Get(GetParams{Namespace: "", ComponentReleaseName: "rel-1"})
 	assert.ErrorContains(t, err, "Missing required parameter")
 }
 
 func TestDelete_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 	err := cr.Delete(DeleteParams{Namespace: "", ComponentReleaseName: "rel-1"})
 	assert.ErrorContains(t, err, "Missing required parameter")
 }
 
 func TestDelete_ValidationError_MissingName(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 	err := cr.Delete(DeleteParams{Namespace: "ns", ComponentReleaseName: ""})
 	assert.ErrorContains(t, err, "Missing required parameter")
@@ -188,7 +188,7 @@ func TestDelete_ValidationError_MissingName(t *testing.T) {
 // --- Constructor test ---
 
 func TestNew(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 	assert.NotNil(t, cr)
 	assert.Equal(t, mc, cr.client)
@@ -249,7 +249,7 @@ func TestPrintComponentReleases_WithSpec(t *testing.T) {
 // --- List with component filter ---
 
 func TestList_WithComponentFilter(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentReleases(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListComponentReleasesParams) bool {
 		return p.Component != nil && *p.Component == "my-comp"
 	})).Return(&gen.ComponentReleaseList{
@@ -268,7 +268,7 @@ func TestList_WithComponentFilter(t *testing.T) {
 
 func TestList_Pagination(t *testing.T) {
 	next := "cursor-2"
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 
 	// First page — no cursor
 	mc.EXPECT().ListComponentReleases(mock.Anything, "ns", mock.MatchedBy(func(p *gen.ListComponentReleasesParams) bool {
@@ -295,7 +295,7 @@ func TestList_Pagination(t *testing.T) {
 }
 
 func TestList_NilTimestamp(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentReleases(mock.Anything, "ns", mock.Anything).Return(&gen.ComponentReleaseList{
 		Items: []gen.ComponentRelease{
 			{Metadata: gen.ObjectMeta{Name: "rel-no-ts", CreationTimestamp: nil}},
@@ -311,7 +311,7 @@ func TestList_NilTimestamp(t *testing.T) {
 }
 
 func TestGet_SuccessWithSpec(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponentRelease(mock.Anything, "ns", "rel-1").Return(&gen.ComponentRelease{
 		Metadata: gen.ObjectMeta{Name: "rel-1"},
 		Spec: &gen.ComponentReleaseSpec{

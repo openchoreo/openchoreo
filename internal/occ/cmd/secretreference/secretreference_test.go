@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/secretreference/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -79,14 +79,14 @@ func TestPrintList_WithItems(t *testing.T) {
 // --- List tests ---
 
 func TestList_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	sr := New(mc)
 	err := sr.List(ListParams{Namespace: ""})
 	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListSecretReferences(mock.Anything, "org-a", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	sr := New(mc)
@@ -94,7 +94,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListSecretReferences(mock.Anything, "org-a", mock.Anything).Return(&gen.SecretReferenceList{
 		Items:      []gen.SecretReference{{Metadata: gen.ObjectMeta{Name: "secret-1"}}},
 		Pagination: gen.Pagination{},
@@ -109,7 +109,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListSecretReferences(mock.Anything, "org-a", mock.Anything).Return(&gen.SecretReferenceList{
 		Items: []gen.SecretReference{
 			{Metadata: gen.ObjectMeta{Name: "secret-1", CreationTimestamp: &now}},
@@ -127,7 +127,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListSecretReferences(mock.Anything, "org-a", mock.Anything).Return(&gen.SecretReferenceList{
 		Items:      []gen.SecretReference{},
 		Pagination: gen.Pagination{},
@@ -143,14 +143,14 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	sr := New(mc)
 	err := sr.Get(GetParams{Namespace: "", SecretReferenceName: "secret-1"})
 	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetSecretReference(mock.Anything, "org-a", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	sr := New(mc)
@@ -158,7 +158,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetSecretReference(mock.Anything, "org-a", "secret-1").Return(&gen.SecretReference{
 		Metadata: gen.ObjectMeta{Name: "secret-1"},
 	}, nil)
@@ -173,14 +173,14 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	sr := New(mc)
 	err := sr.Delete(DeleteParams{Namespace: "", SecretReferenceName: "secret-1"})
 	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteSecretReference(mock.Anything, "org-a", "secret-1").Return(fmt.Errorf("forbidden"))
 
 	sr := New(mc)
@@ -188,7 +188,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteSecretReference(mock.Anything, "org-a", "secret-1").Return(nil)
 
 	sr := New(mc)

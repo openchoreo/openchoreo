@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/authzrolebinding/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -108,7 +108,7 @@ func TestPrint_NilTimestamp(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaceRoleBindings(mock.Anything, "default", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	r := New(mc)
@@ -117,7 +117,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaceRoleBindings(mock.Anything, "default", mock.Anything).Return(&gen.AuthzRoleBindingList{
 		Items:      []gen.AuthzRoleBinding{{Metadata: gen.ObjectMeta{Name: "admin-binding"}}},
 		Pagination: gen.Pagination{},
@@ -133,7 +133,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaceRoleBindings(mock.Anything, "default", mock.Anything).Return(&gen.AuthzRoleBindingList{
 		Items: []gen.AuthzRoleBinding{
 			{Metadata: gen.ObjectMeta{Name: "admin-binding", CreationTimestamp: &now}},
@@ -154,7 +154,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaceRoleBindings(mock.Anything, "default", mock.Anything).Return(&gen.AuthzRoleBindingList{
 		Items:      []gen.AuthzRoleBinding{},
 		Pagination: gen.Pagination{},
@@ -169,7 +169,7 @@ func TestList_Empty(t *testing.T) {
 }
 
 func TestList_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 
 	r := New(mc)
 	err := r.List(ListParams{Namespace: ""})
@@ -179,7 +179,7 @@ func TestList_ValidationError(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetNamespaceRoleBinding(mock.Anything, "default", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	r := New(mc)
@@ -188,7 +188,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetNamespaceRoleBinding(mock.Anything, "default", "admin-binding").Return(&gen.AuthzRoleBinding{
 		Metadata: gen.ObjectMeta{Name: "admin-binding"},
 	}, nil)
@@ -202,7 +202,7 @@ func TestGet_Success(t *testing.T) {
 }
 
 func TestGet_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 
 	r := New(mc)
 	err := r.Get(GetParams{Namespace: "", Name: "admin-binding"})
@@ -212,7 +212,7 @@ func TestGet_ValidationError(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteNamespaceRoleBinding(mock.Anything, "default", "admin-binding").Return(fmt.Errorf("forbidden: admin-binding"))
 
 	r := New(mc)
@@ -221,7 +221,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteNamespaceRoleBinding(mock.Anything, "default", "admin-binding").Return(nil)
 
 	r := New(mc)
@@ -233,7 +233,7 @@ func TestDelete_Success(t *testing.T) {
 }
 
 func TestDelete_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 
 	r := New(mc)
 	err := r.Delete(DeleteParams{Namespace: "", Name: "admin-binding"})

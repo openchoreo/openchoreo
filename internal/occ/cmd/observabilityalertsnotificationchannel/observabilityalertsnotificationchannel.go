@@ -14,24 +14,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by ObservabilityAlertsNotificationChannel operations.
-type Client interface {
-	ListObservabilityAlertsNotificationChannels(ctx context.Context, namespaceName string, params *gen.ListObservabilityAlertsNotificationChannelsParams) (*gen.ObservabilityAlertsNotificationChannelList, error)
-	GetObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName string, channelName string) (*gen.ObservabilityAlertsNotificationChannel, error)
-	DeleteObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName string, channelName string) error
-}
-
 // ObservabilityAlertsNotificationChannel implements observability alerts notification channel operations
 type ObservabilityAlertsNotificationChannel struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new observability alerts notification channel implementation
-func New(client Client) *ObservabilityAlertsNotificationChannel {
-	return &ObservabilityAlertsNotificationChannel{client: client}
+func New(c client.Interface) *ObservabilityAlertsNotificationChannel {
+	return &ObservabilityAlertsNotificationChannel{client: c}
 }
 
 // List lists all observability alerts notification channels in a namespace

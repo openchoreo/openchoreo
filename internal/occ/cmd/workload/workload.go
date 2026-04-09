@@ -20,30 +20,24 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
 	"github.com/openchoreo/openchoreo/internal/occ/resources"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/kinds"
 	synth "github.com/openchoreo/openchoreo/internal/occ/resources/workload"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
-// Client defines the client methods used by Workload operations.
-type Client interface {
-	ListWorkloads(ctx context.Context, namespaceName string, params *gen.ListWorkloadsParams) (*gen.WorkloadList, error)
-	GetWorkload(ctx context.Context, namespaceName string, workloadName string) (*gen.Workload, error)
-	DeleteWorkload(ctx context.Context, namespaceName string, workloadName string) error
-}
-
 // Workload implements workload operations.
 type Workload struct {
 	config resources.CRDConfig
-	client Client
+	client client.Interface
 }
 
 // New creates a new Workload with the default config.
-func New(client Client) *Workload {
+func New(c client.Interface) *Workload {
 	return &Workload{
 		config: resources.WorkloadV1Config,
-		client: client,
+		client: c,
 	}
 }
 

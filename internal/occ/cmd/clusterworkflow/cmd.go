@@ -12,7 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
-func NewClusterWorkflowCmd() *cobra.Command {
+func NewClusterWorkflowCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "clusterworkflow",
 		Aliases: []string{"clusterworkflows"},
@@ -20,16 +20,16 @@ func NewClusterWorkflowCmd() *cobra.Command {
 		Long:    `Manage cluster-scoped workflows for OpenChoreo.`,
 	}
 	cmd.AddCommand(
-		newListCmd(),
-		newGetCmd(),
-		newDeleteCmd(),
-		newStartCmd(),
-		newLogsCmd(),
+		newListCmd(f),
+		newGetCmd(f),
+		newDeleteCmd(f),
+		newStartCmd(f),
+		newLogsCmd(f),
 	)
 	return cmd
 }
 
-func newListCmd() *cobra.Command {
+func newListCmd(f client.NewClientFunc) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List cluster workflows",
@@ -38,7 +38,7 @@ func newListCmd() *cobra.Command {
   occ clusterworkflow list`,
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -47,7 +47,7 @@ func newListCmd() *cobra.Command {
 	}
 }
 
-func newGetCmd() *cobra.Command {
+func newGetCmd(f client.NewClientFunc) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get [CLUSTER_WORKFLOW_NAME]",
 		Short: "Get a cluster workflow",
@@ -57,7 +57,7 @@ func newGetCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -66,7 +66,7 @@ func newGetCmd() *cobra.Command {
 	}
 }
 
-func newDeleteCmd() *cobra.Command {
+func newDeleteCmd(f client.NewClientFunc) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete [CLUSTER_WORKFLOW_NAME]",
 		Short: "Delete a cluster workflow",
@@ -76,7 +76,7 @@ func newDeleteCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -85,7 +85,7 @@ func newDeleteCmd() *cobra.Command {
 	}
 }
 
-func newStartCmd() *cobra.Command {
+func newStartCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run CLUSTER_WORKFLOW_NAME",
 		Short: "Run a cluster workflow",
@@ -100,7 +100,7 @@ Requires --namespace to specify where the workflow run will be created.`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -116,7 +116,7 @@ Requires --namespace to specify where the workflow run will be created.`,
 	return cmd
 }
 
-func newLogsCmd() *cobra.Command {
+func newLogsCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs CLUSTER_WORKFLOW_NAME",
 		Short: "Get logs for a cluster workflow run",
@@ -130,7 +130,7 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}

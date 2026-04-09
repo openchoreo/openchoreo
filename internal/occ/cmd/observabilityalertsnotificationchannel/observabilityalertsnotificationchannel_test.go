@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityalertsnotificationchannel/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -79,14 +79,14 @@ func TestPrintList_WithItems(t *testing.T) {
 // --- List tests ---
 
 func TestList_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	o := New(mc)
 	err := o.List(ListParams{Namespace: ""})
 	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListObservabilityAlertsNotificationChannels(mock.Anything, "org-a", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	o := New(mc)
@@ -94,7 +94,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListObservabilityAlertsNotificationChannels(mock.Anything, "org-a", mock.Anything).Return(&gen.ObservabilityAlertsNotificationChannelList{
 		Items:      []gen.ObservabilityAlertsNotificationChannel{{Metadata: gen.ObjectMeta{Name: "channel-1"}}},
 		Pagination: gen.Pagination{},
@@ -109,7 +109,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListObservabilityAlertsNotificationChannels(mock.Anything, "org-a", mock.Anything).Return(&gen.ObservabilityAlertsNotificationChannelList{
 		Items: []gen.ObservabilityAlertsNotificationChannel{
 			{Metadata: gen.ObjectMeta{Name: "channel-1", CreationTimestamp: &now}},
@@ -127,7 +127,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListObservabilityAlertsNotificationChannels(mock.Anything, "org-a", mock.Anything).Return(&gen.ObservabilityAlertsNotificationChannelList{
 		Items:      []gen.ObservabilityAlertsNotificationChannel{},
 		Pagination: gen.Pagination{},
@@ -143,14 +143,14 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	o := New(mc)
 	err := o.Get(GetParams{Namespace: "", ChannelName: "channel-1"})
 	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetObservabilityAlertsNotificationChannel(mock.Anything, "org-a", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	o := New(mc)
@@ -158,7 +158,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetObservabilityAlertsNotificationChannel(mock.Anything, "org-a", "channel-1").Return(&gen.ObservabilityAlertsNotificationChannel{
 		Metadata: gen.ObjectMeta{Name: "channel-1"},
 	}, nil)
@@ -173,14 +173,14 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	o := New(mc)
 	err := o.Delete(DeleteParams{Namespace: "", ChannelName: "channel-1"})
 	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteObservabilityAlertsNotificationChannel(mock.Anything, "org-a", "channel-1").Return(fmt.Errorf("forbidden"))
 
 	o := New(mc)
@@ -188,7 +188,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteObservabilityAlertsNotificationChannel(mock.Anything, "org-a", "channel-1").Return(nil)
 
 	o := New(mc)

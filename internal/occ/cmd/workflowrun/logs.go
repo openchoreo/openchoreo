@@ -54,7 +54,7 @@ func (w *WorkflowRun) Logs(params LogsParams) error {
 }
 
 // fetchLiveLogs fetches logs from the OpenChoreo API (workflow plane proxy)
-func (w *WorkflowRun) fetchLiveLogs(ctx context.Context, apiClient Client, params LogsParams) error {
+func (w *WorkflowRun) fetchLiveLogs(ctx context.Context, apiClient client.Interface, params LogsParams) error {
 	sinceSeconds := parseSinceToSeconds(params.Since)
 
 	if params.Follow {
@@ -76,7 +76,7 @@ func (w *WorkflowRun) fetchLiveLogs(ctx context.Context, apiClient Client, param
 }
 
 // followLiveLogs continuously polls for new live logs
-func (w *WorkflowRun) followLiveLogs(ctx context.Context, apiClient Client, params LogsParams, sinceSeconds int64) error {
+func (w *WorkflowRun) followLiveLogs(ctx context.Context, apiClient client.Interface, params LogsParams, sinceSeconds int64) error {
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -168,7 +168,7 @@ func filterNewEntries(entries []gen.WorkflowRunLogEntry, lastSeen time.Time) []g
 }
 
 // fetchArchivedLogs fetches logs from the observer (OpenSearch)
-func (w *WorkflowRun) fetchArchivedLogs(ctx context.Context, apiClient Client, params LogsParams) error {
+func (w *WorkflowRun) fetchArchivedLogs(ctx context.Context, apiClient client.Interface, params LogsParams) error {
 	// Get the workflow run to find its workflow name and UID
 	workflowRun, err := apiClient.GetWorkflowRun(ctx, params.Namespace, params.WorkflowRunName)
 	if err != nil {
@@ -241,7 +241,7 @@ func (w *WorkflowRun) fetchArchivedLogs(ctx context.Context, apiClient Client, p
 // resolveObserverURL resolves the observer URL by traversing:
 // Workflow.WorkflowPlaneRef -> WorkflowPlane/ClusterWorkflowPlane -> ObservabilityPlane/ClusterObservabilityPlane -> ObserverURL
 // workflowName must be non-empty and the workflow's workflowPlaneRef is always set by CRD defaulting.
-func resolveObserverURL(ctx context.Context, apiClient Client, namespace, workflowName string) (string, error) {
+func resolveObserverURL(ctx context.Context, apiClient client.Interface, namespace, workflowName string) (string, error) {
 	// Resolve workflow plane from the workflow's workflowPlaneRef
 	obsPlaneRef, clusterObsPlaneRef := resolveWorkflowPlaneObsRef(ctx, apiClient, namespace, workflowName)
 
@@ -251,7 +251,7 @@ func resolveObserverURL(ctx context.Context, apiClient Client, namespace, workfl
 
 // resolveWorkflowPlaneObsRef resolves the workflow plane and returns its observability plane reference.
 // workflowName is always non-empty (validated at call site) and workflowPlaneRef is always set by CRD defaulting.
-func resolveWorkflowPlaneObsRef(ctx context.Context, apiClient Client, namespace, workflowName string) (*gen.ObservabilityPlaneRef, *gen.ClusterObservabilityPlaneRef) {
+func resolveWorkflowPlaneObsRef(ctx context.Context, apiClient client.Interface, namespace, workflowName string) (*gen.ObservabilityPlaneRef, *gen.ClusterObservabilityPlaneRef) {
 	wf, err := apiClient.GetWorkflow(ctx, namespace, workflowName)
 	if err != nil || wf.Spec == nil || wf.Spec.WorkflowPlaneRef == nil {
 		return nil, nil
@@ -275,7 +275,7 @@ func resolveWorkflowPlaneObsRef(ctx context.Context, apiClient Client, namespace
 }
 
 // resolveObserverURLFromObsRef resolves the observer URL from observability plane references
-func resolveObserverURLFromObsRef(ctx context.Context, apiClient Client, namespace string, obsRef *gen.ObservabilityPlaneRef, clusterObsRef *gen.ClusterObservabilityPlaneRef) (string, error) {
+func resolveObserverURLFromObsRef(ctx context.Context, apiClient client.Interface, namespace string, obsRef *gen.ObservabilityPlaneRef, clusterObsRef *gen.ClusterObservabilityPlaneRef) (string, error) {
 	// If we have a namespaced observability plane ref
 	if obsRef != nil {
 		switch obsRef.Kind {

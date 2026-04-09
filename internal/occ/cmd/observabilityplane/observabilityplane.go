@@ -14,24 +14,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by ObservabilityPlane operations.
-type Client interface {
-	ListObservabilityPlanes(ctx context.Context, namespaceName string, params *gen.ListObservabilityPlanesParams) (*gen.ObservabilityPlaneList, error)
-	GetObservabilityPlane(ctx context.Context, namespaceName string, observabilityPlaneName string) (*gen.ObservabilityPlane, error)
-	DeleteObservabilityPlane(ctx context.Context, namespaceName string, observabilityPlaneName string) error
-}
-
 // ObservabilityPlane implements observability plane operations
 type ObservabilityPlane struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new observability plane implementation
-func New(client Client) *ObservabilityPlane {
-	return &ObservabilityPlane{client: client}
+func New(c client.Interface) *ObservabilityPlane {
+	return &ObservabilityPlane{client: c}
 }
 
 // List lists all observability planes in a namespace

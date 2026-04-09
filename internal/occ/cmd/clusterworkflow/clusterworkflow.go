@@ -15,38 +15,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by ClusterWorkflow operations.
-type Client interface {
-	ListClusterWorkflows(ctx context.Context, params *gen.ListClusterWorkflowsParams) (*gen.ClusterWorkflowList, error)
-	GetClusterWorkflow(ctx context.Context, clusterWorkflowName string) (*gen.ClusterWorkflow, error)
-	DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName string) error
-
-	// StartRun + Logs (satisfies workflow.Client)
-	ListWorkflows(ctx context.Context, namespaceName string, params *gen.ListWorkflowsParams) (*gen.WorkflowList, error)
-	GetWorkflow(ctx context.Context, namespaceName, workflowName string) (*gen.Workflow, error)
-	DeleteWorkflow(ctx context.Context, namespaceName, workflowName string) error
-	CreateWorkflowRun(ctx context.Context, namespaceName string, req gen.WorkflowRun) (*gen.WorkflowRun, error)
-	ListWorkflowRuns(ctx context.Context, namespaceName string, params *gen.ListWorkflowRunsParams) (*gen.WorkflowRunList, error)
-	GetWorkflowRun(ctx context.Context, namespaceName, workflowRunName string) (*gen.WorkflowRun, error)
-	GetWorkflowRunStatus(ctx context.Context, namespaceName, runName string) (*gen.WorkflowRunStatusResponse, error)
-	GetWorkflowRunLogs(ctx context.Context, namespaceName, runName string, params *gen.GetWorkflowRunLogsParams) ([]gen.WorkflowRunLogEntry, error)
-	GetWorkflowPlane(ctx context.Context, namespaceName, workflowPlaneName string) (*gen.WorkflowPlane, error)
-	GetClusterWorkflowPlane(ctx context.Context, clusterWorkflowPlaneName string) (*gen.ClusterWorkflowPlane, error)
-	GetObservabilityPlane(ctx context.Context, namespaceName, observabilityPlaneName string) (*gen.ObservabilityPlane, error)
-	GetClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName string) (*gen.ClusterObservabilityPlane, error)
-}
-
 // ClusterWorkflow implements cluster workflow operations
 type ClusterWorkflow struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new cluster workflow implementation
-func New(client Client) *ClusterWorkflow {
-	return &ClusterWorkflow{client: client}
+func New(c client.Interface) *ClusterWorkflow {
+	return &ClusterWorkflow{client: c}
 }
 
 // List lists all cluster-scoped workflows

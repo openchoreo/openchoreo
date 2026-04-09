@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/componenttype/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -114,24 +114,24 @@ func TestPrint_NilSpec(t *testing.T) {
 // --- Validation tests ---
 
 func TestList_ValidationError(t *testing.T) {
-	ct := New(mocks.NewMockClient(t))
+	ct := New(mocks.NewMockInterface(t))
 	assert.Error(t, ct.List(ListParams{Namespace: ""}))
 }
 
 func TestGet_ValidationError(t *testing.T) {
-	ct := New(mocks.NewMockClient(t))
+	ct := New(mocks.NewMockInterface(t))
 	assert.Error(t, ct.Get(GetParams{Namespace: ""}))
 }
 
 func TestDelete_ValidationError(t *testing.T) {
-	ct := New(mocks.NewMockClient(t))
+	ct := New(mocks.NewMockInterface(t))
 	assert.Error(t, ct.Delete(DeleteParams{Namespace: "my-org", ComponentTypeName: ""}))
 }
 
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentTypes(mock.Anything, "my-org", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	ct := New(mc)
@@ -139,7 +139,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentTypes(mock.Anything, "my-org", mock.Anything).Return(&gen.ComponentTypeList{
 		Items:      []gen.ComponentType{{Metadata: gen.ObjectMeta{Name: "web-app"}}},
 		Pagination: gen.Pagination{},
@@ -156,7 +156,7 @@ func TestList_Success(t *testing.T) {
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
 	workloadType := gen.ComponentTypeSpecWorkloadTypeDeployment
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentTypes(mock.Anything, "my-org", mock.Anything).Return(&gen.ComponentTypeList{
 		Items: []gen.ComponentType{
 			{
@@ -180,7 +180,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentTypes(mock.Anything, "my-org", mock.Anything).Return(&gen.ComponentTypeList{
 		Items:      []gen.ComponentType{},
 		Pagination: gen.Pagination{},
@@ -197,7 +197,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponentType(mock.Anything, "my-org", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	ct := New(mc)
@@ -205,7 +205,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponentType(mock.Anything, "my-org", "web-app").Return(&gen.ComponentType{
 		Metadata: gen.ObjectMeta{Name: "web-app"},
 	}, nil)
@@ -221,7 +221,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteComponentType(mock.Anything, "my-org", "web-app").Return(fmt.Errorf("forbidden: web-app"))
 
 	ct := New(mc)
@@ -229,7 +229,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteComponentType(mock.Anything, "my-org", "web-app").Return(nil)
 
 	ct := New(mc)

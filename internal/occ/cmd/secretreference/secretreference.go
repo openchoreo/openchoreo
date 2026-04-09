@@ -14,24 +14,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by SecretReference operations.
-type Client interface {
-	ListSecretReferences(ctx context.Context, namespaceName string, params *gen.ListSecretReferencesParams) (*gen.SecretReferenceList, error)
-	GetSecretReference(ctx context.Context, namespaceName string, secretReferenceName string) (*gen.SecretReference, error)
-	DeleteSecretReference(ctx context.Context, namespaceName string, secretReferenceName string) error
-}
-
 // SecretReference implements secret reference operations
 type SecretReference struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new secret reference implementation
-func New(client Client) *SecretReference {
-	return &SecretReference{client: client}
+func New(c client.Interface) *SecretReference {
+	return &SecretReference{client: c}
 }
 
 // List lists all secret references in a namespace

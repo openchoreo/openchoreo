@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/clustercomponenttype/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -114,7 +114,7 @@ func TestPrint_NilSpec(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	cct := New(mc)
@@ -122,7 +122,7 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(&gen.ClusterComponentTypeList{
 		Items:      []gen.ClusterComponentType{{Metadata: gen.ObjectMeta{Name: "web-app"}}},
 		Pagination: gen.Pagination{},
@@ -139,7 +139,7 @@ func TestList_Success(t *testing.T) {
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
 	workloadType := gen.ClusterComponentTypeSpecWorkloadTypeDeployment
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(&gen.ClusterComponentTypeList{
 		Items: []gen.ClusterComponentType{
 			{
@@ -166,7 +166,7 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(&gen.ClusterComponentTypeList{
 		Items:      []gen.ClusterComponentType{},
 		Pagination: gen.Pagination{},
@@ -183,7 +183,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterComponentType(mock.Anything, "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	cct := New(mc)
@@ -191,7 +191,7 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterComponentType(mock.Anything, "web-app").Return(&gen.ClusterComponentType{
 		Metadata: gen.ObjectMeta{Name: "web-app"},
 	}, nil)
@@ -207,7 +207,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterComponentType(mock.Anything, "web-app").Return(fmt.Errorf("forbidden: web-app"))
 
 	cct := New(mc)
@@ -215,7 +215,7 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterComponentType(mock.Anything, "web-app").Return(nil)
 
 	cct := New(mc)

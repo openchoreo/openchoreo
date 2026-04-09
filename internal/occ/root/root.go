@@ -38,6 +38,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workload"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
 // BuildRootCmd assembles the root command with all subcommands.
@@ -48,39 +49,43 @@ func BuildRootCmd() *cobra.Command {
 		Long:  "occ is the command-line interface for OpenChoreo.",
 	}
 
+	f := client.NewClientFunc(func() (client.Interface, error) {
+		return client.NewClient()
+	})
+
 	rootCmd.AddCommand(
-		apply.NewApplyCmd(),
+		apply.NewApplyCmd(f),
 		login.NewLoginCmd(),
 		logout.NewLogoutCmd(),
 		config.NewConfigCmd(),
 		version.NewVersionCmd(),
-		componentrelease.NewComponentReleaseCmd(),
-		releasebinding.NewReleaseBindingCmd(),
-		namespace.NewNamespaceCmd(),
-		project.NewProjectCmd(),
-		component.NewComponentCmd(),
-		environment.NewEnvironmentCmd(),
-		dataplane.NewDataPlaneCmd(),
-		workflowplane.NewWorkflowPlaneCmd(),
-		observabilityplane.NewObservabilityPlaneCmd(),
-		componenttype.NewComponentTypeCmd(),
-		clustercomponenttype.NewClusterComponentTypeCmd(),
-		clusterdataplane.NewClusterDataPlaneCmd(),
-		clusterobservabilityplane.NewClusterObservabilityPlaneCmd(),
-		clusterworkflowplane.NewClusterWorkflowPlaneCmd(),
-		trait.NewTraitCmd(),
-		clustertrait.NewClusterTraitCmd(),
-		clusterworkflow.NewClusterWorkflowCmd(),
-		clusterauthzrole.NewClusterAuthzRoleCmd(),
-		clusterauthzrolebinding.NewClusterAuthzRoleBindingCmd(),
-		authzrole.NewAuthzRoleCmd(),
-		authzrolebinding.NewAuthzRoleBindingCmd(),
-		workflow.NewWorkflowCmd(),
-		workflowrun.NewWorkflowRunCmd(),
-		secretreference.NewSecretReferenceCmd(),
-		workload.NewWorkloadCmd(),
-		deploymentpipeline.NewDeploymentPipelineCmd(),
-		observabilityalertsnotificationchannel.NewObservabilityAlertsNotificationChannelCmd(),
+		componentrelease.NewComponentReleaseCmd(f),
+		releasebinding.NewReleaseBindingCmd(f),
+		namespace.NewNamespaceCmd(f),
+		project.NewProjectCmd(f),
+		component.NewComponentCmd(f),
+		environment.NewEnvironmentCmd(f),
+		dataplane.NewDataPlaneCmd(f),
+		workflowplane.NewWorkflowPlaneCmd(f),
+		observabilityplane.NewObservabilityPlaneCmd(f),
+		componenttype.NewComponentTypeCmd(f),
+		clustercomponenttype.NewClusterComponentTypeCmd(f),
+		clusterdataplane.NewClusterDataPlaneCmd(f),
+		clusterobservabilityplane.NewClusterObservabilityPlaneCmd(f),
+		clusterworkflowplane.NewClusterWorkflowPlaneCmd(f),
+		trait.NewTraitCmd(f),
+		clustertrait.NewClusterTraitCmd(f),
+		clusterworkflow.NewClusterWorkflowCmd(f),
+		clusterauthzrole.NewClusterAuthzRoleCmd(f),
+		clusterauthzrolebinding.NewClusterAuthzRoleBindingCmd(f),
+		authzrole.NewAuthzRoleCmd(f),
+		authzrolebinding.NewAuthzRoleBindingCmd(f),
+		workflow.NewWorkflowCmd(f),
+		workflowrun.NewWorkflowRunCmd(f),
+		secretreference.NewSecretReferenceCmd(f),
+		workload.NewWorkloadCmd(f),
+		deploymentpipeline.NewDeploymentPipelineCmd(f),
+		observabilityalertsnotificationchannel.NewObservabilityAlertsNotificationChannelCmd(f),
 	)
 
 	return rootCmd

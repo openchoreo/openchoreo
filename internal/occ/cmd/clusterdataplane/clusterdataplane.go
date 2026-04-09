@@ -13,24 +13,18 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by ClusterDataPlane operations.
-type Client interface {
-	ListClusterDataPlanes(ctx context.Context, params *gen.ListClusterDataPlanesParams) (*gen.ClusterDataPlaneList, error)
-	GetClusterDataPlane(ctx context.Context, clusterDataPlaneName string) (*gen.ClusterDataPlane, error)
-	DeleteClusterDataPlane(ctx context.Context, clusterDataPlaneName string) error
-}
-
 // ClusterDataPlane implements cluster data plane operations
 type ClusterDataPlane struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new cluster data plane implementation
-func New(client Client) *ClusterDataPlane {
-	return &ClusterDataPlane{client: client}
+func New(c client.Interface) *ClusterDataPlane {
+	return &ClusterDataPlane{client: c}
 }
 
 // List lists all cluster-scoped data planes

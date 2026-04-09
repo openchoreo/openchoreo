@@ -11,7 +11,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
-func NewClusterAuthzRoleBindingCmd() *cobra.Command {
+func NewClusterAuthzRoleBindingCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "clusterauthzrolebinding",
 		Aliases: []string{"clusterauthzrolebindings", "carb"},
@@ -19,14 +19,14 @@ func NewClusterAuthzRoleBindingCmd() *cobra.Command {
 		Long:    `Manage cluster-scoped authorization role bindings for OpenChoreo.`,
 	}
 	cmd.AddCommand(
-		newListCmd(),
-		newGetCmd(),
-		newDeleteCmd(),
+		newListCmd(f),
+		newGetCmd(f),
+		newDeleteCmd(f),
 	)
 	return cmd
 }
 
-func newListCmd() *cobra.Command {
+func newListCmd(f client.NewClientFunc) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List cluster authz role bindings",
@@ -35,7 +35,7 @@ func newListCmd() *cobra.Command {
   occ clusterauthzrolebinding list`,
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -44,7 +44,7 @@ func newListCmd() *cobra.Command {
 	}
 }
 
-func newGetCmd() *cobra.Command {
+func newGetCmd(f client.NewClientFunc) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get [CLUSTER_AUTHZ_ROLE_BINDING_NAME]",
 		Short: "Get a cluster authz role binding",
@@ -54,7 +54,7 @@ func newGetCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
@@ -63,7 +63,7 @@ func newGetCmd() *cobra.Command {
 	}
 }
 
-func newDeleteCmd() *cobra.Command {
+func newDeleteCmd(f client.NewClientFunc) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete [CLUSTER_AUTHZ_ROLE_BINDING_NAME]",
 		Short: "Delete a cluster authz role binding",
@@ -73,7 +73,7 @@ func newDeleteCmd() *cobra.Command {
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cl, err := client.NewClient()
+			cl, err := f()
 			if err != nil {
 				return err
 			}
