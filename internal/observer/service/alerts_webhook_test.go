@@ -139,6 +139,9 @@ func newWebhookTestFixture(t *testing.T, suppressionWindow time.Duration, alertR
 	}
 }
 
+// alertCount returns the total number of alert entries, or -1 on error.
+// require is not used because assert.Eventually/Never run conditions in a
+// goroutine, and t.FailNow from a non-test goroutine panics.
 func (f *webhookTestFixture) alertCount(t *testing.T) int {
 	t.Helper()
 	_, total, err := f.alertStore.QueryAlertEntries(context.Background(), alertentry.QueryParams{
@@ -146,10 +149,14 @@ func (f *webhookTestFixture) alertCount(t *testing.T) int {
 		EndTime:   "2099-01-01T00:00:00Z",
 		Limit:     100,
 	})
-	require.NoError(t, err)
+	if err != nil {
+		return -1
+	}
 	return total
 }
 
+// incidentCount returns the total number of incident entries, or -1 on error.
+// See alertCount for why require is not used.
 func (f *webhookTestFixture) incidentCount(t *testing.T) int {
 	t.Helper()
 	_, total, err := f.incidentStore.QueryIncidentEntries(context.Background(), incidententry.QueryParams{
@@ -157,7 +164,9 @@ func (f *webhookTestFixture) incidentCount(t *testing.T) int {
 		EndTime:   "2099-01-01T00:00:00Z",
 		Limit:     100,
 	})
-	require.NoError(t, err)
+	if err != nil {
+		return -1
+	}
 	return total
 }
 
@@ -174,8 +183,6 @@ func webhookReq(crName string) gen.AlertWebhookRequest {
 }
 
 func TestWebhook_FirstAlert_FullProcessing(t *testing.T) {
-	t.Parallel()
-
 	rule := testAlertRule("rule-cr-1", true, true)
 	f := newWebhookTestFixture(t, 1*time.Hour, rule, true)
 
@@ -196,8 +203,6 @@ func TestWebhook_FirstAlert_FullProcessing(t *testing.T) {
 }
 
 func TestWebhook_DuplicateWithinWindow_Suppressed(t *testing.T) {
-	t.Parallel()
-
 	rule := testAlertRule("rule-cr-1", true, true)
 	f := newWebhookTestFixture(t, 1*time.Hour, rule, true)
 
@@ -224,8 +229,6 @@ func TestWebhook_DuplicateWithinWindow_Suppressed(t *testing.T) {
 }
 
 func TestWebhook_DifferentRule_NotSuppressed(t *testing.T) {
-	t.Parallel()
-
 	rule1 := testAlertRule("rule-cr-1", false, false)
 	rule2 := testAlertRule("rule-cr-2", false, false)
 
@@ -270,8 +273,6 @@ func TestWebhook_DifferentRule_NotSuppressed(t *testing.T) {
 }
 
 func TestWebhook_SuppressionDisabled_BothProcessed(t *testing.T) {
-	t.Parallel()
-
 	rule := testAlertRule("rule-cr-1", false, false)
 	f := newWebhookTestFixture(t, 0, rule, false)
 
@@ -287,8 +288,6 @@ func TestWebhook_SuppressionDisabled_BothProcessed(t *testing.T) {
 }
 
 func TestWebhook_IncidentDisabled_NoIncidentCreated(t *testing.T) {
-	t.Parallel()
-
 	rule := testAlertRule("rule-cr-1", false, false)
 	f := newWebhookTestFixture(t, 1*time.Hour, rule, false)
 
@@ -304,8 +303,6 @@ func TestWebhook_IncidentDisabled_NoIncidentCreated(t *testing.T) {
 }
 
 func TestWebhook_RCADisabled_NoRCACall(t *testing.T) {
-	t.Parallel()
-
 	rule := testAlertRule("rule-cr-1", true, true)
 	// aiRCAEnabled=false at service level
 	f := newWebhookTestFixture(t, 1*time.Hour, rule, false)
