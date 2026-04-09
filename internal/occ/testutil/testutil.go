@@ -98,3 +98,12 @@ func WriteYAML(t *testing.T, repoDir, relPath, content string) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(absPath), 0755))
 	require.NoError(t, os.WriteFile(absPath, []byte(content), 0600))
 }
+
+// SetOSArgs replaces os.Args for the duration of the test and restores
+// the original value via t.Cleanup.
+func SetOSArgs(t *testing.T, args []string) {
+	t.Helper()
+	original := os.Args
+	t.Cleanup(func() { os.Args = original })
+	os.Args = args
+}

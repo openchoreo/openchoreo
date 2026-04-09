@@ -131,3 +131,79 @@ func TestDeleteCmd_Success(t *testing.T) {
 	})
 	assert.Contains(t, out, "deleted")
 }
+
+// --- isFlagInArgs ---
+
+func TestIsFlagInArgs_ExactMatch(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "releasebinding", "generate", "--all"})
+	assert.True(t, isFlagInArgs("--all"))
+	assert.False(t, isFlagInArgs("--project"))
+}
+
+func TestIsFlagInArgs_EqualsForm(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "releasebinding", "generate", "--project=my-proj"})
+	assert.True(t, isFlagInArgs("--project"))
+	assert.False(t, isFlagInArgs("--component"))
+}
+
+func TestIsFlagInArgs_NotPresent(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "releasebinding", "generate"})
+	assert.False(t, isFlagInArgs("--all"))
+}
+
+// --- generate validation ---
+
+func TestGenerateCmd_NoScopeFlag(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "releasebinding", "generate"})
+	cmd := newGenerateCmd()
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "one of --all, --project, or --component must be specified")
+}
+
+func TestGenerateCmd_AllWithoutUsePipeline(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "releasebinding", "generate", "--all"})
+	cmd := newGenerateCmd()
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--use-pipeline is required when using --all scope")
+}
+
+func TestGenerateCmd_AllWithProject(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "releasebinding", "generate", "--all", "--project=my-proj", "--use-pipeline=main"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("project", "my-proj")
+	_ = cmd.Flags().Set("use-pipeline", "main")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--all cannot be combined with --project or --component")
+}
+
+func TestGenerateCmd_AllWithComponent(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "releasebinding", "generate", "--all", "--component=my-comp", "--use-pipeline=main"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("component", "my-comp")
+	_ = cmd.Flags().Set("use-pipeline", "main")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--all cannot be combined with --project or --component")
+}
+
+func TestGenerateCmd_ComponentWithoutProject(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "releasebinding", "generate", "--component=my-comp"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("component", "my-comp")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--component requires --project to be specified")
+}
+
+func TestGenerateCmd_ComponentReleaseWithoutProjectComponent(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "releasebinding", "generate", "--component-release=cr-v1", "--project=my-proj"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("component-release", "cr-v1")
+	_ = cmd.Flags().Set("project", "my-proj")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--component-release requires both --project and --component")
+}

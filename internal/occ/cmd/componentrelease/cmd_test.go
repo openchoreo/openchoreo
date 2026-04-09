@@ -131,3 +131,78 @@ func TestDeleteCmd_Success(t *testing.T) {
 	})
 	assert.Contains(t, out, "deleted")
 }
+
+// --- isFlagInArgs ---
+
+func TestIsFlagInArgs_ExactMatch(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentrelease", "generate", "--all"})
+	assert.True(t, isFlagInArgs("--all"))
+	assert.False(t, isFlagInArgs("--project"))
+}
+
+func TestIsFlagInArgs_EqualsForm(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentrelease", "generate", "--project=my-proj"})
+	assert.True(t, isFlagInArgs("--project"))
+	assert.False(t, isFlagInArgs("--component"))
+}
+
+func TestIsFlagInArgs_NotPresent(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentrelease", "generate"})
+	assert.False(t, isFlagInArgs("--all"))
+}
+
+// --- generate validation ---
+
+func TestGenerateCmd_NoScopeFlag(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentrelease", "generate"})
+	cmd := newGenerateCmd()
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "one of --all, --project, or --component must be specified")
+}
+
+func TestGenerateCmd_AllWithProject(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentrelease", "generate", "--all", "--project=my-proj"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("project", "my-proj")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--all cannot be combined with --project or --component")
+}
+
+func TestGenerateCmd_AllWithComponent(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentrelease", "generate", "--all", "--component=my-comp"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("component", "my-comp")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--all cannot be combined with --project or --component")
+}
+
+func TestGenerateCmd_AllWithName(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentrelease", "generate", "--all", "--name=my-name"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("name", "my-name")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--all cannot be combined with --name")
+}
+
+func TestGenerateCmd_ComponentWithoutProject(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentrelease", "generate", "--component=my-comp"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("component", "my-comp")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--component requires --project to be specified")
+}
+
+func TestGenerateCmd_ProjectWithName(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentrelease", "generate", "--project=my-proj", "--name=my-name"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("project", "my-proj")
+	_ = cmd.Flags().Set("name", "my-name")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.EqualError(t, err, "--name can only be used with --component (requires both --project and --component)")
+}
