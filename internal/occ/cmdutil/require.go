@@ -31,6 +31,6 @@ func RequireFields(cmd, resource string, fields map[string]string) error {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Missing required parameter%s: --%s\n\n", plural, strings.Join(missing, ", --"))
 	b.WriteString("To see usage details:\n")
-	fmt.Fprintf(&b, "  occ %s %s -h", cmd, resource)
+	fmt.Fprintf(&b, "  occ %s %s -h", resource, cmd)
 	return fmt.Errorf("%s", b.String())
 }

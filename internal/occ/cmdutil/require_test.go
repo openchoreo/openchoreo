@@ -25,7 +25,7 @@ func TestRequireFields(t *testing.T) {
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "--namespace")
-		assert.Contains(t, err.Error(), "occ get component -h")
+		assert.Contains(t, err.Error(), "occ component get -h")
 		assert.NotContains(t, err.Error(), "parameters") // singular form
 	})
 
@@ -38,7 +38,7 @@ func TestRequireFields(t *testing.T) {
 		msg := err.Error()
 		assert.Contains(t, msg, "--name, --namespace")
 		assert.Contains(t, msg, "parameters") // plural form
-		assert.Contains(t, msg, "occ delete project -h")
+		assert.Contains(t, msg, "occ project delete -h")
 	})
 
 	t.Run("mix of set and missing fields", func(t *testing.T) {
