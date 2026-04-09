@@ -91,6 +91,7 @@ func TestConvertSpansResponseToGen(t *testing.T) {
 			{
 				SpanID:    "span-1",
 				SpanName:  "http.request",
+				SpanKind:  "SERVER",
 				StartTime: &now,
 				EndTime:   &now,
 			},
@@ -146,6 +147,7 @@ func TestConvertSpanDetailsToGen(t *testing.T) {
 	span := &types.SpanInfo{
 		SpanID:       "span-1",
 		SpanName:     "http.request",
+		SpanKind:     "SERVER",
 		ParentSpanID: "span-0",
 		StartTime:    &now,
 		EndTime:      &now,
@@ -161,6 +163,7 @@ func TestConvertSpanDetailsToGen(t *testing.T) {
 	spanData := convertSpanDetailsToGen(span)
 	require.NotNil(t, spanData)
 	assert.Equal(t, "span-1", spanData["spanId"])
+	assert.Equal(t, "SERVER", spanData["spanKind"])
 }
 
 func TestConvertSpanDetailsToGen_NilSpan(t *testing.T) {

@@ -21,6 +21,7 @@ func TestParseSpanEntry(t *testing.T) {
 					"traceId":         "b72e731db5edfd1df2658bd78f751862",
 					"spanId":          "614f55c7ccbfffdc",
 					"name":            "database-query",
+					"kind":            "SERVER",
 					"durationInNanos": int64(101018208),
 					"startTime":       "2025-10-28T11:13:56.484388Z",
 					"endTime":         "2025-10-28T11:13:56.585406208Z",
@@ -29,6 +30,7 @@ func TestParseSpanEntry(t *testing.T) {
 			expected: Span{
 				SpanID:              "614f55c7ccbfffdc",
 				Name:                "database-query",
+				SpanKind:            "SERVER",
 				DurationNanoseconds: 101018208,
 				StartTime:           mustParseTime("2025-10-28T11:13:56.484388Z"),
 				EndTime:             mustParseTime("2025-10-28T11:13:56.585406208Z"),

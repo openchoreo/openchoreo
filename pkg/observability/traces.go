@@ -22,6 +22,7 @@ type TracingAdapter interface {
 type SpanDetail struct {
 	SpanID             string                 `json:"spanId"`
 	SpanName           string                 `json:"spanName"`
+	SpanKind           string                 `json:"spanKind,omitempty"`
 	ParentSpanID       string                 `json:"parentSpanId,omitempty"`
 	StartTime          time.Time              `json:"startTime"`
 	EndTime            time.Time              `json:"endTime"`
@@ -80,6 +81,7 @@ type Trace struct {
 type TraceSpan struct {
 	SpanID             string                 `json:"spanId"`
 	Name               string                 `json:"name"`
+	SpanKind           string                 `json:"spanKind,omitempty"`
 	ParentSpanID       string                 `json:"parentSpanId,omitempty"`
 	StartTime          time.Time              `json:"startTime"`
 	EndTime            time.Time              `json:"endTime"`

@@ -173,12 +173,14 @@ func TestTracesService_ConvertSpansToResponse(t *testing.T) {
 					{
 						SpanID:    "span-1",
 						Name:      "http.request",
+						SpanKind:  "SERVER",
 						StartTime: now,
 						EndTime:   now.Add(100 * time.Millisecond),
 					},
 					{
 						SpanID:       "span-2",
 						Name:         "db.query",
+						SpanKind:     "CLIENT",
 						ParentSpanID: "span-1",
 						StartTime:    now.Add(20 * time.Millisecond),
 						EndTime:      now.Add(80 * time.Millisecond),
@@ -208,9 +210,15 @@ func TestTracesService_ConvertSpansToResponse(t *testing.T) {
 	if resp.Spans[0].SpanID != "span-1" {
 		t.Errorf("Expected first span ID 'span-1', got %s", resp.Spans[0].SpanID)
 	}
+	if resp.Spans[0].SpanKind != "SERVER" {
+		t.Errorf("Expected first span kind 'SERVER', got %s", resp.Spans[0].SpanKind)
+	}
 
 	if resp.Spans[1].SpanID != "span-2" {
 		t.Errorf("Expected second span ID 'span-2', got %s", resp.Spans[1].SpanID)
+	}
+	if resp.Spans[1].SpanKind != "CLIENT" {
+		t.Errorf("Expected second span kind 'CLIENT', got %s", resp.Spans[1].SpanKind)
 	}
 }
 

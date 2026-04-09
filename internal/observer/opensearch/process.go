@@ -88,6 +88,7 @@ func ParseSpanEntry(hit Hit) Span {
 		ParentSpanID:           getString("parentSpanId"),
 		StartTime:              startTime,
 		SpanID:                 getString("spanId"),
+		SpanKind:               getString("kind"),
 		Attributes:             attributes,
 		ResourceAttributes:     resourceAttributes,
 	}

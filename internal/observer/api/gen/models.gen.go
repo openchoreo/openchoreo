@@ -800,6 +800,9 @@ type TraceSpanDetailsResponse struct {
 	// SpanId The span ID
 	SpanId *string `json:"spanId,omitempty"`
 
+	// SpanKind The kind of the span
+	SpanKind *string `json:"spanKind,omitempty"`
+
 	// SpanName The name of the span
 	SpanName *string `json:"spanName,omitempty"`
 

@@ -45,6 +45,7 @@ type SpansQueryResponse struct {
 type SpanInfo struct {
 	SpanID             string                 `json:"spanId"`
 	SpanName           string                 `json:"spanName"`
+	SpanKind           string                 `json:"spanKind,omitempty"`
 	ParentSpanID       string                 `json:"parentSpanId,omitempty"`
 	StartTime          *time.Time             `json:"startTime,omitempty"`
 	EndTime            *time.Time             `json:"endTime,omitempty"`

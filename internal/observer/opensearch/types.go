@@ -135,6 +135,7 @@ type Span struct {
 	OpenChoreoProjectUID   string                 `json:"openChoreoProjectUid"`
 	ParentSpanID           string                 `json:"parentSpanId"`
 	SpanID                 string                 `json:"spanId"`
+	SpanKind               string                 `json:"spanKind"`
 	StartTime              time.Time              `json:"startTime"`
 	Attributes             map[string]interface{} `json:"attributes,omitempty"`
 	ResourceAttributes     map[string]interface{} `json:"resourceAttributes,omitempty"`
