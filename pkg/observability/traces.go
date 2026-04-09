@@ -75,7 +75,7 @@ type Trace struct {
 	StartTime    time.Time   `json:"startTime"`
 	EndTime      time.Time   `json:"endTime"`
 	DurationNs   int64       `json:"durationNs"`
-	HasErrors    bool        `json:"hasErrors,omitempty"`
+	HasErrors    bool        `json:"hasErrors"`
 	Spans        []TraceSpan `json:"spans,omitempty"`
 }
 

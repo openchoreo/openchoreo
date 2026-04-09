@@ -32,7 +32,7 @@ type TraceInfo struct {
 	StartTime    *time.Time `json:"startTime,omitempty"`
 	EndTime      *time.Time `json:"endTime,omitempty"`
 	DurationNs   int64      `json:"durationNs,omitempty"`
-	HasErrors    bool       `json:"hasErrors,omitempty"`
+	HasErrors    bool       `json:"hasErrors"`
 }
 
 // SpansQueryResponse represents the internal response for span queries

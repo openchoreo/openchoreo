@@ -315,9 +315,7 @@ func convertTracesResponseToGen(resp *types.TracesQueryResponse) *gen.TracesQuer
 			"startTime":    trace.StartTime,
 			"endTime":      trace.EndTime,
 			"durationNs":   trace.DurationNs,
-		}
-		if trace.HasErrors {
-			traceData[i]["hasErrors"] = trace.HasErrors
+			"hasErrors":    trace.HasErrors,
 		}
 	}
 
