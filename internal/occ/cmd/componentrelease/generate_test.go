@@ -15,7 +15,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
-	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
@@ -51,7 +50,7 @@ func TestGenerate_InvalidModeRejected(t *testing.T) {
 // --- Generate: config loading ---
 
 func TestGenerate_NoConfigFile_NoCurrentContext(t *testing.T) {
-	th.SetupTestHome(t)
+	testutil.SetupTestHome(t)
 	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
 	// file-system mode, but no config file → LoadStoredConfig returns empty → "no current context set"
@@ -63,8 +62,8 @@ func TestGenerate_NoConfigFile_NoCurrentContext(t *testing.T) {
 // --- Generate: context resolution ---
 
 func TestGenerate_EmptyCurrentContext(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "",
 		Contexts:       []config.Context{},
 	})
@@ -77,8 +76,8 @@ func TestGenerate_EmptyCurrentContext(t *testing.T) {
 }
 
 func TestGenerate_CurrentContextNotFound(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "missing-ctx",
 		Contexts: []config.Context{
 			{Name: "other-ctx", Namespace: "ns"},
@@ -95,8 +94,8 @@ func TestGenerate_CurrentContextNotFound(t *testing.T) {
 // --- Generate: namespace validation ---
 
 func TestGenerate_EmptyNamespaceInContext(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts: []config.Context{
 			{Name: "my-ctx", Namespace: ""},
@@ -120,8 +119,8 @@ func TestGenerate_EmptyNamespaceInContext(t *testing.T) {
 // --- Generate: component requires project ---
 
 func TestGenerate_ComponentRequiresProject(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts: []config.Context{
 			{Name: "my-ctx", Namespace: "test-ns"},
@@ -201,8 +200,8 @@ func TestPrintYAML_Success(t *testing.T) {
 // --- Generate: no-op when no scope specified ---
 
 func TestGenerate_NoScope_ReturnsNil(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts: []config.Context{
 			{Name: "my-ctx", Namespace: "test-ns"},
@@ -233,7 +232,7 @@ func setupRepoWithComponent(t *testing.T) string {
 	t.Helper()
 	repoDir := t.TempDir()
 
-	th.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/component.yaml", `
+	testutil.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/component.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -247,7 +246,7 @@ spec:
     kind: ComponentType
 `)
 
-	th.WriteYAML(t, repoDir, "platform/component-types/service.yaml", `
+	testutil.WriteYAML(t, repoDir, "platform/component-types/service.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentType
 metadata:
@@ -265,7 +264,7 @@ spec:
   schema: {}
 `)
 
-	th.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/workload.yaml", `
+	testutil.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/workload.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
@@ -287,7 +286,7 @@ func setupRepoWithTwoComponents(t *testing.T) string {
 	t.Helper()
 	repoDir := setupRepoWithComponent(t)
 
-	th.WriteYAML(t, repoDir, "projects/myproj/components/my-worker/component.yaml", `
+	testutil.WriteYAML(t, repoDir, "projects/myproj/components/my-worker/component.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -301,7 +300,7 @@ spec:
     kind: ComponentType
 `)
 
-	th.WriteYAML(t, repoDir, "projects/myproj/components/my-worker/workload.yaml", `
+	testutil.WriteYAML(t, repoDir, "projects/myproj/components/my-worker/workload.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
@@ -321,8 +320,8 @@ spec:
 // --- generateForComponent: dry-run ---
 
 func TestGenerate_SingleComponent_DryRun(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -369,14 +368,14 @@ spec:
     container:
       image: registry/my-svc:v1
 `
-	th.AssertYAMLEquals(t, expectedYAML, th.ExtractYAML(out))
+	testutil.AssertYAMLEquals(t, expectedYAML, testutil.ExtractYAML(out))
 }
 
 // --- generateForComponent: write to disk ---
 
 func TestGenerate_SingleComponent_Write(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -415,8 +414,8 @@ func TestGenerate_SingleComponent_Write(t *testing.T) {
 // --- generateForComponent: write with custom output path ---
 
 func TestGenerate_SingleComponent_CustomOutputPath(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -445,8 +444,8 @@ func TestGenerate_SingleComponent_CustomOutputPath(t *testing.T) {
 // --- generateForProject: dry-run ---
 
 func TestGenerate_Project_DryRun(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -474,8 +473,8 @@ func TestGenerate_Project_DryRun(t *testing.T) {
 // --- generateForProject: write ---
 
 func TestGenerate_Project_Write(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -513,8 +512,8 @@ func TestGenerate_Project_Write(t *testing.T) {
 // --- generateAll: dry-run ---
 
 func TestGenerate_All_DryRun(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -541,8 +540,8 @@ func TestGenerate_All_DryRun(t *testing.T) {
 // --- generateAll: write ---
 
 func TestGenerate_All_Write(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -580,8 +579,8 @@ func TestGenerate_All_Write(t *testing.T) {
 // --- generateForComponent: duplicate release name ---
 
 func TestGenerate_SingleComponent_DuplicateReleaseName(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})

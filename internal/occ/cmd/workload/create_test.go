@@ -15,7 +15,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
-	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
@@ -26,7 +25,7 @@ func setupRepoWithComponent(t *testing.T) string {
 	t.Helper()
 	repoDir := t.TempDir()
 
-	th.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/component.yaml", `
+	testutil.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/component.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -40,7 +39,7 @@ spec:
     kind: ComponentType
 `)
 
-	th.WriteYAML(t, repoDir, "platform/component-types/service.yaml", `
+	testutil.WriteYAML(t, repoDir, "platform/component-types/service.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentType
 metadata:
@@ -74,7 +73,7 @@ func setupRepoWithWorkload(t *testing.T) string {
 	t.Helper()
 	repoDir := setupRepoWithComponent(t)
 
-	th.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/workload.yaml", `
+	testutil.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/workload.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
@@ -96,7 +95,7 @@ func setupRepoWithTwoComponents(t *testing.T) string {
 	t.Helper()
 	repoDir := setupRepoWithWorkload(t)
 
-	th.WriteYAML(t, repoDir, "projects/myproj/components/my-worker/component.yaml", `
+	testutil.WriteYAML(t, repoDir, "projects/myproj/components/my-worker/component.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -116,8 +115,8 @@ spec:
 // --- Create: file-system mode: new workload (no existing workload) ---
 
 func TestCreate_FileSystem_NewWorkload_DryRun(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -139,12 +138,12 @@ func TestCreate_FileSystem_NewWorkload_DryRun(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	th.AssertYAMLEquals(t, expectedBasicWorkloadYAML, th.ExtractYAML(out))
+	testutil.AssertYAMLEquals(t, expectedBasicWorkloadYAML, testutil.ExtractYAML(out))
 }
 
 func TestCreate_FileSystem_NewWorkload_Write(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -185,8 +184,8 @@ func TestCreate_FileSystem_NewWorkload_Write(t *testing.T) {
 // --- Create: file-system mode: existing workload (image update) ---
 
 func TestCreate_FileSystem_ExistingWorkload_ImageUpdate_DryRun(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -220,8 +219,8 @@ func TestCreate_FileSystem_ExistingWorkload_ImageUpdate_DryRun(t *testing.T) {
 }
 
 func TestCreate_FileSystem_ExistingWorkload_ImageUpdate_Write(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -253,8 +252,8 @@ func TestCreate_FileSystem_ExistingWorkload_ImageUpdate_Write(t *testing.T) {
 // --- Create: file-system mode: custom output path ---
 
 func TestCreate_FileSystem_CustomOutputPath(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -291,8 +290,8 @@ func TestCreate_FileSystem_CustomOutputPath(t *testing.T) {
 // --- Create: file-system mode: new workload for second component (no existing workload) ---
 
 func TestCreate_FileSystem_SecondComponent_NewWorkload(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -333,7 +332,7 @@ spec:
   container:
     image: registry/my-worker:v1
 `
-	th.AssertYAMLEquals(t, expectedYAML, string(data))
+	testutil.AssertYAMLEquals(t, expectedYAML, string(data))
 }
 
 // --- Create: API server mode ---
@@ -353,7 +352,7 @@ func TestCreate_APIServer_Stdout(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	th.AssertYAMLEquals(t, expectedBasicWorkloadYAML, out)
+	testutil.AssertYAMLEquals(t, expectedBasicWorkloadYAML, out)
 }
 
 func TestCreate_APIServer_DefaultMode(t *testing.T) {
@@ -371,7 +370,7 @@ func TestCreate_APIServer_DefaultMode(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	th.AssertYAMLEquals(t, expectedBasicWorkloadYAML, out)
+	testutil.AssertYAMLEquals(t, expectedBasicWorkloadYAML, out)
 }
 
 func TestCreate_APIServer_OutputFile(t *testing.T) {
@@ -423,7 +422,7 @@ func TestCreate_APIServer_WithDescriptor(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	th.AssertYAMLEquals(t, expectedBasicWorkloadYAML, out)
+	testutil.AssertYAMLEquals(t, expectedBasicWorkloadYAML, out)
 }
 
 // --- Create: validation errors ---

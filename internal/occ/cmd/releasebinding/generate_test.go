@@ -18,7 +18,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
-	th "github.com/openchoreo/openchoreo/internal/occ/testhelpers"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
@@ -55,7 +54,7 @@ func TestGenerate_InvalidModeRejected(t *testing.T) {
 // --- Generate: config loading ---
 
 func TestGenerate_NoConfigFile_NoCurrentContext(t *testing.T) {
-	th.SetupTestHome(t)
+	testutil.SetupTestHome(t)
 	mc := mocks.NewMockInterface(t)
 	rb := New(mc)
 	// file-system mode, but no config file → LoadStoredConfig returns empty → "no current context set"
@@ -67,8 +66,8 @@ func TestGenerate_NoConfigFile_NoCurrentContext(t *testing.T) {
 // --- Generate: context resolution ---
 
 func TestGenerate_EmptyCurrentContext(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "",
 		Contexts:       []config.Context{},
 	})
@@ -81,8 +80,8 @@ func TestGenerate_EmptyCurrentContext(t *testing.T) {
 }
 
 func TestGenerate_CurrentContextNotFound(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "missing-ctx",
 		Contexts: []config.Context{
 			{Name: "other-ctx", Namespace: "ns"},
@@ -99,8 +98,8 @@ func TestGenerate_CurrentContextNotFound(t *testing.T) {
 // --- Generate: namespace validation ---
 
 func TestGenerate_EmptyNamespaceInContext(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts: []config.Context{
 			{Name: "my-ctx", Namespace: ""},
@@ -124,8 +123,8 @@ func TestGenerate_EmptyNamespaceInContext(t *testing.T) {
 // --- Generate: pipeline derivation errors ---
 
 func TestGenerate_PipelineNotFound(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts: []config.Context{
 			{Name: "my-ctx", Namespace: "test-ns"},
@@ -159,8 +158,8 @@ spec:
 }
 
 func TestGenerate_UsePipelineRequiredForAll(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts: []config.Context{
 			{Name: "my-ctx", Namespace: "test-ns"},
@@ -184,8 +183,8 @@ func TestGenerate_UsePipelineRequiredForAll(t *testing.T) {
 }
 
 func TestGenerate_TargetEnvRequiredForAll(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts: []config.Context{
 			{Name: "my-ctx", Namespace: "test-ns"},
@@ -223,8 +222,8 @@ spec:
 }
 
 func TestGenerate_InvalidTargetEnv(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts: []config.Context{
 			{Name: "my-ctx", Namespace: "test-ns"},
@@ -328,7 +327,7 @@ func setupRepoForBinding(t *testing.T) string {
 	t.Helper()
 	repoDir := t.TempDir()
 
-	th.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/component.yaml", `
+	testutil.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/component.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -342,7 +341,7 @@ spec:
     kind: ComponentType
 `)
 
-	th.WriteYAML(t, repoDir, "platform/component-types/service.yaml", `
+	testutil.WriteYAML(t, repoDir, "platform/component-types/service.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: ComponentType
 metadata:
@@ -354,7 +353,7 @@ spec:
   schema: {}
 `)
 
-	th.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/workload.yaml", `
+	testutil.WriteYAML(t, repoDir, "projects/myproj/components/my-svc/workload.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
@@ -369,7 +368,7 @@ spec:
 `)
 
 	// DeploymentPipeline: dev → staging
-	th.WriteYAML(t, repoDir, "platform/pipelines/my-pipeline.yaml", `
+	testutil.WriteYAML(t, repoDir, "platform/pipelines/my-pipeline.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentPipeline
 metadata:
@@ -384,7 +383,7 @@ spec:
 `)
 
 	// Project references the pipeline
-	th.WriteYAML(t, repoDir, "projects/myproj/project.yaml", `
+	testutil.WriteYAML(t, repoDir, "projects/myproj/project.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Project
 metadata:
@@ -422,7 +421,7 @@ func generateMatchingRelease(t *testing.T, repoDir, namespace, project, componen
 
 	data, err := sigsyaml.Marshal(release.Object)
 	require.NoError(t, err)
-	th.WriteYAML(t, repoDir, relPath, string(data))
+	testutil.WriteYAML(t, repoDir, relPath, string(data))
 }
 
 // setupRepoForBindingTwoComponents extends the single-component repo with a second component.
@@ -430,7 +429,7 @@ func setupRepoForBindingTwoComponents(t *testing.T) string {
 	t.Helper()
 	repoDir := setupRepoForBinding(t)
 
-	th.WriteYAML(t, repoDir, "projects/myproj/components/my-worker/component.yaml", `
+	testutil.WriteYAML(t, repoDir, "projects/myproj/components/my-worker/component.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Component
 metadata:
@@ -444,7 +443,7 @@ spec:
     kind: ComponentType
 `)
 
-	th.WriteYAML(t, repoDir, "projects/myproj/components/my-worker/workload.yaml", `
+	testutil.WriteYAML(t, repoDir, "projects/myproj/components/my-worker/workload.yaml", `
 apiVersion: openchoreo.dev/v1alpha1
 kind: Workload
 metadata:
@@ -468,8 +467,8 @@ spec:
 // --- generateForComponent: dry-run ---
 
 func TestGenerate_SingleComponent_DryRun(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -503,14 +502,14 @@ spec:
     projectName: myproj
   releaseName: my-svc-release-1
 `
-	th.AssertYAMLEquals(t, expectedYAML, th.ExtractYAML(out))
+	testutil.AssertYAMLEquals(t, expectedYAML, testutil.ExtractYAML(out))
 }
 
 // --- generateForComponent: write to disk ---
 
 func TestGenerate_SingleComponent_Write(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -548,8 +547,8 @@ func TestGenerate_SingleComponent_Write(t *testing.T) {
 // --- generateForComponent: write with custom output path ---
 
 func TestGenerate_SingleComponent_CustomOutputPath(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -578,8 +577,8 @@ func TestGenerate_SingleComponent_CustomOutputPath(t *testing.T) {
 // --- generateForProject: dry-run ---
 
 func TestGenerate_Project_DryRun(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -607,8 +606,8 @@ func TestGenerate_Project_DryRun(t *testing.T) {
 // --- generateForProject: write ---
 
 func TestGenerate_Project_Write(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -647,8 +646,8 @@ func TestGenerate_Project_Write(t *testing.T) {
 // --- generateAll: dry-run ---
 
 func TestGenerate_All_DryRun(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -677,8 +676,8 @@ func TestGenerate_All_DryRun(t *testing.T) {
 // --- generateAll: write ---
 
 func TestGenerate_All_Write(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -718,8 +717,8 @@ func TestGenerate_All_Write(t *testing.T) {
 // --- generate: pipeline derived from project ---
 
 func TestGenerate_PipelineDerivedFromProject(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})
@@ -747,8 +746,8 @@ func TestGenerate_PipelineDerivedFromProject(t *testing.T) {
 // --- generate: target env defaults to root ---
 
 func TestGenerate_TargetEnvDefaultsToRoot(t *testing.T) {
-	home := th.SetupTestHome(t)
-	th.WriteOCConfig(t, home, &config.StoredConfig{
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
 		CurrentContext: "my-ctx",
 		Contexts:       []config.Context{{Name: "my-ctx", Namespace: "test-ns"}},
 	})

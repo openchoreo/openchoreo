@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	"github.com/openchoreo/openchoreo/internal/occ/testhelpers"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
 func validToken(t *testing.T) string {
@@ -28,8 +28,8 @@ func validToken(t *testing.T) string {
 
 func setupConfig(t *testing.T, cfg *config.StoredConfig) {
 	t.Helper()
-	home := testhelpers.SetupTestHome(t)
-	testhelpers.WriteOCConfig(t, home, cfg)
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, cfg)
 }
 
 // oidcSecurityTransport returns a RoundTripper that serves both OIDC endpoints.
@@ -59,7 +59,7 @@ func oidcSecurityTransport(t *testing.T, securityEnabled bool) http.RoundTripper
 
 func TestIsLoggedIn(t *testing.T) {
 	t.Run("no config file returns false", func(t *testing.T) {
-		testhelpers.SetupTestHome(t)
+		testutil.SetupTestHome(t)
 		assert.False(t, IsLoggedIn())
 	})
 
@@ -138,7 +138,7 @@ func TestIsLoggedIn(t *testing.T) {
 
 func TestRequireLogin(t *testing.T) {
 	t.Run("returns error when not logged in", func(t *testing.T) {
-		testhelpers.SetupTestHome(t)
+		testutil.SetupTestHome(t)
 		fn := RequireLogin()
 		err := fn(nil, nil)
 		require.Error(t, err)

@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/occ/testhelpers"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
 func TestValidateConversionParams(t *testing.T) {
@@ -508,7 +508,7 @@ endpoints:
     port: 8080
     type: REST
 `
-		testhelpers.WriteYAML(t, dir, "workload.yaml", content)
+		testutil.WriteYAML(t, dir, "workload.yaml", content)
 		desc, err := readWorkloadDescriptor(filepath.Join(dir, "workload.yaml"))
 		require.NoError(t, err)
 		assert.Equal(t, "my-service", desc.Metadata.Name)
@@ -523,7 +523,7 @@ endpoints:
 func TestReadSchemaFile(t *testing.T) {
 	t.Run("reads schema content", func(t *testing.T) {
 		dir := t.TempDir()
-		testhelpers.WriteYAML(t, dir, "schema.json", `{"openapi":"3.0.0"}`)
+		testutil.WriteYAML(t, dir, "schema.json", `{"openapi":"3.0.0"}`)
 		content, err := readSchemaFile(filepath.Join(dir, "schema.json"))
 		require.NoError(t, err)
 		assert.Equal(t, `{"openapi":"3.0.0"}`, content)
@@ -543,7 +543,7 @@ info:
   title: Test API
   version: "1.0"
 `
-	testhelpers.WriteYAML(t, dir, "openapi.yaml", schemaContent)
+	testutil.WriteYAML(t, dir, "openapi.yaml", schemaContent)
 	w := &openchoreov1alpha1.Workload{
 		Spec: openchoreov1alpha1.WorkloadSpec{
 			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{},
@@ -595,7 +595,7 @@ func TestAddConfigurationsFromDescriptor(t *testing.T) {
 	dir := t.TempDir()
 	descriptorPath := filepath.Join(dir, "workload.yaml")
 	configContent := "server.port=8080\nserver.host=0.0.0.0\n"
-	testhelpers.WriteYAML(t, dir, "app.properties", configContent)
+	testutil.WriteYAML(t, dir, "app.properties", configContent)
 	tests := []struct {
 		name       string
 		descriptor *WorkloadDescriptor
@@ -774,7 +774,7 @@ func TestConvertWorkloadDescriptorToWorkloadCR(t *testing.T) {
 	dir := t.TempDir()
 	descriptorPath := filepath.Join(dir, "workload.yaml")
 	// Write a schema file
-	testhelpers.WriteYAML(t, dir, "openapi.yaml", `openapi: "3.0.0"`)
+	testutil.WriteYAML(t, dir, "openapi.yaml", `openapi: "3.0.0"`)
 	descriptorContent := `apiVersion: openchoreo.dev/v1alpha1
 metadata:
   name: my-service
@@ -802,7 +802,7 @@ configurations:
       mountPath: /etc/app/cfg.yaml
       value: "key: val"
 `
-	testhelpers.WriteYAML(t, dir, "workload.yaml", descriptorContent)
+	testutil.WriteYAML(t, dir, "workload.yaml", descriptorContent)
 	params := CreateWorkloadParams{
 		NamespaceName: "test-ns",
 		ProjectName:   "test-project",
@@ -851,7 +851,7 @@ spec:
         envBindings:
           address: DB_URL
 `
-		testhelpers.AssertYAMLEquals(t, wantYAML, string(yamlBytes))
+		testutil.AssertYAMLEquals(t, wantYAML, string(yamlBytes))
 	})
 	t.Run("invalid params", func(t *testing.T) {
 		_, err := ConvertWorkloadDescriptorToWorkloadCR(descriptorPath, CreateWorkloadParams{})
@@ -875,7 +875,7 @@ endpoints:
     visibility:
       - bogus
 `
-		testhelpers.WriteYAML(t, badDir, "workload.yaml", badContent)
+		testutil.WriteYAML(t, badDir, "workload.yaml", badContent)
 		_, err := ConvertWorkloadDescriptorToWorkloadCR(filepath.Join(badDir, "workload.yaml"), params)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `invalid endpoint visibility "bogus" for endpoint "ep"`)
@@ -892,7 +892,7 @@ dependencies:
       envBindings:
         address: URL
 `
-		testhelpers.WriteYAML(t, badDir, "workload.yaml", badContent)
+		testutil.WriteYAML(t, badDir, "workload.yaml", badContent)
 		_, err := ConvertWorkloadDescriptorToWorkloadCR(filepath.Join(badDir, "workload.yaml"), params)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "component is required")
@@ -909,7 +909,7 @@ configurations:
       valueFrom:
         path: does-not-exist.conf
 `
-		testhelpers.WriteYAML(t, badDir, "workload.yaml", badContent)
+		testutil.WriteYAML(t, badDir, "workload.yaml", badContent)
 		_, err := ConvertWorkloadDescriptorToWorkloadCR(filepath.Join(badDir, "workload.yaml"), params)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to read file")
@@ -1006,7 +1006,7 @@ spec:
 		t.Run(tt.name, func(t *testing.T) {
 			yamlBytes, err := ConvertWorkloadCRToYAML(tt.workload)
 			require.NoError(t, err)
-			testhelpers.AssertYAMLEquals(t, tt.wantYAML, string(yamlBytes))
+			testutil.AssertYAMLEquals(t, tt.wantYAML, string(yamlBytes))
 		})
 	}
 }

@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	"github.com/openchoreo/openchoreo/internal/occ/testhelpers"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
 // roundTripFunc lets a plain function satisfy http.RoundTripper.
@@ -100,10 +100,10 @@ func TestGetLoginPrompt(t *testing.T) {
 
 func TestLoginWithClientCredentials(t *testing.T) {
 	t.Run("successful login stores token and credential", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 		baseURL := mockOIDCTransport(t, true, http.StatusOK)
 
-		testhelpers.WriteOCConfig(t, home, &config.StoredConfig{
+		testutil.WriteOCConfig(t, home, &config.StoredConfig{
 			CurrentContext: "ctx",
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: baseURL}},
 			Credentials:    []config.Credential{{Name: "cred"}},
@@ -126,10 +126,10 @@ func TestLoginWithClientCredentials(t *testing.T) {
 	})
 
 	t.Run("creates new credential entry when name not yet in config", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 		baseURL := mockOIDCTransport(t, true, http.StatusOK)
 
-		testhelpers.WriteOCConfig(t, home, &config.StoredConfig{
+		testutil.WriteOCConfig(t, home, &config.StoredConfig{
 			CurrentContext: "ctx",
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: baseURL}},
 			Credentials:    []config.Credential{},
@@ -152,12 +152,12 @@ func TestLoginWithClientCredentials(t *testing.T) {
 	})
 
 	t.Run("reads client id and secret from env vars when flags are empty", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 		baseURL := mockOIDCTransport(t, true, http.StatusOK)
 		t.Setenv("OCC_CLIENT_ID", "env-client")
 		t.Setenv("OCC_CLIENT_SECRET", "env-secret")
 
-		testhelpers.WriteOCConfig(t, home, &config.StoredConfig{
+		testutil.WriteOCConfig(t, home, &config.StoredConfig{
 			CurrentContext: "ctx",
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: baseURL}},
 			Credentials:    []config.Credential{{Name: "cred"}},
@@ -172,11 +172,11 @@ func TestLoginWithClientCredentials(t *testing.T) {
 	})
 
 	t.Run("returns error when client id and secret are both missing", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 		t.Setenv("OCC_CLIENT_ID", "")
 		t.Setenv("OCC_CLIENT_SECRET", "")
 
-		testhelpers.WriteOCConfig(t, home, &config.StoredConfig{
+		testutil.WriteOCConfig(t, home, &config.StoredConfig{
 			CurrentContext: "ctx",
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock-control-plane"}},
 			Credentials:    []config.Credential{{Name: "cred"}},
@@ -189,10 +189,10 @@ func TestLoginWithClientCredentials(t *testing.T) {
 	})
 
 	t.Run("returns error when no credential name and context has none", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 		baseURL := mockOIDCTransport(t, true, http.StatusOK)
 
-		testhelpers.WriteOCConfig(t, home, &config.StoredConfig{
+		testutil.WriteOCConfig(t, home, &config.StoredConfig{
 			CurrentContext: "ctx",
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: baseURL}},
 			Credentials:    []config.Credential{},
@@ -209,10 +209,10 @@ func TestLoginWithClientCredentials(t *testing.T) {
 	})
 
 	t.Run("returns no error when security is disabled on server", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 		baseURL := mockOIDCTransport(t, false, http.StatusOK)
 
-		testhelpers.WriteOCConfig(t, home, &config.StoredConfig{
+		testutil.WriteOCConfig(t, home, &config.StoredConfig{
 			CurrentContext: "ctx",
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: baseURL}},
 			Credentials:    []config.Credential{{Name: "cred"}},
@@ -229,7 +229,7 @@ func TestLoginWithClientCredentials(t *testing.T) {
 	})
 
 	t.Run("returns error when no current context is set", func(t *testing.T) {
-		testhelpers.SetupTestHome(t)
+		testutil.SetupTestHome(t)
 		// No config file — no current context
 
 		err := NewAuthImpl().Login(LoginParams{
@@ -242,10 +242,10 @@ func TestLoginWithClientCredentials(t *testing.T) {
 	})
 
 	t.Run("returns error when token endpoint returns non-200", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 		baseURL := mockOIDCTransport(t, true, http.StatusUnauthorized)
 
-		testhelpers.WriteOCConfig(t, home, &config.StoredConfig{
+		testutil.WriteOCConfig(t, home, &config.StoredConfig{
 			CurrentContext: "ctx",
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: baseURL}},
 			Credentials:    []config.Credential{{Name: "cred"}},
@@ -265,15 +265,15 @@ func TestLoginWithClientCredentials(t *testing.T) {
 
 func TestIsLoggedIn(t *testing.T) {
 	t.Run("returns false when no config exists", func(t *testing.T) {
-		testhelpers.SetupTestHome(t)
+		testutil.SetupTestHome(t)
 		assert.False(t, NewAuthImpl().IsLoggedIn())
 	})
 
 	t.Run("returns true when security is disabled on server", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 		baseURL := mockOIDCTransport(t, false, http.StatusOK)
 
-		testhelpers.WriteOCConfig(t, home, &config.StoredConfig{
+		testutil.WriteOCConfig(t, home, &config.StoredConfig{
 			CurrentContext: "ctx",
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: baseURL}},
 			Credentials:    []config.Credential{{Name: "cred"}},
@@ -284,10 +284,10 @@ func TestIsLoggedIn(t *testing.T) {
 	})
 
 	t.Run("returns false when token is empty", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 		baseURL := mockOIDCTransport(t, true, http.StatusOK)
 
-		testhelpers.WriteOCConfig(t, home, &config.StoredConfig{
+		testutil.WriteOCConfig(t, home, &config.StoredConfig{
 			CurrentContext: "ctx",
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: baseURL}},
 			Credentials:    []config.Credential{{Name: "cred", Token: ""}},
@@ -300,10 +300,10 @@ func TestIsLoggedIn(t *testing.T) {
 
 func TestLoginConfigFilePersistence(t *testing.T) {
 	t.Run("config file is written under the test home directory", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 		baseURL := mockOIDCTransport(t, true, http.StatusOK)
 
-		testhelpers.WriteOCConfig(t, home, &config.StoredConfig{
+		testutil.WriteOCConfig(t, home, &config.StoredConfig{
 			CurrentContext: "ctx",
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: baseURL}},
 			Credentials:    []config.Credential{{Name: "cred"}},

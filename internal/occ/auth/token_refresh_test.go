@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	"github.com/openchoreo/openchoreo/internal/occ/testhelpers"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
 // oidcTransport returns a RoundTripper that serves the OIDC discovery endpoints
@@ -98,7 +98,7 @@ func TestRefreshToken(t *testing.T) {
 	const baseURL = "http://mock-control-plane"
 
 	t.Run("refreshes via authorization_code grant when refresh token present", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 		setTransport(t, oidcTransport(t, baseURL, "new-access-token"))
 
 		require.NoError(t, config.SaveStoredConfig(&config.StoredConfig{
@@ -121,7 +121,7 @@ func TestRefreshToken(t *testing.T) {
 	})
 
 	t.Run("refreshes via client_credentials when no refresh token", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 		setTransport(t, oidcTransport(t, baseURL, "new-cc-token"))
 
 		require.NoError(t, config.SaveStoredConfig(&config.StoredConfig{
@@ -144,7 +144,7 @@ func TestRefreshToken(t *testing.T) {
 	})
 
 	t.Run("returns error when no current context", func(t *testing.T) {
-		testhelpers.SetupTestHome(t)
+		testutil.SetupTestHome(t)
 		// No config — no current context
 
 		_, err := RefreshToken()
@@ -152,7 +152,7 @@ func TestRefreshToken(t *testing.T) {
 	})
 
 	t.Run("returns error when client credentials are missing for refresh", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 		setTransport(t, oidcTransport(t, baseURL, ""))
 
 		require.NoError(t, config.SaveStoredConfig(&config.StoredConfig{

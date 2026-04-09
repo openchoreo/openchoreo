@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	"github.com/openchoreo/openchoreo/internal/occ/testhelpers"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
 func TestNewLogoutImpl(t *testing.T) {
@@ -20,9 +20,9 @@ func TestNewLogoutImpl(t *testing.T) {
 
 func TestLogout(t *testing.T) {
 	t.Run("clears token and refresh token for current credential", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 
-		testhelpers.WriteOCConfig(t, home, &config.StoredConfig{
+		testutil.WriteOCConfig(t, home, &config.StoredConfig{
 			CurrentContext: "ctx",
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://localhost"}},
 			Credentials: []config.Credential{{
@@ -44,9 +44,9 @@ func TestLogout(t *testing.T) {
 	})
 
 	t.Run("leaves other credentials untouched", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 
-		testhelpers.WriteOCConfig(t, home, &config.StoredConfig{
+		testutil.WriteOCConfig(t, home, &config.StoredConfig{
 			CurrentContext: "ctx",
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://localhost"}},
 			Credentials: []config.Credential{
@@ -78,7 +78,7 @@ func TestLogout(t *testing.T) {
 	})
 
 	t.Run("returns error when no current context is set", func(t *testing.T) {
-		testhelpers.SetupTestHome(t)
+		testutil.SetupTestHome(t)
 		// No config file — no current context
 
 		err := NewLogoutImpl().Logout()
@@ -87,9 +87,9 @@ func TestLogout(t *testing.T) {
 	})
 
 	t.Run("returns error when context has no associated credential", func(t *testing.T) {
-		home := testhelpers.SetupTestHome(t)
+		home := testutil.SetupTestHome(t)
 
-		testhelpers.WriteOCConfig(t, home, &config.StoredConfig{
+		testutil.WriteOCConfig(t, home, &config.StoredConfig{
 			CurrentContext: "ctx",
 			ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://localhost"}},
 			Credentials:    []config.Credential{},
