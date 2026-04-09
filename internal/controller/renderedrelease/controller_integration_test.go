@@ -57,6 +57,15 @@ func forceDeleteClusterDataPlane(ctx context.Context, name string) {
 	_ = k8sClient.Delete(ctx, cdp)
 }
 
+// forceDeleteClusterObservabilityPlane removes a ClusterObservabilityPlane by name.
+func forceDeleteClusterObservabilityPlane(ctx context.Context, name string) {
+	cop := &openchoreov1alpha1.ClusterObservabilityPlane{}
+	if err := k8sClient.Get(ctx, types.NamespacedName{Name: name}, cop); err != nil {
+		return
+	}
+	_ = k8sClient.Delete(ctx, cop)
+}
+
 // forceDeleteEnvironment removes an Environment by namespace/name.
 func forceDeleteEnvironment(ctx context.Context, nn types.NamespacedName) {
 	env := &openchoreov1alpha1.Environment{}
@@ -98,12 +107,38 @@ func makeClusterDataPlane(name, planeID string) *openchoreov1alpha1.ClusterDataP
 	}
 }
 
+// makeClusterObservabilityPlane returns a ClusterObservabilityPlane with the required fields.
+func makeClusterObservabilityPlane(name, planeID string) *openchoreov1alpha1.ClusterObservabilityPlane {
+	return &openchoreov1alpha1.ClusterObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: openchoreov1alpha1.ClusterObservabilityPlaneSpec{
+			PlaneID: planeID,
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: "test-ca-cert"},
+			},
+			ObserverURL: "http://observer.test",
+		},
+	}
+}
+
+// makeClusterDataPlaneWithOPRef returns a ClusterDataPlane that references a ClusterObservabilityPlane.
+func makeClusterDataPlaneWithOPRef(name, planeID, copName string) *openchoreov1alpha1.ClusterDataPlane {
+	cdp := makeClusterDataPlane(name, planeID)
+	cdp.Spec.ObservabilityPlaneRef = &openchoreov1alpha1.ClusterObservabilityPlaneRef{
+		Kind: openchoreov1alpha1.ClusterObservabilityPlaneRefKindClusterObservabilityPlane,
+		Name: copName,
+	}
+	return cdp
+}
+
 // makeEnvironment returns an Environment referencing a ClusterDataPlane.
-func makeEnvironment(name, namespace, cdpName string) *openchoreov1alpha1.Environment {
+func makeEnvironment(name, cdpName string) *openchoreov1alpha1.Environment {
 	return &openchoreov1alpha1.Environment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespace,
+			Namespace: testNs,
 		},
 		Spec: openchoreov1alpha1.EnvironmentSpec{
 			DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
@@ -451,7 +486,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 		It("should apply resources to data plane and update status", func() {
 			By("Creating prerequisite ClusterDataPlane and Environment")
 			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
-			Expect(k8sClient.Create(ctx, makeEnvironment(envName, testNs, cdpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
 
 			By("Creating a RenderedRelease with a ConfigMap resource in spec")
 			release := makeMinimalRelease(releaseName, envName)
@@ -512,6 +547,94 @@ var _ = Describe("RenderedRelease Controller", func() {
 	})
 
 	// ─────────────────────────────────────────────────────────────
+	// Reconcile: transitioning resources use progressing requeue interval
+	// ─────────────────────────────────────────────────────────────
+
+	Context("when applied resources are in a transitioning state", func() {
+		const (
+			releaseName = "release-transitioning"
+			envName     = "env-transitioning"
+			cdpName     = "cdp-transitioning"
+			planeID     = "plane-transitioning"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+		})
+
+		It("should requeue with a shorter progressing interval", func() {
+			By("Creating prerequisite ClusterDataPlane and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating a RenderedRelease with a Deployment resource")
+			release := makeMinimalRelease(releaseName, envName)
+			// A Deployment in envtest will have ObservedGeneration=0 (no real deployment controller),
+			// so getDeploymentHealth returns Progressing, triggering the transitioning requeue path.
+			deployJSON := []byte(`{
+				"apiVersion": "apps/v1",
+				"kind": "Deployment",
+				"metadata": {
+					"name": "test-deploy-transitioning",
+					"namespace": "default"
+				},
+				"spec": {
+					"replicas": 1,
+					"selector": {
+						"matchLabels": {
+							"app": "test-transitioning"
+						}
+					},
+					"template": {
+						"metadata": {
+							"labels": {
+								"app": "test-transitioning"
+							}
+						},
+						"spec": {
+							"containers": [{
+								"name": "nginx",
+								"image": "nginx:latest"
+							}]
+						}
+					}
+				}
+			}`)
+			release.Spec.Resources = []openchoreov1alpha1.Resource{
+				{
+					ID:     "deploy-trans-1",
+					Object: &runtime.RawExtension{Raw: deployJSON},
+				},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			r := testReconcilerWithDPClient(k8sClient, planeID, cdpName)
+
+			By("First reconcile: adds finalizer")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Second reconcile: applies Deployment and persists status")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Third reconcile: detects transitioning resource, requeues with progressing interval")
+			result := mustReconcile(r, reconcileRequest(releaseName))
+			// Default progressing interval is 10s with up to 20% jitter → [10s, 12s)
+			Expect(result.RequeueAfter).To(BeNumerically(">=", 10*time.Second))
+			Expect(result.RequeueAfter).To(BeNumerically("<", 12*time.Second))
+
+			By("Verifying the Deployment resource has Progressing health in status")
+			updated := fetchRelease(releaseName)
+			Expect(updated.Status.Resources).To(HaveLen(1))
+			Expect(updated.Status.Resources[0].ID).To(Equal("deploy-trans-1"))
+			Expect(updated.Status.Resources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusProgressing))
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
 	// Finalization: successful cleanup with no live resources
 	// ─────────────────────────────────────────────────────────────
 
@@ -534,7 +657,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 		It("sets Finalizing condition then removes finalizer when no resources exist", func() {
 			By("Creating prerequisite ClusterDataPlane and Environment")
 			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
-			Expect(k8sClient.Create(ctx, makeEnvironment(envName, testNs, cdpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
 
 			By("Creating an empty fake data-plane client (no live resources)")
 			dpClient := fake.NewClientBuilder().Build()
@@ -604,7 +727,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 		It("deletes live resources, requeues, then removes finalizer on next reconcile", func() {
 			By("Creating prerequisite ClusterDataPlane and Environment")
 			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
-			Expect(k8sClient.Create(ctx, makeEnvironment(envName, testNs, cdpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
 
 			By("Creating a RenderedRelease with the finalizer pre-set")
 			release := makeMinimalRelease(releaseName, envName)
@@ -740,6 +863,351 @@ var _ = Describe("RenderedRelease Controller", func() {
 				}
 			}
 			Expect(count).To(Equal(1), "finalizer should appear exactly once")
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Reconcile: observability plane target path
+	// ─────────────────────────────────────────────────────────────
+
+	Context("when a RenderedRelease targets the observability plane", func() {
+		const (
+			releaseName = "release-op-target"
+			envName     = "env-op-target"
+			cdpName     = "cdp-op-target"
+			copName     = "cop-op-target"
+			planeID     = "plane-op-target"
+			opPlaneID   = "obs-plane-op-target"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+			forceDeleteClusterObservabilityPlane(ctx, copName)
+		})
+
+		It("should resolve the observability plane client and apply resources", func() {
+			By("Creating prerequisite ClusterObservabilityPlane, ClusterDataPlane, and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterObservabilityPlane(copName, opPlaneID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeClusterDataPlaneWithOPRef(cdpName, planeID, copName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating a RenderedRelease targeting the observability plane with a ConfigMap resource")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.TargetPlane = targetPlaneObservabilityPlane
+			cmJSON := []byte(`{
+				"apiVersion": "v1",
+				"kind": "ConfigMap",
+				"metadata": {
+					"name": "test-cm-op-target",
+					"namespace": "default"
+				},
+				"data": {
+					"key": "op-value"
+				}
+			}`)
+			release.Spec.Resources = []openchoreov1alpha1.Resource{
+				{
+					ID:     "cm-op-1",
+					Object: &runtime.RawExtension{Raw: cmJSON},
+				},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			By("Using the envtest client as the observability plane client")
+			r := testReconcilerWithDPClient(k8sClient, planeID, cdpName)
+
+			By("First reconcile: adds finalizer")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Second reconcile: applies resources via OP client path")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Third reconcile: status already persisted, reaches requeue")
+			result := mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).NotTo(BeZero(), "should requeue for status polling")
+
+			By("Verifying the ConfigMap was applied")
+			cm := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "test-cm-op-target", Namespace: testNs}, cm)).To(Succeed())
+			Expect(cm.Data["key"]).To(Equal("op-value"))
+			Expect(cm.Labels[labels.LabelKeyRenderedReleaseResourceID]).To(Equal("cm-op-1"))
+
+			By("Verifying the ResourcesApplied condition is set to True")
+			updated := fetchRelease(releaseName)
+			appliedCond := apimeta.FindStatusCondition(updated.Status.Conditions, ConditionResourcesApplied)
+			Expect(appliedCond).NotTo(BeNil())
+			Expect(appliedCond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(appliedCond.Reason).To(Equal(ReasonApplySucceeded))
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Reconcile: apply failure sets ResourcesApplied=False
+	// ─────────────────────────────────────────────────────────────
+
+	Context("when resource apply fails", func() {
+		const (
+			releaseName = "release-apply-fail"
+			envName     = "env-apply-fail"
+			cdpName     = "cdp-apply-fail"
+			planeID     = "plane-apply-fail"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+		})
+
+		It("should set ResourcesApplied=False condition when apply fails", func() {
+			By("Creating prerequisite ClusterDataPlane and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating a RenderedRelease with a resource that will fail to apply")
+			release := makeMinimalRelease(releaseName, envName)
+			// Use a resource with an invalid GVK that the fake client cannot handle
+			badJSON := []byte(`{
+				"apiVersion": "nonexistent.example.com/v1",
+				"kind": "DoesNotExist",
+				"metadata": {
+					"name": "bad-resource",
+					"namespace": "default"
+				}
+			}`)
+			release.Spec.Resources = []openchoreov1alpha1.Resource{
+				{
+					ID:     "bad-1",
+					Object: &runtime.RawExtension{Raw: badJSON},
+				},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			By("Using a fake DP client that does not know the CRD (will fail on apply)")
+			dpClient := fake.NewClientBuilder().Build()
+			r := testReconcilerWithDPClient(dpClient, planeID, cdpName)
+
+			By("First reconcile: adds finalizer")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Second reconcile: apply fails, should set ResourcesApplied=False and return error")
+			_, err := r.Reconcile(ctx, reconcileRequest(releaseName))
+			Expect(err).To(HaveOccurred())
+
+			By("Verifying the ResourcesApplied condition is False")
+			updated := fetchRelease(releaseName)
+			appliedCond := apimeta.FindStatusCondition(updated.Status.Conditions, ConditionResourcesApplied)
+			Expect(appliedCond).NotTo(BeNil())
+			Expect(appliedCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(appliedCond.Reason).To(Equal(ReasonApplyFailed))
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Reconcile: stale resource cleanup
+	// ─────────────────────────────────────────────────────────────
+
+	Context("when a resource is removed from spec", func() {
+		const (
+			releaseName = "release-stale-cleanup"
+			envName     = "env-stale-cleanup"
+			cdpName     = "cdp-stale-cleanup"
+			planeID     = "plane-stale-cleanup"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+		})
+
+		It("should delete the stale resource from the data plane", func() {
+			By("Creating prerequisite ClusterDataPlane and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating a RenderedRelease with two ConfigMap resources")
+			release := makeMinimalRelease(releaseName, envName)
+			cm1JSON := []byte(`{
+				"apiVersion": "v1",
+				"kind": "ConfigMap",
+				"metadata": {
+					"name": "cm-keep",
+					"namespace": "default"
+				},
+				"data": {"key": "keep"}
+			}`)
+			cm2JSON := []byte(`{
+				"apiVersion": "v1",
+				"kind": "ConfigMap",
+				"metadata": {
+					"name": "cm-remove",
+					"namespace": "default"
+				},
+				"data": {"key": "remove"}
+			}`)
+			release.Spec.Resources = []openchoreov1alpha1.Resource{
+				{ID: "cm-keep-1", Object: &runtime.RawExtension{Raw: cm1JSON}},
+				{ID: "cm-remove-1", Object: &runtime.RawExtension{Raw: cm2JSON}},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			r := testReconcilerWithDPClient(k8sClient, planeID, cdpName)
+
+			By("Reconciling until resources are applied and status is updated")
+			mustReconcile(r, reconcileRequest(releaseName)) // adds finalizer
+			mustReconcile(r, reconcileRequest(releaseName)) // applies resources + updates status
+			mustReconcile(r, reconcileRequest(releaseName)) // status already persisted, reaches requeue
+
+			By("Verifying both ConfigMaps exist")
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "cm-keep", Namespace: testNs}, &corev1.ConfigMap{})).To(Succeed())
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "cm-remove", Namespace: testNs}, &corev1.ConfigMap{})).To(Succeed())
+
+			By("Removing cm-remove from the spec")
+			updated := fetchRelease(releaseName)
+			updated.Spec.Resources = []openchoreov1alpha1.Resource{
+				{ID: "cm-keep-1", Object: &runtime.RawExtension{Raw: cm1JSON}},
+			}
+			Expect(k8sClient.Update(ctx, updated)).To(Succeed())
+
+			By("Reconciling to trigger stale resource cleanup")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Verifying cm-keep still exists and cm-remove was deleted")
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "cm-keep", Namespace: testNs}, &corev1.ConfigMap{})).To(Succeed())
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: "cm-remove", Namespace: testNs}, &corev1.ConfigMap{})
+			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "stale ConfigMap should have been deleted")
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Reconcile: default targetPlane when empty
+	// ─────────────────────────────────────────────────────────────
+
+	Context("when targetPlane is empty", func() {
+		const (
+			releaseName = "release-default-tp"
+			envName     = "env-default-tp"
+			cdpName     = "cdp-default-tp"
+			planeID     = "plane-default-tp"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+		})
+
+		It("should default to dataplane and apply resources successfully", func() {
+			By("Creating prerequisite ClusterDataPlane and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating a RenderedRelease with empty targetPlane")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.TargetPlane = "" // explicitly empty
+			cmJSON := []byte(`{
+				"apiVersion": "v1",
+				"kind": "ConfigMap",
+				"metadata": {
+					"name": "cm-default-tp",
+					"namespace": "default"
+				},
+				"data": {"key": "default-tp"}
+			}`)
+			release.Spec.Resources = []openchoreov1alpha1.Resource{
+				{ID: "cm-dtp-1", Object: &runtime.RawExtension{Raw: cmJSON}},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			r := testReconcilerWithDPClient(k8sClient, planeID, cdpName)
+
+			By("Reconciling through to completion")
+			mustReconcile(r, reconcileRequest(releaseName)) // adds finalizer
+			mustReconcile(r, reconcileRequest(releaseName)) // applies resources
+			mustReconcile(r, reconcileRequest(releaseName)) // reaches requeue
+
+			By("Verifying resource was applied via the default dataplane path")
+			cm := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "cm-default-tp", Namespace: testNs}, cm)).To(Succeed())
+			Expect(cm.Data["key"]).To(Equal("default-tp"))
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Finalization: observability plane target path
+	// ─────────────────────────────────────────────────────────────
+
+	Context("when finalizing a RenderedRelease that targets the observability plane", func() {
+		const (
+			releaseName = "release-finalize-op"
+			envName     = "env-finalize-op"
+			cdpName     = "cdp-finalize-op"
+			copName     = "cop-finalize-op"
+			planeID     = "plane-finalize-op"
+			opPlaneID   = "obs-plane-finalize-op"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+			forceDeleteClusterObservabilityPlane(ctx, copName)
+		})
+
+		It("should resolve the OP client and clean up resources during finalization", func() {
+			By("Creating prerequisite ClusterObservabilityPlane, ClusterDataPlane, and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterObservabilityPlane(copName, opPlaneID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeClusterDataPlaneWithOPRef(cdpName, planeID, copName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating a RenderedRelease targeting observabilityplane with finalizer pre-set")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.TargetPlane = targetPlaneObservabilityPlane
+			release.Finalizers = []string{DataPlaneCleanupFinalizer}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			By("Using an empty fake OP client (no live resources)")
+			dpClient := fake.NewClientBuilder().Build()
+			r := testReconcilerWithDPClient(dpClient, planeID, cdpName)
+
+			By("Deleting the release")
+			Expect(k8sClient.Delete(ctx, release)).To(Succeed())
+			Eventually(func() bool {
+				updated := &openchoreov1alpha1.RenderedRelease{}
+				if err := k8sClient.Get(ctx, nn, updated); err != nil {
+					return false
+				}
+				return !updated.DeletionTimestamp.IsZero()
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("First finalize reconcile: sets Finalizing condition")
+			mustReconcile(r, reconcileRequest(releaseName))
+			updated := fetchRelease(releaseName)
+			cond := apimeta.FindStatusCondition(updated.Status.Conditions, string(ConditionFinalizing))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+
+			By("Second finalize reconcile: no live resources, removes finalizer")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Verifying the RenderedRelease is fully deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})
+				return apierrors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
 		})
 	})
 })
