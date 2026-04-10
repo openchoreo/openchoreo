@@ -61,8 +61,8 @@ const (
 
 // Defines values for AlertWebhookResponseStatus.
 const (
-	Error   AlertWebhookResponseStatus = "error"
-	Success AlertWebhookResponseStatus = "success"
+	AlertWebhookResponseStatusError   AlertWebhookResponseStatus = "error"
+	AlertWebhookResponseStatusSuccess AlertWebhookResponseStatus = "success"
 )
 
 // Defines values for AlertingRuleSyncResponseAction.
@@ -163,6 +163,20 @@ const (
 const (
 	Http     MetricsQueryRequestMetric = "http"
 	Resource MetricsQueryRequestMetric = "resource"
+)
+
+// Defines values for TraceSpanDetailsResponseStatus.
+const (
+	TraceSpanDetailsResponseStatusError TraceSpanDetailsResponseStatus = "error"
+	TraceSpanDetailsResponseStatusOk    TraceSpanDetailsResponseStatus = "ok"
+	TraceSpanDetailsResponseStatusUnset TraceSpanDetailsResponseStatus = "unset"
+)
+
+// Defines values for TraceSpansQueryResponseSpansStatus.
+const (
+	Error TraceSpansQueryResponseSpansStatus = "error"
+	Ok    TraceSpansQueryResponseSpansStatus = "ok"
+	Unset TraceSpansQueryResponseSpansStatus = "unset"
 )
 
 // Defines values for TracesQueryRequestSortOrder.
@@ -808,7 +822,13 @@ type TraceSpanDetailsResponse struct {
 
 	// StartTime The start time of the span
 	StartTime *time.Time `json:"startTime,omitempty"`
+
+	// Status The execution status of the span. One of "ok", "error", or "unset".
+	Status *TraceSpanDetailsResponseStatus `json:"status,omitempty"`
 }
+
+// TraceSpanDetailsResponseStatus The execution status of the span. One of "ok", "error", or "unset".
+type TraceSpanDetailsResponseStatus string
 
 // TraceSpansQueryResponse defines model for TraceSpansQueryResponse.
 type TraceSpansQueryResponse struct {
@@ -834,6 +854,9 @@ type TraceSpansQueryResponse struct {
 
 		// StartTime The start time of the span
 		StartTime *time.Time `json:"startTime,omitempty"`
+
+		// Status The execution status of the span. One of "ok", "error", or "unset".
+		Status *TraceSpansQueryResponseSpansStatus `json:"status,omitempty"`
 	} `json:"spans,omitempty"`
 
 	// TookMs The time taken to query the spans in milliseconds
@@ -842,6 +865,9 @@ type TraceSpansQueryResponse struct {
 	// Total The total number of matching spans, capped at 1000
 	Total *int `json:"total,omitempty"`
 }
+
+// TraceSpansQueryResponseSpansStatus The execution status of the span. One of "ok", "error", or "unset".
+type TraceSpansQueryResponseSpansStatus string
 
 // TracesQueryRequest defines model for TracesQueryRequest.
 type TracesQueryRequest struct {
@@ -876,10 +902,13 @@ type TracesQueryResponse struct {
 		DurationNs *int64 `json:"durationNs,omitempty"`
 
 		// EndTime The end time of the trace
-		EndTime      *time.Time `json:"endTime,omitempty"`
-		RootSpanId   *string    `json:"rootSpanId,omitempty"`
-		RootSpanKind *string    `json:"rootSpanKind,omitempty"`
-		RootSpanName *string    `json:"rootSpanName,omitempty"`
+		EndTime *time.Time `json:"endTime,omitempty"`
+
+		// HasErrors Whether any span in the trace has an error status.
+		HasErrors    *bool   `json:"hasErrors,omitempty"`
+		RootSpanId   *string `json:"rootSpanId,omitempty"`
+		RootSpanKind *string `json:"rootSpanKind,omitempty"`
+		RootSpanName *string `json:"rootSpanName,omitempty"`
 
 		// SpanCount The number of spans in the trace
 		SpanCount *int `json:"spanCount,omitempty"`

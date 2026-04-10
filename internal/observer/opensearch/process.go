@@ -4,7 +4,14 @@
 package opensearch
 
 import (
+	"strings"
 	"time"
+)
+
+const (
+	SpanStatusOK    = "ok"
+	SpanStatusError = "error"
+	SpanStatusUnset = "unset"
 )
 
 // ParseSpanEntry converts a search hit of a span to a SpanEntry struct
@@ -89,11 +96,34 @@ func ParseSpanEntry(hit Hit) Span {
 		StartTime:              startTime,
 		SpanID:                 getString("spanId"),
 		SpanKind:               getString("kind"),
+		Status:                 DetermineSpanStatus(source),
 		Attributes:             attributes,
 		ResourceAttributes:     resourceAttributes,
 	}
 
 	return entry
+}
+
+// DetermineSpanStatus derives a span's execution status
+// Returns one of "ok", "error", or "unset".
+func DetermineSpanStatus(spanHit map[string]interface{}) string {
+	if spanHit == nil {
+		return SpanStatusUnset
+	}
+
+	// Check OpenTelemetry status code from nested status map
+	if statusMap, ok := spanHit["status"].(map[string]interface{}); ok {
+		if code, ok := statusMap["code"].(string); ok {
+			switch strings.ToLower(code) {
+			case SpanStatusError:
+				return SpanStatusError
+			case SpanStatusOK:
+				return SpanStatusOK
+			}
+		}
+	}
+
+	return SpanStatusUnset
 }
 
 // GetTraceID extracts the traceId from a span hit

@@ -330,6 +330,164 @@ func mustParseTime(timeStr string) time.Time {
 	return parsed
 }
 
+func TestDetermineSpanStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		spanHit  map[string]interface{}
+		expected string
+	}{
+		{
+			name:     "nil input",
+			spanHit:  nil,
+			expected: SpanStatusUnset,
+		},
+		{
+			name:     "missing status key",
+			spanHit:  map[string]interface{}{"name": "some-span"},
+			expected: SpanStatusUnset,
+		},
+		{
+			name: "status key is not a map",
+			spanHit: map[string]interface{}{
+				"status": "ok",
+			},
+			expected: SpanStatusUnset,
+		},
+		{
+			name: "status map missing code",
+			spanHit: map[string]interface{}{
+				"status": map[string]interface{}{"message": "all good"},
+			},
+			expected: SpanStatusUnset,
+		},
+		{
+			name: "string code ok lowercase",
+			spanHit: map[string]interface{}{
+				"status": map[string]interface{}{"code": "ok"},
+			},
+			expected: SpanStatusOK,
+		},
+		{
+			name: "string code ok uppercase",
+			spanHit: map[string]interface{}{
+				"status": map[string]interface{}{"code": "OK"},
+			},
+			expected: SpanStatusOK,
+		},
+		{
+			name: "string code ok mixed case",
+			spanHit: map[string]interface{}{
+				"status": map[string]interface{}{"code": "Ok"},
+			},
+			expected: SpanStatusOK,
+		},
+		{
+			name: "string code error lowercase",
+			spanHit: map[string]interface{}{
+				"status": map[string]interface{}{"code": "error"},
+			},
+			expected: SpanStatusError,
+		},
+		{
+			name: "string code error uppercase",
+			spanHit: map[string]interface{}{
+				"status": map[string]interface{}{"code": "ERROR"},
+			},
+			expected: SpanStatusError,
+		},
+		{
+			name: "string code unknown",
+			spanHit: map[string]interface{}{
+				"status": map[string]interface{}{"code": "unknown"},
+			},
+			expected: SpanStatusUnset,
+		},
+		{
+			name: "non-string code type",
+			spanHit: map[string]interface{}{
+				"status": map[string]interface{}{"code": true},
+			},
+			expected: SpanStatusUnset,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := DetermineSpanStatus(tt.spanHit)
+			if result != tt.expected {
+				t.Errorf("DetermineSpanStatus: expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestParseSpanEntry_StatusPropagation(t *testing.T) {
+	tests := []struct {
+		name           string
+		hit            Hit
+		expectedStatus string
+	}{
+		{
+			name: "span with string ok status",
+			hit: Hit{
+				Source: map[string]interface{}{
+					"spanId": "span1",
+					"name":   "test-span",
+					"status": map[string]interface{}{"code": "ok"},
+				},
+			},
+			expectedStatus: SpanStatusOK,
+		},
+		{
+			name: "span with string error status",
+			hit: Hit{
+				Source: map[string]interface{}{
+					"spanId": "span2",
+					"name":   "error-span",
+					"status": map[string]interface{}{"code": "ERROR"},
+				},
+			},
+			expectedStatus: SpanStatusError,
+		},
+		{
+			name: "span with missing status",
+			hit: Hit{
+				Source: map[string]interface{}{
+					"spanId": "span5",
+					"name":   "no-status-span",
+				},
+			},
+			expectedStatus: SpanStatusUnset,
+		},
+		{
+			name: "span with invalid status payload",
+			hit: Hit{
+				Source: map[string]interface{}{
+					"spanId": "span6",
+					"name":   "invalid-status-span",
+					"status": "not-a-map",
+				},
+			},
+			expectedStatus: SpanStatusUnset,
+		},
+		{
+			// nil source returns early with zero-value Span before DetermineSpanStatus is called
+			name:           "nil source",
+			hit:            Hit{Source: nil},
+			expectedStatus: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ParseSpanEntry(tt.hit)
+			if result.Status != tt.expectedStatus {
+				t.Errorf("ParseSpanEntry status: expected %q, got %q", tt.expectedStatus, result.Status)
+			}
+		})
+	}
+}
+
 func TestGetTraceID(t *testing.T) {
 	tests := []struct {
 		name     string

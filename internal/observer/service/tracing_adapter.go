@@ -170,6 +170,9 @@ func convertSpanDetailResponse(resp *gen.TraceSpanDetailsResponse) *observabilit
 	if resp.SpanKind != nil {
 		detail.SpanKind = *resp.SpanKind
 	}
+	if resp.Status != nil {
+		detail.Status = string(*resp.Status)
+	}
 
 	if resp.Attributes != nil {
 		detail.Attributes = make(map[string]interface{}, len(*resp.Attributes))
@@ -217,6 +220,9 @@ func convertSpansAdapterResponse(resp *gen.TraceSpansQueryResponse) *observabili
 			if s.SpanKind != nil {
 				span.SpanKind = *s.SpanKind
 			}
+			if s.Status != nil {
+				span.Status = string(*s.Status)
+			}
 			result.Spans = append(result.Spans, span)
 		}
 	}
@@ -263,6 +269,9 @@ func convertTracesResponse(resp *gen.TracesQueryResponse) *observability.TracesQ
 			}
 			if t.DurationNs != nil {
 				trace.DurationNs = *t.DurationNs
+			}
+			if t.HasErrors != nil {
+				trace.HasErrors = *t.HasErrors
 			}
 			result.Traces = append(result.Traces, trace)
 		}

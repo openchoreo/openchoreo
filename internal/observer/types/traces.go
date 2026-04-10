@@ -32,6 +32,7 @@ type TraceInfo struct {
 	StartTime    *time.Time `json:"startTime,omitempty"`
 	EndTime      *time.Time `json:"endTime,omitempty"`
 	DurationNs   int64      `json:"durationNs,omitempty"`
+	HasErrors    bool       `json:"hasErrors"`
 }
 
 // SpansQueryResponse represents the internal response for span queries
@@ -50,6 +51,7 @@ type SpanInfo struct {
 	StartTime          *time.Time             `json:"startTime,omitempty"`
 	EndTime            *time.Time             `json:"endTime,omitempty"`
 	DurationNs         int64                  `json:"durationNs,omitempty"`
+	Status             string                 `json:"status,omitempty"`
 	Attributes         map[string]interface{} `json:"attributes,omitempty"`
 	ResourceAttributes map[string]interface{} `json:"resourceAttributes,omitempty"`
 }

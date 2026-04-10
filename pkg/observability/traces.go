@@ -27,6 +27,7 @@ type SpanDetail struct {
 	StartTime          time.Time              `json:"startTime"`
 	EndTime            time.Time              `json:"endTime"`
 	DurationNs         int64                  `json:"durationNs"`
+	Status             string                 `json:"status,omitempty"`
 	Attributes         map[string]interface{} `json:"attributes,omitempty"`
 	ResourceAttributes map[string]interface{} `json:"resourceAttributes,omitempty"`
 }
@@ -74,6 +75,7 @@ type Trace struct {
 	StartTime    time.Time   `json:"startTime"`
 	EndTime      time.Time   `json:"endTime"`
 	DurationNs   int64       `json:"durationNs"`
+	HasErrors    bool        `json:"hasErrors"`
 	Spans        []TraceSpan `json:"spans,omitempty"`
 }
 
@@ -86,6 +88,7 @@ type TraceSpan struct {
 	StartTime          time.Time              `json:"startTime"`
 	EndTime            time.Time              `json:"endTime"`
 	DurationNs         int64                  `json:"durationNs"`
+	Status             string                 `json:"status,omitempty"`
 	Attributes         map[string]interface{} `json:"attributes,omitempty"`
 	ResourceAttributes map[string]interface{} `json:"resourceAttributes,omitempty"`
 }

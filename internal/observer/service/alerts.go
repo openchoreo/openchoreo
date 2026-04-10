@@ -361,7 +361,7 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 		go s.triggerRCAAnalysis(alertID, alertDetails, alertRule)
 	}
 
-	successStatus := gen.Success
+	successStatus := gen.AlertWebhookResponseStatusSuccess
 	msg := fmt.Sprintf("alert acknowledged, alertID: %s", alertID)
 	return &gen.AlertWebhookResponse{
 		Status:  &successStatus,

@@ -218,6 +218,13 @@ func buildTraceFromBucket(bucket opensearch.TraceBucket) observability.Trace {
 		trace.DurationNs = trace.EndTime.Sub(trace.StartTime).Nanoseconds()
 	}
 
+	// Determine trace status from error_span sub-aggregation
+	if bucket.ErrorSpanCount.DocCount > 0 {
+		trace.HasErrors = true
+	} else {
+		trace.HasErrors = false
+	}
+
 	return trace
 }
 
@@ -271,8 +278,18 @@ func convertToObservabilityTrace(traceID string, spans []opensearch.Span) observ
 			StartTime:          span.StartTime,
 			EndTime:            span.EndTime,
 			DurationNs:         span.DurationNanoseconds,
+			Status:             span.Status,
 			Attributes:         span.Attributes,
 			ResourceAttributes: span.ResourceAttributes,
+		}
+	}
+
+	// Derive trace hasErrors from span statuses
+	traceHasErrors := false
+	for _, s := range traceSpans {
+		if s.Status == opensearch.SpanStatusError {
+			traceHasErrors = true
+			break
 		}
 	}
 
@@ -282,6 +299,7 @@ func convertToObservabilityTrace(traceID string, spans []opensearch.Span) observ
 		StartTime:  minStartTime,
 		EndTime:    maxEndTime,
 		DurationNs: maxEndTime.Sub(minStartTime).Nanoseconds(),
+		HasErrors:  traceHasErrors,
 		Spans:      traceSpans,
 	}
 

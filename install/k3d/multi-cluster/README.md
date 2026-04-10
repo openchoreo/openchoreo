@@ -14,6 +14,7 @@ no need to expose Kubernetes APIs externally.
 > [!IMPORTANT]
 > Running all 4 clusters requires raising the inotify limit. Without this, k3s nodes
 > fail with "too many open files" errors.
+>
 > ```bash
 > # On Linux (persists until reboot)
 > sudo sysctl -w fs.inotify.max_user_instances=1024
@@ -653,7 +654,7 @@ helm upgrade --install observability-tracing-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.10 \
+  --version 0.3.11 \
   --set global.installationMode="multiClusterReceiver" \
   --set openSearch.enabled=false \
   --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
@@ -668,7 +669,7 @@ helm upgrade --install observability-tracing-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.10 \
+  --version 0.3.11 \
   --set global.installationMode="multiClusterExporter" \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
@@ -724,39 +725,39 @@ kubectl --context k3d-openchoreo-cp patch clusterworkflowplane default -n defaul
 ## Port Mappings
 
 | Plane               | Cluster           | Kube API | Port Range |
-|---------------------|-------------------|----------|------------|
+| ------------------- | ----------------- | -------- | ---------- |
 | Control Plane       | k3d-openchoreo-cp | 6550     | 8xxx       |
 | Data Plane          | k3d-openchoreo-dp | 6551     | 19xxx      |
-| Workflow Plane         | k3d-openchoreo-wp | 6552     | 10xxx      |
+| Workflow Plane      | k3d-openchoreo-wp | 6552     | 10xxx      |
 | Observability Plane | k3d-openchoreo-op | 6553     | 11xxx      |
 
 All ports are mapped 1:1 (host:container) unless noted.
 
-| Port  | Plane         | Service                |
-|-------|---------------|------------------------|
-| 8080  | Control       | Gateway HTTP           |
-| 8443  | Control       | Gateway HTTPS          |
-| 19080 | Data          | Gateway HTTP           |
-| 19443 | Data          | Gateway HTTPS          |
-| 10081 | Build         | Argo Workflows UI      |
-| 10082 | Build         | Container Registry     |
-| 11080 | Observability | Observer API (HTTP)    |
-| 11081 | Observability | OpenSearch Dashboards* |
-| 11082 | Observability | OpenSearch API*        |
-| 11084 | Observability | Prometheus*            |
-| 11086 | Observability | OpenTelemetry*         |
+| Port  | Plane         | Service                 |
+| ----- | ------------- | ----------------------- |
+| 8080  | Control       | Gateway HTTP            |
+| 8443  | Control       | Gateway HTTPS           |
+| 19080 | Data          | Gateway HTTP            |
+| 19443 | Data          | Gateway HTTPS           |
+| 10081 | Build         | Argo Workflows UI       |
+| 10082 | Build         | Container Registry      |
+| 11080 | Observability | Observer API (HTTP)     |
+| 11081 | Observability | OpenSearch Dashboards\* |
+| 11082 | Observability | OpenSearch API\*        |
+| 11084 | Observability | Prometheus\*            |
+| 11086 | Observability | OpenTelemetry\*         |
 
-*Not 1:1 mappings (11081:5601, 11082:9200, 11084:9091, 11086:4317).
+\*Not 1:1 mappings (11081:5601, 11082:9200, 11084:9091, 11086:4317).
 
 ## Access Services
 
-| Service              | URL                                           |
-|----------------------|-----------------------------------------------|
-| OpenChoreo Console   | http://openchoreo.localhost:8080               |
-| OpenChoreo API       | http://api.openchoreo.localhost:8080           |
-| Thunder Admin        | http://thunder.openchoreo.localhost:8080       |
-| Argo Workflows UI    | http://localhost:10081                         |
-| Observer API         | http://observer.openchoreo.localhost:11080     |
+| Service            | URL                                        |
+| ------------------ | ------------------------------------------ |
+| OpenChoreo Console | http://openchoreo.localhost:8080           |
+| OpenChoreo API     | http://api.openchoreo.localhost:8080       |
+| Thunder Admin      | http://thunder.openchoreo.localhost:8080   |
+| Argo Workflows UI  | http://localhost:10081                     |
+| Observer API       | http://observer.openchoreo.localhost:11080 |
 
 ## Verification
 

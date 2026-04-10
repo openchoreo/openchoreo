@@ -864,6 +864,16 @@ func (qb *QueryBuilder) BuildTracesAggregationQuery(params TracesRequestParams) 
 							"_source": []string{"endTime"},
 						},
 					},
+					"error_span_count": map[string]interface{}{
+						"filter": map[string]interface{}{
+							"term": map[string]interface{}{
+								"status.code": map[string]interface{}{
+									"value":            "error",
+									"case_insensitive": true,
+								},
+							},
+						},
+					},
 					"min_start_time": map[string]interface{}{
 						"min": map[string]interface{}{
 							"field": "startTime",
