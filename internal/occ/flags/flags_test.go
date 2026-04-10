@@ -120,6 +120,14 @@ func TestOutputPath_DefaultAndSet(t *testing.T) {
 	assert.Equal(t, "/tmp/out", GetOutputPath(cmd))
 }
 
+func TestOutputPath_HasShorthand(t *testing.T) {
+	cmd := newTestCmd()
+	AddOutputPath(cmd)
+
+	f := cmd.Flags().Lookup("output-path")
+	assert.Equal(t, "o", f.Shorthand)
+}
+
 func TestRelease_DefaultAndSet(t *testing.T) {
 	cmd := newTestCmd()
 	AddRelease(cmd)

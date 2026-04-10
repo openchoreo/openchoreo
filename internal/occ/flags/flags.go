@@ -115,7 +115,7 @@ func GetRootDir(cmd *cobra.Command) string {
 // --- OutputPath ---
 
 func AddOutputPath(cmd *cobra.Command) {
-	cmd.Flags().String("output-path", "", "Custom output directory path")
+	cmd.Flags().StringP("output-path", "o", "", "Custom output directory path")
 }
 
 func GetOutputPath(cmd *cobra.Command) string {
