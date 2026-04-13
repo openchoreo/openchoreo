@@ -129,7 +129,7 @@ OpenChoreo is licensed under Apache 2.0. See the **[LICENSE](./LICENSE)** file f
 ---
 
 <div align="center">
-  <h2>OpenChoreo is a <a link="https://www.cncf.io/">CNCF (Cloud Native Computing Foundation)</a> Sandbox Project</h2>
+  <h2>OpenChoreo is a <a href="https://www.cncf.io/">CNCF</a> Sandbox Project</h2>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./docs/images/cncf-logo-white.png">
     <img src="./docs/images/cncf-logo.svg" width="400" alt="CNCF Logo"/>
