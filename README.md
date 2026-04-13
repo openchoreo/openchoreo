@@ -1,16 +1,14 @@
-<div align="center">
-  <br />
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./docs/images/openchoreo-horizontal-white.png">
-    <img alt="OpenChoreo Logo" src="./docs/images/openchoreo-horizontal-color.png" width="450">
-  </picture>
-
-  <h1>
+<div align="left">
+  <p></p><p></p>
+  <p>
+    <img 
+    src="./docs/images/openchoreo-horizontal-color.png" alt="OpenChoreo Platform Abstractions" 
+    width="600"/>
+  </p>
+  <h1 style="font-size: 1.5em;">
     A complete, open-source developer platform for Kubernetes
   </h1>
-  <h2>
-    Ready to use on day one, built to integrate with your stack
-  </h2>
+  <p>OpenChoreo is a developer platform for Kubernetes offering development and architecture abstractions, a Backstage-powered developer portal, application CI/CD, GitOps, and observability.</P>
 
 <!-- License & Community -->
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -32,70 +30,140 @@
 [![GitHub Release](https://img.shields.io/github/v/release/openchoreo/openchoreo)](https://github.com/openchoreo/openchoreo/releases/latest)
 [![GitHub last commit](https://img.shields.io/github/last-commit/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/commits/main)
 [![GitHub issues](https://img.shields.io/github/issues/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/issues)
-
 </div>
 
-## What is OpenChoreo?
+## Why OpenChoreo?
+Kubernetes gives you powerful primitives like Namespaces, Deployments, CronJobs, Services and NetworkPolicies—but they are too low-level for most developers.
 
-OpenChoreo is a developer platform for Kubernetes offering development and architecture abstractions, a Backstage-powered developer portal, application CI/CD, GitOps, RBAC and observability.
+Platform engineers are left to build the actual platform: defining higher-level abstractions and wiring together tools for engineering, delivery, security and visibility.
 
-OpenChoreo orchestrates Kubernetes and other CNCF and open-source projects as a domain-driven, API-first platform to give platform teams a strong head start. You can use it as-is, or tailor it to fit your own Internal Developer Platform (IDP) vision.
+OpenChoreo fills that gap and provides all the essential building blocks of an IDP, including CI, GitOps, observability, RBAC and analytics.
 
-<picture>
-  <img src="./docs/images/openchoreo-architecture-diagram.png"
-  alt="OpenChoreo architecture"/>
-</picture>
+OpenChoreo was originally developed by [WSO2](https://wso2.com), based on its experience building the SaaS internal developer platform formerly known as WSO2 Choreo (now WSO2 Developer Platform), bringing its core ideas to the open-source community.
 
-## Key features
+## OpenChoreo concepts
+At its core, OpenChoreo provides a control plane that sits on top of one or more Kubernetes clusters, turning them into a cohesive internal developer platform. 
 
-- **Modular, multi-plane platform architecture**
+OpenChoreo introduces a combination of platform abstractions and application abstractions, enabling platform engineers to define standards and enforce policies while giving developers a simplified, self-service experience.
 
-  Independently deployable control, data, build, and observability planes separate concerns with clear boundaries and flexible deployment topologies, from a single Kubernetes cluster to massively distributed fleets.
+Platform engineers use the following abstractions to create their internal developer platform:
+<div align="left">
+  <img src="./docs/images/openchoreo-platform-abstractions.png" alt="OpenChoreo Platform Abstractions" width="800"/>
+</div>
+</br>
 
-- **Platform abstractions (APIs) as building blocks**
-  
-  Core platform concepts are exposed as declarative APIs (environments, gateways, pipelines/workflows, component types, modules, etc.), so topology and delivery behavior can be standardized across an organization.
+- **Namespace**
+  - A logical grouping of users and resources, typically aligned to a company, business unit, or team. 
+- **Data Plane**
+  - A Kubernetes cluster to host one or more of your deployment environments.
+- **Environment**
+  - A runtime context (e.g., dev, test, staging, prod) where workloads are deployed and executed.
+- **Deployment Pipeline**
+  - A defined process that governs how workloads are promoted across environments.
 
-- **Programmable developer abstractions**
+</br>
 
-  Developers use higher-level, extensible Kubernetes-native abstractions (projects, components, endpoints, dependencies) and golden paths to ship without dealing with the full surface area of the Kubernetes API.
+Project managers, architects, and developers use the following abstractions to manage the organization of their work:
+<div align="left">
+  <img src="./docs/images/openchoreo-development-abstractions.png" alt="OpenChoreo Development Abstractions" width="800"/>
+</div>
+</br>
 
-- **Intelligent, integrated observability**
+These abstractions align with the Domain-Driven Design principles, where projects represent bounded contexts and components represent the individual services or workloads within a domain. Developers use these abstractions to describe the structure and intent of the application in a declarative manner without having to deal with runtime infrastructure details. 
 
-  Unified access to distributed logs, metrics, traces, and alerts and exposed via APIs. A unified platform model enriched with observability data allows for faster debugging and operational actions for humans and AI.
+- **Project**
+  - A cloud-native application composed of multiple components. Serves as the unit of isolation.
+  - Maps to a set of Namespaces (one per Environment) in one or more Data planes.
+- **Component**
+  - A deployable unit within a project, such as a web service, API, worker, or scheduled task.
+  - Maps to workload resources like Deployment, Job, or StatefulSet.
+- **Endpoint**
+  - A network-accessible interface exposed by a component, including routing rules, supported protocols, and visibility scopes (e.g., public, organization, project).
+  - Maps to HTTPRoute (for HTTP), Service resources, and routes via shared ingress gateways. Visibility is enforced via Cilium network policies.
+- **Connection**
+  - An outbound service dependency defined by a component, targeting either other components or external systems.
+  - Maps to Cilium network policies and is routed through egress gateways.
 
-- **Built-in agents**
+</br>
 
-  Agents are first-class platform citizens.
-  Includes an SRE agent for root cause analysis and remediation, a FinOps agent for cost optimization, and more.
+Architects and developers use the following runtime abstractions to manage how components and projects operate at runtime:
+<div align="left">
+  <img src="./docs/images/openchoreo-cell-runtime-view.png" alt="OpenChoreo Runtime view of a Project" width="600"/>
+</div>
+</br>
 
-- **AI-assisted/driven engineering and operations**
+At runtime, OpenChoreo turns each Project (Bounded Context) into a Cell - a secure, isolated, and observable unit that enforces domain boundaries through infrastructure. 
 
-  A controlled agent interface with MCP servers, skills, and the CLI lets AI assistants and agents participate in development, delivery, and operations, without bypassing guardrails.
+- **Cell** 
+  - A Cell is the runtime reification of a single project in OpenChoreo. It encapsulates all components of a project and controls how they communicate internally and externally through well-defined ingress and egress paths.
+  - Communication between components in the same cell is permitted without interception.
+  - Cilium and eBPF are used to enforce fine-grained network policies across all ingress and egress paths.
+- **Northbound Ingress**
+  - Routes incoming traffic from external (internet) sources into the cell.  
+  - Endpoints with `visibility: public` are exposed through this ingress path.
+- **Southbound Egress**
+  - Handles outbound Internet access from components in the Cell. Connections to external services are routed through this egress path. 
+- **Westbound Ingress**
+  - Handles traffic entering the Cell from within the organization, be it from another cell or just from the internal network. 
+- **Eastbound Egress**
+  - Handles outbound traffic to other cells or to the internal network.
 
-- **GitOps: Declarative platform + app state**
+## OpenChoreo benefits
+These abstractions provide the following benefits for businesses to build & operate cloud-native applications:
 
-  Platform and application state are reconciled from Git for auditability and drift resistance, with GUI and CLI support for imperative actions when speed matters (or if that's what you prefer).
+<div align="left">
+  <img src="./docs/images/openchoreo-ddd-to-cell-mapping.png" alt="OpenChoreo DDD-to-Cell Mapping" width="800"/>
+</div>
+</br>
 
-- **Multi-tenancy and access controls**
+- **Design clarity for cloud-native applications**
+  - OpenChoreo’s abstractions—Projects, Components, Endpoints, and Connections—enable teams to model systems around business domains. 
+  - These abstractions align with Domain-Driven Design (DDD) and promote modular, independently deployable services with explicit service boundaries.
+- **A developer experience that hides the infrastructure**
+  - Developers define application intent (e.g., deploy a component, expose an endpoint, connect to another service) through high-level abstractions. 
+  - OpenChoreo compiles this model into the necessary Kubernetes resources, network policies, gateways, and observability hooks.
+- **Built-in ingress and egress API management**
+  - OpenChoreo manages ingress and egress for all Components based on endpoint visibility (public, organization, or project). 
+  - APIs are exposed through kgateways with built-in support for routing, rate limiting, authentication, and traffic policies — without requiring manual configuration.
+- **Software catalog and discoverability**
+  - All exposed APIs, events and data are automatically registered in an internal catalog. Metadata such as endpoint path, visibility, and owning project is included. 
+  - This enables discovery and governance of service interfaces across teams and environments.
+- **Zero trust security by default**
+  - Each Cell acts as a security boundary where communication between components is explicitly declared and enforced. 
+  - Internal and external traffic is governed by Cilium network policies and routed through kgateways. All traffic, including intra-cell communication, is encrypted using mTLS. 
+  - No implicit trust is granted — every access is authenticated, authorized, and policy-checked.
+- **Observability by default**
+  - Each Cell is instrumented for logging, metrics, and distributed tracing. Observability spans all ingress/egress gateways and component-to-component communication, with no additional configuration required. 
+  - Collected data can be integrated into existing monitoring and analysis pipelines.
+- **Developer and platform separation of concerns**
+  - The platform team defines the rules (networking, security, observability, and operational policies). Application teams work within those boundaries by modeling their systems using OpenChoreo abstractions. 
+  - This separation ensures consistency, security, and operational reliability at scale.
 
-  Built-in tenancy boundaries and role-based access control enable safe self-service across teams, projects, and environments with least-privilege access.
+## How does it work?
+In this section, we explain how the OpenChoreo abstractions for platform engineering, code & team organization, software architecture, software engineering and operations are mapped to Kubernetes abstractions and a set of CNCF and other tools that are used to ensure the higher-level abstractions are properly maintained.
 
-- **Modules catalog**
-
-  Integrate external tools into OpenChoreo's unified platform experience using community-driven marketplace modules, or build your own.
-
-## Documentation
-
-OpenChoreo's documentation is available at [openchoreo.dev](https://openchoreo.dev).
+<div align="left">
+  <img src="./docs/images/openchoreo-architecture-diagram.png" alt="OpenChoreo Architecture" width="800"/>
+</div>
+</br>
 
 ## Getting Started
 
-The easiest way to try OpenChoreo is by following the **[Quick Start Guide](https://openchoreo.dev/docs/getting-started/quick-start-guide/)**. 
+The easiest way to try OpenChoreo is by following the **[Quick Start Guide](https://openchoreo.dev/docs/getting-started/quick-start-guide/)**. It walks you through setting up Choreo using a Dev Container, so you can start experimenting without affecting your local environment.
 
-Visit the **[Installation Guides](https://openchoreo.dev/docs/category/try-it-out/)** to learn more about installing OpenChoreo on Kubernetes for further evaluation and production use.
+For a deeper understanding of OpenChoreo's architecture, see **[OpenChoreo Concepts](https://openchoreo.dev/docs/category/concepts/)**.
 
-For a deeper understanding of OpenChoreo's architecture, see **[OpenChoreo Architecture](https://openchoreo.dev/docs/overview/architecture)** and **[OpenChoreo Concepts](https://openchoreo.dev/docs/category/concepts/)**.
+Visit **[Installation Guide](https://openchoreo.dev/docs/getting-started/try-it-out/on-k3d-locally/)** to learn more about installation methods.
+
+## Samples
+
+Explore hands-on examples to help you configure and deploy your applications using OpenChoreo.
+
+- **[Platform Configuration](./samples/platform-config/)** – Set up deployment pipelines and environments.
+- **[Deploy from Source](./samples/from-source/)** – Deploy services and web apps from source code.
+- **[Deploy from Image](./samples/from-image/)** – Deploy pre-built container images.
+
+Check out the **[Samples Directory](./samples/)** for more details.
 
 ## Join the Community & Contribute
 
@@ -112,25 +180,20 @@ We’re excited to have you onboard!
 
 We maintain an OpenChoreo Roadmap as a GitHub project board to share what we’re building and when we expect to deliver it.
 
-See the [OpenChoreo Roadmap](https://github.com/orgs/openchoreo/projects/5/views/2)
+The roadmap is organized by calendar quarters, and each column represents a set of features or enhancements planned for that period. 
+This allows contributors, adopters, and maintainers to understand what’s coming up and what’s already being worked on.
 
 ### How It Works
 
-- **Backlog**: New tasks are added to the [Backlog](https://github.com/orgs/openchoreo/projects/5/views/1) and are prioritized by the OpenChoreo team
-- **GitHub discussions**: OpenChoreo is designed in the open. [GitHub discussions](https://github.com/openchoreo/openchoreo/discussions) are used to discuss and review new features and improvements
-- **Release management**: Epics that track the progress of a high-level task is assigned to a planned release in the [roadmap](https://github.com/orgs/openchoreo/projects/5/views/2)
+- **Quarterly columns**: Group features by when we aim to deliver them (e.g., 2025 Q2 – Apr–Jun).
+- **Future column**: Tracks ideas or initiatives we intend to explore but haven’t scheduled yet.
+- Each card links to a GitHub issue with context and discussion.
+- We continuously update the roadmap as priorities evolve, and completed features may remain in their quarter for historical visibility.
+
+[OpenChoreo Roadmap](https://github.com/orgs/openchoreo/projects/4/views/2)
 
 ## License
 OpenChoreo is licensed under Apache 2.0. See the **[LICENSE](./LICENSE)** file for full details.
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fopenchoreo%2Fopenchoreo.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fopenchoreo%2Fopenchoreo?ref=badge_large)
 
----
-
-<div align="center">
-  <h2>OpenChoreo is a <a href="https://www.cncf.io/">CNCF</a> Sandbox Project</h2>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./docs/images/cncf-logo-white.png">
-    <img src="./docs/images/cncf-logo.svg" width="400" alt="CNCF Logo"/>
-  </picture>
-</div>
