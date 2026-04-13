@@ -111,7 +111,7 @@ We maintain an OpenChoreo Roadmap as a GitHub project board to share what we’r
 
 See the [OpenChoreo Roadmap](https://github.com/orgs/openchoreo/projects/5/views/2)
 
-#### How It Works
+### How It Works
 
 - **Backlog**: New tasks are added to the [Backlog](https://github.com/orgs/openchoreo/projects/5/views/1) and are prioritized by the OpenChoreo team
 - **GitHub discussions**: OpenChoreo is designed in the open. [GitHub discussions](https://github.com/openchoreo/openchoreo/discussions) are used to discuss and review new features and improvements
