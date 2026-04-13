@@ -7,12 +7,10 @@
 
   <h1>
     A complete, open-source developer platform for Kubernetes
-    <br />
-    <small>
-      Ready to use on day one, built to integrate with your stack
-      <br />
-    </small>
   </h1>
+  <h2>
+    Ready to use on day one, built to integrate with your stack
+  </h2>
 </div>
 
 <!-- License & Community -->
