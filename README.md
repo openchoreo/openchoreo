@@ -1,4 +1,4 @@
-<div align="left">
+<div align="center">
   <br />
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./docs/images/openchoreo-horizontal-white.png">
@@ -6,11 +6,11 @@
   </picture>
 
   <h1>
-    A complete, open-source developer platform for Kubernetes. 
-    <br/>
-    Ready to use on day one, built to integrate with your stack.
+    A complete, open-source developer platform for Kubernetes
   </h1>
-</div>
+  <h2>
+    Ready to use on day one, built to integrate with your stack
+  </h2>
 
 <!-- License & Community -->
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -32,6 +32,8 @@
 [![GitHub Release](https://img.shields.io/github/v/release/openchoreo/openchoreo)](https://github.com/openchoreo/openchoreo/releases/latest)
 [![GitHub last commit](https://img.shields.io/github/last-commit/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/commits/main)
 [![GitHub issues](https://img.shields.io/github/issues/openchoreo/openchoreo.svg)](https://github.com/openchoreo/openchoreo/issues)
+
+</div>
 
 ## What is OpenChoreo?
 
