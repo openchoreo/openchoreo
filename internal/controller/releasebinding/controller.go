@@ -310,60 +310,86 @@ func (r *Reconciler) buildMetadataContext(
 }
 
 // collectSecretReferences collects all SecretReferences needed for rendering from workload and releaseBinding.
+// It also validates that the key requested by each SecretKeyRef exists in the corresponding SecretReference's
+// spec.data[].secretKey so that typos or missing keys surface as a clear rendering error instead of being
+// silently dropped during configuration extraction.
+// Both workload and releaseBinding always reside in the same control plane namespace, so all
+// SecretReference lookups use releaseBinding.Namespace.
 func (r *Reconciler) collectSecretReferences(ctx context.Context, workload *openchoreov1alpha1.Workload, releaseBinding *openchoreov1alpha1.ReleaseBinding) (map[string]*openchoreov1alpha1.SecretReference, error) {
 	secretRefs := make(map[string]*openchoreov1alpha1.SecretReference)
+	namespace := releaseBinding.Namespace
 
-	// Helper function to collect secret reference
-	collectSecretRef := func(refName string, namespace string) error {
-		if refName == "" {
+	collectAndValidate := func(ref *openchoreov1alpha1.SecretKeyRef) error {
+		if ref.Name == "" {
 			return nil
 		}
-		if _, exists := secretRefs[refName]; !exists {
-			secretRef := &openchoreov1alpha1.SecretReference{}
+		secretRef, exists := secretRefs[ref.Name]
+		if !exists {
+			secretRef = &openchoreov1alpha1.SecretReference{}
 			if err := r.Get(ctx, client.ObjectKey{
-				Name:      refName,
+				Name:      ref.Name,
 				Namespace: namespace,
 			}, secretRef); err != nil {
-				return fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+				return fmt.Errorf("failed to get SecretReference %q: %w", ref.Name, err)
 			}
-			secretRefs[refName] = secretRef
+			secretRefs[ref.Name] = secretRef
 		}
-		return nil
+		availableKeys := make([]string, 0, len(secretRef.Spec.Data))
+		for _, data := range secretRef.Spec.Data {
+			if data.SecretKey == ref.Key {
+				return nil
+			}
+			availableKeys = append(availableKeys, data.SecretKey)
+		}
+		return fmt.Errorf("key %q not found in SecretReference %q; available keys: %v",
+			ref.Key, ref.Name, availableKeys)
 	}
 
-	if workload != nil {
-		container := workload.Spec.Container
-		for _, env := range container.Env {
-			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
-				if err := collectSecretRef(env.ValueFrom.SecretKeyRef.Name, workload.Namespace); err != nil {
-					return nil, err
-				}
-			}
-		}
-
-		for _, file := range container.Files {
-			if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
-				if err := collectSecretRef(file.ValueFrom.SecretKeyRef.Name, workload.Namespace); err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-
-	// Collect from releaseBinding workload overrides if present
+	// Collect from releaseBinding overrides first, tracking which env/file keys are
+	// overridden so we can skip the corresponding workload entries.
+	overriddenEnvKeys := make(map[string]struct{})
+	overriddenFileKeys := make(map[string]struct{})
 	if releaseBinding.Spec.WorkloadOverrides != nil && releaseBinding.Spec.WorkloadOverrides.Container != nil {
 		container := releaseBinding.Spec.WorkloadOverrides.Container
 		for _, env := range container.Env {
+			overriddenEnvKeys[env.Key] = struct{}{}
 			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
-				if err := collectSecretRef(env.ValueFrom.SecretKeyRef.Name, releaseBinding.Namespace); err != nil {
+				if err := collectAndValidate(env.ValueFrom.SecretKeyRef); err != nil {
 					return nil, err
 				}
 			}
 		}
 
 		for _, file := range container.Files {
+			overriddenFileKeys[file.Key] = struct{}{}
 			if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
-				if err := collectSecretRef(file.ValueFrom.SecretKeyRef.Name, releaseBinding.Namespace); err != nil {
+				if err := collectAndValidate(file.ValueFrom.SecretKeyRef); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	// Collect from workload, skipping entries overridden by releaseBinding
+	if workload != nil {
+		container := workload.Spec.Container
+		for _, env := range container.Env {
+			if _, overridden := overriddenEnvKeys[env.Key]; overridden {
+				continue
+			}
+			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
+				if err := collectAndValidate(env.ValueFrom.SecretKeyRef); err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		for _, file := range container.Files {
+			if _, overridden := overriddenFileKeys[file.Key]; overridden {
+				continue
+			}
+			if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
+				if err := collectAndValidate(file.ValueFrom.SecretKeyRef); err != nil {
 					return nil, err
 				}
 			}

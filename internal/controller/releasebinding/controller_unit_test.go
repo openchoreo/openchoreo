@@ -8,9 +8,13 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -1998,4 +2002,406 @@ func TestResolveURLForVisibility(t *testing.T) {
 			t.Errorf("expected nil, got %v", url)
 		}
 	})
+}
+
+// ---- collectSecretReferences tests ----
+
+func newSecretReferenceTestReconciler(t *testing.T, objs ...client.Object) *Reconciler {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+	builder := fake.NewClientBuilder().WithScheme(scheme)
+	if len(objs) > 0 {
+		builder = builder.WithObjects(objs...)
+	}
+	return &Reconciler{Client: builder.Build(), Scheme: scheme}
+}
+
+func makeSecretReference(name string, keys ...string) *openchoreov1alpha1.SecretReference {
+	data := make([]openchoreov1alpha1.SecretDataSource, 0, len(keys))
+	for _, k := range keys {
+		data = append(data, openchoreov1alpha1.SecretDataSource{
+			SecretKey: k,
+			RemoteRef: openchoreov1alpha1.RemoteReference{Key: "remote/" + k},
+		})
+	}
+	return &openchoreov1alpha1.SecretReference{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
+		Spec: openchoreov1alpha1.SecretReferenceSpec{
+			Data: data,
+		},
+	}
+}
+
+func makeWorkloadWithEnvSecret(envKey, refName, refKey string) *openchoreov1alpha1.Workload {
+	return &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: envKey,
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: refName, Key: refKey},
+						},
+					}},
+				},
+			},
+		},
+	}
+}
+
+func makeWorkloadWithFileSecret(fileKey, mountPath, refName, refKey string) *openchoreov1alpha1.Workload {
+	return &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Files: []openchoreov1alpha1.FileVar{{
+						Key:       fileKey,
+						MountPath: mountPath,
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: refName, Key: refKey},
+						},
+					}},
+				},
+			},
+		},
+	}
+}
+
+func TestCollectSecretReferences_NilWorkloadNoOverrides(t *testing.T) {
+	r := newSecretReferenceTestReconciler(t)
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+	}
+
+	refs, err := r.collectSecretReferences(context.Background(), nil, rb)
+	require.NoError(t, err)
+	assert.Empty(t, refs)
+}
+
+func TestCollectSecretReferences_WorkloadEnv_KeyFound(t *testing.T) {
+	sr := makeSecretReference("db-secret", "password", "username")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := makeWorkloadWithEnvSecret("DB_PASSWORD", "db-secret", "password")
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	require.Len(t, refs, 1)
+	assert.NotNil(t, refs["db-secret"])
+}
+
+func TestCollectSecretReferences_WorkloadEnv_KeyMissing(t *testing.T) {
+	sr := makeSecretReference("db-secret", "password")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := makeWorkloadWithEnvSecret("DB_USERNAME", "db-secret", "username")
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	_, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, `key "username"`)
+	assert.Contains(t, msg, `SecretReference "db-secret"`)
+	assert.Contains(t, msg, "password")
+}
+
+func TestCollectSecretReferences_WorkloadFile_KeyMissing(t *testing.T) {
+	sr := makeSecretReference("tls-secret", "tls.crt")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := makeWorkloadWithFileSecret("tls.key", "/etc/tls/key", "tls-secret", "tls.key")
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	_, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, `key "tls.key"`)
+	assert.Contains(t, msg, `SecretReference "tls-secret"`)
+	assert.Contains(t, msg, "tls.crt")
+}
+
+func TestCollectSecretReferences_ReleaseBindingOverrideEnv_KeyMissing(t *testing.T) {
+	sr := makeSecretReference("api-secret", "token")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: "API_KEY",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "api-secret", Key: "api-key"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	_, err := r.collectSecretReferences(context.Background(), nil, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, `key "api-key"`)
+	assert.Contains(t, msg, `SecretReference "api-secret"`)
+}
+
+func TestCollectSecretReferences_ReleaseBindingOverrideFile_KeyMissing(t *testing.T) {
+	sr := makeSecretReference("cfg-secret", "app.conf")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Files: []openchoreov1alpha1.FileVar{{
+						Key:       "secret.conf",
+						MountPath: "/etc/cfg/secret.conf",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "cfg-secret", Key: "secret.conf"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	_, err := r.collectSecretReferences(context.Background(), nil, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, `key "secret.conf"`)
+	assert.Contains(t, msg, `SecretReference "cfg-secret"`)
+}
+
+func TestCollectSecretReferences_SecretReferenceNotFound(t *testing.T) {
+	r := newSecretReferenceTestReconciler(t) // no objects
+
+	wl := makeWorkloadWithEnvSecret("TOKEN", "missing-secret", "token")
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	_, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, "failed to get SecretReference")
+	assert.Contains(t, msg, `"missing-secret"`)
+}
+
+func TestCollectSecretReferences_DuplicateRefsCachedAndValidated(t *testing.T) {
+	sr := makeSecretReference("shared-secret", "key-a", "key-b")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{
+						{
+							Key: "A",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "shared-secret", Key: "key-a"},
+							},
+						},
+						{
+							Key: "B",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "shared-secret", Key: "key-b"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	assert.Len(t, refs, 1)
+}
+
+func TestCollectSecretReferences_CachedRefStillValidatesKey(t *testing.T) {
+	sr := makeSecretReference("shared-secret", "key-a")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{
+						{
+							Key: "A",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "shared-secret", Key: "key-a"},
+							},
+						},
+						{
+							Key: "B",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								// Second ref to same SecretReference but requests a key that does not exist.
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "shared-secret", Key: "key-b"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	_, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `key "key-b"`)
+}
+
+func TestCollectSecretReferences_EmptyRefNameSkipped(t *testing.T) {
+	r := newSecretReferenceTestReconciler(t) // no objects, so any Get would fail
+
+	wl := &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: "X",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "", Key: "anything"},
+						},
+					}},
+				},
+			},
+		},
+	}
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	assert.Empty(t, refs)
+}
+
+func TestCollectSecretReferences_OverriddenEnvSkipsWorkloadSecret(t *testing.T) {
+	// Workload references "wl-secret" for env key "DB_PASSWORD", but releaseBinding
+	// overrides the same env key with "rb-secret". The workload's "wl-secret" should
+	// NOT be fetched — only "rb-secret" from the override.
+	rbSecret := makeSecretReference("rb-secret", "password")
+	r := newSecretReferenceTestReconciler(t, rbSecret) // wl-secret intentionally absent
+
+	wl := makeWorkloadWithEnvSecret("DB_PASSWORD", "wl-secret", "password")
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: "DB_PASSWORD",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "rb-secret", Key: "password"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	require.Len(t, refs, 1)
+	assert.NotNil(t, refs["rb-secret"])
+	assert.Nil(t, refs["wl-secret"], "wl-secret should not have been fetched since it was overridden")
+}
+
+func TestCollectSecretReferences_OverriddenFileSkipsWorkloadSecret(t *testing.T) {
+	// Same override logic but for file entries.
+	rbSecret := makeSecretReference("rb-file-secret", "cert.pem")
+	r := newSecretReferenceTestReconciler(t, rbSecret) // wl-file-secret intentionally absent
+
+	wl := makeWorkloadWithFileSecret("tls-cert", "/etc/tls/cert.pem", "wl-file-secret", "cert.pem")
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Files: []openchoreov1alpha1.FileVar{{
+						Key:       "tls-cert",
+						MountPath: "/etc/tls/cert.pem",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "rb-file-secret", Key: "cert.pem"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	require.Len(t, refs, 1)
+	assert.NotNil(t, refs["rb-file-secret"])
+	assert.Nil(t, refs["wl-file-secret"], "wl-file-secret should not have been fetched since it was overridden")
+}
+
+func TestCollectSecretReferences_NonOverriddenWorkloadEntryStillCollected(t *testing.T) {
+	// Workload has two env vars: one overridden and one not.
+	// Only the non-overridden one should be fetched from the workload.
+	wlSecret := makeSecretReference("wl-secret", "user")
+	rbSecret := makeSecretReference("rb-secret", "pass")
+	r := newSecretReferenceTestReconciler(t, wlSecret, rbSecret)
+
+	wl := &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{
+						{
+							Key: "DB_USER",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "wl-secret", Key: "user"},
+							},
+						},
+						{
+							Key: "DB_PASS",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "wl-secret", Key: "pass"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: "DB_PASS",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "rb-secret", Key: "pass"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	require.Len(t, refs, 2)
+	assert.NotNil(t, refs["wl-secret"], "expected wl-secret for non-overridden DB_USER")
+	assert.NotNil(t, refs["rb-secret"], "expected rb-secret for overridden DB_PASS")
 }
