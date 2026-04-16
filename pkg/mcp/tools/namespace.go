@@ -8,12 +8,15 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-func (t *Toolsets) RegisterListNamespaces(s *mcp.Server) {
+func (t *Toolsets) RegisterListNamespaces(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_namespaces"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewNamespace}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_namespaces",
+		Name: name,
 		Description: "List all namespaces. Namespaces are top-level containers for organizing " +
 			"projects, components, and other resources. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{}), []string{}),
@@ -26,9 +29,11 @@ func (t *Toolsets) RegisterListNamespaces(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterCreateNamespace(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateNamespace(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_namespace"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateNamespace}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_namespace",
+		Name: name,
 		Description: "Create a new namespace. Namespaces are top-level containers for organizing " +
 			"projects, components, and other resources.",
 		InputSchema: createSchema(map[string]any{
@@ -60,9 +65,11 @@ func (t *Toolsets) RegisterCreateNamespace(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterListSecretReferences(s *mcp.Server) {
+func (t *Toolsets) RegisterListSecretReferences(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_secret_references"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewSecretReference}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_secret_references",
+		Name: name,
 		Description: "List all secret references for an namespace. Secret references are " +
 			"credentials and sensitive configuration that can be used by components. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{

@@ -8,12 +8,15 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-func (t *Toolsets) RegisterListProjects(s *mcp.Server) {
+func (t *Toolsets) RegisterListProjects(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_projects"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewProject}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_projects",
+		Name: name,
 		Description: "List all projects in an namespace. Projects are logical groupings of related " +
 			"components that share deployment pipelines. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -30,9 +33,11 @@ func (t *Toolsets) RegisterListProjects(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterCreateProject(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateProject(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_project"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateProject}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_project",
+		Name: name,
 		Description: "Create a new project in an namespace. Project names must be DNS-compatible " +
 			"(lowercase, alphanumeric, hyphens only, max 63 chars).",
 		InputSchema: createSchema(map[string]any{

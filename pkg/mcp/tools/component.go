@@ -9,12 +9,16 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-func (t *Toolsets) RegisterListComponents(s *mcp.Server) {
+//nolint:dupl // paginated list handlers share similar structure
+func (t *Toolsets) RegisterListComponents(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_components"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponent}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_components",
+		Name: name,
 		Description: "List all components in a project. Components are deployable units (services, jobs, etc.) " +
 			"with independent build and deployment lifecycles. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -33,9 +37,11 @@ func (t *Toolsets) RegisterListComponents(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetComponent(s *mcp.Server) {
+func (t *Toolsets) RegisterGetComponent(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_component"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponent}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component",
+		Name: name,
 		Description: "Get detailed information about a component including configuration, deployment status, " +
 			"and builds.",
 		InputSchema: createSchema(map[string]any{
@@ -51,9 +57,11 @@ func (t *Toolsets) RegisterGetComponent(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterListWorkloads(s *mcp.Server) {
+func (t *Toolsets) RegisterListWorkloads(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_workloads"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkload}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_workloads",
+		Name: name,
 		Description: "List workloads for a component. Shows workload names, images, and endpoint names. " +
 			"For Kubernetes users: Similar to 'kubectl get pods'.",
 		InputSchema: createSchema(map[string]any{
@@ -69,9 +77,11 @@ func (t *Toolsets) RegisterListWorkloads(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetWorkload(s *mcp.Server) {
+func (t *Toolsets) RegisterGetWorkload(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_workload"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkload}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_workload",
+		Name: name,
 		Description: "Get detailed information about a specific workload including container " +
 			"configuration, endpoints, and connections.",
 		InputSchema: createSchema(map[string]any{
@@ -87,9 +97,11 @@ func (t *Toolsets) RegisterGetWorkload(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetReleaseBinding(s *mcp.Server) {
+func (t *Toolsets) RegisterGetReleaseBinding(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_release_binding"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewReleaseBinding}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_release_binding",
+		Name: name,
 		Description: "Get detailed information about a specific release binding including environment, " +
 			"release name, state, overrides, endpoints, and deployment status.",
 		InputSchema: createSchema(map[string]any{
@@ -105,9 +117,11 @@ func (t *Toolsets) RegisterGetReleaseBinding(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateComponent(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_component"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateComponent}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_component",
+		Name: name,
 		Description: "Create a new component in a project. Components are deployable units (services, jobs, etc.) " +
 			"with independent build and deployment lifecycles. For components using the from-image approach " +
 			"(no workflow to build from source), use create_workload after creating the component to define " +
@@ -218,9 +232,12 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterListReleaseBindings(s *mcp.Server) {
+//nolint:dupl // paginated list handlers share similar structure
+func (t *Toolsets) RegisterListReleaseBindings(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_release_bindings"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewReleaseBinding}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_release_bindings",
+		Name: name,
 		Description: "List release bindings for a component. Release bindings associate releases with " +
 			"environments and define deployment configurations. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -239,9 +256,11 @@ func (t *Toolsets) RegisterListReleaseBindings(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_release_binding"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateReleaseBinding}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_release_binding",
+		Name: name,
 		Description: "Create a new release binding to deploy a component release to a specific " +
 			"environment. Fails if a binding already exists for the component in that environment, " +
 			"use update_release_binding to deploy a new release to an environment that already has " +
@@ -315,9 +334,11 @@ func (t *Toolsets) RegisterCreateReleaseBinding(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterUpdateReleaseBinding(s *mcp.Server) {
+func (t *Toolsets) RegisterUpdateReleaseBinding(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "update_release_binding"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateReleaseBinding}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_release_binding",
+		Name: name,
 		Description: "Update an existing release binding's configuration (partial update). Only provided fields are " +
 			"updated; omitted fields remain unchanged. Use this to deploy a new component release to an " +
 			"environment, or to modify environment configs and workload overrides.",
@@ -491,9 +512,11 @@ func parseFileVars(container map[string]interface{}) ([]gen.FileVar, error) {
 	return fileVars, nil
 }
 
-func (t *Toolsets) RegisterCreateWorkload(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateWorkload(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_workload"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateWorkload}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_workload",
+		Name: name,
 		Description: "Create a new workload for a component. Workloads define the runtime specification " +
 			"including container images, resource limits, and environment variables. " +
 			"Use this for components that follow the from-image approach (i.e., they do not use workflows to " +
@@ -520,9 +543,11 @@ func (t *Toolsets) RegisterCreateWorkload(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterUpdateWorkload(s *mcp.Server) {
+func (t *Toolsets) RegisterUpdateWorkload(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "update_workload"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateWorkload}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_workload",
+		Name: name,
 		Description: "Update an existing workload's specification for a component. Use this for components " +
 			"that use workflows to build images from source, when the source repository does not contain a " +
 			"workload descriptor (workload.yaml) and you need to modify the workload generated from the build " +
@@ -550,9 +575,11 @@ func (t *Toolsets) RegisterUpdateWorkload(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetWorkloadSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterGetWorkloadSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_workload_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkload}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_workload_schema",
+		Name: name,
 		Description: "Get the JSON schema for the workload specification. Returns the full schema showing " +
 			"all available fields (container, endpoints, connections), their types, required fields, and " +
 			"valid values. Use this before calling create_workload or update_workload to understand the " +
@@ -564,9 +591,11 @@ func (t *Toolsets) RegisterGetWorkloadSchema(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetComponentSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterGetComponentSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_component_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponent}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_schema",
+		Name: name,
 		Description: "Get the schema definition for a component. Returns the JSON schema showing component " +
 			"configuration options, required fields, and their types.",
 		InputSchema: createSchema(map[string]any{
@@ -582,9 +611,11 @@ func (t *Toolsets) RegisterGetComponentSchema(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterUpdateReleaseBindingState(s *mcp.Server) {
+func (t *Toolsets) RegisterUpdateReleaseBindingState(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "update_release_binding_state"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateReleaseBinding}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_release_binding_state",
+		Name: name,
 		Description: "Update the state of a release binding. Use this to activate, suspend, or undeploy a " +
 			"component in a specific environment. Valid states: Active, Undeploy.",
 		InputSchema: createSchema(map[string]any{
@@ -612,9 +643,11 @@ func (t *Toolsets) RegisterUpdateReleaseBindingState(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterTriggerWorkflowRun(s *mcp.Server) {
+func (t *Toolsets) RegisterTriggerWorkflowRun(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "trigger_workflow_run"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateWorkflowRun}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "trigger_workflow_run",
+		Name: name,
 		Description: "Trigger a workflow run for a component using the component's configured workflow and " +
 			"parameters. Optionally override commit SHA when the workflow supports a commit parameter mapping.",
 		InputSchema: createSchema(map[string]any{
@@ -635,9 +668,11 @@ func (t *Toolsets) RegisterTriggerWorkflowRun(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPatchComponent(s *mcp.Server) {
+func (t *Toolsets) RegisterPatchComponent(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "patch_component"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateComponent}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "patch_component",
+		Name: name,
 		Description: "Patch (partially update) a component's configuration. Only the fields provided in the request " +
 			"will be updated; omitted fields remain unchanged. Supports updating autoDeploy and parameters.",
 		InputSchema: createSchema(map[string]any{

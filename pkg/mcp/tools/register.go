@@ -173,40 +173,48 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 	}
 }
 
-func (t *Toolsets) Register(s *mcp.Server) {
+// Register registers all enabled tools with the MCP server and returns the
+// permissions map built as a side effect of registration. Each RegisterFunc
+// declares its required authz action by writing to the perms map, so the
+// returned map is always consistent with the set of registered tools.
+func (t *Toolsets) Register(s *mcp.Server) map[string]ToolPermission {
+	perms := make(map[string]ToolPermission)
+
 	if t.NamespaceToolset != nil {
 		for _, registerFunc := range t.namespaceToolRegistrations() {
-			registerFunc(s)
+			registerFunc(s, perms)
 		}
 	}
 
 	if t.ProjectToolset != nil {
 		for _, registerFunc := range t.projectToolRegistrations() {
-			registerFunc(s)
+			registerFunc(s, perms)
 		}
 	}
 
 	if t.ComponentToolset != nil {
 		for _, registerFunc := range t.componentToolRegistrations() {
-			registerFunc(s)
+			registerFunc(s, perms)
 		}
 	}
 
 	if t.DeploymentToolset != nil {
 		for _, registerFunc := range t.deploymentToolRegistrations() {
-			registerFunc(s)
+			registerFunc(s, perms)
 		}
 	}
 
 	if t.BuildToolset != nil {
 		for _, registerFunc := range t.buildToolRegistrations() {
-			registerFunc(s)
+			registerFunc(s, perms)
 		}
 	}
 
 	if t.PEToolset != nil {
 		for _, registerFunc := range t.peToolRegistrations() {
-			registerFunc(s)
+			registerFunc(s, perms)
 		}
 	}
+
+	return perms
 }

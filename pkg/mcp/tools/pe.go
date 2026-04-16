@@ -9,6 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -81,9 +82,11 @@ func buildSpec[T any](specInput map[string]interface{}) (*T, error) {
 // PE Toolset — Environment management
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterPEListEnvironments(s *mcp.Server) {
+func (t *Toolsets) RegisterPEListEnvironments(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_environments"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewEnvironment}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_environments",
+		Name: name,
 		Description: "List all environments in a namespace. Environments are deployment targets representing " +
 			"pipeline stages (dev, staging, production) or isolated tenants. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -100,9 +103,11 @@ func (t *Toolsets) RegisterPEListEnvironments(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_environment"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateEnvironment}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_environment",
+		Name: name,
 		Description: "Create a new environment in a namespace. Environments are deployment targets representing " +
 			"pipeline stages (dev, qa, prod) or isolated tenants.",
 		InputSchema: createSchema(map[string]any{
@@ -171,9 +176,11 @@ func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterUpdateEnvironment(s *mcp.Server) {
+func (t *Toolsets) RegisterUpdateEnvironment(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "update_environment"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateEnvironment}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_environment",
+		Name: name,
 		Description: "Update an existing environment in a namespace. Allows modifying display name, description, " +
 			"and production flag. Data plane reference is immutable after creation.",
 		InputSchema: createSchema(map[string]any{
@@ -215,9 +222,11 @@ func (t *Toolsets) RegisterUpdateEnvironment(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterDeleteEnvironment(s *mcp.Server) {
+func (t *Toolsets) RegisterDeleteEnvironment(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_environment"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteEnvironment}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "delete_environment",
+		Name: name,
 		Description: "Delete an environment from a namespace. " +
 			"This will remove the deployment target and any associated resources.",
 		InputSchema: createSchema(map[string]any{
@@ -264,9 +273,11 @@ func promotionPathsSchema(description string) map[string]any {
 }
 
 //nolint:dupl
-func (t *Toolsets) RegisterCreateDeploymentPipeline(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateDeploymentPipeline(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_deployment_pipeline"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateDeploymentPipeline}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_deployment_pipeline",
+		Name: name,
 		Description: "Create a new deployment pipeline in a namespace. Deployment pipelines define the promotion " +
 			"order between environments (e.g., dev → staging → production) with optional approval gates.",
 		InputSchema: createSchema(map[string]any{
@@ -308,9 +319,12 @@ func (t *Toolsets) RegisterCreateDeploymentPipeline(s *mcp.Server) {
 // PE Toolset — Component releases
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterPEListComponentReleases(s *mcp.Server) {
+//nolint:dupl // paginated list handlers share similar structure
+func (t *Toolsets) RegisterPEListComponentReleases(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_component_releases"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponentRelease}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_component_releases",
+		Name: name,
 		Description: "List all releases for a component. Releases are immutable snapshots of a component at a " +
 			"specific build, ready for deployment to environments. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -330,9 +344,11 @@ func (t *Toolsets) RegisterPEListComponentReleases(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPECreateComponentRelease(s *mcp.Server) {
+func (t *Toolsets) RegisterPECreateComponentRelease(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_component_release"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateComponentRelease}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_component_release",
+		Name: name,
 		Description: "Create a new release from the latest build of a component. Releases are immutable " +
 			"snapshots that can be deployed to environments through release bindings. The component " +
 			"must have at least one successful build or workload. If the source repository does not " +
@@ -354,9 +370,11 @@ func (t *Toolsets) RegisterPECreateComponentRelease(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetComponentRelease(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetComponentRelease(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_component_release"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponentRelease}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_release",
+		Name: name,
 		Description: "Get detailed information about a specific component release including build information, " +
 			"image tags, and deployment status.",
 		InputSchema: createSchema(map[string]any{
@@ -372,9 +390,11 @@ func (t *Toolsets) RegisterPEGetComponentRelease(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetComponentReleaseSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetComponentReleaseSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_component_release_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponentRelease}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_release_schema",
+		Name: name,
 		Description: "Get the release schema for a component. Returns the JSON schema showing the configuration " +
 			"options available when creating or deploying releases for this component.",
 		InputSchema: createSchema(map[string]any{
@@ -397,9 +417,11 @@ func (t *Toolsets) RegisterPEGetComponentReleaseSchema(s *mcp.Server) {
 // PE Toolset — DataPlane read
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterListDataPlanes(s *mcp.Server) {
+func (t *Toolsets) RegisterListDataPlanes(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_dataplanes"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewDataPlane}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_dataplanes",
+		Name: name,
 		Description: "List all data planes in a namespace. Data planes are Kubernetes clusters or cluster " +
 			"regions where component workloads actually execute. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -415,9 +437,11 @@ func (t *Toolsets) RegisterListDataPlanes(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetDataPlane(s *mcp.Server) {
+func (t *Toolsets) RegisterGetDataPlane(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_dataplane"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewDataPlane}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_dataplane",
+		Name: name,
 		Description: "Get detailed information about a data plane including cluster details, capacity, health " +
 			"status, associated environments, and network configuration.",
 		InputSchema: createSchema(map[string]any{
@@ -437,9 +461,11 @@ func (t *Toolsets) RegisterGetDataPlane(s *mcp.Server) {
 // PE Toolset — WorkflowPlane read
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterListWorkflowPlanes(s *mcp.Server) {
+func (t *Toolsets) RegisterListWorkflowPlanes(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_workflowplanes"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflowPlane}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_workflowplanes",
+		Name: name,
 		Description: "List all workflow planes in a namespace. Workflow planes are infrastructure that handles " +
 			"continuous integration and container image building. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -456,9 +482,11 @@ func (t *Toolsets) RegisterListWorkflowPlanes(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetWorkflowPlane(s *mcp.Server) {
+func (t *Toolsets) RegisterGetWorkflowPlane(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_workflowplane"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflowPlane}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_workflowplane",
+		Name: name,
 		Description: "Get detailed information about a workflow plane including cluster details, health status, " +
 			"and agent connection state.",
 		InputSchema: createSchema(map[string]any{
@@ -478,9 +506,11 @@ func (t *Toolsets) RegisterGetWorkflowPlane(s *mcp.Server) {
 // PE Toolset — ObservabilityPlane read
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterListObservabilityPlanes(s *mcp.Server) {
+func (t *Toolsets) RegisterListObservabilityPlanes(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_observability_planes"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewObservabilityPlane}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_observability_planes",
+		Name: name,
 		Description: "List all ObservabilityPlanes in a namespace. ObservabilityPlanes provide monitoring, " +
 			"logging, tracing, and metrics collection capabilities for deployed components. " +
 			"Supports pagination via limit and cursor.",
@@ -498,9 +528,11 @@ func (t *Toolsets) RegisterListObservabilityPlanes(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetObservabilityPlane(s *mcp.Server) {
+func (t *Toolsets) RegisterGetObservabilityPlane(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_observability_plane"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewObservabilityPlane}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_observability_plane",
+		Name: name,
 		Description: "Get detailed information about an observability plane including observer URL, " +
 			"health status, and agent connection state.",
 		InputSchema: createSchema(map[string]any{
@@ -520,9 +552,11 @@ func (t *Toolsets) RegisterGetObservabilityPlane(s *mcp.Server) {
 // PE Toolset — Cluster-scoped plane read
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterListClusterDataPlanes(s *mcp.Server) {
+func (t *Toolsets) RegisterListClusterDataPlanes(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_cluster_dataplanes"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterDataPlane}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_dataplanes",
+		Name: name,
 		Description: "List all cluster-scoped data planes. These are shared infrastructure managed by " +
 			"platform admins, not scoped to any namespace. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
@@ -535,9 +569,11 @@ func (t *Toolsets) RegisterListClusterDataPlanes(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetClusterDataPlane(s *mcp.Server) {
+func (t *Toolsets) RegisterGetClusterDataPlane(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_dataplane"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterDataPlane}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_dataplane",
+		Name: name,
 		Description: "Get detailed information about a cluster-scoped data plane including cluster details, " +
 			"capacity, health status, and network configuration.",
 		InputSchema: createSchema(map[string]any{
@@ -551,9 +587,11 @@ func (t *Toolsets) RegisterGetClusterDataPlane(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterListClusterWorkflowPlanes(s *mcp.Server) {
+func (t *Toolsets) RegisterListClusterWorkflowPlanes(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_cluster_workflowplanes"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterWorkflowPlane}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_workflowplanes",
+		Name: name,
 		Description: "List all cluster-scoped workflow planes. These are shared workflow infrastructure managed by " +
 			"platform admins, not scoped to any namespace. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
@@ -566,9 +604,11 @@ func (t *Toolsets) RegisterListClusterWorkflowPlanes(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterListClusterObservabilityPlanes(s *mcp.Server) {
+func (t *Toolsets) RegisterListClusterObservabilityPlanes(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_cluster_observability_planes"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterObservabilityPlane}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_observability_planes",
+		Name: name,
 		Description: "List all cluster-scoped observability planes. These are shared observability infrastructure " +
 			"managed by platform admins, not scoped to any namespace. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
@@ -585,9 +625,11 @@ func (t *Toolsets) RegisterListClusterObservabilityPlanes(s *mcp.Server) {
 // PE Toolset — Platform standards read (dual with Component toolset)
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterPEListComponentTypes(s *mcp.Server) {
+func (t *Toolsets) RegisterPEListComponentTypes(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_component_types"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_component_types",
+		Name: name,
 		Description: "List all available component types in a namespace. Component types define the " +
 			"structure and capabilities of components (e.g., WebApplication, Service, ScheduledTask). " +
 			"Supports pagination via limit and cursor.",
@@ -605,9 +647,11 @@ func (t *Toolsets) RegisterPEListComponentTypes(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetComponentTypeSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetComponentTypeSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_component_type_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_type_schema",
+		Name: name,
 		Description: "Get the parameter schema for a component type. Returns the JSON schema showing " +
 			"the parameters developers can configure when using this component type.",
 		InputSchema: createSchema(map[string]any{
@@ -623,9 +667,11 @@ func (t *Toolsets) RegisterPEGetComponentTypeSchema(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetComponentType(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetComponentType(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_component_type"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_type",
+		Name: name,
 		Description: "Get the full definition of a component type including its complete spec. " +
 			"Use this before updating a component type to retrieve the current spec.",
 		InputSchema: createSchema(map[string]any{
@@ -641,9 +687,11 @@ func (t *Toolsets) RegisterPEGetComponentType(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEListTraits(s *mcp.Server) {
+func (t *Toolsets) RegisterPEListTraits(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_traits"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_traits",
+		Name: name,
 		Description: "List all available traits in a namespace. Traits add capabilities to components " +
 			"(e.g., autoscaling, ingress, service mesh). Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -660,9 +708,11 @@ func (t *Toolsets) RegisterPEListTraits(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetTraitSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetTraitSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_trait_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_trait_schema",
+		Name: name,
 		Description: "Get the parameter schema for a trait. Returns the JSON schema showing the " +
 			"parameters developers can configure when using this trait.",
 		InputSchema: createSchema(map[string]any{
@@ -678,9 +728,11 @@ func (t *Toolsets) RegisterPEGetTraitSchema(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetTrait(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetTrait(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_trait"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_trait",
+		Name: name,
 		Description: "Get the full definition of a trait including its complete spec. " +
 			"Use this before updating a trait to retrieve the current spec.",
 		InputSchema: createSchema(map[string]any{
@@ -696,9 +748,11 @@ func (t *Toolsets) RegisterPEGetTrait(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEListWorkflows(s *mcp.Server) {
+func (t *Toolsets) RegisterPEListWorkflows(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_workflows"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_workflows",
+		Name: name,
 		Description: "List all workflows in a namespace. Workflows are reusable templates that define " +
 			"automated processes such as CI/CD pipelines executed on the workflow plane. " +
 			"Use this to discover available workflow names for use with create_component or create_workflow_run. " +
@@ -717,9 +771,11 @@ func (t *Toolsets) RegisterPEListWorkflows(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetWorkflowSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetWorkflowSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_workflow_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_workflow_schema",
+		Name: name,
 		Description: "Get the parameter schema for a specific workflow. Use this to inspect what parameters " +
 			"a workflow accepts before configuring a component's workflow field or triggering a workflow run.",
 		InputSchema: createSchema(map[string]any{
@@ -735,9 +791,11 @@ func (t *Toolsets) RegisterPEGetWorkflowSchema(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetWorkflow(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_workflow"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_workflow",
+		Name: name,
 		Description: "Get the full definition of a workflow including its complete spec. " +
 			"Use this before updating a workflow to retrieve the current spec.",
 		InputSchema: createSchema(map[string]any{
@@ -757,9 +815,11 @@ func (t *Toolsets) RegisterPEGetWorkflow(s *mcp.Server) {
 // PE Toolset — Diagnostics
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterGetResourceEvents(s *mcp.Server) {
+func (t *Toolsets) RegisterGetResourceEvents(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_resource_events"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewReleaseBinding}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_resource_events",
+		Name: name,
 		Description: "Get Kubernetes events for a specific resource in a deployment. Useful for diagnosing " +
 			"deployment issues, scheduling problems, or container startup failures.",
 		InputSchema: createSchema(map[string]any{
@@ -786,9 +846,11 @@ func (t *Toolsets) RegisterGetResourceEvents(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetResourceLogs(s *mcp.Server) {
+func (t *Toolsets) RegisterGetResourceLogs(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_resource_logs"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewLogs}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_resource_logs",
+		Name: name,
 		Description: "Get container logs from a specific pod in a deployment. Useful for debugging " +
 			"application errors, startup failures, and runtime issues.",
 		InputSchema: createSchema(map[string]any{
@@ -817,9 +879,11 @@ func (t *Toolsets) RegisterGetResourceLogs(s *mcp.Server) {
 // Deployment Toolset — Deployment pipelines (developer-facing read)
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterGetDeploymentPipeline(s *mcp.Server) {
+func (t *Toolsets) RegisterGetDeploymentPipeline(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_deployment_pipeline"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewDeploymentPipeline}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_deployment_pipeline",
+		Name: name,
 		Description: "Get detailed information about a deployment pipeline including its stages, promotion " +
 			"order, and associated environments.",
 		InputSchema: createSchema(map[string]any{
@@ -835,9 +899,11 @@ func (t *Toolsets) RegisterGetDeploymentPipeline(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterListDeploymentPipelines(s *mcp.Server) {
+func (t *Toolsets) RegisterListDeploymentPipelines(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_deployment_pipelines"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewDeploymentPipeline}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_deployment_pipelines",
+		Name: name,
 		Description: "List all deployment pipelines in a namespace. Deployment pipelines define the promotion " +
 			"order between environments (e.g., dev → staging → production). Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -858,9 +924,11 @@ func (t *Toolsets) RegisterListDeploymentPipelines(s *mcp.Server) {
 // Deployment Toolset — Environments (developer-facing read)
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterListEnvironments(s *mcp.Server) {
+func (t *Toolsets) RegisterListEnvironments(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_environments"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewEnvironment}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_environments",
+		Name: name,
 		Description: "List all environments in a namespace. Environments are deployment targets representing " +
 			"pipeline stages (dev, staging, production) or isolated tenants. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -881,9 +949,11 @@ func (t *Toolsets) RegisterListEnvironments(s *mcp.Server) {
 // Build Toolset — WorkflowRun operations
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterCreateWorkflowRun(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateWorkflowRun(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_workflow_run"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateWorkflowRun}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_workflow_run",
+		Name: name,
 		Description: "Create a new workflow run by specifying a workflow name and optional parameters. " +
 			"Workflows define automated processes like CI/CD pipelines that execute on the workflow plane.",
 		InputSchema: createSchema(map[string]any{
@@ -904,9 +974,11 @@ func (t *Toolsets) RegisterCreateWorkflowRun(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterListWorkflowRuns(s *mcp.Server) {
+func (t *Toolsets) RegisterListWorkflowRuns(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_workflow_runs"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflowRun}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_workflow_runs",
+		Name: name,
 		Description: "List workflow runs in a namespace, optionally filtered by project and component. " +
 			"Shows execution history including status, timestamps, and workflow references. " +
 			"Supports pagination via limit and cursor.",
@@ -928,9 +1000,11 @@ func (t *Toolsets) RegisterListWorkflowRuns(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetWorkflowRun(s *mcp.Server) {
+func (t *Toolsets) RegisterGetWorkflowRun(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_workflow_run"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflowRun}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_workflow_run",
+		Name: name,
 		Description: "Get detailed information about a specific workflow run including its status, tasks, " +
 			"timestamps, and referenced resources.",
 		InputSchema: createSchema(map[string]any{
@@ -950,9 +1024,11 @@ func (t *Toolsets) RegisterGetWorkflowRun(s *mcp.Server) {
 // Build Toolset — Workflow read
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterListWorkflows(s *mcp.Server) {
+func (t *Toolsets) RegisterListWorkflows(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_workflows"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_workflows",
+		Name: name,
 		Description: "List all workflows in a namespace. Workflows are reusable templates that define " +
 			"automated processes such as CI/CD pipelines executed on the workflow plane. " +
 			"Use this to discover available workflow names for use with create_component or create_workflow_run. " +
@@ -971,9 +1047,11 @@ func (t *Toolsets) RegisterListWorkflows(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetWorkflowSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterGetWorkflowSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_workflow_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_workflow_schema",
+		Name: name,
 		Description: "Get the parameter schema for a specific workflow. Use this to inspect what parameters " +
 			"a workflow accepts before configuring a component's workflow field or triggering a workflow run.",
 		InputSchema: createSchema(map[string]any{
@@ -993,9 +1071,11 @@ func (t *Toolsets) RegisterGetWorkflowSchema(s *mcp.Server) {
 // Build Toolset — Cluster-scoped workflows
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterListClusterWorkflows(s *mcp.Server) {
+func (t *Toolsets) RegisterListClusterWorkflows(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_cluster_workflows"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_workflows",
+		Name: name,
 		Description: "List all cluster-scoped workflows. These are shared workflow definitions managed by platform " +
 			"admins that can be referenced by components across all namespaces via ClusterComponentType. " +
 			"Supports pagination via limit and cursor.",
@@ -1009,9 +1089,11 @@ func (t *Toolsets) RegisterListClusterWorkflows(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetClusterWorkflow(s *mcp.Server) {
+func (t *Toolsets) RegisterGetClusterWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_workflow"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_workflow",
+		Name: name,
 		Description: "Get the full definition of a cluster-scoped workflow including its complete spec. " +
 			"Use this before updating a cluster workflow to retrieve the current spec.",
 		InputSchema: createSchema(map[string]any{
@@ -1025,9 +1107,11 @@ func (t *Toolsets) RegisterGetClusterWorkflow(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetClusterWorkflowSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterGetClusterWorkflowSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_workflow_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_workflow_schema",
+		Name: name,
 		Description: "Get the schema definition for a cluster-scoped workflow. Returns the JSON schema " +
 			"showing workflow configuration options and parameters.",
 		InputSchema: createSchema(map[string]any{
@@ -1045,9 +1129,11 @@ func (t *Toolsets) RegisterGetClusterWorkflowSchema(s *mcp.Server) {
 // PE Toolset — Cluster-scoped platform standards
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterPEListClusterComponentTypes(s *mcp.Server) {
+func (t *Toolsets) RegisterPEListClusterComponentTypes(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_cluster_component_types"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_component_types",
+		Name: name,
 		Description: "List all cluster-scoped component types. These are shared component type templates managed " +
 			"by platform admins that define the structure and capabilities of components across all namespaces. " +
 			"Supports pagination via limit and cursor.",
@@ -1061,9 +1147,11 @@ func (t *Toolsets) RegisterPEListClusterComponentTypes(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetClusterComponentType(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetClusterComponentType(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_component_type"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_component_type",
+		Name: name,
 		Description: "Get the full definition of a cluster-scoped component type including its complete spec. " +
 			"Use this before updating a cluster component type to retrieve the current spec.",
 		InputSchema: createSchema(map[string]any{
@@ -1077,9 +1165,11 @@ func (t *Toolsets) RegisterPEGetClusterComponentType(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetClusterComponentTypeSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetClusterComponentTypeSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_component_type_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_component_type_schema",
+		Name: name,
 		Description: "Get the schema definition for a cluster-scoped component type. Returns the JSON schema " +
 			"showing required fields, optional fields, and their types.",
 		InputSchema: createSchema(map[string]any{
@@ -1093,9 +1183,11 @@ func (t *Toolsets) RegisterPEGetClusterComponentTypeSchema(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEListClusterTraits(s *mcp.Server) {
+func (t *Toolsets) RegisterPEListClusterTraits(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_cluster_traits"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_traits",
+		Name: name,
 		Description: "List all cluster-scoped traits. These are shared trait definitions managed by platform " +
 			"admins that add capabilities to components across all namespaces (e.g., autoscaling, ingress). " +
 			"Supports pagination via limit and cursor.",
@@ -1109,9 +1201,11 @@ func (t *Toolsets) RegisterPEListClusterTraits(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetClusterTrait(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetClusterTrait(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_trait"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_trait",
+		Name: name,
 		Description: "Get the full definition of a cluster-scoped trait including its complete spec. " +
 			"Use this before updating a cluster trait to retrieve the current spec.",
 		InputSchema: createSchema(map[string]any{
@@ -1125,9 +1219,11 @@ func (t *Toolsets) RegisterPEGetClusterTrait(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetClusterTraitSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetClusterTraitSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_trait_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_trait_schema",
+		Name: name,
 		Description: "Get the schema definition for a cluster-scoped trait. Returns the JSON schema " +
 			"showing trait configuration options and parameters.",
 		InputSchema: createSchema(map[string]any{
@@ -1145,9 +1241,11 @@ func (t *Toolsets) RegisterPEGetClusterTraitSchema(s *mcp.Server) {
 // Component Toolset — Platform standards (read-only, developer-facing)
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterListComponentTypes(s *mcp.Server) {
+func (t *Toolsets) RegisterListComponentTypes(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_component_types"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_component_types",
+		Name: name,
 		Description: "List all available component types in a namespace. Component types define the " +
 			"structure and capabilities of components (e.g., WebApplication, Service, ScheduledTask). " +
 			"Supports pagination via limit and cursor.",
@@ -1165,9 +1263,11 @@ func (t *Toolsets) RegisterListComponentTypes(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetComponentTypeSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterGetComponentTypeSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_component_type_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_type_schema",
+		Name: name,
 		Description: "Get the schema definition for a component type. Returns the JSON schema showing " +
 			"required fields, optional fields, and their types.",
 		InputSchema: createSchema(map[string]any{
@@ -1183,9 +1283,11 @@ func (t *Toolsets) RegisterGetComponentTypeSchema(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterListTraits(s *mcp.Server) {
+func (t *Toolsets) RegisterListTraits(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_traits"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_traits",
+		Name: name,
 		Description: "List all available traits in a namespace. Traits add capabilities to components " +
 			"(e.g., autoscaling, ingress, service mesh). Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -1202,9 +1304,11 @@ func (t *Toolsets) RegisterListTraits(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetTraitSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterGetTraitSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_trait_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_trait_schema",
+		Name: name,
 		Description: "Get the schema definition for a trait. Returns the JSON schema showing trait " +
 			"configuration options and parameters.",
 		InputSchema: createSchema(map[string]any{
@@ -1220,9 +1324,11 @@ func (t *Toolsets) RegisterGetTraitSchema(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterListClusterComponentTypes(s *mcp.Server) {
+func (t *Toolsets) RegisterListClusterComponentTypes(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_cluster_component_types"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_component_types",
+		Name: name,
 		Description: "List all cluster-scoped component types. These are shared component type templates managed " +
 			"by platform admins that define the structure and capabilities of components across all namespaces. " +
 			"Supports pagination via limit and cursor.",
@@ -1236,9 +1342,11 @@ func (t *Toolsets) RegisterListClusterComponentTypes(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetClusterComponentType(s *mcp.Server) {
+func (t *Toolsets) RegisterGetClusterComponentType(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_component_type"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_component_type",
+		Name: name,
 		Description: "Get detailed information about a cluster-scoped component type including workload type, " +
 			"allowed workflows, allowed traits, and description.",
 		InputSchema: createSchema(map[string]any{
@@ -1252,9 +1360,11 @@ func (t *Toolsets) RegisterGetClusterComponentType(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetClusterComponentTypeSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterGetClusterComponentTypeSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_component_type_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_component_type_schema",
+		Name: name,
 		Description: "Get the schema definition for a cluster-scoped component type. Returns the JSON schema " +
 			"showing required fields, optional fields, and their types.",
 		InputSchema: createSchema(map[string]any{
@@ -1268,9 +1378,11 @@ func (t *Toolsets) RegisterGetClusterComponentTypeSchema(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterListClusterTraits(s *mcp.Server) {
+func (t *Toolsets) RegisterListClusterTraits(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_cluster_traits"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_traits",
+		Name: name,
 		Description: "List all cluster-scoped traits. These are shared trait definitions managed by platform " +
 			"admins that add capabilities to components across all namespaces (e.g., autoscaling, ingress). " +
 			"Supports pagination via limit and cursor.",
@@ -1284,9 +1396,11 @@ func (t *Toolsets) RegisterListClusterTraits(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetClusterTrait(s *mcp.Server) {
+func (t *Toolsets) RegisterGetClusterTrait(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_trait"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_trait",
+		Name: name,
 		Description: "Get detailed information about a cluster-scoped trait including its name, " +
 			"display name, and description.",
 		InputSchema: createSchema(map[string]any{
@@ -1300,9 +1414,11 @@ func (t *Toolsets) RegisterGetClusterTrait(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetClusterTraitSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterGetClusterTraitSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_trait_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_trait_schema",
+		Name: name,
 		Description: "Get the schema definition for a cluster-scoped trait. Returns the JSON schema " +
 			"showing trait configuration options and parameters.",
 		InputSchema: createSchema(map[string]any{
@@ -1321,9 +1437,11 @@ func (t *Toolsets) RegisterGetClusterTraitSchema(s *mcp.Server) {
 // ---------------------------------------------------------------------------
 
 //nolint:dupl
-func (t *Toolsets) RegisterUpdateDeploymentPipeline(s *mcp.Server) {
+func (t *Toolsets) RegisterUpdateDeploymentPipeline(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "update_deployment_pipeline"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateDeploymentPipeline}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_deployment_pipeline",
+		Name: name,
 		Description: "Update an existing deployment pipeline in a namespace. Allows modifying promotion paths " +
 			"between environments and approval requirements. Use list_environments to discover valid environment names.",
 		InputSchema: createSchema(map[string]any{
@@ -1359,9 +1477,11 @@ func (t *Toolsets) RegisterUpdateDeploymentPipeline(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterDeleteDeploymentPipeline(s *mcp.Server) {
+func (t *Toolsets) RegisterDeleteDeploymentPipeline(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_deployment_pipeline"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteDeploymentPipeline}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_deployment_pipeline",
+		Name:        name,
 		Description: "Delete a deployment pipeline from a namespace.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
@@ -1381,9 +1501,11 @@ func (t *Toolsets) RegisterDeleteDeploymentPipeline(s *mcp.Server) {
 // PE Toolset — Cluster-scoped plane read (Get additions)
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterGetClusterWorkflowPlane(s *mcp.Server) {
+func (t *Toolsets) RegisterGetClusterWorkflowPlane(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_workflowplane"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterWorkflowPlane}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_workflowplane",
+		Name: name,
 		Description: "Get detailed information about a cluster-scoped workflow plane including cluster details, " +
 			"health status, and agent connection state.",
 		InputSchema: createSchema(map[string]any{
@@ -1397,9 +1519,11 @@ func (t *Toolsets) RegisterGetClusterWorkflowPlane(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetClusterObservabilityPlane(s *mcp.Server) {
+func (t *Toolsets) RegisterGetClusterObservabilityPlane(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_observability_plane"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewClusterObservabilityPlane}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_observability_plane",
+		Name: name,
 		Description: "Get detailed information about a cluster-scoped observability plane including " +
 			"observer URL, health status, and agent connection state.",
 		InputSchema: createSchema(map[string]any{
@@ -1418,9 +1542,11 @@ func (t *Toolsets) RegisterGetClusterObservabilityPlane(s *mcp.Server) {
 // PE Toolset — Component type creation schema tools
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterGetComponentTypeCreationSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterGetComponentTypeCreationSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_component_type_creation_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_type_creation_schema",
+		Name: name,
 		Description: "Get the spec schema for creating a namespace-scoped component type. " +
 			"Returns the full JSON schema showing all required and optional fields, their types, " +
 			"and descriptions. Call this before create_component_type to understand the spec structure.",
@@ -1431,9 +1557,11 @@ func (t *Toolsets) RegisterGetComponentTypeCreationSchema(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetClusterComponentTypeCreationSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterGetClusterComponentTypeCreationSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_component_type_creation_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateClusterComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_component_type_creation_schema",
+		Name: name,
 		Description: "Get the spec schema for creating a cluster-scoped component type. " +
 			"Returns the full JSON schema showing all required and optional fields, their types, " +
 			"and descriptions. Call this before create_cluster_component_type to understand the spec structure.",
@@ -1444,9 +1572,11 @@ func (t *Toolsets) RegisterGetClusterComponentTypeCreationSchema(s *mcp.Server) 
 	})
 }
 
-func (t *Toolsets) RegisterGetTraitCreationSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterGetTraitCreationSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_trait_creation_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_trait_creation_schema",
+		Name: name,
 		Description: "Get the spec schema for creating a namespace-scoped trait. " +
 			"Returns the full JSON schema showing all required and optional fields, their types, " +
 			"and descriptions. Call this before create_trait to understand the spec structure.",
@@ -1462,9 +1592,11 @@ func (t *Toolsets) RegisterGetTraitCreationSchema(s *mcp.Server) {
 // ---------------------------------------------------------------------------
 
 //nolint:dupl // create/update component type handlers share similar structure
-func (t *Toolsets) RegisterCreateComponentType(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateComponentType(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_component_type"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_component_type",
+		Name: name,
 		Description: "Create a new component type in a namespace. Component types define the structure, " +
 			"workload type, allowed traits, and allowed workflows for components.",
 		InputSchema: createSchema(map[string]any{
@@ -1502,9 +1634,11 @@ func (t *Toolsets) RegisterCreateComponentType(s *mcp.Server) {
 }
 
 //nolint:dupl // create/update component type handlers share similar structure
-func (t *Toolsets) RegisterUpdateComponentType(s *mcp.Server) {
+func (t *Toolsets) RegisterUpdateComponentType(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "update_component_type"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "update_component_type",
+		Name:        name,
 		Description: "Update an existing component type in a namespace (full replacement).",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
@@ -1542,9 +1676,11 @@ func (t *Toolsets) RegisterUpdateComponentType(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterDeleteComponentType(s *mcp.Server) {
+func (t *Toolsets) RegisterDeleteComponentType(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_component_type"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_component_type",
+		Name:        name,
 		Description: "Delete a component type from a namespace.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
@@ -1561,9 +1697,11 @@ func (t *Toolsets) RegisterDeleteComponentType(s *mcp.Server) {
 }
 
 //nolint:dupl // create/update trait handlers share similar structure
-func (t *Toolsets) RegisterCreateTrait(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateTrait(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_trait"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_trait",
+		Name: name,
 		Description: "Create a new trait in a namespace. Traits add capabilities to components by creating " +
 			"additional Kubernetes resources or patching existing ones (e.g., autoscaling, ingress, service mesh).",
 		InputSchema: createSchema(map[string]any{
@@ -1601,9 +1739,11 @@ func (t *Toolsets) RegisterCreateTrait(s *mcp.Server) {
 }
 
 //nolint:dupl // create/update trait handlers share similar structure
-func (t *Toolsets) RegisterUpdateTrait(s *mcp.Server) {
+func (t *Toolsets) RegisterUpdateTrait(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "update_trait"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "update_trait",
+		Name:        name,
 		Description: "Update an existing trait in a namespace (full replacement).",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
@@ -1640,9 +1780,11 @@ func (t *Toolsets) RegisterUpdateTrait(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterDeleteTrait(s *mcp.Server) {
+func (t *Toolsets) RegisterDeleteTrait(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_trait"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_trait",
+		Name:        name,
 		Description: "Delete a trait from a namespace.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
@@ -1658,9 +1800,11 @@ func (t *Toolsets) RegisterDeleteTrait(s *mcp.Server) {
 }
 
 //nolint:dupl // create/update workflow handlers share similar structure
-func (t *Toolsets) RegisterPECreateWorkflow(s *mcp.Server) {
+func (t *Toolsets) RegisterPECreateWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_workflow"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_workflow",
+		Name: name,
 		Description: "Create a new workflow in a namespace. Workflows are reusable CI/CD pipeline templates " +
 			"that execute on the workflow plane.",
 		InputSchema: createSchema(map[string]any{
@@ -1699,9 +1843,11 @@ func (t *Toolsets) RegisterPECreateWorkflow(s *mcp.Server) {
 }
 
 //nolint:dupl // create/update workflow handlers share similar structure
-func (t *Toolsets) RegisterPEUpdateWorkflow(s *mcp.Server) {
+func (t *Toolsets) RegisterPEUpdateWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "update_workflow"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "update_workflow",
+		Name:        name,
 		Description: "Update an existing workflow in a namespace (full replacement).",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
@@ -1738,9 +1884,11 @@ func (t *Toolsets) RegisterPEUpdateWorkflow(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEDeleteWorkflow(s *mcp.Server) {
+func (t *Toolsets) RegisterPEDeleteWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_workflow"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_workflow",
+		Name:        name,
 		Description: "Delete a workflow from a namespace.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
@@ -1760,9 +1908,11 @@ func (t *Toolsets) RegisterPEDeleteWorkflow(s *mcp.Server) {
 // ---------------------------------------------------------------------------
 
 //nolint:dupl // create/update cluster component type handlers share similar structure
-func (t *Toolsets) RegisterCreateClusterComponentType(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateClusterComponentType(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_cluster_component_type"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateClusterComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_cluster_component_type",
+		Name: name,
 		Description: "Create a new cluster-scoped component type. Cluster component types are the platform-wide " +
 			"golden path templates available to all namespaces.",
 		InputSchema: createSchema(map[string]any{
@@ -1808,9 +1958,11 @@ func (t *Toolsets) RegisterCreateClusterComponentType(s *mcp.Server) {
 }
 
 //nolint:dupl // create/update cluster component type handlers share similar structure
-func (t *Toolsets) RegisterUpdateClusterComponentType(s *mcp.Server) {
+func (t *Toolsets) RegisterUpdateClusterComponentType(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "update_cluster_component_type"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateClusterComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "update_cluster_component_type",
+		Name:        name,
 		Description: "Update an existing cluster-scoped component type (full replacement).",
 		InputSchema: createSchema(map[string]any{
 			"name": stringProperty(
@@ -1856,9 +2008,11 @@ func (t *Toolsets) RegisterUpdateClusterComponentType(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterDeleteClusterComponentType(s *mcp.Server) {
+func (t *Toolsets) RegisterDeleteClusterComponentType(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_cluster_component_type"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteClusterComponentType}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_cluster_component_type",
+		Name:        name,
 		Description: "Delete a cluster-scoped component type.",
 		InputSchema: createSchema(map[string]any{
 			"cct_name": stringProperty(
@@ -1873,9 +2027,11 @@ func (t *Toolsets) RegisterDeleteClusterComponentType(s *mcp.Server) {
 }
 
 //nolint:dupl // create/update cluster trait handlers share similar structure
-func (t *Toolsets) RegisterCreateClusterTrait(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateClusterTrait(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_cluster_trait"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateClusterTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_cluster_trait",
+		Name: name,
 		Description: "Create a new cluster-scoped trait. Cluster traits are platform-wide capability definitions " +
 			"available to all namespaces (e.g., autoscaling, ingress, service mesh).",
 		InputSchema: createSchema(map[string]any{
@@ -1922,9 +2078,11 @@ func (t *Toolsets) RegisterCreateClusterTrait(s *mcp.Server) {
 }
 
 //nolint:dupl // create/update cluster trait handlers share similar structure
-func (t *Toolsets) RegisterUpdateClusterTrait(s *mcp.Server) {
+func (t *Toolsets) RegisterUpdateClusterTrait(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "update_cluster_trait"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateClusterTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_cluster_trait",
+		Name: name,
 		Description: "Update an existing cluster-scoped trait (full replacement). " +
 			"Use get_cluster_trait to retrieve the current definition first.",
 		InputSchema: createSchema(map[string]any{
@@ -1971,9 +2129,11 @@ func (t *Toolsets) RegisterUpdateClusterTrait(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterDeleteClusterTrait(s *mcp.Server) {
+func (t *Toolsets) RegisterDeleteClusterTrait(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_cluster_trait"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteClusterTrait}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_cluster_trait",
+		Name:        name,
 		Description: "Delete a cluster-scoped trait.",
 		InputSchema: createSchema(map[string]any{
 			"ct_name": stringProperty("Name of the cluster trait to delete. Use list_cluster_traits to discover valid names"),
@@ -1987,9 +2147,11 @@ func (t *Toolsets) RegisterDeleteClusterTrait(s *mcp.Server) {
 }
 
 //nolint:dupl // create/update cluster workflow handlers share similar structure
-func (t *Toolsets) RegisterCreateClusterWorkflow(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateClusterWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_cluster_workflow"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateClusterWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_cluster_workflow",
+		Name: name,
 		Description: "Create a new cluster-scoped workflow. Cluster workflows are platform-wide CI/CD pipeline " +
 			"templates available to all namespaces.",
 		InputSchema: createSchema(map[string]any{
@@ -2026,9 +2188,11 @@ func (t *Toolsets) RegisterCreateClusterWorkflow(s *mcp.Server) {
 }
 
 //nolint:dupl // create/update cluster workflow handlers share similar structure
-func (t *Toolsets) RegisterUpdateClusterWorkflow(s *mcp.Server) {
+func (t *Toolsets) RegisterUpdateClusterWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "update_cluster_workflow"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateClusterWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_cluster_workflow",
+		Name: name,
 		Description: "Update an existing cluster-scoped workflow (full replacement). " +
 			"Use get_cluster_workflow to retrieve the current definition first.",
 		InputSchema: createSchema(map[string]any{
@@ -2065,9 +2229,11 @@ func (t *Toolsets) RegisterUpdateClusterWorkflow(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterDeleteClusterWorkflow(s *mcp.Server) {
+func (t *Toolsets) RegisterDeleteClusterWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_cluster_workflow"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteClusterWorkflow}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_cluster_workflow",
+		Name:        name,
 		Description: "Delete a cluster-scoped workflow.",
 		InputSchema: createSchema(map[string]any{
 			"cwf_name": stringProperty(

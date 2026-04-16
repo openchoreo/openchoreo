@@ -199,7 +199,7 @@ func main() {
 		mcpLoggerMw := apilogger.LoggerMiddleware(mcpLogger)
 		resourceMetadataURL := cfg.Server.PublicURL + "/.well-known/oauth-protected-resource"
 		mcpAuth401Mw := mcpmiddleware.Auth401Interceptor(resourceMetadataURL)
-		mcpHandler := middleware.Chain(mcpLoggerMw, mcpAuth401Mw, jwtMiddleware)(mcp.NewHTTPServer(toolsets))
+		mcpHandler := middleware.Chain(mcpLoggerMw, mcpAuth401Mw, jwtMiddleware)(mcp.NewHTTPServer(toolsets, runtime.pdp))
 
 		baseMux.Handle("/mcp", mcpHandler)
 	}

@@ -178,10 +178,10 @@ type ComponentToolsetHandler interface {
 	ListWorkloads(ctx context.Context, namespaceName, componentName string) (any, error)
 	GetWorkload(ctx context.Context, namespaceName, workloadName string) (any, error)
 	CreateWorkload(
-		ctx context.Context, namespaceName, componentName string, workloadSpec interface{},
+		ctx context.Context, namespaceName, componentName string, workloadSpec any,
 	) (any, error)
 	UpdateWorkload(
-		ctx context.Context, namespaceName, workloadName string, workloadSpec interface{},
+		ctx context.Context, namespaceName, workloadName string, workloadSpec any,
 	) (any, error)
 	GetWorkloadSchema(ctx context.Context) (any, error)
 	GetComponentSchema(ctx context.Context, namespaceName, componentName string) (any, error)
@@ -235,7 +235,7 @@ type BuildToolsetHandler interface {
 	) (any, error)
 	CreateWorkflowRun(
 		ctx context.Context, namespaceName, workflowName string,
-		parameters map[string]interface{},
+		parameters map[string]any,
 	) (any, error)
 	ListWorkflowRuns(
 		ctx context.Context, namespaceName, projectName, componentName string,
@@ -249,5 +249,15 @@ type BuildToolsetHandler interface {
 	GetClusterWorkflowSchema(ctx context.Context, cwfName string) (any, error)
 }
 
-// RegisterFunc is a function type for registering MCP tools
-type RegisterFunc func(s *mcp.Server)
+// RegisterFunc is a function type for registering MCP tools.
+// Each RegisterFunc must declare its required permission by writing to the perms map.
+type RegisterFunc func(s *mcp.Server, perms map[string]ToolPermission)
+
+// ToolPermission associates an MCP tool with the authz action required to use it.
+// Action must be one of the action constants defined in internal/authz/core/actions.go.
+type ToolPermission struct {
+	// ToolName is the MCP tool name (first arg to mcp.AddTool).
+	ToolName string
+	// Action is the required authz action (e.g. "namespace:view", "component:create").
+	Action string
+}
