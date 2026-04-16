@@ -2,6 +2,19 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.0.1-hotfix.1
+Changes since [v1.0.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.0).
+
+### Bug Fixes
+
+- **(Observability)** Enforce trace limit at OpenSearch end using aggregations. ([#3183](https://github.com/openchoreo/openchoreo/pull/3183))
+- **(Observability)** Show span kind in tracing API responses. ([#3191](https://github.com/openchoreo/openchoreo/pull/3191))
+- **(Helm)** add support to request scope during token retrieval for client apps. ([#3207](https://github.com/openchoreo/openchoreo/pull/3207))
+
+### Enhancements
+
+- **(Observability)** Add status field for traces and spans. ([#3193](https://github.com/openchoreo/openchoreo/pull/3193))
+
 ## v1.0.0
 
 Changes since [v1.0.0-rc.2](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.0-rc.2).
