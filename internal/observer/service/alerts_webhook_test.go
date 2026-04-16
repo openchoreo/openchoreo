@@ -316,3 +316,79 @@ func TestWebhook_RCADisabled_NoRCACall(t *testing.T) {
 	assert.Never(t, func() bool { return f.rcaCallCount.Load() > 0 }, 300*time.Millisecond, 50*time.Millisecond,
 		"RCA should not be triggered when aiRCAEnabled is false")
 }
+
+func TestWebhook_RecreatedComponent_NotSuppressed(t *testing.T) {
+	rule := testAlertRule("rule-cr-1", false, false)
+	f := newWebhookTestFixture(t, 1*time.Hour, rule, false)
+
+	// First alert — should be processed
+	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+	assert.Equal(t, 1, f.alertCount(t))
+
+	// Simulate component deletion and recreation by updating the CR's component UID label
+	rule.Labels[labels.LabelKeyComponentUID] = "comp-uid-new"
+	require.NoError(t, f.svc.k8sClient.Update(context.Background(), rule))
+
+	// Second alert (same CR name/namespace but different component UID) — should NOT be suppressed
+	resp, err = f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged",
+		"alert for recreated component should not be suppressed")
+	assert.Equal(t, 2, f.alertCount(t))
+}
+
+func TestWebhook_MissingComponentUID_SuppressionSkipped(t *testing.T) {
+	rule := testAlertRule("rule-cr-1", false, false)
+	rule.Labels[labels.LabelKeyComponentUID] = ""
+	f := newWebhookTestFixture(t, 1*time.Hour, rule, false)
+
+	// First alert
+	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+
+	// Second alert — suppression should be skipped due to missing component UID
+	resp, err = f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged",
+		"alert should not be suppressed when component UID label is missing")
+	assert.Equal(t, 2, f.alertCount(t))
+}
+
+func TestWebhook_SuppressionStoreError_AlertStillProcessed(t *testing.T) {
+	rule := testAlertRule("rule-cr-1", false, false)
+	f := newWebhookTestFixture(t, 1*time.Hour, rule, false)
+
+	// First alert — processed normally
+	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+
+	// Close the store to force an error on the next HasRecentAlert call
+	require.NoError(t, f.alertStore.Close())
+
+	// Reopen a fresh store for WriteAlertEntry to succeed, but replace the
+	// service's store with a closed one so HasRecentAlert fails.
+	closedStore := f.svc.alertEntryStore
+
+	freshDSN := fmt.Sprintf("file:%s_fresh?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	freshStore, err := alertentry.New(alertentry.BackendSQLite, freshDSN, slog.Default())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = freshStore.Close() })
+	require.NoError(t, freshStore.Initialize(context.Background()))
+
+	// Use the closed store — HasRecentAlert will error, but the alert should still be processed
+	f.svc.alertEntryStore = closedStore
+	resp, err = f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+
+	// HasRecentAlert error is logged as a warning; the write will also fail,
+	// so we expect an error from WriteAlertEntry, not a suppressed response.
+	// The key assertion: it was NOT suppressed.
+	if err != nil {
+		assert.NotContains(t, err.Error(), "suppressed")
+	} else {
+		assert.Contains(t, *resp.Message, "alert acknowledged")
+	}
+}

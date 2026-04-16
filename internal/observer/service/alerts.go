@@ -201,28 +201,44 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 		return nil, fmt.Errorf("alert entry store is not initialized")
 	}
 
-	// Check for duplicate alert within the suppression window.
-	// This is done before fetching the CR to avoid unnecessary k8s API calls for suppressed alerts.
-	if s.config.Alerting.AlertSuppressionWindow > 0 {
-		since := time.Now().UTC().Add(-s.config.Alerting.AlertSuppressionWindow)
-		isDuplicate, err := s.alertEntryStore.HasRecentAlert(ctx, ruleName, ruleNamespace, since)
-		if err != nil {
-			s.logger.Warn("Failed to check alert suppression", "error", err, "ruleName", ruleName)
-		} else if isDuplicate {
-			s.logger.Info("Alert suppressed (duplicate within suppression window)",
-				"ruleName", ruleName, "ruleNamespace", ruleNamespace,
-				"suppressionWindow", s.config.Alerting.AlertSuppressionWindow)
-			suppressedStatus := gen.AlertWebhookResponseStatusSuccess
-			msg := "alert suppressed: duplicate within suppression window"
-			return &gen.AlertWebhookResponse{
-				Status:  &suppressedStatus,
-				Message: &msg,
-			}, nil
-		}
-	}
-
 	if s.k8sClient == nil {
 		return nil, fmt.Errorf("kubernetes client not configured")
+	}
+
+	// Fetch the ObservabilityAlertRule CR
+	alertRule := &choreoapis.ObservabilityAlertRule{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{
+		Name:      ruleName,
+		Namespace: ruleNamespace,
+	}, alertRule); err != nil {
+		return nil, fmt.Errorf("failed to get ObservabilityAlertRule %s/%s: %w", ruleNamespace, ruleName, err)
+	}
+
+	// Check for duplicate alert within the suppression window.
+	// The component UID is included so that alerts from a recreated component
+	// (same CR name/namespace but new UID) are not incorrectly suppressed.
+	if s.config.Alerting.AlertSuppressionWindow > 0 {
+		since := time.Now().UTC().Add(-s.config.Alerting.AlertSuppressionWindow)
+		componentUID := alertRule.Labels[labels.LabelKeyComponentUID]
+		if componentUID == "" {
+			s.logger.Warn("Skipping suppression check: component UID label is missing",
+				"ruleName", ruleName, "ruleNamespace", ruleNamespace)
+		} else {
+			isDuplicate, err := s.alertEntryStore.HasRecentAlert(ctx, ruleName, ruleNamespace, componentUID, since)
+			if err != nil {
+				s.logger.Warn("Failed to check alert suppression", "error", err, "ruleName", ruleName)
+			} else if isDuplicate {
+				s.logger.Info("Alert suppressed (duplicate within suppression window)",
+					"ruleName", ruleName, "ruleNamespace", ruleNamespace,
+					"suppressionWindow", s.config.Alerting.AlertSuppressionWindow)
+				suppressedStatus := gen.AlertWebhookResponseStatusSuccess
+				msg := "alert suppressed: duplicate within suppression window"
+				return &gen.AlertWebhookResponse{
+					Status:  &suppressedStatus,
+					Message: &msg,
+				}, nil
+			}
+		}
 	}
 
 	// Derive alertValue and timestamp from the request
@@ -234,15 +250,6 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 	var alertTimestamp string
 	if req.AlertTimestamp != nil {
 		alertTimestamp = req.AlertTimestamp.Format(time.RFC3339)
-	}
-
-	// Fetch the ObservabilityAlertRule CR
-	alertRule := &choreoapis.ObservabilityAlertRule{}
-	if err := s.k8sClient.Get(ctx, client.ObjectKey{
-		Name:      ruleName,
-		Namespace: ruleNamespace,
-	}, alertRule); err != nil {
-		return nil, fmt.Errorf("failed to get ObservabilityAlertRule %s/%s: %w", ruleNamespace, ruleName, err)
 	}
 
 	// Enrich alert details from the CR

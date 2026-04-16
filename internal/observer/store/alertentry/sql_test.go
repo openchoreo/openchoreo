@@ -163,49 +163,63 @@ func TestHasRecentAlert(t *testing.T) {
 		AlertValue:           "42",
 		NamespaceName:        "ns-1",
 		ComponentName:        "payments",
+		ComponentID:          "comp-uid-1",
 	})
 	require.NoError(t, err)
 
 	tests := []struct {
-		name        string
-		crName      string
-		crNamespace string
-		since       time.Time
-		want        bool
+		name         string
+		crName       string
+		crNamespace  string
+		componentUID string
+		since        time.Time
+		want         bool
 	}{
 		{
-			name:        "match within window",
-			crName:      "rule-cr-1",
-			crNamespace: "obs-plane",
-			since:       now.Add(-1 * time.Hour),
-			want:        true,
+			name:         "match within window",
+			crName:       "rule-cr-1",
+			crNamespace:  "obs-plane",
+			componentUID: "comp-uid-1",
+			since:        now.Add(-1 * time.Hour),
+			want:         true,
 		},
 		{
-			name:        "no match - outside window",
-			crName:      "rule-cr-1",
-			crNamespace: "obs-plane",
-			since:       now.Add(-10 * time.Minute),
-			want:        false,
+			name:         "no match - outside window",
+			crName:       "rule-cr-1",
+			crNamespace:  "obs-plane",
+			componentUID: "comp-uid-1",
+			since:        now.Add(-10 * time.Minute),
+			want:         false,
 		},
 		{
-			name:        "no match - different cr name",
-			crName:      "rule-cr-other",
-			crNamespace: "obs-plane",
-			since:       now.Add(-1 * time.Hour),
-			want:        false,
+			name:         "no match - different cr name",
+			crName:       "rule-cr-other",
+			crNamespace:  "obs-plane",
+			componentUID: "comp-uid-1",
+			since:        now.Add(-1 * time.Hour),
+			want:         false,
 		},
 		{
-			name:        "no match - different namespace",
-			crName:      "rule-cr-1",
-			crNamespace: "other-ns",
-			since:       now.Add(-1 * time.Hour),
-			want:        false,
+			name:         "no match - different namespace",
+			crName:       "rule-cr-1",
+			crNamespace:  "other-ns",
+			componentUID: "comp-uid-1",
+			since:        now.Add(-1 * time.Hour),
+			want:         false,
+		},
+		{
+			name:         "no match - different component UID (recreated component)",
+			crName:       "rule-cr-1",
+			crNamespace:  "obs-plane",
+			componentUID: "comp-uid-new",
+			since:        now.Add(-1 * time.Hour),
+			want:         false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := store.HasRecentAlert(ctx, tt.crName, tt.crNamespace, tt.since)
+			got, err := store.HasRecentAlert(ctx, tt.crName, tt.crNamespace, tt.componentUID, tt.since)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
