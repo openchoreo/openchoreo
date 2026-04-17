@@ -1,6 +1,6 @@
 module github.com/openchoreo/openchoreo
 
-go 1.26.1
+go 1.26.2
 
 require (
 	github.com/casbin/casbin/v2 v2.135.0
