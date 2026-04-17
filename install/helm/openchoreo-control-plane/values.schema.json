@@ -946,6 +946,42 @@
           },
           "title": "topologySpreadConstraints",
           "type": "array"
+        },
+        "extraVolumes": {
+          "default": [],
+          "description": "Extra volumes to add to the Backstage Pod. Follows standard Kubernetes volume spec. Use in conjunction with extraVolumeMounts to mount them into the container.",
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "extraVolumes",
+          "type": "array"
+        },
+        "extraVolumeMounts": {
+          "default": [],
+          "description": "Extra volume mounts to add to the Backstage container. Use in conjunction with extraVolumes.",
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "extraVolumeMounts",
+          "type": "array"
+        },
+        "extraArgs": {
+          "default": [],
+          "description": "Extra arguments appended to the Backstage node startup command after the built-in --config flags. Typically used to add additional --config <file> arguments for operator-provided app-config overlays.",
+          "items": {
+            "type": "string"
+          },
+          "title": "extraArgs",
+          "type": "array"
+        },
+        "appConfig": {
+          "additionalProperties": true,
+          "default": {},
+          "description": "Arbitrary Backstage app-config YAML injected as an additional config overlay. When non-empty the chart renders a ConfigMap named <release>-backstage-extra-config, mounts it at /app/app-config.extra.yaml, and appends --config app-config.extra.yaml to the startup args automatically.",
+          "title": "appConfig",
+          "type": "object"
         }
       },
       "required": [],

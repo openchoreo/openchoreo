@@ -58,6 +58,13 @@ spec:
         - "--config"
         - "app-config.csp.yaml"
         {{- end }}
+        {{- if .Values.backstage.appConfig }}
+        - "--config"
+        - "app-config.extra.yaml"
+        {{- end }}
+        {{- range .Values.backstage.extraArgs }}
+        - {{ . | quote }}
+        {{- end }}
         ports:
         - containerPort: 7007
           name: http
@@ -193,6 +200,15 @@ spec:
           subPath: app-config.csp.yaml
           readOnly: true
         {{- end }}
+        {{- if .Values.backstage.appConfig }}
+        - name: extra-app-config
+          mountPath: /app/app-config.extra.yaml
+          subPath: app-config.extra.yaml
+          readOnly: true
+        {{- end }}
+        {{- with .Values.backstage.extraVolumeMounts }}
+        {{- toYaml . | nindent 12 }}
+        {{- end }}
       volumes:
       {{- if eq .Values.backstage.database.type "sqlite" }}
       - name: backstage-db
@@ -210,5 +226,13 @@ spec:
       - name: csp-config
         configMap:
           name: {{ include "openchoreo-control-plane.backstage.name" . }}-csp-config
+      {{- end }}
+      {{- if .Values.backstage.appConfig }}
+      - name: extra-app-config
+        configMap:
+          name: {{ include "openchoreo-control-plane.backstage.name" . }}-backstage-extra-config
+      {{- end }}
+      {{- with .Values.backstage.extraVolumes }}
+      {{- toYaml . | nindent 10 }}
       {{- end }}
 {{- end }}

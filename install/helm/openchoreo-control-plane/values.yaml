@@ -2348,7 +2348,60 @@ backstage:
   #       description: Environment variable value
   # @schema
   extraEnv: []
+  # @schema
+  # type: array
+  # description: >
+  #   Extra volumes to add to the Backstage Pod. Follows standard Kubernetes
+  #   volume spec. Use in conjunction with extraVolumeMounts to mount them
+  #   into the container.
+  # items:
+  #   type: object
+  #   additionalProperties: true
+  # default: []
+  # @schema
+  extraVolumes: []
 
+  # @schema
+  # type: array
+  # description: >
+  #   Extra volume mounts to add to the Backstage container. Use in
+  #   conjunction with extraVolumes.
+  # items:
+  #   type: object
+  #   additionalProperties: true
+  # default: []
+  # @schema
+  extraVolumeMounts: []
+
+  # @schema
+  # type: array
+  # description: >
+  #   Extra arguments appended to the Backstage node startup command after
+  #   the built-in --config flags. Typically used to add additional
+  #   --config <file> arguments for operator-provided app-config overlays.
+  # items:
+  #   type: string
+  # default: []
+  # @schema
+  extraArgs: []
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: >
+  #   Arbitrary Backstage app-config YAML injected as an additional config
+  #   overlay. When non-empty the chart renders a ConfigMap named
+  #   <release>-backstage-extra-config, mounts it at
+  #   /app/app-config.extra.yaml, and appends --config app-config.extra.yaml
+  #   to the startup args automatically. This is the preferred mechanism for
+  #   operator-specific Backstage configuration (auth, integrations, etc.)
+  #   without requiring a custom container image.
+  #   WARNING: Do not store secrets here — this value is rendered into a
+  #   ConfigMap (plaintext). Use Kubernetes Secrets or existing Secret refs
+  #   (e.g. via extraEnv secretKeyRef) instead.
+  # default: {}
+  # @schema
+  appConfig: {}
   # @schema
   # type: string
   # description: Backstage public base URL
