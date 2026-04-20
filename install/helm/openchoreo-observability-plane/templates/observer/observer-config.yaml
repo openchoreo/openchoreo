@@ -38,6 +38,9 @@ data:
   {{- if .Values.security.oidc.authServerBaseUrl }}
   AUTH_SERVER_BASE_URL: {{ .Values.security.oidc.authServerBaseUrl | quote }}
   {{- end }}
+  {{- if .Values.security.oidc.mcpOAuthScopes }}
+  MCP_OAUTH_SCOPES: {{ join " " .Values.security.oidc.mcpOAuthScopes | quote }}
+  {{- end }}
   {{- if .Values.observer.cors.allowedOrigins }}
   CORS_ALLOWED_ORIGINS: {{ join "," .Values.observer.cors.allowedOrigins | quote }}
   {{- end }}
