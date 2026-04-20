@@ -32,6 +32,11 @@ func (h *Handler) GetOAuthProtectedResourceMetadata(
 	securityEnabled := h.Config.Security.Enabled
 	resource := strings.TrimSuffix(h.Config.Server.PublicURL, "/") + "/mcp"
 
+	scopesSupported := h.Config.Identity.Scopes
+	if scopesSupported == nil {
+		scopesSupported = []string{}
+	}
+
 	response := gen.GetOAuthProtectedResourceMetadata200JSONResponse{
 		ResourceName:         "OpenChoreo MCP Server",
 		Resource:             resource,
@@ -39,7 +44,7 @@ func (h *Handler) GetOAuthProtectedResourceMetadata(
 		BearerMethodsSupported: []string{
 			"header",
 		},
-		ScopesSupported:           []string{},
+		ScopesSupported:           scopesSupported,
 		OpenchoreoSecurityEnabled: &securityEnabled,
 	}
 

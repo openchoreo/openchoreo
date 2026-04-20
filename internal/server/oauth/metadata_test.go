@@ -83,6 +83,27 @@ func TestNewMetadataHandler(t *testing.T) {
 				OpenChoreoSecurityEnabled: true,
 			},
 		},
+		{
+			name: "metadata advertises configured scopes_supported",
+			config: MetadataHandlerConfig{
+				ResourceName: "OpenChoreo MCP Server",
+				ResourceURL:  "http://api.openchoreo.localhost/mcp",
+				AuthorizationServers: []string{
+					"http://sts.openchoreo.localhost",
+				},
+				ScopesSupported: []string{"openid", "profile", "email"},
+			},
+			want: ProtectedResourceMetadata{
+				ResourceName: "OpenChoreo MCP Server",
+				Resource:     "http://api.openchoreo.localhost/mcp",
+				AuthorizationServers: []string{
+					"http://sts.openchoreo.localhost",
+				},
+				BearerMethodsSupported:    []string{"header"},
+				ScopesSupported:           []string{"openid", "profile", "email"},
+				OpenChoreoSecurityEnabled: false,
+			},
+		},
 	}
 
 	for _, tt := range tests {

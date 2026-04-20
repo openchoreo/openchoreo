@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -480,7 +481,7 @@ func initMCPMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 	}
 	resourceMetadataURL := observerBaseURL + "/.well-known/oauth-protected-resource"
 
-	return mcpmiddleware.Auth401Interceptor(resourceMetadataURL)
+	return mcpmiddleware.Auth401Interceptor(resourceMetadataURL, mcpOAuthScopes())
 }
 
 // oauthProtectedResourceMetadata returns a handler for OAuth 2.0 protected resource metadata
@@ -506,6 +507,23 @@ func oauthProtectedResourceMetadata(logger *slog.Logger) http.HandlerFunc {
 		AuthorizationServers: []string{
 			authServerBaseURL,
 		},
-		Logger: logger,
+		ScopesSupported: mcpOAuthScopes(),
+		Logger:          logger,
 	})
+}
+
+// mcpOAuthScopes returns the OAuth scopes to advertise for the MCP endpoint.
+// Operators can override via MCP_OAUTH_SCOPES (space-delimited) when an
+// authorization server's scopes_supported doesn't match what the app client
+// actually allows (see issue #3217).
+func mcpOAuthScopes() []string {
+	raw := os.Getenv(apiconfig.EnvMCPOAuthScopes)
+	if raw == "" {
+		return []string{"openid", "profile", "email"}
+	}
+	fields := strings.Fields(raw)
+	if len(fields) == 0 {
+		return []string{"openid", "profile", "email"}
+	}
+	return fields
 }
