@@ -17,6 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -1417,6 +1419,204 @@ func TestBuildResourceStatusMixedResources(t *testing.T) {
 // ─────────────────────────────────────────────────────────────
 // extractDeploymentConditions
 // ─────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+// ensureFinalizer
+// ─────────────────────────────────────────────────────────────
+
+func TestEnsureFinalizer(t *testing.T) {
+	s := runtime.NewScheme()
+	if err := openchoreov1alpha1.AddToScheme(s); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+
+	makeRelease := func(targetPlane string, finalizers ...string) *openchoreov1alpha1.RenderedRelease {
+		return &openchoreov1alpha1.RenderedRelease{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "test-release",
+				Namespace:  "default",
+				Finalizers: finalizers,
+			},
+			Spec: openchoreov1alpha1.RenderedReleaseSpec{TargetPlane: targetPlane},
+		}
+	}
+
+	t.Run("obs-plane release gets ObsPlaneCleanupFinalizer", func(t *testing.T) {
+		release := makeRelease(targetPlaneObservabilityPlane)
+		fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(release).Build()
+		r := &Reconciler{Client: fakeClient}
+
+		added, err := r.ensureFinalizer(context.Background(), release)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !added {
+			t.Error("expected finalizer to be added")
+		}
+		if !controllerutil.ContainsFinalizer(release, ObsPlaneCleanupFinalizer) {
+			t.Errorf("expected %q on obs-plane release", ObsPlaneCleanupFinalizer)
+		}
+		if controllerutil.ContainsFinalizer(release, DataPlaneCleanupFinalizer) {
+			t.Errorf("unexpected %q on obs-plane release", DataPlaneCleanupFinalizer)
+		}
+	})
+
+	t.Run("empty targetPlane gets DataPlaneCleanupFinalizer", func(t *testing.T) {
+		release := makeRelease("")
+		fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(release).Build()
+		r := &Reconciler{Client: fakeClient}
+
+		added, err := r.ensureFinalizer(context.Background(), release)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !added {
+			t.Error("expected finalizer to be added")
+		}
+		if !controllerutil.ContainsFinalizer(release, DataPlaneCleanupFinalizer) {
+			t.Errorf("expected %q on data-plane release", DataPlaneCleanupFinalizer)
+		}
+	})
+
+	t.Run("does not add finalizer when release is being deleted", func(t *testing.T) {
+		now := metav1.Now()
+		// DeletionTimestamp can only be set server-side; simulate by pre-setting a finalizer
+		// so the fake client accepts it, then set the timestamp manually on the in-memory object.
+		release := makeRelease(targetPlaneObservabilityPlane, "existing-finalizer")
+		release.DeletionTimestamp = &now
+		fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(release).Build()
+		r := &Reconciler{Client: fakeClient}
+
+		added, err := r.ensureFinalizer(context.Background(), release)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if added {
+			t.Error("expected no finalizer added when release is being deleted")
+		}
+	})
+
+	t.Run("no-op when correct finalizer already present", func(t *testing.T) {
+		release := makeRelease(targetPlaneObservabilityPlane, ObsPlaneCleanupFinalizer)
+		fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(release).Build()
+		r := &Reconciler{Client: fakeClient}
+
+		added, err := r.ensureFinalizer(context.Background(), release)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if added {
+			t.Error("expected no-op when finalizer already present")
+		}
+	})
+}
+
+// ─────────────────────────────────────────────────────────────
+// finalizeObsPlane — no-finalizer fast path
+// ─────────────────────────────────────────────────────────────
+
+func TestFinalizeObsPlane_NoFinalizersIsNoOp(t *testing.T) {
+	s := runtime.NewScheme()
+	if err := openchoreov1alpha1.AddToScheme(s); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	release := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-release", Namespace: "default"},
+		Spec:       openchoreov1alpha1.RenderedReleaseSpec{TargetPlane: targetPlaneObservabilityPlane},
+		// No Finalizers
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(release).Build()
+	r := &Reconciler{Client: fakeClient}
+
+	result, err := r.finalizeObsPlane(context.Background(), release, release)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Requeue || result.RequeueAfter != 0 {
+		t.Errorf("expected empty Result for no-op path, got Requeue=%v RequeueAfter=%v", result.Requeue, result.RequeueAfter)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────
+// intersectObsPlaneGVKs
+// ─────────────────────────────────────────────────────────────
+
+func TestIntersectObsPlaneGVKs(t *testing.T) {
+	r := &Reconciler{}
+	ctx := context.Background()
+
+	t.Run("empty status resources returns empty", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{}
+		result := r.intersectObsPlaneGVKs(ctx, release)
+		if len(result) != 0 {
+			t.Errorf("expected 0 GVKs, got %d", len(result))
+		}
+	})
+
+	t.Run("status resource in allowlist is included", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.ResourceStatus{
+					{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
+				},
+			},
+		}
+		result := r.intersectObsPlaneGVKs(ctx, release)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 GVK, got %d", len(result))
+		}
+		if result[0].Kind != "ObservabilityAlertRule" {
+			t.Errorf("expected ObservabilityAlertRule, got %s", result[0].Kind)
+		}
+	})
+
+	t.Run("status resource not in allowlist is excluded", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.ResourceStatus{
+					{Group: "other.io", Version: "v1", Kind: "SomeOtherType"},
+				},
+			},
+		}
+		result := r.intersectObsPlaneGVKs(ctx, release)
+		if len(result) != 0 {
+			t.Errorf("expected 0 GVKs (non-allowlisted excluded), got %d", len(result))
+		}
+	})
+
+	t.Run("duplicate GVKs in status are deduplicated", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.ResourceStatus{
+					{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
+					{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
+				},
+			},
+		}
+		result := r.intersectObsPlaneGVKs(ctx, release)
+		if len(result) != 1 {
+			t.Errorf("expected 1 deduplicated GVK, got %d", len(result))
+		}
+	})
+
+	t.Run("mixed: allowlisted and non-allowlisted GVKs", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.ResourceStatus{
+					{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
+					{Group: "other.io", Version: "v1", Kind: "NotAllowlisted"},
+				},
+			},
+		}
+		result := r.intersectObsPlaneGVKs(ctx, release)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 GVK, got %d", len(result))
+		}
+		if result[0].Kind != "ObservabilityAlertRule" {
+			t.Errorf("expected ObservabilityAlertRule, got %s", result[0].Kind)
+		}
+	})
+}
 
 func TestExtractDeploymentConditions(t *testing.T) {
 	makeCondition := func(condType appsv1.DeploymentConditionType, status corev1.ConditionStatus, reason string) appsv1.DeploymentCondition {

@@ -34,15 +34,16 @@ const (
 	testInterval = 250 * time.Millisecond
 )
 
-// forceDelete removes the DataPlaneCleanupFinalizer from a RenderedRelease and deletes it.
+// forceDelete removes any known cleanup finalizers from a RenderedRelease and deletes it.
 // Safe to call even if the resource does not exist.
 func forceDelete(ctx context.Context, nn types.NamespacedName) {
 	r := &openchoreov1alpha1.RenderedRelease{}
 	if err := k8sClient.Get(ctx, nn, r); err != nil {
 		return
 	}
-	if controllerutil.ContainsFinalizer(r, DataPlaneCleanupFinalizer) {
-		controllerutil.RemoveFinalizer(r, DataPlaneCleanupFinalizer)
+	dpRemoved := controllerutil.RemoveFinalizer(r, DataPlaneCleanupFinalizer)
+	opRemoved := controllerutil.RemoveFinalizer(r, ObsPlaneCleanupFinalizer)
+	if dpRemoved || opRemoved {
 		_ = k8sClient.Update(ctx, r)
 	}
 	_ = k8sClient.Delete(ctx, r)
@@ -1201,6 +1202,171 @@ var _ = Describe("RenderedRelease Controller", func() {
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 
 			By("Second finalize reconcile: no live resources, removes finalizer")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Verifying the RenderedRelease is fully deleted")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})
+				return apierrors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Finalization: obs-plane with ObsPlaneCleanupFinalizer, no live resources
+	// ─────────────────────────────────────────────────────────────
+
+	Context("Finalization with ObsPlaneCleanupFinalizer and no live obs-plane resources", func() {
+		const (
+			releaseName = "release-finalize-op-new"
+			envName     = "env-finalize-op-new"
+			cdpName     = "cdp-finalize-op-new"
+			copName     = "cop-finalize-op-new"
+			planeID     = "plane-finalize-op-new"
+			opPlaneID   = "obs-plane-finalize-op-new"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+			forceDeleteClusterObservabilityPlane(ctx, copName)
+		})
+
+		It("sets Finalizing condition then removes ObsPlaneCleanupFinalizer when no resources exist", func() {
+			By("Creating prerequisite ClusterObservabilityPlane, ClusterDataPlane, and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterObservabilityPlane(copName, opPlaneID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeClusterDataPlaneWithOPRef(cdpName, planeID, copName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating a RenderedRelease targeting the observability plane with ObsPlaneCleanupFinalizer")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.TargetPlane = targetPlaneObservabilityPlane
+			release.Finalizers = []string{ObsPlaneCleanupFinalizer}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			By("Using an empty fake OP client (no live resources)")
+			dpClient := fake.NewClientBuilder().Build()
+			r := testReconcilerWithDPClient(dpClient, planeID, cdpName)
+
+			By("Deleting the release (sets DeletionTimestamp; finalizer blocks removal)")
+			Expect(k8sClient.Delete(ctx, release)).To(Succeed())
+			Eventually(func() bool {
+				updated := &openchoreov1alpha1.RenderedRelease{}
+				if err := k8sClient.Get(ctx, nn, updated); err != nil {
+					return false
+				}
+				return !updated.DeletionTimestamp.IsZero()
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("First finalize reconcile: sets the Finalizing=True condition")
+			mustReconcile(r, reconcileRequest(releaseName))
+			updated := fetchRelease(releaseName)
+			cond := apimeta.FindStatusCondition(updated.Status.Conditions, string(ConditionFinalizing))
+			Expect(cond).NotTo(BeNil(), "Finalizing condition must be present")
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(string(ReasonCleanupInProgress)))
+			Expect(updated.Finalizers).To(ContainElement(ObsPlaneCleanupFinalizer))
+
+			By("Second finalize reconcile: no live resources → removes ObsPlaneCleanupFinalizer")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Verifying the RenderedRelease is fully deleted after finalizer removal")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})
+				return apierrors.IsNotFound(err)
+			}, testTimeout, testInterval).Should(BeTrue())
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Finalization: obs-plane with live ObservabilityAlertRule resources
+	// ─────────────────────────────────────────────────────────────
+
+	Context("Finalization with live ObservabilityAlertRule resources in obs plane", func() {
+		const (
+			releaseName = "release-finalize-op-live"
+			envName     = "env-finalize-op-live"
+			cdpName     = "cdp-finalize-op-live"
+			copName     = "cop-finalize-op-live"
+			planeID     = "plane-finalize-op-live"
+			opPlaneID   = "obs-plane-finalize-op-live"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+			forceDeleteClusterObservabilityPlane(ctx, copName)
+		})
+
+		It("deletes live ObservabilityAlertRule, requeues, then removes finalizer on next reconcile", func() {
+			By("Creating prerequisite ClusterObservabilityPlane, ClusterDataPlane, and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterObservabilityPlane(copName, opPlaneID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeClusterDataPlaneWithOPRef(cdpName, planeID, copName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating a RenderedRelease targeting the observability plane with ObsPlaneCleanupFinalizer")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.TargetPlane = targetPlaneObservabilityPlane
+			release.Finalizers = []string{ObsPlaneCleanupFinalizer}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			By("Re-fetching to get server-assigned UID for tracking labels")
+			fetched := fetchRelease(releaseName)
+
+			By("Setting status.resources to include an ObservabilityAlertRule entry")
+			fetched.Status.Resources = []openchoreov1alpha1.ResourceStatus{
+				{
+					ID:      "alert-rule-1",
+					Group:   "openchoreo.dev",
+					Version: "v1alpha1",
+					Kind:    "ObservabilityAlertRule",
+					Name:    "my-alert-rule",
+				},
+			}
+			Expect(k8sClient.Status().Update(ctx, fetched)).To(Succeed())
+
+			By("Re-fetching after status update to get consistent resource version")
+			fetched = fetchRelease(releaseName)
+
+			By("Creating a fake OP client with a live ObservabilityAlertRule that has tracking labels")
+			liveAlertRule := makeLabeledUnstructured(
+				"openchoreo.dev/v1alpha1", "ObservabilityAlertRule",
+				"", "my-alert-rule", "alert-rule-1", fetched)
+			opClient := fake.NewClientBuilder().
+				WithScheme(k8sClient.Scheme()).
+				WithObjects(liveAlertRule).
+				Build()
+			r := testReconcilerWithDPClient(opClient, planeID, cdpName)
+
+			By("Deleting the release (sets DeletionTimestamp)")
+			Expect(k8sClient.Delete(ctx, release)).To(Succeed())
+			Eventually(func() bool {
+				updated := &openchoreov1alpha1.RenderedRelease{}
+				if err := k8sClient.Get(ctx, nn, updated); err != nil {
+					return false
+				}
+				return !updated.DeletionTimestamp.IsZero()
+			}, testTimeout, testInterval).Should(BeTrue())
+
+			By("First finalize reconcile: sets the Finalizing condition")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Second finalize reconcile: finds live ObservabilityAlertRule, deletes it, requeues")
+			result := mustReconcile(r, reconcileRequest(releaseName))
+			Expect(result.RequeueAfter).To(Equal(5*time.Second),
+				"should requeue after 5s while live obs-plane resources exist")
+
+			By("Verifying ObsPlaneCleanupFinalizer is still present (waiting for resource deletion)")
+			updated := fetchRelease(releaseName)
+			Expect(updated.Finalizers).To(ContainElement(ObsPlaneCleanupFinalizer))
+
+			By("Third finalize reconcile: no more live resources → removes finalizer")
 			mustReconcile(r, reconcileRequest(releaseName))
 
 			By("Verifying the RenderedRelease is fully deleted")
