@@ -230,7 +230,7 @@ spec:
       {{- if .Values.backstage.appConfig }}
       - name: extra-app-config
         configMap:
-          name: {{ include "openchoreo-control-plane.backstage.name" . }}-backstage-extra-config
+          name: {{ include "openchoreo-control-plane.backstage.name" . }}-extra-config
       {{- end }}
       {{- with .Values.backstage.extraVolumes }}
       {{- toYaml . | nindent 10 }}
