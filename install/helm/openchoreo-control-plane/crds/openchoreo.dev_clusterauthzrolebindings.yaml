@@ -74,6 +74,37 @@ spec:
                   description: ClusterRoleMapping pairs a role reference with an optional
                     scope for cluster-scoped bindings
                   properties:
+                    conditions:
+                      description: |-
+                        Conditions define attribute-based restrictions on specific actions granted by the role.
+                        Multiple entries whose actions match the request are combined with OR semantics —
+                        at least one matching entry must pass for the action to be permitted.
+                        If omitted, no attribute restrictions apply — the RBAC grant stands as-is.
+                      items:
+                        description: AuthzCondition represents the conditions under
+                          which an action is allowed or denied in an authorization
+                          role.
+                        properties:
+                          actions:
+                            description: |-
+                              Actions is the list of actions this condition applies to.
+                              Supports exact match ("releasebinding:create") and wildcards ("releasebinding:*").
+                            items:
+                              type: string
+                            minItems: 1
+                            type: array
+                          expression:
+                            description: |-
+                              Expression is a CEL expression that must evaluate to true for the action to be permitted.
+                              Examples:
+                                resource.environment in ["dev", "staging"]
+                                resource.componentType == "database"
+                            type: string
+                        required:
+                        - actions
+                        - expression
+                        type: object
+                      type: array
                     roleRef:
                       description: RoleRef references the ClusterAuthzRole to bind
                       properties:

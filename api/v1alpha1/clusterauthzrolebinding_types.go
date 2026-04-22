@@ -32,6 +32,13 @@ type ClusterRoleMapping struct {
 	// Scope defines the target scope within the ownership hierarchy
 	// +optional
 	Scope ClusterTargetScope `json:"scope,omitempty"`
+
+	// Conditions define attribute-based restrictions on specific actions granted by the role.
+	// Multiple entries whose actions match the request are combined with OR semantics —
+	// at least one matching entry must pass for the action to be permitted.
+	// If omitted, no attribute restrictions apply — the RBAC grant stands as-is.
+	// +optional
+	Conditions []AuthzCondition `json:"conditions,omitempty"`
 }
 
 // ClusterAuthzRoleBindingSpec defines the desired state of ClusterAuthzRoleBinding

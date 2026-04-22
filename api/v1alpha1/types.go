@@ -429,3 +429,19 @@ const (
 	EffectAllow EffectType = "allow"
 	EffectDeny  EffectType = "deny"
 )
+
+// AuthzCondition represents the conditions under which an action is allowed or denied in an authorization role.
+type AuthzCondition struct {
+	// Actions is the list of actions this condition applies to.
+	// Supports exact match ("releasebinding:create") and wildcards ("releasebinding:*").
+	// +required
+	// +kubebuilder:validation:MinItems=1
+	Actions []string `json:"actions"`
+
+	// Expression is a CEL expression that must evaluate to true for the action to be permitted.
+	// Examples:
+	//   resource.environment in ["dev", "staging"]
+	//   resource.componentType == "database"
+	// +required
+	Expression string `json:"expression"`
+}
