@@ -4994,13 +4994,13 @@ components:
             code: UNAUTHORIZED
 
     Forbidden:
-      description: Insufficient permissions to access the resource
+      description: Insufficient permissions to perform the operation
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            error: "You do not have permission to access this resource"
+            error: "You do not have permission to perform this operation"
             code: FORBIDDEN
 
     NotFound:

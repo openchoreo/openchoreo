@@ -17,7 +17,7 @@ func badRequest(message string) gen.BadRequestJSONResponse {
 func forbidden() gen.ForbiddenJSONResponse {
 	return gen.ForbiddenJSONResponse{
 		Code:  gen.FORBIDDEN,
-		Error: "You do not have permission to access this resource",
+		Error: "You do not have permission to perform this operation",
 	}
 }
 
