@@ -68,6 +68,9 @@ type AlertService struct {
 	aiRCAEnabled       bool
 	resolver           *ResourceUIDResolver
 	logsAdapter        *LogsAdapter
+
+	metricsAdapterURL    string
+	metricsAdapterClient *http.Client
 }
 
 // NewAlertService creates a new AlertService.
@@ -83,19 +86,23 @@ func NewAlertService(
 	aiRCAEnabled bool,
 	resolver *ResourceUIDResolver,
 	logsAdapter *LogsAdapter,
+	metricsAdapterURL string,
+	metricsAdapterClient *http.Client,
 ) *AlertService {
 	return &AlertService{
-		osClient:           osClient,
-		queryBuilder:       queryBuilder,
-		alertEntryStore:    alertEntryStore,
-		incidentEntryStore: incidentEntryStore,
-		k8sClient:          k8sClient,
-		config:             cfg,
-		logger:             logger,
-		rcaServiceURL:      rcaServiceURL,
-		aiRCAEnabled:       aiRCAEnabled,
-		resolver:           resolver,
-		logsAdapter:        logsAdapter,
+		osClient:             osClient,
+		queryBuilder:         queryBuilder,
+		alertEntryStore:      alertEntryStore,
+		incidentEntryStore:   incidentEntryStore,
+		k8sClient:            k8sClient,
+		config:               cfg,
+		logger:               logger,
+		rcaServiceURL:        rcaServiceURL,
+		aiRCAEnabled:         aiRCAEnabled,
+		resolver:             resolver,
+		logsAdapter:          logsAdapter,
+		metricsAdapterURL:    metricsAdapterURL,
+		metricsAdapterClient: metricsAdapterClient,
 	}
 }
 
@@ -118,6 +125,9 @@ func (s *AlertService) CreateAlertRule(ctx context.Context, req gen.AlertRuleReq
 		}
 		return s.createOpenSearchAlertRule(ctx, req)
 	case sourceTypeMetric:
+		if s.metricsAdapterClient != nil {
+			return s.createMetricAlertRuleViaAdapter(ctx, req)
+		}
 		return s.createPrometheusAlertRule(ctx, req)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
@@ -135,6 +145,9 @@ func (s *AlertService) GetAlertRule(ctx context.Context, ruleName, sourceType st
 		}
 		return s.getOpenSearchAlertRule(ctx, ruleName)
 	case sourceTypeMetric:
+		if s.metricsAdapterClient != nil {
+			return s.getMetricAlertRuleViaAdapter(ctx, ruleName)
+		}
 		return s.getPrometheusAlertRule(ctx, ruleName)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
@@ -160,6 +173,9 @@ func (s *AlertService) UpdateAlertRule(ctx context.Context, ruleName string, req
 		}
 		return s.updateOpenSearchAlertRule(ctx, ruleName, req)
 	case sourceTypeMetric:
+		if s.metricsAdapterClient != nil {
+			return s.updateMetricAlertRuleViaAdapter(ctx, ruleName, req)
+		}
 		return s.updatePrometheusAlertRule(ctx, ruleName, req)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
@@ -177,6 +193,9 @@ func (s *AlertService) DeleteAlertRule(ctx context.Context, ruleName, sourceType
 		}
 		return s.deleteOpenSearchAlertRule(ctx, ruleName)
 	case sourceTypeMetric:
+		if s.metricsAdapterClient != nil {
+			return s.deleteMetricAlertRuleViaAdapter(ctx, ruleName)
+		}
 		return s.deletePrometheusAlertRule(ctx, ruleName)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)

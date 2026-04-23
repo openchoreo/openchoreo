@@ -269,6 +269,10 @@ func TestValidate(t *testing.T) {
 					OAuthClientSecret: "test-secret",
 					Timeout:           30 * time.Second,
 				},
+				Adapters: AdaptersConfig{
+					MetricsAdapterURL:     "http://localhost:9090",
+					MetricsAdapterTimeout: 30 * time.Second,
+				},
 			},
 			expectErr: false,
 		},
@@ -376,7 +380,7 @@ func TestValidate(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name: "missing prometheus address",
+			name: "prometheus address optional - empty is valid",
 			config: Config{
 				Server: ServerConfig{
 					Port:         8080,
@@ -393,8 +397,23 @@ func TestValidate(t *testing.T) {
 				Logging: LoggingConfig{
 					MaxLogLimit: 1000,
 				},
+				Authz: AuthzConfig{
+					ServiceURL: "http://localhost:8081",
+					Timeout:    30 * time.Second,
+				},
+				UIDResolver: UIDResolverConfig{
+					OpenChoreoAPIURL:  "http://localhost:9099",
+					OAuthTokenURL:     "http://localhost:8080/oauth2/token",
+					OAuthClientID:     "test-client",
+					OAuthClientSecret: "test-secret",
+					Timeout:           30 * time.Second,
+				},
+				Adapters: AdaptersConfig{
+					MetricsAdapterURL:     "http://localhost:9090",
+					MetricsAdapterTimeout: 30 * time.Second,
+				},
 			},
-			expectErr: true,
+			expectErr: false,
 		},
 		{
 			name: "invalid prometheus timeout",

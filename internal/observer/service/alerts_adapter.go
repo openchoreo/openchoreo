@@ -27,7 +27,7 @@ func (s *AlertService) createLogAlertRuleViaAdapter(ctx context.Context, req gen
 	}
 	defer resp.Body.Close()
 
-	if err := mapAdapterHTTPError(resp); err != nil {
+	if err := mapAdapterHTTPError(resp, "logs adapter"); err != nil {
 		return nil, err
 	}
 
@@ -42,7 +42,7 @@ func (s *AlertService) getLogAlertRuleViaAdapter(ctx context.Context, ruleName s
 	}
 	defer resp.Body.Close()
 
-	if err := mapAdapterHTTPError(resp); err != nil {
+	if err := mapAdapterHTTPError(resp, "logs adapter"); err != nil {
 		return nil, err
 	}
 
@@ -62,7 +62,7 @@ func (s *AlertService) updateLogAlertRuleViaAdapter(ctx context.Context, ruleNam
 	}
 	defer resp.Body.Close()
 
-	if err := mapAdapterHTTPError(resp); err != nil {
+	if err := mapAdapterHTTPError(resp, "logs adapter"); err != nil {
 		return nil, err
 	}
 
@@ -77,7 +77,7 @@ func (s *AlertService) deleteLogAlertRuleViaAdapter(ctx context.Context, ruleNam
 	}
 	defer resp.Body.Close()
 
-	if err := mapAdapterHTTPError(resp); err != nil {
+	if err := mapAdapterHTTPError(resp, "logs adapter"); err != nil {
 		return nil, err
 	}
 
@@ -103,7 +103,7 @@ func toAdapterAlertRuleRequest(req gen.AlertRuleRequest) (logsadapterclientgen.A
 
 // mapAdapterHTTPError maps adapter HTTP error responses to sentinel errors.
 // Returns nil for success status codes.
-func mapAdapterHTTPError(resp *http.Response) error {
+func mapAdapterHTTPError(resp *http.Response, adapterName string) error {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return nil
 	}
@@ -116,7 +116,7 @@ func mapAdapterHTTPError(resp *http.Response) error {
 	case http.StatusConflict:
 		return fmt.Errorf("%w: adapter returned 409", ErrAlertRuleAlreadyExists)
 	default:
-		return fmt.Errorf("logs adapter returned HTTP %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("%s returned HTTP %d: %s", adapterName, resp.StatusCode, string(body))
 	}
 }
 

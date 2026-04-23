@@ -25,6 +25,7 @@ import (
 const (
 	testNamespace = "ns-1"
 	testRuleName  = "rule-1"
+	testLogQuery  = "level=error"
 )
 
 // alreadyExistsOpenSearchClient returns exists=true from SearchMonitorByName,
@@ -40,7 +41,7 @@ func (c *alreadyExistsOpenSearchClient) SearchMonitorByName(_ context.Context, _
 
 // Helper to build a valid log alert request for CRUD tests.
 func newLogAlertRequest(ruleName string) gen.AlertRuleRequest {
-	query := "level=error"
+	query := testLogQuery
 
 	return gen.AlertRuleRequest{
 		//nolint:revive,staticcheck

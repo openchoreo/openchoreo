@@ -22,7 +22,6 @@ import (
 	observermcp "github.com/openchoreo/openchoreo/internal/observer/mcp"
 	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
-	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
@@ -67,15 +66,22 @@ func main() {
 		log.Fatalf("Failed to initialize OpenSearch client: %v", err)
 	}
 
-	// Initialize Prometheus client
-	promClient, err := prometheus.NewClient(&cfg.Prometheus, logger)
-	if err != nil {
-		log.Fatalf("Failed to initialize Prometheus client: %v", err)
-	}
+	// Initialize resource UID resolver for name-to-UID resolution
+	uidResolver := service.NewResourceUIDResolver(&cfg.UIDResolver, logger.With("component", "resource-resolver"))
 
-	// Initialize Prometheus metrics service
-	// TODO: Remove this once the metrics adapter is implemented
-	promService := prometheus.NewMetricsService(promClient, logger)
+	// Initialize metrics adapter (always enabled, forwards metrics queries to external adapter)
+	metricsAdapter := service.NewMetricsAdapter(
+		cfg.Adapters.MetricsAdapterURL,
+		cfg.Adapters.MetricsAdapterTimeout,
+		uidResolver,
+		logger.With("component", "metrics-adapter"),
+	)
+	logger.Info("Metrics adapter initialized", "adapter_url", cfg.Adapters.MetricsAdapterURL)
+
+	// Initialize metrics adapter HTTP client for alert CRUD forwarding
+	metricsAdapterClient := &http.Client{
+		Timeout: cfg.Adapters.MetricsAdapterTimeout,
+	}
 
 	// Initialize logs adapter (optional)
 	var logsAdapter observability.LogsAdapter
@@ -132,9 +138,6 @@ func main() {
 	// Initialize HTTP server
 	mux := http.NewServeMux()
 
-	// Initialize resource UID resolver for name-to-UID resolution
-	uidResolver := service.NewResourceUIDResolver(&cfg.UIDResolver, logger.With("component", "resource-resolver"))
-
 	// Initialize logs service
 	logsService, logsServiceErr := service.NewLogsService(
 		logsAdapter, uidResolver, cfg, logger.With("component", "logs-service"),
@@ -144,14 +147,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize metrics service
-	metricsService, metricsServiceErr := service.NewMetricsService(
-		promService, uidResolver, logger.With("component", "metrics-service"),
-	)
-	if metricsServiceErr != nil {
-		logger.Error("Failed to initialize metrics service", "error", metricsServiceErr)
-		os.Exit(1)
-	}
+	// Use the metrics adapter as the MetricsQuerier (forwards to external metrics-adapter service)
+	var metricsService service.MetricsQuerier = metricsAdapter
 
 	// Initialize traces service
 	tracesService, tracesServiceErr := service.NewTracesService(
@@ -217,6 +214,8 @@ func main() {
 		cfg.Alerting.AIRCAEnabled,
 		uidResolver,
 		concreteLogsAdapter,
+		cfg.Adapters.MetricsAdapterURL,
+		metricsAdapterClient,
 	)
 
 	// Wrap services with authorization checks.

@@ -46,6 +46,9 @@ type AdaptersConfig struct {
 	TracingAdapterEnabled bool          `koanf:"tracing.adapter.enabled"`
 	TracingAdapterURL     string        `koanf:"tracing.adapter.url"`
 	TracingAdapterTimeout time.Duration `koanf:"tracing.adapter.timeout"`
+
+	MetricsAdapterURL     string        `koanf:"metrics.adapter.url"`
+	MetricsAdapterTimeout time.Duration `koanf:"metrics.adapter.timeout"`
 }
 
 // ServerConfig holds HTTP server configuration
@@ -223,6 +226,8 @@ func Load() (*Config, error) {
 		"TRACING_ADAPTER_ENABLED":               "adapters.tracing.adapter.enabled",
 		"TRACING_ADAPTER_URL":                   "adapters.tracing.adapter.url",
 		"TRACING_ADAPTER_TIMEOUT":               "adapters.tracing.adapter.timeout",
+		"METRICS_ADAPTER_URL":                   "adapters.metrics.adapter.url",
+		"METRICS_ADAPTER_TIMEOUT":               "adapters.metrics.adapter.timeout",
 		"UID_RESOLVER_OPENCHOREO_API_URL":       "uid_resolver.openchoreo.api.url",
 		"UID_RESOLVER_OAUTH_TOKEN_URL":          "uid_resolver.oauth.token.url",
 		"UID_RESOLVER_OAUTH_CLIENT_ID":          "uid_resolver.oauth.client.id",
@@ -339,7 +344,6 @@ func getDefaults() map[string]interface{} {
 			"legacy.pattern": "choreo*",
 		},
 		"prometheus": map[string]interface{}{
-			"address": "http://localhost:9090",
 			"timeout": "30s",
 		},
 		"auth": map[string]interface{}{
@@ -373,6 +377,8 @@ func getDefaults() map[string]interface{} {
 			"tracing.adapter.enabled": false,
 			"tracing.adapter.url":     "http://tracing-adapter:9100",
 			"tracing.adapter.timeout": "30s",
+			"metrics.adapter.url":     "http://metrics-adapter:9099",
+			"metrics.adapter.timeout": "30s",
 		},
 		"uid_resolver": map[string]interface{}{
 			"openchoreo.api.url":       "http://api.openchoreo.localhost:9099",
@@ -408,12 +414,10 @@ func (c *Config) validate() error {
 		return fmt.Errorf("opensearch timeout must be positive")
 	}
 
-	if c.Prometheus.Address == "" {
-		return fmt.Errorf("prometheus address is required")
-	}
-
-	if c.Prometheus.Timeout <= 0 {
-		return fmt.Errorf("prometheus timeout must be positive")
+	// Prometheus configuration is optional when using MetricsAdapter
+	// Only validate if Prometheus address is explicitly provided
+	if c.Prometheus.Address != "" && c.Prometheus.Timeout <= 0 {
+		return fmt.Errorf("prometheus timeout must be positive when prometheus address is set")
 	}
 
 	if c.Logging.MaxLogLimit <= 0 {
@@ -459,6 +463,17 @@ func (c *Config) validate() error {
 		}
 	default:
 		return fmt.Errorf("alert.store.backend must be 'sqlite' or 'postgresql'")
+	}
+
+	// Validate and normalize MetricsAdapter configuration
+	if c.Adapters.MetricsAdapterURL == "" {
+		return fmt.Errorf("metrics adapter URL is required")
+	}
+	// Strip trailing slash to prevent double slashes in client paths
+	c.Adapters.MetricsAdapterURL = strings.TrimRight(c.Adapters.MetricsAdapterURL, "/")
+
+	if c.Adapters.MetricsAdapterTimeout <= 0 {
+		return fmt.Errorf("metrics adapter timeout must be positive")
 	}
 
 	return nil
