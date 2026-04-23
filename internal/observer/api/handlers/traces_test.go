@@ -100,12 +100,12 @@ func TestConvertSpansResponseToGen(t *testing.T) {
 		TookMs: 5,
 	}
 
-	genResp := convertSpansResponseToGen(resp)
+	genResp := convertSpansResponseToGen(resp, false)
 	require.NotNil(t, genResp)
 }
 
 func TestConvertSpansResponseToGen_NilResponse(t *testing.T) {
-	genResp := convertSpansResponseToGen(nil)
+	genResp := convertSpansResponseToGen(nil, false)
 	assert.Nil(t, genResp)
 }
 
@@ -138,8 +138,81 @@ func TestConvertSpansResponseToGen_MultipleSpans(t *testing.T) {
 		TookMs: 5,
 	}
 
-	genResp := convertSpansResponseToGen(resp)
+	genResp := convertSpansResponseToGen(resp, false)
 	require.NotNil(t, genResp)
+}
+
+func TestConvertSpansResponseToGen_WithIncludeAttributes(t *testing.T) {
+	now := time.Now()
+	resp := &types.SpansQueryResponse{
+		Spans: []types.SpanInfo{
+			{
+				SpanID:    "span-1",
+				SpanName:  "http.request",
+				StartTime: &now,
+				EndTime:   &now,
+				Attributes: map[string]interface{}{
+					"http.method": "GET",
+					"http.url":    "http://example.com",
+				},
+				ResourceAttributes: map[string]interface{}{
+					"service.name": "my-service",
+				},
+			},
+		},
+		Total:  1,
+		TookMs: 5,
+	}
+
+	genResp := convertSpansResponseToGen(resp, true)
+	require.NotNil(t, genResp)
+	require.NotNil(t, genResp.Spans)
+	require.Len(t, *genResp.Spans, 1)
+	span := (*genResp.Spans)[0]
+	require.NotNil(t, span.Attributes)
+	assert.Equal(t, "GET", (*span.Attributes)["http.method"])
+	require.NotNil(t, span.ResourceAttributes)
+	assert.Equal(t, "my-service", (*span.ResourceAttributes)["service.name"])
+}
+
+func TestConvertSpansResponseToGen_ExcludeAttributesWhenFalse(t *testing.T) {
+	now := time.Now()
+	resp := &types.SpansQueryResponse{
+		Spans: []types.SpanInfo{
+			{
+				SpanID:    "span-1",
+				SpanName:  "http.request",
+				StartTime: &now,
+				EndTime:   &now,
+				Attributes: map[string]interface{}{
+					"http.method": "GET",
+				},
+				ResourceAttributes: map[string]interface{}{
+					"service.name": "my-service",
+				},
+			},
+		},
+		Total:  1,
+		TookMs: 5,
+	}
+
+	genResp := convertSpansResponseToGen(resp, false)
+	require.NotNil(t, genResp)
+	require.NotNil(t, genResp.Spans)
+	require.Len(t, *genResp.Spans, 1)
+	span := (*genResp.Spans)[0]
+	assert.Nil(t, span.Attributes)
+	assert.Nil(t, span.ResourceAttributes)
+}
+
+func TestDerefBool(t *testing.T) {
+	val := true
+	assert.True(t, derefBool(&val))
+
+	val = false
+	assert.False(t, derefBool(&val))
+
+	assert.False(t, derefBool(nil))
 }
 
 func TestConvertSpanDetailsToGen(t *testing.T) {
