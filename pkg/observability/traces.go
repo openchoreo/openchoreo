@@ -52,9 +52,10 @@ type TracesQueryParams struct {
 	EnvironmentID string `json:"environmentId,omitempty"`
 
 	// Query options
-	TraceID   string `json:"traceId,omitempty"`
-	Limit     int    `json:"limit"`
-	SortOrder string `json:"sortOrder"`
+	TraceID           string `json:"traceId,omitempty"`
+	Limit             int    `json:"limit"`
+	SortOrder         string `json:"sortOrder"`
+	IncludeAttributes bool   `json:"includeAttributes,omitempty"`
 }
 
 // TracesQueryResult defines the result structure for trace queries

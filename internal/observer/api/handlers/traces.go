@@ -131,10 +131,11 @@ func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := &types.TracesQueryRequest{
-		StartTime: genReq.StartTime,
-		EndTime:   genReq.EndTime,
-		Limit:     derefInt(genReq.Limit, 100),
-		SortOrder: sort,
+		StartTime:         genReq.StartTime,
+		EndTime:           genReq.EndTime,
+		Limit:             derefInt(genReq.Limit, 100),
+		SortOrder:         sort,
+		IncludeAttributes: derefBool(genReq.IncludeAttributes),
 		SearchScope: types.ComponentSearchScope{
 			Namespace:   genReq.SearchScope.Namespace,
 			Project:     derefString(genReq.SearchScope.Project),
@@ -205,7 +206,7 @@ func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 5. CONVERT TO GENERATED TYPE AND RETURN
-	genResp := convertSpansResponseToGen(result)
+	genResp := convertSpansResponseToGen(result, req.IncludeAttributes)
 	h.writeJSON(w, http.StatusOK, genResp)
 }
 
@@ -296,6 +297,13 @@ func derefString(ptr *string) string {
 	return *ptr
 }
 
+func derefBool(ptr *bool) bool {
+	if ptr == nil {
+		return false
+	}
+	return *ptr
+}
+
 // convertTracesResponseToGen converts internal response to generated type
 func convertTracesResponseToGen(resp *types.TracesQueryResponse) *gen.TracesQueryResponse {
 	if resp == nil {
@@ -335,7 +343,7 @@ func convertTracesResponseToGen(resp *types.TracesQueryResponse) *gen.TracesQuer
 }
 
 // convertSpansResponseToGen converts internal response to generated type
-func convertSpansResponseToGen(resp *types.SpansQueryResponse) *gen.TraceSpansQueryResponse {
+func convertSpansResponseToGen(resp *types.SpansQueryResponse, includeAttributes bool) *gen.TraceSpansQueryResponse {
 	if resp == nil {
 		return nil
 	}
@@ -358,6 +366,14 @@ func convertSpansResponseToGen(resp *types.SpansQueryResponse) *gen.TraceSpansQu
 		}
 		if span.ParentSpanID != "" {
 			spanData[i]["parentSpanId"] = span.ParentSpanID
+		}
+		if includeAttributes {
+			if span.Attributes != nil {
+				spanData[i]["attributes"] = span.Attributes
+			}
+			if span.ResourceAttributes != nil {
+				spanData[i]["resourceAttributes"] = span.ResourceAttributes
+			}
 		}
 	}
 

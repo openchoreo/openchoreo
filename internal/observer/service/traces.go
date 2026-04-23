@@ -163,15 +163,16 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 
 	// Build query params for spans with the specific trace ID and scope
 	params := observability.TracesQueryParams{
-		StartTime:     req.StartTime,
-		EndTime:       req.EndTime,
-		Namespace:     req.SearchScope.Namespace,
-		ProjectID:     projectUID,
-		ComponentID:   componentUID,
-		EnvironmentID: environmentUID,
-		TraceID:       traceID,
-		Limit:         req.Limit,
-		SortOrder:     req.SortOrder,
+		StartTime:         req.StartTime,
+		EndTime:           req.EndTime,
+		Namespace:         req.SearchScope.Namespace,
+		ProjectID:         projectUID,
+		ComponentID:       componentUID,
+		EnvironmentID:     environmentUID,
+		TraceID:           traceID,
+		Limit:             req.Limit,
+		SortOrder:         req.SortOrder,
+		IncludeAttributes: req.IncludeAttributes,
 	}
 
 	// Route to tracing adapter or OpenSearch
