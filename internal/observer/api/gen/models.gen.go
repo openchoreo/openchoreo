@@ -834,6 +834,9 @@ type TraceSpanDetailsResponseStatus string
 type TraceSpansQueryResponse struct {
 	// Spans The list of spans
 	Spans *[]struct {
+		// Attributes The span attributes
+		Attributes *map[string]interface{} `json:"attributes,omitempty"`
+
 		// DurationNs The duration of the span in nanoseconds
 		DurationNs *int64 `json:"durationNs,omitempty"`
 
@@ -842,6 +845,9 @@ type TraceSpansQueryResponse struct {
 
 		// ParentSpanId The parent span ID
 		ParentSpanId *string `json:"parentSpanId,omitempty"`
+
+		// ResourceAttributes The resource attributes
+		ResourceAttributes *map[string]interface{} `json:"resourceAttributes,omitempty"`
 
 		// SpanId The span ID
 		SpanId *string `json:"spanId,omitempty"`
@@ -873,6 +879,9 @@ type TraceSpansQueryResponseSpansStatus string
 type TracesQueryRequest struct {
 	// EndTime The end time of the query
 	EndTime time.Time `json:"endTime"`
+
+	// IncludeAttributes Whether to include span attributes in the response. Defaults to false.
+	IncludeAttributes *bool `json:"includeAttributes,omitempty"`
 
 	// Limit The maximum number of items to return
 	Limit       *int                 `json:"limit,omitempty"`
