@@ -274,7 +274,13 @@ func (h *authzInformerHandler) handleAddBinding(obj interface{}) error {
 		if mapping.RoleRef.Kind == CRDTypeClusterAuthzRole {
 			roleNamespace = "*"
 		}
-		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, roleNamespace, effect, emptyContextJSON, binding.Name})
+
+		conditions, err := serializeAuthzConditions(mapping.Conditions)
+		if err != nil {
+			return fmt.Errorf("failed to marshal conditions for binding %s: %w", binding.Name, err)
+		}
+
+		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, roleNamespace, effect, conditions, binding.Name})
 	}
 
 	// AddPoliciesEx skips duplicates and adds the rest in a single lock
@@ -317,7 +323,13 @@ func (h *authzInformerHandler) handleAddClusterBinding(obj interface{}) error {
 			Project:   mapping.Scope.Project,
 			Component: mapping.Scope.Component,
 		})
-		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, "*", effect, emptyContextJSON, binding.Name})
+
+		conditions, err := serializeAuthzConditions(mapping.Conditions)
+		if err != nil {
+			return fmt.Errorf("failed to marshal conditions for binding %s: %w", binding.Name, err)
+		}
+
+		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, "*", effect, conditions, binding.Name})
 	}
 
 	// AddPoliciesEx skips duplicates and adds the rest in a single lock
@@ -373,8 +385,9 @@ func (h *authzInformerHandler) handleUpdateRole(oldObj, newObj interface{}) erro
 			h.logger.Warn("failed to remove old grouping policy", "error", err)
 		}
 		if !removed {
-			h.logger.Debug("Old grouping policy did not exist",
+			h.logger.Warn("role update: old grouping policy did not exist, possible stale state",
 				"role", oldRole.Name,
+				"namespace", oldRole.Namespace,
 				"action", action)
 		}
 	}
@@ -426,7 +439,7 @@ func (h *authzInformerHandler) handleUpdateClusterRole(oldObj, newObj interface{
 			return fmt.Errorf("failed to remove old cluster grouping policy: %w", err)
 		}
 		if !removed {
-			h.logger.Debug("Old cluster grouping policy did not exist",
+			h.logger.Warn("cluster role update: old grouping policy did not exist, possible stale state",
 				"role", oldRole.Name,
 				"action", action)
 		}
@@ -486,7 +499,11 @@ func (h *authzInformerHandler) handleUpdateBinding(oldObj, newObj interface{}) e
 		if m.RoleRef.Kind == CRDTypeClusterAuthzRole {
 			rns = "*"
 		}
-		oldPolicies = append(oldPolicies, []string{oldSubject, rp, m.RoleRef.Name, rns, oldEffect, emptyContextJSON, oldBinding.Name})
+		conds, err := serializeAuthzConditions(m.Conditions)
+		if err != nil {
+			return fmt.Errorf("failed to marshal conditions for binding %s: %w", oldBinding.Name, err)
+		}
+		oldPolicies = append(oldPolicies, []string{oldSubject, rp, m.RoleRef.Name, rns, oldEffect, conds, oldBinding.Name})
 	}
 
 	// Build new policy tuples
@@ -507,15 +524,26 @@ func (h *authzInformerHandler) handleUpdateBinding(oldObj, newObj interface{}) e
 		if m.RoleRef.Kind == CRDTypeClusterAuthzRole {
 			rns = "*"
 		}
-		newPolicies = append(newPolicies, []string{newSubject, rp, m.RoleRef.Name, rns, newEffect, emptyContextJSON, newBinding.Name})
+		conds, err := serializeAuthzConditions(m.Conditions)
+		if err != nil {
+			return fmt.Errorf("failed to marshal conditions for binding %s: %w", newBinding.Name, err)
+		}
+		newPolicies = append(newPolicies, []string{newSubject, rp, m.RoleRef.Name, rns, newEffect, conds, newBinding.Name})
 	}
 
 	// Compute diff and apply only the delta
 	added, removed := computePolicyDiff(oldPolicies, newPolicies)
 
 	if len(removed) > 0 {
-		if _, err := h.enforcer.RemovePolicies(removed); err != nil {
+		ok, err := h.enforcer.RemovePolicies(removed)
+		if err != nil {
 			return fmt.Errorf("failed to remove old binding policies: %w", err)
+		}
+		if !ok {
+			h.logger.Warn("binding update: no old policies matched for removal, possible key mismatch or stale policy",
+				"binding", newBinding.Name,
+				"namespace", newBinding.Namespace,
+				"rules", removed)
 		}
 	}
 	if len(added) > 0 {
@@ -562,7 +590,11 @@ func (h *authzInformerHandler) handleUpdateClusterBinding(oldObj, newObj interfa
 		rp := resourceHierarchyToPath(authzcore.ResourceHierarchy{
 			Namespace: m.Scope.Namespace, Project: m.Scope.Project, Component: m.Scope.Component,
 		})
-		oldPolicies = append(oldPolicies, []string{oldSubject, rp, m.RoleRef.Name, "*", oldEffect, emptyContextJSON, oldBinding.Name})
+		conds, err := serializeAuthzConditions(m.Conditions)
+		if err != nil {
+			return fmt.Errorf("failed to marshal conditions for cluster binding %s: %w", oldBinding.Name, err)
+		}
+		oldPolicies = append(oldPolicies, []string{oldSubject, rp, m.RoleRef.Name, "*", oldEffect, conds, oldBinding.Name})
 	}
 
 	// Build new policy tuples
@@ -579,15 +611,25 @@ func (h *authzInformerHandler) handleUpdateClusterBinding(oldObj, newObj interfa
 		rp := resourceHierarchyToPath(authzcore.ResourceHierarchy{
 			Namespace: m.Scope.Namespace, Project: m.Scope.Project, Component: m.Scope.Component,
 		})
-		newPolicies = append(newPolicies, []string{newSubject, rp, m.RoleRef.Name, "*", newEffect, emptyContextJSON, newBinding.Name})
+		conds, err := serializeAuthzConditions(m.Conditions)
+		if err != nil {
+			return fmt.Errorf("failed to marshal conditions for cluster binding %s: %w", newBinding.Name, err)
+		}
+		newPolicies = append(newPolicies, []string{newSubject, rp, m.RoleRef.Name, "*", newEffect, conds, newBinding.Name})
 	}
 
 	// Compute diff and apply only the delta
 	added, removed := computePolicyDiff(oldPolicies, newPolicies)
 
 	if len(removed) > 0 {
-		if _, err := h.enforcer.RemovePolicies(removed); err != nil {
+		ok, err := h.enforcer.RemovePolicies(removed)
+		if err != nil {
 			return fmt.Errorf("failed to remove old cluster binding policies: %w", err)
+		}
+		if !ok {
+			h.logger.Warn("cluster binding update: no old policies matched for removal, possible key mismatch or stale policy",
+				"binding", newBinding.Name,
+				"rules", removed)
 		}
 	}
 	if len(added) > 0 {
@@ -639,8 +681,9 @@ func (h *authzInformerHandler) handleDeleteRole(obj interface{}) error {
 			return fmt.Errorf("failed to remove grouping policy: %w", err)
 		}
 		if !removed {
-			h.logger.Debug("Grouping policy did not exist",
+			h.logger.Warn("role delete: grouping policy did not exist, possible stale state",
 				"role", role.Name,
+				"namespace", role.Namespace,
 				"action", action)
 		}
 	}
@@ -667,7 +710,7 @@ func (h *authzInformerHandler) handleDeleteClusterRole(obj interface{}) error {
 			return fmt.Errorf("failed to remove cluster grouping policy: %w", err)
 		}
 		if !removed {
-			h.logger.Debug("Cluster grouping policy did not exist",
+			h.logger.Warn("cluster role delete: grouping policy did not exist, possible stale state",
 				"role", clusterRole.Name,
 				"action", action)
 		}
@@ -708,11 +751,23 @@ func (h *authzInformerHandler) handleDeleteBinding(obj interface{}) error {
 		if mapping.RoleRef.Kind == CRDTypeClusterAuthzRole {
 			roleNamespace = "*"
 		}
-		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, roleNamespace, effect, emptyContextJSON, binding.Name})
+		conds, err := serializeAuthzConditions(mapping.Conditions)
+		if err != nil {
+			return fmt.Errorf("failed to marshal conditions for binding %s: %w", binding.Name, err)
+		}
+		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, roleNamespace, effect, conds, binding.Name})
 	}
 
-	if _, err := h.enforcer.RemovePolicies(rules); err != nil {
+	removed, err := h.enforcer.RemovePolicies(rules)
+	if err != nil {
 		return fmt.Errorf("failed to remove binding policies: %w", err)
+	}
+	if !removed {
+		h.logger.Warn("binding delete: no policies matched for removal, possible key mismatch or stale policy",
+			"binding", binding.Name,
+			"namespace", binding.Namespace,
+			"rules", rules)
+		return nil
 	}
 
 	h.logger.Debug("binding policies removed successfully",
@@ -747,11 +802,22 @@ func (h *authzInformerHandler) handleDeleteClusterBinding(obj interface{}) error
 			Project:   mapping.Scope.Project,
 			Component: mapping.Scope.Component,
 		})
-		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, "*", effect, emptyContextJSON, binding.Name})
+		conds, err := serializeAuthzConditions(mapping.Conditions)
+		if err != nil {
+			return fmt.Errorf("failed to marshal conditions for cluster binding %s: %w", binding.Name, err)
+		}
+		rules = append(rules, []string{subject, resourcePath, mapping.RoleRef.Name, "*", effect, conds, binding.Name})
 	}
 
-	if _, err := h.enforcer.RemovePolicies(rules); err != nil {
+	removed, err := h.enforcer.RemovePolicies(rules)
+	if err != nil {
 		return fmt.Errorf("failed to remove cluster binding policies: %w", err)
+	}
+	if !removed {
+		h.logger.Warn("cluster binding delete: no policies matched for removal, possible key mismatch or stale policy",
+			"binding", binding.Name,
+			"rules", rules)
+		return nil
 	}
 
 	h.logger.Debug("cluster binding policies removed successfully",

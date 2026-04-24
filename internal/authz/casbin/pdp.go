@@ -198,7 +198,6 @@ func (ce *CasbinEnforcer) buildCapabilitiesFromPolicies(policies []policyInfo, a
 	return capabilities, nil
 }
 
-// TODO: once context is properly integrated, pass it to enforcer
 // check performs the actual authorization check using Casbin
 func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
 	resourcePath := resourceHierarchyToPath(request.Resource.Hierarchy)
@@ -217,6 +216,12 @@ func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.
 		"action", request.Action,
 		"context", request.Context)
 
+	// Serialize the request context once; it is invariant across entitlements.
+	ctxJSON, err := serializeAuthzContext(request.Context)
+	if err != nil {
+		return &authzcore.Decision{Decision: false}, fmt.Errorf("failed to serialize request context: %w", err)
+	}
+
 	result := false
 	decision := &authzcore.Decision{Decision: false,
 		Context: &authzcore.DecisionContext{
@@ -232,7 +237,7 @@ func (ce *CasbinEnforcer) check(request *authzcore.EvaluateRequest) (*authzcore.
 			entitlement,
 			resourcePath,
 			request.Action,
-			emptyContextJSON,
+			ctxJSON,
 		)
 		if err != nil {
 			ce.logger.Warn("enforcement failed", "error", err)

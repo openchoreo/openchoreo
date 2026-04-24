@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -65,6 +66,15 @@ func (h *Handler) Evaluates(
 	// Convert API requests to internal model
 	internalRequests := make([]authz.EvaluateRequest, len(*request.Body))
 	for i, req := range *request.Body {
+		var authzCtx authz.Context
+		if req.Context != nil {
+			var err error
+			authzCtx, err = convert[gen.AuthzContext, authz.Context](*req.Context)
+			if err != nil {
+				h.logger.Error("Failed to convert request context", "error", err, "index", i)
+				return gen.Evaluates400JSONResponse{BadRequestJSONResponse: badRequest(fmt.Sprintf("Invalid context format at index %d", i))}, nil
+			}
+		}
 		internalRequests[i] = authz.EvaluateRequest{
 			Action: req.Action,
 			Resource: authz.Resource{
@@ -81,6 +91,7 @@ func (h *Handler) Evaluates(
 				EntitlementClaim:  req.SubjectContext.EntitlementClaim,
 				EntitlementValues: req.SubjectContext.EntitlementValues,
 			},
+			Context: authzCtx,
 		}
 	}
 

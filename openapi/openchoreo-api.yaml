@@ -8845,7 +8845,15 @@ components:
     AuthzContext:
       type: object
       description: Additional context for authorization
-      additionalProperties: true
+      properties:
+        resource:
+          type: object
+          description: Resource-level attributes for condition evaluation
+          properties:
+            environment:
+              type: string
+              description: Target deployment environment (e.g. "dev", "staging", "prod")
+              example: dev
 
     SubjectContext:
       type: object

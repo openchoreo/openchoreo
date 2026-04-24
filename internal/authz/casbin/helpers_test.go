@@ -4,13 +4,31 @@
 package casbin
 
 import (
+	"encoding/json"
 	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	authzv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
+
+func TestSerializeContext(t *testing.T) {
+	t.Run("round-trips through JSON", func(t *testing.T) {
+		ctx := authzcore.Context{Resource: authzcore.ResourceAttribute{Environment: "staging"}}
+		s, err := serializeAuthzContext(ctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, s)
+	})
+
+	t.Run("empty context serializes to valid JSON", func(t *testing.T) {
+		ctx := authzcore.Context{}
+		s, err := serializeAuthzContext(ctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, s)
+	})
+}
 
 func TestResourceMatch(t *testing.T) {
 	tests := []struct {
@@ -1132,23 +1150,335 @@ func TestResourceMatchWrapper_Errors(t *testing.T) {
 	require.True(t, result.(bool), "resourceMatchWrapper exact match should be true")
 }
 
-func TestCtxMatchWrapper_Errors(t *testing.T) {
+func TestCondMatchWrapper_Errors(t *testing.T) {
 	// Wrong number of args
-	_, err := ctxMatchWrapper("only-one")
-	require.Error(t, err, "ctxMatchWrapper with 1 arg should return error")
+	_, err := condMatchWrapper("only-one")
+	require.Error(t, err, "condMatchWrapper with 1 arg should return error")
 
 	// Non-string first arg
-	_, err = ctxMatchWrapper(42, "{}")
-	require.Error(t, err, "ctxMatchWrapper with non-string first arg should return error")
+	_, err = condMatchWrapper(42, "releasebinding:create", "{}")
+	require.Error(t, err, "condMatchWrapper with non-string first arg should return error")
 
 	// Non-string second arg
-	_, err = ctxMatchWrapper("{}", 42)
-	require.Error(t, err, "ctxMatchWrapper with non-string second arg should return error")
+	_, err = condMatchWrapper("{}", 42, "{}")
+	require.Error(t, err, "condMatchWrapper with non-string second arg should return error")
 
-	// Valid args
-	result, err := ctxMatchWrapper("{}", "{}")
+	// Non-string third arg
+	_, err = condMatchWrapper("{}", "releasebinding:create", 42)
+	require.Error(t, err, "condMatchWrapper with non-string third arg should return error")
+
+	// Valid args - empty policy condition (fast path)
+	result, err := condMatchWrapper("{}", "releasebinding:create", "{}")
 	require.NoError(t, err)
-	require.True(t, result.(bool), "ctxMatchWrapper exact match should be true")
+	require.True(t, result.(bool), "condMatchWrapper with empty policy cond should be true")
+}
+
+// mustCtxJSON builds a JSON-encoded authzcore.Context with the given environment,
+// for use as the requestCtx argument to condMatcher.
+func mustCtxJSON(t *testing.T, env string) string {
+	t.Helper()
+	s, err := serializeAuthzContext(authzcore.Context{
+		Resource: authzcore.ResourceAttribute{Environment: env},
+	})
+	require.NoError(t, err)
+	return s
+}
+
+// mustCondsJSON marshals a slice of AuthzCondition entries to the JSON string
+// stored in a policy tuple's cond field.
+func mustCondsJSON(t *testing.T, conds []authzv1alpha1.AuthzCondition) string {
+	t.Helper()
+	s, err := serializeAuthzConditions(conds)
+	require.NoError(t, err)
+	return s
+}
+
+func TestSerializeAuthzConditions(t *testing.T) {
+	t.Run("nil slice returns empty context", func(t *testing.T) {
+		s, err := serializeAuthzConditions(nil)
+		require.NoError(t, err)
+		require.Equal(t, emptyContextJSON, s)
+	})
+
+	t.Run("empty slice returns empty context", func(t *testing.T) {
+		s, err := serializeAuthzConditions([]authzv1alpha1.AuthzCondition{})
+		require.NoError(t, err)
+		require.Equal(t, emptyContextJSON, s)
+	})
+
+	t.Run("non-empty slice round-trips through JSON", func(t *testing.T) {
+		conds := []authzv1alpha1.AuthzCondition{
+			{Actions: []string{"releasebinding:create"}, Expression: `resource.environment == "dev"`},
+		}
+		s, err := serializeAuthzConditions(conds)
+		require.NoError(t, err)
+
+		var decoded []authzv1alpha1.AuthzCondition
+		require.NoError(t, json.Unmarshal([]byte(s), &decoded))
+		require.Equal(t, conds, decoded)
+	})
+}
+
+func TestIsPolicyConditionEmpty(t *testing.T) {
+	tests := []struct {
+		name string
+		cond string
+		want bool
+	}{
+		{
+			name: "empty json condition is empty",
+			cond: "{}",
+			want: true,
+		},
+		{
+			name: "empty string condition is empty",
+			cond: "",
+			want: true,
+		},
+		{
+			name: "non-empty condition is not empty",
+			cond: mustCondsJSON(t, []authzv1alpha1.AuthzCondition{{Actions: []string{"releasebinding:create"}, Expression: `true`}}),
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isPolicyConditionEmpty(tt.cond)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestFilterConditionsByAction(t *testing.T) {
+	tests := []struct {
+		name          string
+		conds         []authzv1alpha1.AuthzCondition
+		requestAction string
+		wantLen       int
+	}{
+		{
+			name:          "exact match returns entry",
+			conds:         []authzv1alpha1.AuthzCondition{{Actions: []string{"releasebinding:create"}, Expression: `true`}},
+			requestAction: "releasebinding:create",
+			wantLen:       1,
+		},
+		{
+			name:          "wildcard pattern matches concrete action",
+			conds:         []authzv1alpha1.AuthzCondition{{Actions: []string{"releasebinding:*"}, Expression: `true`}},
+			requestAction: "releasebinding:create",
+			wantLen:       1,
+		},
+		{
+			name:          "no matching action returns empty",
+			conds:         []authzv1alpha1.AuthzCondition{{Actions: []string{"releasebinding:delete"}, Expression: `true`}},
+			requestAction: "releasebinding:create",
+			wantLen:       0,
+		},
+		{
+			name: "entry with multiple patterns, one matches",
+			conds: []authzv1alpha1.AuthzCondition{
+				{Actions: []string{"releasebinding:delete", "releasebinding:create"}, Expression: `true`},
+			},
+			requestAction: "releasebinding:create",
+			wantLen:       1,
+		},
+		{
+			name: "mixed entries, only matching ones returned",
+			conds: []authzv1alpha1.AuthzCondition{
+				{Actions: []string{"releasebinding:create"}, Expression: `true`},
+				{Actions: []string{"releasebinding:delete"}, Expression: `false`},
+			},
+			requestAction: "releasebinding:create",
+			wantLen:       1,
+		},
+		{
+			name:          "empty conditions returns empty",
+			conds:         nil,
+			requestAction: "releasebinding:create",
+			wantLen:       0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := filterConditionsByAction(tt.conds, tt.requestAction)
+			require.Len(t, got, tt.wantLen)
+		})
+	}
+}
+
+func TestBuildActivationForRequest(t *testing.T) {
+	const action = authzcore.ActionCreateReleaseBinding
+
+	t.Run("valid JSON and known action returns ok=true", func(t *testing.T) {
+		ctx := mustCtxJSON(t, "dev")
+		act, ok := buildActivationForRequest(ctx, action)
+		require.True(t, ok)
+		require.NotNil(t, act)
+	})
+
+	t.Run("malformed JSON returns ok=false", func(t *testing.T) {
+		act, ok := buildActivationForRequest("not-json", action)
+		require.False(t, ok)
+		require.Nil(t, act)
+	})
+
+	t.Run("unknown action (no registered attrs) still returns ok=true with empty activation", func(t *testing.T) {
+		ctx := mustCtxJSON(t, "dev")
+		act, ok := buildActivationForRequest(ctx, "component:view")
+		require.True(t, ok)
+		require.NotNil(t, act)
+	})
+}
+
+func TestAnyConditionAllows(t *testing.T) {
+	devCtx := mustCtxJSON(t, "dev")
+	act, ok := buildActivationForRequest(devCtx, authzcore.ActionCreateReleaseBinding)
+	require.True(t, ok)
+
+	t.Run("empty entries returns false", func(t *testing.T) {
+		require.False(t, anyConditionAllows(nil, act))
+	})
+
+	t.Run("single true entry returns true", func(t *testing.T) {
+		entries := []authzv1alpha1.AuthzCondition{
+			{Expression: `resource.environment == "dev"`},
+		}
+		require.True(t, anyConditionAllows(entries, act))
+	})
+
+	t.Run("single false entry returns false", func(t *testing.T) {
+		entries := []authzv1alpha1.AuthzCondition{
+			{Expression: `resource.environment == "prod"`},
+		}
+		require.False(t, anyConditionAllows(entries, act))
+	})
+
+	t.Run("return true if any condition allows", func(t *testing.T) {
+		entries := []authzv1alpha1.AuthzCondition{
+			{Expression: `resource.environment == "prod"`},
+			{Expression: `resource.environment == "dev"`},
+		}
+		require.True(t, anyConditionAllows(entries, act))
+	})
+
+	t.Run("all false returns false", func(t *testing.T) {
+		entries := []authzv1alpha1.AuthzCondition{
+			{Expression: `resource.environment == "prod"`},
+			{Expression: `resource.environment == "staging"`},
+		}
+		require.False(t, anyConditionAllows(entries, act))
+	})
+}
+
+func TestEvalCondition(t *testing.T) {
+	devCtx := mustCtxJSON(t, "dev")
+	act, ok := buildActivationForRequest(devCtx, authzcore.ActionCreateReleaseBinding)
+	require.True(t, ok)
+
+	t.Run("true expression returns true", func(t *testing.T) {
+		require.True(t, evalCondition(`resource.environment == "dev"`, act))
+	})
+
+	t.Run("false expression returns false", func(t *testing.T) {
+		require.False(t, evalCondition(`resource.environment == "prod"`, act))
+	})
+
+	t.Run("compile error returns false", func(t *testing.T) {
+		require.False(t, evalCondition(`this is not valid CEL ((((`, act))
+	})
+
+	t.Run("non-bool result returns false", func(t *testing.T) {
+		require.False(t, evalCondition(`resource.environment`, act))
+	})
+
+	t.Run("expression references unknown attribute, returns false", func(t *testing.T) {
+		require.False(t, evalCondition(`resource.nonExistentField == "dev"`, act))
+	})
+
+}
+
+func TestConditionMatcher(t *testing.T) {
+	const action = authzcore.ActionCreateReleaseBinding
+
+	devCtx := mustCtxJSON(t, "dev")
+	prodCtx := mustCtxJSON(t, "prod")
+	emptyCtx := mustCtxJSON(t, "")
+
+	devOnly := []authzv1alpha1.AuthzCondition{
+		{Actions: []string{action}, Expression: `resource.environment == "dev"`},
+	}
+	devOrStaging := []authzv1alpha1.AuthzCondition{
+		{Actions: []string{action}, Expression: `resource.environment in ["dev", "staging"]`},
+	}
+	differentAction := []authzv1alpha1.AuthzCondition{
+		{Actions: []string{authzcore.ActionDeleteReleaseBinding}, Expression: `resource.environment == "dev"`},
+	}
+
+	tests := []struct {
+		name       string
+		requestCtx string
+		action     string
+		policyCond string
+		want       bool
+	}{
+		{
+			name:       "empty string policy cond is treated as unconstrained",
+			requestCtx: devCtx,
+			action:     action,
+			policyCond: "",
+			want:       true,
+		},
+		{
+			name:       "empty JSON policy cond is treated as unconstrained",
+			requestCtx: devCtx,
+			action:     action,
+			policyCond: emptyContextJSON,
+			want:       true,
+		},
+		{
+			name:       "malformed policy cond JSON",
+			requestCtx: devCtx,
+			action:     action,
+			policyCond: "not-json",
+			want:       false,
+		},
+		{
+			name:       "no entries match action -> unconstrained",
+			requestCtx: devCtx,
+			action:     action,
+			policyCond: mustCondsJSON(t, differentAction),
+			want:       true,
+		},
+		{
+			name:       "single entry, expression true",
+			requestCtx: devCtx,
+			action:     action,
+			policyCond: mustCondsJSON(t, devOnly),
+			want:       true,
+		},
+		{
+			name:       "single entry, expression false",
+			requestCtx: prodCtx,
+			action:     action,
+			policyCond: mustCondsJSON(t, devOnly),
+			want:       false,
+		},
+		{
+			name:       "empty environment does not match allowlist",
+			requestCtx: emptyCtx,
+			action:     action,
+			policyCond: mustCondsJSON(t, devOrStaging),
+			want:       false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ConditionMatcher(tc.requestCtx, tc.action, tc.policyCond)
+			require.Equal(t, tc.want, got)
+		})
+	}
 }
 
 func TestValidateBatchEvaluateRequest_MissingActionAtIndex(t *testing.T) {

@@ -4,9 +4,14 @@
 package casbin
 
 import (
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
+	"github.com/google/cel-go/interpreter"
+
+	authzv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
@@ -27,9 +32,30 @@ const (
 
 const (
 	// emptyContextJSON represents an empty context used when no contextual conditions are applied
-	// TODO: Replace with proper context handling when context matching is implemented
 	emptyContextJSON = "{}"
 )
+
+// serializeAuthzContext serializes an authzcore.Context to JSON for passing as a Casbin enforce arg.
+func serializeAuthzContext(ctx authzcore.Context) (string, error) {
+	b, err := json.Marshal(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize context: %w", err)
+	}
+	return string(b), nil
+}
+
+// serializeAuthzConditions serializes a slice of AuthzCondition to JSON for storing in the policy.
+// Returns a empty context JSON if the slice is empty.
+func serializeAuthzConditions(conds []authzv1alpha1.AuthzCondition) (string, error) {
+	if len(conds) == 0 {
+		return emptyContextJSON, nil
+	}
+	b, err := json.Marshal(conds)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize conditions: %w", err)
+	}
+	return string(b), nil
+}
 
 // resourceMatch checks if a requested resource matches a policy resource using hierarchical prefix matching.
 // For example, policy "namespace/acme" matches request "namespace/acme/project/p1/component/c1"
@@ -49,18 +75,94 @@ func resourceMatch(requestResource, policyResource string) bool {
 	return strings.HasPrefix(requestResource, policyResource+"/")
 }
 
-// ctxMatch checks if the request context matches the policy context.
-// Currently a placeholder - you can implement custom context matching logic here.
-// For example, matching based on environment, time, or other conditional attributes.
-func ctxMatch(requestCtx, policyCtx string) bool {
-	// Empty policy context means no constraints - always matches
-	if policyCtx == "" {
+// ConditionMatcher evaluates the per-binding ABAC conditions against the request.
+func ConditionMatcher(requestCtxJSON, requestAction, policyCond string) bool {
+	if isPolicyConditionEmpty(policyCond) {
 		return true
 	}
 
-	// TODO: Implement context matching logic based on your requirements
-	// For now, we'll just check for exact match or empty request context
-	return requestCtx == policyCtx || requestCtx == ""
+	var conditions []authzv1alpha1.AuthzCondition
+	if err := json.Unmarshal([]byte(policyCond), &conditions); err != nil {
+		slog.Default().Error("ConditionMatcher: failed to unmarshal policy conditions", "error", err)
+		return false
+	}
+
+	matching := filterConditionsByAction(conditions, requestAction)
+	// If no condition entries match the action, RBAC decision stands
+	if len(matching) == 0 {
+		return true
+	}
+
+	activation, ok := buildActivationForRequest(requestCtxJSON, requestAction)
+	if !ok {
+		return false
+	}
+
+	return anyConditionAllows(matching, activation)
+}
+
+// isPolicyConditionEmpty reports whether the stored policy condition carries no constraints.
+func isPolicyConditionEmpty(policyCond string) bool {
+	return policyCond == "" || policyCond == emptyContextJSON
+}
+
+// filterConditionsByAction returns conditions whose Actions include a pattern matching requestAction.
+func filterConditionsByAction(conds []authzv1alpha1.AuthzCondition, requestAction string) []authzv1alpha1.AuthzCondition {
+	var matching []authzv1alpha1.AuthzCondition
+	for _, c := range conds {
+		for _, pattern := range c.Actions {
+			if actionMatch(requestAction, pattern) {
+				matching = append(matching, c)
+				break
+			}
+		}
+	}
+	return matching
+}
+
+// buildActivationForRequest parses the request context JSON and builds the CEL
+// activation gated by the registry-allowed attributes for requestAction.
+func buildActivationForRequest(requestCtxJSON, requestAction string) (interpreter.Activation, bool) {
+	var authzCtx authzcore.Context
+	if err := json.Unmarshal([]byte(requestCtxJSON), &authzCtx); err != nil {
+		slog.Default().Error("condMatch: failed to parse request context", "error", err)
+		return nil, false
+	}
+
+	activation, err := buildCelActivation(authzCtx, authzcore.LookupConditions(requestAction))
+	if err != nil {
+		slog.Default().Error("condMatch: failed to build CEL activation", "error", err)
+		return nil, false
+	}
+	return activation, true
+}
+
+// anyConditionAllows returns true if any entry's CEL expression evaluates to true.
+func anyConditionAllows(entries []authzv1alpha1.AuthzCondition, activation interpreter.Activation) bool {
+	for _, entry := range entries {
+		if evalCondition(entry.Expression, activation) {
+			return true
+		}
+	}
+	return false
+}
+
+// evalCondition compiles and evaluates a single CEL expression, returning true only
+// on a boolean-true result. Compile and eval errors are logged and treated as false.
+func evalCondition(expr string, activation interpreter.Activation) bool {
+	prg, err := compileCEL(expr)
+	if err != nil {
+		slog.Default().Error("condMatch: CEL compile error", "expression", expr, "error", err)
+		return false
+	}
+	out, _, err := prg.Eval(activation)
+	if err != nil {
+		slog.Default().Error("condMatch: CEL eval error", "expression", expr, "error", err)
+		return false
+	}
+	b, ok := out.Value().(bool)
+	slog.Default().Debug("condMatch: CEL eval result", "expression", expr, "result", out.Value(), "bool", b, "ok", ok)
+	return ok && b
 }
 
 // resourceMatchWrapper is a wrapper for resourceMatch to work with Casbin's function interface
@@ -82,23 +184,28 @@ func resourceMatchWrapper(args ...interface{}) (interface{}, error) {
 	return resourceMatch(requestResource, policyResource), nil
 }
 
-// ctxMatchWrapper is a wrapper for ctxMatch to work with Casbin's function interface
-func ctxMatchWrapper(args ...interface{}) (interface{}, error) {
-	if len(args) != 2 {
-		return false, fmt.Errorf("ctxMatch requires exactly 2 arguments")
+// condMatchWrapper is a wrapper for condMatch to work with Casbin's function interface
+func condMatchWrapper(args ...interface{}) (interface{}, error) {
+	if len(args) != 3 {
+		return false, fmt.Errorf("condMatch requires exactly 3 arguments")
 	}
 
 	requestCtx, ok := args[0].(string)
 	if !ok {
-		return false, fmt.Errorf("first argument must be a string")
+		return false, fmt.Errorf("request context argument must be a string")
 	}
 
-	policyCtx, ok := args[1].(string)
+	requestAction, ok := args[1].(string)
 	if !ok {
-		return false, fmt.Errorf("second argument must be a string")
+		return false, fmt.Errorf("request action argument must be a string")
 	}
 
-	return ctxMatch(requestCtx, policyCtx), nil
+	policyConds, ok := args[2].(string)
+	if !ok {
+		return false, fmt.Errorf("policy conditions argument must be a string")
+	}
+
+	return ConditionMatcher(requestCtx, requestAction, policyConds), nil
 }
 
 // actionMatch checks if a requested action matches a role's action pattern with wildcard support.

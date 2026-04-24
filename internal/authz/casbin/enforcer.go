@@ -80,7 +80,7 @@ func NewEnforcer(ctx context.Context, config CasbinConfig, logger *slog.Logger) 
 
 	// Register custom functions for the matcher
 	enforcer.AddFunction("resourceMatch", resourceMatchWrapper)
-	enforcer.AddFunction("ctxMatch", ctxMatchWrapper)
+	enforcer.AddFunction("condMatch", condMatchWrapper)
 
 	// Add custom role matcher function to support action wildcards
 	var baseEnforcer *casbin.Enforcer

@@ -34,7 +34,7 @@ func setupTestHandler(t *testing.T, crdType string) (*authzInformerHandler, casb
 
 	// Register custom functions used by the model
 	enforcer.AddFunction("resourceMatch", resourceMatchWrapper)
-	enforcer.AddFunction("ctxMatch", ctxMatchWrapper)
+	enforcer.AddFunction("condMatch", condMatchWrapper)
 
 	// Add custom role matcher for action wildcards
 	enforcer.Enforcer.AddNamedMatchingFunc("g", "", roleActionMatchWrapper)

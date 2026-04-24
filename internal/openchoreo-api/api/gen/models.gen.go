@@ -451,7 +451,13 @@ type AuthzClusterScope struct {
 }
 
 // AuthzContext Additional context for authorization
-type AuthzContext map[string]interface{}
+type AuthzContext struct {
+	// Resource Resource-level attributes for condition evaluation
+	Resource *struct {
+		// Environment Target deployment environment (e.g. "dev", "staging", "prod")
+		Environment *string `json:"environment,omitempty"`
+	} `json:"resource,omitempty"`
+}
 
 // AuthzEntitlementClaim Entitlement claim-value pair for subject identification
 type AuthzEntitlementClaim struct {
