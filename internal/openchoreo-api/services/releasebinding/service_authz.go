@@ -47,6 +47,9 @@ func (s *releaseBindingServiceWithAuthz) CreateReleaseBinding(ctx context.Contex
 			Project:   rb.Spec.Owner.ProjectName,
 			Component: rb.Spec.Owner.ComponentName,
 		},
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{Environment: rb.Spec.Environment},
+		},
 	}); err != nil {
 		return nil, err
 	}
@@ -69,6 +72,9 @@ func (s *releaseBindingServiceWithAuthz) UpdateReleaseBinding(ctx context.Contex
 			Project:   existing.Spec.Owner.ProjectName,
 			Component: existing.Spec.Owner.ComponentName,
 		},
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{Environment: existing.Spec.Environment},
+		},
 	}); err != nil {
 		return nil, err
 	}
@@ -89,6 +95,9 @@ func (s *releaseBindingServiceWithAuthz) ListReleaseBindings(ctx context.Context
 					Namespace: namespaceName,
 					Project:   rb.Spec.Owner.ProjectName,
 					Component: rb.Spec.Owner.ComponentName,
+				},
+				Context: authz.Context{
+					Resource: authz.ResourceAttribute{Environment: rb.Spec.Environment},
 				},
 			}
 		},
@@ -111,6 +120,9 @@ func (s *releaseBindingServiceWithAuthz) GetReleaseBinding(ctx context.Context, 
 			Project:   rb.Spec.Owner.ProjectName,
 			Component: rb.Spec.Owner.ComponentName,
 		},
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{Environment: rb.Spec.Environment},
+		},
 	}); err != nil {
 		return nil, err
 	}
@@ -132,6 +144,9 @@ func (s *releaseBindingServiceWithAuthz) DeleteReleaseBinding(ctx context.Contex
 			Namespace: namespaceName,
 			Project:   rb.Spec.Owner.ProjectName,
 			Component: rb.Spec.Owner.ComponentName,
+		},
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{Environment: rb.Spec.Environment},
 		},
 	}); err != nil {
 		return err
