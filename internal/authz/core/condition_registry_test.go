@@ -4,10 +4,22 @@
 package core
 
 import (
+	"maps"
 	"testing"
 
+	"github.com/google/cel-go/cel"
 	"github.com/stretchr/testify/require"
 )
+
+// SetConditionRegistryForTest replaces conditionRegistry for the duration of a test
+// and restores the original via t.Cleanup. Use this instead of assigning to
+// conditionRegistry directly so the production hot path stays unsynchronized.
+func SetConditionRegistryForTest(tb testing.TB, reg map[string][]AttributeSpec) {
+	tb.Helper()
+	orig := maps.Clone(conditionRegistry)
+	conditionRegistry = reg
+	tb.Cleanup(func() { conditionRegistry = orig })
+}
 
 func TestLookupConditions(t *testing.T) {
 	t.Run("known action returns expected specs", func(t *testing.T) {
@@ -29,40 +41,76 @@ func TestLookupConditions(t *testing.T) {
 }
 
 func TestIntersectConditionsForActions(t *testing.T) {
-	t.Run("single known action returns its specs", func(t *testing.T) {
-		specs := IntersectConditionsForActions([]string{ActionCreateReleaseBinding})
-		require.Len(t, specs, 1)
-		require.Equal(t, AttrResourceEnvironment.Key, specs[0].Key)
+	// resource.tier and resource.region are test-only attrs not wired to production code.
+	attrTier := AttributeSpec{Key: "resource.tier", CELType: cel.StringType}
+	attrRegion := AttributeSpec{Key: "resource.region", CELType: cel.StringType}
+
+	SetConditionRegistryForTest(t, map[string][]AttributeSpec{
+		ActionCreateReleaseBinding: {AttrResourceEnvironment, attrTier, attrRegion},
+		ActionViewReleaseBinding:   {AttrResourceEnvironment, attrTier, attrRegion},
+		ActionUpdateReleaseBinding: {AttrResourceEnvironment, attrTier, attrRegion},
+		ActionDeleteReleaseBinding: {AttrResourceEnvironment, attrTier, attrRegion},
+		ActionViewLogs:             {AttrResourceEnvironment, attrTier},
+		ActionViewMetrics:          {AttrResourceEnvironment},
+		ActionViewTraces:           {attrTier, attrRegion},
 	})
 
-	t.Run("multiple known actions sharing an attr returns that attr", func(t *testing.T) {
-		// All releasebinding actions share AttrResourceEnvironment.
-		specs := IntersectConditionsForActions([]string{
-			ActionCreateReleaseBinding,
-			ActionUpdateReleaseBinding,
-			ActionDeleteReleaseBinding,
+	tests := []struct {
+		name     string
+		actions  []string
+		wantKeys []string // nil → expect nil result; empty slice → expect non-nil empty
+	}{
+		{
+			name:     "full overlap returns all attrs",
+			actions:  []string{ActionCreateReleaseBinding, ActionViewReleaseBinding, ActionUpdateReleaseBinding, ActionDeleteReleaseBinding},
+			wantKeys: []string{AttrResourceEnvironment.Key, attrTier.Key, attrRegion.Key},
+		},
+		{
+			name:     "partial overlap drops missing attr",
+			actions:  []string{ActionCreateReleaseBinding, ActionViewLogs},
+			wantKeys: []string{AttrResourceEnvironment.Key, attrTier.Key},
+		},
+		{
+			name:     "overlap narrows to single attr",
+			actions:  []string{ActionCreateReleaseBinding, ActionViewMetrics},
+			wantKeys: []string{AttrResourceEnvironment.Key},
+		},
+		{
+			name:     "overlap on non-env attrs only",
+			actions:  []string{ActionCreateReleaseBinding, ActionViewTraces},
+			wantKeys: []string{attrTier.Key, attrRegion.Key},
+		},
+		{
+			name:     "completely disjoint actions yield empty",
+			actions:  []string{ActionViewMetrics, ActionViewTraces},
+			wantKeys: []string{},
+		},
+		{
+			name:     "unknown action yields empty",
+			actions:  []string{ActionCreateReleaseBinding, "component:view"},
+			wantKeys: []string{},
+		},
+		{
+			name:     "nil input returns nil",
+			actions:  nil,
+			wantKeys: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IntersectConditionsForActions(tt.actions)
+			if tt.wantKeys == nil {
+				require.Nil(t, got)
+				return
+			}
+			gotKeys := make([]string, len(got))
+			for i, s := range got {
+				gotKeys[i] = s.Key
+			}
+			require.ElementsMatch(t, tt.wantKeys, gotKeys)
 		})
-		require.Len(t, specs, 1)
-		require.Equal(t, AttrResourceEnvironment.Key, specs[0].Key)
-	})
-
-	t.Run("disjoint actions (one unknown) returns empty", func(t *testing.T) {
-		specs := IntersectConditionsForActions([]string{
-			ActionCreateReleaseBinding,
-			"component:view",
-		})
-		require.Empty(t, specs)
-	})
-
-	t.Run("empty input returns nil", func(t *testing.T) {
-		specs := IntersectConditionsForActions(nil)
-		require.Nil(t, specs)
-	})
-
-	t.Run("single unknown action returns empty", func(t *testing.T) {
-		specs := IntersectConditionsForActions([]string{"unknown:action"})
-		require.Empty(t, specs)
-	})
+	}
 }
 
 func TestAttributeSpec_RootLeaf(t *testing.T) {

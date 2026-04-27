@@ -1395,7 +1395,6 @@ func TestEvalCondition(t *testing.T) {
 	t.Run("expression references unknown attribute, returns false", func(t *testing.T) {
 		require.False(t, evalCondition(`resource.nonExistentField == "dev"`, act))
 	})
-
 }
 
 func TestConditionMatcher(t *testing.T) {

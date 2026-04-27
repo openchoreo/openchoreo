@@ -99,6 +99,7 @@ spec:
                               Examples:
                                 resource.environment in ["dev", "staging"]
                                 resource.componentType == "database"
+                            minLength: 1
                             type: string
                         required:
                         - actions

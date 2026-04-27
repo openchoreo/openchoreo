@@ -443,5 +443,6 @@ type AuthzCondition struct {
 	//   resource.environment in ["dev", "staging"]
 	//   resource.componentType == "database"
 	// +required
+	// +kubebuilder:validation:MinLength=1
 	Expression string `json:"expression"`
 }

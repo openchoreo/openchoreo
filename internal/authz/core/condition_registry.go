@@ -40,7 +40,7 @@ var AttrResourceEnvironment = AttributeSpec{
 }
 
 // conditionRegistry maps concrete action names to the attributes available to CEL
-// expressions scoped to that action. Tests can assign to this var directly.
+// expressions scoped to that action. Treat as immutable after init.
 var conditionRegistry = map[string][]AttributeSpec{
 	ActionCreateReleaseBinding: {AttrResourceEnvironment},
 	ActionViewReleaseBinding:   {AttrResourceEnvironment},

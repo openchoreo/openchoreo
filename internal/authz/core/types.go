@@ -38,14 +38,14 @@ type Resource struct {
 }
 
 // Context carries root-namespaced ABAC attributes available to CEL condition expressions.
-// Each root corresponds to a CEL variable (e.g. resourceAttribute.environment) and maps to a Go field here.
+// Each root corresponds to a CEL variable (e.g. resource.environment) and maps to a Go field here.
 // Adding new roots (principal, request) is a non-breaking additive change.
 type Context struct {
 	// Resource holds attributes of the target resource instance.
 	Resource ResourceAttribute `json:"resource,omitempty"`
 }
 
-// ResourceAttribute holds target-resource attributes exposed to CEL under the "resourceAttribute" root.
+// ResourceAttribute holds target-resource attributes exposed to CEL under the "resource" root.
 type ResourceAttribute struct {
 	// Environment is the target environment (e.g. "dev", "staging", "prod").
 	Environment string `json:"environment,omitempty"`
