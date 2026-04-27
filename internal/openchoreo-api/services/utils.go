@@ -11,6 +11,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// FormatDualScopedResourceName returns the authz-engine identifier for a dual-scoped resource.
+// Namespace-scoped resources use "{namespace}/{name}"; cluster-scoped resources use plain "{name}".
+func FormatDualScopedResourceName(namespace, name string, isClusterScoped bool) string {
+	if isClusterScoped {
+		return name
+	}
+	return namespace + "/" + name
+}
+
 // ExtractValidationMessage extracts cause messages from a K8s StatusError, falling back to a generic message to avoid leaking internal details.
 func ExtractValidationMessage(err error) string {
 	var statusErr *apierrors.StatusError
