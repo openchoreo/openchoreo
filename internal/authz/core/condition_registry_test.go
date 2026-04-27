@@ -42,8 +42,8 @@ func TestLookupConditions(t *testing.T) {
 
 func TestIntersectConditionsForActions(t *testing.T) {
 	// resource.tier and resource.region are test-only attrs not wired to production code.
-	attrTier := AttributeSpec{Key: "resource.tier", CELType: cel.StringType}
-	attrRegion := AttributeSpec{Key: "resource.region", CELType: cel.StringType}
+	attrTier := AttributeSpec{Key: "resource.componentType", CELType: cel.StringType}
+	attrRegion := AttributeSpec{Key: "resource.label", CELType: cel.StringType}
 
 	SetConditionRegistryForTest(t, map[string][]AttributeSpec{
 		ActionCreateReleaseBinding: {AttrResourceEnvironment, attrTier, attrRegion},
