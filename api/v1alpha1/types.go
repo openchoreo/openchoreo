@@ -441,7 +441,6 @@ type AuthzCondition struct {
 	// Expression is a CEL expression that must evaluate to true for the action to be permitted.
 	// Examples:
 	//   resource.environment in ["dev", "staging"]
-	//   resource.componentType == "database"
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	Expression string `json:"expression"`

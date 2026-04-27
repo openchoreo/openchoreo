@@ -8765,7 +8765,11 @@ components:
 
     AuthzCondition:
       type: object
-      description: Condition that restricts when an action is permitted in an authorization role
+      description: >
+        Action-scoped mapping condition attached to a role mapping inside a binding.
+        It constrains only the actions listed in the "actions" property and does not
+        enable or disable the entire mapping or binding; all other actions in the
+        mapping remain unaffected by this condition.
       required:
         - actions
         - expression
@@ -8799,7 +8803,10 @@ components:
           $ref: '#/components/schemas/AuthzScope'
         conditions:
           type: array
-          description: ABAC conditions that further restrict when the role binding is effective
+          description: >
+            Per-role-mapping conditions that restrict specific actions within this role mapping in the binding.
+            Each condition only affects the actions listed in its "actions" property and does not
+            enable or disable the mapping or binding as a whole.
           items:
             $ref: '#/components/schemas/AuthzCondition'
 
@@ -8839,7 +8846,10 @@ components:
           $ref: '#/components/schemas/AuthzClusterScope'
         conditions:
           type: array
-          description: ABAC conditions that further restrict when the cluster role binding is effective
+          description: >
+            Per-role-mapping conditions that restrict specific actions within this role mapping in the binding.
+            Each condition only affects the actions listed in its "actions" property and does not
+            enable or disable the mapping or binding as a whole.
           items:
             $ref: '#/components/schemas/AuthzCondition'
 

@@ -97,7 +97,6 @@ spec:
                               Expression is a CEL expression that must evaluate to true for the action to be permitted.
                               Examples:
                                 resource.environment in ["dev", "staging"]
-                                resource.componentType == "database"
                             minLength: 1
                             type: string
                         required:

@@ -450,7 +450,7 @@ type AuthzClusterScope struct {
 	Project *string `json:"project,omitempty"`
 }
 
-// AuthzCondition Condition that restricts when an action is permitted in an authorization role
+// AuthzCondition Action-scoped mapping condition attached to a role mapping inside a binding. It constrains only the actions listed in the "actions" property and does not enable or disable the entire mapping or binding; all other actions in the mapping remain unaffected by this condition.
 type AuthzCondition struct {
 	// Actions List of actions this condition applies to. Supports exact match (e.g. "releasebinding:create") and wildcards (e.g. "releasebinding:*").
 	Actions []string `json:"actions"`
@@ -546,7 +546,7 @@ type AuthzRoleList struct {
 
 // AuthzRoleMapping Pairs a role reference with an optional scope
 type AuthzRoleMapping struct {
-	// Conditions ABAC conditions that further restrict when the role binding is effective
+	// Conditions Per-role-mapping conditions that restrict specific actions within this role mapping in the binding. Each condition only affects the actions listed in its "actions" property and does not enable or disable the mapping or binding as a whole.
 	Conditions *[]AuthzCondition `json:"conditions,omitempty"`
 
 	// RoleRef Reference to an AuthzRole or ClusterAuthzRole
@@ -670,7 +670,7 @@ type ClusterAuthzRoleList struct {
 
 // ClusterAuthzRoleMapping Pairs a role reference with an optional scope for cluster-scoped bindings
 type ClusterAuthzRoleMapping struct {
-	// Conditions ABAC conditions that further restrict when the cluster role binding is effective
+	// Conditions Per-role-mapping conditions that restrict specific actions within this role mapping in the binding. Each condition only affects the actions listed in its "actions" property and does not enable or disable the mapping or binding as a whole.
 	Conditions *[]AuthzCondition `json:"conditions,omitempty"`
 	RoleRef    struct {
 		Kind ClusterAuthzRoleMappingRoleRefKind `json:"kind"`
