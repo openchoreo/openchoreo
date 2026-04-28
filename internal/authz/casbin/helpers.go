@@ -46,7 +46,7 @@ func serializeAuthzContext(ctx authzcore.Context) (string, error) {
 }
 
 // serializeAuthzConditions serializes a slice of AuthzCondition to JSON for storing in the policy.
-// Returns a empty context JSON if the slice is empty.
+// Returns an empty context JSON if the slice is empty.
 func serializeAuthzConditions(conds []authzv1alpha1.AuthzCondition) (string, error) {
 	if len(conds) == 0 {
 		return emptyContextJSON, nil

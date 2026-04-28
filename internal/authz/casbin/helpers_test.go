@@ -1519,15 +1519,15 @@ func TestBuildCelActivation(t *testing.T) {
 		require.Equal(t, "", m["environment"])
 	})
 
-	t.Run("attribute not in allowed list is added to activation", func(t *testing.T) {
-		regionAttr := authzcore.AttributeSpec{Key: "resource.region", CELType: cel.StringType}
+	t.Run("allowed attribute missing from context is bound with zero value alongside present attributes", func(t *testing.T) {
+		componentTypeAttr := authzcore.AttributeSpec{Key: "resource.componentType", CELType: cel.StringType}
 		ctx := authzcore.Context{Resource: authzcore.ResourceAttribute{Environment: "prod"}}
-		act, err := buildCelActivation(ctx, []authzcore.AttributeSpec{regionAttr, envAttr})
+		act, err := buildCelActivation(ctx, []authzcore.AttributeSpec{componentTypeAttr, envAttr})
 		require.NoError(t, err)
 
 		m := requireActivationMap(t, act, "resource")
 		require.Equal(t, "prod", m["environment"])
-		require.Contains(t, m, "region")
+		require.Contains(t, m, "componentType")
 	})
 }
 

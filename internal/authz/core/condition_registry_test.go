@@ -42,17 +42,17 @@ func TestLookupConditions(t *testing.T) {
 
 func TestIntersectConditionsForActions(t *testing.T) {
 	// resource.tier and resource.region are test-only attrs not wired to production code.
-	attrTier := AttributeSpec{Key: "resource.componentType", CELType: cel.StringType}
-	attrRegion := AttributeSpec{Key: "resource.label", CELType: cel.StringType}
+	attrCT := AttributeSpec{Key: "resource.componentType", CELType: cel.StringType}
+	attrLabel := AttributeSpec{Key: "resource.label", CELType: cel.StringType}
 
 	SetConditionRegistryForTest(t, map[string][]AttributeSpec{
-		ActionCreateReleaseBinding: {AttrResourceEnvironment, attrTier, attrRegion},
-		ActionViewReleaseBinding:   {AttrResourceEnvironment, attrTier, attrRegion},
-		ActionUpdateReleaseBinding: {AttrResourceEnvironment, attrTier, attrRegion},
-		ActionDeleteReleaseBinding: {AttrResourceEnvironment, attrTier, attrRegion},
-		ActionViewLogs:             {AttrResourceEnvironment, attrTier},
+		ActionCreateReleaseBinding: {AttrResourceEnvironment, attrCT, attrLabel},
+		ActionViewReleaseBinding:   {AttrResourceEnvironment, attrCT, attrLabel},
+		ActionUpdateReleaseBinding: {AttrResourceEnvironment, attrCT, attrLabel},
+		ActionDeleteReleaseBinding: {AttrResourceEnvironment, attrCT, attrLabel},
+		ActionViewLogs:             {AttrResourceEnvironment, attrCT},
 		ActionViewMetrics:          {AttrResourceEnvironment},
-		ActionViewTraces:           {attrTier, attrRegion},
+		ActionViewTraces:           {attrCT, attrLabel},
 	})
 
 	tests := []struct {
@@ -63,12 +63,12 @@ func TestIntersectConditionsForActions(t *testing.T) {
 		{
 			name:     "full overlap returns all attrs",
 			actions:  []string{ActionCreateReleaseBinding, ActionViewReleaseBinding, ActionUpdateReleaseBinding, ActionDeleteReleaseBinding},
-			wantKeys: []string{AttrResourceEnvironment.Key, attrTier.Key, attrRegion.Key},
+			wantKeys: []string{AttrResourceEnvironment.Key, attrCT.Key, attrLabel.Key},
 		},
 		{
 			name:     "partial overlap drops missing attr",
 			actions:  []string{ActionCreateReleaseBinding, ActionViewLogs},
-			wantKeys: []string{AttrResourceEnvironment.Key, attrTier.Key},
+			wantKeys: []string{AttrResourceEnvironment.Key, attrCT.Key},
 		},
 		{
 			name:     "overlap narrows to single attr",
@@ -78,7 +78,7 @@ func TestIntersectConditionsForActions(t *testing.T) {
 		{
 			name:     "overlap on non-env attrs only",
 			actions:  []string{ActionCreateReleaseBinding, ActionViewTraces},
-			wantKeys: []string{attrTier.Key, attrRegion.Key},
+			wantKeys: []string{attrCT.Key, attrLabel.Key},
 		},
 		{
 			name:     "completely disjoint actions yield empty",
