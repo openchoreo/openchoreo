@@ -292,11 +292,11 @@ func workloadSpecSchema() *extv1.JSONSchemaProps {
 		Properties: map[string]extv1.JSONSchemaProps{
 			"key": {
 				Type:        stringType,
-				Description: "The file key/name.",
+				Description: "The file key/name inside the mounted volume",
 			},
 			"mountPath": {
 				Type:        stringType,
-				Description: "The mount path where the file will be mounted.",
+				Description: "The mount path where the file will be mounted. File path = mountPath/key",
 			},
 			"value": {
 				Type:        stringType,
