@@ -1158,19 +1158,23 @@ func TestCondMatchWrapper_Errors(t *testing.T) {
 	require.Error(t, err, "condMatchWrapper with 1 arg should return error")
 
 	// Non-string first arg
-	_, err = condMatchWrapper(42, "releasebinding:create", "{}")
+	_, err = condMatchWrapper(42, "releasebinding:create", "{}", "allow")
 	require.Error(t, err, "condMatchWrapper with non-string first arg should return error")
 
 	// Non-string second arg
-	_, err = condMatchWrapper("{}", 42, "{}")
+	_, err = condMatchWrapper("{}", 42, "{}", "allow")
 	require.Error(t, err, "condMatchWrapper with non-string second arg should return error")
 
 	// Non-string third arg
-	_, err = condMatchWrapper("{}", "releasebinding:create", 42)
+	_, err = condMatchWrapper("{}", "releasebinding:create", 42, "allow")
 	require.Error(t, err, "condMatchWrapper with non-string third arg should return error")
 
+	// Non-string fourth arg
+	_, err = condMatchWrapper("{}", "releasebinding:create", "{}", 42)
+	require.Error(t, err, "condMatchWrapper with non-string fourth arg should return error")
+
 	// Valid args - empty policy condition (fast path)
-	result, err := condMatchWrapper("{}", "releasebinding:create", "{}")
+	result, err := condMatchWrapper("{}", "releasebinding:create", "{}", "allow")
 	require.NoError(t, err)
 	require.True(t, result.(bool), "condMatchWrapper with empty policy cond should be true")
 }
@@ -1333,35 +1337,38 @@ func TestBuildActivationForRequest(t *testing.T) {
 	})
 }
 
-func TestAnyConditionAllows(t *testing.T) {
+func TestAnyConditionMatches(t *testing.T) {
 	devCtx := mustCtxJSON(t, "dev")
 	act, ok := buildActivationForRequest(devCtx, authzcore.ActionCreateReleaseBinding)
 	require.True(t, ok)
 
+	const allow = string(authzcore.PolicyEffectAllow)
+	const deny = string(authzcore.PolicyEffectDeny)
+
 	t.Run("empty entries returns false", func(t *testing.T) {
-		require.False(t, anyConditionAllows(nil, act))
+		require.False(t, anyConditionMatches(nil, act, allow))
 	})
 
 	t.Run("single true entry returns true", func(t *testing.T) {
 		entries := []authzv1alpha1.AuthzCondition{
 			{Expression: `resource.environment == "dev"`},
 		}
-		require.True(t, anyConditionAllows(entries, act))
+		require.True(t, anyConditionMatches(entries, act, allow))
 	})
 
 	t.Run("single false entry returns false", func(t *testing.T) {
 		entries := []authzv1alpha1.AuthzCondition{
 			{Expression: `resource.environment == "prod"`},
 		}
-		require.False(t, anyConditionAllows(entries, act))
+		require.False(t, anyConditionMatches(entries, act, allow))
 	})
 
-	t.Run("return true if any condition allows", func(t *testing.T) {
+	t.Run("return true if any condition matches", func(t *testing.T) {
 		entries := []authzv1alpha1.AuthzCondition{
 			{Expression: `resource.environment == "prod"`},
 			{Expression: `resource.environment == "dev"`},
 		}
-		require.True(t, anyConditionAllows(entries, act))
+		require.True(t, anyConditionMatches(entries, act, allow))
 	})
 
 	t.Run("all false returns false", func(t *testing.T) {
@@ -1369,7 +1376,53 @@ func TestAnyConditionAllows(t *testing.T) {
 			{Expression: `resource.environment == "prod"`},
 			{Expression: `resource.environment == "staging"`},
 		}
-		require.False(t, anyConditionAllows(entries, act))
+		require.False(t, anyConditionMatches(entries, act, allow))
+	})
+
+	t.Run("errored entry on deny policy fails closed", func(t *testing.T) {
+		entries := []authzv1alpha1.AuthzCondition{
+			{Expression: `not valid CEL ((((`},
+		}
+		require.True(t, anyConditionMatches(entries, act, deny))
+	})
+
+	t.Run("errored entry on allow policy fails closed", func(t *testing.T) {
+		entries := []authzv1alpha1.AuthzCondition{
+			{Expression: `not valid CEL ((((`},
+		}
+		require.False(t, anyConditionMatches(entries, act, allow))
+	})
+
+	// The error path is order-independent: a broken entry anywhere in the
+	// policy poisons the whole CR, even if a sibling entry cleanly matched.
+	// We don't know what the broken entry was meant to do, so we cannot
+	// trust the sibling result.
+	t.Run("error overrides clean match on allow regardless of order", func(t *testing.T) {
+		errFirst := []authzv1alpha1.AuthzCondition{
+			{Expression: `not valid CEL ((((`},
+			{Expression: `resource.environment == "dev"`},
+		}
+		matchFirst := []authzv1alpha1.AuthzCondition{
+			{Expression: `resource.environment == "dev"`},
+			{Expression: `not valid CEL ((((`},
+		}
+
+		require.False(t, anyConditionMatches(errFirst, act, allow))
+		require.False(t, anyConditionMatches(matchFirst, act, allow))
+	})
+
+	t.Run("error overrides clean match on deny regardless of order", func(t *testing.T) {
+		errFirst := []authzv1alpha1.AuthzCondition{
+			{Expression: `not valid CEL ((((`},
+			{Expression: `resource.environment == "prod"`}, // cleanly rejects
+		}
+		rejectFirst := []authzv1alpha1.AuthzCondition{
+			{Expression: `resource.environment == "prod"`},
+			{Expression: `not valid CEL ((((`},
+		}
+
+		require.True(t, anyConditionMatches(errFirst, act, deny))
+		require.True(t, anyConditionMatches(rejectFirst, act, deny))
 	})
 }
 
@@ -1378,29 +1431,33 @@ func TestEvalCondition(t *testing.T) {
 	act, ok := buildActivationForRequest(devCtx, authzcore.ActionCreateReleaseBinding)
 	require.True(t, ok)
 
-	t.Run("true expression returns true", func(t *testing.T) {
-		require.True(t, evalCondition(`resource.environment == "dev"`, act))
+	const allow = string(authzcore.PolicyEffectAllow)
+
+	t.Run("true expression returns evalAllow", func(t *testing.T) {
+		require.Equal(t, evalAllow, evalCondition(`resource.environment == "dev"`, act, allow))
 	})
 
-	t.Run("false expression returns false", func(t *testing.T) {
-		require.False(t, evalCondition(`resource.environment == "prod"`, act))
+	t.Run("false expression returns evalReject", func(t *testing.T) {
+		require.Equal(t, evalReject, evalCondition(`resource.environment == "prod"`, act, allow))
 	})
 
-	t.Run("compile error returns false", func(t *testing.T) {
-		require.False(t, evalCondition(`this is not valid CEL ((((`, act))
+	t.Run("compile error returns evalError", func(t *testing.T) {
+		require.Equal(t, evalError, evalCondition(`this is not valid CEL ((((`, act, allow))
 	})
 
-	t.Run("non-bool result returns false", func(t *testing.T) {
-		require.False(t, evalCondition(`resource.environment`, act))
+	t.Run("non-bool result returns evalError", func(t *testing.T) {
+		require.Equal(t, evalError, evalCondition(`resource.environment`, act, allow))
 	})
 
-	t.Run("expression references unknown attribute, returns false", func(t *testing.T) {
-		require.False(t, evalCondition(`resource.nonExistentField == "dev"`, act))
+	t.Run("expression references unknown attribute returns evalError", func(t *testing.T) {
+		require.Equal(t, evalError, evalCondition(`resource.nonExistentField == "dev"`, act, allow))
 	})
 }
 
 func TestConditionMatcher(t *testing.T) {
 	const action = authzcore.ActionCreateReleaseBinding
+	const allow = string(authzcore.PolicyEffectAllow)
+	const deny = string(authzcore.PolicyEffectDeny)
 
 	devCtx := mustCtxJSON(t, "dev")
 	prodCtx := mustCtxJSON(t, "prod")
@@ -1415,19 +1472,35 @@ func TestConditionMatcher(t *testing.T) {
 	differentAction := []authzv1alpha1.AuthzCondition{
 		{Actions: []string{authzcore.ActionDeleteReleaseBinding}, Expression: `resource.environment == "dev"`},
 	}
+	brokenCEL := []authzv1alpha1.AuthzCondition{
+		{Actions: []string{action}, Expression: `not valid CEL ((((`},
+	}
+	nonBoolCEL := []authzv1alpha1.AuthzCondition{
+		{Actions: []string{action}, Expression: `resource.environment`},
+	}
 
 	tests := []struct {
 		name       string
 		requestCtx string
 		action     string
 		policyCond string
+		policyEft  string
 		want       bool
 	}{
 		{
-			name:       "empty string policy cond is treated as unconstrained",
+			name:       "empty string policy cond is treated as unconstrained (allow)",
 			requestCtx: devCtx,
 			action:     action,
 			policyCond: "",
+			policyEft:  allow,
+			want:       true,
+		},
+		{
+			name:       "empty string policy cond is treated as unconstrained (deny)",
+			requestCtx: devCtx,
+			action:     action,
+			policyCond: "",
+			policyEft:  deny,
 			want:       true,
 		},
 		{
@@ -1435,20 +1508,23 @@ func TestConditionMatcher(t *testing.T) {
 			requestCtx: devCtx,
 			action:     action,
 			policyCond: emptyContextJSON,
+			policyEft:  allow,
 			want:       true,
 		},
 		{
-			name:       "malformed policy cond JSON",
-			requestCtx: devCtx,
-			action:     action,
-			policyCond: "not-json",
-			want:       false,
-		},
-		{
-			name:       "no entries match action -> unconstrained",
+			name:       "no entries match action -> RBAC stands (allow)",
 			requestCtx: devCtx,
 			action:     action,
 			policyCond: mustCondsJSON(t, differentAction),
+			policyEft:  allow,
+			want:       true,
+		},
+		{
+			name:       "no entries match action -> RBAC stands (deny)",
+			requestCtx: devCtx,
+			action:     action,
+			policyCond: mustCondsJSON(t, differentAction),
+			policyEft:  deny,
 			want:       true,
 		},
 		{
@@ -1456,6 +1532,7 @@ func TestConditionMatcher(t *testing.T) {
 			requestCtx: devCtx,
 			action:     action,
 			policyCond: mustCondsJSON(t, devOnly),
+			policyEft:  allow,
 			want:       true,
 		},
 		{
@@ -1463,6 +1540,7 @@ func TestConditionMatcher(t *testing.T) {
 			requestCtx: prodCtx,
 			action:     action,
 			policyCond: mustCondsJSON(t, devOnly),
+			policyEft:  allow,
 			want:       false,
 		},
 		{
@@ -1470,13 +1548,62 @@ func TestConditionMatcher(t *testing.T) {
 			requestCtx: emptyCtx,
 			action:     action,
 			policyCond: mustCondsJSON(t, devOrStaging),
+			policyEft:  allow,
 			want:       false,
+		},
+		{
+			name:       "malformed policy cond JSON, allow -> does not match",
+			requestCtx: devCtx,
+			action:     action,
+			policyCond: "not-json",
+			policyEft:  allow,
+			want:       false,
+		},
+		{
+			name:       "malformed policy cond JSON, deny -> matches (fail closed)",
+			requestCtx: devCtx,
+			action:     action,
+			policyCond: "not-json",
+			policyEft:  deny,
+			want:       true,
+		},
+		{
+			name:       "compile error, allow -> does not match",
+			requestCtx: devCtx,
+			action:     action,
+			policyCond: mustCondsJSON(t, brokenCEL),
+			policyEft:  allow,
+			want:       false,
+		},
+		{
+			name:       "compile error, deny -> matches (fail closed)",
+			requestCtx: devCtx,
+			action:     action,
+			policyCond: mustCondsJSON(t, brokenCEL),
+			policyEft:  deny,
+			want:       true,
+		},
+		{
+			name:       "non-bool CEL result, allow -> does not match",
+			requestCtx: devCtx,
+			action:     action,
+			policyCond: mustCondsJSON(t, nonBoolCEL),
+			policyEft:  allow,
+			want:       false,
+		},
+		{
+			name:       "non-bool CEL result, deny -> matches (fail closed)",
+			requestCtx: devCtx,
+			action:     action,
+			policyCond: mustCondsJSON(t, nonBoolCEL),
+			policyEft:  deny,
+			want:       true,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := ConditionMatcher(tc.requestCtx, tc.action, tc.policyCond)
+			got := ConditionMatcher(tc.requestCtx, tc.action, tc.policyCond, tc.policyEft)
 			require.Equal(t, tc.want, got)
 		})
 	}

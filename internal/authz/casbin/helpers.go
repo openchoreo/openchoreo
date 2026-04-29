@@ -36,6 +36,16 @@ const (
 	emptyContextJSON = "{}"
 )
 
+// failClosed returns the value to use when condition evaluation cannot
+// produce a definitive result (parse, compile, eval, or non-bool errors).
+// For deny policies we return true so the deny still applies; for allow
+// policies we return false so the allow does not grant on bad data.
+//
+// Unknown / corrupted eft values are treated as deny — most conservative.
+func failClosed(policyEft string) bool {
+	return policyEft != string(authzcore.PolicyEffectAllow)
+}
+
 // serializeAuthzContext serializes an authzcore.Context to JSON for passing as a Casbin enforce arg.
 func serializeAuthzContext(ctx authzcore.Context) (string, error) {
 	b, err := json.Marshal(ctx)
@@ -77,29 +87,37 @@ func resourceMatch(requestResource, policyResource string) bool {
 }
 
 // ConditionMatcher evaluates the per-binding ABAC conditions against the request.
-func ConditionMatcher(requestCtxJSON, requestAction, policyCond string) bool {
+func ConditionMatcher(requestCtxJSON, requestAction, policyCond, policyEft string) bool {
 	if isPolicyConditionEmpty(policyCond) {
 		return true
 	}
 
 	var conditions []authzv1alpha1.AuthzCondition
 	if err := json.Unmarshal([]byte(policyCond), &conditions); err != nil {
-		slog.Default().Error("ConditionMatcher: failed to unmarshal policy conditions", "error", err)
-		return false
+		slog.Default().Warn("condMatch: failed to unmarshal policy conditions",
+			"reason", "policy_unmarshal_error",
+			"policy_eft", policyEft,
+			"request_action", requestAction,
+			"error", err)
+		return failClosed(policyEft)
 	}
 
 	matching := filterConditionsByAction(conditions, requestAction)
-	// If no condition entries match the action, RBAC decision stands
+	// if the condition entries don't target the considered action then the RBAC decision stands as-is
 	if len(matching) == 0 {
 		return true
 	}
 
 	activation, ok := buildActivationForRequest(requestCtxJSON, requestAction)
 	if !ok {
-		return false
+		slog.Default().Warn("condMatch: activation build failed",
+			"reason", "activation_build_error",
+			"policy_eft", policyEft,
+			"request_action", requestAction)
+		return failClosed(policyEft)
 	}
 
-	return anyConditionAllows(matching, activation)
+	return anyConditionMatches(matching, activation, policyEft)
 }
 
 // isPolicyConditionEmpty reports whether the stored policy condition carries no constraints.
@@ -138,32 +156,78 @@ func buildActivationForRequest(requestCtxJSON, requestAction string) (interprete
 	return activation, true
 }
 
-// anyConditionAllows returns true if any entry's CEL expression evaluates to true.
-func anyConditionAllows(entries []authzv1alpha1.AuthzCondition, activation interpreter.Activation) bool {
+// evalResult is the tri-state outcome of evaluating a single CEL condition entry.
+// Splitting "errored" from "cleanly false" lets callers distinguish a policy
+// that genuinely doesn't match from one whose match status is unknown
+type evalResult int
+
+const (
+	evalAllow  evalResult = iota // expression cleanly evaluated to true
+	evalReject                   // expression cleanly evaluated to false
+	evalError                    // expression could not be evaluated (compile/eval/non-bool)
+)
+
+// anyConditionMatches decides whether at least one entry's CEL expression matches.
+//
+// Behavior:
+//   - any entry errored → policy CR is in an undefined state, so we fail closed
+//     by effect (deny policies match, allow policies do not). This takes
+//     precedence over any sibling entry's clean result, because we don't know
+//     what the broken entry was supposed to do.
+//   - otherwise any entry cleanly matched → match (true).
+//   - otherwise all entries cleanly rejected → no match (false).
+func anyConditionMatches(entries []authzv1alpha1.AuthzCondition, activation interpreter.Activation, policyEft string) bool {
+	sawMatch := false
+	sawError := false
 	for _, entry := range entries {
-		if evalCondition(entry.Expression, activation) {
-			return true
+		switch evalCondition(entry.Expression, activation, policyEft) {
+		case evalAllow:
+			sawMatch = true
+		case evalError:
+			sawError = true
+		case evalReject:
+			// noop - keep checking other entries for a possible match or error
 		}
 	}
-	return false
+	if sawError {
+		return failClosed(policyEft)
+	}
+	return sawMatch
 }
 
-// evalCondition compiles and evaluates a single CEL expression, returning true only
-// on a boolean-true result. Compile and eval errors are logged and treated as false.
-func evalCondition(expr string, activation interpreter.Activation) bool {
+// evalCondition compiles and evaluates a single CEL expression and returns the evalResult.
+func evalCondition(expr string, activation interpreter.Activation, policyEft string) evalResult {
 	prg, err := compileCEL(expr)
 	if err != nil {
-		slog.Default().Error("condMatch: CEL compile error", "expression", expr, "error", err)
-		return false
+		logEvalError(policyEft, expr, "compile_error", err)
+		return evalError
 	}
+
 	out, _, err := prg.Eval(activation)
 	if err != nil {
-		slog.Default().Error("condMatch: CEL eval error", "expression", expr, "error", err)
-		return false
+		logEvalError(policyEft, expr, "eval_error", err)
+		return evalError
 	}
-	b, ok := out.Value().(bool)
-	slog.Default().Debug("condMatch: CEL eval result", "expression", expr, "result", out.Value(), "bool", b, "ok", ok)
-	return ok && b
+
+	result, isBool := out.Value().(bool)
+	if !isBool {
+		logEvalError(policyEft, expr, "non_bool_result", fmt.Errorf("got %T", out.Value()))
+		return evalError
+	}
+
+	slog.Default().Debug("condMatch: CEL eval result", "expression", expr, "result", result)
+	if result {
+		return evalAllow
+	}
+	return evalReject
+}
+
+func logEvalError(policyEft, expr, reason string, err error) {
+	slog.Default().Error("condMatch: condition evaluation failed",
+		"reason", reason,
+		"policy_eft", policyEft,
+		"expression", expr,
+		"error", err)
 }
 
 // resourceMatchWrapper is a wrapper for resourceMatch to work with Casbin's function interface
@@ -185,10 +249,10 @@ func resourceMatchWrapper(args ...interface{}) (interface{}, error) {
 	return resourceMatch(requestResource, policyResource), nil
 }
 
-// condMatchWrapper is a wrapper for condMatch to work with Casbin's function interface
+// condMatchWrapper is a wrapper for condMatch to work with Casbin's function interface.
 func condMatchWrapper(args ...interface{}) (interface{}, error) {
-	if len(args) != 3 {
-		return false, fmt.Errorf("condMatch requires exactly 3 arguments")
+	if len(args) != 4 {
+		return false, fmt.Errorf("condMatch requires exactly 4 arguments")
 	}
 
 	requestCtx, ok := args[0].(string)
@@ -206,7 +270,12 @@ func condMatchWrapper(args ...interface{}) (interface{}, error) {
 		return false, fmt.Errorf("policy conditions argument must be a string")
 	}
 
-	return ConditionMatcher(requestCtx, requestAction, policyConds), nil
+	policyEft, ok := args[3].(string)
+	if !ok {
+		return false, fmt.Errorf("policy eft argument must be a string")
+	}
+
+	return ConditionMatcher(requestCtx, requestAction, policyConds, policyEft), nil
 }
 
 // actionMatch checks if a requested action matches a role's action pattern with wildcard support.
