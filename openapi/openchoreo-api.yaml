@@ -79,6 +79,8 @@ tags:
     description: Observability alerts notification channel management
   - name: GitSecrets
     description: Git secret management for source code authentication
+  - name: Secrets
+    description: Secret management across workflow and data planes
 
 paths:
   # =============================================================================
@@ -4648,6 +4650,102 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  # =============================================================================
+  # Secrets (v1alpha1)
+  # =============================================================================
+  /api/v1alpha1/namespaces/{namespaceName}/secrets:
+    post:
+      operationId: createSecret
+      summary: Create a secret
+      description: |
+        Creates a new secret. The secret data is provisioned in the target plane
+        as a Kubernetes Secret plus a PushSecret that syncs it to the configured
+        external secret store. A SecretReference is created in the control plane
+        so consumers can reference the secret by key.
+      tags: [Secrets]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSecretRequest'
+      responses:
+        '201':
+          description: Secret created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1alpha1/namespaces/{namespaceName}/secrets/{secretName}:
+    put:
+      operationId: updateSecret
+      summary: Update a secret
+      description: |
+        Replaces the data of an existing secret. The secret type and target
+        plane cannot be changed; only the data keys and values.
+      tags: [Secrets]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/SecretNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSecretRequest'
+      responses:
+        '200':
+          description: Secret updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecretResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteSecret
+      summary: Delete a secret
+      description: Deletes a secret by name from the control plane and target plane.
+      tags: [Secrets]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/SecretNameParam'
+      responses:
+        '204':
+          description: Secret deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   # ===========================================================================
   # Security Schemes
@@ -4930,6 +5028,15 @@ components:
       schema:
         type: string
         example: my-git-secret
+
+    SecretNameParam:
+      name: secretName
+      in: path
+      required: true
+      description: Secret name
+      schema:
+        type: string
+        example: my-secret
 
     LabelSelectorParam:
       name: labelSelector
@@ -8983,6 +9090,14 @@ components:
           type: string
           description: How often to reconcile/refresh the secret
           example: 1h
+        targetPlane:
+          allOf:
+            - $ref: '#/components/schemas/TargetPlaneRef'
+          description: |
+            Identifies the plane to whose external secret store the secret
+            value was pushed for this SecretReference. When unset, the secret
+            value may live in any external secret store reachable through the
+            references in spec.data.
 
     SecretReferenceStatus:
       type: object
@@ -9719,3 +9834,104 @@ components:
         pageSize:
           type: integer
           description: Number of items per page
+
+    # -------------------------------------------------------------------------
+    # Secrets
+    # -------------------------------------------------------------------------
+    TargetPlaneRef:
+      type: object
+      description: Reference to the plane that hosts the secret data.
+      required:
+        - kind
+        - name
+      properties:
+        kind:
+          type: string
+          description: Kind of the target plane resource
+          enum:
+            - WorkflowPlane
+            - ClusterWorkflowPlane
+            - DataPlane
+            - ClusterDataPlane
+          example: DataPlane
+        name:
+          type: string
+          description: Name of the target plane resource
+          example: default
+
+    SecretType:
+      type: string
+      description: Kubernetes Secret type
+      enum:
+        - Opaque
+        - kubernetes.io/basic-auth
+        - kubernetes.io/ssh-auth
+        - kubernetes.io/dockerconfigjson
+        - kubernetes.io/tls
+      example: Opaque
+
+    CreateSecretRequest:
+      type: object
+      description: Request body for creating a secret
+      required:
+        - secretName
+        - secretType
+        - targetPlane
+        - data
+      properties:
+        secretName:
+          type: string
+          description: Name of the secret
+          example: my-secret
+        secretType:
+          $ref: '#/components/schemas/SecretType'
+        targetPlane:
+          $ref: '#/components/schemas/TargetPlaneRef'
+        data:
+          type: object
+          description: Map of secret keys to plaintext values. Required keys depend on secretType.
+          additionalProperties:
+            type: string
+          example:
+            username: alice
+            password: s3cret
+
+    UpdateSecretRequest:
+      type: object
+      description: Request body for updating a secret
+      required:
+        - data
+      properties:
+        data:
+          type: object
+          description: New map of secret keys to plaintext values. Replaces all existing keys.
+          additionalProperties:
+            type: string
+          example:
+            username: alice
+            password: r0tated
+
+    SecretResponse:
+      type: object
+      description: Secret resource. Values are never returned, only key names.
+      properties:
+        name:
+          type: string
+          description: Name of the secret
+          example: my-secret
+        namespace:
+          type: string
+          description: Namespace of the secret
+          example: my-namespace
+        secretType:
+          $ref: '#/components/schemas/SecretType'
+        targetPlane:
+          $ref: '#/components/schemas/TargetPlaneRef'
+        keys:
+          type: array
+          description: Sorted list of keys present in the secret data
+          items:
+            type: string
+          example:
+            - password
+            - username

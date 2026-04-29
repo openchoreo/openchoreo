@@ -60,10 +60,29 @@ type RemoteReference struct {
 	Version string `json:"version,omitempty"`
 }
 
+// TargetPlaneRef identifies the plane whose external secret store holds
+// the secret value referenced by this SecretReference.
+type TargetPlaneRef struct {
+	// Kind of the target plane resource.
+	// +kubebuilder:validation:Enum=WorkflowPlane;ClusterWorkflowPlane;DataPlane;ClusterDataPlane
+	Kind string `json:"kind"`
+
+	// Name of the target plane resource.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+}
+
 // SecretReferenceSpec defines the desired state of SecretReference.
 type SecretReferenceSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// TargetPlane identifies the plane to whose external secret store the
+	// secret value was pushed for this SecretReference. When unset, the
+	// secret value may live in any external secret store reachable through
+	// the references in spec.data.
+	// +optional
+	TargetPlane *TargetPlaneRef `json:"targetPlane,omitempty"`
 
 	// Template defines the structure of the resulting Kubernetes Secret
 	Template SecretTemplate `json:"template"`

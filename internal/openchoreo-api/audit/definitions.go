@@ -55,6 +55,26 @@ func GetActionDefinitions() []audit.ActionDefinition {
 			Category: audit.CategoryResource,
 		},
 
+		// Secret operations
+		{
+			Method:   "POST",
+			Pattern:  "/api/v1alpha1/namespaces/{namespaceName}/secrets",
+			Action:   "create_secret",
+			Category: audit.CategoryResource,
+		},
+		{
+			Method:   "PUT",
+			Pattern:  "/api/v1alpha1/namespaces/{namespaceName}/secrets/{secretName}",
+			Action:   "update_secret",
+			Category: audit.CategoryResource,
+		},
+		{
+			Method:   "DELETE",
+			Pattern:  "/api/v1alpha1/namespaces/{namespaceName}/secrets/{secretName}",
+			Action:   "delete_secret",
+			Category: audit.CategoryResource,
+		},
+
 		// Apply/Delete operations (kubectl-like)
 		{
 			Method:   "POST",

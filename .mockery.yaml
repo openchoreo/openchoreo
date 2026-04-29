@@ -75,6 +75,9 @@ packages:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding:
     interfaces:
       Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secret:
+    interfaces:
+      Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference:
     interfaces:
       Service:

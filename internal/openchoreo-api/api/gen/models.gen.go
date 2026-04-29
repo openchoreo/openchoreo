@@ -276,13 +276,22 @@ const (
 
 // Defines values for SecretTemplateType.
 const (
-	BootstrapKubernetesIotoken   SecretTemplateType = "bootstrap.kubernetes.io/token"
-	KubernetesIobasicAuth        SecretTemplateType = "kubernetes.io/basic-auth"
-	KubernetesIodockercfg        SecretTemplateType = "kubernetes.io/dockercfg"
-	KubernetesIodockerconfigjson SecretTemplateType = "kubernetes.io/dockerconfigjson"
-	KubernetesIosshAuth          SecretTemplateType = "kubernetes.io/ssh-auth"
-	KubernetesIotls              SecretTemplateType = "kubernetes.io/tls"
-	Opaque                       SecretTemplateType = "Opaque"
+	SecretTemplateTypeBootstrapKubernetesIotoken   SecretTemplateType = "bootstrap.kubernetes.io/token"
+	SecretTemplateTypeKubernetesIobasicAuth        SecretTemplateType = "kubernetes.io/basic-auth"
+	SecretTemplateTypeKubernetesIodockercfg        SecretTemplateType = "kubernetes.io/dockercfg"
+	SecretTemplateTypeKubernetesIodockerconfigjson SecretTemplateType = "kubernetes.io/dockerconfigjson"
+	SecretTemplateTypeKubernetesIosshAuth          SecretTemplateType = "kubernetes.io/ssh-auth"
+	SecretTemplateTypeKubernetesIotls              SecretTemplateType = "kubernetes.io/tls"
+	SecretTemplateTypeOpaque                       SecretTemplateType = "Opaque"
+)
+
+// Defines values for SecretType.
+const (
+	SecretTypeKubernetesIobasicAuth        SecretType = "kubernetes.io/basic-auth"
+	SecretTypeKubernetesIodockerconfigjson SecretType = "kubernetes.io/dockerconfigjson"
+	SecretTypeKubernetesIosshAuth          SecretType = "kubernetes.io/ssh-auth"
+	SecretTypeKubernetesIotls              SecretType = "kubernetes.io/tls"
+	SecretTypeOpaque                       SecretType = "Opaque"
 )
 
 // Defines values for SubjectContextType.
@@ -294,6 +303,14 @@ const (
 // Defines values for TargetEnvironmentRefKind.
 const (
 	TargetEnvironmentRefKindEnvironment TargetEnvironmentRefKind = "Environment"
+)
+
+// Defines values for TargetPlaneRefKind.
+const (
+	TargetPlaneRefKindClusterDataPlane     TargetPlaneRefKind = "ClusterDataPlane"
+	TargetPlaneRefKindClusterWorkflowPlane TargetPlaneRefKind = "ClusterWorkflowPlane"
+	TargetPlaneRefKindDataPlane            TargetPlaneRefKind = "DataPlane"
+	TargetPlaneRefKindWorkflowPlane        TargetPlaneRefKind = "WorkflowPlane"
 )
 
 // Defines values for TraitSpecCreatesTargetPlane.
@@ -1563,6 +1580,21 @@ type CreateGitSecretRequestSecretType string
 // CreateGitSecretRequestWorkflowPlaneKind Kind of the workflow plane resource
 type CreateGitSecretRequestWorkflowPlaneKind string
 
+// CreateSecretRequest Request body for creating a secret
+type CreateSecretRequest struct {
+	// Data Map of secret keys to plaintext values. Required keys depend on secretType.
+	Data map[string]string `json:"data"`
+
+	// SecretName Name of the secret
+	SecretName string `json:"secretName"`
+
+	// SecretType Kubernetes Secret type
+	SecretType SecretType `json:"secretType"`
+
+	// TargetPlane Reference to the plane that hosts the secret data.
+	TargetPlane TargetPlaneRef `json:"targetPlane"`
+}
+
 // CreateWorkflowRunRequest Request to create a new workflow run
 type CreateWorkflowRunRequest struct {
 	// Parameters User-defined workflow parameters
@@ -2810,6 +2842,12 @@ type SecretReferenceSpec struct {
 	// RefreshInterval How often to reconcile/refresh the secret
 	RefreshInterval *string `json:"refreshInterval,omitempty"`
 
+	// TargetPlane Identifies the plane to whose external secret store the secret
+	// value was pushed for this SecretReference. When unset, the secret
+	// value may live in any external secret store reachable through the
+	// references in spec.data.
+	TargetPlane *TargetPlaneRef `json:"targetPlane,omitempty"`
+
 	// Template Structure of the resulting Kubernetes Secret
 	Template SecretTemplate `json:"template"`
 }
@@ -2824,6 +2862,24 @@ type SecretReferenceStatus struct {
 
 	// SecretStores Secret stores using this reference
 	SecretStores *[]SecretStoreReference `json:"secretStores,omitempty"`
+}
+
+// SecretResponse Secret resource. Values are never returned, only key names.
+type SecretResponse struct {
+	// Keys Sorted list of keys present in the secret data
+	Keys *[]string `json:"keys,omitempty"`
+
+	// Name Name of the secret
+	Name *string `json:"name,omitempty"`
+
+	// Namespace Namespace of the secret
+	Namespace *string `json:"namespace,omitempty"`
+
+	// SecretType Kubernetes Secret type
+	SecretType *SecretType `json:"secretType,omitempty"`
+
+	// TargetPlane Reference to the plane that hosts the secret data.
+	TargetPlane *TargetPlaneRef `json:"targetPlane,omitempty"`
 }
 
 // SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
@@ -2861,6 +2917,9 @@ type SecretTemplate struct {
 
 // SecretTemplateType Type of the Kubernetes Secret
 type SecretTemplateType string
+
+// SecretType Kubernetes Secret type
+type SecretType string
 
 // SubjectContext Authenticated subject context
 type SubjectContext struct {
@@ -2903,6 +2962,18 @@ type TargetEnvironmentRef struct {
 
 // TargetEnvironmentRefKind Kind of environment resource
 type TargetEnvironmentRefKind string
+
+// TargetPlaneRef Reference to the plane that hosts the secret data.
+type TargetPlaneRef struct {
+	// Kind Kind of the target plane resource
+	Kind TargetPlaneRefKind `json:"kind"`
+
+	// Name Name of the target plane resource
+	Name string `json:"name"`
+}
+
+// TargetPlaneRefKind Kind of the target plane resource
+type TargetPlaneRefKind string
 
 // Trait Trait resource.
 // Defines composable cross-cutting concerns that can be applied to components.
@@ -3011,6 +3082,12 @@ type TraitSpecPatchesTargetPlane string
 
 // TraitStatus Observed state of a Trait
 type TraitStatus = map[string]interface{}
+
+// UpdateSecretRequest Request body for updating a secret
+type UpdateSecretRequest struct {
+	// Data New map of secret keys to plaintext values. Replaces all existing keys.
+	Data map[string]string `json:"data"`
+}
 
 // UserCapabilitiesResponse User authorization profile response
 type UserCapabilitiesResponse struct {
@@ -3551,6 +3628,9 @@ type ReleaseBindingNameParam = string
 
 // RoleNameParam defines model for RoleNameParam.
 type RoleNameParam = string
+
+// SecretNameParam defines model for SecretNameParam.
+type SecretNameParam = string
 
 // SecretReferenceNameParam defines model for SecretReferenceNameParam.
 type SecretReferenceNameParam = string
@@ -4304,6 +4384,12 @@ type HandleAutoBuildJSONRequestBody HandleAutoBuildJSONBody
 
 // CreateGitSecretJSONRequestBody defines body for CreateGitSecret for application/json ContentType.
 type CreateGitSecretJSONRequestBody = CreateGitSecretRequest
+
+// CreateSecretJSONRequestBody defines body for CreateSecret for application/json ContentType.
+type CreateSecretJSONRequestBody = CreateSecretRequest
+
+// UpdateSecretJSONRequestBody defines body for UpdateSecret for application/json ContentType.
+type UpdateSecretJSONRequestBody = UpdateSecretRequest
 
 // AsObservabilityAlertsNotificationChannelSpec0 returns the union data inside the ObservabilityAlertsNotificationChannelSpec as a ObservabilityAlertsNotificationChannelSpec0
 func (t ObservabilityAlertsNotificationChannelSpec) AsObservabilityAlertsNotificationChannelSpec0() (ObservabilityAlertsNotificationChannelSpec0, error) {

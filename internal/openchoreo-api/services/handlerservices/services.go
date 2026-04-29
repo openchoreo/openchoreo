@@ -32,6 +32,7 @@ import (
 	observabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityplane"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
+	secretsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secret"
 	secretreferencesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference"
 	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
 	workflowsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflow"
@@ -64,6 +65,7 @@ type Services struct {
 	ObservabilityPlaneService                     observabilityplanesvc.Service
 	K8sResourcesService                           k8sresourcessvc.Service
 	ReleaseBindingService                         releasebindingsvc.Service
+	SecretService                                 secretsvc.Service
 	SecretReferenceService                        secretreferencesvc.Service
 	TraitService                                  traitsvc.Service
 	WorkflowService                               workflowsvc.Service
@@ -96,6 +98,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		ObservabilityPlaneService:                     observabilityplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "observabilityplane-service")),
 		K8sResourcesService:                           k8sresourcessvc.NewServiceWithAuthz(k8sClient, gwClient, pdp, logger.With("component", "k8sresources-service")),
 		ReleaseBindingService:                         releasebindingsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "releasebinding-service")),
+		SecretService:                                 secretsvc.NewServiceWithAuthz(k8sClient, planeClientProvider, pdp, logger.With("component", "secret-service")),
 		SecretReferenceService:                        secretreferencesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "secretreference-service")),
 		TraitService:                                  traitsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "trait-service")),
 		WorkflowService:                               workflowsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workflow-service")),

@@ -90,6 +90,7 @@ rules:
   - externalsecrets
   - secretstores
   - clustersecretstores
+  - pushsecrets
   verbs: ["*"]
 # KGateway resources (if using KGateway)
 - apiGroups: ["gateway.kgateway.dev"]
