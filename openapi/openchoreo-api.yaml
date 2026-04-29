@@ -7997,6 +7997,80 @@ components:
           description: Resolved invoke URLs for each named workload endpoint
           items:
             $ref: '#/components/schemas/EndpointURLStatus'
+        resolvedConnections:
+          type: array
+          description: Connections that have been successfully resolved
+          items:
+            $ref: '#/components/schemas/ResolvedConnection'
+        pendingConnections:
+          type: array
+          description: Connections that could not be resolved
+          items:
+            $ref: '#/components/schemas/PendingConnection'
+
+    ResolvedConnection:
+      type: object
+      description: Holds the resolved URL for a single connection
+      required:
+        - namespace
+        - project
+        - component
+        - endpoint
+        - visibility
+        - url
+      properties:
+        namespace:
+          type: string
+          description: Control plane namespace of the target component
+          minLength: 1
+        project:
+          type: string
+          description: Name of the project that owns the target component
+          minLength: 1
+        component:
+          type: string
+          description: Name of the target component
+          minLength: 1
+        endpoint:
+          type: string
+          description: Name of the endpoint on the target component
+          minLength: 1
+        visibility:
+          type: string
+          description: Visibility level at which the endpoint was resolved
+          enum: [project, namespace, internal, external]
+        url:
+          $ref: '#/components/schemas/EndpointURL'
+
+    PendingConnection:
+      type: object
+      description: Represents a connection that could not be resolved
+      required:
+        - namespace
+        - project
+        - component
+        - endpoint
+        - reason
+      properties:
+        namespace:
+          type: string
+          description: Control plane namespace of the target component
+          minLength: 1
+        project:
+          type: string
+          description: Name of the project that owns the target component
+          minLength: 1
+        component:
+          type: string
+          description: Name of the target component
+          minLength: 1
+        endpoint:
+          type: string
+          description: Name of the endpoint on the target component
+          minLength: 1
+        reason:
+          type: string
+          description: Describes why the connection could not be resolved
 
     EndpointURLStatus:
       type: object

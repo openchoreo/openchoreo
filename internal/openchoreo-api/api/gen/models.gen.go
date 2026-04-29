@@ -274,6 +274,14 @@ const (
 	RenderedReleaseStatusResourcesHealthStatusUnknown     RenderedReleaseStatusResourcesHealthStatus = "Unknown"
 )
 
+// Defines values for ResolvedConnectionVisibility.
+const (
+	ResolvedConnectionVisibilityExternal  ResolvedConnectionVisibility = "external"
+	ResolvedConnectionVisibilityInternal  ResolvedConnectionVisibility = "internal"
+	ResolvedConnectionVisibilityNamespace ResolvedConnectionVisibility = "namespace"
+	ResolvedConnectionVisibilityProject   ResolvedConnectionVisibility = "project"
+)
+
 // Defines values for SecretTemplateType.
 const (
 	SecretTemplateTypeBootstrapKubernetesIotoken   SecretTemplateType = "bootstrap.kubernetes.io/token"
@@ -2404,6 +2412,24 @@ type PatchComponentRequest struct {
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
 }
 
+// PendingConnection Represents a connection that could not be resolved
+type PendingConnection struct {
+	// Component Name of the target component
+	Component string `json:"component"`
+
+	// Endpoint Name of the endpoint on the target component
+	Endpoint string `json:"endpoint"`
+
+	// Namespace Control plane namespace of the target component
+	Namespace string `json:"namespace"`
+
+	// Project Name of the project that owns the target component
+	Project string `json:"project"`
+
+	// Reason Describes why the connection could not be resolved
+	Reason string `json:"reason"`
+}
+
 // PodLogEntry A single log entry from a pod
 type PodLogEntry struct {
 	// Log Log message content
@@ -2556,6 +2582,12 @@ type ReleaseBindingStatus struct {
 
 	// ObservedGeneration Most recent generation observed by the controller
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+	// PendingConnections Connections that could not be resolved
+	PendingConnections *[]PendingConnection `json:"pendingConnections,omitempty"`
+
+	// ResolvedConnections Connections that have been successfully resolved
+	ResolvedConnections *[]ResolvedConnection `json:"resolvedConnections,omitempty"`
 }
 
 // ReleaseResourceTree Resource tree for a single release
@@ -2677,6 +2709,30 @@ type RenderedReleaseStatus struct {
 
 // RenderedReleaseStatusResourcesHealthStatus Health status of the resource
 type RenderedReleaseStatusResourcesHealthStatus string
+
+// ResolvedConnection Holds the resolved URL for a single connection
+type ResolvedConnection struct {
+	// Component Name of the target component
+	Component string `json:"component"`
+
+	// Endpoint Name of the endpoint on the target component
+	Endpoint string `json:"endpoint"`
+
+	// Namespace Control plane namespace of the target component
+	Namespace string `json:"namespace"`
+
+	// Project Name of the project that owns the target component
+	Project string `json:"project"`
+
+	// Url Structured URL with its components
+	Url EndpointURL `json:"url"`
+
+	// Visibility Visibility level at which the endpoint was resolved
+	Visibility ResolvedConnectionVisibility `json:"visibility"`
+}
+
+// ResolvedConnectionVisibility Visibility level at which the endpoint was resolved
+type ResolvedConnectionVisibility string
 
 // Resource Resource for authorization evaluation
 type Resource struct {
