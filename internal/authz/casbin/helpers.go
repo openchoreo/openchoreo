@@ -87,17 +87,18 @@ func resourceMatch(requestResource, policyResource string) bool {
 }
 
 // ConditionMatcher evaluates the per-binding ABAC conditions against the request.
-func ConditionMatcher(requestCtxJSON, requestAction, policyCond, policyEft string) bool {
+func ConditionMatcher(requestCtxJSON, requestAction, policyCond, policyEft, bindingName string) bool {
 	if isPolicyConditionEmpty(policyCond) {
 		return true
 	}
 
 	var conditions []authzv1alpha1.AuthzCondition
 	if err := json.Unmarshal([]byte(policyCond), &conditions); err != nil {
-		slog.Default().Warn("condMatch: failed to unmarshal policy conditions",
+		slog.Default().Error("condMatch: failed to unmarshal policy conditions",
 			"reason", "policy_unmarshal_error",
 			"policy_eft", policyEft,
 			"request_action", requestAction,
+			"binding_name", bindingName,
 			"error", err)
 		return failClosed(policyEft)
 	}
@@ -110,14 +111,15 @@ func ConditionMatcher(requestCtxJSON, requestAction, policyCond, policyEft strin
 
 	activation, ok := buildActivationForRequest(requestCtxJSON, requestAction)
 	if !ok {
-		slog.Default().Warn("condMatch: activation build failed",
+		slog.Default().Error("condMatch: activation build failed",
 			"reason", "activation_build_error",
 			"policy_eft", policyEft,
-			"request_action", requestAction)
+			"request_action", requestAction,
+			"binding_name", bindingName)
 		return failClosed(policyEft)
 	}
 
-	return anyConditionMatches(matching, activation, policyEft)
+	return anyConditionMatches(matching, activation, policyEft, bindingName)
 }
 
 // isPolicyConditionEmpty reports whether the stored policy condition carries no constraints.
@@ -176,11 +178,11 @@ const (
 //     what the broken entry was supposed to do.
 //   - otherwise any entry cleanly matched → match (true).
 //   - otherwise all entries cleanly rejected → no match (false).
-func anyConditionMatches(entries []authzv1alpha1.AuthzCondition, activation interpreter.Activation, policyEft string) bool {
+func anyConditionMatches(entries []authzv1alpha1.AuthzCondition, activation interpreter.Activation, policyEft, bindingName string) bool {
 	sawMatch := false
 	sawError := false
 	for _, entry := range entries {
-		switch evalCondition(entry.Expression, activation, policyEft) {
+		switch evalCondition(entry.Expression, activation, policyEft, bindingName) {
 		case evalAllow:
 			sawMatch = true
 		case evalError:
@@ -196,22 +198,22 @@ func anyConditionMatches(entries []authzv1alpha1.AuthzCondition, activation inte
 }
 
 // evalCondition compiles and evaluates a single CEL expression and returns the evalResult.
-func evalCondition(expr string, activation interpreter.Activation, policyEft string) evalResult {
+func evalCondition(expr string, activation interpreter.Activation, policyEft, bindingName string) evalResult {
 	prg, err := compileCEL(expr)
 	if err != nil {
-		logEvalError(policyEft, expr, "compile_error", err)
+		logEvalError(policyEft, expr, bindingName, "compile_error", err)
 		return evalError
 	}
 
 	out, _, err := prg.Eval(activation)
 	if err != nil {
-		logEvalError(policyEft, expr, "eval_error", err)
+		logEvalError(policyEft, expr, bindingName, "eval_error", err)
 		return evalError
 	}
 
 	result, isBool := out.Value().(bool)
 	if !isBool {
-		logEvalError(policyEft, expr, "non_bool_result", fmt.Errorf("got %T", out.Value()))
+		logEvalError(policyEft, expr, bindingName, "non_bool_result", fmt.Errorf("got %T", out.Value()))
 		return evalError
 	}
 
@@ -222,10 +224,11 @@ func evalCondition(expr string, activation interpreter.Activation, policyEft str
 	return evalReject
 }
 
-func logEvalError(policyEft, expr, reason string, err error) {
+func logEvalError(policyEft, expr, bindingName, reason string, err error) {
 	slog.Default().Error("condMatch: condition evaluation failed",
 		"reason", reason,
 		"policy_eft", policyEft,
+		"binding_name", bindingName,
 		"expression", expr,
 		"error", err)
 }
@@ -251,8 +254,8 @@ func resourceMatchWrapper(args ...interface{}) (interface{}, error) {
 
 // condMatchWrapper is a wrapper for condMatch to work with Casbin's function interface.
 func condMatchWrapper(args ...interface{}) (interface{}, error) {
-	if len(args) != 4 {
-		return false, fmt.Errorf("condMatch requires exactly 4 arguments")
+	if len(args) != 5 {
+		return false, fmt.Errorf("condMatch requires exactly 5 arguments")
 	}
 
 	requestCtx, ok := args[0].(string)
@@ -275,7 +278,12 @@ func condMatchWrapper(args ...interface{}) (interface{}, error) {
 		return false, fmt.Errorf("policy eft argument must be a string")
 	}
 
-	return ConditionMatcher(requestCtx, requestAction, policyConds, policyEft), nil
+	bindingName, ok := args[4].(string)
+	if !ok {
+		return false, fmt.Errorf("binding name argument must be a string")
+	}
+
+	return ConditionMatcher(requestCtx, requestAction, policyConds, policyEft, bindingName), nil
 }
 
 // actionMatch checks if a requested action matches a role's action pattern with wildcard support.

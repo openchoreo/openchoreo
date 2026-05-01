@@ -1158,23 +1158,27 @@ func TestCondMatchWrapper_Errors(t *testing.T) {
 	require.Error(t, err, "condMatchWrapper with 1 arg should return error")
 
 	// Non-string first arg
-	_, err = condMatchWrapper(42, "releasebinding:create", "{}", "allow")
+	_, err = condMatchWrapper(42, "releasebinding:create", "{}", "allow", "binding-1")
 	require.Error(t, err, "condMatchWrapper with non-string first arg should return error")
 
 	// Non-string second arg
-	_, err = condMatchWrapper("{}", 42, "{}", "allow")
+	_, err = condMatchWrapper("{}", 42, "{}", "allow", "binding-1")
 	require.Error(t, err, "condMatchWrapper with non-string second arg should return error")
 
 	// Non-string third arg
-	_, err = condMatchWrapper("{}", "releasebinding:create", 42, "allow")
+	_, err = condMatchWrapper("{}", "releasebinding:create", 42, "allow", "binding-1")
 	require.Error(t, err, "condMatchWrapper with non-string third arg should return error")
 
 	// Non-string fourth arg
-	_, err = condMatchWrapper("{}", "releasebinding:create", "{}", 42)
+	_, err = condMatchWrapper("{}", "releasebinding:create", "{}", 42, "binding-1")
 	require.Error(t, err, "condMatchWrapper with non-string fourth arg should return error")
 
+	// Non-string fifth arg
+	_, err = condMatchWrapper("{}", "releasebinding:create", "{}", "allow", 42)
+	require.Error(t, err, "condMatchWrapper with non-string fifth arg should return error")
+
 	// Valid args - empty policy condition (fast path)
-	result, err := condMatchWrapper("{}", "releasebinding:create", "{}", "allow")
+	result, err := condMatchWrapper("{}", "releasebinding:create", "{}", "allow", "binding-1")
 	require.NoError(t, err)
 	require.True(t, result.(bool), "condMatchWrapper with empty policy cond should be true")
 }
@@ -1346,21 +1350,21 @@ func TestAnyConditionMatches(t *testing.T) {
 	const deny = string(authzcore.PolicyEffectDeny)
 
 	t.Run("empty entries returns false", func(t *testing.T) {
-		require.False(t, anyConditionMatches(nil, act, allow))
+		require.False(t, anyConditionMatches(nil, act, allow, "test-binding"))
 	})
 
 	t.Run("single true entry returns true", func(t *testing.T) {
 		entries := []authzv1alpha1.AuthzCondition{
 			{Expression: `resource.environment == "dev"`},
 		}
-		require.True(t, anyConditionMatches(entries, act, allow))
+		require.True(t, anyConditionMatches(entries, act, allow, "test-binding"))
 	})
 
 	t.Run("single false entry returns false", func(t *testing.T) {
 		entries := []authzv1alpha1.AuthzCondition{
 			{Expression: `resource.environment == "prod"`},
 		}
-		require.False(t, anyConditionMatches(entries, act, allow))
+		require.False(t, anyConditionMatches(entries, act, allow, "test-binding"))
 	})
 
 	t.Run("return true if any condition matches", func(t *testing.T) {
@@ -1368,7 +1372,7 @@ func TestAnyConditionMatches(t *testing.T) {
 			{Expression: `resource.environment == "prod"`},
 			{Expression: `resource.environment == "dev"`},
 		}
-		require.True(t, anyConditionMatches(entries, act, allow))
+		require.True(t, anyConditionMatches(entries, act, allow, "test-binding"))
 	})
 
 	t.Run("all false returns false", func(t *testing.T) {
@@ -1376,21 +1380,21 @@ func TestAnyConditionMatches(t *testing.T) {
 			{Expression: `resource.environment == "prod"`},
 			{Expression: `resource.environment == "staging"`},
 		}
-		require.False(t, anyConditionMatches(entries, act, allow))
+		require.False(t, anyConditionMatches(entries, act, allow, "test-binding"))
 	})
 
 	t.Run("errored entry on deny policy fails closed", func(t *testing.T) {
 		entries := []authzv1alpha1.AuthzCondition{
 			{Expression: `not valid CEL ((((`},
 		}
-		require.True(t, anyConditionMatches(entries, act, deny))
+		require.True(t, anyConditionMatches(entries, act, deny, "test-binding"))
 	})
 
 	t.Run("errored entry on allow policy fails closed", func(t *testing.T) {
 		entries := []authzv1alpha1.AuthzCondition{
 			{Expression: `not valid CEL ((((`},
 		}
-		require.False(t, anyConditionMatches(entries, act, allow))
+		require.False(t, anyConditionMatches(entries, act, allow, "test-binding"))
 	})
 
 	// The error path is order-independent: a broken entry anywhere in the
@@ -1407,8 +1411,8 @@ func TestAnyConditionMatches(t *testing.T) {
 			{Expression: `not valid CEL ((((`},
 		}
 
-		require.False(t, anyConditionMatches(errFirst, act, allow))
-		require.False(t, anyConditionMatches(matchFirst, act, allow))
+		require.False(t, anyConditionMatches(errFirst, act, allow, "test-binding"))
+		require.False(t, anyConditionMatches(matchFirst, act, allow, "test-binding"))
 	})
 
 	t.Run("error overrides clean match on deny regardless of order", func(t *testing.T) {
@@ -1421,8 +1425,8 @@ func TestAnyConditionMatches(t *testing.T) {
 			{Expression: `not valid CEL ((((`},
 		}
 
-		require.True(t, anyConditionMatches(errFirst, act, deny))
-		require.True(t, anyConditionMatches(rejectFirst, act, deny))
+		require.True(t, anyConditionMatches(errFirst, act, deny, "test-binding"))
+		require.True(t, anyConditionMatches(rejectFirst, act, deny, "test-binding"))
 	})
 }
 
@@ -1434,23 +1438,23 @@ func TestEvalCondition(t *testing.T) {
 	const allow = string(authzcore.PolicyEffectAllow)
 
 	t.Run("true expression returns evalAllow", func(t *testing.T) {
-		require.Equal(t, evalAllow, evalCondition(`resource.environment == "dev"`, act, allow))
+		require.Equal(t, evalAllow, evalCondition(`resource.environment == "dev"`, act, allow, "test-binding"))
 	})
 
 	t.Run("false expression returns evalReject", func(t *testing.T) {
-		require.Equal(t, evalReject, evalCondition(`resource.environment == "prod"`, act, allow))
+		require.Equal(t, evalReject, evalCondition(`resource.environment == "prod"`, act, allow, "test-binding"))
 	})
 
 	t.Run("compile error returns evalError", func(t *testing.T) {
-		require.Equal(t, evalError, evalCondition(`this is not valid CEL ((((`, act, allow))
+		require.Equal(t, evalError, evalCondition(`this is not valid CEL ((((`, act, allow, "test-binding"))
 	})
 
 	t.Run("non-bool result returns evalError", func(t *testing.T) {
-		require.Equal(t, evalError, evalCondition(`resource.environment`, act, allow))
+		require.Equal(t, evalError, evalCondition(`resource.environment`, act, allow, "test-binding"))
 	})
 
 	t.Run("expression references unknown attribute returns evalError", func(t *testing.T) {
-		require.Equal(t, evalError, evalCondition(`resource.nonExistentField == "dev"`, act, allow))
+		require.Equal(t, evalError, evalCondition(`resource.nonExistentField == "dev"`, act, allow, "test-binding"))
 	})
 }
 
@@ -1603,7 +1607,7 @@ func TestConditionMatcher(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := ConditionMatcher(tc.requestCtx, tc.action, tc.policyCond, tc.policyEft)
+			got := ConditionMatcher(tc.requestCtx, tc.action, tc.policyCond, tc.policyEft, "test-binding")
 			require.Equal(t, tc.want, got)
 		})
 	}
