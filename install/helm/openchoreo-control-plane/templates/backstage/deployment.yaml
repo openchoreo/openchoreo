@@ -8,7 +8,9 @@ metadata:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: backstage
 spec:
+  {{- if not .Values.backstage.autoscaling.enabled }}
   replicas: {{ .Values.backstage.replicas }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/component: backstage
