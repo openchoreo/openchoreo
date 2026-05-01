@@ -11,7 +11,9 @@ metadata:
     # Trigger rollout when config changes
     checksum/config: {{ include (print $.Template.BasePath "/openchoreo-api/configmap.yaml") . | sha256sum }}
 spec:
+  {{- if not .Values.openchoreoApi.autoscaling.enabled }}
   replicas: {{ .Values.openchoreoApi.replicas }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/component: api-server
