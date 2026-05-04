@@ -109,6 +109,8 @@ func (t *TracingAdapter) GetSpans(ctx context.Context, traceID string, params ob
 		reqBody.SearchScope.Environment = &params.EnvironmentID
 	}
 
+	reqBody.IncludeAttributes = &params.IncludeAttributes
+
 	resp, err := t.client.QuerySpansForTraceWithResponse(ctx, traceID, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute request: %w", err)
@@ -222,6 +224,12 @@ func convertSpansAdapterResponse(resp *gen.TraceSpansQueryResponse) *observabili
 			}
 			if s.Status != nil {
 				span.Status = string(*s.Status)
+			}
+			if s.Attributes != nil {
+				span.Attributes = *s.Attributes
+			}
+			if s.ResourceAttributes != nil {
+				span.ResourceAttributes = *s.ResourceAttributes
 			}
 			result.Spans = append(result.Spans, span)
 		}

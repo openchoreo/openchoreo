@@ -45,13 +45,14 @@ func (a *DefaultTracesAdaptor) GetTraces(ctx context.Context, params observabili
 
 	// Build OpenSearch query params from observability params
 	osParams := opensearch.TracesRequestParams{
-		StartTime:      params.StartTime.Format(time.RFC3339),
-		EndTime:        params.EndTime.Format(time.RFC3339),
-		ProjectUID:     params.ProjectID,
-		EnvironmentUID: params.EnvironmentID,
-		TraceID:        params.TraceID,
-		Limit:          params.Limit,
-		SortOrder:      params.SortOrder,
+		StartTime:         params.StartTime.Format(time.RFC3339),
+		EndTime:           params.EndTime.Format(time.RFC3339),
+		ProjectUID:        params.ProjectID,
+		EnvironmentUID:    params.EnvironmentID,
+		TraceID:           params.TraceID,
+		Limit:             params.Limit,
+		SortOrder:         params.SortOrder,
+		IncludeAttributes: params.IncludeAttributes,
 	}
 	// Only add ComponentUID if it's not empty
 	if params.ComponentID != "" {

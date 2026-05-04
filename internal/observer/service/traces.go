@@ -163,15 +163,16 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 
 	// Build query params for spans with the specific trace ID and scope
 	params := observability.TracesQueryParams{
-		StartTime:     req.StartTime,
-		EndTime:       req.EndTime,
-		Namespace:     req.SearchScope.Namespace,
-		ProjectID:     projectUID,
-		ComponentID:   componentUID,
-		EnvironmentID: environmentUID,
-		TraceID:       traceID,
-		Limit:         req.Limit,
-		SortOrder:     req.SortOrder,
+		StartTime:         req.StartTime,
+		EndTime:           req.EndTime,
+		Namespace:         req.SearchScope.Namespace,
+		ProjectID:         projectUID,
+		ComponentID:       componentUID,
+		EnvironmentID:     environmentUID,
+		TraceID:           traceID,
+		Limit:             req.Limit,
+		SortOrder:         req.SortOrder,
+		IncludeAttributes: req.IncludeAttributes,
 	}
 
 	// Route to tracing adapter or OpenSearch
@@ -182,7 +183,7 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 			s.logger.Error("Failed to retrieve spans", "error", err)
 			return nil, fmt.Errorf("%w: %w", ErrTracesRetrieval, err)
 		}
-		return s.convertAdapterSpansToResponse(spansResult), nil
+		return s.convertAdapterSpansToResponse(spansResult, req.IncludeAttributes), nil
 	}
 
 	if s.defaultAdaptor == nil {
@@ -196,7 +197,7 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 		return nil, fmt.Errorf("%w: %w", ErrTracesRetrieval, err)
 	}
 
-	return s.convertSpansToResponse(result), nil
+	return s.convertSpansToResponse(result, req.IncludeAttributes), nil
 }
 
 // GetSpanDetails retrieves detailed information about a specific span
@@ -290,7 +291,7 @@ func (s *TracesService) convertToResponse(result *observability.TracesQueryResul
 	}
 }
 
-func (s *TracesService) convertSpansToResponse(result *observability.TracesQueryResult) *types.SpansQueryResponse {
+func (s *TracesService) convertSpansToResponse(result *observability.TracesQueryResult, includeAttributes bool) *types.SpansQueryResponse {
 	var spans []types.SpanInfo
 	// Calculate total spans to preallocate
 	totalSpans := 0
@@ -302,18 +303,21 @@ func (s *TracesService) convertSpansToResponse(result *observability.TracesQuery
 	// Flatten spans from all traces
 	for _, trace := range result.Traces {
 		for _, traceSpan := range trace.Spans {
-			spans = append(spans, types.SpanInfo{
-				SpanID:             traceSpan.SpanID,
-				SpanName:           traceSpan.Name,
-				SpanKind:           traceSpan.SpanKind,
-				ParentSpanID:       traceSpan.ParentSpanID,
-				StartTime:          &traceSpan.StartTime,
-				EndTime:            &traceSpan.EndTime,
-				DurationNs:         traceSpan.DurationNs,
-				Status:             traceSpan.Status,
-				Attributes:         traceSpan.Attributes,
-				ResourceAttributes: traceSpan.ResourceAttributes,
-			})
+			span := types.SpanInfo{
+				SpanID:       traceSpan.SpanID,
+				SpanName:     traceSpan.Name,
+				SpanKind:     traceSpan.SpanKind,
+				ParentSpanID: traceSpan.ParentSpanID,
+				StartTime:    &traceSpan.StartTime,
+				EndTime:      &traceSpan.EndTime,
+				DurationNs:   traceSpan.DurationNs,
+				Status:       traceSpan.Status,
+			}
+			if includeAttributes {
+				span.Attributes = traceSpan.Attributes
+				span.ResourceAttributes = traceSpan.ResourceAttributes
+			}
+			spans = append(spans, span)
 		}
 	}
 
@@ -324,23 +328,26 @@ func (s *TracesService) convertSpansToResponse(result *observability.TracesQuery
 	}
 }
 
-func (s *TracesService) convertAdapterSpansToResponse(result *observability.SpansResult) *types.SpansQueryResponse {
+func (s *TracesService) convertAdapterSpansToResponse(result *observability.SpansResult, includeAttributes bool) *types.SpansQueryResponse {
 	spans := make([]types.SpanInfo, 0, len(result.Spans))
 	for _, span := range result.Spans {
 		startTime := span.StartTime
 		endTime := span.EndTime
-		spans = append(spans, types.SpanInfo{
-			SpanID:             span.SpanID,
-			SpanName:           span.Name,
-			SpanKind:           span.SpanKind,
-			ParentSpanID:       span.ParentSpanID,
-			StartTime:          &startTime,
-			EndTime:            &endTime,
-			DurationNs:         span.DurationNs,
-			Status:             span.Status,
-			Attributes:         span.Attributes,
-			ResourceAttributes: span.ResourceAttributes,
-		})
+		spanInfo := types.SpanInfo{
+			SpanID:       span.SpanID,
+			SpanName:     span.Name,
+			SpanKind:     span.SpanKind,
+			ParentSpanID: span.ParentSpanID,
+			StartTime:    &startTime,
+			EndTime:      &endTime,
+			DurationNs:   span.DurationNs,
+			Status:       span.Status,
+		}
+		if includeAttributes {
+			spanInfo.Attributes = span.Attributes
+			spanInfo.ResourceAttributes = span.ResourceAttributes
+		}
+		spans = append(spans, spanInfo)
 	}
 
 	return &types.SpansQueryResponse{

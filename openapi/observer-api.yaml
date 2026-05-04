@@ -937,6 +937,10 @@ components:
             - asc
             - desc
           default: desc
+        includeAttributes:
+          type: boolean
+          default: false
+          description: Whether to include span and resource attributes in the response
         searchScope:
           $ref: "#/components/schemas/ComponentSearchScope"
       required: [startTime, endTime, searchScope]
@@ -1028,6 +1032,14 @@ components:
                   - error
                   - unset
                 description: The execution status of the span. One of "ok", "error", or "unset".
+              attributes:
+                type: object
+                description: The span attributes
+                additionalProperties: true
+              resourceAttributes:
+                type: object
+                description: The resource attributes
+                additionalProperties: true
         total:
           type: integer
           description: The total number of matching spans, capped at 1000

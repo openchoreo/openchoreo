@@ -7,11 +7,12 @@ import "time"
 
 // TracesQueryRequest represents the internal request for querying traces
 type TracesQueryRequest struct {
-	StartTime   time.Time
-	EndTime     time.Time
-	Limit       int
-	SortOrder   string
-	SearchScope ComponentSearchScope
+	StartTime         time.Time
+	EndTime           time.Time
+	Limit             int
+	SortOrder         string
+	IncludeAttributes bool
+	SearchScope       ComponentSearchScope
 }
 
 // TracesQueryResponse represents the internal response for trace queries
