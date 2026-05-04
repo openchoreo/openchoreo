@@ -264,6 +264,8 @@ func (r *Reconciler) applyResources(ctx context.Context, planeClient client.Clie
 func (r *Reconciler) makeDesiredResources(release *openchoreov1alpha1.RenderedRelease) ([]*unstructured.Unstructured, error) {
 	desiredObjects := make([]*unstructured.Unstructured, 0, len(release.Spec.Resources))
 
+	restartedAt := release.Annotations[controller.AnnotationKeyRestartedAt]
+
 	for _, resource := range release.Spec.Resources {
 		// Convert RawExtension to Unstructured
 		obj := &unstructured.Unstructured{}
@@ -284,10 +286,31 @@ func (r *Reconciler) makeDesiredResources(release *openchoreov1alpha1.RenderedRe
 
 		obj.SetLabels(resourceLabels)
 
+		if restartedAt != "" {
+			injectRestartedAt(obj, restartedAt)
+		}
+
 		desiredObjects = append(desiredObjects, obj)
 	}
 
 	return desiredObjects, nil
+}
+
+// injectRestartedAt sets kubectl.kubernetes.io/restartedAt on the pod template
+// of an apps/v1 Deployment so the data plane performs a rolling restart, the
+// same way `kubectl rollout restart deployment` does. It is a no-op for any
+// other kind.
+func injectRestartedAt(obj *unstructured.Unstructured, value string) {
+	gvk := obj.GroupVersionKind()
+	if gvk.Group != "apps" || gvk.Kind != "Deployment" {
+		return
+	}
+	annotations, _, _ := unstructured.NestedStringMap(obj.Object, "spec", "template", "metadata", "annotations")
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations["kubectl.kubernetes.io/restartedAt"] = value
+	_ = unstructured.SetNestedStringMap(obj.Object, annotations, "spec", "template", "metadata", "annotations")
 }
 
 // makeDesiredNamespaces creates namespace objects from the desired resources with proper labels

@@ -568,6 +568,15 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
 		}
 
+		if v, ok := releaseBinding.Annotations[controller.AnnotationKeyRestartedAt]; ok {
+			if dataPlaneRelease.Annotations == nil {
+				dataPlaneRelease.Annotations = map[string]string{}
+			}
+			dataPlaneRelease.Annotations[controller.AnnotationKeyRestartedAt] = v
+		} else {
+			delete(dataPlaneRelease.Annotations, controller.AnnotationKeyRestartedAt)
+		}
+
 		dataPlaneRelease.Spec = openchoreov1alpha1.RenderedReleaseSpec{
 			Owner: openchoreov1alpha1.RenderedReleaseOwner{
 				ProjectName:   releaseBinding.Spec.Owner.ProjectName,

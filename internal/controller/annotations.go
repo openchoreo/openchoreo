@@ -17,6 +17,14 @@ const (
 	AnnotationKeyDisplayName = "openchoreo.dev/display-name"
 	AnnotationKeyDescription = "openchoreo.dev/description"
 
+	// AnnotationKeyRestartedAt is set on a ReleaseBinding to trigger a rolling
+	// restart of every Deployment deployed by the binding. The ReleaseBinding
+	// controller propagates the annotation to the dataplane RenderedRelease,
+	// and the rendered release controller injects the value into
+	// kubectl.kubernetes.io/restartedAt on each Deployment's pod template at
+	// apply time. The value is opaque; any change triggers a restart.
+	AnnotationKeyRestartedAt = "openchoreo.dev/restartedAt"
+
 	// SchemaExtensionComponentParameterRepositoryPrefix is the common prefix for all openAPIV3Schema
 	// x- extension keys that mark component repository parameter fields (set to true on the property).
 	// The suffix after the prefix is used as the role key in the map returned by ExtractComponentRepositoryPaths
