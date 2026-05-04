@@ -33,6 +33,8 @@ const (
 	targetPlaneDataPlane          = "dataplane"
 	targetPlaneObservabilityPlane = "observabilityplane"
 
+	appsAPIGroup = "apps"
+
 	// ConditionResourcesApplied indicates whether resources were successfully applied to the target plane.
 	// When False, it contains the error message from the failed apply operation.
 	ConditionResourcesApplied = "ResourcesApplied"
@@ -302,7 +304,7 @@ func (r *Reconciler) makeDesiredResources(release *openchoreov1alpha1.RenderedRe
 // other kind.
 func injectRestartedAt(obj *unstructured.Unstructured, value string) {
 	gvk := obj.GroupVersionKind()
-	if gvk.Group != "apps" || gvk.Kind != "Deployment" {
+	if gvk.Group != appsAPIGroup || gvk.Kind != "Deployment" {
 		return
 	}
 	annotations, _, _ := unstructured.NestedStringMap(obj.Object, "spec", "template", "metadata", "annotations")
