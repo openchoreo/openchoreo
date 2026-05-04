@@ -289,7 +289,9 @@ func (r *Reconciler) makeDesiredResources(release *openchoreov1alpha1.RenderedRe
 		obj.SetLabels(resourceLabels)
 
 		if restartedAt != "" {
-			injectRestartedAt(obj, restartedAt)
+			if err := injectRestartedAt(obj, restartedAt); err != nil {
+				return nil, fmt.Errorf("failed to inject restartedAt on resource %s: %w", resource.ID, err)
+			}
 		}
 
 		desiredObjects = append(desiredObjects, obj)
@@ -301,18 +303,26 @@ func (r *Reconciler) makeDesiredResources(release *openchoreov1alpha1.RenderedRe
 // injectRestartedAt sets kubectl.kubernetes.io/restartedAt on the pod template
 // of an apps/v1 Deployment so the data plane performs a rolling restart, the
 // same way `kubectl rollout restart deployment` does. It is a no-op for any
-// other kind.
-func injectRestartedAt(obj *unstructured.Unstructured, value string) {
+// other kind. Returns an error if the manifest is malformed (e.g. annotations
+// is not a string map), so the caller can surface it instead of silently
+// dropping the restart trigger.
+func injectRestartedAt(obj *unstructured.Unstructured, value string) error {
 	gvk := obj.GroupVersionKind()
 	if gvk.Group != appsAPIGroup || gvk.Kind != "Deployment" {
-		return
+		return nil
 	}
-	annotations, _, _ := unstructured.NestedStringMap(obj.Object, "spec", "template", "metadata", "annotations")
+	annotations, _, err := unstructured.NestedStringMap(obj.Object, "spec", "template", "metadata", "annotations")
+	if err != nil {
+		return fmt.Errorf("read pod template annotations: %w", err)
+	}
 	if annotations == nil {
 		annotations = map[string]string{}
 	}
 	annotations["kubectl.kubernetes.io/restartedAt"] = value
-	_ = unstructured.SetNestedStringMap(obj.Object, annotations, "spec", "template", "metadata", "annotations")
+	if err := unstructured.SetNestedStringMap(obj.Object, annotations, "spec", "template", "metadata", "annotations"); err != nil {
+		return fmt.Errorf("set pod template annotations: %w", err)
+	}
+	return nil
 }
 
 // makeDesiredNamespaces creates namespace objects from the desired resources with proper labels
