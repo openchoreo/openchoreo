@@ -46,6 +46,7 @@ func (v *ClusterAuthzRoleBindingValidator) ValidateCreate(_ context.Context, obj
 	if !ok {
 		return nil, fmt.Errorf("expected ClusterAuthzRoleBinding, got %T", obj)
 	}
+	log.Info("Validation for ClusterAuthzRoleBinding upon creation", "name", rb.GetName())
 	if errs := validateClusterRoleMappings(rb.Spec.RoleMappings); len(errs) > 0 {
 		return nil, errs.ToAggregate()
 	}
@@ -57,13 +58,19 @@ func (v *ClusterAuthzRoleBindingValidator) ValidateUpdate(_ context.Context, _, 
 	if !ok {
 		return nil, fmt.Errorf("expected ClusterAuthzRoleBinding, got %T", newObj)
 	}
+	log.Info("Validation for ClusterAuthzRoleBinding upon update", "name", rb.GetName())
 	if errs := validateClusterRoleMappings(rb.Spec.RoleMappings); len(errs) > 0 {
 		return nil, errs.ToAggregate()
 	}
 	return nil, nil
 }
 
-func (v *ClusterAuthzRoleBindingValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (v *ClusterAuthzRoleBindingValidator) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	rb, ok := obj.(*openchoreodevv1alpha1.ClusterAuthzRoleBinding)
+	if !ok {
+		return nil, fmt.Errorf("expected ClusterAuthzRoleBinding, got %T", obj)
+	}
+	log.Info("Validation for ClusterAuthzRoleBinding upon deletion", "name", rb.GetName())
 	return nil, nil
 }
 

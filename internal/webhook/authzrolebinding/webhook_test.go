@@ -104,10 +104,11 @@ var _ = Describe("AuthzRoleBinding Webhook", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("should admit deletion regardless of object type", func() {
+		It("should return an error when given a non-AuthzRoleBinding object", func() {
 			wrongObj := &openchoreodevv1alpha1.Project{}
 			_, err := validator.ValidateDelete(ctx, wrongObj)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected AuthzRoleBinding"))
 		})
 	})
 })

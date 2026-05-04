@@ -44,6 +44,7 @@ func (v *AuthzRoleBindingValidator) ValidateCreate(_ context.Context, obj runtim
 	if !ok {
 		return nil, fmt.Errorf("expected AuthzRoleBinding, got %T", obj)
 	}
+	log.Info("Validation for AuthzRoleBinding upon creation", "name", rb.GetName())
 	if errs := validateRoleMappings(rb.Spec.RoleMappings); len(errs) > 0 {
 		return nil, errs.ToAggregate()
 	}
@@ -55,12 +56,18 @@ func (v *AuthzRoleBindingValidator) ValidateUpdate(_ context.Context, _, newObj 
 	if !ok {
 		return nil, fmt.Errorf("expected AuthzRoleBinding, got %T", newObj)
 	}
+	log.Info("Validation for AuthzRoleBinding upon update", "name", rb.GetName())
 	if errs := validateRoleMappings(rb.Spec.RoleMappings); len(errs) > 0 {
 		return nil, errs.ToAggregate()
 	}
 	return nil, nil
 }
 
-func (v *AuthzRoleBindingValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (v *AuthzRoleBindingValidator) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+	rb, ok := obj.(*openchoreodevv1alpha1.AuthzRoleBinding)
+	if !ok {
+		return nil, fmt.Errorf("expected AuthzRoleBinding, got %T", obj)
+	}
+	log.Info("Validation for AuthzRoleBinding upon deletion", "name", rb.GetName())
 	return nil, nil
 }
