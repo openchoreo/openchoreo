@@ -31,10 +31,15 @@ func NewTracesServiceWithAuthz(s TracesQuerier, pdp authzcore.PDP, logger *slog.
 func (s *tracesServiceWithAuthz) QueryTraces(ctx context.Context, req *types.TracesQueryRequest) (*types.TracesQueryResponse, error) {
 	scope := req.SearchScope
 	resourceType, resourceName, hierarchy := observerAuthz.ComponentScopeAuthz(scope.Namespace, scope.Project, scope.Component)
+	// TODO: currently the obs API is not equipped to provide cluster level environments,
+	// once that is done update false to proper isClusterScoped value.
 	if err := observerAuthz.CheckAuthorization(
 		ctx, s.logger, s.pdp,
 		observerAuthz.ActionViewTraces,
 		resourceType, resourceName, hierarchy,
+		authzcore.Context{Resource: authzcore.ResourceAttribute{
+			Environment: observerAuthz.FormatDualScopedResourceName(scope.Namespace, scope.Environment, false),
+		}},
 	); err != nil {
 		return nil, err
 	}
@@ -44,10 +49,15 @@ func (s *tracesServiceWithAuthz) QueryTraces(ctx context.Context, req *types.Tra
 func (s *tracesServiceWithAuthz) QuerySpans(ctx context.Context, traceID string, req *types.TracesQueryRequest) (*types.SpansQueryResponse, error) {
 	scope := req.SearchScope
 	resourceType, resourceName, hierarchy := observerAuthz.ComponentScopeAuthz(scope.Namespace, scope.Project, scope.Component)
+	// TODO: currently the obs API is not equipped to provide cluster level environments,
+	// once that is done update false to proper isClusterScoped value.
 	if err := observerAuthz.CheckAuthorization(
 		ctx, s.logger, s.pdp,
 		observerAuthz.ActionViewTraces,
 		resourceType, resourceName, hierarchy,
+		authzcore.Context{Resource: authzcore.ResourceAttribute{
+			Environment: observerAuthz.FormatDualScopedResourceName(scope.Namespace, scope.Environment, false),
+		}},
 	); err != nil {
 		return nil, err
 	}

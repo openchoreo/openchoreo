@@ -35,10 +35,15 @@ func (s *metricsServiceWithAuthz) QueryMetrics(ctx context.Context, req *types.M
 	}
 	scope := req.SearchScope
 	resourceType, resourceName, hierarchy := observerAuthz.ComponentScopeAuthz(scope.Namespace, scope.Project, scope.Component)
+	// TODO: currently the obs API is not equipped to provide cluster level environments,
+	// once that is done update false to proper isClusterScoped value.
 	if err := observerAuthz.CheckAuthorization(
 		ctx, s.logger, s.pdp,
 		observerAuthz.ActionViewMetrics,
 		resourceType, resourceName, hierarchy,
+		authzcore.Context{Resource: authzcore.ResourceAttribute{
+			Environment: observerAuthz.FormatDualScopedResourceName(scope.Namespace, scope.Environment, false),
+		}},
 	); err != nil {
 		return nil, err
 	}

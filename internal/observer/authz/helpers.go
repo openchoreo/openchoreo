@@ -13,6 +13,19 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
+// FormatDualScopedResourceName returns the authz-engine identifier for a dual-scoped resource.
+// Namespace-scoped resources use "{namespace}/{name}"; cluster-scoped resources use plain "{name}".
+// An empty name returns "" so callers can omit the attribute when the scope is not provided.
+func FormatDualScopedResourceName(namespace, name string, isClusterScoped bool) string {
+	if name == "" {
+		return ""
+	}
+	if isClusterScoped || namespace == "" {
+		return name
+	}
+	return namespace + "/" + name
+}
+
 // ComponentScopeAuthz determines the authorization resource type, name, and hierarchy
 // from a component search scope (namespace/project/component). The most specific
 // non-empty field determines the resource type.
@@ -64,7 +77,7 @@ func LogsScopeAuthz(req *types.LogsQueryRequest) (ResourceType, string, authzcor
 	return "", "", authzcore.ResourceHierarchy{}, fmt.Errorf("invalid search scope")
 }
 
-// CheckAuthorization performs a complete authorization check for observer operations
+// CheckAuthorization performs a complete authorization check for observer operations.
 func CheckAuthorization(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -73,6 +86,7 @@ func CheckAuthorization(
 	resourceType ResourceType,
 	resourceID string,
 	hierarchy authzcore.ResourceHierarchy,
+	authzCtx authzcore.Context,
 ) error {
 	if pdp == nil {
 		logger.Debug("Authorization disabled, skipping check")
@@ -100,7 +114,7 @@ func CheckAuthorization(
 			ID:        resourceID,
 			Hierarchy: hierarchy,
 		},
-		Context: authzcore.Context{},
+		Context: authzCtx,
 	}
 
 	decision, err := pdp.Evaluate(ctx, authzReq)

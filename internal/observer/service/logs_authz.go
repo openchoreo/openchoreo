@@ -33,10 +33,20 @@ func (s *logsServiceWithAuthz) QueryLogs(ctx context.Context, req *types.LogsQue
 	if err != nil {
 		return nil, err
 	}
+	// TODO: currently the obs API is not equipped to provide cluster level environments,
+	// once that is done update false to proper isClusterScoped value.
+	authzCtx := authzcore.Context{}
+	if req.SearchScope != nil && req.SearchScope.Component != nil {
+		scope := req.SearchScope.Component
+		authzCtx.Resource = authzcore.ResourceAttribute{
+			Environment: observerAuthz.FormatDualScopedResourceName(scope.Namespace, scope.Environment, false),
+		}
+	}
 	if err := observerAuthz.CheckAuthorization(
 		ctx, s.logger, s.pdp,
 		observerAuthz.ActionViewLogs,
 		resourceType, resourceName, hierarchy,
+		authzCtx,
 	); err != nil {
 		return nil, err
 	}

@@ -25,6 +25,55 @@ func noopLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
+func TestFormatDualScopedResourceName(t *testing.T) {
+	tests := []struct {
+		name            string
+		namespace       string
+		resourceName    string
+		isClusterScoped bool
+		want            string
+	}{
+		{
+			name:         "namespace-scoped joins namespace and name",
+			namespace:    "acme",
+			resourceName: "dev",
+			want:         "acme/dev",
+		},
+		{
+			name:            "cluster-scoped returns plain name",
+			namespace:       "acme",
+			resourceName:    "dev",
+			isClusterScoped: true,
+			want:            "dev",
+		},
+		{
+			name:         "empty name returns empty string",
+			namespace:    "acme",
+			resourceName: "",
+			want:         "",
+		},
+		{
+			name:            "empty name with cluster scope returns empty string",
+			resourceName:    "",
+			isClusterScoped: true,
+			want:            "",
+		},
+		{
+			name:         "empty namespace falls back to plain name",
+			namespace:    "",
+			resourceName: "dev",
+			want:         "dev",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FormatDualScopedResourceName(tt.namespace, tt.resourceName, tt.isClusterScoped)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 // ─────────────────────── ComponentScopeAuthz ───────────────────────
 
 func TestComponentScopeAuthz(t *testing.T) {
@@ -234,6 +283,7 @@ func TestCheckAuthorization_PDPNil(t *testing.T) {
 		ResourceTypeComponent,
 		"api",
 		authzcore.ResourceHierarchy{Namespace: "acme"},
+		authzcore.Context{},
 	)
 	assert.NoError(t, err, "nil PDP should skip authorization")
 }
@@ -249,6 +299,7 @@ func TestCheckAuthorization_NoSubjectContext(t *testing.T) {
 		ResourceTypeComponent,
 		"api",
 		authzcore.ResourceHierarchy{},
+		authzcore.Context{},
 	)
 	assert.ErrorIs(t, err, ErrAuthzUnauthorized)
 }
@@ -266,6 +317,7 @@ func TestCheckAuthorization_PDPEvaluateError(t *testing.T) {
 		ResourceTypeComponent,
 		"api",
 		authzcore.ResourceHierarchy{Namespace: "acme"},
+		authzcore.Context{},
 	)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "upstream failure")
@@ -284,6 +336,7 @@ func TestCheckAuthorization_DecisionAllowed(t *testing.T) {
 		ResourceTypeComponent,
 		"api",
 		authzcore.ResourceHierarchy{Namespace: "acme"},
+		authzcore.Context{},
 	)
 	assert.NoError(t, err)
 }
@@ -301,6 +354,7 @@ func TestCheckAuthorization_DecisionDenied(t *testing.T) {
 		ResourceTypeComponent,
 		"api",
 		authzcore.ResourceHierarchy{Namespace: "acme"},
+		authzcore.Context{},
 	)
 	assert.ErrorIs(t, err, ErrAuthzForbidden)
 }
@@ -321,6 +375,7 @@ func TestCheckAuthorization_BuildsCorrectRequest(t *testing.T) {
 		ResourceTypeComponent,
 		"api",
 		hierarchy,
+		authzcore.Context{},
 	)
 	require.NoError(t, err)
 	require.NotNil(t, capturedReq)
@@ -332,4 +387,27 @@ func TestCheckAuthorization_BuildsCorrectRequest(t *testing.T) {
 	assert.Equal(t, "user", capturedReq.SubjectContext.Type)
 	assert.Equal(t, "groups", capturedReq.SubjectContext.EntitlementClaim)
 	assert.Equal(t, []string{"dev-team"}, capturedReq.SubjectContext.EntitlementValues)
+}
+
+func TestCheckAuthorization_ContextPropagated(t *testing.T) {
+	var capturedReq *authzcore.EvaluateRequest
+	mockPDP := coremocks.NewMockPDP(t)
+	mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, req *authzcore.EvaluateRequest) { capturedReq = req }).
+		Return(&authzcore.Decision{Decision: true}, nil)
+
+	authzCtx := authzcore.Context{Resource: authzcore.ResourceAttribute{Environment: "acme/dev"}}
+	err := CheckAuthorization(
+		ctxWithSubject(),
+		noopLogger(),
+		mockPDP,
+		ActionViewLogs,
+		ResourceTypeComponent,
+		"api",
+		authzcore.ResourceHierarchy{Namespace: "acme"},
+		authzCtx,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, capturedReq)
+	assert.Equal(t, authzCtx, capturedReq.Context)
 }
