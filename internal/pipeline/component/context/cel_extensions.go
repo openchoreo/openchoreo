@@ -457,8 +457,15 @@ func makeVolumesList(containerConfig map[string]any, prefix string) []map[string
 		}
 	}
 
-	for _, volume := range volumes {
-		result = append(result, volume)
+	// Sort by name so the slice order is stable across renders; otherwise
+	// the Deployment's pod-template-hash flips on every reconcile.
+	names := make([]string, 0, len(volumes))
+	for name := range volumes {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		result = append(result, volumes[name])
 	}
 
 	return result

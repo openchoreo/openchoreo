@@ -1165,6 +1165,72 @@ func TestConfigurationsToVolumesMacro(t *testing.T) {
 	}
 }
 
+// TestConfigurationsToVolumesMacro_DeterministicOrder guards against rollout loops
+// caused by Go's randomized map iteration. With many file mounts the rendered
+// volumes slice must be in a stable, sorted order — otherwise SSA persists a
+// different order each render, the Deployment's pod-template-hash changes, and
+// pods needlessly roll. See issue #3302.
+func TestConfigurationsToVolumesMacro_DeterministicOrder(t *testing.T) {
+	configFiles := []any{
+		map[string]any{"name": "alpha.properties", "mountPath": "/etc/alpha"},
+		map[string]any{"name": "bravo.properties", "mountPath": "/etc/bravo"},
+		map[string]any{"name": "charlie.properties", "mountPath": "/etc/charlie"},
+		map[string]any{"name": "delta.properties", "mountPath": "/etc/delta"},
+	}
+	secretFiles := []any{
+		map[string]any{"name": "echo.crt", "mountPath": "/etc/echo"},
+		map[string]any{"name": "foxtrot.crt", "mountPath": "/etc/foxtrot"},
+	}
+	inputs := map[string]any{
+		"metadata": map[string]any{
+			"componentName":   "app",
+			"environmentName": "dev",
+		},
+		"configurations": map[string]any{
+			"configs": map[string]any{"files": configFiles},
+			"secrets": map[string]any{"files": secretFiles},
+		},
+	}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+
+	render := func() []map[string]any {
+		result, err := engine.Render("${configurations.toVolumes()}", inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		got, ok := result.([]map[string]any)
+		if !ok {
+			t.Fatalf("expected []map[string]any, got %T", result)
+		}
+		return got
+	}
+
+	first := render()
+
+	if len(first) != len(configFiles)+len(secretFiles) {
+		t.Fatalf("expected %d volumes, got %d", len(configFiles)+len(secretFiles), len(first))
+	}
+
+	names := make([]string, 0, len(first))
+	for _, v := range first {
+		names = append(names, v["name"].(string))
+	}
+	for i := 1; i < len(names); i++ {
+		if names[i-1] >= names[i] {
+			t.Errorf("volumes not sorted by name: %v", names)
+			break
+		}
+	}
+
+	for i := 0; i < 50; i++ {
+		next := render()
+		if diff := cmp.Diff(first, next); diff != "" {
+			t.Fatalf("volume order is non-deterministic across renders (-first +iter%d):\n%s", i, diff)
+		}
+	}
+}
+
 func TestConfigurationsToConfigEnvsByContainerMacro(t *testing.T) {
 	tests := []struct {
 		name   string
