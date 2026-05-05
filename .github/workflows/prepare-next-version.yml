@@ -1,0 +1,92 @@
+name: Prepare Next Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      major:
+        description: 'Next major version'
+        required: true
+        type: number
+      minor:
+        description: 'Next minor version'
+        required: true
+        type: number
+      patch:
+        description: 'Next patch version'
+        required: true
+        type: number
+      pre_release_id:
+        description: 'Prerelease identifier (e.g. rc.1, beta.2)'
+        required: false
+        type: string
+
+concurrency:
+  group: prepare-next-version-${{ github.event.inputs.major }}-${{ github.event.inputs.minor }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set git identity
+        run: |
+          git config user.name "openchoreo-bot"
+          git config user.email "openchoreo-bot@users.noreply.github.com"
+
+      - name: Resolve target branch and version
+        env:
+          IN_MAJOR: ${{ github.event.inputs.major }}
+          IN_MINOR: ${{ github.event.inputs.minor }}
+          IN_PATCH: ${{ github.event.inputs.patch }}
+          IN_PRERELEASE: ${{ github.event.inputs.pre_release_id || '' }}
+        run: |
+          MAJOR="$IN_MAJOR"
+          MINOR="$IN_MINOR"
+          PATCH="$IN_PATCH"
+          PRERELEASE="$IN_PRERELEASE"
+
+          VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          if [ -n "$PRERELEASE" ]; then
+            VERSION="${VERSION}-${PRERELEASE}"
+          fi
+
+          if git ls-remote --exit-code origin "refs/heads/release-v${MAJOR}.${MINOR}" 2>/dev/null; then
+            TARGET="release-v${MAJOR}.${MINOR}"
+          else
+            TARGET="main"
+          fi
+
+          echo "TARGET=${TARGET}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Create version bump branch and PR
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        run: |
+          BRANCH="release-next-v${{ env.VERSION }}"
+
+          git fetch origin "${{ env.TARGET }}"
+          git checkout -b "${BRANCH}" "origin/${{ env.TARGET }}"
+
+          echo "${{ env.VERSION }}" > VERSION
+          git add VERSION
+          git diff --staged --quiet || git commit -s -m "chore: bump version to ${{ env.VERSION }}"
+
+          git push origin --delete "${BRANCH}" 2>/dev/null || true
+          git push origin "${BRANCH}"
+          PR_TITLE="chore: bump version to ${{ env.VERSION }}"
+          gh pr create \
+            --base "${{ env.TARGET }}" \
+            --head "${BRANCH}" \
+            --title "${PR_TITLE}" \
+            --body "Bump to next development version ${{ env.VERSION }}. Before merging, add a \\`${{ env.VERSION }}\\` section header to \\`CHANGELOG.md\\` if this is a new release." \
+            --label "type/release"

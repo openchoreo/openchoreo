@@ -1,0 +1,214 @@
+name: Release Orchestrator
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'full (branch+tag), branch, tag'
+        required: true
+        type: choice
+        options:
+          - full
+          - branch
+          - tag
+      major:
+        description: 'Major version'
+        required: true
+        type: number
+      minor:
+        description: 'Minor version'
+        required: true
+        type: number
+      patch:
+        description: 'Patch version'
+        required: true
+        type: number
+      pre_release_id:
+        description: 'Prerelease identifier (e.g. rc.1, beta.2)'
+        required: false
+        type: string
+      commit_sha:
+        description: 'Explicit commit SHA to tag (overrides automatic resolution)'
+        required: false
+        type: string
+
+concurrency:
+  group: release-orchestrator-${{ github.event.inputs.major }}-${{ github.event.inputs.minor }}
+  cancel-in-progress: false
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          token: ${{ secrets.RELEASE_PAT }}
+          fetch-depth: 0
+
+      - name: Set git identity
+        run: |
+          git config user.name "openchoreo-bot"
+          git config user.email "openchoreo-bot@users.noreply.github.com"
+
+      - name: Resolve version
+        env:
+          IN_MAJOR: ${{ github.event.inputs.major }}
+          IN_MINOR: ${{ github.event.inputs.minor }}
+          IN_PATCH: ${{ github.event.inputs.patch }}
+          IN_PRERELEASE: ${{ github.event.inputs.pre_release_id || '' }}
+        run: |
+          MAJOR="$IN_MAJOR"
+          MINOR="$IN_MINOR"
+          PATCH="$IN_PATCH"
+          PRERELEASE="$IN_PRERELEASE"
+
+          if [[ ! "$MAJOR" =~ ^[0-9]+$ ]] || [[ ! "$MINOR" =~ ^[0-9]+$ ]] || [[ ! "$PATCH" =~ ^[0-9]+$ ]]; then
+            echo "::error::major, minor, patch must be numbers"
+            exit 1
+          fi
+
+          VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          if [ -n "$PRERELEASE" ]; then
+            if [[ ! "$PRERELEASE" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+              echo "::error::Invalid prerelease identifier: ${PRERELEASE}"
+              exit 1
+            fi
+            VERSION="${VERSION}-${PRERELEASE}"
+          fi
+
+          TAG="v${VERSION}"
+          echo "MAJOR=${MAJOR}" >> $GITHUB_ENV
+          echo "MINOR=${MINOR}" >> $GITHUB_ENV
+          echo "PATCH=${PATCH}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "RELEASE_TAG=${TAG}" >> $GITHUB_ENV
+          echo "PRERELEASE=${PRERELEASE}" >> $GITHUB_ENV
+          echo "CHECKOUT_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+      - name: Validate VERSION file
+        run: |
+          FILE_VERSION=$(cat VERSION | tr -d '\n\r')
+          if [ "${FILE_VERSION}" != "${{ env.VERSION }}" ]; then
+            echo "::error::VERSION file contains '${FILE_VERSION}', expected '${{ env.VERSION }}'"
+            exit 1
+          fi
+
+      - name: Check for existing tag
+        run: |
+          TAG="${{ env.RELEASE_TAG }}"
+          if git ls-remote --exit-code origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::error::Tag ${TAG} already exists on remote. Remove it first if you want to retag."
+            exit 1
+          fi
+
+      # ----------------------------------------------------------------
+      # Branch step: create release-vX.Y if it doesn't exist
+      # ----------------------------------------------------------------
+      - name: Check if release branch exists
+        if: ${{ github.event.inputs.action == 'full' || github.event.inputs.action == 'branch' }}
+        run: |
+          if git ls-remote --exit-code origin "refs/heads/release-v${{ env.MAJOR }}.${{ env.MINOR }}" 2>/dev/null; then
+            echo "BRANCH_EXISTS=true" >> $GITHUB_ENV
+            echo "release-v${{ env.MAJOR }}.${{ env.MINOR }} already exists — skipping branch creation"
+          else
+            echo "BRANCH_EXISTS=false" >> $GITHUB_ENV
+            echo "Creating new release branch: release-v${{ env.MAJOR }}.${{ env.MINOR }}"
+          fi
+
+      - name: Create release branch with sample URL updates
+        if: ${{ env.BRANCH_EXISTS == 'false' && (github.event.inputs.action == 'full' || github.event.inputs.action == 'branch') }}
+        run: |
+          BRANCH="release-v${{ env.MAJOR }}.${{ env.MINOR }}"
+          git checkout -b "${BRANCH}"
+
+          # Update sample URLs to point to the release branch instead of main
+          find samples/ \( -name "*.md" -o -name "*.yaml" \) \
+            -exec sed -i \
+              -e 's|/openchoreo/openchoreo/main/|/openchoreo/openchoreo/'"${BRANCH}"'/|g' \
+              -e 's|/refs/heads/main/|/refs/heads/'"${BRANCH}"'/|g' \
+              -e 's|/openchoreo/openchoreo/blob/main/|/openchoreo/openchoreo/blob/'"${BRANCH}"'/|g' {} +
+
+          # Commit if there are changes
+          git add -u
+          if ! git diff --cached --quiet; then
+            git commit -s -m "chore: update sample URLs to ${BRANCH}"
+          fi
+
+          git push origin "${BRANCH}"
+          echo "Pushed release branch: ${BRANCH}"
+
+      # ----------------------------------------------------------------
+      # Tag step: pre-validate, then push the annotated tag
+      # ----------------------------------------------------------------
+      - name: Determine commit to tag
+        if: ${{ github.event.inputs.action == 'full' || github.event.inputs.action == 'tag' }}
+        env:
+          IN_COMMIT_SHA: ${{ github.event.inputs.commit_sha || '' }}
+        run: |
+          COMMIT_SHA="$IN_COMMIT_SHA"
+
+          if [ -n "$COMMIT_SHA" ]; then
+            if ! git rev-parse --verify "${COMMIT_SHA}^{commit}" >/dev/null 2>&1; then
+              echo "::error::Provided commit_sha ${COMMIT_SHA} does not exist in the repository."
+              exit 1
+            fi
+            echo "TARGET_COMMIT=${COMMIT_SHA}" >> $GITHUB_ENV
+
+          elif git ls-remote --exit-code origin "refs/heads/release-v${{ env.MAJOR }}.${{ env.MINOR }}" 2>/dev/null; then
+            SHA=$(git ls-remote origin "refs/heads/release-v${{ env.MAJOR }}.${{ env.MINOR }}" | awk '{print $1}')
+            echo "TARGET_COMMIT=${SHA}" >> $GITHUB_ENV
+            echo "Target: HEAD of release-v${{ env.MAJOR }}.${{ env.MINOR }} (${SHA})"
+
+          else
+            echo "TARGET_COMMIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
+            echo "Target: current HEAD ($(git rev-parse HEAD))"
+          fi
+
+      - name: Login to GitHub container registry
+        if: ${{ github.event.inputs.action == 'full' || github.event.inputs.action == 'tag' }}
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pre-validate source images exist for target commit
+        if: ${{ github.event.inputs.action == 'full' || github.event.inputs.action == 'tag' }}
+        run: |
+          # When a new branch was just created, the URL-update commit has no CI images.
+          # Point both validation and tagging at the original checkout SHA instead.
+          if [ "${{ env.BRANCH_EXISTS }}" = "false" ]; then
+            echo "TARGET_COMMIT=${{ env.CHECKOUT_SHA }}" >> $GITHUB_ENV
+            SHA=$(git rev-parse --short=8 "${{ env.CHECKOUT_SHA }}")
+          else
+            SHA=$(git rev-parse --short=8 "${{ env.TARGET_COMMIT }}")
+          fi
+          echo "Checking images for commit: ${SHA}"
+
+          # Poll for up to 30 minutes (60s intervals) waiting for the image to appear
+          for i in $(seq 1 30); do
+            if docker buildx imagetools inspect "ghcr.io/openchoreo/controller:${SHA}" >/dev/null 2>&1; then
+              echo "Images verified for commit: ${SHA} (after ${i} attempt(s))"
+              exit 0
+            fi
+            echo "Attempt ${i}/30 — image not found yet. Waiting 60 seconds..."
+            sleep 60
+          done
+
+          echo "::error::Image ghcr.io/openchoreo/controller:${SHA} not found after 30 minutes."
+          echo "::error::build-and-test may still be running or may have failed."
+          echo "::error::Check the build status and retry."
+          exit 1
+
+      - name: Create and push tag
+        if: ${{ github.event.inputs.action == 'full' || github.event.inputs.action == 'tag' }}
+        run: |
+          TAG="${{ env.RELEASE_TAG }}"
+          TARGET="${{ env.TARGET_COMMIT }}"
+          git tag -a "${TAG}" -m "Release ${{ env.VERSION }}" "${TARGET}"
+          git push origin "${TAG}"
+          echo "Tag pushed: ${TAG} (commit: ${TARGET})"
