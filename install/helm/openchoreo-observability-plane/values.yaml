@@ -393,9 +393,9 @@ observer:
     # @schema
     # type: boolean
     # description: Enable logs adapter for fetching logs from an external adapter
-    # default: false
+    # default: true
     # @schema
-    enabled: false
+    enabled: true
     # @schema
     # type: string
     # description: URL of the logs adapter service
@@ -502,9 +502,9 @@ observer:
     # @schema
     # type: boolean
     # description: Enable tracing adapter for fetching traces from an external adapter
-    # default: false
+    # default: true
     # @schema
-    enabled: false
+    enabled: true
     # @schema
     # type: string
     # description: URL of the tracing adapter service

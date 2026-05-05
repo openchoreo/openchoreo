@@ -282,6 +282,18 @@ func Load() (*Config, error) {
 		}
 	}
 
+	// Print deprecation notices for adapter-enabled environment variables
+	if os.Getenv("LOGS_ADAPTER_ENABLED") != "" {
+		fmt.Fprintln(os.Stderr, "NOTICE: LOGS_ADAPTER_ENABLED is deprecated. "+
+			"OpenChoreo observability now uses the adapter architecture by default. "+
+			"This environment variable will be removed in a future version.")
+	}
+	if os.Getenv("TRACING_ADAPTER_ENABLED") != "" {
+		fmt.Fprintln(os.Stderr, "NOTICE: TRACING_ADAPTER_ENABLED is deprecated. "+
+			"OpenChoreo observability now uses the adapter architecture by default. "+
+			"This environment variable will be removed in a future version.")
+	}
+
 	// Load environment overrides
 	if len(envOverrides) > 0 {
 		if err := k.Load(confmap.Provider(envOverrides, "."), nil); err != nil {
@@ -371,10 +383,10 @@ func getDefaults() map[string]interface{} {
 			"alert.suppression.window": "1h",
 		},
 		"adapters": map[string]interface{}{
-			"logs.adapter.enabled":    false,
+			"logs.adapter.enabled":    true,
 			"logs.adapter.url":        "http://logs-adapter:9098",
 			"logs.adapter.timeout":    "30s",
-			"tracing.adapter.enabled": false,
+			"tracing.adapter.enabled": true,
 			"tracing.adapter.url":     "http://tracing-adapter:9100",
 			"tracing.adapter.timeout": "30s",
 			"metrics.adapter.url":     "http://metrics-adapter:9099",

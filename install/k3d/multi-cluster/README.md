@@ -601,7 +601,7 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.11 \
+  --version 0.4.0 \
   --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
   --set openSearchCluster.credentialsSecretName="opensearch-admin-credentials" \
   --set openSearch.enabled=false \
@@ -616,7 +616,7 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.11 \
+  --version 0.4.0 \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
@@ -634,7 +634,7 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-wp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.11 \
+  --version 0.4.0 \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
@@ -654,7 +654,7 @@ helm upgrade --install observability-tracing-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.11 \
+  --version 0.4.1 \
   --set global.installationMode="multiClusterReceiver" \
   --set openSearch.enabled=false \
   --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
@@ -669,7 +669,7 @@ helm upgrade --install observability-tracing-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.11 \
+  --version 0.4.1 \
   --set global.installationMode="multiClusterExporter" \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
@@ -689,7 +689,7 @@ helm upgrade --install observability-metrics-prometheus \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.0 \
+  --version 0.4.2 \
   --set global.installationMode="multiClusterReceiver" \
   --set-json 'prometheusCustomizations.http.hostnames=["prometheus.observability.openchoreo.localhost", "host.k3d.internal"]'
 ```
@@ -702,7 +702,7 @@ helm upgrade --install observability-metrics-prometheus \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.0 \
+  --version 0.4.2 \
   --set global.installationMode="multiClusterExporter" \
   --set prometheusCustomizations.http.observabilityPlaneUrl=http://host.k3d.internal:11080/api/v1/write \
   --set kube-prometheus-stack.prometheus.enabled=false \

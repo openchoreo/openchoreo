@@ -280,12 +280,12 @@ _e2e.install-op:
 	@$(call log_info, Installing observability modules)
 	$(E2E_HELM) upgrade --install observability-logs-opensearch \
 		oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
-		--version 0.3.11 \
+		--version 0.4.0 \
 		--namespace $(E2E_OP_NS) \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 	$(E2E_HELM) upgrade --install observability-metrics-prometheus \
 		oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
-		--version 0.3.0 \
+		--version 0.4.2 \
 		--namespace $(E2E_OP_NS) \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 	$(E2E_KUBECTL) wait -n $(E2E_OP_NS) \

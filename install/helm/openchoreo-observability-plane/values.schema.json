@@ -1132,7 +1132,7 @@
           "description": "Configurations for logs adapter connectivity",
           "properties": {
             "enabled": {
-              "default": false,
+              "default": true,
               "description": "Enable logs adapter for fetching logs from an external adapter",
               "title": "enabled",
               "type": "boolean"
@@ -1349,7 +1349,7 @@
           "description": "Configurations for tracing adapter connectivity",
           "properties": {
             "enabled": {
-              "default": false,
+              "default": true,
               "description": "Enable tracing adapter for fetching traces from an external adapter",
               "title": "enabled",
               "type": "boolean"

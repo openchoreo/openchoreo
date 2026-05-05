@@ -223,15 +223,15 @@ func TestLoad_BooleanEnvParsing_InvalidValues(t *testing.T) {
 }
 
 func TestLoad_BooleanEnvParsing_Unset(t *testing.T) {
-	// When env vars are not set, adapters should default to false
+	// When env vars are not set, adapters should default to true
 	os.Unsetenv("LOGS_ADAPTER_ENABLED")
 	os.Unsetenv("TRACING_ADAPTER_ENABLED")
 
 	cfg, err := Load()
 	require.NoError(t, err, "Failed to load config")
 
-	assert.False(t, cfg.Adapters.LogsAdapterEnabled)
-	assert.False(t, cfg.Adapters.TracingAdapterEnabled)
+	assert.True(t, cfg.Adapters.LogsAdapterEnabled)
+	assert.True(t, cfg.Adapters.TracingAdapterEnabled)
 }
 
 func TestValidate(t *testing.T) {

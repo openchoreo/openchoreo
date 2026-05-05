@@ -41,9 +41,9 @@ data:
   {{- if .Values.observer.cors.allowedOrigins }}
   CORS_ALLOWED_ORIGINS: {{ join "," .Values.observer.cors.allowedOrigins | quote }}
   {{- end }}
-  LOGS_ADAPTER_ENABLED: {{ .Values.observer.logsAdapter.enabled | default false | quote }}
+  LOGS_ADAPTER_ENABLED: {{ .Values.observer.logsAdapter.enabled | quote }}
   LOGS_ADAPTER_URL: {{ .Values.observer.logsAdapter.url | default "http://logs-adapter:9098" | quote }}
   LOGS_ADAPTER_TIMEOUT: {{ .Values.observer.logsAdapter.timeout | default "30s" | quote }}
-  TRACING_ADAPTER_ENABLED: {{ .Values.observer.tracingAdapter.enabled | default false | quote }}
+  TRACING_ADAPTER_ENABLED: {{ .Values.observer.tracingAdapter.enabled | quote }}
   TRACING_ADAPTER_URL: {{ .Values.observer.tracingAdapter.url | default "http://tracing-adapter:9100" | quote }}
   TRACING_ADAPTER_TIMEOUT: {{ .Values.observer.tracingAdapter.timeout | default "30s" | quote }}

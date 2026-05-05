@@ -13,9 +13,9 @@ set -euo pipefail
 # -- versions (update these on release branches) --
 OPENCHOREO_REF="main"
 OPENCHOREO_OP_VERSION="0.0.0-latest-dev"
-LOGS_OPENSEARCH_VERSION="0.3.11"
-TRACES_OPENSEARCH_VERSION="0.3.11"
-METRICS_PROMETHEUS_VERSION="0.3.0"
+LOGS_OPENSEARCH_VERSION="0.4.0"
+TRACES_OPENSEARCH_VERSION="0.4.1"
+METRICS_PROMETHEUS_VERSION="0.4.2"
 
 # -- derived constants --
 RAW_BASE="https://raw.githubusercontent.com/openchoreo/openchoreo/${OPENCHOREO_REF}"
