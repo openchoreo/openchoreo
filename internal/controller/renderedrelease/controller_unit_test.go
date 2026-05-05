@@ -217,7 +217,7 @@ func TestFindStaleResources(t *testing.T) {
 // ─────────────────────────────────────────────────────────────
 
 func TestFindAllKnownGVKs(t *testing.T) {
-	const wellKnownCount = 19 // number of well-known GVKs defined in the function (Secret excluded)
+	const wellKnownCount = 20 // number of well-known GVKs defined in the function
 
 	containsGVK := func(gvks []schema.GroupVersionKind, group, kind string) bool {
 		for _, gvk := range gvks {
