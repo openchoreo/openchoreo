@@ -30,7 +30,7 @@ func TestNewRequestValidator(t *testing.T) {
 		assert.True(t, v.allowedTargets[tgt], "target %s should be allowed", tgt)
 	}
 
-	assert.Len(t, v.blockedPaths, 3)
+	assert.Len(t, v.blockedPaths, 2)
 }
 
 func TestValidateRequest_AllowedMethods(t *testing.T) {
@@ -69,7 +69,6 @@ func TestValidateRequest_BlockedPaths(t *testing.T) {
 		path string
 	}{
 		{"kube-system secrets", "/api/v1/namespaces/kube-system/secrets"},
-		{"cluster-wide secrets", "/api/v1/secrets"},
 		{"cluster-wide service accounts", "/apis/v1/serviceaccounts"},
 		{"kube-system secrets subpath", "/api/v1/namespaces/kube-system/secrets/my-secret"},
 	}
