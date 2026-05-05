@@ -55,7 +55,7 @@ helm upgrade --install observability-metrics-prometheus \
   oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
   --create-namespace \
   --namespace "$OP_NS" \
-  --version "$METRICS_PROMETHEUS_VERSION"
+  --version "$METRICS_PROMETHEUS_VERSION" --set adapter.image.tag="$METRICS_PROMETHEUS_VERSION"
 
 step "Enabling logs collection in the configured logs module..."
 helm upgrade observability-logs-opensearch \
