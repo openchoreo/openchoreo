@@ -194,7 +194,7 @@ func TestTracesService_ConvertSpansToResponse(t *testing.T) {
 
 	service := newTestTracesService()
 
-	resp := service.convertSpansToResponse(result)
+	resp := service.convertSpansToResponse(result, false)
 	if resp == nil {
 		t.Fatal("Expected non-nil response")
 	}
@@ -254,7 +254,7 @@ func TestTracesService_ConvertSpansToResponse_MultipleTraces(t *testing.T) {
 
 	service := newTestTracesService()
 
-	resp := service.convertSpansToResponse(result)
+	resp := service.convertSpansToResponse(result, false)
 	if resp == nil {
 		t.Fatal("Expected non-nil response")
 	}
@@ -277,7 +277,7 @@ func TestTracesService_ConvertSpansToResponse_EmptyTraces(t *testing.T) {
 
 	service := newTestTracesService()
 
-	resp := service.convertSpansToResponse(result)
+	resp := service.convertSpansToResponse(result, false)
 	if resp == nil {
 		t.Fatal("Expected non-nil response")
 	}
@@ -288,6 +288,108 @@ func TestTracesService_ConvertSpansToResponse_EmptyTraces(t *testing.T) {
 
 	if resp.Total != 0 {
 		t.Errorf("Expected total 0, got %d", resp.Total)
+	}
+}
+
+func TestTracesService_ConvertSpansToResponse_WithIncludeAttributes(t *testing.T) {
+	now := time.Now()
+	result := &observability.TracesQueryResult{
+		Traces: []observability.Trace{
+			{
+				TraceID:   "trace-1",
+				SpanCount: 1,
+				Spans: []observability.TraceSpan{
+					{
+						SpanID:    "span-1",
+						Name:      "http.request",
+						SpanKind:  "SERVER",
+						StartTime: now,
+						EndTime:   now.Add(100 * time.Millisecond),
+						Attributes: map[string]interface{}{
+							"http.method": "GET",
+							"http.url":    "http://example.com",
+						},
+						ResourceAttributes: map[string]interface{}{
+							"service.name": "my-service",
+						},
+					},
+				},
+			},
+		},
+		TotalCount: 1,
+		Took:       5,
+	}
+
+	service := newTestTracesService()
+
+	resp := service.convertSpansToResponse(result, true)
+	if resp == nil {
+		t.Fatal("Expected non-nil response")
+	}
+
+	if len(resp.Spans) != 1 {
+		t.Errorf("Expected 1 span, got %d", len(resp.Spans))
+	}
+
+	if resp.Spans[0].Attributes == nil {
+		t.Error("Expected Attributes to be populated")
+	}
+	if resp.Spans[0].Attributes["http.method"] != "GET" {
+		t.Errorf("Expected http.method=GET, got %v", resp.Spans[0].Attributes["http.method"])
+	}
+
+	if resp.Spans[0].ResourceAttributes == nil {
+		t.Error("Expected ResourceAttributes to be populated")
+	}
+	if resp.Spans[0].ResourceAttributes["service.name"] != "my-service" {
+		t.Errorf("Expected service.name=my-service, got %v", resp.Spans[0].ResourceAttributes["service.name"])
+	}
+}
+
+func TestTracesService_ConvertSpansToResponse_ExcludeAttributesWhenFalse(t *testing.T) {
+	now := time.Now()
+	result := &observability.TracesQueryResult{
+		Traces: []observability.Trace{
+			{
+				TraceID:   "trace-1",
+				SpanCount: 1,
+				Spans: []observability.TraceSpan{
+					{
+						SpanID:    "span-1",
+						Name:      "http.request",
+						SpanKind:  "SERVER",
+						StartTime: now,
+						EndTime:   now.Add(100 * time.Millisecond),
+						Attributes: map[string]interface{}{
+							"http.method": "GET",
+						},
+						ResourceAttributes: map[string]interface{}{
+							"service.name": "my-service",
+						},
+					},
+				},
+			},
+		},
+		TotalCount: 1,
+		Took:       5,
+	}
+
+	service := newTestTracesService()
+
+	resp := service.convertSpansToResponse(result, false)
+	if resp == nil {
+		t.Fatal("Expected non-nil response")
+	}
+
+	if len(resp.Spans) != 1 {
+		t.Errorf("Expected 1 span, got %d", len(resp.Spans))
+	}
+
+	if resp.Spans[0].Attributes != nil {
+		t.Errorf("Expected Attributes to be nil, got %v", resp.Spans[0].Attributes)
+	}
+	if resp.Spans[0].ResourceAttributes != nil {
+		t.Errorf("Expected ResourceAttributes to be nil, got %v", resp.Spans[0].ResourceAttributes)
 	}
 }
 

@@ -335,18 +335,19 @@ func ExtractLogType(logType string) string {
 
 // TracesRequestParams holds request body parameters for traces
 type TracesRequestParams struct {
-	ComponentNames  []string `json:"componentNames,omitempty"`
-	ComponentUIDs   []string `json:"componentUids,omitempty"`
-	EndTime         string   `json:"endTime"`
-	EnvironmentName string   `json:"environmentName,omitempty"`
-	EnvironmentUID  string   `json:"environmentUid,omitempty"`
-	Limit           int      `json:"limit,omitempty"`
-	NamespaceName   string   `json:"namespaceName,omitempty"`
-	ProjectName     string   `json:"projectName,omitempty"`
-	ProjectUID      string   `json:"projectUid"`
-	SortOrder       string   `json:"sortOrder,omitempty"`
-	StartTime       string   `json:"startTime"`
-	TraceID         string   `json:"traceId,omitempty"`
+	ComponentNames    []string `json:"componentNames,omitempty"`
+	ComponentUIDs     []string `json:"componentUids,omitempty"`
+	EndTime           string   `json:"endTime"`
+	EnvironmentName   string   `json:"environmentName,omitempty"`
+	EnvironmentUID    string   `json:"environmentUid,omitempty"`
+	IncludeAttributes bool     `json:"includeAttributes,omitempty"`
+	Limit             int      `json:"limit,omitempty"`
+	NamespaceName     string   `json:"namespaceName,omitempty"`
+	ProjectName       string   `json:"projectName,omitempty"`
+	ProjectUID        string   `json:"projectUid"`
+	SortOrder         string   `json:"sortOrder,omitempty"`
+	StartTime         string   `json:"startTime"`
+	TraceID           string   `json:"traceId,omitempty"`
 }
 
 // MonitorBody represents the structure of an OpenSearch monitor
