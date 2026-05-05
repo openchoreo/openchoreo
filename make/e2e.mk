@@ -287,6 +287,7 @@ _e2e.install-op:
 		oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
 		--version 0.2.5 \
 		--namespace $(E2E_OP_NS) \
+		--set adapter.image.tag="0.2.5" \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 	$(E2E_KUBECTL) wait -n $(E2E_OP_NS) \
 		--for=condition=available --timeout=$(E2E_SETUP_TIMEOUT) deployment --all

@@ -687,7 +687,8 @@ helm upgrade --install observability-metrics-prometheus \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.2.5
+  --version 0.2.5 \
+  --set adapter.image.tag="0.2.5"
 ```
 
 ### Register Observability Plane
