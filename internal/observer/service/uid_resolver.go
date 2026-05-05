@@ -173,10 +173,15 @@ func (r *ResourceUIDResolver) fetchResourceUID(ctx context.Context, path string)
 		}
 
 		reqCtx, reqCancel := context.WithTimeout(ctx, r.config.Timeout)
+		// Defer cancel so the per-request context stays valid for the
+		// response body read. Cancelling immediately after httpClient.Do
+		// returned (which only waits for response headers) races with
+		// io.ReadAll(resp.Body) — the body reader is bound to reqCtx
+		// and reads fail with "context canceled" when cancel wins the race.
+		defer reqCancel()
 
 		req, err := http.NewRequestWithContext(reqCtx, http.MethodGet, reqURL, nil)
 		if err != nil {
-			reqCancel()
 			return "", fmt.Errorf("failed to create request: %w", err)
 		}
 
@@ -186,7 +191,6 @@ func (r *ResourceUIDResolver) fetchResourceUID(ctx context.Context, path string)
 		}
 
 		resp, err := r.httpClient.Do(req)
-		reqCancel()
 		if err != nil {
 			return "", fmt.Errorf("request failed: %w", err)
 		}
