@@ -355,6 +355,33 @@ type ComponentTypeRef struct {
 	Name string `json:"name"`
 }
 
+// ResourceTypeRefKind defines the kind of resource type referenced by a ResourceTypeRef.
+// +kubebuilder:validation:Enum=ResourceType;ClusterResourceType
+type ResourceTypeRefKind string
+
+const (
+	// ResourceTypeRefKindResourceType references a namespace-scoped ResourceType.
+	ResourceTypeRefKindResourceType ResourceTypeRefKind = "ResourceType"
+
+	// ResourceTypeRefKindClusterResourceType references a cluster-scoped ClusterResourceType.
+	ResourceTypeRefKindClusterResourceType ResourceTypeRefKind = "ClusterResourceType"
+)
+
+// ResourceTypeRef represents a reference to a ResourceType or ClusterResourceType.
+type ResourceTypeRef struct {
+	// Kind is the kind of resource type (ResourceType or ClusterResourceType).
+	// +optional
+	// +kubebuilder:default=ResourceType
+	Kind ResourceTypeRefKind `json:"kind,omitempty"`
+
+	// Name is the name of the ResourceType or ClusterResourceType to reference.
+	// Must be a valid DNS-1123 subdomain since it identifies a Kubernetes object.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+}
+
 // DeploymentPipelineRefKind defines the kind of deployment pipeline referenced by a DeploymentPipelineRef
 // +kubebuilder:validation:Enum=DeploymentPipeline
 type DeploymentPipelineRefKind string

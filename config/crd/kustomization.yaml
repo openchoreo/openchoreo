@@ -8,6 +8,7 @@ resources:
   - bases/openchoreo.dev_deploymentpipelines.yaml
   - bases/openchoreo.dev_components.yaml
   - bases/openchoreo.dev_componenttypes.yaml
+  - bases/openchoreo.dev_resources.yaml
   - bases/openchoreo.dev_resourcetypes.yaml
   - bases/openchoreo.dev_traits.yaml
 

@@ -48,7 +48,7 @@ spec:
           spec:
             description: |-
               ClusterResourceTypeSpec defines the desired state of ClusterResourceType.
-              Mirrors ResourceTypeSpec; the only difference is cluster scope.
+              Currently mirrors ResourceTypeSpec; may diverge as cluster-scoped concerns emerge.
             properties:
               environmentConfigs:
                 description: |-

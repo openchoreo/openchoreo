@@ -1,0 +1,16 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Resource
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: resource-sample
+spec:
+  owner:
+    projectName: analytics
+  type:
+    kind: ResourceType
+    name: mysql
+  parameters:
+    version: "8.0"
+  bindingPolicy: Automatic
