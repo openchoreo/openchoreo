@@ -783,7 +783,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	componentRelease *openchoreov1alpha1.ComponentRelease,
 	dataPlaneResult *controller.DataPlaneResult,
-	observabilityPlaneReleaseResources []openchoreov1alpha1.Resource,
+	observabilityPlaneReleaseResources []openchoreov1alpha1.RenderedManifest,
 ) (observabilityReleaseResult, error) {
 	logger := log.FromContext(ctx)
 
@@ -1023,8 +1023,8 @@ func buildWorkloadFromRelease(componentRelease *openchoreov1alpha1.ComponentRele
 // convertToReleaseResources converts unstructured resources to Release.Resource format
 func (r *Reconciler) convertToReleaseResources(
 	resources []map[string]any,
-) ([]openchoreov1alpha1.Resource, error) {
-	releaseResources := make([]openchoreov1alpha1.Resource, 0, len(resources))
+) ([]openchoreov1alpha1.RenderedManifest, error) {
+	releaseResources := make([]openchoreov1alpha1.RenderedManifest, 0, len(resources))
 
 	for i, resource := range resources {
 		// Generate resource ID
@@ -1036,7 +1036,7 @@ func (r *Reconciler) convertToReleaseResources(
 			return nil, fmt.Errorf("failed to marshal resource to JSON (resourceID: %s): %w", id, err)
 		}
 
-		releaseResources = append(releaseResources, openchoreov1alpha1.Resource{
+		releaseResources = append(releaseResources, openchoreov1alpha1.RenderedManifest{
 			ID: id,
 			Object: &runtime.RawExtension{
 				Raw: rawJSON,
@@ -1087,7 +1087,7 @@ type endpointRoutes struct {
 // Environment-level gateway configuration takes precedence over dataplane-level configuration.
 func resolveEndpointURLStatuses(
 	ctx context.Context,
-	resources []openchoreov1alpha1.Resource,
+	resources []openchoreov1alpha1.RenderedManifest,
 	endpoints map[string]openchoreov1alpha1.WorkloadEndpoint,
 	environment *openchoreov1alpha1.Environment,
 	dataPlane *openchoreov1alpha1.DataPlane,

@@ -628,7 +628,7 @@ func TestCategorizeResource(t *testing.T) {
 // ─── aggregateResourceStatus ─────────────────────────────────────────────────
 
 func TestAggregateResourceStatus(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 		{HealthStatus: openchoreov1alpha1.HealthStatusProgressing},
@@ -665,8 +665,8 @@ func TestAggregateResourceStatus(t *testing.T) {
 
 // ─── evaluateDeploymentStatus ────────────────────────────────────────────────
 
-func deploymentResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.ResourceStatus {
-	return openchoreov1alpha1.ResourceStatus{
+func deploymentResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
 		Group:        "apps",
 		Version:      "v1",
 		Kind:         "Deployment",
@@ -675,8 +675,8 @@ func deploymentResource(status openchoreov1alpha1.HealthStatus) openchoreov1alph
 	}
 }
 
-func serviceResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.ResourceStatus {
-	return openchoreov1alpha1.ResourceStatus{
+func serviceResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
 		Group:        "",
 		Version:      "v1",
 		Kind:         "Service",
@@ -685,8 +685,8 @@ func serviceResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.
 	}
 }
 
-func hpaResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.ResourceStatus {
-	return openchoreov1alpha1.ResourceStatus{
+func hpaResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
 		Group:        "autoscaling",
 		Version:      "v2",
 		Kind:         "HorizontalPodAutoscaler",
@@ -696,7 +696,7 @@ func hpaResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.Reso
 }
 
 func TestEvaluateDeploymentStatus_NoPrimaryWorkload(t *testing.T) {
-	ready, reason, _ := evaluateDeploymentStatus([]openchoreov1alpha1.ResourceStatus{}, WorkloadTypeDeployment)
+	ready, reason, _ := evaluateDeploymentStatus([]openchoreov1alpha1.RenderedManifestStatus{}, WorkloadTypeDeployment)
 	if ready {
 		t.Error("should not be ready when no primary workload")
 	}
@@ -707,7 +707,7 @@ func TestEvaluateDeploymentStatus_NoPrimaryWorkload(t *testing.T) {
 
 func TestEvaluateDeploymentStatus_PrimaryDegraded(t *testing.T) {
 	ready, reason, _ := evaluateDeploymentStatus(
-		[]openchoreov1alpha1.ResourceStatus{deploymentResource(openchoreov1alpha1.HealthStatusDegraded)},
+		[]openchoreov1alpha1.RenderedManifestStatus{deploymentResource(openchoreov1alpha1.HealthStatusDegraded)},
 		WorkloadTypeDeployment,
 	)
 	if ready {
@@ -720,7 +720,7 @@ func TestEvaluateDeploymentStatus_PrimaryDegraded(t *testing.T) {
 
 func TestEvaluateDeploymentStatus_PrimaryProgressing(t *testing.T) {
 	ready, reason, _ := evaluateDeploymentStatus(
-		[]openchoreov1alpha1.ResourceStatus{deploymentResource(openchoreov1alpha1.HealthStatusProgressing)},
+		[]openchoreov1alpha1.RenderedManifestStatus{deploymentResource(openchoreov1alpha1.HealthStatusProgressing)},
 		WorkloadTypeDeployment,
 	)
 	if ready {
@@ -733,7 +733,7 @@ func TestEvaluateDeploymentStatus_PrimaryProgressing(t *testing.T) {
 
 func TestEvaluateDeploymentStatus_PrimaryUnknown(t *testing.T) {
 	ready, reason, _ := evaluateDeploymentStatus(
-		[]openchoreov1alpha1.ResourceStatus{deploymentResource(openchoreov1alpha1.HealthStatusUnknown)},
+		[]openchoreov1alpha1.RenderedManifestStatus{deploymentResource(openchoreov1alpha1.HealthStatusUnknown)},
 		WorkloadTypeDeployment,
 	)
 	if ready {
@@ -746,7 +746,7 @@ func TestEvaluateDeploymentStatus_PrimaryUnknown(t *testing.T) {
 
 func TestEvaluateDeploymentStatus_PrimarySuspended(t *testing.T) {
 	ready, reason, _ := evaluateDeploymentStatus(
-		[]openchoreov1alpha1.ResourceStatus{deploymentResource(openchoreov1alpha1.HealthStatusSuspended)},
+		[]openchoreov1alpha1.RenderedManifestStatus{deploymentResource(openchoreov1alpha1.HealthStatusSuspended)},
 		WorkloadTypeDeployment,
 	)
 	if !ready {
@@ -758,7 +758,7 @@ func TestEvaluateDeploymentStatus_PrimarySuspended(t *testing.T) {
 }
 
 func TestEvaluateDeploymentStatus_PrimaryHealthy_AllHealthy(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		deploymentResource(openchoreov1alpha1.HealthStatusHealthy),
 		serviceResource(openchoreov1alpha1.HealthStatusHealthy),
 	}
@@ -772,7 +772,7 @@ func TestEvaluateDeploymentStatus_PrimaryHealthy_AllHealthy(t *testing.T) {
 }
 
 func TestEvaluateDeploymentStatus_PrimaryHealthy_SupportingDegraded(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		deploymentResource(openchoreov1alpha1.HealthStatusHealthy),
 		serviceResource(openchoreov1alpha1.HealthStatusDegraded),
 	}
@@ -786,7 +786,7 @@ func TestEvaluateDeploymentStatus_PrimaryHealthy_SupportingDegraded(t *testing.T
 }
 
 func TestEvaluateDeploymentStatus_PrimaryHealthy_OperationalDegraded(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		deploymentResource(openchoreov1alpha1.HealthStatusHealthy),
 		hpaResource(openchoreov1alpha1.HealthStatusDegraded),
 	}
@@ -801,8 +801,8 @@ func TestEvaluateDeploymentStatus_PrimaryHealthy_OperationalDegraded(t *testing.
 
 // ─── evaluateCronJobStatus ───────────────────────────────────────────────────
 
-func cronJobResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.ResourceStatus {
-	return openchoreov1alpha1.ResourceStatus{
+func cronJobResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
 		Group:        "batch",
 		Version:      "v1",
 		Kind:         "CronJob",
@@ -825,7 +825,7 @@ func TestEvaluateCronJobStatus_AllPathsAndNoPrimary(t *testing.T) {
 	}
 	for _, tc := range tests {
 		ready, reason, _ := evaluateCronJobStatus(
-			[]openchoreov1alpha1.ResourceStatus{cronJobResource(tc.status)},
+			[]openchoreov1alpha1.RenderedManifestStatus{cronJobResource(tc.status)},
 			WorkloadTypeCronJob,
 		)
 		if ready != tc.wantReady {
@@ -837,7 +837,7 @@ func TestEvaluateCronJobStatus_AllPathsAndNoPrimary(t *testing.T) {
 	}
 
 	// No primary CronJob
-	ready, reason, _ := evaluateCronJobStatus([]openchoreov1alpha1.ResourceStatus{}, WorkloadTypeCronJob)
+	ready, reason, _ := evaluateCronJobStatus([]openchoreov1alpha1.RenderedManifestStatus{}, WorkloadTypeCronJob)
 	if ready || reason != string(ReasonResourcesProgressing) {
 		t.Errorf("no primary: ready=%v reason=%q, want false/%q", ready, reason, ReasonResourcesProgressing)
 	}
@@ -845,8 +845,8 @@ func TestEvaluateCronJobStatus_AllPathsAndNoPrimary(t *testing.T) {
 
 // ─── evaluateJobStatus ────────────────────────────────────────────────────────
 
-func jobResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.ResourceStatus {
-	return openchoreov1alpha1.ResourceStatus{
+func jobResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
 		Group:        "batch",
 		Version:      "v1",
 		Kind:         "Job",
@@ -869,7 +869,7 @@ func TestEvaluateJobStatus_AllPathsAndNoPrimary(t *testing.T) {
 	}
 	for _, tc := range tests {
 		ready, reason, _ := evaluateJobStatus(
-			[]openchoreov1alpha1.ResourceStatus{jobResource(tc.status)},
+			[]openchoreov1alpha1.RenderedManifestStatus{jobResource(tc.status)},
 			WorkloadTypeJob,
 		)
 		if ready != tc.wantReady {
@@ -881,7 +881,7 @@ func TestEvaluateJobStatus_AllPathsAndNoPrimary(t *testing.T) {
 	}
 
 	// No primary Job
-	ready, reason, _ := evaluateJobStatus([]openchoreov1alpha1.ResourceStatus{}, WorkloadTypeJob)
+	ready, reason, _ := evaluateJobStatus([]openchoreov1alpha1.RenderedManifestStatus{}, WorkloadTypeJob)
 	if ready || reason != string(ReasonResourcesProgressing) {
 		t.Errorf("no primary: ready=%v reason=%q, want false/%q", ready, reason, ReasonResourcesProgressing)
 	}
@@ -897,7 +897,7 @@ func TestEvaluateGenericStatus(t *testing.T) {
 	}
 
 	// All healthy → ready
-	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.ResourceStatus{
+	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.RenderedManifestStatus{
 		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 		{HealthStatus: openchoreov1alpha1.HealthStatusSuspended},
 	})
@@ -906,7 +906,7 @@ func TestEvaluateGenericStatus(t *testing.T) {
 	}
 
 	// Any degraded → not ready
-	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.ResourceStatus{
+	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.RenderedManifestStatus{
 		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 		{HealthStatus: openchoreov1alpha1.HealthStatusDegraded},
 	})
@@ -915,7 +915,7 @@ func TestEvaluateGenericStatus(t *testing.T) {
 	}
 
 	// Any progressing → not ready
-	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.ResourceStatus{
+	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.RenderedManifestStatus{
 		{HealthStatus: openchoreov1alpha1.HealthStatusProgressing},
 	})
 	if ready || reason != string(ReasonResourcesProgressing) {
@@ -923,7 +923,7 @@ func TestEvaluateGenericStatus(t *testing.T) {
 	}
 
 	// Any unknown → not ready
-	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.ResourceStatus{
+	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.RenderedManifestStatus{
 		{HealthStatus: openchoreov1alpha1.HealthStatusUnknown},
 	})
 	if ready || reason != string(ReasonResourcesUnknown) {
@@ -1321,7 +1321,7 @@ func TestSetResourcesReadyStatus_DeploymentHealthy(t *testing.T) {
 	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
 		Status: openchoreov1alpha1.RenderedReleaseStatus{
-			Resources: []openchoreov1alpha1.ResourceStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
 		},
@@ -1355,7 +1355,7 @@ func TestSetResourcesReadyStatus_StatefulSetDegraded(t *testing.T) {
 	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
 		Status: openchoreov1alpha1.RenderedReleaseStatus{
-			Resources: []openchoreov1alpha1.ResourceStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{Group: "apps", Version: "v1", Kind: "StatefulSet", Name: "db", HealthStatus: openchoreov1alpha1.HealthStatusDegraded},
 			},
 		},
@@ -1389,7 +1389,7 @@ func TestSetResourcesReadyStatus_CronJobScheduled(t *testing.T) {
 	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
 		Status: openchoreov1alpha1.RenderedReleaseStatus{
-			Resources: []openchoreov1alpha1.ResourceStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{Group: "batch", Version: "v1", Kind: "CronJob", Name: "nightly", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
 		},
@@ -1423,7 +1423,7 @@ func TestSetResourcesReadyStatus_JobCompleted(t *testing.T) {
 	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
 		Status: openchoreov1alpha1.RenderedReleaseStatus{
-			Resources: []openchoreov1alpha1.ResourceStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{Group: "batch", Version: "v1", Kind: "Job", Name: "migration", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
 		},
@@ -1457,7 +1457,7 @@ func TestSetResourcesReadyStatus_ProxyGenericEvaluation(t *testing.T) {
 	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
 		Status: openchoreov1alpha1.RenderedReleaseStatus{
-			Resources: []openchoreov1alpha1.ResourceStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{Group: "", Version: "v1", Kind: "Service", Name: "proxy-svc", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
 		},
@@ -1488,7 +1488,7 @@ func TestSetResourcesReadyStatus_UnknownWorkloadType(t *testing.T) {
 	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
 		Status: openchoreov1alpha1.RenderedReleaseStatus{
-			Resources: []openchoreov1alpha1.ResourceStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
 		},
@@ -1516,8 +1516,8 @@ func TestSetResourcesReadyStatus_UnknownWorkloadType(t *testing.T) {
 
 // ─── evaluateStatefulSetStatus ───────────────────────────────────────────────
 
-func statefulSetResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.ResourceStatus {
-	return openchoreov1alpha1.ResourceStatus{
+func statefulSetResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
 		Group:        "apps",
 		Version:      "v1",
 		Kind:         "StatefulSet",
@@ -1540,7 +1540,7 @@ func TestEvaluateStatefulSetStatus_AllPathsAndNoPrimary(t *testing.T) {
 	}
 	for _, tc := range tests {
 		ready, reason, _ := evaluateStatefulSetStatus(
-			[]openchoreov1alpha1.ResourceStatus{statefulSetResource(tc.status)},
+			[]openchoreov1alpha1.RenderedManifestStatus{statefulSetResource(tc.status)},
 			WorkloadTypeStatefulSet,
 		)
 		if ready != tc.wantReady {
@@ -1552,14 +1552,14 @@ func TestEvaluateStatefulSetStatus_AllPathsAndNoPrimary(t *testing.T) {
 	}
 
 	// No primary StatefulSet
-	ready, reason, _ := evaluateStatefulSetStatus([]openchoreov1alpha1.ResourceStatus{}, WorkloadTypeStatefulSet)
+	ready, reason, _ := evaluateStatefulSetStatus([]openchoreov1alpha1.RenderedManifestStatus{}, WorkloadTypeStatefulSet)
 	if ready || reason != string(ReasonResourcesProgressing) {
 		t.Errorf("no primary: ready=%v reason=%q, want false/%q", ready, reason, ReasonResourcesProgressing)
 	}
 }
 
 func TestEvaluateStatefulSetStatus_PrimaryHealthy_SupportingDegraded(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		statefulSetResource(openchoreov1alpha1.HealthStatusHealthy),
 		serviceResource(openchoreov1alpha1.HealthStatusDegraded),
 	}
@@ -1573,7 +1573,7 @@ func TestEvaluateStatefulSetStatus_PrimaryHealthy_SupportingDegraded(t *testing.
 }
 
 func TestEvaluateStatefulSetStatus_PrimaryHealthy_AllHealthy(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		statefulSetResource(openchoreov1alpha1.HealthStatusHealthy),
 		serviceResource(openchoreov1alpha1.HealthStatusHealthy),
 	}
@@ -1587,7 +1587,7 @@ func TestEvaluateStatefulSetStatus_PrimaryHealthy_AllHealthy(t *testing.T) {
 }
 
 func TestEvaluateStatefulSetStatus_PrimaryHealthy_OperationalDegraded(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		statefulSetResource(openchoreov1alpha1.HealthStatusHealthy),
 		hpaResource(openchoreov1alpha1.HealthStatusDegraded),
 	}

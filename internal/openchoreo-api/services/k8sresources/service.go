@@ -438,7 +438,7 @@ func (s *k8sResourcesService) fetchK8sList(ctx context.Context, pi planeInfo, k8
 	return result, nil
 }
 
-func (s *k8sResourcesService) fetchChildResources(ctx context.Context, pi planeInfo, parentObj map[string]any, rs *openchoreov1alpha1.ResourceStatus) []models.ResourceNode {
+func (s *k8sResourcesService) fetchChildResources(ctx context.Context, pi planeInfo, parentObj map[string]any, rs *openchoreov1alpha1.RenderedManifestStatus) []models.ResourceNode {
 	var nodes []models.ResourceNode
 
 	parentUID := getNestedString(parentObj, "metadata", "uid")
@@ -792,7 +792,7 @@ func isChildResourceKind(kind string) bool {
 	return ok
 }
 
-func hasParentResourceInRelease(childKind string, resources []openchoreov1alpha1.ResourceStatus) bool {
+func hasParentResourceInRelease(childKind string, resources []openchoreov1alpha1.RenderedManifestStatus) bool {
 	parentKinds := childResourceParentKinds[childKind]
 	for i := range resources {
 		if slices.Contains(parentKinds, resources[i].Kind) {

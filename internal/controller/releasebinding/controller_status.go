@@ -264,7 +264,7 @@ func isPrimaryWorkload(gvk schema.GroupVersionKind, workloadType WorkloadType) b
 }
 
 // aggregateResourceStatus counts resources by their health status.
-func aggregateResourceStatus(resources []openchoreov1alpha1.ResourceStatus) ResourceStatusSummary {
+func aggregateResourceStatus(resources []openchoreov1alpha1.RenderedManifestStatus) ResourceStatusSummary {
 	summary := ResourceStatusSummary{
 		Total: len(resources),
 	}
@@ -289,11 +289,11 @@ func aggregateResourceStatus(resources []openchoreov1alpha1.ResourceStatus) Reso
 
 // evaluateDeploymentStatus evaluates status for Deployment workload type.
 // Focuses on the primary Deployment resource and only fails if critical resources are degraded.
-func evaluateDeploymentStatus(resources []openchoreov1alpha1.ResourceStatus, workloadType WorkloadType) (ready bool, reason, message string) {
+func evaluateDeploymentStatus(resources []openchoreov1alpha1.RenderedManifestStatus, workloadType WorkloadType) (ready bool, reason, message string) {
 	// Separate resources by category
-	var primaryWorkload *openchoreov1alpha1.ResourceStatus
-	var supportingResources []openchoreov1alpha1.ResourceStatus
-	var operationalResources []openchoreov1alpha1.ResourceStatus
+	var primaryWorkload *openchoreov1alpha1.RenderedManifestStatus
+	var supportingResources []openchoreov1alpha1.RenderedManifestStatus
+	var operationalResources []openchoreov1alpha1.RenderedManifestStatus
 
 	for i := range resources {
 		res := &resources[i]
@@ -370,7 +370,7 @@ func evaluateDeploymentStatus(resources []openchoreov1alpha1.ResourceStatus, wor
 
 // evaluateStatefulSetStatus evaluates status for StatefulSet workload type.
 // Similar to Deployment - all replicas must be ready in order.
-func evaluateStatefulSetStatus(resources []openchoreov1alpha1.ResourceStatus, workloadType WorkloadType) (ready bool, reason, message string) {
+func evaluateStatefulSetStatus(resources []openchoreov1alpha1.RenderedManifestStatus, workloadType WorkloadType) (ready bool, reason, message string) {
 	// StatefulSet status logic is similar to Deployment
 	// All replicas must be ready and in order
 	return evaluateDeploymentStatus(resources, workloadType)
@@ -378,9 +378,9 @@ func evaluateStatefulSetStatus(resources []openchoreov1alpha1.ResourceStatus, wo
 
 // evaluateCronJobStatus evaluates status for CronJob workload type.
 // CronJobs have different ready criteria - Suspended and Progressing are valid states.
-func evaluateCronJobStatus(resources []openchoreov1alpha1.ResourceStatus, workloadType WorkloadType) (ready bool, reason, message string) {
+func evaluateCronJobStatus(resources []openchoreov1alpha1.RenderedManifestStatus, workloadType WorkloadType) (ready bool, reason, message string) {
 	// Find primary CronJob
-	var primaryWorkload *openchoreov1alpha1.ResourceStatus
+	var primaryWorkload *openchoreov1alpha1.RenderedManifestStatus
 
 	for i := range resources {
 		res := &resources[i]
@@ -431,9 +431,9 @@ func evaluateCronJobStatus(resources []openchoreov1alpha1.ResourceStatus, worklo
 
 // evaluateJobStatus evaluates status for Job workload type.
 // Jobs must complete (Healthy) to be considered ready. Progressing is expected until completion.
-func evaluateJobStatus(resources []openchoreov1alpha1.ResourceStatus, workloadType WorkloadType) (ready bool, reason, message string) {
+func evaluateJobStatus(resources []openchoreov1alpha1.RenderedManifestStatus, workloadType WorkloadType) (ready bool, reason, message string) {
 	// Find primary Job
-	var primaryWorkload *openchoreov1alpha1.ResourceStatus
+	var primaryWorkload *openchoreov1alpha1.RenderedManifestStatus
 
 	for i := range resources {
 		res := &resources[i]
@@ -484,7 +484,7 @@ func evaluateJobStatus(resources []openchoreov1alpha1.ResourceStatus, workloadTy
 
 // evaluateGenericStatus evaluates status for unknown/generic workload types.
 // Uses simple status check - ready if all resources are healthy or suspended.
-func evaluateGenericStatus(resources []openchoreov1alpha1.ResourceStatus) (ready bool, reason, message string) {
+func evaluateGenericStatus(resources []openchoreov1alpha1.RenderedManifestStatus) (ready bool, reason, message string) {
 	summary := aggregateResourceStatus(resources)
 
 	if summary.Total == 0 {

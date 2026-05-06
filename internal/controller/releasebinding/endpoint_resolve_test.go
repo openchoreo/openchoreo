@@ -92,8 +92,8 @@ func makeHTTPRouteJSON(opts httpRouteOpts) []byte {
 	return b
 }
 
-func makeResource(raw []byte) openchoreov1alpha1.Resource {
-	return openchoreov1alpha1.Resource{
+func makeResource(raw []byte) openchoreov1alpha1.RenderedManifest {
+	return openchoreov1alpha1.RenderedManifest{
 		ID:     "test-resource",
 		Object: &runtime.RawExtension{Raw: raw},
 	}
@@ -158,7 +158,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 		It("should return nil", func() {
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{},
+				[]openchoreov1alpha1.RenderedManifest{},
 				nil,
 				nil,
 				makeDataPlane(openchoreov1alpha1.GatewaySpec{}),
@@ -191,7 +191,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				nil,
 				makeDataPlane(openchoreov1alpha1.GatewaySpec{}),
@@ -210,7 +210,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				makeDataPlane(openchoreov1alpha1.GatewaySpec{}),
@@ -232,7 +232,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				makeDataPlane(openchoreov1alpha1.GatewaySpec{}),
@@ -255,7 +255,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				makeDataPlane(openchoreov1alpha1.GatewaySpec{}),
@@ -281,7 +281,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -311,7 +311,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -341,7 +341,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -370,7 +370,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -400,7 +400,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -432,7 +432,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -464,7 +464,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -493,7 +493,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -524,7 +524,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -561,7 +561,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				env,
 				dp,
@@ -602,7 +602,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{
+				[]openchoreov1alpha1.RenderedManifest{
 					makeResource(route1),
 					makeResource(route2),
 				},
@@ -623,7 +623,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{{ID: "empty", Object: nil}},
+				[]openchoreov1alpha1.RenderedManifest{{ID: "empty", Object: nil}},
 				endpoints,
 				nil,
 				makeDataPlane(openchoreov1alpha1.GatewaySpec{}),
@@ -782,13 +782,13 @@ func makeServiceJSON(name, namespace string, ports []int32) []byte {
 var _ = Describe("extractAllServiceInfos", func() {
 	It("should return empty when no Service is present", func() {
 		raw := makeHTTPRouteJSON(httpRouteOpts{name: "route"})
-		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{makeResource(raw)})
+		result := extractAllServiceInfos([]openchoreov1alpha1.RenderedManifest{makeResource(raw)})
 		Expect(result).To(BeEmpty())
 	})
 
 	It("should extract name, namespace, and ports from a Service", func() {
 		raw := makeServiceJSON("my-component", "dp-ns-proj-dev-abc123", []int32{8080, 9090})
-		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{makeResource(raw)})
+		result := extractAllServiceInfos([]openchoreov1alpha1.RenderedManifest{makeResource(raw)})
 		Expect(result).To(HaveLen(1))
 		Expect(result[0].name).To(Equal("my-component"))
 		Expect(result[0].namespace).To(Equal("dp-ns-proj-dev-abc123"))
@@ -798,7 +798,7 @@ var _ = Describe("extractAllServiceInfos", func() {
 	It("should return all Services when multiple are present", func() {
 		svc1 := makeServiceJSON("first-svc", "ns1", []int32{8080})
 		svc2 := makeServiceJSON("second-svc", "ns2", []int32{9090})
-		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{
+		result := extractAllServiceInfos([]openchoreov1alpha1.RenderedManifest{
 			makeResource(svc1),
 			makeResource(svc2),
 		})
@@ -809,14 +809,14 @@ var _ = Describe("extractAllServiceInfos", func() {
 
 	It("should handle Service with no ports", func() {
 		raw := makeServiceJSON("my-component", "dp-ns", nil)
-		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{makeResource(raw)})
+		result := extractAllServiceInfos([]openchoreov1alpha1.RenderedManifest{makeResource(raw)})
 		Expect(result).To(HaveLen(1))
 		Expect(result[0].name).To(Equal("my-component"))
 		Expect(result[0].ports).To(BeEmpty())
 	})
 
 	It("should skip resources with nil Object", func() {
-		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{
+		result := extractAllServiceInfos([]openchoreov1alpha1.RenderedManifest{
 			{ID: "empty", Object: nil},
 		})
 		Expect(result).To(BeEmpty())
@@ -898,7 +898,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(routeJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(routeJSON)},
 				endpoints,
 				existing,
 			)
@@ -916,7 +916,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)
@@ -944,7 +944,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)
@@ -963,7 +963,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)
@@ -982,7 +982,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)
@@ -1001,7 +1001,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			})
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				nil,
 			)
@@ -1021,7 +1021,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			})
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				nil,
 			)
@@ -1042,7 +1042,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			})
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				nil,
 			)
@@ -1064,7 +1064,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)
@@ -1094,7 +1094,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)
@@ -1119,7 +1119,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)

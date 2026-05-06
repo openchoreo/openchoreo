@@ -291,7 +291,7 @@ func TestFindAllKnownGVKs(t *testing.T) {
 	})
 
 	t.Run("applied resource status GVK is included alongside well-known", func(t *testing.T) {
-		applied := []openchoreov1alpha1.ResourceStatus{
+		applied := []openchoreov1alpha1.RenderedManifestStatus{
 			{Group: "legacy.io", Version: "v1", Kind: "OldThing"},
 		}
 		gvks := findAllKnownGVKs(nil, applied, targetPlaneDataPlane)
@@ -306,7 +306,7 @@ func TestFindAllKnownGVKs(t *testing.T) {
 	t.Run("desired and applied GVKs are deduplicated against each other", func(t *testing.T) {
 		desiredObj := &unstructured.Unstructured{}
 		desiredObj.SetGroupVersionKind(schema.GroupVersionKind{Group: "a.io", Version: "v1", Kind: "A"})
-		applied := []openchoreov1alpha1.ResourceStatus{
+		applied := []openchoreov1alpha1.RenderedManifestStatus{
 			{Group: "a.io", Version: "v1", Kind: "A"}, // duplicate of desired
 			{Group: "b.io", Version: "v1", Kind: "B"},
 		}
@@ -326,7 +326,7 @@ func TestHasTransitioningResources(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		resources []openchoreov1alpha1.ResourceStatus
+		resources []openchoreov1alpha1.RenderedManifestStatus
 		want      bool
 	}{
 		{
@@ -336,32 +336,32 @@ func TestHasTransitioningResources(t *testing.T) {
 		},
 		{
 			name:      "healthy resource returns false",
-			resources: []openchoreov1alpha1.ResourceStatus{{HealthStatus: openchoreov1alpha1.HealthStatusHealthy}},
+			resources: []openchoreov1alpha1.RenderedManifestStatus{{HealthStatus: openchoreov1alpha1.HealthStatusHealthy}},
 			want:      false,
 		},
 		{
 			name:      "suspended resource returns false",
-			resources: []openchoreov1alpha1.ResourceStatus{{HealthStatus: openchoreov1alpha1.HealthStatusSuspended}},
+			resources: []openchoreov1alpha1.RenderedManifestStatus{{HealthStatus: openchoreov1alpha1.HealthStatusSuspended}},
 			want:      false,
 		},
 		{
 			name:      "progressing resource returns true",
-			resources: []openchoreov1alpha1.ResourceStatus{{HealthStatus: openchoreov1alpha1.HealthStatusProgressing}},
+			resources: []openchoreov1alpha1.RenderedManifestStatus{{HealthStatus: openchoreov1alpha1.HealthStatusProgressing}},
 			want:      true,
 		},
 		{
 			name:      "unknown resource returns true",
-			resources: []openchoreov1alpha1.ResourceStatus{{HealthStatus: openchoreov1alpha1.HealthStatusUnknown}},
+			resources: []openchoreov1alpha1.RenderedManifestStatus{{HealthStatus: openchoreov1alpha1.HealthStatusUnknown}},
 			want:      true,
 		},
 		{
 			name:      "degraded resource returns true",
-			resources: []openchoreov1alpha1.ResourceStatus{{HealthStatus: openchoreov1alpha1.HealthStatusDegraded}},
+			resources: []openchoreov1alpha1.RenderedManifestStatus{{HealthStatus: openchoreov1alpha1.HealthStatusDegraded}},
 			want:      true,
 		},
 		{
 			name: "mix of healthy and progressing returns true",
-			resources: []openchoreov1alpha1.ResourceStatus{
+			resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 				{HealthStatus: openchoreov1alpha1.HealthStatusProgressing},
 			},
@@ -369,7 +369,7 @@ func TestHasTransitioningResources(t *testing.T) {
 		},
 		{
 			name: "all healthy returns false",
-			resources: []openchoreov1alpha1.ResourceStatus{
+			resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 				{HealthStatus: openchoreov1alpha1.HealthStatusSuspended},
 			},
@@ -990,7 +990,7 @@ func TestMakeDesiredResources(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{Name: "my-release", Namespace: "cp-ns", UID: "release-uid-abc"},
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{
-				Resources: []openchoreov1alpha1.Resource{
+				Resources: []openchoreov1alpha1.RenderedManifest{
 					{
 						ID:     "res-configmap",
 						Object: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm1","namespace":"dp-ns"}}`)},
@@ -1025,7 +1025,7 @@ func TestMakeDesiredResources(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{Name: "r2", Namespace: "ns", UID: "uid-2"},
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{
-				Resources: []openchoreov1alpha1.Resource{
+				Resources: []openchoreov1alpha1.RenderedManifest{
 					{
 						ID:     "res-x",
 						Object: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm","labels":{"app":"myapp"}}}`)},
@@ -1048,7 +1048,7 @@ func TestMakeDesiredResources(t *testing.T) {
 	t.Run("resource with invalid JSON returns error", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{
-				Resources: []openchoreov1alpha1.Resource{
+				Resources: []openchoreov1alpha1.RenderedManifest{
 					{
 						ID:     "bad",
 						Object: &runtime.RawExtension{Raw: []byte(`not json`)},
@@ -1066,7 +1066,7 @@ func TestMakeDesiredResources(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{Name: "r3", Namespace: "ns3", UID: "uid-3"},
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{
-				Resources: []openchoreov1alpha1.Resource{
+				Resources: []openchoreov1alpha1.RenderedManifest{
 					{ID: "a", Object: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"a"}}`)}},
 					{ID: "b", Object: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"b"}}`)}},
 				},
@@ -1327,7 +1327,7 @@ func TestBuildResourceStatusTimestamps(t *testing.T) {
 		statusBytes, _ := json.Marshal(statusData)
 		old := &openchoreov1alpha1.RenderedRelease{
 			Status: openchoreov1alpha1.RenderedReleaseStatus{
-				Resources: []openchoreov1alpha1.ResourceStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
 					{
 						ID:               "res-1",
 						HealthStatus:     openchoreov1alpha1.HealthStatusHealthy, // matches ConfigMap's getUnknownResourceHealth
@@ -1356,7 +1356,7 @@ func TestBuildResourceStatusTimestamps(t *testing.T) {
 		// Old has Progressing; new live ConfigMap will produce Healthy → health changed
 		old := &openchoreov1alpha1.RenderedRelease{
 			Status: openchoreov1alpha1.RenderedReleaseStatus{
-				Resources: []openchoreov1alpha1.ResourceStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
 					{
 						ID:               "res-1",
 						HealthStatus:     openchoreov1alpha1.HealthStatusProgressing,
@@ -1415,7 +1415,7 @@ func TestBuildResourceStatusMixedResources(t *testing.T) {
 		t.Fatalf("expected 3 results, got %d", len(result))
 	}
 
-	byID := make(map[string]openchoreov1alpha1.ResourceStatus)
+	byID := make(map[string]openchoreov1alpha1.RenderedManifestStatus)
 	for _, rs := range result {
 		byID[rs.ID] = rs
 	}
@@ -1574,7 +1574,7 @@ func TestIntersectObsPlaneGVKs(t *testing.T) {
 	t.Run("status resource in allowlist is included", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			Status: openchoreov1alpha1.RenderedReleaseStatus{
-				Resources: []openchoreov1alpha1.ResourceStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
 					{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
 				},
 			},
@@ -1591,7 +1591,7 @@ func TestIntersectObsPlaneGVKs(t *testing.T) {
 	t.Run("status resource not in allowlist is excluded", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			Status: openchoreov1alpha1.RenderedReleaseStatus{
-				Resources: []openchoreov1alpha1.ResourceStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
 					{Group: "other.io", Version: "v1", Kind: "SomeOtherType"},
 				},
 			},
@@ -1605,7 +1605,7 @@ func TestIntersectObsPlaneGVKs(t *testing.T) {
 	t.Run("duplicate GVKs in status are deduplicated", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			Status: openchoreov1alpha1.RenderedReleaseStatus{
-				Resources: []openchoreov1alpha1.ResourceStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
 					{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
 					{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
 				},
@@ -1620,7 +1620,7 @@ func TestIntersectObsPlaneGVKs(t *testing.T) {
 	t.Run("mixed: allowlisted and non-allowlisted GVKs", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			Status: openchoreov1alpha1.RenderedReleaseStatus{
-				Resources: []openchoreov1alpha1.ResourceStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
 					{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
 					{Group: "other.io", Version: "v1", Kind: "NotAllowlisted"},
 				},

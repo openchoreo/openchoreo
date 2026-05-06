@@ -104,7 +104,7 @@ func testReleaseBinding() *openchoreov1alpha1.ReleaseBinding {
 }
 
 // testRenderedRelease creates a RenderedRelease owned by the given ReleaseBinding.
-func testRenderedRelease(rb *openchoreov1alpha1.ReleaseBinding, targetPlane string, resources []openchoreov1alpha1.ResourceStatus) *openchoreov1alpha1.RenderedRelease {
+func testRenderedRelease(rb *openchoreov1alpha1.ReleaseBinding, targetPlane string, resources []openchoreov1alpha1.RenderedManifestStatus) *openchoreov1alpha1.RenderedRelease {
 	return &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "rr-1",
@@ -229,7 +229,7 @@ func TestResolveReleaseContexts(t *testing.T) {
 
 	t.Run("environment not found", func(t *testing.T) {
 		rb := testReleaseBinding()
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, rr)
@@ -243,7 +243,7 @@ func TestResolveReleaseContexts(t *testing.T) {
 		rb := testReleaseBinding()
 		env := testEnvironment()
 		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -343,7 +343,7 @@ func TestGetResourceTree(t *testing.T) {
 		rb := testReleaseBinding()
 		env := testEnvironment()
 		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
 			{ID: "svc", Group: "", Version: "v1", Kind: "Service", Name: "web-svc", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -372,7 +372,7 @@ func TestGetResourceTree(t *testing.T) {
 		rb := testReleaseBinding()
 		env := testEnvironment()
 		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
 			{ID: "svc", Group: "", Version: "v1", Kind: "Service", Name: "web-svc", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -405,7 +405,7 @@ func TestGetResourceEvents(t *testing.T) {
 		rb := testReleaseBinding()
 		env := testEnvironment()
 		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -420,7 +420,7 @@ func TestGetResourceEvents(t *testing.T) {
 		rb := testReleaseBinding()
 		env := testEnvironment()
 		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -454,7 +454,7 @@ func TestGetResourceEvents(t *testing.T) {
 		rb := testReleaseBinding()
 		env := testEnvironment()
 		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
 			{ID: "ns", Group: "", Version: "v1", Kind: "Namespace", Name: "my-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -493,7 +493,7 @@ func TestGetResourceLogs(t *testing.T) {
 		env := testEnvironment()
 		dp := testDataPlane("default")
 		// Only an observability plane release — no parent for pods
-		rr := testRenderedRelease(rb, planeTypeObservabilityPlane, []openchoreov1alpha1.ResourceStatus{
+		rr := testRenderedRelease(rb, planeTypeObservabilityPlane, []openchoreov1alpha1.RenderedManifestStatus{
 			{ID: "cm", Group: "", Version: "v1", Kind: "ConfigMap", Name: "obs-cfg", Namespace: "obs-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -508,7 +508,7 @@ func TestGetResourceLogs(t *testing.T) {
 		rb := testReleaseBinding()
 		env := testEnvironment()
 		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -530,7 +530,7 @@ func TestGetResourceLogs(t *testing.T) {
 		rb := testReleaseBinding()
 		env := testEnvironment()
 		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -548,7 +548,7 @@ func TestGetResourceLogs(t *testing.T) {
 		rb := testReleaseBinding()
 		env := testEnvironment()
 		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.ResourceStatus{
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
 			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
 		})
 		fc := newFakeClient(rb, env, dp, rr)
@@ -717,7 +717,7 @@ func TestFetchChildResources(t *testing.T) {
 		svc := &k8sResourcesService{k8sClient: fc, gatewayClient: gc, logger: testLogger()}
 
 		parentObj := k8sObject("apps/v1", "Deployment", "dp-ns", "web", "deploy-uid-1")
-		rs := &openchoreov1alpha1.ResourceStatus{
+		rs := &openchoreov1alpha1.RenderedManifestStatus{
 			Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns",
 		}
 		pi := planeInfo{planeType: "dataplane", planeID: "dp1", crNamespace: "ns", crName: "dp"}
@@ -745,7 +745,7 @@ func TestFetchChildResources(t *testing.T) {
 		svc := &k8sResourcesService{k8sClient: fc, gatewayClient: gc, logger: testLogger()}
 
 		parentObj := k8sObject("batch/v1", "Job", "dp-ns", "my-job", "job-uid-1")
-		rs := &openchoreov1alpha1.ResourceStatus{
+		rs := &openchoreov1alpha1.RenderedManifestStatus{
 			Group: "batch", Version: "v1", Kind: "Job", Name: "my-job", Namespace: "dp-ns",
 		}
 		pi := planeInfo{planeType: "dataplane", planeID: "dp1", crNamespace: "ns", crName: "dp"}
@@ -784,7 +784,7 @@ func TestFetchChildResources(t *testing.T) {
 		svc := &k8sResourcesService{k8sClient: fc, gatewayClient: gc, logger: testLogger()}
 
 		parentObj := k8sObject("batch/v1", "CronJob", "dp-ns", "my-cj", "cj-uid-1")
-		rs := &openchoreov1alpha1.ResourceStatus{
+		rs := &openchoreov1alpha1.RenderedManifestStatus{
 			Group: "batch", Version: "v1", Kind: "CronJob", Name: "my-cj", Namespace: "dp-ns",
 		}
 		pi := planeInfo{planeType: "dataplane", planeID: "dp1", crNamespace: "ns", crName: "dp"}
@@ -806,7 +806,7 @@ func TestFetchChildResources(t *testing.T) {
 		svc := &k8sResourcesService{k8sClient: fc, gatewayClient: gc, logger: testLogger()}
 
 		parentObj := k8sObject("v1", "Service", "dp-ns", "web-svc", "svc-uid-1")
-		rs := &openchoreov1alpha1.ResourceStatus{
+		rs := &openchoreov1alpha1.RenderedManifestStatus{
 			Group: "", Version: "v1", Kind: "Service", Name: "web-svc", Namespace: "dp-ns",
 		}
 		pi := planeInfo{planeType: "dataplane", planeID: "dp1", crNamespace: "ns", crName: "dp"}
@@ -916,7 +916,7 @@ func TestBuildResourceTreeNodes(t *testing.T) {
 
 		release := &openchoreov1alpha1.RenderedRelease{
 			Status: openchoreov1alpha1.RenderedReleaseStatus{
-				Resources: []openchoreov1alpha1.ResourceStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
 					{ID: "svc", Group: "", Version: "v1", Kind: "Service", Name: "web-svc", Namespace: "dp-ns",
 						HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 				},
@@ -943,7 +943,7 @@ func TestBuildResourceTreeNodes(t *testing.T) {
 
 		release := &openchoreov1alpha1.RenderedRelease{
 			Status: openchoreov1alpha1.RenderedReleaseStatus{
-				Resources: []openchoreov1alpha1.ResourceStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
 					{ID: "svc", Group: "", Version: "v1", Kind: "Service", Name: "missing-svc", Namespace: "dp-ns"},
 				},
 			},

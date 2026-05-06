@@ -507,7 +507,7 @@ var wellKnownObservabilityPlaneGVKs = []schema.GroupVersionKind{
 //   - Current reconciliation: User removed ConfigMap, kept Secret
 //   - Without status: Would only query Secret, miss orphaned ConfigMap
 //   - With status: Queries both Secret + ConfigMap, finds and deletes orphaned ConfigMap
-func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedResources []openchoreov1alpha1.ResourceStatus, targetPlane string) []schema.GroupVersionKind {
+func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedResources []openchoreov1alpha1.RenderedManifestStatus, targetPlane string) []schema.GroupVersionKind {
 	gvkSet := make(map[schema.GroupVersionKind]bool)
 
 	// Add GVKs from desired resources (current spec)

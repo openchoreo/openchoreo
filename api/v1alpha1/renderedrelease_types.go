@@ -25,7 +25,7 @@ type RenderedReleaseSpec struct {
 	// Supports any Kubernetes resource type including HPA, PDB, NetworkPolicy, CRDs, etc. that can
 	// be applied to the data plane.
 	// +kubebuilder:validation:Optional
-	Resources []Resource `json:"resources,omitempty"`
+	Resources []RenderedManifest `json:"resources,omitempty"`
 
 	// Interval watch interval for the release resources when stable.
 	// Defaults to 5m if not specified.
@@ -52,7 +52,7 @@ type RenderedReleaseSpec struct {
 type RenderedReleaseStatus struct {
 	// Resources contain the list of resources that have been successfully applied to the data plane
 	// +optional
-	Resources []ResourceStatus `json:"resources,omitempty"`
+	Resources []RenderedManifestStatus `json:"resources,omitempty"`
 
 	// Conditions represent the latest available observations of the RenderedRelease's current state.
 	// +optional
@@ -88,8 +88,8 @@ type RenderedReleaseOwner struct {
 	ComponentName string `json:"componentName"`
 }
 
-// Resource defines a Kubernetes resource template that can be applied to the data plane.
-type Resource struct {
+// RenderedManifest defines a Kubernetes resource template that can be applied to the data plane.
+type RenderedManifest struct {
 	// Unique identifier for the resource
 	// +kubebuilder:validation:MinLength=1
 	ID string `json:"id"`
@@ -100,8 +100,8 @@ type Resource struct {
 	Object *runtime.RawExtension `json:"object"`
 }
 
-// ResourceStatus tracks a resource that was applied to the data plane.
-type ResourceStatus struct {
+// RenderedManifestStatus tracks a resource that was applied to the data plane.
+type RenderedManifestStatus struct {
 	// ID corresponds to the resource ID in spec.resources
 	// +kubebuilder:validation:MinLength=1
 	ID string `json:"id"`

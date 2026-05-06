@@ -442,7 +442,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 			Expect(k8sClient.Get(ctx, nn, release)).To(Succeed())
 
 			By("writing resource status entries")
-			release.Status.Resources = []openchoreov1alpha1.ResourceStatus{
+			release.Status.Resources = []openchoreov1alpha1.RenderedManifestStatus{
 				{
 					ID:           "res-1",
 					Group:        "apps",
@@ -502,7 +502,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 					"key": "value"
 				}
 			}`)
-			release.Spec.Resources = []openchoreov1alpha1.Resource{
+			release.Spec.Resources = []openchoreov1alpha1.RenderedManifest{
 				{
 					ID:     "cm-happy-1",
 					Object: &runtime.RawExtension{Raw: cmJSON},
@@ -605,7 +605,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 					}
 				}
 			}`)
-			release.Spec.Resources = []openchoreov1alpha1.Resource{
+			release.Spec.Resources = []openchoreov1alpha1.RenderedManifest{
 				{
 					ID:     "deploy-trans-1",
 					Object: &runtime.RawExtension{Raw: deployJSON},
@@ -910,7 +910,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 					"key": "op-value"
 				}
 			}`)
-			release.Spec.Resources = []openchoreov1alpha1.Resource{
+			release.Spec.Resources = []openchoreov1alpha1.RenderedManifest{
 				{
 					ID:     "cm-op-1",
 					Object: &runtime.RawExtension{Raw: cmJSON},
@@ -982,7 +982,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 					"namespace": "default"
 				}
 			}`)
-			release.Spec.Resources = []openchoreov1alpha1.Resource{
+			release.Spec.Resources = []openchoreov1alpha1.RenderedManifest{
 				{
 					ID:     "bad-1",
 					Object: &runtime.RawExtension{Raw: badJSON},
@@ -1055,7 +1055,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 				},
 				"data": {"key": "remove"}
 			}`)
-			release.Spec.Resources = []openchoreov1alpha1.Resource{
+			release.Spec.Resources = []openchoreov1alpha1.RenderedManifest{
 				{ID: "cm-keep-1", Object: &runtime.RawExtension{Raw: cm1JSON}},
 				{ID: "cm-remove-1", Object: &runtime.RawExtension{Raw: cm2JSON}},
 			}
@@ -1074,7 +1074,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 
 			By("Removing cm-remove from the spec")
 			updated := fetchRelease(releaseName)
-			updated.Spec.Resources = []openchoreov1alpha1.Resource{
+			updated.Spec.Resources = []openchoreov1alpha1.RenderedManifest{
 				{ID: "cm-keep-1", Object: &runtime.RawExtension{Raw: cm1JSON}},
 			}
 			Expect(k8sClient.Update(ctx, updated)).To(Succeed())
@@ -1126,7 +1126,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 				},
 				"data": {"key": "default-tp"}
 			}`)
-			release.Spec.Resources = []openchoreov1alpha1.Resource{
+			release.Spec.Resources = []openchoreov1alpha1.RenderedManifest{
 				{ID: "cm-dtp-1", Object: &runtime.RawExtension{Raw: cmJSON}},
 			}
 			Expect(k8sClient.Create(ctx, release)).To(Succeed())
@@ -1320,7 +1320,7 @@ var _ = Describe("RenderedRelease Controller", func() {
 			fetched := fetchRelease(releaseName)
 
 			By("Setting status.resources to include an ObservabilityAlertRule entry")
-			fetched.Status.Resources = []openchoreov1alpha1.ResourceStatus{
+			fetched.Status.Resources = []openchoreov1alpha1.RenderedManifestStatus{
 				{
 					ID:      "alert-rule-1",
 					Group:   "openchoreo.dev",

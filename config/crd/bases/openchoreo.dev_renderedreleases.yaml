@@ -76,8 +76,8 @@ spec:
                   Supports any Kubernetes resource type including HPA, PDB, NetworkPolicy, CRDs, etc. that can
                   be applied to the data plane.
                 items:
-                  description: Resource defines a Kubernetes resource template that
-                    can be applied to the data plane.
+                  description: RenderedManifest defines a Kubernetes resource template
+                    that can be applied to the data plane.
                   properties:
                     id:
                       description: Unique identifier for the resource
@@ -170,8 +170,8 @@ spec:
                 description: Resources contain the list of resources that have been
                   successfully applied to the data plane
                 items:
-                  description: ResourceStatus tracks a resource that was applied to
-                    the data plane.
+                  description: RenderedManifestStatus tracks a resource that was applied
+                    to the data plane.
                   properties:
                     group:
                       description: |-
