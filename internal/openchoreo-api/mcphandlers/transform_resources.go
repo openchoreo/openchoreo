@@ -119,77 +119,8 @@ func workloadSummary(w openchoreov1alpha1.Workload) map[string]any {
 
 func workloadDetail(w *openchoreov1alpha1.Workload) map[string]any {
 	m := extractCommonMeta(w)
-	m["projectName"] = w.Spec.Owner.ProjectName
-	m["componentName"] = w.Spec.Owner.ComponentName
-	m["container"] = containerToMap(&w.Spec.Container)
-	if len(w.Spec.Endpoints) > 0 {
-		eps := make(map[string]any, len(w.Spec.Endpoints))
-		for name, ep := range w.Spec.Endpoints {
-			e := map[string]any{
-				"type": string(ep.Type),
-				"port": ep.Port,
-			}
-			if ep.TargetPort != 0 {
-				e["targetPort"] = ep.TargetPort
-			}
-			if len(ep.Visibility) > 0 {
-				vis := make([]string, 0, len(ep.Visibility))
-				for _, v := range ep.Visibility {
-					vis = append(vis, string(v))
-				}
-				e["visibility"] = vis
-			}
-			setIfNotEmpty(e, "displayName", ep.DisplayName)
-			setIfNotEmpty(e, "basePath", ep.BasePath)
-			eps[name] = e
-		}
-		m["endpoints"] = eps
-	}
-	deps := w.Spec.GetDependencyEndpoints()
-	if len(deps) > 0 {
-		conns := make([]map[string]any, 0, len(deps))
-		for _, conn := range deps {
-			c := map[string]any{
-				"component":  conn.Component,
-				"name":       conn.Name,
-				"visibility": string(conn.Visibility),
-			}
-			if conn.Project != "" {
-				c["project"] = conn.Project
-			}
-			envBindings := make(map[string]any)
-			setIfNotEmpty(envBindings, "address", conn.EnvBindings.Address)
-			setIfNotEmpty(envBindings, "host", conn.EnvBindings.Host)
-			setIfNotEmpty(envBindings, "port", conn.EnvBindings.Port)
-			setIfNotEmpty(envBindings, "basePath", conn.EnvBindings.BasePath)
-			if len(envBindings) > 0 {
-				c["envBindings"] = envBindings
-			}
-			conns = append(conns, c)
-		}
-		m["dependencies"] = conns
-	}
-	return m
-}
-
-func containerToMap(c *openchoreov1alpha1.Container) map[string]any {
-	m := map[string]any{"image": c.Image}
-	if len(c.Command) > 0 {
-		m["command"] = c.Command
-	}
-	if len(c.Args) > 0 {
-		m["args"] = c.Args
-	}
-	if len(c.Env) > 0 {
-		envs := make([]map[string]any, 0, len(c.Env))
-		for i := range c.Env {
-			e := map[string]any{"key": c.Env[i].Key}
-			if c.Env[i].Value != "" {
-				e["value"] = c.Env[i].Value
-			}
-			envs = append(envs, e)
-		}
-		m["env"] = envs
+	if spec := specToMap(w.Spec); len(spec) > 0 {
+		m["spec"] = spec
 	}
 	return m
 }
