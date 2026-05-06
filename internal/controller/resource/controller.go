@@ -148,8 +148,10 @@ func (r *Reconciler) resolveType(ctx context.Context, res *openchoreov1alpha1.Re
 }
 
 // ensureResourceRelease creates a ResourceRelease with the given name if it
-// doesn't already exist. AlreadyExists is treated as success so a parallel
-// reconcile that won the race is benign.
+// doesn't already exist. On AlreadyExists, verify the existing release belongs
+// to this Resource before claiming it; refuse to take over a release owned by
+// a different Resource (defends against hash collisions and external creates
+// landing on the same name).
 func (r *Reconciler) ensureResourceRelease(
 	ctx context.Context,
 	res *openchoreov1alpha1.Resource,
@@ -170,8 +172,21 @@ func (r *Reconciler) ensureResourceRelease(
 			Parameters:   res.Spec.Parameters,
 		},
 	}
-	if err := r.Create(ctx, rr); err != nil && !apierrors.IsAlreadyExists(err) {
+	err := r.Create(ctx, rr)
+	if err == nil {
+		return nil
+	}
+	if !apierrors.IsAlreadyExists(err) {
 		return fmt.Errorf("create ResourceRelease %q: %w", name, err)
+	}
+
+	existing := &openchoreov1alpha1.ResourceRelease{}
+	if getErr := r.Get(ctx, types.NamespacedName{Name: name, Namespace: res.Namespace}, existing); getErr != nil {
+		return fmt.Errorf("verify existing ResourceRelease %q: %w", name, getErr)
+	}
+	if existing.Spec.Owner.ResourceName != res.Name {
+		return fmt.Errorf("ResourceRelease %q already exists with owner %q, refusing to claim it for %q",
+			name, existing.Spec.Owner.ResourceName, res.Name)
 	}
 	return nil
 }

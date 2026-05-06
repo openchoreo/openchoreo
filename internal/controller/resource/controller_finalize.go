@@ -55,9 +55,16 @@ func (r *Reconciler) finalize(ctx context.Context, old, res *openchoreov1alpha1.
 	logger := log.FromContext(ctx).WithValues("resource", res.Name)
 
 	if !controllerutil.ContainsFinalizer(res, ResourceFinalizer) {
+		// Either the finalizer was never added or another reconcile already
+		// removed it. Log so an unexpected absence is visible in operator logs.
+		logger.Info("Resource is being deleted but resource-cleanup finalizer is not present; skipping cleanup")
 		return ctrl.Result{}, nil
 	}
 
+	// finalize uses UpdateStatusConditionsAndReturn directly rather than the
+	// deferred whole-status writer used by reconcile: every exit path either
+	// sets exactly one condition (Finalizing) and persists immediately, or
+	// sets nothing.
 	if meta.SetStatusCondition(&res.Status.Conditions, NewFinalizingCondition(res.Generation)) {
 		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, old, res)
 	}
