@@ -136,8 +136,11 @@ func (ce *CasbinEnforcer) buildCapabilitiesFromPolicies(policies []policyInfo, a
 
 	roleToActions := make(map[authzcore.RoleRef][]string)
 	// actionExpressions accumulates CEL expressions per (action, resourceKey).
-	// nil slice means no conditions (unconditional)
+	// nil slice means no conditions (unconditional);
 	actionExpressions := make(map[string]map[resourceKey][]string)
+	// unconditionalKeys tracks which (action, resourceKey) pairs have been marked
+	// unconditional so that later conditional bindings cannot re-add constraints.
+	unconditionalKeys := make(map[string]map[resourceKey]bool)
 
 	for _, p := range policies {
 		roleKey := authzcore.RoleRef{
@@ -165,27 +168,35 @@ func (ce *CasbinEnforcer) buildCapabilitiesFromPolicies(policies []policyInfo, a
 		}
 
 		// Decode conditions from this policy, filtered per action below
-		allConds := decodeConditions(p.conditions)
+		allConds, err := decodeConditions(p.conditions)
+		if err != nil {
+			return nil, fmt.Errorf("policy conditions corrupt for role '%s': %w", p.roleName, err)
+		}
 
 		actions := roleToActions[roleKey]
 		for _, action := range actions {
 			if actionExpressions[action] == nil {
 				actionExpressions[action] = make(map[resourceKey][]string)
+				unconditionalKeys[action] = make(map[resourceKey]bool)
 			}
 			key := resourceKey{path: p.resourcePath, effect: p.effect}
 
 			// Filter conditions to only those targeting this action
 			actionConds := filterConditionsByAction(allConds, action)
 			if len(actionConds) > 0 {
+				// An unconditional binding already claimed this key; skip.
+				if unconditionalKeys[action][key] {
+					continue
+				}
 				for _, c := range actionConds {
 					actionExpressions[action][key] = append(actionExpressions[action][key], c.Expression)
 				}
 				continue
 			}
-			// No conditions target this action — unconditional for this action
-			if _, ok := actionExpressions[action][key]; !ok {
-				actionExpressions[action][key] = nil
-			}
+			// No conditions target this action — unconditional for this action.
+			// Discard any previously accumulated conditional expressions and mark unconditional.
+			unconditionalKeys[action][key] = true
+			actionExpressions[action][key] = nil
 		}
 	}
 

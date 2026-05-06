@@ -312,7 +312,6 @@ func TestGetSubjectProfileHandler(t *testing.T) {
 		require.Len(t, *viewCaps.Denied, 1)
 		assert.Nil(t, (*viewCaps.Denied)[0].Constraints)
 	})
-
 }
 
 func TestCoreConstraintsToGen(t *testing.T) {

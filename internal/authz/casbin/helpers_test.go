@@ -1205,11 +1205,15 @@ func mustCondsJSON(t *testing.T, conds []authzv1alpha1.AuthzCondition) string {
 
 func TestDecodeConditions(t *testing.T) {
 	t.Run("empty string returns nil", func(t *testing.T) {
-		require.Nil(t, decodeConditions(""))
+		got, err := decodeConditions("")
+		require.NoError(t, err)
+		require.Nil(t, got)
 	})
 
 	t.Run("empty JSON object returns nil", func(t *testing.T) {
-		require.Nil(t, decodeConditions("{}"))
+		got, err := decodeConditions("{}")
+		require.NoError(t, err)
+		require.Nil(t, got)
 	})
 
 	t.Run("valid JSON array round-trips", func(t *testing.T) {
@@ -1219,16 +1223,21 @@ func TestDecodeConditions(t *testing.T) {
 		raw, err := serializeAuthzConditions(conds)
 		require.NoError(t, err)
 
-		got := decodeConditions(raw)
+		got, err := decodeConditions(raw)
+		require.NoError(t, err)
 		require.Equal(t, conds, got)
 	})
 
-	t.Run("malformed JSON returns nil", func(t *testing.T) {
-		require.Nil(t, decodeConditions("not-json"))
+	t.Run("malformed JSON returns error", func(t *testing.T) {
+		got, err := decodeConditions("not-json")
+		require.Error(t, err)
+		require.Nil(t, got)
 	})
 
-	t.Run("JSON object (not array) returns nil", func(t *testing.T) {
-		require.Nil(t, decodeConditions(`{"actions":["releasebinding:create"]}`))
+	t.Run("JSON object (not array) returns error", func(t *testing.T) {
+		got, err := decodeConditions(`{"actions":["releasebinding:create"]}`)
+		require.Error(t, err)
+		require.Nil(t, got)
 	})
 
 	t.Run("multiple conditions decoded correctly", func(t *testing.T) {
@@ -1239,7 +1248,8 @@ func TestDecodeConditions(t *testing.T) {
 		raw, err := serializeAuthzConditions(conds)
 		require.NoError(t, err)
 
-		got := decodeConditions(raw)
+		got, err := decodeConditions(raw)
+		require.NoError(t, err)
 		require.Len(t, got, 2)
 		require.Equal(t, conds, got)
 	})

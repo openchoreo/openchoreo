@@ -56,17 +56,16 @@ func serializeAuthzContext(ctx authzcore.Context) (string, error) {
 }
 
 // decodeConditions deserializes raw JSON conditions from a policy tuple.
-// Returns nil if the raw string is empty or represents an empty context.
-func decodeConditions(raw string) []authzv1alpha1.AuthzCondition {
+// Returns nil, nil if the raw string is empty or represents an empty context.
+func decodeConditions(raw string) ([]authzv1alpha1.AuthzCondition, error) {
 	if isPolicyConditionEmpty(raw) {
-		return nil
+		return nil, nil
 	}
 	var conds []authzv1alpha1.AuthzCondition
 	if err := json.Unmarshal([]byte(raw), &conds); err != nil {
-		slog.Default().Error("decodeConditions: failed to unmarshal", "raw", raw, "error", err)
-		return nil
+		return nil, fmt.Errorf("decodeConditions: failed to unmarshal conditions: %w", err)
 	}
-	return conds
+	return conds, nil
 }
 
 // serializeAuthzConditions serializes a slice of AuthzCondition to JSON for storing in the policy.
