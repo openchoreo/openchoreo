@@ -181,12 +181,20 @@ class SQLReportBackend(ReportBackend):
 
 
 def _row_to_doc(row: Any) -> dict[str, Any]:
+    # ``projectUid`` / ``environmentUid`` are surfaced at the top level so
+    # callers can authorize against the report's hierarchy without having
+    # to reach into the nested ``resource`` dict. The list_rca_reports
+    # path already uses these flat keys (line 164 above); keeping them
+    # consistent across list / get is the single-key contract MCP relies
+    # on for per-report re-authorization.
     doc: dict[str, Any] = {
         "@timestamp": row["timestamp"],
         "reportId": row["report_id"],
         "alertId": row["alert_id"],
         "status": row["status"],
         "summary": row["summary"],
+        "projectUid": row["project_uid"],
+        "environmentUid": row["environment_uid"],
         "resource": {
             "openchoreo.dev/environment-uid": row["environment_uid"],
             "openchoreo.dev/project-uid": row["project_uid"],

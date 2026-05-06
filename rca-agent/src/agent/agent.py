@@ -360,6 +360,40 @@ async def run_analysis(
                 response.get("result"),
             )
 
+        except asyncio.CancelledError:
+            logger.warning("Analysis cancelled before completion")
+            # Bounded best-effort: try to mark the report 'failed' so the
+            # caller doesn't see it stuck in 'pending' forever, but DON'T
+            # let a slow/hung backend block shutdown past
+            # drain_background_tasks' cancel_wait. shield() keeps the
+            # upsert running after we've received CancelledError;
+            # wait_for() caps it so a wedged backend can't keep us alive.
+            _SHUTDOWN_UPSERT_TIMEOUT = 5.0
+            try:
+                await asyncio.wait_for(
+                    asyncio.shield(
+                        report_backend.upsert_rca_report(
+                            report_id=report_id,
+                            alert_id=alert_id,
+                            status="failed",
+                            summary=f"Analysis cancelled during shutdown (report_id: {report_id})",
+                            environment_uid=scope.environment_uid,
+                            project_uid=scope.project_uid,
+                        )
+                    ),
+                    timeout=_SHUTDOWN_UPSERT_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Cancellation upsert exceeded %.1fs for report_id=%s; "
+                    "report will remain in 'pending' state",
+                    _SHUTDOWN_UPSERT_TIMEOUT,
+                    report_id,
+                )
+            except Exception as update_error:
+                logger.error("Failed to update status: %s", update_error, exc_info=True)
+            raise
+
         except TimeoutError:
             logger.error(
                 "Analysis timed out after %d seconds",

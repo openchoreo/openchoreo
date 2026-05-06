@@ -11,6 +11,12 @@ dependencies = [
     "langchain>=1.0.5",
     "langchain-mcp-adapters>=0.2.1",
     "langchain-openai>=1.1.10",
+    # Pin to >=1.23.0: earlier versions had a different default for
+    # TransportSecuritySettings.enable_dns_rebinding_protection. We
+    # explicitly disable it in src/mcp_server.py for in-cluster
+    # Service-DNS reachability, but the security argument assumes the
+    # rest of the SDK's transport hardening is the post-1.23 shape.
+    "mcp>=1.23.0",
     "numpy>=2.4.1",
     "aiosqlite>=0.20.0",
     "asyncpg>=0.30.0",
