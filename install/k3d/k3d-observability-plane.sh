@@ -39,7 +39,8 @@ helm upgrade --install observability-logs-opensearch \
   --create-namespace \
   --namespace "$OP_NS" \
   --version "$LOGS_OPENSEARCH_VERSION" \
-  --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials"
+  --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
+  --set adapter.openSearchSecretName="opensearch-admin-credentials"
 
 step "Installing OpenSearch-based traces module..."
 helm upgrade --install observability-traces-opensearch \

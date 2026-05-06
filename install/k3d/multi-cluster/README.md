@@ -604,6 +604,7 @@ helm upgrade --install observability-logs-opensearch \
   --version 0.4.0 \
   --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
   --set openSearchCluster.credentialsSecretName="opensearch-admin-credentials" \
+  --set adapter.openSearchSecretName="opensearch-admin-credentials" \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=true
 ```
@@ -620,6 +621,7 @@ helm upgrade --install observability-logs-opensearch \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
+  --set adapter.enabled=false \
   --set fluent-bit.enabled=true \
   --set fluent-bit.openSearchHost=host.k3d.internal \
   --set fluent-bit.openSearchPort=11085 \
@@ -638,6 +640,7 @@ helm upgrade --install observability-logs-opensearch \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
+  --set adapter.enabled=false \
   --set fluent-bit.enabled=true \
   --set fluent-bit.openSearchHost=host.k3d.internal \
   --set fluent-bit.openSearchPort=11085 \

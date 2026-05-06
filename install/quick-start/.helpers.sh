@@ -1073,7 +1073,8 @@ install_observability_plane() {
 
     install_helm_chart "observability-logs-opensearch" "$modules_repo/observability-logs-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
         "--version" "0.4.0" \
-        "--set" "openSearchSetup.openSearchSecretName=opensearch-admin-credentials"
+        "--set" "openSearchSetup.openSearchSecretName=opensearch-admin-credentials" \
+        "--set" "adapter.openSearchSecretName=opensearch-admin-credentials"
 
     # Enable fluent-bit after opensearch is installed and ready
     log_info "Enabling fluent-bit for log collection..."
