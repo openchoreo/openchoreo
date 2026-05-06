@@ -10,7 +10,8 @@ import (
 
 // ResourceReleaseBindingSpec defines the desired state of ResourceReleaseBinding.
 // Pins a ResourceRelease to an Environment with PE-controlled per-env overrides.
-// PE/GitOps-authored: the Resource controller never creates ResourceReleaseBindings.
+// The Resource controller never creates or modifies ResourceReleaseBindings;
+// they are authored externally (kubectl, GitOps, API server).
 // In v1.1 the binding's resourceRelease pin is always manual; advance via
 // `occ resource promote` or kubectl edit.
 type ResourceReleaseBindingSpec struct {
@@ -26,9 +27,9 @@ type ResourceReleaseBindingSpec struct {
 	Environment string `json:"environment"`
 
 	// ResourceRelease is the name of the ResourceRelease pinned by this binding.
-	// PE/GitOps advances the pin manually (e.g. via `occ resource promote`).
-	// Unset before the first ResourceRelease is cut; the controller leaves the
-	// binding pending until set.
+	// The release pin is advanced manually (e.g. via `occ resource promote` or
+	// `kubectl edit`). Unset before the first ResourceRelease is cut; the
+	// controller leaves the binding pending until set.
 	// +optional
 	ResourceRelease string `json:"resourceRelease,omitempty"`
 
@@ -126,7 +127,7 @@ type ResolvedResourceOutput struct {
 
 // ResourceReleaseBinding is the Schema for the resourcereleasebindings API.
 // Pins a ResourceRelease to an Environment and carries per-env config overrides.
-// PE/GitOps-authored.
+// Authored externally; not managed by the Resource controller.
 type ResourceReleaseBinding struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

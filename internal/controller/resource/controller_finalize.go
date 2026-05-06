@@ -21,7 +21,7 @@ import (
 const (
 	// ResourceFinalizer ensures owned ResourceReleases are cleaned up and that
 	// deletion blocks while ResourceReleaseBindings still reference the Resource.
-	// PE/GitOps deletes the bindings; their own finalizers enforce retainPolicy.
+	// Bindings are deleted externally; their own finalizers enforce retainPolicy.
 	ResourceFinalizer = "openchoreo.dev/resource-cleanup"
 
 	// requeueWaitForChildren is how long we wait between reconciles while owned
@@ -47,8 +47,8 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, res *openchoreov1alpha
 //
 //  1. Set the Finalizing condition the first time we observe deletion so users
 //     see "deletion in progress" via status.
-//  2. Block while ResourceReleaseBindings reference the Resource. PE/GitOps is
-//     responsible for deleting them; their own finalizers enforce retainPolicy.
+//  2. Block while ResourceReleaseBindings reference the Resource. Deletion of
+//     bindings is externally driven; their own finalizers enforce retainPolicy.
 //  3. Once bindings are gone, cascade-delete owned ResourceReleases.
 //  4. Once releases are gone, remove the finalizer and let K8s GC the Resource.
 func (r *Reconciler) finalize(ctx context.Context, old, res *openchoreov1alpha1.Resource) (ctrl.Result, error) {
@@ -74,7 +74,7 @@ func (r *Reconciler) finalize(ctx context.Context, old, res *openchoreov1alpha1.
 		return ctrl.Result{}, err
 	}
 	if hasBindings {
-		logger.Info("Waiting for ResourceReleaseBindings to be deleted by PE/GitOps")
+		logger.Info("Waiting for ResourceReleaseBindings to be deleted")
 		return ctrl.Result{RequeueAfter: requeueWaitForChildren}, nil
 	}
 
