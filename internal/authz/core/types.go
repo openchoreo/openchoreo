@@ -115,11 +115,16 @@ type ActionCapability struct {
 	Denied  []*CapabilityResource `json:"denied"`
 }
 
-// CapabilityResource represents a resource with permission details (SIMPLIFIED)
-type CapabilityResource struct {
-	Path        string       `json:"path"`        // Full resource path: "namespace/acme/project/payment"
-	Constraints *interface{} `json:"constraints"` // represents additional instance level restrictions
+// Constraints holds the CEL expressions that restrict access for a given action+path.
+// Multiple expressions are OR'd — access is granted if any one of them evaluates to true.
+type Constraints struct {
+	Expressions []string `json:"expressions"`
+}
 
+// CapabilityResource represents a resource with permission details
+type CapabilityResource struct {
+	Path        string       `json:"path"`                  // Full resource path: "namespace/acme/project/payment"
+	Constraints *Constraints `json:"constraints,omitempty"` // nil means unconditionally granted
 }
 
 // UserCapabilitiesResponse represents the complete capabilities response

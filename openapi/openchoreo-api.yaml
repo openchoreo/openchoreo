@@ -9018,6 +9018,18 @@ components:
           items:
             $ref: '#/components/schemas/CapabilityResource'
 
+    CapabilityConstraints:
+      type: object
+      description: CEL expressions constraining access for a given action and resource path. Multiple expressions are OR'd.
+      properties:
+        expressions:
+          type: array
+          description: CEL expressions; access is granted if any one evaluates to true
+          items:
+            type: string
+          minItems: 1
+          example: ['resource.environment == "prod"', 'resource.environment == "staging"']
+
     CapabilityResource:
       type: object
       description: Resource with permission details
@@ -9027,9 +9039,7 @@ components:
           description: Full resource path
           example: namespace/acme/project/payment
         constraints:
-          type: object
-          description: Additional instance-level restrictions
-          additionalProperties: true
+          $ref: '#/components/schemas/CapabilityConstraints'
 
     UserCapabilitiesResponse:
       type: object

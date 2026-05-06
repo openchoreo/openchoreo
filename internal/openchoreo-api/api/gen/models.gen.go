@@ -586,10 +586,16 @@ type AuthzScope struct {
 	Project *string `json:"project,omitempty"`
 }
 
+// CapabilityConstraints CEL expressions constraining access for a given action and resource path. Multiple expressions are OR'd.
+type CapabilityConstraints struct {
+	// Expressions CEL expressions; access is granted if any one evaluates to true
+	Expressions *[]string `json:"expressions,omitempty"`
+}
+
 // CapabilityResource Resource with permission details
 type CapabilityResource struct {
-	// Constraints Additional instance-level restrictions
-	Constraints *map[string]interface{} `json:"constraints,omitempty"`
+	// Constraints CEL expressions constraining access for a given action and resource path. Multiple expressions are OR'd.
+	Constraints *CapabilityConstraints `json:"constraints,omitempty"`
 
 	// Path Full resource path
 	Path *string `json:"path,omitempty"`

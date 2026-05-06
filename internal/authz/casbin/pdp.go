@@ -106,9 +106,9 @@ func (ce *CasbinEnforcer) filterPoliciesBySubjectAndScope(subjectCtx *authzcore.
 
 			resourcePath := policy[1]
 			roleName := policy[2]
-			roleNamespace := policy[3] // Capture role namespace
+			roleNamespace := policy[3]
 			effect := policy[4]
-			// policy[5] is context
+			conditions := policy[5]
 
 			if !isWithinScope(resourcePath, scopePath) {
 				continue
@@ -119,6 +119,7 @@ func (ce *CasbinEnforcer) filterPoliciesBySubjectAndScope(subjectCtx *authzcore.
 				roleName:      roleName,
 				roleNamespace: roleNamespace,
 				effect:        effect,
+				conditions:    conditions,
 			})
 		}
 	}
@@ -134,7 +135,9 @@ func (ce *CasbinEnforcer) buildCapabilitiesFromPolicies(policies []policyInfo, a
 	}
 
 	roleToActions := make(map[authzcore.RoleRef][]string)
-	actionResources := make(map[string]map[resourceKey]bool)
+	// actionExpressions accumulates CEL expressions per (action, resourceKey).
+	// nil slice means no conditions (unconditional)
+	actionExpressions := make(map[string]map[resourceKey][]string)
 
 	for _, p := range policies {
 		roleKey := authzcore.RoleRef{
@@ -155,35 +158,53 @@ func (ce *CasbinEnforcer) buildCapabilitiesFromPolicies(policies []policyInfo, a
 					ce.logger.Warn("skipping malformed role-action mapping", "rule", ra)
 					continue
 				}
-				// ra[0] = role name, ra[1] = action, ra[2] = namespace (already filtered)
 				expandedActions := expandActionWildcard(ra[1], actionIdx)
 				actions = append(actions, expandedActions...)
 			}
 			roleToActions[roleKey] = actions
 		}
 
-		// Build action resources using the cached role actions
+		// Decode conditions from this policy, filtered per action below
+		allConds := decodeConditions(p.conditions)
+
 		actions := roleToActions[roleKey]
 		for _, action := range actions {
-			if actionResources[action] == nil {
-				actionResources[action] = make(map[resourceKey]bool)
+			if actionExpressions[action] == nil {
+				actionExpressions[action] = make(map[resourceKey][]string)
 			}
-			actionResources[action][resourceKey{path: p.resourcePath, effect: p.effect}] = true
+			key := resourceKey{path: p.resourcePath, effect: p.effect}
+
+			// Filter conditions to only those targeting this action
+			actionConds := filterConditionsByAction(allConds, action)
+			if len(actionConds) > 0 {
+				for _, c := range actionConds {
+					actionExpressions[action][key] = append(actionExpressions[action][key], c.Expression)
+				}
+				continue
+			}
+			// No conditions target this action — unconditional for this action
+			if _, ok := actionExpressions[action][key]; !ok {
+				actionExpressions[action][key] = nil
+			}
 		}
 	}
 
 	// Convert to final capabilities structure
 	capabilities := make(map[string]*authzcore.ActionCapability)
-	for action, resources := range actionResources {
+	for action, resources := range actionExpressions {
 		capability := &authzcore.ActionCapability{
 			Allowed: []*authzcore.CapabilityResource{},
 			Denied:  []*authzcore.CapabilityResource{},
 		}
 
-		for res := range resources {
+		for res, expressions := range resources {
+			var constraints *authzcore.Constraints
+			if len(expressions) > 0 {
+				constraints = &authzcore.Constraints{Expressions: expressions}
+			}
 			capRes := &authzcore.CapabilityResource{
 				Path:        res.path,
-				Constraints: nil,
+				Constraints: constraints,
 			}
 			if res.effect == string(authzcore.PolicyEffectAllow) {
 				capability.Allowed = append(capability.Allowed, capRes)

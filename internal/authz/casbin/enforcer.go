@@ -44,6 +44,7 @@ type policyInfo struct {
 	roleName      string
 	roleNamespace string
 	effect        string
+	conditions    string // raw JSON from policy[5]; "" or "{}" means unconstrained
 }
 
 // NewEnforcer creates a new Casbin-based authorizer using Kubernetes CRD adapter

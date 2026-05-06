@@ -24,6 +24,16 @@ func getStringValue(s *string) string {
 	return *s
 }
 
+// coreConstraintsToGen converts core.Constraints to the generated gen.CapabilityConstraints pointer.
+// Returns nil when there are no expressions (unconditional access).
+func coreConstraintsToGen(c *authz.Constraints) *gen.CapabilityConstraints {
+	if c == nil || len(c.Expressions) == 0 {
+		return nil
+	}
+	exprs := c.Expressions
+	return &gen.CapabilityConstraints{Expressions: &exprs}
+}
+
 // ListActions returns all defined authorization actions.
 func (h *Handler) ListActions(
 	ctx context.Context,
@@ -181,15 +191,9 @@ func (h *Handler) GetSubjectProfile(
 			if capability.Allowed != nil {
 				allowedResources := make([]gen.CapabilityResource, len(capability.Allowed))
 				for i, res := range capability.Allowed {
-					// Convert constraints type
-					var constraints *map[string]interface{}
-					if res.Constraints != nil {
-						constraintsMap := (*res.Constraints).(map[string]interface{})
-						constraints = &constraintsMap
-					}
 					path := res.Path
 					allowedResources[i] = gen.CapabilityResource{
-						Constraints: constraints,
+						Constraints: coreConstraintsToGen(res.Constraints),
 						Path:        &path,
 					}
 				}
@@ -199,15 +203,9 @@ func (h *Handler) GetSubjectProfile(
 			if capability.Denied != nil {
 				deniedResources := make([]gen.CapabilityResource, len(capability.Denied))
 				for i, res := range capability.Denied {
-					// Convert constraints type
-					var constraints *map[string]interface{}
-					if res.Constraints != nil {
-						constraintsMap := (*res.Constraints).(map[string]interface{})
-						constraints = &constraintsMap
-					}
 					path := res.Path
 					deniedResources[i] = gen.CapabilityResource{
-						Constraints: constraints,
+						Constraints: coreConstraintsToGen(res.Constraints),
 						Path:        &path,
 					}
 				}

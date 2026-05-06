@@ -254,7 +254,6 @@ func TestGetSubjectProfileHandler(t *testing.T) {
 		ctx := auth.SetSubjectContext(context.Background(), subCtx)
 
 		now := time.Now().UTC().Truncate(time.Second)
-		constraintsVal := interface{}(map[string]interface{}{"env": "prod"})
 		profile := &authzcore.UserCapabilitiesResponse{
 			User: &authzcore.SubjectContext{
 				Type: "user",
@@ -263,7 +262,7 @@ func TestGetSubjectProfileHandler(t *testing.T) {
 			Capabilities: map[string]*authzcore.ActionCapability{
 				"view": {
 					Allowed: []*authzcore.CapabilityResource{
-						{Path: "namespace/acme", Constraints: &constraintsVal},
+						{Path: "namespace/acme", Constraints: &authzcore.Constraints{Expressions: []string{`resource.environment == "prod"`}}},
 					},
 					Denied: []*authzcore.CapabilityResource{
 						{Path: "namespace/acme/project/secret", Constraints: nil},
@@ -302,7 +301,9 @@ func TestGetSubjectProfileHandler(t *testing.T) {
 		require.NotNil(t, viewCaps.Allowed)
 		require.Len(t, *viewCaps.Allowed, 1)
 		require.NotNil(t, (*viewCaps.Allowed)[0].Constraints)
-		assert.Equal(t, "prod", (*(*viewCaps.Allowed)[0].Constraints)["env"])
+		require.NotNil(t, (*viewCaps.Allowed)[0].Constraints.Expressions)
+		require.Len(t, *(*viewCaps.Allowed)[0].Constraints.Expressions, 1)
+		assert.Equal(t, `resource.environment == "prod"`, (*(*viewCaps.Allowed)[0].Constraints.Expressions)[0])
 
 		require.NotNil(t, viewCaps.Denied)
 		require.Len(t, *viewCaps.Denied, 1)
