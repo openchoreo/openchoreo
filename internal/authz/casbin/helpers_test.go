@@ -1203,6 +1203,48 @@ func mustCondsJSON(t *testing.T, conds []authzv1alpha1.AuthzCondition) string {
 	return s
 }
 
+func TestDecodeConditions(t *testing.T) {
+	t.Run("empty string returns nil", func(t *testing.T) {
+		require.Nil(t, decodeConditions(""))
+	})
+
+	t.Run("empty JSON object returns nil", func(t *testing.T) {
+		require.Nil(t, decodeConditions("{}"))
+	})
+
+	t.Run("valid JSON array round-trips", func(t *testing.T) {
+		conds := []authzv1alpha1.AuthzCondition{
+			{Actions: []string{"releasebinding:create"}, Expression: `resource.environment == "dev"`},
+		}
+		raw, err := serializeAuthzConditions(conds)
+		require.NoError(t, err)
+
+		got := decodeConditions(raw)
+		require.Equal(t, conds, got)
+	})
+
+	t.Run("malformed JSON returns nil", func(t *testing.T) {
+		require.Nil(t, decodeConditions("not-json"))
+	})
+
+	t.Run("JSON object (not array) returns nil", func(t *testing.T) {
+		require.Nil(t, decodeConditions(`{"actions":["releasebinding:create"]}`))
+	})
+
+	t.Run("multiple conditions decoded correctly", func(t *testing.T) {
+		conds := []authzv1alpha1.AuthzCondition{
+			{Actions: []string{"releasebinding:create"}, Expression: `resource.environment == "dev"`},
+			{Actions: []string{"releasebinding:delete"}, Expression: `resource.environment == "prod"`},
+		}
+		raw, err := serializeAuthzConditions(conds)
+		require.NoError(t, err)
+
+		got := decodeConditions(raw)
+		require.Len(t, got, 2)
+		require.Equal(t, conds, got)
+	})
+}
+
 func TestSerializeAuthzConditions(t *testing.T) {
 	t.Run("nil slice returns empty context", func(t *testing.T) {
 		s, err := serializeAuthzConditions(nil)

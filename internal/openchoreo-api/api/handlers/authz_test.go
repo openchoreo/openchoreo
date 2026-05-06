@@ -255,14 +255,18 @@ func TestGetSubjectProfileHandler(t *testing.T) {
 
 		now := time.Now().UTC().Truncate(time.Second)
 		profile := &authzcore.UserCapabilitiesResponse{
-			User: &authzcore.SubjectContext{
-				Type: "user",
-			},
+			User:        &authzcore.SubjectContext{Type: "user"},
 			GeneratedAt: now,
 			Capabilities: map[string]*authzcore.ActionCapability{
 				"view": {
 					Allowed: []*authzcore.CapabilityResource{
-						{Path: "namespace/acme", Constraints: &authzcore.Constraints{Expressions: []string{`resource.environment == "prod"`}}},
+						{
+							Path: "namespace/acme",
+							Constraints: &authzcore.Constraints{Expressions: []string{
+								`resource.environment == "prod"`,
+								`resource.environment == "staging"`,
+							}},
+						},
 					},
 					Denied: []*authzcore.CapabilityResource{
 						{Path: "namespace/acme/project/secret", Constraints: nil},
@@ -298,16 +302,42 @@ func TestGetSubjectProfileHandler(t *testing.T) {
 
 		viewCaps, ok := (*typed.Capabilities)["view"]
 		require.True(t, ok)
-		require.NotNil(t, viewCaps.Allowed)
 		require.Len(t, *viewCaps.Allowed, 1)
 		require.NotNil(t, (*viewCaps.Allowed)[0].Constraints)
-		require.NotNil(t, (*viewCaps.Allowed)[0].Constraints.Expressions)
-		require.Len(t, *(*viewCaps.Allowed)[0].Constraints.Expressions, 1)
-		assert.Equal(t, `resource.environment == "prod"`, (*(*viewCaps.Allowed)[0].Constraints.Expressions)[0])
+		exprs := *(*viewCaps.Allowed)[0].Constraints.Expressions
+		require.Len(t, exprs, 2)
+		assert.Contains(t, exprs, `resource.environment == "prod"`)
+		assert.Contains(t, exprs, `resource.environment == "staging"`)
 
-		require.NotNil(t, viewCaps.Denied)
 		require.Len(t, *viewCaps.Denied, 1)
 		assert.Nil(t, (*viewCaps.Denied)[0].Constraints)
+	})
+
+}
+
+func TestCoreConstraintsToGen(t *testing.T) {
+	t.Run("nil input returns nil", func(t *testing.T) {
+		require.Nil(t, coreConstraintsToGen(nil))
+	})
+
+	t.Run("empty expressions returns nil", func(t *testing.T) {
+		require.Nil(t, coreConstraintsToGen(&authzcore.Constraints{Expressions: []string{}}))
+	})
+
+	t.Run("single expression is preserved", func(t *testing.T) {
+		result := coreConstraintsToGen(&authzcore.Constraints{Expressions: []string{`resource.environment == "prod"`}})
+		require.NotNil(t, result)
+		require.NotNil(t, result.Expressions)
+		require.Len(t, *result.Expressions, 1)
+		assert.Equal(t, `resource.environment == "prod"`, (*result.Expressions)[0])
+	})
+
+	t.Run("multiple expressions are all preserved", func(t *testing.T) {
+		exprs := []string{`resource.environment == "prod"`, `resource.environment == "staging"`}
+		result := coreConstraintsToGen(&authzcore.Constraints{Expressions: exprs})
+		require.NotNil(t, result)
+		require.NotNil(t, result.Expressions)
+		assert.ElementsMatch(t, exprs, *result.Expressions)
 	})
 }
 
