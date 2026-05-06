@@ -34,6 +34,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcetypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterresourcetypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcereleases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcereleasebindings,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -49,13 +50,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	return r.reconcile(ctx, res)
+	old := res.DeepCopy()
+
+	if !res.DeletionTimestamp.IsZero() {
+		return r.finalize(ctx, old, res)
+	}
+
+	if added, err := r.ensureFinalizer(ctx, res); err != nil || added {
+		return ctrl.Result{}, err
+	}
+
+	return r.reconcile(ctx, old, res)
 }
 
-func (r *Reconciler) reconcile(ctx context.Context, res *openchoreov1alpha1.Resource) (result ctrl.Result, rErr error) {
+func (r *Reconciler) reconcile(ctx context.Context, old, res *openchoreov1alpha1.Resource) (result ctrl.Result, rErr error) {
 	logger := log.FromContext(ctx)
-
-	old := res.DeepCopy()
 
 	// Deferred status write: skip when nothing changed, aggregate errors with
 	// any returned by the body. Mirrors component/controller.go:88-109.
@@ -117,10 +126,13 @@ func (r *Reconciler) resolveType(ctx context.Context, res *openchoreov1alpha1.Re
 		if err := r.Get(ctx, types.NamespacedName{Name: name}, crt); err != nil {
 			return openchoreov1alpha1.ResourceReleaseResourceType{}, err
 		}
+		// ClusterResourceTypeSpec is structurally identical to ResourceTypeSpec
+		// today; if it ever diverges, this cast breaks at compile time and
+		// ResourceReleaseResourceType.Spec needs a kind discriminator.
 		return openchoreov1alpha1.ResourceReleaseResourceType{
 			Kind: kind,
 			Name: name,
-			Spec: clusterResourceTypeSpecToResourceTypeSpec(crt.Spec),
+			Spec: openchoreov1alpha1.ResourceTypeSpec(crt.Spec),
 		}, nil
 	default:
 		rt := &openchoreov1alpha1.ResourceType{}
@@ -162,15 +174,6 @@ func (r *Reconciler) ensureResourceRelease(
 		return fmt.Errorf("create ResourceRelease %q: %w", name, err)
 	}
 	return nil
-}
-
-// clusterResourceTypeSpecToResourceTypeSpec converts the structurally-identical
-// ClusterResourceTypeSpec to ResourceTypeSpec so both kinds share a single
-// snapshot type on ResourceRelease (mirrors the ComponentReleaseComponentType
-// precedent). If the cluster-scoped spec ever diverges, this conversion needs
-// revisiting along with ResourceReleaseResourceType.Spec's type.
-func clusterResourceTypeSpecToResourceTypeSpec(s openchoreov1alpha1.ClusterResourceTypeSpec) openchoreov1alpha1.ResourceTypeSpec {
-	return openchoreov1alpha1.ResourceTypeSpec(s)
 }
 
 // resolvedKind returns the Kind to use for type resolution, defaulting an empty

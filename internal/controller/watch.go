@@ -33,6 +33,12 @@ const (
 	// IndexKeyDeploymentPipelineEnvironmentRef indexes DeploymentPipeline by the environment names
 	// referenced in its promotionPaths (both source and target environments).
 	IndexKeyDeploymentPipelineEnvironmentRef = "deploymentpipeline.spec.promotionPaths.environmentRefs"
+
+	// IndexKeyResourceReleaseOwnerResourceName indexes ResourceRelease by owner resource name.
+	IndexKeyResourceReleaseOwnerResourceName = "resourcerelease.spec.owner.resourceName"
+
+	// IndexKeyResourceReleaseBindingOwnerResourceName indexes ResourceReleaseBinding by owner resource name.
+	IndexKeyResourceReleaseBindingOwnerResourceName = "resourcereleasebinding.spec.owner.resourceName"
 )
 
 // MakeReleaseBindingOwnerEnvKey creates the composite index key for ReleaseBinding lookups
@@ -115,7 +121,39 @@ func SetupSharedIndexes(ctx context.Context, mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup DeploymentPipeline environment ref index: %w", err)
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ResourceRelease{},
+		IndexKeyResourceReleaseOwnerResourceName, IndexResourceReleaseOwner); err != nil {
+		return fmt.Errorf("failed to setup ResourceRelease owner index: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ResourceReleaseBinding{},
+		IndexKeyResourceReleaseBindingOwnerResourceName, IndexResourceReleaseBindingOwner); err != nil {
+		return fmt.Errorf("failed to setup ResourceReleaseBinding owner index: %w", err)
+	}
+
 	return nil
+}
+
+// IndexResourceReleaseOwner extracts the owner resource name from a
+// ResourceRelease. Exported for fake-client tests so they can register the
+// same indexer the production setup uses.
+func IndexResourceReleaseOwner(obj client.Object) []string {
+	rr := obj.(*openchoreov1alpha1.ResourceRelease)
+	if rr.Spec.Owner.ResourceName == "" {
+		return nil
+	}
+	return []string{rr.Spec.Owner.ResourceName}
+}
+
+// IndexResourceReleaseBindingOwner extracts the owner resource name from a
+// ResourceReleaseBinding. Exported for fake-client tests so they can register
+// the same indexer the production setup uses.
+func IndexResourceReleaseBindingOwner(obj client.Object) []string {
+	rrb := obj.(*openchoreov1alpha1.ResourceReleaseBinding)
+	if rrb.Spec.Owner.ResourceName == "" {
+		return nil
+	}
+	return []string{rrb.Spec.Owner.ResourceName}
 }
 
 // HierarchyWatchHandler is a function that creates a watch handler for a specific hierarchy.

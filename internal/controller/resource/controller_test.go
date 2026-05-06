@@ -32,8 +32,9 @@ var _ = Describe("Resource Controller", func() {
 		It("sets Ready=False, Reason=ResourceTypeNotFound when the referenced ResourceType does not exist", func() {
 			res := &openchoreov1alpha1.Resource{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "stage1-missing-type",
-					Namespace: "default",
+					Name:       "stage1-missing-type",
+					Namespace:  "default",
+					Finalizers: []string{ResourceFinalizer},
 				},
 				Spec: openchoreov1alpha1.ResourceSpec{
 					Owner: openchoreov1alpha1.ResourceOwner{ProjectName: "test-project"},
@@ -86,8 +87,9 @@ var _ = Describe("Resource Controller", func() {
 
 			res := &openchoreov1alpha1.Resource{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "stage1-resolves-namespaced",
-					Namespace: "default",
+					Name:       "stage1-resolves-namespaced",
+					Namespace:  "default",
+					Finalizers: []string{ResourceFinalizer},
 				},
 				Spec: openchoreov1alpha1.ResourceSpec{
 					Owner: openchoreov1alpha1.ResourceOwner{ProjectName: "test-project"},
@@ -140,8 +142,9 @@ var _ = Describe("Resource Controller", func() {
 
 			res := &openchoreov1alpha1.Resource{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "stage1-resolves-cluster",
-					Namespace: "default",
+					Name:       "stage1-resolves-cluster",
+					Namespace:  "default",
+					Finalizers: []string{ResourceFinalizer},
 				},
 				Spec: openchoreov1alpha1.ResourceSpec{
 					Owner: openchoreov1alpha1.ResourceOwner{ProjectName: "test-project"},
@@ -215,7 +218,11 @@ var _ = Describe("Resource Controller", func() {
 
 		newResource := func(name, rtName string, params *runtime.RawExtension) *openchoreov1alpha1.Resource {
 			res := &openchoreov1alpha1.Resource{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       name,
+					Namespace:  "default",
+					Finalizers: []string{ResourceFinalizer},
+				},
 				Spec: openchoreov1alpha1.ResourceSpec{
 					Owner: openchoreov1alpha1.ResourceOwner{ProjectName: "test-project"},
 					Type: openchoreov1alpha1.ResourceTypeRef{
