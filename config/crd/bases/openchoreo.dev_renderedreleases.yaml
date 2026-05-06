@@ -52,18 +52,28 @@ spec:
                 description: RenderedReleaseOwner defines the owner of a RenderedRelease.
                 properties:
                   componentName:
-                    minLength: 1
+                    description: |-
+                      ComponentName is set when the RenderedRelease is owned by a Component.
+                      Mutually exclusive with ResourceName.
                     type: string
                   projectName:
+                    description: ProjectName is the name of the Project the owner
+                      belongs to.
                     minLength: 1
                     type: string
+                  resourceName:
+                    description: |-
+                      ResourceName is set when the RenderedRelease is owned by a Resource.
+                      Mutually exclusive with ComponentName.
+                    type: string
                 required:
-                - componentName
                 - projectName
                 type: object
                 x-kubernetes-validations:
                 - message: spec.owner is immutable
                   rule: self == oldSelf
+                - message: exactly one of componentName or resourceName must be set
+                  rule: has(self.componentName) != has(self.resourceName)
               progressingInterval:
                 description: |-
                   ProgressingInterval watch interval for the release resources when transitioning.
