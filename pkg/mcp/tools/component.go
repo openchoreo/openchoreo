@@ -165,7 +165,7 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server, perms map[string]ToolP
 		DisplayName   string                 `json:"display_name"`
 		Description   string                 `json:"description"`
 		ComponentType string                 `json:"component_type"`
-		AutoDeploy    *bool                  `json:"autoDeploy,omitempty"`
+		AutoDeploy    *bool                  `json:"auto_deploy,omitempty"`
 		Parameters    map[string]interface{} `json:"parameters"`
 		Workflow      map[string]interface{} `json:"workflow"`
 	}) (*mcp.CallToolResult, any, error) {
