@@ -97,6 +97,12 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
+// controllerSetup is satisfied by any reconciler that wires itself to a manager.
+// Lets setup* helpers register controllers from a slice with one error path.
+type controllerSetup interface {
+	SetupWithManager(mgr ctrl.Manager) error
+}
+
 // setupControlPlaneControllers sets up all control plane controllers with the manager
 func setupControlPlaneControllers(
 	mgr ctrl.Manager,
@@ -120,238 +126,86 @@ func setupControlPlaneControllers(
 		return fmt.Errorf("failed to setup shared indexes: %w", err)
 	}
 
-	if err := (&deploymentpipeline.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
+	c, s := mgr.GetClient(), mgr.GetScheme()
+
+	reconcilers := []controllerSetup{
+		&deploymentpipeline.Reconciler{Client: c, Scheme: s},
+		&workload.Reconciler{Client: c, Scheme: s},
+		&environment.Reconciler{Client: c, PlaneClientProvider: planeClientProvider, Scheme: s},
+		&dataplane.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			ClientMgr:     k8sClientMgr,
+			GatewayClient: gwClient,
+			CacheVersion:  "v2",
+		},
+		&clusterdataplane.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			ClientMgr:     k8sClientMgr,
+			GatewayClient: gwClient,
+			CacheVersion:  "v2",
+		},
+		&clusterworkflowplane.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			ClientMgr:     k8sClientMgr,
+			GatewayClient: gwClient,
+			CacheVersion:  "v2",
+		},
+		&project.Reconciler{Client: c, Scheme: s},
+		&component.Reconciler{Client: c, Scheme: s},
+		&componenttype.Reconciler{Client: c, Scheme: s},
+		&clustercomponenttype.Reconciler{Client: c, Scheme: s},
+		&trait.Reconciler{Client: c, Scheme: s},
+		&clustertrait.Reconciler{Client: c, Scheme: s},
+		&componentrelease.Reconciler{Client: c, Scheme: s},
+		// Resource family — templates (cluster-scoped before namespaced),
+		// then consumer, immutable release snapshot, per-env binding.
+		&clusterresourcetype.Reconciler{Client: c, Scheme: s},
+		&resourcetype.Reconciler{Client: c, Scheme: s},
+		&resource.Reconciler{Client: c, Scheme: s},
+		&resourcerelease.Reconciler{Client: c, Scheme: s},
+		&resourcereleasebinding.Reconciler{Client: c, Scheme: s},
+		&releasebinding.Reconciler{Client: c, Scheme: s, Pipeline: componentpipeline.NewPipeline()},
+		&renderedrelease.Reconciler{Client: c, PlaneClientProvider: planeClientProvider, Scheme: s},
+		&workflow.Reconciler{Client: c, Scheme: s},
+		&clusterworkflow.Reconciler{Client: c, Scheme: s},
+		&workflowrun.Reconciler{
+			Client:              c,
+			Scheme:              s,
+			PlaneClientProvider: planeClientProvider,
+			Pipeline:            workflowpipeline.NewPipeline(),
+		},
+		&workflowplane.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			ClientMgr:     k8sClientMgr,
+			GatewayClient: gwClient,
+			CacheVersion:  "v2",
+		},
+		&secretreference.Reconciler{Client: c, Scheme: s},
+		&observabilityplane.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			ClientMgr:     k8sClientMgr,
+			GatewayClient: gwClient,
+			CacheVersion:  "v2",
+		},
+		&clusterobservabilityplane.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			ClientMgr:     k8sClientMgr,
+			GatewayClient: gwClient,
+			CacheVersion:  "v2",
+		},
+		&observabilityalertsnotificationchannel.Reconciler{Client: c, PlaneClientProvider: planeClientProvider, Scheme: s},
 	}
 
-	if err := (&workload.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&environment.Reconciler{
-		Client:              mgr.GetClient(),
-		PlaneClientProvider: planeClientProvider,
-		Scheme:              mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&dataplane.Reconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ClientMgr:     k8sClientMgr,
-		GatewayClient: gwClient,
-		CacheVersion:  "v2",
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&clusterdataplane.Reconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ClientMgr:     k8sClientMgr,
-		GatewayClient: gwClient,
-		CacheVersion:  "v2",
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&clusterworkflowplane.Reconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ClientMgr:     k8sClientMgr,
-		GatewayClient: gwClient,
-		CacheVersion:  "v2",
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&project.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&component.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&componenttype.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&clustercomponenttype.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&trait.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&clustertrait.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&componentrelease.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := setupResourceControllers(mgr); err != nil {
-		return err
-	}
-
-	if err := (&releasebinding.Reconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Pipeline: componentpipeline.NewPipeline(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&renderedrelease.Reconciler{
-		Client:              mgr.GetClient(),
-		PlaneClientProvider: planeClientProvider,
-		Scheme:              mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&workflow.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&clusterworkflow.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&workflowrun.Reconciler{
-		Client:              mgr.GetClient(),
-		PlaneClientProvider: planeClientProvider,
-		Scheme:              mgr.GetScheme(),
-		Pipeline:            workflowpipeline.NewPipeline(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&workflowplane.Reconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ClientMgr:     k8sClientMgr,
-		GatewayClient: gwClient,
-		CacheVersion:  "v2",
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&secretreference.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&observabilityplane.Reconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ClientMgr:     k8sClientMgr,
-		GatewayClient: gwClient,
-		CacheVersion:  "v2",
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&clusterobservabilityplane.Reconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ClientMgr:     k8sClientMgr,
-		GatewayClient: gwClient,
-		CacheVersion:  "v2",
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&observabilityalertsnotificationchannel.Reconciler{
-		Client:              mgr.GetClient(),
-		PlaneClientProvider: planeClientProvider,
-		Scheme:              mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// setupResourceControllers registers the controllers for the
-// ClusterResourceType / ResourceType / Resource / ResourceRelease /
-// ResourceReleaseBinding family. Order follows the data flow: templates first,
-// then consumers, then the release snapshot, then the per-env binding.
-// Extracted from setupControlPlaneControllers to keep its cyclomatic complexity
-// bounded as the family grows.
-func setupResourceControllers(mgr ctrl.Manager) error {
-	if err := (&clusterresourcetype.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&resourcetype.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&resource.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&resourcerelease.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&resourcereleasebinding.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
+	for _, r := range reconcilers {
+		if err := r.SetupWithManager(mgr); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -359,11 +213,16 @@ func setupResourceControllers(mgr ctrl.Manager) error {
 
 // setupObservabilityPlaneControllers sets up all observability plane controllers with the manager
 func setupObservabilityPlaneControllers(mgr ctrl.Manager) error {
-	if err := (&observabilityalertrule.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
+	c, s := mgr.GetClient(), mgr.GetScheme()
+
+	reconcilers := []controllerSetup{
+		&observabilityalertrule.Reconciler{Client: c, Scheme: s},
+	}
+
+	for _, r := range reconcilers {
+		if err := r.SetupWithManager(mgr); err != nil {
+			return err
+		}
 	}
 
 	return nil
