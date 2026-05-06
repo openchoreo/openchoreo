@@ -62,6 +62,8 @@ resources:
   - componentrelease_viewer_role.yaml
   - resourcerelease_editor_role.yaml
   - resourcerelease_viewer_role.yaml
+  - resourcereleasebinding_editor_role.yaml
+  - resourcereleasebinding_viewer_role.yaml
   - secretreference_editor_role.yaml
   - secretreference_viewer_role.yaml
   - renderedrelease_editor_role.yaml

@@ -47,6 +47,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/resource"
 	"github.com/openchoreo/openchoreo/internal/controller/resourcerelease"
+	"github.com/openchoreo/openchoreo/internal/controller/resourcereleasebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/resourcetype"
 	"github.com/openchoreo/openchoreo/internal/controller/secretreference"
 	"github.com/openchoreo/openchoreo/internal/controller/trait"
@@ -185,13 +186,6 @@ func setupControlPlaneControllers(
 		return err
 	}
 
-	if err := (&resource.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
 	if err := (&componenttype.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -199,21 +193,7 @@ func setupControlPlaneControllers(
 		return err
 	}
 
-	if err := (&resourcetype.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
 	if err := (&clustercomponenttype.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&clusterresourcetype.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
@@ -241,10 +221,7 @@ func setupControlPlaneControllers(
 		return err
 	}
 
-	if err := (&resourcerelease.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	if err := setupResourceControllers(mgr); err != nil {
 		return err
 	}
 
@@ -328,6 +305,51 @@ func setupControlPlaneControllers(
 		Client:              mgr.GetClient(),
 		PlaneClientProvider: planeClientProvider,
 		Scheme:              mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setupResourceControllers registers the controllers for the
+// ClusterResourceType / ResourceType / Resource / ResourceRelease /
+// ResourceReleaseBinding family. Order follows the data flow: templates first,
+// then consumers, then the release snapshot, then the per-env binding.
+// Extracted from setupControlPlaneControllers to keep its cyclomatic complexity
+// bounded as the family grows.
+func setupResourceControllers(mgr ctrl.Manager) error {
+	if err := (&clusterresourcetype.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&resourcetype.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&resource.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&resourcerelease.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&resourcereleasebinding.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		return err
 	}

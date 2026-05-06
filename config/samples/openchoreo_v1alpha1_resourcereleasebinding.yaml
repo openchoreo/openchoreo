@@ -1,0 +1,17 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ResourceReleaseBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: analytics-shared-db-dev
+spec:
+  owner:
+    projectName: analytics
+    resourceName: analytics-shared-db
+  resourceRelease: analytics-shared-db-abc123
+  environment: dev
+  retainPolicy: Delete
+  resourceTypeEnvironmentConfigs:
+    storageGB: 100
+    tlsMode: required
