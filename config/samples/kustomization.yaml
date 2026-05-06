@@ -5,6 +5,7 @@ resources:
   - openchoreo_v1alpha1_apiclass.yaml
   - openchoreo_v1alpha1_component.yaml
   - openchoreo_v1alpha1_componenttype.yaml
+  - openchoreo_v1alpha1_resourcetype.yaml
   - openchoreo_v1alpha1_trait.yaml
 
   - openchoreo_v1alpha1_dataplane.yaml
@@ -45,5 +46,5 @@ resources:
   - openchoreo_v1alpha1_clusterworkflowplane.yaml
   - openchoreo_v1alpha1_clusterobservabilityplane.yaml
   - openchoreo_v1alpha1_clustercomponenttype.yaml
-  - openchoreo_v1alpha1_resourcetype.yaml
+  - openchoreo_v1alpha1_clusterresourcetype.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

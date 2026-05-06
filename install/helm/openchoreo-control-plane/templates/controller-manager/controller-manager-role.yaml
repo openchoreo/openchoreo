@@ -74,6 +74,7 @@ rules:
     - clustercomponenttypes
     - clusterdataplanes
     - clusterobservabilityplanes
+    - clusterresourcetypes
     - clustertraits
     - clusterworkflowplanes
     - clusterworkflows
@@ -108,6 +109,7 @@ rules:
     - clustercomponenttypes/finalizers
     - clusterdataplanes/finalizers
     - clusterobservabilityplanes/finalizers
+    - clusterresourcetypes/finalizers
     - clustertraits/finalizers
     - clusterworkflowplanes/finalizers
     - clusterworkflows/finalizers
@@ -137,6 +139,7 @@ rules:
     - clustercomponenttypes/status
     - clusterdataplanes/status
     - clusterobservabilityplanes/status
+    - clusterresourcetypes/status
     - clustertraits/status
     - clusterworkflowplanes/status
     - clusterworkflows/status

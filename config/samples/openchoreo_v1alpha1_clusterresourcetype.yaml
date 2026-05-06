@@ -1,0 +1,33 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterResourceType
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: clusterresourcetype-sample
+spec:
+  parameters:
+    openAPIV3Schema:
+      version: "string | default=8.0"
+  environmentConfigs:
+    openAPIV3Schema:
+      storageGB: "integer | default=8"
+  retainPolicy: Delete
+  outputs:
+    host:
+      value: "${applied.claim.status.host}"
+    password:
+      secretKeyRef:
+        name: "${metadata.resourceName}-conn"
+        key: password
+  resources:
+    - id: claim
+      template:
+        apiVersion: example.org/v1alpha1
+        kind: MySQL
+        metadata:
+          name: ${metadata.resourceName}
+          namespace: ${metadata.namespace}
+        spec:
+          version: ${parameters.version}
+          storageGB: ${environmentConfigs.storageGB}
