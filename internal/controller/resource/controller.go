@@ -15,6 +15,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -183,8 +184,16 @@ func resolvedKind(k openchoreov1alpha1.ResourceTypeRefKind) openchoreov1alpha1.R
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := r.setupResourceTypeRefIndex(context.Background(), mgr); err != nil {
+		return fmt.Errorf("setup resource type reference index: %w", err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.Resource{}).
+		Watches(&openchoreov1alpha1.ResourceType{},
+			handler.EnqueueRequestsFromMapFunc(r.listResourcesForResourceType)).
+		Watches(&openchoreov1alpha1.ClusterResourceType{},
+			handler.EnqueueRequestsFromMapFunc(r.listResourcesForClusterResourceType)).
 		Named("resource").
 		Complete(r)
 }
