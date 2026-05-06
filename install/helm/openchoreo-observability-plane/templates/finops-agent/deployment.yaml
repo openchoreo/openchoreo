@@ -1,0 +1,114 @@
+{{- if .Values.finOpsAgent.enabled }}
+{{- if not .Values.finOpsAgent.secretName }}
+{{- fail "finOpsAgent.secretName is required when finOpsAgent is enabled. Create a Secret with keys matching the FinOps agent's expected env vars (FINOPS_LLM_API_KEY, OAUTH_CLIENT_SECRET, and optionally SQL_BACKEND_URI), then set finOpsAgent.secretName." }}
+{{- end }}
+{{- if not .Values.finOpsAgent.opencostMcpServerUrl }}
+{{- fail "finOpsAgent.opencostMcpServerUrl is required when finOpsAgent is enabled. Set it to the OpenCost MCP Server URL (e.g. http://opencost.openchoreo-observability-plane.svc.cluster.local:8081)." }}
+{{- end }}
+{{- if not .Values.security.oidc.tokenUrl }}
+{{- fail "security.oidc.tokenUrl is required when finOpsAgent is enabled" }}
+{{- end }}
+{{- if not .Values.finOpsAgent.oauth.clientId }}
+{{- fail "finOpsAgent.oauth.clientId is required when finOpsAgent is enabled" }}
+{{- end }}
+{{- if and (eq .Values.finOpsAgent.reportBackend "sqlite") (gt (.Values.finOpsAgent.replicas | int) 1) }}
+{{- fail "finOpsAgent.replicas must be 1 when using sqlite backend (ReadWriteOnce PVC). Set finOpsAgent.replicas=1 or use reportBackend=postgresql." }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finops-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "finops-agent") | nindent 4 }}
+spec:
+  replicas: {{ .Values.finOpsAgent.replicas }}
+  strategy:
+    type: {{ ternary "Recreate" "RollingUpdate" (eq (.Values.finOpsAgent.reportBackend | default "sqlite") "sqlite") }}
+  selector:
+    matchLabels:
+      {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "finops-agent") | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/finops-agent/config-map.yaml") . | sha256sum }}
+        checksum/observer-auth-config: {{ include (print $.Template.BasePath "/observer/observer-auth-configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "finops-agent") | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 12000
+        runAsGroup: 12000
+        fsGroup: 12000
+      containers:
+      - name: finops-agent
+        image: "{{ .Values.finOpsAgent.image.repository }}:{{ .Values.finOpsAgent.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.finOpsAgent.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        envFrom:
+        - secretRef:
+            name: {{ .Values.finOpsAgent.secretName }}
+        - configMapRef:
+            name: finops-agent
+        {{- if .Values.finOpsAgent.extraEnvs }}
+        env:
+        {{- toYaml .Values.finOpsAgent.extraEnvs | nindent 8 }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.finOpsAgent.resources | nindent 10 }}
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        volumeMounts:
+        - name: auth-config
+          mountPath: /etc/openchoreo
+          readOnly: true
+        - name: tmp-scratch
+          mountPath: /tmp
+        {{- if eq .Values.finOpsAgent.reportBackend "sqlite" }}
+        - name: data
+          mountPath: /app/data
+        {{- end }}
+
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 12000
+          seccompProfile:
+            type: RuntimeDefault
+      volumes:
+      - name: auth-config
+        configMap:
+          name: observer-auth-config
+      - name: tmp-scratch
+        emptyDir: {}
+      {{- if eq .Values.finOpsAgent.reportBackend "sqlite" }}
+      - name: data
+        persistentVolumeClaim:
+          claimName: finops-agent
+      {{- end }}
+{{- end }}

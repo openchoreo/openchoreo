@@ -1,0 +1,53 @@
+[project]
+name = "finops-agent"
+version = "0.1.0"
+description = "FinOps agent for analyzing component budget overruns"
+requires-python = ">=3.14"
+dependencies = [
+    "authlib>=1.7.1",
+    "fastapi>=0.136.0",
+    "httpx>=0.28.0",
+    "jinja2>=3.1.0",
+    "langchain>=1.2.0",
+    "langchain-mcp-adapters>=0.2.2",
+    "langchain-openai>=1.1.10",
+    "pydantic-settings>=2.14.0",
+    "python-dotenv>=1.2.0",
+    "aiosqlite>=0.22.0",
+    "asyncpg>=0.31.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "uvicorn>=0.46.0",
+]
+
+[tool.uv]
+exclude-dependencies = ["zstandard", "pywin32"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+extend-exclude = [".venv", "__pycache__", ".git"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "ARG", # flake8-unused-arguments
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults
+    "B904",  # raise from
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

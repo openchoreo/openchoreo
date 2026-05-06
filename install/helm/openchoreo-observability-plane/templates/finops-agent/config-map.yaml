@@ -1,0 +1,32 @@
+{{- if .Values.finOpsAgent.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: finops-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "finops-agent") | nindent 4 }}
+data:
+  ANALYSIS_TIMEOUT_SECONDS: {{ .Values.finOpsAgent.analysisTimeoutSeconds | quote }}
+  AUTH_CONFIG_PATH: /etc/openchoreo/auth-config.yaml
+  AUTHZ_TIMEOUT_SECONDS: {{ .Values.finOpsAgent.authz.timeoutSeconds | quote }}
+  {{- if .Values.finOpsAgent.cors.allowedOrigins }}
+  CORS_ALLOWED_ORIGINS: {{ join "," .Values.finOpsAgent.cors.allowedOrigins | quote }}
+  {{- end }}
+  FINOPS_MODEL_NAME: {{ .Values.finOpsAgent.llm.modelName | quote }}
+  JWT_AUDIENCE: {{ .Values.security.jwt.audience | quote }}
+  JWT_ISSUER: {{ .Values.security.oidc.issuer | quote }}
+  JWT_JWKS_URL: {{ .Values.security.oidc.jwksUrl | quote }}
+  LOG_LEVEL: {{ .Values.finOpsAgent.logLevel | quote }}
+  MAX_CONCURRENT_ANALYSES: {{ .Values.finOpsAgent.maxConcurrentAnalyses | quote }}
+  OAUTH_CLIENT_ID: {{ .Values.finOpsAgent.oauth.clientId | quote }}
+  {{- if .Values.finOpsAgent.oauth.scope }}
+  OAUTH_SCOPE: {{ .Values.finOpsAgent.oauth.scope | quote }}
+  {{- end }}
+  OAUTH_TOKEN_URL: {{ .Values.security.oidc.tokenUrl | quote }}
+  OBSERVABILITY_MCP_SERVER_URL: {{ .Values.finOpsAgent.observabilityMcpServerUrl | quote }}
+  OPENCHOREO_API_URL: {{ .Values.finOpsAgent.openchoreoApiUrl | quote }}
+  OPENCOST_MCP_SERVER_URL: {{ .Values.finOpsAgent.opencostMcpServerUrl | quote }}
+  REPORT_BACKEND: {{ .Values.finOpsAgent.reportBackend | quote }}
+  TLS_INSECURE_SKIP_VERIFY: {{ .Values.finOpsAgent.tlsInsecureSkipVerify | quote }}
+{{- end }}

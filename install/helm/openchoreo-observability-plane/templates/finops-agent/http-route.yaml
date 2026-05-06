@@ -1,0 +1,24 @@
+{{- if and .Values.gateway.enabled .Values.finOpsAgent.enabled .Values.finOpsAgent.http.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: finops-agent
+  namespace: {{ .Release.Namespace }}
+spec:
+  parentRefs:
+  - name: gateway-default
+  {{- with .Values.finOpsAgent.http.hostnames }}
+  hostnames:
+    {{- range . }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- end }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1alpha1/reports
+    backendRefs:
+    - name: finops-agent
+      port: {{ .Values.finOpsAgent.service.port }}
+{{- end }}

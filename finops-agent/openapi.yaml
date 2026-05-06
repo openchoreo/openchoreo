@@ -1,0 +1,473 @@
+openapi: 3.1.0
+info:
+  title: OpenChoreo FinOps Agent API
+  description: |
+    The OpenChoreo FinOps Agent API provides endpoints to trigger budget overrun analysis
+    and retrieve FinOps reports with resource optimization recommendations.
+  version: 1.0.0
+  contact:
+    name: OpenChoreo Team
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+tags:
+  - name: FinOps Agent
+    description: FinOps analysis endpoints
+  - name: FinOps Reports
+    description: Endpoints for retrieving FinOps reports
+  - name: Health
+    description: Health check endpoints
+
+paths:
+  /api/v1alpha1/analyses:
+    post:
+      tags:
+        - FinOps Agent
+      summary: Trigger FinOps analysis for a budget alert
+      description: |
+        Creates a pending FinOps report and triggers background analysis for the given component.
+        The analysis runs asynchronously and the report status can be checked via the reports endpoints.
+      operationId: analyze
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Analysis triggered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1alpha1/reports:
+    get:
+      tags:
+        - FinOps Reports
+      summary: List FinOps reports
+      operationId: listFinOpsReports
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: namespace
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: project
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: component
+          in: query
+          schema:
+            type: string
+        - name: startTime
+          in: query
+          description: RFC3339 format
+          schema:
+            type: string
+            format: date-time
+        - name: endTime
+          in: query
+          description: RFC3339 format
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10000
+            default: 100
+        - name: sort
+          in: query
+          description: Sort order by timestamp
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, completed, failed]
+      responses:
+        '200':
+          description: List of FinOps reports
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinOpsReportsResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - missing or invalid JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1alpha1/reports/{report_id}:
+    get:
+      tags:
+        - FinOps Reports
+      summary: Get FinOps report by report ID
+      operationId: getFinOpsReport
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: FinOps report details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinOpsReportDetailed'
+        '401':
+          description: Unauthorized - missing or invalid JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy]
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    AnalyzeRequest:
+      type: object
+      required: [searchScope, budgeted_cost, actual_cost, budget_alert_triggered_at]
+      properties:
+        searchScope:
+          $ref: '#/components/schemas/SearchScope'
+        budgeted_cost:
+          $ref: '#/components/schemas/BudgetedCost'
+        actual_cost:
+          $ref: '#/components/schemas/ActualCost'
+        budget_alert_triggered_at:
+          type: string
+          format: date-time
+
+    SearchScope:
+      type: object
+      required: [component, namespace, project, environment]
+      properties:
+        component:
+          type: string
+        namespace:
+          type: string
+        project:
+          type: string
+        environment:
+          type: string
+
+    BudgetedCost:
+      type: object
+      required: [amount, period, currency]
+      properties:
+        amount:
+          type: number
+        period:
+          type: string
+          description: Budget period (e.g. "5d")
+        currency:
+          type: string
+          description: Currency code (e.g. "USD")
+
+    ActualCost:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: number
+        currency:
+          type: string
+
+    AnalyzeResponse:
+      type: object
+      required: [report_id, status]
+      properties:
+        report_id:
+          type: string
+        status:
+          type: string
+          enum: [pending]
+
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+
+    FinOpsReportsResponse:
+      type: object
+      required: [reports, totalCount]
+      properties:
+        reports:
+          type: array
+          items:
+            $ref: '#/components/schemas/FinOpsReportSummary'
+        totalCount:
+          type: integer
+
+    FinOpsReportSummary:
+      type: object
+      required: [reportId, namespace, project, timestamp, status]
+      properties:
+        reportId:
+          type: string
+        namespace:
+          type: string
+        project:
+          type: string
+        environment:
+          type: ["string", "null"]
+        component:
+          type: ["string", "null"]
+        timestamp:
+          type: string
+          format: date-time
+        summary:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, completed, failed]
+
+    FinOpsReportDetailed:
+      type: object
+      required: [reportId, namespace, project, timestamp, status]
+      properties:
+        reportId:
+          type: string
+        namespace:
+          type: string
+        project:
+          type: string
+        environment:
+          type: ["string", "null"]
+        component:
+          type: ["string", "null"]
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, completed, failed]
+        report:
+          description: The full FinOps report content (null if status is pending or failed)
+          oneOf:
+            - $ref: '#/components/schemas/FinOpsReport'
+            - type: 'null'
+
+    FinOpsReport:
+      type: object
+      required: [component, namespace, project, analysis_period, budgeted_cost, actual_cost, resource_metrics, overprovisioning, summary, investigation_path]
+      properties:
+        component:
+          type: string
+        namespace:
+          type: string
+        project:
+          type: string
+        analysis_period:
+          type: string
+          description: Analysis period (e.g. "5d")
+        budgeted_cost:
+          $ref: '#/components/schemas/CostBreakdown'
+        actual_cost:
+          $ref: '#/components/schemas/CostBreakdown'
+        resource_metrics:
+          $ref: '#/components/schemas/ResourceMetrics'
+        overprovisioning:
+          $ref: '#/components/schemas/OverprovisioningAssessment'
+        summary:
+          type: string
+        investigation_path:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/InvestigationStep'
+
+    CostBreakdown:
+      type: object
+      required: [cpu_cost, memory_cost, total_cost, currency, is_estimated, breakdown_source]
+      properties:
+        cpu_cost:
+          type: number
+          nullable: true
+          description: CPU cost. Null if breakdown unavailable.
+        memory_cost:
+          type: number
+          nullable: true
+          description: Memory cost. Null if breakdown unavailable.
+        total_cost:
+          type: number
+          description: Total cost
+        currency:
+          type: string
+          description: Currency code (e.g. 'USD')
+        is_estimated:
+          type: boolean
+          description: Whether cpu_cost/memory_cost were estimated (true) or provided by tools (false)
+        breakdown_source:
+          type: string
+          description: How breakdown was obtained (e.g. 'opencost_allocation', 'estimated_from_usage_ratio', 'unavailable')
+
+    ResourceMetrics:
+      type: object
+      properties:
+        cpu_request:
+          type: string
+          nullable: true
+        cpu_limit:
+          type: string
+          nullable: true
+        cpu_actual_avg:
+          type: string
+          nullable: true
+        cpu_actual_peak:
+          type: string
+          nullable: true
+        memory_request:
+          type: string
+          nullable: true
+        memory_limit:
+          type: string
+          nullable: true
+        memory_actual_avg:
+          type: string
+          nullable: true
+        memory_actual_peak:
+          type: string
+          nullable: true
+        data_available:
+          type: boolean
+
+    OverprovisioningAssessment:
+      type: object
+      required: [is_overprovisioned, analysis]
+      properties:
+        is_overprovisioned:
+          type: boolean
+        cpu_utilization_pct:
+          type: number
+          nullable: true
+        memory_utilization_pct:
+          type: number
+          nullable: true
+        analysis:
+          type: string
+        recommendation:
+          oneOf:
+            - $ref: '#/components/schemas/ResourceRecommendation'
+            - type: 'null'
+
+    ResourceRecommendation:
+      type: object
+      required: [cpu_request, cpu_limit, memory_request, memory_limit, estimated_savings, currency, rationale]
+      properties:
+        cpu_request:
+          type: string
+        cpu_limit:
+          type: string
+        memory_request:
+          type: string
+        memory_limit:
+          type: string
+        estimated_savings:
+          type: number
+        currency:
+          type: string
+        rationale:
+          type: string
+
+    InvestigationStep:
+      type: object
+      required: [action, outcome]
+      properties:
+        action:
+          type: string
+        outcome:
+          type: string
+        rationale:
+          type: ["string", "null"]
