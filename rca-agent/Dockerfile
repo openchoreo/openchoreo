@@ -38,7 +38,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
     echo "libz path: $LIBZ_PATH"; \
     cp "$LIBZ_PATH/libz.so.1" /lib/libz.so.1
 
-FROM gcr.io/distroless/cc@sha256:72344f7f909a8bf003c67f55687e6d51a441b49661af8f660aa7b285f00e57df
+FROM gcr.io/distroless/cc-debian12@sha256:847433844c7e04bcf07a3a0f0f5a8de554c6df6fa9e3e3ab14d3f6b73d780235
 
 COPY --from=builder --chown=12000:12000 /python /python
 WORKDIR /app
