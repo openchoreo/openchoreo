@@ -35,14 +35,6 @@ type EnvVarValueFrom struct {
 	SecretKeyRef *SecretKeyRef `json:"secretKeyRef,omitempty"`
 }
 
-// SecretKeyRef references a specific key in a K8s secret.
-type SecretKeyRef struct {
-	// +required
-	Name string `json:"name"`
-	// +required
-	Key string `json:"key"`
-}
-
 // FileVar represents a file configuration in a container.
 // +kubebuilder:validation:XValidation:rule="has(self.value) != has(self.valueFrom)",message="exactly one of value or valueFrom must be set"
 type FileVar struct {

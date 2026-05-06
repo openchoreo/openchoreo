@@ -1,0 +1,185 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: resourcetypes.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: ResourceType
+    listKind: ResourceTypeList
+    plural: resourcetypes
+    shortNames:
+    - rt
+    - rts
+    singular: resourcetype
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          ResourceType is the Schema for the resourcetypes API.
+          PEs publish ResourceType templates in a namespace; developers reference them
+          by name from Resource.spec.type.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ResourceTypeSpec defines the desired state of ResourceType.
+            properties:
+              environmentConfigs:
+                description: |-
+                  EnvironmentConfigs defines the PE-facing per-env schema.
+                  Validates ResourceBinding.spec.resourceTypeEnvironmentConfigs.
+                properties:
+                  openAPIV3Schema:
+                    description: OpenAPIV3Schema defines the schema using standard
+                      OpenAPI V3 / JSON Schema format.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
+              outputs:
+                additionalProperties:
+                  description: |-
+                    ResourceOutput defines a single output of a ResourceType.
+                    Exactly one of value, secretKeyRef, or configMapKeyRef must be set.
+                  properties:
+                    configMapKeyRef:
+                      description: |-
+                        ConfigMapKeyRef references a ConfigMap on the data plane.
+                        Both name and key support ${...} CEL templating.
+                      properties:
+                        key:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                    secretKeyRef:
+                      description: |-
+                        SecretKeyRef references a Secret on the data plane.
+                        Use for sensitive credentials (passwords, tokens, private keys).
+                        Only the {name, key} reference transits to the control plane; the
+                        underlying value never leaves the data plane.
+                        Both name and key support ${...} CEL templating.
+                      properties:
+                        key:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                    value:
+                      description: |-
+                        Value is a literal or ${...} CEL expression evaluating to a string.
+                        Use only for non-sensitive data (host, port, region, database name); the
+                        resolved value transits to the control plane.
+                      type: string
+                  type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of value, secretKeyRef, or configMapKeyRef
+                      must be set
+                    rule: (has(self.value)?1:0) + (has(self.secretKeyRef)?1:0) + (has(self.configMapKeyRef)?1:0)
+                      == 1
+                description: |-
+                  Outputs declares values that workloads consume via
+                  Workload.spec.dependencies.resources[].envBindings or fileBindings.
+                  Keys are output names; each value picks exactly one of value, secretKeyRef,
+                  or configMapKeyRef. Output value, name, and key fields support ${...} CEL
+                  templating evaluated against metadata.*, parameters.*, environmentConfigs.*,
+                  and applied.<id>.status.*.
+                type: object
+              parameters:
+                description: Parameters defines the dev-facing schema. Validates Resource.spec.parameters.
+                properties:
+                  openAPIV3Schema:
+                    description: OpenAPIV3Schema defines the schema using standard
+                      OpenAPI V3 / JSON Schema format.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
+              resources:
+                description: |-
+                  Resources are the Kubernetes manifests the ResourceType provisioner emits
+                  on the data plane. Each entry has a unique id used by readyWhen and outputs
+                  CEL to reference applied.<id>.status.* fields.
+                items:
+                  description: |-
+                    ResourceTypeManifest defines a Kubernetes resource template that the
+                    ResourceType provisioner emits on the data plane.
+                  properties:
+                    id:
+                      description: |-
+                        ID uniquely identifies this entry within the ResourceType.
+                        Referenced by readyWhen and outputs CEL via applied.<id>.status.*.
+                      minLength: 1
+                      type: string
+                    readyWhen:
+                      description: |-
+                        ReadyWhen is an optional CEL expression that determines whether this entry
+                        contributes to ResourceBinding.status.conditions[ResourcesReady]. Evaluated
+                        against applied.<id>.* once the manifest has been applied. If unset, falls
+                        back to RenderedRelease per-Kind health inference.
+                      type: string
+                    template:
+                      description: |-
+                        Template contains the Kubernetes resource with ${...} CEL expressions.
+                        Phase-1 (manifest rendering) CEL has access to metadata.*, parameters.*,
+                        and environmentConfigs.*. applied.<id>.status.* is NOT available during
+                        rendering.
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - id
+                  - template
+                  type: object
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
+              retainPolicy:
+                default: Delete
+                description: |-
+                  RetainPolicy is the PE-defined default retention for ResourceBindings of this type.
+                  Per-env override is available via ResourceBinding.spec.retainPolicy.
+                enum:
+                - Delete
+                - Retain
+                type: string
+            required:
+            - resources
+            type: object
+          status:
+            description: ResourceTypeStatus defines the observed state of ResourceType.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

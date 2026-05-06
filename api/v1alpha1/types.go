@@ -445,3 +445,31 @@ type AuthzCondition struct {
 	// +kubebuilder:validation:MinLength=1
 	Expression string `json:"expression"`
 }
+
+// SecretKeyRef references a specific key in a Kubernetes Secret.
+type SecretKeyRef struct {
+	// +required
+	Name string `json:"name"`
+	// +required
+	Key string `json:"key"`
+}
+
+// ConfigMapKeyRef references a specific key in a Kubernetes ConfigMap.
+type ConfigMapKeyRef struct {
+	// +required
+	Name string `json:"name"`
+	// +required
+	Key string `json:"key"`
+}
+
+// ResourceRetainPolicy controls what happens to provisioned data on the data plane
+// when its owning Resource or ResourceBinding is deleted.
+// +kubebuilder:validation:Enum=Delete;Retain
+type ResourceRetainPolicy string
+
+const (
+	// ResourceRetainPolicyDelete cascades deletion of the underlying provisioned data.
+	ResourceRetainPolicyDelete ResourceRetainPolicy = "Delete"
+	// ResourceRetainPolicyRetain keeps the underlying provisioned data after deletion.
+	ResourceRetainPolicyRetain ResourceRetainPolicy = "Retain"
+)
