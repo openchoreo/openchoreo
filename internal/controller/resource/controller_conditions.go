@@ -19,6 +19,10 @@ const (
 // Constants for condition reasons
 
 const (
+	// ReasonReconciled indicates the Resource has been validated and the
+	// latest ResourceRelease is in place.
+	ReasonReconciled controller.ConditionReason = "Reconciled"
+
 	// ReasonResourceTypeNotFound indicates the referenced ResourceType or
 	// ClusterResourceType does not exist in the cluster yet.
 	ReasonResourceTypeNotFound controller.ConditionReason = "ResourceTypeNotFound"
