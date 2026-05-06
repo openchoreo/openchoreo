@@ -27,12 +27,14 @@ type ClusterResourceTypeSpec struct {
 
 	// Outputs declares values that workloads consume via
 	// Workload.spec.dependencies.resources[].envBindings or fileBindings.
-	// Keys are output names; each value picks exactly one of value, secretKeyRef,
-	// or configMapKeyRef. Output value, name, and key fields support ${...} CEL
-	// templating evaluated against metadata.*, parameters.*, environmentConfigs.*,
-	// and applied.<id>.status.*.
+	// Each entry is identified by a unique name and picks exactly one of value,
+	// secretKeyRef, or configMapKeyRef. Output value, name, and key fields support
+	// ${...} CEL templating evaluated against metadata.*, parameters.*,
+	// environmentConfigs.*, and applied.<id>.status.*.
 	// +optional
-	Outputs map[string]ResourceOutput `json:"outputs,omitempty"`
+	// +listType=map
+	// +listMapKey=name
+	Outputs []ResourceTypeOutput `json:"outputs,omitempty"`
 
 	// Resources are the Kubernetes manifests the ClusterResourceType provisioner
 	// emits on the data plane. Each entry has a unique id used by readyWhen and

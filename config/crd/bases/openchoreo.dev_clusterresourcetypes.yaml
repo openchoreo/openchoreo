@@ -63,9 +63,16 @@ spec:
                     x-kubernetes-preserve-unknown-fields: true
                 type: object
               outputs:
-                additionalProperties:
+                description: |-
+                  Outputs declares values that workloads consume via
+                  Workload.spec.dependencies.resources[].envBindings or fileBindings.
+                  Each entry is identified by a unique name and picks exactly one of value,
+                  secretKeyRef, or configMapKeyRef. Output value, name, and key fields support
+                  ${...} CEL templating evaluated against metadata.*, parameters.*,
+                  environmentConfigs.*, and applied.<id>.status.*.
+                items:
                   description: |-
-                    ResourceOutput defines a single output of a ResourceType.
+                    ResourceTypeOutput defines a single output of a ResourceType.
                     Exactly one of value, secretKeyRef, or configMapKeyRef must be set.
                   properties:
                     configMapKeyRef:
@@ -81,6 +88,12 @@ spec:
                       - key
                       - name
                       type: object
+                    name:
+                      description: |-
+                        Name uniquely identifies this output within the ResourceType. Referenced by
+                        Workload.spec.dependencies.resources[].envBindings and fileBindings keys.
+                      minLength: 1
+                      type: string
                     secretKeyRef:
                       description: |-
                         SecretKeyRef references a Secret on the data plane.
@@ -103,20 +116,18 @@ spec:
                         Use only for non-sensitive data (host, port, region, database name); the
                         resolved value transits to the control plane.
                       type: string
+                  required:
+                  - name
                   type: object
                   x-kubernetes-validations:
                   - message: exactly one of value, secretKeyRef, or configMapKeyRef
                       must be set
                     rule: (has(self.value)?1:0) + (has(self.secretKeyRef)?1:0) + (has(self.configMapKeyRef)?1:0)
                       == 1
-                description: |-
-                  Outputs declares values that workloads consume via
-                  Workload.spec.dependencies.resources[].envBindings or fileBindings.
-                  Keys are output names; each value picks exactly one of value, secretKeyRef,
-                  or configMapKeyRef. Output value, name, and key fields support ${...} CEL
-                  templating evaluated against metadata.*, parameters.*, environmentConfigs.*,
-                  and applied.<id>.status.*.
-                type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               parameters:
                 description: Parameters defines the dev-facing schema. Validates Resource.spec.parameters.
                 properties:

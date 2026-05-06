@@ -27,12 +27,14 @@ type ResourceTypeSpec struct {
 
 	// Outputs declares values that workloads consume via
 	// Workload.spec.dependencies.resources[].envBindings or fileBindings.
-	// Keys are output names; each value picks exactly one of value, secretKeyRef,
-	// or configMapKeyRef. Output value, name, and key fields support ${...} CEL
-	// templating evaluated against metadata.*, parameters.*, environmentConfigs.*,
-	// and applied.<id>.status.*.
+	// Each entry is identified by a unique name and picks exactly one of value,
+	// secretKeyRef, or configMapKeyRef. Output value, name, and key fields support
+	// ${...} CEL templating evaluated against metadata.*, parameters.*,
+	// environmentConfigs.*, and applied.<id>.status.*.
 	// +optional
-	Outputs map[string]ResourceOutput `json:"outputs,omitempty"`
+	// +listType=map
+	// +listMapKey=name
+	Outputs []ResourceTypeOutput `json:"outputs,omitempty"`
 
 	// Resources are the Kubernetes manifests the ResourceType provisioner emits
 	// on the data plane. Each entry has a unique id used by readyWhen and outputs
@@ -43,10 +45,16 @@ type ResourceTypeSpec struct {
 	Resources []ResourceTypeManifest `json:"resources"`
 }
 
-// ResourceOutput defines a single output of a ResourceType.
+// ResourceTypeOutput defines a single output of a ResourceType.
 // Exactly one of value, secretKeyRef, or configMapKeyRef must be set.
 // +kubebuilder:validation:XValidation:rule="(has(self.value)?1:0) + (has(self.secretKeyRef)?1:0) + (has(self.configMapKeyRef)?1:0) == 1",message="exactly one of value, secretKeyRef, or configMapKeyRef must be set"
-type ResourceOutput struct {
+type ResourceTypeOutput struct {
+	// Name uniquely identifies this output within the ResourceType. Referenced by
+	// Workload.spec.dependencies.resources[].envBindings and fileBindings keys.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
 	// Value is a literal or ${...} CEL expression evaluating to a string.
 	// Use only for non-sensitive data (host, port, region, database name); the
 	// resolved value transits to the control plane.
