@@ -9054,6 +9054,22 @@ components:
               example: User has admin role
 
 
+    ConditionAttribute:
+      type: object
+      description: An ABAC attribute available for CEL condition expressions on an action.
+      required:
+        - key
+        - description
+      properties:
+        key:
+          type: string
+          description: Full dotted path of the attribute (e.g. "resource.environment").
+          example: resource.environment
+        description:
+          type: string
+          description: Human-readable description of the attribute.
+          example: Environment associated with the resource
+
     ActionInfo:
       type: object
       description: An authorization action with its scope in the resource hierarchy.
@@ -9076,6 +9092,11 @@ components:
             - project
             - component
           example: component
+        conditions:
+          type: array
+          description: ABAC attributes available for CEL condition expressions on this action. Empty means no conditions are supported.
+          items:
+            $ref: '#/components/schemas/ConditionAttribute'
 
     ActionCapability:
       type: object

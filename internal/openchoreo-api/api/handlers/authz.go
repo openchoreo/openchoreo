@@ -34,6 +34,21 @@ func coreConstraintsToGen(c *authz.Constraints) *gen.CapabilityConstraints {
 	return &gen.CapabilityConstraints{Expressions: &exprs}
 }
 
+// coreConditionsToGen converts a slice of core.AttributeSpec to the generated gen.ConditionAttribute pointer-to-slice.
+func coreConditionsToGen(specs []authz.AttributeSpec) *[]gen.ConditionAttribute {
+	if len(specs) == 0 {
+		return nil
+	}
+	result := make([]gen.ConditionAttribute, len(specs))
+	for i, s := range specs {
+		result[i] = gen.ConditionAttribute{
+			Key:         s.Key,
+			Description: s.Description,
+		}
+	}
+	return &result
+}
+
 // ListActions returns all defined authorization actions.
 func (h *Handler) ListActions(
 	ctx context.Context,
@@ -55,6 +70,7 @@ func (h *Handler) ListActions(
 		result[i] = gen.ActionInfo{
 			Name:        a.Name,
 			LowestScope: gen.ActionInfoLowestScope(a.LowestScope),
+			Conditions:  coreConditionsToGen(a.Conditions),
 		}
 	}
 

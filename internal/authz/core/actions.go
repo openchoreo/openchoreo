@@ -218,6 +218,8 @@ type Action struct {
 	LowestScope ActionScope
 	// IsInternal indicates if the action is internal (not publicly visible)
 	IsInternal bool
+	// Conditions holds the ABAC attributes available for CEL condition expressions on this action
+	Conditions []AttributeSpec
 }
 
 // systemActions defines all available actions in the system
@@ -414,11 +416,12 @@ func AllActions() []Action {
 	return systemActions
 }
 
-// PublicActions returns all public (non-internal) actions, sorted by name
+// PublicActions returns all public (non-internal) actions, sorted by name, with conditions populated.
 func PublicActions() []Action {
 	actions := make([]Action, 0)
 	for _, action := range systemActions {
 		if !action.IsInternal {
+			action.Conditions = LookupConditions(action.Name)
 			actions = append(actions, action)
 		}
 	}
@@ -437,6 +440,7 @@ func ConcretePublicActions() []Action {
 	for _, action := range systemActions {
 		// exclude wildcarded actions (containing *) and internal actions
 		if !action.IsInternal && !strings.Contains(action.Name, "*") {
+			action.Conditions = LookupConditions(action.Name)
 			actions = append(actions, action)
 		}
 	}

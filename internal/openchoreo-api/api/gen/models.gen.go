@@ -406,6 +406,9 @@ type ActionCapability struct {
 
 // ActionInfo An authorization action with its scope in the resource hierarchy.
 type ActionInfo struct {
+	// Conditions ABAC attributes available for CEL condition expressions on this action. Empty means no conditions are supported.
+	Conditions *[]ConditionAttribute `json:"conditions,omitempty"`
+
 	// LowestScope The lowest resource hierarchy level at which this action is evaluated. One of cluster, namespace, project, or component.
 	LowestScope ActionInfoLowestScope `json:"lowestScope"`
 
@@ -1526,6 +1529,15 @@ type Condition struct {
 
 // ConditionStatus Status of the condition
 type ConditionStatus string
+
+// ConditionAttribute An ABAC attribute available for CEL condition expressions on an action.
+type ConditionAttribute struct {
+	// Description Human-readable description of the attribute.
+	Description string `json:"description"`
+
+	// Key Full dotted path of the attribute (e.g. "resource.environment").
+	Key string `json:"key"`
+}
 
 // ConnectionEnvBindings Maps resolved connection address components to environment variable names
 type ConnectionEnvBindings struct {
