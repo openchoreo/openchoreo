@@ -8,18 +8,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// ResourceBindingPolicy controls who creates ResourceBinding objects for a Resource.
+// ResourceReleaseBindingPolicy controls who creates ResourceReleaseBinding objects for a Resource.
 // +kubebuilder:validation:Enum=Automatic;Manual
-type ResourceBindingPolicy string
+type ResourceReleaseBindingPolicy string
 
 const (
-	// ResourceBindingPolicyAutomatic means the Resource controller fans out a
-	// ResourceBinding per environment in the project's DeploymentPipeline.
-	ResourceBindingPolicyAutomatic ResourceBindingPolicy = "Automatic"
+	// ResourceReleaseBindingPolicyAutomatic means the Resource controller fans out a
+	// ResourceReleaseBinding per environment in the project's DeploymentPipeline.
+	ResourceReleaseBindingPolicyAutomatic ResourceReleaseBindingPolicy = "Automatic"
 
-	// ResourceBindingPolicyManual means the controller creates no ResourceBindings;
+	// ResourceReleaseBindingPolicyManual means the controller creates no ResourceReleaseBindings;
 	// the platform engineer or GitOps tool authors them explicitly.
-	ResourceBindingPolicyManual ResourceBindingPolicy = "Manual"
+	ResourceReleaseBindingPolicyManual ResourceReleaseBindingPolicy = "Manual"
 )
 
 // ResourceSpec defines the desired state of Resource.
@@ -43,13 +43,13 @@ type ResourceSpec struct {
 	// +kubebuilder:validation:Schemaless
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 
-	// BindingPolicy controls who creates ResourceBinding objects for this Resource.
-	// Automatic (default): the controller ensures one ResourceBinding per environment
+	// ReleaseBindingPolicy controls who creates ResourceReleaseBinding objects for this Resource.
+	// Automatic (default): the controller ensures one ResourceReleaseBinding per environment
 	// in the project. Manual: the controller creates nothing; the platform engineer
 	// or GitOps tool authors bindings explicitly.
 	// +optional
 	// +kubebuilder:default=Automatic
-	BindingPolicy ResourceBindingPolicy `json:"bindingPolicy,omitempty"`
+	ReleaseBindingPolicy ResourceReleaseBindingPolicy `json:"releaseBindingPolicy,omitempty"`
 }
 
 // ResourceOwner identifies the project that owns a Resource.
@@ -71,22 +71,22 @@ type ResourceStatus struct {
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// LatestRevision is the most recent ResourceRevision for this Resource.
+	// LatestRelease is the most recent ResourceRelease for this Resource.
 	// +optional
-	LatestRevision *LatestResourceRevision `json:"latestRevision,omitempty"`
+	LatestRelease *LatestResourceRelease `json:"latestRelease,omitempty"`
 }
 
-// LatestResourceRevision identifies the most recent ResourceRevision for a Resource.
-// Distinct from LatestRelease (component_types.go) because the field semantics differ:
-// the hash here covers Resource.spec + ResourceType/ClusterResourceType.spec.
-type LatestResourceRevision struct {
-	// Name of the ResourceRevision resource.
+// LatestResourceRelease identifies the most recent ResourceRelease for a Resource.
+// Distinct from LatestRelease (component_types.go) because the hash semantics differ:
+// here it covers Resource.spec + ResourceType/ClusterResourceType.spec.
+type LatestResourceRelease struct {
+	// Name of the ResourceRelease resource.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
 	// Hash is the content hash of Resource.spec + ResourceType/ClusterResourceType.spec
-	// captured at revision time.
+	// captured at release time.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Hash string `json:"hash"`

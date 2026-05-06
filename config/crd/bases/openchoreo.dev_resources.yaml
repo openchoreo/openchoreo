@@ -54,17 +54,6 @@ spec:
           spec:
             description: ResourceSpec defines the desired state of Resource.
             properties:
-              bindingPolicy:
-                default: Automatic
-                description: |-
-                  BindingPolicy controls who creates ResourceBinding objects for this Resource.
-                  Automatic (default): the controller ensures one ResourceBinding per environment
-                  in the project. Manual: the controller creates nothing; the platform engineer
-                  or GitOps tool authors bindings explicitly.
-                enum:
-                - Automatic
-                - Manual
-                type: string
               owner:
                 description: Owner identifies the Project this Resource belongs to.
                 properties:
@@ -85,6 +74,17 @@ spec:
                   ResourceType (or ClusterResourceType). Validated against the schema by the
                   Resource controller; failures surface via status.conditions.
                 x-kubernetes-preserve-unknown-fields: true
+              releaseBindingPolicy:
+                default: Automatic
+                description: |-
+                  ReleaseBindingPolicy controls who creates ResourceReleaseBinding objects for this Resource.
+                  Automatic (default): the controller ensures one ResourceReleaseBinding per environment
+                  in the project. Manual: the controller creates nothing; the platform engineer
+                  or GitOps tool authors bindings explicitly.
+                enum:
+                - Automatic
+                - Manual
+                type: string
               type:
                 description: |-
                   Type references the ResourceType or ClusterResourceType template for this Resource.
@@ -179,18 +179,18 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              latestRevision:
-                description: LatestRevision is the most recent ResourceRevision for
+              latestRelease:
+                description: LatestRelease is the most recent ResourceRelease for
                   this Resource.
                 properties:
                   hash:
                     description: |-
                       Hash is the content hash of Resource.spec + ResourceType/ClusterResourceType.spec
-                      captured at revision time.
+                      captured at release time.
                     minLength: 1
                     type: string
                   name:
-                    description: Name of the ResourceRevision resource.
+                    description: Name of the ResourceRelease resource.
                     minLength: 1
                     type: string
                 required:
