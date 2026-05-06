@@ -8,20 +8,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// ResourceReleaseBindingPolicy controls who creates ResourceReleaseBinding objects for a Resource.
-// +kubebuilder:validation:Enum=Automatic;Manual
-type ResourceReleaseBindingPolicy string
-
-const (
-	// ResourceReleaseBindingPolicyAutomatic means the Resource controller fans out a
-	// ResourceReleaseBinding per environment in the project's DeploymentPipeline.
-	ResourceReleaseBindingPolicyAutomatic ResourceReleaseBindingPolicy = "Automatic"
-
-	// ResourceReleaseBindingPolicyManual means the controller creates no ResourceReleaseBindings;
-	// the platform engineer or GitOps tool authors them explicitly.
-	ResourceReleaseBindingPolicyManual ResourceReleaseBindingPolicy = "Manual"
-)
-
 // ResourceSpec defines the desired state of Resource.
 type ResourceSpec struct {
 	// Owner identifies the Project this Resource belongs to.
@@ -42,14 +28,6 @@ type ResourceSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
-
-	// ReleaseBindingPolicy controls who creates ResourceReleaseBinding objects for this Resource.
-	// Automatic (default): the controller ensures one ResourceReleaseBinding per environment
-	// in the project. Manual: the controller creates nothing; the platform engineer
-	// or GitOps tool authors bindings explicitly.
-	// +optional
-	// +kubebuilder:default=Automatic
-	ReleaseBindingPolicy ResourceReleaseBindingPolicy `json:"releaseBindingPolicy,omitempty"`
 }
 
 // ResourceOwner identifies the project that owns a Resource.

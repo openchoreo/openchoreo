@@ -13,4 +13,3 @@ spec:
     name: mysql
   parameters:
     version: "8.0"
-  releaseBindingPolicy: Automatic

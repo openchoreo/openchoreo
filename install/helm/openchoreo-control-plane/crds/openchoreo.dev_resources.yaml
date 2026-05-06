@@ -73,17 +73,6 @@ spec:
                   ResourceType (or ClusterResourceType). Validated against the schema by the
                   Resource controller; failures surface via status.conditions.
                 x-kubernetes-preserve-unknown-fields: true
-              releaseBindingPolicy:
-                default: Automatic
-                description: |-
-                  ReleaseBindingPolicy controls who creates ResourceReleaseBinding objects for this Resource.
-                  Automatic (default): the controller ensures one ResourceReleaseBinding per environment
-                  in the project. Manual: the controller creates nothing; the platform engineer
-                  or GitOps tool authors bindings explicitly.
-                enum:
-                - Automatic
-                - Manual
-                type: string
               type:
                 description: |-
                   Type references the ResourceType or ClusterResourceType template for this Resource.
