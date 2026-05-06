@@ -88,6 +88,7 @@ rules:
     - observabilityplanes
     - projects
     - releasebindings
+    - resourcereleases
     - resources
     - resourcetypes
     - secretreferences
@@ -125,6 +126,7 @@ rules:
     - projects/finalizers
     - releasebindings/finalizers
     - renderedreleases/finalizers
+    - resourcereleases/finalizers
     - resources/finalizers
     - resourcetypes/finalizers
     - secretreferences/finalizers
@@ -156,6 +158,7 @@ rules:
     - projects/status
     - releasebindings/status
     - renderedreleases/status
+    - resourcereleases/status
     - resources/status
     - resourcetypes/status
     - secretreferences/status

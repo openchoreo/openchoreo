@@ -60,6 +60,8 @@ resources:
   - releasebinding_viewer_role.yaml
   - componentrelease_editor_role.yaml
   - componentrelease_viewer_role.yaml
+  - resourcerelease_editor_role.yaml
+  - resourcerelease_viewer_role.yaml
   - secretreference_editor_role.yaml
   - secretreference_viewer_role.yaml
   - renderedrelease_editor_role.yaml

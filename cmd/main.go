@@ -46,6 +46,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/resource"
+	"github.com/openchoreo/openchoreo/internal/controller/resourcerelease"
 	"github.com/openchoreo/openchoreo/internal/controller/resourcetype"
 	"github.com/openchoreo/openchoreo/internal/controller/secretreference"
 	"github.com/openchoreo/openchoreo/internal/controller/trait"
@@ -234,6 +235,13 @@ func setupControlPlaneControllers(
 	}
 
 	if err := (&componentrelease.Reconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	if err := (&resourcerelease.Reconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

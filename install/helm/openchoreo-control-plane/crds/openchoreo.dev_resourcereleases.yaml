@@ -1,0 +1,256 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: resourcereleases.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: ResourceRelease
+    listKind: ResourceReleaseList
+    plural: resourcereleases
+    singular: resourcerelease
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.owner.projectName
+      name: Project
+      type: string
+    - jsonPath: .spec.owner.resourceName
+      name: Resource
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          ResourceRelease is the Schema for the resourcereleases API. An immutable
+          snapshot of a Resource and its referenced (Cluster)ResourceType at a point in
+          time. Created by the Resource controller when the hash of Resource.spec +
+          (Cluster)ResourceType.spec changes.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ResourceReleaseSpec defines the desired state of ResourceRelease.
+              A ResourceRelease is an immutable snapshot of Resource.spec and the referenced
+              ResourceType (or ClusterResourceType) spec at the time it was cut. Created
+              exclusively by the Resource controller; deleted by the Resource finalizer when
+              the parent Resource is torn down.
+            properties:
+              owner:
+                description: Owner identifies the resource and project this ResourceRelease
+                  belongs to.
+                properties:
+                  projectName:
+                    description: ProjectName is the name of the project that owns
+                      this resource.
+                    minLength: 1
+                    type: string
+                  resourceName:
+                    description: ResourceName is the name of the Resource.
+                    minLength: 1
+                    type: string
+                required:
+                - projectName
+                - resourceName
+                type: object
+              parameters:
+                description: |-
+                  Parameters holds the snapshot of parameter values from the Resource spec at
+                  release time. The schema for these values is defined by the ResourceType's
+                  parameters schema.
+                x-kubernetes-preserve-unknown-fields: true
+              resourceType:
+                description: |-
+                  ResourceType is a frozen snapshot of the ResourceType or ClusterResourceType
+                  resource at the time of the release. Records the kind and name of the
+                  original resource alongside its full spec so consumers can distinguish
+                  namespace-scoped ResourceTypes from cluster-scoped ClusterResourceTypes.
+                properties:
+                  kind:
+                    description: |-
+                      Kind identifies whether this is a namespace-scoped ResourceType or a
+                      cluster-scoped ClusterResourceType.
+                    enum:
+                    - ResourceType
+                    - ClusterResourceType
+                    type: string
+                  name:
+                    description: Name is the name of the ResourceType or ClusterResourceType
+                      resource.
+                    minLength: 1
+                    type: string
+                  spec:
+                    description: |-
+                      Spec is the frozen specification of the (Cluster)ResourceType at the time of
+                      this ResourceRelease. ClusterResourceTypeSpec mirrors ResourceTypeSpec; the
+                      snapshot uses the namespaced type since the two are structurally identical.
+                    properties:
+                      environmentConfigs:
+                        description: |-
+                          EnvironmentConfigs defines the PE-facing per-env schema.
+                          Validates ResourceBinding.spec.resourceTypeEnvironmentConfigs.
+                        properties:
+                          openAPIV3Schema:
+                            description: OpenAPIV3Schema defines the schema using
+                              standard OpenAPI V3 / JSON Schema format.
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                      outputs:
+                        additionalProperties:
+                          description: |-
+                            ResourceOutput defines a single output of a ResourceType.
+                            Exactly one of value, secretKeyRef, or configMapKeyRef must be set.
+                          properties:
+                            configMapKeyRef:
+                              description: |-
+                                ConfigMapKeyRef references a ConfigMap on the data plane.
+                                Both name and key support ${...} CEL templating.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                            secretKeyRef:
+                              description: |-
+                                SecretKeyRef references a Secret on the data plane.
+                                Use for sensitive credentials (passwords, tokens, private keys).
+                                Only the {name, key} reference transits to the control plane; the
+                                underlying value never leaves the data plane.
+                                Both name and key support ${...} CEL templating.
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - key
+                              - name
+                              type: object
+                            value:
+                              description: |-
+                                Value is a literal or ${...} CEL expression evaluating to a string.
+                                Use only for non-sensitive data (host, port, region, database name); the
+                                resolved value transits to the control plane.
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                          - message: exactly one of value, secretKeyRef, or configMapKeyRef
+                              must be set
+                            rule: (has(self.value)?1:0) + (has(self.secretKeyRef)?1:0)
+                              + (has(self.configMapKeyRef)?1:0) == 1
+                        description: |-
+                          Outputs declares values that workloads consume via
+                          Workload.spec.dependencies.resources[].envBindings or fileBindings.
+                          Keys are output names; each value picks exactly one of value, secretKeyRef,
+                          or configMapKeyRef. Output value, name, and key fields support ${...} CEL
+                          templating evaluated against metadata.*, parameters.*, environmentConfigs.*,
+                          and applied.<id>.status.*.
+                        type: object
+                      parameters:
+                        description: Parameters defines the dev-facing schema. Validates
+                          Resource.spec.parameters.
+                        properties:
+                          openAPIV3Schema:
+                            description: OpenAPIV3Schema defines the schema using
+                              standard OpenAPI V3 / JSON Schema format.
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                      resources:
+                        description: |-
+                          Resources are the Kubernetes manifests the ResourceType provisioner emits
+                          on the data plane. Each entry has a unique id used by readyWhen and outputs
+                          CEL to reference applied.<id>.status.* fields.
+                        items:
+                          description: |-
+                            ResourceTypeManifest defines a Kubernetes resource template that the
+                            ResourceType provisioner emits on the data plane.
+                          properties:
+                            id:
+                              description: |-
+                                ID uniquely identifies this entry within the ResourceType.
+                                Referenced by readyWhen and outputs CEL via applied.<id>.status.*.
+                              minLength: 1
+                              type: string
+                            readyWhen:
+                              description: |-
+                                ReadyWhen is an optional CEL expression that determines whether this entry
+                                contributes to ResourceBinding.status.conditions[ResourcesReady]. Evaluated
+                                against applied.<id>.* once the manifest has been applied. If unset, falls
+                                back to RenderedRelease per-Kind health inference.
+                              type: string
+                            template:
+                              description: |-
+                                Template contains the Kubernetes resource with ${...} CEL expressions.
+                                Phase-1 (manifest rendering) CEL has access to metadata.*, parameters.*,
+                                and environmentConfigs.*. applied.<id>.status.* is NOT available during
+                                rendering.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                          required:
+                          - id
+                          - template
+                          type: object
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - id
+                        x-kubernetes-list-type: map
+                      retainPolicy:
+                        default: Delete
+                        description: |-
+                          RetainPolicy is the PE-defined default retention for ResourceBindings of this type.
+                          Per-env override is available via ResourceBinding.spec.retainPolicy.
+                        enum:
+                        - Delete
+                        - Retain
+                        type: string
+                    required:
+                    - resources
+                    type: object
+                required:
+                - kind
+                - name
+                - spec
+                type: object
+            required:
+            - owner
+            - resourceType
+            type: object
+            x-kubernetes-validations:
+            - message: ResourceRelease spec is immutable
+              rule: self == oldSelf
+          status:
+            description: ResourceReleaseStatus defines the observed state of ResourceRelease.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
