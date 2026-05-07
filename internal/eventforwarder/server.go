@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sync/atomic"
+	"time"
 )
 
 // HealthServer provides /health and /ready endpoints.
@@ -41,22 +42,36 @@ func (s *HealthServer) Handler() http.Handler {
 func (s *HealthServer) ListenAndServe(port int) error {
 	addr := fmt.Sprintf(":%d", port)
 	s.logger.Info("Starting health server", "address", addr)
-	return http.ListenAndServe(addr, s.Handler())
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           s.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	return srv.ListenAndServe()
 }
 
 func (s *HealthServer) healthHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
+		s.logger.Warn("Failed to encode health response", "error", err)
+	}
 }
 
 func (s *HealthServer) readyHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	var payload map[string]string
 	if s.ready.Load() {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
+		payload = map[string]string{"status": "ready"}
 	} else {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		json.NewEncoder(w).Encode(map[string]string{"status": "not ready"})
+		payload = map[string]string{"status": "not ready"}
+	}
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		s.logger.Warn("Failed to encode readiness response", "error", err)
 	}
 }

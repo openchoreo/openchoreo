@@ -177,6 +177,21 @@
           "title": "baseUrl",
           "type": "string"
         },
+        "catalogSync": {
+          "additionalProperties": false,
+          "description": "Catalog sync configuration — controls how often the OpenChoreo entity provider runs the periodic full sync as a safety net behind the event-driven path. Lower values converge faster after missed events but cost more CRUD calls; higher values are cheaper but slower to recover. The event-forwarder (when enabled via eventForwarder.enabled) handles real-time delta updates between syncs.",
+          "properties": {
+            "frequency": {
+              "default": 300,
+              "description": "Frequency in seconds between periodic full syncs of the OpenChoreo catalog provider. With the event-forwarder enabled, this acts as a safety net for any events missed; with it disabled, this is the only sync mechanism and you may want a much smaller value (e.g. 60).",
+              "title": "frequency",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "catalogSync",
+          "type": "object"
+        },
         "containerSecurityContext": {
           "additionalProperties": false,
           "description": "Container security context",
@@ -365,20 +380,6 @@
           },
           "title": "env",
           "type": "array"
-        },
-        "catalogSync": {
-          "additionalProperties": false,
-          "description": "Catalog sync configuration — controls how often the OpenChoreo entity provider runs the periodic full sync",
-          "properties": {
-            "frequency": {
-              "default": 300,
-              "description": "Frequency in seconds between periodic full syncs of the OpenChoreo catalog provider",
-              "type": "integer"
-            }
-          },
-          "required": [],
-          "title": "catalogSync",
-          "type": "object"
         },
         "externalCI": {
           "additionalProperties": false,
@@ -2206,6 +2207,265 @@
       "title": "controllerManager",
       "type": "object"
     },
+    "eventForwarder": {
+      "additionalProperties": false,
+      "description": "Event-forwarder configuration — watches OpenChoreo CRDs via K8s informers and forwards change-notification webhooks to subscribers (typically Backstage's events plugin) for near-real-time catalog updates.",
+      "properties": {
+        "config": {
+          "additionalProperties": false,
+          "properties": {
+            "logging": {
+              "additionalProperties": false,
+              "properties": {
+                "level": {
+                  "default": "info",
+                  "title": "level",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "level"
+              ],
+              "title": "logging",
+              "type": "object"
+            },
+            "server": {
+              "additionalProperties": false,
+              "properties": {
+                "port": {
+                  "default": 8080,
+                  "title": "port",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "port"
+              ],
+              "title": "server",
+              "type": "object"
+            },
+            "webhooks": {
+              "additionalProperties": false,
+              "properties": {
+                "endpoints": {
+                  "items": {
+                    "required": []
+                  },
+                  "title": "endpoints",
+                  "type": "array"
+                },
+                "retry": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "backoffMs": {
+                      "default": 1000,
+                      "title": "backoffMs",
+                      "type": "integer"
+                    },
+                    "maxAttempts": {
+                      "default": 3,
+                      "title": "maxAttempts",
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "maxAttempts",
+                    "backoffMs"
+                  ],
+                  "title": "retry",
+                  "type": "object"
+                }
+              },
+              "required": [
+                "endpoints",
+                "retry"
+              ],
+              "title": "webhooks",
+              "type": "object"
+            }
+          },
+          "required": [
+            "server",
+            "webhooks",
+            "logging"
+          ],
+          "title": "config",
+          "type": "object"
+        },
+        "containerSecurityContext": {
+          "additionalProperties": false,
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "default": false,
+              "title": "allowPrivilegeEscalation",
+              "type": "boolean"
+            },
+            "readOnlyRootFilesystem": {
+              "default": true,
+              "title": "readOnlyRootFilesystem",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "readOnlyRootFilesystem",
+            "allowPrivilegeEscalation"
+          ],
+          "title": "containerSecurityContext",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable the event-forwarder component. Disabling it stops the event-forwarder pod from being deployed and signals Backstage to skip its event subscriptions, falling back to poll-only catalog sync.",
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "image": {
+          "additionalProperties": false,
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "title": "pullPolicy",
+              "type": "string"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/event-forwarder",
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [
+            "repository",
+            "tag",
+            "pullPolicy"
+          ],
+          "title": "image",
+          "type": "object"
+        },
+        "name": {
+          "default": "event-forwarder",
+          "description": "Name of the event-forwarder Deployment / ServiceAccount / ClusterRole resources",
+          "title": "name",
+          "type": "string"
+        },
+        "podSecurityContext": {
+          "additionalProperties": false,
+          "properties": {
+            "runAsNonRoot": {
+              "default": true,
+              "title": "runAsNonRoot",
+              "type": "boolean"
+            },
+            "runAsUser": {
+              "default": 65532,
+              "title": "runAsUser",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "runAsNonRoot",
+            "runAsUser"
+          ],
+          "title": "podSecurityContext",
+          "type": "object"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "200m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "256Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cpu",
+                "memory"
+              ],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "50m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "64Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cpu",
+                "memory"
+              ],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [
+            "limits",
+            "requests"
+          ],
+          "title": "resources",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": false,
+          "properties": {
+            "annotations": {
+              "additionalProperties": false,
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "create": {
+              "default": true,
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "",
+              "title": "name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "create",
+            "name",
+            "annotations"
+          ],
+          "title": "serviceAccount",
+          "type": "object"
+        }
+      },
+      "required": [
+        "image",
+        "config",
+        "serviceAccount",
+        "resources",
+        "podSecurityContext",
+        "containerSecurityContext"
+      ],
+      "title": "eventForwarder",
+      "type": "object"
+    },
     "fullnameOverride": {
       "default": "openchoreo",
       "description": "Override the full name of the chart release",
@@ -3782,172 +4042,6 @@
       },
       "required": [],
       "title": "webhookService",
-      "type": "object"
-    },
-    "eventForwarder": {
-      "additionalProperties": false,
-      "description": "Event-forwarder configuration — watches OpenChoreo CRDs via K8s informers and forwards change-notification webhooks to subscribers (typically Backstage's events plugin) for near-real-time catalog updates.",
-      "properties": {
-        "enabled": {
-          "default": true,
-          "description": "Enable the event-forwarder component. Disabling it stops the pod from being deployed and signals Backstage to skip its event subscriptions, falling back to poll-only catalog sync.",
-          "required": [],
-          "title": "enabled",
-          "type": "boolean"
-        },
-        "name": {
-          "default": "event-forwarder",
-          "description": "Name of the event-forwarder Deployment / ServiceAccount / ClusterRole resources",
-          "required": [],
-          "title": "name",
-          "type": "string"
-        },
-        "image": {
-          "description": "Container image configuration",
-          "properties": {
-            "repository": {
-              "default": "ghcr.io/openchoreo/event-forwarder",
-              "description": "Docker image repository",
-              "required": [],
-              "title": "repository",
-              "type": "string"
-            },
-            "tag": {
-              "default": "",
-              "description": "Image tag. If empty, uses Chart.AppVersion",
-              "required": [],
-              "title": "tag",
-              "type": "string"
-            },
-            "pullPolicy": {
-              "default": "IfNotPresent",
-              "description": "Image pull policy",
-              "enum": ["Always", "IfNotPresent", "Never"],
-              "required": [],
-              "title": "pullPolicy"
-            }
-          },
-          "required": [],
-          "title": "image",
-          "type": "object"
-        },
-        "config": {
-          "description": "Event-forwarder runtime configuration",
-          "properties": {
-            "server": {
-              "properties": {
-                "port": {
-                  "default": 8080,
-                  "type": "integer"
-                }
-              },
-              "required": [],
-              "type": "object"
-            },
-            "webhooks": {
-              "properties": {
-                "endpoints": {
-                  "items": {
-                    "properties": {
-                      "url": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "type": "array"
-                },
-                "retry": {
-                  "properties": {
-                    "maxAttempts": {
-                      "default": 3,
-                      "type": "integer"
-                    },
-                    "backoffMs": {
-                      "default": 1000,
-                      "type": "integer"
-                    }
-                  },
-                  "required": [],
-                  "type": "object"
-                }
-              },
-              "required": [],
-              "type": "object"
-            },
-            "logging": {
-              "properties": {
-                "level": {
-                  "default": "info",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "type": "object"
-            }
-          },
-          "required": [],
-          "title": "config",
-          "type": "object"
-        },
-        "serviceAccount": {
-          "properties": {
-            "create": {
-              "default": true,
-              "type": "boolean"
-            },
-            "name": {
-              "default": "",
-              "type": "string"
-            },
-            "annotations": {
-              "type": "object"
-            }
-          },
-          "required": [],
-          "type": "object"
-        },
-        "resources": {
-          "properties": {
-            "limits": {
-              "properties": {
-                "cpu": { "default": "200m", "type": "string" },
-                "memory": { "default": "256Mi", "type": "string" }
-              },
-              "required": [],
-              "type": "object"
-            },
-            "requests": {
-              "properties": {
-                "cpu": { "default": "50m", "type": "string" },
-                "memory": { "default": "64Mi", "type": "string" }
-              },
-              "required": [],
-              "type": "object"
-            }
-          },
-          "required": [],
-          "type": "object"
-        },
-        "podSecurityContext": {
-          "properties": {
-            "runAsNonRoot": { "default": true, "type": "boolean" },
-            "runAsUser": { "default": 65532, "type": "integer" }
-          },
-          "required": [],
-          "type": "object"
-        },
-        "containerSecurityContext": {
-          "properties": {
-            "readOnlyRootFilesystem": { "default": true, "type": "boolean" },
-            "allowPrivilegeEscalation": { "default": false, "type": "boolean" }
-          },
-          "required": [],
-          "type": "object"
-        }
-      },
-      "required": [],
-      "title": "eventForwarder",
       "type": "object"
     }
   },

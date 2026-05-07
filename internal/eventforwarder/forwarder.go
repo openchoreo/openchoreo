@@ -105,7 +105,7 @@ func gvrList() []schema.GroupVersionResource {
 	return gvrs
 }
 
-// Start begins watching all OpenChoreo CRDs (and OC-labelled core
+// Start begins watching all OpenChoreo CRDs (and OC-labeled core
 // Namespaces) and blocks until the context is cancelled.
 func (f *Forwarder) Start(ctx context.Context) error {
 	// CRD informers — unfiltered. Each OC CRD has its own informer so

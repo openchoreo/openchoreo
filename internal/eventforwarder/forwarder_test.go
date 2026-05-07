@@ -15,7 +15,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -33,15 +32,16 @@ var projectGVR = schema.GroupVersionResource{
 }
 
 // newProject constructs a minimal *unstructured.Unstructured shaped like an
-// OpenChoreo Project. Callers can override sub-trees via the optional
-// `mutate` callback to test specific diff scenarios.
-func newProject(name, namespace string, mutate ...func(map[string]interface{})) *unstructured.Unstructured {
+// OpenChoreo Project under the "default" namespace. Callers can override
+// sub-trees via the optional `mutate` callback to test specific diff
+// scenarios.
+func newProject(name string, mutate ...func(map[string]interface{})) *unstructured.Unstructured {
 	obj := map[string]interface{}{
 		"apiVersion": "openchoreo.dev/v1alpha1",
 		"kind":       "Project",
 		"metadata": map[string]interface{}{
 			"name":      name,
-			"namespace": namespace,
+			"namespace": "default",
 			"labels": map[string]interface{}{
 				"openchoreo.dev/managed": "true",
 			},
@@ -82,14 +82,14 @@ func TestIsStatusOnlyChange(t *testing.T) {
 	}{
 		{
 			name: "identical objects → status-only (no change at all)",
-			old:  newProject("p", "default"),
-			new:  newProject("p", "default"),
+			old:  newProject("p"),
+			new:  newProject("p"),
 			want: true,
 		},
 		{
 			name: "only status differs → status-only",
-			old:  newProject("p", "default"),
-			new: newProject("p", "default", func(o map[string]interface{}) {
+			old:  newProject("p"),
+			new: newProject("p", func(o map[string]interface{}) {
 				// Replace status conditions
 				o["status"] = map[string]interface{}{
 					"conditions": []interface{}{
@@ -104,8 +104,8 @@ func TestIsStatusOnlyChange(t *testing.T) {
 		},
 		{
 			name: "spec differs → not status-only",
-			old:  newProject("p", "default"),
-			new: newProject("p", "default", func(o map[string]interface{}) {
+			old:  newProject("p"),
+			new: newProject("p", func(o map[string]interface{}) {
 				spec := o["spec"].(map[string]interface{})
 				spec["deploymentPipelineRef"] = map[string]interface{}{
 					"name": "promote-fast",
@@ -115,8 +115,8 @@ func TestIsStatusOnlyChange(t *testing.T) {
 		},
 		{
 			name: "labels differ → not status-only",
-			old:  newProject("p", "default"),
-			new: newProject("p", "default", func(o map[string]interface{}) {
+			old:  newProject("p"),
+			new: newProject("p", func(o map[string]interface{}) {
 				meta := o["metadata"].(map[string]interface{})
 				meta["labels"] = map[string]interface{}{
 					"openchoreo.dev/managed": "true",
@@ -127,8 +127,8 @@ func TestIsStatusOnlyChange(t *testing.T) {
 		},
 		{
 			name: "annotations differ → not status-only",
-			old:  newProject("p", "default"),
-			new: newProject("p", "default", func(o map[string]interface{}) {
+			old:  newProject("p"),
+			new: newProject("p", func(o map[string]interface{}) {
 				meta := o["metadata"].(map[string]interface{})
 				meta["annotations"] = map[string]interface{}{
 					"openchoreo.dev/display-name": "Updated Display Name",
@@ -138,8 +138,8 @@ func TestIsStatusOnlyChange(t *testing.T) {
 		},
 		{
 			name: "deletionTimestamp added → not status-only",
-			old:  newProject("p", "default"),
-			new: newProject("p", "default", func(o map[string]interface{}) {
+			old:  newProject("p"),
+			new: newProject("p", func(o map[string]interface{}) {
 				meta := o["metadata"].(map[string]interface{})
 				meta["deletionTimestamp"] = "2026-01-01T00:00:00Z"
 			}),
@@ -147,8 +147,8 @@ func TestIsStatusOnlyChange(t *testing.T) {
 		},
 		{
 			name: "finalizers changed → not status-only",
-			old:  newProject("p", "default"),
-			new: newProject("p", "default", func(o map[string]interface{}) {
+			old:  newProject("p"),
+			new: newProject("p", func(o map[string]interface{}) {
 				meta := o["metadata"].(map[string]interface{})
 				meta["finalizers"] = []interface{}{"openchoreo.dev/cleanup"}
 			}),
@@ -156,11 +156,11 @@ func TestIsStatusOnlyChange(t *testing.T) {
 		},
 		{
 			name: "old missing labels but new has them → not status-only",
-			old: newProject("p", "default", func(o map[string]interface{}) {
+			old: newProject("p", func(o map[string]interface{}) {
 				meta := o["metadata"].(map[string]interface{})
 				delete(meta, "labels")
 			}),
-			new:  newProject("p", "default"),
+			new:  newProject("p"),
 			want: false,
 		},
 		{
@@ -245,7 +245,7 @@ func TestHandleEvent_DispatchesObservedFields(t *testing.T) {
 	f, cs, cleanup := newForwarderWithCapture(t)
 	defer cleanup()
 
-	obj := newProject("url-shortener", "default")
+	obj := newProject("url-shortener")
 	f.handleEvent(obj, "updated", projectGVR)
 
 	got := waitForEvent(t, cs)
@@ -259,7 +259,7 @@ func TestHandleEvent_DebounceCollapsesRapidDuplicates(t *testing.T) {
 	f, cs, cleanup := newForwarderWithCapture(t)
 	defer cleanup()
 
-	obj := newProject("p1", "default")
+	obj := newProject("p1")
 
 	// Two calls within the debounce window should produce exactly one
 	// dispatch.
@@ -287,8 +287,8 @@ func TestHandleEvent_DebounceIsPerKey(t *testing.T) {
 
 	// Two different projects in the same window should both dispatch —
 	// the debounce key includes name/namespace.
-	f.handleEvent(newProject("p1", "default"), "updated", projectGVR)
-	f.handleEvent(newProject("p2", "default"), "updated", projectGVR)
+	f.handleEvent(newProject("p1"), "updated", projectGVR)
+	f.handleEvent(newProject("p2"), "updated", projectGVR)
 
 	got1 := waitForEvent(t, cs)
 	got2 := waitForEvent(t, cs)
@@ -302,7 +302,7 @@ func TestHandleEvent_DebounceExpiresAfterWindow(t *testing.T) {
 	f, cs, cleanup := newForwarderWithCapture(t)
 	defer cleanup()
 
-	obj := newProject("p1", "default")
+	obj := newProject("p1")
 
 	// First call — dispatches normally.
 	f.handleEvent(obj, "updated", projectGVR)
@@ -331,7 +331,7 @@ func TestHandleEvent_TombstoneIsUnwrapped(t *testing.T) {
 	// unwrap and dispatch the inner object's identity.
 	tombstone := cache.DeletedFinalStateUnknown{
 		Key: "default/p-deleted",
-		Obj: newProject("p-deleted", "default"),
+		Obj: newProject("p-deleted"),
 	}
 	f.handleEvent(tombstone, "deleted", projectGVR)
 
@@ -382,7 +382,7 @@ func TestHandleEvent_ClusterScopedHasEmptyNamespace(t *testing.T) {
 }
 
 // =====================================================================
-// gvrList — basic sanity check (no behavioural test; the list is static)
+// gvrList — basic sanity check (no behavioral test; the list is static)
 // =====================================================================
 
 func TestGVRList_AllOpenChoreoGroup(t *testing.T) {
