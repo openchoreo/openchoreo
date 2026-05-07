@@ -219,10 +219,6 @@ type DeploymentToolsetHandler interface {
 		ctx context.Context, namespaceName, bindingName string,
 		req *gen.ReleaseBindingSpec,
 	) (any, error)
-	UpdateReleaseBindingState(
-		ctx context.Context, namespaceName, bindingName string,
-		state *gen.ReleaseBindingSpecState,
-	) (any, error)
 	ListDeploymentPipelines(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetDeploymentPipeline(ctx context.Context, namespaceName, pipelineName string) (any, error)
 	ListEnvironments(ctx context.Context, namespaceName string, opts ListOpts) (any, error)

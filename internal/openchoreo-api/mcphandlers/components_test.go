@@ -778,49 +778,43 @@ func TestUpdateReleaseBinding(t *testing.T) {
 		_, err := h.UpdateReleaseBinding(ctx, testNS, "comp-dev", req)
 		require.Error(t, err)
 	})
-}
 
-// ---------------------------------------------------------------------------
-// UpdateReleaseBindingState
-// ---------------------------------------------------------------------------
-
-func TestUpdateReleaseBindingState(t *testing.T) {
-	ctx := context.Background()
-
-	existingRB := &openchoreov1alpha1.ReleaseBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: "comp-dev"},
-		Spec:       openchoreov1alpha1.ReleaseBindingSpec{},
-	}
-
-	t.Run("sets state and includes it in response", func(t *testing.T) {
+	t.Run("sets release state when provided", func(t *testing.T) {
 		rbSvc := releasebindingmocks.NewMockService(t)
 		rbSvc.EXPECT().GetReleaseBinding(mock.Anything, testNS, "comp-dev").Return(existingRB, nil)
 		rbSvc.EXPECT().
 			UpdateReleaseBinding(mock.Anything, testNS, mock.MatchedBy(func(rb *openchoreov1alpha1.ReleaseBinding) bool {
-				return rb.Spec.State == openchoreov1alpha1.ReleaseState("active")
+				return rb.Spec.State == openchoreov1alpha1.ReleaseState("Undeploy")
 			})).
-			Return(&openchoreov1alpha1.ReleaseBinding{
-				Spec: openchoreov1alpha1.ReleaseBindingSpec{State: "active"},
-			}, nil)
+			Return(existingRB, nil)
 
 		h := newTestHandler(withReleaseBindingService(rbSvc))
-		state := gen.ReleaseBindingSpecState("active")
-		result, err := h.UpdateReleaseBindingState(ctx, testNS, "comp-dev", &state)
+		state := gen.ReleaseBindingSpecState("Undeploy")
+		req := &gen.ReleaseBindingSpec{Environment: testEnvironmentName, State: &state}
+		_, err := h.UpdateReleaseBinding(ctx, testNS, "comp-dev", req)
 		require.NoError(t, err)
-		m, ok := result.(map[string]any)
-		require.True(t, ok)
-		assert.Equal(t, "active", m["state"])
 	})
 
-	t.Run("nil state: no state change, still updates", func(t *testing.T) {
+	t.Run("nil state leaves existing state unchanged", func(t *testing.T) {
+		rbWithState := &openchoreov1alpha1.ReleaseBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "comp-dev"},
+			Spec: openchoreov1alpha1.ReleaseBindingSpec{
+				Environment: testEnvironmentName,
+				State:       openchoreov1alpha1.ReleaseState("Active"),
+			},
+		}
 		rbSvc := releasebindingmocks.NewMockService(t)
-		rbSvc.EXPECT().GetReleaseBinding(mock.Anything, testNS, "comp-dev").Return(existingRB, nil)
-		rbSvc.EXPECT().UpdateReleaseBinding(mock.Anything, testNS, mock.Anything).Return(existingRB, nil)
+		rbSvc.EXPECT().GetReleaseBinding(mock.Anything, testNS, "comp-dev").Return(rbWithState, nil)
+		rbSvc.EXPECT().
+			UpdateReleaseBinding(mock.Anything, testNS, mock.MatchedBy(func(rb *openchoreov1alpha1.ReleaseBinding) bool {
+				return rb.Spec.State == openchoreov1alpha1.ReleaseState("Active")
+			})).
+			Return(rbWithState, nil)
 
 		h := newTestHandler(withReleaseBindingService(rbSvc))
-		result, err := h.UpdateReleaseBindingState(ctx, testNS, "comp-dev", nil)
+		req := &gen.ReleaseBindingSpec{Environment: testEnvironmentName}
+		_, err := h.UpdateReleaseBinding(ctx, testNS, "comp-dev", req)
 		require.NoError(t, err)
-		assert.NotNil(t, result)
 	})
 }
 

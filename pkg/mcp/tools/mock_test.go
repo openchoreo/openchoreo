@@ -185,17 +185,6 @@ func (m *MockCoreToolsetHandler) PatchComponent(
 	return `{"name":"patched-component"}`, nil
 }
 
-func (m *MockCoreToolsetHandler) UpdateReleaseBindingState(
-	ctx context.Context, namespaceName, bindingName string,
-	state *gen.ReleaseBindingSpecState,
-) (any, error) {
-	m.recordCall("UpdateReleaseBindingState", namespaceName, bindingName, state)
-	if state == nil {
-		return `{"status":"updated"}`, nil
-	}
-	return `{"status":"updated","state":"` + string(*state) + `"}`, nil
-}
-
 func (m *MockCoreToolsetHandler) GetComponentReleaseSchema(
 	ctx context.Context, namespaceName, componentName, releaseName string,
 ) (any, error) {

@@ -255,6 +255,9 @@ func (h *MCPHandler) UpdateReleaseBinding(
 	if req.ReleaseName != nil && *req.ReleaseName != "" {
 		rb.Spec.ReleaseName = *req.ReleaseName
 	}
+	if req.State != nil {
+		rb.Spec.State = openchoreov1alpha1.ReleaseState(*req.State)
+	}
 	if req.Environment != "" && req.Environment != rb.Spec.Environment {
 		return nil, fmt.Errorf("release binding environment is immutable")
 	}
@@ -452,27 +455,6 @@ func (h *MCPHandler) PatchComponent(
 		return nil, err
 	}
 	return mutationResult(updated, "patched"), nil
-}
-
-func (h *MCPHandler) UpdateReleaseBindingState(
-	ctx context.Context, namespaceName, bindingName string, state *gen.ReleaseBindingSpecState,
-) (any, error) {
-	rb, err := h.services.ReleaseBindingService.GetReleaseBinding(ctx, namespaceName, bindingName)
-	if err != nil {
-		return nil, err
-	}
-
-	if state != nil {
-		rb.Spec.State = openchoreov1alpha1.ReleaseState(*state)
-	}
-
-	updated, err := h.services.ReleaseBindingService.UpdateReleaseBinding(ctx, namespaceName, rb)
-	if err != nil {
-		return nil, err
-	}
-	return mutationResult(updated, "updated", map[string]any{
-		"state": string(updated.Spec.State),
-	}), nil
 }
 
 func (h *MCPHandler) GetComponentReleaseSchema(
