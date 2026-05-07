@@ -52,7 +52,7 @@ spec:
             properties:
               environmentConfigs:
                 description: |-
-                  EnvironmentConfigs defines the PE-facing per-env schema.
+                  EnvironmentConfigs defines the per-env schema.
                   Validates ResourceBinding.spec.resourceTypeEnvironmentConfigs.
                 properties:
                   openAPIV3Schema:
@@ -128,7 +128,9 @@ spec:
                 - name
                 x-kubernetes-list-type: map
               parameters:
-                description: Parameters defines the dev-facing schema. Validates Resource.spec.parameters.
+                description: |-
+                  Parameters is the schema for Resource.spec.parameters values supplied by
+                  Resource authors. Validated against this schema.
                 properties:
                   openAPIV3Schema:
                     description: OpenAPIV3Schema defines the schema using standard
@@ -152,19 +154,35 @@ spec:
                         Referenced by readyWhen and outputs CEL via applied.<id>.status.*.
                       minLength: 1
                       type: string
+                    includeWhen:
+                      description: |-
+                        IncludeWhen is an optional CEL expression that determines whether this
+                        entry is rendered. Evaluated against metadata.*, parameters.*,
+                        environmentConfigs.*, and dataplane.*; applied.<id>.* is NOT available
+                        because the rendered objects haven't been applied yet. Must be
+                        ${...}-wrapped and must evaluate to a boolean. If unset, the entry is
+                        always rendered.
+                        Example: "${parameters.tlsEnabled}".
+                      pattern: ^\$\{[\s\S]+\}\s*$
+                      type: string
                     readyWhen:
                       description: |-
-                        ReadyWhen is an optional CEL expression that determines whether this entry
-                        contributes to ResourceBinding.status.conditions[ResourcesReady]. Evaluated
-                        against applied.<id>.* once the manifest has been applied. If unset, falls
-                        back to RenderedRelease per-Kind health inference.
+                        ReadyWhen is an optional ${...}-wrapped CEL expression that determines
+                        whether this entry contributes to
+                        ResourceBinding.status.conditions[ResourcesReady]. Evaluated against
+                        metadata.*, parameters.*, environmentConfigs.*, dataplane.*, and
+                        applied.<id>.* once the manifest has been applied. If unset, falls back
+                        to RenderedRelease per-Kind health inference. Must evaluate to a boolean.
+                        Example: "${applied.claim.status.conditions.exists(c, c.type == 'Ready' && c.status == 'True')}".
+                      pattern: ^\$\{[\s\S]+\}\s*$
                       type: string
                     template:
                       description: |-
                         Template contains the Kubernetes resource with ${...} CEL expressions.
-                        Phase-1 (manifest rendering) CEL has access to metadata.*, parameters.*,
-                        and environmentConfigs.*. applied.<id>.status.* is NOT available during
-                        rendering.
+                        At render time the CEL context exposes metadata.*, parameters.*,
+                        environmentConfigs.*, and dataplane.*. applied.<id>.status.* is NOT
+                        available during rendering because the rendered objects haven't been
+                        applied yet.
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                   required:
@@ -179,7 +197,7 @@ spec:
               retainPolicy:
                 default: Delete
                 description: |-
-                  RetainPolicy is the PE-defined default retention for ResourceBindings of this type.
+                  RetainPolicy is the default retention for ResourceBindings of this type.
                   Per-env override is available via ResourceBinding.spec.retainPolicy.
                 enum:
                 - Delete
