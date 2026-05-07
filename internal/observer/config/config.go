@@ -75,6 +75,9 @@ type OpenSearchConfig struct {
 	IndexPrefix   string        `koanf:"index.prefix"`
 	IndexPattern  string        `koanf:"index.pattern"`
 	LegacyPattern string        `koanf:"legacy.pattern"`
+	// TLSCACertPath is the path to a PEM-encoded CA certificate used to verify the OpenSearch server's TLS certificate.
+	// When empty the system CA pool is used. Required when OpenSearch uses a self-signed certificate.
+	TLSCACertPath string `koanf:"tls.ca.cert.path"`
 }
 
 // PrometheusConfig holds Prometheus connection configuration
@@ -196,6 +199,7 @@ func Load() (*Config, error) {
 		"OPENSEARCH_INDEX_PREFIX":               "opensearch.index.prefix",
 		"OPENSEARCH_INDEX_PATTERN":              "opensearch.index.pattern",
 		"OPENSEARCH_LEGACY_PATTERN":             "opensearch.legacy.pattern",
+		"OPENSEARCH_TLS_CA_CERT_PATH":           "opensearch.tls.ca.cert.path",
 		"PROMETHEUS_ADDRESS":                    "prometheus.address",
 		"PROMETHEUS_TIMEOUT":                    "prometheus.timeout",
 		"AUTH_JWT_SECRET":                       "auth.jwt.secret",

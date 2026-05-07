@@ -7,11 +7,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/opensearch-project/opensearch-go"
@@ -22,6 +24,35 @@ import (
 
 const alertsIndexName = "openchoreo-alerts"
 
+// buildTLSTransport returns an HTTP transport for OpenSearch.
+// When caCertPath is non-empty it loads that PEM file and pins the CA so the
+// self-signed OpenSearch certificate is validated without skipping verification.
+// When caCertPath is empty the system CA pool is used (suitable for publicly
+// signed certificates).
+func buildTLSTransport(caCertPath string) (*http.Transport, error) {
+	base := http.DefaultTransport.(*http.Transport).Clone()
+
+	if caCertPath == "" {
+		return base, nil
+	}
+
+	caCert, err := os.ReadFile(caCertPath)
+	if err != nil {
+		return nil, fmt.Errorf("read CA cert %s: %w", caCertPath, err)
+	}
+
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(caCert) {
+		return nil, fmt.Errorf("no valid PEM certificates found in %s", caCertPath)
+	}
+
+	base.TLSClientConfig = &tls.Config{
+		RootCAs:    pool,
+		MinVersion: tls.VersionTLS12,
+	}
+	return base, nil
+}
+
 // Client wraps the OpenSearch client with logging and configuration
 type Client struct {
 	client *opensearch.Client
@@ -31,15 +62,16 @@ type Client struct {
 
 // NewClient creates a new OpenSearch client with the provided configuration
 func NewClient(cfg *config.OpenSearchConfig, logger *slog.Logger) (*Client, error) {
+	transport, err := buildTLSTransport(cfg.TLSCACertPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build TLS transport: %w", err)
+	}
+
 	opensearchConfig := opensearch.Config{
 		Addresses: []string{cfg.Address},
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true, //nolint:gosec // G402: Using self-signed cert
-			},
-		},
-		Username: cfg.Username,
-		Password: cfg.Password,
+		Transport: transport,
+		Username:  cfg.Username,
+		Password:  cfg.Password,
 	}
 
 	client, err := opensearch.NewClient(opensearchConfig)

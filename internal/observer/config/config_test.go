@@ -70,6 +70,16 @@ func TestLoad_WithEnvironmentVariables(t *testing.T) {
 	assert.Equal(t, 5000, cfg.Logging.MaxLogLimit)
 }
 
+func TestLoad_OpensearchTLSCACertPath(t *testing.T) {
+	certPath := "/etc/opensearch/tls/ca.crt"
+	t.Setenv("OPENSEARCH_TLS_CA_CERT_PATH", certPath)
+
+	cfg, err := Load()
+	require.NoError(t, err, "Failed to load config")
+
+	assert.Equal(t, certPath, cfg.OpenSearch.TLSCACertPath)
+}
+
 func TestLoad_CORSAllowedOrigins(t *testing.T) {
 	tests := []struct {
 		name     string

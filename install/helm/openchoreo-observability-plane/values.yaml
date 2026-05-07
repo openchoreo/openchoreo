@@ -707,6 +707,26 @@ observer:
 
   # @schema
   # type: object
+  # description: OpenSearch TLS configuration for the Observer
+  # @schema
+  opensearch:
+    # @schema
+    # type: string
+    # description: Name of an existing Secret containing the OpenSearch CA certificate. When set, the CA cert
+    #   is mounted at /etc/opensearch-ca and used to verify the OpenSearch server's TLS certificate instead of
+    #   skipping verification. Required when OpenSearch uses a self-signed certificate.
+    # default: ""
+    # @schema
+    caCertSecretName: ""
+    # @schema
+    # type: string
+    # description: Key within the Secret that holds the PEM-encoded CA certificate.
+    # default: ca.crt
+    # @schema
+    caCertKey: "ca.crt"
+
+  # @schema
+  # type: object
   # description: HTTPRoute configuration for the Observer service
   # @schema
   http:

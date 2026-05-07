@@ -47,3 +47,6 @@ data:
   TRACING_ADAPTER_ENABLED: {{ .Values.observer.tracingAdapter.enabled | quote }}
   TRACING_ADAPTER_URL: {{ .Values.observer.tracingAdapter.url | default "http://tracing-adapter:9100" | quote }}
   TRACING_ADAPTER_TIMEOUT: {{ .Values.observer.tracingAdapter.timeout | default "30s" | quote }}
+  {{- if dig "opensearch" "caCertSecretName" "" .Values.observer }}
+  OPENSEARCH_TLS_CA_CERT_PATH: {{ (printf "/etc/opensearch-ca/%s" (dig "opensearch" "caCertKey" "ca.crt" .Values.observer)) | quote }}
+  {{- end }}

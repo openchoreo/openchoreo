@@ -55,6 +55,11 @@ spec:
         - name: auth-config
           mountPath: /etc/openchoreo
           readOnly: true
+        {{- if dig "opensearch" "caCertSecretName" "" .Values.observer }}
+        - name: opensearch-ca
+          mountPath: /etc/opensearch-ca
+          readOnly: true
+        {{- end }}
         {{- if eq (.Values.observer.alertStoreBackend | default "sqlite") "sqlite" }}
         - name: alert-store-data
           mountPath: /data
@@ -98,6 +103,11 @@ spec:
       - name: auth-config
         configMap:
           name: observer-auth-config
+      {{- if dig "opensearch" "caCertSecretName" "" .Values.observer }}
+      - name: opensearch-ca
+        secret:
+          secretName: {{ dig "opensearch" "caCertSecretName" "" .Values.observer }}
+      {{- end }}
       {{- if eq (.Values.observer.alertStoreBackend | default "sqlite") "sqlite" }}
       - name: alert-store-data
         persistentVolumeClaim:

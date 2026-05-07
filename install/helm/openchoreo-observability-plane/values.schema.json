@@ -1172,6 +1172,27 @@
           "title": "openSearchSecretName",
           "type": "string"
         },
+        "opensearch": {
+          "additionalProperties": false,
+          "description": "OpenSearch TLS configuration for the Observer",
+          "properties": {
+            "caCertKey": {
+              "default": "ca.crt",
+              "description": "Key within the Secret that holds the PEM-encoded CA certificate.",
+              "title": "caCertKey",
+              "type": "string"
+            },
+            "caCertSecretName": {
+              "default": "",
+              "description": "Name of an existing Secret containing the OpenSearch CA certificate. When set, the CA cert is mounted at /etc/opensearch-ca and used to verify the OpenSearch server's TLS certificate instead of skipping verification. Required when OpenSearch uses a self-signed certificate.",
+              "title": "caCertSecretName",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "opensearch",
+          "type": "object"
+        },
         "prometheus": {
           "additionalProperties": false,
           "description": "Prometheus connection configuration",
