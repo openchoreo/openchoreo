@@ -505,9 +505,19 @@ func observabilityPlaneDetail(op *openchoreov1alpha1.ObservabilityPlane) map[str
 // SecretReference
 // ---------------------------------------------------------------------------
 
+// TODO: surface SecretReference status fields (Conditions, LastRefreshTime, SecretStores) once the
+// control-plane controller populates them. Until then, sync status surfaces on the rendered
+// ExternalSecret in the data plane and is queryable via get_resource_events.
+
 func secretReferenceSummary(sr openchoreov1alpha1.SecretReference) map[string]any {
-	m := extractCommonMeta(&sr)
-	setIfNotEmpty(m, "status", readyStatus(sr.Status.Conditions))
+	return extractCommonMeta(&sr)
+}
+
+func secretReferenceDetail(sr *openchoreov1alpha1.SecretReference) map[string]any {
+	m := extractCommonMeta(sr)
+	if spec := specToMap(sr.Spec); len(spec) > 0 {
+		m["spec"] = spec
+	}
 	return m
 }
 

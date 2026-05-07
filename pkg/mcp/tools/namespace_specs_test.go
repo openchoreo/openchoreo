@@ -74,5 +74,115 @@ func namespaceToolSpecs() []toolTestSpec {
 				}
 			},
 		},
+		{
+			name:                "get_secret_reference",
+			toolset:             "namespace",
+			descriptionKeywords: []string{"secret", "reference"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "secret_reference_name"},
+			testArgs: map[string]any{
+				"namespace_name":        testNamespaceName,
+				"secret_reference_name": "ref-1",
+			},
+			expectedMethod: "GetSecretReference",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != "ref-1" {
+					t.Errorf("Expected (%s, ref-1), got (%v, %v)", testNamespaceName, args[0], args[1])
+				}
+			},
+		},
+		{
+			name:                "create_secret_reference",
+			toolset:             "namespace",
+			descriptionKeywords: []string{"create", "secret"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "name", "spec"},
+			optionalParams:      []string{"display_name", "description"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"name":           "ref-1",
+				"spec": map[string]any{
+					"template": map[string]any{"type": "Opaque"},
+					"data": []map[string]any{
+						{
+							"secretKey": "password",
+							"remoteRef": map[string]any{"key": "prod/db/password"},
+						},
+					},
+				},
+			},
+			expectedMethod: "CreateSecretReference",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
+				}
+				req, ok := args[1].(*gen.CreateSecretReferenceJSONRequestBody)
+				if !ok {
+					t.Errorf("Expected args[1] to be *gen.CreateSecretReferenceJSONRequestBody, got %T", args[1])
+					return
+				}
+				if req.Metadata.Name != "ref-1" {
+					t.Errorf("Expected Metadata.Name %q, got %q", "ref-1", req.Metadata.Name)
+				}
+				if len(req.Spec.Data) != 1 || req.Spec.Data[0].SecretKey != "password" {
+					t.Errorf("spec.data not populated correctly: %+v", req.Spec.Data)
+				}
+			},
+		},
+		{
+			name:                "update_secret_reference",
+			toolset:             "namespace",
+			descriptionKeywords: []string{"update", "secret"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "secret_reference_name"},
+			optionalParams:      []string{"display_name", "description", "spec"},
+			testArgs: map[string]any{
+				"namespace_name":        testNamespaceName,
+				"secret_reference_name": "ref-1",
+				"spec": map[string]any{
+					"template": map[string]any{"type": "Opaque"},
+					"data": []map[string]any{
+						{
+							"secretKey": "password",
+							"remoteRef": map[string]any{"key": "prod/db/password"},
+						},
+					},
+				},
+			},
+			expectedMethod: "UpdateSecretReference",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
+				}
+				req, ok := args[1].(*gen.UpdateSecretReferenceJSONRequestBody)
+				if !ok {
+					t.Errorf("Expected args[1] to be *gen.UpdateSecretReferenceJSONRequestBody, got %T", args[1])
+					return
+				}
+				if req.Metadata.Name != "ref-1" {
+					t.Errorf("Expected Metadata.Name %q, got %q", "ref-1", req.Metadata.Name)
+				}
+				if req.Spec == nil || len(req.Spec.Data) != 1 {
+					t.Errorf("expected spec with one data entry, got %+v", req.Spec)
+				}
+			},
+		},
+		{
+			name:                "delete_secret_reference",
+			toolset:             "namespace",
+			descriptionKeywords: []string{"delete", "secret"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "secret_reference_name"},
+			testArgs: map[string]any{
+				"namespace_name":        testNamespaceName,
+				"secret_reference_name": "ref-1",
+			},
+			expectedMethod: "DeleteSecretReference",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != "ref-1" {
+					t.Errorf("Expected (%s, ref-1), got (%v, %v)", testNamespaceName, args[0], args[1])
+				}
+			},
+		},
 	}
 }

@@ -156,6 +156,14 @@ type NamespaceToolsetHandler interface {
 	ListNamespaces(ctx context.Context, opts ListOpts) (any, error)
 	CreateNamespace(ctx context.Context, req *gen.CreateNamespaceJSONRequestBody) (any, error)
 	ListSecretReferences(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetSecretReference(ctx context.Context, namespaceName, secretReferenceName string) (any, error)
+	CreateSecretReference(
+		ctx context.Context, namespaceName string, req *gen.CreateSecretReferenceJSONRequestBody,
+	) (any, error)
+	UpdateSecretReference(
+		ctx context.Context, namespaceName string, req *gen.UpdateSecretReferenceJSONRequestBody,
+	) (any, error)
+	DeleteSecretReference(ctx context.Context, namespaceName, secretReferenceName string) (any, error)
 }
 
 // ProjectToolsetHandler handles project operations

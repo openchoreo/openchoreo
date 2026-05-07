@@ -48,6 +48,34 @@ func (m *MockCoreToolsetHandler) ListSecretReferences(
 	return `[{"name":"secret-ref-1"}]`, nil
 }
 
+func (m *MockCoreToolsetHandler) GetSecretReference(
+	ctx context.Context, namespaceName, secretReferenceName string,
+) (any, error) {
+	m.recordCall("GetSecretReference", namespaceName, secretReferenceName)
+	return `{"name":"secret-ref-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateSecretReference(
+	ctx context.Context, namespaceName string, req *gen.CreateSecretReferenceJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateSecretReference", namespaceName, req)
+	return `{"name":"new-secret-ref"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateSecretReference(
+	ctx context.Context, namespaceName string, req *gen.UpdateSecretReferenceJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateSecretReference", namespaceName, req)
+	return `{"name":"updated-secret-ref"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteSecretReference(
+	ctx context.Context, namespaceName, secretReferenceName string,
+) (any, error) {
+	m.recordCall("DeleteSecretReference", namespaceName, secretReferenceName)
+	return `{"action":"deleted"}`, nil
+}
+
 // ProjectToolsetHandler methods
 
 func (m *MockCoreToolsetHandler) ListProjects(ctx context.Context, namespaceName string, opts ListOpts) (any, error) {

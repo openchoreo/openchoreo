@@ -1233,7 +1233,8 @@ func TestSecretReferenceSummary(t *testing.T) {
 	}
 	m := secretReferenceSummary(sr)
 	assert.Equal(t, "sr-1", m["name"])
-	assert.Equal(t, "Ready", m["status"])
+	// Status is intentionally omitted (see secretReferenceDetail TODO).
+	assert.NotContains(t, m, "status")
 }
 
 func TestClusterDataPlaneSummary(t *testing.T) {

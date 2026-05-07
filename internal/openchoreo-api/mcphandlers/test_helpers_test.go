@@ -13,6 +13,7 @@ import (
 	namespacesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/namespace"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
+	secretreferencesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference"
 	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
 	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
 )
@@ -64,4 +65,8 @@ func withWorkflowRunService(s workflowrunsvc.Service) func(*handlerservices.Serv
 
 func withDeploymentPipelineService(s deploymentpipelinesvc.Service) func(*handlerservices.Services) {
 	return func(svc *handlerservices.Services) { svc.DeploymentPipelineService = s }
+}
+
+func withSecretReferenceService(s secretreferencesvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.SecretReferenceService = s }
 }
