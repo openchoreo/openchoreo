@@ -11,8 +11,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/component: backstage
-      app.kubernetes.io/name: {{ include "openchoreo-control-plane.fullname" . }}
+      {{- include "openchoreo-control-plane.componentSelectorLabels" (dict "context" . "component" "backstage") | nindent 6 }}
   policyTypes:
     - Ingress
     - Egress
