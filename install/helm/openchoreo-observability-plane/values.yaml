@@ -1165,6 +1165,23 @@ gateway:
 
   # @schema
   # type: object
+  # description: Gateway listener route attachment policy. Use Same to restrict routes to the Gateway namespace, or All to allow routes from any namespace.
+  # @schema
+  allowedRoutes:
+    # @schema
+    # type: object
+    # description: Namespace policy for routes that attach to Gateway listeners
+    # @schema
+    namespaces:
+      # @schema
+      # description: Gateway API allowedRoutes.namespaces.from value
+      # enum: [All, Same]
+      # default: Same
+      # @schema
+      from: Same
+
+  # @schema
+  # type: object
   # description: TLS configuration for the HTTPS listener
   # @schema
   tls:

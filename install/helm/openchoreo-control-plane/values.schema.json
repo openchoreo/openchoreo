@@ -2577,6 +2577,34 @@
           "title": "httpsPort",
           "type": "integer"
         },
+        "allowedRoutes": {
+          "additionalProperties": false,
+          "description": "Gateway listener route attachment policy. Use Same to restrict routes to the Gateway namespace, or All to allow routes from any namespace.",
+          "properties": {
+            "namespaces": {
+              "additionalProperties": false,
+              "description": "Namespace policy for routes that attach to Gateway listeners",
+              "properties": {
+                "from": {
+                  "default": "Same",
+                  "description": "Gateway API allowedRoutes.namespaces.from value",
+                  "enum": [
+                    "All",
+                    "Same"
+                  ],
+                  "required": [],
+                  "title": "from"
+                }
+              },
+              "required": [],
+              "title": "namespaces",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "allowedRoutes",
+          "type": "object"
+        },
         "infrastructure": {
           "additionalProperties": true,
           "description": "Gateway infrastructure configuration passed to the generated Service.\nUsed to configure cloud provider load balancer settings via annotations.\nExample for AWS with Elastic IP:\n  infrastructure:\n    annotations:\n      service.beta.kubernetes.io/aws-load-balancer-type: \"external\"\n      service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: \"ip\"\n      service.beta.kubernetes.io/aws-load-balancer-scheme: \"internet-facing\"\n      service.beta.kubernetes.io/aws-load-balancer-eip-allocations: \"eipalloc-xxx\"",
