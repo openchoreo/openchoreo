@@ -33,14 +33,15 @@ func TestUpdateIncident_Success(t *testing.T) {
 	triggered := now.Add(-time.Minute)
 
 	respBody := &gen.IncidentPutResponse{
-		IncidentId:           ptrString("inc-1"),
-		AlertId:              ptrString("a-1"),
-		Status:               ptrIncidentPutStatus(gen.IncidentPutResponseStatusAcknowledged),
-		Notes:                ptrString("notes"),
-		Description:          ptrString("desc"),
-		IncidentTriggerAiRca: ptrBool(true),
-		TriggeredAt:          &triggered,
-		AcknowledgedAt:       &now,
+		IncidentId:                    ptrString("inc-1"),
+		AlertId:                       ptrString("a-1"),
+		Status:                        ptrIncidentPutStatus(gen.IncidentPutResponseStatusAcknowledged),
+		Notes:                         ptrString("notes"),
+		Description:                   ptrString("desc"),
+		IncidentTriggerAiRca:          ptrBool(true),
+		IncidentTriggerAiCostAnalysis: ptrBool(false),
+		TriggeredAt:                   &triggered,
+		AcknowledgedAt:                &now,
 	}
 
 	var capturedID string

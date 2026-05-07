@@ -33,6 +33,11 @@ const testCRNamespace = "obs-plane"
 
 // testAlertRule returns a minimal ObservabilityAlertRule CR for webhook tests.
 func testAlertRule(crName string, incidentEnabled, triggerRCA bool) *choreoapis.ObservabilityAlertRule {
+	return testAlertRuleWithCostAnalysis(crName, incidentEnabled, triggerRCA, false)
+}
+
+// testAlertRuleWithCostAnalysis returns an ObservabilityAlertRule CR with optional cost analysis flag.
+func testAlertRuleWithCostAnalysis(crName string, incidentEnabled, triggerRCA, triggerCostAnalysis bool) *choreoapis.ObservabilityAlertRule {
 	return &choreoapis.ObservabilityAlertRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      crName,
@@ -66,8 +71,9 @@ func testAlertRule(crName string, incidentEnabled, triggerRCA bool) *choreoapis.
 					Channels: []choreoapis.NotificationChannelName{"slack-main"},
 				},
 				Incident: &choreoapis.ObservabilityAlertIncident{
-					Enabled:      &incidentEnabled,
-					TriggerAiRca: &triggerRCA,
+					Enabled:               &incidentEnabled,
+					TriggerAiRca:          &triggerRCA,
+					TriggerAiCostAnalysis: &triggerCostAnalysis,
 				},
 			},
 		},
@@ -82,14 +88,20 @@ func testScheme(t *testing.T) *runtime.Scheme {
 }
 
 type webhookTestFixture struct {
-	svc           *AlertService
-	alertStore    alertentry.AlertEntryStore
-	incidentStore incidententry.IncidentEntryStore
-	rcaCallCount  *atomic.Int32
-	rcaServer     *httptest.Server
+	svc             *AlertService
+	alertStore      alertentry.AlertEntryStore
+	incidentStore   incidententry.IncidentEntryStore
+	rcaCallCount    *atomic.Int32
+	rcaServer       *httptest.Server
+	finOpsCallCount *atomic.Int32
+	finOpsServer    *httptest.Server
 }
 
 func newWebhookTestFixture(t *testing.T, suppressionWindow time.Duration, alertRule *choreoapis.ObservabilityAlertRule, aiRCAEnabled bool) *webhookTestFixture {
+	return newWebhookTestFixtureWithFinOps(t, suppressionWindow, alertRule, aiRCAEnabled, false)
+}
+
+func newWebhookTestFixtureWithFinOps(t *testing.T, suppressionWindow time.Duration, alertRule *choreoapis.ObservabilityAlertRule, aiRCAEnabled, finOpsEnabled bool) *webhookTestFixture {
 	t.Helper()
 
 	alertDSN := fmt.Sprintf("file:%s_alerts?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
@@ -111,6 +123,15 @@ func newWebhookTestFixture(t *testing.T, suppressionWindow time.Duration, alertR
 	}))
 	t.Cleanup(rcaServer.Close)
 
+	var finOpsCallCount atomic.Int32
+	finOpsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		finOpsCallCount.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"reportId": "test-report-123", "status": "processing"}`))
+	}))
+	t.Cleanup(finOpsServer.Close)
+
 	k8sClient := fake.NewClientBuilder().
 		WithScheme(testScheme(t)).
 		WithObjects(alertRule).
@@ -125,17 +146,21 @@ func newWebhookTestFixture(t *testing.T, suppressionWindow time.Duration, alertR
 				AlertSuppressionWindow: suppressionWindow,
 			},
 		},
-		logger:        slog.New(slog.NewTextHandler(io.Discard, nil)),
-		rcaServiceURL: rcaServer.URL,
-		aiRCAEnabled:  aiRCAEnabled,
+		logger:             slog.New(slog.NewTextHandler(io.Discard, nil)),
+		rcaServiceURL:      rcaServer.URL,
+		aiRCAEnabled:       aiRCAEnabled,
+		finOpsAgentURL:     finOpsServer.URL,
+		finOpsAgentEnabled: finOpsEnabled,
 	}
 
 	return &webhookTestFixture{
-		svc:           svc,
-		alertStore:    alertStore,
-		incidentStore: incidentStore,
-		rcaCallCount:  &rcaCallCount,
-		rcaServer:     rcaServer,
+		svc:             svc,
+		alertStore:      alertStore,
+		incidentStore:   incidentStore,
+		rcaCallCount:    &rcaCallCount,
+		rcaServer:       rcaServer,
+		finOpsCallCount: &finOpsCallCount,
+		finOpsServer:    finOpsServer,
 	}
 }
 
@@ -391,4 +416,143 @@ func TestWebhook_SuppressionStoreError_AlertStillProcessed(t *testing.T) {
 	} else {
 		assert.Contains(t, *resp.Message, "alert acknowledged")
 	}
+}
+
+func TestWebhook_FinOpsEnabled_TriggersAnalysis(t *testing.T) {
+	rule := testAlertRuleWithCostAnalysis("rule-cr-1", true, false, true)
+	f := newWebhookTestFixtureWithFinOps(t, 1*time.Hour, rule, false, true)
+
+	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, gen.AlertWebhookResponseStatusSuccess, *resp.Status)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+
+	// Alert entry must be persisted
+	assert.Equal(t, 1, f.alertCount(t))
+
+	// FinOps analysis runs in a goroutine — wait briefly for it
+	assert.Eventually(t, func() bool { return f.finOpsCallCount.Load() == 1 }, 2*time.Second, 50*time.Millisecond,
+		"expected 1 FinOps call")
+}
+
+func TestWebhook_FinOpsDisabled_NoAnalysis(t *testing.T) {
+	rule := testAlertRuleWithCostAnalysis("rule-cr-1", true, false, true)
+	// finOpsEnabled=false at service level
+	f := newWebhookTestFixtureWithFinOps(t, 1*time.Hour, rule, false, false)
+
+	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+
+	assert.Equal(t, 1, f.alertCount(t))
+
+	// FinOps should NOT be triggered when disabled
+	assert.Never(t, func() bool { return f.finOpsCallCount.Load() > 0 }, 300*time.Millisecond, 50*time.Millisecond,
+		"FinOps should not be triggered when finOpsAgentEnabled is false")
+}
+
+func TestWebhook_CostAnalysisNotRequested_NoFinOpsCall(t *testing.T) {
+	rule := testAlertRuleWithCostAnalysis("rule-cr-1", true, false, false)
+	f := newWebhookTestFixtureWithFinOps(t, 1*time.Hour, rule, false, true)
+
+	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+
+	assert.Equal(t, 1, f.alertCount(t))
+
+	// FinOps should NOT be triggered when TriggerAiCostAnalysis is false
+	assert.Never(t, func() bool { return f.finOpsCallCount.Load() > 0 }, 300*time.Millisecond, 50*time.Millisecond,
+		"FinOps should not be triggered when TriggerAiCostAnalysis is false in rule spec")
+}
+
+func TestWebhook_BothRCAAndFinOps_BothTriggered(t *testing.T) {
+	rule := testAlertRuleWithCostAnalysis("rule-cr-1", true, true, true)
+	f := newWebhookTestFixtureWithFinOps(t, 1*time.Hour, rule, true, true)
+
+	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, gen.AlertWebhookResponseStatusSuccess, *resp.Status)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+
+	// Alert entry must be persisted
+	assert.Equal(t, 1, f.alertCount(t))
+
+	// Both RCA and FinOps run in goroutines — wait briefly for them
+	assert.Eventually(t, func() bool { return f.incidentCount(t) == 1 }, 2*time.Second, 50*time.Millisecond,
+		"expected 1 incident entry")
+	assert.Eventually(t, func() bool { return f.rcaCallCount.Load() == 1 }, 2*time.Second, 50*time.Millisecond,
+		"expected 1 RCA call")
+	assert.Eventually(t, func() bool { return f.finOpsCallCount.Load() == 1 }, 2*time.Second, 50*time.Millisecond,
+		"expected 1 FinOps call")
+}
+
+func TestWebhook_FinOpsServerError_Logged(t *testing.T) {
+	rule := testAlertRuleWithCostAnalysis("rule-cr-1", true, false, true)
+
+	// Create a server that returns error
+	var finOpsCallCount atomic.Int32
+	finOpsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		finOpsCallCount.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(finOpsServer.Close)
+
+	alertDSN := fmt.Sprintf("file:%s_alerts?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	alertStore, err := alertentry.New(alertentry.BackendSQLite, alertDSN, slog.Default())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, alertStore.Close()) })
+	require.NoError(t, alertStore.Initialize(context.Background()))
+
+	k8sClient := fake.NewClientBuilder().
+		WithScheme(testScheme(t)).
+		WithObjects(rule).
+		Build()
+
+	svc := &AlertService{
+		alertEntryStore: alertStore,
+		k8sClient:       k8sClient,
+		config: &config.Config{
+			Alerting: config.AlertingConfig{
+				AlertSuppressionWindow: 1 * time.Hour,
+			},
+		},
+		logger:             slog.New(slog.NewTextHandler(io.Discard, nil)),
+		finOpsAgentURL:     finOpsServer.URL,
+		finOpsAgentEnabled: true,
+	}
+
+	resp, err := svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+
+	// FinOps should be called even if it fails
+	assert.Eventually(t, func() bool { return finOpsCallCount.Load() == 1 }, 2*time.Second, 50*time.Millisecond,
+		"expected 1 FinOps call even with server error")
+}
+
+func TestWebhook_FinOpsWithEmptyAlertValue(t *testing.T) {
+	rule := testAlertRuleWithCostAnalysis("rule-cr-1", true, false, true)
+	f := newWebhookTestFixtureWithFinOps(t, 1*time.Hour, rule, false, true)
+
+	// Create a webhook request without alert value
+	ns := testCRNamespace
+	crName := "rule-cr-1"
+	now := time.Now().UTC()
+	req := gen.AlertWebhookRequest{
+		RuleName:       &crName,
+		RuleNamespace:  &ns,
+		AlertValue:     nil, // No alert value
+		AlertTimestamp: &now,
+	}
+
+	resp, err := f.svc.HandleAlertWebhook(context.Background(), req)
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+
+	// FinOps should still be called, with 0.0 for alert value
+	assert.Eventually(t, func() bool { return f.finOpsCallCount.Load() == 1 }, 2*time.Second, 50*time.Millisecond,
+		"expected 1 FinOps call even with empty alert value")
 }

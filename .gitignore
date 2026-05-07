@@ -8,6 +8,9 @@ bin/*
 dist/*
 Dockerfile.cross
 
+# Built binaries in root directory
+/observer
+
 # Test binary, built with `go test -c`
 *.test
 

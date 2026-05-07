@@ -124,6 +124,11 @@ type AlertingConfig struct {
 	// AlertSuppressionWindow is the duration within which duplicate alerts
 	// for the same alert rule are suppressed. Set to 0 to disable suppression.
 	AlertSuppressionWindow time.Duration `koanf:"alert.suppression.window"`
+	// FinOpsAgentURL is the base URL for the FinOps agent service.
+	// Used for triggering AI cost analysis for budget alerts.
+	FinOpsAgentURL string `koanf:"finops.agent.url"`
+	// FinOpsAgentEnabled controls whether FinOps agent integration is enabled.
+	FinOpsAgentEnabled bool `koanf:"finops.agent.enabled"`
 }
 
 // UIDResolverConfig holds configuration for the resource UID resolver
@@ -214,6 +219,8 @@ func Load() (*Config, error) {
 		"ALERT_STORE_BACKEND":                   "alerting.alert.store.backend",
 		"ALERT_STORE_DSN":                       "alerting.alert.store.dsn",
 		"ALERT_SUPPRESSION_WINDOW":              "alerting.alert.suppression.window",
+		"FINOPS_AGENT_URL":                      "alerting.finops.agent.url",
+		"FINOPS_AGENT_ENABLED":                  "alerting.finops.agent.enabled",
 		"LOG_LEVEL":                             "loglevel",
 		"PORT":                                  "server.port",           // Common alias
 		"INTERNAL_PORT":                         "server.internal.port",  // Common alias
@@ -381,6 +388,8 @@ func getDefaults() map[string]interface{} {
 			"alert.store.backend":      "sqlite",
 			"alert.store.dsn":          "file:/data/alerts.db?_journal=WAL",
 			"alert.suppression.window": "1h",
+			"finops.agent.url":         "http://finops-agent:8080",
+			"finops.agent.enabled":     false,
 		},
 		"adapters": map[string]interface{}{
 			"logs.adapter.enabled":    true,

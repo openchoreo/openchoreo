@@ -1143,6 +1143,7 @@ components:
               enum:
                 - cpu_usage
                 - memory_usage
+                - budget
         condition:
           type: object
           required: [enabled, window, interval, operator, threshold]
@@ -1214,6 +1215,7 @@ components:
               enum:
                 - cpu_usage
                 - memory_usage
+                - budget
         condition:
           type: object
           properties:
@@ -1502,6 +1504,9 @@ components:
               incidentTriggerAiRca:
                 type: boolean
                 description: Whether AI RCA was triggered for the incident
+              incidentTriggerAiCostAnalysis:
+                type: boolean
+                description: Whether AI cost analysis was triggered for the incident
               status:
                 type: string
                 description: The status of the incident
@@ -1618,6 +1623,9 @@ components:
         incidentTriggerAiRca:
           type: boolean
           description: Whether AI RCA was triggered for the incident
+        incidentTriggerAiCostAnalysis:
+          type: boolean
+          description: Whether AI cost analysis was triggered for the incident
         labels:
           type: object
           properties:

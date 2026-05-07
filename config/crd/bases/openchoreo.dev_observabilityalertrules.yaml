@@ -181,6 +181,10 @@ spec:
             - name
             - source
             type: object
+            x-kubernetes-validations:
+            - message: AI cost analysis can only be triggered for budget alerts
+              rule: 'has(self.actions.incident) && self.actions.incident.triggerAiCostAnalysis
+                == true ? self.source.type == ''budget'' : true'
           status:
             description: ObservabilityAlertRuleStatus defines the observed state of
               ObservabilityAlertRule.

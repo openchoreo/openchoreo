@@ -6,11 +6,11 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -270,7 +270,7 @@ func TestAlertServiceRouting(t *testing.T) {
 	}
 }
 
-// TestBudgetAlertServiceRouting verifies that budget alerts are routed to the stub implementation.
+// TestBudgetAlertServiceRouting verifies that budget alerts are routed to the metrics adapter.
 func TestBudgetAlertServiceRouting(t *testing.T) {
 	t.Parallel()
 
@@ -310,10 +310,43 @@ func TestBudgetAlertServiceRouting(t *testing.T) {
 		},
 	}
 
+	// Track metrics adapter HTTP calls
+	var adapterCallCount atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		adapterCallCount.Add(1)
+		// Return a valid sync/rule response
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodGet {
+			_ = json.NewEncoder(w).Encode(gen.AlertRuleResponse{})
+		} else {
+			// Return a properly populated sync response
+			status := gen.Synced
+			action := gen.Created
+			if r.Method == http.MethodPut {
+				action = gen.Updated
+			} else if r.Method == http.MethodDelete {
+				action = gen.Deleted
+			}
+			logicalID := ruleName
+			backendID := "backend-id"
+			lastSynced := "2024-01-01T00:00:00Z"
+			_ = json.NewEncoder(w).Encode(gen.AlertingRuleSyncResponse{
+				Status:        &status,
+				Action:        &action,
+				RuleLogicalId: &logicalID,
+				RuleBackendId: &backendID,
+				LastSyncedAt:  &lastSynced,
+			})
+		}
+	}))
+	defer ts.Close()
+
 	cfg := &config.Config{}
 	svc := &AlertService{
-		config: cfg,
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		config:               cfg,
+		logger:               slog.New(slog.NewTextHandler(io.Discard, nil)),
+		metricsAdapterURL:    ts.URL,
+		metricsAdapterClient: ts.Client(),
 	}
 
 	// Test Create
@@ -334,13 +367,10 @@ func TestBudgetAlertServiceRouting(t *testing.T) {
 		t.Fatalf("UpdateAlertRule response invalid: %+v", resp)
 	}
 
-	// Test Get (should return not found since stub always returns not found)
+	// Test Get
 	_, err = svc.GetAlertRule(context.Background(), ruleName, sourceTypeBudget)
-	if err == nil {
-		t.Fatalf("GetAlertRule should return not found for budget stub")
-	}
-	if !errors.Is(err, ErrAlertRuleNotFound) {
-		t.Fatalf("GetAlertRule should return ErrAlertRuleNotFound, got: %v", err)
+	if err != nil {
+		t.Fatalf("GetAlertRule failed: %v", err)
 	}
 
 	// Test Delete
@@ -350,5 +380,93 @@ func TestBudgetAlertServiceRouting(t *testing.T) {
 	}
 	if resp == nil || resp.Action == nil || string(*resp.Action) != "deleted" {
 		t.Fatalf("DeleteAlertRule response invalid: %+v", resp)
+	}
+
+	// Verify metrics adapter was called
+	if adapterCallCount.Load() == 0 {
+		t.Fatalf("expected metrics adapter to be called, but it was not")
+	}
+}
+
+// TestBudgetAlertWithoutAdapter verifies that budget alerts fail when metrics adapter is not configured.
+func TestBudgetAlertWithoutAdapter(t *testing.T) {
+	t.Parallel()
+
+	ruleName := "budget-rule"
+	budgetAlertReq := gen.AlertRuleRequest{
+		Source: struct {
+			Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
+			Query  *string                           `json:"query,omitempty"`
+			Type   gen.AlertRuleRequestSourceType    `json:"type"`
+		}{
+			Type: gen.AlertRuleRequestSourceTypeBudget,
+		},
+		//nolint:revive,staticcheck
+		Metadata: struct {
+			ComponentUid   openapi_types.UUID `json:"componentUid"`
+			EnvironmentUid openapi_types.UUID `json:"environmentUid"`
+			Name           string             `json:"name"`
+			Namespace      string             `json:"namespace"`
+			ProjectUid     openapi_types.UUID `json:"projectUid"`
+		}{
+			Name:      ruleName,
+			Namespace: "test-ns",
+		},
+		Condition: struct {
+			Enabled   bool                                  `json:"enabled"`
+			Interval  string                                `json:"interval"`
+			Operator  gen.AlertRuleRequestConditionOperator `json:"operator"`
+			Threshold float32                               `json:"threshold"`
+			Window    string                                `json:"window"`
+		}{
+			Enabled:   true,
+			Interval:  "1h",
+			Operator:  gen.AlertRuleRequestConditionOperatorGt,
+			Threshold: float32(100),
+			Window:    "24h",
+		},
+	}
+
+	cfg := &config.Config{}
+	svc := &AlertService{
+		config:               cfg,
+		logger:               slog.New(slog.NewTextHandler(io.Discard, nil)),
+		metricsAdapterClient: nil, // No adapter configured
+	}
+
+	// Test Create
+	_, err := svc.CreateAlertRule(context.Background(), budgetAlertReq)
+	if err == nil {
+		t.Fatal("CreateAlertRule should fail when metrics adapter is not configured for budget alerts")
+	}
+	if !strings.Contains(err.Error(), "metrics adapter is required for budget alert rules") {
+		t.Fatalf("expected error about missing metrics adapter, got: %v", err)
+	}
+
+	// Test Update
+	_, err = svc.UpdateAlertRule(context.Background(), ruleName, budgetAlertReq)
+	if err == nil {
+		t.Fatal("UpdateAlertRule should fail when metrics adapter is not configured for budget alerts")
+	}
+	if !strings.Contains(err.Error(), "metrics adapter is required for budget alert rules") {
+		t.Fatalf("expected error about missing metrics adapter, got: %v", err)
+	}
+
+	// Test Get
+	_, err = svc.GetAlertRule(context.Background(), ruleName, sourceTypeBudget)
+	if err == nil {
+		t.Fatal("GetAlertRule should fail when metrics adapter is not configured for budget alerts")
+	}
+	if !strings.Contains(err.Error(), "metrics adapter is required for budget alert rules") {
+		t.Fatalf("expected error about missing metrics adapter, got: %v", err)
+	}
+
+	// Test Delete
+	_, err = svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeBudget)
+	if err == nil {
+		t.Fatal("DeleteAlertRule should fail when metrics adapter is not configured for budget alerts")
+	}
+	if !strings.Contains(err.Error(), "metrics adapter is required for budget alert rules") {
+		t.Fatalf("expected error about missing metrics adapter, got: %v", err)
 	}
 }

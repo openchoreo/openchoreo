@@ -27,6 +27,7 @@ const (
 
 // Defines values for AlertRuleRequestSourceMetric.
 const (
+	AlertRuleRequestSourceMetricBudget      AlertRuleRequestSourceMetric = "budget"
 	AlertRuleRequestSourceMetricCpuUsage    AlertRuleRequestSourceMetric = "cpu_usage"
 	AlertRuleRequestSourceMetricMemoryUsage AlertRuleRequestSourceMetric = "memory_usage"
 )
@@ -50,6 +51,7 @@ const (
 
 // Defines values for AlertRuleResponseSourceMetric.
 const (
+	AlertRuleResponseSourceMetricBudget      AlertRuleResponseSourceMetric = "budget"
 	AlertRuleResponseSourceMetricCpuUsage    AlertRuleResponseSourceMetric = "cpu_usage"
 	AlertRuleResponseSourceMetricMemoryUsage AlertRuleResponseSourceMetric = "memory_usage"
 )
@@ -573,6 +575,9 @@ type IncidentPutResponse struct {
 	// IncidentId The ID of the incident
 	IncidentId *string `json:"incidentId,omitempty"`
 
+	// IncidentTriggerAiCostAnalysis Whether AI cost analysis was triggered for the incident
+	IncidentTriggerAiCostAnalysis *bool `json:"incidentTriggerAiCostAnalysis,omitempty"`
+
 	// IncidentTriggerAiRca Whether AI RCA was triggered for the incident
 	IncidentTriggerAiRca *bool `json:"incidentTriggerAiRca,omitempty"`
 	Labels               *struct {
@@ -648,6 +653,9 @@ type IncidentsQueryResponse struct {
 
 		// IncidentId The ID of the incident
 		IncidentId *string `json:"incidentId,omitempty"`
+
+		// IncidentTriggerAiCostAnalysis Whether AI cost analysis was triggered for the incident
+		IncidentTriggerAiCostAnalysis *bool `json:"incidentTriggerAiCostAnalysis,omitempty"`
 
 		// IncidentTriggerAiRca Whether AI RCA was triggered for the incident
 		IncidentTriggerAiRca *bool `json:"incidentTriggerAiRca,omitempty"`

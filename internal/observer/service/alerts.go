@@ -72,6 +72,9 @@ type AlertService struct {
 
 	metricsAdapterURL    string
 	metricsAdapterClient *http.Client
+
+	finOpsAgentURL     string
+	finOpsAgentEnabled bool
 }
 
 // NewAlertService creates a new AlertService.
@@ -89,6 +92,8 @@ func NewAlertService(
 	logsAdapter *LogsAdapter,
 	metricsAdapterURL string,
 	metricsAdapterClient *http.Client,
+	finOpsAgentURL string,
+	finOpsAgentEnabled bool,
 ) *AlertService {
 	return &AlertService{
 		osClient:             osClient,
@@ -104,6 +109,8 @@ func NewAlertService(
 		logsAdapter:          logsAdapter,
 		metricsAdapterURL:    metricsAdapterURL,
 		metricsAdapterClient: metricsAdapterClient,
+		finOpsAgentURL:       finOpsAgentURL,
+		finOpsAgentEnabled:   finOpsAgentEnabled,
 	}
 }
 
@@ -131,7 +138,13 @@ func (s *AlertService) CreateAlertRule(ctx context.Context, req gen.AlertRuleReq
 		}
 		return s.createPrometheusAlertRule(ctx, req)
 	case sourceTypeBudget:
-		return s.createBudgetAlertRule(ctx, req)
+		if s.metricsAdapterClient != nil {
+			// Set source.metric to "budget" before forwarding
+			budgetMetric := gen.AlertRuleRequestSourceMetricBudget
+			req.Source.Metric = &budgetMetric
+			return s.createMetricAlertRuleViaAdapter(ctx, req)
+		}
+		return nil, fmt.Errorf("metrics adapter is required for budget alert rules")
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
 	}
@@ -153,7 +166,10 @@ func (s *AlertService) GetAlertRule(ctx context.Context, ruleName, sourceType st
 		}
 		return s.getPrometheusAlertRule(ctx, ruleName)
 	case sourceTypeBudget:
-		return s.getBudgetAlertRule(ctx, ruleName)
+		if s.metricsAdapterClient != nil {
+			return s.getMetricAlertRuleViaAdapter(ctx, ruleName)
+		}
+		return nil, fmt.Errorf("metrics adapter is required for budget alert rules")
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
 	}
@@ -183,7 +199,13 @@ func (s *AlertService) UpdateAlertRule(ctx context.Context, ruleName string, req
 		}
 		return s.updatePrometheusAlertRule(ctx, ruleName, req)
 	case sourceTypeBudget:
-		return s.updateBudgetAlertRule(ctx, ruleName, req)
+		if s.metricsAdapterClient != nil {
+			// Set source.metric to "budget" before forwarding
+			budgetMetric := gen.AlertRuleRequestSourceMetricBudget
+			req.Source.Metric = &budgetMetric
+			return s.updateMetricAlertRuleViaAdapter(ctx, ruleName, req)
+		}
+		return nil, fmt.Errorf("metrics adapter is required for budget alert rules")
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
 	}
@@ -205,7 +227,10 @@ func (s *AlertService) DeleteAlertRule(ctx context.Context, ruleName, sourceType
 		}
 		return s.deletePrometheusAlertRule(ctx, ruleName)
 	case sourceTypeBudget:
-		return s.deleteBudgetAlertRule(ctx, ruleName)
+		if s.metricsAdapterClient != nil {
+			return s.deleteMetricAlertRuleViaAdapter(ctx, ruleName)
+		}
+		return nil, fmt.Errorf("metrics adapter is required for budget alert rules")
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
 	}
@@ -215,25 +240,62 @@ func (s *AlertService) DeleteAlertRule(ctx context.Context, ruleName, sourceType
 // It fetches the ObservabilityAlertRule CR, enriches alert details, stores the alert entry,
 // sends a notification, and optionally triggers AI RCA analysis.
 func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebhookRequest) (*gen.AlertWebhookResponse, error) {
-	// Validate required fields
+	ruleName, ruleNamespace, err := s.validateWebhookRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	alertRule, err := s.fetchAlertRule(ctx, ruleName, ruleNamespace)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check for duplicate alert within the suppression window
+	if suppressed, resp := s.checkAlertSuppression(ctx, ruleName, ruleNamespace, alertRule); suppressed {
+		return resp, nil
+	}
+
+	alertDetails := s.buildAlertDetails(req, alertRule)
+	alertEntry := s.buildAlertEntry(alertDetails, ruleName, ruleNamespace, alertRule)
+
+	alertID, err := s.alertEntryStore.WriteAlertEntry(ctx, alertEntry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to store alert entry: %w", err)
+	}
+
+	s.logger.Debug("Alert entry stored", "alertID", alertID, "ruleName", ruleName)
+
+	s.triggerBackgroundTasks(alertID, alertDetails, alertRule)
+
+	successStatus := gen.AlertWebhookResponseStatusSuccess
+	msg := fmt.Sprintf("alert acknowledged, alertID: %s", alertID)
+	return &gen.AlertWebhookResponse{
+		Status:  &successStatus,
+		Message: &msg,
+	}, nil
+}
+
+// validateWebhookRequest validates the required fields in the webhook request.
+func (s *AlertService) validateWebhookRequest(req gen.AlertWebhookRequest) (string, string, error) {
 	ruleName := stringPtrVal(req.RuleName)
 	ruleNamespace := stringPtrVal(req.RuleNamespace)
 	if ruleName == "" {
-		return nil, fmt.Errorf("ruleName is required")
+		return "", "", fmt.Errorf("ruleName is required")
 	}
 	if ruleNamespace == "" {
-		return nil, fmt.Errorf("ruleNamespace is required")
+		return "", "", fmt.Errorf("ruleNamespace is required")
 	}
-
 	if s.alertEntryStore == nil {
-		return nil, fmt.Errorf("alert entry store is not initialized")
+		return "", "", fmt.Errorf("alert entry store is not initialized")
 	}
-
 	if s.k8sClient == nil {
-		return nil, fmt.Errorf("kubernetes client not configured")
+		return "", "", fmt.Errorf("kubernetes client not configured")
 	}
+	return ruleName, ruleNamespace, nil
+}
 
-	// Fetch the ObservabilityAlertRule CR
+// fetchAlertRule fetches the ObservabilityAlertRule CR from Kubernetes.
+func (s *AlertService) fetchAlertRule(ctx context.Context, ruleName, ruleNamespace string) (*choreoapis.ObservabilityAlertRule, error) {
 	alertRule := &choreoapis.ObservabilityAlertRule{}
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      ruleName,
@@ -241,35 +303,46 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 	}, alertRule); err != nil {
 		return nil, fmt.Errorf("failed to get ObservabilityAlertRule %s/%s: %w", ruleNamespace, ruleName, err)
 	}
+	return alertRule, nil
+}
 
-	// Check for duplicate alert within the suppression window.
-	// The component UID is included so that alerts from a recreated component
-	// (same CR name/namespace but new UID) are not incorrectly suppressed.
-	if s.config.Alerting.AlertSuppressionWindow > 0 {
-		since := time.Now().UTC().Add(-s.config.Alerting.AlertSuppressionWindow)
-		componentUID := alertRule.Labels[labels.LabelKeyComponentUID]
-		if componentUID == "" {
-			s.logger.Warn("Skipping suppression check: component UID label is missing",
-				"ruleName", ruleName, "ruleNamespace", ruleNamespace)
-		} else {
-			isDuplicate, err := s.alertEntryStore.HasRecentAlert(ctx, ruleName, ruleNamespace, componentUID, since)
-			if err != nil {
-				s.logger.Warn("Failed to check alert suppression", "error", err, "ruleName", ruleName)
-			} else if isDuplicate {
-				s.logger.Info("Alert suppressed (duplicate within suppression window)",
-					"ruleName", ruleName, "ruleNamespace", ruleNamespace,
-					"suppressionWindow", s.config.Alerting.AlertSuppressionWindow)
-				suppressedStatus := gen.AlertWebhookResponseStatusSuccess
-				msg := "alert suppressed: duplicate within suppression window"
-				return &gen.AlertWebhookResponse{
-					Status:  &suppressedStatus,
-					Message: &msg,
-				}, nil
-			}
+// checkAlertSuppression checks if the alert should be suppressed based on the suppression window.
+func (s *AlertService) checkAlertSuppression(ctx context.Context, ruleName, ruleNamespace string, alertRule *choreoapis.ObservabilityAlertRule) (bool, *gen.AlertWebhookResponse) {
+	if s.config.Alerting.AlertSuppressionWindow <= 0 {
+		return false, nil
+	}
+
+	since := time.Now().UTC().Add(-s.config.Alerting.AlertSuppressionWindow)
+	componentUID := alertRule.Labels[labels.LabelKeyComponentUID]
+	if componentUID == "" {
+		s.logger.Warn("Skipping suppression check: component UID label is missing",
+			"ruleName", ruleName, "ruleNamespace", ruleNamespace)
+		return false, nil
+	}
+
+	isDuplicate, err := s.alertEntryStore.HasRecentAlert(ctx, ruleName, ruleNamespace, componentUID, since)
+	if err != nil {
+		s.logger.Warn("Failed to check alert suppression", "error", err, "ruleName", ruleName)
+		return false, nil
+	}
+
+	if isDuplicate {
+		s.logger.Info("Alert suppressed (duplicate within suppression window)",
+			"ruleName", ruleName, "ruleNamespace", ruleNamespace,
+			"suppressionWindow", s.config.Alerting.AlertSuppressionWindow)
+		suppressedStatus := gen.AlertWebhookResponseStatusSuccess
+		msg := "alert suppressed: duplicate within suppression window"
+		return true, &gen.AlertWebhookResponse{
+			Status:  &suppressedStatus,
+			Message: &msg,
 		}
 	}
 
-	// Derive alertValue and timestamp from the request
+	return false, nil
+}
+
+// buildAlertDetails enriches alert details from the webhook request and alert rule CR.
+func (s *AlertService) buildAlertDetails(req gen.AlertWebhookRequest, alertRule *choreoapis.ObservabilityAlertRule) *legacytypes.AlertDetails {
 	var alertValue string
 	if req.AlertValue != nil {
 		alertValue = strconv.FormatFloat(float64(*req.AlertValue), 'f', -1, 64)
@@ -279,8 +352,10 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 	if req.AlertTimestamp != nil {
 		alertTimestamp = req.AlertTimestamp.Format(time.RFC3339)
 	}
+	if alertTimestamp == "" {
+		alertTimestamp = time.Now().UTC().Format(time.RFC3339Nano)
+	}
 
-	// Enrich alert details from the CR
 	alertDetails := &legacytypes.AlertDetails{
 		AlertName:        alertRule.Spec.Name,
 		AlertTimestamp:   alertTimestamp,
@@ -298,13 +373,11 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 		Environment:      alertRule.Labels[labels.LabelKeyEnvironmentName],
 	}
 
-	// Populate notification channels from the Actions structure.
 	alertDetails.NotificationChannels = make([]string, 0, len(alertRule.Spec.Actions.Notifications.Channels))
 	for _, ch := range alertRule.Spec.Actions.Notifications.Channels {
 		alertDetails.NotificationChannels = append(alertDetails.NotificationChannels, string(ch))
 	}
 
-	// Populate incident actions from the Actions structure
 	if alertRule.Spec.Actions.Incident != nil {
 		if alertRule.Spec.Actions.Incident.Enabled != nil {
 			alertDetails.IncidentEnabled = *alertRule.Spec.Actions.Incident.Enabled
@@ -312,13 +385,16 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 		if alertRule.Spec.Actions.Incident.TriggerAiRca != nil {
 			alertDetails.TriggerAiRca = *alertRule.Spec.Actions.Incident.TriggerAiRca
 		}
+		if alertRule.Spec.Actions.Incident.TriggerAiCostAnalysis != nil {
+			alertDetails.TriggerAiCostAnalysis = *alertRule.Spec.Actions.Incident.TriggerAiCostAnalysis
+		}
 	}
 
-	if alertDetails.AlertTimestamp == "" {
-		alertDetails.AlertTimestamp = time.Now().UTC().Format(time.RFC3339Nano)
-	}
+	return alertDetails
+}
 
-	// Marshal notification channels to JSON for storage
+// buildAlertEntry constructs an AlertEntry for storage.
+func (s *AlertService) buildAlertEntry(alertDetails *legacytypes.AlertDetails, ruleName, ruleNamespace string, alertRule *choreoapis.ObservabilityAlertRule) *alertentry.AlertEntry {
 	var notificationChannelsJSON string
 	if len(alertDetails.NotificationChannels) > 0 {
 		if b, err := json.Marshal(alertDetails.NotificationChannels); err == nil {
@@ -340,7 +416,7 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 		conditionInterval = alertRule.Spec.Condition.Interval.Duration.String()
 	}
 
-	alertID, err := s.alertEntryStore.WriteAlertEntry(ctx, &alertentry.AlertEntry{
+	return &alertentry.AlertEntry{
 		Timestamp:            alertDetails.AlertTimestamp,
 		AlertRuleName:        alertDetails.AlertName,
 		AlertRuleCRName:      ruleName,
@@ -364,64 +440,63 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req gen.AlertWebh
 		ConditionThreshold:   conditionThreshold,
 		ConditionWindow:      conditionWindow,
 		ConditionInterval:    conditionInterval,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to store alert entry: %w", err)
 	}
+}
 
-	s.logger.Debug("Alert entry stored", "alertID", alertID, "ruleName", ruleName)
-
-	// Store incident entry in background to avoid retry-induced duplicate alerts.
+// triggerBackgroundTasks spawns background goroutines for incident storage, notifications, and analysis.
+func (s *AlertService) triggerBackgroundTasks(alertID string, alertDetails *legacytypes.AlertDetails, alertRule *choreoapis.ObservabilityAlertRule) {
 	if alertDetails.IncidentEnabled {
-		go func() {
-			bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-
-			if s.incidentEntryStore == nil {
-				s.logger.Warn("Incident entry store is not initialized", "alertID", alertID)
-				return
-			}
-
-			if _, err := s.incidentEntryStore.WriteIncidentEntry(bgCtx, &incidententry.IncidentEntry{
-				AlertID:         alertID,
-				Timestamp:       alertDetails.AlertTimestamp,
-				Status:          incidententry.StatusActive,
-				TriggerAiRca:    alertDetails.TriggerAiRca,
-				TriggeredAt:     alertDetails.AlertTimestamp,
-				Description:     alertDetails.AlertDescription,
-				NamespaceName:   alertDetails.Namespace,
-				ComponentName:   alertDetails.Component,
-				EnvironmentName: alertDetails.Environment,
-				ProjectName:     alertDetails.Project,
-				ComponentID:     alertDetails.ComponentID,
-				EnvironmentID:   alertDetails.EnvironmentID,
-				ProjectID:       alertDetails.ProjectID,
-			}); err != nil {
-				s.logger.Warn("Failed to store incident entry", "error", err, "alertID", alertID)
-			}
-		}()
+		go s.storeIncidentEntry(alertID, alertDetails)
 	}
 
-	// Send notification in background
-	go func() {
-		notifCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := s.sendAlertNotification(notifCtx, alertDetails); err != nil {
-			s.logger.Warn("Failed to send alert notification", "error", err, "alertID", alertID)
-		}
-	}()
+	go s.sendNotificationAsync(alertID, alertDetails)
 
-	// Trigger AI RCA analysis in background if enabled
 	if alertDetails.TriggerAiRca && s.aiRCAEnabled {
 		go s.triggerRCAAnalysis(alertID, alertDetails, alertRule)
 	}
 
-	successStatus := gen.AlertWebhookResponseStatusSuccess
-	msg := fmt.Sprintf("alert acknowledged, alertID: %s", alertID)
-	return &gen.AlertWebhookResponse{
-		Status:  &successStatus,
-		Message: &msg,
-	}, nil
+	if alertDetails.TriggerAiCostAnalysis && s.finOpsAgentEnabled {
+		go s.triggerFinOpsAnalysis(alertID, alertDetails, alertRule)
+	}
+}
+
+// storeIncidentEntry stores an incident entry in the background.
+func (s *AlertService) storeIncidentEntry(alertID string, alertDetails *legacytypes.AlertDetails) {
+	bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if s.incidentEntryStore == nil {
+		s.logger.Warn("Incident entry store is not initialized", "alertID", alertID)
+		return
+	}
+
+	if _, err := s.incidentEntryStore.WriteIncidentEntry(bgCtx, &incidententry.IncidentEntry{
+		AlertID:               alertID,
+		Timestamp:             alertDetails.AlertTimestamp,
+		Status:                incidententry.StatusActive,
+		TriggerAiRca:          alertDetails.TriggerAiRca,
+		TriggerAiCostAnalysis: alertDetails.TriggerAiCostAnalysis,
+		TriggeredAt:           alertDetails.AlertTimestamp,
+		Description:           alertDetails.AlertDescription,
+		NamespaceName:         alertDetails.Namespace,
+		ComponentName:         alertDetails.Component,
+		EnvironmentName:       alertDetails.Environment,
+		ProjectName:           alertDetails.Project,
+		ComponentID:           alertDetails.ComponentID,
+		EnvironmentID:         alertDetails.EnvironmentID,
+		ProjectID:             alertDetails.ProjectID,
+	}); err != nil {
+		s.logger.Warn("Failed to store incident entry", "error", err, "alertID", alertID)
+	}
+}
+
+// sendNotificationAsync sends an alert notification in the background.
+func (s *AlertService) sendNotificationAsync(alertID string, alertDetails *legacytypes.AlertDetails) {
+	notifCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := s.sendAlertNotification(notifCtx, alertDetails); err != nil {
+		s.logger.Warn("Failed to send alert notification", "error", err, "alertID", alertID)
+	}
 }
 
 // sendAlertNotification fetches the notification channel config from K8s and dispatches the notification.
@@ -547,6 +622,66 @@ func (s *AlertService) triggerRCAAnalysis(alertID string, alertDetails *legacyty
 		s.logger.Error("RCA analysis request returned non-success status", "statusCode", resp.StatusCode, "alertID", alertID)
 	} else {
 		s.logger.Debug("AI RCA analysis triggered", "alertID", alertID)
+	}
+}
+
+// triggerFinOpsAnalysis sends an AI cost analysis request to the configured FinOps agent.
+func (s *AlertService) triggerFinOpsAnalysis(alertID string, alertDetails *legacytypes.AlertDetails, alertRule *choreoapis.ObservabilityAlertRule) {
+	// Parse alertValue to float
+	alertValueFloat := 0.0
+	if alertDetails.AlertValue != "" {
+		if val, err := strconv.ParseFloat(alertDetails.AlertValue, 64); err == nil {
+			alertValueFloat = val
+		}
+	}
+
+	// Build the FinOps analysis payload
+	finOpsPayload := map[string]interface{}{
+		"searchScope": map[string]interface{}{
+			"component":   alertDetails.Component,
+			"namespace":   alertDetails.Namespace,
+			"project":     alertDetails.Project,
+			"environment": alertDetails.Environment,
+		},
+		"budgetedCost": map[string]interface{}{
+			"amount":   float64(alertRule.Spec.Condition.Threshold),
+			"period":   alertRule.Spec.Condition.Window.Duration.String(),
+			"currency": "USD",
+		},
+		"actualCost": map[string]interface{}{
+			"amount":   alertValueFloat,
+			"currency": "USD",
+		},
+		"budgetAlertTriggeredAt": alertDetails.AlertTimestamp,
+	}
+
+	payloadBytes, err := json.Marshal(finOpsPayload)
+	if err != nil {
+		s.logger.Error("Failed to marshal FinOps request payload", "error", err)
+		return
+	}
+
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	resp, err := httpClient.Post(s.finOpsAgentURL+"/api/v1alpha1/analyses", "application/json", bytes.NewReader(payloadBytes))
+	if err != nil {
+		s.logger.Error("Failed to send FinOps analysis request", "error", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		s.logger.Error("FinOps analysis request returned non-success status", "statusCode", resp.StatusCode, "alertID", alertID)
+	} else {
+		// Decode response to get reportId
+		var finOpsResponse struct {
+			ReportID string `json:"reportId"`
+			Status   string `json:"status"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&finOpsResponse); err != nil {
+			s.logger.Warn("Failed to decode FinOps response", "error", err, "alertID", alertID)
+		} else {
+			s.logger.Debug("FinOps analysis triggered", "alertID", alertID, "reportID", finOpsResponse.ReportID)
+		}
 	}
 }
 

@@ -37,9 +37,9 @@ class AnalyzeRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     search_scope: SearchScope = Field(..., alias="searchScope")
-    budgeted_cost: BudgetedCost
-    actual_cost: ActualCost
-    budget_alert_triggered_at: str  # ISO 8601
+    budgeted_cost: BudgetedCost = Field(..., alias="budgetedCost")
+    actual_cost: ActualCost = Field(..., alias="actualCost")
+    budget_alert_triggered_at: str = Field(..., alias="budgetAlertTriggeredAt")  # ISO 8601
 
 
 @router.post("/analyses")
@@ -85,4 +85,4 @@ async def analyze(
         request_context=request_context,
     )
 
-    return {"report_id": report_id, "status": "pending"}
+    return {"reportId": report_id, "status": "pending"}

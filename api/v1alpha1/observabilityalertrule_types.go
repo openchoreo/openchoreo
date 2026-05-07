@@ -89,6 +89,7 @@ type ObservabilityAlertCondition struct {
 }
 
 // ObservabilityAlertRuleSpec defines the desired state of ObservabilityAlertRule.
+// +kubebuilder:validation:XValidation:rule="has(self.actions.incident) && self.actions.incident.triggerAiCostAnalysis == true ? self.source.type == 'budget' : true",message="AI cost analysis can only be triggered for budget alerts"
 type ObservabilityAlertRuleSpec struct {
 	// Name identifies the alert rule when defined as a Trait.
 	// +kubebuilder:validation:Required

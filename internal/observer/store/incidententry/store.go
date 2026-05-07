@@ -25,23 +25,24 @@ const (
 
 // IncidentEntry represents one incident persisted by the observer.
 type IncidentEntry struct {
-	ID              string
-	AlertID         string
-	Timestamp       string
-	Status          string
-	TriggerAiRca    bool
-	TriggeredAt     string
-	AcknowledgedAt  string
-	ResolvedAt      string
-	Notes           string
-	Description     string
-	NamespaceName   string
-	ComponentName   string
-	EnvironmentName string
-	ProjectName     string
-	ComponentID     string
-	EnvironmentID   string
-	ProjectID       string
+	ID                    string
+	AlertID               string
+	Timestamp             string
+	Status                string
+	TriggerAiRca          bool
+	TriggerAiCostAnalysis bool
+	TriggeredAt           string
+	AcknowledgedAt        string
+	ResolvedAt            string
+	Notes                 string
+	Description           string
+	NamespaceName         string
+	ComponentName         string
+	EnvironmentName       string
+	ProjectName           string
+	ComponentID           string
+	EnvironmentID         string
+	ProjectID             string
 }
 
 // ErrIncidentNotFound is returned when an incident with the given ID does not exist.

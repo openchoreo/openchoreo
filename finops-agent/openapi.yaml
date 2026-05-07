@@ -215,15 +215,15 @@ components:
   schemas:
     AnalyzeRequest:
       type: object
-      required: [searchScope, budgeted_cost, actual_cost, budget_alert_triggered_at]
+      required: [searchScope, budgetedCost, actualCost, budgetAlertTriggeredAt]
       properties:
         searchScope:
           $ref: '#/components/schemas/SearchScope'
-        budgeted_cost:
+        budgetedCost:
           $ref: '#/components/schemas/BudgetedCost'
-        actual_cost:
+        actualCost:
           $ref: '#/components/schemas/ActualCost'
-        budget_alert_triggered_at:
+        budgetAlertTriggeredAt:
           type: string
           format: date-time
 
@@ -264,9 +264,9 @@ components:
 
     AnalyzeResponse:
       type: object
-      required: [report_id, status]
+      required: [reportId, status]
       properties:
-        report_id:
+        reportId:
           type: string
         status:
           type: string

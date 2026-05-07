@@ -158,16 +158,17 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 	items := make([]incidentQueryItemPayload, 0, len(entries))
 	for _, entry := range entries {
 		items = append(items, incidentQueryItemPayload{
-			Timestamp:            parseTimePtr(entry.Timestamp),
-			AlertID:              stringPtr(strings.TrimSpace(entry.AlertID)),
-			IncidentID:           stringPtr(strings.TrimSpace(entry.ID)),
-			IncidentTriggerAiRca: boolPtr(entry.TriggerAiRca),
-			Status:               stringPtr(strings.TrimSpace(entry.Status)),
-			TriggeredAt:          parseTimePtr(entry.TriggeredAt),
-			AcknowledgedAt:       parseTimePtr(entry.AcknowledgedAt),
-			ResolvedAt:           parseTimePtr(entry.ResolvedAt),
-			Notes:                stringPtr(strings.TrimSpace(entry.Notes)),
-			Description:          stringPtr(strings.TrimSpace(entry.Description)),
+			Timestamp:                     parseTimePtr(entry.Timestamp),
+			AlertID:                       stringPtr(strings.TrimSpace(entry.AlertID)),
+			IncidentID:                    stringPtr(strings.TrimSpace(entry.ID)),
+			IncidentTriggerAiRca:          boolPtr(entry.TriggerAiRca),
+			IncidentTriggerAiCostAnalysis: boolPtr(entry.TriggerAiCostAnalysis),
+			Status:                        stringPtr(strings.TrimSpace(entry.Status)),
+			TriggeredAt:                   parseTimePtr(entry.TriggeredAt),
+			AcknowledgedAt:                parseTimePtr(entry.AcknowledgedAt),
+			ResolvedAt:                    parseTimePtr(entry.ResolvedAt),
+			Notes:                         stringPtr(strings.TrimSpace(entry.Notes)),
+			Description:                   stringPtr(strings.TrimSpace(entry.Description)),
 			Labels: buildLabelsPayload(
 				entry.NamespaceName,
 				entry.ProjectName,
@@ -221,15 +222,16 @@ func (s *AlertService) UpdateIncident(ctx context.Context, id string, req gen.In
 	}
 
 	payload := incidentPutResponsePayload{
-		IncidentID:           stringPtr(strings.TrimSpace(entry.ID)),
-		AlertID:              stringPtr(strings.TrimSpace(entry.AlertID)),
-		Status:               stringPtr(strings.TrimSpace(entry.Status)),
-		TriggeredAt:          parseTimePtr(entry.TriggeredAt),
-		AcknowledgedAt:       parseTimePtr(entry.AcknowledgedAt),
-		ResolvedAt:           parseTimePtr(entry.ResolvedAt),
-		Notes:                stringPtr(strings.TrimSpace(entry.Notes)),
-		Description:          stringPtr(strings.TrimSpace(entry.Description)),
-		IncidentTriggerAiRca: boolPtr(entry.TriggerAiRca),
+		IncidentID:                    stringPtr(strings.TrimSpace(entry.ID)),
+		AlertID:                       stringPtr(strings.TrimSpace(entry.AlertID)),
+		Status:                        stringPtr(strings.TrimSpace(entry.Status)),
+		TriggeredAt:                   parseTimePtr(entry.TriggeredAt),
+		AcknowledgedAt:                parseTimePtr(entry.AcknowledgedAt),
+		ResolvedAt:                    parseTimePtr(entry.ResolvedAt),
+		Notes:                         stringPtr(strings.TrimSpace(entry.Notes)),
+		Description:                   stringPtr(strings.TrimSpace(entry.Description)),
+		IncidentTriggerAiRca:          boolPtr(entry.TriggerAiRca),
+		IncidentTriggerAiCostAnalysis: boolPtr(entry.TriggerAiCostAnalysis),
 		Labels: buildLabelsPayload(
 			entry.NamespaceName,
 			entry.ProjectName,
@@ -464,30 +466,32 @@ type incidentQueryResponsePayload struct {
 }
 
 type incidentQueryItemPayload struct {
-	Timestamp            *time.Time     `json:"timestamp,omitempty"`
-	AlertID              *string        `json:"alertId,omitempty"`
-	IncidentID           *string        `json:"incidentId,omitempty"`
-	IncidentTriggerAiRca *bool          `json:"incidentTriggerAiRca,omitempty"`
-	Status               *string        `json:"status,omitempty"`
-	TriggeredAt          *time.Time     `json:"triggeredAt,omitempty"`
-	AcknowledgedAt       *time.Time     `json:"acknowledgedAt,omitempty"`
-	ResolvedAt           *time.Time     `json:"resolvedAt,omitempty"`
-	Notes                *string        `json:"notes,omitempty"`
-	Description          *string        `json:"description,omitempty"`
-	Labels               *labelsPayload `json:"labels,omitempty"`
+	Timestamp                     *time.Time     `json:"timestamp,omitempty"`
+	AlertID                       *string        `json:"alertId,omitempty"`
+	IncidentID                    *string        `json:"incidentId,omitempty"`
+	IncidentTriggerAiRca          *bool          `json:"incidentTriggerAiRca,omitempty"`
+	IncidentTriggerAiCostAnalysis *bool          `json:"incidentTriggerAiCostAnalysis,omitempty"`
+	Status                        *string        `json:"status,omitempty"`
+	TriggeredAt                   *time.Time     `json:"triggeredAt,omitempty"`
+	AcknowledgedAt                *time.Time     `json:"acknowledgedAt,omitempty"`
+	ResolvedAt                    *time.Time     `json:"resolvedAt,omitempty"`
+	Notes                         *string        `json:"notes,omitempty"`
+	Description                   *string        `json:"description,omitempty"`
+	Labels                        *labelsPayload `json:"labels,omitempty"`
 }
 
 type incidentPutResponsePayload struct {
-	IncidentID           *string        `json:"incidentId,omitempty"`
-	AlertID              *string        `json:"alertId,omitempty"`
-	Status               *string        `json:"status,omitempty"`
-	TriggeredAt          *time.Time     `json:"triggeredAt,omitempty"`
-	AcknowledgedAt       *time.Time     `json:"acknowledgedAt,omitempty"`
-	ResolvedAt           *time.Time     `json:"resolvedAt,omitempty"`
-	Notes                *string        `json:"notes,omitempty"`
-	Description          *string        `json:"description,omitempty"`
-	IncidentTriggerAiRca *bool          `json:"incidentTriggerAiRca,omitempty"`
-	Labels               *labelsPayload `json:"labels,omitempty"`
+	IncidentID                    *string        `json:"incidentId,omitempty"`
+	AlertID                       *string        `json:"alertId,omitempty"`
+	Status                        *string        `json:"status,omitempty"`
+	TriggeredAt                   *time.Time     `json:"triggeredAt,omitempty"`
+	AcknowledgedAt                *time.Time     `json:"acknowledgedAt,omitempty"`
+	ResolvedAt                    *time.Time     `json:"resolvedAt,omitempty"`
+	Notes                         *string        `json:"notes,omitempty"`
+	Description                   *string        `json:"description,omitempty"`
+	IncidentTriggerAiRca          *bool          `json:"incidentTriggerAiRca,omitempty"`
+	IncidentTriggerAiCostAnalysis *bool          `json:"incidentTriggerAiCostAnalysis,omitempty"`
+	Labels                        *labelsPayload `json:"labels,omitempty"`
 }
 
 func wrapScopeError(err error, resourceType, resourceName string) error {

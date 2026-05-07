@@ -33,19 +33,20 @@ func TestSQLiteInitializeAndWriteIncidentEntry(t *testing.T) {
 	require.NoError(t, store.Initialize(ctx), "failed to initialize store")
 
 	id, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
-		AlertID:         "alt-1",
-		Timestamp:       "2026-03-07T10:20:30Z",
-		Status:          StatusActive,
-		TriggerAiRca:    true,
-		TriggeredAt:     "2026-03-07T10:20:30Z",
-		Description:     "High error rate observed",
-		NamespaceName:   "choreo-prod",
-		ComponentName:   "payments",
-		EnvironmentName: "prod",
-		ProjectName:     "commerce",
-		ComponentID:     "a1b2c3d4-5678-90ab-cdef-1234567890ab",
-		EnvironmentID:   "d4e5f6a7-8901-23de-f012-4567890abcde",
-		ProjectID:       "b2c3d4e5-6789-01bc-def0-234567890abc",
+		AlertID:               "alt-1",
+		Timestamp:             "2026-03-07T10:20:30Z",
+		Status:                StatusActive,
+		TriggerAiRca:          true,
+		TriggerAiCostAnalysis: false,
+		TriggeredAt:           "2026-03-07T10:20:30Z",
+		Description:           "High error rate observed",
+		NamespaceName:         "choreo-prod",
+		ComponentName:         "payments",
+		EnvironmentName:       "prod",
+		ProjectName:           "commerce",
+		ComponentID:           "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+		EnvironmentID:         "d4e5f6a7-8901-23de-f012-4567890abcde",
+		ProjectID:             "b2c3d4e5-6789-01bc-def0-234567890abc",
 	})
 	require.NoError(t, err, "failed to write incident entry")
 	require.NotEmpty(t, id)
@@ -103,29 +104,31 @@ func TestQueryIncidentEntries(t *testing.T) {
 
 	entries := []*IncidentEntry{
 		{
-			AlertID:         "a-1",
-			Timestamp:       "2026-03-07T10:20:30Z",
-			Status:          StatusActive,
-			TriggerAiRca:    true,
-			TriggeredAt:     "2026-03-07T10:20:30Z",
-			Description:     "Issue one",
-			NamespaceName:   "ns-1",
-			ComponentName:   "comp-1",
-			EnvironmentName: "dev",
-			ProjectName:     "proj-1",
+			AlertID:               "a-1",
+			Timestamp:             "2026-03-07T10:20:30Z",
+			Status:                StatusActive,
+			TriggerAiRca:          true,
+			TriggerAiCostAnalysis: false,
+			TriggeredAt:           "2026-03-07T10:20:30Z",
+			Description:           "Issue one",
+			NamespaceName:         "ns-1",
+			ComponentName:         "comp-1",
+			EnvironmentName:       "dev",
+			ProjectName:           "proj-1",
 		},
 		{
-			AlertID:         "a-2",
-			Timestamp:       "2026-03-07T10:22:30Z",
-			Status:          StatusResolved,
-			TriggerAiRca:    false,
-			TriggeredAt:     "2026-03-07T10:21:00Z",
-			ResolvedAt:      "2026-03-07T10:22:30Z",
-			Description:     "Issue two",
-			NamespaceName:   "ns-2",
-			ComponentName:   "comp-2",
-			EnvironmentName: "prod",
-			ProjectName:     "proj-2",
+			AlertID:               "a-2",
+			Timestamp:             "2026-03-07T10:22:30Z",
+			Status:                StatusResolved,
+			TriggerAiRca:          false,
+			TriggerAiCostAnalysis: false,
+			TriggeredAt:           "2026-03-07T10:21:00Z",
+			ResolvedAt:            "2026-03-07T10:22:30Z",
+			Description:           "Issue two",
+			NamespaceName:         "ns-2",
+			ComponentName:         "comp-2",
+			EnvironmentName:       "prod",
+			ProjectName:           "proj-2",
 		},
 	}
 	for _, entry := range entries {
@@ -161,16 +164,17 @@ func TestUpdateIncidentEntry_AcknowledgeAndResolve(t *testing.T) {
 
 	createdAt := time.Date(2026, 3, 7, 10, 20, 30, 0, time.UTC)
 	id, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
-		AlertID:         "a-ack",
-		Timestamp:       createdAt.Format(time.RFC3339Nano),
-		Status:          StatusActive,
-		TriggerAiRca:    true,
-		TriggeredAt:     createdAt.Format(time.RFC3339Nano),
-		Description:     "Needs attention",
-		NamespaceName:   "team-a",
-		ComponentName:   "component-a",
-		EnvironmentName: "dev",
-		ProjectName:     "project-a",
+		AlertID:               "a-ack",
+		Timestamp:             createdAt.Format(time.RFC3339Nano),
+		Status:                StatusActive,
+		TriggerAiRca:          true,
+		TriggerAiCostAnalysis: false,
+		TriggeredAt:           createdAt.Format(time.RFC3339Nano),
+		Description:           "Needs attention",
+		NamespaceName:         "team-a",
+		ComponentName:         "component-a",
+		EnvironmentName:       "dev",
+		ProjectName:           "project-a",
 	})
 	require.NoError(t, err, "failed to write incident entry")
 
@@ -232,17 +236,18 @@ func TestUpdateIncidentEntry_PreservesOmittedFields(t *testing.T) {
 
 	createdAt := time.Date(2026, 3, 7, 10, 20, 30, 0, time.UTC)
 	id, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
-		AlertID:         "a-preserve",
-		Timestamp:       createdAt.Format(time.RFC3339Nano),
-		Status:          StatusActive,
-		TriggerAiRca:    true,
-		TriggeredAt:     createdAt.Format(time.RFC3339Nano),
-		Notes:           "original-notes",
-		Description:     "original-description",
-		NamespaceName:   "team-a",
-		ComponentName:   "component-a",
-		EnvironmentName: "dev",
-		ProjectName:     "project-a",
+		AlertID:               "a-preserve",
+		Timestamp:             createdAt.Format(time.RFC3339Nano),
+		Status:                StatusActive,
+		TriggerAiRca:          true,
+		TriggerAiCostAnalysis: false,
+		TriggeredAt:           createdAt.Format(time.RFC3339Nano),
+		Notes:                 "original-notes",
+		Description:           "original-description",
+		NamespaceName:         "team-a",
+		ComponentName:         "component-a",
+		EnvironmentName:       "dev",
+		ProjectName:           "project-a",
 	})
 	require.NoError(t, err, "failed to write incident entry")
 
@@ -292,16 +297,17 @@ func TestUpdateIncidentEntry_ForwardOnlyTransitions(t *testing.T) {
 
 	// Write an already-resolved incident.
 	resolvedID, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
-		AlertID:         "a-resolved",
-		Timestamp:       createdAt.Format(time.RFC3339Nano),
-		Status:          StatusResolved,
-		TriggerAiRca:    false,
-		TriggeredAt:     createdAt.Format(time.RFC3339Nano),
-		ResolvedAt:      createdAt.Add(time.Minute).Format(time.RFC3339Nano),
-		NamespaceName:   "ns",
-		ComponentName:   "comp",
-		EnvironmentName: "env",
-		ProjectName:     "proj",
+		AlertID:               "a-resolved",
+		Timestamp:             createdAt.Format(time.RFC3339Nano),
+		Status:                StatusResolved,
+		TriggerAiRca:          false,
+		TriggerAiCostAnalysis: false,
+		TriggeredAt:           createdAt.Format(time.RFC3339Nano),
+		ResolvedAt:            createdAt.Add(time.Minute).Format(time.RFC3339Nano),
+		NamespaceName:         "ns",
+		ComponentName:         "comp",
+		EnvironmentName:       "env",
+		ProjectName:           "proj",
 	})
 	require.NoError(t, err, "failed to write resolved incident")
 
@@ -315,16 +321,17 @@ func TestUpdateIncidentEntry_ForwardOnlyTransitions(t *testing.T) {
 
 	// Write an acknowledged incident.
 	ackID, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
-		AlertID:         "a-ack",
-		Timestamp:       createdAt.Format(time.RFC3339Nano),
-		Status:          StatusAcknowledged,
-		TriggerAiRca:    false,
-		TriggeredAt:     createdAt.Format(time.RFC3339Nano),
-		AcknowledgedAt:  createdAt.Add(30 * time.Second).Format(time.RFC3339Nano),
-		NamespaceName:   "ns",
-		ComponentName:   "comp",
-		EnvironmentName: "env",
-		ProjectName:     "proj",
+		AlertID:               "a-ack",
+		Timestamp:             createdAt.Format(time.RFC3339Nano),
+		Status:                StatusAcknowledged,
+		TriggerAiRca:          false,
+		TriggerAiCostAnalysis: false,
+		TriggeredAt:           createdAt.Format(time.RFC3339Nano),
+		AcknowledgedAt:        createdAt.Add(30 * time.Second).Format(time.RFC3339Nano),
+		NamespaceName:         "ns",
+		ComponentName:         "comp",
+		EnvironmentName:       "env",
+		ProjectName:           "proj",
 	})
 	require.NoError(t, err, "failed to write acknowledged incident")
 
@@ -353,15 +360,16 @@ func TestUpdateIncidentEntry_TimestampsSetOnce(t *testing.T) {
 
 	createdAt := time.Date(2026, 3, 7, 10, 20, 30, 0, time.UTC)
 	id, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
-		AlertID:         "a-ts-once",
-		Timestamp:       createdAt.Format(time.RFC3339Nano),
-		Status:          StatusActive,
-		TriggerAiRca:    false,
-		TriggeredAt:     createdAt.Format(time.RFC3339Nano),
-		NamespaceName:   "ns",
-		ComponentName:   "comp",
-		EnvironmentName: "env",
-		ProjectName:     "proj",
+		AlertID:               "a-ts-once",
+		Timestamp:             createdAt.Format(time.RFC3339Nano),
+		Status:                StatusActive,
+		TriggerAiRca:          false,
+		TriggerAiCostAnalysis: false,
+		TriggeredAt:           createdAt.Format(time.RFC3339Nano),
+		NamespaceName:         "ns",
+		ComponentName:         "comp",
+		EnvironmentName:       "env",
+		ProjectName:           "proj",
 	})
 	require.NoError(t, err, "failed to write incident")
 
@@ -394,15 +402,16 @@ func TestUpdateIncidentEntry_RowsAffectedZeroIsNotFound(t *testing.T) {
 	// Write then hard-delete a row to simulate a row disappearing between SELECT and UPDATE.
 	createdAt := time.Date(2026, 3, 7, 10, 20, 30, 0, time.UTC)
 	id, err := store.WriteIncidentEntry(ctx, &IncidentEntry{
-		AlertID:         "a-deleted",
-		Timestamp:       createdAt.Format(time.RFC3339Nano),
-		Status:          StatusActive,
-		TriggerAiRca:    false,
-		TriggeredAt:     createdAt.Format(time.RFC3339Nano),
-		NamespaceName:   "ns",
-		ComponentName:   "comp",
-		EnvironmentName: "env",
-		ProjectName:     "proj",
+		AlertID:               "a-deleted",
+		Timestamp:             createdAt.Format(time.RFC3339Nano),
+		Status:                StatusActive,
+		TriggerAiRca:          false,
+		TriggerAiCostAnalysis: false,
+		TriggeredAt:           createdAt.Format(time.RFC3339Nano),
+		NamespaceName:         "ns",
+		ComponentName:         "comp",
+		EnvironmentName:       "env",
+		ProjectName:           "proj",
 	})
 	require.NoError(t, err, "failed to write incident")
 

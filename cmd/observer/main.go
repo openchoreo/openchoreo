@@ -216,6 +216,8 @@ func main() {
 		concreteLogsAdapter,
 		cfg.Adapters.MetricsAdapterURL,
 		metricsAdapterClient,
+		cfg.Alerting.FinOpsAgentURL,
+		cfg.Alerting.FinOpsAgentEnabled,
 	)
 
 	// Wrap services with authorization checks.
