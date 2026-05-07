@@ -23,6 +23,47 @@ const (
 	ToolsetPE         ToolsetType = "pe"
 )
 
+// requestedToolsetsCtxKey is the context key used to carry the set of toolsets
+// the client requested via the ?toolsets= query param.
+type requestedToolsetsCtxKey struct{}
+
+// filterByAuthzCtxKey is the context key used to carry the per-session
+// filterByAuthz flag from the ?filterByAuthz= query param.
+type filterByAuthzCtxKey struct{}
+
+// WithRequestedToolsets returns a copy of ctx that carries the set of toolsets
+// the client requested. Empty or nil set means "no narrowing" — the middleware
+// will not apply a toolset filter.
+func WithRequestedToolsets(ctx context.Context, requested map[ToolsetType]bool) context.Context {
+	if len(requested) == 0 {
+		return ctx
+	}
+	return context.WithValue(ctx, requestedToolsetsCtxKey{}, requested)
+}
+
+// RequestedToolsetsFromContext returns the set of toolsets the client requested
+// for this session, if any. The second return value reports whether the client
+// supplied any narrowing.
+func RequestedToolsetsFromContext(ctx context.Context) (map[ToolsetType]bool, bool) {
+	v, ok := ctx.Value(requestedToolsetsCtxKey{}).(map[ToolsetType]bool)
+	return v, ok && len(v) > 0
+}
+
+// WithFilterByAuthz returns a copy of ctx carrying the per-session decision of
+// whether to apply MCP-layer authz filtering. The default (no value in ctx) is
+// true.
+func WithFilterByAuthz(ctx context.Context, filter bool) context.Context {
+	return context.WithValue(ctx, filterByAuthzCtxKey{}, filter)
+}
+
+// FilterByAuthzFromContext returns the per-session filterByAuthz flag if the
+// client explicitly supplied one. The second return value reports whether a
+// value was set; callers should default to true when not set.
+func FilterByAuthzFromContext(ctx context.Context) (bool, bool) {
+	v, ok := ctx.Value(filterByAuthzCtxKey{}).(bool)
+	return v, ok
+}
+
 // DefaultPageSize is the default number of items per page for MCP list operations.
 const DefaultPageSize = 100
 

@@ -30,7 +30,7 @@ func fullToolsets() *Toolsets {
 // perms map. This enforces that developers declare a permission when adding a tool.
 func TestRegisteredToolsHavePermissions(t *testing.T) {
 	server := mcp.NewServer(&mcp.Implementation{Name: "test"}, nil)
-	perms := fullToolsets().Register(server)
+	perms, _ := fullToolsets().Register(server)
 
 	ctx := context.Background()
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -75,7 +75,7 @@ func TestRegisteredToolsHavePermissions(t *testing.T) {
 // This prevents typos in action names from silently creating incorrect mappings.
 func TestRegisteredPermissionsHaveValidActions(t *testing.T) {
 	server := mcp.NewServer(&mcp.Implementation{Name: "test"}, nil)
-	perms := fullToolsets().Register(server)
+	perms, _ := fullToolsets().Register(server)
 
 	validActions := make(map[string]bool)
 	for _, action := range authzcore.AllActions() {

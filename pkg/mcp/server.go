@@ -5,6 +5,8 @@ package mcp
 
 import (
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -12,25 +14,45 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
+// HTTP query parameter names recognized by the MCP HTTP handler. Both are
+// optional and read once per session-creation request.
+const (
+	// QueryParamToolsets narrows the toolsets visible via tools/list to a
+	// comma-separated subset (e.g. ?toolsets=namespace,component,pe). Unknown
+	// or disabled toolset names are silently ignored. When the param is
+	// absent or empty, all registered toolsets are returned.
+	QueryParamToolsets = "toolsets"
+	// QueryParamFilterByAuthz controls whether MCP-layer authz filtering is
+	// applied to tools/list and tools/call (e.g. ?filterByAuthz=false).
+	// Defaults to true. The service layer enforces authz independently
+	// regardless of this flag.
+	QueryParamFilterByAuthz = "filterByAuthz"
+)
+
 // NewHTTPServer creates an MCP HTTP handler backed by a single shared server.
+//
+// All configured toolsets are registered up front. Per-session narrowing
+// happens via query parameters parsed from the initialize request:
+//   - ?toolsets=ns1,ns2     — only show tools from those toolsets in tools/list
+//   - ?filterByAuthz=false  — disable MCP-layer authz filtering for the session
 //
 // When pdp is non-nil the server installs a receiving middleware that filters
 // tools/list results and guards tools/call invocations based on the
-// authenticated user's permissions derived from their JWT token.
-// When pdp is nil (authz disabled) all registered tools are visible and
-// callable — the service layer still enforces authz independently.
+// authenticated user's permissions derived from their JWT token. When pdp is
+// nil (authz disabled) all registered tools are visible and callable — the
+// service layer still enforces authz independently. The toolset filter is
+// always applied when the client requests it, regardless of pdp.
 func NewHTTPServer(toolsets *tools.Toolsets, pdp authzcore.PDP) http.Handler {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "openchoreo-api",
 		Version: "1.0.0",
 	}, nil)
-	perms := toolsets.Register(server)
-	if pdp != nil {
-		server.AddReceivingMiddleware(tools.NewToolFilterMiddleware(pdp, perms))
-	}
-	return mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
+	perms, toolToToolsets := toolsets.Register(server)
+	server.AddReceivingMiddleware(tools.NewToolFilterMiddleware(pdp, perms, toolToToolsets))
+	streamable := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return server
 	}, nil)
+	return withSessionQueryParams(streamable)
 }
 
 // NewSTDIO creates an MCP server for STDIO transport (local CLI usage).
@@ -44,4 +66,52 @@ func NewSTDIO(toolsets *tools.Toolsets) *mcp.Server {
 	}, nil)
 	toolsets.Register(server)
 	return server
+}
+
+// withSessionQueryParams returns an http.Handler that extracts the optional
+// MCP session-scoping query parameters (toolsets, filterByAuthz) from the
+// request URL and stores them on the request context. The MCP SDK propagates
+// the initialize request's context into the long-lived session, so the values
+// set here become the per-session scope used by the tool-filter middleware.
+//
+// Subsequent requests in a stateful session do not re-read these params — the
+// session is bound to the values supplied at session creation. In stateless
+// mode the params are honored on every request because each request creates a
+// fresh session.
+func withSessionQueryParams(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		ctx := r.Context()
+
+		if raw := q.Get(QueryParamToolsets); raw != "" {
+			if requested := parseRequestedToolsets(raw); len(requested) > 0 {
+				ctx = tools.WithRequestedToolsets(ctx, requested)
+			}
+		}
+
+		if raw := q.Get(QueryParamFilterByAuthz); raw != "" {
+			if v, err := strconv.ParseBool(raw); err == nil {
+				ctx = tools.WithFilterByAuthz(ctx, v)
+			}
+		}
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// parseRequestedToolsets parses a comma-separated list of toolset names into a
+// set. Empty entries (from `,,` or trailing commas) are skipped. Unknown
+// toolset names are kept in the set as-is — the filter middleware silently
+// ignores them when none of the registered tools belong to that toolset, so an
+// unknown name simply matches nothing.
+func parseRequestedToolsets(raw string) map[tools.ToolsetType]bool {
+	out := map[tools.ToolsetType]bool{}
+	for _, part := range strings.Split(raw, ",") {
+		name := strings.TrimSpace(part)
+		if name == "" {
+			continue
+		}
+		out[tools.ToolsetType(name)] = true
+	}
+	return out
 }

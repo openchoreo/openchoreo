@@ -84,7 +84,7 @@ func TestNewToolFilterMiddlewareNilPDP(t *testing.T) {
 
 	server.AddReceivingMiddleware(NewToolFilterMiddleware(nil, map[string]ToolPermission{
 		"list_namespaces": {ToolName: "list_namespaces", Action: "namespace:view"},
-	}))
+	}, nil))
 
 	ctx := context.Background()
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -126,7 +126,7 @@ func TestToolFilterMiddlewareFiltersListTools(t *testing.T) {
 
 	// User can only view namespaces and projects, not create namespace.
 	pdp := &mockPDP{profile: allowAllProfile("namespace:view", "project:view")}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms))
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
 
 	ctx := ctxWithSubject(context.Background())
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -177,7 +177,7 @@ func TestToolFilterMiddlewareDenyAllProfile(t *testing.T) {
 	}
 
 	pdp := &mockPDP{profile: denyAllProfile()}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms))
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
 
 	ctx := ctxWithSubject(context.Background())
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -215,7 +215,7 @@ func TestToolFilterMiddlewareNoSubjectInContext(t *testing.T) {
 	}
 
 	pdp := &mockPDP{profile: allowAllProfile("namespace:view")}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms))
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
 
 	// Context WITHOUT a subject.
 	ctx := context.Background()
@@ -254,7 +254,7 @@ func TestToolFilterMiddlewarePDPError(t *testing.T) {
 	}
 
 	pdp := &mockPDP{err: errors.New("pdp unavailable")}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms))
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
 
 	ctx := ctxWithSubject(context.Background())
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -298,7 +298,7 @@ func TestToolFilterMiddlewareCallToolAllowed(t *testing.T) {
 	}
 
 	pdp := &mockPDP{profile: allowAllProfile("namespace:view")}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms))
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
 
 	ctx := ctxWithSubject(context.Background())
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -342,7 +342,7 @@ func TestToolFilterMiddlewareCallToolDenied(t *testing.T) {
 
 	// User only has view, not create.
 	pdp := &mockPDP{profile: allowAllProfile("namespace:view")}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms))
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
 
 	ctx := ctxWithSubject(context.Background())
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -378,7 +378,7 @@ func TestToolFilterMiddlewareUnknownToolPassthrough(t *testing.T) {
 	perms := map[string]ToolPermission{}
 
 	pdp := &mockPDP{profile: denyAllProfile()}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms))
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
 
 	ctx := ctxWithSubject(context.Background())
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -408,4 +408,321 @@ func TestToolFilterMiddlewareUnknownToolPassthrough(t *testing.T) {
 // nopToolHandler is a minimal tool handler used in tests.
 func nopToolHandler(ctx context.Context, req *mcp.CallToolRequest, args any) (*mcp.CallToolResult, any, error) {
 	return &mcp.CallToolResult{}, nil, nil
+}
+
+// ---------------------------------------------------------------------------
+// Toolset narrowing — ?toolsets= behavior
+// ---------------------------------------------------------------------------
+
+// TestToolFilterMiddlewareToolsetNarrowing verifies that when the client
+// requests a subset of toolsets via context, tools/list returns only tools
+// whose toolset is in the requested set.
+func TestToolFilterMiddlewareToolsetNarrowing(t *testing.T) {
+	server := mcp.NewServer(&mcp.Implementation{Name: "test"}, nil)
+	mcp.AddTool(server, &mcp.Tool{Name: "list_namespaces"}, nopToolHandler)
+	mcp.AddTool(server, &mcp.Tool{Name: "list_components"}, nopToolHandler)
+	mcp.AddTool(server, &mcp.Tool{Name: "create_environment"}, nopToolHandler)
+
+	toolToToolsets := map[string]map[ToolsetType]bool{
+		"list_namespaces":    {ToolsetNamespace: true},
+		"list_components":    {ToolsetComponent: true},
+		"create_environment": {ToolsetPE: true},
+	}
+
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(nil, nil, toolToToolsets))
+
+	// Client requested only the namespace and pe toolsets.
+	ctx := WithRequestedToolsets(context.Background(), map[ToolsetType]bool{
+		ToolsetNamespace: true,
+		ToolsetPE:        true,
+	})
+
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer clientSession.Close()
+
+	result, err := clientSession.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+
+	got := map[string]bool{}
+	for _, tool := range result.Tools {
+		got[tool.Name] = true
+	}
+	if !got["list_namespaces"] {
+		t.Error("expected list_namespaces (namespace toolset) to be visible")
+	}
+	if !got["create_environment"] {
+		t.Error("expected create_environment (pe toolset) to be visible")
+	}
+	if got["list_components"] {
+		t.Error("list_components (component toolset) should be hidden when narrowed to namespace+pe")
+	}
+}
+
+// TestToolFilterMiddlewareToolsetNarrowingMultiOwner verifies that a tool
+// registered by more than one toolset (such as list_component_types, which is
+// shared between component and pe) is visible when *any* of its owning
+// toolsets is requested.
+func TestToolFilterMiddlewareToolsetNarrowingMultiOwner(t *testing.T) {
+	server := mcp.NewServer(&mcp.Implementation{Name: "test"}, nil)
+	mcp.AddTool(server, &mcp.Tool{Name: "list_component_types"}, nopToolHandler)
+	mcp.AddTool(server, &mcp.Tool{Name: "list_namespaces"}, nopToolHandler)
+
+	toolToToolsets := map[string]map[ToolsetType]bool{
+		"list_component_types": {ToolsetComponent: true, ToolsetPE: true},
+		"list_namespaces":      {ToolsetNamespace: true},
+	}
+
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(nil, nil, toolToToolsets))
+
+	// Narrow to pe only — list_component_types is co-owned by pe so it should still appear.
+	ctx := WithRequestedToolsets(context.Background(), map[ToolsetType]bool{ToolsetPE: true})
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer clientSession.Close()
+
+	result, err := clientSession.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+
+	got := map[string]bool{}
+	for _, tool := range result.Tools {
+		got[tool.Name] = true
+	}
+	if !got["list_component_types"] {
+		t.Error("expected list_component_types (co-owned by pe) to be visible when narrowed to pe")
+	}
+	if got["list_namespaces"] {
+		t.Error("list_namespaces (namespace toolset only) should be hidden when narrowed to pe")
+	}
+}
+
+// TestToolFilterMiddlewareToolsetNarrowingUnknownIgnored verifies that an
+// unknown toolset name in the requested set silently matches no tools rather
+// than returning an error or hiding everything spuriously.
+func TestToolFilterMiddlewareToolsetNarrowingUnknownIgnored(t *testing.T) {
+	server := mcp.NewServer(&mcp.Implementation{Name: "test"}, nil)
+	mcp.AddTool(server, &mcp.Tool{Name: "list_namespaces"}, nopToolHandler)
+
+	toolToToolsets := map[string]map[ToolsetType]bool{
+		"list_namespaces": {ToolsetNamespace: true},
+	}
+
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(nil, nil, toolToToolsets))
+
+	// Request a toolset name that no registered tool belongs to.
+	ctx := WithRequestedToolsets(context.Background(), map[ToolsetType]bool{ToolsetType("does-not-exist"): true})
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer clientSession.Close()
+
+	result, err := clientSession.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	if len(result.Tools) != 0 {
+		t.Errorf("expected no tools when only an unknown toolset is requested, got %d", len(result.Tools))
+	}
+}
+
+// TestToolFilterMiddlewareToolsetAndAuthzCombined verifies that toolset
+// narrowing and authz filtering compose: the visible set is the intersection
+// of the two filters.
+func TestToolFilterMiddlewareToolsetAndAuthzCombined(t *testing.T) {
+	server := mcp.NewServer(&mcp.Implementation{Name: "test"}, nil)
+	mcp.AddTool(server, &mcp.Tool{Name: "list_namespaces"}, nopToolHandler)
+	mcp.AddTool(server, &mcp.Tool{Name: "create_namespace"}, nopToolHandler)
+	mcp.AddTool(server, &mcp.Tool{Name: "list_components"}, nopToolHandler)
+
+	perms := map[string]ToolPermission{
+		"list_namespaces":  {ToolName: "list_namespaces", Action: "namespace:view"},
+		"create_namespace": {ToolName: "create_namespace", Action: "namespace:create"},
+		"list_components":  {ToolName: "list_components", Action: "component:view"},
+	}
+	toolToToolsets := map[string]map[ToolsetType]bool{
+		"list_namespaces":  {ToolsetNamespace: true},
+		"create_namespace": {ToolsetNamespace: true},
+		"list_components":  {ToolsetComponent: true},
+	}
+
+	pdp := &mockPDP{profile: allowAllProfile("namespace:view", "component:view")}
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, toolToToolsets))
+
+	// Narrow to namespace only — list_components must be hidden by toolset filter,
+	// and create_namespace must be hidden by authz filter.
+	ctx := WithRequestedToolsets(ctxWithSubject(context.Background()), map[ToolsetType]bool{ToolsetNamespace: true})
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer clientSession.Close()
+
+	result, err := clientSession.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	got := map[string]bool{}
+	for _, tool := range result.Tools {
+		got[tool.Name] = true
+	}
+	if !got["list_namespaces"] {
+		t.Error("expected list_namespaces to be visible (in namespace toolset and user has namespace:view)")
+	}
+	if got["list_components"] {
+		t.Error("list_components should be hidden by toolset narrowing")
+	}
+	if got["create_namespace"] {
+		t.Error("create_namespace should be hidden by authz (user lacks namespace:create)")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// filterByAuthz=false bypass
+// ---------------------------------------------------------------------------
+
+// TestToolFilterMiddlewareFilterByAuthzFalseListTools verifies that when the
+// client opts out of MCP-layer authz filtering, all tools are returned via
+// tools/list regardless of the user's permissions.
+func TestToolFilterMiddlewareFilterByAuthzFalseListTools(t *testing.T) {
+	server := mcp.NewServer(&mcp.Implementation{Name: "test"}, nil)
+	mcp.AddTool(server, &mcp.Tool{Name: "list_namespaces"}, nopToolHandler)
+	mcp.AddTool(server, &mcp.Tool{Name: "create_namespace"}, nopToolHandler)
+
+	perms := map[string]ToolPermission{
+		"list_namespaces":  {ToolName: "list_namespaces", Action: "namespace:view"},
+		"create_namespace": {ToolName: "create_namespace", Action: "namespace:create"},
+	}
+
+	pdp := &mockPDP{profile: denyAllProfile()}
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
+
+	ctx := WithFilterByAuthz(ctxWithSubject(context.Background()), false)
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer clientSession.Close()
+
+	result, err := clientSession.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	if len(result.Tools) != 2 {
+		t.Errorf("expected 2 tools when filterByAuthz=false bypasses authz, got %d", len(result.Tools))
+	}
+}
+
+// TestToolFilterMiddlewareFilterByAuthzFalseAllowsCall verifies that when the
+// client opts out of MCP-layer authz filtering, tools/call is allowed without
+// the middleware checking the user's permissions. The service layer is still
+// expected to enforce authz independently.
+func TestToolFilterMiddlewareFilterByAuthzFalseAllowsCall(t *testing.T) {
+	server := mcp.NewServer(&mcp.Implementation{Name: "test"}, nil)
+	called := false
+	mcp.AddTool(server, &mcp.Tool{Name: "create_namespace"}, func(
+		ctx context.Context, req *mcp.CallToolRequest, args any,
+	) (*mcp.CallToolResult, any, error) {
+		called = true
+		return &mcp.CallToolResult{}, nil, nil
+	})
+
+	perms := map[string]ToolPermission{
+		"create_namespace": {ToolName: "create_namespace", Action: "namespace:create"},
+	}
+	pdp := &mockPDP{profile: denyAllProfile()}
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
+
+	ctx := WithFilterByAuthz(ctxWithSubject(context.Background()), false)
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer clientSession.Close()
+
+	if _, err := clientSession.CallTool(ctx, &mcp.CallToolParams{Name: "create_namespace"}); err != nil {
+		t.Fatalf("CallTool: expected success when filterByAuthz=false, got %v", err)
+	}
+	if !called {
+		t.Error("expected tool handler to be called when filterByAuthz=false")
+	}
+}
+
+// TestToolFilterMiddlewareToolsetNarrowingDoesNotGateCall verifies that
+// requesting a narrow toolset does not gate tools/call: a client that knows
+// the tool name can still invoke any registered tool. (The filter is a
+// tools/list visibility helper only.)
+func TestToolFilterMiddlewareToolsetNarrowingDoesNotGateCall(t *testing.T) {
+	server := mcp.NewServer(&mcp.Implementation{Name: "test"}, nil)
+	called := false
+	mcp.AddTool(server, &mcp.Tool{Name: "list_components"}, func(
+		ctx context.Context, req *mcp.CallToolRequest, args any,
+	) (*mcp.CallToolResult, any, error) {
+		called = true
+		return &mcp.CallToolResult{}, nil, nil
+	})
+
+	toolToToolsets := map[string]map[ToolsetType]bool{
+		"list_components": {ToolsetComponent: true},
+	}
+
+	server.AddReceivingMiddleware(NewToolFilterMiddleware(nil, nil, toolToToolsets))
+
+	// Narrow to namespace toolset — list_components is component, but call should still succeed.
+	ctx := WithRequestedToolsets(context.Background(), map[ToolsetType]bool{ToolsetNamespace: true})
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "test-client"}, nil)
+	clientSession, err := client.Connect(ctx, clientTransport, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer clientSession.Close()
+
+	if _, err := clientSession.CallTool(ctx, &mcp.CallToolParams{Name: "list_components"}); err != nil {
+		t.Fatalf("CallTool: expected success despite toolset narrowing, got %v", err)
+	}
+	if !called {
+		t.Error("expected tool handler to be called — toolset narrowing only applies to tools/list")
+	}
 }

@@ -21,26 +21,36 @@ const (
 	methodListTools = "tools/list"
 )
 
-// NewToolFilterMiddleware returns an MCP receiving middleware that filters tools/list
-// results and rejects tools/call requests based on the authenticated user's permissions.
+// NewToolFilterMiddleware returns an MCP receiving middleware that filters
+// tools/list and tools/call results along two independent axes:
 //
-// Design: this is a UX improvement layer, not the security boundary. The actual
-// security boundary is enforced by the service layer (NewServiceWithAuthz wrappers).
-// If pdp is nil, all tools are returned unfiltered (graceful degradation / authz disabled).
+//  1. Toolset narrowing — when the client requested a specific subset of
+//     toolsets via ?toolsets= on the initialize request, tools/list returns
+//     only tools whose registered toolsets intersect the requested set. This
+//     filter is purely a tools/list visibility helper; tools/call is not
+//     gated by it (clients that bypass tools/list can still call any
+//     registered tool).
 //
-// The perms map is produced by ToolPermissions(). It maps tool name to ToolPermission,
-// which carries the required authz action for that tool.
-func NewToolFilterMiddleware(pdp authzcore.PDP, perms map[string]ToolPermission) mcp.Middleware {
+//  2. Authz filtering — when filterByAuthz is true (the default) and a PDP
+//     is configured, tools/list hides tools the user lacks permission for and
+//     tools/call rejects unauthorized calls. When filterByAuthz is false, or
+//     pdp is nil, the MCP server is permissive at the protocol layer; the
+//     service layer still enforces authz independently.
+//
+// The perms map is produced by Register(); it maps tool name to ToolPermission
+// (carrying the required authz action). The toolToToolsets map is also
+// produced by Register(); it maps each tool name to the set of toolsets it
+// belongs to.
+func NewToolFilterMiddleware(
+	pdp authzcore.PDP,
+	perms map[string]ToolPermission,
+	toolToToolsets map[string]map[ToolsetType]bool,
+) mcp.Middleware {
 	return func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
-			// If no PDP configured, pass through unfiltered.
-			if pdp == nil {
-				return next(ctx, method, req)
-			}
-
 			switch method {
 			case methodListTools:
-				return filterListTools(ctx, next, req, pdp, perms)
+				return filterListTools(ctx, next, req, pdp, perms, toolToToolsets)
 			case methodCallTool:
 				return filterCallTool(ctx, next, method, req, pdp, perms)
 			default:
@@ -50,15 +60,16 @@ func NewToolFilterMiddleware(pdp authzcore.PDP, perms map[string]ToolPermission)
 	}
 }
 
-// filterListTools calls the next handler, then removes tools that the user is not
-// permitted to use. Unknown tools (no permission entry) are shown by default to
-// avoid accidentally hiding tools during a rollout.
+// filterListTools calls the next handler, then narrows the returned tool list
+// by the per-session toolset request and (when enabled) the user's authz
+// capabilities.
 func filterListTools(
 	ctx context.Context,
 	next mcp.MethodHandler,
 	req mcp.Request,
 	pdp authzcore.PDP,
 	perms map[string]ToolPermission,
+	toolToToolsets map[string]map[ToolsetType]bool,
 ) (mcp.Result, error) {
 	result, err := next(ctx, methodListTools, req)
 	if err != nil {
@@ -71,35 +82,51 @@ func filterListTools(
 		return result, nil
 	}
 
-	subjectCtx, _ := auth.GetSubjectContextFromContext(ctx)
-	if subjectCtx == nil {
-		// No authenticated user in context — return no tools.
-		listResult.Tools = []*mcp.Tool{}
+	requested, hasRequested := RequestedToolsetsFromContext(ctx)
+	authzActive := authzFilteringActive(ctx, pdp)
+
+	if !hasRequested && !authzActive {
+		// Nothing to filter on — return the result as-is.
 		return listResult, nil
 	}
 
-	profile, err := pdp.GetSubjectProfile(ctx, &authzcore.ProfileRequest{
-		SubjectContext: authzcore.GetAuthzSubjectContext(subjectCtx),
-	})
-	if err != nil {
-		// On PDP error, be safe: return no tools. The service layer will
-		// independently deny any calls the user makes.
-		listResult.Tools = []*mcp.Tool{}
-		return listResult, nil
+	var profile *authzcore.UserCapabilitiesResponse
+	if authzActive {
+		subjectCtx, _ := auth.GetSubjectContextFromContext(ctx)
+		if subjectCtx == nil {
+			// No authenticated user in context — return no tools.
+			listResult.Tools = []*mcp.Tool{}
+			return listResult, nil
+		}
+		profile, err = pdp.GetSubjectProfile(ctx, &authzcore.ProfileRequest{
+			SubjectContext: authzcore.GetAuthzSubjectContext(subjectCtx),
+		})
+		if err != nil {
+			// On PDP error, be safe: return no tools. The service layer will
+			// independently deny any calls the user makes.
+			listResult.Tools = []*mcp.Tool{}
+			return listResult, nil
+		}
 	}
 
 	filtered := listResult.Tools[:0:0]
 	for _, tool := range listResult.Tools {
-		if isAllowed(tool.Name, perms, profile) {
-			filtered = append(filtered, tool)
+		if hasRequested && !toolInRequestedToolsets(tool.Name, toolToToolsets, requested) {
+			continue
 		}
+		if authzActive && !isAllowed(tool.Name, perms, profile) {
+			continue
+		}
+		filtered = append(filtered, tool)
 	}
 	listResult.Tools = filtered
 	return listResult, nil
 }
 
 // filterCallTool checks whether the user is permitted to call the requested tool
-// before forwarding to the next handler.
+// before forwarding to the next handler. Authz checks are skipped when the
+// per-session filterByAuthz flag is false or no PDP is configured; the service
+// layer enforces authz independently in those cases.
 func filterCallTool(
 	ctx context.Context,
 	next mcp.MethodHandler,
@@ -108,6 +135,10 @@ func filterCallTool(
 	pdp authzcore.PDP,
 	perms map[string]ToolPermission,
 ) (mcp.Result, error) {
+	if !authzFilteringActive(ctx, pdp) {
+		return next(ctx, method, req)
+	}
+
 	toolName := callToolName(req)
 	perm, hasPerm := perms[toolName]
 	if !hasPerm {
@@ -133,6 +164,40 @@ func filterCallTool(
 	}
 
 	return next(ctx, method, req)
+}
+
+// authzFilteringActive reports whether MCP-layer authz filtering should be
+// applied for this request. It is active only when a PDP is configured and the
+// per-session filterByAuthz flag has not been explicitly set to false.
+func authzFilteringActive(ctx context.Context, pdp authzcore.PDP) bool {
+	if pdp == nil {
+		return false
+	}
+	if filter, set := FilterByAuthzFromContext(ctx); set && !filter {
+		return false
+	}
+	return true
+}
+
+// toolInRequestedToolsets returns true if the named tool belongs to at least
+// one of the toolsets the client requested. Tools without a toolset entry
+// (an unexpected condition since Register always indexes registered tools)
+// are returned by default to avoid hiding tools after a rollout.
+func toolInRequestedToolsets(
+	toolName string,
+	toolToToolsets map[string]map[ToolsetType]bool,
+	requested map[ToolsetType]bool,
+) bool {
+	owned, ok := toolToToolsets[toolName]
+	if !ok || len(owned) == 0 {
+		return true
+	}
+	for ts := range owned {
+		if requested[ts] {
+			return true
+		}
+	}
+	return false
 }
 
 // isAllowed returns true if the user's profile grants at least one resource for the

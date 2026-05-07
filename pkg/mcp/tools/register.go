@@ -176,48 +176,61 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 	}
 }
 
-// Register registers all enabled tools with the MCP server and returns the
-// permissions map built as a side effect of registration. Each RegisterFunc
-// declares its required authz action by writing to the perms map, so the
-// returned map is always consistent with the set of registered tools.
-func (t *Toolsets) Register(s *mcp.Server) map[string]ToolPermission {
-	perms := make(map[string]ToolPermission)
+// Register registers all enabled tools with the MCP server and returns:
+//   - perms: maps each registered tool name to its required authz action.
+//     Each RegisterFunc declares its required action by writing to a perms map,
+//     so this is always consistent with the set of registered tools.
+//   - toolToToolsets: maps each registered tool name to the set of toolsets
+//     that contain it. A tool can belong to more than one toolset (for example,
+//     `list_component_types` is registered by both the component and pe
+//     toolsets); this index records every toolset it appears in.
+func (t *Toolsets) Register(s *mcp.Server) (
+	perms map[string]ToolPermission,
+	toolToToolsets map[string]map[ToolsetType]bool,
+) {
+	perms = make(map[string]ToolPermission)
+	toolToToolsets = make(map[string]map[ToolsetType]bool)
+
+	registerGroup := func(toolset ToolsetType, regs []RegisterFunc) {
+		for _, registerFunc := range regs {
+			// Use a fresh map per RegisterFunc so we can identify exactly
+			// which tools it registered, even when multiple RegisterFuncs
+			// share a tool name across toolsets.
+			local := make(map[string]ToolPermission)
+			registerFunc(s, local)
+			for name, perm := range local {
+				perms[name] = perm
+				if toolToToolsets[name] == nil {
+					toolToToolsets[name] = make(map[ToolsetType]bool)
+				}
+				toolToToolsets[name][toolset] = true
+			}
+		}
+	}
 
 	if t.NamespaceToolset != nil {
-		for _, registerFunc := range t.namespaceToolRegistrations() {
-			registerFunc(s, perms)
-		}
+		registerGroup(ToolsetNamespace, t.namespaceToolRegistrations())
 	}
 
 	if t.ProjectToolset != nil {
-		for _, registerFunc := range t.projectToolRegistrations() {
-			registerFunc(s, perms)
-		}
+		registerGroup(ToolsetProject, t.projectToolRegistrations())
 	}
 
 	if t.ComponentToolset != nil {
-		for _, registerFunc := range t.componentToolRegistrations() {
-			registerFunc(s, perms)
-		}
+		registerGroup(ToolsetComponent, t.componentToolRegistrations())
 	}
 
 	if t.DeploymentToolset != nil {
-		for _, registerFunc := range t.deploymentToolRegistrations() {
-			registerFunc(s, perms)
-		}
+		registerGroup(ToolsetDeployment, t.deploymentToolRegistrations())
 	}
 
 	if t.BuildToolset != nil {
-		for _, registerFunc := range t.buildToolRegistrations() {
-			registerFunc(s, perms)
-		}
+		registerGroup(ToolsetBuild, t.buildToolRegistrations())
 	}
 
 	if t.PEToolset != nil {
-		for _, registerFunc := range t.peToolRegistrations() {
-			registerFunc(s, perms)
-		}
+		registerGroup(ToolsetPE, t.peToolRegistrations())
 	}
 
-	return perms
+	return perms, toolToToolsets
 }
