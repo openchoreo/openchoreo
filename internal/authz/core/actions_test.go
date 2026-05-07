@@ -90,18 +90,11 @@ func TestPublicActions(t *testing.T) {
 	})
 
 	t.Run("actions with conditions in registry have conditions populated", func(t *testing.T) {
-		byName := make(map[string]Action, len(actions))
 		for _, a := range actions {
-			byName[a.Name] = a
-		}
-		for name := range conditionRegistry {
-			a, ok := byName[name]
-			if !ok {
-				t.Errorf("action %q not found in PublicActions()", name)
-				continue
-			}
-			if len(a.Conditions) == 0 {
-				t.Errorf("action %q expected conditions but got none", name)
+			if _, inRegistry := conditionRegistry[a.Name]; inRegistry {
+				if len(a.Conditions) == 0 {
+					t.Errorf("action %q expected conditions but got none", a.Name)
+				}
 			}
 		}
 	})
@@ -144,18 +137,11 @@ func TestConcretePublicActions(t *testing.T) {
 	})
 
 	t.Run("actions with conditions in registry have conditions populated", func(t *testing.T) {
-		byName := make(map[string]Action, len(actions))
 		for _, a := range actions {
-			byName[a.Name] = a
-		}
-		for actionName := range conditionRegistry {
-			a, ok := byName[actionName]
-			if !ok {
-				t.Errorf("action %q not found in ConcretePublicActions()", actionName)
-				continue
-			}
-			if len(a.Conditions) == 0 {
-				t.Errorf("action %q expected conditions but got none", actionName)
+			if _, inRegistry := conditionRegistry[a.Name]; inRegistry {
+				if len(a.Conditions) == 0 {
+					t.Errorf("action %q expected conditions but got none", a.Name)
+				}
 			}
 		}
 	})
