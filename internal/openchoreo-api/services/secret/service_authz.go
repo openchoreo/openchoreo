@@ -41,18 +41,6 @@ func (s *secretServiceWithAuthz) CreateSecret(ctx context.Context, namespaceName
 	return s.internal.CreateSecret(ctx, namespaceName, req)
 }
 
-func (s *secretServiceWithAuthz) UpdateSecret(ctx context.Context, namespaceName, secretName string, req *UpdateSecretParams) (*SecretInfo, error) {
-	if err := s.authz.Check(ctx, services.CheckRequest{
-		Action:       authz.ActionUpdateSecret,
-		ResourceType: resourceTypeSecret,
-		ResourceID:   secretName,
-		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
-	}); err != nil {
-		return nil, err
-	}
-	return s.internal.UpdateSecret(ctx, namespaceName, secretName, req)
-}
-
 func (s *secretServiceWithAuthz) DeleteSecret(ctx context.Context, namespaceName, secretName string) error {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       authz.ActionDeleteSecret,

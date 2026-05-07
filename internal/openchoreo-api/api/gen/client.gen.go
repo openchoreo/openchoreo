@@ -682,11 +682,6 @@ type ClientInterface interface {
 	// DeleteSecret request
 	DeleteSecret(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateSecretWithBody request with any body
-	UpdateSecretWithBody(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateSecret(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, body UpdateSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetHealth request
 	GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -3294,30 +3289,6 @@ func (c *Client) CreateSecret(ctx context.Context, namespaceName NamespaceNamePa
 
 func (c *Client) DeleteSecret(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteSecretRequest(c.Server, namespaceName, secretName)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateSecretWithBody(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateSecretRequestWithBody(c.Server, namespaceName, secretName, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) UpdateSecret(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, body UpdateSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateSecretRequest(c.Server, namespaceName, secretName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11611,60 +11582,6 @@ func NewDeleteSecretRequest(server string, namespaceName NamespaceNameParam, sec
 	return req, nil
 }
 
-// NewUpdateSecretRequest calls the generic UpdateSecret builder with application/json body
-func NewUpdateSecretRequest(server string, namespaceName NamespaceNameParam, secretName SecretNameParam, body UpdateSecretJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateSecretRequestWithBody(server, namespaceName, secretName, "application/json", bodyReader)
-}
-
-// NewUpdateSecretRequestWithBody generates requests for UpdateSecret with any type of body
-func NewUpdateSecretRequestWithBody(server string, namespaceName NamespaceNameParam, secretName SecretNameParam, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "secretName", runtime.ParamLocationPath, secretName)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1alpha1/namespaces/%s/secrets/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewGetHealthRequest generates requests for GetHealth
 func NewGetHealthRequest(server string) (*http.Request, error) {
 	var err error
@@ -12408,11 +12325,6 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteSecretWithResponse request
 	DeleteSecretWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, reqEditors ...RequestEditorFn) (*DeleteSecretResp, error)
-
-	// UpdateSecretWithBodyWithResponse request with any body
-	UpdateSecretWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSecretResp, error)
-
-	UpdateSecretWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, body UpdateSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSecretResp, error)
 
 	// GetHealthWithResponse request
 	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResp, error)
@@ -16609,33 +16521,6 @@ func (r DeleteSecretResp) StatusCode() int {
 	return 0
 }
 
-type UpdateSecretResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *SecretResponse
-	JSON400      *BadRequest
-	JSON401      *Unauthorized
-	JSON403      *Forbidden
-	JSON404      *NotFound
-	JSON500      *InternalError
-}
-
-// Status returns HTTPResponse.Status
-func (r UpdateSecretResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UpdateSecretResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type GetHealthResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -18615,23 +18500,6 @@ func (c *ClientWithResponses) DeleteSecretWithResponse(ctx context.Context, name
 		return nil, err
 	}
 	return ParseDeleteSecretResp(rsp)
-}
-
-// UpdateSecretWithBodyWithResponse request with arbitrary body returning *UpdateSecretResp
-func (c *ClientWithResponses) UpdateSecretWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSecretResp, error) {
-	rsp, err := c.UpdateSecretWithBody(ctx, namespaceName, secretName, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateSecretResp(rsp)
-}
-
-func (c *ClientWithResponses) UpdateSecretWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, body UpdateSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSecretResp, error) {
-	rsp, err := c.UpdateSecret(ctx, namespaceName, secretName, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateSecretResp(rsp)
 }
 
 // GetHealthWithResponse request returning *GetHealthResp
@@ -27552,67 +27420,6 @@ func ParseDeleteSecretResp(rsp *http.Response) (*DeleteSecretResp, error) {
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest BadRequest
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Unauthorized
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest Forbidden
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest NotFound
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest InternalError
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUpdateSecretResp parses an HTTP response from a UpdateSecretWithResponse call
-func ParseUpdateSecretResp(rsp *http.Response) (*UpdateSecretResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateSecretResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SecretResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest BadRequest
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

@@ -76,10 +76,6 @@ func sampleCreateParams() *secret.CreateSecretParams {
 	}
 }
 
-func sampleUpdateParams() *secret.UpdateSecretParams {
-	return &secret.UpdateSecretParams{Data: map[string]string{"key": "value"}}
-}
-
 // --- CreateSecret ---
 
 func TestAuthzCreateSecret_Allowed(t *testing.T) {
@@ -128,57 +124,6 @@ func TestAuthzCreateSecret_InternalError(t *testing.T) {
 	}, newAllowAllPDP(t))
 
 	_, err := svc.CreateSecret(context.Background(), testNamespace, sampleCreateParams())
-	if !errors.Is(err, internalErr) {
-		t.Errorf("expected internal error, got %v", err)
-	}
-}
-
-// --- UpdateSecret ---
-
-func TestAuthzUpdateSecret_Allowed(t *testing.T) {
-	expected := &secret.SecretInfo{Name: testSecret, Namespace: testNamespace}
-	svc := newAuthzService(t, func(m *secretmocks.MockService) {
-		m.EXPECT().UpdateSecret(mock.Anything, testNamespace, testSecret, mock.Anything).Return(expected, nil)
-	}, newAllowAllPDP(t))
-
-	result, err := svc.UpdateSecret(context.Background(), testNamespace, testSecret, sampleUpdateParams())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if result.Name != expected.Name {
-		t.Errorf("result Name = %q, want %q", result.Name, expected.Name)
-	}
-}
-
-func TestAuthzUpdateSecret_Denied(t *testing.T) {
-	svc := newAuthzService(t, func(_ *secretmocks.MockService) {}, newDenyAllPDP(t))
-
-	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecret, sampleUpdateParams())
-	if !errors.Is(err, services.ErrForbidden) {
-		t.Errorf("expected ErrForbidden, got %v", err)
-	}
-}
-
-func TestAuthzUpdateSecret_PDPError(t *testing.T) {
-	pdpErr := errors.New("pdp timeout")
-	svc := newAuthzService(t, func(_ *secretmocks.MockService) {}, newErrorPDP(t, pdpErr))
-
-	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecret, sampleUpdateParams())
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !errors.Is(err, pdpErr) {
-		t.Errorf("expected wrapped pdp error, got %v", err)
-	}
-}
-
-func TestAuthzUpdateSecret_InternalError(t *testing.T) {
-	internalErr := errors.New("internal update failed")
-	svc := newAuthzService(t, func(m *secretmocks.MockService) {
-		m.EXPECT().UpdateSecret(mock.Anything, testNamespace, testSecret, mock.Anything).Return(nil, internalErr)
-	}, newAllowAllPDP(t))
-
-	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecret, sampleUpdateParams())
 	if !errors.Is(err, internalErr) {
 		t.Errorf("expected internal error, got %v", err)
 	}

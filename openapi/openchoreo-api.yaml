@@ -4690,40 +4690,6 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   /api/v1alpha1/namespaces/{namespaceName}/secrets/{secretName}:
-    put:
-      operationId: updateSecret
-      summary: Update a secret
-      description: |
-        Replaces the data of an existing secret. The secret type and target
-        plane cannot be changed; only the data keys and values.
-      tags: [Secrets]
-      parameters:
-        - $ref: '#/components/parameters/NamespaceNameParam'
-        - $ref: '#/components/parameters/SecretNameParam'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateSecretRequest'
-      responses:
-        '200':
-          description: Secret updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SecretResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalError'
-
     delete:
       operationId: deleteSecret
       summary: Delete a secret
@@ -10052,21 +10018,6 @@ components:
           example:
             username: alice
             password: s3cret
-
-    UpdateSecretRequest:
-      type: object
-      description: Request body for updating a secret
-      required:
-        - data
-      properties:
-        data:
-          type: object
-          description: New map of secret keys to plaintext values. Replaces all existing keys.
-          additionalProperties:
-            type: string
-          example:
-            username: alice
-            password: r0tated
 
     SecretResponse:
       type: object

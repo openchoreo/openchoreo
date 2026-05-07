@@ -44,27 +44,6 @@ func (h *Handler) CreateSecret(
 	return gen.CreateSecret201JSONResponse(toSecretResponse(result)), nil
 }
 
-// UpdateSecret rotates the data of an existing secret.
-func (h *Handler) UpdateSecret(
-	ctx context.Context,
-	request gen.UpdateSecretRequestObject,
-) (gen.UpdateSecretResponseObject, error) {
-	h.logger.Info("UpdateSecret called", "namespaceName", request.NamespaceName, "secretName", request.SecretName)
-
-	if request.Body == nil {
-		return gen.UpdateSecret400JSONResponse{BadRequestJSONResponse: badRequest("request body is required")}, nil
-	}
-
-	params := &secretsvc.UpdateSecretParams{Data: request.Body.Data}
-
-	result, err := h.services.SecretService.UpdateSecret(ctx, request.NamespaceName, request.SecretName, params)
-	if err != nil {
-		return mapUpdateSecretError(h, err)
-	}
-
-	return gen.UpdateSecret200JSONResponse(toSecretResponse(result)), nil
-}
-
 // DeleteSecret removes a secret by name.
 func (h *Handler) DeleteSecret(
 	ctx context.Context,
@@ -113,25 +92,6 @@ func mapCreateSecretError(h *Handler, err error) (gen.CreateSecretResponseObject
 	default:
 		h.logger.Error("Failed to create secret", "error", err)
 		return gen.CreateSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
-	}
-}
-
-func mapUpdateSecretError(h *Handler, err error) (gen.UpdateSecretResponseObject, error) {
-	var validationErr *services.ValidationError
-	switch {
-	case errors.Is(err, services.ErrForbidden):
-		return gen.UpdateSecret403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-	case errors.Is(err, secretsvc.ErrSecretNotFound):
-		return gen.UpdateSecret404JSONResponse{NotFoundJSONResponse: notFound("secret")}, nil
-	case errors.Is(err, secretsvc.ErrPlaneNotFound):
-		return gen.UpdateSecret400JSONResponse{BadRequestJSONResponse: badRequest("target plane not found")}, nil
-	case errors.Is(err, secretsvc.ErrSecretStoreNotConfigured):
-		return gen.UpdateSecret400JSONResponse{BadRequestJSONResponse: badRequest("secret store is not configured on the target plane")}, nil
-	case errors.As(err, &validationErr):
-		return gen.UpdateSecret400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
-	default:
-		h.logger.Error("Failed to update secret", "error", err)
-		return gen.UpdateSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 }
 

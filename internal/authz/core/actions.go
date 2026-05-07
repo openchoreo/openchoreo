@@ -157,7 +157,6 @@ const (
 
 	// Secret actions (write-only secret creation API)
 	ActionCreateSecret = "secret:create"
-	ActionUpdateSecret = "secret:update"
 	ActionDeleteSecret = "secret:delete"
 
 	// Workload actions
@@ -357,7 +356,6 @@ var systemActions = []Action{
 
 	// Secret
 	{Name: ActionCreateSecret, LowestScope: ScopeNamespace, IsInternal: false},
-	{Name: ActionUpdateSecret, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionDeleteSecret, LowestScope: ScopeNamespace, IsInternal: false},
 
 	// Workload

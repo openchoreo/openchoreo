@@ -29,17 +29,10 @@ type CreateSecretParams struct {
 	Data        map[string]string
 }
 
-// UpdateSecretParams holds the parameters for updating a secret.
-type UpdateSecretParams struct {
-	Data map[string]string
-}
-
 // Service defines the secret operations exposed by the secret creation API.
 type Service interface {
 	// CreateSecret provisions a new secret across the control plane and the target plane.
 	CreateSecret(ctx context.Context, namespaceName string, req *CreateSecretParams) (*SecretInfo, error)
-	// UpdateSecret rotates the data for an existing secret.
-	UpdateSecret(ctx context.Context, namespaceName, secretName string, req *UpdateSecretParams) (*SecretInfo, error)
 	// DeleteSecret removes a secret from the control plane and the target plane.
 	DeleteSecret(ctx context.Context, namespaceName, secretName string) error
 }

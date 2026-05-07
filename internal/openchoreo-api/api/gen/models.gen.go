@@ -3177,12 +3177,6 @@ type TraitSpecPatchesTargetPlane string
 // TraitStatus Observed state of a Trait
 type TraitStatus = map[string]interface{}
 
-// UpdateSecretRequest Request body for updating a secret
-type UpdateSecretRequest struct {
-	// Data New map of secret keys to plaintext values. Replaces all existing keys.
-	Data map[string]string `json:"data"`
-}
-
 // UserCapabilitiesResponse User authorization profile response
 type UserCapabilitiesResponse struct {
 	// Capabilities Map of action to capabilities
@@ -4481,9 +4475,6 @@ type CreateGitSecretJSONRequestBody = CreateGitSecretRequest
 
 // CreateSecretJSONRequestBody defines body for CreateSecret for application/json ContentType.
 type CreateSecretJSONRequestBody = CreateSecretRequest
-
-// UpdateSecretJSONRequestBody defines body for UpdateSecret for application/json ContentType.
-type UpdateSecretJSONRequestBody = UpdateSecretRequest
 
 // AsObservabilityAlertsNotificationChannelSpec0 returns the union data inside the ObservabilityAlertsNotificationChannelSpec as a ObservabilityAlertsNotificationChannelSpec0
 func (t ObservabilityAlertsNotificationChannelSpec) AsObservabilityAlertsNotificationChannelSpec0() (ObservabilityAlertsNotificationChannelSpec0, error) {

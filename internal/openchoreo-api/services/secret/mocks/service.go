@@ -130,67 +130,6 @@ func (_c *MockService_DeleteSecret_Call) RunAndReturn(run func(context.Context, 
 	return _c
 }
 
-// UpdateSecret provides a mock function with given fields: ctx, namespaceName, secretName, req
-func (_m *MockService) UpdateSecret(ctx context.Context, namespaceName string, secretName string, req *secret.UpdateSecretParams) (*secret.SecretInfo, error) {
-	ret := _m.Called(ctx, namespaceName, secretName, req)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UpdateSecret")
-	}
-
-	var r0 *secret.SecretInfo
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, *secret.UpdateSecretParams) (*secret.SecretInfo, error)); ok {
-		return rf(ctx, namespaceName, secretName, req)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, *secret.UpdateSecretParams) *secret.SecretInfo); ok {
-		r0 = rf(ctx, namespaceName, secretName, req)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*secret.SecretInfo)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, *secret.UpdateSecretParams) error); ok {
-		r1 = rf(ctx, namespaceName, secretName, req)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// MockService_UpdateSecret_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateSecret'
-type MockService_UpdateSecret_Call struct {
-	*mock.Call
-}
-
-// UpdateSecret is a helper method to define mock.On call
-//   - ctx context.Context
-//   - namespaceName string
-//   - secretName string
-//   - req *secret.UpdateSecretParams
-func (_e *MockService_Expecter) UpdateSecret(ctx interface{}, namespaceName interface{}, secretName interface{}, req interface{}) *MockService_UpdateSecret_Call {
-	return &MockService_UpdateSecret_Call{Call: _e.mock.On("UpdateSecret", ctx, namespaceName, secretName, req)}
-}
-
-func (_c *MockService_UpdateSecret_Call) Run(run func(ctx context.Context, namespaceName string, secretName string, req *secret.UpdateSecretParams)) *MockService_UpdateSecret_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(*secret.UpdateSecretParams))
-	})
-	return _c
-}
-
-func (_c *MockService_UpdateSecret_Call) Return(_a0 *secret.SecretInfo, _a1 error) *MockService_UpdateSecret_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *MockService_UpdateSecret_Call) RunAndReturn(run func(context.Context, string, string, *secret.UpdateSecretParams) (*secret.SecretInfo, error)) *MockService_UpdateSecret_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // NewMockService creates a new instance of MockService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockService(t interface {

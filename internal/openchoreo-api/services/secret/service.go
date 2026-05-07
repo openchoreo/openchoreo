@@ -43,8 +43,8 @@ const (
 	pushSecretAPIVersion = "external-secrets.io/v1alpha1"
 	pushSecretKind       = "PushSecret"
 
-	// syncTriggerAnnotation is bumped on every Update so ESO reconciles the
-	// PushSecret immediately and pushes the new K8s Secret values to the
+	// syncTriggerAnnotation is stamped on Create so ESO reconciles the
+	// PushSecret immediately and pushes the K8s Secret values to the
 	// external store, instead of waiting for the next refreshInterval.
 	syncTriggerAnnotation = "openchoreo.dev/sync-trigger"
 )
@@ -155,66 +155,6 @@ func (s *secretService) CreateSecret(ctx context.Context, namespaceName string, 
 		SecretType:  req.SecretType,
 		TargetPlane: req.TargetPlane,
 		Keys:        sortedKeys(req.Data),
-	}, nil
-}
-
-// UpdateSecret rotates the data for an existing secret. Only secrets created
-// through this API (those with spec.targetPlane set) are updatable here.
-func (s *secretService) UpdateSecret(ctx context.Context, namespaceName, secretName string, req *UpdateSecretParams) (*SecretInfo, error) {
-	s.logger.Debug("Updating secret", "namespace", namespaceName, "secret", secretName)
-
-	secretRef := &openchoreov1alpha1.SecretReference{}
-	key := client.ObjectKey{Name: secretName, Namespace: namespaceName}
-	if err := s.k8sClient.Get(ctx, key, secretRef); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			return nil, ErrSecretNotFound
-		}
-		return nil, fmt.Errorf("failed to get secret reference: %w", err)
-	}
-	if secretRef.Spec.TargetPlane == nil {
-		return nil, ErrSecretNotFound
-	}
-
-	secretType := secretRef.Spec.Template.Type
-	if err := validateSecretData(secretType, req.Data); err != nil {
-		return nil, err
-	}
-
-	planeInfo, err := s.resolvePlane(ctx, namespaceName, secretRef.Spec.TargetPlane.Kind, secretRef.Spec.TargetPlane.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	targetNs := kvNamespace(namespaceName)
-	k8sSecret := buildK8sSecret(secretName, targetNs, secretType, req.Data)
-	if err := planeInfo.k8sClient.Patch(ctx, k8sSecret, client.Apply, client.ForceOwnership, client.FieldOwner(fieldOwner)); err != nil {
-		return nil, fmt.Errorf("failed to apply k8s secret in target plane: %w", err)
-	}
-
-	newKeys := sortedKeys(req.Data)
-
-	// Re-apply the PushSecret on every Update. buildPushSecret stamps a fresh
-	// sync-trigger annotation so ESO reconciles immediately and pushes the new
-	// values to the external store instead of waiting up to refreshInterval.
-	pushSecret := buildPushSecret(secretName, namespaceName, targetNs, planeInfo.secretStoreName, secretType, newKeys)
-	if err := planeInfo.k8sClient.Patch(ctx, pushSecret, client.Apply, client.ForceOwnership, client.FieldOwner(fieldOwner)); err != nil {
-		return nil, fmt.Errorf("failed to apply push secret in target plane: %w", err)
-	}
-
-	if !sameKeySet(secretRef.Spec.Data, newKeys) {
-		secretRef.Spec.Data = buildSecretDataSources(namespaceName, secretName, secretType, newKeys)
-		if err := s.k8sClient.Update(ctx, secretRef); err != nil {
-			return nil, fmt.Errorf("failed to update secret reference: %w", err)
-		}
-	}
-
-	s.logger.Info("Updated secret", "namespace", namespaceName, "secret", secretName)
-	return &SecretInfo{
-		Name:        secretName,
-		Namespace:   namespaceName,
-		SecretType:  secretType,
-		TargetPlane: *secretRef.Spec.TargetPlane,
-		Keys:        newKeys,
 	}, nil
 }
 
@@ -466,20 +406,4 @@ func sortedKeys(m map[string]string) []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-func sameKeySet(existing []openchoreov1alpha1.SecretDataSource, newKeys []string) bool {
-	if len(existing) != len(newKeys) {
-		return false
-	}
-	have := make(map[string]struct{}, len(existing))
-	for _, d := range existing {
-		have[d.SecretKey] = struct{}{}
-	}
-	for _, k := range newKeys {
-		if _, ok := have[k]; !ok {
-			return false
-		}
-	}
-	return true
 }
