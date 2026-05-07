@@ -2249,6 +2249,7 @@ backstage:
     # type: integer
     # description: Frequency in seconds between periodic full syncs of the OpenChoreo catalog provider. With the event-forwarder enabled, this acts as a safety net for any events missed; with it disabled, this is the only sync mechanism and you may want a much smaller value (e.g. 60).
     # default: 300
+    # minimum: 1
     # @schema
     frequency: 300
 
@@ -3531,6 +3532,18 @@ eventForwarder:
     server:
       port: 8080
     webhooks:
+      # @schema
+      # type: array
+      # items:
+      #   type: object
+      #   additionalProperties: false
+      #   required: [url]
+      #   properties:
+      #     url:
+      #       type: string
+      #       format: uri
+      #       minLength: 1
+      # @schema
       endpoints: []
       retry:
         maxAttempts: 3

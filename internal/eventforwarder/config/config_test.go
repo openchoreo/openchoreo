@@ -85,6 +85,50 @@ func TestLoad_FileNotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "reading config file")
 }
 
+func TestLoad_RejectsInvalidWebhookURLs(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantErr string
+	}{
+		{
+			name: "empty url",
+			body: `
+webhooks:
+  endpoints:
+    - url: ""
+`,
+			wantErr: "url is required",
+		},
+		{
+			name: "no scheme",
+			body: `
+webhooks:
+  endpoints:
+    - url: "example.com/webhook"
+`,
+			wantErr: "invalid url",
+		},
+		{
+			name: "unsupported scheme",
+			body: `
+webhooks:
+  endpoints:
+    - url: "ftp://example.com/webhook"
+`,
+			wantErr: "unsupported scheme",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := writeTempConfig(t, tt.body)
+			_, err := Load(path)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
 func TestLoad_InvalidYAML(t *testing.T) {
 	// Tabs are not valid YAML indentation.
 	path := writeTempConfig(t, "\tnot: valid\n")

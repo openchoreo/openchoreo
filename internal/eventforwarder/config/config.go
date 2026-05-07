@@ -5,7 +5,9 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -64,6 +66,20 @@ func Load(path string) (*Config, error) {
 
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("parsing config file %s: %w", path, err)
+	}
+
+	for i, ep := range cfg.Webhooks.Endpoints {
+		trimmed := strings.TrimSpace(ep.URL)
+		if trimmed == "" {
+			return nil, fmt.Errorf("webhooks.endpoints[%d]: url is required", i)
+		}
+		u, err := url.Parse(trimmed)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			return nil, fmt.Errorf("webhooks.endpoints[%d]: invalid url %q", i, ep.URL)
+		}
+		if u.Scheme != "http" && u.Scheme != "https" {
+			return nil, fmt.Errorf("webhooks.endpoints[%d]: unsupported scheme %q (want http or https)", i, u.Scheme)
+		}
 	}
 
 	return cfg, nil

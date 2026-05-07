@@ -5,6 +5,7 @@ package eventforwarder
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"reflect"
 	"sync"
@@ -39,6 +40,11 @@ var namespaceGVR = schema.GroupVersionResource{
 // debounceWindow is the duration to wait before dispatching an event
 // for the same resource, to avoid flooding on rapid successive updates.
 const debounceWindow = 1 * time.Second
+
+// debounceCleanupInterval is how often we sweep stale entries out of the
+// debounce map. Without this, a long-lived process that sees many distinct
+// resources over time would accumulate keys forever.
+const debounceCleanupInterval = 5 * time.Minute
 
 // Forwarder watches OpenChoreo CRDs and forwards change-notification
 // webhooks to configured subscribers (typically the Backstage events
@@ -131,7 +137,7 @@ func (f *Forwarder) Start(ctx context.Context) error {
 			},
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("adding event handler for %s: %w", gvrCopy.Resource, err)
 		}
 
 		f.logger.Info("Watching CRD", "resource", gvr.Resource, "group", gvr.Group)
@@ -165,20 +171,52 @@ func (f *Forwarder) Start(ctx context.Context) error {
 		},
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("adding event handler for %s: %w", namespaceGVR.Resource, err)
 	}
 	f.logger.Info("Watching Namespaces", "labelSelector", ocControlPlaneLabelSelector)
 
 	crdFactory.Start(ctx.Done())
 	nsFactory.Start(ctx.Done())
-	crdFactory.WaitForCacheSync(ctx.Done())
-	nsFactory.WaitForCacheSync(ctx.Done())
+	for gvr, ok := range crdFactory.WaitForCacheSync(ctx.Done()) {
+		if !ok {
+			return fmt.Errorf("informer cache failed to sync for %s", gvr.Resource)
+		}
+	}
+	for gvr, ok := range nsFactory.WaitForCacheSync(ctx.Done()) {
+		if !ok {
+			return fmt.Errorf("informer cache failed to sync for %s", gvr.Resource)
+		}
+	}
 
 	f.logger.Info("All informers synced, event-forwarder is ready")
+
+	go f.cleanupDebounceLoop(ctx)
 
 	// Block until context is cancelled
 	<-ctx.Done()
 	return nil
+}
+
+// cleanupDebounceLoop periodically evicts entries from the debounce map
+// whose last-event time is older than the debounce window — they can no
+// longer suppress anything, so keeping them around just leaks memory.
+func (f *Forwarder) cleanupDebounceLoop(ctx context.Context) {
+	ticker := time.NewTicker(debounceCleanupInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-ticker.C:
+			f.mu.Lock()
+			for key, last := range f.lastEvent {
+				if now.Sub(last) > debounceWindow {
+					delete(f.lastEvent, key)
+				}
+			}
+			f.mu.Unlock()
+		}
+	}
 }
 
 func (f *Forwarder) handleEvent(obj interface{}, action string, gvr schema.GroupVersionResource) {
