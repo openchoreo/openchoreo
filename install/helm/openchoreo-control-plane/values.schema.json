@@ -2271,11 +2271,13 @@
                   "properties": {
                     "backoffMs": {
                       "default": 1000,
+                      "minimum": 1,
                       "title": "backoffMs",
                       "type": "integer"
                     },
                     "maxAttempts": {
                       "default": 3,
+                      "minimum": 1,
                       "title": "maxAttempts",
                       "type": "integer"
                     }
@@ -2441,7 +2443,10 @@
           "additionalProperties": false,
           "properties": {
             "annotations": {
-              "additionalProperties": false,
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
               "required": [],
               "title": "annotations",
               "type": "object"

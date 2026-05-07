@@ -3546,7 +3546,17 @@ eventForwarder:
       # @schema
       endpoints: []
       retry:
+        # @schema
+        # type: integer
+        # minimum: 1
+        # default: 3
+        # @schema
         maxAttempts: 3
+        # @schema
+        # type: integer
+        # minimum: 1
+        # default: 1000
+        # @schema
         backoffMs: 1000
     logging:
       level: info
@@ -3554,6 +3564,13 @@ eventForwarder:
   serviceAccount:
     create: true
     name: ""
+    # @schema
+    # type: object
+    # description: Annotations to add to the service account
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
     annotations: {}
 
   resources:
