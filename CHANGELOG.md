@@ -2,18 +2,23 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
-## v1.0.1-hotfix.1
+## v1.0.1
 Changes since [v1.0.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.0).
 
 ### Bug Fixes
 
 - **(Observability)** Enforce trace limit at OpenSearch end using aggregations. ([#3183](https://github.com/openchoreo/openchoreo/pull/3183))
 - **(Observability)** Show span kind in tracing API responses. ([#3191](https://github.com/openchoreo/openchoreo/pull/3191))
-- **(Helm)** add support to request scope during token retrieval for client apps. ([#3207](https://github.com/openchoreo/openchoreo/pull/3207))
+- **(Helm)** Add support to request scope during token retrieval for client apps. ([#3207](https://github.com/openchoreo/openchoreo/pull/3207))
+- **(Controller)** Clean up trait-created secrets on deletion. ([#3322](https://github.com/openchoreo/openchoreo/pull/3322))
+- **(Observability)** Update adapter image tag for observability metrics module. ([#3308](https://github.com/openchoreo/openchoreo/pull/3308))
+- **(Observer)** Defer cancel in observer UID resolver until body is read. ([#3352](https://github.com/openchoreo/openchoreo/pull/3352))
+- **(Install)** Update op version in k3d observability plane quick install script. ([#3213](https://github.com/openchoreo/openchoreo/pull/3213))
 
 ### Enhancements
 
 - **(Observability)** Add status field for traces and spans. ([#3193](https://github.com/openchoreo/openchoreo/pull/3193))
+- **(Observability)** Include span and resource attributes in trace queries. ([#3304](https://github.com/openchoreo/openchoreo/pull/3304))
 
 ## v1.0.0
 
