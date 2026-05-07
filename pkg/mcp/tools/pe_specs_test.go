@@ -763,6 +763,27 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			descriptionMinLen:   10,
 			testArgs:            map[string]any{},
 		},
+		{
+			name:                "get_cluster_trait_creation_schema",
+			toolset:             "pe",
+			descriptionKeywords: []string{"schema", "creating", "cluster", "trait"},
+			descriptionMinLen:   10,
+			testArgs:            map[string]any{},
+		},
+		{
+			name:                "get_workflow_creation_schema",
+			toolset:             "pe",
+			descriptionKeywords: []string{"schema", "creating", "workflow"},
+			descriptionMinLen:   10,
+			testArgs:            map[string]any{},
+		},
+		{
+			name:                "get_cluster_workflow_creation_schema",
+			toolset:             "pe",
+			descriptionKeywords: []string{"schema", "creating", "cluster", "workflow"},
+			descriptionMinLen:   10,
+			testArgs:            map[string]any{},
+		},
 		// Write operations (namespace-scoped)
 		{
 			name:                "create_component_type",

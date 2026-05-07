@@ -1663,6 +1663,51 @@ func (t *Toolsets) RegisterGetTraitCreationSchema(s *mcp.Server, perms map[strin
 	})
 }
 
+func (t *Toolsets) RegisterGetClusterTraitCreationSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_trait_creation_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateClusterTrait}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: name,
+		Description: "Get the spec schema for creating a cluster-scoped trait. " +
+			"Returns the full JSON schema showing all required and optional fields, their types, " +
+			"and descriptions. Call this before create_cluster_trait to understand the spec structure.",
+		InputSchema: createSchema(map[string]any{}, nil),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
+		schema, err := ClusterTraitCreationSchema()
+		return handleToolResult(schema, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetWorkflowCreationSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_workflow_creation_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateWorkflow}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: name,
+		Description: "Get the spec schema for creating a namespace-scoped workflow. " +
+			"Returns the full JSON schema for WorkflowSpec (runTemplate, parameters definition, " +
+			"repository defaults, etc.). Call this before create_workflow to understand the spec structure.",
+		InputSchema: createSchema(map[string]any{}, nil),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
+		schema, err := WorkflowCreationSchema()
+		return handleToolResult(schema, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetClusterWorkflowCreationSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_cluster_workflow_creation_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateClusterWorkflow}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: name,
+		Description: "Get the spec schema for creating a cluster-scoped workflow. " +
+			"Returns the full JSON schema for ClusterWorkflowSpec. " +
+			"Call this before create_cluster_workflow to understand the spec structure.",
+		InputSchema: createSchema(map[string]any{}, nil),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
+		schema, err := ClusterWorkflowCreationSchema()
+		return handleToolResult(schema, err)
+	})
+}
+
 // ---------------------------------------------------------------------------
 // PE Toolset — Platform standards write (namespace-scoped)
 // ---------------------------------------------------------------------------

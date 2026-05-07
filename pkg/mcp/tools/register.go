@@ -142,6 +142,9 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterGetComponentTypeCreationSchema,
 		t.RegisterGetClusterComponentTypeCreationSchema,
 		t.RegisterGetTraitCreationSchema,
+		t.RegisterGetClusterTraitCreationSchema,
+		t.RegisterGetWorkflowCreationSchema,
+		t.RegisterGetClusterWorkflowCreationSchema,
 
 		// Platform standards write (namespace-scoped)
 		t.RegisterCreateComponentType,

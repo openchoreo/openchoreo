@@ -31,6 +31,43 @@ func TestTraitCreationSchema(t *testing.T) {
 	assertTraitSpecSchema(t, schema, "Trait")
 }
 
+func TestClusterTraitCreationSchema(t *testing.T) {
+	schema, err := ClusterTraitCreationSchema()
+	if err != nil {
+		t.Fatalf("ClusterTraitCreationSchema() error: %v", err)
+	}
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("ClusterTrait schema missing 'properties'")
+	}
+	// ClusterTrait has the same shape as Trait minus 'validations' (per skills/skills/CLAUDE.md notes).
+	for _, field := range []string{"creates", "patches", "parameters", "environmentConfigs"} {
+		if _, exists := props[field]; !exists {
+			t.Errorf("ClusterTrait schema missing optional field %q", field)
+		}
+	}
+}
+
+func TestWorkflowCreationSchema(t *testing.T) {
+	schema, err := WorkflowCreationSchema()
+	if err != nil {
+		t.Fatalf("WorkflowCreationSchema() error: %v", err)
+	}
+	if _, ok := schema["properties"].(map[string]any); !ok {
+		t.Fatalf("Workflow schema missing 'properties'")
+	}
+}
+
+func TestClusterWorkflowCreationSchema(t *testing.T) {
+	schema, err := ClusterWorkflowCreationSchema()
+	if err != nil {
+		t.Fatalf("ClusterWorkflowCreationSchema() error: %v", err)
+	}
+	if _, ok := schema["properties"].(map[string]any); !ok {
+		t.Fatalf("ClusterWorkflow schema missing 'properties'")
+	}
+}
+
 func assertTraitSpecSchema(t *testing.T, schema map[string]any, kind string) {
 	t.Helper()
 

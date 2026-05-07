@@ -18,9 +18,15 @@ var crdSpecSchemas struct {
 	componentType           map[string]any
 	clusterComponentType    map[string]any
 	trait                   map[string]any
+	clusterTrait            map[string]any
+	workflow                map[string]any
+	clusterWorkflow         map[string]any
 	componentTypeErr        error
 	clusterComponentTypeErr error
 	traitErr                error
+	clusterTraitErr         error
+	workflowErr             error
+	clusterWorkflowErr      error
 }
 
 // ComponentTypeCreationSchema returns the JSON schema for the ComponentType spec,
@@ -44,6 +50,24 @@ func TraitCreationSchema() (map[string]any, error) {
 	return crdSpecSchemas.trait, crdSpecSchemas.traitErr
 }
 
+// ClusterTraitCreationSchema returns the JSON schema for the ClusterTrait spec.
+func ClusterTraitCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.clusterTrait, crdSpecSchemas.clusterTraitErr
+}
+
+// WorkflowCreationSchema returns the JSON schema for the Workflow spec.
+func WorkflowCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.workflow, crdSpecSchemas.workflowErr
+}
+
+// ClusterWorkflowCreationSchema returns the JSON schema for the ClusterWorkflow spec.
+func ClusterWorkflowCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.clusterWorkflow, crdSpecSchemas.clusterWorkflowErr
+}
+
 func parseCRDSchemas() {
 	crdSpecSchemas.componentType, crdSpecSchemas.componentTypeErr = extractSpecSchema(
 		"bases/openchoreo.dev_componenttypes.yaml",
@@ -53,6 +77,15 @@ func parseCRDSchemas() {
 	)
 	crdSpecSchemas.trait, crdSpecSchemas.traitErr = extractSpecSchema(
 		"bases/openchoreo.dev_traits.yaml",
+	)
+	crdSpecSchemas.clusterTrait, crdSpecSchemas.clusterTraitErr = extractSpecSchema(
+		"bases/openchoreo.dev_clustertraits.yaml",
+	)
+	crdSpecSchemas.workflow, crdSpecSchemas.workflowErr = extractSpecSchema(
+		"bases/openchoreo.dev_workflows.yaml",
+	)
+	crdSpecSchemas.clusterWorkflow, crdSpecSchemas.clusterWorkflowErr = extractSpecSchema(
+		"bases/openchoreo.dev_clusterworkflows.yaml",
 	)
 }
 
