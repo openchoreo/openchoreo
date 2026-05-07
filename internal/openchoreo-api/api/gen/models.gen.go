@@ -2415,13 +2415,31 @@ type Pagination struct {
 	RemainingCount *int64 `json:"remainingCount,omitempty"`
 }
 
-// PatchComponentRequest Request to patch a component
+// PatchComponentRequest Request to patch a component. All fields are optional. Each field follows partial-update
+// semantics: a field that is omitted from the request leaves the corresponding component
+// attribute unchanged. A provided field is applied as described below.
 type PatchComponentRequest struct {
 	// AutoDeploy Controls auto-deployment to default environment
 	AutoDeploy *bool `json:"autoDeploy,omitempty"`
 
+	// Description Human-readable description. When provided, replaces the existing description.
+	// Empty string is treated as "no change" (omit the field instead).
+	Description *string `json:"description,omitempty"`
+
+	// DisplayName Human-readable display name. When provided, replaces the existing display name.
+	// Empty string is treated as "no change" (omit the field instead).
+	DisplayName *string `json:"displayName,omitempty"`
+
 	// Parameters ComponentType parameters
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// Traits Trait instances attached to the component. When provided, replaces the entire
+	// traits list (whole-list replace at the slice level). Pass an empty array to
+	// clear all traits.
+	Traits *[]ComponentTraitInput `json:"traits,omitempty"`
+
+	// Workflow Workflow configuration for component creation
+	Workflow *ComponentWorkflowInput `json:"workflow,omitempty"`
 }
 
 // PendingConnection Represents a connection that could not be resolved

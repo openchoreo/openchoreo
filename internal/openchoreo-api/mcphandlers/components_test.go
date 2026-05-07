@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	clustercomponenttypemocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype/mocks"
@@ -401,6 +402,148 @@ func TestPatchComponent(t *testing.T) {
 		h := newTestHandler(withComponentService(compSvc))
 		_, err := h.PatchComponent(ctx, testNS, testComponent, &gen.PatchComponentRequest{})
 		require.Error(t, err)
+	})
+
+	t.Run("updates DisplayName and Description annotations", func(t *testing.T) {
+		compSvc := componentmocks.NewMockService(t)
+		compSvc.EXPECT().GetComponent(mock.Anything, testNS, testComponent).Return(freshComponent(), nil)
+		compSvc.EXPECT().
+			UpdateComponent(mock.Anything, testNS, mock.MatchedBy(func(c *openchoreov1alpha1.Component) bool {
+				return c.Annotations[controller.AnnotationKeyDisplayName] == "My Component" &&
+					c.Annotations[controller.AnnotationKeyDescription] == "A test component"
+			})).
+			Return(freshComponent(), nil)
+
+		dn, desc := "My Component", "A test component"
+		h := newTestHandler(withComponentService(compSvc))
+		_, err := h.PatchComponent(ctx, testNS, testComponent, &gen.PatchComponentRequest{
+			DisplayName: &dn,
+			Description: &desc,
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("empty DisplayName is treated as no-change", func(t *testing.T) {
+		existing := freshComponent()
+		existing.Annotations = map[string]string{
+			controller.AnnotationKeyDisplayName: "Original Name",
+		}
+		compSvc := componentmocks.NewMockService(t)
+		compSvc.EXPECT().GetComponent(mock.Anything, testNS, testComponent).Return(existing, nil)
+		compSvc.EXPECT().
+			UpdateComponent(mock.Anything, testNS, mock.MatchedBy(func(c *openchoreov1alpha1.Component) bool {
+				return c.Annotations[controller.AnnotationKeyDisplayName] == "Original Name"
+			})).
+			Return(existing, nil)
+
+		empty := ""
+		h := newTestHandler(withComponentService(compSvc))
+		_, err := h.PatchComponent(ctx, testNS, testComponent, &gen.PatchComponentRequest{DisplayName: &empty})
+		require.NoError(t, err)
+	})
+
+	t.Run("replaces Traits with new list", func(t *testing.T) {
+		existing := freshComponent()
+		existing.Spec.Traits = []openchoreov1alpha1.ComponentTrait{
+			{Name: "old-trait", InstanceName: "old"},
+		}
+		compSvc := componentmocks.NewMockService(t)
+		compSvc.EXPECT().GetComponent(mock.Anything, testNS, testComponent).Return(existing, nil)
+
+		params := map[string]interface{}{"min": 1.0, "max": 5.0}
+		expectedRaw, _ := json.Marshal(params)
+		compSvc.EXPECT().
+			UpdateComponent(mock.Anything, testNS, mock.MatchedBy(func(c *openchoreov1alpha1.Component) bool {
+				if len(c.Spec.Traits) != 1 {
+					return false
+				}
+				tr := c.Spec.Traits[0]
+				return tr.Name == "autoscaler" &&
+					tr.InstanceName == "api-autoscaler" &&
+					tr.Kind == openchoreov1alpha1.TraitRefKind("ClusterTrait") &&
+					tr.Parameters != nil && string(tr.Parameters.Raw) == string(expectedRaw)
+			})).
+			Return(existing, nil)
+
+		clusterKind := gen.ComponentTraitInputKindClusterTrait
+		traits := []gen.ComponentTraitInput{
+			{
+				Name:         "autoscaler",
+				InstanceName: "api-autoscaler",
+				Kind:         &clusterKind,
+				Parameters:   &params,
+			},
+		}
+		h := newTestHandler(withComponentService(compSvc))
+		_, err := h.PatchComponent(ctx, testNS, testComponent, &gen.PatchComponentRequest{Traits: &traits})
+		require.NoError(t, err)
+	})
+
+	t.Run("empty Traits clears all traits", func(t *testing.T) {
+		existing := freshComponent()
+		existing.Spec.Traits = []openchoreov1alpha1.ComponentTrait{
+			{Name: "to-be-removed", InstanceName: "x"},
+		}
+		compSvc := componentmocks.NewMockService(t)
+		compSvc.EXPECT().GetComponent(mock.Anything, testNS, testComponent).Return(existing, nil)
+		compSvc.EXPECT().
+			UpdateComponent(mock.Anything, testNS, mock.MatchedBy(func(c *openchoreov1alpha1.Component) bool {
+				return c.Spec.Traits != nil && len(c.Spec.Traits) == 0
+			})).
+			Return(existing, nil)
+
+		empty := []gen.ComponentTraitInput{}
+		h := newTestHandler(withComponentService(compSvc))
+		_, err := h.PatchComponent(ctx, testNS, testComponent, &gen.PatchComponentRequest{Traits: &empty})
+		require.NoError(t, err)
+	})
+
+	t.Run("nil Traits leaves existing traits unchanged", func(t *testing.T) {
+		existing := freshComponent()
+		existing.Spec.Traits = []openchoreov1alpha1.ComponentTrait{
+			{Name: "keep-me", InstanceName: "k"},
+		}
+		compSvc := componentmocks.NewMockService(t)
+		compSvc.EXPECT().GetComponent(mock.Anything, testNS, testComponent).Return(existing, nil)
+		compSvc.EXPECT().
+			UpdateComponent(mock.Anything, testNS, mock.MatchedBy(func(c *openchoreov1alpha1.Component) bool {
+				return len(c.Spec.Traits) == 1 && c.Spec.Traits[0].Name == "keep-me"
+			})).
+			Return(existing, nil)
+
+		h := newTestHandler(withComponentService(compSvc))
+		_, err := h.PatchComponent(ctx, testNS, testComponent, &gen.PatchComponentRequest{})
+		require.NoError(t, err)
+	})
+
+	t.Run("replaces Workflow", func(t *testing.T) {
+		existing := freshComponent()
+		existing.Spec.Workflow = &openchoreov1alpha1.ComponentWorkflowConfig{Name: "old-builder"}
+		compSvc := componentmocks.NewMockService(t)
+		compSvc.EXPECT().GetComponent(mock.Anything, testNS, testComponent).Return(existing, nil)
+
+		params := map[string]interface{}{"branch": "main"}
+		expectedRaw, _ := json.Marshal(params)
+		compSvc.EXPECT().
+			UpdateComponent(mock.Anything, testNS, mock.MatchedBy(func(c *openchoreov1alpha1.Component) bool {
+				return c.Spec.Workflow != nil &&
+					c.Spec.Workflow.Name == "docker-build" &&
+					c.Spec.Workflow.Kind == openchoreov1alpha1.WorkflowRefKind("ClusterWorkflow") &&
+					c.Spec.Workflow.Parameters != nil &&
+					string(c.Spec.Workflow.Parameters.Raw) == string(expectedRaw)
+			})).
+			Return(existing, nil)
+
+		clusterKind := gen.ComponentWorkflowInputKindClusterWorkflow
+		h := newTestHandler(withComponentService(compSvc))
+		_, err := h.PatchComponent(ctx, testNS, testComponent, &gen.PatchComponentRequest{
+			Workflow: &gen.ComponentWorkflowInput{
+				Name:       "docker-build",
+				Kind:       &clusterKind,
+				Parameters: &params,
+			},
+		})
+		require.NoError(t, err)
 	})
 }
 

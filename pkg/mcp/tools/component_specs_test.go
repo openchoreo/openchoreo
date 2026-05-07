@@ -132,7 +132,7 @@ func componentBasicSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"patch", "component"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "component_name"},
-			optionalParams:      []string{"auto_deploy", "parameters"},
+			optionalParams:      []string{"display_name", "description", "auto_deploy", "parameters", "traits", "workflow"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"component_name": testComponentName,

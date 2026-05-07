@@ -7718,8 +7718,21 @@ components:
     # -------------------------------------------------------------------------
     PatchComponentRequest:
       type: object
-      description: Request to patch a component
+      description: |
+        Request to patch a component. All fields are optional. Each field follows partial-update
+        semantics: a field that is omitted from the request leaves the corresponding component
+        attribute unchanged. A provided field is applied as described below.
       properties:
+        displayName:
+          type: string
+          description: |
+            Human-readable display name. When provided, replaces the existing display name.
+            Empty string is treated as "no change" (omit the field instead).
+        description:
+          type: string
+          description: |
+            Human-readable description. When provided, replaces the existing description.
+            Empty string is treated as "no change" (omit the field instead).
         autoDeploy:
           type: boolean
           description: Controls auto-deployment to default environment
@@ -7728,6 +7741,16 @@ components:
           type: object
           description: ComponentType parameters
           additionalProperties: true
+        traits:
+          type: array
+          description: |
+            Trait instances attached to the component. When provided, replaces the entire
+            traits list (whole-list replace at the slice level). Pass an empty array to
+            clear all traits.
+          items:
+            $ref: '#/components/schemas/ComponentTraitInput'
+        workflow:
+          $ref: '#/components/schemas/ComponentWorkflowInput'
 
     ComponentTrait:
       type: object

@@ -202,28 +202,11 @@ func (t *Toolsets) RegisterCreateComponent(s *mcp.Server, perms map[string]ToolP
 			componentReq.Parameters = &args.Parameters
 		}
 
-		// Convert workflow if provided
 		if args.Workflow != nil {
-			workflow := &gen.ComponentWorkflowInput{}
-			if name, ok := args.Workflow["name"].(string); ok {
-				workflow.Name = name
+			workflow, err := parseComponentWorkflowInput(args.Workflow)
+			if err != nil {
+				return nil, nil, err
 			}
-
-			// Convert kind if provided
-			if kind, ok := args.Workflow["kind"].(string); ok && kind != "" {
-				if kind != string(gen.ComponentWorkflowInputKindClusterWorkflow) &&
-					kind != string(gen.ComponentWorkflowInputKindWorkflow) {
-					return nil, nil, fmt.Errorf("invalid workflow.kind %q: must be one of [ClusterWorkflow, Workflow]", kind)
-				}
-				k := gen.ComponentWorkflowInputKind(kind)
-				workflow.Kind = &k
-			}
-
-			// Convert parameters if provided
-			if params, ok := args.Workflow["parameters"].(map[string]interface{}); ok {
-				workflow.Parameters = &params
-			}
-
 			componentReq.Workflow = workflow
 		}
 
@@ -673,34 +656,141 @@ func (t *Toolsets) RegisterPatchComponent(s *mcp.Server, perms map[string]ToolPe
 	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateComponent}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: name,
-		Description: "Patch (partially update) a component's configuration. Only the fields provided in the request " +
-			"will be updated; omitted fields remain unchanged. Supports updating autoDeploy and parameters.",
+		Description: "Patch (partially update) a component's configuration. Only the fields provided " +
+			"in the request are updated; omitted fields remain unchanged. Supports updating " +
+			"display_name, description, auto_deploy, parameters, traits, and workflow. " +
+			"Pass an empty array for traits to clear all traits. Component owner and componentType " +
+			"are immutable and cannot be patched.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"component_name": stringProperty("Use list_components to discover valid names"),
+			"display_name":   stringProperty("Optional: Updated human-readable display name. Empty string is treated as no-change."),
+			"description":    stringProperty("Optional: Updated human-readable description. Empty string is treated as no-change."),
 			"auto_deploy": map[string]any{
 				"type":        "boolean",
 				"description": "Optional: Whether the component should automatically deploy to the default environment",
 			},
 			"parameters": map[string]any{
 				"type":        "object",
-				"description": "Optional: Component type parameters (port, replicas, exposed, etc.)",
+				"description": "Optional: Component type parameters (port, replicas, exposed, etc.). Replaces existing parameters.",
+			},
+			"traits": map[string]any{
+				"type": "array",
+				"description": "Optional: Replace the entire traits list. Pass an empty array to clear all traits. " +
+					"Each entry: 'name' (required), 'instanceName' (required, unique per component), " +
+					"'kind' (optional, 'Trait' or 'ClusterTrait', default 'Trait'), 'parameters' (optional object). " +
+					"Use list_cluster_traits or list_traits to discover trait names; " +
+					"use get_cluster_trait_schema or get_trait_schema to inspect parameters.",
+				"items": map[string]any{
+					"type": "object",
+				},
+			},
+			"workflow": map[string]any{
+				"type": "object",
+				"description": "Optional: Replace the workflow configuration. Set 'name' (required), " +
+					"'kind' (optional, 'Workflow' or 'ClusterWorkflow', default 'ClusterWorkflow'), " +
+					"and 'parameters' (optional object) that strictly adhere to the workflow schema. " +
+					"Use list_cluster_workflows or list_workflows to discover names; " +
+					"use get_cluster_workflow_schema or get_workflow_schema to inspect parameters.",
 			},
 		}, []string{"namespace_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string                 `json:"namespace_name"`
-		ComponentName string                 `json:"component_name"`
-		AutoDeploy    *bool                  `json:"auto_deploy,omitempty"`
-		Parameters    map[string]interface{} `json:"parameters,omitempty"`
+		NamespaceName string                    `json:"namespace_name"`
+		ComponentName string                    `json:"component_name"`
+		DisplayName   *string                   `json:"display_name,omitempty"`
+		Description   *string                   `json:"description,omitempty"`
+		AutoDeploy    *bool                     `json:"auto_deploy,omitempty"`
+		Parameters    map[string]interface{}    `json:"parameters,omitempty"`
+		Traits        *[]map[string]interface{} `json:"traits,omitempty"`
+		Workflow      map[string]interface{}    `json:"workflow,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
 		patchReq := &gen.PatchComponentRequest{
-			AutoDeploy: args.AutoDeploy,
+			AutoDeploy:  args.AutoDeploy,
+			DisplayName: args.DisplayName,
+			Description: args.Description,
 		}
 		if args.Parameters != nil {
 			patchReq.Parameters = &args.Parameters
+		}
+		if args.Traits != nil {
+			traits := make([]gen.ComponentTraitInput, 0, len(*args.Traits))
+			for i, raw := range *args.Traits {
+				ti, err := parseComponentTraitInput(raw)
+				if err != nil {
+					return nil, nil, fmt.Errorf("traits[%d]: %w", i, err)
+				}
+				traits = append(traits, ti)
+			}
+			patchReq.Traits = &traits
+		}
+		if args.Workflow != nil {
+			wf, err := parseComponentWorkflowInput(args.Workflow)
+			if err != nil {
+				return nil, nil, err
+			}
+			patchReq.Workflow = wf
 		}
 		result, err := t.ComponentToolset.PatchComponent(
 			ctx, args.NamespaceName, args.ComponentName, patchReq)
 		return handleToolResult(result, err)
 	})
+}
+
+// parseComponentTraitInput converts an untyped MCP arg map into a gen.ComponentTraitInput,
+// validating required fields (name, instanceName) and the optional kind enum.
+func parseComponentTraitInput(raw map[string]interface{}) (gen.ComponentTraitInput, error) {
+	var ti gen.ComponentTraitInput
+	name, _ := raw["name"].(string)
+	if name == "" {
+		return ti, fmt.Errorf("trait 'name' is required and must be a non-empty string")
+	}
+	instanceName, _ := raw["instanceName"].(string)
+	if instanceName == "" {
+		return ti, fmt.Errorf("trait 'instanceName' is required and must be a non-empty string")
+	}
+	ti.Name = name
+	ti.InstanceName = instanceName
+	if kind, ok := raw["kind"].(string); ok && kind != "" {
+		if kind != string(gen.ComponentTraitInputKindTrait) &&
+			kind != string(gen.ComponentTraitInputKindClusterTrait) {
+			return ti, fmt.Errorf("invalid trait 'kind' %q: must be one of [Trait, ClusterTrait]", kind)
+		}
+		k := gen.ComponentTraitInputKind(kind)
+		ti.Kind = &k
+	}
+	if rawParams, exists := raw["parameters"]; exists && rawParams != nil {
+		params, ok := rawParams.(map[string]interface{})
+		if !ok {
+			return ti, fmt.Errorf("trait 'parameters' must be an object")
+		}
+		ti.Parameters = &params
+	}
+	return ti, nil
+}
+
+// parseComponentWorkflowInput converts an untyped MCP arg map into a *gen.ComponentWorkflowInput,
+// validating the required name field and the optional kind enum.
+func parseComponentWorkflowInput(raw map[string]interface{}) (*gen.ComponentWorkflowInput, error) {
+	wf := &gen.ComponentWorkflowInput{}
+	name, _ := raw["name"].(string)
+	if name == "" {
+		return nil, fmt.Errorf("workflow 'name' is required and must be a non-empty string")
+	}
+	wf.Name = name
+	if kind, ok := raw["kind"].(string); ok && kind != "" {
+		if kind != string(gen.ComponentWorkflowInputKindClusterWorkflow) &&
+			kind != string(gen.ComponentWorkflowInputKindWorkflow) {
+			return nil, fmt.Errorf("invalid workflow 'kind' %q: must be one of [ClusterWorkflow, Workflow]", kind)
+		}
+		k := gen.ComponentWorkflowInputKind(kind)
+		wf.Kind = &k
+	}
+	if rawParams, exists := raw["parameters"]; exists && rawParams != nil {
+		params, ok := rawParams.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("workflow 'parameters' must be an object")
+		}
+		wf.Parameters = &params
+	}
+	return wf, nil
 }

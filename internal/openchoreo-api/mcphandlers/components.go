@@ -385,6 +385,18 @@ func (h *MCPHandler) PatchComponent(
 		return nil, err
 	}
 
+	if req.DisplayName != nil && *req.DisplayName != "" {
+		if component.Annotations == nil {
+			component.Annotations = map[string]string{}
+		}
+		component.Annotations[controller.AnnotationKeyDisplayName] = *req.DisplayName
+	}
+	if req.Description != nil && *req.Description != "" {
+		if component.Annotations == nil {
+			component.Annotations = map[string]string{}
+		}
+		component.Annotations[controller.AnnotationKeyDescription] = *req.Description
+	}
 	if req.AutoDeploy != nil {
 		component.Spec.AutoDeploy = *req.AutoDeploy
 	}
@@ -394,6 +406,45 @@ func (h *MCPHandler) PatchComponent(
 			return nil, err
 		}
 		component.Spec.Parameters = &runtime.RawExtension{Raw: paramsBytes}
+	}
+	if req.Traits != nil {
+		traits := make([]openchoreov1alpha1.ComponentTrait, 0, len(*req.Traits))
+		for _, ti := range *req.Traits {
+			ct := openchoreov1alpha1.ComponentTrait{
+				Name:         ti.Name,
+				InstanceName: ti.InstanceName,
+			}
+			if ti.Kind != nil {
+				ct.Kind = openchoreov1alpha1.TraitRefKind(*ti.Kind)
+			}
+			if ti.Parameters != nil {
+				paramsBytes, err := json.Marshal(*ti.Parameters)
+				if err != nil {
+					return nil, err
+				}
+				ct.Parameters = &runtime.RawExtension{Raw: paramsBytes}
+			}
+			traits = append(traits, ct)
+		}
+		component.Spec.Traits = traits
+	}
+	if req.Workflow != nil {
+		var workflowParams *runtime.RawExtension
+		if req.Workflow.Parameters != nil {
+			paramsBytes, err := json.Marshal(*req.Workflow.Parameters)
+			if err != nil {
+				return nil, err
+			}
+			workflowParams = &runtime.RawExtension{Raw: paramsBytes}
+		}
+		workflowConfig := &openchoreov1alpha1.ComponentWorkflowConfig{
+			Name:       req.Workflow.Name,
+			Parameters: workflowParams,
+		}
+		if req.Workflow.Kind != nil {
+			workflowConfig.Kind = openchoreov1alpha1.WorkflowRefKind(*req.Workflow.Kind)
+		}
+		component.Spec.Workflow = workflowConfig
 	}
 
 	updated, err := h.services.ComponentService.UpdateComponent(ctx, namespaceName, component)
