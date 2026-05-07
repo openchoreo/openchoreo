@@ -2282,10 +2282,7 @@
                       "type": "integer"
                     }
                   },
-                  "required": [
-                    "maxAttempts",
-                    "backoffMs"
-                  ],
+                  "required": [],
                   "title": "retry",
                   "type": "object"
                 }
@@ -2447,6 +2444,7 @@
                 "type": "string"
               },
               "default": {},
+              "description": "Annotations to add to the service account",
               "required": [],
               "title": "annotations",
               "type": "object"
@@ -2464,8 +2462,7 @@
           },
           "required": [
             "create",
-            "name",
-            "annotations"
+            "name"
           ],
           "title": "serviceAccount",
           "type": "object"
