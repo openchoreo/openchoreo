@@ -323,12 +323,13 @@ paths:
       - name: sourceType
         in: path
         required: true
-        description: The source type of the alert rule (log or metric)
+        description: The source type of the alert rule (log, metric, or budget)
         schema:
           type: string
           enum:
             - log
             - metric
+            - budget
     post:
       tags:
         - Alerts
@@ -372,12 +373,13 @@ paths:
       - name: sourceType
         in: path
         required: true
-        description: The source type of the alert rule (log or metric)
+        description: The source type of the alert rule (log, metric, or budget)
         schema:
           type: string
           enum:
             - log
             - metric
+            - budget
       - name: ruleName
         in: path
         required: true
@@ -1131,6 +1133,7 @@ components:
               enum:
                 - log
                 - metric
+                - budget
             query:
               type: string
               description: The query to execute for log based alerts
@@ -1201,6 +1204,7 @@ components:
               enum:
                 - log
                 - metric
+                - budget
             query:
               type: string
               description: The query to execute for log based alerts
@@ -1382,6 +1386,7 @@ components:
                             enum:
                               - log
                               - metric
+                              - budget
                           query:
                             type: string
                             description: The query used for log-based alerts

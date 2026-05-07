@@ -1872,6 +1872,7 @@ spec:
               enum:
                 - log
                 - metric
+                - budget
               description: "The data source type for the alert rule."
             query:
               type: string

@@ -66,6 +66,12 @@ spec:
                         description: Enabled toggles whether an incident should be
                           triggered when the alert rule is triggered.
                         type: boolean
+                      triggerAiCostAnalysis:
+                        default: false
+                        description: |-
+                          TriggerAiCostAnalysis toggles whether an AI cost analysis should be triggered when an incident is created.
+                          To set this to true, Enabled must also be set to true.
+                        type: boolean
                       triggerAiRca:
                         default: false
                         description: |-
@@ -76,6 +82,9 @@ spec:
                     x-kubernetes-validations:
                     - message: Incident must be enabled to trigger AI RCA
                       rule: 'self.triggerAiRca == true ? self.enabled == true : true'
+                    - message: Incident must be enabled to trigger AI cost analysis
+                      rule: 'self.triggerAiCostAnalysis == true ? self.enabled ==
+                        true : true'
                   notifications:
                     description: Notifications defines the notifications to send when
                       the alert rule is triggered.
@@ -161,6 +170,7 @@ spec:
                     enum:
                     - log
                     - metric
+                    - budget
                     type: string
                 required:
                 - type

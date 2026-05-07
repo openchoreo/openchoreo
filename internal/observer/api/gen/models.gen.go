@@ -33,6 +33,7 @@ const (
 
 // Defines values for AlertRuleRequestSourceType.
 const (
+	AlertRuleRequestSourceTypeBudget AlertRuleRequestSourceType = "budget"
 	AlertRuleRequestSourceTypeLog    AlertRuleRequestSourceType = "log"
 	AlertRuleRequestSourceTypeMetric AlertRuleRequestSourceType = "metric"
 )
@@ -55,6 +56,7 @@ const (
 
 // Defines values for AlertRuleResponseSourceType.
 const (
+	AlertRuleResponseSourceTypeBudget AlertRuleResponseSourceType = "budget"
 	AlertRuleResponseSourceTypeLog    AlertRuleResponseSourceType = "log"
 	AlertRuleResponseSourceTypeMetric AlertRuleResponseSourceType = "metric"
 )
@@ -104,6 +106,7 @@ const (
 
 // Defines values for AlertsQueryResponseAlertsMetadataAlertRuleSourceType.
 const (
+	Budget AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "budget"
 	Log    AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "log"
 	Metric AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "metric"
 )

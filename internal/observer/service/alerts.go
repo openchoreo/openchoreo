@@ -44,6 +44,7 @@ const (
 
 	sourceTypeLog    = "log"
 	sourceTypeMetric = "metric"
+	sourceTypeBudget = "budget"
 )
 
 // AlertOpenSearchClient defines the OpenSearch operations used by AlertService.
@@ -129,6 +130,8 @@ func (s *AlertService) CreateAlertRule(ctx context.Context, req gen.AlertRuleReq
 			return s.createMetricAlertRuleViaAdapter(ctx, req)
 		}
 		return s.createPrometheusAlertRule(ctx, req)
+	case sourceTypeBudget:
+		return s.createBudgetAlertRule(ctx, req)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
 	}
@@ -149,6 +152,8 @@ func (s *AlertService) GetAlertRule(ctx context.Context, ruleName, sourceType st
 			return s.getMetricAlertRuleViaAdapter(ctx, ruleName)
 		}
 		return s.getPrometheusAlertRule(ctx, ruleName)
+	case sourceTypeBudget:
+		return s.getBudgetAlertRule(ctx, ruleName)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
 	}
@@ -177,6 +182,8 @@ func (s *AlertService) UpdateAlertRule(ctx context.Context, ruleName string, req
 			return s.updateMetricAlertRuleViaAdapter(ctx, ruleName, req)
 		}
 		return s.updatePrometheusAlertRule(ctx, ruleName, req)
+	case sourceTypeBudget:
+		return s.updateBudgetAlertRule(ctx, ruleName, req)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
 	}
@@ -197,6 +204,8 @@ func (s *AlertService) DeleteAlertRule(ctx context.Context, ruleName, sourceType
 			return s.deleteMetricAlertRuleViaAdapter(ctx, ruleName)
 		}
 		return s.deletePrometheusAlertRule(ctx, ruleName)
+	case sourceTypeBudget:
+		return s.deleteBudgetAlertRule(ctx, ruleName)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
 	}

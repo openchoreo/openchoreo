@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -266,5 +267,88 @@ func TestAlertServiceRouting(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// TestBudgetAlertServiceRouting verifies that budget alerts are routed to the stub implementation.
+func TestBudgetAlertServiceRouting(t *testing.T) {
+	t.Parallel()
+
+	ruleName := "budget-rule"
+
+	budgetAlertReq := gen.AlertRuleRequest{
+		Source: struct {
+			Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
+			Query  *string                           `json:"query,omitempty"`
+			Type   gen.AlertRuleRequestSourceType    `json:"type"`
+		}{
+			Type: gen.AlertRuleRequestSourceTypeBudget,
+		},
+		//nolint:revive,staticcheck // field names match generated code
+		Metadata: struct {
+			ComponentUid   openapi_types.UUID `json:"componentUid"`
+			EnvironmentUid openapi_types.UUID `json:"environmentUid"`
+			Name           string             `json:"name"`
+			Namespace      string             `json:"namespace"`
+			ProjectUid     openapi_types.UUID `json:"projectUid"`
+		}{
+			Name:      ruleName,
+			Namespace: "test-ns",
+		},
+		Condition: struct {
+			Enabled   bool                                  `json:"enabled"`
+			Interval  string                                `json:"interval"`
+			Operator  gen.AlertRuleRequestConditionOperator `json:"operator"`
+			Threshold float32                               `json:"threshold"`
+			Window    string                                `json:"window"`
+		}{
+			Enabled:   true,
+			Interval:  "1h",
+			Operator:  gen.AlertRuleRequestConditionOperatorGt,
+			Threshold: float32(5),
+			Window:    "24h",
+		},
+	}
+
+	cfg := &config.Config{}
+	svc := &AlertService{
+		config: cfg,
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+
+	// Test Create
+	resp, err := svc.CreateAlertRule(context.Background(), budgetAlertReq)
+	if err != nil {
+		t.Fatalf("CreateAlertRule failed: %v", err)
+	}
+	if resp == nil || resp.Action == nil || string(*resp.Action) != "created" {
+		t.Fatalf("CreateAlertRule response invalid: %+v", resp)
+	}
+
+	// Test Update
+	resp, err = svc.UpdateAlertRule(context.Background(), ruleName, budgetAlertReq)
+	if err != nil {
+		t.Fatalf("UpdateAlertRule failed: %v", err)
+	}
+	if resp == nil || resp.Action == nil || string(*resp.Action) != "updated" {
+		t.Fatalf("UpdateAlertRule response invalid: %+v", resp)
+	}
+
+	// Test Get (should return not found since stub always returns not found)
+	_, err = svc.GetAlertRule(context.Background(), ruleName, sourceTypeBudget)
+	if err == nil {
+		t.Fatalf("GetAlertRule should return not found for budget stub")
+	}
+	if !errors.Is(err, ErrAlertRuleNotFound) {
+		t.Fatalf("GetAlertRule should return ErrAlertRuleNotFound, got: %v", err)
+	}
+
+	// Test Delete
+	resp, err = svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeBudget)
+	if err != nil {
+		t.Fatalf("DeleteAlertRule failed: %v", err)
+	}
+	if resp == nil || resp.Action == nil || string(*resp.Action) != "deleted" {
+		t.Fatalf("DeleteAlertRule response invalid: %+v", resp)
 	}
 }

@@ -23,7 +23,7 @@ const (
 )
 
 // ObservabilityAlertSourceType identifies the origin of the telemetry data.
-// +kubebuilder:validation:Enum=log;metric
+// +kubebuilder:validation:Enum=log;metric;budget
 type ObservabilityAlertSourceType string
 
 const (
@@ -31,6 +31,8 @@ const (
 	ObservabilityAlertSourceTypeLog ObservabilityAlertSourceType = "log"
 	// ObservabilityAlertSourceTypeMetric represents metric-based alerting.
 	ObservabilityAlertSourceTypeMetric ObservabilityAlertSourceType = "metric"
+	// ObservabilityAlertSourceTypeBudget represents budget-based alerting.
+	ObservabilityAlertSourceTypeBudget ObservabilityAlertSourceType = "budget"
 )
 
 // ObservabilityAlertConditionOperator describes how a computed signal is evaluated.
@@ -143,6 +145,7 @@ type NotificationChannelName string
 
 // ObservabilityAlertIncident defines the incident to trigger when the alert rule is triggered.
 // +kubebuilder:validation:XValidation:rule="self.triggerAiRca == true ? self.enabled == true : true",message="Incident must be enabled to trigger AI RCA"
+// +kubebuilder:validation:XValidation:rule="self.triggerAiCostAnalysis == true ? self.enabled == true : true",message="Incident must be enabled to trigger AI cost analysis"
 type ObservabilityAlertIncident struct {
 	// Enabled toggles whether an incident should be triggered when the alert rule is triggered.
 	// +optional
@@ -154,6 +157,12 @@ type ObservabilityAlertIncident struct {
 	// +optional
 	// +kubebuilder:default:=false
 	TriggerAiRca *bool `json:"triggerAiRca,omitempty"`
+
+	// TriggerAiCostAnalysis toggles whether an AI cost analysis should be triggered when an incident is created.
+	// To set this to true, Enabled must also be set to true.
+	// +optional
+	// +kubebuilder:default:=false
+	TriggerAiCostAnalysis *bool `json:"triggerAiCostAnalysis,omitempty"`
 }
 
 // ObservabilityAlertRulePhase represents the current phase of the rule.

@@ -24,6 +24,7 @@ const (
 
 	sourceTypeLog    = "log"
 	sourceTypeMetric = "metric"
+	sourceTypeBudget = "budget"
 )
 
 // ValidateLogsQueryRequest validates the LogsQueryRequest
@@ -244,8 +245,8 @@ func validateAlertRuleRequest(req gen.AlertRuleRequest) error {
 
 	// Source validations
 	sourceType := string(req.Source.Type)
-	if sourceType != sourceTypeLog && sourceType != sourceTypeMetric {
-		return fmt.Errorf("source.type must be 'log' or 'metric'")
+	if sourceType != sourceTypeLog && sourceType != sourceTypeMetric && sourceType != sourceTypeBudget {
+		return fmt.Errorf("source.type must be 'log', 'metric', or 'budget'")
 	}
 	if sourceType == sourceTypeLog {
 		if req.Source.Query == nil || strings.TrimSpace(*req.Source.Query) == "" {
@@ -298,10 +299,10 @@ func validateAlertRuleRequest(req gen.AlertRuleRequest) error {
 // Returns an error with a descriptive message for use in a 400 Bad Request response.
 func validateSourceType(sourceType string) error {
 	switch sourceType {
-	case sourceTypeLog, sourceTypeMetric:
+	case sourceTypeLog, sourceTypeMetric, sourceTypeBudget:
 		return nil
 	default:
-		return fmt.Errorf("sourceType %q is invalid: must be 'log' or 'metric'", sourceType)
+		return fmt.Errorf("sourceType %q is invalid: must be 'log', 'metric', or 'budget'", sourceType)
 	}
 }
 
