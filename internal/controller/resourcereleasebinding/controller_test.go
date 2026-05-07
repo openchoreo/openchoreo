@@ -15,6 +15,8 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/labels"
 	resourcepipeline "github.com/openchoreo/openchoreo/internal/pipeline/resource"
 )
 
@@ -189,6 +191,95 @@ var _ = Describe("ResourceReleaseBinding controller — resolve and validate", f
 		Expect(cond).NotTo(BeNil(), "expected Synced condition to be set")
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(string(ReasonEnvironmentNotFound)))
+	})
+
+	It("sets Synced=False, Reason=ResourceNotFound when the owning Resource does not exist", func() {
+		release := snapshotForOwner("resmissing-release", "test-project", "missing-resource")
+		Expect(k8sClient.Create(ctx, release)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, release) })
+
+		dp := &openchoreov1alpha1.DataPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: "resmissing-dp", Namespace: "default"},
+		}
+		Expect(k8sClient.Create(ctx, dp)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, dp) })
+
+		env := &openchoreov1alpha1.Environment{
+			ObjectMeta: metav1.ObjectMeta{Name: "resmissing-env", Namespace: "default"},
+			Spec: openchoreov1alpha1.EnvironmentSpec{
+				DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
+					Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane,
+					Name: dp.Name,
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, env)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, env) })
+
+		// Binding owner deliberately points at a Resource that doesn't exist.
+		b := newBinding("resmissing-binding", release.Name, env.Name)
+		b.Spec.Owner.ResourceName = "missing-resource"
+		Expect(k8sClient.Create(ctx, b)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, b) })
+
+		updated := reconcileBinding(b)
+
+		cond := meta.FindStatusCondition(updated.Status.Conditions, string(ConditionSynced))
+		Expect(cond).NotTo(BeNil())
+		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+		Expect(cond.Reason).To(Equal(string(ReasonResourceNotFound)))
+	})
+
+	It("sets Synced=False, Reason=ProjectNotFound when the owning Project does not exist", func() {
+		release := snapshotForOwner("projmissing-release", "missing-project", "projmissing-resource")
+		Expect(k8sClient.Create(ctx, release)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, release) })
+
+		// Project doesn't exist; we still need a Resource that points back
+		// at the same project the binding claims, so owner alignment passes.
+		proxyResource := &openchoreov1alpha1.Resource{
+			ObjectMeta: metav1.ObjectMeta{Name: "projmissing-resource", Namespace: "default"},
+			Spec: openchoreov1alpha1.ResourceSpec{
+				Owner: openchoreov1alpha1.ResourceOwner{ProjectName: "missing-project"},
+				Type: openchoreov1alpha1.ResourceTypeRef{
+					Kind: openchoreov1alpha1.ResourceTypeRefKindResourceType,
+					Name: "mysql",
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, proxyResource)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, proxyResource) })
+
+		dp := &openchoreov1alpha1.DataPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: "projmissing-dp", Namespace: "default"},
+		}
+		Expect(k8sClient.Create(ctx, dp)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, dp) })
+
+		env := &openchoreov1alpha1.Environment{
+			ObjectMeta: metav1.ObjectMeta{Name: "projmissing-env", Namespace: "default"},
+			Spec: openchoreov1alpha1.EnvironmentSpec{
+				DataPlaneRef: &openchoreov1alpha1.DataPlaneRef{
+					Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane,
+					Name: dp.Name,
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, env)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, env) })
+
+		b := newBinding("projmissing-binding", release.Name, env.Name)
+		b.Spec.Owner.ProjectName = "missing-project"
+		b.Spec.Owner.ResourceName = "projmissing-resource"
+		Expect(k8sClient.Create(ctx, b)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, b) })
+
+		updated := reconcileBinding(b)
+
+		cond := meta.FindStatusCondition(updated.Status.Conditions, string(ConditionSynced))
+		Expect(cond).NotTo(BeNil())
+		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+		Expect(cond.Reason).To(Equal(string(ReasonProjectNotFound)))
 	})
 
 	It("sets Synced=False, Reason=DataPlaneNotFound when the Environment's dataPlaneRef does not resolve", func() {
@@ -1513,5 +1604,71 @@ var _ = Describe("ResourceReleaseBinding controller — outputs and readiness", 
 		Expect(cond).NotTo(BeNil())
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(string(ReasonResourcesProgressing)))
+	})
+})
+
+// metadata-name covers the platform-computed base name and label set the
+// pipeline exposes to PE templates. The Component side and Resource side
+// share a DP namespace, so the name shape needs to keep Resource-emitted
+// objects from clashing with Component-emitted ones.
+var _ = Describe("ResourceReleaseBinding controller — metadata.name and labels", func() {
+	makeBinding := func(resourceName, env string) *openchoreov1alpha1.ResourceReleaseBinding {
+		return &openchoreov1alpha1.ResourceReleaseBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      resourceName + "-" + env,
+				Namespace: "default",
+			},
+			Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
+				Owner: openchoreov1alpha1.ResourceReleaseBindingOwner{
+					ProjectName:  "p",
+					ResourceName: resourceName,
+				},
+				Environment: env,
+			},
+		}
+	}
+	envObj := func(name string) *openchoreov1alpha1.Environment {
+		return &openchoreov1alpha1.Environment{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", UID: "env-uid"},
+		}
+	}
+	dpObj := func() *openchoreov1alpha1.DataPlane {
+		return &openchoreov1alpha1.DataPlane{
+			ObjectMeta: metav1.ObjectMeta{Name: "default-dp", UID: "dp-uid"},
+		}
+	}
+	resourceObj := func(name string) *openchoreov1alpha1.Resource {
+		return &openchoreov1alpha1.Resource{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", UID: "res-uid"},
+		}
+	}
+	projectObj := func() *openchoreov1alpha1.Project {
+		return &openchoreov1alpha1.Project{
+			ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "default", UID: "proj-uid"},
+		}
+	}
+
+	It("adopts an r- prefix and uses a hidden discriminator so a Component named r-{resource} cannot collide", func() {
+		// Resource "foo" → visible name r-foo-dev-{hash(r_foo-dev)}
+		// Component "r-foo" → visible name r-foo-dev-{hash(r-foo-dev)}
+		// Same visible base, different hash, different K8s name.
+		resMeta := buildMetadataContext(makeBinding("foo", "dev"), envObj("dev"), dpObj(), resourceObj("foo"), projectObj())
+		componentName := dpkubernetes.GenerateK8sName("r-foo", "dev")
+
+		Expect(resMeta.Name).To(HavePrefix("r-foo-dev-"),
+			"Resource-emitted name should carry the r- prefix")
+		Expect(resMeta.Name).NotTo(Equal(componentName),
+			"hash discriminator must keep the Resource name distinct from a Component named r-foo")
+	})
+
+	It("populates the per-Resource standard labels including UIDs", func() {
+		meta := buildMetadataContext(makeBinding("mysql", "prod"), envObj("prod"), dpObj(), resourceObj("mysql"), projectObj())
+
+		Expect(meta.Labels).To(HaveKeyWithValue(labels.LabelKeyResourceName, "mysql"))
+		Expect(meta.Labels).To(HaveKeyWithValue(labels.LabelKeyResourceUID, "res-uid"))
+		Expect(meta.Labels).To(HaveKeyWithValue(labels.LabelKeyProjectName, "p"))
+		Expect(meta.Labels).To(HaveKeyWithValue(labels.LabelKeyProjectUID, "proj-uid"))
+		Expect(meta.Labels).To(HaveKeyWithValue(labels.LabelKeyEnvironmentName, "prod"))
+		Expect(meta.Labels).To(HaveKeyWithValue(labels.LabelKeyEnvironmentUID, "env-uid"))
 	})
 })

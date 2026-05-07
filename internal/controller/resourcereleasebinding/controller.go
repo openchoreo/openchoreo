@@ -148,7 +148,38 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 	}
 	dataPlane := dataPlaneResult.ToDataPlane()
 
-	rr, err := r.renderAndEmit(ctx, binding, release, environment, dataPlane)
+	// Fetch owning Resource and Project for their UIDs (used in label
+	// metadata exposed to PE templates and applied to DP-side objects).
+	// Mirrors the releasebinding precedent at controller.go:178-209.
+	resource := &openchoreov1alpha1.Resource{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      binding.Spec.Owner.ResourceName,
+		Namespace: binding.Namespace,
+	}, resource); err != nil {
+		if apierrors.IsNotFound(err) {
+			markSyncedFalse(binding, ReasonResourceNotFound,
+				fmt.Sprintf("Resource %q not found", binding.Spec.Owner.ResourceName))
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get Resource", "resource", binding.Spec.Owner.ResourceName)
+		return ctrl.Result{}, err
+	}
+
+	project := &openchoreov1alpha1.Project{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      binding.Spec.Owner.ProjectName,
+		Namespace: binding.Namespace,
+	}, project); err != nil {
+		if apierrors.IsNotFound(err) {
+			markSyncedFalse(binding, ReasonProjectNotFound,
+				fmt.Sprintf("Project %q not found", binding.Spec.Owner.ProjectName))
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get Project", "project", binding.Spec.Owner.ProjectName)
+		return ctrl.Result{}, err
+	}
+
+	rr, err := r.renderAndEmit(ctx, binding, release, environment, dataPlane, resource, project)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -157,7 +188,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		return ctrl.Result{}, nil
 	}
 
-	r.evaluateReadiness(ctx, binding, release, environment, dataPlane, rr)
+	r.evaluateReadiness(ctx, binding, release, environment, dataPlane, resource, project, rr)
 	return ctrl.Result{}, nil
 }
 
@@ -172,17 +203,19 @@ func (r *Reconciler) renderAndEmit(
 	release *openchoreov1alpha1.ResourceRelease,
 	environment *openchoreov1alpha1.Environment,
 	dataPlane *openchoreov1alpha1.DataPlane,
+	resource *openchoreov1alpha1.Resource,
+	project *openchoreov1alpha1.Project,
 ) (*openchoreov1alpha1.RenderedRelease, error) {
 	logger := log.FromContext(ctx)
 
 	resourceType := buildResourceTypeFromRelease(release)
-	resource := buildResourceFromRelease(release)
-	metadataCtx := buildMetadataContext(binding, environment, dataPlane)
+	snapshotResource := buildResourceFromRelease(release)
+	metadataCtx := buildMetadataContext(binding, environment, dataPlane, resource, project)
 	dpCtx := buildDataPlaneContext(dataPlane)
 
 	input := &resourcepipeline.RenderInput{
 		ResourceType:           resourceType,
-		Resource:               resource,
+		Resource:               snapshotResource,
 		ResourceReleaseBinding: binding,
 		Metadata:               metadataCtx,
 		DataPlane:              dpCtx,
@@ -225,6 +258,7 @@ func (r *Reconciler) renderAndEmit(
 		rr.Labels = map[string]string{
 			labels.LabelKeyNamespaceName:   binding.Namespace,
 			labels.LabelKeyProjectName:     binding.Spec.Owner.ProjectName,
+			labels.LabelKeyResourceName:    binding.Spec.Owner.ResourceName,
 			labels.LabelKeyEnvironmentName: binding.Spec.Environment,
 		}
 		rr.Spec = openchoreov1alpha1.RenderedReleaseSpec{
@@ -325,18 +359,29 @@ func buildResourceFromRelease(release *openchoreov1alpha1.ResourceRelease) *open
 // buildMetadataContext computes the platform-injected metadata surface
 // exposed to CEL templates. Name and Namespace follow the platform naming
 // scheme; the remaining fields are populated from the binding, environment,
-// and dataplane available in scope.
+// dataplane, owning Resource, and owning Project.
+//
+// The base name uses an "r_" discriminator on the first hash input. The
+// underscore is non-alphanumeric, so dpkubernetes.sanitizeName replaces it
+// with "-" in the visible name (giving an "r-" prefix) but the original
+// string with the underscore drives the SHA hash. K8s name validation
+// forbids "_" in user-supplied names, so a Component happening to be named
+// "r-{resource}" hashes a different input string and produces a different
+// final name despite the matching visible base. Operators distinguish
+// owners further via labels.
 func buildMetadataContext(
 	binding *openchoreov1alpha1.ResourceReleaseBinding,
 	environment *openchoreov1alpha1.Environment,
 	dataPlane *openchoreov1alpha1.DataPlane,
+	resource *openchoreov1alpha1.Resource,
+	project *openchoreov1alpha1.Project,
 ) resourcepipeline.MetadataContext {
 	resourceName := binding.Spec.Owner.ResourceName
 	projectName := binding.Spec.Owner.ProjectName
 	envName := binding.Spec.Environment
 	bindingNamespace := binding.Namespace
 
-	baseName := dpkubernetes.GenerateK8sName(resourceName, envName)
+	baseName := dpkubernetes.GenerateK8sName("r_"+resourceName, envName)
 	dpNamespace := dpkubernetes.GenerateK8sNameWithLengthLimit(
 		dpkubernetes.MaxNamespaceNameLength,
 		"dp", bindingNamespace, projectName, envName,
@@ -345,6 +390,9 @@ func buildMetadataContext(
 	standardLabels := map[string]string{
 		labels.LabelKeyNamespaceName:   bindingNamespace,
 		labels.LabelKeyProjectName:     projectName,
+		labels.LabelKeyProjectUID:      string(project.UID),
+		labels.LabelKeyResourceName:    resourceName,
+		labels.LabelKeyResourceUID:     string(resource.UID),
 		labels.LabelKeyEnvironmentName: envName,
 		labels.LabelKeyEnvironmentUID:  string(environment.UID),
 	}
@@ -354,7 +402,9 @@ func buildMetadataContext(
 		Namespace:         dpNamespace,
 		ResourceNamespace: bindingNamespace,
 		ResourceName:      resourceName,
+		ResourceUID:       string(resource.UID),
 		ProjectName:       projectName,
+		ProjectUID:        string(project.UID),
 		EnvironmentName:   envName,
 		EnvironmentUID:    string(environment.UID),
 		DataPlaneName:     dataPlane.Name,

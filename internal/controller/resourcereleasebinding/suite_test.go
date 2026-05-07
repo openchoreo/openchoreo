@@ -12,6 +12,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -71,6 +72,29 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	// Pre-create the Project and Resource that the binding's owner refers
+	// to. The reconciler fetches both for their UIDs (mirroring the
+	// releasebinding precedent). Tests targeting the NotFound paths
+	// deliberately use different owner names so they bypass these.
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-project", Namespace: "default"},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "default"},
+		},
+	}
+	Expect(k8sClient.Create(ctx, project)).To(Succeed())
+
+	resource := &openchoreov1alpha1.Resource{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-resource", Namespace: "default"},
+		Spec: openchoreov1alpha1.ResourceSpec{
+			Owner: openchoreov1alpha1.ResourceOwner{ProjectName: "test-project"},
+			Type: openchoreov1alpha1.ResourceTypeRef{
+				Kind: openchoreov1alpha1.ResourceTypeRefKindResourceType,
+				Name: "mysql",
+			},
+		},
+	}
+	Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 })
 
 var _ = AfterSuite(func() {

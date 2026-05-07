@@ -34,13 +34,15 @@ func (r *Reconciler) evaluateReadiness(
 	release *openchoreov1alpha1.ResourceRelease,
 	environment *openchoreov1alpha1.Environment,
 	dataPlane *openchoreov1alpha1.DataPlane,
+	resource *openchoreov1alpha1.Resource,
+	project *openchoreov1alpha1.Project,
 	rr *openchoreov1alpha1.RenderedRelease,
 ) {
 	logger := log.FromContext(ctx)
 
 	observed := observedStatusByID(rr.Status.Resources)
-	r.evaluateOutputs(binding, release, environment, dataPlane, observed, logger)
-	r.evaluateResourcesReady(binding, release, environment, dataPlane, rr, observed, logger)
+	r.evaluateOutputs(binding, release, environment, dataPlane, resource, project, observed, logger)
+	r.evaluateResourcesReady(binding, release, environment, dataPlane, resource, project, rr, observed, logger)
 }
 
 // observedStatusByID decodes RenderedRelease.status.resources[].status from
@@ -72,10 +74,12 @@ func (r *Reconciler) evaluateOutputs(
 	release *openchoreov1alpha1.ResourceRelease,
 	environment *openchoreov1alpha1.Environment,
 	dataPlane *openchoreov1alpha1.DataPlane,
+	resource *openchoreov1alpha1.Resource,
+	project *openchoreov1alpha1.Project,
 	observed map[string]map[string]any,
 	logger logr.Logger,
 ) {
-	input := buildPipelineInput(binding, release, environment, dataPlane)
+	input := buildPipelineInput(binding, release, environment, dataPlane, resource, project)
 
 	resolved, err := r.Pipeline.ResolveOutputs(input, observed)
 	if err == nil {
@@ -136,6 +140,8 @@ func (r *Reconciler) evaluateResourcesReady(
 	release *openchoreov1alpha1.ResourceRelease,
 	environment *openchoreov1alpha1.Environment,
 	dataPlane *openchoreov1alpha1.DataPlane,
+	resource *openchoreov1alpha1.Resource,
+	project *openchoreov1alpha1.Project,
 	rr *openchoreov1alpha1.RenderedRelease,
 	observed map[string]map[string]any,
 	logger logr.Logger,
@@ -161,7 +167,7 @@ func (r *Reconciler) evaluateResourcesReady(
 		renderedIDs[rr.Spec.Resources[i].ID] = true
 	}
 
-	input := buildPipelineInput(binding, release, environment, dataPlane)
+	input := buildPipelineInput(binding, release, environment, dataPlane, resource, project)
 	entries := release.Spec.ResourceType.Spec.Resources
 
 	rendered := 0
@@ -265,12 +271,14 @@ func buildPipelineInput(
 	release *openchoreov1alpha1.ResourceRelease,
 	environment *openchoreov1alpha1.Environment,
 	dataPlane *openchoreov1alpha1.DataPlane,
+	resource *openchoreov1alpha1.Resource,
+	project *openchoreov1alpha1.Project,
 ) *resourcepipeline.RenderInput {
 	return &resourcepipeline.RenderInput{
 		ResourceType:           buildResourceTypeFromRelease(release),
 		Resource:               buildResourceFromRelease(release),
 		ResourceReleaseBinding: binding,
-		Metadata:               buildMetadataContext(binding, environment, dataPlane),
+		Metadata:               buildMetadataContext(binding, environment, dataPlane, resource, project),
 		DataPlane:              buildDataPlaneContext(dataPlane),
 	}
 }

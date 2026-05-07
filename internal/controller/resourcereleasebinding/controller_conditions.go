@@ -58,6 +58,17 @@ const (
 	// not resolve to an existing DataPlane or ClusterDataPlane.
 	ReasonDataPlaneNotFound controller.ConditionReason = "DataPlaneNotFound"
 
+	// ReasonResourceNotFound indicates the owning Resource named by
+	// spec.owner.resourceName does not exist in the binding's namespace.
+	// Normally the Resource finalizer holds it open while bindings exist;
+	// this reason surfaces the anomalous case where the Resource was
+	// deleted directly.
+	ReasonResourceNotFound controller.ConditionReason = "ResourceNotFound"
+
+	// ReasonProjectNotFound indicates the owning Project named by
+	// spec.owner.projectName does not exist in the binding's namespace.
+	ReasonProjectNotFound controller.ConditionReason = "ProjectNotFound"
+
 	// ReasonReleaseCreated indicates the underlying RenderedRelease was
 	// created by this reconcile.
 	ReasonReleaseCreated controller.ConditionReason = "ReleaseCreated"
