@@ -21,7 +21,7 @@ type ResourceSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.type cannot be changed after creation"
 	Type ResourceTypeRef `json:"type"`
 
-	// Parameters contains values for the dev-facing schema declared on the referenced
+	// Parameters contains values for the parameter schema declared on the referenced
 	// ResourceType (or ClusterResourceType). Validated against the schema by the
 	// Resource controller; failures surface via status.conditions.
 	// +optional

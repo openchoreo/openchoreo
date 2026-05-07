@@ -10,16 +10,17 @@ import (
 
 // ResourceTypeSpec defines the desired state of ResourceType.
 type ResourceTypeSpec struct {
-	// Parameters defines the dev-facing schema. Validates Resource.spec.parameters.
+	// Parameters is the schema for Resource.spec.parameters values supplied by
+	// Resource authors. Validated against this schema.
 	// +optional
 	Parameters *SchemaSection `json:"parameters,omitempty"`
 
-	// EnvironmentConfigs defines the PE-facing per-env schema.
+	// EnvironmentConfigs defines the per-env schema.
 	// Validates ResourceBinding.spec.resourceTypeEnvironmentConfigs.
 	// +optional
 	EnvironmentConfigs *SchemaSection `json:"environmentConfigs,omitempty"`
 
-	// RetainPolicy is the PE-defined default retention for ResourceBindings of this type.
+	// RetainPolicy is the default retention for ResourceBindings of this type.
 	// Per-env override is available via ResourceBinding.spec.retainPolicy.
 	// +optional
 	// +kubebuilder:default=Delete
@@ -84,19 +85,35 @@ type ResourceTypeManifest struct {
 	// +kubebuilder:validation:MinLength=1
 	ID string `json:"id"`
 
+	// IncludeWhen is an optional CEL expression that determines whether this
+	// entry is rendered. Evaluated against metadata.*, parameters.*,
+	// environmentConfigs.*, and dataplane.*; applied.<id>.* is NOT available
+	// because the rendered objects haven't been applied yet. Must be
+	// ${...}-wrapped and must evaluate to a boolean. If unset, the entry is
+	// always rendered.
+	// Example: "${parameters.tlsEnabled}".
+	// +optional
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
+	IncludeWhen string `json:"includeWhen,omitempty"`
+
 	// Template contains the Kubernetes resource with ${...} CEL expressions.
-	// Phase-1 (manifest rendering) CEL has access to metadata.*, parameters.*,
-	// and environmentConfigs.*. applied.<id>.status.* is NOT available during
-	// rendering.
+	// At render time the CEL context exposes metadata.*, parameters.*,
+	// environmentConfigs.*, and dataplane.*. applied.<id>.status.* is NOT
+	// available during rendering because the rendered objects haven't been
+	// applied yet.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Template *runtime.RawExtension `json:"template"`
 
-	// ReadyWhen is an optional CEL expression that determines whether this entry
-	// contributes to ResourceBinding.status.conditions[ResourcesReady]. Evaluated
-	// against applied.<id>.* once the manifest has been applied. If unset, falls
-	// back to RenderedRelease per-Kind health inference.
+	// ReadyWhen is an optional ${...}-wrapped CEL expression that determines
+	// whether this entry contributes to
+	// ResourceBinding.status.conditions[ResourcesReady]. Evaluated against
+	// metadata.*, parameters.*, environmentConfigs.*, dataplane.*, and
+	// applied.<id>.* once the manifest has been applied. If unset, falls back
+	// to RenderedRelease per-Kind health inference. Must evaluate to a boolean.
+	// Example: "${applied.claim.status.conditions.exists(c, c.type == 'Ready' && c.status == 'True')}".
 	// +optional
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
 	ReadyWhen string `json:"readyWhen,omitempty"`
 }
 

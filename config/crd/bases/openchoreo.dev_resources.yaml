@@ -70,7 +70,7 @@ spec:
                   rule: self == oldSelf
               parameters:
                 description: |-
-                  Parameters contains values for the dev-facing schema declared on the referenced
+                  Parameters contains values for the parameter schema declared on the referenced
                   ResourceType (or ClusterResourceType). Validated against the schema by the
                   Resource controller; failures surface via status.conditions.
                 x-kubernetes-preserve-unknown-fields: true

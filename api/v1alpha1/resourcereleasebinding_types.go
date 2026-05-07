@@ -9,11 +9,11 @@ import (
 )
 
 // ResourceReleaseBindingSpec defines the desired state of ResourceReleaseBinding.
-// Pins a ResourceRelease to an Environment with PE-controlled per-env overrides.
+// Pins a ResourceRelease to an Environment and carries per-env overrides.
 // The Resource controller never creates or modifies ResourceReleaseBindings;
 // they are authored externally (kubectl, GitOps, API server).
-// In v1.1 the binding's resourceRelease pin is always manual; advance via
-// `occ resource promote` or kubectl edit.
+// The resourceRelease pin is advanced manually via `occ resource promote` or
+// kubectl edit.
 type ResourceReleaseBindingSpec struct {
 	// Owner identifies the resource and project this ResourceReleaseBinding belongs to.
 	// +kubebuilder:validation:Required
@@ -35,7 +35,7 @@ type ResourceReleaseBindingSpec struct {
 
 	// RetainPolicy controls whether emitted DP-side resources survive binding
 	// deletion. When unset, falls back to the ResourceType's retainPolicy (which
-	// itself defaults to Delete). PE-controlled per-env override.
+	// itself defaults to Delete). Per-env override.
 	// +optional
 	RetainPolicy ResourceRetainPolicy `json:"retainPolicy,omitempty"`
 

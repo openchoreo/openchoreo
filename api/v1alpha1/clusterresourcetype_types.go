@@ -10,16 +10,17 @@ import (
 // ClusterResourceTypeSpec defines the desired state of ClusterResourceType.
 // Currently mirrors ResourceTypeSpec; may diverge as cluster-scoped concerns emerge.
 type ClusterResourceTypeSpec struct {
-	// Parameters defines the dev-facing schema. Validates Resource.spec.parameters.
+	// Parameters is the schema for Resource.spec.parameters values supplied by
+	// Resource authors. Validated against this schema.
 	// +optional
 	Parameters *SchemaSection `json:"parameters,omitempty"`
 
-	// EnvironmentConfigs defines the PE-facing per-env schema.
+	// EnvironmentConfigs defines the per-env schema.
 	// Validates ResourceBinding.spec.resourceTypeEnvironmentConfigs.
 	// +optional
 	EnvironmentConfigs *SchemaSection `json:"environmentConfigs,omitempty"`
 
-	// RetainPolicy is the PE-defined default retention for ResourceBindings of this type.
+	// RetainPolicy is the default retention for ResourceBindings of this type.
 	// Per-env override is available via ResourceBinding.spec.retainPolicy.
 	// +optional
 	// +kubebuilder:default=Delete
