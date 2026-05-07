@@ -28,6 +28,5 @@ spec:
       - {{ .Release.Namespace }}
   selector:
     matchLabels:
-      app.kubernetes.io/component: api-server
-      app.kubernetes.io/name: {{ include "openchoreo-control-plane.fullname" . }}
+      {{- include "openchoreo-control-plane.componentSelectorLabels" (dict "context" . "component" "api-server") | nindent 6 }}
 {{- end }}
