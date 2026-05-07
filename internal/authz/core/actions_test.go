@@ -19,9 +19,8 @@ func TestAllActions(t *testing.T) {
 	})
 
 	t.Run("returns expected action count", func(t *testing.T) {
-		expectedCount := 118 // Update this when intentionally adding/removing actions
-		if len(actions) != expectedCount {
-			t.Errorf("Expected %d actions, got %d. Update expected count if intentional.", expectedCount, len(actions))
+		if len(actions) != len(systemActions) {
+			t.Errorf("AllActions() returned %d actions, expected %d (len of systemActions)", len(actions), len(systemActions))
 		}
 	})
 
@@ -89,6 +88,33 @@ func TestPublicActions(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("actions with conditions in registry have conditions populated", func(t *testing.T) {
+		byName := make(map[string]Action, len(actions))
+		for _, a := range actions {
+			byName[a.Name] = a
+		}
+		for name := range conditionRegistry {
+			a, ok := byName[name]
+			if !ok {
+				t.Errorf("action %q not found in PublicActions()", name)
+				continue
+			}
+			if len(a.Conditions) == 0 {
+				t.Errorf("action %q expected conditions but got none", name)
+			}
+		}
+	})
+
+	t.Run("actions not in registry have no conditions", func(t *testing.T) {
+		for _, a := range actions {
+			if _, inRegistry := conditionRegistry[a.Name]; !inRegistry {
+				if len(a.Conditions) != 0 {
+					t.Errorf("action %q not in registry but got %d conditions", a.Name, len(a.Conditions))
+				}
+			}
+		}
+	})
 }
 
 // TestConcretePublicActions tests listing concrete public actions
@@ -113,6 +139,33 @@ func TestConcretePublicActions(t *testing.T) {
 		for _, action := range actions {
 			if action.IsInternal {
 				t.Errorf("ConcretePublicActions() returned internal action: %s", action.Name)
+			}
+		}
+	})
+
+	t.Run("actions with conditions in registry have conditions populated", func(t *testing.T) {
+		byName := make(map[string]Action, len(actions))
+		for _, a := range actions {
+			byName[a.Name] = a
+		}
+		for actionName := range conditionRegistry {
+			a, ok := byName[actionName]
+			if !ok {
+				t.Errorf("action %q not found in ConcretePublicActions()", actionName)
+				continue
+			}
+			if len(a.Conditions) == 0 {
+				t.Errorf("action %q expected conditions but got none", actionName)
+			}
+		}
+	})
+
+	t.Run("actions not in registry have no conditions", func(t *testing.T) {
+		for _, a := range actions {
+			if _, inRegistry := conditionRegistry[a.Name]; !inRegistry {
+				if len(a.Conditions) != 0 {
+					t.Errorf("action %q not in registry but got %d conditions", a.Name, len(a.Conditions))
+				}
 			}
 		}
 	})

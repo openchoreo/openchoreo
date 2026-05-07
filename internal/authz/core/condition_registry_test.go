@@ -5,6 +5,7 @@ package core
 
 import (
 	"maps"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -111,6 +112,31 @@ func TestIntersectConditionsForActions(t *testing.T) {
 			require.ElementsMatch(t, tt.wantKeys, gotKeys)
 		})
 	}
+}
+
+func TestConditionRegistry(t *testing.T) {
+	t.Run("keys reference valid action names", func(t *testing.T) {
+		valid := make(map[string]bool, len(systemActions))
+		for _, a := range systemActions {
+			valid[a.Name] = true
+		}
+		for name := range conditionRegistry {
+			if !valid[name] {
+				t.Errorf("conditionRegistry has entry for unknown action %q", name)
+			}
+		}
+	})
+
+	t.Run("attribute keys have root.leaf format", func(t *testing.T) {
+		for action, specs := range conditionRegistry {
+			for _, spec := range specs {
+				parts := strings.SplitN(spec.Key, ".", 2)
+				if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+					t.Errorf("action %q condition key %q is not in root.leaf format", action, spec.Key)
+				}
+			}
+		}
+	})
 }
 
 func TestAttributeSpec_RootLeaf(t *testing.T) {
