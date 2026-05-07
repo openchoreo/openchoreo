@@ -25,6 +25,7 @@ func (t *Toolsets) projectToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
 		t.RegisterListProjects,
 		t.RegisterCreateProject,
+		t.RegisterUpdateProject,
 		t.RegisterDeleteProject,
 	}
 }

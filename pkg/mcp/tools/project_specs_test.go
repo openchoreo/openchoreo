@@ -44,6 +44,38 @@ func projectToolSpecs() []toolTestSpec {
 			},
 		},
 		{
+			name:                "update_project",
+			toolset:             "project",
+			descriptionKeywords: []string{"update", "project"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "project_name"},
+			optionalParams:      []string{"deployment_pipeline", "display_name", "description"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"project_name":   testProjectName,
+				"display_name":   "Updated Project",
+				"description":    "Updated project description",
+			},
+			expectedMethod: "UpdateProject",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
+				}
+				if args[1] != testProjectName {
+					t.Errorf("Expected project %q, got %v", testProjectName, args[1])
+				}
+				if args[2] != "" {
+					t.Errorf("Expected deployment pipeline to be empty, got %v", args[2])
+				}
+				if args[3] != "Updated Project" {
+					t.Errorf("Expected display name %q, got %v", "Updated Project", args[3])
+				}
+				if args[4] != "Updated project description" {
+					t.Errorf("Expected description %q, got %v", "Updated project description", args[4])
+				}
+			},
+		},
+		{
 			name:                "delete_project",
 			toolset:             "project",
 			descriptionKeywords: []string{"delete", "project"},
