@@ -6,6 +6,7 @@ package mcphandlers
 import (
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
+	componentreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componentrelease"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
 	deploymentpipelinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline"
 	environmentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment"
@@ -69,4 +70,8 @@ func withDeploymentPipelineService(s deploymentpipelinesvc.Service) func(*handle
 
 func withSecretReferenceService(s secretreferencesvc.Service) func(*handlerservices.Services) {
 	return func(svc *handlerservices.Services) { svc.SecretReferenceService = s }
+}
+
+func withComponentReleaseService(s componentreleasesvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.ComponentReleaseService = s }
 }

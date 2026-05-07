@@ -116,12 +116,13 @@ func (t *Toolsets) RegisterGetSecretReference(s *mcp.Server, perms map[string]To
 			"(group: external-secrets.io, version: v1, kind: ExternalSecret) on the release binding " +
 			"that consumes this SecretReference.",
 		InputSchema: createSchema(map[string]any{
-			"namespace_name":         defaultStringProperty(),
-			"secret_reference_name":  stringProperty("Name of the secret reference. Use list_secret_references to discover valid names."),
+			"namespace_name": defaultStringProperty(),
+			"secret_reference_name": stringProperty(
+				"Name of the secret reference. Use list_secret_references to discover valid names."),
 		}, []string{"namespace_name", "secret_reference_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName        string `json:"namespace_name"`
-		SecretReferenceName  string `json:"secret_reference_name"`
+		NamespaceName       string `json:"namespace_name"`
+		SecretReferenceName string `json:"secret_reference_name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.NamespaceToolset.GetSecretReference(ctx, args.NamespaceName, args.SecretReferenceName)
 		return handleToolResult(result, err)
@@ -181,10 +182,11 @@ func (t *Toolsets) RegisterUpdateSecretReference(s *mcp.Server, perms map[string
 			"provided; omitting it leaves the existing spec unchanged. display_name and description, " +
 			"when provided, replace the corresponding annotations (empty string is treated as no-change).",
 		InputSchema: createSchema(map[string]any{
-			"namespace_name":        defaultStringProperty(),
-			"secret_reference_name": stringProperty("Name of the secret reference to update. Use list_secret_references to discover valid names."),
-			"display_name":          stringProperty("Optional updated display name"),
-			"description":           stringProperty("Optional updated description"),
+			"namespace_name": defaultStringProperty(),
+			"secret_reference_name": stringProperty(
+				"Name of the secret reference to update. Use list_secret_references to discover valid names."),
+			"display_name": stringProperty("Optional updated display name"),
+			"description":  stringProperty("Optional updated description"),
 			"spec": map[string]any{
 				"type":        "object",
 				"description": "Optional: full SecretReferenceSpec to replace the existing spec.",
@@ -219,11 +221,13 @@ func (t *Toolsets) RegisterDeleteSecretReference(s *mcp.Server, perms map[string
 	const name = "delete_secret_reference"
 	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteSecretReference}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        name,
-		Description: "Delete a secret reference. Destructive: the underlying Kubernetes Secret will be removed by the controller.",
+		Name: name,
+		Description: "Delete a secret reference. Destructive: the underlying Kubernetes Secret " +
+			"will be removed by the controller.",
 		InputSchema: createSchema(map[string]any{
-			"namespace_name":        defaultStringProperty(),
-			"secret_reference_name": stringProperty("Name of the secret reference to delete. Use list_secret_references to discover valid names."),
+			"namespace_name": defaultStringProperty(),
+			"secret_reference_name": stringProperty(
+				"Name of the secret reference to delete. Use list_secret_references to discover valid names."),
 		}, []string{"namespace_name", "secret_reference_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName       string `json:"namespace_name"`

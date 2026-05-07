@@ -9,6 +9,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+const testSecretRefName = "ref-1"
+
 // namespaceToolSpecs returns test specs for namespace toolset
 func namespaceToolSpecs() []toolTestSpec {
 	return []toolTestSpec{
@@ -82,11 +84,11 @@ func namespaceToolSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "secret_reference_name"},
 			testArgs: map[string]any{
 				"namespace_name":        testNamespaceName,
-				"secret_reference_name": "ref-1",
+				"secret_reference_name": testSecretRefName,
 			},
 			expectedMethod: "GetSecretReference",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "ref-1" {
+				if args[0] != testNamespaceName || args[1] != testSecretRefName {
 					t.Errorf("Expected (%s, ref-1), got (%v, %v)", testNamespaceName, args[0], args[1])
 				}
 			},
@@ -100,7 +102,7 @@ func namespaceToolSpecs() []toolTestSpec {
 			optionalParams:      []string{"display_name", "description"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":           "ref-1",
+				"name":           testSecretRefName,
 				"spec": map[string]any{
 					"template": map[string]any{"type": "Opaque"},
 					"data": []map[string]any{
@@ -121,8 +123,8 @@ func namespaceToolSpecs() []toolTestSpec {
 					t.Errorf("Expected args[1] to be *gen.CreateSecretReferenceJSONRequestBody, got %T", args[1])
 					return
 				}
-				if req.Metadata.Name != "ref-1" {
-					t.Errorf("Expected Metadata.Name %q, got %q", "ref-1", req.Metadata.Name)
+				if req.Metadata.Name != testSecretRefName {
+					t.Errorf("Expected Metadata.Name %q, got %q", testSecretRefName, req.Metadata.Name)
 				}
 				if len(req.Spec.Data) != 1 || req.Spec.Data[0].SecretKey != "password" {
 					t.Errorf("spec.data not populated correctly: %+v", req.Spec.Data)
@@ -138,7 +140,7 @@ func namespaceToolSpecs() []toolTestSpec {
 			optionalParams:      []string{"display_name", "description", "spec"},
 			testArgs: map[string]any{
 				"namespace_name":        testNamespaceName,
-				"secret_reference_name": "ref-1",
+				"secret_reference_name": testSecretRefName,
 				"spec": map[string]any{
 					"template": map[string]any{"type": "Opaque"},
 					"data": []map[string]any{
@@ -159,8 +161,8 @@ func namespaceToolSpecs() []toolTestSpec {
 					t.Errorf("Expected args[1] to be *gen.UpdateSecretReferenceJSONRequestBody, got %T", args[1])
 					return
 				}
-				if req.Metadata.Name != "ref-1" {
-					t.Errorf("Expected Metadata.Name %q, got %q", "ref-1", req.Metadata.Name)
+				if req.Metadata.Name != testSecretRefName {
+					t.Errorf("Expected Metadata.Name %q, got %q", testSecretRefName, req.Metadata.Name)
 				}
 				if req.Spec == nil || len(req.Spec.Data) != 1 {
 					t.Errorf("expected spec with one data entry, got %+v", req.Spec)
@@ -175,11 +177,11 @@ func namespaceToolSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "secret_reference_name"},
 			testArgs: map[string]any{
 				"namespace_name":        testNamespaceName,
-				"secret_reference_name": "ref-1",
+				"secret_reference_name": testSecretRefName,
 			},
 			expectedMethod: "DeleteSecretReference",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "ref-1" {
+				if args[0] != testNamespaceName || args[1] != testSecretRefName {
 					t.Errorf("Expected (%s, ref-1), got (%v, %v)", testNamespaceName, args[0], args[1])
 				}
 			},

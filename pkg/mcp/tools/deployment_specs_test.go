@@ -104,6 +104,40 @@ func deploymentBindingSpecs() []toolTestSpec {
 				}
 			},
 		},
+		{
+			name:                "delete_release_binding",
+			toolset:             "deployment",
+			descriptionKeywords: []string{"delete", "release", "binding"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "binding_name"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"binding_name":   "binding-1",
+			},
+			expectedMethod: "DeleteReleaseBinding",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != "binding-1" {
+					t.Errorf("Expected (%s, binding-1), got (%v, %v)", testNamespaceName, args[0], args[1])
+				}
+			},
+		},
+		{
+			name:                "delete_component_release",
+			toolset:             "deployment",
+			descriptionKeywords: []string{"delete", "release"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "release_name"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"release_name":   testReleaseName,
+			},
+			expectedMethod: "DeleteComponentRelease",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != testReleaseName {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testReleaseName, args[0], args[1])
+				}
+			},
+		},
 	}
 }
 

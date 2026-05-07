@@ -43,5 +43,22 @@ func projectToolSpecs() []toolTestSpec {
 				// args[1] is *gen.CreateProjectJSONRequestBody
 			},
 		},
+		{
+			name:                "delete_project",
+			toolset:             "project",
+			descriptionKeywords: []string{"delete", "project"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "project_name"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"project_name":   testProjectName,
+			},
+			expectedMethod: "DeleteProject",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != testProjectName {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testProjectName, args[0], args[1])
+				}
+			},
+		},
 	}
 }

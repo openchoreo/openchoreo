@@ -132,3 +132,31 @@ func TestCreateProject(t *testing.T) {
 		assert.Contains(t, err.Error(), "create failed")
 	})
 }
+
+func TestDeleteProject(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("delete returns action: deleted", func(t *testing.T) {
+		projSvc := projectmocks.NewMockService(t)
+		projSvc.EXPECT().DeleteProject(mock.Anything, testNS, "my-proj").Return(nil)
+
+		h := newTestHandler(withProjectService(projSvc))
+		result, err := h.DeleteProject(ctx, testNS, "my-proj")
+		require.NoError(t, err)
+		m, ok := result.(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "deleted", m["action"])
+		assert.Equal(t, "my-proj", m["name"])
+		assert.Equal(t, testNS, m["namespace"])
+	})
+
+	t.Run("service delete error propagated", func(t *testing.T) {
+		expected := errors.New("not found")
+		projSvc := projectmocks.NewMockService(t)
+		projSvc.EXPECT().DeleteProject(mock.Anything, testNS, "my-proj").Return(expected)
+
+		h := newTestHandler(withProjectService(projSvc))
+		_, err := h.DeleteProject(ctx, testNS, "my-proj")
+		require.ErrorIs(t, err, expected)
+	})
+}

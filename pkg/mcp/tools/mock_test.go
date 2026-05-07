@@ -9,7 +9,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-const emptyObjectSchema = `{"type":"object","properties":{}}`
+const (
+	emptyObjectSchema = `{"type":"object","properties":{}}`
+	deletedResponse   = `{"action":"deleted"}`
+)
 
 // MockCoreToolsetHandler implements all toolset handler interfaces for testing.
 type MockCoreToolsetHandler struct {
@@ -73,7 +76,42 @@ func (m *MockCoreToolsetHandler) DeleteSecretReference(
 	ctx context.Context, namespaceName, secretReferenceName string,
 ) (any, error) {
 	m.recordCall("DeleteSecretReference", namespaceName, secretReferenceName)
-	return `{"action":"deleted"}`, nil
+	return deletedResponse, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteProject(
+	ctx context.Context, namespaceName, projectName string,
+) (any, error) {
+	m.recordCall("DeleteProject", namespaceName, projectName)
+	return deletedResponse, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteComponent(
+	ctx context.Context, namespaceName, componentName string,
+) (any, error) {
+	m.recordCall("DeleteComponent", namespaceName, componentName)
+	return deletedResponse, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteWorkload(
+	ctx context.Context, namespaceName, workloadName string,
+) (any, error) {
+	m.recordCall("DeleteWorkload", namespaceName, workloadName)
+	return deletedResponse, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteReleaseBinding(
+	ctx context.Context, namespaceName, bindingName string,
+) (any, error) {
+	m.recordCall("DeleteReleaseBinding", namespaceName, bindingName)
+	return deletedResponse, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteComponentRelease(
+	ctx context.Context, namespaceName, componentReleaseName string,
+) (any, error) {
+	m.recordCall("DeleteComponentRelease", namespaceName, componentReleaseName)
+	return deletedResponse, nil
 }
 
 // ProjectToolsetHandler methods

@@ -25,6 +25,7 @@ func (t *Toolsets) projectToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
 		t.RegisterListProjects,
 		t.RegisterCreateProject,
+		t.RegisterDeleteProject,
 	}
 }
 
@@ -35,10 +36,12 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 		t.RegisterListComponents,
 		t.RegisterGetComponent,
 		t.RegisterPatchComponent,
+		t.RegisterDeleteComponent,
 		t.RegisterListWorkloads,
 		t.RegisterGetWorkload,
 		t.RegisterCreateWorkload,
 		t.RegisterUpdateWorkload,
+		t.RegisterDeleteWorkload,
 		t.RegisterGetWorkloadSchema,
 		t.RegisterGetComponentSchema,
 		// Platform standards (read-only, namespace-scoped)
@@ -63,6 +66,8 @@ func (t *Toolsets) deploymentToolRegistrations() []RegisterFunc {
 		t.RegisterGetReleaseBinding,
 		t.RegisterCreateReleaseBinding,
 		t.RegisterUpdateReleaseBinding,
+		t.RegisterDeleteReleaseBinding,
+		t.RegisterDeleteComponentRelease,
 		t.RegisterListDeploymentPipelines,
 		t.RegisterGetDeploymentPipeline,
 		t.RegisterListEnvironments,

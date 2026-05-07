@@ -171,6 +171,7 @@ type ProjectToolsetHandler interface {
 	// Project operations
 	ListProjects(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	CreateProject(ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody) (any, error)
+	DeleteProject(ctx context.Context, namespaceName, projectName string) (any, error)
 }
 
 // ComponentToolsetHandler handles component definition and configuration operations
@@ -191,6 +192,8 @@ type ComponentToolsetHandler interface {
 	UpdateWorkload(
 		ctx context.Context, namespaceName, workloadName string, workloadSpec any,
 	) (any, error)
+	DeleteComponent(ctx context.Context, namespaceName, componentName string) (any, error)
+	DeleteWorkload(ctx context.Context, namespaceName, workloadName string) (any, error)
 	GetWorkloadSchema(ctx context.Context) (any, error)
 	GetComponentSchema(ctx context.Context, namespaceName, componentName string) (any, error)
 
@@ -227,6 +230,8 @@ type DeploymentToolsetHandler interface {
 		ctx context.Context, namespaceName, bindingName string,
 		req *gen.ReleaseBindingSpec,
 	) (any, error)
+	DeleteReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
+	DeleteComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) (any, error)
 	ListDeploymentPipelines(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetDeploymentPipeline(ctx context.Context, namespaceName, pipelineName string) (any, error)
 	ListEnvironments(ctx context.Context, namespaceName string, opts ListOpts) (any, error)

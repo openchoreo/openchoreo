@@ -298,6 +298,50 @@ func (h *MCPHandler) UpdateReleaseBinding(
 	return mutationResult(updated, "patched"), nil
 }
 
+func (h *MCPHandler) DeleteReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error) {
+	if err := h.services.ReleaseBindingService.DeleteReleaseBinding(ctx, namespaceName, bindingName); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"name":      bindingName,
+		"namespace": namespaceName,
+		"action":    "deleted",
+	}, nil
+}
+
+func (h *MCPHandler) DeleteComponent(ctx context.Context, namespaceName, componentName string) (any, error) {
+	if err := h.services.ComponentService.DeleteComponent(ctx, namespaceName, componentName); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"name":      componentName,
+		"namespace": namespaceName,
+		"action":    "deleted",
+	}, nil
+}
+
+func (h *MCPHandler) DeleteWorkload(ctx context.Context, namespaceName, workloadName string) (any, error) {
+	if err := h.services.WorkloadService.DeleteWorkload(ctx, namespaceName, workloadName); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"name":      workloadName,
+		"namespace": namespaceName,
+		"action":    "deleted",
+	}, nil
+}
+
+func (h *MCPHandler) DeleteComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) (any, error) {
+	if err := h.services.ComponentReleaseService.DeleteComponentRelease(ctx, namespaceName, componentReleaseName); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"name":      componentReleaseName,
+		"namespace": namespaceName,
+		"action":    "deleted",
+	}, nil
+}
+
 func (h *MCPHandler) CreateWorkload(
 	ctx context.Context, namespaceName, componentName string, workloadSpec any,
 ) (any, error) {

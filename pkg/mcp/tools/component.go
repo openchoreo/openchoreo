@@ -330,7 +330,8 @@ func (t *Toolsets) RegisterUpdateReleaseBinding(s *mcp.Server, perms map[string]
 			"namespace_name": defaultStringProperty(),
 			"binding_name":   defaultStringProperty(),
 			"release_name":   stringProperty("Optional: update the release associated with this binding"),
-			"release_state":  stringProperty("Optional: target state — 'Active' to deploy or 'Undeploy' to remove the deployment from the data plane while keeping the binding"),
+			"release_state": stringProperty("Optional: target state — 'Active' to deploy or 'Undeploy' " +
+				"to remove the deployment from the data plane while keeping the binding"),
 			"component_type_environment_configs": map[string]any{
 				"type": "object",
 				"description": "Optional: environment-specific overrides for component type parameters. " +
@@ -643,8 +644,10 @@ func (t *Toolsets) RegisterPatchComponent(s *mcp.Server, perms map[string]ToolPe
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"component_name": stringProperty("Use list_components to discover valid names"),
-			"display_name":   stringProperty("Optional: Updated human-readable display name. Empty string is treated as no-change."),
-			"description":    stringProperty("Optional: Updated human-readable description. Empty string is treated as no-change."),
+			"display_name": stringProperty(
+				"Optional: Updated human-readable display name. Empty string is treated as no-change."),
+			"description": stringProperty(
+				"Optional: Updated human-readable description. Empty string is treated as no-change."),
 			"auto_deploy": map[string]any{
 				"type":        "boolean",
 				"description": "Optional: Whether the component should automatically deploy to the default environment",
@@ -711,6 +714,88 @@ func (t *Toolsets) RegisterPatchComponent(s *mcp.Server, perms map[string]ToolPe
 		}
 		result, err := t.ComponentToolset.PatchComponent(
 			ctx, args.NamespaceName, args.ComponentName, patchReq)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterDeleteComponent(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_component"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteComponent}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: name,
+		Description: "Delete a component. Destructive: removes the Component resource and triggers cleanup of " +
+			"its workload, releases, and release bindings via owner references.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"component_name": stringProperty("Use list_components to discover valid names"),
+		}, []string{"namespace_name", "component_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		ComponentName string `json:"component_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.DeleteComponent(ctx, args.NamespaceName, args.ComponentName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterDeleteWorkload(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_workload"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteWorkload}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: name,
+		Description: "Delete a workload. Destructive: removes the Workload resource. " +
+			"Use update_release_binding with release_state: Undeploy first if you want to remove the running " +
+			"deployment from the data plane while keeping the workload definition.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"workload_name":  stringProperty("Use list_workloads to discover valid names"),
+		}, []string{"namespace_name", "workload_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		WorkloadName  string `json:"workload_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.ComponentToolset.DeleteWorkload(ctx, args.NamespaceName, args.WorkloadName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterDeleteReleaseBinding(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_release_binding"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteReleaseBinding}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: name,
+		Description: "Delete a release binding. Destructive: removes the binding record entirely. For a " +
+			"reversible removal that keeps the binding but tears down data-plane resources, use " +
+			"update_release_binding with release_state: Undeploy instead.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"binding_name":   stringProperty("Use list_release_bindings to discover valid names"),
+		}, []string{"namespace_name", "binding_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		BindingName   string `json:"binding_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.DeploymentToolset.DeleteReleaseBinding(ctx, args.NamespaceName, args.BindingName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterDeleteComponentRelease(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_component_release"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteComponentRelease}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: name,
+		Description: "Delete a component release. Destructive: removes the immutable release record. " +
+			"Useful for pruning old releases. Will not affect running deployments unless a binding still references it.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"release_name":   stringProperty("Use list_component_releases to discover valid names"),
+		}, []string{"namespace_name", "release_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName string `json:"namespace_name"`
+		ReleaseName   string `json:"release_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.DeploymentToolset.DeleteComponentRelease(ctx, args.NamespaceName, args.ReleaseName)
 		return handleToolResult(result, err)
 	})
 }

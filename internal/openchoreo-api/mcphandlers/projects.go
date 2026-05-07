@@ -64,3 +64,14 @@ func (h *MCPHandler) CreateProject(ctx context.Context, namespaceName string, re
 	}
 	return mutationResult(created, "created"), nil
 }
+
+func (h *MCPHandler) DeleteProject(ctx context.Context, namespaceName, projectName string) (any, error) {
+	if err := h.services.ProjectService.DeleteProject(ctx, namespaceName, projectName); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"name":      projectName,
+		"namespace": namespaceName,
+		"action":    "deleted",
+	}, nil
+}
