@@ -3668,9 +3668,9 @@ gateway:
       # @schema
       # description: Gateway API allowedRoutes.namespaces.from value
       # enum: [All, Same]
-      # default: Same
+      # default: All
       # @schema
-      from: Same
+      from: All
 
   # @schema
   # type: object

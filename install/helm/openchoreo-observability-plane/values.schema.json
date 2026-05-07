@@ -1145,7 +1145,7 @@
               "description": "Namespace policy for routes that attach to Gateway listeners",
               "properties": {
                 "from": {
-                  "default": "Same",
+                  "default": "All",
                   "description": "Gateway API allowedRoutes.namespaces.from value",
                   "enum": [
                     "All",
