@@ -2255,7 +2255,6 @@
                       "url": {
                         "format": "uri",
                         "minLength": 1,
-                        "title": "url",
                         "type": "string"
                       }
                     },
@@ -2290,7 +2289,6 @@
                 }
               },
               "required": [
-                "endpoints",
                 "retry"
               ],
               "title": "webhooks",
