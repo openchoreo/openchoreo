@@ -637,18 +637,22 @@ func TestDataplaneDetail(t *testing.T) {
 	}
 
 	m := dataplaneDetail(dp)
-	assert.Equal(t, "plane-1", m["planeID"])
+	spec, ok := m["spec"].(map[string]any)
+	require.True(t, ok, "expected spec to be a map")
+	assert.Equal(t, "plane-1", spec["planeID"])
 
-	obsRef, ok := m["observabilityPlaneRef"].(map[string]any)
-	require.True(t, ok, "expected observabilityPlaneRef to be a map")
+	obsRef, ok := spec["observabilityPlaneRef"].(map[string]any)
+	require.True(t, ok, "expected spec.observabilityPlaneRef to be a map")
 	assert.Equal(t, "obs-1", obsRef["name"])
 
-	assert.Equal(t, "my-store", m["secretStoreRef"])
+	secretStore, ok := spec["secretStoreRef"].(map[string]any)
+	require.True(t, ok, "expected spec.secretStoreRef to be a map")
+	assert.Equal(t, "my-store", secretStore["name"])
 
 	ac, ok := m["agentConnection"].(map[string]any)
 	require.True(t, ok, "expected agentConnection to be a map")
 	assert.Equal(t, true, ac["connected"])
-	assert.Equal(t, 2, ac["connectedAgents"])
+	assert.EqualValues(t, 2, ac["connectedAgents"])
 	assert.Equal(t, "2025-06-15T10:00:00Z", ac["lastConnectedTime"])
 	assert.Equal(t, "2025-06-15T09:00:00Z", ac["lastDisconnectedTime"])
 	assert.Equal(t, "2025-06-15T10:01:00Z", ac["lastHeartbeatTime"])
@@ -662,23 +666,8 @@ func TestDataplaneDetail_Minimal(t *testing.T) {
 	}
 	m := dataplaneDetail(dp)
 	assert.Equal(t, "dp-bare", m["name"])
-	assert.NotContains(t, m, "planeID")
-	assert.NotContains(t, m, "observabilityPlaneRef")
-	assert.NotContains(t, m, "secretStoreRef")
 	assert.NotContains(t, m, "agentConnection")
 	assert.NotContains(t, m, "conditions")
-}
-
-func TestAgentConnectionToMap_Minimal(t *testing.T) {
-	ac := &openchoreov1alpha1.AgentConnectionStatus{
-		Connected:       false,
-		ConnectedAgents: 0,
-	}
-	m := agentConnectionToMap(ac)
-	assert.Equal(t, false, m["connected"])
-	assert.NotContains(t, m, "lastConnectedTime")
-	assert.NotContains(t, m, "lastDisconnectedTime")
-	assert.NotContains(t, m, "lastHeartbeatTime")
 }
 
 func TestDeploymentPipelineSummary(t *testing.T) {
@@ -1161,10 +1150,12 @@ func TestWorkflowPlaneDetail(t *testing.T) {
 		},
 	}
 	m := workflowPlaneDetail(wp)
-	assert.Equal(t, "wf-plane-1", m["planeID"])
+	spec, ok := m["spec"].(map[string]any)
+	require.True(t, ok, "expected spec to be a map")
+	assert.Equal(t, "wf-plane-1", spec["planeID"])
 
-	obsRef, ok := m["observabilityPlaneRef"].(map[string]any)
-	require.True(t, ok, "expected observabilityPlaneRef to be a map")
+	obsRef, ok := spec["observabilityPlaneRef"].(map[string]any)
+	require.True(t, ok, "expected spec.observabilityPlaneRef to be a map")
 	assert.Equal(t, "obs-1", obsRef["name"])
 	ac, ok := m["agentConnection"].(map[string]any)
 	require.True(t, ok, "expected agentConnection to be map[string]any")
@@ -1178,8 +1169,6 @@ func TestWorkflowPlaneDetail_Minimal(t *testing.T) {
 	}
 	m := workflowPlaneDetail(wp)
 	assert.Equal(t, "wp-bare", m["name"])
-	assert.NotContains(t, m, "planeID")
-	assert.NotContains(t, m, "observabilityPlaneRef")
 	assert.NotContains(t, m, "agentConnection")
 	assert.NotContains(t, m, "conditions")
 }
@@ -1216,8 +1205,10 @@ func TestObservabilityPlaneDetail(t *testing.T) {
 		},
 	}
 	m := observabilityPlaneDetail(op)
-	assert.Equal(t, "obs-plane-1", m["planeID"])
-	assert.Equal(t, "https://observer.example.com", m["observerURL"])
+	spec, ok := m["spec"].(map[string]any)
+	require.True(t, ok, "expected spec to be a map")
+	assert.Equal(t, "obs-plane-1", spec["planeID"])
+	assert.Equal(t, "https://observer.example.com", spec["observerURL"])
 	ac, ok := m["agentConnection"].(map[string]any)
 	require.True(t, ok, "expected agentConnection to be map[string]any")
 	assert.Equal(t, true, ac["connected"])
@@ -1269,12 +1260,16 @@ func TestClusterDataPlaneDetail(t *testing.T) {
 		},
 	}
 	m := clusterDataPlaneDetail(cdp)
-	assert.Equal(t, "cdp-plane", m["planeID"])
+	spec, ok := m["spec"].(map[string]any)
+	require.True(t, ok, "expected spec to be a map")
+	assert.Equal(t, "cdp-plane", spec["planeID"])
 
-	obsRef, ok := m["observabilityPlaneRef"].(map[string]any)
-	require.True(t, ok, "expected observabilityPlaneRef to be a map")
+	obsRef, ok := spec["observabilityPlaneRef"].(map[string]any)
+	require.True(t, ok, "expected spec.observabilityPlaneRef to be a map")
 	assert.Equal(t, "cobs-1", obsRef["name"])
-	assert.Equal(t, "store", m["secretStoreRef"])
+	store, ok := spec["secretStoreRef"].(map[string]any)
+	require.True(t, ok, "expected spec.secretStoreRef to be a map")
+	assert.Equal(t, "store", store["name"])
 	ac, ok := m["agentConnection"].(map[string]any)
 	require.True(t, ok, "expected agentConnection to be map[string]any")
 	assert.Equal(t, true, ac["connected"])
@@ -1304,7 +1299,9 @@ func TestClusterWorkflowPlaneDetail(t *testing.T) {
 		},
 	}
 	m := clusterWorkflowPlaneDetail(cwp)
-	assert.Equal(t, "cwp-plane", m["planeID"])
+	spec, ok := m["spec"].(map[string]any)
+	require.True(t, ok, "expected spec to be a map")
+	assert.Equal(t, "cwp-plane", spec["planeID"])
 	ac, ok := m["agentConnection"].(map[string]any)
 	require.True(t, ok, "expected agentConnection to be map[string]any")
 	assert.Equal(t, true, ac["connected"])
@@ -1341,8 +1338,10 @@ func TestClusterObservabilityPlaneDetail(t *testing.T) {
 		},
 	}
 	m := clusterObservabilityPlaneDetail(cop)
-	assert.Equal(t, "cop-plane", m["planeID"])
-	assert.Equal(t, "https://obs.example.com", m["observerURL"])
+	spec, ok := m["spec"].(map[string]any)
+	require.True(t, ok, "expected spec to be a map")
+	assert.Equal(t, "cop-plane", spec["planeID"])
+	assert.Equal(t, "https://obs.example.com", spec["observerURL"])
 	ac, ok := m["agentConnection"].(map[string]any)
 	require.True(t, ok, "expected agentConnection to be map[string]any")
 	assert.Equal(t, true, ac["connected"])
