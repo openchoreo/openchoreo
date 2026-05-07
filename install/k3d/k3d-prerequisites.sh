@@ -12,7 +12,7 @@ set -euo pipefail
 #   install/k3d/k3d-prerequisites.sh
 
 # -- versions (update these on release branches) --
-OPENCHOREO_REF="main"
+OPENCHOREO_REF="${OPENCHOREO_REF:-main}"   # overridable via env; defaults to main
 GATEWAY_API_VERSION="v1.4.1"
 CERT_MANAGER_VERSION="v1.19.4"
 ESO_VERSION="2.0.1"

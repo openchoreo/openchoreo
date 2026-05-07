@@ -11,8 +11,8 @@ set -euo pipefail
 #   install/k3d/k3d-observability-plane.sh
 
 # -- versions (update these on release branches) --
-OPENCHOREO_REF="main"
-OPENCHOREO_OP_VERSION="0.0.0-latest-dev"
+OPENCHOREO_REF="${OPENCHOREO_REF:-main}"           # overridable via env; defaults to main
+OPENCHOREO_OP_VERSION="${OPENCHOREO_OP_VERSION:-0.0.0-latest-dev}"  # overridable via env
 LOGS_OPENSEARCH_VERSION="0.4.0"
 TRACES_OPENSEARCH_VERSION="0.4.1"
 METRICS_PROMETHEUS_VERSION="0.4.2"
