@@ -173,6 +173,24 @@ Cluster Gateway service account name
 {{- end }}
 
 {{/*
+Event-forwarder resource name
+*/}}
+{{- define "openchoreo-control-plane.event-forwarder.name" -}}
+{{- default "event-forwarder" .Values.eventForwarder.name }}
+{{- end }}
+
+{{/*
+Event-forwarder service account name
+*/}}
+{{- define "openchoreo-control-plane.event-forwarder.serviceAccountName" -}}
+{{- if .Values.eventForwarder.serviceAccount.create }}
+{{- default "event-forwarder" .Values.eventForwarder.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.eventForwarder.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+{{/*
 Validate that placeholder .invalid hostnames have been replaced with real domains.
 */}}
 {{- define "openchoreo-control-plane.validateHostnames" -}}

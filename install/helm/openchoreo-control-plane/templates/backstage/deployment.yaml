@@ -117,6 +117,18 @@ spec:
           value: {{ .Values.security.authz.enabled | quote }}
         - name: OPENCHOREO_FEATURES_AUTH_REDIRECT_FLOW_ENABLED
           value: {{ .Values.backstage.features.auth.redirectFlow.enabled | quote }}
+        # Catalog sync — periodic full sync acts as a safety net behind
+        # the event-forwarder's real-time event-driven path. When the
+        # event-forwarder is disabled, this becomes the sole sync
+        # mechanism.
+        - name: OPENCHOREO_CATALOG_SYNC_FREQUENCY
+          value: {{ .Values.backstage.catalogSync.frequency | default 300 | quote }}
+        # Whether to wire the OpenChoreo events flow on the Backstage
+        # side. Mirrors `eventForwarder.enabled`: with the forwarder
+        # off, the event router and entity-provider subscriptions are
+        # skipped so the system runs in poll-only mode.
+        - name: OPENCHOREO_EVENTS_ENABLED
+          value: {{ .Values.eventForwarder.enabled | quote }}
         # External CI Platform Integrations
         # Jenkins: requires jenkins.io/job-full-name annotation on entity
         - name: JENKINS_BASE_URL

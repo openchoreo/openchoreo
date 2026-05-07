@@ -1,0 +1,48 @@
+{{- if .Values.eventForwarder.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "openchoreo-control-plane.event-forwarder.name" . }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: event-forwarder
+rules:
+- apiGroups:
+  - openchoreo.dev
+  resources:
+  - projects
+  - components
+  - workloads
+  - environments
+  - dataplanes
+  - deploymentpipelines
+  - componenttypes
+  - traits
+  - workflows
+  - workflowplanes
+  - observabilityplanes
+  - clustercomponenttypes
+  - clustertraits
+  - clusterworkflows
+  - clusterdataplanes
+  - clusterobservabilityplanes
+  - clusterworkflowplanes
+  verbs:
+  - get
+  - list
+  - watch
+# Core Kubernetes Namespace read access — needed because OpenChoreo
+# Organizations are represented as Kubernetes namespaces (marked with
+# the `openchoreo.dev/control-plane=true` label). The event-forwarder
+# applies this label as a server-side selector on the informer, so it
+# only observes OC-managed namespaces despite holding cluster-wide
+# read permission.
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+{{- end }}

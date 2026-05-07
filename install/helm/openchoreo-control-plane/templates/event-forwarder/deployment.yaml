@@ -1,0 +1,72 @@
+{{- if .Values.eventForwarder.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openchoreo-control-plane.event-forwarder.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: event-forwarder
+  annotations:
+    # Trigger rollout when config changes
+    checksum/config: {{ include (print $.Template.BasePath "/event-forwarder/configmap.yaml") . | sha256sum }}
+spec:
+  # Hardcoded to 1: the event-forwarder is stateless but each replica's
+  # informers would independently dispatch the same events,
+  # causing duplicate webhook deliveries. Not configurable.
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: event-forwarder
+      {{- include "openchoreo-control-plane.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: event-forwarder
+        {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
+      annotations:
+        # Trigger pod restart when config changes
+        checksum/config: {{ include (print $.Template.BasePath "/event-forwarder/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "openchoreo-control-plane.event-forwarder.serviceAccountName" . }}
+      {{- with .Values.eventForwarder.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: event-forwarder
+        image: "{{ .Values.eventForwarder.image.repository }}:{{ .Values.eventForwarder.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.eventForwarder.image.pullPolicy }}
+        args:
+          - --config=/etc/openchoreo/config.yaml
+        ports:
+        - containerPort: {{ .Values.eventForwarder.config.server.port | default 8080 }}
+          name: http
+          protocol: TCP
+        volumeMounts:
+        - name: config
+          mountPath: /etc/openchoreo
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          {{- toYaml .Values.eventForwarder.resources | nindent 12 }}
+        {{- with .Values.eventForwarder.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "openchoreo-control-plane.event-forwarder.name" . }}-config
+{{- end }}
