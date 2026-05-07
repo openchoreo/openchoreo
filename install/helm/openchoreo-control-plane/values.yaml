@@ -2643,7 +2643,7 @@ backstage:
   autoscaling:
     # @schema
     # type: boolean
-    # description: Enable HPA
+    # description: Enable HPA. Scaling Backstage beyond one replica requires database.type=postgresql.
     # default: false
     # @schema
     enabled: false
