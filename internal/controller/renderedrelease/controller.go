@@ -163,7 +163,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// PHASE 2: Discover live resources that we manage in the target plane
 	// This queries both current resource types (from spec) and previous resource types (from status)
 	// to ensure we find all resources that might need cleanup, preventing resource leaks
-	gvks := findAllKnownGVKs(desiredResources, release.Status.Resources)
+	gvks := findAllKnownGVKs(desiredResources, release.Status.Resources, targetPlane)
 	liveResources, err := r.listLiveResourcesByGVKs(ctx, planeClient, release, gvks)
 	if err != nil {
 		logger.Error(err, "Failed to list live resources from target plane", "targetPlane", targetPlane)
@@ -436,6 +436,54 @@ func (r *Reconciler) deleteResources(ctx context.Context, planeClient client.Cli
 	return nil
 }
 
+// wellKnownDataPlaneGVKs is the safety-net list for data-plane rendered releases.
+// It covers common Kubernetes resource types that the data-plane agent has permission
+// to list, so orphaned resources are caught even when status update fails.
+var wellKnownDataPlaneGVKs = []schema.GroupVersionKind{
+	// Core Kubernetes Resources
+	{Group: "", Version: "v1", Kind: "Service"},
+	{Group: "", Version: "v1", Kind: "ConfigMap"},
+	{Group: "", Version: "v1", Kind: "Secret"},
+	{Group: "", Version: "v1", Kind: "ServiceAccount"},
+	{Group: "", Version: "v1", Kind: "Namespace"},
+	{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
+
+	// Apps
+	{Group: "apps", Version: "v1", Kind: "Deployment"},
+	{Group: "apps", Version: "v1", Kind: "StatefulSet"},
+
+	// Batch
+	{Group: "batch", Version: "v1", Kind: "Job"},
+	{Group: "batch", Version: "v1", Kind: "CronJob"},
+
+	// Autoscaling & Policy
+	{Group: "autoscaling", Version: "v2", Kind: "HorizontalPodAutoscaler"},
+	{Group: "policy", Version: "v1", Kind: "PodDisruptionBudget"},
+
+	// Networking
+	{Group: "networking.k8s.io", Version: "v1", Kind: "NetworkPolicy"},
+	{Group: "networking.k8s.io", Version: "v1", Kind: "Ingress"},
+
+	// RBAC
+	{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
+	{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
+	{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
+	{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
+
+	// Gateway API
+	{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute"},
+	{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "Gateway"},
+}
+
+// wellKnownObservabilityPlaneGVKs is the safety-net list for observability-plane rendered
+// releases. It is intentionally narrow: only the CRDs that the observability-plane agent
+// reconciles and has RBAC permission to list. Broad Kubernetes types (Services, Deployments,
+// etc.) and control-plane-only CRDs (e.g. ObservabilityAlertsNotificationChannel) are
+// excluded because the observability-plane agent's RBAC does not cover them.
+var wellKnownObservabilityPlaneGVKs = []schema.GroupVersionKind{
+	{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
+}
+
 // findAllKnownGVKs finds all GroupVersionKinds that we should query for cleanup.
 //
 // This function is critical for preventing resource leaks during cleanup. It combines resource types
@@ -449,18 +497,17 @@ func (r *Reconciler) deleteResources(ctx context.Context, planeClient client.Cli
 //   - Handles resource types that were removed from the spec
 //   - Prevents orphaned resources when user removes entire resource types
 //
-// 3. WELL-KNOWN TYPES: Common Kubernetes resource types we typically manage
+// 3. WELL-KNOWN TYPES: Plane-specific resource types we typically manage
 //   - Handles edge cases where resources exist but status update failed
 //   - Provides safety net for orphaned resources from failed reconciliations
+//   - Scoped per target plane so only types the plane's agent can list are queried
 //
 // Example scenario:
 //   - Previous reconciliation: Applied ConfigMap + Secret
 //   - Current reconciliation: User removed ConfigMap, kept Secret
 //   - Without status: Would only query Secret, miss orphaned ConfigMap
 //   - With status: Queries both Secret + ConfigMap, finds and deletes orphaned ConfigMap
-//
-// This approach automatically supports any CRDs (Gateway, Cilium, etc.) without hardcoded lists.
-func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedResources []openchoreov1alpha1.ResourceStatus) []schema.GroupVersionKind {
+func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedResources []openchoreov1alpha1.ResourceStatus, targetPlane string) []schema.GroupVersionKind {
 	gvkSet := make(map[schema.GroupVersionKind]bool)
 
 	// Add GVKs from desired resources (current spec)
@@ -481,42 +528,12 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 		gvkSet[gvk] = true
 	}
 
-	// Add well-known GVKs that are commonly managed by controllers
-	// This provides a safety net for resources that might be orphaned due to failed status updates
-	wellKnownGVKs := []schema.GroupVersionKind{
-		// Core Kubernetes Resources
-		{Group: "", Version: "v1", Kind: "Service"},
-		{Group: "", Version: "v1", Kind: "ConfigMap"},
-		{Group: "", Version: "v1", Kind: "Secret"},
-		{Group: "", Version: "v1", Kind: "ServiceAccount"},
-		{Group: "", Version: "v1", Kind: "Namespace"},
-		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
-
-		// Apps
-		{Group: "apps", Version: "v1", Kind: "Deployment"},
-		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
-
-		// Batch
-		{Group: "batch", Version: "v1", Kind: "Job"},
-		{Group: "batch", Version: "v1", Kind: "CronJob"},
-
-		// Autoscaling & Policy
-		{Group: "autoscaling", Version: "v2", Kind: "HorizontalPodAutoscaler"},
-		{Group: "policy", Version: "v1", Kind: "PodDisruptionBudget"},
-
-		// Networking
-		{Group: "networking.k8s.io", Version: "v1", Kind: "NetworkPolicy"},
-		{Group: "networking.k8s.io", Version: "v1", Kind: "Ingress"},
-
-		// RBAC
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
-
-		// Gateway API
-		{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute"},
-		{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "Gateway"},
+	// Add plane-specific well-known GVKs as a safety net for orphaned resources.
+	// Using a plane-scoped list ensures we only probe types the plane agent can list,
+	// avoiding spurious RBAC errors from querying types the plane doesn't manage.
+	wellKnownGVKs := wellKnownDataPlaneGVKs
+	if targetPlane == targetPlaneObservabilityPlane {
+		wellKnownGVKs = wellKnownObservabilityPlaneGVKs
 	}
 	for _, gvk := range wellKnownGVKs {
 		gvkSet[gvk] = true

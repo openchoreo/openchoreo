@@ -217,7 +217,8 @@ func TestFindStaleResources(t *testing.T) {
 // ─────────────────────────────────────────────────────────────
 
 func TestFindAllKnownGVKs(t *testing.T) {
-	const wellKnownCount = 20 // number of well-known GVKs defined in the function
+	const dpWellKnownCount = 20 // number of well-known GVKs for the data plane
+	const opWellKnownCount = 1  // number of well-known GVKs for the observability plane
 
 	containsGVK := func(gvks []schema.GroupVersionKind, group, kind string) bool {
 		for _, gvk := range gvks {
@@ -228,15 +229,15 @@ func TestFindAllKnownGVKs(t *testing.T) {
 		return false
 	}
 
-	t.Run("empty inputs returns all well-known types", func(t *testing.T) {
-		gvks := findAllKnownGVKs(nil, nil)
-		if len(gvks) != wellKnownCount {
-			t.Errorf("expected %d well-known GVKs, got %d", wellKnownCount, len(gvks))
+	t.Run("empty inputs returns all data-plane well-known types", func(t *testing.T) {
+		gvks := findAllKnownGVKs(nil, nil, targetPlaneDataPlane)
+		if len(gvks) != dpWellKnownCount {
+			t.Errorf("expected %d well-known GVKs, got %d", dpWellKnownCount, len(gvks))
 		}
 	})
 
-	t.Run("well-known types include common Kubernetes resources", func(t *testing.T) {
-		gvks := findAllKnownGVKs(nil, nil)
+	t.Run("data-plane well-known types include common Kubernetes resources", func(t *testing.T) {
+		gvks := findAllKnownGVKs(nil, nil, targetPlaneDataPlane)
 		for _, check := range []struct{ group, kind string }{
 			{"apps", "Deployment"},
 			{"apps", "StatefulSet"},
@@ -251,12 +252,29 @@ func TestFindAllKnownGVKs(t *testing.T) {
 		}
 	})
 
+	t.Run("observability-plane well-known types contain only obs-plane CRDs", func(t *testing.T) {
+		gvks := findAllKnownGVKs(nil, nil, targetPlaneObservabilityPlane)
+		if len(gvks) != opWellKnownCount {
+			t.Errorf("expected %d well-known GVKs for obs plane, got %d", opWellKnownCount, len(gvks))
+		}
+		if !containsGVK(gvks, "openchoreo.dev", "ObservabilityAlertRule") {
+			t.Error("expected obs-plane well-known GVK openchoreo.dev/ObservabilityAlertRule to be present")
+		}
+		// Control-plane-only and data-plane types must NOT appear in the obs-plane list
+		if containsGVK(gvks, "openchoreo.dev", "ObservabilityAlertsNotificationChannel") {
+			t.Error("ObservabilityAlertsNotificationChannel is a control-plane CRD and must not appear in obs-plane list")
+		}
+		if containsGVK(gvks, "apps", "Deployment") || containsGVK(gvks, "", "Service") {
+			t.Error("data-plane GVKs must not appear in the observability-plane well-known list")
+		}
+	})
+
 	t.Run("custom desired resource GVK is included alongside well-known", func(t *testing.T) {
 		obj := &unstructured.Unstructured{}
 		obj.SetGroupVersionKind(schema.GroupVersionKind{Group: "custom.io", Version: "v1", Kind: "Widget"})
-		gvks := findAllKnownGVKs([]*unstructured.Unstructured{obj}, nil)
-		if len(gvks) != wellKnownCount+1 {
-			t.Errorf("expected %d, got %d", wellKnownCount+1, len(gvks))
+		gvks := findAllKnownGVKs([]*unstructured.Unstructured{obj}, nil, targetPlaneDataPlane)
+		if len(gvks) != dpWellKnownCount+1 {
+			t.Errorf("expected %d, got %d", dpWellKnownCount+1, len(gvks))
 		}
 		if !containsGVK(gvks, "custom.io", "Widget") {
 			t.Error("custom GVK not found in result")
@@ -266,9 +284,9 @@ func TestFindAllKnownGVKs(t *testing.T) {
 	t.Run("desired resource matching a well-known GVK is not duplicated", func(t *testing.T) {
 		obj := &unstructured.Unstructured{}
 		obj.SetGroupVersionKind(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"})
-		gvks := findAllKnownGVKs([]*unstructured.Unstructured{obj}, nil)
-		if len(gvks) != wellKnownCount {
-			t.Errorf("expected %d (no duplication), got %d", wellKnownCount, len(gvks))
+		gvks := findAllKnownGVKs([]*unstructured.Unstructured{obj}, nil, targetPlaneDataPlane)
+		if len(gvks) != dpWellKnownCount {
+			t.Errorf("expected %d (no duplication), got %d", dpWellKnownCount, len(gvks))
 		}
 	})
 
@@ -276,9 +294,9 @@ func TestFindAllKnownGVKs(t *testing.T) {
 		applied := []openchoreov1alpha1.ResourceStatus{
 			{Group: "legacy.io", Version: "v1", Kind: "OldThing"},
 		}
-		gvks := findAllKnownGVKs(nil, applied)
-		if len(gvks) != wellKnownCount+1 {
-			t.Errorf("expected %d, got %d", wellKnownCount+1, len(gvks))
+		gvks := findAllKnownGVKs(nil, applied, targetPlaneDataPlane)
+		if len(gvks) != dpWellKnownCount+1 {
+			t.Errorf("expected %d, got %d", dpWellKnownCount+1, len(gvks))
 		}
 		if !containsGVK(gvks, "legacy.io", "OldThing") {
 			t.Error("applied resource GVK not found in result")
@@ -292,9 +310,9 @@ func TestFindAllKnownGVKs(t *testing.T) {
 			{Group: "a.io", Version: "v1", Kind: "A"}, // duplicate of desired
 			{Group: "b.io", Version: "v1", Kind: "B"},
 		}
-		gvks := findAllKnownGVKs([]*unstructured.Unstructured{desiredObj}, applied)
-		if len(gvks) != wellKnownCount+2 {
-			t.Errorf("expected %d, got %d", wellKnownCount+2, len(gvks))
+		gvks := findAllKnownGVKs([]*unstructured.Unstructured{desiredObj}, applied, targetPlaneDataPlane)
+		if len(gvks) != dpWellKnownCount+2 {
+			t.Errorf("expected %d, got %d", dpWellKnownCount+2, len(gvks))
 		}
 	})
 }

@@ -84,7 +84,7 @@ func (r *Reconciler) finalizeDataPlane(ctx context.Context, old, release *opench
 
 	// STEP 3: List all live resources we manage (use empty desired resources since we want to delete everything)
 	var emptyDesiredResources []*unstructured.Unstructured
-	gvks := findAllKnownGVKs(emptyDesiredResources, release.Status.Resources)
+	gvks := findAllKnownGVKs(emptyDesiredResources, release.Status.Resources, targetPlaneDataPlane)
 	liveResources, err := r.listLiveResourcesByGVKs(ctx, planeClient, release, gvks)
 	if err != nil {
 		meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseCleanupFailedCondition(release.Generation, err))
@@ -187,14 +187,9 @@ func (r *Reconciler) finalizeObsPlane(ctx context.Context, old, release *opencho
 	return ctrl.Result{}, nil
 }
 
-// intersectObsPlaneGVKs returns the subset of GVKs from the release status that are in the obs-plane allowlist.
+// intersectObsPlaneGVKs returns the subset of GVKs from the release status that are in
+// wellKnownObservabilityPlaneGVKs
 func (r *Reconciler) intersectObsPlaneGVKs(ctx context.Context, release *openchoreov1alpha1.RenderedRelease) []schema.GroupVersionKind {
-	// Narrow allowlist — broad cluster-scope listing would require excessive RBAC permissions
-	// for the cluster-agent service account in the observability plane.
-	var obsPlaneGVKs = []schema.GroupVersionKind{
-		{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
-	}
-
 	seen := make(map[schema.GroupVersionKind]bool)
 	var result []schema.GroupVersionKind
 	logger := log.FromContext(ctx).WithValues("release", release.Name)
@@ -205,10 +200,10 @@ func (r *Reconciler) intersectObsPlaneGVKs(ctx context.Context, release *opencho
 			continue
 		}
 		seen[gvk] = true
-		if slices.Contains(obsPlaneGVKs, gvk) {
+		if slices.Contains(wellKnownObservabilityPlaneGVKs, gvk) {
 			result = append(result, gvk)
 		} else {
-			logger.Error(fmt.Errorf("GVK not in obsPlaneGVKs allowlist"),
+			logger.Error(fmt.Errorf("GVK not in observability plane allowlist"),
 				"resource will not be cleaned up during obs-plane finalization",
 				"group", gvk.Group, "version", gvk.Version, "kind", gvk.Kind)
 		}
