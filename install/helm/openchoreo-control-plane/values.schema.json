@@ -144,7 +144,7 @@
             },
             "enabled": {
               "default": false,
-              "description": "Enable HPA",
+              "description": "Enable HPA. Scaling Backstage beyond one replica requires database.type=postgresql.",
               "title": "enabled",
               "type": "boolean"
             },
