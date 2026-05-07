@@ -2549,34 +2549,6 @@
       "additionalProperties": true,
       "description": "KGateway (Gateway API) configuration. kgateway is installed separately; these values configure the Gateway CR created by this chart.",
       "properties": {
-        "annotations": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "default": {},
-          "description": "Annotations added to the Gateway resource. Use this to configure cert-manager, external-dns, or other integrations.",
-          "required": [],
-          "title": "annotations",
-          "type": "object"
-        },
-        "enabled": {
-          "default": true,
-          "description": "Enable Gateway CR creation",
-          "title": "enabled",
-          "type": "boolean"
-        },
-        "httpPort": {
-          "default": 80,
-          "description": "HTTP listener port",
-          "title": "httpPort",
-          "type": "integer"
-        },
-        "httpsPort": {
-          "default": 443,
-          "description": "HTTPS listener port",
-          "title": "httpsPort",
-          "type": "integer"
-        },
         "allowedRoutes": {
           "additionalProperties": false,
           "description": "Gateway listener route attachment policy. Use Same to restrict routes to the Gateway namespace, or All to allow routes from any namespace.",
@@ -2604,6 +2576,34 @@
           "required": [],
           "title": "allowedRoutes",
           "type": "object"
+        },
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Annotations added to the Gateway resource. Use this to configure cert-manager, external-dns, or other integrations.",
+          "required": [],
+          "title": "annotations",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable Gateway CR creation",
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "httpPort": {
+          "default": 80,
+          "description": "HTTP listener port",
+          "title": "httpPort",
+          "type": "integer"
+        },
+        "httpsPort": {
+          "default": 443,
+          "description": "HTTPS listener port",
+          "title": "httpsPort",
+          "type": "integer"
         },
         "infrastructure": {
           "additionalProperties": true,
