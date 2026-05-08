@@ -1188,7 +1188,6 @@ openchoreoApi:
                 - "traces:view"
                 - "alerts:view"
                 - "rcareport:view"
-                - "perch:invoke"
 
             # SRE role - operations engineers focused on reliability and incident response.
             # Assign namespace-reader and cluster-reader alongside this role so SREs
@@ -1232,7 +1231,6 @@ openchoreoApi:
                 - "incidents:update"
                 - "rcareport:view"
                 - "rcareport:update"
-                - "perch:invoke"
 
             # Platform engineer role - engineers managing the OpenChoreo platform infrastructure
             - name: platform-engineer
@@ -1305,7 +1303,6 @@ openchoreoApi:
                 - "incidents:view"
                 - "rcareport:view"
                 - "rcareport:update"
-                - "perch:invoke"
                 - "observabilityalertsnotificationchannel:view"
                 - "observabilityalertsnotificationchannel:create"
                 - "observabilityalertsnotificationchannel:update"
