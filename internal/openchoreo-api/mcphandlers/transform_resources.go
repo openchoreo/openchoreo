@@ -40,6 +40,9 @@ func componentSummary(c openchoreov1alpha1.Component) map[string]any {
 	m["projectName"] = c.Spec.Owner.ProjectName
 	m["componentType"] = c.Spec.ComponentType.Name
 	m["autoDeploy"] = c.Spec.AutoDeploy
+	if c.Spec.AutoBuild != nil {
+		m["autoBuild"] = *c.Spec.AutoBuild
+	}
 	setIfNotEmpty(m, "status", readyStatus(c.Status.Conditions))
 	if c.Status.LatestRelease != nil {
 		m["latestRelease"] = c.Status.LatestRelease.Name
