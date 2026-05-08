@@ -73,6 +73,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Start the dispatcher worker pool before any events can be queued
+	// — Forwarder.Start triggers an initial replay of "create" events
+	// for every existing CR as informer caches sync, so workers must be
+	// running by then.
+	d.Start(ctx)
+
 	// Start event-forwarder (blocks until context is cancelled)
 	logger.Info("Starting CRD event-forwarder")
 	healthSrv.SetReady()

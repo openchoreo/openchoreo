@@ -20,11 +20,13 @@ import (
 	"github.com/openchoreo/openchoreo/internal/eventforwarder/config"
 )
 
-// newTestDispatcher builds a Dispatcher pointed at one or more URLs.
+// newTestDispatcher builds a Dispatcher pointed at one or more URLs
+// and starts its worker pool against the test's lifetime context.
 // When maxAttempts > 1, each endpoint is configured with that retry
 // policy and a 1ms backoff so retry tests stay fast. When maxAttempts
 // is 1, no retry block is set — exercising the default "try once" path.
-func newTestDispatcher(urls []string, maxAttempts int) *Dispatcher {
+func newTestDispatcher(t *testing.T, urls []string, maxAttempts int) *Dispatcher {
+	t.Helper()
 	endpoints := make([]config.EndpointConfig, len(urls))
 	for i, u := range urls {
 		ep := config.EndpointConfig{URL: u}
@@ -36,7 +38,11 @@ func newTestDispatcher(urls []string, maxAttempts int) *Dispatcher {
 		}
 		endpoints[i] = ep
 	}
-	return New(config.WebhooksConfig{Endpoints: endpoints}, slog.Default())
+	d := New(config.WebhooksConfig{Endpoints: endpoints}, slog.Default())
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	d.Start(ctx)
+	return d
 }
 
 // waitForBody reads a single delivery from the channel with a generous
@@ -62,7 +68,7 @@ func TestDispatch_DeliversJSONEventOnSuccess(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	d := newTestDispatcher([]string{ts.URL}, 1)
+	d := newTestDispatcher(t, []string{ts.URL}, 1)
 	d.Dispatch(context.Background(), Event{
 		Kind:      "Project",
 		Name:      "url-shortener",
@@ -93,7 +99,7 @@ func TestDispatch_RetriesUntilSuccess(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	d := newTestDispatcher([]string{ts.URL}, 5)
+	d := newTestDispatcher(t, []string{ts.URL}, 5)
 	d.Dispatch(context.Background(), Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
 
 	assert.Eventually(t, func() bool { return attempts.Load() == 3 },
@@ -109,7 +115,7 @@ func TestDispatch_GivesUpAfterMaxAttempts(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	d := newTestDispatcher([]string{ts.URL}, 3)
+	d := newTestDispatcher(t, []string{ts.URL}, 3)
 	d.Dispatch(context.Background(), Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
 
 	// Wait long enough for all retries to elapse (backoff 1ms × 2^n,
@@ -144,7 +150,7 @@ func TestDispatch_FansOutToAllEndpoints(t *testing.T) {
 	}))
 	defer tsB.Close()
 
-	d := newTestDispatcher([]string{tsA.URL, tsB.URL}, 1)
+	d := newTestDispatcher(t, []string{tsA.URL, tsB.URL}, 1)
 	d.Dispatch(context.Background(), Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
 
 	assert.Eventually(t, func() bool {
@@ -177,6 +183,7 @@ func TestDispatch_CancellationStopsRetries(t *testing.T) {
 	}, slog.Default())
 
 	ctx, cancel := context.WithCancel(context.Background())
+	d.Start(ctx)
 	d.Dispatch(ctx, Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
 
 	// Wait for the first failed attempt to land, confirming we're now in the backoff.
@@ -193,7 +200,7 @@ func TestDispatch_CancellationStopsRetries(t *testing.T) {
 }
 
 func TestDispatch_FanOutRunsEndpointsConcurrently(t *testing.T) {
-	// Both endpoints sleep 200ms. If the dispatcher serialised them, the
+	// Both endpoints sleep 200ms. If the dispatcher serialized them, the
 	// total wall-clock would be ~400ms; with concurrent fan-out it's ~200ms.
 	const handlerDelay = 200 * time.Millisecond
 	makeServer := func(hits *atomic.Int32) *httptest.Server {
@@ -209,7 +216,7 @@ func TestDispatch_FanOutRunsEndpointsConcurrently(t *testing.T) {
 	tsB := makeServer(&bHits)
 	defer tsB.Close()
 
-	d := newTestDispatcher([]string{tsA.URL, tsB.URL}, 1)
+	d := newTestDispatcher(t, []string{tsA.URL, tsB.URL}, 1)
 
 	start := time.Now()
 	d.Dispatch(context.Background(), Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
@@ -239,10 +246,57 @@ func TestDispatch_MaxAttemptsZeroTreatedAsOne(t *testing.T) {
 			Retry: &config.RetryConfig{MaxAttempts: 0, BackoffMs: 1},
 		}},
 	}, slog.Default())
-	d.Dispatch(context.Background(), Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	d.Start(ctx)
+	d.Dispatch(ctx, Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
 
 	assert.Eventually(t, func() bool { return attempts.Load() == 1 },
 		2*time.Second, 10*time.Millisecond)
+}
+
+func TestDispatch_DropsEventsWhenQueueFull(t *testing.T) {
+	// Hold every dispatch open until the test is ready to release them.
+	// With a tiny channel and stalled workers, the next Dispatch call
+	// should hit the `default:` branch and drop the event rather than
+	// block the producer (informer thread).
+	release := make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		<-release
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	defer close(release)
+
+	d := New(config.WebhooksConfig{
+		Endpoints: []config.EndpointConfig{{URL: ts.URL}},
+	}, slog.Default())
+	// Shrink the worker pool and queue to make overflow trivially
+	// reproducible. With workers=1 + queueSize=1, only the second
+	// in-flight dispatch (worker busy + queue holds 1) can be queued;
+	// the third must drop.
+	d.workers = 1
+	d.jobs = make(chan dispatchJob, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	d.Start(ctx)
+
+	// First dispatch lands on the worker (which is now blocked in the
+	// httptest handler). Second dispatch fits in the buffered queue.
+	// Third must be dropped.
+	for i := 0; i < 3; i++ {
+		d.Dispatch(ctx, Event{
+			Kind:      "Project",
+			Name:      "p" + string(rune('0'+i)),
+			Namespace: "default",
+			Action:    "updated",
+		})
+	}
+
+	// Verify only 2 of the 3 are queued/in-flight (the third was
+	// dropped). Channel still holds the second job, worker is in
+	// httptest handler with the first.
+	assert.Equal(t, 1, len(d.jobs), "queued job count after overflow")
 }
 
 func TestDispatch_DefaultsToSingleAttemptWhenNoRetryConfigured(t *testing.T) {
@@ -259,7 +313,10 @@ func TestDispatch_DefaultsToSingleAttemptWhenNoRetryConfigured(t *testing.T) {
 	d := New(config.WebhooksConfig{
 		Endpoints: []config.EndpointConfig{{URL: ts.URL}}, // no Retry
 	}, slog.Default())
-	d.Dispatch(context.Background(), Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	d.Start(ctx)
+	d.Dispatch(ctx, Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
 
 	// Wait long enough that any retry would have landed.
 	assert.Eventually(t, func() bool { return attempts.Load() == 1 },

@@ -247,19 +247,21 @@ func (f *Forwarder) handleEvent(obj interface{}, action string, gvr schema.Group
 	namespace := u.GetNamespace()
 	kind := u.GetKind()
 
-	// Debounce same-resource bursts to avoid flooding subscribers with
-	// rapid successive updates (e.g. a controller patching labels then
-	// annotations on the same CR within the reconcile loop).
+	// Debounce only "updated" events. Updates are the chatty case — a
+	// controller patching labels then annotations on the same CR within
+	// a single reconcile produces a burst of meaningful changes, and
+	// collapsing them into one dispatch saves the consumer redundant
+	// re-fetches without losing useful information (the consumer
+	// re-fetches on each event and gets the latest committed state
+	// anyway).
 	//
-	// Deletes are explicitly NOT debounced: a delete is terminal and
-	// non-fungible, so missing it leaves the consumer with an orphan
-	// entity until the next periodic full sync. The common bug this
-	// guards against is "create-then-delete-immediately" of a fresh
-	// resource, where the deletionTimestamp UPDATE is dispatched, the
-	// finalizer cleanup completes within 1s (because there's nothing
-	// to clean), and the trailing DELETE then collides with the
-	// debounce window and gets dropped.
-	if action != "deleted" {
+	// "created" and "deleted" events are non-fungible — you can't merge
+	// a create with a later create, and dropping a delete leaves the
+	// consumer with an orphan entity until the next periodic full sync.
+	// The common bug this guards against is "create-then-delete-
+	// immediately" of a fresh resource, where the trailing DELETE
+	// arrives within 1s of an earlier UPDATE for the same key.
+	if action == "updated" {
 		key := gvr.Resource + "/" + namespace + "/" + name
 		now := time.Now()
 		f.mu.Lock()

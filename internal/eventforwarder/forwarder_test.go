@@ -4,6 +4,7 @@
 package eventforwarder
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -221,12 +222,18 @@ func newForwarderWithCapture(t *testing.T) (*Forwarder, *captureServer, func()) 
 	d := dispatcher.New(config.WebhooksConfig{
 		Endpoints: []config.EndpointConfig{{URL: cs.URL}},
 	}, slog.Default())
+	ctx, cancel := context.WithCancel(context.Background())
+	d.Start(ctx)
 	f := &Forwarder{
-		dispatcher: d,
-		logger:     slog.Default(),
-		lastEvent:  make(map[string]time.Time),
+		dispatcher:  d,
+		logger:      slog.Default(),
+		lastEvent:   make(map[string]time.Time),
+		dispatchCtx: ctx,
 	}
-	return f, cs, cs.Close
+	return f, cs, func() {
+		cancel()
+		cs.Close()
+	}
 }
 
 func waitForEvent(t *testing.T, cs *captureServer) dispatcher.Event {
@@ -295,6 +302,29 @@ func TestHandleEvent_DebounceIsPerKey(t *testing.T) {
 	names := []string{got1.Name, got2.Name}
 	assert.ElementsMatch(t, []string{"p1", "p2"}, names,
 		"both events should be dispatched because the debounce key differs")
+}
+
+func TestHandleEvent_CreatedActionBypassesDebounce(t *testing.T) {
+	f, cs, cleanup := newForwarderWithCapture(t)
+	defer cleanup()
+
+	// Create-then-recreate of the same name (e.g. user deletes a CR
+	// then immediately recreates it before the cleanup goroutine
+	// evicts the debounce key, or two name collisions across a
+	// namespace boundary): the second `created` must NOT be dropped.
+	// Creates are non-fungible — collapsing them risks dropping a
+	// fresh resource entirely.
+	f.handleEvent(newProject("p1"), "created", projectGVR)
+	first := waitForEvent(t, cs)
+	assert.Equal(t, "created", first.Action)
+
+	// Same key, well within the 1s debounce window. Bypass for
+	// `created` must keep this dispatch alive.
+	f.handleEvent(newProject("p1"), "created", projectGVR)
+	second := waitForEvent(t, cs)
+	assert.Equal(t, "created", second.Action)
+	assert.Equal(t, int32(2), cs.hits.Load(),
+		"both creates must be dispatched even within the debounce window")
 }
 
 func TestHandleEvent_DeletedActionBypassesDebounce(t *testing.T) {
