@@ -4,15 +4,22 @@
 package releasebinding
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/resourcereleasebinding"
 )
 
 func TestBuildResourceDependencyTargets(t *testing.T) {
@@ -184,7 +191,222 @@ func TestResourceDependencyTargetIndexKeyRoundTrip(t *testing.T) {
 	assert.Equal(t, consumerKey, indexKeys[0])
 }
 
+func TestResolveResourceDependency(t *testing.T) {
+	t.Run("binding_not_found_returns_pending", func(t *testing.T) {
+		r := newResourceDepReconciler(t)
+		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+		dep := openchoreov1alpha1.WorkloadResourceDependency{Ref: "orders-db"}
+
+		item, pending, err := r.resolveResourceDependency(context.Background(), rb, dep)
+		require.NoError(t, err)
+		assert.Nil(t, item)
+		require.NotNil(t, pending)
+		assert.Equal(t, "orders-db", pending.ResourceName)
+		assert.Contains(t, pending.Reason, "not found")
+	})
+
+	t.Run("multiple_bindings_found_returns_pending", func(t *testing.T) {
+		// Two RRBs share the same (project, resource, env) — should never happen, but the
+		// resolver must surface this defensively rather than picking arbitrarily.
+		dup1 := newProviderRRB("ns", "proj", "orders-db", "dev", "rrb1", true, nil)
+		dup2 := newProviderRRB("ns", "proj", "orders-db", "dev", "rrb2", true, nil)
+		r := newResourceDepReconciler(t, dup1, dup2)
+		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+		dep := openchoreov1alpha1.WorkloadResourceDependency{Ref: "orders-db"}
+
+		item, pending, err := r.resolveResourceDependency(context.Background(), rb, dep)
+		require.NoError(t, err)
+		assert.Nil(t, item)
+		require.NotNil(t, pending)
+		assert.Contains(t, pending.Reason, "multiple")
+	})
+
+	t.Run("provider_not_ready_returns_pending", func(t *testing.T) {
+		rrb := newProviderRRB("ns", "proj", "orders-db", "dev", "rrb1", false, nil)
+		r := newResourceDepReconciler(t, rrb)
+		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+		dep := openchoreov1alpha1.WorkloadResourceDependency{Ref: "orders-db"}
+
+		item, pending, err := r.resolveResourceDependency(context.Background(), rb, dep)
+		require.NoError(t, err)
+		assert.Nil(t, item)
+		require.NotNil(t, pending)
+		assert.Contains(t, pending.Reason, "not ready")
+	})
+
+	t.Run("provider_ready_but_referenced_output_missing_returns_pending", func(t *testing.T) {
+		// Provider is Ready but its outputs[] doesn't include the binding's referenced name.
+		rrb := newProviderRRB("ns", "proj", "orders-db", "dev", "rrb1", true,
+			[]openchoreov1alpha1.ResolvedResourceOutput{
+				{Name: "host", Value: "10.0.0.5"},
+			})
+		r := newResourceDepReconciler(t, rrb)
+		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+		dep := openchoreov1alpha1.WorkloadResourceDependency{
+			Ref:         "orders-db",
+			EnvBindings: map[string]string{"password": "DB_PASS"},
+		}
+
+		item, pending, err := r.resolveResourceDependency(context.Background(), rb, dep)
+		require.NoError(t, err)
+		assert.Nil(t, item)
+		require.NotNil(t, pending)
+		assert.Contains(t, pending.Reason, "password")
+	})
+
+	t.Run("provider_ready_with_outputs_returns_item", func(t *testing.T) {
+		rrb := newProviderRRB("ns", "proj", "orders-db", "dev", "rrb1", true,
+			[]openchoreov1alpha1.ResolvedResourceOutput{
+				{Name: "host", Value: "10.0.0.5"},
+			})
+		r := newResourceDepReconciler(t, rrb)
+		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+		dep := openchoreov1alpha1.WorkloadResourceDependency{
+			Ref:         "orders-db",
+			EnvBindings: map[string]string{"host": "DB_HOST"},
+		}
+
+		item, pending, err := r.resolveResourceDependency(context.Background(), rb, dep)
+		require.NoError(t, err)
+		assert.Nil(t, pending)
+		require.NotNil(t, item)
+		assert.Equal(t, "orders-db", item.Ref)
+		require.Len(t, item.EnvVars, 1)
+		assert.Equal(t, "DB_HOST", item.EnvVars[0].Name)
+		assert.Equal(t, "10.0.0.5", item.EnvVars[0].Value)
+	})
+
+	t.Run("transient_api_error_propagates", func(t *testing.T) {
+		// Inject a list error to verify the resolver propagates it (caller requeues).
+		listErr := errors.New("etcd unavailable")
+		r := newResourceDepReconciler(t)
+		r.Client = fake.NewClientBuilder().
+			WithScheme(r.Scheme).
+			WithIndex(&openchoreov1alpha1.ResourceReleaseBinding{},
+				controller.IndexKeyResourceReleaseBindingOwnerEnv,
+				controller.IndexResourceReleaseBindingOwnerEnv).
+			WithInterceptorFuncs(interceptor.Funcs{
+				List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+					if _, ok := list.(*openchoreov1alpha1.ResourceReleaseBindingList); ok {
+						return listErr
+					}
+					return c.List(ctx, list, opts...)
+				},
+			}).
+			Build()
+		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+		dep := openchoreov1alpha1.WorkloadResourceDependency{Ref: "orders-db"}
+
+		_, _, err := r.resolveResourceDependency(context.Background(), rb, dep)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, listErr)
+	})
+}
+
+func TestResolveResourceDependencies(t *testing.T) {
+	t.Run("empty_deps_returns_empty_lists", func(t *testing.T) {
+		r := newResourceDepReconciler(t)
+		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+
+		items, pending, err := r.resolveResourceDependencies(context.Background(), rb, nil)
+		require.NoError(t, err)
+		assert.Empty(t, items)
+		assert.Empty(t, pending)
+	})
+
+	t.Run("mixed_resolved_and_pending", func(t *testing.T) {
+		// db is resolved, cache has no provider RRB.
+		dbRRB := newProviderRRB("ns", "proj", "db", "dev", "db-binding", true,
+			[]openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: "h"}})
+		r := newResourceDepReconciler(t, dbRRB)
+		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+		deps := []openchoreov1alpha1.WorkloadResourceDependency{
+			{Ref: "db", EnvBindings: map[string]string{"host": "DB_HOST"}},
+			{Ref: "cache"},
+		}
+
+		items, pending, err := r.resolveResourceDependencies(context.Background(), rb, deps)
+		require.NoError(t, err)
+		require.Len(t, items, 1)
+		assert.Equal(t, "db", items[0].Ref)
+		require.Len(t, pending, 1)
+		assert.Equal(t, "cache", pending[0].ResourceName)
+	})
+
+	t.Run("api_error_aborts_orchestrator", func(t *testing.T) {
+		// One dep's lookup fails transiently → orchestrator returns error.
+		listErr := errors.New("etcd down")
+		scheme := runtime.NewScheme()
+		require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+		c := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithIndex(&openchoreov1alpha1.ResourceReleaseBinding{},
+				controller.IndexKeyResourceReleaseBindingOwnerEnv,
+				controller.IndexResourceReleaseBindingOwnerEnv).
+			WithInterceptorFuncs(interceptor.Funcs{
+				List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+					if _, ok := list.(*openchoreov1alpha1.ResourceReleaseBindingList); ok {
+						return listErr
+					}
+					return c.List(ctx, list, opts...)
+				},
+			}).
+			Build()
+		r := &Reconciler{Client: c, Scheme: scheme}
+		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+		deps := []openchoreov1alpha1.WorkloadResourceDependency{{Ref: "db"}}
+
+		_, _, err := r.resolveResourceDependencies(context.Background(), rb, deps)
+		require.Error(t, err)
+	})
+}
+
 // --- helpers ---
+
+func newResourceDepReconciler(t *testing.T, objs ...client.Object) *Reconciler {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+	builder := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithIndex(&openchoreov1alpha1.ResourceReleaseBinding{},
+			controller.IndexKeyResourceReleaseBindingOwnerEnv,
+			controller.IndexResourceReleaseBindingOwnerEnv)
+	if len(objs) > 0 {
+		builder = builder.WithObjects(objs...)
+	}
+	return &Reconciler{Client: builder.Build(), Scheme: scheme}
+}
+
+func newProviderRRB(namespace, project, resource, environment, name string, ready bool,
+	outputs []openchoreov1alpha1.ResolvedResourceOutput) *openchoreov1alpha1.ResourceReleaseBinding {
+	cond := metav1.Condition{
+		Type:               string(resourcereleasebinding.ConditionReady),
+		Status:             metav1.ConditionFalse,
+		Reason:             "Pending",
+		Message:            "not yet ready",
+		LastTransitionTime: metav1.Now(),
+	}
+	if ready {
+		cond.Status = metav1.ConditionTrue
+		cond.Reason = "Ready"
+		cond.Message = "ResourceReleaseBinding is ready"
+	}
+	return &openchoreov1alpha1.ResourceReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ResourceReleaseBindingOwner{
+				ProjectName:  project,
+				ResourceName: resource,
+			},
+			Environment: environment,
+		},
+		Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
+			Conditions: []metav1.Condition{cond},
+			Outputs:    outputs,
+		},
+	}
+}
 
 func newRBForResourceDeps(namespace, project, component, environment string) *openchoreov1alpha1.ReleaseBinding {
 	return &openchoreov1alpha1.ReleaseBinding{
