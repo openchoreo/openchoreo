@@ -364,6 +364,40 @@ func TestBuildResourceDependencyItem(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "my-db", got.Ref)
 	})
+
+	t.Run("same_output_in_env_and_file_bindings_emits_both", func(t *testing.T) {
+		// Locks the contract: a developer can name the same output in both envBindings
+		// and fileBindings to get both an env var (e.g. POSTGRES_PASSWORD) AND a mounted
+		// file (e.g. /etc/db/password) backed by the same secret key. The two paths are
+		// independent — env binding produces an env var, file binding produces a
+		// volume + mount. Output kind must be ref-kind for the file path to succeed.
+		dep := v1alpha1.WorkloadResourceDependency{
+			Ref:          "orders-db",
+			EnvBindings:  map[string]string{"password": "DB_PASS"},
+			FileBindings: map[string]string{"password": "/etc/db/password"},
+		}
+		outputs := []v1alpha1.ResolvedResourceOutput{
+			{Name: "password", SecretKeyRef: &v1alpha1.SecretKeyRef{Name: "orders-db-conn", Key: "password"}},
+		}
+
+		got, err := BuildResourceDependencyItem(dep, outputs)
+		require.NoError(t, err)
+
+		// Env var emitted
+		require.Len(t, got.EnvVars, 1)
+		assert.Equal(t, "DB_PASS", got.EnvVars[0].Name)
+		require.NotNil(t, got.EnvVars[0].ValueFrom)
+		assert.Equal(t, "orders-db-conn", got.EnvVars[0].ValueFrom.SecretKeyRef.Name)
+		assert.Equal(t, "password", got.EnvVars[0].ValueFrom.SecretKeyRef.Key)
+
+		// Volume + mount emitted
+		require.Len(t, got.VolumeMounts, 1)
+		require.Len(t, got.Volumes, 1)
+		assert.Equal(t, "/etc/db/password", got.VolumeMounts[0].MountPath)
+		assert.Equal(t, "password", got.VolumeMounts[0].SubPath)
+		require.NotNil(t, got.Volumes[0].Secret)
+		assert.Equal(t, "orders-db-conn", got.Volumes[0].Secret.SecretName)
+	})
 }
 
 // Spot-check: the volume-name helper is stable and changes when any input changes.
