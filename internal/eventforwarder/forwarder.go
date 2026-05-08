@@ -58,6 +58,12 @@ type Forwarder struct {
 	dispatcher *dispatcher.Dispatcher
 	logger     *slog.Logger
 
+	// dispatchCtx is captured from Start() and passed to Dispatch so that
+	// in-flight HTTP retries and backoffs abort cleanly on shutdown.
+	// Informer event-handler callbacks don't carry their own context, so
+	// we hang on to the one from Start.
+	dispatchCtx context.Context
+
 	// debounce tracks the last dispatch time per resource key
 	mu        sync.Mutex
 	lastEvent map[string]time.Time
@@ -114,6 +120,8 @@ func gvrList() []schema.GroupVersionResource {
 // Start begins watching all OpenChoreo CRDs (and OC-labeled core
 // Namespaces) and blocks until the context is cancelled.
 func (f *Forwarder) Start(ctx context.Context) error {
+	f.dispatchCtx = ctx
+
 	// CRD informers — unfiltered. Each OC CRD has its own informer so
 	// we receive events for every Project, Component, Workload, etc.
 	crdFactory := dynamicinformer.NewDynamicSharedInformerFactory(f.client, 0)
@@ -239,16 +247,29 @@ func (f *Forwarder) handleEvent(obj interface{}, action string, gvr schema.Group
 	namespace := u.GetNamespace()
 	kind := u.GetKind()
 
-	// Debounce: skip if we dispatched for this resource within the window
-	key := gvr.Resource + "/" + namespace + "/" + name
-	now := time.Now()
-	f.mu.Lock()
-	if last, exists := f.lastEvent[key]; exists && now.Sub(last) < debounceWindow {
+	// Debounce same-resource bursts to avoid flooding subscribers with
+	// rapid successive updates (e.g. a controller patching labels then
+	// annotations on the same CR within the reconcile loop).
+	//
+	// Deletes are explicitly NOT debounced: a delete is terminal and
+	// non-fungible, so missing it leaves the consumer with an orphan
+	// entity until the next periodic full sync. The common bug this
+	// guards against is "create-then-delete-immediately" of a fresh
+	// resource, where the deletionTimestamp UPDATE is dispatched, the
+	// finalizer cleanup completes within 1s (because there's nothing
+	// to clean), and the trailing DELETE then collides with the
+	// debounce window and gets dropped.
+	if action != "deleted" {
+		key := gvr.Resource + "/" + namespace + "/" + name
+		now := time.Now()
+		f.mu.Lock()
+		if last, exists := f.lastEvent[key]; exists && now.Sub(last) < debounceWindow {
+			f.mu.Unlock()
+			return
+		}
+		f.lastEvent[key] = now
 		f.mu.Unlock()
-		return
 	}
-	f.lastEvent[key] = now
-	f.mu.Unlock()
 
 	f.logger.Info("CRD event detected",
 		"action", action,
@@ -257,7 +278,14 @@ func (f *Forwarder) handleEvent(obj interface{}, action string, gvr schema.Group
 		"namespace", namespace,
 	)
 
-	f.dispatcher.Dispatch(dispatcher.Event{
+	ctx := f.dispatchCtx
+	if ctx == nil {
+		// Defensive: if handleEvent fires before Start() captures the
+		// context (shouldn't happen — informers are only started inside
+		// Start), fall back to Background so we don't panic.
+		ctx = context.Background()
+	}
+	f.dispatcher.Dispatch(ctx, dispatcher.Event{
 		Kind:      kind,
 		Name:      name,
 		Namespace: namespace,

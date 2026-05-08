@@ -28,9 +28,9 @@ webhooks:
   endpoints:
     - url: http://example.com/webhook-a
     - url: http://example.com/webhook-b
-  retry:
-    maxAttempts: 5
-    backoffMs: 500
+      retry:
+        maxAttempts: 5
+        backoffMs: 500
 logging:
   level: debug
 `)
@@ -41,9 +41,12 @@ logging:
 	assert.Equal(t, 9090, cfg.Server.Port)
 	require.Len(t, cfg.Webhooks.Endpoints, 2)
 	assert.Equal(t, "http://example.com/webhook-a", cfg.Webhooks.Endpoints[0].URL)
+	assert.Nil(t, cfg.Webhooks.Endpoints[0].Retry,
+		"endpoint without retry block must keep nil retry (try-once default)")
 	assert.Equal(t, "http://example.com/webhook-b", cfg.Webhooks.Endpoints[1].URL)
-	assert.Equal(t, 5, cfg.Webhooks.Retry.MaxAttempts)
-	assert.Equal(t, 500, cfg.Webhooks.Retry.BackoffMs)
+	require.NotNil(t, cfg.Webhooks.Endpoints[1].Retry)
+	assert.Equal(t, 5, cfg.Webhooks.Endpoints[1].Retry.MaxAttempts)
+	assert.Equal(t, 500, cfg.Webhooks.Endpoints[1].Retry.BackoffMs)
 	assert.Equal(t, "debug", cfg.Logging.Level)
 }
 
@@ -60,8 +63,8 @@ webhooks:
 	require.NoError(t, err)
 
 	assert.Equal(t, 8080, cfg.Server.Port, "default server port")
-	assert.Equal(t, 3, cfg.Webhooks.Retry.MaxAttempts, "default retry max attempts")
-	assert.Equal(t, 1000, cfg.Webhooks.Retry.BackoffMs, "default retry backoff")
+	assert.Nil(t, cfg.Webhooks.Endpoints[0].Retry,
+		"endpoints default to no retry — consumers reconcile via their own full sync")
 	assert.Equal(t, "info", cfg.Logging.Level, "default log level")
 }
 
@@ -73,10 +76,38 @@ func TestLoad_EmptyFile(t *testing.T) {
 
 	// Every default should be present.
 	assert.Equal(t, 8080, cfg.Server.Port)
-	assert.Equal(t, 3, cfg.Webhooks.Retry.MaxAttempts)
-	assert.Equal(t, 1000, cfg.Webhooks.Retry.BackoffMs)
 	assert.Equal(t, "info", cfg.Logging.Level)
 	assert.Empty(t, cfg.Webhooks.Endpoints, "no endpoints configured")
+}
+
+func TestLoad_RejectsInvalidRetryConfig(t *testing.T) {
+	t.Run("zero maxAttempts", func(t *testing.T) {
+		path := writeTempConfig(t, `
+webhooks:
+  endpoints:
+    - url: http://example.com/webhook
+      retry:
+        maxAttempts: 0
+        backoffMs: 100
+`)
+		_, err := Load(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "maxAttempts must be >= 1")
+	})
+
+	t.Run("negative backoffMs", func(t *testing.T) {
+		path := writeTempConfig(t, `
+webhooks:
+  endpoints:
+    - url: http://example.com/webhook
+      retry:
+        maxAttempts: 3
+        backoffMs: -100
+`)
+		_, err := Load(path)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "backoffMs must be >= 0")
+	})
 }
 
 func TestLoad_FileNotFound(t *testing.T) {

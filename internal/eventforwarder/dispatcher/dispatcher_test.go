@@ -4,6 +4,7 @@
 package dispatcher
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -19,20 +20,23 @@ import (
 	"github.com/openchoreo/openchoreo/internal/eventforwarder/config"
 )
 
-// newTestDispatcher builds a Dispatcher pointed at one or more URLs with
-// fast retry settings so tests don't sleep on backoff.
+// newTestDispatcher builds a Dispatcher pointed at one or more URLs.
+// When maxAttempts > 1, each endpoint is configured with that retry
+// policy and a 1ms backoff so retry tests stay fast. When maxAttempts
+// is 1, no retry block is set — exercising the default "try once" path.
 func newTestDispatcher(urls []string, maxAttempts int) *Dispatcher {
 	endpoints := make([]config.EndpointConfig, len(urls))
 	for i, u := range urls {
-		endpoints[i] = config.EndpointConfig{URL: u}
+		ep := config.EndpointConfig{URL: u}
+		if maxAttempts > 1 {
+			ep.Retry = &config.RetryConfig{
+				MaxAttempts: maxAttempts,
+				BackoffMs:   1,
+			}
+		}
+		endpoints[i] = ep
 	}
-	return New(config.WebhooksConfig{
-		Endpoints: endpoints,
-		Retry: config.RetryConfig{
-			MaxAttempts: maxAttempts,
-			BackoffMs:   1, // 1ms backoff keeps retry tests fast
-		},
-	}, slog.Default())
+	return New(config.WebhooksConfig{Endpoints: endpoints}, slog.Default())
 }
 
 // waitForBody reads a single delivery from the channel with a generous
@@ -59,7 +63,7 @@ func TestDispatch_DeliversJSONEventOnSuccess(t *testing.T) {
 	defer ts.Close()
 
 	d := newTestDispatcher([]string{ts.URL}, 1)
-	d.Dispatch(Event{
+	d.Dispatch(context.Background(), Event{
 		Kind:      "Project",
 		Name:      "url-shortener",
 		Namespace: "default",
@@ -90,7 +94,7 @@ func TestDispatch_RetriesUntilSuccess(t *testing.T) {
 	defer ts.Close()
 
 	d := newTestDispatcher([]string{ts.URL}, 5)
-	d.Dispatch(Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
+	d.Dispatch(context.Background(), Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
 
 	assert.Eventually(t, func() bool { return attempts.Load() == 3 },
 		2*time.Second, 10*time.Millisecond,
@@ -106,7 +110,7 @@ func TestDispatch_GivesUpAfterMaxAttempts(t *testing.T) {
 	defer ts.Close()
 
 	d := newTestDispatcher([]string{ts.URL}, 3)
-	d.Dispatch(Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
+	d.Dispatch(context.Background(), Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
 
 	// Wait long enough for all retries to elapse (backoff 1ms × 2^n,
 	// negligible for this test).
@@ -121,13 +125,10 @@ func TestDispatch_GivesUpAfterMaxAttempts(t *testing.T) {
 }
 
 func TestDispatch_NoEndpointsIsNoOp(t *testing.T) {
-	d := New(config.WebhooksConfig{
-		Endpoints: nil,
-		Retry:     config.RetryConfig{MaxAttempts: 3, BackoffMs: 1},
-	}, slog.Default())
+	d := New(config.WebhooksConfig{Endpoints: nil}, slog.Default())
 
 	// Should return without panicking and without any side effects.
-	d.Dispatch(Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
+	d.Dispatch(context.Background(), Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
 }
 
 func TestDispatch_FansOutToAllEndpoints(t *testing.T) {
@@ -144,12 +145,82 @@ func TestDispatch_FansOutToAllEndpoints(t *testing.T) {
 	defer tsB.Close()
 
 	d := newTestDispatcher([]string{tsA.URL, tsB.URL}, 1)
-	d.Dispatch(Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
+	d.Dispatch(context.Background(), Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
 
 	assert.Eventually(t, func() bool {
 		return aHits.Load() == 1 && bHits.Load() == 1
 	}, 2*time.Second, 10*time.Millisecond,
 		"expected exactly one delivery to each configured endpoint")
+}
+
+func TestDispatch_CancellationStopsRetries(t *testing.T) {
+	// Server that always 500s, forcing the dispatcher into the retry loop.
+	var attempts atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	// Long backoff (500ms) and many attempts so the retry loop will be
+	// sleeping when we cancel. If cancellation is wired correctly, the
+	// goroutine should exit immediately rather than waiting out the full
+	// backoff.
+	d := New(config.WebhooksConfig{
+		Endpoints: []config.EndpointConfig{{
+			URL: ts.URL,
+			Retry: &config.RetryConfig{
+				MaxAttempts: 10,
+				BackoffMs:   500,
+			},
+		}},
+	}, slog.Default())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	d.Dispatch(ctx, Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
+
+	// Wait for the first failed attempt to land, confirming we're now in the backoff.
+	assert.Eventually(t, func() bool { return attempts.Load() >= 1 },
+		2*time.Second, 10*time.Millisecond, "expected at least one attempt before cancel")
+
+	// Cancel and confirm no further attempts arrive — proves the backoff
+	// timer is observing ctx.Done() rather than waiting out time.Sleep.
+	before := attempts.Load()
+	cancel()
+	time.Sleep(200 * time.Millisecond)
+	assert.LessOrEqual(t, attempts.Load(), before+1,
+		"no meaningful retry should occur after cancel")
+}
+
+func TestDispatch_FanOutRunsEndpointsConcurrently(t *testing.T) {
+	// Both endpoints sleep 200ms. If the dispatcher serialised them, the
+	// total wall-clock would be ~400ms; with concurrent fan-out it's ~200ms.
+	const handlerDelay = 200 * time.Millisecond
+	makeServer := func(hits *atomic.Int32) *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			time.Sleep(handlerDelay)
+			hits.Add(1)
+			w.WriteHeader(http.StatusOK)
+		}))
+	}
+	var aHits, bHits atomic.Int32
+	tsA := makeServer(&aHits)
+	defer tsA.Close()
+	tsB := makeServer(&bHits)
+	defer tsB.Close()
+
+	d := newTestDispatcher([]string{tsA.URL, tsB.URL}, 1)
+
+	start := time.Now()
+	d.Dispatch(context.Background(), Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
+	assert.Eventually(t, func() bool { return aHits.Load() == 1 && bHits.Load() == 1 },
+		2*time.Second, 10*time.Millisecond)
+	elapsed := time.Since(start)
+
+	// Allow generous slack for scheduling jitter, but well short of
+	// 2×handlerDelay (which would mean serial execution).
+	assert.Less(t, elapsed, 2*handlerDelay-50*time.Millisecond,
+		"endpoints should be dispatched concurrently, not serially (took %s)", elapsed)
 }
 
 func TestDispatch_MaxAttemptsZeroTreatedAsOne(t *testing.T) {
@@ -162,9 +233,40 @@ func TestDispatch_MaxAttemptsZeroTreatedAsOne(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	d := newTestDispatcher([]string{ts.URL}, 0)
-	d.Dispatch(Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
+	d := New(config.WebhooksConfig{
+		Endpoints: []config.EndpointConfig{{
+			URL:   ts.URL,
+			Retry: &config.RetryConfig{MaxAttempts: 0, BackoffMs: 1},
+		}},
+	}, slog.Default())
+	d.Dispatch(context.Background(), Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
 
 	assert.Eventually(t, func() bool { return attempts.Load() == 1 },
 		2*time.Second, 10*time.Millisecond)
+}
+
+func TestDispatch_DefaultsToSingleAttemptWhenNoRetryConfigured(t *testing.T) {
+	// Endpoint with no `retry` block must try exactly once and not retry
+	// on failure — the periodic full sync on the consumer side is the
+	// reconciliation mechanism by default.
+	var attempts atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer ts.Close()
+
+	d := New(config.WebhooksConfig{
+		Endpoints: []config.EndpointConfig{{URL: ts.URL}}, // no Retry
+	}, slog.Default())
+	d.Dispatch(context.Background(), Event{Kind: "Project", Name: "foo", Namespace: "default", Action: "updated"})
+
+	// Wait long enough that any retry would have landed.
+	assert.Eventually(t, func() bool { return attempts.Load() == 1 },
+		1*time.Second, 10*time.Millisecond,
+		"expected exactly one attempt with no retry config")
+
+	time.Sleep(50 * time.Millisecond)
+	assert.Equal(t, int32(1), attempts.Load(),
+		"no retries should be attempted when retry config is absent")
 }

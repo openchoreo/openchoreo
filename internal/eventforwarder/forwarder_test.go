@@ -220,7 +220,6 @@ func newForwarderWithCapture(t *testing.T) (*Forwarder, *captureServer, func()) 
 	cs := newCaptureServer(t)
 	d := dispatcher.New(config.WebhooksConfig{
 		Endpoints: []config.EndpointConfig{{URL: cs.URL}},
-		Retry:     config.RetryConfig{MaxAttempts: 1, BackoffMs: 1},
 	}, slog.Default())
 	f := &Forwarder{
 		dispatcher: d,
@@ -296,6 +295,32 @@ func TestHandleEvent_DebounceIsPerKey(t *testing.T) {
 	names := []string{got1.Name, got2.Name}
 	assert.ElementsMatch(t, []string{"p1", "p2"}, names,
 		"both events should be dispatched because the debounce key differs")
+}
+
+func TestHandleEvent_DeletedActionBypassesDebounce(t *testing.T) {
+	f, cs, cleanup := newForwarderWithCapture(t)
+	defer cleanup()
+
+	obj := newProject("p1")
+
+	// Sequence emulates "create-then-delete-immediately" of a fresh
+	// resource: the deletionTimestamp UPDATE lands first, finalizer
+	// cleanup completes within the debounce window, and the trailing
+	// DELETE arrives while the window is still active. The delete must
+	// bypass the debounce — losing it would leave an orphan entity in
+	// the consumer's catalog until the next periodic full sync.
+	f.handleEvent(obj, "updated", projectGVR)
+	first := waitForEvent(t, cs)
+	assert.Equal(t, "updated", first.Action)
+
+	// Same key, well within the 1s debounce window. Update would be
+	// suppressed; delete must still go through.
+	f.handleEvent(obj, "deleted", projectGVR)
+	second := waitForEvent(t, cs)
+	assert.Equal(t, "p1", second.Name)
+	assert.Equal(t, "deleted", second.Action)
+	assert.Equal(t, int32(2), cs.hits.Load(),
+		"both update and following delete must be dispatched")
 }
 
 func TestHandleEvent_DebounceExpiresAfterWindow(t *testing.T) {

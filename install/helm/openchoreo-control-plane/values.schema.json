@@ -2249,9 +2249,28 @@
               "additionalProperties": false,
               "properties": {
                 "endpoints": {
+                  "description": "Webhook endpoints that receive CRD change notifications.\nDefault targets the in-cluster Backstage Service (same namespace,\ndefault service name \"backstage\" on port 7007). Override for\nexternal consumers, a renamed Backstage Service, or to fan out\nto multiple subscribers.\n\nEach endpoint may define its own optional `retry` block:\n  - url: https://example.com/hook\n    retry:\n      maxAttempts: 3\n      backoffMs: 500\nWhen omitted (the default for the Backstage entry below), the\nforwarder makes a single attempt per event and gives up on\nfailure — Backstage's periodic full sync reconciles missed\nevents. Add `retry` only for endpoints that have no equivalent\nreconciliation mechanism of their own.",
                   "items": {
                     "additionalProperties": false,
                     "properties": {
+                      "retry": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "backoffMs": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "maxAttempts": {
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "maxAttempts",
+                          "backoffMs"
+                        ],
+                        "type": "object"
+                      },
                       "url": {
                         "format": "uri",
                         "minLength": 1,
@@ -2265,31 +2284,9 @@
                   },
                   "title": "endpoints",
                   "type": "array"
-                },
-                "retry": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "backoffMs": {
-                      "default": 1000,
-                      "minimum": 1,
-                      "title": "backoffMs",
-                      "type": "integer"
-                    },
-                    "maxAttempts": {
-                      "default": 3,
-                      "minimum": 1,
-                      "title": "maxAttempts",
-                      "type": "integer"
-                    }
-                  },
-                  "required": [],
-                  "title": "retry",
-                  "type": "object"
                 }
               },
-              "required": [
-                "retry"
-              ],
+              "required": [],
               "title": "webhooks",
               "type": "object"
             }

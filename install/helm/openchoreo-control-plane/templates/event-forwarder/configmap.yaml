@@ -15,9 +15,6 @@ data:
     webhooks:
       endpoints:
         {{- toYaml .Values.eventForwarder.config.webhooks.endpoints | nindent 8 }}
-      retry:
-        maxAttempts: {{ .Values.eventForwarder.config.webhooks.retry.maxAttempts }}
-        backoffMs: {{ .Values.eventForwarder.config.webhooks.retry.backoffMs }}
 
     logging:
       level: {{ .Values.eventForwarder.config.logging.level | quote }}

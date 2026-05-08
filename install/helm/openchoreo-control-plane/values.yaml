@@ -3532,6 +3532,22 @@ eventForwarder:
     server:
       port: 8080
     webhooks:
+      # Webhook endpoints that receive CRD change notifications.
+      # Default targets the in-cluster Backstage Service (same namespace,
+      # default service name "backstage" on port 7007). Override for
+      # external consumers, a renamed Backstage Service, or to fan out
+      # to multiple subscribers.
+      #
+      # Each endpoint may define its own optional `retry` block:
+      #   - url: https://example.com/hook
+      #     retry:
+      #       maxAttempts: 3
+      #       backoffMs: 500
+      # When omitted (the default for the Backstage entry below), the
+      # forwarder makes a single attempt per event and gives up on
+      # failure — Backstage's periodic full sync reconciles missed
+      # events. Add `retry` only for endpoints that have no equivalent
+      # reconciliation mechanism of their own.
       # @schema
       # type: array
       # items:
@@ -3543,21 +3559,20 @@ eventForwarder:
       #       type: string
       #       format: uri
       #       minLength: 1
+      #     retry:
+      #       type: object
+      #       additionalProperties: false
+      #       required: [maxAttempts, backoffMs]
+      #       properties:
+      #         maxAttempts:
+      #           type: integer
+      #           minimum: 1
+      #         backoffMs:
+      #           type: integer
+      #           minimum: 0
       # @schema
-      endpoints: []
-      retry:
-        # @schema
-        # type: integer
-        # minimum: 1
-        # default: 3
-        # @schema
-        maxAttempts: 3
-        # @schema
-        # type: integer
-        # minimum: 1
-        # default: 1000
-        # @schema
-        backoffMs: 1000
+      endpoints:
+        - url: http://backstage:7007/api/events/http/openchoreo
     logging:
       level: info
 

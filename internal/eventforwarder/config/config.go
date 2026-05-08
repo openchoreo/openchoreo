@@ -27,15 +27,20 @@ type ServerConfig struct {
 // WebhooksConfig holds webhook dispatch settings.
 type WebhooksConfig struct {
 	Endpoints []EndpointConfig `yaml:"endpoints"`
-	Retry     RetryConfig      `yaml:"retry"`
 }
 
-// EndpointConfig holds a single webhook endpoint URL.
+// EndpointConfig holds a single webhook endpoint and its (optional)
+// retry policy. When `Retry` is nil, the dispatcher tries exactly once
+// and gives up on failure — the typical Backstage consumer reconciles
+// missed events via its periodic full-sync, so retry isn't needed for
+// the default case. Set this for endpoints that have no equivalent
+// reconciliation mechanism.
 type EndpointConfig struct {
-	URL string `yaml:"url"`
+	URL   string       `yaml:"url"`
+	Retry *RetryConfig `yaml:"retry,omitempty"`
 }
 
-// RetryConfig holds retry settings for webhook dispatch.
+// RetryConfig holds retry settings for a single webhook endpoint.
 type RetryConfig struct {
 	MaxAttempts int `yaml:"maxAttempts"`
 	BackoffMs   int `yaml:"backoffMs"`
@@ -54,13 +59,7 @@ func Load(path string) (*Config, error) {
 	}
 
 	cfg := &Config{
-		Server: ServerConfig{Port: 8080},
-		Webhooks: WebhooksConfig{
-			Retry: RetryConfig{
-				MaxAttempts: 3,
-				BackoffMs:   1000,
-			},
-		},
+		Server:  ServerConfig{Port: 8080},
 		Logging: LoggingConfig{Level: "info"},
 	}
 
@@ -79,6 +78,14 @@ func Load(path string) (*Config, error) {
 		}
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return nil, fmt.Errorf("webhooks.endpoints[%d]: unsupported scheme %q (want http or https)", i, u.Scheme)
+		}
+		if ep.Retry != nil {
+			if ep.Retry.MaxAttempts < 1 {
+				return nil, fmt.Errorf("webhooks.endpoints[%d].retry.maxAttempts must be >= 1", i)
+			}
+			if ep.Retry.BackoffMs < 0 {
+				return nil, fmt.Errorf("webhooks.endpoints[%d].retry.backoffMs must be >= 0", i)
+			}
 		}
 	}
 
