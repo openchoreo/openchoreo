@@ -431,11 +431,4 @@ func TestResourceDepVolumeNameDoesNotCollideWithConfigurationsVolumes(t *testing
 	assert.True(t, strings.HasPrefix(cfgName, "file-mount-"),
 		"configurations volume name must use the file-mount- prefix; got %q", cfgName)
 	assert.NotEqual(t, rdName, cfgName)
-
-	// Even if a configurations path coincidentally hashed to a value matching r-{8 hex chars},
-	// the prefix itself disambiguates: file-mount-* never starts with r-.
-	for _, prefix := range []string{"r-", "file-mount-"} {
-		assert.False(t, strings.HasPrefix("r-", "file-mount-"),
-			"sanity: r- and file-mount- prefixes are disjoint (%q)", prefix)
-	}
 }
