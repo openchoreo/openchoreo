@@ -78,8 +78,10 @@ spec:
                         Both name and key support ${...} CEL templating.
                       properties:
                         key:
+                          minLength: 1
                           type: string
                         name:
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -100,8 +102,10 @@ spec:
                         Both name and key support ${...} CEL templating.
                       properties:
                         key:
+                          minLength: 1
                           type: string
                         name:
+                          minLength: 1
                           type: string
                       required:
                       - key

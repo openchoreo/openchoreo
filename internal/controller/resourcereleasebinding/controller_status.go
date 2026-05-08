@@ -40,7 +40,7 @@ func (r *Reconciler) evaluateReadiness(
 ) {
 	logger := log.FromContext(ctx)
 
-	observed := observedStatusByID(rr.Status.Resources)
+	observed := observedStatusByID(rr.Status.Resources, logger)
 	r.evaluateOutputs(binding, release, environment, dataPlane, resource, project, observed, logger)
 	r.evaluateResourcesReady(binding, release, environment, dataPlane, resource, project, rr, observed, logger)
 }
@@ -49,13 +49,17 @@ func (r *Reconciler) evaluateReadiness(
 // RawExtension into a {id → status-fields} map suitable for the pipeline's
 // applied.<id> CEL surface. Entries with no status decode into an empty map
 // rather than being dropped, so the pipeline still sees applied.<id>.
-func observedStatusByID(resources []openchoreov1alpha1.RenderedManifestStatus) map[string]map[string]any {
+// Decode errors are logged so a corrupt status surfaces as a diagnostic
+// rather than masquerading as missing fields downstream.
+func observedStatusByID(resources []openchoreov1alpha1.RenderedManifestStatus, logger logr.Logger) map[string]map[string]any {
 	observed := make(map[string]map[string]any, len(resources))
 	for i := range resources {
 		entry := &resources[i]
 		status := map[string]any{}
 		if entry.Status != nil && len(entry.Status.Raw) > 0 {
-			_ = json.Unmarshal(entry.Status.Raw, &status)
+			if err := json.Unmarshal(entry.Status.Raw, &status); err != nil {
+				logger.Error(err, "decode RenderedRelease entry status", "id", entry.ID)
+			}
 		}
 		observed[entry.ID] = status
 	}

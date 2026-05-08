@@ -80,8 +80,10 @@ spec:
                                   in a Kubernetes secret
                                 properties:
                                   key:
+                                    minLength: 1
                                     type: string
                                   name:
+                                    minLength: 1
                                     type: string
                                 required:
                                 - key
@@ -98,8 +100,10 @@ spec:
                                   in a Kubernetes secret
                                 properties:
                                   key:
+                                    minLength: 1
                                     type: string
                                   name:
+                                    minLength: 1
                                     type: string
                                 required:
                                 - key
@@ -218,8 +222,10 @@ spec:
                                 in a Kubernetes secret
                               properties:
                                 key:
+                                  minLength: 1
                                   type: string
                                 name:
+                                  minLength: 1
                                   type: string
                               required:
                               - key

@@ -84,8 +84,10 @@ spec:
                               description: Reference to a secret resource.
                               properties:
                                 key:
+                                  minLength: 1
                                   type: string
                                 name:
+                                  minLength: 1
                                   type: string
                               required:
                               - key
@@ -124,8 +126,10 @@ spec:
                               description: Reference to a secret resource.
                               properties:
                                 key:
+                                  minLength: 1
                                   type: string
                                 name:
+                                  minLength: 1
                                   type: string
                               required:
                               - key

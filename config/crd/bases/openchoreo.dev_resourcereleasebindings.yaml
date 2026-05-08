@@ -212,8 +212,10 @@ spec:
                         to a DP-side ConfigMap.
                       properties:
                         key:
+                          minLength: 1
                           type: string
                         name:
+                          minLength: 1
                           type: string
                       required:
                       - key
@@ -232,8 +234,10 @@ spec:
                         plane.
                       properties:
                         key:
+                          minLength: 1
                           type: string
                         name:
+                          minLength: 1
                           type: string
                       required:
                       - key

@@ -375,7 +375,7 @@ type ResourceTypeRef struct {
 	Kind ResourceTypeRefKind `json:"kind,omitempty"`
 
 	// Name is the name of the ResourceType or ClusterResourceType to reference.
-	// Must be a valid DNS-1123 subdomain since it identifies a Kubernetes object.
+	// Must be a valid DNS-1123 label since it identifies a Kubernetes object.
 	// +required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
@@ -476,16 +476,20 @@ type AuthzCondition struct {
 // SecretKeyRef references a specific key in a Kubernetes Secret.
 type SecretKeyRef struct {
 	// +required
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 	// +required
+	// +kubebuilder:validation:MinLength=1
 	Key string `json:"key"`
 }
 
 // ConfigMapKeyRef references a specific key in a Kubernetes ConfigMap.
 type ConfigMapKeyRef struct {
 	// +required
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 	// +required
+	// +kubebuilder:validation:MinLength=1
 	Key string `json:"key"`
 }
 

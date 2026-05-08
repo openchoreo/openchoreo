@@ -90,7 +90,7 @@ spec:
                   name:
                     description: |-
                       Name is the name of the ResourceType or ClusterResourceType to reference.
-                      Must be a valid DNS-1123 subdomain since it identifies a Kubernetes object.
+                      Must be a valid DNS-1123 label since it identifies a Kubernetes object.
                     minLength: 1
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                     type: string
