@@ -20,9 +20,9 @@ const (
 	// AnnotationKeyRestartedAt is set on a ReleaseBinding to trigger a rolling
 	// restart of every Deployment deployed by the binding. The ReleaseBinding
 	// controller propagates the annotation to the dataplane RenderedRelease,
-	// and the rendered release controller injects the value into
-	// kubectl.kubernetes.io/restartedAt on each Deployment's pod template at
-	// apply time. The value is opaque; any change triggers a restart.
+	// and the rendered release controller sets the same annotation on each
+	// Deployment's pod template at apply time. The value is opaque; any change
+	// triggers a restart.
 	AnnotationKeyRestartedAt = "openchoreo.dev/restartedAt"
 
 	// SchemaExtensionComponentParameterRepositoryPrefix is the common prefix for all openAPIV3Schema

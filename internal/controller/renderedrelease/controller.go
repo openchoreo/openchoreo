@@ -300,12 +300,11 @@ func (r *Reconciler) makeDesiredResources(release *openchoreov1alpha1.RenderedRe
 	return desiredObjects, nil
 }
 
-// injectRestartedAt sets kubectl.kubernetes.io/restartedAt on the pod template
-// of an apps/v1 Deployment so the data plane performs a rolling restart, the
-// same way `kubectl rollout restart deployment` does. It is a no-op for any
-// other kind. Returns an error if the manifest is malformed (e.g. annotations
-// is not a string map), so the caller can surface it instead of silently
-// dropping the restart trigger.
+// injectRestartedAt sets openchoreo.dev/restartedAt on the pod template of an
+// apps/v1 Deployment so a change to the value causes the data plane to perform
+// a rolling restart. It is a no-op for any other kind. Returns an error if the
+// manifest is malformed (e.g. annotations is not a string map), so the caller
+// can surface it instead of silently dropping the restart trigger.
 func injectRestartedAt(obj *unstructured.Unstructured, value string) error {
 	gvk := obj.GroupVersionKind()
 	if gvk.Group != appsAPIGroup || gvk.Kind != "Deployment" {
@@ -318,7 +317,7 @@ func injectRestartedAt(obj *unstructured.Unstructured, value string) error {
 	if annotations == nil {
 		annotations = map[string]string{}
 	}
-	annotations["kubectl.kubernetes.io/restartedAt"] = value
+	annotations[controller.AnnotationKeyRestartedAt] = value
 	if err := unstructured.SetNestedStringMap(obj.Object, annotations, "spec", "template", "metadata", "annotations"); err != nil {
 		return fmt.Errorf("set pod template annotations: %w", err)
 	}
