@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	resourcepipeline "github.com/openchoreo/openchoreo/internal/pipeline/resource"
 )
 
@@ -70,13 +71,13 @@ var _ = Describe("ResourceReleaseBinding controller — finalize", func() {
 		}
 	}
 
-	// newRenderedRelease produces an RR named "r-dev" — the same name the
-	// controller derives from {ResourceName=r, Environment=dev} via
+	// newRenderedRelease produces an RR with the same name the controller
+	// derives from {ResourceName=r, Environment=dev} via
 	// makeRenderedReleaseName, which is what every binding in this suite uses.
 	newRenderedRelease := func() *openchoreov1alpha1.RenderedRelease {
 		return &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "r-dev",
+				Name:      dpkubernetes.GenerateK8sName("r_r", "dev"),
 				Namespace: "default",
 			},
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{

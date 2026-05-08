@@ -296,9 +296,12 @@ func (r *Reconciler) renderAndEmit(
 }
 
 // makeRenderedReleaseName returns the RenderedRelease name for a binding.
-// Format: "{resource}-{env}". Mirrors the component-side naming scheme.
+// Mirrors buildMetadataContext's "r_"-discriminator + hash pattern so the
+// RenderedRelease object name is collision-safe against (a) component-side
+// RenderedReleases and (b) other Resource bindings whose hyphenated
+// resource/env names would otherwise produce the same flat join.
 func makeRenderedReleaseName(binding *openchoreov1alpha1.ResourceReleaseBinding) string {
-	return fmt.Sprintf("%s-%s", binding.Spec.Owner.ResourceName, binding.Spec.Environment)
+	return dpkubernetes.GenerateK8sName("r_"+binding.Spec.Owner.ResourceName, binding.Spec.Environment)
 }
 
 // convertEntriesToManifests marshals each pipeline-rendered map into a

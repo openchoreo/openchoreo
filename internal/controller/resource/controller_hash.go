@@ -18,8 +18,10 @@ type ReleaseSpec struct {
 	Parameters   *runtime.RawExtension                          `json:"parameters,omitempty"`
 }
 
-// ComputeReleaseHash returns a deterministic hash for a ReleaseSpec. Mirrors
-// component.ComputeReleaseHash — same algorithm, different inputs.
-func ComputeReleaseHash(spec *ReleaseSpec, collisionCount *int32) string {
-	return hash.ComputeHash(*spec, collisionCount)
+// computeReleaseHash returns a deterministic hash for a ReleaseSpec. Same
+// underlying algorithm as component.ComputeReleaseHash, with a value receiver
+// since the spec is small, never mutated, and "no spec" is not a meaningful
+// state at any caller.
+func computeReleaseHash(spec ReleaseSpec, collisionCount *int32) string {
+	return hash.ComputeHash(spec, collisionCount)
 }

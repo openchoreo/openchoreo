@@ -538,7 +538,7 @@ var _ = Describe("ResourceReleaseBinding controller — render and emit", func()
 		_ = reconcileBinding(b)
 
 		rr := &openchoreov1alpha1.RenderedRelease{}
-		Expect(k8sClient.Get(ctx, client.ObjectKey{Name: "test-resource-" + env.Name, Namespace: "default"}, rr)).To(Succeed())
+		Expect(k8sClient.Get(ctx, client.ObjectKey{Name: dpkubernetes.GenerateK8sName("r_test-resource", env.Name), Namespace: "default"}, rr)).To(Succeed())
 
 		Expect(rr.Spec.Resources).To(HaveLen(2), "the tls-cert entry must be filtered out")
 		ids := []string{rr.Spec.Resources[0].ID, rr.Spec.Resources[1].ID}
@@ -579,7 +579,7 @@ var _ = Describe("ResourceReleaseBinding controller — render and emit", func()
 		current := reconcileBinding(b)
 
 		rrAfterCreate := &openchoreov1alpha1.RenderedRelease{}
-		Expect(k8sClient.Get(ctx, client.ObjectKey{Name: "test-resource-" + env.Name, Namespace: "default"}, rrAfterCreate)).To(Succeed())
+		Expect(k8sClient.Get(ctx, client.ObjectKey{Name: dpkubernetes.GenerateK8sName("r_test-resource", env.Name), Namespace: "default"}, rrAfterCreate)).To(Succeed())
 		Expect(rrAfterCreate.Spec.Resources).To(HaveLen(1))
 		Expect(string(rrAfterCreate.Spec.Resources[0].Object.Raw)).To(ContainSubstring("pin-old-claim"))
 
@@ -632,7 +632,7 @@ var _ = Describe("ResourceReleaseBinding controller — render and emit", func()
 
 		preexisting := &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-resource-" + env.Name,
+				Name:      dpkubernetes.GenerateK8sName("r_test-resource", env.Name),
 				Namespace: "default",
 			},
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{
@@ -696,7 +696,7 @@ var _ = Describe("ResourceReleaseBinding controller — render and emit", func()
 
 		By("not creating a RenderedRelease when render fails")
 		rr := &openchoreov1alpha1.RenderedRelease{}
-		err := k8sClient.Get(ctx, client.ObjectKey{Name: "test-resource-" + env.Name, Namespace: "default"}, rr)
+		err := k8sClient.Get(ctx, client.ObjectKey{Name: dpkubernetes.GenerateK8sName("r_test-resource", env.Name), Namespace: "default"}, rr)
 		Expect(err).To(HaveOccurred(), "expected NotFound for the RenderedRelease")
 	})
 
@@ -729,7 +729,7 @@ var _ = Describe("ResourceReleaseBinding controller — render and emit", func()
 		Expect(firstCond.Reason).To(Equal(string(ReasonReleaseCreated)))
 
 		rrFirst := &openchoreov1alpha1.RenderedRelease{}
-		Expect(k8sClient.Get(ctx, client.ObjectKey{Name: "test-resource-" + env.Name, Namespace: "default"}, rrFirst)).To(Succeed())
+		Expect(k8sClient.Get(ctx, client.ObjectKey{Name: dpkubernetes.GenerateK8sName("r_test-resource", env.Name), Namespace: "default"}, rrFirst)).To(Succeed())
 		firstResourceVersion := rrFirst.ResourceVersion
 
 		// Second reconcile must not touch the RenderedRelease and must
@@ -776,7 +776,7 @@ var _ = Describe("ResourceReleaseBinding controller — render and emit", func()
 		_ = reconcileBinding(b)
 
 		rr := &openchoreov1alpha1.RenderedRelease{}
-		Expect(k8sClient.Get(ctx, client.ObjectKey{Name: "test-resource-" + env.Name, Namespace: "default"}, rr)).To(Succeed())
+		Expect(k8sClient.Get(ctx, client.ObjectKey{Name: dpkubernetes.GenerateK8sName("r_test-resource", env.Name), Namespace: "default"}, rr)).To(Succeed())
 
 		Expect(rr.Spec.Resources).To(HaveLen(3))
 		ids := []string{rr.Spec.Resources[0].ID, rr.Spec.Resources[1].ID, rr.Spec.Resources[2].ID}
@@ -880,7 +880,7 @@ var _ = Describe("ResourceReleaseBinding controller — outputs and readiness", 
 	fetchRenderedRelease := func(b *openchoreov1alpha1.ResourceReleaseBinding) *openchoreov1alpha1.RenderedRelease {
 		rr := &openchoreov1alpha1.RenderedRelease{}
 		Expect(k8sClient.Get(ctx, client.ObjectKey{
-			Name:      b.Spec.Owner.ResourceName + "-" + b.Spec.Environment,
+			Name:      makeRenderedReleaseName(b),
 			Namespace: b.Namespace,
 		}, rr)).To(Succeed())
 		return rr

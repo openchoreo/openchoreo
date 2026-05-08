@@ -89,7 +89,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, res *openchoreov1alpha1
 		return ctrl.Result{}, err
 	}
 
-	releaseHash := ComputeReleaseHash(&ReleaseSpec{
+	releaseHash := computeReleaseHash(ReleaseSpec{
 		ResourceType: rtSnapshot,
 		Parameters:   res.Spec.Parameters,
 	}, nil)
