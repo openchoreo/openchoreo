@@ -43,16 +43,23 @@ jobs:
       contents: write
       packages: read
     steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          app-id: ${{ secrets.OC_RELEASE_APP_ID }}
+          private-key: ${{ secrets.OC_RELEASE_APP_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          token: ${{ secrets.RELEASE_PAT }}
+          token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
 
       - name: Set git identity
         run: |
-          git config user.name "openchoreo-bot"
-          git config user.email "openchoreo-bot@users.noreply.github.com"
+          git config user.name "${{ steps.app-token.outputs.app-slug }}[bot]"
+          git config user.email "${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
 
       - name: Resolve version
         env:
@@ -98,6 +105,7 @@ jobs:
           fi
 
       - name: Check for existing tag
+        if: ${{ github.event.inputs.action == 'full' || github.event.inputs.action == 'tag' }}
         run: |
           TAG="${{ env.RELEASE_TAG }}"
           if git ls-remote --exit-code origin "refs/tags/${TAG}" >/dev/null 2>&1; then
@@ -106,40 +114,49 @@ jobs:
           fi
 
       # ----------------------------------------------------------------
-      # Branch step: create release-vX.Y if it doesn't exist
+      # Branch step: create release-vX.Y or prerelease branch
       # ----------------------------------------------------------------
       - name: Check if release branch exists
         if: ${{ github.event.inputs.action == 'full' || github.event.inputs.action == 'branch' }}
         run: |
           if git ls-remote --exit-code origin "refs/heads/release-v${{ env.MAJOR }}.${{ env.MINOR }}" 2>/dev/null; then
             echo "BRANCH_EXISTS=true" >> $GITHUB_ENV
-            echo "release-v${{ env.MAJOR }}.${{ env.MINOR }} already exists — skipping branch creation"
           else
             echo "BRANCH_EXISTS=false" >> $GITHUB_ENV
-            echo "Creating new release branch: release-v${{ env.MAJOR }}.${{ env.MINOR }}"
           fi
 
-      - name: Create release branch with sample URL updates
+      - name: Create release branch
         if: ${{ env.BRANCH_EXISTS == 'false' && (github.event.inputs.action == 'full' || github.event.inputs.action == 'branch') }}
         run: |
-          BRANCH="release-v${{ env.MAJOR }}.${{ env.MINOR }}"
+          if [ -n "${{ env.PRERELEASE }}" ]; then
+            # Prerelease branch for a new major/minor RC (e.g. release-v1.1.0-rc.1)
+            BRANCH="release-v${{ env.VERSION }}"
+            UPDATE_URLS=false
+          else
+            # Permanent release branch (e.g. release-v1.1)
+            BRANCH="release-v${{ env.MAJOR }}.${{ env.MINOR }}"
+            UPDATE_URLS=true
+          fi
+
           git checkout -b "${BRANCH}"
+          echo "RELEASE_BRANCH=${BRANCH}" >> $GITHUB_ENV
 
-          # Update sample URLs to point to the release branch instead of main
-          find samples/ \( -name "*.md" -o -name "*.yaml" \) \
-            -exec sed -i \
-              -e 's|/openchoreo/openchoreo/main/|/openchoreo/openchoreo/'"${BRANCH}"'/|g' \
-              -e 's|/refs/heads/main/|/refs/heads/'"${BRANCH}"'/|g' \
-              -e 's|/openchoreo/openchoreo/blob/main/|/openchoreo/openchoreo/blob/'"${BRANCH}"'/|g' {} +
+          if [ "$UPDATE_URLS" = "true" ]; then
+            # Update sample URLs to point to the release branch instead of main
+            find samples/ \( -name "*.md" -o -name "*.yaml" \) \
+              -exec sed -i \
+                -e 's|/openchoreo/openchoreo/main/|/openchoreo/openchoreo/'"${BRANCH}"'/|g' \
+                -e 's|/refs/heads/main/|/refs/heads/'"${BRANCH}"'/|g' \
+                -e 's|/openchoreo/openchoreo/blob/main/|/openchoreo/openchoreo/blob/'"${BRANCH}"'/|g' {} +
 
-          # Commit if there are changes
-          git add -u
-          if ! git diff --cached --quiet; then
-            git commit -s -m "chore: update sample URLs to ${BRANCH}"
+            git add -u
+            if ! git diff --cached --quiet; then
+              git commit -s -m "chore: update sample URLs to ${BRANCH}"
+            fi
           fi
 
           git push origin "${BRANCH}"
-          echo "Pushed release branch: ${BRANCH}"
+          echo "Pushed branch: ${BRANCH}"
 
       # ----------------------------------------------------------------
       # Tag step: pre-validate, then push the annotated tag
@@ -157,6 +174,11 @@ jobs:
               exit 1
             fi
             echo "TARGET_COMMIT=${COMMIT_SHA}" >> $GITHUB_ENV
+
+          elif [ -n "${{ env.RELEASE_BRANCH }}" ]; then
+            SHA=$(git rev-parse HEAD)
+            echo "TARGET_COMMIT=${SHA}" >> $GITHUB_ENV
+            echo "Target: HEAD of ${{ env.RELEASE_BRANCH }} (${SHA})"
 
           elif git ls-remote --exit-code origin "refs/heads/release-v${{ env.MAJOR }}.${{ env.MINOR }}" 2>/dev/null; then
             SHA=$(git ls-remote origin "refs/heads/release-v${{ env.MAJOR }}.${{ env.MINOR }}" | awk '{print $1}')
