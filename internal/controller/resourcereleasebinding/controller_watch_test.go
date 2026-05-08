@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -34,8 +34,10 @@ var _ = Describe("ResourceRelease watch mapper", func() {
 	}
 
 	buildClient := func(objs ...client.Object) client.Client {
+		s := runtime.NewScheme()
+		Expect(openchoreov1alpha1.AddToScheme(s)).To(Succeed())
 		return fake.NewClientBuilder().
-			WithScheme(scheme.Scheme).
+			WithScheme(s).
 			WithObjects(objs...).
 			WithIndex(&openchoreov1alpha1.ResourceReleaseBinding{},
 				resourceReleaseRefIndex, indexResourceReleaseRef).
