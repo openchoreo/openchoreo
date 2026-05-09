@@ -465,6 +465,16 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Pre-compute connection items with per-item env vars from resolved connections
 	dependencyItems := buildConnectionItems(releaseBinding, snapshotWorkload.Spec.GetDependencyEndpoints())
 
+	// Resolve resource dependencies inline: build targets, resolve provider RRB outputs
+	resourceDeps := snapshotWorkload.Spec.GetDependencyResources()
+	releaseBinding.Status.ResourceDependencyTargets = buildResourceDependencyTargets(releaseBinding, resourceDeps)
+	resourceDepItems, pendingResourceDeps, err := r.resolveResourceDependencies(ctx, releaseBinding, resourceDeps)
+	if err != nil {
+		logger.Error(err, "Failed to resolve resource dependencies")
+		return ctrl.Result{}, fmt.Errorf("failed to resolve resource dependencies: %w", err)
+	}
+	releaseBinding.Status.PendingResourceDependencies = pendingResourceDeps
+
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
 		ComponentType:              snapshotComponentType,
@@ -478,6 +488,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		Metadata:                   metadataContext,
 		DefaultNotificationChannel: defaultNotificationChannel,
 		DependencyItems:            dependencyItems,
+		ResourceDependencyItems:    resourceDepItems,
 	}
 
 	// Render resources using the shared pipeline instance
@@ -645,6 +656,19 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		logger.Info("Connections not yet resolved, waiting for provider endpoint changes",
 			"pending", len(releaseBinding.Status.PendingConnections),
 			"resolved", len(releaseBinding.Status.ResolvedConnections))
+		return ctrl.Result{}, nil
+	}
+
+	// Resource dependency stability guard: same shape as the connections guard above.
+	// Block ReleaseSynced when any provider ResourceReleaseBinding is missing, not Ready,
+	// or has not yet populated a referenced output.
+	resourceDeps = snapshotWorkload.Spec.GetDependencyResources()
+	resourceDepsResolved := allResourceDependenciesResolved(releaseBinding, resourceDeps)
+	setResourceDependenciesCondition(releaseBinding, resourceDepsResolved)
+	if !resourceDepsResolved {
+		logger.Info("Resource dependencies not yet resolved, waiting for provider outputs",
+			"pending", len(releaseBinding.Status.PendingResourceDependencies),
+			"deps", len(resourceDeps))
 		return ctrl.Result{}, nil
 	}
 
