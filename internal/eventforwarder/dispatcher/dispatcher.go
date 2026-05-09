@@ -33,14 +33,14 @@ type Event struct {
 // responses) and the periodic full sync acting as the reconciliation
 // safety net, modest values are sufficient — there's no benefit to
 // over-provisioning, and dropping under sustained overload is honest
-// behaviour given the safety net.
+// behavior given the safety net.
 const (
 	defaultWorkers   = 4
 	defaultQueueSize = 1024
 )
 
 // dispatchJob is the unit of work consumed by the worker pool. The
-// payload is pre-marshalled at enqueue time so workers don't redo the
+// payload is pre-marshaled at enqueue time so workers don't redo the
 // JSON serialization, and ctx is captured at enqueue time so each
 // in-flight job carries the producer's context for cancellation.
 type dispatchJob struct {
