@@ -80,6 +80,24 @@ func setResourceDependenciesCondition(
 		fmt.Sprintf("%d resource dependencies pending, %d resolved", pendingCount, resolvedCount))
 }
 
+// populateResourceDependencyStatus is the reconcile-chain entry point for resource
+// dependencies. It writes Status.ResourceDependencyTargets and Status.PendingResourceDependencies
+// in one place, returning the resolved per-dep items for the pipeline. Wraps the resolver
+// orchestrator so callers don't have to remember the three-step status-write dance.
+func (r *Reconciler) populateResourceDependencyStatus(
+	ctx context.Context,
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
+	deps []openchoreov1alpha1.WorkloadResourceDependency,
+) ([]pipelinecontext.ResourceDependencyItem, error) {
+	releaseBinding.Status.ResourceDependencyTargets = buildResourceDependencyTargets(releaseBinding, deps)
+	items, pending, err := r.resolveResourceDependencies(ctx, releaseBinding, deps)
+	if err != nil {
+		return nil, err
+	}
+	releaseBinding.Status.PendingResourceDependencies = pending
+	return items, nil
+}
+
 // resolveResourceDependencies resolves every workload resource dependency for the consumer
 // ReleaseBinding. For each dep it looks up the matching provider ResourceReleaseBinding via
 // the (project, resource, environment) field index, reads its status.outputs, and dispatches

@@ -400,6 +400,9 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, workload *open
 }
 
 // reconcileRelease creates or updates the Release resource and sets appropriate status conditions.
+//
+// nolint:gocyclo // Long reconcile state machine; complexity is structural, not accidental.
+// Matches the same nolint directive on setResourcesReadyStatus and the workflowrun reconcile.
 func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	componentRelease *openchoreov1alpha1.ComponentRelease, environment *openchoreov1alpha1.Environment,
 	dataPlaneResult *controller.DataPlaneResult, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project) (ctrl.Result, error) {
@@ -465,15 +468,13 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Pre-compute connection items with per-item env vars from resolved connections
 	dependencyItems := buildConnectionItems(releaseBinding, snapshotWorkload.Spec.GetDependencyEndpoints())
 
-	// Resolve resource dependencies inline: build targets, resolve provider RRB outputs
+	// Resolve resource dependencies inline: build targets, resolve provider RRB outputs.
 	resourceDeps := snapshotWorkload.Spec.GetDependencyResources()
-	releaseBinding.Status.ResourceDependencyTargets = buildResourceDependencyTargets(releaseBinding, resourceDeps)
-	resourceDepItems, pendingResourceDeps, err := r.resolveResourceDependencies(ctx, releaseBinding, resourceDeps)
+	resourceDepItems, err := r.populateResourceDependencyStatus(ctx, releaseBinding, resourceDeps)
 	if err != nil {
 		logger.Error(err, "Failed to resolve resource dependencies")
 		return ctrl.Result{}, fmt.Errorf("failed to resolve resource dependencies: %w", err)
 	}
-	releaseBinding.Status.PendingResourceDependencies = pendingResourceDeps
 
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{

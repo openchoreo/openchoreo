@@ -209,8 +209,8 @@ func TestResolveResourceDependency(t *testing.T) {
 	t.Run("multiple_bindings_found_returns_pending", func(t *testing.T) {
 		// Two RRBs share the same (project, resource, env) — should never happen, but the
 		// resolver must surface this defensively rather than picking arbitrarily.
-		dup1 := newProviderRRB("ns", "proj", "orders-db", "dev", "rrb1", true, nil)
-		dup2 := newProviderRRB("ns", "proj", "orders-db", "dev", "rrb2", true, nil)
+		dup1 := newProviderRRB("orders-db", "rrb1", true, nil)
+		dup2 := newProviderRRB("orders-db", "rrb2", true, nil)
 		r := newResourceDepReconciler(t, dup1, dup2)
 		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
 		dep := openchoreov1alpha1.WorkloadResourceDependency{Ref: "orders-db"}
@@ -223,7 +223,7 @@ func TestResolveResourceDependency(t *testing.T) {
 	})
 
 	t.Run("provider_not_ready_returns_pending", func(t *testing.T) {
-		rrb := newProviderRRB("ns", "proj", "orders-db", "dev", "rrb1", false, nil)
+		rrb := newProviderRRB("orders-db", "rrb1", false, nil)
 		r := newResourceDepReconciler(t, rrb)
 		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
 		dep := openchoreov1alpha1.WorkloadResourceDependency{Ref: "orders-db"}
@@ -237,7 +237,7 @@ func TestResolveResourceDependency(t *testing.T) {
 
 	t.Run("provider_ready_but_referenced_output_missing_returns_pending", func(t *testing.T) {
 		// Provider is Ready but its outputs[] doesn't include the binding's referenced name.
-		rrb := newProviderRRB("ns", "proj", "orders-db", "dev", "rrb1", true,
+		rrb := newProviderRRB("orders-db", "rrb1", true,
 			[]openchoreov1alpha1.ResolvedResourceOutput{
 				{Name: "host", Value: "10.0.0.5"},
 			})
@@ -256,7 +256,7 @@ func TestResolveResourceDependency(t *testing.T) {
 	})
 
 	t.Run("provider_ready_with_outputs_returns_item", func(t *testing.T) {
-		rrb := newProviderRRB("ns", "proj", "orders-db", "dev", "rrb1", true,
+		rrb := newProviderRRB("orders-db", "rrb1", true,
 			[]openchoreov1alpha1.ResolvedResourceOutput{
 				{Name: "host", Value: "10.0.0.5"},
 			})
@@ -317,7 +317,7 @@ func TestResolveResourceDependencies(t *testing.T) {
 
 	t.Run("mixed_resolved_and_pending", func(t *testing.T) {
 		// db is resolved, cache has no provider RRB.
-		dbRRB := newProviderRRB("ns", "proj", "db", "dev", "db-binding", true,
+		dbRRB := newProviderRRB("db", "db-binding", true,
 			[]openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: "h"}})
 		r := newResourceDepReconciler(t, dbRRB)
 		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
@@ -721,7 +721,9 @@ func newResourceDepReconciler(t *testing.T, objs ...client.Object) *Reconciler {
 	return &Reconciler{Client: builder.Build(), Scheme: scheme}
 }
 
-func newProviderRRB(namespace, project, resource, environment, name string, ready bool,
+// newProviderRRB builds a fixture in the canonical (ns, proj, dev) namespace/project/env
+// triple that the resolver tests share. Vary `resource` and `name` per test case.
+func newProviderRRB(resource, name string, ready bool,
 	outputs []openchoreov1alpha1.ResolvedResourceOutput) *openchoreov1alpha1.ResourceReleaseBinding {
 	cond := metav1.Condition{
 		Type:               string(resourcereleasebinding.ConditionReady),
@@ -736,13 +738,13 @@ func newProviderRRB(namespace, project, resource, environment, name string, read
 		cond.Message = "ResourceReleaseBinding is ready"
 	}
 	return &openchoreov1alpha1.ResourceReleaseBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"},
 		Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
 			Owner: openchoreov1alpha1.ResourceReleaseBindingOwner{
-				ProjectName:  project,
+				ProjectName:  "proj",
 				ResourceName: resource,
 			},
-			Environment: environment,
+			Environment: "dev",
 		},
 		Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
 			Conditions: []metav1.Condition{cond},

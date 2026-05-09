@@ -389,8 +389,8 @@ func newDependenciesContextData(data ConnectionsData) ConnectionsContextData {
 	items := make([]ConnectionItem, len(data.Items))
 	resources := make([]ResourceDependencyItem, len(data.Resources))
 	mergedEnvVars := make([]EnvVarEntry, 0, len(data.Items)+len(data.Resources))
-	mergedVolumeMounts := []VolumeMountEntry{}
-	mergedVolumes := []VolumeEntry{}
+	mergedVolumeMounts := make([]VolumeMountEntry, 0, len(data.Resources))
+	mergedVolumes := make([]VolumeEntry, 0, len(data.Resources))
 
 	for i, item := range data.Items {
 		if item.EnvVars == nil {
