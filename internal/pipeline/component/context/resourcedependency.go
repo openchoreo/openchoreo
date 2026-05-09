@@ -9,8 +9,6 @@ import (
 	"hash/fnv"
 	"sort"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
@@ -18,10 +16,10 @@ import (
 // and pre-computed env vars, volume mounts, and volumes for the consuming container.
 // Mirrors ConnectionItem's role on the endpoint side.
 type ResourceDependencyItem struct {
-	Ref          string               `json:"ref"`
-	EnvVars      []corev1.EnvVar      `json:"envVars"`
-	VolumeMounts []corev1.VolumeMount `json:"volumeMounts"`
-	Volumes      []corev1.Volume      `json:"volumes"`
+	Ref          string             `json:"ref"`
+	EnvVars      []EnvVarEntry      `json:"envVars"`
+	VolumeMounts []VolumeMountEntry `json:"volumeMounts"`
+	Volumes      []VolumeEntry      `json:"volumes"`
 }
 
 // Sentinel errors returned by BuildResourceDependencyItem. Callers can use errors.Is to
@@ -43,9 +41,9 @@ var (
 // dependency declaration. Pure function — no client, no logger, no controller-runtime imports.
 //
 // Dispatch per-binding:
-//   - envBindings[outputName] → corev1.EnvVar with {Value} (value-kind output)
+//   - envBindings[outputName] → EnvVarEntry with {Value} (value-kind output)
 //     or {ValueFrom.SecretKeyRef} / {ValueFrom.ConfigMapKeyRef} (ref-kind outputs)
-//   - fileBindings[outputName] → corev1.VolumeMount + corev1.Volume; output's source kind
+//   - fileBindings[outputName] → VolumeMountEntry + VolumeEntry; output's source kind
 //     must be SecretKeyRef or ConfigMapKeyRef (value-kind is rejected with ErrInvalidFileBinding)
 //
 // Volumes are deduped per (dep.Ref, secretName) and (dep.Ref, configMapName), so multiple file
@@ -61,9 +59,9 @@ func BuildResourceDependencyItem(
 ) (ResourceDependencyItem, error) {
 	item := ResourceDependencyItem{
 		Ref:          dep.Ref,
-		EnvVars:      []corev1.EnvVar{},
-		VolumeMounts: []corev1.VolumeMount{},
-		Volumes:      []corev1.Volume{},
+		EnvVars:      []EnvVarEntry{},
+		VolumeMounts: []VolumeMountEntry{},
+		Volumes:      []VolumeEntry{},
 	}
 
 	outputByName := make(map[string]v1alpha1.ResolvedResourceOutput, len(outputs))
@@ -90,7 +88,7 @@ func BuildResourceDependencyItem(
 		kind string // "secret" | "configmap"
 		name string
 	}
-	volumes := make(map[volumeKey]corev1.Volume)
+	volumes := make(map[volumeKey]VolumeEntry)
 
 	for _, outputName := range fileBindingNames {
 		mountPath := dep.FileBindings[outputName]
@@ -104,14 +102,12 @@ func BuildResourceDependencyItem(
 			key := volumeKey{kind: "secret", name: out.SecretKeyRef.Name}
 			volName := resourceDepVolumeName(dep.Ref, key.kind, key.name)
 			if _, exists := volumes[key]; !exists {
-				volumes[key] = corev1.Volume{
-					Name: volName,
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{SecretName: out.SecretKeyRef.Name},
-					},
+				volumes[key] = VolumeEntry{
+					Name:   volName,
+					Secret: &SecretVolume{SecretName: out.SecretKeyRef.Name},
 				}
 			}
-			item.VolumeMounts = append(item.VolumeMounts, corev1.VolumeMount{
+			item.VolumeMounts = append(item.VolumeMounts, VolumeMountEntry{
 				Name:      volName,
 				MountPath: mountPath,
 				SubPath:   out.SecretKeyRef.Key,
@@ -120,16 +116,12 @@ func BuildResourceDependencyItem(
 			key := volumeKey{kind: "configmap", name: out.ConfigMapKeyRef.Name}
 			volName := resourceDepVolumeName(dep.Ref, key.kind, key.name)
 			if _, exists := volumes[key]; !exists {
-				volumes[key] = corev1.Volume{
-					Name: volName,
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: out.ConfigMapKeyRef.Name},
-						},
-					},
+				volumes[key] = VolumeEntry{
+					Name:      volName,
+					ConfigMap: &ConfigMapVolume{Name: out.ConfigMapKeyRef.Name},
 				}
 			}
-			item.VolumeMounts = append(item.VolumeMounts, corev1.VolumeMount{
+			item.VolumeMounts = append(item.VolumeMounts, VolumeMountEntry{
 				Name:      volName,
 				MountPath: mountPath,
 				SubPath:   out.ConfigMapKeyRef.Key,
@@ -159,31 +151,31 @@ func BuildResourceDependencyItem(
 }
 
 // makeEnvVar dispatches on the output's source kind to produce a literal-value or valueFrom env var.
-func makeEnvVar(envVarName string, out v1alpha1.ResolvedResourceOutput) corev1.EnvVar {
+func makeEnvVar(envVarName string, out v1alpha1.ResolvedResourceOutput) EnvVarEntry {
 	switch {
 	case out.SecretKeyRef != nil:
-		return corev1.EnvVar{
+		return EnvVarEntry{
 			Name: envVarName,
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: out.SecretKeyRef.Name},
-					Key:                  out.SecretKeyRef.Key,
+			ValueFrom: &EnvVarSourceEntry{
+				SecretKeyRef: &KeyRef{
+					Name: out.SecretKeyRef.Name,
+					Key:  out.SecretKeyRef.Key,
 				},
 			},
 		}
 	case out.ConfigMapKeyRef != nil:
-		return corev1.EnvVar{
+		return EnvVarEntry{
 			Name: envVarName,
-			ValueFrom: &corev1.EnvVarSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: out.ConfigMapKeyRef.Name},
-					Key:                  out.ConfigMapKeyRef.Key,
+			ValueFrom: &EnvVarSourceEntry{
+				ConfigMapKeyRef: &KeyRef{
+					Name: out.ConfigMapKeyRef.Name,
+					Key:  out.ConfigMapKeyRef.Key,
 				},
 			},
 		}
 	default:
 		// value-kind output (validated upstream as exactly-one).
-		return corev1.EnvVar{Name: envVarName, Value: out.Value}
+		return EnvVarEntry{Name: envVarName, Value: out.Value}
 	}
 }
 

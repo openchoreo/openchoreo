@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	corev1 "k8s.io/api/core/v1"
 
 	"github.com/openchoreo/openchoreo/internal/template"
 )
@@ -891,14 +890,14 @@ func TestConnectionsContextData(t *testing.T) {
 				{
 					Namespace: "ns1", Project: "proj1", Component: "svc-a",
 					Endpoint: "http", Visibility: "project",
-					EnvVars: []corev1.EnvVar{
+					EnvVars: []EnvVarEntry{
 						{Name: "SVC_A_URL", Value: "http://svc-a:8080"},
 					},
 				},
 				{
 					Namespace: "ns1", Project: "proj1", Component: "svc-b",
 					Endpoint: "grpc", Visibility: "namespace",
-					EnvVars: []corev1.EnvVar{
+					EnvVars: []EnvVarEntry{
 						{Name: "SVC_B_URL", Value: "grpc://svc-b:9090"},
 						{Name: "SVC_B_HOST", Value: "svc-b"},
 					},
@@ -908,7 +907,7 @@ func TestConnectionsContextData(t *testing.T) {
 
 		ctx := newDependenciesContextData(data)
 
-		wantEnvVars := []corev1.EnvVar{
+		wantEnvVars := []EnvVarEntry{
 			{Name: "SVC_A_URL", Value: "http://svc-a:8080"},
 			{Name: "SVC_B_URL", Value: "grpc://svc-b:9090"},
 			{Name: "SVC_B_HOST", Value: "svc-b"},
@@ -942,7 +941,7 @@ func TestConnectionsContextData(t *testing.T) {
 				{
 					Namespace: "ns1", Project: "proj1", Component: "svc-b",
 					Endpoint: "http", Visibility: "project",
-					EnvVars: []corev1.EnvVar{
+					EnvVars: []EnvVarEntry{
 						{Name: "SVC_B_URL", Value: "http://svc-b:8080"},
 					},
 				},
@@ -952,7 +951,7 @@ func TestConnectionsContextData(t *testing.T) {
 		ctx := newDependenciesContextData(data)
 
 		// Merged top-level envVars should only contain svc-b's env var
-		wantEnvVars := []corev1.EnvVar{
+		wantEnvVars := []EnvVarEntry{
 			{Name: "SVC_B_URL", Value: "http://svc-b:8080"},
 		}
 		if diff := cmp.Diff(wantEnvVars, ctx.EnvVars); diff != "" {

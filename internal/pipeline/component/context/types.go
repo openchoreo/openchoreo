@@ -4,8 +4,6 @@
 package context
 
 import (
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
@@ -351,12 +349,12 @@ type RemoteRefData struct {
 
 // ConnectionItem represents a single connection with its target metadata and resolved env vars.
 type ConnectionItem struct {
-	Namespace  string          `json:"namespace"`
-	Project    string          `json:"project"`
-	Component  string          `json:"component"`
-	Endpoint   string          `json:"endpoint"`
-	Visibility string          `json:"visibility"`
-	EnvVars    []corev1.EnvVar `json:"envVars"`
+	Namespace  string        `json:"namespace"`
+	Project    string        `json:"project"`
+	Component  string        `json:"component"`
+	Endpoint   string        `json:"endpoint"`
+	Visibility string        `json:"visibility"`
+	EnvVars    []EnvVarEntry `json:"envVars"`
 }
 
 // ConnectionsData contains the per-item dependency views (endpoint connections and resource
@@ -379,9 +377,9 @@ type ConnectionsData struct {
 type ConnectionsContextData struct {
 	Items        []ConnectionItem         `json:"items"`
 	Resources    []ResourceDependencyItem `json:"resources"`
-	EnvVars      []corev1.EnvVar          `json:"envVars"`
-	VolumeMounts []corev1.VolumeMount     `json:"volumeMounts"`
-	Volumes      []corev1.Volume          `json:"volumes"`
+	EnvVars      []EnvVarEntry            `json:"envVars"`
+	VolumeMounts []VolumeMountEntry       `json:"volumeMounts"`
+	Volumes      []VolumeEntry            `json:"volumes"`
 }
 
 // newDependenciesContextData creates a ConnectionsContextData from ConnectionsData,
@@ -390,13 +388,13 @@ type ConnectionsContextData struct {
 func newDependenciesContextData(data ConnectionsData) ConnectionsContextData {
 	items := make([]ConnectionItem, len(data.Items))
 	resources := make([]ResourceDependencyItem, len(data.Resources))
-	mergedEnvVars := make([]corev1.EnvVar, 0, len(data.Items)+len(data.Resources))
-	mergedVolumeMounts := []corev1.VolumeMount{}
-	mergedVolumes := []corev1.Volume{}
+	mergedEnvVars := make([]EnvVarEntry, 0, len(data.Items)+len(data.Resources))
+	mergedVolumeMounts := []VolumeMountEntry{}
+	mergedVolumes := []VolumeEntry{}
 
 	for i, item := range data.Items {
 		if item.EnvVars == nil {
-			item.EnvVars = []corev1.EnvVar{}
+			item.EnvVars = []EnvVarEntry{}
 		}
 		items[i] = item
 		mergedEnvVars = append(mergedEnvVars, item.EnvVars...)
@@ -404,13 +402,13 @@ func newDependenciesContextData(data ConnectionsData) ConnectionsContextData {
 
 	for i, item := range data.Resources {
 		if item.EnvVars == nil {
-			item.EnvVars = []corev1.EnvVar{}
+			item.EnvVars = []EnvVarEntry{}
 		}
 		if item.VolumeMounts == nil {
-			item.VolumeMounts = []corev1.VolumeMount{}
+			item.VolumeMounts = []VolumeMountEntry{}
 		}
 		if item.Volumes == nil {
-			item.Volumes = []corev1.Volume{}
+			item.Volumes = []VolumeEntry{}
 		}
 		resources[i] = item
 		mergedEnvVars = append(mergedEnvVars, item.EnvVars...)

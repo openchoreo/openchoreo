@@ -9,7 +9,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
 )
 
 func TestNewDependenciesContextData_ResourceMerge(t *testing.T) {
@@ -32,7 +31,7 @@ func TestNewDependenciesContextData_ResourceMerge(t *testing.T) {
 			Items: []ConnectionItem{
 				{
 					Namespace: "ns", Project: "p", Component: "svc-a", Endpoint: "http", Visibility: "project",
-					EnvVars: []corev1.EnvVar{
+					EnvVars: []EnvVarEntry{
 						{Name: "SVC_A_URL", Value: "http://svc-a:8080"},
 					},
 				},
@@ -40,13 +39,10 @@ func TestNewDependenciesContextData_ResourceMerge(t *testing.T) {
 			Resources: []ResourceDependencyItem{
 				{
 					Ref: "orders-db",
-					EnvVars: []corev1.EnvVar{
+					EnvVars: []EnvVarEntry{
 						{Name: "DB_HOST", Value: "10.0.0.5"},
-						{Name: "DB_PASS", ValueFrom: &corev1.EnvVarSource{
-							SecretKeyRef: &corev1.SecretKeySelector{
-								LocalObjectReference: corev1.LocalObjectReference{Name: "db-conn"},
-								Key:                  "password",
-							},
+						{Name: "DB_PASS", ValueFrom: &EnvVarSourceEntry{
+							SecretKeyRef: &KeyRef{Name: "db-conn", Key: "password"},
 						}},
 					},
 				},
@@ -68,24 +64,18 @@ func TestNewDependenciesContextData_ResourceMerge(t *testing.T) {
 			Resources: []ResourceDependencyItem{
 				{
 					Ref:          "db",
-					VolumeMounts: []corev1.VolumeMount{{Name: "v1", MountPath: "/etc/db"}},
-					Volumes: []corev1.Volume{{
-						Name: "v1",
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{SecretName: "db-conn"},
-						},
+					VolumeMounts: []VolumeMountEntry{{Name: "v1", MountPath: "/etc/db"}},
+					Volumes: []VolumeEntry{{
+						Name:   "v1",
+						Secret: &SecretVolume{SecretName: "db-conn"},
 					}},
 				},
 				{
 					Ref:          "cache",
-					VolumeMounts: []corev1.VolumeMount{{Name: "v2", MountPath: "/etc/cache"}},
-					Volumes: []corev1.Volume{{
-						Name: "v2",
-						VolumeSource: corev1.VolumeSource{
-							ConfigMap: &corev1.ConfigMapVolumeSource{
-								LocalObjectReference: corev1.LocalObjectReference{Name: "cache-cm"},
-							},
-						},
+					VolumeMounts: []VolumeMountEntry{{Name: "v2", MountPath: "/etc/cache"}},
+					Volumes: []VolumeEntry{{
+						Name:      "v2",
+						ConfigMap: &ConfigMapVolume{Name: "cache-cm"},
 					}},
 				},
 			},
@@ -118,7 +108,7 @@ func TestNewDependenciesContextData_ResourceMerge(t *testing.T) {
 			Items: []ConnectionItem{
 				{
 					Namespace: "ns", Project: "p", Component: "svc-a", Endpoint: "http", Visibility: "project",
-					EnvVars: []corev1.EnvVar{
+					EnvVars: []EnvVarEntry{
 						{Name: "SVC_A_URL", Value: "http://svc-a:8080"},
 						{Name: "SVC_A_HOST", Value: "svc-a"},
 					},
@@ -127,7 +117,7 @@ func TestNewDependenciesContextData_ResourceMerge(t *testing.T) {
 		}
 		ctx := newDependenciesContextData(data)
 
-		want := []corev1.EnvVar{
+		want := []EnvVarEntry{
 			{Name: "SVC_A_URL", Value: "http://svc-a:8080"},
 			{Name: "SVC_A_HOST", Value: "svc-a"},
 		}
@@ -160,11 +150,11 @@ func TestNewDependenciesContextData_ResourceMerge(t *testing.T) {
 			Resources: []ResourceDependencyItem{
 				{
 					Ref:     "db",
-					EnvVars: []corev1.EnvVar{{Name: "DB_HOST", Value: "h1"}},
+					EnvVars: []EnvVarEntry{{Name: "DB_HOST", Value: "h1"}},
 				},
 				{
 					Ref:     "cache",
-					EnvVars: []corev1.EnvVar{{Name: "CACHE_HOST", Value: "h2"}},
+					EnvVars: []EnvVarEntry{{Name: "CACHE_HOST", Value: "h2"}},
 				},
 			},
 		}

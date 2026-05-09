@@ -75,6 +75,7 @@ var toContainerEnvFromMacro = cel.ReceiverMacro("toContainerEnvFrom", 0,
 // toContainerVolumeMountsMacro transforms either:
 //   - configurations.toContainerVolumeMounts() into configurationsToContainerVolumeMounts(configurations)
 //   - dependencies.toContainerVolumeMounts() into dependencies.volumeMounts (field select)
+//
 // at compile time. The receiver guard disambiguates which rewrite applies.
 var toContainerVolumeMountsMacro = cel.ReceiverMacro("toContainerVolumeMounts", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
@@ -93,6 +94,7 @@ var toContainerVolumeMountsMacro = cel.ReceiverMacro("toContainerVolumeMounts", 
 // toVolumesMacro transforms either:
 //   - configurations.toVolumes() into configurationsToVolumes(configurations, prefix)
 //   - dependencies.toVolumes() into dependencies.volumes (field select)
+//
 // at compile time. The receiver guard disambiguates which rewrite applies.
 var toVolumesMacro = cel.ReceiverMacro("toVolumes", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {

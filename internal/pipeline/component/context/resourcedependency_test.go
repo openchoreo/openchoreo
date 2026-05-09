@@ -11,7 +11,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
@@ -146,13 +145,11 @@ func TestBuildResourceDependencyItem(t *testing.T) {
 		require.Len(t, got.Volumes, 1)
 
 		volName := got.Volumes[0].Name
-		assert.Equal(t, corev1.Volume{
-			Name: volName,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{SecretName: "orders-db-tls"},
-			},
+		assert.Equal(t, VolumeEntry{
+			Name:   volName,
+			Secret: &SecretVolume{SecretName: "orders-db-tls"},
 		}, got.Volumes[0])
-		assert.Equal(t, corev1.VolumeMount{
+		assert.Equal(t, VolumeMountEntry{
 			Name: volName, MountPath: "/etc/tls", SubPath: "tls.crt",
 		}, got.VolumeMounts[0])
 	})
@@ -174,7 +171,7 @@ func TestBuildResourceDependencyItem(t *testing.T) {
 		volName := got.Volumes[0].Name
 		require.NotNil(t, got.Volumes[0].ConfigMap)
 		assert.Equal(t, "orders-db-tls", got.Volumes[0].ConfigMap.Name)
-		assert.Equal(t, corev1.VolumeMount{
+		assert.Equal(t, VolumeMountEntry{
 			Name: volName, MountPath: "/etc/tls", SubPath: "ca.crt",
 		}, got.VolumeMounts[0])
 	})

@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -225,18 +224,18 @@ func buildConnectionItems(
 func buildEnvVarsForConnection(
 	conn openchoreov1alpha1.WorkloadConnection,
 	rc openchoreov1alpha1.ResolvedConnection,
-) []corev1.EnvVar {
-	envVars := make([]corev1.EnvVar, 0, 4)
+) []pipelinecontext.EnvVarEntry {
+	envVars := make([]pipelinecontext.EnvVarEntry, 0, 4)
 
 	if conn.EnvBindings.Address != "" {
-		envVars = append(envVars, corev1.EnvVar{
+		envVars = append(envVars, pipelinecontext.EnvVarEntry{
 			Name:  conn.EnvBindings.Address,
 			Value: formatEndpointAddress(rc.URL),
 		})
 	}
 
 	if conn.EnvBindings.Host != "" {
-		envVars = append(envVars, corev1.EnvVar{
+		envVars = append(envVars, pipelinecontext.EnvVarEntry{
 			Name:  conn.EnvBindings.Host,
 			Value: rc.URL.Host,
 		})
@@ -247,14 +246,14 @@ func buildEnvVarsForConnection(
 		if rc.URL.Port != 0 {
 			portStr = strconv.Itoa(int(rc.URL.Port))
 		}
-		envVars = append(envVars, corev1.EnvVar{
+		envVars = append(envVars, pipelinecontext.EnvVarEntry{
 			Name:  conn.EnvBindings.Port,
 			Value: portStr,
 		})
 	}
 
 	if conn.EnvBindings.BasePath != "" {
-		envVars = append(envVars, corev1.EnvVar{
+		envVars = append(envVars, pipelinecontext.EnvVarEntry{
 			Name:  conn.EnvBindings.BasePath,
 			Value: rc.URL.Path,
 		})
