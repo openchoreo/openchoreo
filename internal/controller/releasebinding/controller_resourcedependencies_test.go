@@ -361,6 +361,98 @@ func TestResolveResourceDependencies(t *testing.T) {
 	})
 }
 
+func TestSetReadyConditionWithResourceDependencies(t *testing.T) {
+	t.Run("resource_deps_false_blocks_ready_with_its_reason", func(t *testing.T) {
+		r := newTestReconciler()
+		rb := makeReleaseBindingForConditions()
+		setConditionOnRB(rb, string(ConditionReleaseSynced), metav1.ConditionTrue, string(ReasonReleaseSynced), "synced")
+		setConditionOnRB(rb, string(ConditionResourcesReady), metav1.ConditionTrue, string(ReasonReady), "ready")
+		setConditionOnRB(rb, string(ConditionResourceDependenciesReady), metav1.ConditionFalse,
+			string(ReasonResourceDependenciesPending), "1 dep pending")
+
+		r.setReadyCondition(rb)
+
+		ready := findCondition(rb.Status.Conditions, string(ConditionReady))
+		require.NotNil(t, ready)
+		assert.Equal(t, metav1.ConditionFalse, ready.Status)
+		assert.Equal(t, string(ReasonResourceDependenciesPending), ready.Reason)
+	})
+
+	t.Run("resource_deps_true_with_others_true_yields_ready", func(t *testing.T) {
+		r := newTestReconciler()
+		rb := makeReleaseBindingForConditions()
+		setConditionOnRB(rb, string(ConditionReleaseSynced), metav1.ConditionTrue, string(ReasonReleaseSynced), "synced")
+		setConditionOnRB(rb, string(ConditionResourcesReady), metav1.ConditionTrue, string(ReasonReady), "ready")
+		setConditionOnRB(rb, string(ConditionResourceDependenciesReady), metav1.ConditionTrue,
+			string(ReasonAllResourceDependenciesReady), "all resolved")
+
+		r.setReadyCondition(rb)
+
+		ready := findCondition(rb.Status.Conditions, string(ConditionReady))
+		require.NotNil(t, ready)
+		assert.Equal(t, metav1.ConditionTrue, ready.Status)
+		assert.Equal(t, string(ReasonReady), ready.Reason)
+	})
+
+	t.Run("resource_deps_absent_does_not_block_ready", func(t *testing.T) {
+		// Backward compat: a workload with no resource dependencies has no
+		// ResourceDependenciesReady condition. Aggregate Ready must not require it.
+		// Mirrors how ConnectionsResolved is treated as optional.
+		r := newTestReconciler()
+		rb := makeReleaseBindingForConditions()
+		setConditionOnRB(rb, string(ConditionReleaseSynced), metav1.ConditionTrue, string(ReasonReleaseSynced), "synced")
+		setConditionOnRB(rb, string(ConditionResourcesReady), metav1.ConditionTrue, string(ReasonReady), "ready")
+		// no ResourceDependenciesReady condition
+
+		r.setReadyCondition(rb)
+
+		ready := findCondition(rb.Status.Conditions, string(ConditionReady))
+		require.NotNil(t, ready)
+		assert.Equal(t, metav1.ConditionTrue, ready.Status)
+		assert.Equal(t, string(ReasonReady), ready.Reason)
+	})
+
+	t.Run("connections_false_takes_priority_over_resource_deps_false", func(t *testing.T) {
+		// Locks the priority: ConnectionsResolved is reported above ResourceDependenciesReady
+		// when both fail.
+		r := newTestReconciler()
+		rb := makeReleaseBindingForConditions()
+		setConditionOnRB(rb, string(ConditionReleaseSynced), metav1.ConditionTrue, string(ReasonReleaseSynced), "synced")
+		setConditionOnRB(rb, string(ConditionResourcesReady), metav1.ConditionTrue, string(ReasonReady), "ready")
+		setConditionOnRB(rb, string(ConditionConnectionsResolved), metav1.ConditionFalse,
+			string(ReasonConnectionsPending), "endpoint pending")
+		setConditionOnRB(rb, string(ConditionResourceDependenciesReady), metav1.ConditionFalse,
+			string(ReasonResourceDependenciesPending), "resource dep pending")
+
+		r.setReadyCondition(rb)
+
+		ready := findCondition(rb.Status.Conditions, string(ConditionReady))
+		require.NotNil(t, ready)
+		assert.Equal(t, metav1.ConditionFalse, ready.Status)
+		assert.Equal(t, string(ReasonConnectionsPending), ready.Reason)
+	})
+
+	t.Run("resource_deps_false_takes_priority_over_resources_ready_false", func(t *testing.T) {
+		// Locks the priority: ResourceDependenciesReady is reported above ResourcesReady
+		// when both fail. Without this test, swapping the two priority branches in
+		// setReadyCondition would still pass all other tests.
+		r := newTestReconciler()
+		rb := makeReleaseBindingForConditions()
+		setConditionOnRB(rb, string(ConditionReleaseSynced), metav1.ConditionTrue, string(ReasonReleaseSynced), "synced")
+		setConditionOnRB(rb, string(ConditionResourcesReady), metav1.ConditionFalse,
+			string(ReasonResourcesDegraded), "primary degraded")
+		setConditionOnRB(rb, string(ConditionResourceDependenciesReady), metav1.ConditionFalse,
+			string(ReasonResourceDependenciesPending), "resource dep pending")
+
+		r.setReadyCondition(rb)
+
+		ready := findCondition(rb.Status.Conditions, string(ConditionReady))
+		require.NotNil(t, ready)
+		assert.Equal(t, metav1.ConditionFalse, ready.Status)
+		assert.Equal(t, string(ReasonResourceDependenciesPending), ready.Reason)
+	})
+}
+
 // --- helpers ---
 
 func newResourceDepReconciler(t *testing.T, objs ...client.Object) *Reconciler {
