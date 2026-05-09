@@ -65,6 +65,7 @@ import (
 	authzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/authzrolebinding"
 	clusterauthzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterauthzrolebinding"
 	clustercomponenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clustercomponenttype"
+	clusterresourcetypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterresourcetype"
 	clustertraitwebhook "github.com/openchoreo/openchoreo/internal/webhook/clustertrait"
 	clusterworkflowwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterworkflow"
 	componentwebhook "github.com/openchoreo/openchoreo/internal/webhook/component"
@@ -72,6 +73,8 @@ import (
 	componenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/componenttype"
 	projectwebhook "github.com/openchoreo/openchoreo/internal/webhook/project"
 	releasebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/releasebinding"
+	resourcereleasewebhook "github.com/openchoreo/openchoreo/internal/webhook/resourcerelease"
+	resourcetypewebhook "github.com/openchoreo/openchoreo/internal/webhook/resourcetype"
 	traitwebhook "github.com/openchoreo/openchoreo/internal/webhook/trait"
 	workflowwebhook "github.com/openchoreo/openchoreo/internal/webhook/workflow"
 )
@@ -454,6 +457,27 @@ func main() {
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := releasebindingwebhook.SetupReleaseBindingWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "ReleaseBinding")
+			os.Exit(1)
+		}
+	}
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := resourcetypewebhook.SetupResourceTypeWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "ResourceType")
+			os.Exit(1)
+		}
+	}
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := clusterresourcetypewebhook.SetupClusterResourceTypeWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "ClusterResourceType")
+			os.Exit(1)
+		}
+	}
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err := resourcereleasewebhook.SetupResourceReleaseWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "ResourceRelease")
 			os.Exit(1)
 		}
 	}
