@@ -29,11 +29,41 @@ const (
 	// (namespace/project/component/environment) for efficient reverse lookup when a
 	// dependency ReleaseBinding's endpoints change.
 	connectionTargetsIndex = "status.connectionTargets"
+
+	// resourceDependencyTargetsIndex indexes ReleaseBindings by their resource dependency
+	// targets (namespace/project/resourceName/environment) for efficient reverse lookup
+	// when a provider ResourceReleaseBinding's outputs or Ready condition change.
+	resourceDependencyTargetsIndex = "status.resourceDependencyTargets"
 )
 
 // makeConnectionTargetKey creates an index key for a connection target.
 func makeConnectionTargetKey(namespace, project, component, environment string) string {
 	return namespace + "/" + project + "/" + component + "/" + environment
+}
+
+// makeResourceDependencyTargetKey creates an index key for a resource dependency target.
+// Same shape as makeConnectionTargetKey but with resourceName in the third slot.
+func makeResourceDependencyTargetKey(namespace, project, resourceName, environment string) string {
+	return namespace + "/" + project + "/" + resourceName + "/" + environment
+}
+
+// indexResourceDependencyTargets is the field-indexer function for resourceDependencyTargetsIndex.
+// Exported helper kept package-private so unit tests can register the same indexer the
+// production setup uses on the manager's cache.
+func indexResourceDependencyTargets(rb *openchoreov1alpha1.ReleaseBinding) []string {
+	if len(rb.Status.ResourceDependencyTargets) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{})
+	var keys []string
+	for _, t := range rb.Status.ResourceDependencyTargets {
+		key := makeResourceDependencyTargetKey(t.Namespace, t.Project, t.ResourceName, t.Environment)
+		if _, ok := seen[key]; !ok {
+			seen[key] = struct{}{}
+			keys = append(keys, key)
+		}
+	}
+	return keys
 }
 
 // setupSecretReferencesIndex sets up the field index for SecretReference names used by ReleaseBinding.
@@ -115,6 +145,113 @@ func (r *Reconciler) findConsumerReleaseBindings(ctx context.Context, obj client
 	if err := r.List(ctx, &consumers,
 		client.MatchingFields{connectionTargetsIndex: targetKey}); err != nil {
 		log.FromContext(ctx).Error(err, "Failed to list consumer ReleaseBindings", "releaseBinding", rb.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(consumers.Items))
+	for _, consumer := range consumers.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      consumer.Name,
+				Namespace: consumer.Namespace,
+			},
+		})
+	}
+	return requests
+}
+
+// setupResourceDependencyTargetsIndex registers a field index that extracts unique
+// namespace/project/resourceName/environment keys from each ReleaseBinding's
+// status.resourceDependencyTargets.
+func (r *Reconciler) setupResourceDependencyTargetsIndex(ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseBinding{},
+		resourceDependencyTargetsIndex, func(obj client.Object) []string {
+			return indexResourceDependencyTargets(obj.(*openchoreov1alpha1.ReleaseBinding))
+		})
+}
+
+// resourceReleaseBindingOutputsChangedPredicate returns a predicate that only passes when
+// status.outputs changes on a ResourceReleaseBinding, or when its Ready condition status
+// flips. Other status changes (e.g., Synced reason updates) are filtered out so consumers
+// are not re-enqueued for events they don't care about. Mirrors endpointStatusChangedPredicate.
+func resourceReleaseBindingOutputsChangedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(_ event.CreateEvent) bool {
+			return true
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldRRB, ok := e.ObjectOld.(*openchoreov1alpha1.ResourceReleaseBinding)
+			if !ok {
+				return false
+			}
+			newRRB, ok := e.ObjectNew.(*openchoreov1alpha1.ResourceReleaseBinding)
+			if !ok {
+				return false
+			}
+			if !apiequality.Semantic.DeepEqual(oldRRB.Status.Outputs, newRRB.Status.Outputs) {
+				return true
+			}
+			return readyConditionStatusChanged(oldRRB, newRRB)
+		},
+		DeleteFunc: func(_ event.DeleteEvent) bool {
+			return true
+		},
+		GenericFunc: func(_ event.GenericEvent) bool {
+			return false
+		},
+	}
+}
+
+// readyConditionStatusChanged reports whether the Ready condition's Status field differs
+// between two ResourceReleaseBindings. Absence on either side maps to "" so a True ↔ absent
+// transition still counts as a flip — relies on the RRB controller invariant that Ready is
+// rewritten on every reconcile via setReadyCondition once it has been set.
+func readyConditionStatusChanged(oldRRB, newRRB *openchoreov1alpha1.ResourceReleaseBinding) bool {
+	const readyType = "Ready"
+	var oldStatus, newStatus string
+	for i := range oldRRB.Status.Conditions {
+		if oldRRB.Status.Conditions[i].Type == readyType {
+			oldStatus = string(oldRRB.Status.Conditions[i].Status)
+			break
+		}
+	}
+	for i := range newRRB.Status.Conditions {
+		if newRRB.Status.Conditions[i].Type == readyType {
+			newStatus = string(newRRB.Status.Conditions[i].Status)
+			break
+		}
+	}
+	return oldStatus != newStatus
+}
+
+// findConsumerReleaseBindingsForResourceReleaseBinding returns reconcile requests for all
+// ReleaseBindings that depend on the changed ResourceReleaseBinding via their workload's
+// dependencies.resources[]. Used by Watches(&ResourceReleaseBinding{}, ...) to propagate
+// provider output changes to consumers.
+func (r *Reconciler) findConsumerReleaseBindingsForResourceReleaseBinding(ctx context.Context, obj client.Object) []reconcile.Request {
+	rrb, ok := obj.(*openchoreov1alpha1.ResourceReleaseBinding)
+	if !ok {
+		return nil
+	}
+	// Bail early on a malformed RRB so we never produce a partial key like "ns///" that
+	// would over-list consumers carrying any zero-value targets. Mirrors the same guard
+	// in IndexResourceReleaseBindingOwnerEnv (internal/controller/watch.go).
+	if rrb.Spec.Owner.ProjectName == "" || rrb.Spec.Owner.ResourceName == "" || rrb.Spec.Environment == "" {
+		return nil
+	}
+
+	targetKey := makeResourceDependencyTargetKey(
+		rrb.Namespace,
+		rrb.Spec.Owner.ProjectName,
+		rrb.Spec.Owner.ResourceName,
+		rrb.Spec.Environment,
+	)
+
+	var consumers openchoreov1alpha1.ReleaseBindingList
+	if err := r.List(ctx, &consumers,
+		client.MatchingFields{resourceDependencyTargetsIndex: targetKey}); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list consumer ReleaseBindings for ResourceReleaseBinding",
+			"resourceReleaseBinding", rrb.Name)
 		return nil
 	}
 

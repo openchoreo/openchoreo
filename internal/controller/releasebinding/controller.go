@@ -1365,6 +1365,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup connection targets index: %w", err)
 	}
 
+	// Setup field index for resource dependency targets (reads from status.resourceDependencyTargets)
+	if err := r.setupResourceDependencyTargetsIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup resource dependency targets index: %w", err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ReleaseBinding{}).
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
@@ -1378,6 +1383,17 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&openchoreov1alpha1.ReleaseBinding{},
 			handler.EnqueueRequestsFromMapFunc(r.findConsumerReleaseBindings),
 			builder.WithPredicates(endpointStatusChangedPredicate()),
+		).
+		// The two consumer-side watches do not form a cycle: the endpoint watch enqueues
+		// on Status.Endpoints changes, while the resource-dep watch enqueues on a
+		// ResourceReleaseBinding's Status.Outputs changes. A consumer reconcile may
+		// update its own Status.Endpoints (re-entering the endpoint watch) but never
+		// updates a ResourceReleaseBinding, so the resource-dep watch is fed only by the
+		// independent ResourceReleaseBinding controller.
+		Watches(
+			&openchoreov1alpha1.ResourceReleaseBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.findConsumerReleaseBindingsForResourceReleaseBinding),
+			builder.WithPredicates(resourceReleaseBindingOutputsChangedPredicate()),
 		).
 		Named("releasebinding").
 		Complete(r)

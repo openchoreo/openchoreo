@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
@@ -358,6 +359,256 @@ func TestResolveResourceDependencies(t *testing.T) {
 
 		_, _, err := r.resolveResourceDependencies(context.Background(), rb, deps)
 		require.Error(t, err)
+	})
+}
+
+func TestMakeResourceDependencyTargetKey(t *testing.T) {
+	got := makeResourceDependencyTargetKey("ns1", "proj1", "orders-db", "prod")
+	assert.Equal(t, "ns1/proj1/orders-db/prod", got)
+}
+
+func TestSetupResourceDependencyTargetsIndex_indexerEmitsOneKeyPerTarget(t *testing.T) {
+	// Build a ReleaseBinding with two distinct resource-dep targets and verify the
+	// indexer emits both composite keys. The fake client's index is what production
+	// uses to reverse-lookup consumers from a provider RRB event.
+	rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+	rb.Status.ResourceDependencyTargets = []openchoreov1alpha1.ResourceDependencyTarget{
+		{Namespace: "ns", Project: "proj", ResourceName: "db", Environment: "dev"},
+		{Namespace: "ns", Project: "proj", ResourceName: "cache", Environment: "dev"},
+	}
+	keys := indexResourceDependencyTargets(rb)
+	assert.ElementsMatch(t, []string{
+		"ns/proj/db/dev",
+		"ns/proj/cache/dev",
+	}, keys)
+}
+
+func TestSetupResourceDependencyTargetsIndex_dedupesIdenticalTargets(t *testing.T) {
+	rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+	rb.Status.ResourceDependencyTargets = []openchoreov1alpha1.ResourceDependencyTarget{
+		{Namespace: "ns", Project: "proj", ResourceName: "db", Environment: "dev"},
+		{Namespace: "ns", Project: "proj", ResourceName: "db", Environment: "dev"},
+	}
+	keys := indexResourceDependencyTargets(rb)
+	assert.Len(t, keys, 1)
+}
+
+func TestSetupResourceDependencyTargetsIndex_returnsNilForEmpty(t *testing.T) {
+	rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+	keys := indexResourceDependencyTargets(rb)
+	assert.Nil(t, keys)
+}
+
+func TestFindConsumerReleaseBindingsForResourceReleaseBinding(t *testing.T) {
+	// One consumer RB with a target pointing at provider (proj, db, dev) — should be enqueued.
+	consumer := newRBForResourceDeps("ns", "proj", "consumer", "dev")
+	consumer.Name = "consumer-rb"
+	consumer.Status.ResourceDependencyTargets = []openchoreov1alpha1.ResourceDependencyTarget{
+		{Namespace: "ns", Project: "proj", ResourceName: "db", Environment: "dev"},
+	}
+	// Another RB whose target points at a different resource — should NOT be enqueued.
+	unrelated := newRBForResourceDeps("ns", "proj", "other", "dev")
+	unrelated.Name = "other-rb"
+	unrelated.Status.ResourceDependencyTargets = []openchoreov1alpha1.ResourceDependencyTarget{
+		{Namespace: "ns", Project: "proj", ResourceName: "cache", Environment: "dev"},
+	}
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(consumer, unrelated).
+		WithIndex(&openchoreov1alpha1.ReleaseBinding{},
+			resourceDependencyTargetsIndex, func(obj client.Object) []string {
+				return indexResourceDependencyTargets(obj.(*openchoreov1alpha1.ReleaseBinding))
+			}).
+		Build()
+	r := &Reconciler{Client: c, Scheme: scheme}
+
+	provider := &openchoreov1alpha1.ResourceReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "db-binding", Namespace: "ns"},
+		Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ResourceReleaseBindingOwner{
+				ProjectName: "proj", ResourceName: "db",
+			},
+			Environment: "dev",
+		},
+	}
+	got := r.findConsumerReleaseBindingsForResourceReleaseBinding(context.Background(), provider)
+	require.Len(t, got, 1, "expected one consumer enqueued")
+	assert.Equal(t, "consumer-rb", got[0].Name)
+}
+
+func TestFindConsumerReleaseBindingsForResourceReleaseBinding_noConsumers(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithIndex(&openchoreov1alpha1.ReleaseBinding{},
+			resourceDependencyTargetsIndex, func(obj client.Object) []string {
+				return indexResourceDependencyTargets(obj.(*openchoreov1alpha1.ReleaseBinding))
+			}).
+		Build()
+	r := &Reconciler{Client: c, Scheme: scheme}
+
+	provider := &openchoreov1alpha1.ResourceReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "orphan", Namespace: "ns"},
+		Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
+			Owner:       openchoreov1alpha1.ResourceReleaseBindingOwner{ProjectName: "p", ResourceName: "r"},
+			Environment: "e",
+		},
+	}
+	got := r.findConsumerReleaseBindingsForResourceReleaseBinding(context.Background(), provider)
+	assert.Empty(t, got)
+}
+
+func TestFindConsumerReleaseBindingsForResourceReleaseBinding_wrongType(t *testing.T) {
+	r := newResourceDepReconciler(t)
+	got := r.findConsumerReleaseBindingsForResourceReleaseBinding(context.Background(),
+		&openchoreov1alpha1.ReleaseBinding{}) // wrong type
+	assert.Nil(t, got)
+}
+
+func TestFindConsumerReleaseBindingsForResourceReleaseBinding_skipsMalformedRRB(t *testing.T) {
+	// Defensive: an RRB with empty Owner fields should produce no matches rather than
+	// listing every consumer that happens to carry a zero-value target.
+	r := newResourceDepReconciler(t)
+	cases := []struct {
+		name string
+		rrb  *openchoreov1alpha1.ResourceReleaseBinding
+	}{
+		{"empty_project", &openchoreov1alpha1.ResourceReleaseBinding{
+			Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
+				Owner:       openchoreov1alpha1.ResourceReleaseBindingOwner{ResourceName: "db"},
+				Environment: "dev",
+			},
+		}},
+		{"empty_resource", &openchoreov1alpha1.ResourceReleaseBinding{
+			Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
+				Owner:       openchoreov1alpha1.ResourceReleaseBindingOwner{ProjectName: "p"},
+				Environment: "dev",
+			},
+		}},
+		{"empty_environment", &openchoreov1alpha1.ResourceReleaseBinding{
+			Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
+				Owner: openchoreov1alpha1.ResourceReleaseBindingOwner{ProjectName: "p", ResourceName: "db"},
+			},
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := r.findConsumerReleaseBindingsForResourceReleaseBinding(context.Background(), c.rrb)
+			assert.Nil(t, got)
+		})
+	}
+}
+
+// Locks the load-bearing invariant for the reverse-watch: a target produced from a
+// consumer's workload by buildResourceDependencyTargets must round-trip through
+// indexResourceDependencyTargets and findConsumerReleaseBindingsForResourceReleaseBinding's
+// key construction to enqueue the same consumer. Catches any future divergence in the key
+// shape that hand-constructed two-side tests would miss.
+func TestReverseWatchKeyRoundTrip(t *testing.T) {
+	consumer := newRBForResourceDeps("ns", "proj", "consumer", "prod")
+	consumer.Name = "consumer-rb"
+	deps := []openchoreov1alpha1.WorkloadResourceDependency{{Ref: "orders-db"}}
+	consumer.Status.ResourceDependencyTargets = buildResourceDependencyTargets(consumer, deps)
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(consumer).
+		WithIndex(&openchoreov1alpha1.ReleaseBinding{},
+			resourceDependencyTargetsIndex, func(obj client.Object) []string {
+				return indexResourceDependencyTargets(obj.(*openchoreov1alpha1.ReleaseBinding))
+			}).
+		Build()
+	r := &Reconciler{Client: c, Scheme: scheme}
+
+	provider := &openchoreov1alpha1.ResourceReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "orders-db-rrb", Namespace: "ns"},
+		Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ResourceReleaseBindingOwner{
+				ProjectName: "proj", ResourceName: "orders-db",
+			},
+			Environment: "prod",
+		},
+	}
+	got := r.findConsumerReleaseBindingsForResourceReleaseBinding(context.Background(), provider)
+	require.Len(t, got, 1, "consumer must round-trip via the index when both sides agree on the key shape")
+	assert.Equal(t, "consumer-rb", got[0].Name)
+}
+
+func TestResourceReleaseBindingOutputsChangedPredicate(t *testing.T) {
+	pred := resourceReleaseBindingOutputsChangedPredicate()
+
+	t.Run("fires_on_create", func(t *testing.T) {
+		assert.True(t, pred.Create(event.CreateEvent{Object: &openchoreov1alpha1.ResourceReleaseBinding{}}))
+	})
+
+	t.Run("fires_on_delete", func(t *testing.T) {
+		assert.True(t, pred.Delete(event.DeleteEvent{Object: &openchoreov1alpha1.ResourceReleaseBinding{}}))
+	})
+
+	t.Run("does_not_fire_on_generic_event", func(t *testing.T) {
+		assert.False(t, pred.Generic(event.GenericEvent{Object: &openchoreov1alpha1.ResourceReleaseBinding{}}))
+	})
+
+	t.Run("fires_on_outputs_change", func(t *testing.T) {
+		old := &openchoreov1alpha1.ResourceReleaseBinding{
+			Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
+				Outputs: []openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: "1.1.1.1"}},
+			},
+		}
+		new := old.DeepCopy()
+		new.Status.Outputs[0].Value = "2.2.2.2"
+		assert.True(t, pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: new}))
+	})
+
+	t.Run("fires_on_ready_condition_flip", func(t *testing.T) {
+		old := &openchoreov1alpha1.ResourceReleaseBinding{
+			Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
+				Conditions: []metav1.Condition{
+					{Type: "Ready", Status: metav1.ConditionFalse, Reason: "Pending", LastTransitionTime: metav1.Now()},
+				},
+			},
+		}
+		new := old.DeepCopy()
+		new.Status.Conditions[0].Status = metav1.ConditionTrue
+		new.Status.Conditions[0].Reason = "Ready"
+		assert.True(t, pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: new}))
+	})
+
+	t.Run("does_not_fire_on_unrelated_status_change", func(t *testing.T) {
+		// Same outputs, same Ready condition status. Some other condition (e.g., Synced)
+		// changed — predicate should NOT fire because consumers don't care about that.
+		old := &openchoreov1alpha1.ResourceReleaseBinding{
+			Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
+				Outputs: []openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: "1.1.1.1"}},
+				Conditions: []metav1.Condition{
+					{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Ready", LastTransitionTime: metav1.Now()},
+					{Type: "Synced", Status: metav1.ConditionTrue, Reason: "ReleaseSynced", LastTransitionTime: metav1.Now()},
+				},
+			},
+		}
+		new := old.DeepCopy()
+		new.Status.Conditions[1].Reason = "ReleaseUpdated" // different non-Ready reason
+		assert.False(t, pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: new}))
+	})
+
+	t.Run("does_not_fire_when_ready_absent_on_both_sides", func(t *testing.T) {
+		old := &openchoreov1alpha1.ResourceReleaseBinding{}
+		new := old.DeepCopy()
+		assert.False(t, pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: new}))
+	})
+
+	t.Run("rejects_wrong_type", func(t *testing.T) {
+		// Defensive: predicate must not panic if an unexpected object kind arrives.
+		assert.False(t, pred.Update(event.UpdateEvent{
+			ObjectOld: &openchoreov1alpha1.ReleaseBinding{},
+			ObjectNew: &openchoreov1alpha1.ReleaseBinding{},
+		}))
 	})
 }
 
