@@ -326,7 +326,7 @@ func TestBuildTraitCELEnv_ReflectionBasedTypes(t *testing.T) {
 //
 // Without alignment the validation env sees list(VolumeEntry) + list(corev1.Volume), which
 // has no '_+_' overload. CCTs end up unable to merge configurations-driven volumes/mounts
-// with the dependency-driven ones synthesized from resource fileBindings (#3334).
+// with the dependency-driven ones synthesized from resource fileBindings.
 func TestBuildComponentCELEnv_ConfigurationsDependenciesConcat(t *testing.T) {
 	env, _, err := buildComponentCELEnv(SchemaOptions{})
 	require.NoError(t, err)
