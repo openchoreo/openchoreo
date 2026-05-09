@@ -112,7 +112,7 @@ func buildResourceCELEnv(opts SchemaOptions) (*cel.Env, error) {
 // map<string, AppliedEntry>. AppliedEntry has a single Dyn-typed status field;
 // the schema beneath status is not type-checked because operators populate it
 // freely. Verifying that an applied.<id> reference matches a declared
-// resources[].id is a separate AST-walk concern (see Stage 1).
+// resources[].id is a separate AST-walk concern handled by the caller.
 func extendEnvWithApplied(env *cel.Env) (*cel.Env, error) {
 	appliedEntryType := apiservercel.NewObjectType("AppliedEntry", map[string]*apiservercel.DeclField{
 		"status": apiservercel.NewDeclField("status", apiservercel.DynType, true, nil, nil),

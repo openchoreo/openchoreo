@@ -29,7 +29,7 @@ var celWrapPattern = regexp.MustCompile(`^\$\{([\s\S]+)\}\s*$`)
 
 // ValidateResourceTypeSpec performs CEL-aware validation on a ResourceTypeSpec.
 // Returned errors carry full field paths under basePath; callers compose the
-// list across multiple specs (Stage 3 ResourceRelease validation).
+// list across multiple specs (e.g. when re-validating a ResourceRelease snapshot).
 //
 // What this validates:
 //   - Parameters / EnvironmentConfigs schemas parse as well-formed OpenAPI v3.

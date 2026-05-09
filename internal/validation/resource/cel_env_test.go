@@ -96,9 +96,10 @@ func TestBuildResourceCELEnv_MetadataFields(t *testing.T) {
 	}
 }
 
-// Locks the v1.2 forward-compat boundary: component-bound resources will add
-// componentName/componentUID, but the v1.1 surface must reject them so a PE
-// template authored against v1.1 cannot quietly depend on a v1.2 field.
+// componentName/componentUID/podSelectors are reserved for component-bound
+// resources, which are not currently supported. The base surface must reject
+// them so a PE template cannot quietly depend on a field the runtime won't
+// provide.
 func TestBuildResourceCELEnv_RejectsForwardCompatFields(t *testing.T) {
 	env, err := buildResourceCELEnv(SchemaOptions{})
 	require.NoError(t, err)
@@ -147,8 +148,8 @@ func TestBuildResourceCELEnv_DataPlaneFields(t *testing.T) {
 }
 
 // applied.<id> is only valid during outputs / readyWhen evaluation, never
-// during template or includeWhen rendering. The base env (used by Stage 1
-// to validate templates) must reject any applied reference.
+// during template or includeWhen rendering. The base env must reject any
+// applied reference.
 func TestBuildResourceCELEnv_RejectsAppliedAtBase(t *testing.T) {
 	env, err := buildResourceCELEnv(SchemaOptions{})
 	require.NoError(t, err)
