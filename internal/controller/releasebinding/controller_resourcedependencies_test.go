@@ -48,8 +48,8 @@ func TestBuildResourceDependencyTargets(t *testing.T) {
 	})
 
 	t.Run("uses_consumers_namespace_project_environment", func(t *testing.T) {
-		// v1.1 is project-bound only: target namespace + project + environment all
-		// come from the consuming ReleaseBinding, not from the dep itself.
+		// Resource dependencies are project-bound: target namespace + project +
+		// environment all come from the consuming ReleaseBinding, not from the dep itself.
 		rb := newRBForResourceDeps("alt-ns", "alt-proj", "comp1", "prod")
 		deps := []openchoreov1alpha1.WorkloadResourceDependency{{Ref: "shared-db"}}
 

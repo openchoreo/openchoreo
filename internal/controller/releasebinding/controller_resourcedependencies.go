@@ -19,8 +19,9 @@ import (
 )
 
 // buildResourceDependencyTargets extracts ResourceDependencyTarget entries from the
-// workload's resource dependencies. Pure function with no API calls. v1.1 is project-bound:
-// each target inherits the consumer ReleaseBinding's namespace, project, and environment.
+// workload's resource dependencies. Pure function with no API calls. Resource
+// dependencies are project-bound: each target inherits the consumer ReleaseBinding's
+// namespace, project, and environment.
 func buildResourceDependencyTargets(
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	deps []openchoreov1alpha1.WorkloadResourceDependency,
