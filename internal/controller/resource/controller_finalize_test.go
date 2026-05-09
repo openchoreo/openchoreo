@@ -120,7 +120,7 @@ var _ = Describe("Finalizer", func() {
 		_, err := r.Reconcile(finCtx, req)
 		Expect(err).NotTo(HaveOccurred())
 
-		// 2nd reconcile: phase 1 sees the binding, requeues.
+		// 2nd reconcile: binding still present, requeue without acting.
 		result, err := r.Reconcile(finCtx, req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.RequeueAfter).To(BeNumerically(">", 0))
@@ -165,10 +165,10 @@ var _ = Describe("Finalizer", func() {
 		// 1st: sets Finalizing condition, returns.
 		_, err := r.Reconcile(finCtx, req)
 		Expect(err).NotTo(HaveOccurred())
-		// 2nd: phase 1 ok (no bindings), phase 2 deletes the release, requeues.
+		// 2nd: no bindings present, deletes the release, requeues.
 		_, err = r.Reconcile(finCtx, req)
 		Expect(err).NotTo(HaveOccurred())
-		// 3rd: phase 1 ok, phase 2 finds no releases left, phase 3 clears the finalizer.
+		// 3rd: no releases left, clears the finalizer.
 		_, err = r.Reconcile(finCtx, req)
 		Expect(err).NotTo(HaveOccurred())
 

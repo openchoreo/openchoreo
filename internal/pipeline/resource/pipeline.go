@@ -300,8 +300,6 @@ func (p *Pipeline) renderTemplate(raw *runtime.RawExtension, ctx map[string]any)
 // is provided. Both are pruned to their respective OpenAPI v3 schemas with
 // defaults applied before CEL evaluation (mirrors
 // workflowpipeline.buildParameters at internal/pipeline/workflow/pipeline.go:251-279).
-//
-// The context surface is documented in plan.md §2.2.
 func buildBaseContext(input *RenderInput) (map[string]any, error) {
 	spec := resourceTypeSpec(input)
 
@@ -420,9 +418,9 @@ func dataPlaneContextToMap(d DataPlaneContext) map[string]any {
 }
 
 // metadataContextToMap exposes MetadataContext fields under their CEL-facing
-// keys. Field names match plan.md §2.2 exactly. componentName / componentUID
-// are intentionally absent (v1.2 forward-compat boundary); a CEL reference
-// to ${metadata.componentName} surfaces as an evaluation error.
+// keys. componentName / componentUID are deliberately absent (reserved for
+// component-bound resources, not currently supported); a CEL reference to
+// ${metadata.componentName} surfaces as an evaluation error.
 func metadataContextToMap(m MetadataContext) map[string]any {
 	labels := m.Labels
 	if labels == nil {

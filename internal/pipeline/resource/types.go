@@ -81,8 +81,7 @@ type ResolvedOutput struct {
 
 // MetadataContext is the platform-injected metadata surface exposed to CEL
 // templates as ${metadata.*}. The controller computes every field before
-// calling the pipeline. See plan.md §2.2 for the canonical field list and
-// rationale.
+// calling the pipeline.
 type MetadataContext struct {
 	// Name is the platform-computed base name for rendered resources,
 	// shaped {resource}-{env}-{hash} (mirrors component pipeline's
@@ -117,8 +116,9 @@ type MetadataContext struct {
 }
 
 // DataPlaneContext is the dataplane surface exposed to CEL templates as
-// ${dataplane.*}. v1.1 exposes only the fields managed-infra ResourceTypes
-// commonly need; gateway and networking surface is intentionally omitted.
+// ${dataplane.*}. The surface is deliberately narrow — only the fields
+// managed-infra ResourceTypes commonly need; gateway and networking surface
+// is intentionally omitted.
 type DataPlaneContext struct {
 	// SecretStore is the name of the ESO ClusterSecretStore configured on
 	// the DataPlane. ResourceTypes emitting ExternalSecret reference this.

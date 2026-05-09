@@ -417,8 +417,8 @@ func buildMetadataContext(
 	}
 }
 
-// buildDataPlaneContext exposes the dataplane fields plan §2.2 lists for
-// v1.1: secretStore and observabilityPlaneRef.
+// buildDataPlaneContext exposes the dataplane fields the resource pipeline
+// surfaces to CEL templates: secretStore and observabilityPlaneRef.
 func buildDataPlaneContext(dataPlane *openchoreov1alpha1.DataPlane) resourcepipeline.DataPlaneContext {
 	dpCtx := resourcepipeline.DataPlaneContext{}
 	if dataPlane.Spec.SecretStoreRef != nil {

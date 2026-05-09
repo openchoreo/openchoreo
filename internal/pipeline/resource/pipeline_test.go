@@ -473,9 +473,10 @@ func TestRenderManifests(t *testing.T) {
 	})
 
 	t.Run("rejects_component_name_reference", func(t *testing.T) {
-		// metadata.componentName is reserved for v1.2 component-bound
-		// resources. v1.1 must not expose it; locks the forward-compat
-		// boundary against accidental restoration.
+		// metadata.componentName is reserved for component-bound resources,
+		// which are not currently supported. The base surface must reject it
+		// so a future contributor cannot accidentally restore the field
+		// without an explicit decision.
 		input := renderSingle(t, rawExt(t, map[string]any{
 			"apiVersion": "v1",
 			"kind":       "Probe",
@@ -483,7 +484,7 @@ func TestRenderManifests(t *testing.T) {
 		}))
 
 		got, err := NewPipeline().RenderManifests(input)
-		require.Error(t, err, "metadata.componentName is a v1.2 field; v1.1 must reject")
+		require.Error(t, err, "metadata.componentName must not be exposed in the base surface")
 		require.Nil(t, got)
 	})
 
