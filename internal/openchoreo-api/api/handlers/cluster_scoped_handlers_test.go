@@ -26,6 +26,8 @@ import (
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	cctsvcmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype/mocks"
+	clusterresourcetypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterresourcetype"
+	crtsvcmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterresourcetype/mocks"
 	clustertraitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait"
 	clustertraitmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait/mocks"
 	clusterworkflowsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterworkflow"
@@ -121,6 +123,22 @@ func newHandlerWithClusterTraitService(ctSvc clustertraitsvc.Service) *Handler {
 func newHandlerWithClusterComponentTypeService(cctSvc clustercomponenttypesvc.Service) *Handler {
 	return &Handler{
 		services: &handlerservices.Services{ClusterComponentTypeService: cctSvc},
+		logger:   slog.Default(),
+	}
+}
+
+func newClusterResourceTypeService(t *testing.T, objects []client.Object, pdp authzcore.PDP) clusterresourcetypesvc.Service {
+	t.Helper()
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(newTestScheme(t)).
+		WithObjects(objects...).
+		Build()
+	return clusterresourcetypesvc.NewServiceWithAuthz(fakeClient, pdp, slog.Default())
+}
+
+func newHandlerWithClusterResourceTypeService(crtSvc clusterresourcetypesvc.Service) *Handler {
+	return &Handler{
+		services: &handlerservices.Services{ClusterResourceTypeService: crtSvc},
 		logger:   slog.Default(),
 	}
 }
@@ -1036,4 +1054,314 @@ func TestUpdateClusterComponentTypeHandler_InternalError(t *testing.T) {
 	resp, err := h.UpdateClusterComponentType(ctx, gen.UpdateClusterComponentTypeRequestObject{CctName: "cct", Body: &body})
 	require.NoError(t, err)
 	assert.IsType(t, gen.UpdateClusterComponentType500JSONResponse{}, resp)
+}
+
+// =============================================================================
+// ClusterResourceType handler tests
+// =============================================================================
+
+func newCRTFixture() *openchoreov1alpha1.ClusterResourceType {
+	return &openchoreov1alpha1.ClusterResourceType{
+		ObjectMeta: metav1.ObjectMeta{Name: "mysql"},
+		Spec: openchoreov1alpha1.ClusterResourceTypeSpec{
+			Resources: []openchoreov1alpha1.ResourceTypeManifest{{
+				ID:       "claim",
+				Template: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"x"}}`)},
+			}},
+		},
+	}
+}
+
+func TestListClusterResourceTypesHandler(t *testing.T) {
+	ctx := testContext()
+	crt := newCRTFixture()
+
+	t.Run("returns items when authorized", func(t *testing.T) {
+		svc := newClusterResourceTypeService(t, []client.Object{crt}, &allowAllPDP{})
+		h := newHandlerWithClusterResourceTypeService(svc)
+
+		resp, err := h.ListClusterResourceTypes(ctx, gen.ListClusterResourceTypesRequestObject{})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.ListClusterResourceTypes200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Len(t, typed.Items, 1)
+	})
+
+	t.Run("filters unauthorized items", func(t *testing.T) {
+		svc := newClusterResourceTypeService(t, []client.Object{crt}, &denyAllPDP{})
+		h := newHandlerWithClusterResourceTypeService(svc)
+
+		resp, err := h.ListClusterResourceTypes(ctx, gen.ListClusterResourceTypesRequestObject{})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.ListClusterResourceTypes200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Empty(t, typed.Items)
+	})
+}
+
+func TestListClusterResourceTypesHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.ListClusterResourceTypes400JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.ListClusterResourceTypes500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := crtsvcmocks.NewMockService(t)
+			svc.EXPECT().ListClusterResourceTypes(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{ClusterResourceTypeService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.ListClusterResourceTypes(ctx, gen.ListClusterResourceTypesRequestObject{})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestGetClusterResourceTypeHandler(t *testing.T) {
+	ctx := testContext()
+	crt := newCRTFixture()
+
+	t.Run("success", func(t *testing.T) {
+		svc := newClusterResourceTypeService(t, []client.Object{crt}, &allowAllPDP{})
+		h := newHandlerWithClusterResourceTypeService(svc)
+		resp, err := h.GetClusterResourceType(ctx, gen.GetClusterResourceTypeRequestObject{CrtName: "mysql"})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.GetClusterResourceType200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Equal(t, "mysql", typed.Metadata.Name)
+	})
+
+	t.Run("not found returns 404", func(t *testing.T) {
+		svc := newClusterResourceTypeService(t, nil, &allowAllPDP{})
+		h := newHandlerWithClusterResourceTypeService(svc)
+		resp, err := h.GetClusterResourceType(ctx, gen.GetClusterResourceTypeRequestObject{CrtName: "missing"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterResourceType404JSONResponse{}, resp)
+	})
+
+	t.Run("forbidden returns 403", func(t *testing.T) {
+		svc := newClusterResourceTypeService(t, []client.Object{crt}, &denyAllPDP{})
+		h := newHandlerWithClusterResourceTypeService(svc)
+		resp, err := h.GetClusterResourceType(ctx, gen.GetClusterResourceTypeRequestObject{CrtName: "mysql"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterResourceType403JSONResponse{}, resp)
+	})
+
+	t.Run("internal error returns 500", func(t *testing.T) {
+		svc := crtsvcmocks.NewMockService(t)
+		svc.EXPECT().GetClusterResourceType(mock.Anything, "mysql").Return(nil, errors.New("internal server error"))
+		h := &Handler{
+			services: &handlerservices.Services{ClusterResourceTypeService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		resp, err := h.GetClusterResourceType(ctx, gen.GetClusterResourceTypeRequestObject{CrtName: "mysql"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterResourceType500JSONResponse{}, resp)
+	})
+}
+
+func TestGetClusterResourceTypeSchemaHandler(t *testing.T) {
+	ctx := testContext()
+	paramsRaw, _ := json.Marshal(map[string]any{"version": "string"})
+	crt := newCRTFixture()
+	crt.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
+		OpenAPIV3Schema: &runtime.RawExtension{Raw: paramsRaw},
+	}
+
+	t.Run("returns schema when authorized", func(t *testing.T) {
+		svc := newClusterResourceTypeService(t, []client.Object{crt}, &allowAllPDP{})
+		h := newHandlerWithClusterResourceTypeService(svc)
+		resp, err := h.GetClusterResourceTypeSchema(ctx, gen.GetClusterResourceTypeSchemaRequestObject{CrtName: "mysql"})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.GetClusterResourceTypeSchema200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.NotEmpty(t, typed)
+	})
+
+	t.Run("returns 404 when not found", func(t *testing.T) {
+		svc := newClusterResourceTypeService(t, nil, &allowAllPDP{})
+		h := newHandlerWithClusterResourceTypeService(svc)
+		resp, err := h.GetClusterResourceTypeSchema(ctx, gen.GetClusterResourceTypeSchemaRequestObject{CrtName: "missing"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterResourceTypeSchema404JSONResponse{}, resp)
+	})
+
+	t.Run("returns 403 when forbidden", func(t *testing.T) {
+		svc := newClusterResourceTypeService(t, []client.Object{crt}, &denyAllPDP{})
+		h := newHandlerWithClusterResourceTypeService(svc)
+		resp, err := h.GetClusterResourceTypeSchema(ctx, gen.GetClusterResourceTypeSchemaRequestObject{CrtName: "mysql"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterResourceTypeSchema403JSONResponse{}, resp)
+	})
+}
+
+func TestCreateClusterResourceTypeHandler_NilBody(t *testing.T) {
+	ctx := testContext()
+	h := &Handler{
+		services: &handlerservices.Services{ClusterResourceTypeService: crtsvcmocks.NewMockService(t)},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.CreateClusterResourceType(ctx, gen.CreateClusterResourceTypeRequestObject{Body: nil})
+	require.NoError(t, err)
+	assert.IsType(t, gen.CreateClusterResourceType400JSONResponse{}, resp)
+}
+
+func TestCreateClusterResourceTypeHandler_Success(t *testing.T) {
+	ctx := testContext()
+	svc := crtsvcmocks.NewMockService(t)
+	svc.EXPECT().CreateClusterResourceType(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, crt *openchoreov1alpha1.ClusterResourceType) (*openchoreov1alpha1.ClusterResourceType, error) {
+		return crt, nil
+	})
+	h := &Handler{
+		services: &handlerservices.Services{ClusterResourceTypeService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	body := gen.ClusterResourceType{Metadata: gen.ObjectMeta{Name: "crt"}}
+	resp, err := h.CreateClusterResourceType(ctx, gen.CreateClusterResourceTypeRequestObject{Body: &body})
+	require.NoError(t, err)
+	typed, ok := resp.(gen.CreateClusterResourceType201JSONResponse)
+	require.True(t, ok, "expected 201 response, got %T", resp)
+	assert.Equal(t, "crt", typed.Metadata.Name)
+}
+
+func TestCreateClusterResourceTypeHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.CreateClusterResourceType403JSONResponse{}},
+		{"already exists -> 409", clusterresourcetypesvc.ErrClusterResourceTypeAlreadyExists, gen.CreateClusterResourceType409JSONResponse{}},
+		{"validation error -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.CreateClusterResourceType400JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.CreateClusterResourceType500JSONResponse{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := crtsvcmocks.NewMockService(t)
+			svc.EXPECT().CreateClusterResourceType(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{ClusterResourceTypeService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			body := gen.ClusterResourceType{Metadata: gen.ObjectMeta{Name: "crt"}}
+			resp, err := h.CreateClusterResourceType(ctx, gen.CreateClusterResourceTypeRequestObject{Body: &body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestUpdateClusterResourceTypeHandler_UsesPathName(t *testing.T) {
+	ctx := testContext()
+	svc := crtsvcmocks.NewMockService(t)
+	svc.EXPECT().UpdateClusterResourceType(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, crt *openchoreov1alpha1.ClusterResourceType) (*openchoreov1alpha1.ClusterResourceType, error) {
+		assert.Equal(t, "from-path", crt.Name)
+		return crt, nil
+	})
+	h := &Handler{
+		services: &handlerservices.Services{ClusterResourceTypeService: svc},
+		logger:   slog.Default(),
+	}
+
+	body := gen.ClusterResourceType{Metadata: gen.ObjectMeta{Name: "from-body"}}
+	resp, err := h.UpdateClusterResourceType(ctx, gen.UpdateClusterResourceTypeRequestObject{
+		CrtName: "from-path",
+		Body:    &body,
+	})
+	require.NoError(t, err)
+	typed, ok := resp.(gen.UpdateClusterResourceType200JSONResponse)
+	require.True(t, ok, "expected 200 response, got %T", resp)
+	assert.Equal(t, "from-path", typed.Metadata.Name)
+}
+
+func TestUpdateClusterResourceTypeHandler_NilBody(t *testing.T) {
+	ctx := testContext()
+	h := &Handler{
+		services: &handlerservices.Services{ClusterResourceTypeService: crtsvcmocks.NewMockService(t)},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.UpdateClusterResourceType(ctx, gen.UpdateClusterResourceTypeRequestObject{CrtName: "crt", Body: nil})
+	require.NoError(t, err)
+	assert.IsType(t, gen.UpdateClusterResourceType400JSONResponse{}, resp)
+}
+
+func TestUpdateClusterResourceTypeHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateClusterResourceType403JSONResponse{}},
+		{"not found -> 404", clusterresourcetypesvc.ErrClusterResourceTypeNotFound, gen.UpdateClusterResourceType404JSONResponse{}},
+		{"validation error -> 400", &svcpkg.ValidationError{Msg: "invalid spec"}, gen.UpdateClusterResourceType400JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.UpdateClusterResourceType500JSONResponse{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := crtsvcmocks.NewMockService(t)
+			svc.EXPECT().UpdateClusterResourceType(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{ClusterResourceTypeService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			body := gen.ClusterResourceType{Metadata: gen.ObjectMeta{Name: "crt"}}
+			resp, err := h.UpdateClusterResourceType(ctx, gen.UpdateClusterResourceTypeRequestObject{CrtName: "crt", Body: &body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestDeleteClusterResourceTypeHandler(t *testing.T) {
+	ctx := testContext()
+	crt := newCRTFixture()
+
+	t.Run("success", func(t *testing.T) {
+		svc := newClusterResourceTypeService(t, []client.Object{crt}, &allowAllPDP{})
+		h := newHandlerWithClusterResourceTypeService(svc)
+		resp, err := h.DeleteClusterResourceType(ctx, gen.DeleteClusterResourceTypeRequestObject{CrtName: "mysql"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterResourceType204Response{}, resp)
+	})
+
+	t.Run("not found returns 404", func(t *testing.T) {
+		svc := newClusterResourceTypeService(t, nil, &allowAllPDP{})
+		h := newHandlerWithClusterResourceTypeService(svc)
+		resp, err := h.DeleteClusterResourceType(ctx, gen.DeleteClusterResourceTypeRequestObject{CrtName: "missing"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterResourceType404JSONResponse{}, resp)
+	})
+
+	t.Run("forbidden returns 403", func(t *testing.T) {
+		svc := newClusterResourceTypeService(t, []client.Object{crt}, &denyAllPDP{})
+		h := newHandlerWithClusterResourceTypeService(svc)
+		resp, err := h.DeleteClusterResourceType(ctx, gen.DeleteClusterResourceTypeRequestObject{CrtName: "mysql"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterResourceType403JSONResponse{}, resp)
+	})
+
+	t.Run("internal error returns 500", func(t *testing.T) {
+		svc := crtsvcmocks.NewMockService(t)
+		svc.EXPECT().DeleteClusterResourceType(mock.Anything, "mysql").Return(errors.New("internal server error"))
+		h := &Handler{
+			services: &handlerservices.Services{ClusterResourceTypeService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		resp, err := h.DeleteClusterResourceType(ctx, gen.DeleteClusterResourceTypeRequestObject{CrtName: "mysql"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterResourceType500JSONResponse{}, resp)
+	})
 }

@@ -81,6 +81,8 @@ tags:
     description: Git secret management for source code authentication
   - name: Secrets
     description: Secret management across workflow and data planes
+  - name: ClusterResourceTypes
+    description: Cluster-scoped ResourceType templates defined by platform engineers
 
 paths:
   # =============================================================================
@@ -4400,6 +4402,165 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # ClusterResourceType Endpoints (Cluster-Scoped)
+  # =============================================================================
+
+  /api/v1/clusterresourcetypes:
+    get:
+      operationId: listClusterResourceTypes
+      summary: List cluster resource types
+      description: Returns a list of cluster-scoped resource types.
+      tags: [ClusterResourceTypes]
+      parameters:
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of cluster resource types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterResourceTypeList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createClusterResourceType
+      summary: Create cluster resource type
+      description: Creates a new cluster-scoped resource type.
+      tags: [ClusterResourceTypes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterResourceType'
+      responses:
+        '201':
+          description: Cluster resource type created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterResourceType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterresourcetypes/{crtName}:
+    get:
+      operationId: getClusterResourceType
+      summary: Get a cluster resource type
+      description: Returns details of a specific cluster-scoped resource type.
+      tags: [ClusterResourceTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterResourceTypeNameParam'
+      responses:
+        '200':
+          description: Cluster resource type details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterResourceType'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateClusterResourceType
+      summary: Update cluster resource type
+      description: Replaces an existing cluster-scoped resource type (full update).
+      tags: [ClusterResourceTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterResourceTypeNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterResourceType'
+      responses:
+        '200':
+          description: Cluster resource type updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterResourceType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteClusterResourceType
+      summary: Delete cluster resource type
+      description: Deletes a cluster-scoped resource type by name.
+      tags: [ClusterResourceTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterResourceTypeNameParam'
+      responses:
+        '204':
+          description: ClusterResourceType deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterresourcetypes/{crtName}/schema:
+    get:
+      operationId: getClusterResourceTypeSchema
+      summary: Get cluster resource type schema
+      description: Returns the parameter schema for a specific cluster-scoped resource type.
+      tags: [ClusterResourceTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterResourceTypeNameParam'
+      responses:
+        '200':
+          description: Cluster resource type schema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # Deployment Pipeline Endpoints
   # =============================================================================
 
@@ -5082,6 +5243,15 @@ components:
       schema:
         type: string
         example: api-service-v1.0.0
+
+    ClusterResourceTypeNameParam:
+      name: crtName
+      in: path
+      required: true
+      description: ClusterResourceType name
+      schema:
+        type: string
+        example: mysql
 
     RoleNameParam:
       name: roleName
@@ -8332,6 +8502,170 @@ components:
           description: File content
         valueFrom:
           $ref: '#/components/schemas/EnvVarValueFrom'
+
+    # -------------------------------------------------------------------------
+    # Resource family — shared
+    # -------------------------------------------------------------------------
+    ResourceSecretKeyRef:
+      type: object
+      description: Reference to a specific key in a Kubernetes Secret on the data plane.
+      required:
+        - name
+        - key
+      properties:
+        name:
+          type: string
+          description: Secret name (supports ${...} CEL templating in ResourceType outputs)
+          minLength: 1
+          example: analytics-shared-db-conn
+        key:
+          type: string
+          description: Key within the Secret
+          minLength: 1
+          example: password
+
+    ResourceConfigMapKeyRef:
+      type: object
+      description: Reference to a specific key in a Kubernetes ConfigMap on the data plane.
+      required:
+        - name
+        - key
+      properties:
+        name:
+          type: string
+          description: ConfigMap name (supports ${...} CEL templating in ResourceType outputs)
+          minLength: 1
+          example: analytics-shared-db-tls
+        key:
+          type: string
+          description: Key within the ConfigMap
+          minLength: 1
+          example: ca.crt
+
+    ResourceTypeOutput:
+      type: object
+      description: |
+        Single output declaration of a (Cluster)ResourceType. Exactly one of
+        value, secretKeyRef, or configMapKeyRef must be set. Output value, name,
+        and key fields support ${...} CEL templating evaluated against
+        metadata.*, parameters.*, environmentConfigs.*, and applied.<id>.status.*.
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Unique output name. Referenced by Workload.spec.dependencies.resources[].envBindings and fileBindings keys.
+          minLength: 1
+          example: host
+        value:
+          type: string
+          description: Literal or ${...} CEL expression. Use only for non-sensitive data; the resolved value transits to the control plane.
+          example: "${applied.claim.status.host}"
+        secretKeyRef:
+          $ref: '#/components/schemas/ResourceSecretKeyRef'
+        configMapKeyRef:
+          $ref: '#/components/schemas/ResourceConfigMapKeyRef'
+
+    ResourceTypeManifest:
+      type: object
+      description: |
+        Kubernetes resource template emitted by the (Cluster)ResourceType
+        provisioner on the data plane. The template body, includeWhen, and
+        readyWhen support ${...} CEL templating against metadata.*, parameters.*,
+        environmentConfigs.*, and dataplane.* (plus applied.<id>.* for readyWhen).
+      required:
+        - id
+        - template
+      properties:
+        id:
+          type: string
+          description: Unique entry identifier within the (Cluster)ResourceType. Referenced by readyWhen and outputs CEL via applied.<id>.status.*.
+          minLength: 1
+          example: claim
+        includeWhen:
+          type: string
+          description: Optional ${...}-wrapped CEL expression. When false, the entry is skipped entirely.
+          example: "${parameters.tlsEnabled}"
+        template:
+          type: object
+          description: Kubernetes resource body with ${...} CEL substitutions.
+          additionalProperties: true
+        readyWhen:
+          type: string
+          description: Optional ${...}-wrapped CEL expression. When set, drives the entry's contribution to ResourceReleaseBinding.status.conditions[ResourcesReady]; otherwise per-Kind health inference is used.
+          example: "${applied.claim.status.conditions.exists(c, c.type == 'Ready' && c.status == 'True')}"
+
+    ResourceTypeSpec:
+      type: object
+      description: Desired state of a (Cluster)ResourceType.
+      required:
+        - resources
+      properties:
+        parameters:
+          $ref: '#/components/schemas/SchemaSection'
+        environmentConfigs:
+          $ref: '#/components/schemas/SchemaSection'
+        retainPolicy:
+          type: string
+          description: Default retention for ResourceReleaseBindings of this type. Per-env override available on the binding.
+          enum: [Delete, Retain]
+          default: Delete
+          example: Delete
+        outputs:
+          type: array
+          description: Outputs that workloads consume via dependencies.resources[].envBindings or fileBindings.
+          items:
+            $ref: '#/components/schemas/ResourceTypeOutput'
+        resources:
+          type: array
+          description: Kubernetes manifests the (Cluster)ResourceType provisioner emits on the data plane.
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ResourceTypeManifest'
+
+    # -------------------------------------------------------------------------
+    # ClusterResourceTypes
+    # -------------------------------------------------------------------------
+    ClusterResourceTypeList:
+      type: object
+      description: Paginated list of cluster resource types
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterResourceType'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ClusterResourceType:
+      type: object
+      description: |
+        ClusterResourceType resource.
+        Cluster-scoped sibling of ResourceType. Resources in any namespace can reference it.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ClusterResourceType
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ResourceTypeSpec'
+        status:
+          readOnly: true
+          type: object
+          description: ClusterResourceType status (currently empty)
 
     # -------------------------------------------------------------------------
     # RenderedRelease

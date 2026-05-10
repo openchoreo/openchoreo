@@ -50,6 +50,7 @@ func statusSubresourceObjects() []client.Object {
 		&openchoreov1alpha1.ClusterComponentType{},
 		&openchoreov1alpha1.ClusterDataPlane{},
 		&openchoreov1alpha1.ClusterObservabilityPlane{},
+		&openchoreov1alpha1.ClusterResourceType{},
 		&openchoreov1alpha1.ClusterTrait{},
 		&openchoreov1alpha1.ClusterWorkflow{},
 		&openchoreov1alpha1.Component{},
@@ -149,6 +150,16 @@ func NewClusterComponentType(name string) *openchoreov1alpha1.ClusterComponentTy
 			Name: name,
 		},
 		Spec: defaultClusterComponentTypeSpec(),
+	}
+}
+
+// NewClusterResourceType creates a ClusterResourceType test fixture.
+func NewClusterResourceType(name string) *openchoreov1alpha1.ClusterResourceType {
+	return &openchoreov1alpha1.ClusterResourceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: defaultClusterResourceTypeSpec(),
 	}
 }
 
@@ -457,6 +468,17 @@ func defaultClusterComponentTypeSpec() openchoreov1alpha1.ClusterComponentTypeSp
 		WorkloadType: "deployment",
 		Resources: []openchoreov1alpha1.ResourceTemplate{
 			testResourceTemplate("deployment"),
+		},
+	}
+}
+
+func defaultClusterResourceTypeSpec() openchoreov1alpha1.ClusterResourceTypeSpec {
+	return openchoreov1alpha1.ClusterResourceTypeSpec{
+		Resources: []openchoreov1alpha1.ResourceTypeManifest{
+			{
+				ID:       "claim",
+				Template: testRunTemplate(),
+			},
 		},
 	}
 }

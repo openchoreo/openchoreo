@@ -283,6 +283,12 @@ const (
 	ResolvedConnectionVisibilityProject   ResolvedConnectionVisibility = "project"
 )
 
+// Defines values for ResourceTypeSpecRetainPolicy.
+const (
+	Delete ResourceTypeSpecRetainPolicy = "Delete"
+	Retain ResourceTypeSpecRetainPolicy = "Retain"
+)
+
 // Defines values for SecretTemplateType.
 const (
 	SecretTemplateTypeBootstrapKubernetesIotoken   SecretTemplateType = "bootstrap.kubernetes.io/token"
@@ -956,6 +962,35 @@ type ClusterObservabilityPlaneStatus struct {
 
 	// ObservedGeneration Generation of the most recently observed ClusterObservabilityPlane
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
+
+// ClusterResourceType ClusterResourceType resource.
+// Cluster-scoped sibling of ResourceType. Resources in any namespace can reference it.
+type ClusterResourceType struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a (Cluster)ResourceType.
+	Spec *ResourceTypeSpec `json:"spec,omitempty"`
+
+	// Status ClusterResourceType status (currently empty)
+	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// ClusterResourceTypeList Paginated list of cluster resource types
+type ClusterResourceTypeList struct {
+	Items []ClusterResourceType `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
 }
 
 // ClusterTrait ClusterTrait resource.
@@ -2783,6 +2818,15 @@ type Resource struct {
 	Type string `json:"type"`
 }
 
+// ResourceConfigMapKeyRef Reference to a specific key in a Kubernetes ConfigMap on the data plane.
+type ResourceConfigMapKeyRef struct {
+	// Key Key within the ConfigMap
+	Key string `json:"key"`
+
+	// Name ConfigMap name (supports ${...} CEL templating in ResourceType outputs)
+	Name string `json:"name"`
+}
+
 // ResourceEvent A Kubernetes event associated with a resource
 type ResourceEvent struct {
 	// Count Number of times this event has occurred
@@ -2895,6 +2939,72 @@ type ResourceReference struct {
 	Name       string  `json:"name"`
 	Namespace  *string `json:"namespace,omitempty"`
 }
+
+// ResourceSecretKeyRef Reference to a specific key in a Kubernetes Secret on the data plane.
+type ResourceSecretKeyRef struct {
+	// Key Key within the Secret
+	Key string `json:"key"`
+
+	// Name Secret name (supports ${...} CEL templating in ResourceType outputs)
+	Name string `json:"name"`
+}
+
+// ResourceTypeManifest Kubernetes resource template emitted by the (Cluster)ResourceType
+// provisioner on the data plane. The template body, includeWhen, and
+// readyWhen support ${...} CEL templating against metadata.*, parameters.*,
+// environmentConfigs.*, and dataplane.* (plus applied.<id>.* for readyWhen).
+type ResourceTypeManifest struct {
+	// Id Unique entry identifier within the (Cluster)ResourceType. Referenced by readyWhen and outputs CEL via applied.<id>.status.*.
+	Id string `json:"id"`
+
+	// IncludeWhen Optional ${...}-wrapped CEL expression. When false, the entry is skipped entirely.
+	IncludeWhen *string `json:"includeWhen,omitempty"`
+
+	// ReadyWhen Optional ${...}-wrapped CEL expression. When set, drives the entry's contribution to ResourceReleaseBinding.status.conditions[ResourcesReady]; otherwise per-Kind health inference is used.
+	ReadyWhen *string `json:"readyWhen,omitempty"`
+
+	// Template Kubernetes resource body with ${...} CEL substitutions.
+	Template map[string]interface{} `json:"template"`
+}
+
+// ResourceTypeOutput Single output declaration of a (Cluster)ResourceType. Exactly one of
+// value, secretKeyRef, or configMapKeyRef must be set. Output value, name,
+// and key fields support ${...} CEL templating evaluated against
+// metadata.*, parameters.*, environmentConfigs.*, and applied.<id>.status.*.
+type ResourceTypeOutput struct {
+	// ConfigMapKeyRef Reference to a specific key in a Kubernetes ConfigMap on the data plane.
+	ConfigMapKeyRef *ResourceConfigMapKeyRef `json:"configMapKeyRef,omitempty"`
+
+	// Name Unique output name. Referenced by Workload.spec.dependencies.resources[].envBindings and fileBindings keys.
+	Name string `json:"name"`
+
+	// SecretKeyRef Reference to a specific key in a Kubernetes Secret on the data plane.
+	SecretKeyRef *ResourceSecretKeyRef `json:"secretKeyRef,omitempty"`
+
+	// Value Literal or ${...} CEL expression. Use only for non-sensitive data; the resolved value transits to the control plane.
+	Value *string `json:"value,omitempty"`
+}
+
+// ResourceTypeSpec Desired state of a (Cluster)ResourceType.
+type ResourceTypeSpec struct {
+	// EnvironmentConfigs Schema section using openAPIV3Schema format
+	EnvironmentConfigs *SchemaSection `json:"environmentConfigs,omitempty"`
+
+	// Outputs Outputs that workloads consume via dependencies.resources[].envBindings or fileBindings.
+	Outputs *[]ResourceTypeOutput `json:"outputs,omitempty"`
+
+	// Parameters Schema section using openAPIV3Schema format
+	Parameters *SchemaSection `json:"parameters,omitempty"`
+
+	// Resources Kubernetes manifests the (Cluster)ResourceType provisioner emits on the data plane.
+	Resources []ResourceTypeManifest `json:"resources"`
+
+	// RetainPolicy Default retention for ResourceReleaseBindings of this type. Per-env override available on the binding.
+	RetainPolicy *ResourceTypeSpecRetainPolicy `json:"retainPolicy,omitempty"`
+}
+
+// ResourceTypeSpecRetainPolicy Default retention for ResourceReleaseBindings of this type. Per-env override available on the binding.
+type ResourceTypeSpecRetainPolicy string
 
 // SchemaResponse JSON Schema response for component types, traits, or workflows
 type SchemaResponse map[string]interface{}
@@ -3676,6 +3786,9 @@ type ClusterDataPlaneNameParam = string
 // ClusterObservabilityPlaneNameParam defines model for ClusterObservabilityPlaneNameParam.
 type ClusterObservabilityPlaneNameParam = string
 
+// ClusterResourceTypeNameParam defines model for ClusterResourceTypeNameParam.
+type ClusterResourceTypeNameParam = string
+
 // ClusterTraitNameParam defines model for ClusterTraitNameParam.
 type ClusterTraitNameParam = string
 
@@ -3872,6 +3985,23 @@ type ListClusterDataPlanesParams struct {
 
 // ListClusterObservabilityPlanesParams defines parameters for ListClusterObservabilityPlanes.
 type ListClusterObservabilityPlanesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListClusterResourceTypesParams defines parameters for ListClusterResourceTypes.
+type ListClusterResourceTypesParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
 	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
 	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
@@ -4362,6 +4492,12 @@ type CreateClusterObservabilityPlaneJSONRequestBody = ClusterObservabilityPlane
 
 // UpdateClusterObservabilityPlaneJSONRequestBody defines body for UpdateClusterObservabilityPlane for application/json ContentType.
 type UpdateClusterObservabilityPlaneJSONRequestBody = ClusterObservabilityPlane
+
+// CreateClusterResourceTypeJSONRequestBody defines body for CreateClusterResourceType for application/json ContentType.
+type CreateClusterResourceTypeJSONRequestBody = ClusterResourceType
+
+// UpdateClusterResourceTypeJSONRequestBody defines body for UpdateClusterResourceType for application/json ContentType.
+type UpdateClusterResourceTypeJSONRequestBody = ClusterResourceType
 
 // CreateClusterTraitJSONRequestBody defines body for CreateClusterTrait for application/json ContentType.
 type CreateClusterTraitJSONRequestBody = ClusterTrait

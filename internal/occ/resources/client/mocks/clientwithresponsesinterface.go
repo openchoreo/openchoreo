@@ -471,6 +471,155 @@ func (_c *MockClientWithResponsesInterface_CreateClusterObservabilityPlaneWithRe
 	return _c
 }
 
+// CreateClusterResourceTypeWithBodyWithResponse provides a mock function with given fields: ctx, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateClusterResourceTypeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateClusterResourceTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateClusterResourceTypeWithBodyWithResponse")
+	}
+
+	var r0 *gen.CreateClusterResourceTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateClusterResourceTypeResp, error)); ok {
+		return rf(ctx, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, io.Reader, ...gen.RequestEditorFn) *gen.CreateClusterResourceTypeResp); ok {
+		r0 = rf(ctx, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateClusterResourceTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateClusterResourceTypeWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateClusterResourceTypeWithBodyWithResponse'
+type MockClientWithResponsesInterface_CreateClusterResourceTypeWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateClusterResourceTypeWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateClusterResourceTypeWithBodyWithResponse(ctx interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateClusterResourceTypeWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateClusterResourceTypeWithBodyWithResponse_Call{Call: _e.mock.On("CreateClusterResourceTypeWithBodyWithResponse",
+		append([]interface{}{ctx, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterResourceTypeWithBodyWithResponse_Call) Run(run func(ctx context.Context, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateClusterResourceTypeWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterResourceTypeWithBodyWithResponse_Call) Return(_a0 *gen.CreateClusterResourceTypeResp, _a1 error) *MockClientWithResponsesInterface_CreateClusterResourceTypeWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterResourceTypeWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateClusterResourceTypeResp, error)) *MockClientWithResponsesInterface_CreateClusterResourceTypeWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateClusterResourceTypeWithResponse provides a mock function with given fields: ctx, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateClusterResourceTypeWithResponse(ctx context.Context, body gen.ClusterResourceType, reqEditors ...gen.RequestEditorFn) (*gen.CreateClusterResourceTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateClusterResourceTypeWithResponse")
+	}
+
+	var r0 *gen.CreateClusterResourceTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, gen.ClusterResourceType, ...gen.RequestEditorFn) (*gen.CreateClusterResourceTypeResp, error)); ok {
+		return rf(ctx, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, gen.ClusterResourceType, ...gen.RequestEditorFn) *gen.CreateClusterResourceTypeResp); ok {
+		r0 = rf(ctx, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateClusterResourceTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, gen.ClusterResourceType, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateClusterResourceTypeWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateClusterResourceTypeWithResponse'
+type MockClientWithResponsesInterface_CreateClusterResourceTypeWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateClusterResourceTypeWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - body gen.ClusterResourceType
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateClusterResourceTypeWithResponse(ctx interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateClusterResourceTypeWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateClusterResourceTypeWithResponse_Call{Call: _e.mock.On("CreateClusterResourceTypeWithResponse",
+		append([]interface{}{ctx, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterResourceTypeWithResponse_Call) Run(run func(ctx context.Context, body gen.ClusterResourceType, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateClusterResourceTypeWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(gen.ClusterResourceType), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterResourceTypeWithResponse_Call) Return(_a0 *gen.CreateClusterResourceTypeResp, _a1 error) *MockClientWithResponsesInterface_CreateClusterResourceTypeWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterResourceTypeWithResponse_Call) RunAndReturn(run func(context.Context, gen.ClusterResourceType, ...gen.RequestEditorFn) (*gen.CreateClusterResourceTypeResp, error)) *MockClientWithResponsesInterface_CreateClusterResourceTypeWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateClusterRoleBindingWithBodyWithResponse provides a mock function with given fields: ctx, contentType, body, reqEditors
 func (_m *MockClientWithResponsesInterface) CreateClusterRoleBindingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateClusterRoleBindingResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -4607,6 +4756,80 @@ func (_c *MockClientWithResponsesInterface_DeleteClusterObservabilityPlaneWithRe
 	return _c
 }
 
+// DeleteClusterResourceTypeWithResponse provides a mock function with given fields: ctx, crtName, reqEditors
+func (_m *MockClientWithResponsesInterface) DeleteClusterResourceTypeWithResponse(ctx context.Context, crtName string, reqEditors ...gen.RequestEditorFn) (*gen.DeleteClusterResourceTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, crtName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteClusterResourceTypeWithResponse")
+	}
+
+	var r0 *gen.DeleteClusterResourceTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) (*gen.DeleteClusterResourceTypeResp, error)); ok {
+		return rf(ctx, crtName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) *gen.DeleteClusterResourceTypeResp); ok {
+		r0 = rf(ctx, crtName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.DeleteClusterResourceTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, crtName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_DeleteClusterResourceTypeWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteClusterResourceTypeWithResponse'
+type MockClientWithResponsesInterface_DeleteClusterResourceTypeWithResponse_Call struct {
+	*mock.Call
+}
+
+// DeleteClusterResourceTypeWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - crtName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) DeleteClusterResourceTypeWithResponse(ctx interface{}, crtName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_DeleteClusterResourceTypeWithResponse_Call {
+	return &MockClientWithResponsesInterface_DeleteClusterResourceTypeWithResponse_Call{Call: _e.mock.On("DeleteClusterResourceTypeWithResponse",
+		append([]interface{}{ctx, crtName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteClusterResourceTypeWithResponse_Call) Run(run func(ctx context.Context, crtName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_DeleteClusterResourceTypeWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteClusterResourceTypeWithResponse_Call) Return(_a0 *gen.DeleteClusterResourceTypeResp, _a1 error) *MockClientWithResponsesInterface_DeleteClusterResourceTypeWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteClusterResourceTypeWithResponse_Call) RunAndReturn(run func(context.Context, string, ...gen.RequestEditorFn) (*gen.DeleteClusterResourceTypeResp, error)) *MockClientWithResponsesInterface_DeleteClusterResourceTypeWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteClusterRoleBindingWithResponse provides a mock function with given fields: ctx, name, reqEditors
 func (_m *MockClientWithResponsesInterface) DeleteClusterRoleBindingWithResponse(ctx context.Context, name string, reqEditors ...gen.RequestEditorFn) (*gen.DeleteClusterRoleBindingResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -7145,6 +7368,154 @@ func (_c *MockClientWithResponsesInterface_GetClusterObservabilityPlaneWithRespo
 }
 
 func (_c *MockClientWithResponsesInterface_GetClusterObservabilityPlaneWithResponse_Call) RunAndReturn(run func(context.Context, string, ...gen.RequestEditorFn) (*gen.GetClusterObservabilityPlaneResp, error)) *MockClientWithResponsesInterface_GetClusterObservabilityPlaneWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetClusterResourceTypeSchemaWithResponse provides a mock function with given fields: ctx, crtName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetClusterResourceTypeSchemaWithResponse(ctx context.Context, crtName string, reqEditors ...gen.RequestEditorFn) (*gen.GetClusterResourceTypeSchemaResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, crtName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterResourceTypeSchemaWithResponse")
+	}
+
+	var r0 *gen.GetClusterResourceTypeSchemaResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) (*gen.GetClusterResourceTypeSchemaResp, error)); ok {
+		return rf(ctx, crtName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) *gen.GetClusterResourceTypeSchemaResp); ok {
+		r0 = rf(ctx, crtName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetClusterResourceTypeSchemaResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, crtName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetClusterResourceTypeSchemaWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterResourceTypeSchemaWithResponse'
+type MockClientWithResponsesInterface_GetClusterResourceTypeSchemaWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetClusterResourceTypeSchemaWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - crtName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetClusterResourceTypeSchemaWithResponse(ctx interface{}, crtName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetClusterResourceTypeSchemaWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetClusterResourceTypeSchemaWithResponse_Call{Call: _e.mock.On("GetClusterResourceTypeSchemaWithResponse",
+		append([]interface{}{ctx, crtName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterResourceTypeSchemaWithResponse_Call) Run(run func(ctx context.Context, crtName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetClusterResourceTypeSchemaWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterResourceTypeSchemaWithResponse_Call) Return(_a0 *gen.GetClusterResourceTypeSchemaResp, _a1 error) *MockClientWithResponsesInterface_GetClusterResourceTypeSchemaWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterResourceTypeSchemaWithResponse_Call) RunAndReturn(run func(context.Context, string, ...gen.RequestEditorFn) (*gen.GetClusterResourceTypeSchemaResp, error)) *MockClientWithResponsesInterface_GetClusterResourceTypeSchemaWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetClusterResourceTypeWithResponse provides a mock function with given fields: ctx, crtName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetClusterResourceTypeWithResponse(ctx context.Context, crtName string, reqEditors ...gen.RequestEditorFn) (*gen.GetClusterResourceTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, crtName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterResourceTypeWithResponse")
+	}
+
+	var r0 *gen.GetClusterResourceTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) (*gen.GetClusterResourceTypeResp, error)); ok {
+		return rf(ctx, crtName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) *gen.GetClusterResourceTypeResp); ok {
+		r0 = rf(ctx, crtName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetClusterResourceTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, crtName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetClusterResourceTypeWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterResourceTypeWithResponse'
+type MockClientWithResponsesInterface_GetClusterResourceTypeWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetClusterResourceTypeWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - crtName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetClusterResourceTypeWithResponse(ctx interface{}, crtName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetClusterResourceTypeWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetClusterResourceTypeWithResponse_Call{Call: _e.mock.On("GetClusterResourceTypeWithResponse",
+		append([]interface{}{ctx, crtName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterResourceTypeWithResponse_Call) Run(run func(ctx context.Context, crtName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetClusterResourceTypeWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterResourceTypeWithResponse_Call) Return(_a0 *gen.GetClusterResourceTypeResp, _a1 error) *MockClientWithResponsesInterface_GetClusterResourceTypeWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterResourceTypeWithResponse_Call) RunAndReturn(run func(context.Context, string, ...gen.RequestEditorFn) (*gen.GetClusterResourceTypeResp, error)) *MockClientWithResponsesInterface_GetClusterResourceTypeWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -10730,6 +11101,80 @@ func (_c *MockClientWithResponsesInterface_ListClusterObservabilityPlanesWithRes
 	return _c
 }
 
+// ListClusterResourceTypesWithResponse provides a mock function with given fields: ctx, params, reqEditors
+func (_m *MockClientWithResponsesInterface) ListClusterResourceTypesWithResponse(ctx context.Context, params *gen.ListClusterResourceTypesParams, reqEditors ...gen.RequestEditorFn) (*gen.ListClusterResourceTypesResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, params)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListClusterResourceTypesWithResponse")
+	}
+
+	var r0 *gen.ListClusterResourceTypesResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *gen.ListClusterResourceTypesParams, ...gen.RequestEditorFn) (*gen.ListClusterResourceTypesResp, error)); ok {
+		return rf(ctx, params, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *gen.ListClusterResourceTypesParams, ...gen.RequestEditorFn) *gen.ListClusterResourceTypesResp); ok {
+		r0 = rf(ctx, params, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ListClusterResourceTypesResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *gen.ListClusterResourceTypesParams, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, params, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_ListClusterResourceTypesWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListClusterResourceTypesWithResponse'
+type MockClientWithResponsesInterface_ListClusterResourceTypesWithResponse_Call struct {
+	*mock.Call
+}
+
+// ListClusterResourceTypesWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - params *gen.ListClusterResourceTypesParams
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) ListClusterResourceTypesWithResponse(ctx interface{}, params interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_ListClusterResourceTypesWithResponse_Call {
+	return &MockClientWithResponsesInterface_ListClusterResourceTypesWithResponse_Call{Call: _e.mock.On("ListClusterResourceTypesWithResponse",
+		append([]interface{}{ctx, params}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_ListClusterResourceTypesWithResponse_Call) Run(run func(ctx context.Context, params *gen.ListClusterResourceTypesParams, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_ListClusterResourceTypesWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(*gen.ListClusterResourceTypesParams), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListClusterResourceTypesWithResponse_Call) Return(_a0 *gen.ListClusterResourceTypesResp, _a1 error) *MockClientWithResponsesInterface_ListClusterResourceTypesWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListClusterResourceTypesWithResponse_Call) RunAndReturn(run func(context.Context, *gen.ListClusterResourceTypesParams, ...gen.RequestEditorFn) (*gen.ListClusterResourceTypesResp, error)) *MockClientWithResponsesInterface_ListClusterResourceTypesWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListClusterRoleBindingsWithResponse provides a mock function with given fields: ctx, params, reqEditors
 func (_m *MockClientWithResponsesInterface) ListClusterRoleBindingsWithResponse(ctx context.Context, params *gen.ListClusterRoleBindingsParams, reqEditors ...gen.RequestEditorFn) (*gen.ListClusterRoleBindingsResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -13120,6 +13565,157 @@ func (_c *MockClientWithResponsesInterface_UpdateClusterObservabilityPlaneWithRe
 }
 
 func (_c *MockClientWithResponsesInterface_UpdateClusterObservabilityPlaneWithResponse_Call) RunAndReturn(run func(context.Context, string, gen.ClusterObservabilityPlane, ...gen.RequestEditorFn) (*gen.UpdateClusterObservabilityPlaneResp, error)) *MockClientWithResponsesInterface_UpdateClusterObservabilityPlaneWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateClusterResourceTypeWithBodyWithResponse provides a mock function with given fields: ctx, crtName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateClusterResourceTypeWithBodyWithResponse(ctx context.Context, crtName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.UpdateClusterResourceTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, crtName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateClusterResourceTypeWithBodyWithResponse")
+	}
+
+	var r0 *gen.UpdateClusterResourceTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateClusterResourceTypeResp, error)); ok {
+		return rf(ctx, crtName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) *gen.UpdateClusterResourceTypeResp); ok {
+		r0 = rf(ctx, crtName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateClusterResourceTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, crtName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateClusterResourceTypeWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateClusterResourceTypeWithBodyWithResponse'
+type MockClientWithResponsesInterface_UpdateClusterResourceTypeWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateClusterResourceTypeWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - crtName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateClusterResourceTypeWithBodyWithResponse(ctx interface{}, crtName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateClusterResourceTypeWithBodyWithResponse_Call{Call: _e.mock.On("UpdateClusterResourceTypeWithBodyWithResponse",
+		append([]interface{}{ctx, crtName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithBodyWithResponse_Call) Run(run func(ctx context.Context, crtName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithBodyWithResponse_Call) Return(_a0 *gen.UpdateClusterResourceTypeResp, _a1 error) *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateClusterResourceTypeResp, error)) *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateClusterResourceTypeWithResponse provides a mock function with given fields: ctx, crtName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateClusterResourceTypeWithResponse(ctx context.Context, crtName string, body gen.ClusterResourceType, reqEditors ...gen.RequestEditorFn) (*gen.UpdateClusterResourceTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, crtName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateClusterResourceTypeWithResponse")
+	}
+
+	var r0 *gen.UpdateClusterResourceTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ClusterResourceType, ...gen.RequestEditorFn) (*gen.UpdateClusterResourceTypeResp, error)); ok {
+		return rf(ctx, crtName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ClusterResourceType, ...gen.RequestEditorFn) *gen.UpdateClusterResourceTypeResp); ok {
+		r0 = rf(ctx, crtName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateClusterResourceTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ClusterResourceType, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, crtName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateClusterResourceTypeWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateClusterResourceTypeWithResponse'
+type MockClientWithResponsesInterface_UpdateClusterResourceTypeWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateClusterResourceTypeWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - crtName string
+//   - body gen.ClusterResourceType
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateClusterResourceTypeWithResponse(ctx interface{}, crtName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateClusterResourceTypeWithResponse_Call{Call: _e.mock.On("UpdateClusterResourceTypeWithResponse",
+		append([]interface{}{ctx, crtName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithResponse_Call) Run(run func(ctx context.Context, crtName string, body gen.ClusterResourceType, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ClusterResourceType), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithResponse_Call) Return(_a0 *gen.UpdateClusterResourceTypeResp, _a1 error) *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithResponse_Call) RunAndReturn(run func(context.Context, string, gen.ClusterResourceType, ...gen.RequestEditorFn) (*gen.UpdateClusterResourceTypeResp, error)) *MockClientWithResponsesInterface_UpdateClusterResourceTypeWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
