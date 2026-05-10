@@ -25,6 +25,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/eventforwarder/dispatcher"
 )
 
+// testDeletionTimestamp is a fixed RFC3339 timestamp shared by every
+// test that injects a deletionTimestamp into the fixture; the exact
+// value isn't significant beyond being a valid timestamp.
+const testDeletionTimestamp = "2026-01-01T00:00:00Z"
+
 // projectGVR is the canonical GVR used in handler tests.
 var projectGVR = schema.GroupVersionResource{
 	Group:    "openchoreo.dev",
@@ -142,7 +147,7 @@ func TestIsStatusOnlyChange(t *testing.T) {
 			old:  newProject("p"),
 			new: newProject("p", func(o map[string]interface{}) {
 				meta := o["metadata"].(map[string]interface{})
-				meta["deletionTimestamp"] = "2026-01-01T00:00:00Z"
+				meta["deletionTimestamp"] = testDeletionTimestamp
 			}),
 			want: false,
 		},
@@ -157,11 +162,11 @@ func TestIsStatusOnlyChange(t *testing.T) {
 			name: "same deletionTimestamp value but distinct pointers → status-only",
 			old: newProject("p", func(o map[string]interface{}) {
 				meta := o["metadata"].(map[string]interface{})
-				meta["deletionTimestamp"] = "2026-01-01T00:00:00Z"
+				meta["deletionTimestamp"] = testDeletionTimestamp
 			}),
 			new: newProject("p", func(o map[string]interface{}) {
 				meta := o["metadata"].(map[string]interface{})
-				meta["deletionTimestamp"] = "2026-01-01T00:00:00Z"
+				meta["deletionTimestamp"] = testDeletionTimestamp
 			}),
 			want: true,
 		},

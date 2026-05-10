@@ -93,7 +93,7 @@ func main() {
 
 	logger.Info("Starting event-forwarder")
 	// SetReady fires only after every informer cache has finished its
-	// initial list — see Forwarder.Start for the synchronisation point.
+	// initial list — see Forwarder.Start for the synchronization point.
 	if err := f.Start(ctx, healthSrv.SetReady); err != nil {
 		logger.Error("Event-forwarder exited with error", "error", err)
 		os.Exit(1)
