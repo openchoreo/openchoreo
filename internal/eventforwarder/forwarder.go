@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package eventforwarder
@@ -28,9 +28,9 @@ import (
 const ocControlPlaneLabelSelector = "openchoreo.dev/control-plane=true"
 
 // namespaceGVR identifies the cluster-scoped Kubernetes Namespace
-// resource. Watched separately from the OC CRDs because (a) it lives in
-// the core API group and (b) we apply a label selector to scope to OC
-// Organizations only.
+// resource. Watched separately from the OC custom resources because
+// (a) it lives in the core API group and (b) we apply a label selector
+// to scope to OC Organizations only.
 var namespaceGVR = schema.GroupVersionResource{
 	Group:    "",
 	Version:  "v1",
@@ -46,13 +46,13 @@ const debounceWindow = 1 * time.Second
 // resources over time would accumulate keys forever.
 const debounceCleanupInterval = 5 * time.Minute
 
-// Forwarder watches OpenChoreo CRDs and forwards change-notification
-// webhooks to configured subscribers (typically the Backstage events
-// plugin). It uses Kubernetes informers internally — the K8s "watch"
-// terminology refers to the informer mechanism, while this component
-// itself is named "event-forwarder" to describe its outward role:
-// turning K8s events into HTTP webhooks that drive downstream catalog
-// updates.
+// Forwarder watches OpenChoreo Kubernetes resources and forwards
+// change-notification webhooks to configured subscribers (typically the
+// Backstage events plugin). It uses Kubernetes informers internally —
+// the K8s "watch" terminology refers to the informer mechanism, while
+// this component itself is named "event-forwarder" to describe its
+// outward role: turning K8s events into HTTP webhooks that drive
+// downstream catalog updates.
 type Forwarder struct {
 	client     dynamic.Interface
 	dispatcher *dispatcher.Dispatcher
@@ -117,13 +117,20 @@ func gvrList() []schema.GroupVersionResource {
 	return gvrs
 }
 
-// Start begins watching all OpenChoreo CRDs (and OC-labeled core
-// Namespaces) and blocks until the context is cancelled.
-func (f *Forwarder) Start(ctx context.Context) error {
+// Start begins watching all OpenChoreo resources (and OC-labeled core
+// Namespaces) and blocks until the context is canceled.
+//
+// `onReady`, if non-nil, is invoked exactly once after every informer
+// cache has finished its initial list — the moment the forwarder will
+// start delivering events. Callers use this to flip readiness probes
+// to "ready" so a rolling-update doesn't route traffic to this pod
+// before it can actually consume events.
+func (f *Forwarder) Start(ctx context.Context, onReady func()) error {
 	f.dispatchCtx = ctx
 
-	// CRD informers — unfiltered. Each OC CRD has its own informer so
-	// we receive events for every Project, Component, Workload, etc.
+	// Resource informers — unfiltered. Each watched OC resource has its
+	// own informer so we receive events for every Project, Component,
+	// Workload, etc.
 	crdFactory := dynamicinformer.NewDynamicSharedInformerFactory(f.client, 0)
 
 	for _, gvr := range gvrList() {
@@ -148,7 +155,7 @@ func (f *Forwarder) Start(ctx context.Context) error {
 			return fmt.Errorf("adding event handler for %s: %w", gvrCopy.Resource, err)
 		}
 
-		f.logger.Info("Watching CRD", "resource", gvr.Resource, "group", gvr.Group)
+		f.logger.Info("Watching resource", "resource", gvr.Resource, "group", gvr.Group)
 	}
 
 	// Namespace informer — filtered to OC-managed namespaces only via a
@@ -197,10 +204,13 @@ func (f *Forwarder) Start(ctx context.Context) error {
 	}
 
 	f.logger.Info("All informers synced, event-forwarder is ready")
+	if onReady != nil {
+		onReady()
+	}
 
 	go f.cleanupDebounceLoop(ctx)
 
-	// Block until context is cancelled
+	// Block until context is canceled
 	<-ctx.Done()
 	return nil
 }
@@ -273,7 +283,7 @@ func (f *Forwarder) handleEvent(obj interface{}, action string, gvr schema.Group
 		f.mu.Unlock()
 	}
 
-	f.logger.Info("CRD event detected",
+	f.logger.Debug("Resource event detected",
 		"action", action,
 		"kind", kind,
 		"name", name,
@@ -321,8 +331,11 @@ func isStatusOnlyChange(oldObj, newObj interface{}) bool {
 		return false
 	}
 	// Treat finalizer / deletion timestamp changes as meaningful — the
-	// catalog cares about the resource being on the way out.
-	if oldU.GetDeletionTimestamp() != newU.GetDeletionTimestamp() {
+	// catalog cares about the resource being on the way out. Use
+	// metav1.Time.Equal which handles nil + time-value comparison
+	// correctly; the raw `!=` would compare *metav1.Time pointers and
+	// see every reconciler write of the resource as a "change."
+	if !oldU.GetDeletionTimestamp().Equal(newU.GetDeletionTimestamp()) {
 		return false
 	}
 	if !reflect.DeepEqual(oldU.GetFinalizers(), newU.GetFinalizers()) {

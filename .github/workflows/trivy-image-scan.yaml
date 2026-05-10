@@ -18,6 +18,7 @@ jobs:
           - controller
           - openchoreo-api
           - observer
+          - event-forwarder
           - cluster-gateway
           - cluster-agent
           - ai-rca-agent

@@ -3506,7 +3506,7 @@ gateway:
 
 # @schema
 # type: object
-# description: Event-forwarder configuration — watches OpenChoreo CRDs via K8s informers and forwards change-notification webhooks to subscribers (typically Backstage's events plugin) for near-real-time catalog updates.
+# description: Event-forwarder configuration — watches OpenChoreo Kubernetes resources via informers and forwards change-notification webhooks to subscribers (typically Backstage's events plugin) for near-real-time catalog updates.
 # @schema
 eventForwarder:
   # @schema
@@ -3532,7 +3532,7 @@ eventForwarder:
     server:
       port: 8080
     webhooks:
-      # Webhook endpoints that receive CRD change notifications.
+      # Webhook endpoints that receive resource change notifications.
       # Default targets the in-cluster Backstage Service (same namespace,
       # default service name "backstage" on port 7007). Override for
       # external consumers, a renamed Backstage Service, or to fan out

@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package config
@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/openchoreo/openchoreo/internal/logging"
 )
 
 // Config holds the event-forwarder configuration.
@@ -48,7 +50,15 @@ type RetryConfig struct {
 
 // LoggingConfig holds logging settings.
 type LoggingConfig struct {
-	Level string `yaml:"level"`
+	Level  string `yaml:"level"`
+	Format string `yaml:"format"`
+}
+
+// ToLoggingConfig converts the YAML-shaped LoggingConfig into the
+// shared logging package's Config so the event-forwarder uses the same
+// logger construction as every other OpenChoreo binary.
+func (l LoggingConfig) ToLoggingConfig() logging.Config {
+	return logging.Config{Level: l.Level, Format: l.Format}
 }
 
 // Load reads config from a YAML file at the given path.

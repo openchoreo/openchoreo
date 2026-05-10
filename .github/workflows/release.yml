@@ -89,6 +89,7 @@ jobs:
             init-observability-opensearch
             openchoreo-api
             observer
+            event-forwarder
             ai-rca-agent
             openchoreo-cli
             cluster-gateway

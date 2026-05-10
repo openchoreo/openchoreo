@@ -2210,7 +2210,7 @@
     },
     "eventForwarder": {
       "additionalProperties": false,
-      "description": "Event-forwarder configuration — watches OpenChoreo CRDs via K8s informers and forwards change-notification webhooks to subscribers (typically Backstage's events plugin) for near-real-time catalog updates.",
+      "description": "Event-forwarder configuration — watches OpenChoreo Kubernetes resources via informers and forwards change-notification webhooks to subscribers (typically Backstage's events plugin) for near-real-time catalog updates.",
       "properties": {
         "config": {
           "additionalProperties": false,
@@ -2249,7 +2249,7 @@
               "additionalProperties": false,
               "properties": {
                 "endpoints": {
-                  "description": "Webhook endpoints that receive CRD change notifications.\nDefault targets the in-cluster Backstage Service (same namespace,\ndefault service name \"backstage\" on port 7007). Override for\nexternal consumers, a renamed Backstage Service, or to fan out\nto multiple subscribers.\n\nEach endpoint may define its own optional `retry` block:\n  - url: https://example.com/hook\n    retry:\n      maxAttempts: 3\n      backoffMs: 500\nWhen omitted (the default for the Backstage entry below), the\nforwarder makes a single attempt per event and gives up on\nfailure — Backstage's periodic full sync reconciles missed\nevents. Add `retry` only for endpoints that have no equivalent\nreconciliation mechanism of their own.",
+                  "description": "Webhook endpoints that receive resource change notifications.\nDefault targets the in-cluster Backstage Service (same namespace,\ndefault service name \"backstage\" on port 7007). Override for\nexternal consumers, a renamed Backstage Service, or to fan out\nto multiple subscribers.\n\nEach endpoint may define its own optional `retry` block:\n  - url: https://example.com/hook\n    retry:\n      maxAttempts: 3\n      backoffMs: 500\nWhen omitted (the default for the Backstage entry below), the\nforwarder makes a single attempt per event and gives up on\nfailure — Backstage's periodic full sync reconciles missed\nevents. Add `retry` only for endpoints that have no equivalent\nreconciliation mechanism of their own.",
                   "items": {
                     "additionalProperties": false,
                     "properties": {

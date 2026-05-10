@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package dispatcher
@@ -9,9 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -19,7 +21,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/eventforwarder/config"
 )
 
-// Event represents a lightweight CRD change notification.
+// Event represents a lightweight Kubernetes resource change notification.
 type Event struct {
 	Kind      string `json:"kind"`
 	Name      string `json:"name"`
@@ -87,7 +89,7 @@ func New(cfg config.WebhooksConfig, logger *slog.Logger) *Dispatcher {
 }
 
 // Start launches the worker pool. The workers consume from the dispatch
-// queue until ctx is cancelled, at which point they drain any in-flight
+// queue until ctx is canceled, at which point they drain any in-flight
 // HTTP attempts (via the per-job ctx) and exit. Safe to call multiple
 // times — only the first call has any effect.
 func (d *Dispatcher) Start(ctx context.Context) {
@@ -196,7 +198,7 @@ func (d *Dispatcher) sendWithRetry(ctx context.Context, ep config.EndpointConfig
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		if ctx.Err() != nil {
-			d.logger.Info("Dispatch cancelled before attempt",
+			d.logger.Info("Dispatch canceled before attempt",
 				"url", url,
 				"kind", event.Kind,
 				"name", event.Name,
@@ -221,7 +223,7 @@ func (d *Dispatcher) sendWithRetry(ctx context.Context, ep config.EndpointConfig
 		// If the failure was caused by ctx cancellation, don't bother
 		// retrying or escalating — log at info and return cleanly.
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			d.logger.Info("Dispatch cancelled during attempt",
+			d.logger.Info("Dispatch canceled during attempt",
 				"url", url,
 				"kind", event.Kind,
 				"name", event.Name,
@@ -246,7 +248,7 @@ func (d *Dispatcher) sendWithRetry(ctx context.Context, ep config.EndpointConfig
 			select {
 			case <-ctx.Done():
 				timer.Stop()
-				d.logger.Info("Dispatch cancelled during backoff",
+				d.logger.Info("Dispatch canceled during backoff",
 					"url", url,
 					"kind", event.Kind,
 					"name", event.Name,
@@ -283,5 +285,13 @@ func (d *Dispatcher) send(ctx context.Context, url string, payload []byte) error
 		return nil
 	}
 
-	return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	// Include a snippet of the response body in the error so the warn
+	// log is actionable for troubleshooting (e.g. "404 Not Found", an
+	// auth-rejection JSON, or a server-side stack trace excerpt). Cap
+	// at maxBodySnippetBytes to keep log lines bounded regardless of
+	// what the server returns.
+	const maxBodySnippetBytes = 256
+	bodySnippet, _ := io.ReadAll(io.LimitReader(resp.Body, maxBodySnippetBytes))
+	return fmt.Errorf("unexpected status code %d: %s",
+		resp.StatusCode, strings.TrimSpace(string(bodySnippet)))
 }

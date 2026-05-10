@@ -29,6 +29,7 @@ jobs:
           - cluster-agent
           - openchoreo-api
           - observer
+          - event-forwarder
           - openchoreo-cli
           - quick-start
           - init-observability-opensearch

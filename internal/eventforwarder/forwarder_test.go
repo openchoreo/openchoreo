@@ -1,4 +1,4 @@
-// Copyright 2025 The OpenChoreo Authors
+// Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
 package eventforwarder
@@ -145,6 +145,25 @@ func TestIsStatusOnlyChange(t *testing.T) {
 				meta["deletionTimestamp"] = "2026-01-01T00:00:00Z"
 			}),
 			want: false,
+		},
+		{
+			// Locks in the metav1.Time.Equal fix: two objects with the
+			// same deletionTimestamp value will produce *different*
+			// metav1.Time pointers when GetDeletionTimestamp() is
+			// called. The earlier pointer-equality check would have
+			// reported these as "not status-only" on every reconciler
+			// write of a deleting resource. The value-equality check
+			// correctly recognizes them as the same moment in time.
+			name: "same deletionTimestamp value but distinct pointers → status-only",
+			old: newProject("p", func(o map[string]interface{}) {
+				meta := o["metadata"].(map[string]interface{})
+				meta["deletionTimestamp"] = "2026-01-01T00:00:00Z"
+			}),
+			new: newProject("p", func(o map[string]interface{}) {
+				meta := o["metadata"].(map[string]interface{})
+				meta["deletionTimestamp"] = "2026-01-01T00:00:00Z"
+			}),
+			want: true,
 		},
 		{
 			name: "finalizers changed → not status-only",
