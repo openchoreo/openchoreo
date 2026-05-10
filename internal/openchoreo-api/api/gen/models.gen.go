@@ -3060,7 +3060,7 @@ type ResourceRelease struct {
 
 // ResourceReleaseBinding ResourceReleaseBinding resource.
 // Pins a ResourceRelease to an Environment and carries per-env config overrides.
-// Authored externally (PE/GitOps); the Resource controller never creates or modifies bindings.
+// Authored externally; not managed by the Resource controller.
 type ResourceReleaseBinding struct {
 	// ApiVersion API version of the resource
 	ApiVersion *string `json:"apiVersion,omitempty"`

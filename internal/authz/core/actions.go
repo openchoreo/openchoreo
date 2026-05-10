@@ -295,7 +295,7 @@ var systemActions = []Action{
 	{Name: ActionUpdateReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionDeleteReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
 
-	// ResourceReleaseBinding (project-scoped until ScopeResource lands; tracked as a follow-up in z_tasks/resource-abstractions/tasks.md)
+	// ResourceReleaseBinding
 	{Name: ActionViewResourceReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
 	{Name: ActionCreateResourceReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
 	{Name: ActionUpdateResourceReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
