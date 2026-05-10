@@ -87,6 +87,8 @@ tags:
     description: ResourceType templates defined by platform engineers
   - name: Resources
     description: Resource management within projects (managed-infrastructure dependencies)
+  - name: ResourceReleases
+    description: Resource release management
 
 paths:
   # =============================================================================
@@ -4873,6 +4875,112 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # ResourceRelease Endpoints
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/resourcereleases:
+    get:
+      operationId: listResourceReleases
+      summary: List resource releases
+      description: Returns a paginated list of resource releases within a namespace, optionally filtered by resource.
+      tags: [ResourceReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceQueryParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of resource releases
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceReleaseList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createResourceRelease
+      summary: Create resource release
+      description: Creates a new resource release within a namespace. Normally cut by the Resource controller; exposed here for offline emit (e.g. `occ resource generate` in v1.2).
+      tags: [ResourceReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceRelease'
+      responses:
+        '201':
+          description: Resource release created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceRelease'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/resourcereleases/{resourceReleaseName}:
+    get:
+      operationId: getResourceRelease
+      summary: Get resource release
+      description: Returns details of a specific resource release.
+      tags: [ResourceReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceReleaseNameParam'
+      responses:
+        '200':
+          description: Resource release details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceRelease'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: deleteResourceRelease
+      summary: Delete resource release
+      description: Deletes a resource release by name.
+      tags: [ResourceReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceReleaseNameParam'
+      responses:
+        '204':
+          description: Resource release deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # Deployment Pipeline Endpoints
   # =============================================================================
 
@@ -5579,6 +5687,24 @@ components:
       in: path
       required: true
       description: Resource name
+      schema:
+        type: string
+        example: analytics-shared-db
+
+    ResourceReleaseNameParam:
+      name: resourceReleaseName
+      in: path
+      required: true
+      description: Resource release name
+      schema:
+        type: string
+        example: analytics-shared-db-abc123
+
+    ResourceQueryParam:
+      name: resource
+      in: query
+      required: false
+      description: Filter resources by resource name (matches spec.owner.resourceName)
       schema:
         type: string
         example: analytics-shared-db
@@ -9161,6 +9287,99 @@ components:
           minLength: 1
           pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
           example: mysql
+
+    # -------------------------------------------------------------------------
+    # ResourceReleases
+    # -------------------------------------------------------------------------
+    ResourceReleaseList:
+      type: object
+      description: Paginated list of resource releases
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceRelease'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ResourceRelease:
+      type: object
+      description: |
+        ResourceRelease resource.
+        Immutable snapshot of Resource.spec and the referenced (Cluster)ResourceType.spec
+        at the time it was cut. Created by the Resource controller; spec is immutable.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ResourceRelease
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ResourceReleaseSpec'
+        status:
+          readOnly: true
+          type: object
+          description: ResourceRelease status (currently empty, immutable after creation)
+
+    ResourceReleaseSpec:
+      type: object
+      description: Desired state of a ResourceRelease. Immutable after creation.
+      required:
+        - owner
+        - resourceType
+      properties:
+        owner:
+          type: object
+          description: Identifies the resource and project this ResourceRelease belongs to.
+          required:
+            - projectName
+            - resourceName
+          properties:
+            projectName:
+              type: string
+              description: Parent project name
+              minLength: 1
+              example: analytics
+            resourceName:
+              type: string
+              description: Parent resource name
+              minLength: 1
+              example: analytics-shared-db
+        resourceType:
+          type: object
+          description: Frozen snapshot of the referenced (Cluster)ResourceType.
+          required:
+            - kind
+            - name
+            - spec
+          properties:
+            kind:
+              type: string
+              description: Source kind (ResourceType or ClusterResourceType)
+              enum: [ResourceType, ClusterResourceType]
+            name:
+              type: string
+              description: Source resource type name
+              minLength: 1
+              example: mysql
+            spec:
+              $ref: '#/components/schemas/ResourceTypeSpec'
+        parameters:
+          type: object
+          description: Snapshot of parameter values from Resource.spec at release time.
+          additionalProperties: true
 
     # -------------------------------------------------------------------------
     # RenderedRelease

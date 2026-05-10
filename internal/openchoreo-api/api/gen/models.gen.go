@@ -283,6 +283,12 @@ const (
 	ResolvedConnectionVisibilityProject   ResolvedConnectionVisibility = "project"
 )
 
+// Defines values for ResourceReleaseSpecResourceTypeKind.
+const (
+	ResourceReleaseSpecResourceTypeKindClusterResourceType ResourceReleaseSpecResourceTypeKind = "ClusterResourceType"
+	ResourceReleaseSpecResourceTypeKindResourceType        ResourceReleaseSpecResourceTypeKind = "ResourceType"
+)
+
 // Defines values for ResourceTypeRefKind.
 const (
 	ResourceTypeRefKindClusterResourceType ResourceTypeRefKind = "ClusterResourceType"
@@ -3007,6 +3013,66 @@ type ResourceReference struct {
 	Namespace  *string `json:"namespace,omitempty"`
 }
 
+// ResourceRelease ResourceRelease resource.
+// Immutable snapshot of Resource.spec and the referenced (Cluster)ResourceType.spec
+// at the time it was cut. Created by the Resource controller; spec is immutable.
+type ResourceRelease struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a ResourceRelease. Immutable after creation.
+	Spec *ResourceReleaseSpec `json:"spec,omitempty"`
+
+	// Status ResourceRelease status (currently empty, immutable after creation)
+	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// ResourceReleaseList Paginated list of resource releases
+type ResourceReleaseList struct {
+	Items []ResourceRelease `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ResourceReleaseSpec Desired state of a ResourceRelease. Immutable after creation.
+type ResourceReleaseSpec struct {
+	// Owner Identifies the resource and project this ResourceRelease belongs to.
+	Owner struct {
+		// ProjectName Parent project name
+		ProjectName string `json:"projectName"`
+
+		// ResourceName Parent resource name
+		ResourceName string `json:"resourceName"`
+	} `json:"owner"`
+
+	// Parameters Snapshot of parameter values from Resource.spec at release time.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// ResourceType Frozen snapshot of the referenced (Cluster)ResourceType.
+	ResourceType struct {
+		// Kind Source kind (ResourceType or ClusterResourceType)
+		Kind ResourceReleaseSpecResourceTypeKind `json:"kind"`
+
+		// Name Source resource type name
+		Name string `json:"name"`
+
+		// Spec Desired state of a (Cluster)ResourceType.
+		Spec ResourceTypeSpec `json:"spec"`
+	} `json:"resourceType"`
+}
+
+// ResourceReleaseSpecResourceTypeKind Source kind (ResourceType or ClusterResourceType)
+type ResourceReleaseSpecResourceTypeKind string
+
 // ResourceSecretKeyRef Reference to a specific key in a Kubernetes Secret on the data plane.
 type ResourceSecretKeyRef struct {
 	// Key Key within the Secret
@@ -3963,6 +4029,12 @@ type ReleaseBindingNameParam = string
 // ResourceNameParam defines model for ResourceNameParam.
 type ResourceNameParam = string
 
+// ResourceQueryParam defines model for ResourceQueryParam.
+type ResourceQueryParam = string
+
+// ResourceReleaseNameParam defines model for ResourceReleaseNameParam.
+type ResourceReleaseNameParam = string
+
 // ResourceTypeNameParam defines model for ResourceTypeNameParam.
 type ResourceTypeNameParam = string
 
@@ -4436,6 +4508,26 @@ type GetReleaseBindingK8sResourceLogsParams struct {
 	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`
 }
 
+// ListResourceReleasesParams defines parameters for ListResourceReleases.
+type ListResourceReleasesParams struct {
+	// Resource Filter resources by resource name (matches spec.owner.resourceName)
+	Resource *ResourceQueryParam `form:"resource,omitempty" json:"resource,omitempty"`
+
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListResourcesParams defines parameters for ListResources.
 type ListResourcesParams struct {
 	// Project Filter resources by project name
@@ -4745,6 +4837,9 @@ type CreateReleaseBindingJSONRequestBody = ReleaseBinding
 
 // UpdateReleaseBindingJSONRequestBody defines body for UpdateReleaseBinding for application/json ContentType.
 type UpdateReleaseBindingJSONRequestBody = ReleaseBinding
+
+// CreateResourceReleaseJSONRequestBody defines body for CreateResourceRelease for application/json ContentType.
+type CreateResourceReleaseJSONRequestBody = ResourceRelease
 
 // CreateResourceJSONRequestBody defines body for CreateResource for application/json ContentType.
 type CreateResourceJSONRequestBody = ResourceInstance

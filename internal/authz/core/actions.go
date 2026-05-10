@@ -53,6 +53,11 @@ const (
 	ActionViewComponentRelease   = "componentrelease:view"
 	ActionDeleteComponentRelease = "componentrelease:delete"
 
+	// ResourceRelease actions
+	ActionCreateResourceRelease = "resourcerelease:create"
+	ActionViewResourceRelease   = "resourcerelease:view"
+	ActionDeleteResourceRelease = "resourcerelease:delete"
+
 	// ReleaseBinding actions
 	ActionCreateReleaseBinding = "releasebinding:create"
 	ActionViewReleaseBinding   = "releasebinding:view"
@@ -272,6 +277,11 @@ var systemActions = []Action{
 	{Name: ActionViewComponentRelease, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionCreateComponentRelease, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionDeleteComponentRelease, LowestScope: ScopeComponent, IsInternal: false},
+
+	// ResourceRelease
+	{Name: ActionViewResourceRelease, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionCreateResourceRelease, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionDeleteResourceRelease, LowestScope: ScopeProject, IsInternal: false},
 
 	// ReleaseBinding
 	{Name: ActionViewReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
