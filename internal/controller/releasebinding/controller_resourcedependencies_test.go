@@ -164,6 +164,39 @@ func TestMakeResourceReleaseBindingOwnerEnvKey(t *testing.T) {
 	assert.Equal(t, "proj1/orders-db/prod", got)
 }
 
+func TestIsResourceReleaseBindingReady(t *testing.T) {
+	makeRRB := func(generation int64, ready metav1.ConditionStatus, observedGen int64) *openchoreov1alpha1.ResourceReleaseBinding {
+		return &openchoreov1alpha1.ResourceReleaseBinding{
+			ObjectMeta: metav1.ObjectMeta{Generation: generation},
+			Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
+				Conditions: []metav1.Condition{{
+					Type:               string(resourcereleasebinding.ConditionReady),
+					Status:             ready,
+					ObservedGeneration: observedGen,
+					LastTransitionTime: metav1.Now(),
+				}},
+			},
+		}
+	}
+
+	t.Run("ready_for_current_generation", func(t *testing.T) {
+		assert.True(t, isResourceReleaseBindingReady(makeRRB(2, metav1.ConditionTrue, 2)))
+	})
+	t.Run("ready_for_stale_generation", func(t *testing.T) {
+		// Provider mid-reconcile: spec advanced to gen 3, status still reflects gen 2.
+		assert.False(t, isResourceReleaseBindingReady(makeRRB(3, metav1.ConditionTrue, 2)))
+	})
+	t.Run("not_ready", func(t *testing.T) {
+		assert.False(t, isResourceReleaseBindingReady(makeRRB(2, metav1.ConditionFalse, 2)))
+	})
+	t.Run("missing_condition", func(t *testing.T) {
+		rrb := &openchoreov1alpha1.ResourceReleaseBinding{
+			ObjectMeta: metav1.ObjectMeta{Generation: 1},
+		}
+		assert.False(t, isResourceReleaseBindingReady(rrb))
+	})
+}
+
 // Locks the load-bearing invariant for the reverse-watch lookup: a target derived from a
 // consumer ReleaseBinding's workload deps must produce the same key that the index extracts
 // from a provider ResourceReleaseBinding for the same (project, resource, env) tuple. If a

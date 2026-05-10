@@ -210,13 +210,15 @@ func (r *Reconciler) resolveResourceDependency(
 	return &item, nil, nil
 }
 
-// isResourceReleaseBindingReady reports whether the given binding's Ready condition is True.
-// Ready aggregates Synced + ResourcesReady + OutputsResolved, so consumers wait for full
-// steady-state on the provider rather than wiring against a half-applied state.
+// isResourceReleaseBindingReady reports whether the given binding's Ready condition is True
+// for the current generation. Ready aggregates Synced + ResourcesReady + OutputsResolved,
+// so consumers wait for full steady-state on the provider rather than wiring against a
+// half-applied state. The ObservedGeneration check ensures we don't accept a stale Ready
+// from a prior reconcile when the provider's spec has just changed.
 func isResourceReleaseBindingReady(rrb *openchoreov1alpha1.ResourceReleaseBinding) bool {
 	cond := meta.FindStatusCondition(rrb.Status.Conditions, string(resourcereleasebinding.ConditionReady))
 	if cond == nil {
 		return false
 	}
-	return cond.Status == metav1.ConditionTrue
+	return cond.Status == metav1.ConditionTrue && cond.ObservedGeneration == rrb.Generation
 }
