@@ -697,13 +697,16 @@ two with the `+` operator type-checks in CEL: e.g.
 **Example usage:**
 
 ```yaml
-# Combined env vars from configurations + dependencies (cleanest projection)
+# Combined env vars from configurations + dependencies, plus merged volumes / mounts.
+# envFrom carries configuration-derived envs (configMapRef + secretRef); env carries
+# dependency envs (literal + valueFrom).
 spec:
   template:
     spec:
       volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
       containers:
         - name: app
+          envFrom: ${configurations.toContainerEnvFrom()}
           env: ${dependencies.toContainerEnvs()}
           volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
 ```
