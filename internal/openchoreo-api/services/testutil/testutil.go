@@ -63,6 +63,7 @@ func statusSubresourceObjects() []client.Object {
 		&openchoreov1alpha1.ObservabilityPlane{},
 		&openchoreov1alpha1.Project{},
 		&openchoreov1alpha1.ReleaseBinding{},
+		&openchoreov1alpha1.ResourceType{},
 		&openchoreov1alpha1.SecretReference{},
 		&openchoreov1alpha1.Trait{},
 		&openchoreov1alpha1.Workflow{},
@@ -264,6 +265,17 @@ func NewComponentType(namespace, name string) *openchoreov1alpha1.ComponentType 
 			Namespace: namespace,
 		},
 		Spec: defaultComponentTypeSpec(),
+	}
+}
+
+// NewResourceType creates a ResourceType test fixture.
+func NewResourceType(namespace, name string) *openchoreov1alpha1.ResourceType {
+	return &openchoreov1alpha1.ResourceType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: defaultResourceTypeSpec(),
 	}
 }
 
@@ -474,6 +486,17 @@ func defaultClusterComponentTypeSpec() openchoreov1alpha1.ClusterComponentTypeSp
 
 func defaultClusterResourceTypeSpec() openchoreov1alpha1.ClusterResourceTypeSpec {
 	return openchoreov1alpha1.ClusterResourceTypeSpec{
+		Resources: []openchoreov1alpha1.ResourceTypeManifest{
+			{
+				ID:       "claim",
+				Template: testRunTemplate(),
+			},
+		},
+	}
+}
+
+func defaultResourceTypeSpec() openchoreov1alpha1.ResourceTypeSpec {
+	return openchoreov1alpha1.ResourceTypeSpec{
 		Resources: []openchoreov1alpha1.ResourceTypeManifest{
 			{
 				ID:       "claim",

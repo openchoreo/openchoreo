@@ -59,6 +59,12 @@ const (
 	ActionUpdateComponentType = "componenttype:update"
 	ActionDeleteComponentType = "componenttype:delete"
 
+	// ResourceType actions
+	ActionCreateResourceType = "resourcetype:create"
+	ActionViewResourceType   = "resourcetype:view"
+	ActionUpdateResourceType = "resourcetype:update"
+	ActionDeleteResourceType = "resourcetype:delete"
+
 	// Workflow actions
 	ActionCreateWorkflow = "workflow:create"
 	ActionViewWorkflow   = "workflow:view"
@@ -266,6 +272,12 @@ var systemActions = []Action{
 	{Name: ActionCreateComponentType, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionUpdateComponentType, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionDeleteComponentType, LowestScope: ScopeNamespace, IsInternal: false},
+
+	// ResourceType
+	{Name: ActionViewResourceType, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionCreateResourceType, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionUpdateResourceType, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionDeleteResourceType, LowestScope: ScopeNamespace, IsInternal: false},
 
 	// Workflow
 	{Name: ActionViewWorkflow, LowestScope: ScopeNamespace, IsInternal: false},

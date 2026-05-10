@@ -2949,6 +2949,35 @@ type ResourceSecretKeyRef struct {
 	Name string `json:"name"`
 }
 
+// ResourceType ResourceType resource.
+// PE-published template scoped to a namespace. Developers reference it from Resource.spec.type.
+type ResourceType struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a (Cluster)ResourceType.
+	Spec *ResourceTypeSpec `json:"spec,omitempty"`
+
+	// Status ResourceType status (currently empty)
+	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// ResourceTypeList Paginated list of resource types
+type ResourceTypeList struct {
+	Items []ResourceType `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
 // ResourceTypeManifest Kubernetes resource template emitted by the (Cluster)ResourceType
 // provisioner on the data plane. The template body, includeWhen, and
 // readyWhen support ${...} CEL templating against metadata.*, parameters.*,
@@ -3852,6 +3881,9 @@ type ProjectQueryParam = string
 // ReleaseBindingNameParam defines model for ReleaseBindingNameParam.
 type ReleaseBindingNameParam = string
 
+// ResourceTypeNameParam defines model for ResourceTypeNameParam.
+type ResourceTypeNameParam = string
+
 // RoleNameParam defines model for RoleNameParam.
 type RoleNameParam = string
 
@@ -4322,6 +4354,23 @@ type GetReleaseBindingK8sResourceLogsParams struct {
 	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`
 }
 
+// ListResourceTypesParams defines parameters for ListResourceTypes.
+type ListResourceTypesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListSecretReferencesParams defines parameters for ListSecretReferences.
 type ListSecretReferencesParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
@@ -4594,6 +4643,12 @@ type CreateReleaseBindingJSONRequestBody = ReleaseBinding
 
 // UpdateReleaseBindingJSONRequestBody defines body for UpdateReleaseBinding for application/json ContentType.
 type UpdateReleaseBindingJSONRequestBody = ReleaseBinding
+
+// CreateResourceTypeJSONRequestBody defines body for CreateResourceType for application/json ContentType.
+type CreateResourceTypeJSONRequestBody = ResourceType
+
+// UpdateResourceTypeJSONRequestBody defines body for UpdateResourceType for application/json ContentType.
+type UpdateResourceTypeJSONRequestBody = ResourceType
 
 // CreateSecretReferenceJSONRequestBody defines body for CreateSecretReference for application/json ContentType.
 type CreateSecretReferenceJSONRequestBody = SecretReference

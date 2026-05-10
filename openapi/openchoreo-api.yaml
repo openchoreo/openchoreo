@@ -83,6 +83,8 @@ tags:
     description: Secret management across workflow and data planes
   - name: ClusterResourceTypes
     description: Cluster-scoped ResourceType templates defined by platform engineers
+  - name: ResourceTypes
+    description: ResourceType templates defined by platform engineers
 
 paths:
   # =============================================================================
@@ -4561,6 +4563,172 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # ResourceType Endpoints
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/resourcetypes:
+    get:
+      operationId: listResourceTypes
+      summary: List resource types
+      description: Returns a paginated list of resource types available in the namespace.
+      tags: [ResourceTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of resource types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceTypeList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createResourceType
+      summary: Create resource type
+      description: Creates a new resource type within a namespace.
+      tags: [ResourceTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceType'
+      responses:
+        '201':
+          description: Resource type created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/resourcetypes/{rtName}:
+    get:
+      operationId: getResourceType
+      summary: Get resource type
+      description: Returns details of a specific resource type.
+      tags: [ResourceTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceTypeNameParam'
+      responses:
+        '200':
+          description: Resource type details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceType'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateResourceType
+      summary: Update resource type
+      description: Replaces an existing resource type (full update).
+      tags: [ResourceTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceTypeNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceType'
+      responses:
+        '200':
+          description: Resource type updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteResourceType
+      summary: Delete resource type
+      description: Deletes a resource type by name.
+      tags: [ResourceTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceTypeNameParam'
+      responses:
+        '204':
+          description: Resource type deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/resourcetypes/{rtName}/schema:
+    get:
+      operationId: getResourceTypeSchema
+      summary: Get resource type schema
+      description: Returns the parameter schema for a specific resource type.
+      tags: [ResourceTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceTypeNameParam'
+      responses:
+        '200':
+          description: Resource type schema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # Deployment Pipeline Endpoints
   # =============================================================================
 
@@ -5249,6 +5417,15 @@ components:
       in: path
       required: true
       description: ClusterResourceType name
+      schema:
+        type: string
+        example: mysql
+
+    ResourceTypeNameParam:
+      name: rtName
+      in: path
+      required: true
+      description: ResourceType name
       schema:
         type: string
         example: mysql
@@ -8666,6 +8843,50 @@ components:
           readOnly: true
           type: object
           description: ClusterResourceType status (currently empty)
+
+    # -------------------------------------------------------------------------
+    # ResourceTypes
+    # -------------------------------------------------------------------------
+    ResourceTypeList:
+      type: object
+      description: Paginated list of resource types
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceType'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ResourceType:
+      type: object
+      description: |
+        ResourceType resource.
+        PE-published template scoped to a namespace. Developers reference it from Resource.spec.type.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ResourceType
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ResourceTypeSpec'
+        status:
+          readOnly: true
+          type: object
+          description: ResourceType status (currently empty)
 
     # -------------------------------------------------------------------------
     # RenderedRelease
