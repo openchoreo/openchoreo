@@ -805,11 +805,13 @@ spec:
                                 EnvBindings maps a ResourceType output name to a container environment variable name.
                                 The output's source kind (value, secretKeyRef, configMapKeyRef) determines whether the
                                 resulting env var is a literal or a valueFrom reference.
+                              maxProperties: 50
                               type: object
                               x-kubernetes-validations:
-                              - message: envBindings values (env var names) cannot
-                                  be empty
-                                rule: self.all(k, self[k].size() > 0)
+                              - message: envBindings keys (output names) and values
+                                  (env var names) cannot be empty
+                                rule: self.all(k, k.size() > 0 && self[k].size() >
+                                  0)
                             fileBindings:
                               additionalProperties:
                                 type: string
@@ -817,11 +819,13 @@ spec:
                                 FileBindings maps a ResourceType output name to a container mount path. The referenced
                                 output's source kind must be secretKeyRef or configMapKeyRef; value-kind outputs cannot
                                 be mounted as files because there is no DP-side object to mount.
+                              maxProperties: 50
                               type: object
                               x-kubernetes-validations:
-                              - message: fileBindings values (mount paths) cannot
-                                  be empty
-                                rule: self.all(k, self[k].size() > 0)
+                              - message: fileBindings keys (output names) and values
+                                  (mount paths) cannot be empty
+                                rule: self.all(k, k.size() > 0 && self[k].size() >
+                                  0)
                             ref:
                               description: |-
                                 Ref is the name of the Resource to consume. The Resource must live in the same project as
