@@ -170,10 +170,12 @@ func (r *Reconciler) setupResourceDependencyTargetsIndex(ctx context.Context, mg
 		})
 }
 
-// resourceReleaseBindingOutputsChangedPredicate returns a predicate that only passes when
-// status.outputs changes on a ResourceReleaseBinding, or when its Ready condition status
-// flips. Other status changes (e.g., Synced reason updates) are filtered out so consumers
-// are not re-enqueued for events they don't care about. Mirrors endpointStatusChangedPredicate.
+// resourceReleaseBindingOutputsChangedPredicate returns a predicate that passes when a
+// ResourceReleaseBinding update affects what consumers see: outputs change, generation
+// advances (spec edit by PE), or the Ready condition's Status / ObservedGeneration shift.
+// Other status changes (e.g., Synced reason updates) are filtered out. Tracking generation
+// and ObservedGeneration matches the consumer-side gate in isResourceReleaseBindingReady,
+// so a provider mid-reconcile re-enqueues consumers when it catches up.
 func resourceReleaseBindingOutputsChangedPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(_ event.CreateEvent) bool {
@@ -188,10 +190,13 @@ func resourceReleaseBindingOutputsChangedPredicate() predicate.Predicate {
 			if !ok {
 				return false
 			}
+			if oldRRB.Generation != newRRB.Generation {
+				return true
+			}
 			if !apiequality.Semantic.DeepEqual(oldRRB.Status.Outputs, newRRB.Status.Outputs) {
 				return true
 			}
-			return readyConditionStatusChanged(oldRRB, newRRB)
+			return readyConditionChanged(oldRRB, newRRB)
 		},
 		DeleteFunc: func(_ event.DeleteEvent) bool {
 			return true
@@ -202,26 +207,30 @@ func resourceReleaseBindingOutputsChangedPredicate() predicate.Predicate {
 	}
 }
 
-// readyConditionStatusChanged reports whether the Ready condition's Status field differs
-// between two ResourceReleaseBindings. Absence on either side maps to "" so a True ↔ absent
-// transition still counts as a flip — relies on the RRB controller invariant that Ready is
-// rewritten on every reconcile via setReadyCondition once it has been set.
-func readyConditionStatusChanged(oldRRB, newRRB *openchoreov1alpha1.ResourceReleaseBinding) bool {
+// readyConditionChanged reports whether the Ready condition's Status or ObservedGeneration
+// differs between two ResourceReleaseBindings. Absence on either side maps to "" / 0, so a
+// True ↔ absent transition still counts as a flip. The ObservedGeneration check matches the
+// consumer-side gate in isResourceReleaseBindingReady — a provider that updates Ready in
+// place to track a new generation must re-enqueue consumers even if Status stays True.
+func readyConditionChanged(oldRRB, newRRB *openchoreov1alpha1.ResourceReleaseBinding) bool {
 	const readyType = "Ready"
 	var oldStatus, newStatus string
+	var oldObserved, newObserved int64
 	for i := range oldRRB.Status.Conditions {
 		if oldRRB.Status.Conditions[i].Type == readyType {
 			oldStatus = string(oldRRB.Status.Conditions[i].Status)
+			oldObserved = oldRRB.Status.Conditions[i].ObservedGeneration
 			break
 		}
 	}
 	for i := range newRRB.Status.Conditions {
 		if newRRB.Status.Conditions[i].Type == readyType {
 			newStatus = string(newRRB.Status.Conditions[i].Status)
+			newObserved = newRRB.Status.Conditions[i].ObservedGeneration
 			break
 		}
 	}
-	return oldStatus != newStatus
+	return oldStatus != newStatus || oldObserved != newObserved
 }
 
 // findConsumerReleaseBindingsForResourceReleaseBinding returns reconcile requests for all

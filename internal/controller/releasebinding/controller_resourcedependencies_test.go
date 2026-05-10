@@ -613,6 +613,34 @@ func TestResourceReleaseBindingOutputsChangedPredicate(t *testing.T) {
 		assert.True(t, pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: new}))
 	})
 
+	t.Run("fires_on_generation_change", func(t *testing.T) {
+		// PE edits the provider's spec → Generation advances. Even if the status hasn't
+		// caught up, consumers must re-evaluate (the new check in
+		// isResourceReleaseBindingReady will gate them off until ObservedGeneration matches).
+		old := &openchoreov1alpha1.ResourceReleaseBinding{
+			ObjectMeta: metav1.ObjectMeta{Generation: 1},
+		}
+		new := old.DeepCopy()
+		new.Generation = 2
+		assert.True(t, pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: new}))
+	})
+
+	t.Run("fires_on_ready_observed_generation_change", func(t *testing.T) {
+		// Provider catches up to a new generation: Ready=True stays, but ObservedGeneration
+		// advances. Consumers were gated off (stale OG) and must now re-evaluate.
+		old := &openchoreov1alpha1.ResourceReleaseBinding{
+			ObjectMeta: metav1.ObjectMeta{Generation: 2},
+			Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
+				Conditions: []metav1.Condition{
+					{Type: "Ready", Status: metav1.ConditionTrue, ObservedGeneration: 1, Reason: "Ready", LastTransitionTime: metav1.Now()},
+				},
+			},
+		}
+		new := old.DeepCopy()
+		new.Status.Conditions[0].ObservedGeneration = 2
+		assert.True(t, pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: new}))
+	})
+
 	t.Run("does_not_fire_on_unrelated_status_change", func(t *testing.T) {
 		// Same outputs, same Ready condition status. Some other condition (e.g., Synced)
 		// changed — predicate should NOT fire because consumers don't care about that.
