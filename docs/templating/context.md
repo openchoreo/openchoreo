@@ -534,14 +534,20 @@ envFrom: |
 
 ### dependencies
 
-Dependency information for connections declared by the component. Contains both per-connection metadata and a merged
-flat list of all resolved environment variables.
+Dependency information for the component. Covers two kinds of declared dependencies:
+
+- **Endpoint connections** — `Workload.spec.dependencies.endpoints[]`, exposed under `dependencies.items`.
+- **Resource dependencies** — `Workload.spec.dependencies.resources[]`, exposed under `dependencies.resources`.
+
+Per-item views are kept separate so templates can iterate either kind. The merged `envVars`,
+`volumeMounts`, and `volumes` lists are convenience surfaces for templates that just want a single
+combined feed.
 
 ```yaml
 # Access pattern: ${dependencies.<field>}
 
 dependencies: # ${dependencies}
-  items: # ${dependencies.items}
+  items: # ${dependencies.items} - endpoint connections
     - namespace: "ns1"                        # ${dependencies.items[0].namespace} - target component's namespace
       project: "proj1"                        # ${dependencies.items[0].project} - target project name
       component: "svc-a"                      # ${dependencies.items[0].component} - target component name
@@ -550,31 +556,53 @@ dependencies: # ${dependencies}
       envVars: # ${dependencies.items[0].envVars} - per-connection env vars
         - name: "SVC_A_URL"
           value: "http://svc-a:8080"
-    - namespace: "ns1"
-      project: "proj1"
-      component: "svc-b"
-      endpoint: "grpc"
-      visibility: "namespace"
-      envVars:
-        - name: "SVC_B_URL"
-          value: "grpc://svc-b:9090"
-        - name: "SVC_B_HOST"
-          value: "svc-b"
-  envVars: # ${dependencies.envVars} - merged flat list of ALL env vars from all items
+  resources: # ${dependencies.resources} - resource dependencies
+    - ref: "orders-db"                        # ${dependencies.resources[0].ref} - Resource name
+      envVars: # ${dependencies.resources[0].envVars} - per-resource env vars (literal + valueFrom)
+        - name: "DB_HOST"
+          value: "10.0.0.5"
+        - name: "DB_PASSWORD"
+          valueFrom:
+            secretKeyRef:
+              name: "orders-db-creds"
+              key: "password"
+      volumeMounts: # ${dependencies.resources[0].volumeMounts} - per-resource mounts
+        - name: "r-9f3c4a21"
+          mountPath: "/etc/db/ca.crt"
+          subPath: "ca.crt"
+      volumes: # ${dependencies.resources[0].volumes} - per-resource volumes (deduped per source)
+        - name: "r-9f3c4a21"
+          secret:
+            secretName: "orders-db-creds"
+  envVars: # ${dependencies.envVars} - merged: ALL env vars from items[] + resources[]
     - name: "SVC_A_URL"
       value: "http://svc-a:8080"
-    - name: "SVC_B_URL"
-      value: "grpc://svc-b:9090"
-    - name: "SVC_B_HOST"
-      value: "svc-b"
+    - name: "DB_HOST"
+      value: "10.0.0.5"
+    - name: "DB_PASSWORD"
+      valueFrom:
+        secretKeyRef:
+          name: "orders-db-creds"
+          key: "password"
+  volumeMounts: # ${dependencies.volumeMounts} - merged from resources[]
+    - name: "r-9f3c4a21"
+      mountPath: "/etc/db/ca.crt"
+      subPath: "ca.crt"
+  volumes: # ${dependencies.volumes} - merged from resources[]
+    - name: "r-9f3c4a21"
+      secret:
+        secretName: "orders-db-creds"
 ```
 
 **Structure details:**
 
-| Field                  | Type               | Description                                                                          |
-|------------------------|--------------------|--------------------------------------------------------------------------------------|
-| `dependencies.items`   | `[]ConnectionItem` | List of resolved endpoint connections with metadata and per-item env vars            |
-| `dependencies.envVars` | `[]EnvVar`         | Merged flat list of env vars from all endpoint connections and resource dependencies |
+| Field                       | Type                       | Description                                                                             |
+|-----------------------------|----------------------------|-----------------------------------------------------------------------------------------|
+| `dependencies.items`        | `[]ConnectionItem`         | Resolved endpoint connections with metadata and per-item env vars                       |
+| `dependencies.resources`    | `[]ResourceDependencyItem` | Resolved resource dependencies with per-item env vars, volume mounts, and volumes       |
+| `dependencies.envVars`      | `[]EnvVar`                 | Merged flat list of env vars from `items` and `resources`                               |
+| `dependencies.volumeMounts` | `[]VolumeMount`            | Merged flat list of volume mounts from `resources` (endpoint connections add no mounts) |
+| `dependencies.volumes`      | `[]Volume`                 | Merged flat list of volumes from `resources` (endpoint connections add no volumes)      |
 
 **ConnectionItem structure:**
 
@@ -587,53 +615,97 @@ dependencies: # ${dependencies}
 | `visibility` | `string`   | Resolved visibility level (e.g., `project`, `namespace`, `internal`, `external`) |
 | `envVars`    | `[]EnvVar` | Environment variables resolved for this connection                               |
 
-**EnvVar structure** (matches Kubernetes `corev1.EnvVar`):
+**ResourceDependencyItem structure:**
 
-| Field       | Type           | Description                                                                                                                      |
-|-------------|----------------|----------------------------------------------------------------------------------------------------------------------------------|
-| `name`      | `string`       | Environment variable name                                                                                                        |
-| `value`     | `string`       | Resolved environment variable value (literal). Mutually exclusive with `valueFrom`.                                              |
-| `valueFrom` | `EnvVarSource` | Reference-form value (e.g., `secretKeyRef`, `configMapKeyRef`) for resource-dependency outputs. Mutually exclusive with `value`. |
+| Field          | Type            | Description                                                                                            |
+|----------------|-----------------|--------------------------------------------------------------------------------------------------------|
+| `ref`          | `string`        | Resource name (matches `Workload.spec.dependencies.resources[].ref`)                                   |
+| `envVars`      | `[]EnvVar`      | Env vars projected from outputs declared in `envBindings`. Each is literal or `valueFrom`.             |
+| `volumeMounts` | `[]VolumeMount` | Volume mounts projected from outputs declared in `fileBindings` (one per binding)                      |
+| `volumes`      | `[]Volume`      | Volumes backing those mounts. Deduped per `(ref, sourceKind, sourceName)` so multiple mounts can share |
+
+**EnvVar structure** (JSON-compatible with Kubernetes `corev1.EnvVar`):
+
+| Field       | Type           | Description                                                                                             |
+|-------------|----------------|---------------------------------------------------------------------------------------------------------|
+| `name`      | `string`       | Environment variable name                                                                               |
+| `value`     | `string`       | Literal value. Set when the source output is `value:`. Mutually exclusive with `valueFrom`.             |
+| `valueFrom` | `EnvVarSource` | Reference value with `secretKeyRef` or `configMapKeyRef`. Set for ref-kind outputs. Mutually exclusive. |
+
+**VolumeMount structure** (JSON-compatible with `corev1.VolumeMount`):
+
+| Field       | Type     | Description                                                                             |
+|-------------|----------|-----------------------------------------------------------------------------------------|
+| `name`      | `string` | Volume name. For resource deps, the platform produces an `r-<hash>` deterministic name. |
+| `mountPath` | `string` | In-container mount path. Comes from the workload's `fileBindings` value.                |
+| `subPath`   | `string` | Key within the Secret/ConfigMap to project at this mount.                               |
+
+**Volume structure** (JSON-compatible with `corev1.Volume`, modeling only the kinds the platform emits):
+
+| Field       | Type           | Description                                   |
+|-------------|----------------|-----------------------------------------------|
+| `name`      | `string`       | Volume name (matches a `volumeMounts[].name`) |
+| `secret`    | `{secretName}` | Set when the backing source is a Secret       |
+| `configMap` | `{name}`       | Set when the backing source is a ConfigMap    |
 
 **Example usage:**
 
 ```yaml
-# Inject all dependency env vars into a container
+# Inject all dependency env vars (literal + valueFrom) into a container
 env: |
-  ${dependencies.envVars.map(e, {
-    "name": e.name,
-    "value": e.value
-  })}
+  ${dependencies.envVars.map(e, has(e.value)
+    ? {"name": e.name, "value": e.value}
+    : {"name": e.name, "valueFrom": e.valueFrom})}
+```
 
-# Iterate over individual connection items
+Iterate over individual endpoint connections:
+
+```yaml
 forEach: ${dependencies.items}
 var: dep
 template:
 # Use dep.component, dep.endpoint, dep.envVars, etc.
 ```
 
-**Note:** If no dependencies are configured, both `items` and `envVars` will be empty lists (never null), so CEL
-expressions like `dependencies.envVars.size()` are always safe to call.
+Iterate over individual resource dependencies:
+
+```yaml
+forEach: ${dependencies.resources}
+var: rdep
+template:
+# Use rdep.ref, rdep.envVars, rdep.volumeMounts, rdep.volumes
+```
+
+**Note:** If no dependencies are configured, every list under `dependencies` is empty (never null), so
+CEL expressions like `dependencies.envVars.size()` and `dependencies.volumes.size()` are always safe.
 
 ### Dependency Helper Methods
 
-The `dependencies` object provides a helper method to simplify injecting connection environment variables into
-containers.
+The `dependencies` object provides helper methods that return the merged flat surfaces in the shapes
+templates typically need.
 
-| Helper Method                    | Description                                                                                    |
-|----------------------------------|------------------------------------------------------------------------------------------------|
-| `dependencies.toContainerEnvs()` | Returns the merged flat list of all dependency env vars (equivalent to `dependencies.envVars`) |
+| Helper Method                            | Description                                                                                                   |
+|------------------------------------------|---------------------------------------------------------------------------------------------------------------|
+| `dependencies.toContainerEnvs()`         | Returns the merged env var list (equivalent to `dependencies.envVars`) for `container.env`                    |
+| `dependencies.toContainerVolumeMounts()` | Returns the merged volume mount list (equivalent to `dependencies.volumeMounts`) for `container.volumeMounts` |
+| `dependencies.toVolumes()`               | Returns the merged volume list (equivalent to `dependencies.volumes`) for `pod.volumes`                       |
+
+These return types are list-compatible with the matching `configurations.*` helpers, so combining the
+two with the `+` operator type-checks in CEL: e.g.
+`${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}`.
 
 **Example usage:**
 
 ```yaml
-# Using the helper method for cleaner container env injection
+# Combined env vars from configurations + dependencies (cleanest projection)
 spec:
   template:
     spec:
+      volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
       containers:
         - name: app
           env: ${dependencies.toContainerEnvs()}
+          volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
 ```
 
 ### Configuration Helper Methods
@@ -719,19 +791,12 @@ metadata:
 
 ### dataplane
 
-DataPlane configuration for the target environment. Same structure as ComponentContext. The fields `secretStore`,
-`publicVirtualHost`, and `observabilityPlaneRef` are optional; use `has()` to guard conditional logic.
+DataPlane configuration for the target environment. Same structure as ComponentContext. See
+[dataplane](#dataplane) above for the full shape, including the nested `gateway.ingress` /
+`gateway.egress` listeners.
 
-```yaml
-# Access pattern: ${dataplane.<field>}
-
-dataplane:
-  secretStore: "my-secret-store"              # ${dataplane.secretStore}
-  publicVirtualHost: "app.example.com"        # ${dataplane.publicVirtualHost}
-  observabilityPlaneRef: # ${dataplane.observabilityPlaneRef}
-    kind: "ObservabilityPlane"                # ${dataplane.observabilityPlaneRef.kind} - "ObservabilityPlane" or "ClusterObservabilityPlane"
-    name: "my-obs-plane"                      # ${dataplane.observabilityPlaneRef.name}
-```
+The fields `secretStore`, `gateway`, and `observabilityPlaneRef` are optional; use `has()` to
+guard conditional logic.
 
 ### parameters
 
@@ -851,20 +916,26 @@ configurations: # ${configurations}
 
 ### dependencies
 
-Dependency information for connections. Same structure as ComponentContext dependencies.
-See [dependencies](#dependencies) section above for full details and helper methods.
+Dependency information covering both endpoint connections and resource dependencies. Same structure
+as ComponentContext dependencies. See [dependencies](#dependencies) section above for full details
+and helper methods.
 
 ```yaml
 # Access pattern: ${dependencies.<field>}
 
 dependencies: # ${dependencies}
-  items: [ ... ]                               # ${dependencies.items} - per-connection metadata and env vars
-  envVars: [ ... ]                             # ${dependencies.envVars} - merged flat list of all env vars
+  items: [ ... ]                               # ${dependencies.items} - endpoint connections (metadata + env vars)
+  resources: [ ... ]                           # ${dependencies.resources} - resource deps (env vars + mounts + volumes)
+  envVars: [ ... ]                             # ${dependencies.envVars} - merged from items + resources
+  volumeMounts: [ ... ]                        # ${dependencies.volumeMounts} - merged from resources
+  volumes: [ ... ]                             # ${dependencies.volumes} - merged from resources
 ```
 
 **Available helper methods** (same as ComponentContext):
 
 - `dependencies.toContainerEnvs()`
+- `dependencies.toContainerVolumeMounts()`
+- `dependencies.toVolumes()`
 
 ## Special Variables
 
