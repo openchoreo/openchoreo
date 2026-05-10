@@ -550,6 +550,41 @@ spec:
                   - reason
                   type: object
                 type: array
+              pendingResourceDependencies:
+                description: PendingResourceDependencies contains the resource dependencies
+                  that could not be resolved.
+                items:
+                  description: |-
+                    PendingResourceDependency represents a resource dependency that could not be resolved.
+                    Surfaces the failure on kubectl describe so users can diagnose missing bindings, missing
+                    outputs, or unready providers without inspecting controller logs.
+                  properties:
+                    namespace:
+                      description: Namespace is the control plane namespace of the
+                        consuming ReleaseBinding.
+                      minLength: 1
+                      type: string
+                    project:
+                      description: Project is the name of the project that owns the
+                        target Resource.
+                      minLength: 1
+                      type: string
+                    reason:
+                      description: |-
+                        Reason describes why the dependency could not be resolved (binding not found,
+                        output missing, provider not ready, etc.).
+                      type: string
+                    resourceName:
+                      description: ResourceName is the name of the target Resource.
+                      minLength: 1
+                      type: string
+                  required:
+                  - namespace
+                  - project
+                  - reason
+                  - resourceName
+                  type: object
+                type: array
               resolvedConnections:
                 description: ResolvedConnections contains the connections that have
                   been successfully resolved.
@@ -613,6 +648,45 @@ spec:
                   - project
                   - url
                   - visibility
+                  type: object
+                type: array
+              resourceDependencyTargets:
+                description: |-
+                  ResourceDependencyTargets lists the resource dependency targets derived from the
+                  workload's dependencies.resources[]. Used as an index source for finding consumer
+                  ReleaseBindings when a provider ResourceReleaseBinding's status.outputs change.
+                items:
+                  description: |-
+                    ResourceDependencyTarget identifies a project-bound Resource the workload depends on.
+                    Used as a field-index source for the reverse-watch from ResourceReleaseBinding to
+                    ReleaseBinding: when a provider's status.outputs change, every consumer ReleaseBinding
+                    whose targets include the matching (project, resourceName, environment) tuple is enqueued.
+                  properties:
+                    environment:
+                      description: |-
+                        Environment is the consumer's environment, used to select the correct
+                        ResourceReleaseBinding from the targets in this project.
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: Namespace is the control plane namespace of the
+                        consuming ReleaseBinding.
+                      minLength: 1
+                      type: string
+                    project:
+                      description: Project is the name of the project that owns the
+                        target Resource.
+                      minLength: 1
+                      type: string
+                    resourceName:
+                      description: ResourceName is the name of the target Resource.
+                      minLength: 1
+                      type: string
+                  required:
+                  - environment
+                  - namespace
+                  - project
+                  - resourceName
                   type: object
                 type: array
               secretReferenceNames:
