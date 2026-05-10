@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,7 +49,7 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	resourcetypelog.Info("Validation for ResourceType upon creation", "name", rt.GetName())
 
 	if errs := resourcevalidation.ValidateResourceTypeSpec(&rt.Spec, field.NewPath("spec")); len(errs) > 0 {
-		return nil, errs.ToAggregate()
+		return nil, apierrors.NewInvalid(rt.GroupVersionKind().GroupKind(), rt.GetName(), errs)
 	}
 	return nil, nil
 }
@@ -67,7 +68,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	resourcetypelog.Info("Validation for ResourceType upon update", "name", rt.GetName())
 
 	if errs := resourcevalidation.ValidateResourceTypeSpec(&rt.Spec, field.NewPath("spec")); len(errs) > 0 {
-		return nil, errs.ToAggregate()
+		return nil, apierrors.NewInvalid(rt.GroupVersionKind().GroupKind(), rt.GetName(), errs)
 	}
 	return nil, nil
 }

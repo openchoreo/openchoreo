@@ -9,6 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -103,6 +104,10 @@ var _ = Describe("ResourceRelease Webhook", func() {
 			_, err := validator.ValidateCreate(ctx, rr)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("parameters"))
+			// Locks the wire shape: validation failures must be StatusReasonInvalid
+			// so kube-apiserver returns 422 + Reason=Invalid (not 403). Downstream
+			// detection via apierrors.IsInvalid depends on this.
+			Expect(apierrors.IsInvalid(err)).To(BeTrue())
 		})
 
 		It("rejects a release with a malformed snapshot parameter schema", func() {
