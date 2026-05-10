@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -eo pipefail
+set -euo pipefail
 
 # Get the absolute path of the script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,6 +22,8 @@ API_URL=$(kubectl get httproute -n openchoreo-control-plane openchoreo-api -o js
 
 if [ -z "$API_URL" ]; then
   log_error "Failed to discover API server URL from HTTPRoute"
+  log_error "The 'openchoreo-api' HTTPRoute in namespace 'openchoreo-control-plane' is not available yet."
+  log_error "The control plane may still be starting. Wait a minute and retry: bash occ-login.sh"
   exit 1
 fi
 
@@ -32,13 +34,15 @@ THUNDER_URL=$(kubectl get httproute -n thunder thunder-httproute -o jsonpath='{.
 
 if [ -z "$THUNDER_URL" ]; then
   log_error "Failed to discover Thunder URL from HTTPRoute"
+  log_error "The 'thunder-httproute' HTTPRoute in namespace 'thunder' is not available yet."
+  log_error "Thunder may still be starting. Wait a minute and retry: bash occ-login.sh"
   exit 1
 fi
 
 THUNDER_ENDPOINT="http://${THUNDER_URL}:8080"
 
 # Step 1: Get token using system app with scope=system
-TOKEN_RESPONSE=$(curl -s -X POST "${THUNDER_ENDPOINT}/oauth2/token" \
+TOKEN_RESPONSE=$(curl -s --max-time 10 -X POST "${THUNDER_ENDPOINT}/oauth2/token" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=client_credentials" \
   -d "client_id=${SYSTEM_APP_CLIENT_ID}" \
@@ -57,7 +61,7 @@ log_success "System token obtained"
 
 # Step 2: Check if CLI application already exists
 log_info "Checking if CLI application exists..."
-EXISTING_APPS=$(curl -s -X GET "${THUNDER_ENDPOINT}/applications" \
+EXISTING_APPS=$(curl -s --max-time 10 -X GET "${THUNDER_ENDPOINT}/applications" \
   -H "Authorization: Bearer ${SYSTEM_TOKEN}")
 
 APP_ID=$(echo "${EXISTING_APPS}" | jq -r --arg cid "${CLI_CLIENT_ID}" '.applications[] | select(.client_id == $cid) | .id // empty')
@@ -91,7 +95,7 @@ EOF
 if [ -n "$APP_ID" ] && [ "$APP_ID" != "null" ]; then
   # Application exists, update it
   log_info "CLI application already exists (id: ${APP_ID}), updating..."
-  APP_RESPONSE=$(curl -s -X PUT "${THUNDER_ENDPOINT}/applications/${APP_ID}" \
+  APP_RESPONSE=$(curl -s --max-time 10 -X PUT "${THUNDER_ENDPOINT}/applications/${APP_ID}" \
     -H "Authorization: Bearer ${SYSTEM_TOKEN}" \
     -H "Content-Type: application/json" \
     -d "${APP_PAYLOAD}")
@@ -100,7 +104,7 @@ if [ -n "$APP_ID" ] && [ "$APP_ID" != "null" ]; then
 else
   # Application doesn't exist, create it
   log_info "Creating CLI application..."
-  APP_RESPONSE=$(curl -s -X POST "${THUNDER_ENDPOINT}/applications" \
+  APP_RESPONSE=$(curl -s --max-time 10 -X POST "${THUNDER_ENDPOINT}/applications" \
     -H "Authorization: Bearer ${SYSTEM_TOKEN}" \
     -H "Content-Type: application/json" \
     -d "${APP_PAYLOAD}")

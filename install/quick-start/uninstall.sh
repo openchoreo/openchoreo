@@ -54,7 +54,7 @@ if [[ "$FORCE_UNINSTALL" != "true" ]]; then
     echo "  - All OpenChoreo components"
     echo ""
     read -p "Are you sure you want to continue? (y/N): " -r
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    if [[ ! ${REPLY:-} =~ ^[Yy]$ ]]; then
         log_info "Uninstall cancelled"
         exit 0
     fi

@@ -3,11 +3,27 @@
 # Helper functions for OpenChoreo installation
 # These functions provide idempotent operations for setting up OpenChoreo
 
-set -eo pipefail
+set -euo pipefail
 
 # Source shared configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/.config.sh"
+
+# Guard: abort early if running as root
+if [[ "$(id -u)" -eq 0 ]]; then
+    echo -e "\033[0;31m[ERROR]\033[0m This script should not be run as root." >&2
+    echo "" >&2
+    echo "  You appear to be running as root (uid=0). This usually happens when" >&2
+    echo "  entering the container via 'docker exec' without specifying the user." >&2
+    echo "" >&2
+    echo "  Please switch to the openchoreo user:" >&2
+    echo "    su - openchoreo" >&2
+    echo "" >&2
+    echo "  Or re-enter the container correctly:" >&2
+    echo "    docker exec -it -u openchoreo <container> bash -l" >&2
+    echo "" >&2
+    exit 1
+fi
 
 # Color codes for output
 RED='\033[0;31m'
@@ -113,11 +129,11 @@ create_k3d_cluster() {
 
     log_info "Creating k3d cluster '$CLUSTER_NAME'..."
 
-    # Use the k3d config file from user's home directory
-    local k3d_config="$HOME/.k3d-config.yaml"
+    local k3d_config="${SCRIPT_DIR}/.k3d-config.yaml"
 
     if [[ ! -f "$k3d_config" ]]; then
         log_error "k3d config file not found at $k3d_config"
+        log_error "Expected alongside install.sh in: $SCRIPT_DIR"
         return 1
     fi
 
@@ -910,7 +926,7 @@ install_control_plane() {
     # Disable --wait for control plane to avoid deadlock with webhook cert hooks
     # But keep monitoring enabled to track pod status
     install_helm_chart "openchoreo-control-plane" "openchoreo-control-plane" "$CONTROL_PLANE_NS" "true" "false" "true" "1800" \
-        "--values" "$HOME/.values-cp.yaml" \
+        "--values" "$SCRIPT_DIR/.values-cp.yaml" \
         "--set" "controllerManager.image.tag=$OPENCHOREO_VERSION" \
         "--set" "openchoreoApi.image.tag=$OPENCHOREO_VERSION" \
         "--set" "backstage.image.tag=$BACKSTAGE_VERSION"
@@ -970,7 +986,7 @@ extract_cluster_gateway_ca() {
 install_data_plane() {
     log_info "Installing OpenChoreo Data Plane..."
     install_helm_chart "openchoreo-data-plane" "openchoreo-data-plane" "$DATA_PLANE_NS" "true" "true" "true" "1800" \
-        "--values" "$HOME/.values-dp.yaml"
+        "--values" "$SCRIPT_DIR/.values-dp.yaml"
 }
 
 # Configure the dataplane and workflowplane with observabilityplane reference
@@ -994,14 +1010,14 @@ install_registry() {
     helm repo update twuni
 
     install_helm_chart "registry" "twuni/docker-registry" "$WORKFLOW_PLANE_NS" "true" "true" "true" "300" \
-        "--values" "$HOME/.values-registry.yaml"
+        "--values" "$SCRIPT_DIR/.values-registry.yaml"
 }
 
 # Install OpenChoreo Cluster Workflow Plane (optional)
 install_workflow_plane() {
     log_info "Installing OpenChoreo Cluster Workflow Plane..."
     install_helm_chart "openchoreo-workflow-plane" "openchoreo-workflow-plane" "$WORKFLOW_PLANE_NS" "true" "true" "true" "1800" \
-        "--values" "$HOME/.values-wp.yaml"
+        "--values" "$SCRIPT_DIR/.values-wp.yaml"
 }
 
 # Copy cluster-gateway CA (public cert only) from control plane to observability plane namespace
@@ -1062,7 +1078,7 @@ install_observability_plane() {
     docker exec "k3d-${CLUSTER_NAME}-server-0" sh -c "cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 
     install_helm_chart "openchoreo-observability-plane" "openchoreo-observability-plane" "$OBSERVABILITY_NS" "true" "true" "true" "1800" \
-        "--values" "$HOME/.values-op.yaml" \
+        "--values" "$SCRIPT_DIR/.values-op.yaml" \
         "--set" "observer.image.tag=$OPENCHOREO_VERSION"
 
     # Install logs and metrics observability modules
@@ -1229,9 +1245,8 @@ check_system_resources() {
             ;;
     esac
 
-    # Get disk space for home directory (where k3d cluster will be created)
     local disk_available_kb
-    disk_available_kb=$(df "$HOME" 2>/dev/null | tail -1 | awk '{print $4}' || echo "0")
+    disk_available_kb=$(df "$SCRIPT_DIR" 2>/dev/null | tail -1 | awk '{print $4}' || echo "0")
     disk_gb=$((disk_available_kb / 1024 / 1024))
 
     # Calculate required resources based on actual measured usage:
@@ -1354,6 +1369,12 @@ verify_prerequisites() {
 
     if [[ ${#missing_tools[@]} -gt 0 ]]; then
         log_error "Missing required tools: ${missing_tools[*]}"
+        return 1
+    fi
+
+    if ! docker info >/dev/null 2>&1; then
+        log_error "Docker daemon is not reachable"
+        log_error "Make sure Docker is running and /var/run/docker.sock is mounted into this container"
         return 1
     fi
 
