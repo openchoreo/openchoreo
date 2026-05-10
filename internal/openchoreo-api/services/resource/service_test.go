@@ -22,15 +22,12 @@ const (
 	testProject   = "test-project"
 )
 
-// newService creates a Resource service plus the project fixtures it depends on
+// newService creates a Resource service plus the project fixture it depends on
 // for the project-existence check on Create / List.
 func newService(t *testing.T, extra ...client.Object) Service {
 	t.Helper()
-	objs := make([]client.Object, 0, 2+len(extra))
-	objs = append(objs,
-		testutil.NewNamespace(testNamespace),
-		testutil.NewProject(testNamespace, testProject),
-	)
+	objs := make([]client.Object, 0, 1+len(extra))
+	objs = append(objs, testutil.NewProject(testNamespace, testProject))
 	objs = append(objs, extra...)
 	return NewService(testutil.NewFakeClient(objs...), testutil.TestLogger())
 }
@@ -59,7 +56,7 @@ func TestCreateResource(t *testing.T) {
 	})
 
 	t.Run("project not found", func(t *testing.T) {
-		svc := NewService(testutil.NewFakeClient(testutil.NewNamespace(testNamespace)), testutil.TestLogger())
+		svc := NewService(testutil.NewFakeClient(), testutil.TestLogger())
 		r := testutil.NewResource(testNamespace, "missing-project", "test-r")
 
 		_, err := svc.CreateResource(ctx, testNamespace, r)

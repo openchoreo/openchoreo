@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,10 +28,9 @@ const (
 
 func newResourceService(t *testing.T, objects []client.Object, pdp authzcore.PDP) resourcesvc.Service {
 	t.Helper()
-	// Always include the test namespace + project so create/list project-existence checks succeed.
-	bootstrap := make([]client.Object, 0, 2+len(objects))
+	// Always include the test project so create/list project-existence checks succeed.
+	bootstrap := make([]client.Object, 0, 1+len(objects))
 	bootstrap = append(bootstrap,
-		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testResourceNs}},
 		&openchoreov1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{Name: testResourceProject, Namespace: testResourceNs},
 			Spec: openchoreov1alpha1.ProjectSpec{
