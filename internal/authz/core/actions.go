@@ -64,6 +64,12 @@ const (
 	ActionUpdateReleaseBinding = "releasebinding:update"
 	ActionDeleteReleaseBinding = "releasebinding:delete"
 
+	// ResourceReleaseBinding actions
+	ActionCreateResourceReleaseBinding = "resourcereleasebinding:create"
+	ActionViewResourceReleaseBinding   = "resourcereleasebinding:view"
+	ActionUpdateResourceReleaseBinding = "resourcereleasebinding:update"
+	ActionDeleteResourceReleaseBinding = "resourcereleasebinding:delete"
+
 	// ComponentType actions
 	ActionCreateComponentType = "componenttype:create"
 	ActionViewComponentType   = "componenttype:view"
@@ -288,6 +294,12 @@ var systemActions = []Action{
 	{Name: ActionCreateReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionUpdateReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionDeleteReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
+
+	// ResourceReleaseBinding (project-scoped until ScopeResource lands; tracked as a follow-up in z_tasks/resource-abstractions/tasks.md)
+	{Name: ActionViewResourceReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionCreateResourceReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionUpdateResourceReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionDeleteResourceReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
 
 	// ComponentType
 	{Name: ActionViewComponentType, LowestScope: ScopeNamespace, IsInternal: false},

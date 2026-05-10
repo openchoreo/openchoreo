@@ -65,6 +65,7 @@ func statusSubresourceObjects() []client.Object {
 		&openchoreov1alpha1.ReleaseBinding{},
 		&openchoreov1alpha1.Resource{},
 		&openchoreov1alpha1.ResourceRelease{},
+		&openchoreov1alpha1.ResourceReleaseBinding{},
 		&openchoreov1alpha1.ResourceType{},
 		&openchoreov1alpha1.SecretReference{},
 		&openchoreov1alpha1.Trait{},
@@ -317,6 +318,23 @@ func NewResourceRelease(namespace, projectName, resourceName, name string) *open
 				Name: "mysql",
 				Spec: defaultResourceTypeSpec(),
 			},
+		},
+	}
+}
+
+// NewResourceReleaseBinding creates a ResourceReleaseBinding test fixture.
+func NewResourceReleaseBinding(namespace, projectName, resourceName, environment, name string) *openchoreov1alpha1.ResourceReleaseBinding {
+	return &openchoreov1alpha1.ResourceReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ResourceReleaseBindingOwner{
+				ProjectName:  projectName,
+				ResourceName: resourceName,
+			},
+			Environment: environment,
 		},
 	}
 }

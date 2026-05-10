@@ -89,6 +89,8 @@ tags:
     description: Resource management within projects (managed-infrastructure dependencies)
   - name: ResourceReleases
     description: Resource release management
+  - name: ResourceReleaseBindings
+    description: Resource release binding management
 
 paths:
   # =============================================================================
@@ -4981,6 +4983,146 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # ResourceReleaseBinding Endpoints
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/resourcereleasebindings:
+    get:
+      operationId: listResourceReleaseBindings
+      summary: List resource release bindings
+      description: Returns a paginated list of resource release bindings within a namespace, optionally filtered by resource.
+      tags: [ResourceReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceQueryParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of resource release bindings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceReleaseBindingList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createResourceReleaseBinding
+      summary: Create resource release binding
+      description: Creates a new resource release binding within a namespace.
+      tags: [ResourceReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceReleaseBinding'
+      responses:
+        '201':
+          description: Resource release binding created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceReleaseBinding'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/resourcereleasebindings/{resourceReleaseBindingName}:
+    get:
+      operationId: getResourceReleaseBinding
+      summary: Get resource release binding
+      description: Returns details of a specific resource release binding.
+      tags: [ResourceReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceReleaseBindingNameParam'
+      responses:
+        '200':
+          description: Resource release binding details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceReleaseBinding'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateResourceReleaseBinding
+      summary: Update resource release binding
+      description: Replaces an existing resource release binding (full update). Used to advance `spec.resourceRelease` (the promote flow) or change `spec.retainPolicy` / `spec.resourceTypeEnvironmentConfigs`. `spec.owner` and `spec.environment` are immutable.
+      tags: [ResourceReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceReleaseBindingNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceReleaseBinding'
+      responses:
+        '200':
+          description: Resource release binding updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceReleaseBinding'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteResourceReleaseBinding
+      summary: Delete resource release binding
+      description: Deletes a resource release binding by name. The binding finalizer either cascades the underlying RenderedRelease (retainPolicy=Delete) or holds (retainPolicy=Retain).
+      tags: [ResourceReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceReleaseBindingNameParam'
+      responses:
+        '204':
+          description: Resource release binding deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # Deployment Pipeline Endpoints
   # =============================================================================
 
@@ -5708,6 +5850,15 @@ components:
       schema:
         type: string
         example: analytics-shared-db
+
+    ResourceReleaseBindingNameParam:
+      name: resourceReleaseBindingName
+      in: path
+      required: true
+      description: Resource release binding name
+      schema:
+        type: string
+        example: analytics-shared-db-dev
 
     RoleNameParam:
       name: roleName
@@ -9380,6 +9531,136 @@ components:
           type: object
           description: Snapshot of parameter values from Resource.spec at release time.
           additionalProperties: true
+
+    # -------------------------------------------------------------------------
+    # ResourceReleaseBindings
+    # -------------------------------------------------------------------------
+    ResourceReleaseBindingList:
+      type: object
+      description: Paginated list of resource release bindings
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceReleaseBinding'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ResourceReleaseBinding:
+      type: object
+      description: |
+        ResourceReleaseBinding resource.
+        Pins a ResourceRelease to an Environment and carries per-env config overrides.
+        Authored externally (PE/GitOps); the Resource controller never creates or modifies bindings.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ResourceReleaseBinding
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ResourceReleaseBindingSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ResourceReleaseBindingStatus'
+
+    ResourceReleaseBindingSpec:
+      type: object
+      description: |
+        Desired state of a ResourceReleaseBinding. spec.owner and spec.environment
+        are immutable after creation. spec.resourceRelease is the promote pin and is
+        advanced manually via `occ resource promote` or kubectl edit.
+      required:
+        - owner
+        - environment
+      properties:
+        owner:
+          type: object
+          description: Identifies the resource and project this binding belongs to.
+          required:
+            - projectName
+            - resourceName
+          properties:
+            projectName:
+              type: string
+              description: Parent project name
+              minLength: 1
+              example: analytics
+            resourceName:
+              type: string
+              description: Parent resource name
+              minLength: 1
+              example: analytics-shared-db
+        environment:
+          type: string
+          description: Target environment name. Immutable after creation.
+          minLength: 1
+          example: dev
+        resourceRelease:
+          type: string
+          description: Pinned ResourceRelease name. Advanced manually (e.g. via `occ resource promote`).
+          example: analytics-shared-db-abc123
+        retainPolicy:
+          type: string
+          description: Per-env override for retention. Falls back to ResourceType.spec.retainPolicy when unset.
+          enum: [Delete, Retain]
+          example: Delete
+        resourceTypeEnvironmentConfigs:
+          type: object
+          description: Per-environment values for ResourceType.spec.environmentConfigs.
+          additionalProperties: true
+
+    ResolvedResourceOutput:
+      type: object
+      description: |
+        Resolved output value populated by the binding controller after evaluating
+        the ResourceType output CEL against the applied DP-side objects. Exactly one
+        of value, secretKeyRef, or configMapKeyRef is set, matching the source
+        declaration on ResourceType.spec.outputs.
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Output name. Matches the declared output name on the referenced ResourceType.
+          minLength: 1
+          example: host
+        value:
+          type: string
+          description: Resolved literal value when the source output is declared with `value:`.
+          example: 10.0.0.5
+        secretKeyRef:
+          $ref: '#/components/schemas/ResourceSecretKeyRef'
+        configMapKeyRef:
+          $ref: '#/components/schemas/ResourceConfigMapKeyRef'
+
+    ResourceReleaseBindingStatus:
+      type: object
+      description: Observed state of a ResourceReleaseBinding.
+      properties:
+        conditions:
+          type: array
+          description: Latest available observations of the binding's state. Includes Synced, ResourcesReady, OutputsResolved, Ready (aggregate), and Finalizing.
+          items:
+            $ref: '#/components/schemas/Condition'
+        outputs:
+          type: array
+          description: Resolved outputs for this environment, populated from the underlying RenderedRelease.status by the binding controller.
+          items:
+            $ref: '#/components/schemas/ResolvedResourceOutput'
 
     # -------------------------------------------------------------------------
     # RenderedRelease

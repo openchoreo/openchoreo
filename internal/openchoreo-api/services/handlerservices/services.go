@@ -35,6 +35,7 @@ import (
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
 	resourcesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resource"
 	resourcereleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcerelease"
+	resourcereleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcereleasebinding"
 	resourcetypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcetype"
 	secretsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secret"
 	secretreferencesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference"
@@ -72,6 +73,7 @@ type Services struct {
 	ReleaseBindingService                         releasebindingsvc.Service
 	ResourceService                               resourcesvc.Service
 	ResourceReleaseService                        resourcereleasesvc.Service
+	ResourceReleaseBindingService                 resourcereleasebindingsvc.Service
 	ResourceTypeService                           resourcetypesvc.Service
 	SecretService                                 secretsvc.Service
 	SecretReferenceService                        secretreferencesvc.Service
@@ -109,6 +111,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		ReleaseBindingService:                         releasebindingsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "releasebinding-service")),
 		ResourceService:                               resourcesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "resource-service")),
 		ResourceReleaseService:                        resourcereleasesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "resourcerelease-service")),
+		ResourceReleaseBindingService:                 resourcereleasebindingsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "resourcereleasebinding-service")),
 		ResourceTypeService:                           resourcetypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "resourcetype-service")),
 		SecretService:                                 secretsvc.NewServiceWithAuthz(k8sClient, planeClientProvider, pdp, logger.With("component", "secret-service")),
 		SecretReferenceService:                        secretreferencesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "secretreference-service")),
