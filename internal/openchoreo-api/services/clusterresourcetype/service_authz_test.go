@@ -36,7 +36,7 @@ func TestCreateClusterResourceType_AuthzCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, resource, result)
 		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "clusterresourcetype:create", "clusterResourceType", "my-crt", authzcore.ResourceHierarchy{})
+		testutil.RequireEvalRequest(t, pdp.Captured[0], "clusterresourcetype:create", "clusterresourcetype", "my-crt", authzcore.ResourceHierarchy{})
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -60,7 +60,7 @@ func TestUpdateClusterResourceType_AuthzCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, resource, result)
 		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "clusterresourcetype:update", "clusterResourceType", "my-crt", authzcore.ResourceHierarchy{})
+		testutil.RequireEvalRequest(t, pdp.Captured[0], "clusterresourcetype:update", "clusterresourcetype", "my-crt", authzcore.ResourceHierarchy{})
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -84,7 +84,7 @@ func TestGetClusterResourceType_AuthzCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, resource, result)
 		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "clusterresourcetype:view", "clusterResourceType", "my-crt", authzcore.ResourceHierarchy{})
+		testutil.RequireEvalRequest(t, pdp.Captured[0], "clusterresourcetype:view", "clusterresourcetype", "my-crt", authzcore.ResourceHierarchy{})
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -105,7 +105,7 @@ func TestDeleteClusterResourceType_AuthzCheck(t *testing.T) {
 		err := svc.DeleteClusterResourceType(testutil.AuthzContext(), "my-crt")
 		require.NoError(t, err)
 		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "clusterresourcetype:delete", "clusterResourceType", "my-crt", authzcore.ResourceHierarchy{})
+		testutil.RequireEvalRequest(t, pdp.Captured[0], "clusterresourcetype:delete", "clusterresourcetype", "my-crt", authzcore.ResourceHierarchy{})
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -129,7 +129,7 @@ func TestGetClusterResourceTypeSchema_AuthzCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, schema, result)
 		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "clusterresourcetype:view", "clusterResourceType", "my-crt", authzcore.ResourceHierarchy{})
+		testutil.RequireEvalRequest(t, pdp.Captured[0], "clusterresourcetype:view", "clusterresourcetype", "my-crt", authzcore.ResourceHierarchy{})
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -156,8 +156,8 @@ func TestListClusterResourceTypes_AuthzCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, result.Items, 2)
 		require.Len(t, pdp.Captured, 2)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "clusterresourcetype:view", "clusterResourceType", "crt-1", authzcore.ResourceHierarchy{})
-		testutil.RequireEvalRequest(t, pdp.Captured[1], "clusterresourcetype:view", "clusterResourceType", "crt-2", authzcore.ResourceHierarchy{})
+		testutil.RequireEvalRequest(t, pdp.Captured[0], "clusterresourcetype:view", "clusterresourcetype", "crt-1", authzcore.ResourceHierarchy{})
+		testutil.RequireEvalRequest(t, pdp.Captured[1], "clusterresourcetype:view", "clusterresourcetype", "crt-2", authzcore.ResourceHierarchy{})
 	})
 
 	t.Run("all denied — empty result", func(t *testing.T) {

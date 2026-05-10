@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	resourceTypeClusterResourceType = "clusterResourceType"
+	resourceTypeClusterResourceType = "clusterresourcetype"
 )
 
 // clusterResourceTypeServiceWithAuthz wraps a Service and adds authorization checks.
