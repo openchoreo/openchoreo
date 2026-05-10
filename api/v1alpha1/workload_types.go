@@ -239,12 +239,14 @@ type WorkloadResourceDependency struct {
 	// The output's source kind (value, secretKeyRef, configMapKeyRef) determines whether the
 	// resulting env var is a literal or a valueFrom reference.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.all(k, self[k].size() > 0)",message="envBindings values (env var names) cannot be empty"
 	EnvBindings map[string]string `json:"envBindings,omitempty"`
 
 	// FileBindings maps a ResourceType output name to a container mount path. The referenced
 	// output's source kind must be secretKeyRef or configMapKeyRef; value-kind outputs cannot
 	// be mounted as files because there is no DP-side object to mount.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.all(k, self[k].size() > 0)",message="fileBindings values (mount paths) cannot be empty"
 	FileBindings map[string]string `json:"fileBindings,omitempty"`
 }
 
