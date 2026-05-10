@@ -63,6 +63,7 @@ func statusSubresourceObjects() []client.Object {
 		&openchoreov1alpha1.ObservabilityPlane{},
 		&openchoreov1alpha1.Project{},
 		&openchoreov1alpha1.ReleaseBinding{},
+		&openchoreov1alpha1.Resource{},
 		&openchoreov1alpha1.ResourceType{},
 		&openchoreov1alpha1.SecretReference{},
 		&openchoreov1alpha1.Trait{},
@@ -276,6 +277,25 @@ func NewResourceType(namespace, name string) *openchoreov1alpha1.ResourceType {
 			Namespace: namespace,
 		},
 		Spec: defaultResourceTypeSpec(),
+	}
+}
+
+// NewResource creates a Resource test fixture.
+func NewResource(namespace, projectName, name string) *openchoreov1alpha1.Resource {
+	return &openchoreov1alpha1.Resource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: openchoreov1alpha1.ResourceSpec{
+			Owner: openchoreov1alpha1.ResourceOwner{
+				ProjectName: projectName,
+			},
+			Type: openchoreov1alpha1.ResourceTypeRef{
+				Kind: openchoreov1alpha1.ResourceTypeRefKindResourceType,
+				Name: "mysql",
+			},
+		},
 	}
 }
 

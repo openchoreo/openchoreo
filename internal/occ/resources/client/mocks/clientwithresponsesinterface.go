@@ -3628,6 +3628,157 @@ func (_c *MockClientWithResponsesInterface_CreateResourceTypeWithResponse_Call) 
 	return _c
 }
 
+// CreateResourceWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateResourceWithBodyWithResponse(ctx context.Context, namespaceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateResourceResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateResourceWithBodyWithResponse")
+	}
+
+	var r0 *gen.CreateResourceResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateResourceResp, error)); ok {
+		return rf(ctx, namespaceName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) *gen.CreateResourceResp); ok {
+		r0 = rf(ctx, namespaceName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateResourceResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateResourceWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateResourceWithBodyWithResponse'
+type MockClientWithResponsesInterface_CreateResourceWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateResourceWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateResourceWithBodyWithResponse(ctx interface{}, namespaceName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateResourceWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateResourceWithBodyWithResponse_Call{Call: _e.mock.On("CreateResourceWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateResourceWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateResourceWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateResourceWithBodyWithResponse_Call) Return(_a0 *gen.CreateResourceResp, _a1 error) *MockClientWithResponsesInterface_CreateResourceWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateResourceWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateResourceResp, error)) *MockClientWithResponsesInterface_CreateResourceWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateResourceWithResponse provides a mock function with given fields: ctx, namespaceName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateResourceWithResponse(ctx context.Context, namespaceName string, body gen.ResourceInstance, reqEditors ...gen.RequestEditorFn) (*gen.CreateResourceResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateResourceWithResponse")
+	}
+
+	var r0 *gen.CreateResourceResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ResourceInstance, ...gen.RequestEditorFn) (*gen.CreateResourceResp, error)); ok {
+		return rf(ctx, namespaceName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ResourceInstance, ...gen.RequestEditorFn) *gen.CreateResourceResp); ok {
+		r0 = rf(ctx, namespaceName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateResourceResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ResourceInstance, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateResourceWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateResourceWithResponse'
+type MockClientWithResponsesInterface_CreateResourceWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateResourceWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - body gen.ResourceInstance
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateResourceWithResponse(ctx interface{}, namespaceName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateResourceWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateResourceWithResponse_Call{Call: _e.mock.On("CreateResourceWithResponse",
+		append([]interface{}{ctx, namespaceName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateResourceWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, body gen.ResourceInstance, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateResourceWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ResourceInstance), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateResourceWithResponse_Call) Return(_a0 *gen.CreateResourceResp, _a1 error) *MockClientWithResponsesInterface_CreateResourceWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateResourceWithResponse_Call) RunAndReturn(run func(context.Context, string, gen.ResourceInstance, ...gen.RequestEditorFn) (*gen.CreateResourceResp, error)) *MockClientWithResponsesInterface_CreateResourceWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateSecretReferenceWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, contentType, body, reqEditors
 func (_m *MockClientWithResponsesInterface) CreateSecretReferenceWithBodyWithResponse(ctx context.Context, namespaceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateSecretReferenceResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -6471,6 +6622,81 @@ func (_c *MockClientWithResponsesInterface_DeleteResourceTypeWithResponse_Call) 
 }
 
 func (_c *MockClientWithResponsesInterface_DeleteResourceTypeWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.DeleteResourceTypeResp, error)) *MockClientWithResponsesInterface_DeleteResourceTypeWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteResourceWithResponse provides a mock function with given fields: ctx, namespaceName, resourceName, reqEditors
+func (_m *MockClientWithResponsesInterface) DeleteResourceWithResponse(ctx context.Context, namespaceName string, resourceName string, reqEditors ...gen.RequestEditorFn) (*gen.DeleteResourceResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, resourceName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteResourceWithResponse")
+	}
+
+	var r0 *gen.DeleteResourceResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.DeleteResourceResp, error)); ok {
+		return rf(ctx, namespaceName, resourceName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.DeleteResourceResp); ok {
+		r0 = rf(ctx, namespaceName, resourceName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.DeleteResourceResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, resourceName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_DeleteResourceWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteResourceWithResponse'
+type MockClientWithResponsesInterface_DeleteResourceWithResponse_Call struct {
+	*mock.Call
+}
+
+// DeleteResourceWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - resourceName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) DeleteResourceWithResponse(ctx interface{}, namespaceName interface{}, resourceName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_DeleteResourceWithResponse_Call {
+	return &MockClientWithResponsesInterface_DeleteResourceWithResponse_Call{Call: _e.mock.On("DeleteResourceWithResponse",
+		append([]interface{}{ctx, namespaceName, resourceName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteResourceWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, resourceName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_DeleteResourceWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteResourceWithResponse_Call) Return(_a0 *gen.DeleteResourceResp, _a1 error) *MockClientWithResponsesInterface_DeleteResourceWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteResourceWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.DeleteResourceResp, error)) *MockClientWithResponsesInterface_DeleteResourceWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -10057,6 +10283,81 @@ func (_c *MockClientWithResponsesInterface_GetResourceTypeWithResponse_Call) Run
 	return _c
 }
 
+// GetResourceWithResponse provides a mock function with given fields: ctx, namespaceName, resourceName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetResourceWithResponse(ctx context.Context, namespaceName string, resourceName string, reqEditors ...gen.RequestEditorFn) (*gen.GetResourceResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, resourceName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetResourceWithResponse")
+	}
+
+	var r0 *gen.GetResourceResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetResourceResp, error)); ok {
+		return rf(ctx, namespaceName, resourceName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.GetResourceResp); ok {
+		r0 = rf(ctx, namespaceName, resourceName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetResourceResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, resourceName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetResourceWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetResourceWithResponse'
+type MockClientWithResponsesInterface_GetResourceWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetResourceWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - resourceName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetResourceWithResponse(ctx interface{}, namespaceName interface{}, resourceName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetResourceWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetResourceWithResponse_Call{Call: _e.mock.On("GetResourceWithResponse",
+		append([]interface{}{ctx, namespaceName, resourceName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetResourceWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, resourceName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetResourceWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetResourceWithResponse_Call) Return(_a0 *gen.GetResourceResp, _a1 error) *MockClientWithResponsesInterface_GetResourceWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetResourceWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetResourceResp, error)) *MockClientWithResponsesInterface_GetResourceWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetSecretReferenceWithResponse provides a mock function with given fields: ctx, namespaceName, secretReferenceName, reqEditors
 func (_m *MockClientWithResponsesInterface) GetSecretReferenceWithResponse(ctx context.Context, namespaceName string, secretReferenceName string, reqEditors ...gen.RequestEditorFn) (*gen.GetSecretReferenceResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -13040,6 +13341,81 @@ func (_c *MockClientWithResponsesInterface_ListResourceTypesWithResponse_Call) R
 }
 
 func (_c *MockClientWithResponsesInterface_ListResourceTypesWithResponse_Call) RunAndReturn(run func(context.Context, string, *gen.ListResourceTypesParams, ...gen.RequestEditorFn) (*gen.ListResourceTypesResp, error)) *MockClientWithResponsesInterface_ListResourceTypesWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListResourcesWithResponse provides a mock function with given fields: ctx, namespaceName, params, reqEditors
+func (_m *MockClientWithResponsesInterface) ListResourcesWithResponse(ctx context.Context, namespaceName string, params *gen.ListResourcesParams, reqEditors ...gen.RequestEditorFn) (*gen.ListResourcesResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, params)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListResourcesWithResponse")
+	}
+
+	var r0 *gen.ListResourcesResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListResourcesParams, ...gen.RequestEditorFn) (*gen.ListResourcesResp, error)); ok {
+		return rf(ctx, namespaceName, params, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListResourcesParams, ...gen.RequestEditorFn) *gen.ListResourcesResp); ok {
+		r0 = rf(ctx, namespaceName, params, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ListResourcesResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListResourcesParams, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, params, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_ListResourcesWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListResourcesWithResponse'
+type MockClientWithResponsesInterface_ListResourcesWithResponse_Call struct {
+	*mock.Call
+}
+
+// ListResourcesWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListResourcesParams
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) ListResourcesWithResponse(ctx interface{}, namespaceName interface{}, params interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_ListResourcesWithResponse_Call {
+	return &MockClientWithResponsesInterface_ListResourcesWithResponse_Call{Call: _e.mock.On("ListResourcesWithResponse",
+		append([]interface{}{ctx, namespaceName, params}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_ListResourcesWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListResourcesParams, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_ListResourcesWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListResourcesParams), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListResourcesWithResponse_Call) Return(_a0 *gen.ListResourcesResp, _a1 error) *MockClientWithResponsesInterface_ListResourcesWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListResourcesWithResponse_Call) RunAndReturn(run func(context.Context, string, *gen.ListResourcesParams, ...gen.RequestEditorFn) (*gen.ListResourcesResp, error)) *MockClientWithResponsesInterface_ListResourcesWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -16909,6 +17285,159 @@ func (_c *MockClientWithResponsesInterface_UpdateResourceTypeWithResponse_Call) 
 }
 
 func (_c *MockClientWithResponsesInterface_UpdateResourceTypeWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.ResourceType, ...gen.RequestEditorFn) (*gen.UpdateResourceTypeResp, error)) *MockClientWithResponsesInterface_UpdateResourceTypeWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateResourceWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, resourceName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateResourceWithBodyWithResponse(ctx context.Context, namespaceName string, resourceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.UpdateResourceResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, resourceName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateResourceWithBodyWithResponse")
+	}
+
+	var r0 *gen.UpdateResourceResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateResourceResp, error)); ok {
+		return rf(ctx, namespaceName, resourceName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) *gen.UpdateResourceResp); ok {
+		r0 = rf(ctx, namespaceName, resourceName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateResourceResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, resourceName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateResourceWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateResourceWithBodyWithResponse'
+type MockClientWithResponsesInterface_UpdateResourceWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateResourceWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - resourceName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateResourceWithBodyWithResponse(ctx interface{}, namespaceName interface{}, resourceName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateResourceWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateResourceWithBodyWithResponse_Call{Call: _e.mock.On("UpdateResourceWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, resourceName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateResourceWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, resourceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateResourceWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateResourceWithBodyWithResponse_Call) Return(_a0 *gen.UpdateResourceResp, _a1 error) *MockClientWithResponsesInterface_UpdateResourceWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateResourceWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateResourceResp, error)) *MockClientWithResponsesInterface_UpdateResourceWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateResourceWithResponse provides a mock function with given fields: ctx, namespaceName, resourceName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateResourceWithResponse(ctx context.Context, namespaceName string, resourceName string, body gen.ResourceInstance, reqEditors ...gen.RequestEditorFn) (*gen.UpdateResourceResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, resourceName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateResourceWithResponse")
+	}
+
+	var r0 *gen.UpdateResourceResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ResourceInstance, ...gen.RequestEditorFn) (*gen.UpdateResourceResp, error)); ok {
+		return rf(ctx, namespaceName, resourceName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ResourceInstance, ...gen.RequestEditorFn) *gen.UpdateResourceResp); ok {
+		r0 = rf(ctx, namespaceName, resourceName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateResourceResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.ResourceInstance, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, resourceName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateResourceWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateResourceWithResponse'
+type MockClientWithResponsesInterface_UpdateResourceWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateResourceWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - resourceName string
+//   - body gen.ResourceInstance
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateResourceWithResponse(ctx interface{}, namespaceName interface{}, resourceName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateResourceWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateResourceWithResponse_Call{Call: _e.mock.On("UpdateResourceWithResponse",
+		append([]interface{}{ctx, namespaceName, resourceName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateResourceWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, resourceName string, body gen.ResourceInstance, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateResourceWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.ResourceInstance), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateResourceWithResponse_Call) Return(_a0 *gen.UpdateResourceResp, _a1 error) *MockClientWithResponsesInterface_UpdateResourceWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateResourceWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.ResourceInstance, ...gen.RequestEditorFn) (*gen.UpdateResourceResp, error)) *MockClientWithResponsesInterface_UpdateResourceWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }

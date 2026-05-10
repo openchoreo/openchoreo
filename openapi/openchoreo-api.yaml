@@ -85,6 +85,8 @@ tags:
     description: Cluster-scoped ResourceType templates defined by platform engineers
   - name: ResourceTypes
     description: ResourceType templates defined by platform engineers
+  - name: Resources
+    description: Resource management within projects (managed-infrastructure dependencies)
 
 paths:
   # =============================================================================
@@ -4729,6 +4731,148 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # Resource Endpoints
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/resources:
+    get:
+      operationId: listResources
+      summary: List resources
+      description: Returns a paginated list of resources within a namespace, optionally filtered by project.
+      tags: [Resources]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectQueryParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of resources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceInstanceList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createResource
+      summary: Create resource
+      description: Creates a new resource within a namespace.
+      tags: [Resources]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceInstance'
+      responses:
+        '201':
+          description: Resource created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceInstance'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/resources/{resourceName}:
+    get:
+      operationId: getResource
+      summary: Get resource
+      description: Returns details of a specific resource.
+      tags: [Resources]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceNameParam'
+      responses:
+        '200':
+          description: Resource details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceInstance'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateResource
+      summary: Update resource
+      description: Replaces an existing resource (full update). Mutating spec.parameters cuts a new ResourceRelease via the Resource controller.
+      tags: [Resources]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceInstance'
+      responses:
+        '200':
+          description: Resource updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceInstance'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteResource
+      summary: Delete resource
+      description: Deletes a resource by name. The Resource finalizer blocks deletion until all owned ResourceReleaseBindings and ResourceReleases are cleaned up.
+      tags: [Resources]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ResourceNameParam'
+      responses:
+        '204':
+          description: Resource deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # Deployment Pipeline Endpoints
   # =============================================================================
 
@@ -5429,6 +5573,15 @@ components:
       schema:
         type: string
         example: mysql
+
+    ResourceNameParam:
+      name: resourceName
+      in: path
+      required: true
+      description: Resource name
+      schema:
+        type: string
+        example: analytics-shared-db
 
     RoleNameParam:
       name: roleName
@@ -8887,6 +9040,127 @@ components:
           readOnly: true
           type: object
           description: ResourceType status (currently empty)
+
+    # -------------------------------------------------------------------------
+    # Resources
+    # -------------------------------------------------------------------------
+    # The OpenAPI schema name is `ResourceInstance` to avoid colliding with the
+    # existing authz `Resource` schema (used by `EvaluateRequest.resource`).
+    # The on-the-wire `kind` value remains `Resource` to match the Kubernetes
+    # CRD kind.
+    ResourceInstanceList:
+      type: object
+      description: Paginated list of resources
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceInstance'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ResourceInstance:
+      type: object
+      description: |
+        Resource.
+        Developer-facing intent for a managed-infrastructure dependency (database,
+        queue, cache, object storage). References a ResourceType or ClusterResourceType template.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource (always "Resource" on the wire; see schema name)
+          example: Resource
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ResourceInstanceSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ResourceInstanceStatus'
+
+    ResourceInstanceSpec:
+      type: object
+      description: Desired state of a Resource. spec.owner and spec.type are immutable after creation.
+      required:
+        - owner
+        - type
+      properties:
+        owner:
+          type: object
+          description: Identifies the project that owns this Resource.
+          required:
+            - projectName
+          properties:
+            projectName:
+              type: string
+              description: Parent project name
+              minLength: 1
+              example: analytics
+        type:
+          $ref: '#/components/schemas/ResourceTypeRef'
+        parameters:
+          type: object
+          description: Values for the parameter schema declared on the referenced (Cluster)ResourceType. Validated by the controller.
+          additionalProperties: true
+
+    ResourceInstanceStatus:
+      type: object
+      description: Observed state of a Resource.
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Most recent generation observed by the controller
+        conditions:
+          type: array
+          description: Latest available observations of the Resource's state. Includes Ready and Finalizing.
+          items:
+            $ref: '#/components/schemas/Condition'
+        latestRelease:
+          type: object
+          description: Most recent ResourceRelease for this Resource. Used as the promote source for ResourceReleaseBinding pin advance.
+          required:
+            - name
+            - hash
+          properties:
+            name:
+              type: string
+              description: Name of the ResourceRelease resource
+              example: analytics-shared-db-abc123
+            hash:
+              type: string
+              description: Content hash of Resource.spec + (Cluster)ResourceType.spec captured at release time
+              example: abc123
+
+    ResourceTypeRef:
+      type: object
+      description: Reference to a ResourceType or ClusterResourceType template.
+      required:
+        - name
+      properties:
+        kind:
+          type: string
+          description: Resource type kind. Defaults to ResourceType (namespaced).
+          enum: [ResourceType, ClusterResourceType]
+          default: ResourceType
+        name:
+          type: string
+          description: Template name.
+          minLength: 1
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          example: mysql
 
     # -------------------------------------------------------------------------
     # RenderedRelease

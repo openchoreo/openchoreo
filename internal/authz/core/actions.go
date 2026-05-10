@@ -42,6 +42,12 @@ const (
 	ActionUpdateComponent = "component:update"
 	ActionDeleteComponent = "component:delete"
 
+	// Resource actions
+	ActionCreateResource = "resource:create"
+	ActionViewResource   = "resource:view"
+	ActionUpdateResource = "resource:update"
+	ActionDeleteResource = "resource:delete"
+
 	// ComponentRelease actions
 	ActionCreateComponentRelease = "componentrelease:create"
 	ActionViewComponentRelease   = "componentrelease:view"
@@ -255,6 +261,12 @@ var systemActions = []Action{
 	{Name: ActionViewComponent, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionUpdateComponent, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionDeleteComponent, LowestScope: ScopeComponent, IsInternal: false},
+
+	// Resource
+	{Name: ActionCreateResource, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionViewResource, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionUpdateResource, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionDeleteResource, LowestScope: ScopeProject, IsInternal: false},
 
 	// ComponentRelease
 	{Name: ActionViewComponentRelease, LowestScope: ScopeComponent, IsInternal: false},

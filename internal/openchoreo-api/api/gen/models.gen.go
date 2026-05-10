@@ -283,6 +283,12 @@ const (
 	ResolvedConnectionVisibilityProject   ResolvedConnectionVisibility = "project"
 )
 
+// Defines values for ResourceTypeRefKind.
+const (
+	ResourceTypeRefKindClusterResourceType ResourceTypeRefKind = "ClusterResourceType"
+	ResourceTypeRefKindResourceType        ResourceTypeRefKind = "ResourceType"
+)
+
 // Defines values for ResourceTypeSpecRetainPolicy.
 const (
 	Delete ResourceTypeSpecRetainPolicy = "Delete"
@@ -2869,6 +2875,67 @@ type ResourceHierarchy struct {
 	Project *string `json:"project,omitempty"`
 }
 
+// ResourceInstance Resource.
+// Developer-facing intent for a managed-infrastructure dependency (database,
+// queue, cache, object storage). References a ResourceType or ClusterResourceType template.
+type ResourceInstance struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource (always "Resource" on the wire; see schema name)
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a Resource. spec.owner and spec.type are immutable after creation.
+	Spec   *ResourceInstanceSpec   `json:"spec,omitempty"`
+	Status *ResourceInstanceStatus `json:"status,omitempty"`
+}
+
+// ResourceInstanceList Paginated list of resources
+type ResourceInstanceList struct {
+	Items []ResourceInstance `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ResourceInstanceSpec Desired state of a Resource. spec.owner and spec.type are immutable after creation.
+type ResourceInstanceSpec struct {
+	// Owner Identifies the project that owns this Resource.
+	Owner struct {
+		// ProjectName Parent project name
+		ProjectName string `json:"projectName"`
+	} `json:"owner"`
+
+	// Parameters Values for the parameter schema declared on the referenced (Cluster)ResourceType. Validated by the controller.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// Type Reference to a ResourceType or ClusterResourceType template.
+	Type ResourceTypeRef `json:"type"`
+}
+
+// ResourceInstanceStatus Observed state of a Resource.
+type ResourceInstanceStatus struct {
+	// Conditions Latest available observations of the Resource's state. Includes Ready and Finalizing.
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// LatestRelease Most recent ResourceRelease for this Resource. Used as the promote source for ResourceReleaseBinding pin advance.
+	LatestRelease *struct {
+		// Hash Content hash of Resource.spec + (Cluster)ResourceType.spec captured at release time
+		Hash string `json:"hash"`
+
+		// Name Name of the ResourceRelease resource
+		Name string `json:"name"`
+	} `json:"latestRelease,omitempty"`
+
+	// ObservedGeneration Most recent generation observed by the controller
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
+
 // ResourceNode A single resource in the resource tree
 type ResourceNode struct {
 	// CreatedAt Creation timestamp of the resource
@@ -3013,6 +3080,18 @@ type ResourceTypeOutput struct {
 	// Value Literal or ${...} CEL expression. Use only for non-sensitive data; the resolved value transits to the control plane.
 	Value *string `json:"value,omitempty"`
 }
+
+// ResourceTypeRef Reference to a ResourceType or ClusterResourceType template.
+type ResourceTypeRef struct {
+	// Kind Resource type kind. Defaults to ResourceType (namespaced).
+	Kind *ResourceTypeRefKind `json:"kind,omitempty"`
+
+	// Name Template name.
+	Name string `json:"name"`
+}
+
+// ResourceTypeRefKind Resource type kind. Defaults to ResourceType (namespaced).
+type ResourceTypeRefKind string
 
 // ResourceTypeSpec Desired state of a (Cluster)ResourceType.
 type ResourceTypeSpec struct {
@@ -3881,6 +3960,9 @@ type ProjectQueryParam = string
 // ReleaseBindingNameParam defines model for ReleaseBindingNameParam.
 type ReleaseBindingNameParam = string
 
+// ResourceNameParam defines model for ResourceNameParam.
+type ResourceNameParam = string
+
 // ResourceTypeNameParam defines model for ResourceTypeNameParam.
 type ResourceTypeNameParam = string
 
@@ -4354,6 +4436,26 @@ type GetReleaseBindingK8sResourceLogsParams struct {
 	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`
 }
 
+// ListResourcesParams defines parameters for ListResources.
+type ListResourcesParams struct {
+	// Project Filter resources by project name
+	Project *ProjectQueryParam `form:"project,omitempty" json:"project,omitempty"`
+
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListResourceTypesParams defines parameters for ListResourceTypes.
 type ListResourceTypesParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
@@ -4643,6 +4745,12 @@ type CreateReleaseBindingJSONRequestBody = ReleaseBinding
 
 // UpdateReleaseBindingJSONRequestBody defines body for UpdateReleaseBinding for application/json ContentType.
 type UpdateReleaseBindingJSONRequestBody = ReleaseBinding
+
+// CreateResourceJSONRequestBody defines body for CreateResource for application/json ContentType.
+type CreateResourceJSONRequestBody = ResourceInstance
+
+// UpdateResourceJSONRequestBody defines body for UpdateResource for application/json ContentType.
+type UpdateResourceJSONRequestBody = ResourceInstance
 
 // CreateResourceTypeJSONRequestBody defines body for CreateResourceType for application/json ContentType.
 type CreateResourceTypeJSONRequestBody = ResourceType
