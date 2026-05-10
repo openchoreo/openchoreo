@@ -670,6 +670,13 @@ func (m *MockCoreToolsetHandler) DeleteClusterWorkflow(
 
 // Diagnostics methods
 
+func (m *MockCoreToolsetHandler) GetResourceTree(
+	ctx context.Context, namespaceName, releaseBindingName string,
+) (any, error) {
+	m.recordCall("GetResourceTree", namespaceName, releaseBindingName)
+	return `{"rendered_releases":[]}`, nil
+}
+
 func (m *MockCoreToolsetHandler) GetResourceEvents(
 	ctx context.Context, namespaceName, releaseBindingName, group, version, kind, name string,
 ) (any, error) {

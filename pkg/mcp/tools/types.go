@@ -186,6 +186,7 @@ type PEToolsetHandler interface {
 	DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName string) (any, error)
 
 	// Diagnostics
+	GetResourceTree(ctx context.Context, namespaceName, releaseBindingName string) (any, error)
 	GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName,
 		group, version, kind, name string) (any, error)
 	GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName,

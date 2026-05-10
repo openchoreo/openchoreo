@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	k8sresourcessvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/k8sresources"
 )
 
 // ---------------------------------------------------------------------------
@@ -649,6 +650,67 @@ func clusterWorkflowDetail(cwf *openchoreov1alpha1.ClusterWorkflow) map[string]a
 		m["spec"] = spec
 	}
 	return m
+}
+
+// ---------------------------------------------------------------------------
+// Resource tree (diagnostics)
+// ---------------------------------------------------------------------------
+
+// resourceTreeDetail drops the per-node Object blob and embedded RenderedRelease CR
+// — both bloat MCP context with no diagnostic value.
+func resourceTreeDetail(result *k8sresourcessvc.K8sResourceTreeResult) map[string]any {
+	releases := make([]map[string]any, 0, len(result.RenderedReleases))
+	for _, r := range result.RenderedReleases {
+		entry := map[string]any{
+			"name":         r.Name,
+			"target_plane": r.TargetPlane,
+		}
+		nodes := make([]map[string]any, 0, len(r.Nodes))
+		for i := range r.Nodes {
+			n := &r.Nodes[i]
+			node := map[string]any{
+				"version": n.Version,
+				"kind":    n.Kind,
+				"name":    n.Name,
+			}
+			if n.Group != "" {
+				node["group"] = n.Group
+			}
+			if n.Namespace != "" {
+				node["namespace"] = n.Namespace
+			}
+			if n.CreatedAt != nil {
+				node["created_at"] = n.CreatedAt
+			}
+			if len(n.ParentRefs) > 0 {
+				parents := make([]map[string]any, 0, len(n.ParentRefs))
+				for j := range n.ParentRefs {
+					p := &n.ParentRefs[j]
+					ref := map[string]any{
+						"kind": p.Kind,
+						"name": p.Name,
+						"uid":  p.UID,
+					}
+					if p.Namespace != "" {
+						ref["namespace"] = p.Namespace
+					}
+					parents = append(parents, ref)
+				}
+				node["parent_refs"] = parents
+			}
+			if n.Health != nil {
+				h := map[string]any{"status": n.Health.Status}
+				if n.Health.Message != "" {
+					h["message"] = n.Health.Message
+				}
+				node["health"] = h
+			}
+			nodes = append(nodes, node)
+		}
+		entry["nodes"] = nodes
+		releases = append(releases, entry)
+	}
+	return map[string]any{"rendered_releases": releases}
 }
 
 // ---------------------------------------------------------------------------
