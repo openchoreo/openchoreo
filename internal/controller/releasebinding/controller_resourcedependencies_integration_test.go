@@ -268,10 +268,11 @@ var _ = Describe("ReleaseBinding resource dependencies", func() {
 				{Name: "host", Value: outputHost},
 			}
 			apimeta.SetStatusCondition(&rrb.Status.Conditions, metav1.Condition{
-				Type:    string(resourcereleasebinding.ConditionReady),
-				Status:  metav1.ConditionTrue,
-				Reason:  "Ready",
-				Message: "test fixture",
+				Type:               string(resourcereleasebinding.ConditionReady),
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: rrb.Generation,
+				Reason:             "Ready",
+				Message:            "test fixture",
 			})
 			Expect(k8sClient.Status().Update(ctx, rrb)).To(Succeed())
 
@@ -383,10 +384,11 @@ var _ = Describe("ReleaseBinding resource dependencies", func() {
 				{Name: "database", ConfigMapKeyRef: &openchoreov1alpha1.ConfigMapKeyRef{Name: configMapRef, Key: "name"}},
 			}
 			apimeta.SetStatusCondition(&rrb.Status.Conditions, metav1.Condition{
-				Type:    string(resourcereleasebinding.ConditionReady),
-				Status:  metav1.ConditionTrue,
-				Reason:  "Ready",
-				Message: "test fixture",
+				Type:               string(resourcereleasebinding.ConditionReady),
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: rrb.Generation,
+				Reason:             "Ready",
+				Message:            "test fixture",
 			})
 			Expect(k8sClient.Status().Update(ctx, rrb)).To(Succeed())
 
