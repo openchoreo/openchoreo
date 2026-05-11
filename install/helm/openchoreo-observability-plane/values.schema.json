@@ -949,20 +949,11 @@
           "title": "image",
           "type": "object"
         },
-        "llm": {
-          "additionalProperties": false,
-          "description": "LLM configuration for AI-powered cost analysis",
-          "properties": {
-            "modelName": {
-              "default": "",
-              "description": "LLM model name (e.g., gpt-5.2)",
-              "title": "modelName",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "llm",
-          "type": "object"
+        "llmName": {
+          "default": "",
+          "description": "LLM model name (e.g., gpt-5.2)",
+          "title": "llmName",
+          "type": "string"
         },
         "logLevel": {
           "default": "INFO",

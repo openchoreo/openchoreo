@@ -16,8 +16,8 @@ class Settings(BaseSettings):
         extra="allow",
     )
 
-    finops_model_name: str = ""
-    finops_llm_api_key: str = ""
+    llm_name: str = ""
+    llm_api_key: str = ""
 
     observability_mcp_server_url: str = "http://observer:8080/mcp"
     opencost_mcp_server_url: str = (

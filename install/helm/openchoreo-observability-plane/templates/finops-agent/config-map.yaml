@@ -13,7 +13,7 @@ data:
   {{- if .Values.finOpsAgent.cors.allowedOrigins }}
   CORS_ALLOWED_ORIGINS: {{ join "," .Values.finOpsAgent.cors.allowedOrigins | quote }}
   {{- end }}
-  FINOPS_MODEL_NAME: {{ .Values.finOpsAgent.llm.modelName | quote }}
+  LLM_NAME: {{ .Values.finOpsAgent.llmName | quote }}
   JWT_AUDIENCE: {{ .Values.security.jwt.audience | quote }}
   JWT_ISSUER: {{ .Values.security.oidc.issuer | quote }}
   JWT_JWKS_URL: {{ .Values.security.oidc.jwksUrl | quote }}

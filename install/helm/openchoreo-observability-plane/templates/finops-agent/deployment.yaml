@@ -1,6 +1,6 @@
 {{- if .Values.finOpsAgent.enabled }}
 {{- if not .Values.finOpsAgent.secretName }}
-{{- fail "finOpsAgent.secretName is required when finOpsAgent is enabled. Create a Secret with keys matching the FinOps agent's expected env vars (FINOPS_LLM_API_KEY, OAUTH_CLIENT_SECRET, and optionally SQL_BACKEND_URI), then set finOpsAgent.secretName." }}
+{{- fail "finOpsAgent.secretName is required when finOpsAgent is enabled. Create a Secret with keys matching the FinOps agent's expected env vars (LLM_API_KEY, OAUTH_CLIENT_SECRET, and optionally SQL_BACKEND_URI), then set finOpsAgent.secretName." }}
 {{- end }}
 {{- if not .Values.finOpsAgent.opencostMcpServerUrl }}
 {{- fail "finOpsAgent.opencostMcpServerUrl is required when finOpsAgent is enabled. Set it to the OpenCost MCP Server URL (e.g. http://opencost.openchoreo-observability-plane.svc.cluster.local:8081)." }}
