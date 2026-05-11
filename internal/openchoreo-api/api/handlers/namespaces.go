@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -28,8 +29,7 @@ func (h *Handler) ListNamespaces(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListNamespaces403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListNamespaces400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list namespaces", "error", err)
@@ -101,8 +101,10 @@ func (h *Handler) CreateNamespace(
 		if errors.Is(err, namespacesvc.ErrNamespaceAlreadyExists) {
 			return gen.CreateNamespace409JSONResponse{ConflictJSONResponse: conflict("Namespace already exists")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateNamespace422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateNamespace400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create namespace", "error", err)
@@ -147,8 +149,10 @@ func (h *Handler) UpdateNamespace(
 		if errors.Is(err, namespacesvc.ErrNamespaceNotFound) {
 			return gen.UpdateNamespace404JSONResponse{NotFoundJSONResponse: notFound("Namespace")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateNamespace422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateNamespace400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update namespace", "error", err)

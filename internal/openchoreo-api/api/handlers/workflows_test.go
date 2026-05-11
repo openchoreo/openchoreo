@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"testing"
 	"time"
 
@@ -740,6 +741,7 @@ func TestUpdateWorkflowRunHandler_MapsErrors(t *testing.T) {
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateWorkflowRun403JSONResponse{}},
 		{"not found -> 404", workflowrunsvc.ErrWorkflowRunNotFound, gen.UpdateWorkflowRun404JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.UpdateWorkflowRun400JSONResponse{}},
+		{"validation 422 -> 422", &svcpkg.ValidationError{Msg: "bad request", StatusCode: http.StatusUnprocessableEntity}, gen.UpdateWorkflowRun422JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.UpdateWorkflowRun500JSONResponse{}},
 	}
 	for _, tt := range tests {

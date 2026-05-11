@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -27,8 +28,7 @@ func (h *Handler) ListClusterDataPlanes(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListClusterDataPlanes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListClusterDataPlanes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list cluster data planes", "error", err)
@@ -71,8 +71,10 @@ func (h *Handler) CreateClusterDataPlane(
 		if errors.Is(err, clusterdataplanesvc.ErrClusterDataPlaneAlreadyExists) {
 			return gen.CreateClusterDataPlane409JSONResponse{ConflictJSONResponse: conflict("ClusterDataPlane already exists")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateClusterDataPlane422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateClusterDataPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create cluster data plane", "error", err)
@@ -144,8 +146,10 @@ func (h *Handler) UpdateClusterDataPlane(
 		if errors.Is(err, clusterdataplanesvc.ErrClusterDataPlaneNotFound) {
 			return gen.UpdateClusterDataPlane404JSONResponse{NotFoundJSONResponse: notFound("ClusterDataPlane")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateClusterDataPlane422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateClusterDataPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update cluster data plane", "error", err)

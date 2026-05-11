@@ -228,6 +228,8 @@ paths:
                 $ref: '#/components/schemas/Namespace'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -283,6 +285,8 @@ paths:
                 $ref: '#/components/schemas/Namespace'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -366,6 +370,8 @@ paths:
                 $ref: '#/components/schemas/Project'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -423,6 +429,8 @@ paths:
                 $ref: '#/components/schemas/Project'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -510,6 +518,8 @@ paths:
                 $ref: '#/components/schemas/Component'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -572,6 +582,8 @@ paths:
                 $ref: '#/components/schemas/Environment'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -629,6 +641,8 @@ paths:
                 $ref: '#/components/schemas/Environment'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -713,6 +727,8 @@ paths:
                 $ref: '#/components/schemas/DataPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -770,6 +786,8 @@ paths:
                 $ref: '#/components/schemas/DataPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -854,6 +872,8 @@ paths:
                 $ref: '#/components/schemas/WorkflowPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -911,6 +931,8 @@ paths:
                 $ref: '#/components/schemas/WorkflowPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -995,6 +1017,8 @@ paths:
                 $ref: '#/components/schemas/ObservabilityPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1052,6 +1076,8 @@ paths:
                 $ref: '#/components/schemas/ObservabilityPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1133,6 +1159,8 @@ paths:
                 $ref: '#/components/schemas/ClusterDataPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1188,6 +1216,8 @@ paths:
                 $ref: '#/components/schemas/ClusterDataPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1268,6 +1298,8 @@ paths:
                 $ref: '#/components/schemas/ClusterWorkflowPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1333,6 +1365,8 @@ paths:
                 $ref: '#/components/schemas/ClusterWorkflowPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1418,6 +1452,8 @@ paths:
                 $ref: '#/components/schemas/ClusterObservabilityPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1473,6 +1509,8 @@ paths:
                 $ref: '#/components/schemas/ClusterObservabilityPlane'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1553,6 +1591,8 @@ paths:
                 $ref: '#/components/schemas/ClusterComponentType'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1608,6 +1648,8 @@ paths:
                 $ref: '#/components/schemas/ClusterComponentType'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1712,6 +1754,8 @@ paths:
                 $ref: '#/components/schemas/ClusterTrait'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1767,6 +1811,8 @@ paths:
                 $ref: '#/components/schemas/ClusterTrait'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1874,6 +1920,8 @@ paths:
                 $ref: '#/components/schemas/ComponentType'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1931,6 +1979,8 @@ paths:
                 $ref: '#/components/schemas/ComponentType'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2040,6 +2090,8 @@ paths:
                 $ref: '#/components/schemas/Trait'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2097,6 +2149,8 @@ paths:
                 $ref: '#/components/schemas/Trait'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2203,6 +2257,8 @@ paths:
                 $ref: '#/components/schemas/ClusterWorkflow'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2258,6 +2314,8 @@ paths:
                 $ref: '#/components/schemas/ClusterWorkflow'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2365,6 +2423,8 @@ paths:
                 $ref: '#/components/schemas/Workflow'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2422,6 +2482,8 @@ paths:
                 $ref: '#/components/schemas/Workflow'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2532,6 +2594,8 @@ paths:
                 $ref: '#/components/schemas/WorkflowRun'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2589,6 +2653,8 @@ paths:
                 $ref: '#/components/schemas/WorkflowRun'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2763,6 +2829,8 @@ paths:
                 $ref: '#/components/schemas/Component'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2843,6 +2911,8 @@ paths:
                 $ref: '#/components/schemas/ComponentRelease'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -2902,6 +2972,8 @@ paths:
                   $ref: '#/components/schemas/Decision'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -2994,6 +3066,8 @@ paths:
                 $ref: '#/components/schemas/ClusterAuthzRole'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3061,6 +3135,8 @@ paths:
                 $ref: '#/components/schemas/ClusterAuthzRole'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3143,6 +3219,8 @@ paths:
                 $ref: '#/components/schemas/ClusterAuthzRoleBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3210,6 +3288,8 @@ paths:
                 $ref: '#/components/schemas/ClusterAuthzRoleBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3295,6 +3375,8 @@ paths:
                 $ref: '#/components/schemas/AuthzRole'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3366,6 +3448,8 @@ paths:
                 $ref: '#/components/schemas/AuthzRole'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3454,6 +3538,8 @@ paths:
                 $ref: '#/components/schemas/AuthzRoleBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3525,6 +3611,8 @@ paths:
                 $ref: '#/components/schemas/AuthzRoleBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3640,6 +3728,8 @@ paths:
                 $ref: '#/components/schemas/WebhookEventResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
@@ -3698,6 +3788,8 @@ paths:
                 $ref: '#/components/schemas/SecretReference'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3755,6 +3847,8 @@ paths:
                 $ref: '#/components/schemas/SecretReference'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3840,6 +3934,8 @@ paths:
                 $ref: '#/components/schemas/Workload'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3897,6 +3993,8 @@ paths:
                 $ref: '#/components/schemas/Workload'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -3981,6 +4079,8 @@ paths:
                 $ref: '#/components/schemas/ComponentRelease'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -4090,6 +4190,8 @@ paths:
                 $ref: '#/components/schemas/ReleaseBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -4147,6 +4249,8 @@ paths:
                 $ref: '#/components/schemas/ReleaseBinding'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -4348,6 +4452,8 @@ paths:
                 $ref: '#/components/schemas/DeploymentPipeline'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -4405,6 +4511,8 @@ paths:
                 $ref: '#/components/schemas/DeploymentPipeline'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -4487,6 +4595,8 @@ paths:
                 $ref: '#/components/schemas/ObservabilityAlertsNotificationChannel'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -4544,6 +4654,8 @@ paths:
                 $ref: '#/components/schemas/ObservabilityAlertsNotificationChannel'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -4620,6 +4732,8 @@ paths:
                 $ref: '#/components/schemas/GitSecretResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -4680,6 +4794,8 @@ paths:
                 $ref: '#/components/schemas/SecretResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -5096,6 +5212,19 @@ components:
             error: "Project 'my-project' already exists"
             code: CONFLICT
 
+    UnprocessableContent:
+      description: Request body is well-formed but failed validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "spec.outputs[0].value: undeclared reference to 'applied'"
+            code: UNPROCESSABLE_CONTENT
+            details:
+              - field: spec.outputs[0].value
+                message: undeclared reference to 'applied'
+
     InternalError:
       description: Internal server error
       content:
@@ -5133,6 +5262,7 @@ components:
             - FORBIDDEN
             - NOT_FOUND
             - CONFLICT
+            - UNPROCESSABLE_CONTENT
             - INTERNAL_ERROR
             - UNKNOWN_GIT_PROVIDER
           example: NOT_FOUND

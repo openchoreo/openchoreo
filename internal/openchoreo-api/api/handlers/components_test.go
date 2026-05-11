@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -764,6 +765,8 @@ func TestGenerateReleaseHandler(t *testing.T) {
 		{"workload not found -> 404", componentsvc.ErrWorkloadNotFound, gen.GenerateRelease404JSONResponse{}},
 		{"component type not found -> 404", componentsvc.ErrComponentTypeNotFound, gen.GenerateRelease404JSONResponse{}},
 		{"trait not found -> 404", componentsvc.ErrTraitNotFound, gen.GenerateRelease404JSONResponse{}},
+		{"validation error -> 400", &svcpkg.ValidationError{Msg: "invalid spec"}, gen.GenerateRelease400JSONResponse{}},
+		{"validation 422 -> 422", &svcpkg.ValidationError{Msg: "invalid spec", StatusCode: http.StatusUnprocessableEntity}, gen.GenerateRelease422JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.GenerateRelease500JSONResponse{}},
 	}
 	for _, tt := range tests {

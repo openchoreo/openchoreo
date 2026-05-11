@@ -105,8 +105,8 @@ func (s *workflowRunService) CreateWorkflowRun(ctx context.Context, namespaceNam
 			s.logger.Warn("Workflow run already exists", "namespace", namespaceName, "name", wfRun.Name)
 			return nil, ErrWorkflowRunAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create workflow run", "error", err)
 		return nil, fmt.Errorf("failed to create workflow run: %w", err)
@@ -151,9 +151,9 @@ func (s *workflowRunService) UpdateWorkflowRun(ctx context.Context, namespaceNam
 			s.logger.Warn("Workflow run not found", "namespace", namespaceName, "name", wfRun.Name)
 			return nil, ErrWorkflowRunNotFound
 		}
-		if apierrors.IsInvalid(err) {
+		if vErr := services.ExtractValidationError(err); vErr != nil {
 			s.logger.Error("Workflow run update rejected by validation", "error", err)
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update workflow run", "error", err)
 		return nil, fmt.Errorf("failed to update workflow run: %w", err)

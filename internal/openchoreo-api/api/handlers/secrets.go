@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -88,6 +89,9 @@ func mapCreateSecretError(h *Handler, err error) (gen.CreateSecretResponseObject
 	case errors.Is(err, secretsvc.ErrSecretStoreNotConfigured):
 		return gen.CreateSecret400JSONResponse{BadRequestJSONResponse: badRequest("secret store is not configured on the target plane")}, nil
 	case errors.As(err, &validationErr):
+		if validationErr.StatusCode == http.StatusUnprocessableEntity {
+			return gen.CreateSecret422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+		}
 		return gen.CreateSecret400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 	default:
 		h.logger.Error("Failed to create secret", "error", err)

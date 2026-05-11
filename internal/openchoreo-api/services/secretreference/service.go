@@ -63,8 +63,8 @@ func (s *secretReferenceService) CreateSecretReference(ctx context.Context, name
 			s.logger.Warn("Secret reference already exists", "namespace", namespaceName, "secretReference", sr.Name)
 			return nil, ErrSecretReferenceAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create secret reference CR", "error", err)
 		return nil, fmt.Errorf("failed to create secret reference: %w", err)
@@ -101,8 +101,8 @@ func (s *secretReferenceService) UpdateSecretReference(ctx context.Context, name
 	existing.Annotations = sr.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update secret reference CR", "error", err)
 		return nil, fmt.Errorf("failed to update secret reference: %w", err)

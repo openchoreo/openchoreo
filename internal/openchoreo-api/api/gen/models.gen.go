@@ -205,13 +205,14 @@ const (
 
 // Defines values for ErrorResponseCode.
 const (
-	BADREQUEST         ErrorResponseCode = "BAD_REQUEST"
-	CONFLICT           ErrorResponseCode = "CONFLICT"
-	FORBIDDEN          ErrorResponseCode = "FORBIDDEN"
-	INTERNALERROR      ErrorResponseCode = "INTERNAL_ERROR"
-	NOTFOUND           ErrorResponseCode = "NOT_FOUND"
-	UNAUTHORIZED       ErrorResponseCode = "UNAUTHORIZED"
-	UNKNOWNGITPROVIDER ErrorResponseCode = "UNKNOWN_GIT_PROVIDER"
+	BADREQUEST           ErrorResponseCode = "BAD_REQUEST"
+	CONFLICT             ErrorResponseCode = "CONFLICT"
+	FORBIDDEN            ErrorResponseCode = "FORBIDDEN"
+	INTERNALERROR        ErrorResponseCode = "INTERNAL_ERROR"
+	NOTFOUND             ErrorResponseCode = "NOT_FOUND"
+	UNAUTHORIZED         ErrorResponseCode = "UNAUTHORIZED"
+	UNKNOWNGITPROVIDER   ErrorResponseCode = "UNKNOWN_GIT_PROVIDER"
+	UNPROCESSABLECONTENT ErrorResponseCode = "UNPROCESSABLE_CONTENT"
 )
 
 // Defines values for ExternalRefKind.
@@ -3782,6 +3783,9 @@ type NotFound = ErrorResponse
 
 // Unauthorized Standard error response format
 type Unauthorized = ErrorResponse
+
+// UnprocessableContent Standard error response format
+type UnprocessableContent = ErrorResponse
 
 // EvaluatesJSONBody defines parameters for Evaluates.
 type EvaluatesJSONBody = []EvaluateRequest

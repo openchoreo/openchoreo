@@ -114,8 +114,8 @@ func (s *workflowPlaneService) CreateWorkflowPlane(ctx context.Context, namespac
 		if apierrors.IsAlreadyExists(err) {
 			return nil, ErrWorkflowPlaneAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create workflow plane CR", "error", err)
 		return nil, fmt.Errorf("failed to create workflow plane: %w", err)
@@ -152,8 +152,8 @@ func (s *workflowPlaneService) UpdateWorkflowPlane(ctx context.Context, namespac
 	existing.Annotations = wp.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update workflow plane CR", "error", err)
 		return nil, fmt.Errorf("failed to update workflow plane: %w", err)

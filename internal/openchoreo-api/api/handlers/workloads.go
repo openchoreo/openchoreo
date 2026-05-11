@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -29,8 +30,7 @@ func (h *Handler) ListWorkloads(
 
 	result, err := h.services.WorkloadService.ListWorkloads(ctx, request.NamespaceName, componentName, opts)
 	if err != nil {
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListWorkloads400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list workloads", "error", err)
@@ -77,8 +77,10 @@ func (h *Handler) CreateWorkload(
 		if errors.Is(err, workloadsvc.ErrComponentNotFound) {
 			return gen.CreateWorkload400JSONResponse{BadRequestJSONResponse: badRequest("Referenced component not found")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateWorkload422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateWorkload400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create workload", "error", err)
@@ -151,8 +153,10 @@ func (h *Handler) UpdateWorkload(
 		if errors.Is(err, workloadsvc.ErrWorkloadNotFound) {
 			return gen.UpdateWorkload404JSONResponse{NotFoundJSONResponse: notFound("Workload")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateWorkload422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateWorkload400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update workload", "error", err)

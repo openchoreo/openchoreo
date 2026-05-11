@@ -35,6 +35,13 @@ func conflict(message string) gen.ConflictJSONResponse {
 	}
 }
 
+func unprocessableContent(message string) gen.UnprocessableContentJSONResponse {
+	return gen.UnprocessableContentJSONResponse{
+		Code:  gen.UNPROCESSABLECONTENT,
+		Error: message,
+	}
+}
+
 func internalError() gen.InternalErrorJSONResponse {
 	return gen.InternalErrorJSONResponse{
 		Code:  gen.INTERNALERROR,

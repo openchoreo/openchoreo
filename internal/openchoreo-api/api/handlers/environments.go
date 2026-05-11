@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -25,8 +26,7 @@ func (h *Handler) ListEnvironments(
 
 	result, err := h.services.EnvironmentService.ListEnvironments(ctx, request.NamespaceName, opts)
 	if err != nil {
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListEnvironments400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list environments", "error", err)
@@ -76,8 +76,10 @@ func (h *Handler) CreateEnvironment(
 		if errors.Is(err, environmentsvc.ErrDataPlaneNotFound) {
 			return gen.CreateEnvironment400JSONResponse{BadRequestJSONResponse: badRequest("DataPlane not found")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateEnvironment422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateEnvironment400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create environment", "error", err)
@@ -149,8 +151,10 @@ func (h *Handler) UpdateEnvironment(
 		if errors.Is(err, environmentsvc.ErrEnvironmentNotFound) {
 			return gen.UpdateEnvironment404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateEnvironment422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateEnvironment400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update environment", "error", err)

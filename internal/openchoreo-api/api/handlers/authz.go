@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -290,8 +291,7 @@ func (h *Handler) ListClusterRoles(
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListClusterRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		var validationErr *svcpkg.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcpkg.ValidationError](err); ok {
 			return gen.ListClusterRoles400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list cluster roles", "error", err)
@@ -332,8 +332,10 @@ func (h *Handler) CreateClusterRole(
 		if errors.Is(err, authzsvc.ErrRoleAlreadyExists) {
 			return gen.CreateClusterRole409JSONResponse{ConflictJSONResponse: conflict("Cluster role already exists")}, nil
 		}
-		var validationErr *svcpkg.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcpkg.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateClusterRole422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateClusterRole400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create cluster role", "error", err)
@@ -405,8 +407,10 @@ func (h *Handler) UpdateClusterRole(
 		if errors.Is(err, authzsvc.ErrRoleNotFound) {
 			return gen.UpdateClusterRole404JSONResponse{NotFoundJSONResponse: notFound("Cluster role")}, nil
 		}
-		var validationErr *svcpkg.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcpkg.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateClusterRole422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateClusterRole400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update cluster role", "error", err)
@@ -464,8 +468,7 @@ func (h *Handler) ListClusterRoleBindings(
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListClusterRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		var validationErr *svcpkg.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcpkg.ValidationError](err); ok {
 			return gen.ListClusterRoleBindings400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list cluster role bindings", "error", err)
@@ -509,8 +512,10 @@ func (h *Handler) CreateClusterRoleBinding(
 		if errors.Is(err, authzsvc.ErrRoleNotFound) {
 			return gen.CreateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest("Referenced role not found")}, nil
 		}
-		var validationErr *svcpkg.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcpkg.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateClusterRoleBinding422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create cluster role binding", "error", err)
@@ -582,8 +587,10 @@ func (h *Handler) UpdateClusterRoleBinding(
 		if errors.Is(err, authzsvc.ErrRoleBindingNotFound) {
 			return gen.UpdateClusterRoleBinding404JSONResponse{NotFoundJSONResponse: notFound("Cluster role binding")}, nil
 		}
-		var validationErr *svcpkg.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcpkg.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateClusterRoleBinding422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateClusterRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update cluster role binding", "error", err)
@@ -638,8 +645,7 @@ func (h *Handler) ListNamespaceRoles(
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListNamespaceRoles403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		var validationErr *svcpkg.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcpkg.ValidationError](err); ok {
 			return gen.ListNamespaceRoles400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list namespace roles", "error", err)
@@ -680,8 +686,10 @@ func (h *Handler) CreateNamespaceRole(
 		if errors.Is(err, authzsvc.ErrRoleAlreadyExists) {
 			return gen.CreateNamespaceRole409JSONResponse{ConflictJSONResponse: conflict("Namespace role already exists")}, nil
 		}
-		var validationErr *svcpkg.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcpkg.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateNamespaceRole422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateNamespaceRole400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create namespace role", "error", err)
@@ -753,8 +761,10 @@ func (h *Handler) UpdateNamespaceRole(
 		if errors.Is(err, authzsvc.ErrRoleNotFound) {
 			return gen.UpdateNamespaceRole404JSONResponse{NotFoundJSONResponse: notFound("Namespace role")}, nil
 		}
-		var validationErr *svcpkg.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcpkg.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateNamespaceRole422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateNamespaceRole400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update namespace role", "error", err)
@@ -812,8 +822,7 @@ func (h *Handler) ListNamespaceRoleBindings(
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			return gen.ListNamespaceRoleBindings403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		var validationErr *svcpkg.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcpkg.ValidationError](err); ok {
 			return gen.ListNamespaceRoleBindings400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list namespace role bindings", "error", err)
@@ -854,8 +863,10 @@ func (h *Handler) CreateNamespaceRoleBinding(
 		if errors.Is(err, authzsvc.ErrRoleBindingAlreadyExists) {
 			return gen.CreateNamespaceRoleBinding409JSONResponse{ConflictJSONResponse: conflict("Namespace role binding already exists")}, nil
 		}
-		var validationErr *svcpkg.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcpkg.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateNamespaceRoleBinding422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateNamespaceRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create namespace role binding", "error", err)
@@ -927,8 +938,10 @@ func (h *Handler) UpdateNamespaceRoleBinding(
 		if errors.Is(err, authzsvc.ErrRoleBindingNotFound) {
 			return gen.UpdateNamespaceRoleBinding404JSONResponse{NotFoundJSONResponse: notFound("Namespace role binding")}, nil
 		}
-		var validationErr *svcpkg.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcpkg.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateNamespaceRoleBinding422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateNamespaceRoleBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update namespace role binding", "error", err)

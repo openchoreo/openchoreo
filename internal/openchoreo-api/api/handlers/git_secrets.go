@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
@@ -123,6 +124,9 @@ func mapCreateGitSecretError(h *Handler, err error) (gen.CreateGitSecretResponse
 	case errors.Is(err, gitsecretsvc.ErrInvalidSecretType):
 		return gen.CreateGitSecret400JSONResponse{BadRequestJSONResponse: badRequest(err.Error())}, nil
 	case errors.As(err, &validationErr):
+		if validationErr.StatusCode == http.StatusUnprocessableEntity {
+			return gen.CreateGitSecret422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+		}
 		return gen.CreateGitSecret400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 	case errors.Is(err, gitsecretsvc.ErrWorkflowPlaneNotFound):
 		return gen.CreateGitSecret400JSONResponse{BadRequestJSONResponse: badRequest("workflow plane not found")}, nil

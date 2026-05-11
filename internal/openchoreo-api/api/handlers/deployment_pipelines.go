@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -27,8 +28,7 @@ func (h *Handler) ListDeploymentPipelines(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListDeploymentPipelines403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListDeploymentPipelines400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list deployment pipelines", "error", err)
@@ -71,8 +71,10 @@ func (h *Handler) CreateDeploymentPipeline(
 		if errors.Is(err, deploymentpipelinesvc.ErrDeploymentPipelineAlreadyExists) {
 			return gen.CreateDeploymentPipeline409JSONResponse{ConflictJSONResponse: conflict("Deployment pipeline already exists")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateDeploymentPipeline422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateDeploymentPipeline400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create deployment pipeline", "error", err)
@@ -144,8 +146,10 @@ func (h *Handler) UpdateDeploymentPipeline(
 		if errors.Is(err, deploymentpipelinesvc.ErrDeploymentPipelineNotFound) {
 			return gen.UpdateDeploymentPipeline404JSONResponse{NotFoundJSONResponse: notFound("DeploymentPipeline")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateDeploymentPipeline422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateDeploymentPipeline400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update deployment pipeline", "error", err)

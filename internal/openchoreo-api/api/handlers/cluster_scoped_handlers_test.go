@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -623,6 +624,7 @@ func TestUpdateClusterComponentTypeHandler_MapsErrors(t *testing.T) {
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateClusterComponentType403JSONResponse{}},
 		{"not found -> 404", clustercomponenttypesvc.ErrClusterComponentTypeNotFound, gen.UpdateClusterComponentType404JSONResponse{}},
 		{"validation error -> 400", &svcpkg.ValidationError{Msg: "invalid spec"}, gen.UpdateClusterComponentType400JSONResponse{}},
+		{"validation 422 -> 422", &svcpkg.ValidationError{Msg: "invalid spec", StatusCode: http.StatusUnprocessableEntity}, gen.UpdateClusterComponentType422JSONResponse{}},
 	}
 
 	for _, tt := range tests {
@@ -720,6 +722,8 @@ func TestCreateClusterWorkflowHandler_MapsErrors(t *testing.T) {
 		wantTyp any
 	}{
 		{"already exists -> 409", clusterworkflowsvc.ErrClusterWorkflowAlreadyExists, gen.CreateClusterWorkflow409JSONResponse{}},
+		{"validation error -> 400", &svcpkg.ValidationError{Msg: "invalid spec"}, gen.CreateClusterWorkflow400JSONResponse{}},
+		{"validation 422 -> 422", &svcpkg.ValidationError{Msg: "invalid spec", StatusCode: http.StatusUnprocessableEntity}, gen.CreateClusterWorkflow422JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.CreateClusterWorkflow500JSONResponse{}},
 	}
 	for _, tt := range tests {
@@ -781,6 +785,8 @@ func TestUpdateClusterWorkflowHandler(t *testing.T) {
 	}{
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateClusterWorkflow403JSONResponse{}},
 		{"not found -> 404", clusterworkflowsvc.ErrClusterWorkflowNotFound, gen.UpdateClusterWorkflow404JSONResponse{}},
+		{"validation error -> 400", &svcpkg.ValidationError{Msg: "invalid spec"}, gen.UpdateClusterWorkflow400JSONResponse{}},
+		{"validation 422 -> 422", &svcpkg.ValidationError{Msg: "invalid spec", StatusCode: http.StatusUnprocessableEntity}, gen.UpdateClusterWorkflow422JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.UpdateClusterWorkflow500JSONResponse{}},
 	}
 	for _, tt := range tests {

@@ -12416,6 +12416,7 @@ type EvaluatesResp struct {
 	JSON200      *[]Decision
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12495,6 +12496,7 @@ type CreateClusterRoleBindingResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12574,6 +12576,7 @@ type UpdateClusterRoleBindingResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12627,6 +12630,7 @@ type CreateClusterRoleResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12706,6 +12710,7 @@ type UpdateClusterRoleResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12759,6 +12764,7 @@ type CreateClusterComponentTypeResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12838,6 +12844,7 @@ type UpdateClusterComponentTypeResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12917,6 +12924,7 @@ type CreateClusterDataPlaneResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12996,6 +13004,7 @@ type UpdateClusterDataPlaneResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13049,6 +13058,7 @@ type CreateClusterObservabilityPlaneResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13128,6 +13138,7 @@ type UpdateClusterObservabilityPlaneResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13181,6 +13192,7 @@ type CreateClusterTraitResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13260,6 +13272,7 @@ type UpdateClusterTraitResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13339,6 +13352,7 @@ type CreateClusterWorkflowPlaneResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13418,6 +13432,7 @@ type UpdateClusterWorkflowPlaneResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13471,6 +13486,7 @@ type CreateClusterWorkflowResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13550,6 +13566,7 @@ type UpdateClusterWorkflowResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13629,6 +13646,7 @@ type CreateNamespaceResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13707,6 +13725,7 @@ type UpdateNamespaceResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13760,6 +13779,7 @@ type CreateNamespaceRoleBindingResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13841,6 +13861,7 @@ type UpdateNamespaceRoleBindingResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13894,6 +13915,7 @@ type CreateNamespaceRoleResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13975,6 +13997,7 @@ type UpdateNamespaceRoleResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14029,6 +14052,7 @@ type CreateComponentReleaseResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14134,6 +14158,7 @@ type CreateComponentResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14213,6 +14238,7 @@ type UpdateComponentResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14240,6 +14266,7 @@ type GenerateReleaseResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14319,6 +14346,7 @@ type CreateComponentTypeResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14398,6 +14426,7 @@ type UpdateComponentTypeResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14477,6 +14506,7 @@ type CreateDataPlaneResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14556,6 +14586,7 @@ type UpdateDataPlaneResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14609,6 +14640,7 @@ type CreateDeploymentPipelineResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14687,6 +14719,7 @@ type UpdateDeploymentPipelineResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14740,6 +14773,7 @@ type CreateEnvironmentResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14819,6 +14853,7 @@ type UpdateEnvironmentResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14872,6 +14907,7 @@ type CreateObservabilityAlertsNotificationChannelResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14950,6 +14986,7 @@ type UpdateObservabilityAlertsNotificationChannelResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15003,6 +15040,7 @@ type CreateObservabilityPlaneResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15082,6 +15120,7 @@ type UpdateObservabilityPlaneResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15136,6 +15175,7 @@ type CreateProjectResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15215,6 +15255,7 @@ type UpdateProjectResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15269,6 +15310,7 @@ type CreateReleaseBindingResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15347,6 +15389,7 @@ type UpdateReleaseBindingResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15481,6 +15524,7 @@ type CreateSecretReferenceResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15559,6 +15603,7 @@ type UpdateSecretReferenceResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15612,6 +15657,7 @@ type CreateTraitResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15691,6 +15737,7 @@ type UpdateTraitResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15770,6 +15817,7 @@ type CreateWorkflowPlaneResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15849,6 +15897,7 @@ type UpdateWorkflowPlaneResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15902,6 +15951,7 @@ type CreateWorkflowRunResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15980,6 +16030,7 @@ type UpdateWorkflowRunResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16110,6 +16161,7 @@ type CreateWorkflowResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16189,6 +16241,7 @@ type UpdateWorkflowResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16269,6 +16322,7 @@ type CreateWorkloadResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16347,6 +16401,7 @@ type UpdateWorkloadResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16372,6 +16427,7 @@ type HandleAutoBuildResp struct {
 	JSON200      *WebhookEventResponse
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16424,6 +16480,7 @@ type CreateGitSecretResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16476,6 +16533,7 @@ type CreateSecretResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -18686,6 +18744,13 @@ func ParseEvaluatesResp(rsp *http.Response) (*EvaluatesResp, error) {
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -18854,6 +18919,13 @@ func ParseCreateClusterRoleBindingResp(rsp *http.Response) (*CreateClusterRoleBi
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -19024,6 +19096,13 @@ func ParseUpdateClusterRoleBindingResp(rsp *http.Response) (*UpdateClusterRoleBi
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -19138,6 +19217,13 @@ func ParseCreateClusterRoleResp(rsp *http.Response) (*CreateClusterRoleResp, err
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -19308,6 +19394,13 @@ func ParseUpdateClusterRoleResp(rsp *http.Response) (*UpdateClusterRoleResp, err
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -19422,6 +19515,13 @@ func ParseCreateClusterComponentTypeResp(rsp *http.Response) (*CreateClusterComp
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -19592,6 +19692,13 @@ func ParseUpdateClusterComponentTypeResp(rsp *http.Response) (*UpdateClusterComp
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -19760,6 +19867,13 @@ func ParseCreateClusterDataPlaneResp(rsp *http.Response) (*CreateClusterDataPlan
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -19930,6 +20044,13 @@ func ParseUpdateClusterDataPlaneResp(rsp *http.Response) (*UpdateClusterDataPlan
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -20044,6 +20165,13 @@ func ParseCreateClusterObservabilityPlaneResp(rsp *http.Response) (*CreateCluste
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -20214,6 +20342,13 @@ func ParseUpdateClusterObservabilityPlaneResp(rsp *http.Response) (*UpdateCluste
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -20328,6 +20463,13 @@ func ParseCreateClusterTraitResp(rsp *http.Response) (*CreateClusterTraitResp, e
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -20498,6 +20640,13 @@ func ParseUpdateClusterTraitResp(rsp *http.Response) (*UpdateClusterTraitResp, e
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -20666,6 +20815,13 @@ func ParseCreateClusterWorkflowPlaneResp(rsp *http.Response) (*CreateClusterWork
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -20836,6 +20992,13 @@ func ParseUpdateClusterWorkflowPlaneResp(rsp *http.Response) (*UpdateClusterWork
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -20950,6 +21113,13 @@ func ParseCreateClusterWorkflowResp(rsp *http.Response) (*CreateClusterWorkflowR
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -21120,6 +21290,13 @@ func ParseUpdateClusterWorkflowResp(rsp *http.Response) (*UpdateClusterWorkflowR
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21289,6 +21466,13 @@ func ParseCreateNamespaceResp(rsp *http.Response) (*CreateNamespaceResp, error) 
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21451,6 +21635,13 @@ func ParseUpdateNamespaceResp(rsp *http.Response) (*UpdateNamespaceResp, error) 
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21565,6 +21756,13 @@ func ParseCreateNamespaceRoleBindingResp(rsp *http.Response) (*CreateNamespaceRo
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -21749,6 +21947,13 @@ func ParseUpdateNamespaceRoleBindingResp(rsp *http.Response) (*UpdateNamespaceRo
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21863,6 +22068,13 @@ func ParseCreateNamespaceRoleResp(rsp *http.Response) (*CreateNamespaceRoleResp,
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -22047,6 +22259,13 @@ func ParseUpdateNamespaceRoleResp(rsp *http.Response) (*UpdateNamespaceRoleResp,
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22168,6 +22387,13 @@ func ParseCreateComponentReleaseResp(rsp *http.Response) (*CreateComponentReleas
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -22392,6 +22618,13 @@ func ParseCreateComponentResp(rsp *http.Response) (*CreateComponentResp, error) 
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22561,6 +22794,13 @@ func ParseUpdateComponentResp(rsp *http.Response) (*UpdateComponentResp, error) 
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22621,6 +22861,13 @@ func ParseGenerateReleaseResp(rsp *http.Response) (*GenerateReleaseResp, error) 
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -22791,6 +23038,13 @@ func ParseCreateComponentTypeResp(rsp *http.Response) (*CreateComponentTypeResp,
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22959,6 +23213,13 @@ func ParseUpdateComponentTypeResp(rsp *http.Response) (*UpdateComponentTypeResp,
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -23129,6 +23390,13 @@ func ParseCreateDataPlaneResp(rsp *http.Response) (*CreateDataPlaneResp, error) 
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23298,6 +23566,13 @@ func ParseUpdateDataPlaneResp(rsp *http.Response) (*UpdateDataPlaneResp, error) 
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23412,6 +23687,13 @@ func ParseCreateDeploymentPipelineResp(rsp *http.Response) (*CreateDeploymentPip
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -23575,6 +23857,13 @@ func ParseUpdateDeploymentPipelineResp(rsp *http.Response) (*UpdateDeploymentPip
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23689,6 +23978,13 @@ func ParseCreateEnvironmentResp(rsp *http.Response) (*CreateEnvironmentResp, err
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -23859,6 +24155,13 @@ func ParseUpdateEnvironmentResp(rsp *http.Response) (*UpdateEnvironmentResp, err
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23973,6 +24276,13 @@ func ParseCreateObservabilityAlertsNotificationChannelResp(rsp *http.Response) (
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -24136,6 +24446,13 @@ func ParseUpdateObservabilityAlertsNotificationChannelResp(rsp *http.Response) (
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -24250,6 +24567,13 @@ func ParseCreateObservabilityPlaneResp(rsp *http.Response) (*CreateObservability
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -24420,6 +24744,13 @@ func ParseUpdateObservabilityPlaneResp(rsp *http.Response) (*UpdateObservability
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -24541,6 +24872,13 @@ func ParseCreateProjectResp(rsp *http.Response) (*CreateProjectResp, error) {
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -24711,6 +25049,13 @@ func ParseUpdateProjectResp(rsp *http.Response) (*UpdateProjectResp, error) {
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -24832,6 +25177,13 @@ func ParseCreateReleaseBindingResp(rsp *http.Response) (*CreateReleaseBindingRes
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -24994,6 +25346,13 @@ func ParseUpdateReleaseBindingResp(rsp *http.Response) (*UpdateReleaseBindingRes
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -25293,6 +25652,13 @@ func ParseCreateSecretReferenceResp(rsp *http.Response) (*CreateSecretReferenceR
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -25455,6 +25821,13 @@ func ParseUpdateSecretReferenceResp(rsp *http.Response) (*UpdateSecretReferenceR
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -25569,6 +25942,13 @@ func ParseCreateTraitResp(rsp *http.Response) (*CreateTraitResp, error) {
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -25739,6 +26119,13 @@ func ParseUpdateTraitResp(rsp *http.Response) (*UpdateTraitResp, error) {
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -25907,6 +26294,13 @@ func ParseCreateWorkflowPlaneResp(rsp *http.Response) (*CreateWorkflowPlaneResp,
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -26077,6 +26471,13 @@ func ParseUpdateWorkflowPlaneResp(rsp *http.Response) (*UpdateWorkflowPlaneResp,
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -26191,6 +26592,13 @@ func ParseCreateWorkflowRunResp(rsp *http.Response) (*CreateWorkflowRunResp, err
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -26353,6 +26761,13 @@ func ParseUpdateWorkflowRunResp(rsp *http.Response) (*UpdateWorkflowRunResp, err
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -26624,6 +27039,13 @@ func ParseCreateWorkflowResp(rsp *http.Response) (*CreateWorkflowResp, error) {
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -26792,6 +27214,13 @@ func ParseUpdateWorkflowResp(rsp *http.Response) (*UpdateWorkflowResp, error) {
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -26969,6 +27398,13 @@ func ParseCreateWorkloadResp(rsp *http.Response) (*CreateWorkloadResp, error) {
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -27131,6 +27567,13 @@ func ParseUpdateWorkloadResp(rsp *http.Response) (*UpdateWorkloadResp, error) {
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -27177,6 +27620,13 @@ func ParseHandleAutoBuildResp(rsp *http.Response) (*HandleAutoBuildResp, error) 
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -27286,6 +27736,13 @@ func ParseCreateGitSecretResp(rsp *http.Response) (*CreateGitSecretResp, error) 
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -27393,6 +27850,13 @@ func ParseCreateSecretResp(rsp *http.Response) (*CreateSecretResp, error) {
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

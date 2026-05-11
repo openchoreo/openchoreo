@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -27,8 +28,7 @@ func (h *Handler) ListClusterTraits(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListClusterTraits403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListClusterTraits400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list cluster traits", "error", err)
@@ -71,8 +71,10 @@ func (h *Handler) CreateClusterTrait(
 		if errors.Is(err, clustertraitsvc.ErrClusterTraitAlreadyExists) {
 			return gen.CreateClusterTrait409JSONResponse{ConflictJSONResponse: conflict("Cluster trait already exists")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateClusterTrait422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateClusterTrait400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create cluster trait", "error", err)
@@ -116,8 +118,10 @@ func (h *Handler) UpdateClusterTrait(
 		if errors.Is(err, clustertraitsvc.ErrClusterTraitNotFound) {
 			return gen.UpdateClusterTrait404JSONResponse{NotFoundJSONResponse: notFound("ClusterTrait")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateClusterTrait422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateClusterTrait400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update cluster trait", "error", err)

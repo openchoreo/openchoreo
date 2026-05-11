@@ -133,8 +133,8 @@ func (s *environmentService) CreateEnvironment(ctx context.Context, namespaceNam
 	env.Namespace = namespaceName
 
 	if err := s.k8sClient.Create(ctx, env); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create environment CR", "error", err)
 		return nil, fmt.Errorf("failed to create environment: %w", err)
@@ -171,9 +171,9 @@ func (s *environmentService) UpdateEnvironment(ctx context.Context, namespaceNam
 	existing.Annotations = env.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
+		if vErr := services.ExtractValidationError(err); vErr != nil {
 			s.logger.Error("Environment update rejected by validation", "error", err)
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update environment CR", "error", err)
 		return nil, fmt.Errorf("failed to update environment: %w", err)

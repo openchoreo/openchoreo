@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -24,8 +25,7 @@ func (h *Handler) ListComponentTypes(
 
 	result, err := h.services.ComponentTypeService.ListComponentTypes(ctx, request.NamespaceName, opts)
 	if err != nil {
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListComponentTypes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list component types", "error", err)
@@ -69,8 +69,10 @@ func (h *Handler) CreateComponentType(
 		if errors.Is(err, componenttypesvc.ErrComponentTypeAlreadyExists) {
 			return gen.CreateComponentType409JSONResponse{ConflictJSONResponse: conflict("Component type already exists")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateComponentType422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateComponentType400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create component type", "error", err)
@@ -143,8 +145,10 @@ func (h *Handler) UpdateComponentType(
 		if errors.Is(err, componenttypesvc.ErrComponentTypeNotFound) {
 			return gen.UpdateComponentType404JSONResponse{NotFoundJSONResponse: notFound("Component type")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateComponentType422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateComponentType400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update component type", "error", err)
