@@ -31,6 +31,7 @@ func TestBuildRootCmd_Subcommands(t *testing.T) {
 		"namespace",
 		"project",
 		"component",
+		"resource",
 		"environment",
 		"dataplane",
 		"workflowplane",

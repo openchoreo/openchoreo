@@ -32,6 +32,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/project"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/resource"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcetype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/secretreference"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/trait"
@@ -66,6 +67,7 @@ func BuildRootCmd() *cobra.Command {
 		namespace.NewNamespaceCmd(f),
 		project.NewProjectCmd(f),
 		component.NewComponentCmd(f),
+		resource.NewResourceCmd(f),
 		environment.NewEnvironmentCmd(f),
 		dataplane.NewDataPlaneCmd(f),
 		workflowplane.NewWorkflowPlaneCmd(f),
