@@ -2442,6 +2442,18 @@ type PatchComponentRequest struct {
 	Workflow *ComponentWorkflowInput `json:"workflow,omitempty"`
 }
 
+// PatchProjectRequest Request to patch a project
+type PatchProjectRequest struct {
+	// DeploymentPipeline Name of the deployment pipeline resource
+	DeploymentPipeline *string `json:"deploymentPipeline,omitempty"`
+
+	// Description Human-readable description
+	Description *string `json:"description,omitempty"`
+
+	// DisplayName Human-readable display name
+	DisplayName *string `json:"displayName,omitempty"`
+}
+
 // PendingConnection Represents a connection that could not be resolved
 type PendingConnection struct {
 	// Component Name of the target component

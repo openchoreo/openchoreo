@@ -3,7 +3,11 @@
 
 package tools
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+)
 
 // projectToolSpecs returns test specs for project toolset
 func projectToolSpecs() []toolTestSpec {
@@ -64,14 +68,18 @@ func projectToolSpecs() []toolTestSpec {
 				if args[1] != testProjectName {
 					t.Errorf("Expected project %q, got %v", testProjectName, args[1])
 				}
-				if args[2] != "" {
-					t.Errorf("Expected deployment pipeline to be empty, got %v", args[2])
+				req, ok := args[2].(*gen.PatchProjectRequest)
+				if !ok {
+					t.Fatalf("Expected *gen.PatchProjectRequest, got %T", args[2])
 				}
-				if args[3] != "Updated Project" {
-					t.Errorf("Expected display name %q, got %v", "Updated Project", args[3])
+				if req.DeploymentPipeline != nil {
+					t.Errorf("Expected deployment pipeline to be empty, got %v", *req.DeploymentPipeline)
 				}
-				if args[4] != "Updated project description" {
-					t.Errorf("Expected description %q, got %v", "Updated project description", args[4])
+				if req.DisplayName == nil || *req.DisplayName != "Updated Project" {
+					t.Errorf("Expected display name %q, got %v", "Updated Project", req.DisplayName)
+				}
+				if req.Description == nil || *req.Description != "Updated project description" {
+					t.Errorf("Expected description %q, got %v", "Updated project description", req.Description)
 				}
 			},
 		},

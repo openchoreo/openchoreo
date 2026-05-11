@@ -109,8 +109,18 @@ func (t *Toolsets) RegisterUpdateProject(s *mcp.Server, perms map[string]ToolPer
 		Description: "Update an existing project's deployment pipeline reference.",
 		InputSchema: inputSchema,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args updateProjectArgs) (*mcp.CallToolResult, any, error) {
-		result, err := t.ProjectToolset.UpdateProject(
-			ctx, args.NamespaceName, args.ProjectName, args.DeploymentPipeline, args.DisplayName, args.Description)
+		patchReq := &gen.PatchProjectRequest{}
+		if args.DeploymentPipeline != "" {
+			patchReq.DeploymentPipeline = &args.DeploymentPipeline
+		}
+		if args.DisplayName != "" {
+			patchReq.DisplayName = &args.DisplayName
+		}
+		if args.Description != "" {
+			patchReq.Description = &args.Description
+		}
+
+		result, err := t.ProjectToolset.UpdateProject(ctx, args.NamespaceName, args.ProjectName, patchReq)
 		return handleToolResult(result, err)
 	})
 }

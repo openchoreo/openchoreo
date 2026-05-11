@@ -129,9 +129,9 @@ func (m *MockCoreToolsetHandler) CreateProject(
 }
 
 func (m *MockCoreToolsetHandler) UpdateProject(
-	ctx context.Context, namespaceName, projectName, deploymentPipeline, displayName, description string,
+	ctx context.Context, namespaceName, projectName string, req *gen.PatchProjectRequest,
 ) (any, error) {
-	m.recordCall("UpdateProject", namespaceName, projectName, deploymentPipeline, displayName, description)
+	m.recordCall("UpdateProject", namespaceName, projectName, req)
 	return `{"name":"updated-project"}`, nil
 }
 

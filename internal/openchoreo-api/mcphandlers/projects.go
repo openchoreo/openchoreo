@@ -68,8 +68,12 @@ func (h *MCPHandler) CreateProject(ctx context.Context, namespaceName string, re
 
 func (h *MCPHandler) UpdateProject(
 	ctx context.Context,
-	namespaceName, projectName, deploymentPipeline, displayName, description string,
+	namespaceName, projectName string, req *gen.PatchProjectRequest,
 ) (any, error) {
+	if req == nil {
+		req = &gen.PatchProjectRequest{}
+	}
+
 	project, err := h.services.ProjectService.GetProject(ctx, namespaceName, projectName)
 	if err != nil {
 		return nil, fmt.Errorf("UpdateProject: GetProject namespace=%s project=%s: %w", namespaceName, projectName, err)
@@ -79,13 +83,16 @@ func (h *MCPHandler) UpdateProject(
 	if updatedProject.Annotations == nil {
 		updatedProject.Annotations = map[string]string{}
 	}
-	if displayName != "" {
-		updatedProject.Annotations[controller.AnnotationKeyDisplayName] = displayName
+	if req.DisplayName != nil && *req.DisplayName != "" {
+		updatedProject.Annotations[controller.AnnotationKeyDisplayName] = *req.DisplayName
 	}
-	if description != "" {
-		updatedProject.Annotations[controller.AnnotationKeyDescription] = description
+	if req.Description != nil && *req.Description != "" {
+		updatedProject.Annotations[controller.AnnotationKeyDescription] = *req.Description
 	}
-	if deploymentPipeline != "" {
+
+	deploymentPipeline := ""
+	if req.DeploymentPipeline != nil && *req.DeploymentPipeline != "" {
+		deploymentPipeline = *req.DeploymentPipeline
 		updatedProject.Spec.DeploymentPipelineRef = openchoreov1alpha1.DeploymentPipelineRef{
 			Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
 			Name: deploymentPipeline,

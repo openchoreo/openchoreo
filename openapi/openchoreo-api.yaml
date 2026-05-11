@@ -5560,6 +5560,23 @@ components:
           allOf:
             - $ref: '#/components/schemas/ProjectStatus'
 
+    PatchProjectRequest:
+      type: object
+      description: Request to patch a project
+      properties:
+        displayName:
+          type: string
+          description: Human-readable display name
+        description:
+          type: string
+          description: Human-readable description
+        deploymentPipeline:
+          type: string
+          description: Name of the deployment pipeline resource
+          minLength: 1
+          maxLength: 63
+          example: default
+
     ProjectList:
       type: object
       description: Paginated list of projects

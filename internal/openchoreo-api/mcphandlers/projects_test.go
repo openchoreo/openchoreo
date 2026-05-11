@@ -138,12 +138,12 @@ func TestUpdateProject(t *testing.T) {
 
 	t.Run("updates deployment pipeline while preserving existing metadata", func(t *testing.T) {
 		const (
-			projectName    = "my-proj"
-			oldPipeline    = "default"
-			newPipeline    = "custom-pipeline"
-			newDisplayName = "Updated Project"
-			newDescription = "Updated project description"
+			projectName = "my-proj"
+			oldPipeline = "default"
 		)
+		newPipeline := "custom-pipeline"
+		newDisplayName := "Updated Project"
+		newDescription := "Updated project description"
 
 		projSvc := projectmocks.NewMockService(t)
 		existing := &openchoreov1alpha1.Project{
@@ -176,7 +176,11 @@ func TestUpdateProject(t *testing.T) {
 			Return(updated, nil)
 
 		h := newTestHandler(withProjectService(projSvc))
-		result, err := h.UpdateProject(ctx, testNS, projectName, newPipeline, newDisplayName, newDescription)
+		result, err := h.UpdateProject(ctx, testNS, projectName, &gen.PatchProjectRequest{
+			DeploymentPipeline: &newPipeline,
+			DisplayName:        &newDisplayName,
+			Description:        &newDescription,
+		})
 		require.NoError(t, err)
 
 		require.NotNil(t, updateReq)
