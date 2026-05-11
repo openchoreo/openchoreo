@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -51,7 +52,7 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	allErrs := ValidateWorkflowSpec(wf.Spec.RunTemplate, wf.Spec.Resources, wf.Spec.ExternalRefs, wf.Spec.Parameters)
 
 	if len(allErrs) > 0 {
-		return nil, allErrs.ToAggregate()
+		return nil, apierrors.NewInvalid(wf.GroupVersionKind().GroupKind(), wf.GetName(), allErrs)
 	}
 
 	return nil, nil
@@ -68,7 +69,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	allErrs := ValidateWorkflowSpec(newWf.Spec.RunTemplate, newWf.Spec.Resources, newWf.Spec.ExternalRefs, newWf.Spec.Parameters)
 
 	if len(allErrs) > 0 {
-		return nil, allErrs.ToAggregate()
+		return nil, apierrors.NewInvalid(newWf.GroupVersionKind().GroupKind(), newWf.GetName(), allErrs)
 	}
 
 	return nil, nil

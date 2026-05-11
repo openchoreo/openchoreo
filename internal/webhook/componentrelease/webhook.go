@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"gopkg.in/yaml.v3"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -129,7 +130,7 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	}
 
 	if len(allErrs) > 0 {
-		return nil, allErrs.ToAggregate()
+		return nil, apierrors.NewInvalid(componentrelease.GroupVersionKind().GroupKind(), componentrelease.GetName(), allErrs)
 	}
 
 	return nil, nil

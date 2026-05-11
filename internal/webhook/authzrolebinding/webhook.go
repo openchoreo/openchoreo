@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,7 +47,7 @@ func (v *AuthzRoleBindingValidator) ValidateCreate(_ context.Context, obj runtim
 	}
 	log.Info("Validation for AuthzRoleBinding upon creation", "name", rb.GetName())
 	if errs := validateRoleMappings(rb.Spec.RoleMappings); len(errs) > 0 {
-		return nil, errs.ToAggregate()
+		return nil, apierrors.NewInvalid(rb.GroupVersionKind().GroupKind(), rb.GetName(), errs)
 	}
 	return nil, nil
 }
@@ -58,7 +59,7 @@ func (v *AuthzRoleBindingValidator) ValidateUpdate(_ context.Context, _, newObj 
 	}
 	log.Info("Validation for AuthzRoleBinding upon update", "name", rb.GetName())
 	if errs := validateRoleMappings(rb.Spec.RoleMappings); len(errs) > 0 {
-		return nil, errs.ToAggregate()
+		return nil, apierrors.NewInvalid(rb.GroupVersionKind().GroupKind(), rb.GetName(), errs)
 	}
 	return nil, nil
 }
