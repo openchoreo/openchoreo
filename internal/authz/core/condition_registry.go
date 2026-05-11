@@ -57,8 +57,13 @@ func LookupConditions(action string) []AttributeSpec {
 	return conditionRegistry[action]
 }
 
-// IntersectConditionsForActions returns the attribute specs allowed for every action in the input list.
-// i.e. the set usable by a condition entry targeting all of those actions at once.
+// IntersectConditionsForActions returns the attribute specs allowed for every action
+// in the input list. Wildcard patterns ("*", "<resource>:*") are expanded to their
+// concrete actions before intersection, so a condition targeting "releasebinding:*"
+// is treated as targeting every concrete releasebinding action.
+//
+// Returns an empty (non-nil) slice if any pattern matches no known public action,
+// or if the expanded action set has no common attributes.
 func IntersectConditionsForActions(actions []string) []AttributeSpec {
 	if len(actions) == 0 {
 		return nil
@@ -66,10 +71,28 @@ func IntersectConditionsForActions(actions []string) []AttributeSpec {
 
 	counts := make(map[string]int)
 	specs := make(map[string]AttributeSpec)
-	for _, action := range actions {
-		for _, s := range conditionRegistry[action] {
-			counts[s.Key]++
-			specs[s.Key] = s
+
+	for _, pattern := range actions {
+		expanded := ExpandActionPattern(pattern)
+		if len(expanded) == 0 {
+			return []AttributeSpec{}
+		}
+
+		// Per-pattern intersection: an attribute is supported by this pattern
+		// only if every concrete action it expands to registers that attribute.
+		perPatternCount := make(map[string]int)
+		perPatternSpec := make(map[string]AttributeSpec)
+		for _, a := range expanded {
+			for _, s := range conditionRegistry[a] {
+				perPatternCount[s.Key]++
+				perPatternSpec[s.Key] = s
+			}
+		}
+		for key, c := range perPatternCount {
+			if c == len(expanded) {
+				counts[key]++
+				specs[key] = perPatternSpec[key]
+			}
 		}
 	}
 

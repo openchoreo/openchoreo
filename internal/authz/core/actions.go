@@ -432,21 +432,67 @@ func PublicActions() []Action {
 	return actions
 }
 
-// ConcretePublicActions returns only concrete (non-wildcarded) public actions, sorted by name
-func ConcretePublicActions() []Action {
-	actions := make([]Action, 0)
-	for _, action := range systemActions {
-		// exclude wildcarded actions (containing *) and internal actions
-		if !action.IsInternal && !strings.Contains(action.Name, "*") {
-			action.Conditions = LookupConditions(action.Name)
-			actions = append(actions, action)
+// concretePublicActions returns all concrete (non-wildcarded), public actions, sorted by name
+func concretePublicActions() []Action {
+	out := make([]Action, 0, len(systemActions))
+	for _, a := range systemActions {
+		if a.IsInternal || strings.Contains(a.Name, "*") {
+			continue
 		}
+		out = append(out, a)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Name < out[j].Name
+	})
+	return out
+}
+
+// ConcretePublicActions returns only concrete (non-wildcarded) public actions,
+// sorted by name, with Conditions populated.
+func ConcretePublicActions() []Action {
+	actions := concretePublicActions()
+	for i := range actions {
+		actions[i].Conditions = LookupConditions(actions[i].Name)
+	}
+	return actions
+}
+
+// ExpandActionPattern expands one (possibly wildcarded) action pattern to the
+// concrete public action names it matches.
+//
+//   - "*"             -> every concrete public action
+//   - "<resource>:*"  -> every concrete public action with that resource prefix
+//   - "resource:op"   -> [resource:op] if it is a known concrete public action, else nil
+func ExpandActionPattern(pattern string) []string {
+	if pattern == "" {
+		return nil
 	}
 
-	// Sort by action name
-	sort.Slice(actions, func(i, j int) bool {
-		return actions[i].Name < actions[j].Name
-	})
+	actions := concretePublicActions()
 
-	return actions
+	if pattern == "*" {
+		out := make([]string, 0, len(actions))
+		for _, a := range actions {
+			out = append(out, a.Name)
+		}
+		return out
+	}
+
+	if strings.HasSuffix(pattern, ":*") {
+		prefix := pattern[:len(pattern)-1] // keep the trailing ':'
+		var out []string
+		for _, a := range actions {
+			if strings.HasPrefix(a.Name, prefix) {
+				out = append(out, a.Name)
+			}
+		}
+		return out
+	}
+
+	for _, a := range actions {
+		if a.Name == pattern {
+			return []string{pattern}
+		}
+	}
+	return nil
 }
