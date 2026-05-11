@@ -24,6 +24,65 @@ func (_m *MockInterface) EXPECT() *MockInterface_Expecter {
 	return &MockInterface_Expecter{mock: &_m.Mock}
 }
 
+// CreateClusterResourceType provides a mock function with given fields: ctx, crt
+func (_m *MockInterface) CreateClusterResourceType(ctx context.Context, crt gen.ClusterResourceType) (*gen.ClusterResourceType, error) {
+	ret := _m.Called(ctx, crt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateClusterResourceType")
+	}
+
+	var r0 *gen.ClusterResourceType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, gen.ClusterResourceType) (*gen.ClusterResourceType, error)); ok {
+		return rf(ctx, crt)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, gen.ClusterResourceType) *gen.ClusterResourceType); ok {
+		r0 = rf(ctx, crt)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterResourceType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, gen.ClusterResourceType) error); ok {
+		r1 = rf(ctx, crt)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateClusterResourceType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateClusterResourceType'
+type MockInterface_CreateClusterResourceType_Call struct {
+	*mock.Call
+}
+
+// CreateClusterResourceType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - crt gen.ClusterResourceType
+func (_e *MockInterface_Expecter) CreateClusterResourceType(ctx interface{}, crt interface{}) *MockInterface_CreateClusterResourceType_Call {
+	return &MockInterface_CreateClusterResourceType_Call{Call: _e.mock.On("CreateClusterResourceType", ctx, crt)}
+}
+
+func (_c *MockInterface_CreateClusterResourceType_Call) Run(run func(ctx context.Context, crt gen.ClusterResourceType)) *MockInterface_CreateClusterResourceType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(gen.ClusterResourceType))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateClusterResourceType_Call) Return(_a0 *gen.ClusterResourceType, _a1 error) *MockInterface_CreateClusterResourceType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateClusterResourceType_Call) RunAndReturn(run func(context.Context, gen.ClusterResourceType) (*gen.ClusterResourceType, error)) *MockInterface_CreateClusterResourceType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateComponentRelease provides a mock function with given fields: ctx, namespaceName, cr
 func (_m *MockInterface) CreateComponentRelease(ctx context.Context, namespaceName string, cr gen.ComponentRelease) (*gen.ComponentRelease, error) {
 	ret := _m.Called(ctx, namespaceName, cr)
@@ -200,6 +259,246 @@ func (_c *MockInterface_CreateReleaseBinding_Call) Return(_a0 *gen.ReleaseBindin
 }
 
 func (_c *MockInterface_CreateReleaseBinding_Call) RunAndReturn(run func(context.Context, string, gen.ReleaseBinding) (*gen.ReleaseBinding, error)) *MockInterface_CreateReleaseBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateResource provides a mock function with given fields: ctx, namespaceName, r
+func (_m *MockInterface) CreateResource(ctx context.Context, namespaceName string, r gen.ResourceInstance) (*gen.ResourceInstance, error) {
+	ret := _m.Called(ctx, namespaceName, r)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateResource")
+	}
+
+	var r0 *gen.ResourceInstance
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ResourceInstance) (*gen.ResourceInstance, error)); ok {
+		return rf(ctx, namespaceName, r)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ResourceInstance) *gen.ResourceInstance); ok {
+		r0 = rf(ctx, namespaceName, r)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceInstance)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ResourceInstance) error); ok {
+		r1 = rf(ctx, namespaceName, r)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateResource_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateResource'
+type MockInterface_CreateResource_Call struct {
+	*mock.Call
+}
+
+// CreateResource is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - r gen.ResourceInstance
+func (_e *MockInterface_Expecter) CreateResource(ctx interface{}, namespaceName interface{}, r interface{}) *MockInterface_CreateResource_Call {
+	return &MockInterface_CreateResource_Call{Call: _e.mock.On("CreateResource", ctx, namespaceName, r)}
+}
+
+func (_c *MockInterface_CreateResource_Call) Run(run func(ctx context.Context, namespaceName string, r gen.ResourceInstance)) *MockInterface_CreateResource_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ResourceInstance))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateResource_Call) Return(_a0 *gen.ResourceInstance, _a1 error) *MockInterface_CreateResource_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateResource_Call) RunAndReturn(run func(context.Context, string, gen.ResourceInstance) (*gen.ResourceInstance, error)) *MockInterface_CreateResource_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateResourceRelease provides a mock function with given fields: ctx, namespaceName, rr
+func (_m *MockInterface) CreateResourceRelease(ctx context.Context, namespaceName string, rr gen.ResourceRelease) (*gen.ResourceRelease, error) {
+	ret := _m.Called(ctx, namespaceName, rr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateResourceRelease")
+	}
+
+	var r0 *gen.ResourceRelease
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ResourceRelease) (*gen.ResourceRelease, error)); ok {
+		return rf(ctx, namespaceName, rr)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ResourceRelease) *gen.ResourceRelease); ok {
+		r0 = rf(ctx, namespaceName, rr)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceRelease)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ResourceRelease) error); ok {
+		r1 = rf(ctx, namespaceName, rr)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateResourceRelease_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateResourceRelease'
+type MockInterface_CreateResourceRelease_Call struct {
+	*mock.Call
+}
+
+// CreateResourceRelease is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - rr gen.ResourceRelease
+func (_e *MockInterface_Expecter) CreateResourceRelease(ctx interface{}, namespaceName interface{}, rr interface{}) *MockInterface_CreateResourceRelease_Call {
+	return &MockInterface_CreateResourceRelease_Call{Call: _e.mock.On("CreateResourceRelease", ctx, namespaceName, rr)}
+}
+
+func (_c *MockInterface_CreateResourceRelease_Call) Run(run func(ctx context.Context, namespaceName string, rr gen.ResourceRelease)) *MockInterface_CreateResourceRelease_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ResourceRelease))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateResourceRelease_Call) Return(_a0 *gen.ResourceRelease, _a1 error) *MockInterface_CreateResourceRelease_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateResourceRelease_Call) RunAndReturn(run func(context.Context, string, gen.ResourceRelease) (*gen.ResourceRelease, error)) *MockInterface_CreateResourceRelease_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateResourceReleaseBinding provides a mock function with given fields: ctx, namespaceName, rrb
+func (_m *MockInterface) CreateResourceReleaseBinding(ctx context.Context, namespaceName string, rrb gen.ResourceReleaseBinding) (*gen.ResourceReleaseBinding, error) {
+	ret := _m.Called(ctx, namespaceName, rrb)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateResourceReleaseBinding")
+	}
+
+	var r0 *gen.ResourceReleaseBinding
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ResourceReleaseBinding) (*gen.ResourceReleaseBinding, error)); ok {
+		return rf(ctx, namespaceName, rrb)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ResourceReleaseBinding) *gen.ResourceReleaseBinding); ok {
+		r0 = rf(ctx, namespaceName, rrb)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceReleaseBinding)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ResourceReleaseBinding) error); ok {
+		r1 = rf(ctx, namespaceName, rrb)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateResourceReleaseBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateResourceReleaseBinding'
+type MockInterface_CreateResourceReleaseBinding_Call struct {
+	*mock.Call
+}
+
+// CreateResourceReleaseBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - rrb gen.ResourceReleaseBinding
+func (_e *MockInterface_Expecter) CreateResourceReleaseBinding(ctx interface{}, namespaceName interface{}, rrb interface{}) *MockInterface_CreateResourceReleaseBinding_Call {
+	return &MockInterface_CreateResourceReleaseBinding_Call{Call: _e.mock.On("CreateResourceReleaseBinding", ctx, namespaceName, rrb)}
+}
+
+func (_c *MockInterface_CreateResourceReleaseBinding_Call) Run(run func(ctx context.Context, namespaceName string, rrb gen.ResourceReleaseBinding)) *MockInterface_CreateResourceReleaseBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ResourceReleaseBinding))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateResourceReleaseBinding_Call) Return(_a0 *gen.ResourceReleaseBinding, _a1 error) *MockInterface_CreateResourceReleaseBinding_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateResourceReleaseBinding_Call) RunAndReturn(run func(context.Context, string, gen.ResourceReleaseBinding) (*gen.ResourceReleaseBinding, error)) *MockInterface_CreateResourceReleaseBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateResourceType provides a mock function with given fields: ctx, namespaceName, rt
+func (_m *MockInterface) CreateResourceType(ctx context.Context, namespaceName string, rt gen.ResourceType) (*gen.ResourceType, error) {
+	ret := _m.Called(ctx, namespaceName, rt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateResourceType")
+	}
+
+	var r0 *gen.ResourceType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ResourceType) (*gen.ResourceType, error)); ok {
+		return rf(ctx, namespaceName, rt)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ResourceType) *gen.ResourceType); ok {
+		r0 = rf(ctx, namespaceName, rt)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ResourceType) error); ok {
+		r1 = rf(ctx, namespaceName, rt)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateResourceType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateResourceType'
+type MockInterface_CreateResourceType_Call struct {
+	*mock.Call
+}
+
+// CreateResourceType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - rt gen.ResourceType
+func (_e *MockInterface_Expecter) CreateResourceType(ctx interface{}, namespaceName interface{}, rt interface{}) *MockInterface_CreateResourceType_Call {
+	return &MockInterface_CreateResourceType_Call{Call: _e.mock.On("CreateResourceType", ctx, namespaceName, rt)}
+}
+
+func (_c *MockInterface_CreateResourceType_Call) Run(run func(ctx context.Context, namespaceName string, rt gen.ResourceType)) *MockInterface_CreateResourceType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ResourceType))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateResourceType_Call) Return(_a0 *gen.ResourceType, _a1 error) *MockInterface_CreateResourceType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateResourceType_Call) RunAndReturn(run func(context.Context, string, gen.ResourceType) (*gen.ResourceType, error)) *MockInterface_CreateResourceType_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -461,6 +760,53 @@ func (_c *MockInterface_DeleteClusterObservabilityPlane_Call) Return(_a0 error) 
 }
 
 func (_c *MockInterface_DeleteClusterObservabilityPlane_Call) RunAndReturn(run func(context.Context, string) error) *MockInterface_DeleteClusterObservabilityPlane_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteClusterResourceType provides a mock function with given fields: ctx, crtName
+func (_m *MockInterface) DeleteClusterResourceType(ctx context.Context, crtName string) error {
+	ret := _m.Called(ctx, crtName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteClusterResourceType")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, crtName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteClusterResourceType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteClusterResourceType'
+type MockInterface_DeleteClusterResourceType_Call struct {
+	*mock.Call
+}
+
+// DeleteClusterResourceType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - crtName string
+func (_e *MockInterface_Expecter) DeleteClusterResourceType(ctx interface{}, crtName interface{}) *MockInterface_DeleteClusterResourceType_Call {
+	return &MockInterface_DeleteClusterResourceType_Call{Call: _e.mock.On("DeleteClusterResourceType", ctx, crtName)}
+}
+
+func (_c *MockInterface_DeleteClusterResourceType_Call) Run(run func(ctx context.Context, crtName string)) *MockInterface_DeleteClusterResourceType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteClusterResourceType_Call) Return(_a0 error) *MockInterface_DeleteClusterResourceType_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteClusterResourceType_Call) RunAndReturn(run func(context.Context, string) error) *MockInterface_DeleteClusterResourceType_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1323,6 +1669,198 @@ func (_c *MockInterface_DeleteReleaseBinding_Call) RunAndReturn(run func(context
 	return _c
 }
 
+// DeleteResource provides a mock function with given fields: ctx, namespaceName, resourceName
+func (_m *MockInterface) DeleteResource(ctx context.Context, namespaceName string, resourceName string) error {
+	ret := _m.Called(ctx, namespaceName, resourceName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteResource")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, resourceName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteResource_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteResource'
+type MockInterface_DeleteResource_Call struct {
+	*mock.Call
+}
+
+// DeleteResource is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - resourceName string
+func (_e *MockInterface_Expecter) DeleteResource(ctx interface{}, namespaceName interface{}, resourceName interface{}) *MockInterface_DeleteResource_Call {
+	return &MockInterface_DeleteResource_Call{Call: _e.mock.On("DeleteResource", ctx, namespaceName, resourceName)}
+}
+
+func (_c *MockInterface_DeleteResource_Call) Run(run func(ctx context.Context, namespaceName string, resourceName string)) *MockInterface_DeleteResource_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteResource_Call) Return(_a0 error) *MockInterface_DeleteResource_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteResource_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteResource_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteResourceRelease provides a mock function with given fields: ctx, namespaceName, resourceReleaseName
+func (_m *MockInterface) DeleteResourceRelease(ctx context.Context, namespaceName string, resourceReleaseName string) error {
+	ret := _m.Called(ctx, namespaceName, resourceReleaseName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteResourceRelease")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, resourceReleaseName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteResourceRelease_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteResourceRelease'
+type MockInterface_DeleteResourceRelease_Call struct {
+	*mock.Call
+}
+
+// DeleteResourceRelease is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - resourceReleaseName string
+func (_e *MockInterface_Expecter) DeleteResourceRelease(ctx interface{}, namespaceName interface{}, resourceReleaseName interface{}) *MockInterface_DeleteResourceRelease_Call {
+	return &MockInterface_DeleteResourceRelease_Call{Call: _e.mock.On("DeleteResourceRelease", ctx, namespaceName, resourceReleaseName)}
+}
+
+func (_c *MockInterface_DeleteResourceRelease_Call) Run(run func(ctx context.Context, namespaceName string, resourceReleaseName string)) *MockInterface_DeleteResourceRelease_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteResourceRelease_Call) Return(_a0 error) *MockInterface_DeleteResourceRelease_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteResourceRelease_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteResourceRelease_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteResourceReleaseBinding provides a mock function with given fields: ctx, namespaceName, bindingName
+func (_m *MockInterface) DeleteResourceReleaseBinding(ctx context.Context, namespaceName string, bindingName string) error {
+	ret := _m.Called(ctx, namespaceName, bindingName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteResourceReleaseBinding")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, bindingName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteResourceReleaseBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteResourceReleaseBinding'
+type MockInterface_DeleteResourceReleaseBinding_Call struct {
+	*mock.Call
+}
+
+// DeleteResourceReleaseBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - bindingName string
+func (_e *MockInterface_Expecter) DeleteResourceReleaseBinding(ctx interface{}, namespaceName interface{}, bindingName interface{}) *MockInterface_DeleteResourceReleaseBinding_Call {
+	return &MockInterface_DeleteResourceReleaseBinding_Call{Call: _e.mock.On("DeleteResourceReleaseBinding", ctx, namespaceName, bindingName)}
+}
+
+func (_c *MockInterface_DeleteResourceReleaseBinding_Call) Run(run func(ctx context.Context, namespaceName string, bindingName string)) *MockInterface_DeleteResourceReleaseBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteResourceReleaseBinding_Call) Return(_a0 error) *MockInterface_DeleteResourceReleaseBinding_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteResourceReleaseBinding_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteResourceReleaseBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteResourceType provides a mock function with given fields: ctx, namespaceName, rtName
+func (_m *MockInterface) DeleteResourceType(ctx context.Context, namespaceName string, rtName string) error {
+	ret := _m.Called(ctx, namespaceName, rtName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteResourceType")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, rtName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteResourceType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteResourceType'
+type MockInterface_DeleteResourceType_Call struct {
+	*mock.Call
+}
+
+// DeleteResourceType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - rtName string
+func (_e *MockInterface_Expecter) DeleteResourceType(ctx interface{}, namespaceName interface{}, rtName interface{}) *MockInterface_DeleteResourceType_Call {
+	return &MockInterface_DeleteResourceType_Call{Call: _e.mock.On("DeleteResourceType", ctx, namespaceName, rtName)}
+}
+
+func (_c *MockInterface_DeleteResourceType_Call) Run(run func(ctx context.Context, namespaceName string, rtName string)) *MockInterface_DeleteResourceType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteResourceType_Call) Return(_a0 error) *MockInterface_DeleteResourceType_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteResourceType_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteResourceType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteSecretReference provides a mock function with given fields: ctx, namespaceName, secretReferenceName
 func (_m *MockInterface) DeleteSecretReference(ctx context.Context, namespaceName string, secretReferenceName string) error {
 	ret := _m.Called(ctx, namespaceName, secretReferenceName)
@@ -1856,6 +2394,124 @@ func (_c *MockInterface_GetClusterObservabilityPlane_Call) Return(_a0 *gen.Clust
 }
 
 func (_c *MockInterface_GetClusterObservabilityPlane_Call) RunAndReturn(run func(context.Context, string) (*gen.ClusterObservabilityPlane, error)) *MockInterface_GetClusterObservabilityPlane_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetClusterResourceType provides a mock function with given fields: ctx, crtName
+func (_m *MockInterface) GetClusterResourceType(ctx context.Context, crtName string) (*gen.ClusterResourceType, error) {
+	ret := _m.Called(ctx, crtName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterResourceType")
+	}
+
+	var r0 *gen.ClusterResourceType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*gen.ClusterResourceType, error)); ok {
+		return rf(ctx, crtName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *gen.ClusterResourceType); ok {
+		r0 = rf(ctx, crtName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterResourceType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, crtName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetClusterResourceType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterResourceType'
+type MockInterface_GetClusterResourceType_Call struct {
+	*mock.Call
+}
+
+// GetClusterResourceType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - crtName string
+func (_e *MockInterface_Expecter) GetClusterResourceType(ctx interface{}, crtName interface{}) *MockInterface_GetClusterResourceType_Call {
+	return &MockInterface_GetClusterResourceType_Call{Call: _e.mock.On("GetClusterResourceType", ctx, crtName)}
+}
+
+func (_c *MockInterface_GetClusterResourceType_Call) Run(run func(ctx context.Context, crtName string)) *MockInterface_GetClusterResourceType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetClusterResourceType_Call) Return(_a0 *gen.ClusterResourceType, _a1 error) *MockInterface_GetClusterResourceType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetClusterResourceType_Call) RunAndReturn(run func(context.Context, string) (*gen.ClusterResourceType, error)) *MockInterface_GetClusterResourceType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetClusterResourceTypeSchema provides a mock function with given fields: ctx, crtName
+func (_m *MockInterface) GetClusterResourceTypeSchema(ctx context.Context, crtName string) (*json.RawMessage, error) {
+	ret := _m.Called(ctx, crtName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterResourceTypeSchema")
+	}
+
+	var r0 *json.RawMessage
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*json.RawMessage, error)); ok {
+		return rf(ctx, crtName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *json.RawMessage); ok {
+		r0 = rf(ctx, crtName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*json.RawMessage)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, crtName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetClusterResourceTypeSchema_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterResourceTypeSchema'
+type MockInterface_GetClusterResourceTypeSchema_Call struct {
+	*mock.Call
+}
+
+// GetClusterResourceTypeSchema is a helper method to define mock.On call
+//   - ctx context.Context
+//   - crtName string
+func (_e *MockInterface_Expecter) GetClusterResourceTypeSchema(ctx interface{}, crtName interface{}) *MockInterface_GetClusterResourceTypeSchema_Call {
+	return &MockInterface_GetClusterResourceTypeSchema_Call{Call: _e.mock.On("GetClusterResourceTypeSchema", ctx, crtName)}
+}
+
+func (_c *MockInterface_GetClusterResourceTypeSchema_Call) Run(run func(ctx context.Context, crtName string)) *MockInterface_GetClusterResourceTypeSchema_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetClusterResourceTypeSchema_Call) Return(_a0 *json.RawMessage, _a1 error) *MockInterface_GetClusterResourceTypeSchema_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetClusterResourceTypeSchema_Call) RunAndReturn(run func(context.Context, string) (*json.RawMessage, error)) *MockInterface_GetClusterResourceTypeSchema_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -3172,6 +3828,306 @@ func (_c *MockInterface_GetReleaseBinding_Call) RunAndReturn(run func(context.Co
 	return _c
 }
 
+// GetResource provides a mock function with given fields: ctx, namespaceName, resourceName
+func (_m *MockInterface) GetResource(ctx context.Context, namespaceName string, resourceName string) (*gen.ResourceInstance, error) {
+	ret := _m.Called(ctx, namespaceName, resourceName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetResource")
+	}
+
+	var r0 *gen.ResourceInstance
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.ResourceInstance, error)); ok {
+		return rf(ctx, namespaceName, resourceName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.ResourceInstance); ok {
+		r0 = rf(ctx, namespaceName, resourceName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceInstance)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, resourceName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetResource_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetResource'
+type MockInterface_GetResource_Call struct {
+	*mock.Call
+}
+
+// GetResource is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - resourceName string
+func (_e *MockInterface_Expecter) GetResource(ctx interface{}, namespaceName interface{}, resourceName interface{}) *MockInterface_GetResource_Call {
+	return &MockInterface_GetResource_Call{Call: _e.mock.On("GetResource", ctx, namespaceName, resourceName)}
+}
+
+func (_c *MockInterface_GetResource_Call) Run(run func(ctx context.Context, namespaceName string, resourceName string)) *MockInterface_GetResource_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetResource_Call) Return(_a0 *gen.ResourceInstance, _a1 error) *MockInterface_GetResource_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetResource_Call) RunAndReturn(run func(context.Context, string, string) (*gen.ResourceInstance, error)) *MockInterface_GetResource_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetResourceRelease provides a mock function with given fields: ctx, namespaceName, resourceReleaseName
+func (_m *MockInterface) GetResourceRelease(ctx context.Context, namespaceName string, resourceReleaseName string) (*gen.ResourceRelease, error) {
+	ret := _m.Called(ctx, namespaceName, resourceReleaseName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetResourceRelease")
+	}
+
+	var r0 *gen.ResourceRelease
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.ResourceRelease, error)); ok {
+		return rf(ctx, namespaceName, resourceReleaseName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.ResourceRelease); ok {
+		r0 = rf(ctx, namespaceName, resourceReleaseName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceRelease)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, resourceReleaseName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetResourceRelease_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetResourceRelease'
+type MockInterface_GetResourceRelease_Call struct {
+	*mock.Call
+}
+
+// GetResourceRelease is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - resourceReleaseName string
+func (_e *MockInterface_Expecter) GetResourceRelease(ctx interface{}, namespaceName interface{}, resourceReleaseName interface{}) *MockInterface_GetResourceRelease_Call {
+	return &MockInterface_GetResourceRelease_Call{Call: _e.mock.On("GetResourceRelease", ctx, namespaceName, resourceReleaseName)}
+}
+
+func (_c *MockInterface_GetResourceRelease_Call) Run(run func(ctx context.Context, namespaceName string, resourceReleaseName string)) *MockInterface_GetResourceRelease_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetResourceRelease_Call) Return(_a0 *gen.ResourceRelease, _a1 error) *MockInterface_GetResourceRelease_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetResourceRelease_Call) RunAndReturn(run func(context.Context, string, string) (*gen.ResourceRelease, error)) *MockInterface_GetResourceRelease_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetResourceReleaseBinding provides a mock function with given fields: ctx, namespaceName, bindingName
+func (_m *MockInterface) GetResourceReleaseBinding(ctx context.Context, namespaceName string, bindingName string) (*gen.ResourceReleaseBinding, error) {
+	ret := _m.Called(ctx, namespaceName, bindingName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetResourceReleaseBinding")
+	}
+
+	var r0 *gen.ResourceReleaseBinding
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.ResourceReleaseBinding, error)); ok {
+		return rf(ctx, namespaceName, bindingName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.ResourceReleaseBinding); ok {
+		r0 = rf(ctx, namespaceName, bindingName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceReleaseBinding)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, bindingName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetResourceReleaseBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetResourceReleaseBinding'
+type MockInterface_GetResourceReleaseBinding_Call struct {
+	*mock.Call
+}
+
+// GetResourceReleaseBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - bindingName string
+func (_e *MockInterface_Expecter) GetResourceReleaseBinding(ctx interface{}, namespaceName interface{}, bindingName interface{}) *MockInterface_GetResourceReleaseBinding_Call {
+	return &MockInterface_GetResourceReleaseBinding_Call{Call: _e.mock.On("GetResourceReleaseBinding", ctx, namespaceName, bindingName)}
+}
+
+func (_c *MockInterface_GetResourceReleaseBinding_Call) Run(run func(ctx context.Context, namespaceName string, bindingName string)) *MockInterface_GetResourceReleaseBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetResourceReleaseBinding_Call) Return(_a0 *gen.ResourceReleaseBinding, _a1 error) *MockInterface_GetResourceReleaseBinding_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetResourceReleaseBinding_Call) RunAndReturn(run func(context.Context, string, string) (*gen.ResourceReleaseBinding, error)) *MockInterface_GetResourceReleaseBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetResourceType provides a mock function with given fields: ctx, namespaceName, rtName
+func (_m *MockInterface) GetResourceType(ctx context.Context, namespaceName string, rtName string) (*gen.ResourceType, error) {
+	ret := _m.Called(ctx, namespaceName, rtName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetResourceType")
+	}
+
+	var r0 *gen.ResourceType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.ResourceType, error)); ok {
+		return rf(ctx, namespaceName, rtName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.ResourceType); ok {
+		r0 = rf(ctx, namespaceName, rtName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, rtName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetResourceType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetResourceType'
+type MockInterface_GetResourceType_Call struct {
+	*mock.Call
+}
+
+// GetResourceType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - rtName string
+func (_e *MockInterface_Expecter) GetResourceType(ctx interface{}, namespaceName interface{}, rtName interface{}) *MockInterface_GetResourceType_Call {
+	return &MockInterface_GetResourceType_Call{Call: _e.mock.On("GetResourceType", ctx, namespaceName, rtName)}
+}
+
+func (_c *MockInterface_GetResourceType_Call) Run(run func(ctx context.Context, namespaceName string, rtName string)) *MockInterface_GetResourceType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetResourceType_Call) Return(_a0 *gen.ResourceType, _a1 error) *MockInterface_GetResourceType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetResourceType_Call) RunAndReturn(run func(context.Context, string, string) (*gen.ResourceType, error)) *MockInterface_GetResourceType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetResourceTypeSchema provides a mock function with given fields: ctx, namespaceName, rtName
+func (_m *MockInterface) GetResourceTypeSchema(ctx context.Context, namespaceName string, rtName string) (*json.RawMessage, error) {
+	ret := _m.Called(ctx, namespaceName, rtName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetResourceTypeSchema")
+	}
+
+	var r0 *json.RawMessage
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*json.RawMessage, error)); ok {
+		return rf(ctx, namespaceName, rtName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *json.RawMessage); ok {
+		r0 = rf(ctx, namespaceName, rtName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*json.RawMessage)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, rtName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetResourceTypeSchema_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetResourceTypeSchema'
+type MockInterface_GetResourceTypeSchema_Call struct {
+	*mock.Call
+}
+
+// GetResourceTypeSchema is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - rtName string
+func (_e *MockInterface_Expecter) GetResourceTypeSchema(ctx interface{}, namespaceName interface{}, rtName interface{}) *MockInterface_GetResourceTypeSchema_Call {
+	return &MockInterface_GetResourceTypeSchema_Call{Call: _e.mock.On("GetResourceTypeSchema", ctx, namespaceName, rtName)}
+}
+
+func (_c *MockInterface_GetResourceTypeSchema_Call) Run(run func(ctx context.Context, namespaceName string, rtName string)) *MockInterface_GetResourceTypeSchema_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetResourceTypeSchema_Call) Return(_a0 *json.RawMessage, _a1 error) *MockInterface_GetResourceTypeSchema_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetResourceTypeSchema_Call) RunAndReturn(run func(context.Context, string, string) (*json.RawMessage, error)) *MockInterface_GetResourceTypeSchema_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetSecretReference provides a mock function with given fields: ctx, namespaceName, secretReferenceName
 func (_m *MockInterface) GetSecretReference(ctx context.Context, namespaceName string, secretReferenceName string) (*gen.SecretReference, error) {
 	ret := _m.Called(ctx, namespaceName, secretReferenceName)
@@ -3946,6 +4902,65 @@ func (_c *MockInterface_ListClusterObservabilityPlanes_Call) Return(_a0 *gen.Clu
 }
 
 func (_c *MockInterface_ListClusterObservabilityPlanes_Call) RunAndReturn(run func(context.Context, *gen.ListClusterObservabilityPlanesParams) (*gen.ClusterObservabilityPlaneList, error)) *MockInterface_ListClusterObservabilityPlanes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListClusterResourceTypes provides a mock function with given fields: ctx, params
+func (_m *MockInterface) ListClusterResourceTypes(ctx context.Context, params *gen.ListClusterResourceTypesParams) (*gen.ClusterResourceTypeList, error) {
+	ret := _m.Called(ctx, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListClusterResourceTypes")
+	}
+
+	var r0 *gen.ClusterResourceTypeList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *gen.ListClusterResourceTypesParams) (*gen.ClusterResourceTypeList, error)); ok {
+		return rf(ctx, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *gen.ListClusterResourceTypesParams) *gen.ClusterResourceTypeList); ok {
+		r0 = rf(ctx, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterResourceTypeList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *gen.ListClusterResourceTypesParams) error); ok {
+		r1 = rf(ctx, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListClusterResourceTypes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListClusterResourceTypes'
+type MockInterface_ListClusterResourceTypes_Call struct {
+	*mock.Call
+}
+
+// ListClusterResourceTypes is a helper method to define mock.On call
+//   - ctx context.Context
+//   - params *gen.ListClusterResourceTypesParams
+func (_e *MockInterface_Expecter) ListClusterResourceTypes(ctx interface{}, params interface{}) *MockInterface_ListClusterResourceTypes_Call {
+	return &MockInterface_ListClusterResourceTypes_Call{Call: _e.mock.On("ListClusterResourceTypes", ctx, params)}
+}
+
+func (_c *MockInterface_ListClusterResourceTypes_Call) Run(run func(ctx context.Context, params *gen.ListClusterResourceTypesParams)) *MockInterface_ListClusterResourceTypes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*gen.ListClusterResourceTypesParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListClusterResourceTypes_Call) Return(_a0 *gen.ClusterResourceTypeList, _a1 error) *MockInterface_ListClusterResourceTypes_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListClusterResourceTypes_Call) RunAndReturn(run func(context.Context, *gen.ListClusterResourceTypesParams) (*gen.ClusterResourceTypeList, error)) *MockInterface_ListClusterResourceTypes_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -5025,6 +6040,246 @@ func (_c *MockInterface_ListReleaseBindings_Call) RunAndReturn(run func(context.
 	return _c
 }
 
+// ListResourceReleaseBindings provides a mock function with given fields: ctx, namespaceName, params
+func (_m *MockInterface) ListResourceReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListResourceReleaseBindingsParams) (*gen.ResourceReleaseBindingList, error) {
+	ret := _m.Called(ctx, namespaceName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListResourceReleaseBindings")
+	}
+
+	var r0 *gen.ResourceReleaseBindingList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListResourceReleaseBindingsParams) (*gen.ResourceReleaseBindingList, error)); ok {
+		return rf(ctx, namespaceName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListResourceReleaseBindingsParams) *gen.ResourceReleaseBindingList); ok {
+		r0 = rf(ctx, namespaceName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceReleaseBindingList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListResourceReleaseBindingsParams) error); ok {
+		r1 = rf(ctx, namespaceName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListResourceReleaseBindings_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListResourceReleaseBindings'
+type MockInterface_ListResourceReleaseBindings_Call struct {
+	*mock.Call
+}
+
+// ListResourceReleaseBindings is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListResourceReleaseBindingsParams
+func (_e *MockInterface_Expecter) ListResourceReleaseBindings(ctx interface{}, namespaceName interface{}, params interface{}) *MockInterface_ListResourceReleaseBindings_Call {
+	return &MockInterface_ListResourceReleaseBindings_Call{Call: _e.mock.On("ListResourceReleaseBindings", ctx, namespaceName, params)}
+}
+
+func (_c *MockInterface_ListResourceReleaseBindings_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListResourceReleaseBindingsParams)) *MockInterface_ListResourceReleaseBindings_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListResourceReleaseBindingsParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListResourceReleaseBindings_Call) Return(_a0 *gen.ResourceReleaseBindingList, _a1 error) *MockInterface_ListResourceReleaseBindings_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListResourceReleaseBindings_Call) RunAndReturn(run func(context.Context, string, *gen.ListResourceReleaseBindingsParams) (*gen.ResourceReleaseBindingList, error)) *MockInterface_ListResourceReleaseBindings_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListResourceReleases provides a mock function with given fields: ctx, namespaceName, params
+func (_m *MockInterface) ListResourceReleases(ctx context.Context, namespaceName string, params *gen.ListResourceReleasesParams) (*gen.ResourceReleaseList, error) {
+	ret := _m.Called(ctx, namespaceName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListResourceReleases")
+	}
+
+	var r0 *gen.ResourceReleaseList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListResourceReleasesParams) (*gen.ResourceReleaseList, error)); ok {
+		return rf(ctx, namespaceName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListResourceReleasesParams) *gen.ResourceReleaseList); ok {
+		r0 = rf(ctx, namespaceName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceReleaseList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListResourceReleasesParams) error); ok {
+		r1 = rf(ctx, namespaceName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListResourceReleases_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListResourceReleases'
+type MockInterface_ListResourceReleases_Call struct {
+	*mock.Call
+}
+
+// ListResourceReleases is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListResourceReleasesParams
+func (_e *MockInterface_Expecter) ListResourceReleases(ctx interface{}, namespaceName interface{}, params interface{}) *MockInterface_ListResourceReleases_Call {
+	return &MockInterface_ListResourceReleases_Call{Call: _e.mock.On("ListResourceReleases", ctx, namespaceName, params)}
+}
+
+func (_c *MockInterface_ListResourceReleases_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListResourceReleasesParams)) *MockInterface_ListResourceReleases_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListResourceReleasesParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListResourceReleases_Call) Return(_a0 *gen.ResourceReleaseList, _a1 error) *MockInterface_ListResourceReleases_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListResourceReleases_Call) RunAndReturn(run func(context.Context, string, *gen.ListResourceReleasesParams) (*gen.ResourceReleaseList, error)) *MockInterface_ListResourceReleases_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListResourceTypes provides a mock function with given fields: ctx, namespaceName, params
+func (_m *MockInterface) ListResourceTypes(ctx context.Context, namespaceName string, params *gen.ListResourceTypesParams) (*gen.ResourceTypeList, error) {
+	ret := _m.Called(ctx, namespaceName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListResourceTypes")
+	}
+
+	var r0 *gen.ResourceTypeList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListResourceTypesParams) (*gen.ResourceTypeList, error)); ok {
+		return rf(ctx, namespaceName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListResourceTypesParams) *gen.ResourceTypeList); ok {
+		r0 = rf(ctx, namespaceName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceTypeList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListResourceTypesParams) error); ok {
+		r1 = rf(ctx, namespaceName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListResourceTypes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListResourceTypes'
+type MockInterface_ListResourceTypes_Call struct {
+	*mock.Call
+}
+
+// ListResourceTypes is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListResourceTypesParams
+func (_e *MockInterface_Expecter) ListResourceTypes(ctx interface{}, namespaceName interface{}, params interface{}) *MockInterface_ListResourceTypes_Call {
+	return &MockInterface_ListResourceTypes_Call{Call: _e.mock.On("ListResourceTypes", ctx, namespaceName, params)}
+}
+
+func (_c *MockInterface_ListResourceTypes_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListResourceTypesParams)) *MockInterface_ListResourceTypes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListResourceTypesParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListResourceTypes_Call) Return(_a0 *gen.ResourceTypeList, _a1 error) *MockInterface_ListResourceTypes_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListResourceTypes_Call) RunAndReturn(run func(context.Context, string, *gen.ListResourceTypesParams) (*gen.ResourceTypeList, error)) *MockInterface_ListResourceTypes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListResources provides a mock function with given fields: ctx, namespaceName, params
+func (_m *MockInterface) ListResources(ctx context.Context, namespaceName string, params *gen.ListResourcesParams) (*gen.ResourceInstanceList, error) {
+	ret := _m.Called(ctx, namespaceName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListResources")
+	}
+
+	var r0 *gen.ResourceInstanceList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListResourcesParams) (*gen.ResourceInstanceList, error)); ok {
+		return rf(ctx, namespaceName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListResourcesParams) *gen.ResourceInstanceList); ok {
+		r0 = rf(ctx, namespaceName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceInstanceList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListResourcesParams) error); ok {
+		r1 = rf(ctx, namespaceName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListResources_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListResources'
+type MockInterface_ListResources_Call struct {
+	*mock.Call
+}
+
+// ListResources is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListResourcesParams
+func (_e *MockInterface_Expecter) ListResources(ctx interface{}, namespaceName interface{}, params interface{}) *MockInterface_ListResources_Call {
+	return &MockInterface_ListResources_Call{Call: _e.mock.On("ListResources", ctx, namespaceName, params)}
+}
+
+func (_c *MockInterface_ListResources_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListResourcesParams)) *MockInterface_ListResources_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListResourcesParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListResources_Call) Return(_a0 *gen.ResourceInstanceList, _a1 error) *MockInterface_ListResources_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListResources_Call) RunAndReturn(run func(context.Context, string, *gen.ListResourcesParams) (*gen.ResourceInstanceList, error)) *MockInterface_ListResources_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListSecretReferences provides a mock function with given fields: ctx, namespaceName, params
 func (_m *MockInterface) ListSecretReferences(ctx context.Context, namespaceName string, params *gen.ListSecretReferencesParams) (*gen.SecretReferenceList, error) {
 	ret := _m.Called(ctx, namespaceName, params)
@@ -5385,6 +6640,66 @@ func (_c *MockInterface_ListWorkloads_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// UpdateClusterResourceType provides a mock function with given fields: ctx, crtName, crt
+func (_m *MockInterface) UpdateClusterResourceType(ctx context.Context, crtName string, crt gen.ClusterResourceType) (*gen.ClusterResourceType, error) {
+	ret := _m.Called(ctx, crtName, crt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateClusterResourceType")
+	}
+
+	var r0 *gen.ClusterResourceType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ClusterResourceType) (*gen.ClusterResourceType, error)); ok {
+		return rf(ctx, crtName, crt)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ClusterResourceType) *gen.ClusterResourceType); ok {
+		r0 = rf(ctx, crtName, crt)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterResourceType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ClusterResourceType) error); ok {
+		r1 = rf(ctx, crtName, crt)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_UpdateClusterResourceType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateClusterResourceType'
+type MockInterface_UpdateClusterResourceType_Call struct {
+	*mock.Call
+}
+
+// UpdateClusterResourceType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - crtName string
+//   - crt gen.ClusterResourceType
+func (_e *MockInterface_Expecter) UpdateClusterResourceType(ctx interface{}, crtName interface{}, crt interface{}) *MockInterface_UpdateClusterResourceType_Call {
+	return &MockInterface_UpdateClusterResourceType_Call{Call: _e.mock.On("UpdateClusterResourceType", ctx, crtName, crt)}
+}
+
+func (_c *MockInterface_UpdateClusterResourceType_Call) Run(run func(ctx context.Context, crtName string, crt gen.ClusterResourceType)) *MockInterface_UpdateClusterResourceType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ClusterResourceType))
+	})
+	return _c
+}
+
+func (_c *MockInterface_UpdateClusterResourceType_Call) Return(_a0 *gen.ClusterResourceType, _a1 error) *MockInterface_UpdateClusterResourceType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_UpdateClusterResourceType_Call) RunAndReturn(run func(context.Context, string, gen.ClusterResourceType) (*gen.ClusterResourceType, error)) *MockInterface_UpdateClusterResourceType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateComponentType provides a mock function with given fields: ctx, namespaceName, ctName, ct
 func (_m *MockInterface) UpdateComponentType(ctx context.Context, namespaceName string, ctName string, ct gen.ComponentType) (*gen.ComponentType, error) {
 	ret := _m.Called(ctx, namespaceName, ctName, ct)
@@ -5503,6 +6818,189 @@ func (_c *MockInterface_UpdateReleaseBinding_Call) Return(_a0 *gen.ReleaseBindin
 }
 
 func (_c *MockInterface_UpdateReleaseBinding_Call) RunAndReturn(run func(context.Context, string, string, gen.ReleaseBinding) (*gen.ReleaseBinding, error)) *MockInterface_UpdateReleaseBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateResource provides a mock function with given fields: ctx, namespaceName, resourceName, r
+func (_m *MockInterface) UpdateResource(ctx context.Context, namespaceName string, resourceName string, r gen.ResourceInstance) (*gen.ResourceInstance, error) {
+	ret := _m.Called(ctx, namespaceName, resourceName, r)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateResource")
+	}
+
+	var r0 *gen.ResourceInstance
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ResourceInstance) (*gen.ResourceInstance, error)); ok {
+		return rf(ctx, namespaceName, resourceName, r)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ResourceInstance) *gen.ResourceInstance); ok {
+		r0 = rf(ctx, namespaceName, resourceName, r)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceInstance)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.ResourceInstance) error); ok {
+		r1 = rf(ctx, namespaceName, resourceName, r)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_UpdateResource_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateResource'
+type MockInterface_UpdateResource_Call struct {
+	*mock.Call
+}
+
+// UpdateResource is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - resourceName string
+//   - r gen.ResourceInstance
+func (_e *MockInterface_Expecter) UpdateResource(ctx interface{}, namespaceName interface{}, resourceName interface{}, r interface{}) *MockInterface_UpdateResource_Call {
+	return &MockInterface_UpdateResource_Call{Call: _e.mock.On("UpdateResource", ctx, namespaceName, resourceName, r)}
+}
+
+func (_c *MockInterface_UpdateResource_Call) Run(run func(ctx context.Context, namespaceName string, resourceName string, r gen.ResourceInstance)) *MockInterface_UpdateResource_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.ResourceInstance))
+	})
+	return _c
+}
+
+func (_c *MockInterface_UpdateResource_Call) Return(_a0 *gen.ResourceInstance, _a1 error) *MockInterface_UpdateResource_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_UpdateResource_Call) RunAndReturn(run func(context.Context, string, string, gen.ResourceInstance) (*gen.ResourceInstance, error)) *MockInterface_UpdateResource_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateResourceReleaseBinding provides a mock function with given fields: ctx, namespaceName, bindingName, rrb
+func (_m *MockInterface) UpdateResourceReleaseBinding(ctx context.Context, namespaceName string, bindingName string, rrb gen.ResourceReleaseBinding) (*gen.ResourceReleaseBinding, error) {
+	ret := _m.Called(ctx, namespaceName, bindingName, rrb)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateResourceReleaseBinding")
+	}
+
+	var r0 *gen.ResourceReleaseBinding
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ResourceReleaseBinding) (*gen.ResourceReleaseBinding, error)); ok {
+		return rf(ctx, namespaceName, bindingName, rrb)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ResourceReleaseBinding) *gen.ResourceReleaseBinding); ok {
+		r0 = rf(ctx, namespaceName, bindingName, rrb)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceReleaseBinding)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.ResourceReleaseBinding) error); ok {
+		r1 = rf(ctx, namespaceName, bindingName, rrb)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_UpdateResourceReleaseBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateResourceReleaseBinding'
+type MockInterface_UpdateResourceReleaseBinding_Call struct {
+	*mock.Call
+}
+
+// UpdateResourceReleaseBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - bindingName string
+//   - rrb gen.ResourceReleaseBinding
+func (_e *MockInterface_Expecter) UpdateResourceReleaseBinding(ctx interface{}, namespaceName interface{}, bindingName interface{}, rrb interface{}) *MockInterface_UpdateResourceReleaseBinding_Call {
+	return &MockInterface_UpdateResourceReleaseBinding_Call{Call: _e.mock.On("UpdateResourceReleaseBinding", ctx, namespaceName, bindingName, rrb)}
+}
+
+func (_c *MockInterface_UpdateResourceReleaseBinding_Call) Run(run func(ctx context.Context, namespaceName string, bindingName string, rrb gen.ResourceReleaseBinding)) *MockInterface_UpdateResourceReleaseBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.ResourceReleaseBinding))
+	})
+	return _c
+}
+
+func (_c *MockInterface_UpdateResourceReleaseBinding_Call) Return(_a0 *gen.ResourceReleaseBinding, _a1 error) *MockInterface_UpdateResourceReleaseBinding_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_UpdateResourceReleaseBinding_Call) RunAndReturn(run func(context.Context, string, string, gen.ResourceReleaseBinding) (*gen.ResourceReleaseBinding, error)) *MockInterface_UpdateResourceReleaseBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateResourceType provides a mock function with given fields: ctx, namespaceName, rtName, rt
+func (_m *MockInterface) UpdateResourceType(ctx context.Context, namespaceName string, rtName string, rt gen.ResourceType) (*gen.ResourceType, error) {
+	ret := _m.Called(ctx, namespaceName, rtName, rt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateResourceType")
+	}
+
+	var r0 *gen.ResourceType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ResourceType) (*gen.ResourceType, error)); ok {
+		return rf(ctx, namespaceName, rtName, rt)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ResourceType) *gen.ResourceType); ok {
+		r0 = rf(ctx, namespaceName, rtName, rt)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ResourceType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.ResourceType) error); ok {
+		r1 = rf(ctx, namespaceName, rtName, rt)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_UpdateResourceType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateResourceType'
+type MockInterface_UpdateResourceType_Call struct {
+	*mock.Call
+}
+
+// UpdateResourceType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - rtName string
+//   - rt gen.ResourceType
+func (_e *MockInterface_Expecter) UpdateResourceType(ctx interface{}, namespaceName interface{}, rtName interface{}, rt interface{}) *MockInterface_UpdateResourceType_Call {
+	return &MockInterface_UpdateResourceType_Call{Call: _e.mock.On("UpdateResourceType", ctx, namespaceName, rtName, rt)}
+}
+
+func (_c *MockInterface_UpdateResourceType_Call) Run(run func(ctx context.Context, namespaceName string, rtName string, rt gen.ResourceType)) *MockInterface_UpdateResourceType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.ResourceType))
+	})
+	return _c
+}
+
+func (_c *MockInterface_UpdateResourceType_Call) Return(_a0 *gen.ResourceType, _a1 error) *MockInterface_UpdateResourceType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_UpdateResourceType_Call) RunAndReturn(run func(context.Context, string, string, gen.ResourceType) (*gen.ResourceType, error)) *MockInterface_UpdateResourceType_Call {
 	_c.Call.Return(run)
 	return _c
 }

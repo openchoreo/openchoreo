@@ -106,6 +106,37 @@ type Interface interface {
 	UpdateReleaseBinding(ctx context.Context, namespaceName, bindingName string, req gen.ReleaseBinding) (*gen.ReleaseBinding, error)
 	DeleteReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string) error
 
+	ListResourceTypes(ctx context.Context, namespaceName string, params *gen.ListResourceTypesParams) (*gen.ResourceTypeList, error)
+	GetResourceType(ctx context.Context, namespaceName, rtName string) (*gen.ResourceType, error)
+	CreateResourceType(ctx context.Context, namespaceName string, rt gen.ResourceType) (*gen.ResourceType, error)
+	UpdateResourceType(ctx context.Context, namespaceName, rtName string, rt gen.ResourceType) (*gen.ResourceType, error)
+	DeleteResourceType(ctx context.Context, namespaceName, rtName string) error
+	GetResourceTypeSchema(ctx context.Context, namespaceName, rtName string) (*json.RawMessage, error)
+
+	ListClusterResourceTypes(ctx context.Context, params *gen.ListClusterResourceTypesParams) (*gen.ClusterResourceTypeList, error)
+	GetClusterResourceType(ctx context.Context, crtName string) (*gen.ClusterResourceType, error)
+	CreateClusterResourceType(ctx context.Context, crt gen.ClusterResourceType) (*gen.ClusterResourceType, error)
+	UpdateClusterResourceType(ctx context.Context, crtName string, crt gen.ClusterResourceType) (*gen.ClusterResourceType, error)
+	DeleteClusterResourceType(ctx context.Context, crtName string) error
+	GetClusterResourceTypeSchema(ctx context.Context, crtName string) (*json.RawMessage, error)
+
+	ListResources(ctx context.Context, namespaceName string, params *gen.ListResourcesParams) (*gen.ResourceInstanceList, error)
+	GetResource(ctx context.Context, namespaceName, resourceName string) (*gen.ResourceInstance, error)
+	CreateResource(ctx context.Context, namespaceName string, r gen.ResourceInstance) (*gen.ResourceInstance, error)
+	UpdateResource(ctx context.Context, namespaceName, resourceName string, r gen.ResourceInstance) (*gen.ResourceInstance, error)
+	DeleteResource(ctx context.Context, namespaceName, resourceName string) error
+
+	ListResourceReleases(ctx context.Context, namespaceName string, params *gen.ListResourceReleasesParams) (*gen.ResourceReleaseList, error)
+	GetResourceRelease(ctx context.Context, namespaceName, resourceReleaseName string) (*gen.ResourceRelease, error)
+	CreateResourceRelease(ctx context.Context, namespaceName string, rr gen.ResourceRelease) (*gen.ResourceRelease, error)
+	DeleteResourceRelease(ctx context.Context, namespaceName, resourceReleaseName string) error
+
+	ListResourceReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListResourceReleaseBindingsParams) (*gen.ResourceReleaseBindingList, error)
+	GetResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string) (*gen.ResourceReleaseBinding, error)
+	CreateResourceReleaseBinding(ctx context.Context, namespaceName string, rrb gen.ResourceReleaseBinding) (*gen.ResourceReleaseBinding, error)
+	UpdateResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string, rrb gen.ResourceReleaseBinding) (*gen.ResourceReleaseBinding, error)
+	DeleteResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string) error
+
 	ListDeploymentPipelines(ctx context.Context, namespaceName string, params *gen.ListDeploymentPipelinesParams) (*gen.DeploymentPipelineList, error)
 	GetDeploymentPipeline(ctx context.Context, namespaceName, deploymentPipelineName string) (*gen.DeploymentPipeline, error)
 	DeleteDeploymentPipeline(ctx context.Context, namespaceName, deploymentPipelineName string) error
