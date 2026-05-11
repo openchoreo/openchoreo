@@ -6243,6 +6243,10 @@ components:
           type: string
           description: Base URL of the RCA Agent API in the observability plane cluster
           example: http://rca-agent.observability-plane.svc:8080
+        finOpsAgentURL:
+          type: string
+          description: Base URL of the FinOps Agent API in the observability plane cluster
+          example: http://finops-agent.observability-plane.svc:8080
 
     ObservabilityPlaneStatus:
       type: object
@@ -6503,6 +6507,10 @@ components:
           type: string
           description: Base URL of the RCA Agent API in the observability plane cluster
           example: http://rca-agent.observability-plane.svc:8080
+        finOpsAgentURL:
+          type: string
+          description: Base URL of the FinOps Agent API in the observability plane cluster
+          example: http://finops-agent.observability-plane.svc:8080
 
     ClusterObservabilityPlaneStatus:
       type: object

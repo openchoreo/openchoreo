@@ -601,6 +601,7 @@ gateway:
 | `clusterAgent` | ClusterAgentConfig | Yes | WebSocket connection config |
 | `observerURL` | string | Yes | Base URL of the Observer API |
 | `rcaAgentURL` | string | No | RCA Agent API URL |
+| `finOpsAgentURL` | string | No | FinOps Agent API URL |
 
 **Status:** Same as DataPlane (conditions + agentConnection).
 

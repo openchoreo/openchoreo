@@ -489,6 +489,7 @@ type ObservabilityPlaneResponse struct {
 	DisplayName     string                         `json:"displayName,omitempty"`
 	Description     string                         `json:"description,omitempty"`
 	ObserverURL     string                         `json:"observerURL,omitempty"`
+	FinOpsAgentURL  string                         `json:"finOpsAgentURL,omitempty"`
 	AgentConnection *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
 	CreatedAt       time.Time                      `json:"createdAt"`
 	Status          string                         `json:"status,omitempty"`
@@ -534,6 +535,7 @@ type ClusterObservabilityPlaneResponse struct {
 	Description     string                         `json:"description,omitempty"`
 	ObserverURL     string                         `json:"observerURL,omitempty"`
 	RCAAgentURL     string                         `json:"rcaAgentURL,omitempty"`
+	FinOpsAgentURL  string                         `json:"finOpsAgentURL,omitempty"`
 	AgentConnection *AgentConnectionStatusResponse `json:"agentConnection,omitempty"`
 	CreatedAt       time.Time                      `json:"createdAt"`
 	Status          string                         `json:"status,omitempty"`

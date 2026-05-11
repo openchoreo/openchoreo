@@ -931,6 +931,9 @@ type ClusterObservabilityPlaneSpec struct {
 	// ClusterAgent Configuration for cluster agent-based communication
 	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
 
+	// FinOpsAgentURL Base URL of the FinOps Agent API in the observability plane cluster
+	FinOpsAgentURL *string `json:"finOpsAgentURL,omitempty"`
+
 	// ObserverURL Base URL of the Observer API in the observability plane cluster
 	ObserverURL *string `json:"observerURL,omitempty"`
 
@@ -2364,6 +2367,9 @@ type ObservabilityPlaneRefKind string
 type ObservabilityPlaneSpec struct {
 	// ClusterAgent Configuration for cluster agent-based communication
 	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
+
+	// FinOpsAgentURL Base URL of the FinOps Agent API in the observability plane cluster
+	FinOpsAgentURL *string `json:"finOpsAgentURL,omitempty"`
 
 	// ObserverURL Base URL of the Observer API in the observability plane cluster
 	ObserverURL *string `json:"observerURL,omitempty"`
