@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -1337,6 +1338,338 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Expect(metadataContext.Labels).To(HaveKeyWithValue(labels.LabelKeyComponentUID, string(componentUID)))
 			Expect(metadataContext.Labels).To(HaveKeyWithValue(labels.LabelKeyEnvironmentUID, string(environmentUID)))
 			Expect(metadataContext.Labels).To(HaveKeyWithValue(labels.LabelKeyProjectUID, string(projectUID)))
+		})
+	})
+
+	// ── Rendering failure: CEL validation rules ─────────────────────────────
+
+	Context("when ComponentType CEL validation rule fails", func() {
+		const (
+			project  = "cel-ct-proj"
+			compName = "cel-ct-comp"
+			envName  = "cel-ct-env"
+			dpName   = "cel-ct-dp"
+			rbName   = "rb-cel-ct"
+			crName   = "cr-cel-ct"
+		)
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("sets ReleaseSynced=False/RenderingFailed and Ready=False/RenderingFailed", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating a ComponentRelease with a validation rule that will fail")
+			cr := crFixture(crName, project, compName)
+			cr.Spec.ComponentType.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			cr.Spec.ComponentType.Spec.Validations = []openchoreov1alpha1.ValidationRule{
+				{Rule: "${parameters.replicas > 5}", Message: "replicas must be greater than 5"},
+			}
+			cr.Spec.ComponentProfile = &openchoreov1alpha1.ComponentProfile{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"replicas":2}`),
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			By("Creating remaining dependencies")
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ReleaseBinding with the finalizer pre-set")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, project, compName, envName, crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — expects an error from the rendering pipeline")
+			_, err := r.Reconcile(ctx, req)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to render resources"))
+
+			By("Verifying ReleaseSynced=False with reason RenderingFailed")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonRenderingFailed)))
+			Expect(cond.Message).To(ContainSubstring("replicas must be greater than 5"))
+
+			By("Verifying Ready=False mirrors the RenderingFailed reason")
+			readyCond := conditionFor(rb, string(ConditionReady))
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(string(ReasonRenderingFailed)))
+
+			By("Verifying no RenderedRelease was created")
+			releaseList := &openchoreov1alpha1.RenderedReleaseList{}
+			Expect(k8sClient.List(ctx, releaseList, client.InNamespace(ns))).To(Succeed())
+			for _, rel := range releaseList.Items {
+				Expect(rel.Labels[labels.LabelKeyComponentName]).NotTo(Equal(compName),
+					"no RenderedRelease should exist for this component")
+			}
+		})
+	})
+
+	Context("when Trait CEL validation rule fails", func() {
+		const (
+			project  = "cel-trait-proj"
+			compName = "cel-trait-comp"
+			envName  = "cel-trait-env"
+			dpName   = "cel-trait-dp"
+			rbName   = "rb-cel-trait"
+			crName   = "cr-cel-trait"
+		)
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("sets ReleaseSynced=False/RenderingFailed with trait context in the message", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating a ComponentRelease with a trait that has a failing validation rule")
+			cr := crFixture(crName, project, compName)
+			cr.Spec.Traits = []openchoreov1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreov1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreov1alpha1.TraitSpec{
+						Parameters: &openchoreov1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{"type":"object","properties":{"sizeGB":{"type":"integer","default":1}}}`),
+							},
+						},
+						Validations: []openchoreov1alpha1.ValidationRule{
+							{Rule: "${parameters.sizeGB >= 10}", Message: "storage size must be at least 10GB"},
+						},
+						Creates: []openchoreov1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"storage-cfg"}}`),
+								},
+							},
+						},
+					},
+				},
+			}
+			cr.Spec.ComponentProfile = &openchoreov1alpha1.ComponentProfile{
+				Traits: []openchoreov1alpha1.ComponentProfileTrait{
+					{
+						Kind:         openchoreov1alpha1.TraitRefKindTrait,
+						Name:         "storage",
+						InstanceName: "vol1",
+						Parameters: &runtime.RawExtension{
+							Raw: []byte(`{"sizeGB":5}`),
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			By("Creating remaining dependencies")
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ReleaseBinding with the finalizer pre-set")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, project, compName, envName, crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — expects a rendering error from the trait validation")
+			_, err := r.Reconcile(ctx, req)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to render resources"))
+
+			By("Verifying ReleaseSynced=False with reason RenderingFailed and trait context")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonRenderingFailed)))
+			Expect(cond.Message).To(ContainSubstring("storage size must be at least 10GB"))
+
+			By("Verifying Ready=False mirrors the RenderingFailed reason")
+			readyCond := conditionFor(rb, string(ConditionReady))
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(string(ReasonRenderingFailed)))
+
+			By("Verifying no RenderedRelease was created")
+			releaseList := &openchoreov1alpha1.RenderedReleaseList{}
+			Expect(k8sClient.List(ctx, releaseList, client.InNamespace(ns))).To(Succeed())
+			for _, rel := range releaseList.Items {
+				Expect(rel.Labels[labels.LabelKeyComponentName]).NotTo(Equal(compName),
+					"no RenderedRelease should exist for this component")
+			}
+		})
+	})
+
+	Context("when a previously successful deploy fails CEL validation after envConfig update", func() {
+		const (
+			project  = "cel-regr-proj"
+			compName = "cel-regr-comp"
+			envName  = "cel-regr-env"
+			dpName   = "cel-regr-dp"
+			rbName   = "rb-cel-regr"
+			crName   = "cr-cel-regr"
+		)
+		req := reconcileRequest(rbName)
+		expectedReleaseName := compName + "-" + envName
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(expectedReleaseName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("flips conditions to RenderingFailed but preserves the existing RenderedRelease", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating a ComponentRelease with a validation rule referencing environmentConfigs")
+			cr := crFixture(crName, project, compName)
+			cr.Spec.ComponentType.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			cr.Spec.ComponentType.Spec.EnvironmentConfigs = &openchoreov1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"maxReplicas":{"type":"integer","default":10}}}`),
+				},
+			}
+			cr.Spec.ComponentType.Spec.Validations = []openchoreov1alpha1.ValidationRule{
+				{
+					Rule:    "${environmentConfigs.maxReplicas >= parameters.replicas}",
+					Message: "maxReplicas must be >= replicas",
+				},
+			}
+			cr.Spec.ComponentProfile = &openchoreov1alpha1.ComponentProfile{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"replicas":3}`),
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			By("Creating remaining dependencies")
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ReleaseBinding with envConfig that satisfies the rule (maxReplicas=10 >= replicas=3)")
+			rb := rbFixture(rbName, project, compName, envName, crName, true)
+			rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{
+				Raw: []byte(`{"maxReplicas":10}`),
+			}
+			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+
+			By("First reconcile: renders successfully and creates the RenderedRelease")
+			result := mustReconcile(r, req)
+			Expect(result.Requeue).To(BeTrue())
+
+			By("Verifying ReleaseSynced=True after initial deploy")
+			rb = fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+
+			By("Verifying the RenderedRelease was created")
+			createdRelease := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				createdRelease,
+			)).To(Succeed())
+			originalReleaseUID := createdRelease.UID
+
+			By("Updating the ReleaseBinding envConfig to break the rule (maxReplicas=1 < replicas=3)")
+			rb = fetchRB(rbName)
+			rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{
+				Raw: []byte(`{"maxReplicas":1}`),
+			}
+			Expect(k8sClient.Update(ctx, rb)).To(Succeed())
+
+			By("Re-reconciling — expects a rendering failure")
+			_, err := r.Reconcile(ctx, req)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to render resources"))
+
+			By("Verifying ReleaseSynced flipped to False/RenderingFailed")
+			rb = fetchRB(rbName)
+			cond = conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonRenderingFailed)))
+			Expect(cond.Message).To(ContainSubstring("maxReplicas must be >= replicas"))
+
+			By("Verifying Ready=False mirrors the RenderingFailed reason")
+			readyCond := conditionFor(rb, string(ConditionReady))
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(string(ReasonRenderingFailed)))
+
+			By("Verifying the existing RenderedRelease still exists and is unchanged")
+			survivingRelease := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				survivingRelease,
+			)).To(Succeed(), "RenderedRelease should survive a render failure")
+			Expect(survivingRelease.UID).To(Equal(originalReleaseUID),
+				"RenderedRelease should be the same object, not recreated")
 		})
 	})
 })
