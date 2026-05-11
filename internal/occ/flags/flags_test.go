@@ -70,6 +70,16 @@ func TestComponent_HasShorthand(t *testing.T) {
 	assert.Equal(t, "c", f.Shorthand)
 }
 
+func TestResource_DefaultAndSet(t *testing.T) {
+	cmd := newTestCmd()
+	AddResource(cmd)
+
+	assert.Equal(t, "", GetResource(cmd))
+
+	_ = cmd.Flags().Set("resource", "analytics-db")
+	assert.Equal(t, "analytics-db", GetResource(cmd))
+}
+
 func TestEnvironment_DefaultAndSet(t *testing.T) {
 	cmd := newTestCmd()
 	AddEnvironment(cmd)

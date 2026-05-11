@@ -27,6 +27,7 @@ func TestBuildRootCmd_Subcommands(t *testing.T) {
 		"config",
 		"version",
 		"componentrelease",
+		"resourcerelease",
 		"releasebinding",
 		"namespace",
 		"project",
