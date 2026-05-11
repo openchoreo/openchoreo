@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"reflect"
 	"sync"
 	"time"
 
@@ -141,10 +140,7 @@ func (f *Forwarder) Start(ctx context.Context, onReady func()) error {
 			AddFunc: func(obj interface{}) {
 				f.handleEvent(obj, "created", gvrCopy)
 			},
-			UpdateFunc: func(oldObj, newObj interface{}) {
-				if isStatusOnlyChange(oldObj, newObj) {
-					return
-				}
+			UpdateFunc: func(_ interface{}, newObj interface{}) {
 				f.handleEvent(newObj, "updated", gvrCopy)
 			},
 			DeleteFunc: func(obj interface{}) {
@@ -175,10 +171,7 @@ func (f *Forwarder) Start(ctx context.Context, onReady func()) error {
 		AddFunc: func(obj interface{}) {
 			f.handleEvent(obj, "created", namespaceGVR)
 		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			if isStatusOnlyChange(oldObj, newObj) {
-				return
-			}
+		UpdateFunc: func(_ interface{}, newObj interface{}) {
 			f.handleEvent(newObj, "updated", namespaceGVR)
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -305,42 +298,3 @@ func (f *Forwarder) handleEvent(obj interface{}, action string, gvr schema.Group
 	})
 }
 
-// isStatusOnlyChange returns true when the only differences between the old
-// and new objects are inside `status` (and metadata fields the catalog
-// doesn't care about, like resourceVersion / generation timestamps). When
-// spec, labels, and annotations are all unchanged, the catalog has no
-// reason to refresh — typical sources are controller reconcile loops
-// updating status conditions and agent-heartbeat timestamps.
-func isStatusOnlyChange(oldObj, newObj interface{}) bool {
-	oldU, ok1 := oldObj.(*unstructured.Unstructured)
-	newU, ok2 := newObj.(*unstructured.Unstructured)
-	if !ok1 || !ok2 {
-		// If we can't compare, fall through and dispatch — safer than silently dropping.
-		return false
-	}
-
-	oldSpec, _, _ := unstructured.NestedFieldCopy(oldU.UnstructuredContent(), "spec")
-	newSpec, _, _ := unstructured.NestedFieldCopy(newU.UnstructuredContent(), "spec")
-	if !reflect.DeepEqual(oldSpec, newSpec) {
-		return false
-	}
-	if !reflect.DeepEqual(oldU.GetLabels(), newU.GetLabels()) {
-		return false
-	}
-	if !reflect.DeepEqual(oldU.GetAnnotations(), newU.GetAnnotations()) {
-		return false
-	}
-	// Treat finalizer / deletion timestamp changes as meaningful — the
-	// catalog cares about the resource being on the way out. Use
-	// metav1.Time.Equal which handles nil + time-value comparison
-	// correctly; the raw `!=` would compare *metav1.Time pointers and
-	// see every reconciler write of the resource as a "change."
-	if !oldU.GetDeletionTimestamp().Equal(newU.GetDeletionTimestamp()) {
-		return false
-	}
-	if !reflect.DeepEqual(oldU.GetFinalizers(), newU.GetFinalizers()) {
-		return false
-	}
-
-	return true
-}
