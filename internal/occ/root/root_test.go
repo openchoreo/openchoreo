@@ -36,6 +36,7 @@ func TestBuildRootCmd_Subcommands(t *testing.T) {
 		"workflowplane",
 		"observabilityplane",
 		"componenttype",
+		"resourcetype",
 		"clustercomponenttype",
 		"clusterresourcetype",
 		"clusterdataplane",
