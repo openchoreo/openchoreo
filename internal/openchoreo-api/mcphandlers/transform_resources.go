@@ -267,6 +267,12 @@ func releaseBindingSummary(rb openchoreov1alpha1.ReleaseBinding) map[string]any 
 	if rb.Spec.State != "" {
 		m["state"] = string(rb.Spec.State)
 	}
+	if len(rb.Status.Endpoints) > 0 {
+		m["endpoints"] = rb.Status.Endpoints
+	}
+	if len(rb.Status.PendingConnections) > 0 {
+		m["pendingConnections"] = rb.Status.PendingConnections
+	}
 	setIfNotEmpty(m, "status", readyStatus(rb.Status.Conditions))
 	return m
 }
@@ -293,7 +299,9 @@ func releaseBindingDetail(rb *openchoreov1alpha1.ReleaseBinding) map[string]any 
 	if rb.Spec.WorkloadOverrides != nil {
 		m["workloadOverrides"] = rb.Spec.WorkloadOverrides
 	}
-	m["endpoints"] = rb.Status.Endpoints
+	if len(rb.Status.Endpoints) > 0 {
+		m["endpoints"] = rb.Status.Endpoints
+	}
 	if len(rb.Status.ConnectionTargets) > 0 {
 		m["connectionTargets"] = rb.Status.ConnectionTargets
 	}
@@ -680,7 +688,7 @@ func resourceTreeDetail(result *k8sresourcessvc.K8sResourceTreeResult) map[strin
 				node["namespace"] = n.Namespace
 			}
 			if n.CreatedAt != nil {
-				node["created_at"] = n.CreatedAt
+				node["created_at"] = n.CreatedAt.UTC().Format("2006-01-02T15:04:05Z")
 			}
 			if len(n.ParentRefs) > 0 {
 				parents := make([]map[string]any, 0, len(n.ParentRefs))

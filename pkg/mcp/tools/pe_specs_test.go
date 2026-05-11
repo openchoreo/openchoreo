@@ -174,10 +174,10 @@ func peEnvironmentSpecs() []toolTestSpec {
 			toolset:             "pe",
 			descriptionKeywords: []string{"delete", "environment"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "env_name"},
+			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"env_name":       testEnvName,
+				"name":           testEnvName,
 			},
 			expectedMethod: "DeleteEnvironment",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -232,10 +232,10 @@ func pePipelineSpecs() []toolTestSpec {
 			toolset:             "pe",
 			descriptionKeywords: []string{"delete", "deployment", "pipeline"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "pipeline_name"},
+			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"pipeline_name":  "my-pipeline",
+				"name":           "my-pipeline",
 			},
 			expectedMethod: "DeleteDeploymentPipeline",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -613,7 +613,7 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":        testWebAppType,
+				"name":           testWebAppType,
 			},
 			expectedMethod: "GetComponentType",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -630,7 +630,7 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":        testWebAppType,
+				"name":           testWebAppType,
 			},
 			expectedMethod: "GetComponentTypeSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -664,7 +664,7 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":     testAutoscalingTrait,
+				"name":           testAutoscalingTrait,
 			},
 			expectedMethod: "GetTrait",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -681,7 +681,7 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":     testAutoscalingTrait,
+				"name":           testAutoscalingTrait,
 			},
 			expectedMethod: "GetTraitSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -715,7 +715,7 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":  testBuildWorkflow,
+				"name":           testBuildWorkflow,
 			},
 			expectedMethod: "GetWorkflow",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -732,7 +732,7 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":  testBuildWorkflow,
+				"name":           testBuildWorkflow,
 			},
 			expectedMethod: "GetWorkflowSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -831,7 +831,7 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":        "my-component-type",
+				"name":           "my-component-type",
 			},
 			expectedMethod: "DeleteComponentType",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -886,7 +886,7 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":     "my-trait",
+				"name":           "my-trait",
 			},
 			expectedMethod: "DeleteTrait",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -941,7 +941,7 @@ func pePlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":  testBuildWorkflow,
+				"name":           testBuildWorkflow,
 			},
 			expectedMethod: "DeleteWorkflow",
 			validateCall: func(t *testing.T, args []interface{}) {

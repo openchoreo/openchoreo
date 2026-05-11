@@ -260,7 +260,7 @@ func componentPlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":        "WebApplication",
+				"name":           "WebApplication",
 			},
 			expectedMethod: "GetComponentTypeSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -292,7 +292,7 @@ func componentPlatformStandardsSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":     "autoscaling",
+				"name":           "autoscaling",
 			},
 			expectedMethod: "GetTraitSchema",
 			validateCall: func(t *testing.T, args []interface{}) {

@@ -231,13 +231,13 @@ func (t *Toolsets) RegisterDeleteEnvironment(s *mcp.Server, perms map[string]Too
 			"This will remove the deployment target and any associated resources.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"env_name":       stringProperty("Name of the environment to delete. Use list_environments to discover valid names"),
-		}, []string{"namespace_name", "env_name"}),
+			"name":           stringProperty("Name of the environment to delete. Use list_environments to discover valid names"),
+		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		EnvName       string `json:"env_name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.DeleteEnvironment(ctx, args.NamespaceName, args.EnvName)
+		result, err := t.PEToolset.DeleteEnvironment(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
 	})
 }
@@ -656,11 +656,11 @@ func (t *Toolsets) RegisterPEGetComponentTypeSchema(s *mcp.Server, perms map[str
 			"the parameters developers can configure when using this component type.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name":        stringProperty("Component type name. Use list_component_types to discover valid names"),
+			"name":           stringProperty("Component type name. Use list_component_types to discover valid names"),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		Name        string `json:"name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.PEToolset.GetComponentTypeSchema(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
@@ -676,11 +676,11 @@ func (t *Toolsets) RegisterPEGetComponentType(s *mcp.Server, perms map[string]To
 			"Use this before updating a component type to retrieve the current spec.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name":        stringProperty("Component type name. Use list_component_types to discover valid names"),
+			"name":           stringProperty("Component type name. Use list_component_types to discover valid names"),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		Name        string `json:"name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.PEToolset.GetComponentType(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
@@ -717,11 +717,11 @@ func (t *Toolsets) RegisterPEGetTraitSchema(s *mcp.Server, perms map[string]Tool
 			"parameters developers can configure when using this trait.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name":     stringProperty("Trait name. Use list_traits to discover valid names"),
+			"name":           stringProperty("Trait name. Use list_traits to discover valid names"),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		Name     string `json:"name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.PEToolset.GetTraitSchema(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
@@ -737,11 +737,11 @@ func (t *Toolsets) RegisterPEGetTrait(s *mcp.Server, perms map[string]ToolPermis
 			"Use this before updating a trait to retrieve the current spec.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name":     stringProperty("Trait name. Use list_traits to discover valid names"),
+			"name":           stringProperty("Trait name. Use list_traits to discover valid names"),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		Name     string `json:"name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.PEToolset.GetTrait(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
@@ -780,11 +780,11 @@ func (t *Toolsets) RegisterPEGetWorkflowSchema(s *mcp.Server, perms map[string]T
 			"a workflow accepts before configuring a component's workflow field or triggering a workflow run.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name":  stringProperty("Name of the workflow. Use list_workflows to discover valid names"),
+			"name":           stringProperty("Name of the workflow. Use list_workflows to discover valid names"),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		Name  string `json:"name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.PEToolset.GetWorkflowSchema(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
@@ -800,11 +800,11 @@ func (t *Toolsets) RegisterPEGetWorkflow(s *mcp.Server, perms map[string]ToolPer
 			"Use this before updating a workflow to retrieve the current spec.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name":  stringProperty("Name of the workflow. Use list_workflows to discover valid names"),
+			"name":           stringProperty("Name of the workflow. Use list_workflows to discover valid names"),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		Name  string `json:"name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.PEToolset.GetWorkflow(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
@@ -841,18 +841,19 @@ func (t *Toolsets) RegisterGetResourceEvents(s *mcp.Server, perms map[string]Too
 	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewReleaseBinding}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: name,
-		Description: "Get Kubernetes events for a specific resource in a deployment. Useful for diagnosing " +
-			"deployment issues, scheduling problems, or container startup failures. Call get_resource_tree first " +
-			"to discover the rendered resource's exact group/version/kind/name — passing the component name " +
-			"typically fails because the rendered Deployment / Service / Pod uses a different name.",
+		Description: "Get Kubernetes events for a specific rendered resource in a deployment. " +
+			"Useful for diagnosing scheduling problems and container startup failures. " +
+			"Call get_resource_tree first to discover the exact group/version/kind/name.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"release_binding_name": stringProperty(
 				"Name of the release binding (deployment). Use list_release_bindings to discover valid names"),
-			"group":         stringProperty("API group of the resource (e.g., 'apps', '' for core resources)"),
-			"version":       stringProperty("API version of the resource (e.g., 'v1')"),
-			"kind":          stringProperty("Kind of the resource (e.g., 'Deployment', 'Pod', 'Service')"),
-			"resource_name": stringProperty("Name of the rendered Kubernetes resource. Use get_resource_tree to discover this — it usually differs from the component name"),
+			"group":   stringProperty("API group of the resource (e.g., 'apps', '' for core resources)"),
+			"version": stringProperty("API version of the resource (e.g., 'v1')"),
+			"kind":    stringProperty("Kind of the resource (e.g., 'Deployment', 'Pod', 'Service')"),
+			"resource_name": stringProperty(
+				"Rendered K8s resource name (usually differs from the component name). " +
+					"Use get_resource_tree to discover it."),
 		}, []string{"namespace_name", "release_binding_name", "group", "version", "kind", "resource_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName      string `json:"namespace_name"`
@@ -911,13 +912,13 @@ func (t *Toolsets) RegisterGetDeploymentPipeline(s *mcp.Server, perms map[string
 			"order, and associated environments.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"pipeline_name":  stringProperty("Use list_deployment_pipelines to discover valid names"),
-		}, []string{"namespace_name", "pipeline_name"}),
+			"name":           stringProperty("Use list_deployment_pipelines to discover valid names"),
+		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		PipelineName  string `json:"pipeline_name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.DeploymentToolset.GetDeploymentPipeline(ctx, args.NamespaceName, args.PipelineName)
+		result, err := t.DeploymentToolset.GetDeploymentPipeline(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
 	})
 }
@@ -981,7 +982,7 @@ func (t *Toolsets) RegisterCreateWorkflowRun(s *mcp.Server, perms map[string]Too
 			"Workflows define automated processes like CI/CD pipelines that execute on the workflow plane.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name":  stringProperty("Name of the Workflow CR to execute"),
+			"name":           stringProperty("Name of the Workflow CR to execute"),
 			"parameters": map[string]any{
 				"type":        "object",
 				"description": "Optional: Parameters to pass to the workflow execution",
@@ -989,7 +990,7 @@ func (t *Toolsets) RegisterCreateWorkflowRun(s *mcp.Server, perms map[string]Too
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string                 `json:"namespace_name"`
-		Name  string                 `json:"name"`
+		Name          string                 `json:"name"`
 		Parameters    map[string]interface{} `json:"parameters"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.BuildToolset.CreateWorkflowRun(ctx, args.NamespaceName, args.Name, args.Parameters)
@@ -1155,11 +1156,11 @@ func (t *Toolsets) RegisterGetWorkflowSchema(s *mcp.Server, perms map[string]Too
 			"a workflow accepts before configuring a component's workflow field or triggering a workflow run.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name":  stringProperty("Name of the workflow. Use list_workflows to discover valid names"),
+			"name":           stringProperty("Name of the workflow. Use list_workflows to discover valid names"),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		Name  string `json:"name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.BuildToolset.GetWorkflowSchema(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
@@ -1371,11 +1372,11 @@ func (t *Toolsets) RegisterGetComponentTypeSchema(s *mcp.Server, perms map[strin
 			"required fields, optional fields, and their types.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name":        stringProperty("Component type name. Use list_component_types to discover valid names"),
+			"name":           stringProperty("Component type name. Use list_component_types to discover valid names"),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		Name        string `json:"name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.ComponentToolset.GetComponentTypeSchema(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
@@ -1412,11 +1413,11 @@ func (t *Toolsets) RegisterGetTraitSchema(s *mcp.Server, perms map[string]ToolPe
 			"configuration options and parameters.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name":     stringProperty("Trait name. Use list_traits to discover valid names"),
+			"name":           stringProperty("Trait name. Use list_traits to discover valid names"),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		Name     string `json:"name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.ComponentToolset.GetTraitSchema(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
@@ -1584,14 +1585,14 @@ func (t *Toolsets) RegisterDeleteDeploymentPipeline(s *mcp.Server, perms map[str
 		Description: "Delete a deployment pipeline from a namespace.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"pipeline_name": stringProperty(
+			"name": stringProperty(
 				"Name of the deployment pipeline to delete. Use list_deployment_pipelines to discover valid names"),
-		}, []string{"namespace_name", "pipeline_name"}),
+		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		PipelineName  string `json:"pipeline_name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.DeleteDeploymentPipeline(ctx, args.NamespaceName, args.PipelineName)
+		result, err := t.PEToolset.DeleteDeploymentPipeline(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
 	})
 }
@@ -1833,7 +1834,7 @@ func (t *Toolsets) RegisterDeleteComponentType(s *mcp.Server, perms map[string]T
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		Name        string `json:"name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.PEToolset.DeleteComponentType(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
@@ -1932,11 +1933,11 @@ func (t *Toolsets) RegisterDeleteTrait(s *mcp.Server, perms map[string]ToolPermi
 		Description: "Delete a trait from a namespace.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name":     stringProperty("Name of the trait to delete. Use list_traits to discover valid names"),
+			"name":           stringProperty("Name of the trait to delete. Use list_traits to discover valid names"),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		Name     string `json:"name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.PEToolset.DeleteTrait(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
@@ -2036,11 +2037,11 @@ func (t *Toolsets) RegisterPEDeleteWorkflow(s *mcp.Server, perms map[string]Tool
 		Description: "Delete a workflow from a namespace.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name":  stringProperty("Name of the workflow to delete. Use list_workflows to discover valid names"),
+			"name":           stringProperty("Name of the workflow to delete. Use list_workflows to discover valid names"),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		Name  string `json:"name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.PEToolset.DeleteWorkflow(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)

@@ -47,7 +47,7 @@ func buildWorkflowRunSpecs() []toolTestSpec {
 			optionalParams:      []string{"parameters"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":  "build-workflow",
+				"name":           "build-workflow",
 			},
 			expectedMethod: "CreateWorkflowRun",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -173,7 +173,7 @@ func buildWorkflowSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"name":  "build-workflow",
+				"name":           "build-workflow",
 			},
 			expectedMethod: "GetWorkflowSchema",
 			validateCall: func(t *testing.T, args []interface{}) {

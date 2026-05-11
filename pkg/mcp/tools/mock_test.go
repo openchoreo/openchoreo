@@ -152,9 +152,9 @@ func (m *MockCoreToolsetHandler) GetComponent(
 }
 
 func (m *MockCoreToolsetHandler) ListWorkloads(
-	ctx context.Context, namespaceName, componentName string,
+	ctx context.Context, namespaceName, componentName string, opts ListOpts,
 ) (any, error) {
-	m.recordCall("ListWorkloads", namespaceName, componentName)
+	m.recordCall("ListWorkloads", namespaceName, componentName, opts)
 	return `[{"name":"workload1"}]`, nil
 }
 

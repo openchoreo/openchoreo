@@ -57,22 +57,26 @@ func (t *Toolsets) RegisterGetComponent(s *mcp.Server, perms map[string]ToolPerm
 	})
 }
 
+//nolint:dupl // paginated list handlers share similar structure
 func (t *Toolsets) RegisterListWorkloads(s *mcp.Server, perms map[string]ToolPermission) {
 	const name = "list_workloads"
 	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkload}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: name,
 		Description: "List workloads for a component. Shows workload names, images, and endpoint names. " +
-			"For Kubernetes users: Similar to 'kubectl get pods'.",
-		InputSchema: createSchema(map[string]any{
+			"Supports pagination via limit and cursor.",
+		InputSchema: createSchema(addPaginationProperties(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"component_name": defaultStringProperty(),
-		}, []string{"namespace_name", "component_name"}),
+		}), []string{"namespace_name", "component_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
 		ComponentName string `json:"component_name"`
+		Limit         int    `json:"limit,omitempty"`
+		Cursor        string `json:"cursor,omitempty"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.ListWorkloads(ctx, args.NamespaceName, args.ComponentName)
+		result, err := t.ComponentToolset.ListWorkloads(
+			ctx, args.NamespaceName, args.ComponentName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
 		return handleToolResult(result, err)
 	})
 }
