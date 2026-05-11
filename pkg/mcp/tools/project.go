@@ -105,8 +105,9 @@ func (t *Toolsets) RegisterUpdateProject(s *mcp.Server, perms map[string]ToolPer
 	}, []string{"namespace_name", "project_name"})
 
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        name,
-		Description: "Update an existing project's deployment pipeline reference.",
+		Name: name,
+		Description: "Update an existing project's deployment pipeline reference, display name, " +
+			"and description. Only provided fields will be updated.",
 		InputSchema: inputSchema,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args updateProjectArgs) (*mcp.CallToolResult, any, error) {
 		patchReq := &gen.PatchProjectRequest{}
