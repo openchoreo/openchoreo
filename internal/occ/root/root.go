@@ -34,6 +34,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resource"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcerelease"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcereleasebinding"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcetype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/secretreference"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/trait"
@@ -65,6 +66,7 @@ func BuildRootCmd() *cobra.Command {
 		version.NewVersionCmd(),
 		componentrelease.NewComponentReleaseCmd(f),
 		resourcerelease.NewResourceReleaseCmd(f),
+		resourcereleasebinding.NewResourceReleaseBindingCmd(f),
 		releasebinding.NewReleaseBindingCmd(f),
 		namespace.NewNamespaceCmd(f),
 		project.NewProjectCmd(f),
