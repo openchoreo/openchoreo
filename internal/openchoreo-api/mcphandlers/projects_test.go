@@ -199,6 +199,43 @@ func TestUpdateProject(t *testing.T) {
 		assert.Equal(t, projectName, typed["name"])
 		assert.Equal(t, newPipeline, typed["deploymentPipelineRef"])
 	})
+
+	t.Run("wraps get error", func(t *testing.T) {
+		expected := errors.New("get failed")
+		projSvc := projectmocks.NewMockService(t)
+		projSvc.EXPECT().
+			GetProject(mock.Anything, testNS, "my-proj").
+			Return(nil, expected)
+
+		h := newTestHandler(withProjectService(projSvc))
+		_, err := h.UpdateProject(ctx, testNS, "my-proj", &gen.PatchProjectRequest{})
+		require.ErrorIs(t, err, expected)
+		assert.Contains(t, err.Error(), "UpdateProject: GetProject namespace=test-ns project=my-proj")
+	})
+
+	t.Run("wraps update error", func(t *testing.T) {
+		expected := errors.New("update failed")
+		project := &openchoreov1alpha1.Project{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-proj",
+				Namespace: testNS,
+			},
+		}
+
+		projSvc := projectmocks.NewMockService(t)
+		projSvc.EXPECT().
+			GetProject(mock.Anything, testNS, "my-proj").
+			Return(project, nil)
+		projSvc.EXPECT().
+			UpdateProject(mock.Anything, testNS, mock.Anything).
+			Return(nil, expected)
+
+		h := newTestHandler(withProjectService(projSvc))
+		_, err := h.UpdateProject(ctx, testNS, "my-proj", nil)
+		require.ErrorIs(t, err, expected)
+		assert.Contains(t, err.Error(),
+			"UpdateProject: UpdateProject namespace=test-ns project=my-proj deploymentPipeline=")
+	})
 }
 
 func TestDeleteProject(t *testing.T) {
