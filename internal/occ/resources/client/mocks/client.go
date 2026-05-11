@@ -503,6 +503,66 @@ func (_c *MockInterface_CreateResourceType_Call) RunAndReturn(run func(context.C
 	return _c
 }
 
+// CreateSecret provides a mock function with given fields: ctx, namespaceName, req
+func (_m *MockInterface) CreateSecret(ctx context.Context, namespaceName string, req gen.CreateSecretRequest) (*gen.Secret, error) {
+	ret := _m.Called(ctx, namespaceName, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateSecret")
+	}
+
+	var r0 *gen.Secret
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.CreateSecretRequest) (*gen.Secret, error)); ok {
+		return rf(ctx, namespaceName, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.CreateSecretRequest) *gen.Secret); ok {
+		r0 = rf(ctx, namespaceName, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.Secret)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.CreateSecretRequest) error); ok {
+		r1 = rf(ctx, namespaceName, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateSecret_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateSecret'
+type MockInterface_CreateSecret_Call struct {
+	*mock.Call
+}
+
+// CreateSecret is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - req gen.CreateSecretRequest
+func (_e *MockInterface_Expecter) CreateSecret(ctx interface{}, namespaceName interface{}, req interface{}) *MockInterface_CreateSecret_Call {
+	return &MockInterface_CreateSecret_Call{Call: _e.mock.On("CreateSecret", ctx, namespaceName, req)}
+}
+
+func (_c *MockInterface_CreateSecret_Call) Run(run func(ctx context.Context, namespaceName string, req gen.CreateSecretRequest)) *MockInterface_CreateSecret_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.CreateSecretRequest))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateSecret_Call) Return(_a0 *gen.Secret, _a1 error) *MockInterface_CreateSecret_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateSecret_Call) RunAndReturn(run func(context.Context, string, gen.CreateSecretRequest) (*gen.Secret, error)) *MockInterface_CreateSecret_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateTrait provides a mock function with given fields: ctx, namespaceName, t
 func (_m *MockInterface) CreateTrait(ctx context.Context, namespaceName string, t gen.Trait) (*gen.Trait, error) {
 	ret := _m.Called(ctx, namespaceName, t)
@@ -1857,6 +1917,54 @@ func (_c *MockInterface_DeleteResourceType_Call) Return(_a0 error) *MockInterfac
 }
 
 func (_c *MockInterface_DeleteResourceType_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteResourceType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteSecret provides a mock function with given fields: ctx, namespaceName, secretName
+func (_m *MockInterface) DeleteSecret(ctx context.Context, namespaceName string, secretName string) error {
+	ret := _m.Called(ctx, namespaceName, secretName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteSecret")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, secretName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteSecret_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteSecret'
+type MockInterface_DeleteSecret_Call struct {
+	*mock.Call
+}
+
+// DeleteSecret is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - secretName string
+func (_e *MockInterface_Expecter) DeleteSecret(ctx interface{}, namespaceName interface{}, secretName interface{}) *MockInterface_DeleteSecret_Call {
+	return &MockInterface_DeleteSecret_Call{Call: _e.mock.On("DeleteSecret", ctx, namespaceName, secretName)}
+}
+
+func (_c *MockInterface_DeleteSecret_Call) Run(run func(ctx context.Context, namespaceName string, secretName string)) *MockInterface_DeleteSecret_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteSecret_Call) Return(_a0 error) *MockInterface_DeleteSecret_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteSecret_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteSecret_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -4128,6 +4236,66 @@ func (_c *MockInterface_GetResourceTypeSchema_Call) RunAndReturn(run func(contex
 	return _c
 }
 
+// GetSecret provides a mock function with given fields: ctx, namespaceName, secretName
+func (_m *MockInterface) GetSecret(ctx context.Context, namespaceName string, secretName string) (*gen.Secret, error) {
+	ret := _m.Called(ctx, namespaceName, secretName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetSecret")
+	}
+
+	var r0 *gen.Secret
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.Secret, error)); ok {
+		return rf(ctx, namespaceName, secretName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.Secret); ok {
+		r0 = rf(ctx, namespaceName, secretName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.Secret)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, secretName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetSecret_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSecret'
+type MockInterface_GetSecret_Call struct {
+	*mock.Call
+}
+
+// GetSecret is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - secretName string
+func (_e *MockInterface_Expecter) GetSecret(ctx interface{}, namespaceName interface{}, secretName interface{}) *MockInterface_GetSecret_Call {
+	return &MockInterface_GetSecret_Call{Call: _e.mock.On("GetSecret", ctx, namespaceName, secretName)}
+}
+
+func (_c *MockInterface_GetSecret_Call) Run(run func(ctx context.Context, namespaceName string, secretName string)) *MockInterface_GetSecret_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetSecret_Call) Return(_a0 *gen.Secret, _a1 error) *MockInterface_GetSecret_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetSecret_Call) RunAndReturn(run func(context.Context, string, string) (*gen.Secret, error)) *MockInterface_GetSecret_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetSecretReference provides a mock function with given fields: ctx, namespaceName, secretReferenceName
 func (_m *MockInterface) GetSecretReference(ctx context.Context, namespaceName string, secretReferenceName string) (*gen.SecretReference, error) {
 	ret := _m.Called(ctx, namespaceName, secretReferenceName)
@@ -6340,6 +6508,66 @@ func (_c *MockInterface_ListSecretReferences_Call) RunAndReturn(run func(context
 	return _c
 }
 
+// ListSecrets provides a mock function with given fields: ctx, namespaceName, params
+func (_m *MockInterface) ListSecrets(ctx context.Context, namespaceName string, params *gen.ListSecretsParams) (*gen.ListSecretsResponse, error) {
+	ret := _m.Called(ctx, namespaceName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListSecrets")
+	}
+
+	var r0 *gen.ListSecretsResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListSecretsParams) (*gen.ListSecretsResponse, error)); ok {
+		return rf(ctx, namespaceName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListSecretsParams) *gen.ListSecretsResponse); ok {
+		r0 = rf(ctx, namespaceName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ListSecretsResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListSecretsParams) error); ok {
+		r1 = rf(ctx, namespaceName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListSecrets_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListSecrets'
+type MockInterface_ListSecrets_Call struct {
+	*mock.Call
+}
+
+// ListSecrets is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListSecretsParams
+func (_e *MockInterface_Expecter) ListSecrets(ctx interface{}, namespaceName interface{}, params interface{}) *MockInterface_ListSecrets_Call {
+	return &MockInterface_ListSecrets_Call{Call: _e.mock.On("ListSecrets", ctx, namespaceName, params)}
+}
+
+func (_c *MockInterface_ListSecrets_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListSecretsParams)) *MockInterface_ListSecrets_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListSecretsParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListSecrets_Call) Return(_a0 *gen.ListSecretsResponse, _a1 error) *MockInterface_ListSecrets_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListSecrets_Call) RunAndReturn(run func(context.Context, string, *gen.ListSecretsParams) (*gen.ListSecretsResponse, error)) *MockInterface_ListSecrets_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListTraits provides a mock function with given fields: ctx, namespaceName, params
 func (_m *MockInterface) ListTraits(ctx context.Context, namespaceName string, params *gen.ListTraitsParams) (*gen.TraitList, error) {
 	ret := _m.Called(ctx, namespaceName, params)
@@ -7001,6 +7229,67 @@ func (_c *MockInterface_UpdateResourceType_Call) Return(_a0 *gen.ResourceType, _
 }
 
 func (_c *MockInterface_UpdateResourceType_Call) RunAndReturn(run func(context.Context, string, string, gen.ResourceType) (*gen.ResourceType, error)) *MockInterface_UpdateResourceType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateSecret provides a mock function with given fields: ctx, namespaceName, secretName, req
+func (_m *MockInterface) UpdateSecret(ctx context.Context, namespaceName string, secretName string, req gen.UpdateSecretRequest) (*gen.Secret, error) {
+	ret := _m.Called(ctx, namespaceName, secretName, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateSecret")
+	}
+
+	var r0 *gen.Secret
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.UpdateSecretRequest) (*gen.Secret, error)); ok {
+		return rf(ctx, namespaceName, secretName, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.UpdateSecretRequest) *gen.Secret); ok {
+		r0 = rf(ctx, namespaceName, secretName, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.Secret)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.UpdateSecretRequest) error); ok {
+		r1 = rf(ctx, namespaceName, secretName, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_UpdateSecret_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateSecret'
+type MockInterface_UpdateSecret_Call struct {
+	*mock.Call
+}
+
+// UpdateSecret is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - secretName string
+//   - req gen.UpdateSecretRequest
+func (_e *MockInterface_Expecter) UpdateSecret(ctx interface{}, namespaceName interface{}, secretName interface{}, req interface{}) *MockInterface_UpdateSecret_Call {
+	return &MockInterface_UpdateSecret_Call{Call: _e.mock.On("UpdateSecret", ctx, namespaceName, secretName, req)}
+}
+
+func (_c *MockInterface_UpdateSecret_Call) Run(run func(ctx context.Context, namespaceName string, secretName string, req gen.UpdateSecretRequest)) *MockInterface_UpdateSecret_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.UpdateSecretRequest))
+	})
+	return _c
+}
+
+func (_c *MockInterface_UpdateSecret_Call) Return(_a0 *gen.Secret, _a1 error) *MockInterface_UpdateSecret_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_UpdateSecret_Call) RunAndReturn(run func(context.Context, string, string, gen.UpdateSecretRequest) (*gen.Secret, error)) *MockInterface_UpdateSecret_Call {
 	_c.Call.Return(run)
 	return _c
 }

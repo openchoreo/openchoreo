@@ -145,6 +145,12 @@ type Interface interface {
 	GetSecretReference(ctx context.Context, namespaceName, secretReferenceName string) (*gen.SecretReference, error)
 	DeleteSecretReference(ctx context.Context, namespaceName, secretReferenceName string) error
 
+	ListSecrets(ctx context.Context, namespaceName string, params *gen.ListSecretsParams) (*gen.ListSecretsResponse, error)
+	GetSecret(ctx context.Context, namespaceName, secretName string) (*gen.Secret, error)
+	CreateSecret(ctx context.Context, namespaceName string, req gen.CreateSecretRequest) (*gen.Secret, error)
+	UpdateSecret(ctx context.Context, namespaceName, secretName string, req gen.UpdateSecretRequest) (*gen.Secret, error)
+	DeleteSecret(ctx context.Context, namespaceName, secretName string) error
+
 	ListWorkloads(ctx context.Context, namespaceName string, params *gen.ListWorkloadsParams) (*gen.WorkloadList, error)
 	GetWorkload(ctx context.Context, namespaceName, workloadName string) (*gen.Workload, error)
 	DeleteWorkload(ctx context.Context, namespaceName, workloadName string) error

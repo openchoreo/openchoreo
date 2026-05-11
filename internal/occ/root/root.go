@@ -36,6 +36,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcerelease"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcereleasebinding"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcetype"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/secret"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/secretreference"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/trait"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/version"
@@ -93,6 +94,7 @@ func BuildRootCmd() *cobra.Command {
 		workflow.NewWorkflowCmd(f),
 		workflowrun.NewWorkflowRunCmd(f),
 		secretreference.NewSecretReferenceCmd(f),
+		secret.NewSecretCmd(f),
 		workload.NewWorkloadCmd(f),
 		deploymentpipeline.NewDeploymentPipelineCmd(f),
 		observabilityalertsnotificationchannel.NewObservabilityAlertsNotificationChannelCmd(f),

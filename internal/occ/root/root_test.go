@@ -55,6 +55,7 @@ func TestBuildRootCmd_Subcommands(t *testing.T) {
 		"workflow",
 		"workflowrun",
 		"secretreference",
+		"secret",
 		"workload",
 		"deploymentpipeline",
 		"observabilityalertsnotificationchannel",

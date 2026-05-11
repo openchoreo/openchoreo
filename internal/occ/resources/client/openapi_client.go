@@ -833,6 +833,66 @@ func (c *Client) DeleteSecretReference(ctx context.Context, namespaceName, secre
 	return nil
 }
 
+// ListSecrets lists secrets managed by the Secret API in a namespace.
+func (c *Client) ListSecrets(ctx context.Context, namespaceName string, params *gen.ListSecretsParams) (*gen.ListSecretsResponse, error) {
+	resp, err := c.client.ListSecretsWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list secrets: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetSecret retrieves a single secret managed by the Secret API.
+func (c *Client) GetSecret(ctx context.Context, namespaceName, secretName string) (*gen.Secret, error) {
+	resp, err := c.client.GetSecretWithResponse(ctx, namespaceName, secretName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get secret: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateSecret creates a secret on the target plane via the API server.
+func (c *Client) CreateSecret(ctx context.Context, namespaceName string, req gen.CreateSecretRequest) (*gen.Secret, error) {
+	resp, err := c.client.CreateSecretWithResponse(ctx, namespaceName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create secret: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateSecret replaces a secret's data with the supplied final state.
+func (c *Client) UpdateSecret(ctx context.Context, namespaceName, secretName string, req gen.UpdateSecretRequest) (*gen.Secret, error) {
+	resp, err := c.client.UpdateSecretWithResponse(ctx, namespaceName, secretName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update secret: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteSecret deletes a secret from the control plane and the target plane.
+func (c *Client) DeleteSecret(ctx context.Context, namespaceName, secretName string) error {
+	resp, err := c.client.DeleteSecretWithResponse(ctx, namespaceName, secretName)
+	if err != nil {
+		return fmt.Errorf("failed to delete secret: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
 // GetWorkflowRun retrieves a specific workflow run
 func (c *Client) GetWorkflowRun(ctx context.Context, namespaceName, runName string) (*gen.WorkflowRun, error) {
 	resp, err := c.client.GetWorkflowRunWithResponse(ctx, namespaceName, runName)
