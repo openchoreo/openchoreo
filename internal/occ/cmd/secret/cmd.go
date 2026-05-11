@@ -17,7 +17,7 @@ func NewSecretCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "secret",
 		Aliases: []string{"secrets"},
-		Short:   "Manage user workload secrets",
+		Short:   "Manage secrets",
 		Long:    "Manage secrets that are pushed to a target plane's external secret store.",
 	}
 	cmd.AddCommand(
@@ -33,7 +33,7 @@ func newListCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List secrets",
-		Long:  "List secrets in a namespace. Only secrets that target a plane are shown.",
+		Long:  "List secrets in a namespace.",
 		Example: `  # List all secrets in a namespace
   occ secret list --namespace acme-corp`,
 		PreRunE: auth.RequireLogin(),
@@ -79,7 +79,7 @@ func newDeleteCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete [SECRET_NAME]",
 		Short: "Delete a secret",
-		Long:  "Delete a secret from the control plane and the target plane.",
+		Long:  "Delete a secret from the external secret store.",
 		Example: `  # Delete a secret
   occ secret delete my-secret --namespace acme-corp`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
