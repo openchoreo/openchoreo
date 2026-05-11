@@ -565,6 +565,7 @@ func TestGenerateRelease(t *testing.T) {
 		var vErr *services.ValidationError
 		require.True(t, errors.As(err, &vErr), "expected *services.ValidationError, got %T", err)
 		assert.Equal(t, http.StatusUnprocessableEntity, vErr.StatusCode)
+		assert.Contains(t, vErr.Msg, "spec.workload.container.image")
 		assert.Contains(t, vErr.Msg, "workload container must have an image")
 	})
 
