@@ -1,0 +1,32 @@
+{{- if .Values.perchAgent.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openchoreo-control-plane.perchAgent.name" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: perch-agent
+data:
+  OPENCHOREO_API_URL: {{ .Values.perchAgent.config.openchoreoApiUrl | quote }}
+  OBSERVER_API_URL: {{ .Values.perchAgent.config.observerApiUrl | quote }}
+  RCA_AGENT_API_URL: {{ default "" .Values.perchAgent.config.rcaAgentApiUrl | quote }}
+  PERCH_MODEL_NAME: {{ .Values.perchAgent.llm.modelName | quote }}
+  MAX_CONCURRENT_CHATS: {{ .Values.perchAgent.config.maxConcurrentChats | quote }}
+  AUTHZ_TIMEOUT_SECONDS: {{ .Values.perchAgent.config.authzTimeoutSeconds | quote }}
+  JWKS_URL_TLS_INSECURE_SKIP_VERIFY: {{ .Values.security.oidc.jwksUrlTlsInsecureSkipVerify | default "false" | quote }}
+  UID_RESOLVER_TLS_INSECURE_SKIP_VERIFY: {{ .Values.security.oidc.uidResolverTlsInsecureSkipVerify | default "false" | quote }}
+  JWT_JWKS_URL: {{ .Values.security.oidc.jwksUrl | quote }}
+  JWT_ISSUER: {{ .Values.security.oidc.issuer | quote }}
+  JWT_AUDIENCE: {{ .Values.security.jwt.audience | quote }}
+  {{- if .Values.perchAgent.authConfigConfigMap }}
+  AUTH_CONFIG_PATH: /etc/openchoreo/auth-config.yaml
+  {{- else }}
+  # No external auth-config ConfigMap mounted — use the file bundled in the image at /app/auth-config.yaml.
+  AUTH_CONFIG_PATH: /app/auth-config.yaml
+  {{- end }}
+  LOG_LEVEL: {{ .Values.perchAgent.config.logLevel | quote }}
+  {{- if .Values.perchAgent.cors.allowedOrigins }}
+  CORS_ALLOWED_ORIGINS: {{ join "," .Values.perchAgent.cors.allowedOrigins | quote }}
+  {{- end }}
+{{- end }}

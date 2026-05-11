@@ -1,0 +1,119 @@
+{{- if .Values.perchAgent.enabled }}
+{{- if not .Values.perchAgent.llm.secretName }}
+{{- fail "perchAgent.llm.secretName is required when perchAgent is enabled. Create a Secret containing PERCH_LLM_API_KEY and set perchAgent.llm.secretName to its name." }}
+{{- end }}
+{{- if not .Values.perchAgent.llm.modelName }}
+{{- fail "perchAgent.llm.modelName is required when perchAgent is enabled (e.g. 'openai:gpt-4o-mini')." }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openchoreo-control-plane.perchAgent.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: perch-agent
+spec:
+  replicas: {{ .Values.perchAgent.replicas }}
+  selector:
+    matchLabels:
+      {{- include "openchoreo-control-plane.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: perch-agent
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/perch-agent/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: perch-agent
+    spec:
+      serviceAccountName: {{ include "openchoreo-control-plane.perchAgent.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 12000
+        runAsGroup: 12000
+        fsGroup: 12000
+      containers:
+      - name: perch-agent
+        image: "{{ .Values.perchAgent.image.repository }}:{{ .Values.perchAgent.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.perchAgent.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.perchAgent.service.port }}
+          protocol: TCP
+        envFrom:
+        - secretRef:
+            name: {{ .Values.perchAgent.llm.secretName }}
+        - configMapRef:
+            name: {{ include "openchoreo-control-plane.perchAgent.name" . }}-config
+        env:
+        # readOnlyRootFilesystem: true means any library that wants to
+        # write outside the mounted scratch volumes (typically /tmp)
+        # will fail. The four env vars below redirect the known
+        # disk-writing paths in our dep tree to the writable emptyDir:
+        #
+        # - PYTHONDONTWRITEBYTECODE: defensive. The image is built with
+        #   UV_COMPILE_BYTECODE=1 so .pyc files already exist on the
+        #   read-only rootfs, but a fresh import path would otherwise
+        #   trigger a write attempt.
+        # - HOME=/tmp: distroless has no /home/12000. Without this,
+        #   anything using os.path.expanduser('~') resolves to '/' and
+        #   tries to write into the read-only root.
+        # - XDG_CACHE_HOME / TIKTOKEN_CACHE_DIR: langchain-openai loads
+        #   tiktoken, which downloads BPE tokenizer files at runtime if
+        #   the cache miss. Both env vars together cover libs that
+        #   honour the XDG spec AND tiktoken's library-specific knob.
+        - name: PYTHONDONTWRITEBYTECODE
+          value: "1"
+        - name: HOME
+          value: /tmp
+        - name: XDG_CACHE_HOME
+          value: /tmp/.cache
+        - name: TIKTOKEN_CACHE_DIR
+          value: /tmp/.cache/tiktoken
+        {{- with .Values.perchAgent.extraEnvs }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.perchAgent.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        # Required scratch volume now that the rootfs is read-only —
+        # uvicorn/asyncio writes ipc sockets here, and tiktoken caches
+        # its tokenizer downloads under XDG_CACHE_HOME=/tmp/.cache.
+        - name: tmp
+          mountPath: /tmp
+        {{- if .Values.perchAgent.authConfigConfigMap }}
+        - name: auth-config
+          mountPath: /etc/openchoreo
+          readOnly: true
+        {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 12000
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      {{- if .Values.perchAgent.authConfigConfigMap }}
+      - name: auth-config
+        configMap:
+          name: {{ .Values.perchAgent.authConfigConfigMap }}
+      {{- end }}
+{{- end }}

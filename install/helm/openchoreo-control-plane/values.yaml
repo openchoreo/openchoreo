@@ -73,6 +73,18 @@ security:
     # default: "http://thunder.openchoreo.invalid/oauth2/token"
     # @schema
     tokenUrl: "http://thunder.openchoreo.invalid/oauth2/token"
+    # @schema
+    # type: boolean
+    # description: Skip TLS verification for JWKS URL
+    # default: false
+    # @schema
+    jwksUrlTlsInsecureSkipVerify: false
+    # @schema
+    # type: boolean
+    # description: Skip TLS verification for the UID resolver OAuth token endpoint (for self-signed certs)
+    # default: false
+    # @schema
+    uidResolverTlsInsecureSkipVerify: false
 
     # @schema
     # type: array
@@ -1283,6 +1295,7 @@ openchoreoApi:
                 - "alerts:view"
                 - "rcareport:view"
                 - "finopsreport:view"
+                - "perch:invoke"
 
             # SRE role - operations engineers focused on reliability and incident response.
             # Assign namespace-reader and cluster-reader alongside this role so SREs
@@ -1333,6 +1346,7 @@ openchoreoApi:
                 - "rcareport:update"
                 - "finopsreport:view"
                 - "finopsreport:update"
+                - "perch:invoke"
 
             # Platform engineer role - engineers managing the OpenChoreo platform infrastructure
             - name: platform-engineer
@@ -1422,6 +1436,7 @@ openchoreoApi:
                 - "rcareport:update"
                 - "finopsreport:view"
                 - "finopsreport:update"
+                - "perch:invoke"
                 - "observabilityalertsnotificationchannel:view"
                 - "observabilityalertsnotificationchannel:create"
                 - "observabilityalertsnotificationchannel:update"
@@ -3739,3 +3754,73 @@ eventForwarder:
   containerSecurityContext:
     readOnlyRootFilesystem: true
     allowPrivilegeEscalation: false
+
+# @schema
+# type: object
+# description: Optional Perch chat agent. Disabled by default; enable to opt in.
+# required: false
+# @schema
+perchAgent:
+  enabled: false
+  name: perch-agent
+
+  image:
+    repository: ghcr.io/openchoreo/perch-agent
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  replicas: 1
+
+  llm:
+    secretName: ""
+    modelName: ""
+
+  config:
+    openchoreoApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+    observerApiUrl: "http://observer.openchoreo-observability-plane.svc.cluster.local:8080"
+    rcaAgentApiUrl: ""
+    maxConcurrentChats: 20
+    authzTimeoutSeconds: 30
+    logLevel: "INFO"
+
+  cors:
+    # @schema
+    # type: array
+    # description: CORS allowed origins
+    # items:
+    #   type: string
+    # default: []
+    # @schema
+    allowedOrigins: []
+
+  authConfigConfigMap: ""
+
+  extraEnvs: []
+
+  service:
+    # @schema
+    # description: Service type
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # default: ClusterIP
+    # @schema
+    type: ClusterIP
+    port: 8080
+
+  http:
+    enabled: true
+    # @schema
+    # type: array
+    # description: HTTPRoute hostnames
+    # items:
+    #   type: string
+    # default: []
+    # @schema
+    hostnames: []
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 256Mi

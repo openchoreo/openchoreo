@@ -1,0 +1,43 @@
+{{- if and .Values.perchAgent.enabled .Values.perchAgent.http.enabled .Values.gateway.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "openchoreo-control-plane.perchAgent.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: perch-agent
+spec:
+  parentRefs:
+  - name: gateway-default
+  {{- with .Values.perchAgent.http.hostnames }}
+  hostnames:
+    {{- range . }}
+    - {{ . | quote }}
+    {{- end }}
+  {{- end }}
+  rules:
+  - name: chat
+    matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1alpha1/perch-agent/chat
+    timeouts:
+      # /chat streams NDJSON for the duration of an LLM turn. The
+      # *gateway-side* request timeout is disabled by the TrafficPolicy
+      # ("<name>-stream-timeout"), which sets request: "0s" + streamIdle:
+      # "24h" — set there, not here, to keep one source of truth. The
+      # backendRequest field below is distinct (upstream-side budget) and
+      # remains a generous 450s.
+      backendRequest: "450s"
+    backendRefs:
+    - name: {{ include "openchoreo-control-plane.perchAgent.name" . }}
+      port: {{ .Values.perchAgent.service.port }}
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api/v1alpha1/perch-agent/warmup
+    backendRefs:
+    - name: {{ include "openchoreo-control-plane.perchAgent.name" . }}
+      port: {{ .Values.perchAgent.service.port }}
+{{- end }}

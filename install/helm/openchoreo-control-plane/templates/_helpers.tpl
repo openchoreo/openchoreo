@@ -191,6 +191,20 @@ Event-forwarder service account name
 {{- end }}
 
 {{/*
+Perch Agent resource name
+*/}}
+{{- define "openchoreo-control-plane.perchAgent.name" -}}
+{{- default "perch-agent" .Values.perchAgent.name }}
+{{- end }}
+
+{{/*
+Perch Agent service account name
+*/}}
+{{- define "openchoreo-control-plane.perchAgent.serviceAccountName" -}}
+{{- default "perch-agent" .Values.perchAgent.name }}
+{{- end }}
+
+{{/*
 Validate that placeholder .invalid hostnames have been replaced with real domains.
 */}}
 {{- define "openchoreo-control-plane.validateHostnames" -}}

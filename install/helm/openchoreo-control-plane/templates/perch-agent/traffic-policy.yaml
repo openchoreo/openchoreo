@@ -1,0 +1,25 @@
+{{- if and .Values.perchAgent.enabled .Values.perchAgent.http.enabled .Values.gateway.enabled }}
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: TrafficPolicy
+metadata:
+  name: {{ include "openchoreo-control-plane.perchAgent.name" . }}-stream-timeout
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: perch-agent
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ include "openchoreo-control-plane.perchAgent.name" . }}
+      sectionName: chat
+  timeouts:
+    # Single source of truth for the gateway-side request timeout on /chat
+    # — the HTTPRoute rule deliberately omits `request:` and defers to this
+    # policy. /chat streams NDJSON for the duration of an LLM turn, so we
+    # disable the request timeout and use a long stream-idle window so the
+    # gateway does not cut a connection that's still actively producing
+    # message_chunk events.
+    request: "0s"
+    streamIdle: "24h"
+{{- end }}
