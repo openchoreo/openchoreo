@@ -11,11 +11,14 @@ import (
 // FormatAge returns a human-readable age string for a given timestamp.
 func FormatAge(t time.Time) string {
 	if t.IsZero() {
-		return "0m"
+		return "0s"
 	}
 	duration := time.Since(t)
 	if duration < 0 {
 		duration = 0
+	}
+	if duration < time.Minute {
+		return fmt.Sprintf("%ds", int(duration.Seconds()))
 	}
 	if duration.Hours() < 1 {
 		return fmt.Sprintf("%dm", int(duration.Minutes()))
