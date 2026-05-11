@@ -28,6 +28,19 @@ func bindingFor(name, env string) gen.ResourceReleaseBinding {
 	return b
 }
 
+func ptrString(s string) *string { return &s }
+
+func bindingWithReadyCondition(name, env, releaseName, readyReason string) gen.ResourceReleaseBinding {
+	b := bindingFor(name, env)
+	b.Spec.ResourceRelease = ptrString(releaseName)
+	b.Status = &gen.ResourceReleaseBindingStatus{
+		Conditions: &[]gen.Condition{
+			{Type: "Ready", Reason: readyReason},
+		},
+	}
+	return b
+}
+
 // --- printList tests ---
 
 func TestPrint_Nil(t *testing.T) {
@@ -59,11 +72,45 @@ func TestPrint_WithItems(t *testing.T) {
 	assert.Contains(t, out, "NAME")
 	assert.Contains(t, out, "RESOURCE")
 	assert.Contains(t, out, "ENVIRONMENT")
+	assert.Contains(t, out, "RELEASE")
+	assert.Contains(t, out, "STATUS")
 	assert.Contains(t, out, "AGE")
 	assert.Contains(t, out, "analytics-db-dev")
 	assert.Contains(t, out, "dev")
 	assert.Contains(t, out, "prod")
 	assert.Contains(t, out, "analytics-db")
+}
+
+func TestPrint_ShowsReleaseAndReadyReason(t *testing.T) {
+	items := []gen.ResourceReleaseBinding{
+		bindingWithReadyCondition("analytics-db-dev", "dev", "analytics-db-abc123", "Ready"),
+	}
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, printList(items))
+	})
+
+	assert.Contains(t, out, "analytics-db-abc123")
+	assert.Contains(t, out, "Ready")
+}
+
+func TestPrint_HandlesMissingReadyCondition(t *testing.T) {
+	// Binding with conditions but no Ready type — STATUS column stays empty
+	b := bindingFor("analytics-db-dev", "dev")
+	b.Spec.ResourceRelease = ptrString("analytics-db-abc123")
+	b.Status = &gen.ResourceReleaseBindingStatus{
+		Conditions: &[]gen.Condition{
+			{Type: "Synced", Reason: "ReleaseSynced"},
+		},
+	}
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, printList([]gen.ResourceReleaseBinding{b}))
+	})
+
+	assert.Contains(t, out, "analytics-db-abc123")
+	// "Synced" is not surfaced — only the Ready condition's Reason makes it to STATUS.
+	assert.NotContains(t, out, "ReleaseSynced")
 }
 
 func TestPrint_NilSpec(t *testing.T) {

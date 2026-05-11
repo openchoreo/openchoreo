@@ -107,23 +107,38 @@ func printList(items []gen.ResourceReleaseBinding) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tRESOURCE\tENVIRONMENT\tAGE")
+	fmt.Fprintln(w, "NAME\tRESOURCE\tENVIRONMENT\tRELEASE\tSTATUS\tAGE")
 
 	for _, b := range items {
 		resourceName := ""
 		env := ""
+		release := ""
 		if b.Spec != nil {
 			resourceName = b.Spec.Owner.ResourceName
 			env = b.Spec.Environment
+			if b.Spec.ResourceRelease != nil {
+				release = *b.Spec.ResourceRelease
+			}
+		}
+		status := ""
+		if b.Status != nil && b.Status.Conditions != nil {
+			for _, c := range *b.Status.Conditions {
+				if c.Type == "Ready" {
+					status = c.Reason
+					break
+				}
+			}
 		}
 		age := ""
 		if b.Metadata.CreationTimestamp != nil {
 			age = utils.FormatAge(*b.Metadata.CreationTimestamp)
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			b.Metadata.Name,
 			resourceName,
 			env,
+			release,
+			status,
 			age)
 	}
 
