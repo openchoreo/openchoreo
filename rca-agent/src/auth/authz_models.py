@@ -16,6 +16,7 @@ class ResourceHierarchy(BaseModel):
     namespace: str | None = None
     project: str | None = None
     component: str | None = None
+    resource: str | None = None
 
 
 class Resource(BaseModel):

@@ -8,7 +8,8 @@ import (
 )
 
 // TargetScope defines which resources this binding applies to within the ownership hierarchy
-// All fields are optional - omitted fields mean "all" at that level
+// All fields are optional - omitted fields mean "all" at that level.
+// Component and Resource are sibling sub-scopes under Project; a binding must not set both.
 type TargetScope struct {
 	// Project scopes to a specific project (optional)
 	// +optional
@@ -17,10 +18,16 @@ type TargetScope struct {
 	// Component scopes to a specific component (optional)
 	// +optional
 	Component string `json:"component,omitempty"`
+
+	// Resource scopes to a specific resource (optional)
+	// +optional
+	Resource string `json:"resource,omitempty"`
 }
 
 // RoleMapping pairs a role reference with an optional scope
 // +kubebuilder:validation:XValidation:rule="!has(self.scope) || !has(self.scope.component) || has(self.scope.project)",message="scope.component requires scope.project"
+// +kubebuilder:validation:XValidation:rule="!has(self.scope) || !has(self.scope.resource) || has(self.scope.project)",message="scope.resource requires scope.project"
+// +kubebuilder:validation:XValidation:rule="!has(self.scope) || !has(self.scope.component) || !has(self.scope.resource)",message="scope.component and scope.resource are mutually exclusive"
 type RoleMapping struct {
 	// RoleRef references the role to bind
 	RoleRef RoleRef `json:"roleRef"`

@@ -195,6 +195,34 @@ func TestHierarchyToResourcePath(t *testing.T) {
 			hierarchy: authzcore.ResourceHierarchy{},
 			want:      "*",
 		},
+		{
+			name: "namespace, project, resource",
+			hierarchy: authzcore.ResourceHierarchy{
+				Namespace: "acme",
+				Project:   "p1",
+				Resource:  "r1",
+			},
+			want: "ns/acme/project/p1/resource/r1",
+		},
+		{
+			name: "resource sibling does not collide with component",
+			hierarchy: authzcore.ResourceHierarchy{
+				Namespace: "acme",
+				Project:   "p1",
+				Resource:  "c1",
+			},
+			want: "ns/acme/project/p1/resource/c1",
+		},
+		{
+			name: "component wins if both set (defensive; CRD CEL rejects this case)",
+			hierarchy: authzcore.ResourceHierarchy{
+				Namespace: "acme",
+				Project:   "p1",
+				Component: "c1",
+				Resource:  "r1",
+			},
+			want: "ns/acme/project/p1/component/c1",
+		},
 	}
 
 	for _, tt := range tests {
@@ -247,6 +275,24 @@ func TestResourcePathToHierarchy(t *testing.T) {
 			resourcePath: "",
 			want:         authzcore.ResourceHierarchy{},
 		},
+		{
+			name:         "full hierarchy path with resource",
+			resourcePath: "ns/acme/project/p1/resource/r1",
+			want: authzcore.ResourceHierarchy{
+				Namespace: "acme",
+				Project:   "p1",
+				Resource:  "r1",
+			},
+		},
+		{
+			name:         "resource path with shared name does not set component",
+			resourcePath: "ns/acme/project/p1/resource/c1",
+			want: authzcore.ResourceHierarchy{
+				Namespace: "acme",
+				Project:   "p1",
+				Resource:  "c1",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -262,8 +308,69 @@ func TestResourcePathToHierarchy(t *testing.T) {
 			if got.Component != tt.want.Component {
 				t.Errorf("Component = %q, want %q", got.Component, tt.want.Component)
 			}
+			if got.Resource != tt.want.Resource {
+				t.Errorf("Resource = %q, want %q", got.Resource, tt.want.Resource)
+			}
 		})
 	}
+}
+
+// TestHierarchyPathRoundTrip exercises round-trip and branch-independence
+// invariants for the resource sub-scope:
+//   - encode → decode yields the same hierarchy
+//   - component/<name> and resource/<name> never collide even for shared names
+func TestHierarchyPathRoundTrip(t *testing.T) {
+	tests := []struct {
+		name      string
+		hierarchy authzcore.ResourceHierarchy
+	}{
+		{
+			name: "namespace + project + component",
+			hierarchy: authzcore.ResourceHierarchy{
+				Namespace: "acme",
+				Project:   "p1",
+				Component: "c1",
+			},
+		},
+		{
+			name: "namespace + project + resource",
+			hierarchy: authzcore.ResourceHierarchy{
+				Namespace: "acme",
+				Project:   "p1",
+				Resource:  "r1",
+			},
+		},
+		{
+			name: "component and resource with shared name encode to distinct paths",
+			hierarchy: authzcore.ResourceHierarchy{
+				Namespace: "acme",
+				Project:   "p1",
+				Resource:  "shared",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := resourceHierarchyToPath(tt.hierarchy)
+			got := resourcePathToHierarchy(path)
+			if got != tt.hierarchy {
+				t.Errorf("round-trip: encoded %q decoded to %+v, want %+v", path, got, tt.hierarchy)
+			}
+		})
+	}
+
+	t.Run("component and resource with shared name encode to distinct paths", func(t *testing.T) {
+		comp := resourceHierarchyToPath(authzcore.ResourceHierarchy{
+			Namespace: "acme", Project: "p1", Component: "shared",
+		})
+		res := resourceHierarchyToPath(authzcore.ResourceHierarchy{
+			Namespace: "acme", Project: "p1", Resource: "shared",
+		})
+		if comp == res {
+			t.Errorf("component path %q must not equal resource path %q", comp, res)
+		}
+	})
 }
 
 func TestValidateEvaluateRequest(t *testing.T) {

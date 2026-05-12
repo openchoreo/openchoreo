@@ -42,6 +42,7 @@ func (s *resourceReleaseBindingServiceWithAuthz) CreateResourceReleaseBinding(ct
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
 			Project:   rb.Spec.Owner.ProjectName,
+			Resource:  rb.Spec.Owner.ResourceName,
 		},
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false)},
@@ -69,6 +70,7 @@ func (s *resourceReleaseBindingServiceWithAuthz) UpdateResourceReleaseBinding(ct
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
 			Project:   existing.Spec.Owner.ProjectName,
+			Resource:  existing.Spec.Owner.ResourceName,
 		},
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{Environment: services.FormatDualScopedResourceName(namespaceName, existing.Spec.Environment, false)},
@@ -92,6 +94,7 @@ func (s *resourceReleaseBindingServiceWithAuthz) ListResourceReleaseBindings(ctx
 				Hierarchy: authz.ResourceHierarchy{
 					Namespace: namespaceName,
 					Project:   rb.Spec.Owner.ProjectName,
+					Resource:  rb.Spec.Owner.ResourceName,
 				},
 				Context: authz.Context{
 					Resource: authz.ResourceAttribute{Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false)},
@@ -115,6 +118,7 @@ func (s *resourceReleaseBindingServiceWithAuthz) GetResourceReleaseBinding(ctx c
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
 			Project:   rb.Spec.Owner.ProjectName,
+			Resource:  rb.Spec.Owner.ResourceName,
 		},
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false)},
@@ -139,6 +143,7 @@ func (s *resourceReleaseBindingServiceWithAuthz) DeleteResourceReleaseBinding(ct
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
 			Project:   rb.Spec.Owner.ProjectName,
+			Resource:  rb.Spec.Owner.ResourceName,
 		},
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false)},

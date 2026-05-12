@@ -2872,7 +2872,7 @@ type ResolvedResourceOutput struct {
 
 // Resource Resource for authorization evaluation
 type Resource struct {
-	// Hierarchy Resource hierarchy scope
+	// Hierarchy Resource hierarchy scope. Component and Resource are sibling sub-scopes under Project; a hierarchy must not set both.
 	Hierarchy ResourceHierarchy `json:"hierarchy"`
 
 	// Id Resource ID
@@ -2921,7 +2921,7 @@ type ResourceEventsResponse struct {
 	Events []ResourceEvent `json:"events"`
 }
 
-// ResourceHierarchy Resource hierarchy scope
+// ResourceHierarchy Resource hierarchy scope. Component and Resource are sibling sub-scopes under Project; a hierarchy must not set both.
 type ResourceHierarchy struct {
 	// Component Component name
 	Component *string `json:"component,omitempty"`
@@ -2931,6 +2931,9 @@ type ResourceHierarchy struct {
 
 	// Project Project name
 	Project *string `json:"project,omitempty"`
+
+	// Resource Resource name (sibling of component under project)
+	Resource *string `json:"resource,omitempty"`
 }
 
 // ResourceInstance Resource.
@@ -4241,6 +4244,9 @@ type GetSubjectProfileParams struct {
 
 	// Component Component scope
 	Component *string `form:"component,omitempty" json:"component,omitempty"`
+
+	// Resource Resource scope (sibling of component under project)
+	Resource *string `form:"resource,omitempty" json:"resource,omitempty"`
 }
 
 // ListClusterRoleBindingsParams defines parameters for ListClusterRoleBindings.

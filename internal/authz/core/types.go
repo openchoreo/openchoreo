@@ -23,11 +23,15 @@ type SubjectContext struct {
 	EntitlementValues []string `json:"entitlement_values"`
 }
 
-// ResourceHierarchy represents a single item in a resource hierarchy
+// ResourceHierarchy represents a single item in a resource hierarchy.
+// Component and Resource are sibling sub-scopes under Project; a hierarchy
+// must not set both. The sibling invariant is enforced at the CRD layer
+// via kubebuilder XValidation on TargetScope / ClusterTargetScope.
 type ResourceHierarchy struct {
 	Namespace string `json:"namespace,omitempty"`
 	Project   string `json:"project,omitempty"`
 	Component string `json:"component,omitempty"`
+	Resource  string `json:"resource,omitempty"`
 }
 
 // Resource represents a resource in the authorization request

@@ -64,6 +64,7 @@ func TestAllActions(t *testing.T) {
 		valid := map[ActionScope]bool{
 			ScopeCluster: true, ScopeNamespace: true,
 			ScopeProject: true, ScopeComponent: true,
+			ScopeResource: true,
 		}
 		for _, action := range actions {
 			if !valid[action.LowestScope] {

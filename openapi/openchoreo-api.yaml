@@ -3014,6 +3014,12 @@ paths:
           description: Component scope
           schema:
             type: string
+        - name: resource
+          in: query
+          required: false
+          description: Resource scope (sibling of component under project)
+          schema:
+            type: string
       responses:
         '200':
           description: Subject profile
@@ -10536,7 +10542,7 @@ components:
 
     ResourceHierarchy:
       type: object
-      description: Resource hierarchy scope
+      description: Resource hierarchy scope. Component and Resource are sibling sub-scopes under Project; a hierarchy must not set both.
       properties:
         namespace:
           type: string
@@ -10550,6 +10556,10 @@ components:
           type: string
           description: Component name
           example: api-service
+        resource:
+          type: string
+          description: Resource name (sibling of component under project)
+          example: analytics-shared-db
 
     AuthzContext:
       type: object

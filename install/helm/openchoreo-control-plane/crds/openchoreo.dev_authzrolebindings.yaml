@@ -131,6 +131,9 @@ spec:
                         project:
                           description: Project scopes to a specific project (optional)
                           type: string
+                        resource:
+                          description: Resource scopes to a specific resource (optional)
+                          type: string
                       type: object
                   required:
                   - roleRef
@@ -138,6 +141,10 @@ spec:
                   x-kubernetes-validations:
                   - message: scope.component requires scope.project
                     rule: '!has(self.scope) || !has(self.scope.component) || has(self.scope.project)'
+                  - message: scope.resource requires scope.project
+                    rule: '!has(self.scope) || !has(self.scope.resource) || has(self.scope.project)'
+                  - message: scope.component and scope.resource are mutually exclusive
+                    rule: '!has(self.scope) || !has(self.scope.component) || !has(self.scope.resource)'
                 minItems: 1
                 type: array
             required:

@@ -20,6 +20,9 @@ const (
 	ScopeProject ActionScope = "project"
 	// ScopeComponent indicates the action is evaluated at the component level.
 	ScopeComponent ActionScope = "component"
+	// ScopeResource indicates the action is evaluated at the resource level.
+	// Resource is a sibling sub-scope under Project, parallel to Component.
+	ScopeResource ActionScope = "resource"
 )
 
 // Action name constants for use in authorization checks.
@@ -280,9 +283,9 @@ var systemActions = []Action{
 
 	// Resource
 	{Name: ActionCreateResource, LowestScope: ScopeProject, IsInternal: false},
-	{Name: ActionViewResource, LowestScope: ScopeProject, IsInternal: false},
-	{Name: ActionUpdateResource, LowestScope: ScopeProject, IsInternal: false},
-	{Name: ActionDeleteResource, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionViewResource, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionUpdateResource, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionDeleteResource, LowestScope: ScopeResource, IsInternal: false},
 
 	// ComponentRelease
 	{Name: ActionViewComponentRelease, LowestScope: ScopeComponent, IsInternal: false},
@@ -290,9 +293,9 @@ var systemActions = []Action{
 	{Name: ActionDeleteComponentRelease, LowestScope: ScopeComponent, IsInternal: false},
 
 	// ResourceRelease
-	{Name: ActionViewResourceRelease, LowestScope: ScopeProject, IsInternal: false},
-	{Name: ActionCreateResourceRelease, LowestScope: ScopeProject, IsInternal: false},
-	{Name: ActionDeleteResourceRelease, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionViewResourceRelease, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionCreateResourceRelease, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionDeleteResourceRelease, LowestScope: ScopeResource, IsInternal: false},
 
 	// ReleaseBinding
 	{Name: ActionViewReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
@@ -301,10 +304,10 @@ var systemActions = []Action{
 	{Name: ActionDeleteReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
 
 	// ResourceReleaseBinding
-	{Name: ActionViewResourceReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
-	{Name: ActionCreateResourceReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
-	{Name: ActionUpdateResourceReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
-	{Name: ActionDeleteResourceReleaseBinding, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionViewResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionCreateResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionUpdateResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionDeleteResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
 
 	// ComponentType
 	{Name: ActionViewComponentType, LowestScope: ScopeNamespace, IsInternal: false},

@@ -269,6 +269,7 @@ func (h *authzInformerHandler) handleAddBinding(obj interface{}) error {
 			Namespace: binding.Namespace,
 			Project:   mapping.Scope.Project,
 			Component: mapping.Scope.Component,
+			Resource:  mapping.Scope.Resource,
 		})
 		roleNamespace := binding.Namespace
 		if mapping.RoleRef.Kind == CRDTypeClusterAuthzRole {
@@ -322,6 +323,7 @@ func (h *authzInformerHandler) handleAddClusterBinding(obj interface{}) error {
 			Namespace: mapping.Scope.Namespace,
 			Project:   mapping.Scope.Project,
 			Component: mapping.Scope.Component,
+			Resource:  mapping.Scope.Resource,
 		})
 
 		conditions, err := serializeAuthzConditions(mapping.Conditions)
@@ -493,7 +495,7 @@ func (h *authzInformerHandler) handleUpdateBinding(oldObj, newObj interface{}) e
 	oldPolicies := make([][]string, 0, len(oldBinding.Spec.RoleMappings))
 	for _, m := range oldBinding.Spec.RoleMappings {
 		rp := resourceHierarchyToPath(authzcore.ResourceHierarchy{
-			Namespace: oldBinding.Namespace, Project: m.Scope.Project, Component: m.Scope.Component,
+			Namespace: oldBinding.Namespace, Project: m.Scope.Project, Component: m.Scope.Component, Resource: m.Scope.Resource,
 		})
 		rns := oldBinding.Namespace
 		if m.RoleRef.Kind == CRDTypeClusterAuthzRole {
@@ -518,7 +520,7 @@ func (h *authzInformerHandler) handleUpdateBinding(oldObj, newObj interface{}) e
 	newPolicies := make([][]string, 0, len(newBinding.Spec.RoleMappings))
 	for _, m := range newBinding.Spec.RoleMappings {
 		rp := resourceHierarchyToPath(authzcore.ResourceHierarchy{
-			Namespace: newBinding.Namespace, Project: m.Scope.Project, Component: m.Scope.Component,
+			Namespace: newBinding.Namespace, Project: m.Scope.Project, Component: m.Scope.Component, Resource: m.Scope.Resource,
 		})
 		rns := newBinding.Namespace
 		if m.RoleRef.Kind == CRDTypeClusterAuthzRole {
@@ -588,7 +590,7 @@ func (h *authzInformerHandler) handleUpdateClusterBinding(oldObj, newObj interfa
 	oldPolicies := make([][]string, 0, len(oldBinding.Spec.RoleMappings))
 	for _, m := range oldBinding.Spec.RoleMappings {
 		rp := resourceHierarchyToPath(authzcore.ResourceHierarchy{
-			Namespace: m.Scope.Namespace, Project: m.Scope.Project, Component: m.Scope.Component,
+			Namespace: m.Scope.Namespace, Project: m.Scope.Project, Component: m.Scope.Component, Resource: m.Scope.Resource,
 		})
 		conds, err := serializeAuthzConditions(m.Conditions)
 		if err != nil {
@@ -609,7 +611,7 @@ func (h *authzInformerHandler) handleUpdateClusterBinding(oldObj, newObj interfa
 	newPolicies := make([][]string, 0, len(newBinding.Spec.RoleMappings))
 	for _, m := range newBinding.Spec.RoleMappings {
 		rp := resourceHierarchyToPath(authzcore.ResourceHierarchy{
-			Namespace: m.Scope.Namespace, Project: m.Scope.Project, Component: m.Scope.Component,
+			Namespace: m.Scope.Namespace, Project: m.Scope.Project, Component: m.Scope.Component, Resource: m.Scope.Resource,
 		})
 		conds, err := serializeAuthzConditions(m.Conditions)
 		if err != nil {
@@ -746,6 +748,7 @@ func (h *authzInformerHandler) handleDeleteBinding(obj interface{}) error {
 			Namespace: binding.Namespace,
 			Project:   mapping.Scope.Project,
 			Component: mapping.Scope.Component,
+			Resource:  mapping.Scope.Resource,
 		})
 		roleNamespace := binding.Namespace
 		if mapping.RoleRef.Kind == CRDTypeClusterAuthzRole {
@@ -801,6 +804,7 @@ func (h *authzInformerHandler) handleDeleteClusterBinding(obj interface{}) error
 			Namespace: mapping.Scope.Namespace,
 			Project:   mapping.Scope.Project,
 			Component: mapping.Scope.Component,
+			Resource:  mapping.Scope.Resource,
 		})
 		conds, err := serializeAuthzConditions(mapping.Conditions)
 		if err != nil {

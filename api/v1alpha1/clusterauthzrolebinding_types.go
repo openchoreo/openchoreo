@@ -9,6 +9,7 @@ import (
 
 // ClusterTargetScope defines which resources this cluster binding applies to within the ownership hierarchy.
 // All fields are optional - omitted fields mean "all" at that level.
+// Component and Resource are sibling sub-scopes under Project; a binding must not set both.
 type ClusterTargetScope struct {
 	// Namespace scopes to a specific namespace (optional)
 	// +optional
@@ -21,10 +22,16 @@ type ClusterTargetScope struct {
 	// Component scopes to a specific component (optional, requires project)
 	// +optional
 	Component string `json:"component,omitempty"`
+
+	// Resource scopes to a specific resource (optional, requires project)
+	// +optional
+	Resource string `json:"resource,omitempty"`
 }
 
 // ClusterRoleMapping pairs a role reference with an optional scope for cluster-scoped bindings
 // +kubebuilder:validation:XValidation:rule="!has(self.scope) || (!has(self.scope.project) || has(self.scope.namespace)) && (!has(self.scope.component) || has(self.scope.project))",message="scope.project requires scope.namespace, and scope.component requires scope.project"
+// +kubebuilder:validation:XValidation:rule="!has(self.scope) || !has(self.scope.resource) || has(self.scope.project)",message="scope.resource requires scope.project"
+// +kubebuilder:validation:XValidation:rule="!has(self.scope) || !has(self.scope.component) || !has(self.scope.resource)",message="scope.component and scope.resource are mutually exclusive"
 type ClusterRoleMapping struct {
 	// RoleRef references the ClusterAuthzRole to bind
 	RoleRef RoleRef `json:"roleRef"`

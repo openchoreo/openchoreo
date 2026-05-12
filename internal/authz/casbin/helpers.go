@@ -21,6 +21,7 @@ const (
 	NamespaceResourcePrefix = "ns"
 	ProjectResourcePrefix   = "project"
 	ComponentResourcePrefix = "component"
+	ResourceResourcePrefix  = "resource"
 )
 
 // CRD type constants for authz resources
@@ -348,15 +349,20 @@ func validateEvaluateRequest(req *authzcore.EvaluateRequest) error {
 	return nil
 }
 
-// resourceHierarchyToPath converts ResourceHierarchy to a hierarchical resource path string
+// resourceHierarchyToPath converts ResourceHierarchy to a hierarchical resource path string.
+// Component and Resource are sibling sub-scopes under Project; the helper assumes
+// the CRD layer rejects hierarchies with both set (see TargetScope XValidation).
+// If both arrive here defensively, Component wins (encoded; Resource ignored) so the
+// path stays well-formed.
 // Examples:
 //   - {Namespace: "acme"} -> "ns/acme"
 //   - {Namespace: "acme", Project: "p1"} -> "ns/acme/project/p1"
 //   - {Namespace: "acme", Project: "p1", Component: "c1"} -> "ns/acme/project/p1/component/c1"
+//   - {Namespace: "acme", Project: "p1", Resource: "r1"} -> "ns/acme/project/p1/resource/r1"
 //   - {} (empty) -> "*" (wildcard)
 func resourceHierarchyToPath(hierarchy authzcore.ResourceHierarchy) string {
 	// Empty hierarchy means global wildcard
-	if hierarchy.Namespace == "" && hierarchy.Project == "" && hierarchy.Component == "" {
+	if hierarchy.Namespace == "" && hierarchy.Project == "" && hierarchy.Component == "" && hierarchy.Resource == "" {
 		return "*"
 	}
 
@@ -370,8 +376,11 @@ func resourceHierarchyToPath(hierarchy authzcore.ResourceHierarchy) string {
 		path = fmt.Sprintf("%s/%s/%s", path, ProjectResourcePrefix, hierarchy.Project)
 	}
 
-	if hierarchy.Component != "" {
+	switch {
+	case hierarchy.Component != "":
 		path = fmt.Sprintf("%s/%s/%s", path, ComponentResourcePrefix, hierarchy.Component)
+	case hierarchy.Resource != "":
+		path = fmt.Sprintf("%s/%s/%s", path, ResourceResourcePrefix, hierarchy.Resource)
 	}
 
 	path = strings.Trim(path, "/")
@@ -384,6 +393,7 @@ func resourceHierarchyToPath(hierarchy authzcore.ResourceHierarchy) string {
 //   - "ns/acme" -> {Namespace: "acme"}
 //   - "ns/acme/project/p1" -> {Namespace: "acme", Project: "p1"}
 //   - "ns/acme/project/p1/component/c1" -> {Namespace: "acme", Project: "p1", Component: "c1"}
+//   - "ns/acme/project/p1/resource/r1" -> {Namespace: "acme", Project: "p1", Resource: "r1"}
 //   - "*" -> {} (empty hierarchy)
 func resourcePathToHierarchy(resourcePath string) authzcore.ResourceHierarchy {
 	hierarchy := authzcore.ResourceHierarchy{}
@@ -406,6 +416,8 @@ func resourcePathToHierarchy(resourcePath string) authzcore.ResourceHierarchy {
 			hierarchy.Project = value
 		case ComponentResourcePrefix:
 			hierarchy.Component = value
+		case ResourceResourcePrefix:
+			hierarchy.Resource = value
 		}
 	}
 

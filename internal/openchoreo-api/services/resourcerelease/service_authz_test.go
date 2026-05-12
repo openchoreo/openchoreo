@@ -33,6 +33,7 @@ func projectHierarchy() authzcore.ResourceHierarchy {
 	return authzcore.ResourceHierarchy{
 		Namespace: authzNamespace,
 		Project:   authzProject,
+		Resource:  "my-r",
 	}
 }
 

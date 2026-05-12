@@ -293,9 +293,9 @@ func callToolScopeArg(req mcp.Request) string {
 }
 
 // callToolScope derives the resource hierarchy scope from the tools/call arguments.
-// It looks for the conventional namespace_name, project_name and component_name
-// fields used by MCP tools in this package. Missing fields remain empty, which
-// the PDP interprets as a broader scope.
+// It looks for the conventional namespace_name, project_name, component_name and
+// resource_name fields used by MCP tools in this package. Missing fields remain
+// empty, which the PDP interprets as a broader scope.
 func callToolScope(req mcp.Request) authzcore.ResourceHierarchy {
 	if req == nil {
 		return authzcore.ResourceHierarchy{}
@@ -312,6 +312,7 @@ func callToolScope(req mcp.Request) authzcore.ResourceHierarchy {
 		NamespaceName string `json:"namespace_name"`
 		ProjectName   string `json:"project_name"`
 		ComponentName string `json:"component_name"`
+		ResourceName  string `json:"resource_name"`
 	}
 	if err := json.Unmarshal(p.Arguments, &args); err != nil {
 		return authzcore.ResourceHierarchy{}
@@ -320,5 +321,6 @@ func callToolScope(req mcp.Request) authzcore.ResourceHierarchy {
 		Namespace: args.NamespaceName,
 		Project:   args.ProjectName,
 		Component: args.ComponentName,
+		Resource:  args.ResourceName,
 	}
 }

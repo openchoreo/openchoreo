@@ -43,6 +43,7 @@ func (s *resourceServiceWithAuthz) CreateResource(ctx context.Context, namespace
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
 			Project:   resource.Spec.Owner.ProjectName,
+			Resource:  resource.Name,
 		},
 	}); err != nil {
 		return nil, err
@@ -58,6 +59,7 @@ func (s *resourceServiceWithAuthz) UpdateResource(ctx context.Context, namespace
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
 			Project:   resource.Spec.Owner.ProjectName,
+			Resource:  resource.Name,
 		},
 	}); err != nil {
 		return nil, err
@@ -78,6 +80,7 @@ func (s *resourceServiceWithAuthz) ListResources(ctx context.Context, namespaceN
 				Hierarchy: authz.ResourceHierarchy{
 					Namespace: namespaceName,
 					Project:   r.Spec.Owner.ProjectName,
+					Resource:  r.Name,
 				},
 			}
 		},
@@ -97,6 +100,7 @@ func (s *resourceServiceWithAuthz) GetResource(ctx context.Context, namespaceNam
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
 			Project:   r.Spec.Owner.ProjectName,
+			Resource:  resourceName,
 		},
 	}); err != nil {
 		return nil, err
@@ -117,6 +121,7 @@ func (s *resourceServiceWithAuthz) DeleteResource(ctx context.Context, namespace
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
 			Project:   r.Spec.Owner.ProjectName,
+			Resource:  resourceName,
 		},
 	}); err != nil {
 		return err

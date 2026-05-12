@@ -139,6 +139,10 @@ spec:
                           description: Project scopes to a specific project (optional,
                             requires namespace)
                           type: string
+                        resource:
+                          description: Resource scopes to a specific resource (optional,
+                            requires project)
+                          type: string
                       type: object
                   required:
                   - roleRef
@@ -148,6 +152,10 @@ spec:
                       requires scope.project
                     rule: '!has(self.scope) || (!has(self.scope.project) || has(self.scope.namespace))
                       && (!has(self.scope.component) || has(self.scope.project))'
+                  - message: scope.resource requires scope.project
+                    rule: '!has(self.scope) || !has(self.scope.resource) || has(self.scope.project)'
+                  - message: scope.component and scope.resource are mutually exclusive
+                    rule: '!has(self.scope) || !has(self.scope.component) || !has(self.scope.resource)'
                 minItems: 1
                 type: array
             required:

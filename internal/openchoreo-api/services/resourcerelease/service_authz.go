@@ -48,6 +48,7 @@ func (s *resourceReleaseServiceWithAuthz) ListResourceReleases(ctx context.Conte
 				Hierarchy: authz.ResourceHierarchy{
 					Namespace: namespaceName,
 					Project:   rr.Spec.Owner.ProjectName,
+					Resource:  rr.Spec.Owner.ResourceName,
 				},
 			}
 		},
@@ -68,6 +69,7 @@ func (s *resourceReleaseServiceWithAuthz) GetResourceRelease(ctx context.Context
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
 			Project:   rr.Spec.Owner.ProjectName,
+			Resource:  rr.Spec.Owner.ResourceName,
 		},
 	}); err != nil {
 		return nil, err
@@ -86,6 +88,7 @@ func (s *resourceReleaseServiceWithAuthz) CreateResourceRelease(ctx context.Cont
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
 			Project:   rr.Spec.Owner.ProjectName,
+			Resource:  rr.Spec.Owner.ResourceName,
 		},
 	}); err != nil {
 		return nil, err
@@ -107,6 +110,7 @@ func (s *resourceReleaseServiceWithAuthz) DeleteResourceRelease(ctx context.Cont
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
 			Project:   rr.Spec.Owner.ProjectName,
+			Resource:  rr.Spec.Owner.ResourceName,
 		},
 	}); err != nil {
 		return err

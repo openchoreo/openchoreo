@@ -29,10 +29,11 @@ func newAuthzSvc(pdp *testutil.CapturingPDP, internal Service) Service {
 	}
 }
 
-func projectHierarchy() authzcore.ResourceHierarchy {
+func projectHierarchy(resourceName string) authzcore.ResourceHierarchy {
 	return authzcore.ResourceHierarchy{
 		Namespace: authzNamespace,
 		Project:   authzProject,
+		Resource:  resourceName,
 	}
 }
 
@@ -57,7 +58,7 @@ func TestCreateResource_AuthzCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, resource, result)
 		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:create", "resource", "my-r", projectHierarchy())
+		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:create", "resource", "my-r", projectHierarchy("my-r"))
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -81,7 +82,7 @@ func TestUpdateResource_AuthzCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, resource, result)
 		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:update", "resource", "my-r", projectHierarchy())
+		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:update", "resource", "my-r", projectHierarchy("my-r"))
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -105,7 +106,7 @@ func TestGetResource_AuthzCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, resource, result)
 		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:view", "resource", "my-r", projectHierarchy())
+		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:view", "resource", "my-r", projectHierarchy("my-r"))
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -140,7 +141,7 @@ func TestDeleteResource_AuthzCheck(t *testing.T) {
 		err := svc.DeleteResource(testutil.AuthzContext(), authzNamespace, "my-r")
 		require.NoError(t, err)
 		require.Len(t, pdp.Captured, 1)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:delete", "resource", "my-r", projectHierarchy())
+		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:delete", "resource", "my-r", projectHierarchy("my-r"))
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -178,8 +179,8 @@ func TestListResources_AuthzCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, result.Items, 2)
 		require.Len(t, pdp.Captured, 2)
-		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:view", "resource", "r-1", projectHierarchy())
-		testutil.RequireEvalRequest(t, pdp.Captured[1], "resource:view", "resource", "r-2", projectHierarchy())
+		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:view", "resource", "r-1", projectHierarchy("r-1"))
+		testutil.RequireEvalRequest(t, pdp.Captured[1], "resource:view", "resource", "r-2", projectHierarchy("r-2"))
 	})
 
 	t.Run("all denied — empty result", func(t *testing.T) {

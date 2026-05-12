@@ -111,6 +111,7 @@ func (h *Handler) Evaluates(
 					Namespace: getStringValue(req.Resource.Hierarchy.Namespace),
 					Project:   getStringValue(req.Resource.Hierarchy.Project),
 					Component: getStringValue(req.Resource.Hierarchy.Component),
+					Resource:  getStringValue(req.Resource.Hierarchy.Resource),
 				},
 			},
 			SubjectContext: &authz.SubjectContext{
@@ -170,6 +171,7 @@ func (h *Handler) GetSubjectProfile(
 			Namespace: getStringValue(request.Params.Namespace),
 			Project:   getStringValue(request.Params.Project),
 			Component: getStringValue(request.Params.Component),
+			Resource:  getStringValue(request.Params.Resource),
 		},
 	}
 
