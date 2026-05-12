@@ -50,6 +50,23 @@ type Reconciler struct {
 	Pipeline *componentpipeline.Pipeline
 }
 
+// networkPolicyProviderFromDataPlane reads the "openchoreo.dev/networkpolicyprovider" annotation
+// from the DataPlane or ClusterDataPlane CR and returns the matching Provider.
+// Absent annotation or any value other than "cilium" defaults to ProviderKubernetes.
+func networkPolicyProviderFromDataPlane(dp *controller.DataPlaneResult) networkpolicy.Provider {
+	var annotations map[string]string
+	switch {
+	case dp.DataPlane != nil:
+		annotations = dp.DataPlane.Annotations
+	case dp.ClusterDataPlane != nil:
+		annotations = dp.ClusterDataPlane.Annotations
+	}
+	if annotations["openchoreo.dev/networkpolicyprovider"] == string(networkpolicy.ProviderCilium) {
+		return networkpolicy.ProviderCilium
+	}
+	return networkpolicy.ProviderKubernetes
+}
+
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings/finalizers,verbs=update
@@ -509,7 +526,8 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		}
 	}
 
-	// Inject per-component NetworkPolicies into dataplane resources
+	// Inject per-component network policies into dataplane resources.
+	// The provider is determined by the "openchoreo.dev/networkpolicyprovider" annotation on the DataPlane CR.
 	componentNetpols := networkpolicy.MakeComponentPolicies(networkpolicy.ComponentPolicyParams{
 		Namespace:     metadataContext.Namespace,
 		CPNamespace:   metadataContext.ComponentNamespace,
@@ -517,6 +535,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		ComponentName: metadataContext.ComponentName,
 		PodSelectors:  metadataContext.PodSelectors,
 		Endpoints:     snapshotWorkload.Spec.Endpoints,
+		Provider:      networkPolicyProviderFromDataPlane(dataPlaneResult),
 	})
 	dataPlaneResources = append(dataPlaneResources, componentNetpols...)
 
