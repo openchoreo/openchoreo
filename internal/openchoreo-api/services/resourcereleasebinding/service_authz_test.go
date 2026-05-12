@@ -43,11 +43,7 @@ func projectHierarchy(resourceName string) authzcore.ResourceHierarchy {
 	}
 }
 
-func newBindingFixture(name string) *openchoreov1alpha1.ResourceReleaseBinding {
-	return newBindingFixtureForResource(name, "my-r")
-}
-
-func newBindingFixtureForResource(name, ownerResourceName string) *openchoreov1alpha1.ResourceReleaseBinding {
+func newBindingFixture(name, ownerResourceName string) *openchoreov1alpha1.ResourceReleaseBinding {
 	return &openchoreov1alpha1.ResourceReleaseBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: authzNamespace},
 		Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
@@ -61,7 +57,7 @@ func newBindingFixtureForResource(name, ownerResourceName string) *openchoreov1a
 }
 
 func TestCreateResourceReleaseBinding_AuthzCheck(t *testing.T) {
-	rb := newBindingFixture("my-rb")
+	rb := newBindingFixture("my-rb", "my-r")
 
 	t.Run("allowed", func(t *testing.T) {
 		pdp := testutil.AllowPDP()
@@ -86,7 +82,7 @@ func TestCreateResourceReleaseBinding_AuthzCheck(t *testing.T) {
 }
 
 func TestUpdateResourceReleaseBinding_AuthzCheck(t *testing.T) {
-	rb := newBindingFixture("my-rb")
+	rb := newBindingFixture("my-rb", "my-r")
 
 	t.Run("allowed", func(t *testing.T) {
 		pdp := testutil.AllowPDP()
@@ -127,8 +123,8 @@ func TestUpdateResourceReleaseBinding_AuthzCheck(t *testing.T) {
 		// Existing binding belongs to project A; client sends body claiming project B.
 		// The authz check must use existing.Spec.Owner.ProjectName (project A), not
 		// the body's claim, so the project-scoped policy is honored.
-		existing := newBindingFixture("my-rb")
-		bodyClaiming := newBindingFixture("my-rb")
+		existing := newBindingFixture("my-rb", "my-r")
+		bodyClaiming := newBindingFixture("my-rb", "my-r")
 		bodyClaiming.Spec.Owner.ProjectName = "different-project"
 
 		pdp := testutil.AllowPDP()
@@ -149,7 +145,7 @@ func TestUpdateResourceReleaseBinding_AuthzCheck(t *testing.T) {
 }
 
 func TestGetResourceReleaseBinding_AuthzCheck(t *testing.T) {
-	rb := newBindingFixture("my-rb")
+	rb := newBindingFixture("my-rb", "my-r")
 
 	t.Run("allowed", func(t *testing.T) {
 		pdp := testutil.AllowPDP()
@@ -185,7 +181,7 @@ func TestGetResourceReleaseBinding_AuthzCheck(t *testing.T) {
 }
 
 func TestDeleteResourceReleaseBinding_AuthzCheck(t *testing.T) {
-	rb := newBindingFixture("my-rb")
+	rb := newBindingFixture("my-rb", "my-r")
 
 	t.Run("allowed", func(t *testing.T) {
 		pdp := testutil.AllowPDP()
@@ -224,8 +220,8 @@ func TestListResourceReleaseBindings_AuthzCheck(t *testing.T) {
 	// Use distinct owner.resourceName values so the per-item authz hierarchy
 	// assertion proves Resource is sourced from each binding, not a constant.
 	items := []openchoreov1alpha1.ResourceReleaseBinding{
-		*newBindingFixtureForResource("rb-1", "owner-r1"),
-		*newBindingFixtureForResource("rb-2", "owner-r2"),
+		*newBindingFixture("rb-1", "owner-r1"),
+		*newBindingFixture("rb-2", "owner-r2"),
 	}
 
 	t.Run("all allowed — per-item check request fields", func(t *testing.T) {
