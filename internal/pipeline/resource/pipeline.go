@@ -28,6 +28,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -367,10 +368,8 @@ func unmarshalRaw(raw *runtime.RawExtension) (map[string]any, error) {
 // evaluation share this layering: every entry in observed shows up under
 // applied[id].status.* for CEL.
 func withApplied(base map[string]any, observed map[string]map[string]any) map[string]any {
-	ctx := make(map[string]any, len(base)+1)
-	for k, v := range base {
-		ctx[k] = v
-	}
+	ctx := make(map[string]any, len(base))
+	maps.Copy(ctx, base)
 	applied := make(map[string]any, len(observed))
 	for id, status := range observed {
 		applied[id] = map[string]any{"status": status}
