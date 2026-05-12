@@ -1163,6 +1163,13 @@ func (t *Toolsets) RegisterListClusterWorkflows(s *mcp.Server, perms map[string]
 		authzcore.ActionViewClusterWorkflow, t.BuildToolset.ListClusterWorkflows)
 }
 
+func (t *Toolsets) RegisterPEListClusterWorkflows(s *mcp.Server, perms map[string]ToolPermission) {
+	registerDeprecatedClusterListTool(s, perms, "list_cluster_workflows", "list_workflows",
+		"DEPRECATED: use list_workflows with scope=\"cluster\". Lists platform-wide cluster-scoped workflows. "+
+			"Supports pagination via limit and cursor.",
+		authzcore.ActionViewClusterWorkflow, t.PEToolset.ListClusterWorkflows)
+}
+
 func (t *Toolsets) RegisterGetClusterWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_workflow", "get_workflow",
 		"DEPRECATED: use get_workflow with scope=\"cluster\". Gets the full definition of a platform-wide "+
@@ -1172,6 +1179,15 @@ func (t *Toolsets) RegisterGetClusterWorkflow(s *mcp.Server, perms map[string]To
 		t.BuildToolset.GetClusterWorkflow)
 }
 
+func (t *Toolsets) RegisterPEGetClusterWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
+	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_workflow", "get_workflow",
+		"DEPRECATED: use get_workflow with scope=\"cluster\". Gets the full definition of a platform-wide "+
+			"cluster-scoped workflow.",
+		authzcore.ActionViewClusterWorkflow,
+		"name", "Cluster workflow name. Use list_cluster_workflows to discover valid names",
+		t.PEToolset.GetClusterWorkflow)
+}
+
 func (t *Toolsets) RegisterGetClusterWorkflowSchema(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_workflow_schema", "get_workflow_schema",
 		"DEPRECATED: use get_workflow_schema with scope=\"cluster\". Gets the schema for a platform-wide "+
@@ -1179,6 +1195,15 @@ func (t *Toolsets) RegisterGetClusterWorkflowSchema(s *mcp.Server, perms map[str
 		authzcore.ActionViewClusterWorkflow,
 		"name", "Cluster workflow name. Use list_cluster_workflows to discover valid names",
 		t.BuildToolset.GetClusterWorkflowSchema)
+}
+
+func (t *Toolsets) RegisterPEGetClusterWorkflowSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_workflow_schema", "get_workflow_schema",
+		"DEPRECATED: use get_workflow_schema with scope=\"cluster\". Gets the schema for a platform-wide "+
+			"cluster-scoped workflow.",
+		authzcore.ActionViewClusterWorkflow,
+		"name", "Cluster workflow name. Use list_cluster_workflows to discover valid names",
+		t.PEToolset.GetClusterWorkflowSchema)
 }
 
 func (t *Toolsets) RegisterGetClusterWorkflowCreationSchema(s *mcp.Server, perms map[string]ToolPermission) {
