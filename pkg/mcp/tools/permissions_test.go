@@ -60,8 +60,16 @@ func TestRegisteredToolsHavePermissions(t *testing.T) {
 				t.Errorf("tool %q has no entry in the perms map returned by Register()", name)
 				return
 			}
-			if perm.Action == "" {
-				t.Errorf("tool %q has an empty Action in its ToolPermission", name)
+			if len(perm.Actions()) == 0 {
+				t.Errorf("tool %q declares no authz actions in its ToolPermission", name)
+			}
+			if perm.Action != "" && len(perm.ScopedActions) != 0 {
+				t.Errorf("tool %q sets both Action and ScopedActions; they are mutually exclusive", name)
+			}
+			for scope := range perm.ScopedActions {
+				if scope != ScopeNamespace && scope != ScopeCluster {
+					t.Errorf("tool %q ScopedActions has unexpected scope key %q", name, scope)
+				}
 			}
 			if perm.ToolName != name {
 				t.Errorf("tool %q: ToolPermission.ToolName=%q mismatch", name, perm.ToolName)
@@ -83,8 +91,15 @@ func TestRegisteredPermissionsHaveValidActions(t *testing.T) {
 	}
 
 	for toolName, perm := range perms {
-		if !validActions[perm.Action] {
-			t.Errorf("tool %q uses action %q which is not defined in systemActions", toolName, perm.Action)
+		actions := perm.Actions()
+		if len(actions) == 0 {
+			t.Errorf("tool %q declares no authz actions", toolName)
+			continue
+		}
+		for _, action := range actions {
+			if !validActions[action] {
+				t.Errorf("tool %q uses action %q which is not defined in systemActions", toolName, action)
+			}
 		}
 	}
 }

@@ -242,8 +242,8 @@ func componentPlatformStandardsSpecs() []toolTestSpec {
 			toolset:             "component",
 			descriptionKeywords: []string{"list", "component", "type"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name"},
-			optionalParams:      []string{"limit", "cursor"},
+			requiredParams:      []string{},
+			optionalParams:      []string{"scope", "namespace_name", "limit", "cursor"},
 			testArgs:            map[string]any{"namespace_name": testNamespaceName},
 			expectedMethod:      "ListComponentTypes",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -257,7 +257,8 @@ func componentPlatformStandardsSpecs() []toolTestSpec {
 			toolset:             "component",
 			descriptionKeywords: []string{"component", "type", "schema"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "name"},
+			optionalParams:      []string{"scope", "namespace_name"},
+			requiredParams:      []string{"name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"name":           "WebApplication",
@@ -274,8 +275,8 @@ func componentPlatformStandardsSpecs() []toolTestSpec {
 			toolset:             "component",
 			descriptionKeywords: []string{"list", "trait"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name"},
-			optionalParams:      []string{"limit", "cursor"},
+			requiredParams:      []string{},
+			optionalParams:      []string{"scope", "namespace_name", "limit", "cursor"},
 			testArgs:            map[string]any{"namespace_name": testNamespaceName},
 			expectedMethod:      "ListTraits",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -289,7 +290,8 @@ func componentPlatformStandardsSpecs() []toolTestSpec {
 			toolset:             "component",
 			descriptionKeywords: []string{"trait", "schema"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "name"},
+			optionalParams:      []string{"scope", "namespace_name"},
+			requiredParams:      []string{"name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"name":           "autoscaling",
@@ -323,7 +325,7 @@ func componentPlatformStandardsSpecs() []toolTestSpec {
 			expectedMethod:      "GetClusterComponentType",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != "go-service" {
-					t.Errorf("Expected cct_name %q, got %v", "go-service", args[0])
+					t.Errorf("Expected name %q, got %v", "go-service", args[0])
 				}
 			},
 		},
@@ -337,7 +339,7 @@ func componentPlatformStandardsSpecs() []toolTestSpec {
 			expectedMethod:      "GetClusterComponentTypeSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != "go-service" {
-					t.Errorf("Expected cct_name %q, got %v", "go-service", args[0])
+					t.Errorf("Expected name %q, got %v", "go-service", args[0])
 				}
 			},
 		},
@@ -363,7 +365,7 @@ func componentPlatformStandardsSpecs() []toolTestSpec {
 			expectedMethod:      "GetClusterTrait",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != "autoscaler" {
-					t.Errorf("Expected ct_name %q, got %v", "autoscaler", args[0])
+					t.Errorf("Expected name %q, got %v", "autoscaler", args[0])
 				}
 			},
 		},
@@ -377,7 +379,7 @@ func componentPlatformStandardsSpecs() []toolTestSpec {
 			expectedMethod:      "GetClusterTraitSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != "autoscaler" {
-					t.Errorf("Expected ct_name %q, got %v", "autoscaler", args[0])
+					t.Errorf("Expected name %q, got %v", "autoscaler", args[0])
 				}
 			},
 		},

@@ -84,8 +84,9 @@ func filterListTools(
 
 	requested, hasRequested := RequestedToolsetsFromContext(ctx)
 	authzActive := authzFilteringActive(ctx, pdp)
+	includeDeprecated := IncludeDeprecatedToolsFromContext(ctx)
 
-	if !hasRequested && !authzActive {
+	if !hasRequested && !authzActive && includeDeprecated {
 		// Nothing to filter on — return the result as-is.
 		return listResult, nil
 	}
@@ -111,6 +112,9 @@ func filterListTools(
 
 	filtered := listResult.Tools[:0:0]
 	for _, tool := range listResult.Tools {
+		if !includeDeprecated && IsDeprecatedTool(tool.Name) {
+			continue
+		}
 		if hasRequested && !toolInRequestedToolsets(tool.Name, toolToToolsets, requested) {
 			continue
 		}
@@ -151,6 +155,13 @@ func filterCallTool(
 		return nil, fmt.Errorf("not authorized to call tool %q: no authenticated user", toolName)
 	}
 
+	requiredAction := perm.ActionForScope(callToolScopeArg(req))
+	if requiredAction == "" {
+		// Either the tool declares no fixed action, or the scope argument was not
+		// recognized. Let the tool handler / service layer enforce authorization.
+		return next(ctx, method, req)
+	}
+
 	profile, err := pdp.GetSubjectProfile(ctx, &authzcore.ProfileRequest{
 		SubjectContext: authzcore.GetAuthzSubjectContext(subjectCtx),
 		Scope:          callToolScope(req),
@@ -159,8 +170,8 @@ func filterCallTool(
 		return nil, fmt.Errorf("not authorized to call tool %q: could not evaluate permissions", toolName)
 	}
 
-	if !hasActionCapability(perm.Action, profile) {
-		return nil, fmt.Errorf("not authorized to call tool %q: missing permission %q", toolName, perm.Action)
+	if !hasActionCapability(requiredAction, profile) {
+		return nil, fmt.Errorf("not authorized to call tool %q: missing permission %q", toolName, requiredAction)
 	}
 
 	return next(ctx, method, req)
@@ -200,15 +211,27 @@ func toolInRequestedToolsets(
 	return false
 }
 
-// isAllowed returns true if the user's profile grants at least one resource for the
-// tool's required action. If the tool has no permission entry in perms, it is shown
-// by default (safe-default: don't hide tools added after a deploy).
+// isAllowed returns true if the user's profile grants at least one resource for at
+// least one of the tool's possible actions. A scope-collapsed tool declares one
+// action per scope; the user only needs one of them to see the tool in tools/list
+// (the tools/call path checks the action that matches the requested scope). If the
+// tool has no permission entry in perms, it is shown by default (safe-default:
+// don't hide tools added after a deploy).
 func isAllowed(toolName string, perms map[string]ToolPermission, profile *authzcore.UserCapabilitiesResponse) bool {
 	perm, ok := perms[toolName]
 	if !ok {
 		return true
 	}
-	return hasActionCapability(perm.Action, profile)
+	actions := perm.Actions()
+	if len(actions) == 0 {
+		return true
+	}
+	for _, action := range actions {
+		if hasActionCapability(action, profile) {
+			return true
+		}
+	}
+	return false
 }
 
 // hasActionCapability returns true if the profile has at least one allowed resource
@@ -242,6 +265,31 @@ func callToolName(req mcp.Request) string {
 		return p.Name
 	}
 	return ""
+}
+
+// callToolScopeArg extracts the `scope` argument from a tools/call request. It is
+// used to resolve the required authz action of a scope-collapsed tool (which
+// declares one action per scope value). Returns "" when the argument is absent or
+// unparsable; callers should treat "" as the default (namespace) scope.
+func callToolScopeArg(req mcp.Request) string {
+	if req == nil {
+		return ""
+	}
+	params := req.GetParams()
+	if params == nil {
+		return ""
+	}
+	p, ok := params.(*mcp.CallToolParamsRaw)
+	if !ok || p == nil || len(p.Arguments) == 0 {
+		return ""
+	}
+	var args struct {
+		Scope string `json:"scope"`
+	}
+	if err := json.Unmarshal(p.Arguments, &args); err != nil {
+		return ""
+	}
+	return args.Scope
 }
 
 // callToolScope derives the resource hierarchy scope from the tools/call arguments.

@@ -31,6 +31,10 @@ type requestedToolsetsCtxKey struct{}
 // filterByAuthz flag from the ?filterByAuthz= query param.
 type filterByAuthzCtxKey struct{}
 
+// includeDeprecatedToolsCtxKey is the context key used to carry the per-session
+// includeDeprecatedTools flag from the ?includeDeprecatedTools= query param.
+type includeDeprecatedToolsCtxKey struct{}
+
 // WithRequestedToolsets returns a copy of ctx that carries the set of toolsets
 // the client requested. Empty or nil set means "no narrowing" — the middleware
 // will not apply a toolset filter.
@@ -62,6 +66,22 @@ func WithFilterByAuthz(ctx context.Context, filter bool) context.Context {
 func FilterByAuthzFromContext(ctx context.Context) (bool, bool) {
 	v, ok := ctx.Value(filterByAuthzCtxKey{}).(bool)
 	return v, ok
+}
+
+// WithIncludeDeprecatedTools returns a copy of ctx carrying the per-session
+// decision of whether tools/list should include deprecated compatibility-alias
+// tools. The default (no value in ctx) is false: deprecated aliases are hidden
+// from tools/list but remain callable.
+func WithIncludeDeprecatedTools(ctx context.Context, include bool) context.Context {
+	return context.WithValue(ctx, includeDeprecatedToolsCtxKey{}, include)
+}
+
+// IncludeDeprecatedToolsFromContext reports whether the client asked for
+// deprecated alias tools to be included in tools/list. Defaults to false when
+// the client did not set the flag.
+func IncludeDeprecatedToolsFromContext(ctx context.Context) bool {
+	v, _ := ctx.Value(includeDeprecatedToolsCtxKey{}).(bool)
+	return v
 }
 
 // DefaultPageSize is the default number of items per page for MCP list operations.
@@ -173,6 +193,9 @@ type PEToolsetHandler interface {
 	ListClusterTraits(ctx context.Context, opts ListOpts) (any, error)
 	GetClusterTrait(ctx context.Context, ctName string) (any, error)
 	GetClusterTraitSchema(ctx context.Context, ctName string) (any, error)
+	ListClusterWorkflows(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterWorkflow(ctx context.Context, cwfName string) (any, error)
+	GetClusterWorkflowSchema(ctx context.Context, cwfName string) (any, error)
 
 	// Platform standards (cluster-scoped) — write
 	CreateClusterComponentType(ctx context.Context, req *gen.CreateClusterComponentTypeJSONRequestBody) (any, error)
@@ -241,8 +264,10 @@ type ComponentToolsetHandler interface {
 
 	// Platform standards (read-only, namespace-scoped)
 	ListComponentTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetComponentType(ctx context.Context, namespaceName, ctName string) (any, error)
 	GetComponentTypeSchema(ctx context.Context, namespaceName, ctName string) (any, error)
 	ListTraits(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetTrait(ctx context.Context, namespaceName, traitName string) (any, error)
 	GetTraitSchema(ctx context.Context, namespaceName, traitName string) (any, error)
 
 	// Platform standards (read-only, cluster-scoped)
@@ -299,6 +324,7 @@ type BuildToolsetHandler interface {
 	) (any, error)
 	GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, taskName string) (any, error)
 	ListWorkflows(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetWorkflow(ctx context.Context, namespaceName, workflowName string) (any, error)
 	GetWorkflowSchema(ctx context.Context, namespaceName, workflowName string) (any, error)
 	ListClusterWorkflows(ctx context.Context, opts ListOpts) (any, error)
 	GetClusterWorkflow(ctx context.Context, cwfName string) (any, error)
@@ -309,11 +335,51 @@ type BuildToolsetHandler interface {
 // Each RegisterFunc must declare its required permission by writing to the perms map.
 type RegisterFunc func(s *mcp.Server, perms map[string]ToolPermission)
 
-// ToolPermission associates an MCP tool with the authz action required to use it.
-// Action must be one of the action constants defined in internal/authz/core/actions.go.
+// ToolPermission associates an MCP tool with the authz action(s) required to use
+// it. Action values must be action constants defined in
+// internal/authz/core/actions.go.
 type ToolPermission struct {
 	// ToolName is the MCP tool name (first arg to mcp.AddTool).
 	ToolName string
-	// Action is the required authz action (e.g. "namespace:view", "component:create").
+	// Action is the required authz action (e.g. "namespace:view", "component:create")
+	// for tools whose required action does not depend on the request arguments.
+	// Mutually exclusive with ScopedActions.
 	Action string
+	// ScopedActions maps a `scope` argument value (ScopeNamespace / ScopeCluster)
+	// to the authz action required for that scope. It is populated for
+	// scope-collapsed tools whose required action depends on the requested scope.
+	// When set, Action is empty.
+	ScopedActions map[string]string
+}
+
+// Actions returns every authz action this permission may require. For a
+// scope-collapsed tool this is the union of all per-scope actions; for a plain
+// tool it is the single action (or empty).
+func (p ToolPermission) Actions() []string {
+	if len(p.ScopedActions) > 0 {
+		out := make([]string, 0, len(p.ScopedActions))
+		for _, a := range p.ScopedActions {
+			if a != "" {
+				out = append(out, a)
+			}
+		}
+		return out
+	}
+	if p.Action == "" {
+		return nil
+	}
+	return []string{p.Action}
+}
+
+// ActionForScope returns the authz action required for the given scope value. For
+// a plain tool it returns Action regardless of scope. For a scope-collapsed tool
+// an empty scope is treated as ScopeNamespace.
+func (p ToolPermission) ActionForScope(scope string) string {
+	if len(p.ScopedActions) == 0 {
+		return p.Action
+	}
+	if scope == "" {
+		scope = ScopeNamespace
+	}
+	return p.ScopedActions[scope]
 }

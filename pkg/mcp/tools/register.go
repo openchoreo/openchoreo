@@ -7,6 +7,48 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+// deprecatedToolNames is the set of MCP tool names that are kept registered only
+// as backward-compatibility aliases for callers that have pinned the old
+// cluster-prefixed names. Each one routes to the canonical scope-collapsed tool
+// with scope="cluster" (see scoped.go) and returns a deprecation warning. They are
+// hidden from the default tools/list response; clients can opt in to seeing them
+// with the ?includeDeprecatedTools=true session parameter.
+var deprecatedToolNames = map[string]bool{
+	"list_cluster_component_types":               true,
+	"get_cluster_component_type":                 true,
+	"get_cluster_component_type_schema":          true,
+	"get_cluster_component_type_creation_schema": true,
+	"create_cluster_component_type":              true,
+	"update_cluster_component_type":              true,
+	"delete_cluster_component_type":              true,
+	"list_cluster_traits":                        true,
+	"get_cluster_trait":                          true,
+	"get_cluster_trait_schema":                   true,
+	"get_cluster_trait_creation_schema":          true,
+	"create_cluster_trait":                       true,
+	"update_cluster_trait":                       true,
+	"delete_cluster_trait":                       true,
+	"list_cluster_workflows":                     true,
+	"get_cluster_workflow":                       true,
+	"get_cluster_workflow_schema":                true,
+	"get_cluster_workflow_creation_schema":       true,
+	"create_cluster_workflow":                    true,
+	"update_cluster_workflow":                    true,
+	"delete_cluster_workflow":                    true,
+	"list_cluster_dataplanes":                    true,
+	"get_cluster_dataplane":                      true,
+	"list_cluster_workflowplanes":                true,
+	"get_cluster_workflowplane":                  true,
+	"list_cluster_observability_planes":          true,
+	"get_cluster_observability_plane":            true,
+}
+
+// IsDeprecatedTool reports whether the named tool is a deprecated
+// compatibility-alias tool.
+func IsDeprecatedTool(name string) bool {
+	return deprecatedToolNames[name]
+}
+
 // namespaceToolRegistrations returns the list of namespace toolset registration functions
 func (t *Toolsets) namespaceToolRegistrations() []RegisterFunc {
 	return []RegisterFunc{
@@ -44,12 +86,15 @@ func (t *Toolsets) componentToolRegistrations() []RegisterFunc {
 		t.RegisterDeleteWorkload,
 		t.RegisterGetWorkloadSchema,
 		t.RegisterGetComponentSchema,
-		// Platform standards (read-only, namespace-scoped)
+		// Platform standards (read-only). These are scope-collapsed: pass scope="cluster"
+		// to operate on the platform-wide cluster-scoped resource.
 		t.RegisterListComponentTypes,
+		t.RegisterGetComponentType,
 		t.RegisterGetComponentTypeSchema,
 		t.RegisterListTraits,
+		t.RegisterGetTrait,
 		t.RegisterGetTraitSchema,
-		// Platform standards (read-only, cluster-scoped)
+		// Deprecated cluster-prefixed aliases (hidden from the default tools/list).
 		t.RegisterListClusterComponentTypes,
 		t.RegisterGetClusterComponentType,
 		t.RegisterGetClusterComponentTypeSchema,
@@ -84,8 +129,11 @@ func (t *Toolsets) buildToolRegistrations() []RegisterFunc {
 		t.RegisterGetWorkflowRunStatus,
 		t.RegisterGetWorkflowRunLogs,
 		t.RegisterGetWorkflowRunEvents,
+		// Workflow read. Scope-collapsed: pass scope="cluster" for a platform-wide ClusterWorkflow.
 		t.RegisterListWorkflows,
+		t.RegisterGetWorkflow,
 		t.RegisterGetWorkflowSchema,
+		// Deprecated cluster-prefixed aliases (hidden from the default tools/list).
 		t.RegisterListClusterWorkflows,
 		t.RegisterGetClusterWorkflow,
 		t.RegisterGetClusterWorkflowSchema,
@@ -112,19 +160,15 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterPEGetComponentRelease,
 		t.RegisterPEGetComponentReleaseSchema,
 
-		// DataPlane read
+		// Plane resources (scope-collapsed: pass scope="cluster" for cluster-scoped planes).
 		t.RegisterListDataPlanes,
 		t.RegisterGetDataPlane,
-
-		// WorkflowPlane read
 		t.RegisterListWorkflowPlanes,
 		t.RegisterGetWorkflowPlane,
-
-		// ObservabilityPlane read
 		t.RegisterListObservabilityPlanes,
 		t.RegisterGetObservabilityPlane,
 
-		// Cluster-scoped plane read
+		// Deprecated cluster-prefixed plane aliases (hidden from the default tools/list).
 		t.RegisterListClusterDataPlanes,
 		t.RegisterGetClusterDataPlane,
 		t.RegisterListClusterWorkflowPlanes,
@@ -132,7 +176,7 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterListClusterObservabilityPlanes,
 		t.RegisterGetClusterObservabilityPlane,
 
-		// Platform standards read (namespace-scoped)
+		// Platform standards (scope-collapsed: pass scope="cluster" for the platform-wide resource).
 		t.RegisterPEListComponentTypes,
 		t.RegisterPEGetComponentType,
 		t.RegisterPEGetComponentTypeSchema,
@@ -142,16 +186,9 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterPEListWorkflows,
 		t.RegisterPEGetWorkflow,
 		t.RegisterPEGetWorkflowSchema,
-
-		// Platform standards creation schemas
 		t.RegisterGetComponentTypeCreationSchema,
-		t.RegisterGetClusterComponentTypeCreationSchema,
 		t.RegisterGetTraitCreationSchema,
-		t.RegisterGetClusterTraitCreationSchema,
 		t.RegisterGetWorkflowCreationSchema,
-		t.RegisterGetClusterWorkflowCreationSchema,
-
-		// Platform standards write (namespace-scoped)
 		t.RegisterCreateComponentType,
 		t.RegisterUpdateComponentType,
 		t.RegisterDeleteComponentType,
@@ -162,15 +199,16 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterPEUpdateWorkflow,
 		t.RegisterPEDeleteWorkflow,
 
-		// Platform standards read (cluster-scoped)
+		// Deprecated cluster-prefixed platform-standards aliases (hidden from the default tools/list).
+		t.RegisterGetClusterComponentTypeCreationSchema,
+		t.RegisterGetClusterTraitCreationSchema,
+		t.RegisterGetClusterWorkflowCreationSchema,
 		t.RegisterPEListClusterComponentTypes,
 		t.RegisterPEGetClusterComponentType,
 		t.RegisterPEGetClusterComponentTypeSchema,
 		t.RegisterPEListClusterTraits,
 		t.RegisterPEGetClusterTrait,
 		t.RegisterPEGetClusterTraitSchema,
-
-		// Platform standards write (cluster-scoped)
 		t.RegisterCreateClusterComponentType,
 		t.RegisterUpdateClusterComponentType,
 		t.RegisterDeleteClusterComponentType,

@@ -133,6 +133,50 @@ func makeNamespacedListGetSpecs(
 	}
 }
 
+// makeScopedListGetSpecs creates a list+get pair of tool test specs for a
+// scope-collapsed resource (a single tool replacing the namespace-scoped tool and
+// its cluster-scoped counterpart, selected via the `scope` argument). The
+// default-scope (namespace) behavior is exercised, so the validateCall
+// expectations match the namespace handler.
+func makeScopedListGetSpecs(
+	toolset, listToolName, getToolName string,
+	listKeywords, getKeywords []string,
+	getParamName, getParamValue, listMethod, getMethod string,
+) []toolTestSpec {
+	getVal := getParamValue
+	return []toolTestSpec{
+		{
+			name:                listToolName,
+			toolset:             toolset,
+			descriptionKeywords: listKeywords,
+			descriptionMinLen:   10,
+			optionalParams:      []string{"scope", "namespace_name", "limit", "cursor"},
+			testArgs:            map[string]any{"namespace_name": testNamespaceName},
+			expectedMethod:      listMethod,
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName {
+					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
+				}
+			},
+		},
+		{
+			name:                getToolName,
+			toolset:             toolset,
+			descriptionKeywords: getKeywords,
+			descriptionMinLen:   10,
+			requiredParams:      []string{getParamName},
+			optionalParams:      []string{"scope", "namespace_name"},
+			testArgs:            map[string]any{"namespace_name": testNamespaceName, getParamName: getVal},
+			expectedMethod:      getMethod,
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != getVal {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, getVal, args[0], args[1])
+				}
+			},
+		},
+	}
+}
+
 // allToolSpecs aggregates all tool specs from all toolsets
 var allToolSpecs = func() []toolTestSpec {
 	specs := make([]toolTestSpec, 0, 8)

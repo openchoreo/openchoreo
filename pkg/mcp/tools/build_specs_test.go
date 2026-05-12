@@ -153,8 +153,8 @@ func buildWorkflowSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"list", "workflow"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name"},
-			optionalParams:      []string{"limit", "cursor"},
+			requiredParams:      []string{},
+			optionalParams:      []string{"scope", "namespace_name", "limit", "cursor"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 			},
@@ -170,7 +170,8 @@ func buildWorkflowSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"workflow", "schema"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "name"},
+			optionalParams:      []string{"scope", "namespace_name"},
+			requiredParams:      []string{"name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"name":           "build-workflow",
@@ -211,7 +212,7 @@ func buildClusterWorkflowSpecs() []toolTestSpec {
 			expectedMethod: "GetClusterWorkflow",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != "build-go" {
-					t.Errorf("Expected cwf_name %q, got %v", "build-go", args[0])
+					t.Errorf("Expected name %q, got %v", "build-go", args[0])
 				}
 			},
 		},
@@ -227,7 +228,7 @@ func buildClusterWorkflowSpecs() []toolTestSpec {
 			expectedMethod: "GetClusterWorkflowSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != "build-go" {
-					t.Errorf("Expected cwf_name %q, got %v", "build-go", args[0])
+					t.Errorf("Expected name %q, got %v", "build-go", args[0])
 				}
 			},
 		},
