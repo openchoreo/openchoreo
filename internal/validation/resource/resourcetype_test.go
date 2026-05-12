@@ -240,6 +240,42 @@ func TestValidateResourceTypeSpec_ReadyWhenUndeclaredID(t *testing.T) {
 	assert.True(t, hasErrorContaining(errs, "unknown"), "expected error to name the undeclared id: %v", errs)
 }
 
+// Bracket-form applied["<id>"] takes a different AST path (CallKind on the index
+// operator) than the dot form (SelectKind). The validator recognises both — these
+// two tests lock the bracket-form path.
+
+func TestValidateResourceTypeSpec_ReadyWhenBracketDeclaredID(t *testing.T) {
+	spec := &v1alpha1.ResourceTypeSpec{
+		Resources: []v1alpha1.ResourceTypeManifest{
+			{
+				ID:        "claim",
+				ReadyWhen: `${applied["claim"].status.ready}`,
+				Template:  rawTemplate(t, map[string]any{"kind": "X"}),
+			},
+		},
+	}
+
+	errs := ValidateResourceTypeSpec(spec, field.NewPath("spec"))
+	assert.Empty(t, errs, `applied["<declaredID>"] in readyWhen should pass: %v`, errs)
+}
+
+func TestValidateResourceTypeSpec_ReadyWhenBracketUndeclaredID(t *testing.T) {
+	spec := &v1alpha1.ResourceTypeSpec{
+		Resources: []v1alpha1.ResourceTypeManifest{
+			{
+				ID:        "claim",
+				ReadyWhen: `${applied["unknown"].status.ready}`,
+				Template:  rawTemplate(t, map[string]any{"kind": "X"}),
+			},
+		},
+	}
+
+	errs := ValidateResourceTypeSpec(spec, field.NewPath("spec"))
+	require.NotEmpty(t, errs, `applied["<undeclaredID>"] in readyWhen should error`)
+	assert.True(t, hasErrorAtPath(errs, "spec.resources[0].readyWhen"), "expected error at readyWhen path: %v", errs)
+	assert.True(t, hasErrorContaining(errs, "unknown"), "expected error to name the undeclared id: %v", errs)
+}
+
 func TestValidateResourceTypeSpec_ReadyWhenNonBool(t *testing.T) {
 	spec := &v1alpha1.ResourceTypeSpec{
 		Resources: []v1alpha1.ResourceTypeManifest{
