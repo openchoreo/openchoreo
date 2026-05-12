@@ -241,7 +241,7 @@ func TestValidateResourceTypeSpec_ReadyWhenUndeclaredID(t *testing.T) {
 }
 
 // Bracket-form applied["<id>"] takes a different AST path (CallKind on the index
-// operator) than the dot form (SelectKind). The validator recognises both — these
+// operator) than the dot form (SelectKind). The validator recognizes both — these
 // two tests lock the bracket-form path.
 
 func TestValidateResourceTypeSpec_ReadyWhenBracketDeclaredID(t *testing.T) {
