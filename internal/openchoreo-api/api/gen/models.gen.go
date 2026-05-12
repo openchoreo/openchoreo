@@ -2872,7 +2872,14 @@ type ResolvedResourceOutput struct {
 
 // Resource Resource for authorization evaluation
 type Resource struct {
-	// Hierarchy Resource hierarchy scope. Component and Resource are sibling sub-scopes under Project; a hierarchy must not set both.
+	// Hierarchy Resource hierarchy scope. Authoritative validation lives on the
+	// AuthzRoleBinding / ClusterAuthzRoleBinding CRD CEL rules; this schema
+	// documents the same invariants for clients:
+	// - `project` is required when `component` or `resource` is set
+	// - `component` and `resource` are mutually exclusive (siblings under `project`)
+	//
+	// Hierarchies that violate these invariants are treated as no-match by
+	// the authz engine rather than rejected on the wire.
 	Hierarchy ResourceHierarchy `json:"hierarchy"`
 
 	// Id Resource ID
@@ -2921,7 +2928,14 @@ type ResourceEventsResponse struct {
 	Events []ResourceEvent `json:"events"`
 }
 
-// ResourceHierarchy Resource hierarchy scope. Component and Resource are sibling sub-scopes under Project; a hierarchy must not set both.
+// ResourceHierarchy Resource hierarchy scope. Authoritative validation lives on the
+// AuthzRoleBinding / ClusterAuthzRoleBinding CRD CEL rules; this schema
+// documents the same invariants for clients:
+// - `project` is required when `component` or `resource` is set
+// - `component` and `resource` are mutually exclusive (siblings under `project`)
+//
+// Hierarchies that violate these invariants are treated as no-match by
+// the authz engine rather than rejected on the wire.
 type ResourceHierarchy struct {
 	// Component Component name
 	Component *string `json:"component,omitempty"`
