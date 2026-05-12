@@ -211,11 +211,15 @@ func TestRenderManifests(t *testing.T) {
 			require.Equal(t, "primary-obs", got.Entries[0].Object["nameRef"])
 		})
 
-		t.Run("absent_yields_empty_string", func(t *testing.T) {
+		t.Run("absent_guarded_by_has", func(t *testing.T) {
+			// observabilityPlaneRef is omitempty: when nil it's omitted from the
+			// CEL surface entirely. Templates must guard with has(...) — mirrors
+			// the component pipeline's contract for dataplane.gateway and
+			// dataplane.secretStore.
 			input := renderSingle(t, rawExt(t, map[string]any{
 				"apiVersion": "v1",
 				"kind":       "Probe",
-				"value":      "${dataplane.observabilityPlaneRef.name}",
+				"value":      `${has(dataplane.observabilityPlaneRef) ? dataplane.observabilityPlaneRef.name : ""}`,
 			}))
 
 			got, err := NewPipeline().RenderManifests(input)

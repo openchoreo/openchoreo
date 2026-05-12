@@ -12,55 +12,27 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/cel/model"
 	apiservercel "k8s.io/apiserver/pkg/cel"
 
+	resourcepipeline "github.com/openchoreo/openchoreo/internal/pipeline/resource"
 	"github.com/openchoreo/openchoreo/internal/template"
 	"github.com/openchoreo/openchoreo/internal/validation/component/decltype"
 )
 
 // schemaBasedFields are populated from user-provided schemas, not reflection.
-// validationContext does not declare these fields; the skip set keeps
-// ExtractFields behavior parallel with internal/validation/component.
+// They are skipped during ExtractFields and declared separately based on the
+// parameters / environmentConfigs schemas on the ResourceType being validated.
 var schemaBasedFields = map[string]bool{
 	"parameters":         true,
 	"environmentConfigs": true,
 }
 
-// validationContext mirrors the runtime CEL surface exposed by the resource
-// pipeline (internal/pipeline/resource/pipeline.go::buildBaseContext).
-// metadata.* and dataplane.* keys here must stay in sync with
-// metadataContextToMap and dataPlaneContextToMap in the pipeline. This struct
-// is reflection-only and is never instantiated.
-type validationContext struct {
-	Metadata  metadataView  `json:"metadata"`
-	DataPlane dataplaneView `json:"dataplane"`
-}
-
-type metadataView struct {
-	Name              string            `json:"name"`
-	Namespace         string            `json:"namespace"`
-	ResourceNamespace string            `json:"resourceNamespace"`
-	ResourceName      string            `json:"resourceName"`
-	ResourceUID       string            `json:"resourceUID"`
-	ProjectName       string            `json:"projectName"`
-	ProjectUID        string            `json:"projectUID"`
-	EnvironmentName   string            `json:"environmentName"`
-	EnvironmentUID    string            `json:"environmentUID"`
-	DataPlaneName     string            `json:"dataPlaneName"`
-	DataPlaneUID      string            `json:"dataPlaneUID"`
-	Labels            map[string]string `json:"labels"`
-	Annotations       map[string]string `json:"annotations"`
-}
-
-type dataplaneView struct {
-	SecretStore           string                    `json:"secretStore"`
-	ObservabilityPlaneRef observabilityPlaneRefView `json:"observabilityPlaneRef"`
-}
-
-type observabilityPlaneRefView struct {
-	Kind string `json:"kind"`
-	Name string `json:"name"`
-}
-
-var resourceContextFields = decltype.ExtractFields(reflect.TypeFor[validationContext](), schemaBasedFields)
+// resourceContextFields are the CEL variables declared from the pipeline's
+// BaseContext via reflection. Mirrors internal/validation/component.cel_env's
+// componentContextFields — single source of truth for the CEL surface lives
+// on the pipeline's BaseContext type.
+var resourceContextFields = decltype.ExtractFields(
+	reflect.TypeFor[resourcepipeline.BaseContext](),
+	schemaBasedFields,
+)
 
 // SchemaOptions provides schema configuration for resource CEL environment building.
 // Mirrors internal/validation/component.SchemaOptions; defined here to keep the
