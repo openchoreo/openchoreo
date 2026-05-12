@@ -316,8 +316,19 @@ func buildBaseContext(input *RenderInput) (map[string]any, error) {
 		return nil, fmt.Errorf("resolve environmentConfigs: %w", err)
 	}
 
+	// Coerce nil Labels/Annotations to empty maps so the JSON round-trip
+	// in structToMap emits {} instead of null, keeping CEL map indexing
+	// (${metadata.labels["k"]}) safe even when callers leave them unset.
+	md := input.Metadata
+	if md.Labels == nil {
+		md.Labels = map[string]string{}
+	}
+	if md.Annotations == nil {
+		md.Annotations = map[string]string{}
+	}
+
 	return structToMap(BaseContext{
-		Metadata:           input.Metadata,
+		Metadata:           md,
 		Parameters:         parameters,
 		EnvironmentConfigs: envConfigs,
 		DataPlane:          input.DataPlane,
