@@ -42,13 +42,17 @@ var AttrResourceEnvironment = AttributeSpec{
 // conditionRegistry maps concrete action names to the attributes available to CEL
 // expressions scoped to that action. Treat as immutable after init.
 var conditionRegistry = map[string][]AttributeSpec{
-	ActionCreateReleaseBinding: {AttrResourceEnvironment},
-	ActionViewReleaseBinding:   {AttrResourceEnvironment},
-	ActionUpdateReleaseBinding: {AttrResourceEnvironment},
-	ActionDeleteReleaseBinding: {AttrResourceEnvironment},
-	ActionViewLogs:             {AttrResourceEnvironment},
-	ActionViewMetrics:          {AttrResourceEnvironment},
-	ActionViewTraces:           {AttrResourceEnvironment},
+	ActionCreateReleaseBinding:         {AttrResourceEnvironment},
+	ActionViewReleaseBinding:           {AttrResourceEnvironment},
+	ActionUpdateReleaseBinding:         {AttrResourceEnvironment},
+	ActionDeleteReleaseBinding:         {AttrResourceEnvironment},
+	ActionCreateResourceReleaseBinding: {AttrResourceEnvironment},
+	ActionViewResourceReleaseBinding:   {AttrResourceEnvironment},
+	ActionUpdateResourceReleaseBinding: {AttrResourceEnvironment},
+	ActionDeleteResourceReleaseBinding: {AttrResourceEnvironment},
+	ActionViewLogs:                     {AttrResourceEnvironment},
+	ActionViewMetrics:                  {AttrResourceEnvironment},
+	ActionViewTraces:                   {AttrResourceEnvironment},
 }
 
 // LookupConditions returns the attribute specs available for a given concrete action.

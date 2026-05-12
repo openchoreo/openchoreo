@@ -39,6 +39,19 @@ func TestLookupConditions(t *testing.T) {
 		specs := LookupConditions("")
 		require.Nil(t, specs)
 	})
+
+	t.Run("resourcereleasebinding actions support resource.environment", func(t *testing.T) {
+		for _, action := range []string{
+			ActionCreateResourceReleaseBinding,
+			ActionViewResourceReleaseBinding,
+			ActionUpdateResourceReleaseBinding,
+			ActionDeleteResourceReleaseBinding,
+		} {
+			specs := LookupConditions(action)
+			require.Len(t, specs, 1, "action %q should expose one attribute", action)
+			require.Equal(t, AttrResourceEnvironment.Key, specs[0].Key, "action %q", action)
+		}
+	})
 }
 
 func TestIntersectConditionsForActions(t *testing.T) {

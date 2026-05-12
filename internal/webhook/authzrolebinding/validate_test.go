@@ -109,6 +109,13 @@ func TestValidateCondition(t *testing.T) {
 			},
 		},
 		{
+			name: "valid condition for resourcereleasebinding",
+			cond: openchoreodevv1alpha1.AuthzCondition{
+				Actions:    []string{authzcore.ActionCreateResourceReleaseBinding},
+				Expression: `resource.environment == "prod"`,
+			},
+		},
+		{
 			name: "empty actions",
 			cond: openchoreodevv1alpha1.AuthzCondition{
 				Actions:    []string{},
