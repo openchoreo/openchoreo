@@ -1,5 +1,10 @@
 # Helm values for OpenChoreo Observability Plane in k3d single-cluster setup
 
+finOpsAgent:
+  http:
+    hostnames:
+    - finops-agent.openchoreo.localhost
+
 # Observer API - REST API for querying logs and metrics
 observer:
   openSearchSecretName: opensearch-admin-credentials

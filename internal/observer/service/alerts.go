@@ -661,6 +661,9 @@ func (s *AlertService) triggerFinOpsAnalysis(alertID string, alertDetails *legac
 		return
 	}
 
+	if s.logger.Enabled(context.Background(), slog.LevelDebug) {
+		fmt.Println(string(payloadBytes))
+	}
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 	resp, err := httpClient.Post(s.finOpsAgentURL+"/api/v1alpha1/analyses", "application/json", bytes.NewReader(payloadBytes))
 	if err != nil {

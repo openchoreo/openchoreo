@@ -1071,6 +1071,17 @@ openchoreoApi:
                 - "clustertrait:view"
                 - "clusterworkflow:view"
 
+            # FinOps agent role for cost analysis and resource overprovisioning assessment
+            - name: finops-agent
+              system: true
+              actions:
+                - "component:view"
+                - "project:view"
+                - "namespace:view"
+                - "environment:view"
+                - "metrics:view"
+                - "alerts:view"
+
             # Root Cause Analysis (RCA) agent role for troubleshooting and debugging
             - name: rca-agent
               system: true
@@ -1462,6 +1473,19 @@ openchoreoApi:
               entitlement:
                 claim: sub
                 value: openchoreo-backstage-client
+              effect: allow
+
+            # FinOps agent mapping - grants FinOps service account cost analysis access
+            - name: finops-agent-binding
+              kind: ClusterAuthzRoleBinding
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: finops-agent
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: sub
+                value: openchoreo-finops-agent
               effect: allow
 
             # RCA agent mapping - grants RCA service account troubleshooting access

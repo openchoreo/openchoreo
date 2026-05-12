@@ -996,7 +996,7 @@
           "type": "string"
         },
         "openchoreoApiUrl": {
-          "default": "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080",
+          "default": "http://api.openchoreo.localhost:8080",
           "description": "OpenChoreo API URL for authorization service",
           "title": "openchoreoApiUrl",
           "type": "string"

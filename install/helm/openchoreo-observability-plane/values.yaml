@@ -1765,9 +1765,9 @@ finOpsAgent:
   # @schema
   # type: string
   # description: OpenChoreo API URL for authorization service
-  # default: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+  # default: "http://api.openchoreo.localhost:8080"
   # @schema
-  openchoreoApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+  openchoreoApiUrl: "http://api.openchoreo.localhost:8080"
 
   # @schema
   # type: object
