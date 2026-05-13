@@ -1745,6 +1745,13 @@ finOpsAgent:
   analysisTimeoutSeconds: 600
 
   # @schema
+  # type: boolean
+  # description: Enable remediation capability (synthesizes a ResourceChange action from overprovisioning recommendations)
+  # default: false
+  # @schema
+  remediationEnabled: false
+
+  # @schema
   # type: object
   # description: OAuth2 client credentials configuration for FinOps agent authentication
   # @schema

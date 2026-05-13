@@ -27,6 +27,7 @@ data:
   OBSERVABILITY_MCP_SERVER_URL: {{ .Values.finOpsAgent.observabilityMcpServerUrl | quote }}
   OPENCHOREO_API_URL: {{ .Values.finOpsAgent.openchoreoApiUrl | quote }}
   OPENCOST_MCP_SERVER_URL: {{ .Values.finOpsAgent.opencostMcpServerUrl | quote }}
+  REMEDIATION_ENABLED: {{ .Values.finOpsAgent.remediationEnabled | default false | quote }}
   REPORT_BACKEND: {{ .Values.finOpsAgent.reportBackend | quote }}
   TLS_INSECURE_SKIP_VERIFY: {{ .Values.finOpsAgent.tlsInsecureSkipVerify | quote }}
 {{- end }}

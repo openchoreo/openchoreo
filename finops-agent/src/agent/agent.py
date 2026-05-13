@@ -24,7 +24,7 @@ from src.auth import get_oauth2_auth
 from src.clients import MCPClient, get_model, get_report_backend
 from src.config import settings
 from src.logging_config import request_id_context
-from src.models import FinOpsReport
+from src.models import FinOpsReport, FieldChange, RemediationAction, ResourceChange
 from src.template_manager import render
 
 if TYPE_CHECKING:
@@ -170,6 +170,35 @@ FINOPS_AGENT = Agent(
 )
 
 
+def _synthesize_remediation_actions(report: FinOpsReport) -> list[RemediationAction]:
+    rec = report.overprovisioning.recommendation
+    if not rec or not rec.release_binding:
+        return []
+
+    return [
+        RemediationAction(
+            description=(
+                f"Right-size ReleaseBinding `{rec.release_binding}` "
+                "CPU and memory requests based on actual usage"
+            ),
+            rationale=rec.rationale,
+            change=ResourceChange(
+                release_binding=rec.release_binding,
+                fields=[
+                    FieldChange(
+                        json_pointer="/spec/componentTypeEnvironmentConfigs/resources/requests/cpu",
+                        value=rec.cpu_request,
+                    ),
+                    FieldChange(
+                        json_pointer="/spec/componentTypeEnvironmentConfigs/resources/requests/memory",
+                        value=rec.memory_request,
+                    ),
+                ],
+            ),
+        )
+    ]
+
+
 # Module-level semaphore for limiting concurrent analyses
 _semaphore: asyncio.Semaphore | None = None
 
@@ -228,6 +257,9 @@ async def run_analysis(
             if agent_logging and (summary := agent_logging.tool_call_summary()):
                 logger.debug("FinOps tool calls: %s", summary)
             logger.info("FinOps analysis completed: usage=%s", usage_callback.usage_metadata)
+
+            if settings.remediation_enabled:
+                finops_report.recommended_actions = _synthesize_remediation_actions(finops_report)
 
             report_data = finops_report.model_dump()
 

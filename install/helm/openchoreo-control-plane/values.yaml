@@ -1268,6 +1268,7 @@ openchoreoApi:
                 - "rcareport:view"
                 - "rcareport:update"
                 - "finopsreport:view"
+                - "finopsreport:update"
 
             # Platform engineer role - engineers managing the OpenChoreo platform infrastructure
             - name: platform-engineer
@@ -1356,6 +1357,7 @@ openchoreoApi:
                 - "rcareport:view"
                 - "rcareport:update"
                 - "finopsreport:view"
+                - "finopsreport:update"
                 - "observabilityalertsnotificationchannel:view"
                 - "observabilityalertsnotificationchannel:create"
                 - "observabilityalertsnotificationchannel:update"

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
@@ -39,6 +40,17 @@ class ReportBackend(ABC):
         limit: int = 100,
         sort: str = "desc",
     ) -> dict[str, Any]: ...
+
+    @abstractmethod
+    async def update_report_actions_atomic(
+        self,
+        report_id: str,
+        mutate_fn: Callable[[list[dict[str, Any]]], tuple[list[dict[str, Any]], bool]],
+    ) -> dict[str, Any] | None:
+        """Load the report, apply mutate_fn to recommended_actions inside a DB
+        transaction/row lock, write back if mutate_fn signals a change, and return
+        the stored document (or None if not found)."""
+        ...
 
     @abstractmethod
     async def initialize(self) -> None: ...

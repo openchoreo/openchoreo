@@ -10,7 +10,7 @@ from src.auth.authz_models import (
     SubjectContext,
 )
 from src.auth.bearer import BearerTokenAuth
-from src.auth.dependencies import require_authn, require_reports_authz
+from src.auth.dependencies import require_authn, require_reports_authz, require_reports_update_authz
 from src.auth.jwt import JWTValidationError, JWTValidator, get_jwt_validator
 from src.auth.oauth_client import OAuth2ClientCredentialsAuth, check_oauth2_connection, get_oauth2_auth
 
@@ -34,4 +34,5 @@ __all__ = [
     # Dependencies
     "require_authn",
     "require_reports_authz",
+    "require_reports_update_authz",
 ]

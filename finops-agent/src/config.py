@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     max_concurrent_analyses: int = 5
     analysis_timeout_seconds: int = 600
 
+    remediation_enabled: bool = False
+
     log_level: str = "INFO"
     tls_insecure_skip_verify: bool = False
     cors_allowed_origins: str = ""

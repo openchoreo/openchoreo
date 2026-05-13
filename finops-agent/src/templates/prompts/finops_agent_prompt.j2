@@ -51,6 +51,7 @@ Given a component that has triggered a budget alert, you must:
 - Set recommended memory request to P95 actual usage + 25% headroom
 - Set recommended memory limit to 1.5x the recommended request (or based on peak usage + headroom)
 - Calculate estimated savings based on the difference between current and recommended resource costs
+- Set `release_binding` to the name of the component's ReleaseBinding for the target environment. The ReleaseBinding name follows the convention `<component>-<environment>` (e.g. `my-service-development`). Use the component name and environment from the request to construct it.
 
 ## Output Format Requirements
 

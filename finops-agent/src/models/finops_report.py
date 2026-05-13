@@ -3,6 +3,8 @@
 
 from pydantic import BaseModel, Field
 
+from src.models.remediation_action import RemediationAction
+
 
 class ResourceMetrics(BaseModel):
     """Current resource configuration and actual usage metrics"""
@@ -68,6 +70,10 @@ class ResourceRecommendation(BaseModel):
     estimated_savings: float = Field(..., description="Estimated cost savings")
     currency: str = Field(..., description="Currency code (e.g. 'USD')")
     rationale: str = Field(..., description="Explanation of the recommendation")
+    release_binding: str | None = Field(
+        default=None,
+        description="Name of the ReleaseBinding to patch (e.g. 'my-service-development'). Required for remediation.",
+    )
 
 
 class OverprovisioningAssessment(BaseModel):
@@ -112,4 +118,8 @@ class FinOpsReport(BaseModel):
     summary: str = Field(..., description="1-2 sentence summary of the analysis")
     investigation_path: list[InvestigationStep] = Field(
         ..., min_length=1, description="Steps taken during the analysis"
+    )
+    recommended_actions: list[RemediationAction] = Field(
+        default_factory=list,
+        description="Remediation actions synthesized from the overprovisioning recommendation",
     )

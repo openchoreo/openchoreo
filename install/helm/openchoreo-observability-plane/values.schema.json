@@ -1007,6 +1007,12 @@
           "title": "opencostMcpServerUrl",
           "type": "string"
         },
+        "remediationEnabled": {
+          "default": false,
+          "description": "Enable remediation capability (synthesizes a ResourceChange action from overprovisioning recommendations)",
+          "title": "remediationEnabled",
+          "type": "boolean"
+        },
         "replicas": {
           "default": 1,
           "description": "Number of FinOps agent replicas",
