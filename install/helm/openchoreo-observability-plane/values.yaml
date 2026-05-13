@@ -1273,6 +1273,11 @@ security:
     # default: ""
     # @schema
     authServerBaseUrl: ""
+    # @schema
+    # type: array
+    # description: OAuth scopes advertised by the observer's MCP endpoint via the protected-resource metadata (RFC 9728) and WWW-Authenticate 401 challenge. Leave empty to use the default (openid profile email).
+    # @schema
+    mcpOAuthScopes: []
   # @schema
   # type: object
   # description: JWT configuration

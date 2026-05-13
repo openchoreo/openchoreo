@@ -198,7 +198,7 @@ func main() {
 		// MCP middleware chain: logger → auth401 interceptor → JWT auth → handler
 		mcpLoggerMw := apilogger.LoggerMiddleware(mcpLogger)
 		resourceMetadataURL := cfg.Server.PublicURL + "/.well-known/oauth-protected-resource"
-		mcpAuth401Mw := mcpmiddleware.Auth401Interceptor(resourceMetadataURL)
+		mcpAuth401Mw := mcpmiddleware.Auth401Interceptor(resourceMetadataURL, cfg.Identity.Scopes)
 		mcpHandler := middleware.Chain(mcpLoggerMw, mcpAuth401Mw, jwtMiddleware)(mcp.NewHTTPServer(toolsets, runtime.pdp))
 
 		baseMux.Handle("/mcp", mcpHandler)
