@@ -51,7 +51,9 @@ spec:
         - /manager
         args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
         - --cluster-gateway-url={{ .Values.controllerManager.clusterGateway.url }}
+        {{- if .Values.clusterGateway.tls.enabled }}
         - --cluster-gateway-ca-cert={{ .Values.controllerManager.clusterGateway.tls.caPath }}
+        {{- end }}
         {{- if .Values.controllerManager.clusterGateway.tls.insecure }}
         - --cluster-gateway-insecure
         {{- end }}
@@ -62,8 +64,10 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         - name: CLUSTER_GATEWAY_URL
           value: {{ quote .Values.controllerManager.clusterGateway.url }}
+        {{- if .Values.clusterGateway.tls.enabled }}
         - name: CLUSTER_GATEWAY_CA_CERT
           value: {{ quote .Values.controllerManager.clusterGateway.tls.caPath }}
+        {{- end }}
         ports:
         - containerPort: 8080
           name: metrics

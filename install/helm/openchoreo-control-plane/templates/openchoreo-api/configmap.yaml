@@ -64,7 +64,9 @@ data:
       enabled: {{ if hasKey .Values.openchoreoApi.clusterGateway "enabled" }}{{ .Values.openchoreoApi.clusterGateway.enabled }}{{ else }}true{{ end }}
       url: {{ .Values.openchoreoApi.clusterGateway.url | quote }}
       tls:
+        {{- if .Values.clusterGateway.tls.enabled }}
         ca_cert_path: {{ .Values.openchoreoApi.clusterGateway.tls.caPath | quote }}
+        {{- end }}
         insecure: {{ .Values.openchoreoApi.clusterGateway.tls.insecure }}
 
     logging:
