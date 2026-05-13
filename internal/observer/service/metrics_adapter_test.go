@@ -536,3 +536,627 @@ func TestMetricsAdapter_QueryMetrics_ContextCancellation(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrMetricsRetrieval)
 }
+
+func TestMetricsAdapter_QueryRuntimeTopology_NilRequest(t *testing.T) {
+	t.Parallel()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	resolver, cleanup := newMockUIDResolver("", "", "", nil)
+	defer cleanup()
+	adapter := NewMetricsAdapter("http://localhost:9099", 30*time.Second, resolver, logger)
+
+	result, err := adapter.QueryRuntimeTopology(context.Background(), nil)
+
+	assert.Nil(t, result)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "request must not be nil")
+}
+
+func TestMetricsAdapter_QueryRuntimeTopology_ValidationErrors(t *testing.T) {
+	t.Parallel()
+
+	validStart := "2026-01-01T00:00:00Z"
+	validEnd := "2026-01-01T01:00:00Z"
+
+	tests := []struct {
+		name        string
+		req         *types.RuntimeTopologyRequest
+		expectedErr error
+		errContains string
+	}{
+		{
+			name: "missing project",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			expectedErr: ErrRuntimeTopologyInvalidRequest,
+			errContains: "searchScope.project is required",
+		},
+		{
+			name: "missing environment",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace: "ns",
+					Project:   "proj",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			expectedErr: ErrRuntimeTopologyInvalidRequest,
+			errContains: "searchScope.environment is required",
+		},
+		{
+			name: "missing startTime",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				EndTime: validEnd,
+			},
+			expectedErr: ErrRuntimeTopologyInvalidRequest,
+			errContains: "startTime and endTime are required",
+		},
+		{
+			name: "missing endTime",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validStart,
+			},
+			expectedErr: ErrRuntimeTopologyInvalidRequest,
+			errContains: "startTime and endTime are required",
+		},
+		{
+			name: "invalid startTime format",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: "not-a-time",
+				EndTime:   validEnd,
+			},
+			expectedErr: ErrRuntimeTopologyInvalidRequest,
+			errContains: "invalid startTime",
+		},
+		{
+			name: "invalid endTime format",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   "not-a-time",
+			},
+			expectedErr: ErrRuntimeTopologyInvalidRequest,
+			errContains: "invalid endTime",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			resolver, cleanup := newMockUIDResolver("proj-uid", "comp-uid", "env-uid", nil)
+			defer cleanup()
+			adapter := NewMetricsAdapter("http://localhost:9099", 30*time.Second, resolver, logger)
+
+			result, err := adapter.QueryRuntimeTopology(context.Background(), tt.req)
+
+			assert.Nil(t, result)
+			require.Error(t, err)
+			assert.ErrorIs(t, err, tt.expectedErr)
+			assert.Contains(t, err.Error(), tt.errContains)
+		})
+	}
+}
+
+func TestMetricsAdapter_QueryRuntimeTopology_ResolverErrors(t *testing.T) {
+	t.Parallel()
+
+	validStart := "2026-01-01T00:00:00Z"
+	validEnd := "2026-01-01T01:00:00Z"
+
+	tests := []struct {
+		name        string
+		req         *types.RuntimeTopologyRequest
+		resolverErr func(path string) bool
+		errContains string
+	}{
+		{
+			name: "project UID resolution failure",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			resolverErr: func(path string) bool { return strings.Contains(path, "/projects/") },
+			errContains: "failed to get project UID",
+		},
+		{
+			name: "environment UID resolution failure",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			resolverErr: func(path string) bool { return strings.Contains(path, "/environments/") },
+			errContains: "failed to get environment UID",
+		},
+		{
+			name: "component UID resolution failure",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+					Component:   "comp",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			resolverErr: func(path string) bool { return strings.Contains(path, "/components/") },
+			errContains: "failed to get component UID",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			resolver, cleanup := newMockUIDResolver("proj-uid", "comp-uid", "env-uid", tt.resolverErr)
+			defer cleanup()
+			adapter := NewMetricsAdapter("http://localhost:9099", 30*time.Second, resolver, logger)
+
+			result, err := adapter.QueryRuntimeTopology(context.Background(), tt.req)
+
+			assert.Nil(t, result)
+			require.Error(t, err)
+			assert.ErrorIs(t, err, ErrRuntimeTopologyResolveSearchScope)
+			assert.Contains(t, err.Error(), tt.errContains)
+		})
+	}
+}
+
+func TestMetricsAdapter_QueryRuntimeTopology_HTTPErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		statusCode   int
+		responseBody string
+	}{
+		{
+			name:         "404 not found",
+			statusCode:   http.StatusNotFound,
+			responseBody: `{"error":"not found"}`,
+		},
+		{
+			name:         "500 internal server error",
+			statusCode:   http.StatusInternalServerError,
+			responseBody: `{"error":"internal error"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.statusCode)
+				_, err := w.Write([]byte(tt.responseBody))
+				require.NoError(t, err)
+			}))
+			defer server.Close()
+
+			logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+			resolver, cleanup := newMockUIDResolver("proj-uid", "comp-uid", "env-uid", nil)
+			defer cleanup()
+			adapter := NewMetricsAdapter(server.URL, 30*time.Second, resolver, logger)
+
+			req := &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: "2026-01-01T00:00:00Z",
+				EndTime:   "2026-01-01T01:00:00Z",
+			}
+
+			result, err := adapter.QueryRuntimeTopology(context.Background(), req)
+
+			assert.Nil(t, result)
+			require.Error(t, err)
+			assert.ErrorIs(t, err, ErrRuntimeTopologyRetrieval)
+		})
+	}
+}
+
+func TestMetricsAdapter_QueryRuntimeTopology_InvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte("not json"))
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	resolver, cleanup := newMockUIDResolver("proj-uid", "comp-uid", "env-uid", nil)
+	defer cleanup()
+	adapter := NewMetricsAdapter(server.URL, 30*time.Second, resolver, logger)
+
+	req := &types.RuntimeTopologyRequest{
+		SearchScope: types.ComponentSearchScope{
+			Namespace:   "ns",
+			Project:     "proj",
+			Environment: "env",
+		},
+		StartTime: "2026-01-01T00:00:00Z",
+		EndTime:   "2026-01-01T01:00:00Z",
+	}
+
+	result, err := adapter.QueryRuntimeTopology(context.Background(), req)
+
+	assert.Nil(t, result)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrRuntimeTopologyRetrieval)
+	assert.Contains(t, err.Error(), "failed to decode response")
+}
+
+func TestMetricsAdapter_QueryRuntimeTopology_NetworkError(t *testing.T) {
+	t.Parallel()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	resolver, cleanup := newMockUIDResolver("proj-uid", "comp-uid", "env-uid", nil)
+	defer cleanup()
+	adapter := NewMetricsAdapter("http://invalid-host-that-does-not-exist:9999", 1*time.Second, resolver, logger)
+
+	req := &types.RuntimeTopologyRequest{
+		SearchScope: types.ComponentSearchScope{
+			Namespace:   "ns",
+			Project:     "proj",
+			Environment: "env",
+		},
+		StartTime: "2026-01-01T00:00:00Z",
+		EndTime:   "2026-01-01T01:00:00Z",
+	}
+
+	result, err := adapter.QueryRuntimeTopology(context.Background(), req)
+
+	assert.Nil(t, result)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrRuntimeTopologyRetrieval)
+}
+
+func TestMetricsAdapter_QueryRuntimeTopology_Success(t *testing.T) {
+	t.Parallel()
+
+	step := "5m"
+	includeGateways := true
+	includeExternal := false
+
+	var capturedRequest runtimeTopologyAdapterRequest
+
+	now := time.Now().UTC()
+	adapterResponse := runtimeTopologyAdapterResponse{
+		Nodes: []runtimeTopologyAdapterNode{
+			{
+				Kind:         "component",
+				ComponentUID: "comp-uid-1",
+				ProjectUID:   "proj-uid-1",
+				Namespace:    "ns",
+				Metrics: &runtimeTopologyAdapterMetrics{
+					RequestCount: ptrFloat64(100),
+					ErrorCount:   ptrFloat64(5),
+					AvgLatency:   ptrFloat64(50.0),
+				},
+			},
+			{Kind: "gateway", GatewayName: "ingress-gw"},
+			{Kind: "external", ExternalHost: "api.example.com"},
+		},
+		Edges: []runtimeTopologyAdapterEdge{
+			{
+				ID: "edge-1",
+				Source: runtimeTopologyAdapterNodeRef{
+					Kind:         "component",
+					ComponentUID: "comp-uid-1",
+					ProjectUID:   "proj-uid-1",
+				},
+				Target: runtimeTopologyAdapterNodeRef{
+					Kind:         "external",
+					ExternalHost: "api.example.com",
+				},
+				Protocol: "http",
+				Metrics: &runtimeTopologyAdapterMetrics{
+					RequestCount: ptrFloat64(50),
+				},
+			},
+		},
+		Summary: runtimeTopologyAdapterSummary{
+			StartTime:   now.Add(-1 * time.Hour),
+			EndTime:     now,
+			Step:        "5m",
+			GeneratedAt: now,
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, "/api/v1alpha1/metrics/runtime-topology", r.URL.Path)
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.NoError(t, json.Unmarshal(body, &capturedRequest))
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		require.NoError(t, json.NewEncoder(w).Encode(adapterResponse))
+	}))
+	defer server.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	resolver, cleanup := newMockUIDResolver("proj-uid-1", "comp-uid-1", "env-uid-1", nil)
+	defer cleanup()
+	adapter := NewMetricsAdapter(server.URL, 30*time.Second, resolver, logger)
+
+	req := &types.RuntimeTopologyRequest{
+		SearchScope: types.ComponentSearchScope{
+			Namespace:   "ns",
+			Project:     "proj",
+			Environment: "env",
+		},
+		StartTime:       "2026-01-01T00:00:00Z",
+		EndTime:         "2026-01-01T01:00:00Z",
+		Step:            &step,
+		IncludeGateways: &includeGateways,
+		IncludeExternal: &includeExternal,
+	}
+
+	result, err := adapter.QueryRuntimeTopology(context.Background(), req)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	require.NotNil(t, capturedRequest.SearchScope.ProjectUID)
+	assert.Equal(t, "proj-uid-1", *capturedRequest.SearchScope.ProjectUID)
+	require.NotNil(t, capturedRequest.SearchScope.EnvironmentUID)
+	assert.Equal(t, "env-uid-1", *capturedRequest.SearchScope.EnvironmentUID)
+	assert.Nil(t, capturedRequest.SearchScope.ComponentUID)
+	require.NotNil(t, capturedRequest.Step)
+	assert.Equal(t, "5m", *capturedRequest.Step)
+	require.NotNil(t, capturedRequest.IncludeGateways)
+	assert.True(t, *capturedRequest.IncludeGateways)
+	require.NotNil(t, capturedRequest.IncludeExternal)
+	assert.False(t, *capturedRequest.IncludeExternal)
+
+	require.Len(t, result.Nodes, 3)
+	require.Len(t, result.Edges, 1)
+	assert.Equal(t, "edge-1", result.Edges[0].ID)
+	assert.Equal(t, types.RuntimeTopologyProtocol("http"), result.Edges[0].Protocol)
+	assert.Equal(t, "5m", result.Summary.Step)
+}
+
+func TestMetricsAdapter_QueryRuntimeTopology_WithComponent(t *testing.T) {
+	t.Parallel()
+
+	var capturedRequest runtimeTopologyAdapterRequest
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.NoError(t, json.Unmarshal(body, &capturedRequest))
+
+		w.WriteHeader(http.StatusOK)
+		require.NoError(t, json.NewEncoder(w).Encode(runtimeTopologyAdapterResponse{
+			Summary: runtimeTopologyAdapterSummary{GeneratedAt: time.Now().UTC()},
+		}))
+	}))
+	defer server.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	resolver, cleanup := newMockUIDResolver("proj-uid", "comp-uid", "env-uid", nil)
+	defer cleanup()
+	adapter := NewMetricsAdapter(server.URL, 30*time.Second, resolver, logger)
+
+	req := &types.RuntimeTopologyRequest{
+		SearchScope: types.ComponentSearchScope{
+			Namespace:   "ns",
+			Project:     "proj",
+			Environment: "env",
+			Component:   "comp",
+		},
+		StartTime: "2026-01-01T00:00:00Z",
+		EndTime:   "2026-01-01T01:00:00Z",
+	}
+
+	result, err := adapter.QueryRuntimeTopology(context.Background(), req)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, capturedRequest.SearchScope.ComponentUID)
+	assert.Equal(t, "comp-uid", *capturedRequest.SearchScope.ComponentUID)
+}
+
+func TestMetricsAdapter_QueryRuntimeTopology_EmptySummaryFallback(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		require.NoError(t, json.NewEncoder(w).Encode(runtimeTopologyAdapterResponse{}))
+	}))
+	defer server.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	resolver, cleanup := newMockUIDResolver("proj-uid", "comp-uid", "env-uid", nil)
+	defer cleanup()
+	adapter := NewMetricsAdapter(server.URL, 30*time.Second, resolver, logger)
+
+	req := &types.RuntimeTopologyRequest{
+		SearchScope: types.ComponentSearchScope{
+			Namespace:   "ns",
+			Project:     "proj",
+			Environment: "env",
+		},
+		StartTime: "2026-01-01T00:00:00Z",
+		EndTime:   "2026-01-01T01:00:00Z",
+	}
+
+	result, err := adapter.QueryRuntimeTopology(context.Background(), req)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.False(t, result.Summary.StartTime.IsZero(), "StartTime should fall back to the request value")
+	assert.False(t, result.Summary.EndTime.IsZero(), "EndTime should fall back to the request value")
+	assert.False(t, result.Summary.GeneratedAt.IsZero(), "GeneratedAt should fall back to now")
+}
+
+func TestConvertTopologyAdapterMetrics(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil input returns nil", func(t *testing.T) {
+		t.Parallel()
+		assert.Nil(t, convertTopologyAdapterMetrics(nil))
+	})
+
+	t.Run("all fields populated", func(t *testing.T) {
+		t.Parallel()
+		in := &runtimeTopologyAdapterMetrics{
+			RequestCount: ptrFloat64(10),
+			ErrorCount:   ptrFloat64(2),
+			AvgLatency:   ptrFloat64(5.0),
+			P50Latency:   ptrFloat64(4.5),
+			P90Latency:   ptrFloat64(8.0),
+			P99Latency:   ptrFloat64(15.0),
+		}
+		out := convertTopologyAdapterMetrics(in)
+		require.NotNil(t, out)
+		assert.InDelta(t, 10.0, out.RequestCount, 0.001)
+		assert.InDelta(t, 2.0, out.ErrorCount, 0.001)
+		assert.InDelta(t, 5.0, out.AvgLatency, 0.001)
+		assert.InDelta(t, 4.5, out.P50Latency, 0.001)
+		assert.InDelta(t, 8.0, out.P90Latency, 0.001)
+		assert.InDelta(t, 15.0, out.P99Latency, 0.001)
+	})
+
+	t.Run("nil pointer fields are skipped", func(t *testing.T) {
+		t.Parallel()
+		in := &runtimeTopologyAdapterMetrics{}
+		out := convertTopologyAdapterMetrics(in)
+		require.NotNil(t, out)
+		assert.InDelta(t, 0.0, out.RequestCount, 0.001)
+	})
+}
+
+func TestConvertTopologyAdapterNodeRef(t *testing.T) {
+	t.Parallel()
+
+	t.Run("component kind", func(t *testing.T) {
+		t.Parallel()
+		in := runtimeTopologyAdapterNodeRef{
+			Kind:         "component",
+			ComponentUID: "comp-uid",
+			ProjectUID:   "proj-uid",
+			Namespace:    "ns",
+		}
+		out := convertTopologyAdapterNodeRef(in, "my-project")
+		assert.Equal(t, types.RuntimeTopologyNodeKindComponent, out.Kind)
+		assert.Equal(t, "comp-uid", out.ComponentUID)
+		assert.Equal(t, "proj-uid", out.ProjectUID)
+		assert.Equal(t, "my-project", out.Project)
+		assert.Equal(t, "ns", out.Namespace)
+	})
+
+	t.Run("gateway kind", func(t *testing.T) {
+		t.Parallel()
+		in := runtimeTopologyAdapterNodeRef{
+			Kind:        "gateway",
+			GatewayName: "ingress-gw",
+		}
+		out := convertTopologyAdapterNodeRef(in, "proj")
+		assert.Equal(t, types.RuntimeTopologyNodeKindGateway, out.Kind)
+		assert.Equal(t, "ingress-gw", out.Name)
+	})
+
+	t.Run("external kind", func(t *testing.T) {
+		t.Parallel()
+		in := runtimeTopologyAdapterNodeRef{
+			Kind:         "external",
+			ExternalHost: "api.example.com",
+			ComponentUID: "comp-uid",
+			ProjectUID:   "proj-uid",
+		}
+		out := convertTopologyAdapterNodeRef(in, "proj")
+		assert.Equal(t, types.RuntimeTopologyNodeKindExternal, out.Kind)
+		assert.Equal(t, "api.example.com", out.Host)
+		assert.Equal(t, "comp-uid", out.ComponentUID)
+		assert.Equal(t, "proj-uid", out.ProjectUID)
+	})
+
+	t.Run("component with empty project UID does not set Project name", func(t *testing.T) {
+		t.Parallel()
+		in := runtimeTopologyAdapterNodeRef{
+			Kind:         "component",
+			ComponentUID: "comp-uid",
+		}
+		out := convertTopologyAdapterNodeRef(in, "my-project")
+		assert.Equal(t, types.RuntimeTopologyNodeKindComponent, out.Kind)
+		assert.Empty(t, out.Project)
+	})
+}
+
+func TestPtrStringIfNonEmpty(t *testing.T) {
+	t.Parallel()
+
+	assert.Nil(t, ptrStringIfNonEmpty(""))
+	p := ptrStringIfNonEmpty("hello")
+	require.NotNil(t, p)
+	assert.Equal(t, "hello", *p)
+}
+
+func TestCoalesceTime(t *testing.T) {
+	t.Parallel()
+
+	fallback := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	t.Run("zero time returns fallback", func(t *testing.T) {
+		t.Parallel()
+		assert.Equal(t, fallback, coalesceTime(time.Time{}, fallback))
+	})
+
+	t.Run("non-zero time returns itself", func(t *testing.T) {
+		t.Parallel()
+		nonZero := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+		assert.Equal(t, nonZero, coalesceTime(nonZero, fallback))
+	})
+}
+
+func ptrFloat64(v float64) *float64 {
+	return &v
+}

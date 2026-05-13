@@ -307,3 +307,69 @@ func TestTracesAuthz_GetSpanDetails_PassThrough(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, expected, resp)
 }
+
+// --- MetricsQuerier QueryRuntimeTopology Authz Tests ---
+
+func TestMetricsAuthz_QueryRuntimeTopology_NilRequest(t *testing.T) {
+	inner := mocks.NewMockMetricsQuerier(t)
+
+	svc := NewMetricsServiceWithAuthz(inner, nil, testLogger())
+
+	_, err := svc.QueryRuntimeTopology(context.Background(), nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "runtime topology request is required")
+}
+
+func TestMetricsAuthz_QueryRuntimeTopology_NilPDP(t *testing.T) {
+	expected := &types.RuntimeTopologyResponse{}
+	inner := mocks.NewMockMetricsQuerier(t)
+	inner.EXPECT().QueryRuntimeTopology(mock.Anything, mock.Anything).Return(expected, nil)
+
+	svc := NewMetricsServiceWithAuthz(inner, nil, testLogger())
+	req := &types.RuntimeTopologyRequest{
+		SearchScope: types.ComponentSearchScope{
+			Namespace:   "ns",
+			Project:     "proj",
+			Environment: "env",
+		},
+	}
+
+	resp, err := svc.QueryRuntimeTopology(context.Background(), req)
+	require.NoError(t, err)
+	assert.Equal(t, expected, resp)
+}
+
+func TestMetricsAuthz_QueryRuntimeTopology_Allowed(t *testing.T) {
+	expected := &types.RuntimeTopologyResponse{}
+	inner := mocks.NewMockMetricsQuerier(t)
+	inner.EXPECT().QueryRuntimeTopology(mock.Anything, mock.Anything).Return(expected, nil)
+
+	svc := NewMetricsServiceWithAuthz(inner, mockPDPAllow(t), testLogger())
+	req := &types.RuntimeTopologyRequest{
+		SearchScope: types.ComponentSearchScope{
+			Namespace:   "ns",
+			Project:     "proj",
+			Environment: "env",
+		},
+	}
+
+	resp, err := svc.QueryRuntimeTopology(authedCtx(), req)
+	require.NoError(t, err)
+	assert.Equal(t, expected, resp)
+}
+
+func TestMetricsAuthz_QueryRuntimeTopology_Denied(t *testing.T) {
+	inner := mocks.NewMockMetricsQuerier(t)
+
+	svc := NewMetricsServiceWithAuthz(inner, mockPDPDeny(t), testLogger())
+	req := &types.RuntimeTopologyRequest{
+		SearchScope: types.ComponentSearchScope{
+			Namespace:   "ns",
+			Project:     "proj",
+			Environment: "env",
+		},
+	}
+
+	_, err := svc.QueryRuntimeTopology(authedCtx(), req)
+	assert.ErrorIs(t, err, observerAuthz.ErrAuthzForbidden)
+}

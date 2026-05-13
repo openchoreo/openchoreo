@@ -946,6 +946,169 @@ func TestValidateSourceType(t *testing.T) {
 	}
 }
 
+func TestValidateRuntimeTopologyRequest(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	validStart := now.Add(-1 * time.Hour).Format(time.RFC3339)
+	validEnd := now.Format(time.RFC3339)
+
+	step5m := "5m"
+	negativeStep := "-1m"
+	invalidStep := "notaduration"
+
+	tests := []struct {
+		name        string
+		req         *types.RuntimeTopologyRequest
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:        "nil request",
+			req:         nil,
+			wantErr:     true,
+			errContains: "request must not be nil",
+		},
+		{
+			name: "missing namespace",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			wantErr:     true,
+			errContains: "searchScope.namespace is required",
+		},
+		{
+			name: "whitespace-only namespace",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "   ",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			wantErr:     true,
+			errContains: "searchScope.namespace is required",
+		},
+		{
+			name: "missing project",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			wantErr:     true,
+			errContains: "searchScope.project is required",
+		},
+		{
+			name: "missing environment",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace: "ns",
+					Project:   "proj",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			wantErr:     true,
+			errContains: "searchScope.environment is required",
+		},
+		{
+			name: "invalid time range",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validEnd,
+				EndTime:   validStart,
+			},
+			wantErr:     true,
+			errContains: "endTime must be after startTime",
+		},
+		{
+			name: "invalid step format",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+				Step:      &invalidStep,
+			},
+			wantErr:     true,
+			errContains: "step must be a valid duration",
+		},
+		{
+			name: "negative step",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+				Step:      &negativeStep,
+			},
+			wantErr:     true,
+			errContains: "step must be greater than 0",
+		},
+		{
+			name: "valid request without step",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid request with step",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+				Step:      &step5m,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateRuntimeTopologyRequest(tt.req)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errContains)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 // strPtr is a helper to get a pointer to a string literal. Used in validations tests.
 func strPtr(s string) *string { return &s }
 

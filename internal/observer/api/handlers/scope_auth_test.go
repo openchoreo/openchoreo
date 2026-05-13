@@ -78,6 +78,24 @@ func validTracesRequestBody(t *testing.T) io.Reader {
 	return bytes.NewReader(b)
 }
 
+// validRuntimeTopologyRequestBody returns a minimal valid runtime topology request JSON.
+func validRuntimeTopologyRequestBody(t *testing.T) io.Reader {
+	t.Helper()
+	now := time.Now().UTC()
+	req := map[string]any{
+		"startTime": now.Add(-1 * time.Hour).Format(time.RFC3339),
+		"endTime":   now.Format(time.RFC3339),
+		"searchScope": map[string]any{
+			"namespace":   "test-ns",
+			"project":     "test-project",
+			"environment": "test-env",
+		},
+	}
+	b, err := json.Marshal(req)
+	require.NoError(t, err, "failed to marshal runtime topology request")
+	return bytes.NewReader(b)
+}
+
 // assertScopeAuthFailedResponse checks that the response is HTTP 500 with the
 // OBS-V1-SCOPE-AUTH-FAILED error code.
 func assertScopeAuthFailedResponse(t *testing.T, rr *httptest.ResponseRecorder) {
