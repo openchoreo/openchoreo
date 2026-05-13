@@ -11035,6 +11035,81 @@ func (_c *MockClientWithResponsesInterface_GetSecretReferenceWithResponse_Call) 
 	return _c
 }
 
+// GetSecretWithResponse provides a mock function with given fields: ctx, namespaceName, secretName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetSecretWithResponse(ctx context.Context, namespaceName string, secretName string, reqEditors ...gen.RequestEditorFn) (*gen.GetSecretResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, secretName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetSecretWithResponse")
+	}
+
+	var r0 *gen.GetSecretResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetSecretResp, error)); ok {
+		return rf(ctx, namespaceName, secretName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.GetSecretResp); ok {
+		r0 = rf(ctx, namespaceName, secretName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetSecretResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, secretName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetSecretWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSecretWithResponse'
+type MockClientWithResponsesInterface_GetSecretWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetSecretWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - secretName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetSecretWithResponse(ctx interface{}, namespaceName interface{}, secretName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetSecretWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetSecretWithResponse_Call{Call: _e.mock.On("GetSecretWithResponse",
+		append([]interface{}{ctx, namespaceName, secretName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetSecretWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, secretName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetSecretWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetSecretWithResponse_Call) Return(_a0 *gen.GetSecretResp, _a1 error) *MockClientWithResponsesInterface_GetSecretWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetSecretWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetSecretResp, error)) *MockClientWithResponsesInterface_GetSecretWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetSubjectProfileWithResponse provides a mock function with given fields: ctx, params, reqEditors
 func (_m *MockClientWithResponsesInterface) GetSubjectProfileWithResponse(ctx context.Context, params *gen.GetSubjectProfileParams, reqEditors ...gen.RequestEditorFn) (*gen.GetSubjectProfileResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -14243,6 +14318,81 @@ func (_c *MockClientWithResponsesInterface_ListSecretReferencesWithResponse_Call
 }
 
 func (_c *MockClientWithResponsesInterface_ListSecretReferencesWithResponse_Call) RunAndReturn(run func(context.Context, string, *gen.ListSecretReferencesParams, ...gen.RequestEditorFn) (*gen.ListSecretReferencesResp, error)) *MockClientWithResponsesInterface_ListSecretReferencesWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListSecretsWithResponse provides a mock function with given fields: ctx, namespaceName, params, reqEditors
+func (_m *MockClientWithResponsesInterface) ListSecretsWithResponse(ctx context.Context, namespaceName string, params *gen.ListSecretsParams, reqEditors ...gen.RequestEditorFn) (*gen.ListSecretsResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, params)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListSecretsWithResponse")
+	}
+
+	var r0 *gen.ListSecretsResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListSecretsParams, ...gen.RequestEditorFn) (*gen.ListSecretsResp, error)); ok {
+		return rf(ctx, namespaceName, params, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListSecretsParams, ...gen.RequestEditorFn) *gen.ListSecretsResp); ok {
+		r0 = rf(ctx, namespaceName, params, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ListSecretsResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListSecretsParams, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, params, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_ListSecretsWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListSecretsWithResponse'
+type MockClientWithResponsesInterface_ListSecretsWithResponse_Call struct {
+	*mock.Call
+}
+
+// ListSecretsWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListSecretsParams
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) ListSecretsWithResponse(ctx interface{}, namespaceName interface{}, params interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_ListSecretsWithResponse_Call {
+	return &MockClientWithResponsesInterface_ListSecretsWithResponse_Call{Call: _e.mock.On("ListSecretsWithResponse",
+		append([]interface{}{ctx, namespaceName, params}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_ListSecretsWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListSecretsParams, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_ListSecretsWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListSecretsParams), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListSecretsWithResponse_Call) Return(_a0 *gen.ListSecretsResp, _a1 error) *MockClientWithResponsesInterface_ListSecretsWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListSecretsWithResponse_Call) RunAndReturn(run func(context.Context, string, *gen.ListSecretsParams, ...gen.RequestEditorFn) (*gen.ListSecretsResp, error)) *MockClientWithResponsesInterface_ListSecretsWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -18496,6 +18646,159 @@ func (_c *MockClientWithResponsesInterface_UpdateSecretReferenceWithResponse_Cal
 }
 
 func (_c *MockClientWithResponsesInterface_UpdateSecretReferenceWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.SecretReference, ...gen.RequestEditorFn) (*gen.UpdateSecretReferenceResp, error)) *MockClientWithResponsesInterface_UpdateSecretReferenceWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateSecretWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, secretName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateSecretWithBodyWithResponse(ctx context.Context, namespaceName string, secretName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.UpdateSecretResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, secretName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateSecretWithBodyWithResponse")
+	}
+
+	var r0 *gen.UpdateSecretResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateSecretResp, error)); ok {
+		return rf(ctx, namespaceName, secretName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) *gen.UpdateSecretResp); ok {
+		r0 = rf(ctx, namespaceName, secretName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateSecretResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, secretName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateSecretWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateSecretWithBodyWithResponse'
+type MockClientWithResponsesInterface_UpdateSecretWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateSecretWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - secretName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateSecretWithBodyWithResponse(ctx interface{}, namespaceName interface{}, secretName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateSecretWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateSecretWithBodyWithResponse_Call{Call: _e.mock.On("UpdateSecretWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, secretName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateSecretWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, secretName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateSecretWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateSecretWithBodyWithResponse_Call) Return(_a0 *gen.UpdateSecretResp, _a1 error) *MockClientWithResponsesInterface_UpdateSecretWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateSecretWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateSecretResp, error)) *MockClientWithResponsesInterface_UpdateSecretWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateSecretWithResponse provides a mock function with given fields: ctx, namespaceName, secretName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateSecretWithResponse(ctx context.Context, namespaceName string, secretName string, body gen.UpdateSecretRequest, reqEditors ...gen.RequestEditorFn) (*gen.UpdateSecretResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, secretName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateSecretWithResponse")
+	}
+
+	var r0 *gen.UpdateSecretResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.UpdateSecretRequest, ...gen.RequestEditorFn) (*gen.UpdateSecretResp, error)); ok {
+		return rf(ctx, namespaceName, secretName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.UpdateSecretRequest, ...gen.RequestEditorFn) *gen.UpdateSecretResp); ok {
+		r0 = rf(ctx, namespaceName, secretName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateSecretResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.UpdateSecretRequest, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, secretName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateSecretWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateSecretWithResponse'
+type MockClientWithResponsesInterface_UpdateSecretWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateSecretWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - secretName string
+//   - body gen.UpdateSecretRequest
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateSecretWithResponse(ctx interface{}, namespaceName interface{}, secretName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateSecretWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateSecretWithResponse_Call{Call: _e.mock.On("UpdateSecretWithResponse",
+		append([]interface{}{ctx, namespaceName, secretName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateSecretWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, secretName string, body gen.UpdateSecretRequest, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateSecretWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.UpdateSecretRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateSecretWithResponse_Call) Return(_a0 *gen.UpdateSecretResp, _a1 error) *MockClientWithResponsesInterface_UpdateSecretWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateSecretWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.UpdateSecretRequest, ...gen.RequestEditorFn) (*gen.UpdateSecretResp, error)) *MockClientWithResponsesInterface_UpdateSecretWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }

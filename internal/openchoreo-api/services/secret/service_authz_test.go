@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -79,7 +80,7 @@ func sampleCreateParams() *secret.CreateSecretParams {
 // --- CreateSecret ---
 
 func TestAuthzCreateSecret_Allowed(t *testing.T) {
-	expected := &secret.SecretInfo{Name: testSecret, Namespace: testNamespace}
+	expected := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: testSecret, Namespace: testNamespace}}
 	svc := newAuthzService(t, func(m *secretmocks.MockService) {
 		m.EXPECT().CreateSecret(mock.Anything, testNamespace, mock.Anything).Return(expected, nil)
 	}, newAllowAllPDP(t))
@@ -172,5 +173,114 @@ func TestAuthzDeleteSecret_InternalError(t *testing.T) {
 	err := svc.DeleteSecret(context.Background(), testNamespace, testSecret)
 	if !errors.Is(err, internalErr) {
 		t.Errorf("expected internal error, got %v", err)
+	}
+}
+
+// --- UpdateSecret ---
+
+func TestAuthzUpdateSecret_Allowed(t *testing.T) {
+	expected := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: testSecret, Namespace: testNamespace}}
+	svc := newAuthzService(t, func(m *secretmocks.MockService) {
+		m.EXPECT().UpdateSecret(mock.Anything, testNamespace, testSecret, mock.Anything).Return(expected, nil)
+	}, newAllowAllPDP(t))
+
+	got, err := svc.UpdateSecret(context.Background(), testNamespace, testSecret, &secret.UpdateSecretParams{Data: map[string]string{"k": "v"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Name != testSecret {
+		t.Errorf("got Name = %q", got.Name)
+	}
+}
+
+func TestAuthzUpdateSecret_Denied(t *testing.T) {
+	svc := newAuthzService(t, func(_ *secretmocks.MockService) {}, newDenyAllPDP(t))
+
+	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecret, &secret.UpdateSecretParams{Data: map[string]string{"k": "v"}})
+	if !errors.Is(err, services.ErrForbidden) {
+		t.Errorf("expected ErrForbidden, got %v", err)
+	}
+}
+
+// --- GetSecret ---
+
+func TestAuthzGetSecret_Allowed(t *testing.T) {
+	expected := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: testSecret, Namespace: testNamespace}}
+	svc := newAuthzService(t, func(m *secretmocks.MockService) {
+		m.EXPECT().GetSecret(mock.Anything, testNamespace, testSecret).Return(expected, nil)
+	}, newAllowAllPDP(t))
+
+	got, err := svc.GetSecret(context.Background(), testNamespace, testSecret)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Name != testSecret {
+		t.Errorf("got Name = %q", got.Name)
+	}
+}
+
+func TestAuthzGetSecret_Denied(t *testing.T) {
+	svc := newAuthzService(t, func(_ *secretmocks.MockService) {}, newDenyAllPDP(t))
+
+	_, err := svc.GetSecret(context.Background(), testNamespace, testSecret)
+	if !errors.Is(err, services.ErrForbidden) {
+		t.Errorf("expected ErrForbidden, got %v", err)
+	}
+}
+
+// --- ListSecrets ---
+
+// listAllowPDP returns a PDP that allows every per-item check (FilteredList
+// calls authz once per item it sees, so we don't bound the call count).
+func listAllowPDP(t *testing.T) *authzmocks.MockPDP {
+	t.Helper()
+	pdp := authzmocks.NewMockPDP(t)
+	pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).
+		Return(&authzcore.Decision{Decision: true, Context: &authzcore.DecisionContext{}}, nil)
+	return pdp
+}
+
+// listDenyPDP returns a PDP that denies every per-item check.
+func listDenyPDP(t *testing.T) *authzmocks.MockPDP {
+	t.Helper()
+	pdp := authzmocks.NewMockPDP(t)
+	pdp.EXPECT().Evaluate(mock.Anything, mock.Anything).
+		Return(&authzcore.Decision{Decision: false, Context: &authzcore.DecisionContext{}}, nil)
+	return pdp
+}
+
+func TestAuthzListSecrets_Allowed(t *testing.T) {
+	expected := &services.ListResult[corev1.Secret]{
+		Items: []corev1.Secret{{ObjectMeta: metav1.ObjectMeta{Name: testSecret, Namespace: testNamespace}}},
+	}
+	svc := newAuthzService(t, func(m *secretmocks.MockService) {
+		m.EXPECT().ListSecrets(mock.Anything, testNamespace, mock.Anything).Return(expected, nil)
+	}, listAllowPDP(t))
+
+	got, err := svc.ListSecrets(context.Background(), testNamespace, services.ListOptions{Limit: 10})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got.Items) != 1 {
+		t.Errorf("expected 1 item, got %d", len(got.Items))
+	}
+}
+
+// When the per-item PDP denies every item, FilteredList drops them silently
+// and returns an empty page rather than ErrForbidden.
+func TestAuthzListSecrets_Denied(t *testing.T) {
+	inner := &services.ListResult[corev1.Secret]{
+		Items: []corev1.Secret{{ObjectMeta: metav1.ObjectMeta{Name: testSecret, Namespace: testNamespace}}},
+	}
+	svc := newAuthzService(t, func(m *secretmocks.MockService) {
+		m.EXPECT().ListSecrets(mock.Anything, testNamespace, mock.Anything).Return(inner, nil)
+	}, listDenyPDP(t))
+
+	got, err := svc.ListSecrets(context.Background(), testNamespace, services.ListOptions{Limit: 10})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got.Items) != 0 {
+		t.Errorf("expected denied items to be dropped, got %d", len(got.Items))
 	}
 }

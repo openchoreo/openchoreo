@@ -184,8 +184,10 @@ const (
 	ActionUpdateSecretReference = "secretreference:update"
 	ActionDeleteSecretReference = "secretreference:delete"
 
-	// Secret actions (write-only secret creation API)
+	// Secret actions
 	ActionCreateSecret = "secret:create"
+	ActionViewSecret   = "secret:view"
+	ActionUpdateSecret = "secret:update"
 	ActionDeleteSecret = "secret:delete"
 
 	// Workload actions
@@ -416,7 +418,9 @@ var systemActions = []Action{
 	{Name: ActionDeleteSecretReference, LowestScope: ScopeNamespace, IsInternal: false},
 
 	// Secret
+	{Name: ActionViewSecret, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionCreateSecret, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionUpdateSecret, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionDeleteSecret, LowestScope: ScopeNamespace, IsInternal: false},
 
 	// Workload

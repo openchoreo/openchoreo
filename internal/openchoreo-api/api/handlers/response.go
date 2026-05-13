@@ -48,3 +48,11 @@ func internalError() gen.InternalErrorJSONResponse {
 		Error: "Internal server error",
 	}
 }
+
+//nolint:unparam // shared helper; message is supplied by callers
+func notImplemented(message string) gen.NotImplementedJSONResponse {
+	return gen.NotImplementedJSONResponse{
+		Code:  gen.NOTIMPLEMENTED,
+		Error: message,
+	}
+}

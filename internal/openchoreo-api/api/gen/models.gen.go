@@ -210,6 +210,7 @@ const (
 	FORBIDDEN            ErrorResponseCode = "FORBIDDEN"
 	INTERNALERROR        ErrorResponseCode = "INTERNAL_ERROR"
 	NOTFOUND             ErrorResponseCode = "NOT_FOUND"
+	NOTIMPLEMENTED       ErrorResponseCode = "NOT_IMPLEMENTED"
 	UNAUTHORIZED         ErrorResponseCode = "UNAUTHORIZED"
 	UNKNOWNGITPROVIDER   ErrorResponseCode = "UNKNOWN_GIT_PROVIDER"
 	UNPROCESSABLECONTENT ErrorResponseCode = "UNPROCESSABLE_CONTENT"
@@ -2136,6 +2137,16 @@ type K8sResourceTreeResponse struct {
 	RenderedReleases []ReleaseResourceTree `json:"renderedReleases"`
 }
 
+// ListSecretsResponse Paginated list of secrets.
+type ListSecretsResponse struct {
+	// Items Page of secrets.
+	Items []Secret `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
 // MessageResponse Simple message response
 type MessageResponse struct {
 	// Message Response message
@@ -3281,6 +3292,27 @@ type SchemaSection struct {
 	OpenAPIV3Schema *map[string]interface{} `json:"openAPIV3Schema,omitempty"`
 }
 
+// Secret Kubernetes Secret. Wire shape matches `corev1.Secret`: `data` is a map
+// of keys to base64-encoded values.
+type Secret struct {
+	ApiVersion string `json:"apiVersion"`
+
+	// Data Map of secret keys to base64-encoded values. Matches the
+	// Kubernetes Secret `data` field semantics.
+	Data *map[string][]byte `json:"data,omitempty"`
+
+	// Immutable Whether the secret is immutable.
+	Immutable *bool  `json:"immutable,omitempty"`
+	Kind      string `json:"kind"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Type Kubernetes Secret type
+	Type SecretType `json:"type"`
+}
+
 // SecretDataSource Secret data source mapping
 type SecretDataSource struct {
 	// RemoteRef Points to a secret in an external secret store
@@ -3357,24 +3389,6 @@ type SecretReferenceStatus struct {
 
 	// SecretStores Secret stores using this reference
 	SecretStores *[]SecretStoreReference `json:"secretStores,omitempty"`
-}
-
-// SecretResponse Secret resource. Values are never returned, only key names.
-type SecretResponse struct {
-	// Keys Sorted list of keys present in the secret data
-	Keys *[]string `json:"keys,omitempty"`
-
-	// Name Name of the secret
-	Name *string `json:"name,omitempty"`
-
-	// Namespace Namespace of the secret
-	Namespace *string `json:"namespace,omitempty"`
-
-	// SecretType Kubernetes Secret type
-	SecretType *SecretType `json:"secretType,omitempty"`
-
-	// TargetPlane Reference to the plane that hosts the secret data.
-	TargetPlane *TargetPlaneRef `json:"targetPlane,omitempty"`
 }
 
 // SecretStoreRef Reference to an External Secrets Operator ClusterSecretStore
@@ -3577,6 +3591,14 @@ type TraitSpecPatchesTargetPlane string
 
 // TraitStatus Observed state of a Trait
 type TraitStatus = map[string]interface{}
+
+// UpdateSecretRequest Request body for replacing a secret's data. The data map is the final
+// state; keys present in the existing secret but absent here are pruned.
+type UpdateSecretRequest struct {
+	// Data Map of secret keys to plaintext values. Required keys depend on
+	// the secret's existing type.
+	Data map[string]string `json:"data"`
+}
 
 // UserCapabilitiesResponse User authorization profile response
 type UserCapabilitiesResponse struct {
@@ -4174,6 +4196,9 @@ type InternalError = ErrorResponse
 
 // NotFound Standard error response format
 type NotFound = ErrorResponse
+
+// NotImplemented Standard error response format
+type NotImplemented = ErrorResponse
 
 // Unauthorized Standard error response format
 type Unauthorized = ErrorResponse
@@ -4818,6 +4843,16 @@ type HandleAutoBuildParams struct {
 	XEventKey *string `json:"X-Event-Key,omitempty"`
 }
 
+// ListSecretsParams defines parameters for ListSecrets.
+type ListSecretsParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // EvaluatesJSONRequestBody defines body for Evaluates for application/json ContentType.
 type EvaluatesJSONRequestBody = EvaluatesJSONBody
 
@@ -5018,6 +5053,9 @@ type CreateGitSecretJSONRequestBody = CreateGitSecretRequest
 
 // CreateSecretJSONRequestBody defines body for CreateSecret for application/json ContentType.
 type CreateSecretJSONRequestBody = CreateSecretRequest
+
+// UpdateSecretJSONRequestBody defines body for UpdateSecret for application/json ContentType.
+type UpdateSecretJSONRequestBody = UpdateSecretRequest
 
 // AsObservabilityAlertsNotificationChannelSpec0 returns the union data inside the ObservabilityAlertsNotificationChannelSpec as a ObservabilityAlertsNotificationChannelSpec0
 func (t ObservabilityAlertsNotificationChannelSpec) AsObservabilityAlertsNotificationChannelSpec0() (ObservabilityAlertsNotificationChannelSpec0, error) {
