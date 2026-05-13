@@ -246,10 +246,13 @@ func (a *MetricsAdapter) QueryRuntimeTopology(
 	req *types.RuntimeTopologyRequest,
 ) (*types.RuntimeTopologyResponse, error) {
 	if req == nil {
-		return nil, fmt.Errorf("request must not be nil")
+		return nil, fmt.Errorf("%w: request must not be nil", ErrRuntimeTopologyInvalidRequest)
 	}
 
 	scope := &req.SearchScope
+	if scope.Namespace == "" {
+		return nil, fmt.Errorf("%w: searchScope.namespace is required", ErrRuntimeTopologyInvalidRequest)
+	}
 	if scope.Project == "" {
 		return nil, fmt.Errorf("%w: searchScope.project is required", ErrRuntimeTopologyInvalidRequest)
 	}

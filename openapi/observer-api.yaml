@@ -966,6 +966,11 @@ components:
         - $ref: "#/components/schemas/HttpMetricsTimeSeries"
 
     # Schemas for the runtime topology endpoint
+    RuntimeTopologySearchScope:
+      allOf:
+        - $ref: "#/components/schemas/ComponentSearchScope"
+      required: [namespace, project, environment]
+
     RuntimeTopologyRequest:
       type: object
       description: |
@@ -975,7 +980,7 @@ components:
         field, if set, restricts results to edges that touch that component.
       properties:
         searchScope:
-          $ref: "#/components/schemas/ComponentSearchScope"
+          $ref: "#/components/schemas/RuntimeTopologySearchScope"
         startTime:
           type: string
           description: The start time of the query window
@@ -1006,23 +1011,23 @@ components:
           type: number
           format: double
           description: Total number of HTTP requests observed in the window.
-        errorCount:
+        unsuccessfulRequestCount:
           type: number
           format: double
           description: Number of unsuccessful (non-2xx) HTTP requests in the window.
-        avgLatency:
+        meanLatency:
           type: number
           format: double
           description: Mean request latency, in seconds.
-        p50Latency:
+        latencyP50:
           type: number
           format: double
           description: 50th percentile request latency, in seconds.
-        p90Latency:
+        latencyP90:
           type: number
           format: double
           description: 90th percentile request latency, in seconds.
-        p99Latency:
+        latencyP99:
           type: number
           format: double
           description: 99th percentile request latency, in seconds.
@@ -1142,9 +1147,10 @@ components:
     RuntimeTopologyResponse:
       type: object
       description: |
-        The runtime topology response. Nodes and edges only include entities for
-        which traffic was observed in the requested window — static topology
-        is queried from OpenChoreo API, and it is generated using workload dependencies.
+        The runtime topology response. Nodes and edges contain only entities for
+        which traffic was observed during the requested time window. Static topology
+        (workload dependency graph) is NOT included in this response; it must be
+        fetched separately from the OpenChoreo API.
       properties:
         nodes:
           type: array

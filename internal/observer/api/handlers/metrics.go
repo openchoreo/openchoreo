@@ -53,7 +53,6 @@ func (h *Handler) QueryMetrics(w http.ResponseWriter, r *http.Request) {
 			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
 			return
 		}
-		h.logger.Error("Failed to query metrics", "error", err)
 		errorCode := types.ErrorCodeV1MetricsInternalGeneric
 		switch {
 		case errors.Is(err, service.ErrScopeAuthFailed):
@@ -104,6 +103,18 @@ func (h *Handler) QueryRuntimeTopology(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
+	// Guard against misconfigured deployments.
+	if h.metricsService == nil {
+		h.logger.Error("Metrics service is not initialized")
+		h.writeErrorResponse(
+			w,
+			http.StatusInternalServerError,
+			gen.InternalServerError,
+			types.ErrorCodeV1MetricsServiceNotReady,
+			"Metrics service is not initialized",
+		)
+		return
+	}
 
 	result, err := h.metricsService.QueryRuntimeTopology(ctx, &req)
 	if err != nil {

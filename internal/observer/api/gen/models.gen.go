@@ -864,23 +864,23 @@ type RuntimeTopologyEdgeProtocol string
 // RuntimeTopologyMetrics Aggregate HTTP metrics over the requested time window.
 // Latency values are in seconds (consistent with /api/v1/metrics/query).
 type RuntimeTopologyMetrics struct {
-	// AvgLatency Mean request latency, in seconds.
-	AvgLatency *float64 `json:"avgLatency,omitempty"`
+	// LatencyP50 50th percentile request latency, in seconds.
+	LatencyP50 *float64 `json:"latencyP50,omitempty"`
 
-	// ErrorCount Number of unsuccessful (non-2xx) HTTP requests in the window.
-	ErrorCount *float64 `json:"errorCount,omitempty"`
+	// LatencyP90 90th percentile request latency, in seconds.
+	LatencyP90 *float64 `json:"latencyP90,omitempty"`
 
-	// P50Latency 50th percentile request latency, in seconds.
-	P50Latency *float64 `json:"p50Latency,omitempty"`
+	// LatencyP99 99th percentile request latency, in seconds.
+	LatencyP99 *float64 `json:"latencyP99,omitempty"`
 
-	// P90Latency 90th percentile request latency, in seconds.
-	P90Latency *float64 `json:"p90Latency,omitempty"`
-
-	// P99Latency 99th percentile request latency, in seconds.
-	P99Latency *float64 `json:"p99Latency,omitempty"`
+	// MeanLatency Mean request latency, in seconds.
+	MeanLatency *float64 `json:"meanLatency,omitempty"`
 
 	// RequestCount Total number of HTTP requests observed in the window.
 	RequestCount *float64 `json:"requestCount,omitempty"`
+
+	// UnsuccessfulRequestCount Number of unsuccessful (non-2xx) HTTP requests in the window.
+	UnsuccessfulRequestCount *float64 `json:"unsuccessfulRequestCount,omitempty"`
 }
 
 // RuntimeTopologyNode A node observed in the runtime topology, with its aggregated metrics.
@@ -955,16 +955,17 @@ type RuntimeTopologyRequest struct {
 	IncludeExternal *bool `json:"includeExternal,omitempty"`
 
 	// IncludeGateways Whether to include gateway -> component edges. Defaults to true.
-	IncludeGateways *bool                `json:"includeGateways,omitempty"`
-	SearchScope     ComponentSearchScope `json:"searchScope"`
+	IncludeGateways *bool                      `json:"includeGateways,omitempty"`
+	SearchScope     RuntimeTopologySearchScope `json:"searchScope"`
 
 	// StartTime The start time of the query window
 	StartTime time.Time `json:"startTime"`
 }
 
-// RuntimeTopologyResponse The runtime topology response. Nodes and edges only include entities for
-// which traffic was observed in the requested window — static topology
-// is queried from OpenChoreo API, and it is generated using workload dependencies.
+// RuntimeTopologyResponse The runtime topology response. Nodes and edges contain only entities for
+// which traffic was observed during the requested time window. Static topology
+// (workload dependency graph) is NOT included in this response; it must be
+// fetched separately from the OpenChoreo API.
 type RuntimeTopologyResponse struct {
 	Edges *[]RuntimeTopologyEdge `json:"edges,omitempty"`
 	Nodes *[]RuntimeTopologyNode `json:"nodes,omitempty"`
@@ -972,6 +973,9 @@ type RuntimeTopologyResponse struct {
 	// Summary Metadata describing the query window the response was computed for.
 	Summary RuntimeTopologySummary `json:"summary"`
 }
+
+// RuntimeTopologySearchScope defines model for RuntimeTopologySearchScope.
+type RuntimeTopologySearchScope = ComponentSearchScope
 
 // RuntimeTopologySummary Metadata describing the query window the response was computed for.
 type RuntimeTopologySummary struct {
