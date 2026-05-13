@@ -9,6 +9,10 @@ on:
       - "main"
       - "release-v*"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -196,38 +200,53 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup docker multiarch
+        if: github.event_name == 'push'
         run: make docker.setup-multiarch
 
       - name: Set commit SHA
+        if: github.event_name == 'push'
         run: echo "GIT_SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> $GITHUB_ENV
 
-      - name: ${{ github.event_name == 'push' && 'Build and push' || 'Build' }} multiarch commit images
+      - name: Check if commit images already exist
+        if: github.event_name == 'push'
+        id: check-images
         run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            echo "Building and pushing Docker images with tag ${{ env.GIT_SHA_SHORT }}..."
-            make docker.push-multiarch TAG=${{ env.GIT_SHA_SHORT }}
-          else
-            echo "Building Docker images for PR verification..."
-            make docker.build-multiarch TAG=pr-${{ github.event.pull_request.number }} IMAGE_TARGET_PLATFORMS="${{ env.IMAGE_PLATFORMS }}"
-          fi
-
-      - name: Build and push multiarch latest-dev images
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: make docker.push-multiarch
-
-      - name: ${{ github.event_name == 'push' && 'Package and push' || 'Package' }} helm charts
-        run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            # Push per-commit SHA version (main + release-v* branches)
-            echo "Packaging and pushing Helm charts with SHA ${{ env.GIT_SHA_SHORT }}..."
-            make helm-push TAG=${{ env.GIT_SHA_SHORT }} HELM_CHART_VERSION=0.0.0-${{ env.GIT_SHA_SHORT }}
-
-            # Also push latest-dev for main branch only
-            if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-              echo "Packaging and pushing Helm charts as latest-dev..."
-              make helm-push TAG=latest-dev HELM_CHART_VERSION=0.0.0-latest-dev
+          SHA=$(git rev-parse --short=8 HEAD)
+          ALL_EXIST=true
+          for IMG in controller quick-start init-observability-opensearch openchoreo-api observer event-forwarder ai-rca-agent finops-agent openchoreo-cli cluster-gateway cluster-agent; do
+            if docker buildx imagetools inspect "ghcr.io/openchoreo/${IMG}:${SHA}" >/dev/null 2>&1; then
+              echo "  ✅ ${IMG}:${SHA} exists"
+            else
+              echo "  ❌ ${IMG}:${SHA} not found"
+              ALL_EXIST=false
             fi
+          done
+          if [ "$ALL_EXIST" = "true" ]; then
+            echo "All ${SHA} images exist. Skipping build."
+            echo "skip=true" >> $GITHUB_OUTPUT
           else
-            echo "Packaging Helm charts for verification..."
-            make helm-package
+            echo "skip=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Build and push images and helm charts
+        if: github.event_name == 'push' && steps.check-images.outputs.skip != 'true'
+        run: |
+          echo "Building and pushing Docker images with tag ${{ env.GIT_SHA_SHORT }}..."
+          make docker.push-multiarch TAG=${{ env.GIT_SHA_SHORT }}
+
+          # Push latest-dev for main branch only
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            make docker.push-multiarch
+          fi
+
+          # Package and push Helm charts
+          echo "Packaging and pushing Helm charts with SHA ${{ env.GIT_SHA_SHORT }}..."
+          make helm-push TAG=${{ env.GIT_SHA_SHORT }} HELM_CHART_VERSION=0.0.0-${{ env.GIT_SHA_SHORT }}
+
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            make helm-push TAG=latest-dev HELM_CHART_VERSION=0.0.0-latest-dev
+          fi
+
+      - name: Package helm charts for PR verification
+        if: github.event_name != 'push'
+        run: make helm-package
