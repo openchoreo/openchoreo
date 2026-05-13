@@ -166,8 +166,27 @@ const (
 
 // Defines values for MetricsQueryRequestMetric.
 const (
-	Http     MetricsQueryRequestMetric = "http"
-	Resource MetricsQueryRequestMetric = "resource"
+	MetricsQueryRequestMetricHttp     MetricsQueryRequestMetric = "http"
+	MetricsQueryRequestMetricResource MetricsQueryRequestMetric = "resource"
+)
+
+// Defines values for RuntimeTopologyEdgeProtocol.
+const (
+	RuntimeTopologyEdgeProtocolHttp RuntimeTopologyEdgeProtocol = "http"
+)
+
+// Defines values for RuntimeTopologyNodeKind.
+const (
+	RuntimeTopologyNodeKindComponent RuntimeTopologyNodeKind = "component"
+	RuntimeTopologyNodeKindExternal  RuntimeTopologyNodeKind = "external"
+	RuntimeTopologyNodeKindGateway   RuntimeTopologyNodeKind = "gateway"
+)
+
+// Defines values for RuntimeTopologyNodeRefKind.
+const (
+	RuntimeTopologyNodeRefKindComponent RuntimeTopologyNodeRefKind = "component"
+	RuntimeTopologyNodeRefKindExternal  RuntimeTopologyNodeRefKind = "external"
+	RuntimeTopologyNodeRefKindGateway   RuntimeTopologyNodeRefKind = "gateway"
 )
 
 // Defines values for TraceSpanDetailsResponseStatus.
@@ -803,6 +822,171 @@ type ResourceMetricsTimeSeries struct {
 	MemoryUsage    *[]MetricsTimeSeriesItem `json:"memoryUsage,omitempty"`
 }
 
+// RuntimeTopologyEdge An observed traffic flow from a source node to a target node.
+type RuntimeTopologyEdge struct {
+	// Id Stable identifier for the edge. Convention:
+	// - component->component: `${srcComponent}:${srcService}->${dstComponent}:${dstService}`
+	// - gateway->component:   `gateway:${gatewayName}->${dstComponent}:${dstService}`
+	// - component->external:  `${srcComponent}:${srcService}->external:${host}`
+	Id string `json:"id"`
+
+	// Metrics Aggregate HTTP metrics over the requested time window.
+	// Latency values are in seconds (consistent with /api/v1/metrics/query).
+	Metrics *RuntimeTopologyMetrics `json:"metrics,omitempty"`
+
+	// Protocol Wire protocol of the observed traffic.
+	Protocol *RuntimeTopologyEdgeProtocol `json:"protocol,omitempty"`
+
+	// Source Reference to a node in the runtime topology. The shape depends on `kind`:
+	// - kind=component: `componentUid` is always populated when the data
+	//   comes from an HTTP-metrics backend; `component` (name) is filled
+	//   when the observer can resolve it.
+	// - kind=gateway:   `name` is required (e.g. "internet", "intranet").
+	// - kind=external:  at least one of `host` or `component`/`componentUid`
+	//   should be set; `project`/`projectUid` is included when the source
+	//   is in a different project.
+	Source RuntimeTopologyNodeRef `json:"source"`
+
+	// Target Reference to a node in the runtime topology. The shape depends on `kind`:
+	// - kind=component: `componentUid` is always populated when the data
+	//   comes from an HTTP-metrics backend; `component` (name) is filled
+	//   when the observer can resolve it.
+	// - kind=gateway:   `name` is required (e.g. "internet", "intranet").
+	// - kind=external:  at least one of `host` or `component`/`componentUid`
+	//   should be set; `project`/`projectUid` is included when the source
+	//   is in a different project.
+	Target RuntimeTopologyNodeRef `json:"target"`
+}
+
+// RuntimeTopologyEdgeProtocol Wire protocol of the observed traffic.
+type RuntimeTopologyEdgeProtocol string
+
+// RuntimeTopologyMetrics Aggregate HTTP metrics over the requested time window.
+// Latency values are in seconds (consistent with /api/v1/metrics/query).
+type RuntimeTopologyMetrics struct {
+	// AvgLatency Mean request latency, in seconds.
+	AvgLatency *float64 `json:"avgLatency,omitempty"`
+
+	// ErrorCount Number of unsuccessful (non-2xx) HTTP requests in the window.
+	ErrorCount *float64 `json:"errorCount,omitempty"`
+
+	// P50Latency 50th percentile request latency, in seconds.
+	P50Latency *float64 `json:"p50Latency,omitempty"`
+
+	// P90Latency 90th percentile request latency, in seconds.
+	P90Latency *float64 `json:"p90Latency,omitempty"`
+
+	// P99Latency 99th percentile request latency, in seconds.
+	P99Latency *float64 `json:"p99Latency,omitempty"`
+
+	// RequestCount Total number of HTTP requests observed in the window.
+	RequestCount *float64 `json:"requestCount,omitempty"`
+}
+
+// RuntimeTopologyNode A node observed in the runtime topology, with its aggregated metrics.
+type RuntimeTopologyNode struct {
+	Component    *string                 `json:"component,omitempty"`
+	ComponentUid *openapi_types.UUID     `json:"componentUid,omitempty"`
+	Host         *string                 `json:"host,omitempty"`
+	Kind         RuntimeTopologyNodeKind `json:"kind"`
+
+	// Metrics Aggregate HTTP metrics over the requested time window.
+	// Latency values are in seconds (consistent with /api/v1/metrics/query).
+	Metrics    *RuntimeTopologyMetrics `json:"metrics,omitempty"`
+	Name       *string                 `json:"name,omitempty"`
+	Namespace  *string                 `json:"namespace,omitempty"`
+	Project    *string                 `json:"project,omitempty"`
+	ProjectUid *openapi_types.UUID     `json:"projectUid,omitempty"`
+	Service    *string                 `json:"service,omitempty"`
+}
+
+// RuntimeTopologyNodeKind defines model for RuntimeTopologyNode.Kind.
+type RuntimeTopologyNodeKind string
+
+// RuntimeTopologyNodeRef Reference to a node in the runtime topology. The shape depends on `kind`:
+//   - kind=component: `componentUid` is always populated when the data
+//     comes from an HTTP-metrics backend; `component` (name) is filled
+//     when the observer can resolve it.
+//   - kind=gateway:   `name` is required (e.g. "internet", "intranet").
+//   - kind=external:  at least one of `host` or `component`/`componentUid`
+//     should be set; `project`/`projectUid` is included when the source
+//     is in a different project.
+type RuntimeTopologyNodeRef struct {
+	// Component Component name (when kind=component, or for external cross-project sources).
+	Component *string `json:"component,omitempty"`
+
+	// ComponentUid OpenChoreo component UID. Populated from the metrics backend; useful
+	// for stable matching when the human-readable name is unavailable.
+	ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
+
+	// Host Host (when kind=external).
+	Host *string                    `json:"host,omitempty"`
+	Kind RuntimeTopologyNodeRefKind `json:"kind"`
+
+	// Name Gateway name (when kind=gateway).
+	Name *string `json:"name,omitempty"`
+
+	// Namespace Namespace the node lives in.
+	Namespace *string `json:"namespace,omitempty"`
+
+	// Project Project name (when kind=external and the source is in a different project).
+	Project *string `json:"project,omitempty"`
+
+	// ProjectUid OpenChoreo project UID.
+	ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+
+	// Service Workload endpoint name (when kind=component).
+	Service *string `json:"service,omitempty"`
+}
+
+// RuntimeTopologyNodeRefKind defines model for RuntimeTopologyNodeRef.Kind.
+type RuntimeTopologyNodeRefKind string
+
+// RuntimeTopologyRequest Request body for POST /api/v1alpha1/runtime-topology.
+// searchScope must include namespace, project, and environment — runtime
+// topology is project- and environment-scoped. The optional component
+// field, if set, restricts results to edges that touch that component.
+type RuntimeTopologyRequest struct {
+	// EndTime The end time of the query window
+	EndTime time.Time `json:"endTime"`
+
+	// IncludeExternal Whether to include edges to/from components outside the requested
+	// project (cross-project or off-platform). Defaults to true.
+	IncludeExternal *bool `json:"includeExternal,omitempty"`
+
+	// IncludeGateways Whether to include gateway -> component edges. Defaults to true.
+	IncludeGateways *bool                `json:"includeGateways,omitempty"`
+	SearchScope     ComponentSearchScope `json:"searchScope"`
+
+	// StartTime The start time of the query window
+	StartTime time.Time `json:"startTime"`
+
+	// Step Step hint used for sub-queries when computing aggregates.
+	// Same format as /api/v1/metrics/query (e.g. 1m, 5m, 1h).
+	Step *string `json:"step,omitempty"`
+}
+
+// RuntimeTopologyResponse The runtime topology response. Nodes and edges only include entities for
+// which traffic was observed in the requested window — static topology
+// is queried from OpenChoreo API, and it is generated using workload dependencies.
+type RuntimeTopologyResponse struct {
+	Edges *[]RuntimeTopologyEdge `json:"edges,omitempty"`
+	Nodes *[]RuntimeTopologyNode `json:"nodes,omitempty"`
+
+	// Summary Metadata describing the query window the response was computed for.
+	Summary RuntimeTopologySummary `json:"summary"`
+}
+
+// RuntimeTopologySummary Metadata describing the query window the response was computed for.
+type RuntimeTopologySummary struct {
+	EndTime     time.Time `json:"endTime"`
+	GeneratedAt time.Time `json:"generatedAt"`
+	StartTime   time.Time `json:"startTime"`
+
+	// Step Step actually used for sub-queries (may be defaulted from the request).
+	Step *string `json:"step,omitempty"`
+}
+
 // TraceSpanDetailsResponse defines model for TraceSpanDetailsResponse.
 type TraceSpanDetailsResponse struct {
 	Attributes *[]struct {
@@ -983,6 +1167,9 @@ type QueryIncidentsJSONRequestBody = IncidentsQueryRequest
 
 // UpdateIncidentJSONRequestBody defines body for UpdateIncident for application/json ContentType.
 type UpdateIncidentJSONRequestBody = IncidentPutRequest
+
+// QueryRuntimeTopologyJSONRequestBody defines body for QueryRuntimeTopology for application/json ContentType.
+type QueryRuntimeTopologyJSONRequestBody = RuntimeTopologyRequest
 
 // QueryTracesJSONRequestBody defines body for QueryTraces for application/json ContentType.
 type QueryTracesJSONRequestBody = TracesQueryRequest

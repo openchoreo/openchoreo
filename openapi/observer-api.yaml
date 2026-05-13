@@ -168,6 +168,57 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  # Runtime topology endpoint (for cell diagram with runtime observability)
+  /api/v1alpha1/metrics/runtime-topology:
+    post:
+      tags:
+        - RuntimeTopology
+      summary: Query runtime topology
+      description: |
+        Returns the live HTTP traffic topology for a project in a given environment:
+        a list of nodes (components, gateways, external endpoints) and a list of edges
+        (observed source -> target traffic flows), each with aggregated metrics
+        (request count, error count, latency percentiles) computed over the requested
+        time window.
+      operationId: queryRuntimeTopology
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuntimeTopologyRequest"
+      responses:
+        "200":
+          description: Runtime topology queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeTopologyResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # Traces query endpoints
   /api/v1alpha1/traces/query:
     post:
@@ -913,6 +964,207 @@ components:
       oneOf:
         - $ref: "#/components/schemas/ResourceMetricsTimeSeries"
         - $ref: "#/components/schemas/HttpMetricsTimeSeries"
+
+    # Schemas for the runtime topology endpoint
+    RuntimeTopologyRequest:
+      type: object
+      description: |
+        Request body for POST /api/v1alpha1/runtime-topology.
+        searchScope must include namespace, project, and environment — runtime
+        topology is project- and environment-scoped. The optional component
+        field, if set, restricts results to edges that touch that component.
+      properties:
+        searchScope:
+          $ref: "#/components/schemas/ComponentSearchScope"
+        startTime:
+          type: string
+          description: The start time of the query window
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the query window
+          format: date-time
+        step:
+          type: string
+          description: |
+            Step hint used for sub-queries when computing aggregates.
+            Same format as /api/v1/metrics/query (e.g. 1m, 5m, 1h).
+        includeGateways:
+          type: boolean
+          description: Whether to include gateway -> component edges. Defaults to true.
+          default: true
+        includeExternal:
+          type: boolean
+          description: |
+            Whether to include edges to/from components outside the requested
+            project (cross-project or off-platform). Defaults to true.
+          default: true
+      required: [searchScope, startTime, endTime]
+
+    RuntimeTopologyMetrics:
+      type: object
+      description: |
+        Aggregate HTTP metrics over the requested time window.
+        Latency values are in seconds (consistent with /api/v1/metrics/query).
+      properties:
+        requestCount:
+          type: number
+          format: double
+          description: Total number of HTTP requests observed in the window.
+        errorCount:
+          type: number
+          format: double
+          description: Number of unsuccessful (non-2xx) HTTP requests in the window.
+        avgLatency:
+          type: number
+          format: double
+          description: Mean request latency, in seconds.
+        p50Latency:
+          type: number
+          format: double
+          description: 50th percentile request latency, in seconds.
+        p90Latency:
+          type: number
+          format: double
+          description: 90th percentile request latency, in seconds.
+        p99Latency:
+          type: number
+          format: double
+          description: 99th percentile request latency, in seconds.
+
+    RuntimeTopologyNodeRef:
+      type: object
+      description: |
+        Reference to a node in the runtime topology. The shape depends on `kind`:
+        - kind=component: `componentUid` is always populated when the data
+          comes from an HTTP-metrics backend; `component` (name) is filled
+          when the observer can resolve it.
+        - kind=gateway:   `name` is required (e.g. "internet", "intranet").
+        - kind=external:  at least one of `host` or `component`/`componentUid`
+          should be set; `project`/`projectUid` is included when the source
+          is in a different project.
+      properties:
+        kind:
+          type: string
+          enum: [component, gateway, external]
+        component:
+          type: string
+          description: Component name (when kind=component, or for external cross-project sources).
+        componentUid:
+          type: string
+          format: uuid
+          description: |
+            OpenChoreo component UID. Populated from the metrics backend; useful
+            for stable matching when the human-readable name is unavailable.
+        service:
+          type: string
+          description: Workload endpoint name (when kind=component).
+        name:
+          type: string
+          description: Gateway name (when kind=gateway).
+        host:
+          type: string
+          description: Host (when kind=external).
+        project:
+          type: string
+          description: Project name (when kind=external and the source is in a different project).
+        projectUid:
+          type: string
+          format: uuid
+          description: OpenChoreo project UID.
+        namespace:
+          type: string
+          description: Namespace the node lives in.
+      required: [kind]
+
+    RuntimeTopologyNode:
+      type: object
+      description: A node observed in the runtime topology, with its aggregated metrics.
+      properties:
+        kind:
+          type: string
+          enum: [component, gateway, external]
+        component:
+          type: string
+        componentUid:
+          type: string
+          format: uuid
+        service:
+          type: string
+        name:
+          type: string
+        host:
+          type: string
+        project:
+          type: string
+        projectUid:
+          type: string
+          format: uuid
+        namespace:
+          type: string
+        metrics:
+          $ref: "#/components/schemas/RuntimeTopologyMetrics"
+      required: [kind]
+
+    RuntimeTopologyEdge:
+      type: object
+      description: An observed traffic flow from a source node to a target node.
+      properties:
+        id:
+          type: string
+          description: |
+            Stable identifier for the edge. Convention:
+            - component->component: `${srcComponent}:${srcService}->${dstComponent}:${dstService}`
+            - gateway->component:   `gateway:${gatewayName}->${dstComponent}:${dstService}`
+            - component->external:  `${srcComponent}:${srcService}->external:${host}`
+        source:
+          $ref: "#/components/schemas/RuntimeTopologyNodeRef"
+        target:
+          $ref: "#/components/schemas/RuntimeTopologyNodeRef"
+        protocol:
+          type: string
+          description: Wire protocol of the observed traffic.
+          enum: [http]
+        metrics:
+          $ref: "#/components/schemas/RuntimeTopologyMetrics"
+      required: [id, source, target]
+
+    RuntimeTopologySummary:
+      type: object
+      description: Metadata describing the query window the response was computed for.
+      properties:
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        step:
+          type: string
+          description: Step actually used for sub-queries (may be defaulted from the request).
+        generatedAt:
+          type: string
+          format: date-time
+      required: [startTime, endTime, generatedAt]
+
+    RuntimeTopologyResponse:
+      type: object
+      description: |
+        The runtime topology response. Nodes and edges only include entities for
+        which traffic was observed in the requested window — static topology
+        is queried from OpenChoreo API, and it is generated using workload dependencies.
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuntimeTopologyNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuntimeTopologyEdge"
+        summary:
+          $ref: "#/components/schemas/RuntimeTopologySummary"
+      required: [summary]
 
     # Request schemas for traces
     TracesQueryRequest:

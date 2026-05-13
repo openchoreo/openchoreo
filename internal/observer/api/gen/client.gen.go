@@ -135,6 +135,11 @@ type ClientInterface interface {
 
 	UpdateIncident(ctx context.Context, incidentId string, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// QueryRuntimeTopologyWithBody request with any body
+	QueryRuntimeTopologyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	QueryRuntimeTopology(ctx context.Context, body QueryRuntimeTopologyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// QueryTracesWithBody request with any body
 	QueryTracesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -358,6 +363,30 @@ func (c *Client) UpdateIncidentWithBody(ctx context.Context, incidentId string, 
 
 func (c *Client) UpdateIncident(ctx context.Context, incidentId string, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateIncidentRequest(c.Server, incidentId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryRuntimeTopologyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryRuntimeTopologyRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryRuntimeTopology(ctx context.Context, body QueryRuntimeTopologyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryRuntimeTopologyRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -870,6 +899,46 @@ func NewUpdateIncidentRequestWithBody(server string, incidentId string, contentT
 	return req, nil
 }
 
+// NewQueryRuntimeTopologyRequest calls the generic QueryRuntimeTopology builder with application/json body
+func NewQueryRuntimeTopologyRequest(server string, body QueryRuntimeTopologyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryRuntimeTopologyRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewQueryRuntimeTopologyRequestWithBody generates requests for QueryRuntimeTopology with any type of body
+func NewQueryRuntimeTopologyRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/metrics/runtime-topology")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewQueryTracesRequest calls the generic QueryTraces builder with application/json body
 func NewQueryTracesRequest(server string, body QueryTracesJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1113,6 +1182,11 @@ type ClientWithResponsesInterface interface {
 	UpdateIncidentWithBodyWithResponse(ctx context.Context, incidentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIncidentResp, error)
 
 	UpdateIncidentWithResponse(ctx context.Context, incidentId string, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIncidentResp, error)
+
+	// QueryRuntimeTopologyWithBodyWithResponse request with any body
+	QueryRuntimeTopologyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryRuntimeTopologyResp, error)
+
+	QueryRuntimeTopologyWithResponse(ctx context.Context, body QueryRuntimeTopologyJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryRuntimeTopologyResp, error)
 
 	// QueryTracesWithBodyWithResponse request with any body
 	QueryTracesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryTracesResp, error)
@@ -1385,6 +1459,32 @@ func (r UpdateIncidentResp) StatusCode() int {
 	return 0
 }
 
+type QueryRuntimeTopologyResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RuntimeTopologyResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryRuntimeTopologyResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryRuntimeTopologyResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type QueryTracesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1643,6 +1743,23 @@ func (c *ClientWithResponses) UpdateIncidentWithResponse(ctx context.Context, in
 		return nil, err
 	}
 	return ParseUpdateIncidentResp(rsp)
+}
+
+// QueryRuntimeTopologyWithBodyWithResponse request with arbitrary body returning *QueryRuntimeTopologyResp
+func (c *ClientWithResponses) QueryRuntimeTopologyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryRuntimeTopologyResp, error) {
+	rsp, err := c.QueryRuntimeTopologyWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryRuntimeTopologyResp(rsp)
+}
+
+func (c *ClientWithResponses) QueryRuntimeTopologyWithResponse(ctx context.Context, body QueryRuntimeTopologyJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryRuntimeTopologyResp, error) {
+	rsp, err := c.QueryRuntimeTopology(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryRuntimeTopologyResp(rsp)
 }
 
 // QueryTracesWithBodyWithResponse request with arbitrary body returning *QueryTracesResp
@@ -2182,6 +2299,60 @@ func ParseUpdateIncidentResp(rsp *http.Response) (*UpdateIncidentResp, error) {
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryRuntimeTopologyResp parses an HTTP response from a QueryRuntimeTopologyWithResponse call
+func ParseQueryRuntimeTopologyResp(rsp *http.Response) (*QueryRuntimeTopologyResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryRuntimeTopologyResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RuntimeTopologyResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
