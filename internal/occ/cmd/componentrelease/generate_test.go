@@ -20,14 +20,15 @@ import (
 
 // --- Generate: mode validation (no filesystem needed) ---
 
-func TestGenerate_DefaultModeRejectsAPIServer(t *testing.T) {
+func TestGenerate_DefaultModeIsFileSystem(t *testing.T) {
+	testutil.SetupTestHome(t)
 	mc := mocks.NewMockInterface(t)
 	cr := New(mc)
-	// Empty Mode defaults to "api-server" → rejected
+	// Empty Mode defaults to "file-system" → proceeds past mode validation,
+	// then errors at config loading (no current context set).
 	err := cr.Generate(GenerateParams{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "componentrelease generate only supports file-system mode")
-	assert.Contains(t, err.Error(), `"api-server"`)
+	assert.Contains(t, err.Error(), "no current context set")
 }
 
 func TestGenerate_ExplicitAPIServerModeRejected(t *testing.T) {

@@ -75,10 +75,10 @@ func (cr *ComponentRelease) List(params ListParams) error {
 
 // Generate implements the component-release generate command
 func (cr *ComponentRelease) Generate(params GenerateParams) error {
-	// 1. Determine mode from params (default to api-server)
+	// 1. Determine mode from params. file-system is the only supported mode.
 	mode := params.Mode
 	if mode == "" {
-		mode = flags.ModeAPIServer
+		mode = flags.ModeFileSystem
 	}
 
 	if mode != flags.ModeFileSystem {
