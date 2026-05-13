@@ -32,13 +32,13 @@ type Config struct {
 // Defaults returns the default configuration.
 func Defaults() Config {
 	return Config{
-		Server:         ServerDefaults(),
-		Security:       SecurityDefaults(),
-		Identity:       IdentityDefaults(),
-		MCP:            MCPDefaults(),
+		Server:           ServerDefaults(),
+		Security:         SecurityDefaults(),
+		Identity:         IdentityDefaults(),
+		MCP:              MCPDefaults(),
 		SecretManagement: SecretManagementDefaults(),
-		Logging:        LoggingDefaults(),
-		ClusterGateway: ClusterGatewayDefaults(),
+		Logging:          LoggingDefaults(),
+		ClusterGateway:   ClusterGatewayDefaults(),
 	}
 }
 
