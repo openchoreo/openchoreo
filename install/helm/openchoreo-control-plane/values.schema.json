@@ -2759,6 +2759,48 @@
           "title": "autoscaling",
           "type": "object"
         },
+        "clusterGateway": {
+          "additionalProperties": false,
+          "description": "Cluster gateway connection settings for agent-based plane communication",
+          "properties": {
+            "tls": {
+              "additionalProperties": false,
+              "description": "TLS settings for the cluster gateway connection",
+              "properties": {
+                "caPath": {
+                  "default": "/etc/cluster-gateway/ca.crt",
+                  "description": "Path inside the pod where the cluster gateway CA certificate is mounted",
+                  "title": "caPath",
+                  "type": "string"
+                },
+                "caSecret": {
+                  "default": "cluster-gateway-ca",
+                  "description": "Name of the secret holding the cluster gateway CA certificate",
+                  "title": "caSecret",
+                  "type": "string"
+                },
+                "insecure": {
+                  "default": false,
+                  "description": "Skip TLS verification of the cluster gateway. For development only.",
+                  "title": "insecure",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "tls",
+              "type": "object"
+            },
+            "url": {
+              "default": "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443",
+              "description": "Cluster gateway service URL the API server connects to",
+              "title": "url",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "clusterGateway",
+          "type": "object"
+        },
         "config": {
           "additionalProperties": false,
           "description": "OpenChoreo API specific configuration. Shared settings come from global security.* values.",

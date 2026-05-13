@@ -5,12 +5,22 @@ package gateway
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -746,4 +756,115 @@ func TestGetPodEventsFromPlane(t *testing.T) {
 		require.Error(t, err)
 		assert.True(t, IsTransientError(err))
 	})
+}
+
+// ─── buildTLSConfig tests ─────────────────────────────────────────────────────
+
+func TestBuildTLSConfig(t *testing.T) {
+	t.Run("empty config uses default verification", func(t *testing.T) {
+		cfg, err := buildTLSConfig(&TLSConfig{})
+		require.NoError(t, err)
+		assert.False(t, cfg.InsecureSkipVerify)
+		assert.Equal(t, uint16(tls.VersionTLS12), cfg.MinVersion)
+		assert.Nil(t, cfg.RootCAs)
+		assert.Empty(t, cfg.Certificates)
+	})
+
+	t.Run("InsecureSkipVerify=true opts into skipping verification", func(t *testing.T) {
+		cfg, err := buildTLSConfig(&TLSConfig{InsecureSkipVerify: true})
+		require.NoError(t, err)
+		assert.True(t, cfg.InsecureSkipVerify)
+	})
+
+	t.Run("ServerName is propagated", func(t *testing.T) {
+		cfg, err := buildTLSConfig(&TLSConfig{ServerName: "gateway.example"})
+		require.NoError(t, err)
+		assert.Equal(t, "gateway.example", cfg.ServerName)
+	})
+
+	t.Run("valid CAFile is loaded into RootCAs", func(t *testing.T) {
+		certPEM, _ := mustGenerateKeyPairPEM(t)
+		caFile := filepath.Join(t.TempDir(), "ca.crt")
+		require.NoError(t, os.WriteFile(caFile, certPEM, 0o600))
+
+		cfg, err := buildTLSConfig(&TLSConfig{CAFile: caFile})
+		require.NoError(t, err)
+		assert.NotNil(t, cfg.RootCAs)
+	})
+
+	t.Run("missing CAFile returns error", func(t *testing.T) {
+		_, err := buildTLSConfig(&TLSConfig{CAFile: "/path/does/not/exist/ca.crt"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read CA file")
+	})
+
+	t.Run("malformed CAData returns parse error", func(t *testing.T) {
+		_, err := buildTLSConfig(&TLSConfig{CAData: []byte("not-a-cert")})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse CA certificate")
+	})
+
+	t.Run("valid client cert and key are loaded for mTLS", func(t *testing.T) {
+		certPEM, keyPEM := mustGenerateKeyPairPEM(t)
+		dir := t.TempDir()
+		certFile := filepath.Join(dir, "client.crt")
+		keyFile := filepath.Join(dir, "client.key")
+		require.NoError(t, os.WriteFile(certFile, certPEM, 0o600))
+		require.NoError(t, os.WriteFile(keyFile, keyPEM, 0o600))
+
+		cfg, err := buildTLSConfig(&TLSConfig{
+			ClientCertFile: certFile,
+			ClientKeyFile:  keyFile,
+		})
+		require.NoError(t, err)
+		assert.Len(t, cfg.Certificates, 1)
+	})
+
+	t.Run("only ClientCertFile set returns asymmetric-config error", func(t *testing.T) {
+		_, err := buildTLSConfig(&TLSConfig{ClientCertFile: "/tmp/client.crt"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "both ClientCertFile and ClientKeyFile must be set")
+	})
+
+	t.Run("only ClientKeyFile set returns asymmetric-config error", func(t *testing.T) {
+		_, err := buildTLSConfig(&TLSConfig{ClientKeyFile: "/tmp/client.key"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "both ClientCertFile and ClientKeyFile must be set")
+	})
+
+	t.Run("invalid client key pair returns load error", func(t *testing.T) {
+		_, err := buildTLSConfig(&TLSConfig{
+			ClientCertFile: "/path/does/not/exist/client.crt",
+			ClientKeyFile:  "/path/does/not/exist/client.key",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to load client key pair")
+	})
+}
+
+// mustGenerateKeyPairPEM creates a self-signed cert + matching private key in PEM form,
+// usable for both CA and client-cert tests.
+func mustGenerateKeyPairPEM(t *testing.T) (certPEM, keyPEM []byte) {
+	t.Helper()
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "test"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	require.NoError(t, err)
+
+	certPEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyPEM = pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	return certPEM, keyPEM
 }

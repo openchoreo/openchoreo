@@ -765,14 +765,23 @@ func getGVK(obj runtime.Object, scheme *runtime.Scheme) (schema.GroupVersionKind
 // ProxyTLSConfig is defined in client.go to avoid import cycles
 // We reference it here for type safety
 
-// buildProxyTLSConfig builds a TLS config for the HTTP proxy client
+// buildProxyTLSConfig builds a TLS config for the HTTP proxy client.
+// TLS verification is enabled by default against the system root CA pool.
+// To pin a CA, set CACertPath. To skip verification (development only), set
+// Insecure=true explicitly — silent fallback to InsecureSkipVerify is not
+// supported.
 func buildProxyTLSConfig(tlsConfig *ProxyTLSConfig) (*tls.Config, error) {
 	cfg := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 	}
 
-	// If no TLS config provided, fall back to insecure mode
+	// No config → use default verification with the system root pool.
 	if tlsConfig == nil {
+		return cfg, nil
+	}
+
+	if tlsConfig.Insecure {
+		// #nosec G402 -- Insecure mode is gated on explicit caller opt-in for development.
 		cfg.InsecureSkipVerify = true
 		return cfg, nil
 	}
@@ -789,9 +798,6 @@ func buildProxyTLSConfig(tlsConfig *ProxyTLSConfig) (*tls.Config, error) {
 			return nil, fmt.Errorf("failed to parse CA certificate")
 		}
 		cfg.RootCAs = caCertPool
-	} else {
-		// If no CA cert provided, use insecure mode
-		cfg.InsecureSkipVerify = true
 	}
 
 	// Load client certificate and key for mTLS authentication

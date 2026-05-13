@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -239,16 +240,36 @@ func TestGetGVK(t *testing.T) {
 }
 
 func TestBuildProxyTLSConfig(t *testing.T) {
-	t.Run("nil config falls back to insecure mode", func(t *testing.T) {
+	t.Run("nil config uses default verification", func(t *testing.T) {
 		cfg, err := buildProxyTLSConfig(nil)
+		require.NoError(t, err)
+		assert.False(t, cfg.InsecureSkipVerify)
+		assert.Equal(t, uint16(tls.VersionTLS12), cfg.MinVersion)
+	})
+
+	t.Run("empty config without CA uses default verification", func(t *testing.T) {
+		cfg, err := buildProxyTLSConfig(&ProxyTLSConfig{})
+		require.NoError(t, err)
+		assert.False(t, cfg.InsecureSkipVerify)
+		assert.Nil(t, cfg.RootCAs)
+	})
+
+	t.Run("Insecure=true opts into skipping verification", func(t *testing.T) {
+		cfg, err := buildProxyTLSConfig(&ProxyTLSConfig{Insecure: true})
 		require.NoError(t, err)
 		assert.True(t, cfg.InsecureSkipVerify)
 	})
 
-	t.Run("empty config without CA uses insecure mode", func(t *testing.T) {
-		cfg, err := buildProxyTLSConfig(&ProxyTLSConfig{})
+	t.Run("Insecure=true short-circuits before reading CA", func(t *testing.T) {
+		// Confirms that a misconfigured CA path is ignored when the caller has
+		// explicitly opted into insecure mode — no surprise read errors.
+		cfg, err := buildProxyTLSConfig(&ProxyTLSConfig{
+			Insecure:   true,
+			CACertPath: "/path/does/not/exist/ca.crt",
+		})
 		require.NoError(t, err)
 		assert.True(t, cfg.InsecureSkipVerify)
+		assert.Nil(t, cfg.RootCAs)
 	})
 
 	t.Run("invalid CA path returns error", func(t *testing.T) {

@@ -111,25 +111,20 @@ func main() {
 	}
 
 	// Initialize workflow plane client manager
-	var planeK8sClientMgr *kubernetesClient.KubeMultiClientManager
-	if cfg.ClusterGateway.TLS.CACertPath != "" ||
-		cfg.ClusterGateway.TLS.ClientCertPath != "" ||
-		cfg.ClusterGateway.TLS.ClientKeyPath != "" {
-		planeK8sClientMgr = kubernetesClient.NewManagerWithProxyTLS(&kubernetesClient.ProxyTLSConfig{
-			CACertPath:     cfg.ClusterGateway.TLS.CACertPath,
-			ClientCertPath: cfg.ClusterGateway.TLS.ClientCertPath,
-			ClientKeyPath:  cfg.ClusterGateway.TLS.ClientKeyPath,
-		})
-		logger.Info("Workflow plane client manager created with proxy TLS configuration",
-			"caCert", cfg.ClusterGateway.TLS.CACertPath != "",
-			"clientCert", cfg.ClusterGateway.TLS.ClientCertPath != "",
-			"clientKey", cfg.ClusterGateway.TLS.ClientKeyPath != "")
-	} else {
-		planeK8sClientMgr = kubernetesClient.NewManager()
-		if cfg.ClusterGateway.URL != "" {
-			logger.Warn("Using insecure mode for cluster gateway connection. " +
-				"Consider configuring TLS certificates for production deployments.")
-		}
+	planeK8sClientMgr := kubernetesClient.NewManagerWithProxyTLS(&kubernetesClient.ProxyTLSConfig{
+		CACertPath:     cfg.ClusterGateway.TLS.CACertPath,
+		ClientCertPath: cfg.ClusterGateway.TLS.ClientCertPath,
+		ClientKeyPath:  cfg.ClusterGateway.TLS.ClientKeyPath,
+		Insecure:       cfg.ClusterGateway.TLS.Insecure,
+	})
+	logger.Info("Workflow plane client manager created with proxy TLS configuration",
+		"caCert", cfg.ClusterGateway.TLS.CACertPath != "",
+		"clientCert", cfg.ClusterGateway.TLS.ClientCertPath != "",
+		"clientKey", cfg.ClusterGateway.TLS.ClientKeyPath != "",
+		"insecure", cfg.ClusterGateway.TLS.Insecure)
+	if cfg.ClusterGateway.URL != "" && cfg.ClusterGateway.TLS.Insecure {
+		logger.Warn("Cluster gateway TLS verification is disabled (cluster_gateway.tls.insecure). " +
+			"Do not use this setting in production.")
 	}
 
 	// Determine cluster gateway URL
@@ -145,9 +140,26 @@ func main() {
 			logger.Error("No cluster gateway URL provided", "clusterGateway", cfg.ClusterGateway)
 			os.Exit(1)
 		}
-		gwClient = gatewayClient.NewClient(gatewayURL)
+		var err error
+		gwClient, err = gatewayClient.NewClientWithConfig(&gatewayClient.Config{
+			BaseURL: gatewayURL,
+			TLS: gatewayClient.TLSConfig{
+				CAFile:             cfg.ClusterGateway.TLS.CACertPath,
+				ClientCertFile:     cfg.ClusterGateway.TLS.ClientCertPath,
+				ClientKeyFile:      cfg.ClusterGateway.TLS.ClientKeyPath,
+				InsecureSkipVerify: cfg.ClusterGateway.TLS.Insecure,
+			},
+		})
+		if err != nil {
+			logger.Error("Failed to create cluster gateway client", slog.Any("error", err))
+			os.Exit(1)
+		}
 	}
-	logger.Info("gateway client initialized", "url", gatewayURL)
+	logger.Info("gateway client initialized",
+		"url", gatewayURL,
+		"caCert", cfg.ClusterGateway.TLS.CACertPath != "",
+		"clientCert", cfg.ClusterGateway.TLS.ClientCertPath != "",
+		"insecure", cfg.ClusterGateway.TLS.Insecure)
 
 	// Start background processes (manager + cache sync when authz enabled)
 	if err := runtime.start(ctx); err != nil {

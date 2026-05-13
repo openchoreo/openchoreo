@@ -838,6 +838,41 @@ openchoreoApi:
 
   # @schema
   # type: object
+  # description: Cluster gateway connection settings for agent-based plane communication
+  # @schema
+  clusterGateway:
+    # @schema
+    # type: string
+    # description: Cluster gateway service URL the API server connects to
+    # default: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+    # @schema
+    url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+    # @schema
+    # type: object
+    # description: TLS settings for the cluster gateway connection
+    # @schema
+    tls:
+      # @schema
+      # type: string
+      # description: Path inside the pod where the cluster gateway CA certificate is mounted
+      # default: /etc/cluster-gateway/ca.crt
+      # @schema
+      caPath: /etc/cluster-gateway/ca.crt
+      # @schema
+      # type: string
+      # description: Name of the secret holding the cluster gateway CA certificate
+      # default: cluster-gateway-ca
+      # @schema
+      caSecret: cluster-gateway-ca
+      # @schema
+      # type: boolean
+      # description: Skip TLS verification of the cluster gateway. For development only.
+      # default: false
+      # @schema
+      insecure: false
+
+  # @schema
+  # type: object
   # description: OpenChoreo API specific configuration. Shared settings come from global security.* values.
   # Note: JWT (enabled, issuer, audience), authorization (enabled, paths), identity (clients)
   #       are read from security.* for consistency with other components.

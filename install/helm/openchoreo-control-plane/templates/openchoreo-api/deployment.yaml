@@ -65,6 +65,9 @@ spec:
         - name: config
           mountPath: /etc/openchoreo
           readOnly: true
+        - name: cluster-gateway-ca
+          mountPath: /etc/cluster-gateway
+          readOnly: true
         livenessProbe:
           httpGet:
             path: /health
@@ -89,4 +92,7 @@ spec:
       - name: config
         configMap:
           name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-config
+      - name: cluster-gateway-ca
+        secret:
+          secretName: {{ .Values.openchoreoApi.clusterGateway.tls.caSecret | default "cluster-gateway-ca" }}
 {{- end }}
