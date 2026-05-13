@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      packages: read
+      actions: read
     outputs:
       release-tag: ${{ steps.resolve-version.outputs.release-tag }}
       release-version: ${{ steps.resolve-version.outputs.release-version }}
@@ -175,33 +175,44 @@ jobs:
           echo "target-commit=${TARGET}" >> $GITHUB_OUTPUT
           echo "TARGET_COMMIT=${TARGET}" >> $GITHUB_ENV
 
-      - name: Login to GitHub container registry
+      - name: Wait for build-and-test at target commit
         if: ${{ github.event.inputs.action == 'full' || github.event.inputs.action == 'tag' }}
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Pre-validate source images exist for target commit
-        if: ${{ github.event.inputs.action == 'full' || github.event.inputs.action == 'tag' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          SHA=$(git rev-parse --short=8 "${{ env.TARGET_COMMIT }}")
-          echo "Checking images for commit: ${SHA}"
-
-          # Poll for up to 30 minutes (60s intervals) waiting for the image to appear
+          TARGET_SHA="${{ env.TARGET_COMMIT }}"
+          SHORT_SHA=$(git rev-parse --short=8 "${TARGET_SHA}")
+          echo "Waiting for build-and-test workflow for commit ${SHORT_SHA}..."
           for i in $(seq 1 30); do
-            if docker buildx imagetools inspect "ghcr.io/openchoreo/controller:${SHA}" >/dev/null 2>&1; then
-              echo "Images verified for commit: ${SHA} (after ${i} attempt(s))"
-              exit 0
+            RUN_INFO=$(gh run list \
+              --repo "${{ github.repository }}" \
+              --workflow "build-and-test.yml" \
+              --event push \
+              --commit "${TARGET_SHA}" \
+              --limit 1 \
+              --json databaseId,status,conclusion \
+              --jq '.[0] | {id: .databaseId, status: .status, conclusion: .conclusion}')
+            if [ -n "$RUN_INFO" ] && [ "$RUN_INFO" != "null" ]; then
+              RUN_ID=$(echo "$RUN_INFO" | jq -r '.id // empty')
+              STATUS=$(echo "$RUN_INFO" | jq -r '.status // empty')
+              CONCLUSION=$(echo "$RUN_INFO" | jq -r '.conclusion // empty')
+              RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${RUN_ID}"
+              if [ "$STATUS" = "completed" ]; then
+                if [ "$CONCLUSION" = "success" ]; then
+                  echo "build-and-test succeeded for ${SHORT_SHA}: ${RUN_URL}"
+                  exit 0
+                fi
+                echo "::error::build-and-test for ${SHORT_SHA} completed but failed: ${CONCLUSION}"
+                echo "::error::See: ${RUN_URL}"
+                exit 1
+              fi
+              echo "Attempt ${i}/30 — run ${RUN_ID} status: ${STATUS}. Waiting 60s..."
+            else
+              echo "Attempt ${i}/30 — workflow run not found for ${SHORT_SHA}. Waiting 60s..."
             fi
-            echo "Attempt ${i}/30 — image not found yet. Waiting 60 seconds..."
             sleep 60
           done
-
-          echo "::error::Image ghcr.io/openchoreo/controller:${SHA} not found after 30 minutes."
-          echo "::error::build-and-test may still be running or may have failed."
-          echo "::error::Check the build status and retry."
+          echo "::error::build-and-test for ${SHORT_SHA} not completed after 30 minutes."
           exit 1
 
   # ----------------------------------------------------------------
@@ -276,7 +287,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
-      packages: read
+      actions: read
     steps:
       - name: Generate GitHub App token
         id: app-token
@@ -319,27 +330,43 @@ jobs:
           fi
           echo "target=${TARGET}" >> $GITHUB_OUTPUT
 
-      - name: Login to GitHub container registry
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Wait for images at target commit
+      - name: Wait for build-and-test workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          SHA=$(git rev-parse --short=8 "${{ steps.resolve-target.outputs.target }}")
-          echo "Waiting for images at ${SHA}"
+          TARGET_SHA="${{ steps.resolve-target.outputs.target }}"
+          SHORT_SHA=$(git rev-parse --short=8 "${TARGET_SHA}")
+          echo "Waiting for build-and-test workflow for commit ${SHORT_SHA}..."
           for i in $(seq 1 30); do
-            if docker buildx imagetools inspect "ghcr.io/openchoreo/controller:${SHA}" >/dev/null 2>&1; then
-              echo "Images verified for commit: ${SHA} (after ${i} attempt(s))"
-              exit 0
+            RUN_INFO=$(gh run list \
+              --repo "${{ github.repository }}" \
+              --workflow "build-and-test.yml" \
+              --event push \
+              --commit "${TARGET_SHA}" \
+              --limit 1 \
+              --json databaseId,status,conclusion \
+              --jq '.[0] | {id: .databaseId, status: .status, conclusion: .conclusion}')
+            if [ -n "$RUN_INFO" ] && [ "$RUN_INFO" != "null" ]; then
+              RUN_ID=$(echo "$RUN_INFO" | jq -r '.id // empty')
+              STATUS=$(echo "$RUN_INFO" | jq -r '.status // empty')
+              CONCLUSION=$(echo "$RUN_INFO" | jq -r '.conclusion // empty')
+              RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${RUN_ID}"
+              if [ "$STATUS" = "completed" ]; then
+                if [ "$CONCLUSION" = "success" ]; then
+                  echo "build-and-test succeeded for ${SHORT_SHA}: ${RUN_URL}"
+                  exit 0
+                fi
+                echo "::error::build-and-test for ${SHORT_SHA} completed but failed: ${CONCLUSION}"
+                echo "::error::See: ${RUN_URL}"
+                exit 1
+              fi
+              echo "Attempt ${i}/30 — run ${RUN_ID} status: ${STATUS}. Waiting 60s..."
+            else
+              echo "Attempt ${i}/30 — workflow run not found for ${SHORT_SHA}. Waiting 60s..."
             fi
-            echo "Attempt ${i}/30 — image not found yet. Waiting 60 seconds..."
             sleep 60
           done
-          echo "::error::Images not found for ${SHA} after 30 minutes."
-          echo "::error::build-and-test may still be running or may have failed."
+          echo "::error::build-and-test for ${SHORT_SHA} not completed after 30 minutes."
           exit 1
 
       - name: Set git identity
