@@ -942,7 +942,7 @@ type RuntimeTopologyNodeRef struct {
 // RuntimeTopologyNodeRefKind defines model for RuntimeTopologyNodeRef.Kind.
 type RuntimeTopologyNodeRefKind string
 
-// RuntimeTopologyRequest Request body for POST /api/v1alpha1/runtime-topology.
+// RuntimeTopologyRequest Request body for POST /api/v1alpha1/metrics/runtime-topology.
 // searchScope must include namespace, project, and environment — runtime
 // topology is project- and environment-scoped. The optional component
 // field, if set, restricts results to edges that touch that component.
@@ -960,10 +960,6 @@ type RuntimeTopologyRequest struct {
 
 	// StartTime The start time of the query window
 	StartTime time.Time `json:"startTime"`
-
-	// Step Step hint used for sub-queries when computing aggregates.
-	// Same format as /api/v1/metrics/query (e.g. 1m, 5m, 1h).
-	Step *string `json:"step,omitempty"`
 }
 
 // RuntimeTopologyResponse The runtime topology response. Nodes and edges only include entities for
@@ -982,9 +978,6 @@ type RuntimeTopologySummary struct {
 	EndTime     time.Time `json:"endTime"`
 	GeneratedAt time.Time `json:"generatedAt"`
 	StartTime   time.Time `json:"startTime"`
-
-	// Step Step actually used for sub-queries (may be defaulted from the request).
-	Step *string `json:"step,omitempty"`
 }
 
 // TraceSpanDetailsResponse defines model for TraceSpanDetailsResponse.

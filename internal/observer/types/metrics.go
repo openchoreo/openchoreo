@@ -68,9 +68,6 @@ type RuntimeTopologyRequest struct {
 	StartTime string `json:"startTime"`
 	EndTime   string `json:"endTime"`
 
-	// Step is the resolution hint used for sub-queries (e.g. "1m", "5m", "1h").
-	Step *string `json:"step,omitempty"`
-
 	// IncludeGateways toggles inclusion of gateway -> component edges. Defaults
 	// to true when omitted.
 	IncludeGateways *bool `json:"includeGateways,omitempty"`
@@ -159,7 +156,6 @@ type RuntimeTopologyEdge struct {
 type RuntimeTopologySummary struct {
 	StartTime   time.Time `json:"startTime"`
 	EndTime     time.Time `json:"endTime"`
-	Step        string    `json:"step,omitempty"`
 	GeneratedAt time.Time `json:"generatedAt"`
 }
 

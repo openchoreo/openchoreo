@@ -229,16 +229,6 @@ func ValidateRuntimeTopologyRequest(req *types.RuntimeTopologyRequest) error {
 		return err
 	}
 
-	if req.Step != nil && *req.Step != "" {
-		step, err := time.ParseDuration(*req.Step)
-		if err != nil {
-			return fmt.Errorf("step must be a valid duration (e.g. 1m, 5m, 1h): %w", err)
-		}
-		if step <= 0 {
-			return fmt.Errorf("step must be greater than 0")
-		}
-	}
-
 	return nil
 }
 

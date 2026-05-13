@@ -953,10 +953,6 @@ func TestValidateRuntimeTopologyRequest(t *testing.T) {
 	validStart := now.Add(-1 * time.Hour).Format(time.RFC3339)
 	validEnd := now.Format(time.RFC3339)
 
-	step5m := "5m"
-	negativeStep := "-1m"
-	invalidStep := "notaduration"
-
 	tests := []struct {
 		name        string
 		req         *types.RuntimeTopologyRequest
@@ -1037,7 +1033,7 @@ func TestValidateRuntimeTopologyRequest(t *testing.T) {
 			errContains: "endTime must be after startTime",
 		},
 		{
-			name: "invalid step format",
+			name: "valid request",
 			req: &types.RuntimeTopologyRequest{
 				SearchScope: types.ComponentSearchScope{
 					Namespace:   "ns",
@@ -1046,50 +1042,6 @@ func TestValidateRuntimeTopologyRequest(t *testing.T) {
 				},
 				StartTime: validStart,
 				EndTime:   validEnd,
-				Step:      &invalidStep,
-			},
-			wantErr:     true,
-			errContains: "step must be a valid duration",
-		},
-		{
-			name: "negative step",
-			req: &types.RuntimeTopologyRequest{
-				SearchScope: types.ComponentSearchScope{
-					Namespace:   "ns",
-					Project:     "proj",
-					Environment: "env",
-				},
-				StartTime: validStart,
-				EndTime:   validEnd,
-				Step:      &negativeStep,
-			},
-			wantErr:     true,
-			errContains: "step must be greater than 0",
-		},
-		{
-			name: "valid request without step",
-			req: &types.RuntimeTopologyRequest{
-				SearchScope: types.ComponentSearchScope{
-					Namespace:   "ns",
-					Project:     "proj",
-					Environment: "env",
-				},
-				StartTime: validStart,
-				EndTime:   validEnd,
-			},
-			wantErr: false,
-		},
-		{
-			name: "valid request with step",
-			req: &types.RuntimeTopologyRequest{
-				SearchScope: types.ComponentSearchScope{
-					Namespace:   "ns",
-					Project:     "proj",
-					Environment: "env",
-				},
-				StartTime: validStart,
-				EndTime:   validEnd,
-				Step:      &step5m,
 			},
 			wantErr: false,
 		},

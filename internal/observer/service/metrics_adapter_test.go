@@ -857,7 +857,6 @@ func TestMetricsAdapter_QueryRuntimeTopology_NetworkError(t *testing.T) {
 func TestMetricsAdapter_QueryRuntimeTopology_Success(t *testing.T) {
 	t.Parallel()
 
-	step := "5m"
 	includeGateways := true
 	includeExternal := false
 
@@ -901,7 +900,6 @@ func TestMetricsAdapter_QueryRuntimeTopology_Success(t *testing.T) {
 		Summary: runtimeTopologyAdapterSummary{
 			StartTime:   now.Add(-1 * time.Hour),
 			EndTime:     now,
-			Step:        "5m",
 			GeneratedAt: now,
 		},
 	}
@@ -934,7 +932,6 @@ func TestMetricsAdapter_QueryRuntimeTopology_Success(t *testing.T) {
 		},
 		StartTime:       "2026-01-01T00:00:00Z",
 		EndTime:         "2026-01-01T01:00:00Z",
-		Step:            &step,
 		IncludeGateways: &includeGateways,
 		IncludeExternal: &includeExternal,
 	}
@@ -949,8 +946,6 @@ func TestMetricsAdapter_QueryRuntimeTopology_Success(t *testing.T) {
 	require.NotNil(t, capturedRequest.SearchScope.EnvironmentUID)
 	assert.Equal(t, "env-uid-1", *capturedRequest.SearchScope.EnvironmentUID)
 	assert.Nil(t, capturedRequest.SearchScope.ComponentUID)
-	require.NotNil(t, capturedRequest.Step)
-	assert.Equal(t, "5m", *capturedRequest.Step)
 	require.NotNil(t, capturedRequest.IncludeGateways)
 	assert.True(t, *capturedRequest.IncludeGateways)
 	require.NotNil(t, capturedRequest.IncludeExternal)
@@ -960,7 +955,6 @@ func TestMetricsAdapter_QueryRuntimeTopology_Success(t *testing.T) {
 	require.Len(t, result.Edges, 1)
 	assert.Equal(t, "edge-1", result.Edges[0].ID)
 	assert.Equal(t, types.RuntimeTopologyProtocol("http"), result.Edges[0].Protocol)
-	assert.Equal(t, "5m", result.Summary.Step)
 }
 
 func TestMetricsAdapter_QueryRuntimeTopology_WithComponent(t *testing.T) {

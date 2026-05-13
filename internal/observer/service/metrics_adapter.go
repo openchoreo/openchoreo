@@ -22,7 +22,6 @@ type runtimeTopologyAdapterRequest struct {
 	SearchScope     runtimeTopologyAdapterScope `json:"searchScope"`
 	StartTime       string                      `json:"startTime"`
 	EndTime         string                      `json:"endTime"`
-	Step            *string                     `json:"step,omitempty"`
 	IncludeGateways *bool                       `json:"includeGateways,omitempty"`
 	IncludeExternal *bool                       `json:"includeExternal,omitempty"`
 }
@@ -79,7 +78,6 @@ type runtimeTopologyAdapterMetrics struct {
 type runtimeTopologyAdapterSummary struct {
 	StartTime   time.Time `json:"startTime"`
 	EndTime     time.Time `json:"endTime"`
-	Step        string    `json:"step,omitempty"`
 	GeneratedAt time.Time `json:"generatedAt"`
 }
 
@@ -295,7 +293,6 @@ func (a *MetricsAdapter) QueryRuntimeTopology(
 		},
 		StartTime:       req.StartTime,
 		EndTime:         req.EndTime,
-		Step:            req.Step,
 		IncludeGateways: req.IncludeGateways,
 		IncludeExternal: req.IncludeExternal,
 	}
@@ -350,7 +347,6 @@ func (a *MetricsAdapter) QueryRuntimeTopology(
 		Summary: types.RuntimeTopologySummary{
 			StartTime:   coalesceTime(adapterResp.Summary.StartTime, startTime),
 			EndTime:     coalesceTime(adapterResp.Summary.EndTime, endTime),
-			Step:        adapterResp.Summary.Step,
 			GeneratedAt: coalesceTime(adapterResp.Summary.GeneratedAt, time.Now().UTC()),
 		},
 	}
