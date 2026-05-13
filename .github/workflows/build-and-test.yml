@@ -11,7 +11,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -234,9 +234,9 @@ jobs:
           echo "Building and pushing Docker images with tag ${{ env.GIT_SHA_SHORT }}..."
           make docker.push-multiarch TAG=${{ env.GIT_SHA_SHORT }}
 
-          # Push latest-dev for main branch only
+          # Retag images as latest-dev for main branch only
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            make docker.push-multiarch
+            make docker.retag-registry SOURCE_TAG=${{ env.GIT_SHA_SHORT }} NEW_TAG=latest-dev
           fi
 
           # Package and push Helm charts
