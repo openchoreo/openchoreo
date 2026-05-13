@@ -242,12 +242,19 @@ jobs:
           git checkout -b "${BRANCH}"
 
           if [ -z "${{ needs.validate.outputs.prerelease }}" ]; then
-            # Update sample URLs to point to the release branch instead of main
+            # Update sample URLs to point to the release branch instead of main.
+            # Exclude all.yaml because it is auto-generated; make samples-gen
+            # will regenerate it with the correct branch URL below.
             find samples/ \( -name "*.md" -o -name "*.yaml" \) \
+              ! -path "samples/getting-started/all.yaml" \
               -exec sed -i \
                 -e 's|/openchoreo/openchoreo/main/|/openchoreo/openchoreo/'"${BRANCH}"'/|g' \
                 -e 's|/refs/heads/main/|/refs/heads/'"${BRANCH}"'/|g' \
                 -e 's|/openchoreo/openchoreo/blob/main/|/openchoreo/openchoreo/blob/'"${BRANCH}"'/|g' {} +
+
+            # Regenerate all.yaml with the release branch URL. The Makefile
+            # detects the branch via git, which now points to ${BRANCH}.
+            make samples-gen
 
             git add -u
             if ! git diff --cached --quiet; then
