@@ -94,6 +94,10 @@ func (m *MockMetricsQuerier) QueryMetrics(_ context.Context, req *types.MetricsQ
 	return m.response, nil
 }
 
+func (m *MockMetricsQuerier) QueryRuntimeTopology(_ context.Context, _ *types.RuntimeTopologyRequest) (*types.RuntimeTopologyResponse, error) {
+	return &types.RuntimeTopologyResponse{}, nil
+}
+
 func (m *MockMetricsQuerier) lastRequest() *types.MetricsQueryRequest {
 	if len(m.requests) == 0 {
 		return nil

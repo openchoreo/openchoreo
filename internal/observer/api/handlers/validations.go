@@ -205,6 +205,43 @@ func ValidateMetricsQueryRequest(req *types.MetricsQueryRequest) error {
 	return nil
 }
 
+// ValidateRuntimeTopologyRequest validates the request body for
+// POST /api/v1alpha1/metrics/runtime-topology. Runtime topology requires the
+// project + environment to be specified explicitly; namespace alone is not
+// enough to scope a cell diagram.
+func ValidateRuntimeTopologyRequest(req *types.RuntimeTopologyRequest) error {
+	if req == nil {
+		return fmt.Errorf("request must not be nil")
+	}
+
+	scope := req.SearchScope
+	if strings.TrimSpace(scope.Namespace) == "" {
+		return fmt.Errorf("searchScope.namespace is required")
+	}
+	if strings.TrimSpace(scope.Project) == "" {
+		return fmt.Errorf("searchScope.project is required")
+	}
+	if strings.TrimSpace(scope.Environment) == "" {
+		return fmt.Errorf("searchScope.environment is required")
+	}
+
+	if err := ValidateTimeRange(req.StartTime, req.EndTime); err != nil {
+		return err
+	}
+
+	if req.Step != nil && *req.Step != "" {
+		step, err := time.ParseDuration(*req.Step)
+		if err != nil {
+			return fmt.Errorf("step must be a valid duration (e.g. 1m, 5m, 1h): %w", err)
+		}
+		if step <= 0 {
+			return fmt.Errorf("step must be greater than 0")
+		}
+	}
+
+	return nil
+}
+
 // ValidateLogLevels validates the log levels array
 func ValidateLogLevels(logLevels []string) error {
 	validLevels := map[string]bool{

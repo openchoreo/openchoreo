@@ -276,7 +276,8 @@ func main() {
 	api.HandleFunc("POST /api/v1/logs/query", newAPIHandler.QueryLogs)
 	api.HandleFunc("POST /api/v1/metrics/query", newAPIHandler.QueryMetrics)
 
-	// ===== New API Routes (v1alpha1) - Traces & Incidents =====
+	// ===== New API Routes (v1alpha1) - Traces, Incidents & Runtime topology =====
+	api.HandleFunc("POST /api/v1alpha1/metrics/runtime-topology", newAPIHandler.QueryRuntimeTopology)
 	api.HandleFunc("POST /api/v1alpha1/traces/query", newAPIHandler.QueryTraces)
 	api.HandleFunc("POST /api/v1alpha1/traces/{traceId}/spans/query", newAPIHandler.QuerySpansForTrace)
 	api.HandleFunc("GET /api/v1alpha1/traces/{traceId}/spans/{spanId}", newAPIHandler.GetSpanDetailsForTrace)

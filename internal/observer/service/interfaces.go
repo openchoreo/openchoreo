@@ -20,9 +20,10 @@ type LogsQuerier interface {
 	QueryLogs(ctx context.Context, req *types.LogsQueryRequest) (*types.LogsQueryResponse, error)
 }
 
-// MetricsQuerier is the interface for querying metrics.
+// MetricsQuerier is the interface for querying metrics and runtime topology.
 type MetricsQuerier interface {
 	QueryMetrics(ctx context.Context, req *types.MetricsQueryRequest) (any, error)
+	QueryRuntimeTopology(ctx context.Context, req *types.RuntimeTopologyRequest) (*types.RuntimeTopologyResponse, error)
 }
 
 // TracesQuerier is the interface for querying traces and spans.

@@ -28,6 +28,13 @@ const (
 	ErrorCodeV1TracesInvalidRequest  = "OBS-V1-T-06"
 	ErrorCodeV1TracesSpanNotFound    = "OBS-V1-T-07"
 
+	// Runtime topology API (v1alpha1) internal server error codes.
+	ErrorCodeV1RuntimeTopologyInternalGeneric = "OBS-V1-RG-01"
+	ErrorCodeV1RuntimeTopologyAuthzInternal   = "OBS-V1-RG-02"
+	ErrorCodeV1RuntimeTopologyServiceNotReady = "OBS-V1-RG-03"
+	ErrorCodeV1RuntimeTopologyResolverFailed  = "OBS-V1-RG-04"
+	ErrorCodeV1RuntimeTopologyRetrievalFailed = "OBS-V1-RG-05"
+
 	// Scope resolution auth failure — shared across all APIs.
 	ErrorCodeV1ScopeAuthFailed = "OBS-V1-SCOPE-AUTH-FAILED"
 )
