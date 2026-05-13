@@ -66,15 +66,16 @@ func TestListCmd_FactoryError(t *testing.T) {
 }
 
 func TestListCmd_Success(t *testing.T) {
+	const ns = "acme-corp"
 	mc := mocks.NewMockInterface(t)
 	tp := &gen.TargetPlaneRef{Kind: gen.TargetPlaneRefKindDataPlane, Name: "dp-prod"}
-	mc.EXPECT().ListSecrets(mock.Anything, mock.Anything, mock.Anything).Return(&gen.ListSecretsResponse{
+	mc.EXPECT().ListSecrets(mock.Anything, ns, mock.Anything).Return(&gen.ListSecretsResponse{
 		Items: []gen.Secret{
 			{Metadata: gen.ObjectMeta{Name: "my-secret"}, Type: "Opaque"},
 		},
 		Pagination: gen.Pagination{},
 	}, nil)
-	mc.EXPECT().ListSecretReferences(mock.Anything, mock.Anything, mock.Anything).Return(&gen.SecretReferenceList{
+	mc.EXPECT().ListSecretReferences(mock.Anything, ns, mock.Anything).Return(&gen.SecretReferenceList{
 		Items: []gen.SecretReference{
 			{Metadata: gen.ObjectMeta{Name: "my-secret"}, Spec: &gen.SecretReferenceSpec{TargetPlane: tp}},
 		},
@@ -82,7 +83,7 @@ func TestListCmd_Success(t *testing.T) {
 	}, nil)
 
 	cmd := newListCmd(mockFactory(mc))
-	require.NoError(t, cmd.Flags().Set("namespace", "acme-corp"))
+	require.NoError(t, cmd.Flags().Set("namespace", ns))
 	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cmd.RunE(cmd, nil))
 	})
