@@ -118,6 +118,23 @@ security:
 
 # @schema
 # type: object
+# description: Feature flags shared across the control plane (API server and Backstage).
+# @schema
+features:
+  # @schema
+  # type: object
+  # description: Secret management feature. Controls the Secret management API on the API server and the corresponding UI in Backstage.
+  # @schema
+  secretManagement:
+    # @schema
+    # type: boolean
+    # description: Enable the Secret management API and Backstage UI for managing data-plane secrets.
+    # default: false
+    # @schema
+    enabled: false
+
+# @schema
+# type: object
 # description: Controller Manager configuration - the main controller for OpenChoreo CRDs
 # @schema
 controllerManager:

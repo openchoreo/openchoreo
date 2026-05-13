@@ -2482,6 +2482,30 @@
       "title": "eventForwarder",
       "type": "object"
     },
+    "features": {
+      "additionalProperties": false,
+      "description": "Feature flags shared across the control plane (API server and Backstage).",
+      "properties": {
+        "secretManagement": {
+          "additionalProperties": false,
+          "description": "Secret management feature. Controls the Secret management API on the API server and the corresponding UI in Backstage.",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable the Secret management API and Backstage UI for managing data-plane secrets.",
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "secretManagement",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "features",
+      "type": "object"
+    },
     "fullnameOverride": {
       "default": "openchoreo",
       "description": "Override the full name of the chart release",
