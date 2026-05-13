@@ -70,17 +70,22 @@ func FilterByAuthzFromContext(ctx context.Context) (bool, bool) {
 
 // WithIncludeDeprecatedTools returns a copy of ctx carrying the per-session
 // decision of whether tools/list should include deprecated compatibility-alias
-// tools. The default (no value in ctx) is false: deprecated aliases are hidden
-// from tools/list but remain callable.
+// tools. The default (no value in ctx) is true: deprecated aliases are listed
+// alongside the canonical tools, each carrying a description-level deprecation
+// banner and a structured _meta marker. Clients that want to preview the
+// post-deprecation surface can set this to false to hide the aliases.
 func WithIncludeDeprecatedTools(ctx context.Context, include bool) context.Context {
 	return context.WithValue(ctx, includeDeprecatedToolsCtxKey{}, include)
 }
 
-// IncludeDeprecatedToolsFromContext reports whether the client asked for
-// deprecated alias tools to be included in tools/list. Defaults to false when
-// the client did not set the flag.
+// IncludeDeprecatedToolsFromContext reports whether tools/list should include
+// the deprecated compatibility-alias tools for this session. Defaults to true
+// when the client did not set the flag.
 func IncludeDeprecatedToolsFromContext(ctx context.Context) bool {
-	v, _ := ctx.Value(includeDeprecatedToolsCtxKey{}).(bool)
+	v, ok := ctx.Value(includeDeprecatedToolsCtxKey{}).(bool)
+	if !ok {
+		return true
+	}
 	return v
 }
 

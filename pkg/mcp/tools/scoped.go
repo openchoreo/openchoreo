@@ -6,6 +6,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -258,17 +259,67 @@ func registerScopedWriteTool(
 // Generic registration helpers — deprecated cluster-prefixed aliases
 // ---------------------------------------------------------------------------
 
+// Deprecation lifecycle versions for the cluster-prefixed compatibility aliases.
+// Update these when the schedule shifts and every alias description / _meta
+// follows automatically.
+const (
+	// deprecatedHiddenInVersion is the release in which the aliases are hidden
+	// from the default tools/list response (still callable for that cycle).
+	deprecatedHiddenInVersion = "v1.2"
+	// deprecatedRemovedInVersion is the release in which the aliases are
+	// removed entirely (calls return a not-found error).
+	deprecatedRemovedInVersion = "v1.3"
+	// deprecatedMetaPrefix is the reverse-DNS prefix used on the structured
+	// _meta keys that mark a tool as deprecated. Matches the project's
+	// annotation namespace.
+	deprecatedMetaPrefix = "openchoreo.dev/"
+)
+
+// deprecatedBanner returns the description prefix advertised on every
+// deprecated cluster-prefixed alias. It tells the agent which canonical tool
+// replaces this alias and when the alias will disappear, so the LLM can plan
+// the migration without an out-of-band changelog read.
+func deprecatedBanner(canonicalName string) string {
+	return fmt.Sprintf(
+		"[DEPRECATED — use %s with scope:%q; hidden in %s, removed in %s] ",
+		canonicalName, ScopeCluster, deprecatedHiddenInVersion, deprecatedRemovedInVersion,
+	)
+}
+
+// deprecatedDescription prepends deprecatedBanner to the tool's body description.
+func deprecatedDescription(canonicalName, body string) string {
+	return deprecatedBanner(canonicalName) + body
+}
+
+// deprecatedMeta returns the structured _meta map attached to every deprecated
+// cluster-prefixed alias so MCP clients that can introspect _meta (rather than
+// parse the description string) can detect the deprecation programmatically.
+// Keys use the project's reverse-DNS prefix per the MCP _meta convention.
+func deprecatedMeta(canonicalName string) mcp.Meta {
+	return mcp.Meta{
+		deprecatedMetaPrefix + "deprecated": true,
+		deprecatedMetaPrefix + "replacement": map[string]any{
+			"tool":  canonicalName,
+			"scope": ScopeCluster,
+		},
+		deprecatedMetaPrefix + "hidden_in":  deprecatedHiddenInVersion,
+		deprecatedMetaPrefix + "removed_in": deprecatedRemovedInVersion,
+	}
+}
+
 // registerDeprecatedClusterListTool registers a deprecated cluster-prefixed list
-// alias that routes to the cluster behavior of the named canonical tool.
+// alias that routes to the cluster behavior of the named canonical tool. The
+// descriptionBody is prepended with the standard deprecation banner.
 func registerDeprecatedClusterListTool(
 	s *mcp.Server, perms map[string]ToolPermission,
-	name, canonicalName, description, action string,
+	name, canonicalName, descriptionBody, action string,
 	list func(ctx context.Context, opts ListOpts) (any, error),
 ) {
 	perms[name] = ToolPermission{ToolName: name, Action: action}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        name,
-		Description: description,
+		Description: deprecatedDescription(canonicalName, descriptionBody),
+		Meta:        deprecatedMeta(canonicalName),
 		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		Limit  int    `json:"limit,omitempty"`
@@ -287,13 +338,14 @@ func registerDeprecatedClusterListTool(
 //nolint:unparam // see comment above re: nameParam
 func registerDeprecatedClusterResourceTool(
 	s *mcp.Server, perms map[string]ToolPermission,
-	name, canonicalName, description, action, nameParam, nameParamDesc string,
+	name, canonicalName, descriptionBody, action, nameParam, nameParamDesc string,
 	call func(ctx context.Context, resourceName string) (any, error),
 ) {
 	perms[name] = ToolPermission{ToolName: name, Action: action}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        name,
-		Description: description,
+		Description: deprecatedDescription(canonicalName, descriptionBody),
+		Meta:        deprecatedMeta(canonicalName),
 		InputSchema: createSchema(map[string]any{
 			nameParam: stringProperty(nameParamDesc),
 		}, []string{nameParam}),
@@ -311,13 +363,14 @@ func registerDeprecatedClusterResourceTool(
 // alias that returns a static schema and takes no arguments.
 func registerDeprecatedClusterSchemaTool(
 	s *mcp.Server, perms map[string]ToolPermission,
-	name, canonicalName, description, action string,
+	name, canonicalName, descriptionBody, action string,
 	provide func() (any, error),
 ) {
 	perms[name] = ToolPermission{ToolName: name, Action: action}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        name,
-		Description: description,
+		Description: deprecatedDescription(canonicalName, descriptionBody),
+		Meta:        deprecatedMeta(canonicalName),
 		InputSchema: createSchema(map[string]any{}, nil),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
 		result, err := provide()
@@ -329,13 +382,14 @@ func registerDeprecatedClusterSchemaTool(
 // create/update alias.
 func registerDeprecatedClusterWriteTool(
 	s *mcp.Server, perms map[string]ToolPermission,
-	name, canonicalName, description, action, nameParamDesc, specDesc string,
+	name, canonicalName, descriptionBody, action, nameParamDesc, specDesc string,
 	apply func(ctx context.Context, name string, annotations map[string]string, specRaw map[string]any) (any, error),
 ) {
 	perms[name] = ToolPermission{ToolName: name, Action: action}
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        name,
-		Description: description,
+		Description: deprecatedDescription(canonicalName, descriptionBody),
+		Meta:        deprecatedMeta(canonicalName),
 		InputSchema: createSchema(map[string]any{
 			"name":         stringProperty(nameParamDesc),
 			"display_name": stringProperty("Human-readable display name"),
@@ -937,22 +991,19 @@ func (t *Toolsets) RegisterGetObservabilityPlane(s *mcp.Server, perms map[string
 
 func (t *Toolsets) RegisterPEListClusterComponentTypes(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterListTool(s, perms, "list_cluster_component_types", "list_component_types",
-		"DEPRECATED: use list_component_types with scope=\"cluster\". Lists platform-wide cluster-scoped "+
-			"component types. Supports pagination via limit and cursor.",
+		"Lists platform-wide cluster-scoped component types. Supports pagination via limit and cursor.",
 		authzcore.ActionViewClusterComponentType, t.PEToolset.ListClusterComponentTypes)
 }
 
 func (t *Toolsets) RegisterListClusterComponentTypes(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterListTool(s, perms, "list_cluster_component_types", "list_component_types",
-		"DEPRECATED: use list_component_types with scope=\"cluster\". Lists platform-wide cluster-scoped "+
-			"component types. Supports pagination via limit and cursor.",
+		"Lists platform-wide cluster-scoped component types. Supports pagination via limit and cursor.",
 		authzcore.ActionViewClusterComponentType, t.ComponentToolset.ListClusterComponentTypes)
 }
 
 func (t *Toolsets) RegisterPEGetClusterComponentType(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_component_type", "get_component_type",
-		"DEPRECATED: use get_component_type with scope=\"cluster\". Gets the full definition of a platform-wide "+
-			"cluster-scoped component type.",
+		"Gets the full definition of a platform-wide cluster-scoped component type.",
 		authzcore.ActionViewClusterComponentType,
 		"name", "Cluster component type name. Use list_cluster_component_types to discover valid names",
 		t.PEToolset.GetClusterComponentType)
@@ -960,8 +1011,7 @@ func (t *Toolsets) RegisterPEGetClusterComponentType(s *mcp.Server, perms map[st
 
 func (t *Toolsets) RegisterGetClusterComponentType(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_component_type", "get_component_type",
-		"DEPRECATED: use get_component_type with scope=\"cluster\". Gets the full definition of a platform-wide "+
-			"cluster-scoped component type.",
+		"Gets the full definition of a platform-wide cluster-scoped component type.",
 		authzcore.ActionViewClusterComponentType,
 		"name", "Cluster component type name. Use list_cluster_component_types to discover valid names",
 		t.ComponentToolset.GetClusterComponentType)
@@ -969,8 +1019,7 @@ func (t *Toolsets) RegisterGetClusterComponentType(s *mcp.Server, perms map[stri
 
 func (t *Toolsets) RegisterPEGetClusterComponentTypeSchema(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_component_type_schema", "get_component_type_schema",
-		"DEPRECATED: use get_component_type_schema with scope=\"cluster\". Gets the JSON schema for a "+
-			"platform-wide cluster-scoped component type.",
+		"Gets the JSON schema for a platform-wide cluster-scoped component type.",
 		authzcore.ActionViewClusterComponentType,
 		"name", "Cluster component type name. Use list_cluster_component_types to discover valid names",
 		t.PEToolset.GetClusterComponentTypeSchema)
@@ -978,8 +1027,7 @@ func (t *Toolsets) RegisterPEGetClusterComponentTypeSchema(s *mcp.Server, perms 
 
 func (t *Toolsets) RegisterGetClusterComponentTypeSchema(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_component_type_schema", "get_component_type_schema",
-		"DEPRECATED: use get_component_type_schema with scope=\"cluster\". Gets the JSON schema for a "+
-			"platform-wide cluster-scoped component type.",
+		"Gets the JSON schema for a platform-wide cluster-scoped component type.",
 		authzcore.ActionViewClusterComponentType,
 		"name", "Cluster component type name. Use list_cluster_component_types to discover valid names",
 		t.ComponentToolset.GetClusterComponentTypeSchema)
@@ -988,8 +1036,7 @@ func (t *Toolsets) RegisterGetClusterComponentTypeSchema(s *mcp.Server, perms ma
 func (t *Toolsets) RegisterGetClusterComponentTypeCreationSchema(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterSchemaTool(s, perms,
 		"get_cluster_component_type_creation_schema", "get_component_type_creation_schema",
-		"DEPRECATED: use get_component_type_creation_schema with scope=\"cluster\". Returns the spec schema for "+
-			"creating a platform-wide cluster-scoped component type.",
+		"Returns the spec schema for creating a platform-wide cluster-scoped component type.",
 		authzcore.ActionCreateClusterComponentType,
 		func() (any, error) { return ClusterComponentTypeCreationSchema() })
 }
@@ -997,8 +1044,7 @@ func (t *Toolsets) RegisterGetClusterComponentTypeCreationSchema(s *mcp.Server, 
 //nolint:dupl // create/update register helpers share a near-identical shape per resource
 func (t *Toolsets) RegisterCreateClusterComponentType(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterWriteTool(s, perms, "create_cluster_component_type", "create_component_type",
-		"DEPRECATED: use create_component_type with scope=\"cluster\". Creates a platform-wide cluster-scoped "+
-			"component type available to all namespaces.",
+		"Creates a platform-wide cluster-scoped component type available to all namespaces.",
 		authzcore.ActionCreateClusterComponentType,
 		"DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)",
 		"Use get_cluster_component_type_creation_schema to check the schema",
@@ -1016,8 +1062,7 @@ func (t *Toolsets) RegisterCreateClusterComponentType(s *mcp.Server, perms map[s
 //nolint:dupl // create/update register helpers share a near-identical shape per resource
 func (t *Toolsets) RegisterUpdateClusterComponentType(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterWriteTool(s, perms, "update_cluster_component_type", "update_component_type",
-		"DEPRECATED: use update_component_type with scope=\"cluster\". Updates a platform-wide cluster-scoped "+
-			"component type (full replacement).",
+		"Updates a platform-wide cluster-scoped component type (full replacement).",
 		authzcore.ActionUpdateClusterComponentType,
 		"Name of the cluster component type to update. Use list_cluster_component_types to discover valid names",
 		"Full cluster component type spec to replace the existing one. "+
@@ -1035,8 +1080,7 @@ func (t *Toolsets) RegisterUpdateClusterComponentType(s *mcp.Server, perms map[s
 
 func (t *Toolsets) RegisterDeleteClusterComponentType(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "delete_cluster_component_type", "delete_component_type",
-		"DEPRECATED: use delete_component_type with scope=\"cluster\". Deletes a platform-wide cluster-scoped "+
-			"component type.",
+		"Deletes a platform-wide cluster-scoped component type.",
 		authzcore.ActionDeleteClusterComponentType,
 		"name", "Name of the cluster component type to delete. Use list_cluster_component_types to discover valid names",
 		t.PEToolset.DeleteClusterComponentType)
@@ -1048,22 +1092,19 @@ func (t *Toolsets) RegisterDeleteClusterComponentType(s *mcp.Server, perms map[s
 
 func (t *Toolsets) RegisterPEListClusterTraits(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterListTool(s, perms, "list_cluster_traits", "list_traits",
-		"DEPRECATED: use list_traits with scope=\"cluster\". Lists platform-wide cluster-scoped traits. "+
-			"Supports pagination via limit and cursor.",
+		"Lists platform-wide cluster-scoped traits. Supports pagination via limit and cursor.",
 		authzcore.ActionViewClusterTrait, t.PEToolset.ListClusterTraits)
 }
 
 func (t *Toolsets) RegisterListClusterTraits(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterListTool(s, perms, "list_cluster_traits", "list_traits",
-		"DEPRECATED: use list_traits with scope=\"cluster\". Lists platform-wide cluster-scoped traits. "+
-			"Supports pagination via limit and cursor.",
+		"Lists platform-wide cluster-scoped traits. Supports pagination via limit and cursor.",
 		authzcore.ActionViewClusterTrait, t.ComponentToolset.ListClusterTraits)
 }
 
 func (t *Toolsets) RegisterPEGetClusterTrait(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_trait", "get_trait",
-		"DEPRECATED: use get_trait with scope=\"cluster\". Gets the full definition of a platform-wide "+
-			"cluster-scoped trait.",
+		"Gets the full definition of a platform-wide cluster-scoped trait.",
 		authzcore.ActionViewClusterTrait,
 		"name", "Cluster trait name. Use list_cluster_traits to discover valid names",
 		t.PEToolset.GetClusterTrait)
@@ -1071,8 +1112,7 @@ func (t *Toolsets) RegisterPEGetClusterTrait(s *mcp.Server, perms map[string]Too
 
 func (t *Toolsets) RegisterGetClusterTrait(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_trait", "get_trait",
-		"DEPRECATED: use get_trait with scope=\"cluster\". Gets the full definition of a platform-wide "+
-			"cluster-scoped trait.",
+		"Gets the full definition of a platform-wide cluster-scoped trait.",
 		authzcore.ActionViewClusterTrait,
 		"name", "Cluster trait name. Use list_cluster_traits to discover valid names",
 		t.ComponentToolset.GetClusterTrait)
@@ -1080,8 +1120,7 @@ func (t *Toolsets) RegisterGetClusterTrait(s *mcp.Server, perms map[string]ToolP
 
 func (t *Toolsets) RegisterPEGetClusterTraitSchema(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_trait_schema", "get_trait_schema",
-		"DEPRECATED: use get_trait_schema with scope=\"cluster\". Gets the JSON schema for a platform-wide "+
-			"cluster-scoped trait.",
+		"Gets the JSON schema for a platform-wide cluster-scoped trait.",
 		authzcore.ActionViewClusterTrait,
 		"name", "Cluster trait name. Use list_cluster_traits to discover valid names",
 		t.PEToolset.GetClusterTraitSchema)
@@ -1089,8 +1128,7 @@ func (t *Toolsets) RegisterPEGetClusterTraitSchema(s *mcp.Server, perms map[stri
 
 func (t *Toolsets) RegisterGetClusterTraitSchema(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_trait_schema", "get_trait_schema",
-		"DEPRECATED: use get_trait_schema with scope=\"cluster\". Gets the JSON schema for a platform-wide "+
-			"cluster-scoped trait.",
+		"Gets the JSON schema for a platform-wide cluster-scoped trait.",
 		authzcore.ActionViewClusterTrait,
 		"name", "Cluster trait name. Use list_cluster_traits to discover valid names",
 		t.ComponentToolset.GetClusterTraitSchema)
@@ -1099,8 +1137,7 @@ func (t *Toolsets) RegisterGetClusterTraitSchema(s *mcp.Server, perms map[string
 func (t *Toolsets) RegisterGetClusterTraitCreationSchema(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterSchemaTool(s, perms,
 		"get_cluster_trait_creation_schema", "get_trait_creation_schema",
-		"DEPRECATED: use get_trait_creation_schema with scope=\"cluster\". Returns the spec schema for creating "+
-			"a platform-wide cluster-scoped trait.",
+		"Returns the spec schema for creating a platform-wide cluster-scoped trait.",
 		authzcore.ActionCreateClusterTrait,
 		func() (any, error) { return ClusterTraitCreationSchema() })
 }
@@ -1108,8 +1145,7 @@ func (t *Toolsets) RegisterGetClusterTraitCreationSchema(s *mcp.Server, perms ma
 //nolint:dupl // create/update register helpers share a near-identical shape per resource
 func (t *Toolsets) RegisterCreateClusterTrait(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterWriteTool(s, perms, "create_cluster_trait", "create_trait",
-		"DEPRECATED: use create_trait with scope=\"cluster\". Creates a platform-wide cluster-scoped trait "+
-			"available to all namespaces.",
+		"Creates a platform-wide cluster-scoped trait available to all namespaces.",
 		authzcore.ActionCreateClusterTrait,
 		"DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)",
 		"Cluster trait specification defining what resources the trait creates or patches. "+
@@ -1128,8 +1164,8 @@ func (t *Toolsets) RegisterCreateClusterTrait(s *mcp.Server, perms map[string]To
 //nolint:dupl // create/update register helpers share a near-identical shape per resource
 func (t *Toolsets) RegisterUpdateClusterTrait(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterWriteTool(s, perms, "update_cluster_trait", "update_trait",
-		"DEPRECATED: use update_trait with scope=\"cluster\". Updates a platform-wide cluster-scoped trait "+
-			"(full replacement). Use get_cluster_trait to retrieve the current definition first.",
+		"Updates a platform-wide cluster-scoped trait (full replacement). "+
+			"Use get_cluster_trait to retrieve the current definition first.",
 		authzcore.ActionUpdateClusterTrait,
 		"Name of the cluster trait to update. Use list_cluster_traits to discover valid names",
 		"Full cluster trait spec to replace the existing one. Use get_cluster_trait to retrieve the current spec first.",
@@ -1146,7 +1182,7 @@ func (t *Toolsets) RegisterUpdateClusterTrait(s *mcp.Server, perms map[string]To
 
 func (t *Toolsets) RegisterDeleteClusterTrait(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "delete_cluster_trait", "delete_trait",
-		"DEPRECATED: use delete_trait with scope=\"cluster\". Deletes a platform-wide cluster-scoped trait.",
+		"Deletes a platform-wide cluster-scoped trait.",
 		authzcore.ActionDeleteClusterTrait,
 		"name", "Name of the cluster trait to delete. Use list_cluster_traits to discover valid names",
 		t.PEToolset.DeleteClusterTrait)
@@ -1158,22 +1194,19 @@ func (t *Toolsets) RegisterDeleteClusterTrait(s *mcp.Server, perms map[string]To
 
 func (t *Toolsets) RegisterListClusterWorkflows(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterListTool(s, perms, "list_cluster_workflows", "list_workflows",
-		"DEPRECATED: use list_workflows with scope=\"cluster\". Lists platform-wide cluster-scoped workflows. "+
-			"Supports pagination via limit and cursor.",
+		"Lists platform-wide cluster-scoped workflows. Supports pagination via limit and cursor.",
 		authzcore.ActionViewClusterWorkflow, t.BuildToolset.ListClusterWorkflows)
 }
 
 func (t *Toolsets) RegisterPEListClusterWorkflows(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterListTool(s, perms, "list_cluster_workflows", "list_workflows",
-		"DEPRECATED: use list_workflows with scope=\"cluster\". Lists platform-wide cluster-scoped workflows. "+
-			"Supports pagination via limit and cursor.",
+		"Lists platform-wide cluster-scoped workflows. Supports pagination via limit and cursor.",
 		authzcore.ActionViewClusterWorkflow, t.PEToolset.ListClusterWorkflows)
 }
 
 func (t *Toolsets) RegisterGetClusterWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_workflow", "get_workflow",
-		"DEPRECATED: use get_workflow with scope=\"cluster\". Gets the full definition of a platform-wide "+
-			"cluster-scoped workflow.",
+		"Gets the full definition of a platform-wide cluster-scoped workflow.",
 		authzcore.ActionViewClusterWorkflow,
 		"name", "Cluster workflow name. Use list_cluster_workflows to discover valid names",
 		t.BuildToolset.GetClusterWorkflow)
@@ -1181,8 +1214,7 @@ func (t *Toolsets) RegisterGetClusterWorkflow(s *mcp.Server, perms map[string]To
 
 func (t *Toolsets) RegisterPEGetClusterWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_workflow", "get_workflow",
-		"DEPRECATED: use get_workflow with scope=\"cluster\". Gets the full definition of a platform-wide "+
-			"cluster-scoped workflow.",
+		"Gets the full definition of a platform-wide cluster-scoped workflow.",
 		authzcore.ActionViewClusterWorkflow,
 		"name", "Cluster workflow name. Use list_cluster_workflows to discover valid names",
 		t.PEToolset.GetClusterWorkflow)
@@ -1190,8 +1222,7 @@ func (t *Toolsets) RegisterPEGetClusterWorkflow(s *mcp.Server, perms map[string]
 
 func (t *Toolsets) RegisterGetClusterWorkflowSchema(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_workflow_schema", "get_workflow_schema",
-		"DEPRECATED: use get_workflow_schema with scope=\"cluster\". Gets the schema for a platform-wide "+
-			"cluster-scoped workflow.",
+		"Gets the schema for a platform-wide cluster-scoped workflow.",
 		authzcore.ActionViewClusterWorkflow,
 		"name", "Cluster workflow name. Use list_cluster_workflows to discover valid names",
 		t.BuildToolset.GetClusterWorkflowSchema)
@@ -1199,8 +1230,7 @@ func (t *Toolsets) RegisterGetClusterWorkflowSchema(s *mcp.Server, perms map[str
 
 func (t *Toolsets) RegisterPEGetClusterWorkflowSchema(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_workflow_schema", "get_workflow_schema",
-		"DEPRECATED: use get_workflow_schema with scope=\"cluster\". Gets the schema for a platform-wide "+
-			"cluster-scoped workflow.",
+		"Gets the schema for a platform-wide cluster-scoped workflow.",
 		authzcore.ActionViewClusterWorkflow,
 		"name", "Cluster workflow name. Use list_cluster_workflows to discover valid names",
 		t.PEToolset.GetClusterWorkflowSchema)
@@ -1209,8 +1239,7 @@ func (t *Toolsets) RegisterPEGetClusterWorkflowSchema(s *mcp.Server, perms map[s
 func (t *Toolsets) RegisterGetClusterWorkflowCreationSchema(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterSchemaTool(s, perms,
 		"get_cluster_workflow_creation_schema", "get_workflow_creation_schema",
-		"DEPRECATED: use get_workflow_creation_schema with scope=\"cluster\". Returns the spec schema for "+
-			"creating a platform-wide cluster-scoped workflow.",
+		"Returns the spec schema for creating a platform-wide cluster-scoped workflow.",
 		authzcore.ActionCreateClusterWorkflow,
 		func() (any, error) { return ClusterWorkflowCreationSchema() })
 }
@@ -1218,8 +1247,7 @@ func (t *Toolsets) RegisterGetClusterWorkflowCreationSchema(s *mcp.Server, perms
 //nolint:dupl // create/update register helpers share a near-identical shape per resource
 func (t *Toolsets) RegisterCreateClusterWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterWriteTool(s, perms, "create_cluster_workflow", "create_workflow",
-		"DEPRECATED: use create_workflow with scope=\"cluster\". Creates a platform-wide cluster-scoped "+
-			"workflow available to all namespaces.",
+		"Creates a platform-wide cluster-scoped workflow available to all namespaces.",
 		authzcore.ActionCreateClusterWorkflow,
 		"DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)",
 		"Cluster workflow specification. Required field: runTemplate (Argo Workflow template definition). "+
@@ -1238,8 +1266,8 @@ func (t *Toolsets) RegisterCreateClusterWorkflow(s *mcp.Server, perms map[string
 //nolint:dupl // create/update register helpers share a near-identical shape per resource
 func (t *Toolsets) RegisterUpdateClusterWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterWriteTool(s, perms, "update_cluster_workflow", "update_workflow",
-		"DEPRECATED: use update_workflow with scope=\"cluster\". Updates a platform-wide cluster-scoped "+
-			"workflow (full replacement). Use get_cluster_workflow to retrieve the current definition first.",
+		"Updates a platform-wide cluster-scoped workflow (full replacement). "+
+			"Use get_cluster_workflow to retrieve the current definition first.",
 		authzcore.ActionUpdateClusterWorkflow,
 		"Name of the cluster workflow to update. Use list_cluster_workflows to discover valid names",
 		"Full cluster workflow spec to replace the existing one. "+
@@ -1257,7 +1285,7 @@ func (t *Toolsets) RegisterUpdateClusterWorkflow(s *mcp.Server, perms map[string
 
 func (t *Toolsets) RegisterDeleteClusterWorkflow(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "delete_cluster_workflow", "delete_workflow",
-		"DEPRECATED: use delete_workflow with scope=\"cluster\". Deletes a platform-wide cluster-scoped workflow.",
+		"Deletes a platform-wide cluster-scoped workflow.",
 		authzcore.ActionDeleteClusterWorkflow,
 		"name", "Name of the cluster workflow to delete. Use list_cluster_workflows to discover valid names",
 		t.PEToolset.DeleteClusterWorkflow)
@@ -1269,15 +1297,14 @@ func (t *Toolsets) RegisterDeleteClusterWorkflow(s *mcp.Server, perms map[string
 
 func (t *Toolsets) RegisterListClusterDataPlanes(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterListTool(s, perms, "list_cluster_dataplanes", "list_dataplanes",
-		"DEPRECATED: use list_dataplanes with scope=\"cluster\". Lists cluster-scoped data planes shared by "+
-			"platform admins. Supports pagination via limit and cursor.",
+		"Lists cluster-scoped data planes shared by platform admins. Supports pagination via limit and cursor.",
 		authzcore.ActionViewClusterDataPlane, t.PEToolset.ListClusterDataPlanes)
 }
 
 func (t *Toolsets) RegisterGetClusterDataPlane(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_dataplane", "get_dataplane",
-		"DEPRECATED: use get_dataplane with scope=\"cluster\". Gets detailed information about a cluster-scoped "+
-			"data plane including cluster details, capacity, health status, and network configuration.",
+		"Gets detailed information about a cluster-scoped data plane including cluster details, "+
+			"capacity, health status, and network configuration.",
 		authzcore.ActionViewClusterDataPlane,
 		"name", "Cluster data plane name. Use list_cluster_dataplanes to discover valid names",
 		t.PEToolset.GetClusterDataPlane)
@@ -1285,15 +1312,15 @@ func (t *Toolsets) RegisterGetClusterDataPlane(s *mcp.Server, perms map[string]T
 
 func (t *Toolsets) RegisterListClusterWorkflowPlanes(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterListTool(s, perms, "list_cluster_workflowplanes", "list_workflowplanes",
-		"DEPRECATED: use list_workflowplanes with scope=\"cluster\". Lists cluster-scoped workflow planes shared "+
-			"by platform admins. Supports pagination via limit and cursor.",
+		"Lists cluster-scoped workflow planes shared by platform admins. "+
+			"Supports pagination via limit and cursor.",
 		authzcore.ActionViewClusterWorkflowPlane, t.PEToolset.ListClusterWorkflowPlanes)
 }
 
 func (t *Toolsets) RegisterGetClusterWorkflowPlane(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_workflowplane", "get_workflowplane",
-		"DEPRECATED: use get_workflowplane with scope=\"cluster\". Gets detailed information about a "+
-			"cluster-scoped workflow plane including cluster details, health status, and agent connection state.",
+		"Gets detailed information about a cluster-scoped workflow plane including cluster details, "+
+			"health status, and agent connection state.",
 		authzcore.ActionViewClusterWorkflowPlane,
 		"name", "Cluster workflow plane name. Use list_cluster_workflowplanes to discover valid names",
 		t.PEToolset.GetClusterWorkflowPlane)
@@ -1301,15 +1328,15 @@ func (t *Toolsets) RegisterGetClusterWorkflowPlane(s *mcp.Server, perms map[stri
 
 func (t *Toolsets) RegisterListClusterObservabilityPlanes(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterListTool(s, perms, "list_cluster_observability_planes", "list_observability_planes",
-		"DEPRECATED: use list_observability_planes with scope=\"cluster\". Lists cluster-scoped observability "+
-			"planes shared by platform admins. Supports pagination via limit and cursor.",
+		"Lists cluster-scoped observability planes shared by platform admins. "+
+			"Supports pagination via limit and cursor.",
 		authzcore.ActionViewClusterObservabilityPlane, t.PEToolset.ListClusterObservabilityPlanes)
 }
 
 func (t *Toolsets) RegisterGetClusterObservabilityPlane(s *mcp.Server, perms map[string]ToolPermission) {
 	registerDeprecatedClusterResourceTool(s, perms, "get_cluster_observability_plane", "get_observability_plane",
-		"DEPRECATED: use get_observability_plane with scope=\"cluster\". Gets detailed information about a "+
-			"cluster-scoped observability plane including observer URL, health status, and agent connection state.",
+		"Gets detailed information about a cluster-scoped observability plane including observer URL, "+
+			"health status, and agent connection state.",
 		authzcore.ActionViewClusterObservabilityPlane,
 		"name", "Cluster observability plane name. Use list_cluster_observability_planes to discover valid names",
 		t.PEToolset.GetClusterObservabilityPlane)

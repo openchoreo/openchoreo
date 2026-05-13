@@ -162,18 +162,48 @@ func TestScopedToolInvalidScope(t *testing.T) {
 	}
 }
 
-func TestDeprecatedAliasHiddenByDefault(t *testing.T) {
-	// Default session: deprecated aliases are not in tools/list, but canonical
-	// scope-collapsed tools are.
+func TestDeprecatedAliasVisibleByDefault(t *testing.T) {
+	// Default session in v1.1: every deprecated alias appears in tools/list with
+	// a "[DEPRECATED ...]" description banner and the structured _meta marker,
+	// so existing pinned-name callers see a migration signal before the surface
+	// changes in v1.2/v1.3.
 	cs, _ := setupScopedTestServer(t, context.Background(), nil)
 	result, err := cs.ListTools(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("ListTools: %v", err)
 	}
 	names := toolNameSet(result.Tools)
+	byName := make(map[string]*mcp.Tool, len(result.Tools))
+	for _, tool := range result.Tools {
+		byName[tool.Name] = tool
+	}
 	for alias := range deprecatedToolNames {
-		if names[alias] {
-			t.Errorf("deprecated alias %q should be hidden from the default tools/list", alias)
+		if !names[alias] {
+			t.Errorf("deprecated alias %q should be visible in the default tools/list", alias)
+			continue
+		}
+		tool := byName[alias]
+		if !strings.HasPrefix(tool.Description, "[DEPRECATED — use ") {
+			t.Errorf("deprecated alias %q description should start with [DEPRECATED ...], got %q",
+				alias, tool.Description)
+		}
+		if !strings.Contains(tool.Description, "hidden in "+deprecatedHiddenInVersion) ||
+			!strings.Contains(tool.Description, "removed in "+deprecatedRemovedInVersion) {
+			t.Errorf("deprecated alias %q description should mention hidden/removed versions, got %q",
+				alias, tool.Description)
+		}
+		meta := tool.GetMeta()
+		if v, _ := meta[deprecatedMetaPrefix+"deprecated"].(bool); !v {
+			t.Errorf("deprecated alias %q should carry _meta[%s]=true, got %+v",
+				alias, deprecatedMetaPrefix+"deprecated", meta)
+		}
+		if v, _ := meta[deprecatedMetaPrefix+"hidden_in"].(string); v != deprecatedHiddenInVersion {
+			t.Errorf("deprecated alias %q _meta hidden_in = %q, want %q",
+				alias, v, deprecatedHiddenInVersion)
+		}
+		if v, _ := meta[deprecatedMetaPrefix+"removed_in"].(string); v != deprecatedRemovedInVersion {
+			t.Errorf("deprecated alias %q _meta removed_in = %q, want %q",
+				alias, v, deprecatedRemovedInVersion)
 		}
 	}
 	if !names["get_component_type"] || !names["list_component_types"] {
@@ -181,8 +211,10 @@ func TestDeprecatedAliasHiddenByDefault(t *testing.T) {
 	}
 }
 
-func TestDeprecatedAliasVisibleWithFlag(t *testing.T) {
-	ctx := WithIncludeDeprecatedTools(context.Background(), true)
+func TestDeprecatedAliasHiddenWhenExcluded(t *testing.T) {
+	// includeDeprecatedTools=false previews the v1.2 surface: aliases drop out of
+	// tools/list, while canonical scope-collapsed tools remain.
+	ctx := WithIncludeDeprecatedTools(context.Background(), false)
 	cs, _ := setupScopedTestServer(t, ctx, nil)
 	result, err := cs.ListTools(ctx, nil)
 	if err != nil {
@@ -190,9 +222,12 @@ func TestDeprecatedAliasVisibleWithFlag(t *testing.T) {
 	}
 	names := toolNameSet(result.Tools)
 	for alias := range deprecatedToolNames {
-		if !names[alias] {
-			t.Errorf("deprecated alias %q should be visible when includeDeprecatedTools is set", alias)
+		if names[alias] {
+			t.Errorf("deprecated alias %q should be hidden when includeDeprecatedTools=false", alias)
 		}
+	}
+	if !names["get_component_type"] || !names["list_component_types"] {
+		t.Errorf("canonical scope-collapsed tools should remain in tools/list")
 	}
 }
 

@@ -10,9 +10,16 @@ import (
 // deprecatedToolNames is the set of MCP tool names that are kept registered only
 // as backward-compatibility aliases for callers that have pinned the old
 // cluster-prefixed names. Each one routes to the canonical scope-collapsed tool
-// with scope="cluster" (see scoped.go) and returns a deprecation warning. They are
-// hidden from the default tools/list response; clients can opt in to seeing them
-// with the ?includeDeprecatedTools=true session parameter.
+// with scope="cluster" (see scoped.go) and returns a deprecation warning.
+//
+// Visibility lifecycle:
+//   - v1.1 (current): listed in tools/list by default with a "[DEPRECATED ...]"
+//     description banner and a structured _meta marker so existing clients see a
+//     migration signal before the surface changes. Clients can opt out and
+//     preview the v1.2 surface with ?includeDeprecatedTools=false.
+//   - v1.2: hidden from the default tools/list response. Still callable; the
+//     description banner / _meta and the runtime deprecation_warning remain.
+//   - v1.3: removed entirely.
 var deprecatedToolNames = map[string]bool{
 	"list_cluster_component_types":               true,
 	"get_cluster_component_type":                 true,
