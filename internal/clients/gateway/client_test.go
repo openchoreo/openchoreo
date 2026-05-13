@@ -414,7 +414,7 @@ func newTestGatewayClient(t *testing.T, handler http.HandlerFunc) *Client {
 	t.Helper()
 	server := httptest.NewTLSServer(handler)
 	t.Cleanup(server.Close)
-	return &Client{baseURL: server.URL, httpClient: server.Client()}
+	return &Client{baseURL: server.URL, httpClient: server.Client(), maxPodLogBytes: DefaultMaxPodLogBytes}
 }
 
 func TestNotifyPlaneLifecycle(t *testing.T) {
@@ -693,6 +693,39 @@ func TestGetPodLogsFromPlane(t *testing.T) {
 		_, err := c.GetPodLogsFromPlane(context.Background(), "dataplane", "prod", "acme", "my-dp", podRef, nil)
 		require.Error(t, err)
 		assert.True(t, IsTransientError(err))
+	})
+
+	t.Run("response exceeding configured limit returns error", func(t *testing.T) {
+		const smallLimit = 10
+		server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("this response body is longer than ten bytes"))
+		}))
+		defer server.Close()
+
+		c := &Client{baseURL: server.URL, httpClient: server.Client(), maxPodLogBytes: smallLimit}
+		_, err := c.GetPodLogsFromPlane(context.Background(), "dataplane", "prod", "acme", "my-dp", podRef, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "too large")
+		assert.Contains(t, err.Error(), fmt.Sprintf("%d", smallLimit))
+	})
+
+	t.Run("custom MaxPodLogBytes via NewClientWithConfig is respected", func(t *testing.T) {
+		const customLimit = int64(512 * 1024) // 512KB
+		cfg := &Config{
+			BaseURL:        "https://example.internal",
+			MaxPodLogBytes: customLimit,
+		}
+		c, err := NewClientWithConfig(cfg)
+		require.NoError(t, err)
+		assert.Equal(t, customLimit, c.maxPodLogBytes)
+	})
+
+	t.Run("zero MaxPodLogBytes in Config falls back to default", func(t *testing.T) {
+		cfg := &Config{BaseURL: "https://example.internal"}
+		c, err := NewClientWithConfig(cfg)
+		require.NoError(t, err)
+		assert.Equal(t, int64(DefaultMaxPodLogBytes), c.maxPodLogBytes)
 	})
 }
 

@@ -21,10 +21,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+const DefaultMaxPodLogBytes = 10 * 1024 * 1024 // 10MB
+
 type Config struct {
-	BaseURL string
-	TLS     TLSConfig
-	Timeout time.Duration
+	BaseURL         string
+	TLS             TLSConfig
+	Timeout         time.Duration
+	MaxPodLogBytes  int64
 }
 
 type TLSConfig struct {
@@ -35,8 +38,9 @@ type TLSConfig struct {
 }
 
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
+	baseURL        string
+	httpClient     *http.Client
+	maxPodLogBytes int64
 }
 
 type PlaneNotification struct {
@@ -173,6 +177,7 @@ func NewClient(baseURL string) *Client {
 			Timeout:   10 * time.Second,
 			Transport: transport,
 		},
+		maxPodLogBytes: DefaultMaxPodLogBytes,
 	}
 }
 
@@ -197,12 +202,18 @@ func NewClientWithConfig(config *Config) (*Client, error) {
 		TLSClientConfig: tlsConfig,
 	}
 
+	maxPodLogBytes := config.MaxPodLogBytes
+	if maxPodLogBytes == 0 {
+		maxPodLogBytes = DefaultMaxPodLogBytes
+	}
+
 	return &Client{
 		baseURL: config.BaseURL,
 		httpClient: &http.Client{
 			Timeout:   timeout,
 			Transport: transport,
 		},
+		maxPodLogBytes: maxPodLogBytes,
 	}, nil
 }
 
@@ -366,8 +377,6 @@ type PodLogsOptions struct {
 // This method makes direct Kubernetes API calls through the gateway proxy to support
 // advanced log retrieval options like container selection, timestamps, and time filtering
 func (c *Client) GetPodLogsFromPlane(ctx context.Context, planeType, planeID, planeNamespace, planeName string, podReference *PodReference, options *PodLogsOptions) (string, error) {
-	const maxPodLogsBytes = 10 * 1024 * 1024 // 10MB. TODO: Make this configurable.
-
 	if podReference == nil || podReference.Namespace == "" || podReference.Name == "" {
 		return "", fmt.Errorf("pod reference is required and must have namespace and name")
 	}
@@ -413,12 +422,12 @@ func (c *Client) GetPodLogsFromPlane(ctx context.Context, planeType, planeID, pl
 		return "", classifyHTTPError(resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxPodLogsBytes+1))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, c.maxPodLogBytes+1))
 	if err != nil {
 		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
-	if len(body) > maxPodLogsBytes {
-		return "", fmt.Errorf("response body is too large, max is %d bytes", maxPodLogsBytes)
+	if int64(len(body)) > c.maxPodLogBytes {
+		return "", fmt.Errorf("response body is too large, max is %d bytes", c.maxPodLogBytes)
 	}
 
 	return string(body), nil
