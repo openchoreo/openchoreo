@@ -61,7 +61,7 @@ data:
         {{- toYaml .Values.openchoreoApi.config.mcp.toolsets | nindent 8 }}
 
     cluster_gateway:
-      enabled: true
+      enabled: {{ if hasKey .Values.openchoreoApi.clusterGateway "enabled" }}{{ .Values.openchoreoApi.clusterGateway.enabled }}{{ else }}true{{ end }}
       url: {{ .Values.openchoreoApi.clusterGateway.url | quote }}
       tls:
         ca_cert_path: {{ .Values.openchoreoApi.clusterGateway.tls.caPath | quote }}

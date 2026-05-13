@@ -776,6 +776,24 @@ func TestBuildTLSConfig(t *testing.T) {
 		assert.True(t, cfg.InsecureSkipVerify)
 	})
 
+	t.Run("InsecureSkipVerify=true still loads client cert for mTLS", func(t *testing.T) {
+		certPEM, keyPEM := mustGenerateKeyPairPEM(t)
+		dir := t.TempDir()
+		certFile := filepath.Join(dir, "client.crt")
+		keyFile := filepath.Join(dir, "client.key")
+		require.NoError(t, os.WriteFile(certFile, certPEM, 0o600))
+		require.NoError(t, os.WriteFile(keyFile, keyPEM, 0o600))
+
+		cfg, err := buildTLSConfig(&TLSConfig{
+			InsecureSkipVerify: true,
+			ClientCertFile:     certFile,
+			ClientKeyFile:      keyFile,
+		})
+		require.NoError(t, err)
+		assert.True(t, cfg.InsecureSkipVerify)
+		assert.Len(t, cfg.Certificates, 1)
+	})
+
 	t.Run("ServerName is propagated", func(t *testing.T) {
 		cfg, err := buildTLSConfig(&TLSConfig{ServerName: "gateway.example"})
 		require.NoError(t, err)

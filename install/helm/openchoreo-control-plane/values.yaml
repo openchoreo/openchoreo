@@ -704,6 +704,12 @@ controllerManager:
       # default: cluster-gateway-ca
       # @schema
       caSecret: cluster-gateway-ca
+      # @schema
+      # type: boolean
+      # description: Skip TLS verification of the cluster gateway. For development only.
+      # default: false
+      # @schema
+      insecure: false
 
 # @schema
 # type: string
@@ -841,6 +847,12 @@ openchoreoApi:
   # description: Cluster gateway connection settings for agent-based plane communication
   # @schema
   clusterGateway:
+    # @schema
+    # type: boolean
+    # description: Enable cluster gateway client integration
+    # default: true
+    # @schema
+    enabled: true
     # @schema
     # type: string
     # description: Cluster gateway service URL the API server connects to

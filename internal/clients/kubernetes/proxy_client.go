@@ -783,11 +783,8 @@ func buildProxyTLSConfig(tlsConfig *ProxyTLSConfig) (*tls.Config, error) {
 	if tlsConfig.Insecure {
 		// #nosec G402 -- Insecure mode is gated on explicit caller opt-in for development.
 		cfg.InsecureSkipVerify = true
-		return cfg, nil
-	}
-
-	// Load CA certificate for server verification
-	if tlsConfig.CACertPath != "" {
+	} else if tlsConfig.CACertPath != "" {
+		// Load CA certificate for server verification.
 		caCert, err := os.ReadFile(tlsConfig.CACertPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read CA certificate: %w", err)
@@ -801,7 +798,10 @@ func buildProxyTLSConfig(tlsConfig *ProxyTLSConfig) (*tls.Config, error) {
 	}
 
 	// Load client certificate and key for mTLS authentication
-	if tlsConfig.ClientCertPath != "" && tlsConfig.ClientKeyPath != "" {
+	if tlsConfig.ClientCertPath != "" || tlsConfig.ClientKeyPath != "" {
+		if tlsConfig.ClientCertPath == "" || tlsConfig.ClientKeyPath == "" {
+			return nil, fmt.Errorf("both ClientCertPath and ClientKeyPath must be set for mTLS")
+		}
 		clientCert, err := tls.LoadX509KeyPair(tlsConfig.ClientCertPath, tlsConfig.ClientKeyPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load client certificate and key: %w", err)

@@ -202,10 +202,7 @@ func buildTLSConfig(config *TLSConfig) (*tls.Config, error) {
 	if config.InsecureSkipVerify {
 		// #nosec G402 -- InsecureSkipVerify is configurable and should only be used in development
 		tlsConfig.InsecureSkipVerify = true
-		return tlsConfig, nil
-	}
-
-	if config.CAFile != "" || len(config.CAData) > 0 {
+	} else if config.CAFile != "" || len(config.CAData) > 0 {
 		caCertPool := x509.NewCertPool()
 
 		var caData []byte

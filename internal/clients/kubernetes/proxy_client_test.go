@@ -272,6 +272,36 @@ func TestBuildProxyTLSConfig(t *testing.T) {
 		assert.Nil(t, cfg.RootCAs)
 	})
 
+	t.Run("Insecure=true still loads client cert for mTLS", func(t *testing.T) {
+		certPEM, keyPEM := mustCreateSelfSignedCertAndKeyPEM(t)
+		dir := t.TempDir()
+		certFile := dir + "/client.crt"
+		keyFile := dir + "/client.key"
+		require.NoError(t, os.WriteFile(certFile, certPEM, 0o600))
+		require.NoError(t, os.WriteFile(keyFile, keyPEM, 0o600))
+
+		cfg, err := buildProxyTLSConfig(&ProxyTLSConfig{
+			Insecure:       true,
+			ClientCertPath: certFile,
+			ClientKeyPath:  keyFile,
+		})
+		require.NoError(t, err)
+		assert.True(t, cfg.InsecureSkipVerify)
+		assert.Len(t, cfg.Certificates, 1)
+	})
+
+	t.Run("only ClientCertPath set returns asymmetric-config error", func(t *testing.T) {
+		_, err := buildProxyTLSConfig(&ProxyTLSConfig{ClientCertPath: "/tmp/client.crt"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "both ClientCertPath and ClientKeyPath must be set")
+	})
+
+	t.Run("only ClientKeyPath set returns asymmetric-config error", func(t *testing.T) {
+		_, err := buildProxyTLSConfig(&ProxyTLSConfig{ClientKeyPath: "/tmp/client.key"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "both ClientCertPath and ClientKeyPath must be set")
+	})
+
 	t.Run("invalid CA path returns error", func(t *testing.T) {
 		_, err := buildProxyTLSConfig(&ProxyTLSConfig{CACertPath: "/path/does/not/exist/ca.crt"})
 		require.Error(t, err)
@@ -305,6 +335,11 @@ func TestBuildProxyTLSConfig(t *testing.T) {
 }
 
 func mustCreateSelfSignedCertPEM(t *testing.T) []byte {
+	certPEM, _ := mustCreateSelfSignedCertAndKeyPEM(t)
+	return certPEM
+}
+
+func mustCreateSelfSignedCertAndKeyPEM(t *testing.T) ([]byte, []byte) {
 	t.Helper()
 
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -323,7 +358,9 @@ func mustCreateSelfSignedCertPEM(t *testing.T) []byte {
 	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
 	require.NoError(t, err)
 
-	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	return certPEM, keyPEM
 }
 
 func TestGetGVKForList(t *testing.T) {

@@ -154,12 +154,12 @@ func main() {
 			logger.Error("Failed to create cluster gateway client", slog.Any("error", err))
 			os.Exit(1)
 		}
+		logger.Info("gateway client initialized",
+			"url", gatewayURL,
+			"caCert", cfg.ClusterGateway.TLS.CACertPath != "",
+			"clientCert", cfg.ClusterGateway.TLS.ClientCertPath != "",
+			"insecure", cfg.ClusterGateway.TLS.Insecure)
 	}
-	logger.Info("gateway client initialized",
-		"url", gatewayURL,
-		"caCert", cfg.ClusterGateway.TLS.CACertPath != "",
-		"clientCert", cfg.ClusterGateway.TLS.ClientCertPath != "",
-		"insecure", cfg.ClusterGateway.TLS.Insecure)
 
 	// Start background processes (manager + cache sync when authz enabled)
 	if err := runtime.start(ctx); err != nil {

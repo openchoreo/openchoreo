@@ -268,7 +268,8 @@ func main() {
 			"Required for agent mode. Example: https://localhost:8443")
 	flag.StringVar(&clusterGatewayCACert, "cluster-gateway-ca-cert", getEnv("CLUSTER_GATEWAY_CA_CERT", ""),
 		"Path to CA certificate for verifying the cluster gateway's TLS certificate. "+
-			"If not specified, InsecureSkipVerify will be used (not recommended for production).")
+			"If --cluster-gateway-ca-cert is omitted, system root CAs are used and self-signed certificates will fail; "+
+			"use --cluster-gateway-insecure to allow insecure verification for self-signed setups.")
 	flag.StringVar(&clusterGatewayClientCert, "cluster-gateway-client-cert", getEnv("CLUSTER_GATEWAY_CLIENT_CERT", ""),
 		"Path to client certificate for mTLS authentication with the cluster gateway.")
 	flag.StringVar(&clusterGatewayClientKey, "cluster-gateway-client-key", getEnv("CLUSTER_GATEWAY_CLIENT_KEY", ""),
