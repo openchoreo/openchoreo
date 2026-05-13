@@ -26,44 +26,26 @@ func dataPlane(name string) *gen.TargetPlaneRef {
 	return &gen.TargetPlaneRef{Kind: gen.TargetPlaneRefKindDataPlane, Name: name}
 }
 
-// --- filterTargeted ---
-
-func TestFilterTargeted_KeepsOnlyTargeted(t *testing.T) {
-	in := []gen.SecretReference{
-		{Metadata: gen.ObjectMeta{Name: "a"}, Spec: &gen.SecretReferenceSpec{TargetPlane: dataPlane("dp")}},
-		{Metadata: gen.ObjectMeta{Name: "b"}, Spec: &gen.SecretReferenceSpec{}},
-		{Metadata: gen.ObjectMeta{Name: "c"}, Spec: nil},
-		{Metadata: gen.ObjectMeta{Name: "d"}, Spec: &gen.SecretReferenceSpec{TargetPlane: dataPlane("dp2")}},
-	}
-	out := filterTargeted(in)
-	require.Len(t, out, 2)
-	assert.Equal(t, "a", out[0].Metadata.Name)
-	assert.Equal(t, "d", out[1].Metadata.Name)
-}
-
 // --- printList ---
 
 func TestPrintList_Empty(t *testing.T) {
 	out := testutil.CaptureStdout(t, func() {
-		require.NoError(t, printList(nil))
+		require.NoError(t, printList(nil, nil))
 	})
 	assert.Contains(t, out, "No secrets found")
 }
 
 func TestPrintList_WithItems(t *testing.T) {
 	now := time.Now()
-	tlsType := gen.SecretTemplateType("kubernetes.io/tls")
-	items := []gen.SecretReference{
+	items := []gen.Secret{
 		{
 			Metadata: gen.ObjectMeta{Name: "tls-1", CreationTimestamp: &now},
-			Spec: &gen.SecretReferenceSpec{
-				TargetPlane: dataPlane("dp-prod"),
-				Template:    gen.SecretTemplate{Type: &tlsType},
-			},
+			Type:     "kubernetes.io/tls",
 		},
 	}
+	targets := map[string]string{"tls-1": "DataPlane/dp-prod"}
 	out := testutil.CaptureStdout(t, func() {
-		require.NoError(t, printList(items))
+		require.NoError(t, printList(items, targets))
 	})
 	assert.Contains(t, out, "NAME")
 	assert.Contains(t, out, "TYPE")
@@ -82,12 +64,17 @@ func TestList_ValidationError(t *testing.T) {
 	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
 }
 
-func TestList_FiltersOutNonTargeted(t *testing.T) {
+func TestList_Success(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().ListSecrets(mock.Anything, "org-a", mock.Anything).Return(&gen.ListSecretsResponse{
+		Items: []gen.Secret{
+			{Metadata: gen.ObjectMeta{Name: "api-key"}, Type: "Opaque"},
+		},
+		Pagination: gen.Pagination{},
+	}, nil)
 	mc.EXPECT().ListSecretReferences(mock.Anything, "org-a", mock.Anything).Return(&gen.SecretReferenceList{
 		Items: []gen.SecretReference{
-			{Metadata: gen.ObjectMeta{Name: "kept"}, Spec: &gen.SecretReferenceSpec{TargetPlane: dataPlane("dp")}},
-			{Metadata: gen.ObjectMeta{Name: "dropped"}, Spec: &gen.SecretReferenceSpec{}},
+			{Metadata: gen.ObjectMeta{Name: "api-key"}, Spec: &gen.SecretReferenceSpec{TargetPlane: dataPlane("dp")}},
 		},
 		Pagination: gen.Pagination{},
 	}, nil)
@@ -95,8 +82,9 @@ func TestList_FiltersOutNonTargeted(t *testing.T) {
 	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, New(mc).List(ListParams{Namespace: "org-a"}))
 	})
-	assert.Contains(t, out, "kept")
-	assert.NotContains(t, out, "dropped")
+	assert.Contains(t, out, "api-key")
+	assert.Contains(t, out, "Opaque")
+	assert.Contains(t, out, "DataPlane/dp")
 }
 
 // --- Get ---
@@ -107,19 +95,10 @@ func TestGet_ValidationError_NoName(t *testing.T) {
 	assert.ErrorContains(t, err, "Missing required parameter: --name")
 }
 
-func TestGet_RejectsUntargeted(t *testing.T) {
-	mc := mocks.NewMockInterface(t)
-	mc.EXPECT().GetSecretReference(mock.Anything, "ns", "x").Return(
-		&gen.SecretReference{Metadata: gen.ObjectMeta{Name: "x"}, Spec: &gen.SecretReferenceSpec{}}, nil,
-	)
-	err := New(mc).Get(GetParams{Namespace: "ns", SecretName: "x"})
-	assert.ErrorContains(t, err, `secret "x" not found`)
-}
-
 func TestGet_Success(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	mc.EXPECT().GetSecretReference(mock.Anything, "ns", "x").Return(
-		&gen.SecretReference{Metadata: gen.ObjectMeta{Name: "x"}, Spec: &gen.SecretReferenceSpec{TargetPlane: dataPlane("dp")}}, nil,
+	mc.EXPECT().GetSecret(mock.Anything, "ns", "x").Return(
+		&gen.Secret{Metadata: gen.ObjectMeta{Name: "x"}, Type: "Opaque"}, nil,
 	)
 	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, New(mc).Get(GetParams{Namespace: "ns", SecretName: "x"}))

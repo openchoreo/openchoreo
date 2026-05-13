@@ -68,6 +68,12 @@ func TestListCmd_FactoryError(t *testing.T) {
 func TestListCmd_Success(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	tp := &gen.TargetPlaneRef{Kind: gen.TargetPlaneRefKindDataPlane, Name: "dp-prod"}
+	mc.EXPECT().ListSecrets(mock.Anything, mock.Anything, mock.Anything).Return(&gen.ListSecretsResponse{
+		Items: []gen.Secret{
+			{Metadata: gen.ObjectMeta{Name: "my-secret"}, Type: "Opaque"},
+		},
+		Pagination: gen.Pagination{},
+	}, nil)
 	mc.EXPECT().ListSecretReferences(mock.Anything, mock.Anything, mock.Anything).Return(&gen.SecretReferenceList{
 		Items: []gen.SecretReference{
 			{Metadata: gen.ObjectMeta{Name: "my-secret"}, Spec: &gen.SecretReferenceSpec{TargetPlane: tp}},
@@ -101,12 +107,8 @@ func TestGetCmd_FactoryError(t *testing.T) {
 
 func TestGetCmd_Success(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	tp := &gen.TargetPlaneRef{Kind: gen.TargetPlaneRefKindDataPlane, Name: "dp-prod"}
-	mc.EXPECT().GetSecretReference(mock.Anything, mock.Anything, "my-secret").Return(
-		&gen.SecretReference{
-			Metadata: gen.ObjectMeta{Name: "my-secret"},
-			Spec:     &gen.SecretReferenceSpec{TargetPlane: tp},
-		}, nil,
+	mc.EXPECT().GetSecret(mock.Anything, mock.Anything, "my-secret").Return(
+		&gen.Secret{Metadata: gen.ObjectMeta{Name: "my-secret"}, Type: "Opaque"}, nil,
 	)
 
 	cmd := newGetCmd(mockFactory(mc))

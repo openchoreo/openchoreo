@@ -33,8 +33,9 @@ func New(c client.Interface) *Secret {
 	return &Secret{client: c}
 }
 
-// List lists secrets in a namespace by enumerating SecretReferences whose
-// spec.targetPlane is set.
+// List lists secrets in a namespace via the Secret API. It also fetches
+// SecretReferences in the same namespace to enrich each row with the secret's
+// target plane (which is not exposed on the Secret API response shape).
 func (s *Secret) List(params ListParams) error {
 	if err := cmdutil.RequireFields("list", "secret", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
@@ -42,13 +43,13 @@ func (s *Secret) List(params ListParams) error {
 
 	ctx := context.Background()
 
-	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.SecretReference, string, error) {
-		p := &gen.ListSecretReferencesParams{}
+	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Secret, string, error) {
+		p := &gen.ListSecretsParams{}
 		p.Limit = &limit
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := s.client.ListSecretReferences(ctx, params.Namespace, p)
+		result, err := s.client.ListSecrets(ctx, params.Namespace, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -61,11 +62,16 @@ func (s *Secret) List(params ListParams) error {
 	if err != nil {
 		return err
 	}
-	return printList(filterTargeted(items))
+
+	targets, err := s.listTargetPlanes(ctx, params.Namespace)
+	if err != nil {
+		return err
+	}
+	return printList(items, targets)
 }
 
-// Get retrieves a single secret (via its SecretReference) and outputs it as YAML.
-// Only references with spec.targetPlane set are considered user-workload secrets.
+// Get retrieves a single secret via the Secret API and outputs it as YAML.
+// Values in `.data` are base64-encoded, matching kubectl's default shape.
 func (s *Secret) Get(params GetParams) error {
 	if err := cmdutil.RequireFields("get", "secret", map[string]string{
 		"namespace": params.Namespace,
@@ -75,12 +81,9 @@ func (s *Secret) Get(params GetParams) error {
 	}
 
 	ctx := context.Background()
-	result, err := s.client.GetSecretReference(ctx, params.Namespace, params.SecretName)
+	result, err := s.client.GetSecret(ctx, params.Namespace, params.SecretName)
 	if err != nil {
 		return err
-	}
-	if result.Spec == nil || result.Spec.TargetPlane == nil {
-		return fmt.Errorf("secret %q not found", params.SecretName)
 	}
 
 	data, err := yaml.Marshal(result)
@@ -89,6 +92,37 @@ func (s *Secret) Get(params GetParams) error {
 	}
 	fmt.Print(string(data))
 	return nil
+}
+
+// listTargetPlanes returns a map from secret name to "Kind/Name" target plane,
+// by enumerating SecretReferences in the namespace.
+func (s *Secret) listTargetPlanes(ctx context.Context, namespace string) (map[string]string, error) {
+	refs, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.SecretReference, string, error) {
+		p := &gen.ListSecretReferencesParams{}
+		p.Limit = &limit
+		if cursor != "" {
+			p.Cursor = &cursor
+		}
+		result, err := s.client.ListSecretReferences(ctx, namespace, p)
+		if err != nil {
+			return nil, "", err
+		}
+		next := ""
+		if result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
+		}
+		return result.Items, next, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string, len(refs))
+	for _, r := range refs {
+		if r.Spec != nil && r.Spec.TargetPlane != nil {
+			out[r.Metadata.Name] = fmt.Sprintf("%s/%s", r.Spec.TargetPlane.Kind, r.Spec.TargetPlane.Name)
+		}
+	}
+	return out, nil
 }
 
 // Delete removes a secret from the control plane and the target plane.
@@ -246,18 +280,7 @@ func buildDockerConfigJSON(server, username, password, email string) (string, er
 	return string(b), nil
 }
 
-// filterTargeted keeps only SecretReferences that target a specific plane.
-func filterTargeted(items []gen.SecretReference) []gen.SecretReference {
-	out := items[:0]
-	for _, sr := range items {
-		if sr.Spec != nil && sr.Spec.TargetPlane != nil {
-			out = append(out, sr)
-		}
-	}
-	return out
-}
-
-func printList(items []gen.SecretReference) error {
+func printList(items []gen.Secret, targets map[string]string) error {
 	if len(items) == 0 {
 		fmt.Println("No secrets found")
 		return nil
@@ -266,20 +289,13 @@ func printList(items []gen.SecretReference) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "NAME\tTYPE\tTARGET PLANE\tAGE")
 
-	for _, sr := range items {
+	for _, sec := range items {
 		age := "<unknown>"
-		if sr.Metadata.CreationTimestamp != nil {
-			age = utils.FormatAge(*sr.Metadata.CreationTimestamp)
+		if sec.Metadata.CreationTimestamp != nil {
+			age = utils.FormatAge(*sec.Metadata.CreationTimestamp)
 		}
-		secretType := ""
-		if sr.Spec != nil && sr.Spec.Template.Type != nil {
-			secretType = string(*sr.Spec.Template.Type)
-		}
-		target := ""
-		if sr.Spec != nil && sr.Spec.TargetPlane != nil {
-			target = fmt.Sprintf("%s/%s", sr.Spec.TargetPlane.Kind, sr.Spec.TargetPlane.Name)
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", sr.Metadata.Name, secretType, target, age)
+		target := targets[sec.Metadata.Name]
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", sec.Metadata.Name, sec.Type, target, age)
 	}
 
 	return w.Flush()
