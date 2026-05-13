@@ -2144,7 +2144,7 @@ type ListSecretsResponse struct {
 
 	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
 	// for efficient pagination through large result sets.
-	Pagination *Pagination `json:"pagination,omitempty"`
+	Pagination Pagination `json:"pagination"`
 }
 
 // MessageResponse Simple message response

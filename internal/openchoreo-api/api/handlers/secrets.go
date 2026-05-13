@@ -45,10 +45,9 @@ func (h *Handler) ListSecrets(
 		h.logger.Error("Failed to convert secrets", "error", err)
 		return gen.ListSecrets500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-	pagination := ToPagination(result)
 	return gen.ListSecrets200JSONResponse{
 		Items:      items,
-		Pagination: &pagination,
+		Pagination: ToPagination(result),
 	}, nil
 }
 
@@ -168,7 +167,7 @@ func mapCreateSecretError(h *Handler, err error) (gen.CreateSecretResponseObject
 	case errors.Is(err, secretsvc.ErrSecretAlreadyExists):
 		return gen.CreateSecret409JSONResponse{ConflictJSONResponse: conflict("secret already exists")}, nil
 	case errors.Is(err, secretsvc.ErrPlaneNotFound):
-		return gen.CreateSecret400JSONResponse{BadRequestJSONResponse: badRequest("target plane not found")}, nil
+		return gen.CreateSecret422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent("target plane not found")}, nil
 	case errors.Is(err, secretsvc.ErrSecretStoreNotConfigured):
 		return gen.CreateSecret400JSONResponse{BadRequestJSONResponse: badRequest("secret store is not configured on the target plane")}, nil
 	case errors.As(err, &validationErr):
@@ -190,7 +189,7 @@ func mapUpdateSecretError(h *Handler, err error) (gen.UpdateSecretResponseObject
 	case errors.Is(err, secretsvc.ErrSecretNotFound):
 		return gen.UpdateSecret404JSONResponse{NotFoundJSONResponse: notFound("secret")}, nil
 	case errors.Is(err, secretsvc.ErrPlaneNotFound):
-		return gen.UpdateSecret400JSONResponse{BadRequestJSONResponse: badRequest("target plane not found")}, nil
+		return gen.UpdateSecret422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent("target plane not found")}, nil
 	case errors.Is(err, secretsvc.ErrSecretStoreNotConfigured):
 		return gen.UpdateSecret400JSONResponse{BadRequestJSONResponse: badRequest("secret store is not configured on the target plane")}, nil
 	case errors.As(err, &validationErr):
@@ -237,7 +236,7 @@ func mapDeleteSecretError(h *Handler, err error) (gen.DeleteSecretResponseObject
 	case errors.Is(err, secretsvc.ErrSecretNotFound):
 		return gen.DeleteSecret404JSONResponse{NotFoundJSONResponse: notFound("secret")}, nil
 	case errors.Is(err, secretsvc.ErrPlaneNotFound):
-		return gen.DeleteSecret400JSONResponse{BadRequestJSONResponse: badRequest("target plane not found")}, nil
+		return gen.DeleteSecret422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent("target plane not found")}, nil
 	case errors.Is(err, secretsvc.ErrSecretStoreNotConfigured):
 		return gen.DeleteSecret400JSONResponse{BadRequestJSONResponse: badRequest("secret store is not configured on the target plane")}, nil
 	case errors.As(err, &validationErr):
