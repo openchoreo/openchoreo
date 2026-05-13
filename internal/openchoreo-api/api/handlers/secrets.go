@@ -20,7 +20,7 @@ const secretsDisabledMessage = "Secret API is disabled on this server"
 
 // secretsEnabled reports whether the Secret API endpoints are enabled.
 func (h *Handler) secretsEnabled() bool {
-	return h.Config != nil && h.Config.Secrets.Enabled
+	return h.Config != nil && h.Config.SecretManagement.Enabled
 }
 
 // ListSecrets returns a paginated list of secrets managed by the Secret API.
