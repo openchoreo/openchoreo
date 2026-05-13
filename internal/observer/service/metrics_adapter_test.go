@@ -871,9 +871,9 @@ func TestMetricsAdapter_QueryRuntimeTopology_Success(t *testing.T) {
 				ProjectUID:   "proj-uid-1",
 				Namespace:    "ns",
 				Metrics: &runtimeTopologyAdapterMetrics{
-					RequestCount: ptrFloat64(100),
-					ErrorCount:   ptrFloat64(5),
-					AvgLatency:   ptrFloat64(50.0),
+					RequestCount:             ptrFloat64(100),
+					UnsuccessfulRequestCount: ptrFloat64(5),
+					MeanLatency:              ptrFloat64(50.0),
 				},
 			},
 			{Kind: "gateway", GatewayName: "ingress-gw"},
@@ -1042,21 +1042,21 @@ func TestConvertTopologyAdapterMetrics(t *testing.T) {
 	t.Run("all fields populated", func(t *testing.T) {
 		t.Parallel()
 		in := &runtimeTopologyAdapterMetrics{
-			RequestCount: ptrFloat64(10),
-			ErrorCount:   ptrFloat64(2),
-			AvgLatency:   ptrFloat64(5.0),
-			P50Latency:   ptrFloat64(4.5),
-			P90Latency:   ptrFloat64(8.0),
-			P99Latency:   ptrFloat64(15.0),
+			RequestCount:             ptrFloat64(10),
+			UnsuccessfulRequestCount: ptrFloat64(2),
+			MeanLatency:              ptrFloat64(5.0),
+			LatencyP50:               ptrFloat64(4.5),
+			LatencyP90:               ptrFloat64(8.0),
+			LatencyP99:               ptrFloat64(15.0),
 		}
 		out := convertTopologyAdapterMetrics(in)
 		require.NotNil(t, out)
 		assert.InDelta(t, 10.0, out.RequestCount, 0.001)
-		assert.InDelta(t, 2.0, out.ErrorCount, 0.001)
-		assert.InDelta(t, 5.0, out.AvgLatency, 0.001)
-		assert.InDelta(t, 4.5, out.P50Latency, 0.001)
-		assert.InDelta(t, 8.0, out.P90Latency, 0.001)
-		assert.InDelta(t, 15.0, out.P99Latency, 0.001)
+		assert.InDelta(t, 2.0, out.UnsuccessfulRequestCount, 0.001)
+		assert.InDelta(t, 5.0, out.MeanLatency, 0.001)
+		assert.InDelta(t, 4.5, out.LatencyP50, 0.001)
+		assert.InDelta(t, 8.0, out.LatencyP90, 0.001)
+		assert.InDelta(t, 15.0, out.LatencyP99, 0.001)
 	})
 
 	t.Run("nil pointer fields are skipped", func(t *testing.T) {

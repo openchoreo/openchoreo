@@ -67,12 +67,12 @@ type runtimeTopologyAdapterNodeRef struct {
 }
 
 type runtimeTopologyAdapterMetrics struct {
-	RequestCount *float64 `json:"requestCount,omitempty"`
-	ErrorCount   *float64 `json:"errorCount,omitempty"`
-	AvgLatency   *float64 `json:"avgLatency,omitempty"`
-	P50Latency   *float64 `json:"p50Latency,omitempty"`
-	P90Latency   *float64 `json:"p90Latency,omitempty"`
-	P99Latency   *float64 `json:"p99Latency,omitempty"`
+	RequestCount             *float64 `json:"requestCount,omitempty"`
+	UnsuccessfulRequestCount *float64 `json:"unsuccessfulRequestCount,omitempty"`
+	MeanLatency              *float64 `json:"meanLatency,omitempty"`
+	LatencyP50               *float64 `json:"latencyP50,omitempty"`
+	LatencyP90               *float64 `json:"latencyP90,omitempty"`
+	LatencyP99               *float64 `json:"latencyP99,omitempty"`
 }
 
 type runtimeTopologyAdapterSummary struct {
@@ -435,20 +435,20 @@ func convertTopologyAdapterMetrics(in *runtimeTopologyAdapterMetrics) *types.Run
 	if in.RequestCount != nil {
 		out.RequestCount = *in.RequestCount
 	}
-	if in.ErrorCount != nil {
-		out.ErrorCount = *in.ErrorCount
+	if in.UnsuccessfulRequestCount != nil {
+		out.UnsuccessfulRequestCount = *in.UnsuccessfulRequestCount
 	}
-	if in.AvgLatency != nil {
-		out.AvgLatency = *in.AvgLatency
+	if in.MeanLatency != nil {
+		out.MeanLatency = *in.MeanLatency
 	}
-	if in.P50Latency != nil {
-		out.P50Latency = *in.P50Latency
+	if in.LatencyP50 != nil {
+		out.LatencyP50 = *in.LatencyP50
 	}
-	if in.P90Latency != nil {
-		out.P90Latency = *in.P90Latency
+	if in.LatencyP90 != nil {
+		out.LatencyP90 = *in.LatencyP90
 	}
-	if in.P99Latency != nil {
-		out.P99Latency = *in.P99Latency
+	if in.LatencyP99 != nil {
+		out.LatencyP99 = *in.LatencyP99
 	}
 	return out
 }

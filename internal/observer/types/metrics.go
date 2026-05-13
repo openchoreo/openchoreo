@@ -96,12 +96,12 @@ const (
 // RuntimeTopologyMetrics carries aggregate HTTP metrics for a node or edge.
 // Latency values are in seconds. Counts are totals over the requested window.
 type RuntimeTopologyMetrics struct {
-	RequestCount float64 `json:"requestCount"`
-	ErrorCount   float64 `json:"errorCount"`
-	AvgLatency   float64 `json:"avgLatency"`
-	P50Latency   float64 `json:"p50Latency"`
-	P90Latency   float64 `json:"p90Latency"`
-	P99Latency   float64 `json:"p99Latency"`
+	RequestCount             float64 `json:"requestCount"`
+	UnsuccessfulRequestCount float64 `json:"unsuccessfulRequestCount"`
+	MeanLatency              float64 `json:"meanLatency"`
+	LatencyP50               float64 `json:"latencyP50"`
+	LatencyP90               float64 `json:"latencyP90"`
+	LatencyP99               float64 `json:"latencyP99"`
 }
 
 // RuntimeTopologyNodeRef identifies a node in the topology. The shape depends
