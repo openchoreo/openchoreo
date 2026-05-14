@@ -92,6 +92,31 @@ func TestIntersectConditionsForActions(t *testing.T) {
 			wantKeys: []string{},
 		},
 		{
+			name:     "resource wildcard expands and returns common attrs",
+			actions:  []string{"releasebinding:*"},
+			wantKeys: []string{AttrResourceEnvironment.Key, attrCT.Key, attrLabel.Key},
+		},
+		{
+			name:     "resource wildcard intersected with concrete action",
+			actions:  []string{"releasebinding:*", ActionViewMetrics},
+			wantKeys: []string{AttrResourceEnvironment.Key},
+		},
+		{
+			name:     "resource wildcard for resource with no registered attrs yields empty",
+			actions:  []string{"project:*"},
+			wantKeys: []string{},
+		},
+		{
+			name:     "global wildcard yields empty (no attr common to every action)",
+			actions:  []string{"*"},
+			wantKeys: []string{},
+		},
+		{
+			name:     "unknown resource wildcard yields empty",
+			actions:  []string{"bogus:*"},
+			wantKeys: []string{},
+		},
+		{
 			name:     "nil input returns nil",
 			actions:  nil,
 			wantKeys: nil,

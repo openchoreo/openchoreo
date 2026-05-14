@@ -21,6 +21,8 @@ type Config struct {
 	Identity IdentityConfig `koanf:"identity"`
 	// MCP defines Model Context Protocol server settings.
 	MCP MCPConfig `koanf:"mcp"`
+	// SecretManagement toggles the Secret management API endpoints.
+	SecretManagement SecretManagementConfig `koanf:"secret_management"`
 	// Logging defines logging settings.
 	Logging LoggingConfig `koanf:"logging"`
 	// ClusterGateway defines cluster gateway connection settings.
@@ -30,12 +32,13 @@ type Config struct {
 // Defaults returns the default configuration.
 func Defaults() Config {
 	return Config{
-		Server:         ServerDefaults(),
-		Security:       SecurityDefaults(),
-		Identity:       IdentityDefaults(),
-		MCP:            MCPDefaults(),
-		Logging:        LoggingDefaults(),
-		ClusterGateway: ClusterGatewayDefaults(),
+		Server:           ServerDefaults(),
+		Security:         SecurityDefaults(),
+		Identity:         IdentityDefaults(),
+		MCP:              MCPDefaults(),
+		SecretManagement: SecretManagementDefaults(),
+		Logging:          LoggingDefaults(),
+		ClusterGateway:   ClusterGatewayDefaults(),
 	}
 }
 

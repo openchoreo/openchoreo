@@ -30,3 +30,8 @@ KGATEWAY_VERSION="v2.2.1"
 
 # Thunder configuration
 THUNDER_VERSION="0.28.0"
+
+# Observability module versions (community-modules)
+LOGS_OPENSEARCH_VERSION="0.4.0"
+TRACES_OPENSEARCH_VERSION="0.4.1"
+METRICS_PROMETHEUS_VERSION="0.5.1"

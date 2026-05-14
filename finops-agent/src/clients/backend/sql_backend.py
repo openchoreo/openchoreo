@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from collections.abc import Callable
+
 from sqlalchemy import Column, Index, MetaData, String, Table, Text, func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -144,6 +146,41 @@ class SQLReportBackend(ReportBackend):
 
         logger.info(f"Successfully upserted FinOps report {report_id} with status={status}")
         return {"result": "created", "_id": report_id}
+
+    async def update_report_actions_atomic(
+        self,
+        report_id: str,
+        mutate_fn: Callable[[list[dict[str, Any]]], tuple[list[dict[str, Any]], bool]],
+    ) -> dict[str, Any] | None:
+        async with self.engine.begin() as conn:
+            # PostgreSQL uses SELECT FOR UPDATE to row-lock; SQLite serializes
+            # writes at the transaction level so no hint is needed.
+            if self._is_sqlite:
+                stmt = select(finops_reports).where(finops_reports.c.report_id == report_id)
+            else:
+                stmt = (
+                    select(finops_reports)
+                    .where(finops_reports.c.report_id == report_id)
+                    .with_for_update()
+                )
+            row = (await conn.execute(stmt)).mappings().fetchone()
+            if row is None:
+                return None
+
+            doc = _row_to_doc(row)
+            actions: list[dict[str, Any]] = doc.get("report", {}).get("recommended_actions", [])
+            new_actions, changed = mutate_fn(actions)
+
+            if changed:
+                report_data: dict[str, Any] = doc.get("report") or {}
+                report_data["recommended_actions"] = new_actions
+                await conn.execute(
+                    finops_reports.update()
+                    .where(finops_reports.c.report_id == report_id)
+                    .values(report=json.dumps(report_data))
+                )
+
+        return doc
 
     async def get_report(
         self,

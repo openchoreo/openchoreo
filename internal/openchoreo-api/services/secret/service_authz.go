@@ -7,6 +7,7 @@ import (
 	"context"
 	"log/slog"
 
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -29,7 +30,7 @@ func NewServiceWithAuthz(k8sClient client.Client, planeClientProvider kubernetes
 	}
 }
 
-func (s *secretServiceWithAuthz) CreateSecret(ctx context.Context, namespaceName string, req *CreateSecretParams) (*SecretInfo, error) {
+func (s *secretServiceWithAuthz) CreateSecret(ctx context.Context, namespaceName string, req *CreateSecretParams) (*corev1.Secret, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       authz.ActionCreateSecret,
 		ResourceType: resourceTypeSecret,
@@ -39,6 +40,46 @@ func (s *secretServiceWithAuthz) CreateSecret(ctx context.Context, namespaceName
 		return nil, err
 	}
 	return s.internal.CreateSecret(ctx, namespaceName, req)
+}
+
+func (s *secretServiceWithAuthz) UpdateSecret(ctx context.Context, namespaceName, secretName string, req *UpdateSecretParams) (*corev1.Secret, error) {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       authz.ActionUpdateSecret,
+		ResourceType: resourceTypeSecret,
+		ResourceID:   secretName,
+		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.UpdateSecret(ctx, namespaceName, secretName, req)
+}
+
+func (s *secretServiceWithAuthz) GetSecret(ctx context.Context, namespaceName, secretName string) (*corev1.Secret, error) {
+	if err := s.authz.Check(ctx, services.CheckRequest{
+		Action:       authz.ActionViewSecret,
+		ResourceType: resourceTypeSecret,
+		ResourceID:   secretName,
+		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+	}); err != nil {
+		return nil, err
+	}
+	return s.internal.GetSecret(ctx, namespaceName, secretName)
+}
+
+func (s *secretServiceWithAuthz) ListSecrets(ctx context.Context, namespaceName string, opts services.ListOptions) (*services.ListResult[corev1.Secret], error) {
+	return services.FilteredList(ctx, opts, s.authz,
+		func(ctx context.Context, pageOpts services.ListOptions) (*services.ListResult[corev1.Secret], error) {
+			return s.internal.ListSecrets(ctx, namespaceName, pageOpts)
+		},
+		func(secret corev1.Secret) services.CheckRequest {
+			return services.CheckRequest{
+				Action:       authz.ActionViewSecret,
+				ResourceType: resourceTypeSecret,
+				ResourceID:   secret.Name,
+				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+			}
+		},
+	)
 }
 
 func (s *secretServiceWithAuthz) DeleteSecret(ctx context.Context, namespaceName, secretName string) error {

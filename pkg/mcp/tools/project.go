@@ -20,7 +20,7 @@ func (t *Toolsets) RegisterListProjects(s *mcp.Server, perms map[string]ToolPerm
 		Description: "List all projects in an namespace. Projects are logical groupings of related " +
 			"components that share deployment pipelines. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
-			"namespace_name": stringProperty("Use get_namespace to discover valid names"),
+			"namespace_name": stringProperty("Use list_namespaces to discover valid names"),
 		}), []string{"namespace_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`

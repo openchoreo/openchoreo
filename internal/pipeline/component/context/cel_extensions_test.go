@@ -890,14 +890,14 @@ func TestConnectionsContextData(t *testing.T) {
 				{
 					Namespace: "ns1", Project: "proj1", Component: "svc-a",
 					Endpoint: "http", Visibility: "project",
-					EnvVars: []ConnectionEnvVar{
+					EnvVars: []EnvVarEntry{
 						{Name: "SVC_A_URL", Value: "http://svc-a:8080"},
 					},
 				},
 				{
 					Namespace: "ns1", Project: "proj1", Component: "svc-b",
 					Endpoint: "grpc", Visibility: "namespace",
-					EnvVars: []ConnectionEnvVar{
+					EnvVars: []EnvVarEntry{
 						{Name: "SVC_B_URL", Value: "grpc://svc-b:9090"},
 						{Name: "SVC_B_HOST", Value: "svc-b"},
 					},
@@ -907,7 +907,7 @@ func TestConnectionsContextData(t *testing.T) {
 
 		ctx := newDependenciesContextData(data)
 
-		wantEnvVars := []ConnectionEnvVar{
+		wantEnvVars := []EnvVarEntry{
 			{Name: "SVC_A_URL", Value: "http://svc-a:8080"},
 			{Name: "SVC_B_URL", Value: "grpc://svc-b:9090"},
 			{Name: "SVC_B_HOST", Value: "svc-b"},
@@ -941,7 +941,7 @@ func TestConnectionsContextData(t *testing.T) {
 				{
 					Namespace: "ns1", Project: "proj1", Component: "svc-b",
 					Endpoint: "http", Visibility: "project",
-					EnvVars: []ConnectionEnvVar{
+					EnvVars: []EnvVarEntry{
 						{Name: "SVC_B_URL", Value: "http://svc-b:8080"},
 					},
 				},
@@ -951,7 +951,7 @@ func TestConnectionsContextData(t *testing.T) {
 		ctx := newDependenciesContextData(data)
 
 		// Merged top-level envVars should only contain svc-b's env var
-		wantEnvVars := []ConnectionEnvVar{
+		wantEnvVars := []EnvVarEntry{
 			{Name: "SVC_B_URL", Value: "http://svc-b:8080"},
 		}
 		if diff := cmp.Diff(wantEnvVars, ctx.EnvVars); diff != "" {
@@ -1005,6 +1005,147 @@ func TestConnectionsContextData(t *testing.T) {
 		}
 		if diff := cmp.Diff(want, result); diff != "" {
 			t.Errorf("dependencies.toContainerEnvs() mismatch (-want +got):\n%s", diff)
+		}
+	})
+}
+
+func TestDependenciesVolumeMacros(t *testing.T) {
+	t.Run("dependencies.toContainerVolumeMounts_rewrites_to_volumeMounts_field", func(t *testing.T) {
+		engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+		inputs := map[string]any{
+			"dependencies": map[string]any{
+				"volumeMounts": []any{
+					map[string]any{"name": "r-abc", "mountPath": "/etc/db", "subPath": "password"},
+					map[string]any{"name": "r-def", "mountPath": "/etc/tls", "subPath": "ca.crt"},
+				},
+			},
+		}
+
+		result, err := engine.Render(`${dependencies.toContainerVolumeMounts()}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		want := []any{
+			map[string]any{"name": "r-abc", "mountPath": "/etc/db", "subPath": "password"},
+			map[string]any{"name": "r-def", "mountPath": "/etc/tls", "subPath": "ca.crt"},
+		}
+		if diff := cmp.Diff(want, result); diff != "" {
+			t.Errorf("dependencies.toContainerVolumeMounts() mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("dependencies.toVolumes_rewrites_to_volumes_field", func(t *testing.T) {
+		engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+		inputs := map[string]any{
+			"dependencies": map[string]any{
+				"volumes": []any{
+					map[string]any{"name": "r-abc", "secret": map[string]any{"secretName": "db-conn"}},
+					map[string]any{"name": "r-def", "configMap": map[string]any{"name": "db-tls"}},
+				},
+			},
+		}
+
+		result, err := engine.Render(`${dependencies.toVolumes()}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		want := []any{
+			map[string]any{"name": "r-abc", "secret": map[string]any{"secretName": "db-conn"}},
+			map[string]any{"name": "r-def", "configMap": map[string]any{"name": "db-tls"}},
+		}
+		if diff := cmp.Diff(want, result); diff != "" {
+			t.Errorf("dependencies.toVolumes() mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("configurations_receiver_unaffected_by_dependencies_extension", func(t *testing.T) {
+		// Regression: extending the toVolumes/toContainerVolumeMounts macros to handle
+		// the dependencies receiver must not break the existing configurations behavior.
+		engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+		inputs := map[string]any{
+			"metadata": map[string]any{
+				"componentName":   "app",
+				"environmentName": "dev",
+			},
+			"configurations": map[string]any{
+				"configs": map[string]any{
+					"files": []any{
+						map[string]any{"name": "app.conf", "mountPath": "/etc/app"},
+					},
+				},
+				"secrets": map[string]any{},
+			},
+		}
+
+		mountsResult, err := engine.Render(`${configurations.toContainerVolumeMounts()}`, inputs)
+		if err != nil {
+			t.Fatalf("toContainerVolumeMounts unexpected error: %v", err)
+		}
+		// configurations.* macros return []map[string]any (see cel_extensions.go:configurationsToContainerVolumeMountsFunction).
+		mounts, ok := mountsResult.([]map[string]any)
+		if !ok || len(mounts) != 1 {
+			t.Fatalf("expected 1 mount as []map[string]any, got %T: %v", mountsResult, mountsResult)
+		}
+		if mounts[0]["mountPath"] != "/etc/app/app.conf" {
+			t.Errorf("configurations mount path drifted: %v", mounts[0])
+		}
+
+		volumesResult, err := engine.Render(`${configurations.toVolumes()}`, inputs)
+		if err != nil {
+			t.Fatalf("toVolumes unexpected error: %v", err)
+		}
+		volumes, ok := volumesResult.([]map[string]any)
+		if !ok || len(volumes) != 1 {
+			t.Fatalf("expected 1 volume as []map[string]any, got %T: %v", volumesResult, volumesResult)
+		}
+		// Existing prefix contract: file-mount-* (NOT r-*).
+		volName, _ := volumes[0]["name"].(string)
+		if !strings.HasPrefix(volName, "file-mount-") {
+			t.Errorf("expected file-mount- prefix from configurations side, got %q", volName)
+		}
+	})
+
+	t.Run("dependencies_and_configurations_volumes_concat_in_single_template", func(t *testing.T) {
+		// Locks the canonical CCT pattern: volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
+		// Both sides contribute to the rendered Pod's volumes field.
+		engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+		inputs := map[string]any{
+			"metadata": map[string]any{
+				"componentName":   "app",
+				"environmentName": "dev",
+			},
+			"configurations": map[string]any{
+				"configs": map[string]any{
+					"files": []any{
+						map[string]any{"name": "app.conf", "mountPath": "/etc/app"},
+					},
+				},
+				"secrets": map[string]any{},
+			},
+			"dependencies": map[string]any{
+				"volumes": []any{
+					map[string]any{"name": "r-abc", "secret": map[string]any{"secretName": "db-conn"}},
+				},
+			},
+		}
+
+		result, err := engine.Render(`${configurations.toVolumes() + dependencies.toVolumes()}`, inputs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Concat across two macros that return different element types coalesces to []any in CEL.
+		volumes, ok := result.([]any)
+		if !ok || len(volumes) != 2 {
+			t.Fatalf("expected 2 volumes (1 cfg + 1 dep), got %T: %v", result, result)
+		}
+		// Order: configurations first (left side of +), dependencies second.
+		if name, _ := volumes[0].(map[string]any)["name"].(string); !strings.HasPrefix(name, "file-mount-") {
+			t.Errorf("expected configurations volume first; got %q", name)
+		}
+		if name := volumes[1].(map[string]any)["name"]; name != "r-abc" {
+			t.Errorf("expected dependencies volume second; got %q", name)
 		}
 	})
 }

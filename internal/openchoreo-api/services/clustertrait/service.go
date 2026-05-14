@@ -53,8 +53,8 @@ func (s *clusterTraitService) CreateClusterTrait(ctx context.Context, ct *opench
 			s.logger.Warn("Cluster trait already exists", "clusterTrait", ct.Name)
 			return nil, ErrClusterTraitAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create cluster trait CR", "error", err)
 		return nil, fmt.Errorf("failed to create cluster trait: %w", err)
@@ -89,8 +89,8 @@ func (s *clusterTraitService) UpdateClusterTrait(ctx context.Context, ct *opench
 	existing.Annotations = ct.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update cluster trait CR", "error", err)
 		return nil, fmt.Errorf("failed to update cluster trait: %w", err)

@@ -27,6 +27,10 @@ const (
 	// ConditionConnectionsResolved indicates that all connection URLs have been resolved.
 	ConditionConnectionsResolved controller.ConditionType = "ConnectionsResolved"
 
+	// ConditionResourceDependenciesReady indicates that all resource dependencies have a
+	// matching ResourceReleaseBinding whose outputs are populated.
+	ConditionResourceDependenciesReady controller.ConditionType = "ResourceDependenciesReady"
+
 	// ConditionFinalizing indicates that the ReleaseBinding is being finalized (deleted).
 	ConditionFinalizing controller.ConditionType = "Finalizing"
 )
@@ -100,6 +104,15 @@ const (
 	ReasonConnectionsPending controller.ConditionReason = "ConnectionsPending"
 	// ReasonNoConnections indicates there are no connections to resolve
 	ReasonNoConnections controller.ConditionReason = "NoConnections"
+
+	// Resource dependency condition reasons
+
+	// ReasonAllResourceDependenciesReady indicates all resource dependencies resolved successfully
+	ReasonAllResourceDependenciesReady controller.ConditionReason = "AllResourceDependenciesReady"
+	// ReasonResourceDependenciesPending indicates one or more resource dependencies are not yet resolved
+	ReasonResourceDependenciesPending controller.ConditionReason = "ResourceDependenciesPending"
+	// ReasonNoResourceDependencies indicates there are no resource dependencies to resolve
+	ReasonNoResourceDependencies controller.ConditionReason = "NoResourceDependencies"
 
 	// Ready condition reasons
 

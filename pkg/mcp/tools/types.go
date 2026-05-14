@@ -186,6 +186,7 @@ type PEToolsetHandler interface {
 	DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName string) (any, error)
 
 	// Diagnostics
+	GetResourceTree(ctx context.Context, namespaceName, releaseBindingName string) (any, error)
 	GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName,
 		group, version, kind, name string) (any, error)
 	GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName,
@@ -226,7 +227,7 @@ type ComponentToolsetHandler interface {
 	PatchComponent(
 		ctx context.Context, namespaceName, componentName string, req *gen.PatchComponentRequest,
 	) (any, error)
-	ListWorkloads(ctx context.Context, namespaceName, componentName string) (any, error)
+	ListWorkloads(ctx context.Context, namespaceName, componentName string, opts ListOpts) (any, error)
 	GetWorkload(ctx context.Context, namespaceName, workloadName string) (any, error)
 	CreateWorkload(
 		ctx context.Context, namespaceName, componentName string, workloadSpec any,

@@ -50,6 +50,23 @@ type Reconciler struct {
 	Pipeline *componentpipeline.Pipeline
 }
 
+// networkPolicyProviderFromDataPlane reads the "openchoreo.dev/networkpolicyprovider" annotation
+// from the DataPlane or ClusterDataPlane CR and returns the matching Provider.
+// Absent annotation or any value other than "cilium" defaults to ProviderKubernetes.
+func networkPolicyProviderFromDataPlane(dp *controller.DataPlaneResult) networkpolicy.Provider {
+	var annotations map[string]string
+	switch {
+	case dp.DataPlane != nil:
+		annotations = dp.DataPlane.Annotations
+	case dp.ClusterDataPlane != nil:
+		annotations = dp.ClusterDataPlane.Annotations
+	}
+	if annotations["openchoreo.dev/networkpolicyprovider"] == string(networkpolicy.ProviderCilium) {
+		return networkpolicy.ProviderCilium
+	}
+	return networkpolicy.ProviderKubernetes
+}
+
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings/finalizers,verbs=update
@@ -400,6 +417,9 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, workload *open
 }
 
 // reconcileRelease creates or updates the Release resource and sets appropriate status conditions.
+//
+// nolint:gocyclo // Long reconcile state machine; complexity is structural, not accidental.
+// Matches the same nolint directive on setResourcesReadyStatus and the workflowrun reconcile.
 func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	componentRelease *openchoreov1alpha1.ComponentRelease, environment *openchoreov1alpha1.Environment,
 	dataPlaneResult *controller.DataPlaneResult, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project) (ctrl.Result, error) {
@@ -465,6 +485,14 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Pre-compute connection items with per-item env vars from resolved connections
 	dependencyItems := buildConnectionItems(releaseBinding, snapshotWorkload.Spec.GetDependencyEndpoints())
 
+	// Resolve resource dependencies inline: build targets, resolve provider RRB outputs.
+	resourceDeps := snapshotWorkload.Spec.GetDependencyResources()
+	resourceDepItems, err := r.populateResourceDependencyStatus(ctx, releaseBinding, resourceDeps)
+	if err != nil {
+		logger.Error(err, "Failed to resolve resource dependencies")
+		return ctrl.Result{}, fmt.Errorf("failed to resolve resource dependencies: %w", err)
+	}
+
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
 		ComponentType:              snapshotComponentType,
@@ -478,6 +506,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		Metadata:                   metadataContext,
 		DefaultNotificationChannel: defaultNotificationChannel,
 		DependencyItems:            dependencyItems,
+		ResourceDependencyItems:    resourceDepItems,
 	}
 
 	// Render resources using the shared pipeline instance
@@ -509,7 +538,8 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		}
 	}
 
-	// Inject per-component NetworkPolicies into dataplane resources
+	// Inject per-component network policies into dataplane resources.
+	// The provider is determined by the "openchoreo.dev/networkpolicyprovider" annotation on the DataPlane CR.
 	componentNetpols := networkpolicy.MakeComponentPolicies(networkpolicy.ComponentPolicyParams{
 		Namespace:     metadataContext.Namespace,
 		CPNamespace:   metadataContext.ComponentNamespace,
@@ -517,6 +547,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		ComponentName: metadataContext.ComponentName,
 		PodSelectors:  metadataContext.PodSelectors,
 		Endpoints:     snapshotWorkload.Spec.Endpoints,
+		Provider:      networkPolicyProviderFromDataPlane(dataPlaneResult),
 	})
 	dataPlaneResources = append(dataPlaneResources, componentNetpols...)
 
@@ -645,6 +676,19 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		logger.Info("Connections not yet resolved, waiting for provider endpoint changes",
 			"pending", len(releaseBinding.Status.PendingConnections),
 			"resolved", len(releaseBinding.Status.ResolvedConnections))
+		return ctrl.Result{}, nil
+	}
+
+	// Resource dependency stability guard: same shape as the connections guard above.
+	// Block ReleaseSynced when any provider ResourceReleaseBinding is missing, not Ready,
+	// or has not yet populated a referenced output.
+	resourceDeps = snapshotWorkload.Spec.GetDependencyResources()
+	resourceDepsResolved := allResourceDependenciesResolved(releaseBinding, resourceDeps)
+	setResourceDependenciesCondition(releaseBinding, resourceDepsResolved)
+	if !resourceDepsResolved {
+		logger.Info("Resource dependencies not yet resolved, waiting for provider outputs",
+			"pending", len(releaseBinding.Status.PendingResourceDependencies),
+			"deps", len(resourceDeps))
 		return ctrl.Result{}, nil
 	}
 
@@ -1341,6 +1385,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup connection targets index: %w", err)
 	}
 
+	// Setup field index for resource dependency targets (reads from status.resourceDependencyTargets)
+	if err := r.setupResourceDependencyTargetsIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup resource dependency targets index: %w", err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ReleaseBinding{}).
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
@@ -1354,6 +1403,17 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&openchoreov1alpha1.ReleaseBinding{},
 			handler.EnqueueRequestsFromMapFunc(r.findConsumerReleaseBindings),
 			builder.WithPredicates(endpointStatusChangedPredicate()),
+		).
+		// The two consumer-side watches do not form a cycle: the endpoint watch enqueues
+		// on Status.Endpoints changes, while the resource-dep watch enqueues on a
+		// ResourceReleaseBinding's Status.Outputs changes. A consumer reconcile may
+		// update its own Status.Endpoints (re-entering the endpoint watch) but never
+		// updates a ResourceReleaseBinding, so the resource-dep watch is fed only by the
+		// independent ResourceReleaseBinding controller.
+		Watches(
+			&openchoreov1alpha1.ResourceReleaseBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.findConsumerReleaseBindingsForResourceReleaseBinding),
+			builder.WithPredicates(resourceReleaseBindingOutputsChangedPredicate()),
 		).
 		Named("releasebinding").
 		Complete(r)

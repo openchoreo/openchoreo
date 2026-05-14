@@ -43,11 +43,11 @@ func buildWorkflowRunSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"create", "workflow", "run"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "workflow_name"},
+			requiredParams:      []string{"namespace_name", "name"},
 			optionalParams:      []string{"parameters"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"workflow_name":  "build-workflow",
+				"name":           "build-workflow",
 			},
 			expectedMethod: "CreateWorkflowRun",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -170,10 +170,10 @@ func buildWorkflowSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"workflow", "schema"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "workflow_name"},
+			requiredParams:      []string{"namespace_name", "name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"workflow_name":  "build-workflow",
+				"name":           "build-workflow",
 			},
 			expectedMethod: "GetWorkflowSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -204,9 +204,9 @@ func buildClusterWorkflowSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"cluster", "workflow"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"cwf_name"},
+			requiredParams:      []string{"name"},
 			testArgs: map[string]any{
-				"cwf_name": "build-go",
+				"name": "build-go",
 			},
 			expectedMethod: "GetClusterWorkflow",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -220,9 +220,9 @@ func buildClusterWorkflowSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"cluster", "workflow", "schema"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"cwf_name"},
+			requiredParams:      []string{"name"},
 			testArgs: map[string]any{
-				"cwf_name": "build-go",
+				"name": "build-go",
 			},
 			expectedMethod: "GetClusterWorkflowSchema",
 			validateCall: func(t *testing.T, args []interface{}) {

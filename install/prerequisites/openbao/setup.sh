@@ -165,6 +165,7 @@ if [[ "$SEED_DEV_SECRETS" == "true" ]]; then
         bao kv put secret/opensearch-password value='ThisIsTheOpenSearchPassword1'
         bao kv put secret/observer-oauth-client-secret value='openchoreo-observer-resource-reader-client-secret'
         bao kv put secret/rca-oauth-client-secret value='openchoreo-rca-agent-secret'
+        bao kv put secret/finops-agent-oauth-client-secret value='openchoreo-finops-agent-secret'
     "
     echo "Development secrets seeded."
 fi

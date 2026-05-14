@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -49,7 +50,7 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	allErrs := validateClusterWorkflow(cwf)
 
 	if len(allErrs) > 0 {
-		return nil, allErrs.ToAggregate()
+		return nil, apierrors.NewInvalid(cwf.GroupVersionKind().GroupKind(), cwf.GetName(), allErrs)
 	}
 
 	return nil, nil
@@ -66,7 +67,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	allErrs := validateClusterWorkflow(newCwf)
 
 	if len(allErrs) > 0 {
-		return nil, allErrs.ToAggregate()
+		return nil, apierrors.NewInvalid(newCwf.GroupVersionKind().GroupKind(), newCwf.GetName(), allErrs)
 	}
 
 	return nil, nil

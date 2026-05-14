@@ -118,6 +118,23 @@ security:
 
 # @schema
 # type: object
+# description: Feature flags shared across the control plane (API server and Backstage).
+# @schema
+features:
+  # @schema
+  # type: object
+  # description: Secret management feature. Controls the Secret management API on the API server and the corresponding UI in Backstage.
+  # @schema
+  secretManagement:
+    # @schema
+    # type: boolean
+    # description: Enable the Secret management API and Backstage UI for managing data-plane secrets.
+    # default: false
+    # @schema
+    enabled: false
+
+# @schema
+# type: object
 # description: Controller Manager configuration - the main controller for OpenChoreo CRDs
 # @schema
 controllerManager:
@@ -704,6 +721,12 @@ controllerManager:
       # default: cluster-gateway-ca
       # @schema
       caSecret: cluster-gateway-ca
+      # @schema
+      # type: boolean
+      # description: Skip TLS verification of the cluster gateway. For development only.
+      # default: false
+      # @schema
+      insecure: false
 
 # @schema
 # type: string
@@ -835,6 +858,47 @@ openchoreoApi:
     # default: IfNotPresent
     # @schema
     pullPolicy: IfNotPresent
+
+  # @schema
+  # type: object
+  # description: Cluster gateway connection settings for agent-based plane communication
+  # @schema
+  clusterGateway:
+    # @schema
+    # type: boolean
+    # description: Enable cluster gateway client integration
+    # default: true
+    # @schema
+    enabled: true
+    # @schema
+    # type: string
+    # description: Cluster gateway service URL the API server connects to
+    # default: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+    # @schema
+    url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+    # @schema
+    # type: object
+    # description: TLS settings for the cluster gateway connection
+    # @schema
+    tls:
+      # @schema
+      # type: string
+      # description: Path inside the pod where the cluster gateway CA certificate is mounted
+      # default: /etc/cluster-gateway/ca.crt
+      # @schema
+      caPath: /etc/cluster-gateway/ca.crt
+      # @schema
+      # type: string
+      # description: Name of the secret holding the cluster gateway CA certificate
+      # default: cluster-gateway-ca
+      # @schema
+      caSecret: cluster-gateway-ca
+      # @schema
+      # type: boolean
+      # description: Skip TLS verification of the cluster gateway. For development only.
+      # default: false
+      # @schema
+      insecure: false
 
   # @schema
   # type: object
@@ -1054,6 +1118,10 @@ openchoreoApi:
               actions:
                 - "component:view"
                 - "componenttype:view"
+                - "resource:view"
+                - "resourcerelease:view"
+                - "resourcereleasebinding:view"
+                - "resourcetype:view"
                 - "namespace:view"
                 - "project:view"
                 - "dataplane:view"
@@ -1068,8 +1136,20 @@ openchoreoApi:
                 - "clusterobservabilityplane:view"
                 - "clusterdataplane:view"
                 - "clustercomponenttype:view"
+                - "clusterresourcetype:view"
                 - "clustertrait:view"
                 - "clusterworkflow:view"
+
+            # FinOps agent role for cost analysis and resource overprovisioning assessment
+            - name: finops-agent
+              system: true
+              actions:
+                - "component:view"
+                - "project:view"
+                - "namespace:view"
+                - "environment:view"
+                - "metrics:view"
+                - "alerts:view"
 
             # Root Cause Analysis (RCA) agent role for troubleshooting and debugging
             - name: rca-agent
@@ -1123,6 +1203,7 @@ openchoreoApi:
                 - "clusterworkflowplane:view"
                 - "clusterobservabilityplane:view"
                 - "clustercomponenttype:view"
+                - "clusterresourcetype:view"
                 - "clustertrait:view"
                 - "clusterworkflow:view"
 
@@ -1138,6 +1219,7 @@ openchoreoApi:
                 - "workflowplane:view"
                 - "observabilityplane:view"
                 - "componenttype:view"
+                - "resourcetype:view"
                 - "trait:view"
                 - "workflow:view"
                 - "secretreference:view"
@@ -1151,6 +1233,7 @@ openchoreoApi:
                 - "clusterworkflowplane:view"
                 - "clusterobservabilityplane:view"
                 - "clustercomponenttype:view"
+                - "clusterresourcetype:view"
                 - "clustertrait:view"
                 - "clusterworkflow:view"
                 - "namespace:view"
@@ -1160,6 +1243,7 @@ openchoreoApi:
                 - "workflowplane:view"
                 - "observabilityplane:view"
                 - "componenttype:view"
+                - "resourcetype:view"
                 - "trait:view"
                 - "workflow:view"
                 - "project:view"
@@ -1172,6 +1256,16 @@ openchoreoApi:
                 - "releasebinding:view"
                 - "releasebinding:create"
                 - "releasebinding:update"
+                - "resource:view"
+                - "resource:create"
+                - "resource:update"
+                - "resource:delete"
+                - "resourcerelease:view"
+                - "resourcerelease:create"
+                - "resourcereleasebinding:view"
+                - "resourcereleasebinding:create"
+                - "resourcereleasebinding:update"
+                - "resourcereleasebinding:delete"
                 - "workflowrun:view"
                 - "workflowrun:create"
                 - "workflowrun:delete"
@@ -1188,6 +1282,7 @@ openchoreoApi:
                 - "traces:view"
                 - "alerts:view"
                 - "rcareport:view"
+                - "finopsreport:view"
 
             # SRE role - operations engineers focused on reliability and incident response.
             # Assign namespace-reader and cluster-reader alongside this role so SREs
@@ -1198,6 +1293,7 @@ openchoreoApi:
                 - "clusterworkflowplane:view"
                 - "clusterobservabilityplane:view"
                 - "clustercomponenttype:view"
+                - "clusterresourcetype:view"
                 - "clustertrait:view"
                 - "clusterworkflow:view"
                 - "namespace:view"
@@ -1207,6 +1303,7 @@ openchoreoApi:
                 - "workflowplane:view"
                 - "observabilityplane:view"
                 - "componenttype:view"
+                - "resourcetype:view"
                 - "trait:view"
                 - "workflow:view"
                 - "project:view"
@@ -1216,6 +1313,9 @@ openchoreoApi:
                 - "releasebinding:view"
                 - "releasebinding:create"
                 - "releasebinding:update"
+                - "resource:view"
+                - "resourcerelease:view"
+                - "resourcereleasebinding:view"
                 - "workflowrun:view"
                 - "workflowrun:create"
                 - "workflowrun:delete"
@@ -1231,6 +1331,8 @@ openchoreoApi:
                 - "incidents:update"
                 - "rcareport:view"
                 - "rcareport:update"
+                - "finopsreport:view"
+                - "finopsreport:update"
 
             # Platform engineer role - engineers managing the OpenChoreo platform infrastructure
             - name: platform-engineer
@@ -1253,6 +1355,17 @@ openchoreoApi:
                 - "releasebinding:create"
                 - "releasebinding:update"
                 - "releasebinding:delete"
+                - "resource:view"
+                - "resource:create"
+                - "resource:update"
+                - "resource:delete"
+                - "resourcerelease:view"
+                - "resourcerelease:create"
+                - "resourcerelease:delete"
+                - "resourcereleasebinding:view"
+                - "resourcereleasebinding:create"
+                - "resourcereleasebinding:update"
+                - "resourcereleasebinding:delete"
                 - "environment:view"
                 - "environment:create"
                 - "environment:update"
@@ -1273,6 +1386,10 @@ openchoreoApi:
                 - "componenttype:create"
                 - "componenttype:update"
                 - "componenttype:delete"
+                - "resourcetype:view"
+                - "resourcetype:create"
+                - "resourcetype:update"
+                - "resourcetype:delete"
                 - "trait:view"
                 - "trait:create"
                 - "trait:update"
@@ -1303,6 +1420,8 @@ openchoreoApi:
                 - "incidents:view"
                 - "rcareport:view"
                 - "rcareport:update"
+                - "finopsreport:view"
+                - "finopsreport:update"
                 - "observabilityalertsnotificationchannel:view"
                 - "observabilityalertsnotificationchannel:create"
                 - "observabilityalertsnotificationchannel:update"
@@ -1323,6 +1442,10 @@ openchoreoApi:
                 - "clustercomponenttype:create"
                 - "clustercomponenttype:update"
                 - "clustercomponenttype:delete"
+                - "clusterresourcetype:view"
+                - "clusterresourcetype:create"
+                - "clusterresourcetype:update"
+                - "clusterresourcetype:delete"
                 - "clustertrait:view"
                 - "clustertrait:create"
                 - "clustertrait:update"
@@ -1459,6 +1582,19 @@ openchoreoApi:
               entitlement:
                 claim: sub
                 value: openchoreo-backstage-client
+              effect: allow
+
+            # FinOps agent mapping - grants FinOps service account cost analysis access
+            - name: finops-agent-binding
+              kind: ClusterAuthzRoleBinding
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: finops-agent
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: sub
+                value: openchoreo-finops-agent
               effect: allow
 
             # RCA agent mapping - grants RCA service account troubleshooting access

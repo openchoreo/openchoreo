@@ -46,6 +46,17 @@ func GetComponent(cmd *cobra.Command) string {
 	return val
 }
 
+// --- Resource ---
+
+func AddResource(cmd *cobra.Command) {
+	cmd.Flags().String("resource", "", "Name of the resource (e.g., analytics-db)")
+}
+
+func GetResource(cmd *cobra.Command) string {
+	val, _ := cmd.Flags().GetString("resource")
+	return val
+}
+
 // --- Environment ---
 
 func AddEnvironment(cmd *cobra.Command) {

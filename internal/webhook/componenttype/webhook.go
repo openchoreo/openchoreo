@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -49,7 +50,7 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	allErrs := validateComponentType(componenttype)
 
 	if len(allErrs) > 0 {
-		return nil, allErrs.ToAggregate()
+		return nil, apierrors.NewInvalid(componenttype.GroupVersionKind().GroupKind(), componenttype.GetName(), allErrs)
 	}
 
 	return nil, nil
@@ -73,7 +74,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	allErrs := validateComponentType(newComponentType)
 
 	if len(allErrs) > 0 {
-		return nil, allErrs.ToAggregate()
+		return nil, apierrors.NewInvalid(newComponentType.GroupVersionKind().GroupKind(), newComponentType.GetName(), allErrs)
 	}
 
 	return nil, nil

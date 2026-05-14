@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -24,8 +25,7 @@ func (h *Handler) ListObservabilityAlertsNotificationChannels(
 
 	result, err := h.services.ObservabilityAlertsNotificationChannelService.ListObservabilityAlertsNotificationChannels(ctx, request.NamespaceName, opts)
 	if err != nil {
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListObservabilityAlertsNotificationChannels400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list observability alerts notification channels", "error", err)
@@ -68,8 +68,10 @@ func (h *Handler) CreateObservabilityAlertsNotificationChannel(
 		if errors.Is(err, observabilityalertsnotificationchannelsvc.ErrObservabilityAlertsNotificationChannelAlreadyExists) {
 			return gen.CreateObservabilityAlertsNotificationChannel409JSONResponse{ConflictJSONResponse: conflict("Observability alerts notification channel already exists")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateObservabilityAlertsNotificationChannel422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateObservabilityAlertsNotificationChannel400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create observability alerts notification channel", "error", err)
@@ -141,8 +143,10 @@ func (h *Handler) UpdateObservabilityAlertsNotificationChannel(
 		if errors.Is(err, observabilityalertsnotificationchannelsvc.ErrObservabilityAlertsNotificationChannelNotFound) {
 			return gen.UpdateObservabilityAlertsNotificationChannel404JSONResponse{NotFoundJSONResponse: notFound("ObservabilityAlertsNotificationChannel")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateObservabilityAlertsNotificationChannel422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateObservabilityAlertsNotificationChannel400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update observability alerts notification channel", "error", err)

@@ -183,6 +183,7 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterDeleteClusterWorkflow,
 
 		// Diagnostics
+		t.RegisterGetResourceTree,
 		t.RegisterGetResourceEvents,
 		t.RegisterGetResourceLogs,
 	}

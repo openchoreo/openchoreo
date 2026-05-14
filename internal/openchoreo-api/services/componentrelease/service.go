@@ -132,8 +132,8 @@ func (s *componentReleaseService) CreateComponentRelease(ctx context.Context, na
 			s.logger.Warn("Component release already exists", "namespace", namespaceName, "componentRelease", cr.Name)
 			return nil, ErrComponentReleaseAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create component release CR", "error", err)
 		return nil, fmt.Errorf("failed to create component release: %w", err)

@@ -26,6 +26,9 @@ type ClusterGatewayTLSConfig struct {
 	ClientCertPath string `koanf:"client_cert_path"`
 	// ClientKeyPath is the path to the client private key file for mTLS authentication.
 	ClientKeyPath string `koanf:"client_key_path"`
+	// Insecure disables TLS verification for the cluster gateway connection.
+	// For local development only.
+	Insecure bool `koanf:"insecure"`
 }
 
 // ClusterGatewayDefaults returns the default cluster gateway configuration.

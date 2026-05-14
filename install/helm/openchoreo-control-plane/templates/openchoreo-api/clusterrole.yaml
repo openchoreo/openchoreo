@@ -21,6 +21,7 @@ rules:
   - clusterworkflowplanes
   - clustercomponenttypes
   - clusterdataplanes
+  - clusterresourcetypes
   - clustertraits
   - clusterobservabilityplanes
   - clustertraits
@@ -40,6 +41,10 @@ rules:
   - projects
   - releasebindings
   - renderedreleases
+  - resources
+  - resourcereleases
+  - resourcereleasebindings
+  - resourcetypes
   - scheduledtaskbindings
   - scheduledtaskclasses
   - scheduledtasks
@@ -103,6 +108,10 @@ rules:
   - projects/status
   - releasebindings/status
   - renderedreleases/status
+  - resources/status
+  - resourcereleases/status
+  - resourcereleasebindings/status
+  - resourcetypes/status
   - scheduledtaskbindings/status
   - scheduledtaskclasses/status
   - scheduledtasks/status

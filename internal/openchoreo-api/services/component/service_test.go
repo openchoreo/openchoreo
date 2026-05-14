@@ -9,14 +9,19 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -532,6 +537,36 @@ func TestGenerateRelease(t *testing.T) {
 
 		_, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
 		require.ErrorIs(t, err, ErrWorkloadNotFound)
+	})
+
+	t.Run("componentrelease webhook denial wraps as ValidationError with 422 status", func(t *testing.T) {
+		scheme := newScheme(t)
+		invalidErr := apierrors.NewInvalid(
+			schema.GroupKind{Group: "openchoreo.dev", Kind: "ComponentRelease"},
+			"bad-release",
+			field.ErrorList{field.Invalid(field.NewPath("spec", "workload", "container", "image"), "", "workload container must have an image")},
+		)
+		k8sClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(tier3SeedObjects()...).
+			WithInterceptorFuncs(interceptor.Funcs{
+				Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+					if _, ok := obj.(*openchoreov1alpha1.ComponentRelease); ok {
+						return invalidErr
+					}
+					return c.Create(ctx, obj, opts...)
+				},
+			}).
+			Build()
+		svc := NewService(k8sClient, testLogger())
+
+		_, err := svc.GenerateRelease(ctx, testNamespace, testComponentName, &GenerateReleaseRequest{ReleaseName: "v1"})
+		require.Error(t, err)
+		var vErr *services.ValidationError
+		require.True(t, errors.As(err, &vErr), "expected *services.ValidationError, got %T", err)
+		assert.Equal(t, http.StatusUnprocessableEntity, vErr.StatusCode)
+		assert.Contains(t, vErr.Msg, "spec.workload.container.image")
+		assert.Contains(t, vErr.Msg, "workload container must have an image")
 	})
 
 	t.Run("ClusterComponentType", func(t *testing.T) {

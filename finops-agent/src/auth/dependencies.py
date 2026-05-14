@@ -217,3 +217,7 @@ class ReportAuthorizationChecker(AuthorizationChecker):
 require_reports_authz = ReportAuthorizationChecker(
     action="finopsreport:view", resource_type="finopsreport"
 )
+
+require_reports_update_authz = ReportAuthorizationChecker(
+    action="finopsreport:update", resource_type="finopsreport"
+)

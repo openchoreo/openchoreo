@@ -19,7 +19,17 @@ func TestFormatAge(t *testing.T) {
 		{
 			name: "zero time",
 			t:    time.Time{},
-			want: "0m",
+			want: "0s",
+		},
+		{
+			name: "seconds ago",
+			t:    time.Now().Add(-12 * time.Second),
+			want: "12s",
+		},
+		{
+			name: "just created",
+			t:    time.Now().Add(-100 * time.Millisecond),
+			want: "0s",
 		},
 		{
 			name: "minutes ago",

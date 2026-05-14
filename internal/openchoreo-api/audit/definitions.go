@@ -63,6 +63,12 @@ func GetActionDefinitions() []audit.ActionDefinition {
 			Category: audit.CategoryResource,
 		},
 		{
+			Method:   "PUT",
+			Pattern:  "/api/v1alpha1/namespaces/{namespaceName}/secrets/{secretName}",
+			Action:   "update_secret",
+			Category: audit.CategoryResource,
+		},
+		{
 			Method:   "DELETE",
 			Pattern:  "/api/v1alpha1/namespaces/{namespaceName}/secrets/{secretName}",
 			Action:   "delete_secret",

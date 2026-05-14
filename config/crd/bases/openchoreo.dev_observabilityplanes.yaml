@@ -76,6 +76,10 @@ spec:
                 required:
                 - clientCA
                 type: object
+              finOpsAgentURL:
+                description: FinOpsAgentURL is the base URL of the FinOps Agent API
+                  in the observability plane cluster
+                type: string
               observerURL:
                 description: ObserverURL is the base URL of the Observer API in the
                   observability plane cluster

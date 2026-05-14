@@ -299,8 +299,8 @@ spec:
                       cpu: ${environmentConfigs.resources.limits.cpu}
                       memory: ${environmentConfigs.resources.limits.memory}
                   envFrom: ${configurations.toContainerEnvFrom()}
-                  volumeMounts: ${configurations.toContainerVolumeMounts()}
-              volumes: ${configurations.toVolumes()}
+                  volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
+              volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
 
     - id: service
       includeWhen: ${size(workload.endpoints) > 0}

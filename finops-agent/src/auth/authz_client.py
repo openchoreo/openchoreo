@@ -43,7 +43,7 @@ class AuthzClient:
         if auth_token:
             headers["Authorization"] = f"Bearer {auth_token}"
 
-        body = [request.model_dump(by_alias=True)]
+        body = [request.model_dump()]
 
         logger.debug("Authz request", extra={"url": url})
 

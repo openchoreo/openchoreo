@@ -88,7 +88,8 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	workloadData := context.ExtractWorkloadData(workload)
 	configurations := context.ExtractConfigurationsFromWorkload(input.SecretReferences, workload)
 	dependenciesData := context.ConnectionsData{
-		Items: input.DependencyItems,
+		Items:     input.DependencyItems,
+		Resources: input.ResourceDependencyItems,
 	}
 
 	// Build the trait context base once and reuse it for every trait built in this render.

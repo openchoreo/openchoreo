@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
@@ -38,8 +39,7 @@ func (h *Handler) ListComponents(
 		if errors.Is(err, projectsvc.ErrProjectNotFound) {
 			return gen.ListComponents404JSONResponse{NotFoundJSONResponse: notFound("Project")}, nil
 		}
-		var validationErr *svcerrors.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
 			return gen.ListComponents400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list components", "error", err)
@@ -88,8 +88,10 @@ func (h *Handler) CreateComponent(
 		if errors.Is(err, componentsvc.ErrComponentAlreadyExists) {
 			return gen.CreateComponent409JSONResponse{ConflictJSONResponse: conflict("Component already exists")}, nil
 		}
-		var validationErr *svcerrors.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateComponent422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateComponent400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create component", "error", err)
@@ -239,8 +241,10 @@ func (h *Handler) UpdateComponent(
 		if errors.Is(err, componentsvc.ErrComponentNotFound) {
 			return gen.UpdateComponent404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
 		}
-		var validationErr *svcerrors.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateComponent422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateComponent400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update component", "error", err)
@@ -349,6 +353,12 @@ func (h *Handler) GenerateRelease(
 		}
 		if errors.Is(err, componentsvc.ErrTraitNotFound) {
 			return gen.GenerateRelease404JSONResponse{NotFoundJSONResponse: notFound("Trait")}, nil
+		}
+		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.GenerateRelease422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
+			return gen.GenerateRelease400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to generate release", "error", err)
 		return gen.GenerateRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

@@ -52,7 +52,9 @@ func testGatewayServer(t *testing.T, handler http.HandlerFunc) *gateway.Client {
 	t.Helper()
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
-	return gateway.NewClient(server.URL)
+	c, err := gateway.NewClientWithConfig(&gateway.Config{BaseURL: server.URL})
+	require.NoError(t, err)
+	return c
 }
 
 // testRESTMapper creates a REST mapper with standard K8s type mappings.
@@ -199,7 +201,8 @@ func jsonMarshal(t *testing.T, v any) []byte {
 
 func TestNewService(t *testing.T) {
 	fc := newFakeClient()
-	gc := gateway.NewClient("http://localhost")
+	gc, err := gateway.NewClientWithConfig(&gateway.Config{BaseURL: "http://localhost"})
+	require.NoError(t, err)
 	svc := NewService(fc, gc, testLogger())
 	require.NotNil(t, svc)
 }
@@ -963,7 +966,8 @@ func TestBuildResourceTreeNodes(t *testing.T) {
 
 func TestNewServiceWithAuthz(t *testing.T) {
 	fc := newFakeClient()
-	gc := gateway.NewClient("http://localhost")
+	gc, err := gateway.NewClientWithConfig(&gateway.Config{BaseURL: "http://localhost"})
+	require.NoError(t, err)
 	pdp := authzmocks.NewMockPDP(t)
 	svc := NewServiceWithAuthz(fc, gc, pdp, testLogger())
 	require.NotNil(t, svc)

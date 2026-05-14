@@ -224,18 +224,18 @@ func buildConnectionItems(
 func buildEnvVarsForConnection(
 	conn openchoreov1alpha1.WorkloadConnection,
 	rc openchoreov1alpha1.ResolvedConnection,
-) []pipelinecontext.ConnectionEnvVar {
-	envVars := make([]pipelinecontext.ConnectionEnvVar, 0, 4)
+) []pipelinecontext.EnvVarEntry {
+	envVars := make([]pipelinecontext.EnvVarEntry, 0, 4)
 
 	if conn.EnvBindings.Address != "" {
-		envVars = append(envVars, pipelinecontext.ConnectionEnvVar{
+		envVars = append(envVars, pipelinecontext.EnvVarEntry{
 			Name:  conn.EnvBindings.Address,
 			Value: formatEndpointAddress(rc.URL),
 		})
 	}
 
 	if conn.EnvBindings.Host != "" {
-		envVars = append(envVars, pipelinecontext.ConnectionEnvVar{
+		envVars = append(envVars, pipelinecontext.EnvVarEntry{
 			Name:  conn.EnvBindings.Host,
 			Value: rc.URL.Host,
 		})
@@ -246,14 +246,14 @@ func buildEnvVarsForConnection(
 		if rc.URL.Port != 0 {
 			portStr = strconv.Itoa(int(rc.URL.Port))
 		}
-		envVars = append(envVars, pipelinecontext.ConnectionEnvVar{
+		envVars = append(envVars, pipelinecontext.EnvVarEntry{
 			Name:  conn.EnvBindings.Port,
 			Value: portStr,
 		})
 	}
 
 	if conn.EnvBindings.BasePath != "" {
-		envVars = append(envVars, pipelinecontext.ConnectionEnvVar{
+		envVars = append(envVars, pipelinecontext.EnvVarEntry{
 			Name:  conn.EnvBindings.BasePath,
 			Value: rc.URL.Path,
 		})

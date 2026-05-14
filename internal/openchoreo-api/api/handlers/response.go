@@ -35,9 +35,24 @@ func conflict(message string) gen.ConflictJSONResponse {
 	}
 }
 
+func unprocessableContent(message string) gen.UnprocessableContentJSONResponse {
+	return gen.UnprocessableContentJSONResponse{
+		Code:  gen.UNPROCESSABLECONTENT,
+		Error: message,
+	}
+}
+
 func internalError() gen.InternalErrorJSONResponse {
 	return gen.InternalErrorJSONResponse{
 		Code:  gen.INTERNALERROR,
 		Error: "Internal server error",
+	}
+}
+
+//nolint:unparam // shared helper; message is supplied by callers
+func notImplemented(message string) gen.NotImplementedJSONResponse {
+	return gen.NotImplementedJSONResponse{
+		Code:  gen.NOTIMPLEMENTED,
+		Error: message,
 	}
 }

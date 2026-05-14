@@ -28,6 +28,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -315,12 +316,23 @@ func buildBaseContext(input *RenderInput) (map[string]any, error) {
 		return nil, fmt.Errorf("resolve environmentConfigs: %w", err)
 	}
 
-	return map[string]any{
-		"metadata":           metadataContextToMap(input.Metadata),
-		"parameters":         parameters,
-		"environmentConfigs": envConfigs,
-		"dataplane":          dataPlaneContextToMap(input.DataPlane),
-	}, nil
+	// Coerce nil Labels/Annotations to empty maps so the JSON round-trip
+	// in structToMap emits {} instead of null, keeping CEL map indexing
+	// (${metadata.labels["k"]}) safe even when callers leave them unset.
+	md := input.Metadata
+	if md.Labels == nil {
+		md.Labels = map[string]string{}
+	}
+	if md.Annotations == nil {
+		md.Annotations = map[string]string{}
+	}
+
+	return structToMap(BaseContext{
+		Metadata:           md,
+		Parameters:         parameters,
+		EnvironmentConfigs: envConfigs,
+		DataPlane:          input.DataPlane,
+	})
 }
 
 // bindingEnvironmentConfigs returns the raw environmentConfigs RawExtension
@@ -367,10 +379,8 @@ func unmarshalRaw(raw *runtime.RawExtension) (map[string]any, error) {
 // evaluation share this layering: every entry in observed shows up under
 // applied[id].status.* for CEL.
 func withApplied(base map[string]any, observed map[string]map[string]any) map[string]any {
-	ctx := make(map[string]any, len(base)+1)
-	for k, v := range base {
-		ctx[k] = v
-	}
+	ctx := make(map[string]any, len(base))
+	maps.Copy(ctx, base)
 	applied := make(map[string]any, len(observed))
 	for id, status := range observed {
 		applied[id] = map[string]any{"status": status}
@@ -397,52 +407,19 @@ func applySchemaDefaults(target map[string]any, section *v1alpha1.SchemaSection)
 	return schema.ApplyDefaults(target, structural), nil
 }
 
-// dataPlaneContextToMap exposes DataPlaneContext fields under their CEL-facing
-// keys. ObservabilityPlaneRef is exposed as an empty {kind, name} map when
-// nil so PE templates referencing ${dataplane.observabilityPlaneRef.name}
-// against a DataPlane without one get an empty string rather than a CEL
-// evaluation error.
-func dataPlaneContextToMap(d DataPlaneContext) map[string]any {
-	obsRef := map[string]any{
-		"kind": "",
-		"name": "",
+// structToMap converts typed Go structs to map[string]any for CEL evaluation
+// via JSON round-trip. CEL expressions access maps and primitives, not
+// arbitrary Go structs, so this round-trip is the conversion mechanism.
+// Field names come from the json tags on the source type. Mirrors
+// internal/pipeline/component/context.structToMap.
+func structToMap(v any) (map[string]any, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
 	}
-	if d.ObservabilityPlaneRef != nil {
-		obsRef["kind"] = d.ObservabilityPlaneRef.Kind
-		obsRef["name"] = d.ObservabilityPlaneRef.Name
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
 	}
-	return map[string]any{
-		"secretStore":           d.SecretStore,
-		"observabilityPlaneRef": obsRef,
-	}
-}
-
-// metadataContextToMap exposes MetadataContext fields under their CEL-facing
-// keys. componentName / componentUID are deliberately absent (reserved for
-// component-bound resources, not currently supported); a CEL reference to
-// ${metadata.componentName} surfaces as an evaluation error.
-func metadataContextToMap(m MetadataContext) map[string]any {
-	labels := m.Labels
-	if labels == nil {
-		labels = map[string]string{}
-	}
-	annotations := m.Annotations
-	if annotations == nil {
-		annotations = map[string]string{}
-	}
-	return map[string]any{
-		"name":              m.Name,
-		"namespace":         m.Namespace,
-		"resourceNamespace": m.ResourceNamespace,
-		"resourceName":      m.ResourceName,
-		"resourceUID":       m.ResourceUID,
-		"projectName":       m.ProjectName,
-		"projectUID":        m.ProjectUID,
-		"environmentName":   m.EnvironmentName,
-		"environmentUID":    m.EnvironmentUID,
-		"dataPlaneName":     m.DataPlaneName,
-		"dataPlaneUID":      m.DataPlaneUID,
-		"labels":            labels,
-		"annotations":       annotations,
-	}
+	return result, nil
 }

@@ -211,11 +211,15 @@ func TestRenderManifests(t *testing.T) {
 			require.Equal(t, "primary-obs", got.Entries[0].Object["nameRef"])
 		})
 
-		t.Run("absent_yields_empty_string", func(t *testing.T) {
+		t.Run("absent_guarded_by_has", func(t *testing.T) {
+			// observabilityPlaneRef is omitempty: when nil it's omitted from the
+			// CEL surface entirely. Templates must guard with has(...) — mirrors
+			// the component pipeline's contract for dataplane.gateway and
+			// dataplane.secretStore.
 			input := renderSingle(t, rawExt(t, map[string]any{
 				"apiVersion": "v1",
 				"kind":       "Probe",
-				"value":      "${dataplane.observabilityPlaneRef.name}",
+				"value":      `${has(dataplane.observabilityPlaneRef) ? dataplane.observabilityPlaneRef.name : ""}`,
 			}))
 
 			got, err := NewPipeline().RenderManifests(input)
@@ -530,6 +534,30 @@ func TestRenderManifests(t *testing.T) {
 				require.Equal(t, tc.want, got.Entries[0].Object["value"])
 			})
 		}
+	})
+
+	t.Run("nil_labels_and_annotations_coerce_to_empty_maps", func(t *testing.T) {
+		// Templates index metadata.labels[] and metadata.annotations[] directly.
+		// A nil map would marshal to JSON null and break CEL indexing, so the
+		// pipeline must coerce nil to {} before structToMap. Locks the
+		// contract against future refactors.
+		input := renderSingle(t,
+			rawExt(t, map[string]any{
+				"apiVersion": "v1",
+				"kind":       "Probe",
+				"labelsKey":  `${has(metadata.labels) ? "yes" : "no"}`,
+				"annotKey":   `${has(metadata.annotations) ? "yes" : "no"}`,
+			}),
+			func(in *RenderInput) {
+				in.Metadata.Labels = nil
+				in.Metadata.Annotations = nil
+			},
+		)
+
+		got, err := NewPipeline().RenderManifests(input)
+		require.NoError(t, err)
+		require.Equal(t, "yes", got.Entries[0].Object["labelsKey"])
+		require.Equal(t, "yes", got.Entries[0].Object["annotKey"])
 	})
 }
 

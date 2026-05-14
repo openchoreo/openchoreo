@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"testing"
 	"time"
 
@@ -443,6 +444,18 @@ func TestCreateWorkflowHandler(t *testing.T) {
 		assert.IsType(t, gen.CreateWorkflow400JSONResponse{}, resp)
 	})
 
+	t.Run("validation 422 returns 422", func(t *testing.T) {
+		svc := workflowmocks.NewMockService(t)
+		svc.EXPECT().CreateWorkflow(mock.Anything, ns, mock.Anything).Return(nil, &svcpkg.ValidationError{Msg: "invalid spec", StatusCode: http.StatusUnprocessableEntity})
+		h := &Handler{
+			services: &handlerservices.Services{WorkflowService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		resp, err := h.CreateWorkflow(ctx, gen.CreateWorkflowRequestObject{NamespaceName: ns, Body: validBody})
+		require.NoError(t, err)
+		assert.IsType(t, gen.CreateWorkflow422JSONResponse{}, resp)
+	})
+
 	t.Run("internal error returns 500", func(t *testing.T) {
 		svc := workflowmocks.NewMockService(t)
 		svc.EXPECT().CreateWorkflow(mock.Anything, ns, mock.Anything).Return(nil, errors.New("internal server error"))
@@ -479,6 +492,7 @@ func TestUpdateWorkflowHandler_MapsErrors(t *testing.T) {
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateWorkflow403JSONResponse{}},
 		{"not found -> 404", workflowsvc.ErrWorkflowNotFound, gen.UpdateWorkflow404JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "invalid request"}, gen.UpdateWorkflow400JSONResponse{}},
+		{"validation 422 -> 422", &svcpkg.ValidationError{Msg: "invalid request", StatusCode: http.StatusUnprocessableEntity}, gen.UpdateWorkflow422JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.UpdateWorkflow500JSONResponse{}},
 	}
 	for _, tt := range tests {
@@ -653,6 +667,7 @@ func TestCreateWorkflowRunHandler(t *testing.T) {
 		{"workflow not found -> 404", workflowrunsvc.ErrWorkflowNotFound, gen.CreateWorkflowRun404JSONResponse{}},
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.CreateWorkflowRun403JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.CreateWorkflowRun400JSONResponse{}},
+		{"validation 422 -> 422", &svcpkg.ValidationError{Msg: "bad request", StatusCode: http.StatusUnprocessableEntity}, gen.CreateWorkflowRun422JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.CreateWorkflowRun500JSONResponse{}},
 	}
 	for _, tt := range tests {
@@ -740,6 +755,7 @@ func TestUpdateWorkflowRunHandler_MapsErrors(t *testing.T) {
 		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateWorkflowRun403JSONResponse{}},
 		{"not found -> 404", workflowrunsvc.ErrWorkflowRunNotFound, gen.UpdateWorkflowRun404JSONResponse{}},
 		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.UpdateWorkflowRun400JSONResponse{}},
+		{"validation 422 -> 422", &svcpkg.ValidationError{Msg: "bad request", StatusCode: http.StatusUnprocessableEntity}, gen.UpdateWorkflowRun422JSONResponse{}},
 		{"internal -> 500", errors.New("internal server error"), gen.UpdateWorkflowRun500JSONResponse{}},
 	}
 	for _, tt := range tests {

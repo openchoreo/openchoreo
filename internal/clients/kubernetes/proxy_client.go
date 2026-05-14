@@ -765,20 +765,26 @@ func getGVK(obj runtime.Object, scheme *runtime.Scheme) (schema.GroupVersionKind
 // ProxyTLSConfig is defined in client.go to avoid import cycles
 // We reference it here for type safety
 
-// buildProxyTLSConfig builds a TLS config for the HTTP proxy client
+// buildProxyTLSConfig builds a TLS config for the HTTP proxy client.
+// TLS verification is enabled by default against the system root CA pool.
+// To pin a CA, set CACertPath. To skip verification (development only), set
+// Insecure=true explicitly — silent fallback to InsecureSkipVerify is not
+// supported.
 func buildProxyTLSConfig(tlsConfig *ProxyTLSConfig) (*tls.Config, error) {
 	cfg := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 	}
 
-	// If no TLS config provided, fall back to insecure mode
+	// No config → use default verification with the system root pool.
 	if tlsConfig == nil {
-		cfg.InsecureSkipVerify = true
 		return cfg, nil
 	}
 
-	// Load CA certificate for server verification
-	if tlsConfig.CACertPath != "" {
+	if tlsConfig.Insecure {
+		// #nosec G402 -- Insecure mode is gated on explicit caller opt-in for development.
+		cfg.InsecureSkipVerify = true
+	} else if tlsConfig.CACertPath != "" {
+		// Load CA certificate for server verification.
 		caCert, err := os.ReadFile(tlsConfig.CACertPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read CA certificate: %w", err)
@@ -789,13 +795,13 @@ func buildProxyTLSConfig(tlsConfig *ProxyTLSConfig) (*tls.Config, error) {
 			return nil, fmt.Errorf("failed to parse CA certificate")
 		}
 		cfg.RootCAs = caCertPool
-	} else {
-		// If no CA cert provided, use insecure mode
-		cfg.InsecureSkipVerify = true
 	}
 
 	// Load client certificate and key for mTLS authentication
-	if tlsConfig.ClientCertPath != "" && tlsConfig.ClientKeyPath != "" {
+	if tlsConfig.ClientCertPath != "" || tlsConfig.ClientKeyPath != "" {
+		if tlsConfig.ClientCertPath == "" || tlsConfig.ClientKeyPath == "" {
+			return nil, fmt.Errorf("both ClientCertPath and ClientKeyPath must be set for mTLS")
+		}
 		clientCert, err := tls.LoadX509KeyPair(tlsConfig.ClientCertPath, tlsConfig.ClientKeyPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load client certificate and key: %w", err)

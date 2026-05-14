@@ -347,52 +347,81 @@ type RemoteRefData struct {
 	Version  string `json:"version,omitempty"`
 }
 
-// ConnectionEnvVar is a pre-computed env var name/value pair for a resolved connection.
-type ConnectionEnvVar struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
 // ConnectionItem represents a single connection with its target metadata and resolved env vars.
 type ConnectionItem struct {
-	Namespace  string             `json:"namespace"`
-	Project    string             `json:"project"`
-	Component  string             `json:"component"`
-	Endpoint   string             `json:"endpoint"`
-	Visibility string             `json:"visibility"`
-	EnvVars    []ConnectionEnvVar `json:"envVars"`
+	Namespace  string        `json:"namespace"`
+	Project    string        `json:"project"`
+	Component  string        `json:"component"`
+	Endpoint   string        `json:"endpoint"`
+	Visibility string        `json:"visibility"`
+	EnvVars    []EnvVarEntry `json:"envVars"`
 }
 
-// ConnectionsData contains the list of connections with their metadata and per-item env vars.
-// This is the input type used in RenderInput and context inputs.
+// ConnectionsData contains the per-item dependency views (endpoint connections and resource
+// dependencies) that the controller resolves before invoking the pipeline. This is the input
+// type used in RenderInput and context inputs.
 type ConnectionsData struct {
-	Items []ConnectionItem `json:"items"`
+	Items     []ConnectionItem         `json:"items"`
+	Resources []ResourceDependencyItem `json:"resources"`
 }
 
-// ConnectionsContextData is the template context representation of connections.
-// It contains both the per-item details and a merged flat list of all env vars.
-// Accessed via ${connections.items} and ${connections.envVars}.
+// ConnectionsContextData is the template context representation of dependencies. It exposes
+// per-item views (Items, Resources) plus merged flat lists (EnvVars, VolumeMounts, Volumes)
+// for templates that want a single combined surface.
+//
+//	${dependencies.items}        — endpoint per-item view
+//	${dependencies.resources}    — resource per-item view
+//	${dependencies.envVars}      — merged across endpoints + resources
+//	${dependencies.volumeMounts} — merged across resources
+//	${dependencies.volumes}      — merged across resources
 type ConnectionsContextData struct {
-	Items   []ConnectionItem   `json:"items"`
-	EnvVars []ConnectionEnvVar `json:"envVars"`
+	Items        []ConnectionItem         `json:"items"`
+	Resources    []ResourceDependencyItem `json:"resources"`
+	EnvVars      []EnvVarEntry            `json:"envVars"`
+	VolumeMounts []VolumeMountEntry       `json:"volumeMounts"`
+	Volumes      []VolumeEntry            `json:"volumes"`
 }
 
 // newDependenciesContextData creates a ConnectionsContextData from ConnectionsData,
-// merging all per-item env vars into the top-level EnvVars field.
+// merging all per-item env vars, volume mounts, and volumes into the top-level merged fields.
 // Ensures no nil slices so CEL templates always see empty lists instead of null.
 func newDependenciesContextData(data ConnectionsData) ConnectionsContextData {
 	items := make([]ConnectionItem, len(data.Items))
-	merged := make([]ConnectionEnvVar, 0, len(data.Items))
+	resources := make([]ResourceDependencyItem, len(data.Resources))
+	mergedEnvVars := make([]EnvVarEntry, 0, len(data.Items)+len(data.Resources))
+	mergedVolumeMounts := make([]VolumeMountEntry, 0, len(data.Resources))
+	mergedVolumes := make([]VolumeEntry, 0, len(data.Resources))
+
 	for i, item := range data.Items {
 		if item.EnvVars == nil {
-			item.EnvVars = []ConnectionEnvVar{}
+			item.EnvVars = []EnvVarEntry{}
 		}
 		items[i] = item
-		merged = append(merged, item.EnvVars...)
+		mergedEnvVars = append(mergedEnvVars, item.EnvVars...)
 	}
+
+	for i, item := range data.Resources {
+		if item.EnvVars == nil {
+			item.EnvVars = []EnvVarEntry{}
+		}
+		if item.VolumeMounts == nil {
+			item.VolumeMounts = []VolumeMountEntry{}
+		}
+		if item.Volumes == nil {
+			item.Volumes = []VolumeEntry{}
+		}
+		resources[i] = item
+		mergedEnvVars = append(mergedEnvVars, item.EnvVars...)
+		mergedVolumeMounts = append(mergedVolumeMounts, item.VolumeMounts...)
+		mergedVolumes = append(mergedVolumes, item.Volumes...)
+	}
+
 	return ConnectionsContextData{
-		Items:   items,
-		EnvVars: merged,
+		Items:        items,
+		Resources:    resources,
+		EnvVars:      mergedEnvVars,
+		VolumeMounts: mergedVolumeMounts,
+		Volumes:      mergedVolumes,
 	}
 }
 

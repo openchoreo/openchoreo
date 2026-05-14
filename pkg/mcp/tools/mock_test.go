@@ -159,9 +159,9 @@ func (m *MockCoreToolsetHandler) GetComponent(
 }
 
 func (m *MockCoreToolsetHandler) ListWorkloads(
-	ctx context.Context, namespaceName, componentName string,
+	ctx context.Context, namespaceName, componentName string, opts ListOpts,
 ) (any, error) {
-	m.recordCall("ListWorkloads", namespaceName, componentName)
+	m.recordCall("ListWorkloads", namespaceName, componentName, opts)
 	return `[{"name":"workload1"}]`, nil
 }
 
@@ -676,6 +676,13 @@ func (m *MockCoreToolsetHandler) DeleteClusterWorkflow(
 }
 
 // Diagnostics methods
+
+func (m *MockCoreToolsetHandler) GetResourceTree(
+	ctx context.Context, namespaceName, releaseBindingName string,
+) (any, error) {
+	m.recordCall("GetResourceTree", namespaceName, releaseBindingName)
+	return `{"rendered_releases":[]}`, nil
+}
 
 func (m *MockCoreToolsetHandler) GetResourceEvents(
 	ctx context.Context, namespaceName, releaseBindingName, group, version, kind, name string,

@@ -197,8 +197,8 @@ spec:
                       memory: ${environmentConfigs.resources.limits.memory}
                   env: ${dependencies.toContainerEnvs()}
                   envFrom: ${configurations.toContainerEnvFrom()}
-                  volumeMounts: ${configurations.toContainerVolumeMounts()}
-              volumes: ${configurations.toVolumes()}
+                  volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
+              volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
 
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
@@ -381,8 +381,8 @@ spec:
                       memory: ${environmentConfigs.resources.limits.memory}
                   env: ${dependencies.toContainerEnvs()}
                   envFrom: ${configurations.toContainerEnvFrom()}
-                  volumeMounts: ${configurations.toContainerVolumeMounts()}
-              volumes: ${configurations.toVolumes()}
+                  volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
+              volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
 
     - id: service
       includeWhen: ${size(workload.endpoints) > 0}
@@ -630,8 +630,8 @@ spec:
                       memory: ${environmentConfigs.resources.limits.memory}
                   env: ${dependencies.toContainerEnvs()}
                   envFrom: ${configurations.toContainerEnvFrom()}
-                  volumeMounts: ${configurations.toContainerVolumeMounts()}
-              volumes: ${configurations.toVolumes()}
+                  volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
+              volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
 
     - id: service
       includeWhen: ${size(workload.endpoints) > 0}
@@ -890,8 +890,8 @@ spec:
                           memory: ${environmentConfigs.resources.limits.memory}
                       env: ${dependencies.toContainerEnvs()}
                       envFrom: ${configurations.toContainerEnvFrom()}
-                      volumeMounts: ${configurations.toContainerVolumeMounts()}
-                  volumes: ${configurations.toVolumes()}
+                      volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
+                  volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
 
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}

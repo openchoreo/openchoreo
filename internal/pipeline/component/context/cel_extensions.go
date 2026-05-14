@@ -72,23 +72,41 @@ var toContainerEnvFromMacro = cel.ReceiverMacro("toContainerEnvFrom", 0,
 		return nil, nil
 	})
 
-// toContainerVolumeMountsMacro transforms configurations.toContainerVolumeMounts() into
-// configurationsToContainerVolumeMounts(configurations) at compile time.
+// toContainerVolumeMountsMacro transforms either:
+//   - configurations.toContainerVolumeMounts() into configurationsToContainerVolumeMounts(configurations)
+//   - dependencies.toContainerVolumeMounts() into dependencies.volumeMounts (field select)
+//
+// at compile time. The receiver guard disambiguates which rewrite applies.
 var toContainerVolumeMountsMacro = cel.ReceiverMacro("toContainerVolumeMounts", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
-		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
+		if target.Kind() != ast.IdentKind {
+			return nil, nil
+		}
+		switch target.AsIdent() {
+		case configurationsIdentifier:
 			return eh.NewCall("configurationsToContainerVolumeMounts", target), nil
+		case dependenciesIdentifier:
+			return eh.NewSelect(target, "volumeMounts"), nil
 		}
 		return nil, nil
 	})
 
-// toVolumesMacro transforms configurations.toVolumes() into
-// configurationsToVolumes(configurations, prefix) at compile time.
+// toVolumesMacro transforms either:
+//   - configurations.toVolumes() into configurationsToVolumes(configurations, prefix)
+//   - dependencies.toVolumes() into dependencies.volumes (field select)
+//
+// at compile time. The receiver guard disambiguates which rewrite applies.
 var toVolumesMacro = cel.ReceiverMacro("toVolumes", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
-		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
+		if target.Kind() != ast.IdentKind {
+			return nil, nil
+		}
+		switch target.AsIdent() {
+		case configurationsIdentifier:
 			prefixExpr := buildPrefixExpr(eh)
 			return eh.NewCall("configurationsToVolumes", target, prefixExpr), nil
+		case dependenciesIdentifier:
+			return eh.NewSelect(target, "volumes"), nil
 		}
 		return nil, nil
 	})

@@ -117,6 +117,8 @@ spec:
           value: {{ .Values.security.authz.enabled | quote }}
         - name: OPENCHOREO_FEATURES_AUTH_REDIRECT_FLOW_ENABLED
           value: {{ .Values.backstage.features.auth.redirectFlow.enabled | quote }}
+        - name: OPENCHOREO_FEATURES_SECRET_MANAGEMENT_ENABLED
+          value: {{ .Values.features.secretManagement.enabled | quote }}
         # Catalog sync — periodic full sync acts as a safety net behind
         # the event-forwarder's real-time event-driven path. When the
         # event-forwarder is disabled, this becomes the sole sync

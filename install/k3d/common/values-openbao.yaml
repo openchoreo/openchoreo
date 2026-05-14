@@ -54,6 +54,8 @@ server:
       bao kv put secret/observer-oauth-client-secret value="openchoreo-observer-resource-reader-client-secret"
       # RCA Agent (observability)
       bao kv put secret/rca-oauth-client-secret value="openchoreo-rca-agent-secret"
+      # FinOps Agent (observability)
+      bao kv put secret/finops-agent-oauth-client-secret value="openchoreo-finops-agent-secret"
       # OpenSearch (observability)
       bao kv put secret/opensearch-username value="admin"
       bao kv put secret/opensearch-password value="ThisIsTheOpenSearchPassword1"

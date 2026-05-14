@@ -15,7 +15,7 @@ OPENCHOREO_REF="${OPENCHOREO_REF:-main}"           # overridable via env; defaul
 OPENCHOREO_OP_VERSION="${OPENCHOREO_OP_VERSION:-0.0.0-latest-dev}"  # overridable via env
 LOGS_OPENSEARCH_VERSION="0.4.0"
 TRACES_OPENSEARCH_VERSION="0.4.1"
-METRICS_PROMETHEUS_VERSION="0.4.2"
+METRICS_PROMETHEUS_VERSION="0.5.1"
 
 # -- derived constants --
 RAW_BASE="https://raw.githubusercontent.com/openchoreo/openchoreo/${OPENCHOREO_REF}"

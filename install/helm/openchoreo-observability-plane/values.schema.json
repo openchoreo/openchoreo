@@ -949,20 +949,11 @@
           "title": "image",
           "type": "object"
         },
-        "llm": {
-          "additionalProperties": false,
-          "description": "LLM configuration for AI-powered cost analysis",
-          "properties": {
-            "modelName": {
-              "default": "",
-              "description": "LLM model name (e.g., gpt-5.2)",
-              "title": "modelName",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "llm",
-          "type": "object"
+        "llmName": {
+          "default": "",
+          "description": "LLM model name (e.g., gpt-5.2)",
+          "title": "llmName",
+          "type": "string"
         },
         "logLevel": {
           "default": "INFO",
@@ -1005,7 +996,7 @@
           "type": "string"
         },
         "openchoreoApiUrl": {
-          "default": "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080",
+          "default": "http://api.openchoreo.localhost:8080",
           "description": "OpenChoreo API URL for authorization service",
           "title": "openchoreoApiUrl",
           "type": "string"
@@ -1015,6 +1006,12 @@
           "description": "OpenCost MCP Server URL",
           "title": "opencostMcpServerUrl",
           "type": "string"
+        },
+        "remediationEnabled": {
+          "default": false,
+          "description": "Enable remediation capability (synthesizes a ResourceChange action from overprovisioning recommendations)",
+          "title": "remediationEnabled",
+          "type": "boolean"
         },
         "replicas": {
           "default": 1,
@@ -1085,8 +1082,8 @@
           "type": "object"
         },
         "secretName": {
-          "default": "finops-agent-secret",
-          "description": "Name of an existing Secret injected via envFrom into the FinOps agent container. Required keys - FINOPS_LLM_API_KEY, OAUTH_CLIENT_SECRET. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).",
+          "default": "finops-agent",
+          "description": "Name of an existing Secret injected via envFrom into the FinOps agent container. Required keys - LLM_API_KEY, OAUTH_CLIENT_SECRET. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).",
           "title": "secretName",
           "type": "string"
         },

@@ -73,8 +73,8 @@ func (s *projectService) CreateProject(ctx context.Context, namespaceName string
 			s.logger.Warn("Project already exists", "namespace", namespaceName, "project", project.Name)
 			return nil, ErrProjectAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create project CR", "error", err)
 		return nil, fmt.Errorf("failed to create project: %w", err)
@@ -111,8 +111,8 @@ func (s *projectService) UpdateProject(ctx context.Context, namespaceName string
 	existing.Annotations = project.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update project CR", "error", err)
 		return nil, fmt.Errorf("failed to update project: %w", err)

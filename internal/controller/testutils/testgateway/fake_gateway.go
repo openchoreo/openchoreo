@@ -39,5 +39,10 @@ func StartFakeGateway(notifyCode int, statusResp *gw.PlaneConnectionStatus) (*gw
 		}
 		_ = json.NewEncoder(w).Encode(statusResp)
 	}))
-	return gw.NewClient(srv.URL), &n, srv.Close
+	c, err := gw.NewClientWithConfig(&gw.Config{BaseURL: srv.URL})
+	if err != nil {
+		srv.Close()
+		panic("StartFakeGateway: failed to build gateway client: " + err.Error())
+	}
+	return c, &n, srv.Close
 }

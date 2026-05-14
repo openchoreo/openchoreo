@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -142,6 +143,7 @@ var _ = Describe("ComponentType Webhook", func() {
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
+			Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected NewInvalid wrap so kube returns 422")
 		})
 
 		It("should reject invalid JSON in spec.parameters.openAPIV3Schema", func() {

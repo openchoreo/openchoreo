@@ -75,8 +75,8 @@ func (s *releaseBindingService) CreateReleaseBinding(ctx context.Context, namesp
 			s.logger.Warn("Release binding already exists", "namespace", namespaceName, "releaseBinding", rb.Name)
 			return nil, ErrReleaseBindingAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create release binding CR", "error", err)
 		return nil, fmt.Errorf("failed to create release binding: %w", err)
@@ -120,9 +120,9 @@ func (s *releaseBindingService) UpdateReleaseBinding(ctx context.Context, namesp
 	existing.Labels[labels.LabelKeyComponentName] = existing.Spec.Owner.ComponentName
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
+		if vErr := services.ExtractValidationError(err); vErr != nil {
 			s.logger.Error("Release binding update rejected by validation", "error", err)
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update release binding CR", "error", err)
 		return nil, fmt.Errorf("failed to update release binding: %w", err)

@@ -43,11 +43,39 @@ type NameRef struct {
 	Name string `json:"name"`
 }
 
+// EnvVarEntry mirrors corev1.EnvVar for the subset of shapes the platform emits when
+// merging endpoint connection env vars and resource dependency env vars into
+// ${dependencies.envVars}. JSON-compatible with corev1.EnvVar so the rendered Pod spec is
+// unchanged. Kept local (instead of importing corev1) so the validation env's CEL element
+// type matches across configurations.* and dependencies.* helpers, enabling concat with
+// the `+` operator without a type-check error.
+type EnvVarEntry struct {
+	Name      string             `json:"name"`
+	Value     string             `json:"value,omitempty"`
+	ValueFrom *EnvVarSourceEntry `json:"valueFrom,omitempty"`
+}
+
+// EnvVarSourceEntry mirrors corev1.EnvVarSource for the two ref kinds the platform emits.
+// FieldRef / ResourceFieldRef / FileKeyRef are deliberately not modeled — resource outputs
+// produce literal value, secretKeyRef, or configMapKeyRef only.
+type EnvVarSourceEntry struct {
+	SecretKeyRef    *KeyRef `json:"secretKeyRef,omitempty"`
+	ConfigMapKeyRef *KeyRef `json:"configMapKeyRef,omitempty"`
+}
+
+// KeyRef references a single key within a Secret or ConfigMap. JSON-compatible with the
+// {name, key} projection of corev1.SecretKeySelector / corev1.ConfigMapKeySelector that
+// the platform emits.
+type KeyRef struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
+}
+
 // VolumeMountEntry represents an element returned by configurations.toContainerVolumeMounts().
 type VolumeMountEntry struct {
 	Name      string `json:"name"`
 	MountPath string `json:"mountPath"`
-	SubPath   string `json:"subPath"`
+	SubPath   string `json:"subPath,omitempty"`
 }
 
 // VolumeEntry represents an element returned by configurations.toVolumes().

@@ -144,6 +144,13 @@ identity:
         - "profile"
         - "email"
 
+secret_management:
+  # Enable the Secret management API under
+  # /api/v1alpha1/namespaces/{namespaceName}/secrets
+  # (POST/PUT/GET/LIST/DELETE).
+  # When false, all five endpoints return 501 Not Implemented.
+  enabled: false
+
 mcp:
   # Enable the Model Context Protocol (MCP) server.
   # MCP provides AI-friendly tool interfaces for the API.

@@ -138,11 +138,13 @@ func (r *Reconciler) setResourcesReadyStatus(
 	return nil
 }
 
-// setReadyCondition sets the top-level Ready condition based on
-// ReleaseSynced, ResourcesReady, and ConnectionsResolved conditions.
+// setReadyCondition sets the top-level Ready condition based on ReleaseSynced,
+// ResourcesReady, ConnectionsResolved, and ResourceDependenciesReady conditions.
+// ConnectionsResolved and ResourceDependenciesReady are optional — workloads without
+// the corresponding dependency type don't carry the condition and shouldn't be blocked.
 func (r *Reconciler) setReadyCondition(releaseBinding *openchoreov1alpha1.ReleaseBinding) {
 	// Find all relevant conditions
-	var releaseSynced, resourcesReady, connectionsResolved *metav1.Condition
+	var releaseSynced, resourcesReady, connectionsResolved, resourceDependenciesReady *metav1.Condition
 	for i := range releaseBinding.Status.Conditions {
 		switch releaseBinding.Status.Conditions[i].Type {
 		case string(ConditionReleaseSynced):
@@ -151,14 +153,17 @@ func (r *Reconciler) setReadyCondition(releaseBinding *openchoreov1alpha1.Releas
 			resourcesReady = &releaseBinding.Status.Conditions[i]
 		case string(ConditionConnectionsResolved):
 			connectionsResolved = &releaseBinding.Status.Conditions[i]
+		case string(ConditionResourceDependenciesReady):
+			resourceDependenciesReady = &releaseBinding.Status.Conditions[i]
 		}
 	}
 
 	// All present conditions must be True for Ready to be True.
-	// ConnectionsResolved is optional - if absent, it doesn't block readiness.
+	// ConnectionsResolved and ResourceDependenciesReady are optional — absent = pass.
 	allTrue := releaseSynced != nil && releaseSynced.Status == metav1.ConditionTrue &&
 		resourcesReady != nil && resourcesReady.Status == metav1.ConditionTrue &&
-		(connectionsResolved == nil || connectionsResolved.Status == metav1.ConditionTrue)
+		(connectionsResolved == nil || connectionsResolved.Status == metav1.ConditionTrue) &&
+		(resourceDependenciesReady == nil || resourceDependenciesReady.Status == metav1.ConditionTrue)
 
 	if allTrue {
 		controller.MarkTrueCondition(releaseBinding, ConditionReady,
@@ -178,10 +183,19 @@ func (r *Reconciler) setReadyCondition(releaseBinding *openchoreov1alpha1.Releas
 		return
 	}
 
-	// If ConnectionsResolved is False, use its reason
+	// Priority order when multiple sub-conditions are False is a UX choice, locked by
+	// tests below: ConnectionsResolved is reported above ResourceDependenciesReady, which
+	// is reported above ResourcesReady.
 	if connectionsResolved != nil && connectionsResolved.Status != metav1.ConditionTrue {
 		controller.MarkFalseCondition(releaseBinding, ConditionReady,
 			controller.ConditionReason(connectionsResolved.Reason), connectionsResolved.Message)
+		return
+	}
+
+	// If ResourceDependenciesReady is False, use its reason
+	if resourceDependenciesReady != nil && resourceDependenciesReady.Status != metav1.ConditionTrue {
+		controller.MarkFalseCondition(releaseBinding, ConditionReady,
+			controller.ConditionReason(resourceDependenciesReady.Reason), resourceDependenciesReady.Message)
 		return
 	}
 

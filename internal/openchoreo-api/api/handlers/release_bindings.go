@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -35,8 +36,7 @@ func (h *Handler) ListReleaseBindings(
 		if errors.Is(err, releasebindingsvc.ErrComponentNotFound) {
 			return gen.ListReleaseBindings404JSONResponse{NotFoundJSONResponse: notFound("Component")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListReleaseBindings400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list release bindings", "error", err)
@@ -89,8 +89,10 @@ func (h *Handler) CreateReleaseBinding(
 		if errors.Is(err, releasebindingsvc.ErrComponentNotFound) {
 			return gen.CreateReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest("Referenced component not found")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateReleaseBinding422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create release binding", "error", err)
@@ -167,8 +169,10 @@ func (h *Handler) UpdateReleaseBinding(
 		if errors.Is(err, releasebindingsvc.ErrReleaseBindingNotFound) {
 			return gen.UpdateReleaseBinding404JSONResponse{NotFoundJSONResponse: notFound("ReleaseBinding")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateReleaseBinding422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update release binding", "error", err)

@@ -787,6 +787,59 @@ spec:
                           type: object
                         maxItems: 50
                         type: array
+                      resources:
+                        description: |-
+                          Resources define how this workload consumes outputs from project-bound Resources.
+                          Each entry references a Resource by name and binds named outputs of the resolved
+                          ResourceReleaseBinding to container env vars (envBindings) and file mounts (fileBindings).
+                        items:
+                          description: |-
+                            WorkloadResourceDependency represents a dependency on a project-bound Resource. Output names
+                            declared on the referenced ResourceType are wired into the consuming container as env vars
+                            (envBindings) and file mounts (fileBindings). Outputs not listed in either map are ignored.
+                          properties:
+                            envBindings:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                EnvBindings maps a ResourceType output name to a container environment variable name.
+                                The output's source kind (value, secretKeyRef, configMapKeyRef) determines whether the
+                                resulting env var is a literal or a valueFrom reference.
+                              maxProperties: 50
+                              type: object
+                              x-kubernetes-validations:
+                              - message: envBindings keys (output names) and values
+                                  (env var names) cannot be empty
+                                rule: self.all(k, k.size() > 0 && self[k].size() >
+                                  0)
+                            fileBindings:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                FileBindings maps a ResourceType output name to a container mount path. The referenced
+                                output's source kind must be secretKeyRef or configMapKeyRef; value-kind outputs cannot
+                                be mounted as files because there is no DP-side object to mount.
+                              maxProperties: 50
+                              type: object
+                              x-kubernetes-validations:
+                              - message: fileBindings keys (output names) and values
+                                  (mount paths) cannot be empty
+                                rule: self.all(k, k.size() > 0 && self[k].size() >
+                                  0)
+                            ref:
+                              description: |-
+                                Ref is the name of the Resource to consume. The Resource must live in the same project as
+                                the consuming Component (cross-project consumption is deferred to a later release).
+                              minLength: 1
+                              type: string
+                          required:
+                          - ref
+                          type: object
+                        maxItems: 50
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - ref
+                        x-kubernetes-list-type: map
                     type: object
                   endpoints:
                     additionalProperties:

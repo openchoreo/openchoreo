@@ -6,6 +6,8 @@ package core
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestAllActions tests loading all system-defined actions
@@ -107,6 +109,49 @@ func TestPublicActions(t *testing.T) {
 				}
 			}
 		}
+	})
+}
+
+// TestExpandActionPattern tests pattern expansion for concrete actions and wildcards.
+func TestExpandActionPattern(t *testing.T) {
+	t.Run("empty pattern returns nil", func(t *testing.T) {
+		require.Nil(t, ExpandActionPattern(""))
+	})
+
+	t.Run("concrete known action returns itself", func(t *testing.T) {
+		got := ExpandActionPattern(ActionCreateReleaseBinding)
+		require.Equal(t, []string{ActionCreateReleaseBinding}, got)
+	})
+
+	t.Run("unknown concrete action returns nil", func(t *testing.T) {
+		require.Nil(t, ExpandActionPattern("bogus:action"))
+	})
+
+	t.Run("resource wildcard expands to all that resource's actions", func(t *testing.T) {
+		got := ExpandActionPattern("releasebinding:*")
+		require.ElementsMatch(t, []string{
+			ActionViewReleaseBinding,
+			ActionCreateReleaseBinding,
+			ActionUpdateReleaseBinding,
+			ActionDeleteReleaseBinding,
+		}, got)
+	})
+
+	t.Run("resource wildcard for unknown resource returns empty", func(t *testing.T) {
+		got := ExpandActionPattern("bogus:*")
+		require.Empty(t, got)
+	})
+
+	t.Run("global wildcard returns all concrete public actions", func(t *testing.T) {
+		got := ExpandActionPattern("*")
+		require.Equal(t, len(ConcretePublicActions()), len(got))
+	})
+
+	t.Run("resource wildcard prefix matches on full resource token", func(t *testing.T) {
+		// "cluster:*" must not match "clustertrait:view", "clusterdataplane:view", etc.
+		// Prefix match is on the full "cluster:" token, not the substring "cluster".
+		got := ExpandActionPattern("cluster:*")
+		require.Empty(t, got)
 	})
 }
 

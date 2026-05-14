@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 
 	// +kubebuilder:scaffold:imports
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,6 +66,7 @@ import (
 	authzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/authzrolebinding"
 	clusterauthzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterauthzrolebinding"
 	clustercomponenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clustercomponenttype"
+	clusterresourcetypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterresourcetype"
 	clustertraitwebhook "github.com/openchoreo/openchoreo/internal/webhook/clustertrait"
 	clusterworkflowwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterworkflow"
 	componentwebhook "github.com/openchoreo/openchoreo/internal/webhook/component"
@@ -72,6 +74,8 @@ import (
 	componenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/componenttype"
 	projectwebhook "github.com/openchoreo/openchoreo/internal/webhook/project"
 	releasebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/releasebinding"
+	resourcereleasewebhook "github.com/openchoreo/openchoreo/internal/webhook/resourcerelease"
+	resourcetypewebhook "github.com/openchoreo/openchoreo/internal/webhook/resourcetype"
 	traitwebhook "github.com/openchoreo/openchoreo/internal/webhook/trait"
 	workflowwebhook "github.com/openchoreo/openchoreo/internal/webhook/workflow"
 )
@@ -108,12 +112,25 @@ func setupControlPlaneControllers(
 	mgr ctrl.Manager,
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager,
 	clusterGatewayURL string,
+	gwTLS gatewayClient.TLSConfig,
 ) error {
 	// Create gateway client for plane lifecycle notifications
 	var gwClient *gatewayClient.Client
 	if clusterGatewayURL != "" {
-		gwClient = gatewayClient.NewClient(clusterGatewayURL)
-		setupLog.Info("gateway client initialized", "url", clusterGatewayURL)
+		var err error
+		gwClient, err = gatewayClient.NewClientWithConfig(&gatewayClient.Config{
+			BaseURL: clusterGatewayURL,
+			TLS:     gwTLS,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create cluster gateway client: %w", err)
+		}
+		setupLog.Info("gateway client initialized",
+			"url", clusterGatewayURL,
+			"caCert", gwTLS.CAFile != "",
+			"clientCert", gwTLS.ClientCertFile != "",
+			"insecure", gwTLS.InsecureSkipVerify,
+		)
 	}
 
 	// Create plane client provider for controllers that need to talk to remote planes.
@@ -239,6 +256,7 @@ func main() {
 	var clusterGatewayCACert string
 	var clusterGatewayClientCert string
 	var clusterGatewayClientKey string
+	var clusterGatewayInsecure bool
 	var deploymentPlane string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
@@ -250,11 +268,16 @@ func main() {
 			"Required for agent mode. Example: https://localhost:8443")
 	flag.StringVar(&clusterGatewayCACert, "cluster-gateway-ca-cert", getEnv("CLUSTER_GATEWAY_CA_CERT", ""),
 		"Path to CA certificate for verifying the cluster gateway's TLS certificate. "+
-			"If not specified, InsecureSkipVerify will be used (not recommended for production).")
+			"If --cluster-gateway-ca-cert is omitted, system root CAs are used and self-signed certificates will fail; "+
+			"use --cluster-gateway-insecure to allow insecure verification for self-signed setups.")
 	flag.StringVar(&clusterGatewayClientCert, "cluster-gateway-client-cert", getEnv("CLUSTER_GATEWAY_CLIENT_CERT", ""),
 		"Path to client certificate for mTLS authentication with the cluster gateway.")
 	flag.StringVar(&clusterGatewayClientKey, "cluster-gateway-client-key", getEnv("CLUSTER_GATEWAY_CLIENT_KEY", ""),
 		"Path to client private key for mTLS authentication with the cluster gateway.")
+	flag.BoolVar(&clusterGatewayInsecure, "cluster-gateway-insecure",
+		getEnvBool("CLUSTER_GATEWAY_INSECURE", false),
+		"Skip TLS verification when calling the cluster gateway. "+
+			"For local development only. Do not enable in production.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -349,25 +372,20 @@ func main() {
 	// -----------------------------------------------------------------------------
 	// The k8sClientMgr manages cached Kubernetes clients for accessing data planes and workflow planes.
 	// It supports both direct access mode and agent mode (via HTTP proxy through cluster gateway).
-	var k8sClientMgr *kubernetesClient.KubeMultiClientManager
-	if clusterGatewayCACert != "" || clusterGatewayClientCert != "" || clusterGatewayClientKey != "" {
-		// Create client manager with TLS configuration for HTTP proxy
-		k8sClientMgr = kubernetesClient.NewManagerWithProxyTLS(&kubernetesClient.ProxyTLSConfig{
-			CACertPath:     clusterGatewayCACert,
-			ClientCertPath: clusterGatewayClientCert,
-			ClientKeyPath:  clusterGatewayClientKey,
-		})
-		setupLog.Info("Kubernetes client manager created with proxy TLS configuration",
-			"caCert", clusterGatewayCACert != "",
-			"clientCert", clusterGatewayClientCert != "",
-			"clientKey", clusterGatewayClientKey != "")
-	} else {
-		// Create client manager without TLS configuration (insecure mode)
-		k8sClientMgr = kubernetesClient.NewManager()
-		if clusterGatewayURL != "" {
-			setupLog.Info("WARNING: Using insecure mode for cluster gateway connection. " +
-				"Please provide TLS certificates for production use.")
-		}
+	k8sClientMgr := kubernetesClient.NewManagerWithProxyTLS(&kubernetesClient.ProxyTLSConfig{
+		CACertPath:     clusterGatewayCACert,
+		ClientCertPath: clusterGatewayClientCert,
+		ClientKeyPath:  clusterGatewayClientKey,
+		Insecure:       clusterGatewayInsecure,
+	})
+	setupLog.Info("Kubernetes client manager created with proxy TLS configuration",
+		"caCert", clusterGatewayCACert != "",
+		"clientCert", clusterGatewayClientCert != "",
+		"clientKey", clusterGatewayClientKey != "",
+		"insecure", clusterGatewayInsecure)
+	if clusterGatewayURL != "" && clusterGatewayInsecure {
+		setupLog.Info("WARNING: Cluster gateway TLS verification is disabled (--cluster-gateway-insecure). " +
+			"Do not use this setting in production.")
 	}
 
 	// -----------------------------------------------------------------------------
@@ -377,7 +395,12 @@ func main() {
 	switch deploymentPlane {
 	// Control plane controllers
 	case deploymentPlaneControlPlane:
-		err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL)
+		err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL, gatewayClient.TLSConfig{
+			CAFile:             clusterGatewayCACert,
+			ClientCertFile:     clusterGatewayClientCert,
+			ClientKeyFile:      clusterGatewayClientKey,
+			InsecureSkipVerify: clusterGatewayInsecure,
+		})
 		if err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)
@@ -400,86 +423,32 @@ func main() {
 	// Setup webhooks with the controller manager
 	// -----------------------------------------------------------------------------
 
-	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = projectwebhook.SetupProjectWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Project")
-			os.Exit(1)
+		webhookSetups := []struct {
+			name  string
+			setup func(ctrl.Manager) error
+		}{
+			{"Project", projectwebhook.SetupProjectWebhookWithManager},
+			{"ComponentType", componenttypewebhook.SetupComponentTypeWebhookWithManager},
+			{"ClusterComponentType", clustercomponenttypewebhook.SetupClusterComponentTypeWebhookWithManager},
+			{"Component", componentwebhook.SetupComponentWebhookWithManager},
+			{"Trait", traitwebhook.SetupTraitWebhookWithManager},
+			{"ClusterTrait", clustertraitwebhook.SetupClusterTraitWebhookWithManager},
+			{"ComponentRelease", componentreleasewebhook.SetupComponentReleaseWebhookWithManager},
+			{"ReleaseBinding", releasebindingwebhook.SetupReleaseBindingWebhookWithManager},
+			{"ResourceType", resourcetypewebhook.SetupResourceTypeWebhookWithManager},
+			{"ClusterResourceType", clusterresourcetypewebhook.SetupClusterResourceTypeWebhookWithManager},
+			{"ResourceRelease", resourcereleasewebhook.SetupResourceReleaseWebhookWithManager},
+			{"Workflow", workflowwebhook.SetupWorkflowWebhookWithManager},
+			{"ClusterWorkflow", clusterworkflowwebhook.SetupClusterWorkflowWebhookWithManager},
+			{"AuthzRoleBinding", authzrolebindingwebhook.SetupAuthzRoleBindingWebhookWithManager},
+			{"ClusterAuthzRoleBinding", clusterauthzrolebindingwebhook.SetupClusterAuthzRoleBindingWebhookWithManager},
 		}
-	}
-
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := componenttypewebhook.SetupComponentTypeWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ComponentType")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := clustercomponenttypewebhook.SetupClusterComponentTypeWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ClusterComponentType")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := componentwebhook.SetupComponentWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Component")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := traitwebhook.SetupTraitWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Trait")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := clustertraitwebhook.SetupClusterTraitWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ClusterTrait")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := componentreleasewebhook.SetupComponentReleaseWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ComponentRelease")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := releasebindingwebhook.SetupReleaseBindingWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ReleaseBinding")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := workflowwebhook.SetupWorkflowWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Workflow")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := clusterworkflowwebhook.SetupClusterWorkflowWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ClusterWorkflow")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := authzrolebindingwebhook.SetupAuthzRoleBindingWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "AuthzRoleBinding")
-			os.Exit(1)
-		}
-		if err := clusterauthzrolebindingwebhook.SetupClusterAuthzRoleBindingWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ClusterAuthzRoleBinding")
-			os.Exit(1)
+		for _, w := range webhookSetups {
+			if err := w.setup(mgr); err != nil {
+				setupLog.Error(err, "unable to create webhook", "webhook", w.name)
+				os.Exit(1)
+			}
 		}
 	}
 
@@ -505,4 +474,18 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// getEnvBool retrieves a boolean environment variable, returning a default if
+// unset or unparseable.
+func getEnvBool(key string, defaultValue bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return defaultValue
+	}
+	return parsed
 }

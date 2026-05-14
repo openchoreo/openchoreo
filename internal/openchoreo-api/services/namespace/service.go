@@ -66,8 +66,8 @@ func (s *namespaceService) CreateNamespace(ctx context.Context, ns *corev1.Names
 			s.logger.Warn("Namespace already exists", "namespace", ns.Name)
 			return nil, ErrNamespaceAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create namespace", "error", err)
 		return nil, fmt.Errorf("failed to create namespace: %w", err)
@@ -116,8 +116,8 @@ func (s *namespaceService) UpdateNamespace(ctx context.Context, ns *corev1.Names
 	}
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update namespace", "error", err)
 		return nil, fmt.Errorf("failed to update namespace: %w", err)

@@ -89,8 +89,8 @@ func (s *componentService) CreateComponent(ctx context.Context, namespaceName st
 			s.logger.Warn("Component already exists", "namespace", namespaceName, "component", component.Name)
 			return nil, ErrComponentAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create component CR", "error", err)
 		return nil, fmt.Errorf("failed to create component: %w", err)
@@ -139,9 +139,9 @@ func (s *componentService) UpdateComponent(ctx context.Context, namespaceName st
 	existing.Labels[labels.LabelKeyProjectName] = existing.Spec.Owner.ProjectName
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
+		if vErr := services.ExtractValidationError(err); vErr != nil {
 			s.logger.Error("Component update rejected by validation", "error", err)
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update component CR", "error", err)
 		return nil, fmt.Errorf("failed to update component: %w", err)
@@ -322,6 +322,10 @@ func (s *componentService) GenerateRelease(ctx context.Context, namespaceName, c
 	}
 
 	if err := s.k8sClient.Create(ctx, componentRelease); err != nil {
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			s.logger.Error("ComponentRelease create rejected by validation", "error", err)
+			return nil, vErr
+		}
 		s.logger.Error("Failed to create ComponentRelease CR", "error", err)
 		return nil, fmt.Errorf("failed to create component release: %w", err)
 	}

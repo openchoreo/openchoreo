@@ -145,7 +145,7 @@ func deploymentPipelineSpecs() []toolTestSpec {
 	return makeNamespacedListGetSpecs(
 		"deployment", "list_deployment_pipelines", "get_deployment_pipeline",
 		[]string{"list", "deployment", "pipeline"}, []string{"deployment", "pipeline"},
-		"pipeline_name", "default-pipeline", "ListDeploymentPipelines", "GetDeploymentPipeline",
+		"name", "default-pipeline", "ListDeploymentPipelines", "GetDeploymentPipeline",
 	)
 }
 

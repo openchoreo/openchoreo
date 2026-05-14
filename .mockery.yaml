@@ -27,6 +27,9 @@ packages:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterobservabilityplane:
     interfaces:
       Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterresourcetype:
+    interfaces:
+      Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait:
     interfaces:
       Service:
@@ -73,6 +76,18 @@ packages:
     interfaces:
       Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resource:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcerelease:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcereleasebinding:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcetype:
     interfaces:
       Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secret:

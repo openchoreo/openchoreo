@@ -12,8 +12,8 @@ from src.config import settings
 
 @lru_cache
 def get_model(
-    model_name: str = settings.finops_model_name,
-    api_key: str = settings.finops_llm_api_key,
+    model_name: str = settings.llm_name,
+    api_key: str = settings.llm_api_key,
     **kwargs: Any,
 ) -> BaseChatModel:
     return init_chat_model(

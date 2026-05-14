@@ -21,6 +21,9 @@ type ProxyTLSConfig struct {
 	CACertPath     string
 	ClientCertPath string
 	ClientKeyPath  string
+	// Insecure disables TLS verification for proxy connections.
+	// For local development only.
+	Insecure bool
 }
 
 // KubeMultiClientManager maintains a cache of Kubernetes clients keyed by a unique identifier.

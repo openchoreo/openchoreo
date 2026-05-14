@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -28,8 +29,7 @@ func (h *Handler) ListDataPlanes(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListDataPlanes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListDataPlanes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list data planes", "error", err)
@@ -76,8 +76,10 @@ func (h *Handler) CreateDataPlane(
 		if errors.Is(err, dataplanesvc.ErrDataPlaneAlreadyExists) {
 			return gen.CreateDataPlane409JSONResponse{ConflictJSONResponse: conflict("DataPlane already exists")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateDataPlane422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateDataPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create data plane", "error", err)
@@ -149,8 +151,10 @@ func (h *Handler) UpdateDataPlane(
 		if errors.Is(err, dataplanesvc.ErrDataPlaneNotFound) {
 			return gen.UpdateDataPlane404JSONResponse{NotFoundJSONResponse: notFound("DataPlane")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateDataPlane422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateDataPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update data plane", "error", err)

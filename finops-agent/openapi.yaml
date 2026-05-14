@@ -186,6 +186,73 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - FinOps Reports
+      summary: Update remediation action statuses in a report
+      description: |
+        Marks remediation actions as applied or dismissed. Actions must be in `revised` status
+        to be updated; already-applied or already-dismissed actions are silently skipped.
+        An index cannot appear in both `appliedIndices` and `dismissedIndices`.
+        The caller (typically the UI) is responsible for applying the actual patch to the
+        ReleaseBinding via the openchoreo-api REST surface before calling this endpoint.
+      operationId: updateReport
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportUpdateRequest'
+      responses:
+        '200':
+          description: Report updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+        '400':
+          description: Bad request - overlapping indices or invalid body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - missing or invalid JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - insufficient permissions (requires finopsreport:update)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /health:
     get:
@@ -367,6 +434,11 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/InvestigationStep'
+        recommended_actions:
+          type: array
+          description: Remediation actions synthesized from overprovisioning recommendations (present when remediation is enabled)
+          items:
+            $ref: '#/components/schemas/RemediationAction'
 
     CostBreakdown:
       type: object
@@ -460,6 +532,10 @@ components:
           type: string
         rationale:
           type: string
+        release_binding:
+          type: string
+          nullable: true
+          description: Name of the ReleaseBinding for the target environment (e.g. my-service-development)
 
     InvestigationStep:
       type: object
@@ -471,3 +547,62 @@ components:
           type: string
         rationale:
           type: ["string", "null"]
+
+    ReportUpdateRequest:
+      type: object
+      properties:
+        appliedIndices:
+          type: array
+          description: Zero-based indices of recommended_actions to mark as applied
+          items:
+            type: integer
+            minimum: 0
+        dismissedIndices:
+          type: array
+          description: Zero-based indices of recommended_actions to mark as dismissed
+          items:
+            type: integer
+            minimum: 0
+
+    RemediationAction:
+      type: object
+      required: [description, rationale, status]
+      properties:
+        description:
+          type: string
+        rationale:
+          type: string
+        status:
+          type: string
+          enum: [revised, applied, dismissed]
+        change:
+          oneOf:
+            - $ref: '#/components/schemas/ResourceChange'
+            - type: 'null'
+
+    ResourceChange:
+      type: object
+      required: [release_binding, fields]
+      properties:
+        release_binding:
+          type: string
+          description: Name of the ReleaseBinding CR to patch
+        fields:
+          type: array
+          description: RFC 6901 JSON Pointer field changes to apply
+          items:
+            $ref: '#/components/schemas/FieldChange'
+
+    FieldChange:
+      type: object
+      required: [json_pointer, value]
+      properties:
+        json_pointer:
+          type: string
+          description: RFC 6901 JSON Pointer path (e.g. /spec/componentTypeEnvironmentConfigs/resources/requests/cpu)
+        value:
+          description: Scalar value to set at the pointer path
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean

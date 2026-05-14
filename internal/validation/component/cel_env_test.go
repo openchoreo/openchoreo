@@ -319,3 +319,47 @@ func TestBuildTraitCELEnv_ReflectionBasedTypes(t *testing.T) {
 		})
 	}
 }
+
+// TestBuildComponentCELEnv_ConfigurationsDependenciesConcat locks in the property that
+// configurations.toX() and dependencies.toX() return the same CEL element type, so CCT
+// authors can concatenate them with the `+` operator without hitting a type-check error.
+//
+// Without alignment the validation env sees list(VolumeEntry) + list(corev1.Volume), which
+// has no '_+_' overload. CCTs end up unable to merge configurations-driven volumes/mounts
+// with the dependency-driven ones synthesized from resource fileBindings.
+func TestBuildComponentCELEnv_ConfigurationsDependenciesConcat(t *testing.T) {
+	env, _, err := buildComponentCELEnv(SchemaOptions{})
+	require.NoError(t, err)
+	require.NotNil(t, env)
+
+	tests := []struct {
+		name       string
+		expression string
+	}{
+		{
+			"toVolumes concat",
+			`configurations.toVolumes() + dependencies.toVolumes()`,
+		},
+		{
+			"toContainerVolumeMounts concat",
+			`configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()`,
+		},
+		{
+			// dependencies.toContainerEnvs() rewrites to dependencies.envVars (an
+			// EnvVarEntry-typed list). Locks that the type stays usable for `+`
+			// against itself — covers the forward-compat case where a CCT composes
+			// the dependency-derived env list with another list of the same shape
+			// (e.g. a future configurations.toContainerEnvs() helper).
+			"toContainerEnvs self concat",
+			`dependencies.toContainerEnvs() + dependencies.toContainerEnvs()`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, issues := env.Compile(tt.expression)
+			assert.Nil(t, issues.Err(),
+				"concat across configurations/dependencies should type-check: %v", issues.Err())
+		})
+	}
+}

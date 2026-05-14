@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 	"time"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -26,8 +27,7 @@ func (h *Handler) ListWorkflows(
 
 	result, err := h.services.WorkflowService.ListWorkflows(ctx, request.NamespaceName, opts)
 	if err != nil {
-		var validationErr *svcerrors.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
 			return gen.ListWorkflows400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list workflows", "error", err)
@@ -70,8 +70,10 @@ func (h *Handler) CreateWorkflow(
 		if errors.Is(err, workflowsvc.ErrWorkflowAlreadyExists) {
 			return gen.CreateWorkflow409JSONResponse{ConflictJSONResponse: conflict("Workflow already exists")}, nil
 		}
-		var validationErr *svcerrors.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateWorkflow422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateWorkflow400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create workflow", "error", err)
@@ -143,8 +145,10 @@ func (h *Handler) UpdateWorkflow(
 		if errors.Is(err, workflowsvc.ErrWorkflowNotFound) {
 			return gen.UpdateWorkflow404JSONResponse{NotFoundJSONResponse: notFound("Workflow")}, nil
 		}
-		var validationErr *svcerrors.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateWorkflow422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateWorkflow400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update workflow", "error", err)
@@ -225,8 +229,7 @@ func (h *Handler) ListWorkflowRuns(
 		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.ListWorkflowRuns403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		var validationErr *svcerrors.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
 			return gen.ListWorkflowRuns400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list workflow runs", "error", err)
@@ -269,8 +272,10 @@ func (h *Handler) CreateWorkflowRun(
 		if errors.Is(err, svcerrors.ErrForbidden) {
 			return gen.CreateWorkflowRun403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		var validationErr *svcerrors.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateWorkflowRun422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateWorkflowRun400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create workflow run", "error", err)
@@ -348,9 +353,11 @@ func (h *Handler) UpdateWorkflowRun(
 		if errors.Is(err, workflowrunsvc.ErrWorkflowRunNotFound) {
 			return gen.UpdateWorkflowRun404JSONResponse{NotFoundJSONResponse: notFound("WorkflowRun")}, nil
 		}
-		var valErr *svcerrors.ValidationError
-		if errors.As(err, &valErr) {
-			return gen.UpdateWorkflowRun400JSONResponse{BadRequestJSONResponse: badRequest(valErr.Error())}, nil
+		if validationErr, ok := errors.AsType[*svcerrors.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateWorkflowRun422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
+			return gen.UpdateWorkflowRun400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update workflow run", "error", err)
 		return gen.UpdateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

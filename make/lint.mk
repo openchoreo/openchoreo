@@ -78,6 +78,10 @@ lint: golangci-lint-check license-check newline-check ## Run golangci-lint linte
 .PHONY: lint-fix
 lint-fix: golangci-lint-fix license-fix newline-fix ## Run golangci-lint linter, licenser, and newline fix to perform fixes
 
+# Detect the current git branch for use in generated file headers.
+# Falls back to "main" in detached HEAD state (e.g. during CI checkout by SHA).
+SAMPLES_BRANCH = $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/main/')
+
 # Individual getting-started sample files that compose all.yaml (order matters)
 GETTING_STARTED_DIR := samples/getting-started
 GETTING_STARTED_FILES := \
@@ -107,7 +111,7 @@ samples-gen: ## Generate samples/getting-started/all.yaml from individual files
 	printf '# environments, pipeline, component types, workflows, and traits.\n'; \
 	printf '#\n'; \
 	printf '# Usage:\n'; \
-	printf '#   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml\n'; \
+	printf '#   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/$(SAMPLES_BRANCH)/samples/getting-started/all.yaml\n'; \
 	printf '#\n'; \
 	printf '# Or if you have cloned the repository:\n'; \
 	printf '#   kubectl apply -f samples/getting-started/all.yaml\n'; \

@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -27,8 +28,7 @@ func (h *Handler) ListClusterComponentTypes(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListClusterComponentTypes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListClusterComponentTypes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list cluster component types", "error", err)
@@ -71,8 +71,10 @@ func (h *Handler) CreateClusterComponentType(
 		if errors.Is(err, clustercomponenttypesvc.ErrClusterComponentTypeAlreadyExists) {
 			return gen.CreateClusterComponentType409JSONResponse{ConflictJSONResponse: conflict("Cluster component type already exists")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateClusterComponentType422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateClusterComponentType400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create cluster component type", "error", err)
@@ -116,8 +118,10 @@ func (h *Handler) UpdateClusterComponentType(
 		if errors.Is(err, clustercomponenttypesvc.ErrClusterComponentTypeNotFound) {
 			return gen.UpdateClusterComponentType404JSONResponse{NotFoundJSONResponse: notFound("ClusterComponentType")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateClusterComponentType422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateClusterComponentType400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update cluster component type", "error", err)

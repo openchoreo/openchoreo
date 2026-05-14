@@ -17,7 +17,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
@@ -113,9 +112,9 @@ func (h *MCPHandler) GetComponent(
 }
 
 func (h *MCPHandler) ListWorkloads(
-	ctx context.Context, namespaceName, componentName string,
+	ctx context.Context, namespaceName, componentName string, opts tools.ListOpts,
 ) (any, error) {
-	result, err := h.services.WorkloadService.ListWorkloads(ctx, namespaceName, componentName, services.ListOptions{})
+	result, err := h.services.WorkloadService.ListWorkloads(ctx, namespaceName, componentName, toServiceListOptions(opts))
 	if err != nil {
 		return nil, err
 	}

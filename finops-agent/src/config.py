@@ -16,8 +16,8 @@ class Settings(BaseSettings):
         extra="allow",
     )
 
-    finops_model_name: str = ""
-    finops_llm_api_key: str = ""
+    llm_name: str = ""
+    llm_api_key: str = ""
 
     observability_mcp_server_url: str = "http://observer:8080/mcp"
     opencost_mcp_server_url: str = (
@@ -49,6 +49,8 @@ class Settings(BaseSettings):
 
     max_concurrent_analyses: int = 5
     analysis_timeout_seconds: int = 600
+
+    remediation_enabled: bool = False
 
     log_level: str = "INFO"
     tls_insecure_skip_verify: bool = False

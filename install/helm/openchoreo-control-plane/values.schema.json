@@ -1620,6 +1620,12 @@
                   "description": "Name of the secret containing the CA certificate",
                   "title": "caSecret",
                   "type": "string"
+                },
+                "insecure": {
+                  "default": false,
+                  "description": "Skip TLS verification of the cluster gateway. For development only.",
+                  "title": "insecure",
+                  "type": "boolean"
                 }
               },
               "required": [],
@@ -2476,6 +2482,30 @@
       "title": "eventForwarder",
       "type": "object"
     },
+    "features": {
+      "additionalProperties": false,
+      "description": "Feature flags shared across the control plane (API server and Backstage).",
+      "properties": {
+        "secretManagement": {
+          "additionalProperties": false,
+          "description": "Secret management feature. Controls the Secret management API on the API server and the corresponding UI in Backstage.",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable the Secret management API and Backstage UI for managing data-plane secrets.",
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "secretManagement",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "features",
+      "type": "object"
+    },
     "fullnameOverride": {
       "default": "openchoreo",
       "description": "Override the full name of the chart release",
@@ -2757,6 +2787,54 @@
           },
           "required": [],
           "title": "autoscaling",
+          "type": "object"
+        },
+        "clusterGateway": {
+          "additionalProperties": false,
+          "description": "Cluster gateway connection settings for agent-based plane communication",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable cluster gateway client integration",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "tls": {
+              "additionalProperties": false,
+              "description": "TLS settings for the cluster gateway connection",
+              "properties": {
+                "caPath": {
+                  "default": "/etc/cluster-gateway/ca.crt",
+                  "description": "Path inside the pod where the cluster gateway CA certificate is mounted",
+                  "title": "caPath",
+                  "type": "string"
+                },
+                "caSecret": {
+                  "default": "cluster-gateway-ca",
+                  "description": "Name of the secret holding the cluster gateway CA certificate",
+                  "title": "caSecret",
+                  "type": "string"
+                },
+                "insecure": {
+                  "default": false,
+                  "description": "Skip TLS verification of the cluster gateway. For development only.",
+                  "title": "insecure",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "tls",
+              "type": "object"
+            },
+            "url": {
+              "default": "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443",
+              "description": "Cluster gateway service URL the API server connects to",
+              "title": "url",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "clusterGateway",
           "type": "object"
         },
         "config": {

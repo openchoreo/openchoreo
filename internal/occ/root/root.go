@@ -14,6 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterdataplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterobservabilityplane"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterresourcetype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clustertrait"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterworkflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterworkflowplane"
@@ -31,6 +32,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/project"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/resource"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcerelease"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcereleasebinding"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcetype"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/secret"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/secretreference"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/trait"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/version"
@@ -60,16 +66,21 @@ func BuildRootCmd() *cobra.Command {
 		config.NewConfigCmd(),
 		version.NewVersionCmd(),
 		componentrelease.NewComponentReleaseCmd(f),
+		resourcerelease.NewResourceReleaseCmd(f),
+		resourcereleasebinding.NewResourceReleaseBindingCmd(f),
 		releasebinding.NewReleaseBindingCmd(f),
 		namespace.NewNamespaceCmd(f),
 		project.NewProjectCmd(f),
 		component.NewComponentCmd(f),
+		resource.NewResourceCmd(f),
 		environment.NewEnvironmentCmd(f),
 		dataplane.NewDataPlaneCmd(f),
 		workflowplane.NewWorkflowPlaneCmd(f),
 		observabilityplane.NewObservabilityPlaneCmd(f),
 		componenttype.NewComponentTypeCmd(f),
+		resourcetype.NewResourceTypeCmd(f),
 		clustercomponenttype.NewClusterComponentTypeCmd(f),
+		clusterresourcetype.NewClusterResourceTypeCmd(f),
 		clusterdataplane.NewClusterDataPlaneCmd(f),
 		clusterobservabilityplane.NewClusterObservabilityPlaneCmd(f),
 		clusterworkflowplane.NewClusterWorkflowPlaneCmd(f),
@@ -83,6 +94,7 @@ func BuildRootCmd() *cobra.Command {
 		workflow.NewWorkflowCmd(f),
 		workflowrun.NewWorkflowRunCmd(f),
 		secretreference.NewSecretReferenceCmd(f),
+		secret.NewSecretCmd(f),
 		workload.NewWorkloadCmd(f),
 		deploymentpipeline.NewDeploymentPipelineCmd(f),
 		observabilityalertsnotificationchannel.NewObservabilityAlertsNotificationChannelCmd(f),

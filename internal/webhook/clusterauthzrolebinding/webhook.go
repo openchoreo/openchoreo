@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,7 +49,7 @@ func (v *ClusterAuthzRoleBindingValidator) ValidateCreate(_ context.Context, obj
 	}
 	log.Info("Validation for ClusterAuthzRoleBinding upon creation", "name", rb.GetName())
 	if errs := validateClusterRoleMappings(rb.Spec.RoleMappings); len(errs) > 0 {
-		return nil, errs.ToAggregate()
+		return nil, apierrors.NewInvalid(rb.GroupVersionKind().GroupKind(), rb.GetName(), errs)
 	}
 	return nil, nil
 }
@@ -60,7 +61,7 @@ func (v *ClusterAuthzRoleBindingValidator) ValidateUpdate(_ context.Context, _, 
 	}
 	log.Info("Validation for ClusterAuthzRoleBinding upon update", "name", rb.GetName())
 	if errs := validateClusterRoleMappings(rb.Spec.RoleMappings); len(errs) > 0 {
-		return nil, errs.ToAggregate()
+		return nil, apierrors.NewInvalid(rb.GroupVersionKind().GroupKind(), rb.GetName(), errs)
 	}
 	return nil, nil
 }

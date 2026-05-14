@@ -64,8 +64,8 @@ func (s *traitService) CreateTrait(ctx context.Context, namespaceName string, t 
 			s.logger.Warn("Trait already exists", "namespace", namespaceName, "trait", t.Name)
 			return nil, ErrTraitAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create trait CR", "error", err)
 		return nil, fmt.Errorf("failed to create trait: %w", err)
@@ -102,8 +102,8 @@ func (s *traitService) UpdateTrait(ctx context.Context, namespaceName string, t 
 	existing.Annotations = t.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update trait CR", "error", err)
 		return nil, fmt.Errorf("failed to update trait: %w", err)

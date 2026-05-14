@@ -204,6 +204,28 @@ type ClientInterface interface {
 
 	UpdateClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName ClusterObservabilityPlaneNameParam, body UpdateClusterObservabilityPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListClusterResourceTypes request
+	ListClusterResourceTypes(ctx context.Context, params *ListClusterResourceTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateClusterResourceTypeWithBody request with any body
+	CreateClusterResourceTypeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateClusterResourceType(ctx context.Context, body CreateClusterResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteClusterResourceType request
+	DeleteClusterResourceType(ctx context.Context, crtName ClusterResourceTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetClusterResourceType request
+	GetClusterResourceType(ctx context.Context, crtName ClusterResourceTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateClusterResourceTypeWithBody request with any body
+	UpdateClusterResourceTypeWithBody(ctx context.Context, crtName ClusterResourceTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateClusterResourceType(ctx context.Context, crtName ClusterResourceTypeNameParam, body UpdateClusterResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetClusterResourceTypeSchema request
+	GetClusterResourceTypeSchema(ctx context.Context, crtName ClusterResourceTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListClusterTraits request
 	ListClusterTraits(ctx context.Context, params *ListClusterTraitsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -529,6 +551,80 @@ type ClientInterface interface {
 	// GetReleaseBindingK8sResourceTree request
 	GetReleaseBindingK8sResourceTree(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListResourceReleaseBindings request
+	ListResourceReleaseBindings(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourceReleaseBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateResourceReleaseBindingWithBody request with any body
+	CreateResourceReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateResourceReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteResourceReleaseBinding request
+	DeleteResourceReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetResourceReleaseBinding request
+	GetResourceReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateResourceReleaseBindingWithBody request with any body
+	UpdateResourceReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateResourceReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, body UpdateResourceReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListResourceReleases request
+	ListResourceReleases(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourceReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateResourceReleaseWithBody request with any body
+	CreateResourceReleaseWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateResourceRelease(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteResourceRelease request
+	DeleteResourceRelease(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseName ResourceReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetResourceRelease request
+	GetResourceRelease(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseName ResourceReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListResources request
+	ListResources(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateResourceWithBody request with any body
+	CreateResourceWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateResource(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteResource request
+	DeleteResource(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetResource request
+	GetResource(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateResourceWithBody request with any body
+	UpdateResourceWithBody(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateResource(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, body UpdateResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListResourceTypes request
+	ListResourceTypes(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourceTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateResourceTypeWithBody request with any body
+	CreateResourceTypeWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateResourceType(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteResourceType request
+	DeleteResourceType(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetResourceType request
+	GetResourceType(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateResourceTypeWithBody request with any body
+	UpdateResourceTypeWithBody(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateResourceType(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, body UpdateResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetResourceTypeSchema request
+	GetResourceTypeSchema(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListSecretReferences request
 	ListSecretReferences(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretReferencesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -674,6 +770,9 @@ type ClientInterface interface {
 	// DeleteGitSecret request
 	DeleteGitSecret(ctx context.Context, namespaceName NamespaceNameParam, gitSecretName GitSecretNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListSecrets request
+	ListSecrets(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateSecretWithBody request with any body
 	CreateSecretWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -681,6 +780,14 @@ type ClientInterface interface {
 
 	// DeleteSecret request
 	DeleteSecret(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetSecret request
+	GetSecret(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateSecretWithBody request with any body
+	UpdateSecretWithBody(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateSecret(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, body UpdateSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetHealth request
 	GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1189,6 +1296,102 @@ func (c *Client) UpdateClusterObservabilityPlaneWithBody(ctx context.Context, cl
 
 func (c *Client) UpdateClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName ClusterObservabilityPlaneNameParam, body UpdateClusterObservabilityPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateClusterObservabilityPlaneRequest(c.Server, clusterObservabilityPlaneName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListClusterResourceTypes(ctx context.Context, params *ListClusterResourceTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListClusterResourceTypesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateClusterResourceTypeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterResourceTypeRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateClusterResourceType(ctx context.Context, body CreateClusterResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterResourceTypeRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteClusterResourceType(ctx context.Context, crtName ClusterResourceTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteClusterResourceTypeRequest(c.Server, crtName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetClusterResourceType(ctx context.Context, crtName ClusterResourceTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetClusterResourceTypeRequest(c.Server, crtName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterResourceTypeWithBody(ctx context.Context, crtName ClusterResourceTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterResourceTypeRequestWithBody(c.Server, crtName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterResourceType(ctx context.Context, crtName ClusterResourceTypeNameParam, body UpdateClusterResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterResourceTypeRequest(c.Server, crtName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetClusterResourceTypeSchema(ctx context.Context, crtName ClusterResourceTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetClusterResourceTypeSchemaRequest(c.Server, crtName)
 	if err != nil {
 		return nil, err
 	}
@@ -2627,6 +2830,330 @@ func (c *Client) GetReleaseBindingK8sResourceTree(ctx context.Context, namespace
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListResourceReleaseBindings(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourceReleaseBindingsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListResourceReleaseBindingsRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateResourceReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateResourceReleaseBindingRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateResourceReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateResourceReleaseBindingRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteResourceReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteResourceReleaseBindingRequest(c.Server, namespaceName, resourceReleaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetResourceReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetResourceReleaseBindingRequest(c.Server, namespaceName, resourceReleaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateResourceReleaseBindingWithBody(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateResourceReleaseBindingRequestWithBody(c.Server, namespaceName, resourceReleaseBindingName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateResourceReleaseBinding(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, body UpdateResourceReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateResourceReleaseBindingRequest(c.Server, namespaceName, resourceReleaseBindingName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListResourceReleases(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourceReleasesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListResourceReleasesRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateResourceReleaseWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateResourceReleaseRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateResourceRelease(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateResourceReleaseRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteResourceRelease(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseName ResourceReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteResourceReleaseRequest(c.Server, namespaceName, resourceReleaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetResourceRelease(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseName ResourceReleaseNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetResourceReleaseRequest(c.Server, namespaceName, resourceReleaseName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListResources(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListResourcesRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateResourceWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateResourceRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateResource(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateResourceRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteResource(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteResourceRequest(c.Server, namespaceName, resourceName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetResource(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetResourceRequest(c.Server, namespaceName, resourceName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateResourceWithBody(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateResourceRequestWithBody(c.Server, namespaceName, resourceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateResource(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, body UpdateResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateResourceRequest(c.Server, namespaceName, resourceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListResourceTypes(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourceTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListResourceTypesRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateResourceTypeWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateResourceTypeRequestWithBody(c.Server, namespaceName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateResourceType(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateResourceTypeRequest(c.Server, namespaceName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteResourceType(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteResourceTypeRequest(c.Server, namespaceName, rtName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetResourceType(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetResourceTypeRequest(c.Server, namespaceName, rtName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateResourceTypeWithBody(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateResourceTypeRequestWithBody(c.Server, namespaceName, rtName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateResourceType(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, body UpdateResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateResourceTypeRequest(c.Server, namespaceName, rtName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetResourceTypeSchema(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetResourceTypeSchemaRequest(c.Server, namespaceName, rtName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListSecretReferences(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretReferencesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSecretReferencesRequest(c.Server, namespaceName, params)
 	if err != nil {
@@ -3263,6 +3790,18 @@ func (c *Client) DeleteGitSecret(ctx context.Context, namespaceName NamespaceNam
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListSecrets(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSecretsRequest(c.Server, namespaceName, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) CreateSecretWithBody(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateSecretRequestWithBody(c.Server, namespaceName, contentType, body)
 	if err != nil {
@@ -3289,6 +3828,42 @@ func (c *Client) CreateSecret(ctx context.Context, namespaceName NamespaceNamePa
 
 func (c *Client) DeleteSecret(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteSecretRequest(c.Server, namespaceName, secretName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetSecret(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetSecretRequest(c.Server, namespaceName, secretName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateSecretWithBody(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSecretRequestWithBody(c.Server, namespaceName, secretName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateSecret(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, body UpdateSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSecretRequest(c.Server, namespaceName, secretName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4759,6 +5334,276 @@ func NewUpdateClusterObservabilityPlaneRequestWithBody(server string, clusterObs
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListClusterResourceTypesRequest generates requests for ListClusterResourceTypes
+func NewListClusterResourceTypesRequest(server string, params *ListClusterResourceTypesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterresourcetypes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateClusterResourceTypeRequest calls the generic CreateClusterResourceType builder with application/json body
+func NewCreateClusterResourceTypeRequest(server string, body CreateClusterResourceTypeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateClusterResourceTypeRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateClusterResourceTypeRequestWithBody generates requests for CreateClusterResourceType with any type of body
+func NewCreateClusterResourceTypeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterresourcetypes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteClusterResourceTypeRequest generates requests for DeleteClusterResourceType
+func NewDeleteClusterResourceTypeRequest(server string, crtName ClusterResourceTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "crtName", runtime.ParamLocationPath, crtName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterresourcetypes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetClusterResourceTypeRequest generates requests for GetClusterResourceType
+func NewGetClusterResourceTypeRequest(server string, crtName ClusterResourceTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "crtName", runtime.ParamLocationPath, crtName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterresourcetypes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateClusterResourceTypeRequest calls the generic UpdateClusterResourceType builder with application/json body
+func NewUpdateClusterResourceTypeRequest(server string, crtName ClusterResourceTypeNameParam, body UpdateClusterResourceTypeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateClusterResourceTypeRequestWithBody(server, crtName, "application/json", bodyReader)
+}
+
+// NewUpdateClusterResourceTypeRequestWithBody generates requests for UpdateClusterResourceType with any type of body
+func NewUpdateClusterResourceTypeRequestWithBody(server string, crtName ClusterResourceTypeNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "crtName", runtime.ParamLocationPath, crtName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterresourcetypes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetClusterResourceTypeSchemaRequest generates requests for GetClusterResourceTypeSchema
+func NewGetClusterResourceTypeSchemaRequest(server string, crtName ClusterResourceTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "crtName", runtime.ParamLocationPath, crtName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterresourcetypes/%s/schema", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -9372,6 +10217,1125 @@ func NewGetReleaseBindingK8sResourceTreeRequest(server string, namespaceName Nam
 	return req, nil
 }
 
+// NewListResourceReleaseBindingsRequest generates requests for ListResourceReleaseBindings
+func NewListResourceReleaseBindingsRequest(server string, namespaceName NamespaceNameParam, params *ListResourceReleaseBindingsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcereleasebindings", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Resource != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "resource", runtime.ParamLocationQuery, *params.Resource); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateResourceReleaseBindingRequest calls the generic CreateResourceReleaseBinding builder with application/json body
+func NewCreateResourceReleaseBindingRequest(server string, namespaceName NamespaceNameParam, body CreateResourceReleaseBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateResourceReleaseBindingRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateResourceReleaseBindingRequestWithBody generates requests for CreateResourceReleaseBinding with any type of body
+func NewCreateResourceReleaseBindingRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcereleasebindings", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteResourceReleaseBindingRequest generates requests for DeleteResourceReleaseBinding
+func NewDeleteResourceReleaseBindingRequest(server string, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "resourceReleaseBindingName", runtime.ParamLocationPath, resourceReleaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcereleasebindings/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetResourceReleaseBindingRequest generates requests for GetResourceReleaseBinding
+func NewGetResourceReleaseBindingRequest(server string, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "resourceReleaseBindingName", runtime.ParamLocationPath, resourceReleaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcereleasebindings/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateResourceReleaseBindingRequest calls the generic UpdateResourceReleaseBinding builder with application/json body
+func NewUpdateResourceReleaseBindingRequest(server string, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, body UpdateResourceReleaseBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateResourceReleaseBindingRequestWithBody(server, namespaceName, resourceReleaseBindingName, "application/json", bodyReader)
+}
+
+// NewUpdateResourceReleaseBindingRequestWithBody generates requests for UpdateResourceReleaseBinding with any type of body
+func NewUpdateResourceReleaseBindingRequestWithBody(server string, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "resourceReleaseBindingName", runtime.ParamLocationPath, resourceReleaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcereleasebindings/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListResourceReleasesRequest generates requests for ListResourceReleases
+func NewListResourceReleasesRequest(server string, namespaceName NamespaceNameParam, params *ListResourceReleasesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcereleases", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Resource != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "resource", runtime.ParamLocationQuery, *params.Resource); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateResourceReleaseRequest calls the generic CreateResourceRelease builder with application/json body
+func NewCreateResourceReleaseRequest(server string, namespaceName NamespaceNameParam, body CreateResourceReleaseJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateResourceReleaseRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateResourceReleaseRequestWithBody generates requests for CreateResourceRelease with any type of body
+func NewCreateResourceReleaseRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcereleases", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteResourceReleaseRequest generates requests for DeleteResourceRelease
+func NewDeleteResourceReleaseRequest(server string, namespaceName NamespaceNameParam, resourceReleaseName ResourceReleaseNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "resourceReleaseName", runtime.ParamLocationPath, resourceReleaseName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcereleases/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetResourceReleaseRequest generates requests for GetResourceRelease
+func NewGetResourceReleaseRequest(server string, namespaceName NamespaceNameParam, resourceReleaseName ResourceReleaseNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "resourceReleaseName", runtime.ParamLocationPath, resourceReleaseName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcereleases/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListResourcesRequest generates requests for ListResources
+func NewListResourcesRequest(server string, namespaceName NamespaceNameParam, params *ListResourcesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resources", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "project", runtime.ParamLocationQuery, *params.Project); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateResourceRequest calls the generic CreateResource builder with application/json body
+func NewCreateResourceRequest(server string, namespaceName NamespaceNameParam, body CreateResourceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateResourceRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateResourceRequestWithBody generates requests for CreateResource with any type of body
+func NewCreateResourceRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resources", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteResourceRequest generates requests for DeleteResource
+func NewDeleteResourceRequest(server string, namespaceName NamespaceNameParam, resourceName ResourceNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "resourceName", runtime.ParamLocationPath, resourceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resources/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetResourceRequest generates requests for GetResource
+func NewGetResourceRequest(server string, namespaceName NamespaceNameParam, resourceName ResourceNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "resourceName", runtime.ParamLocationPath, resourceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resources/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateResourceRequest calls the generic UpdateResource builder with application/json body
+func NewUpdateResourceRequest(server string, namespaceName NamespaceNameParam, resourceName ResourceNameParam, body UpdateResourceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateResourceRequestWithBody(server, namespaceName, resourceName, "application/json", bodyReader)
+}
+
+// NewUpdateResourceRequestWithBody generates requests for UpdateResource with any type of body
+func NewUpdateResourceRequestWithBody(server string, namespaceName NamespaceNameParam, resourceName ResourceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "resourceName", runtime.ParamLocationPath, resourceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resources/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListResourceTypesRequest generates requests for ListResourceTypes
+func NewListResourceTypesRequest(server string, namespaceName NamespaceNameParam, params *ListResourceTypesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcetypes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateResourceTypeRequest calls the generic CreateResourceType builder with application/json body
+func NewCreateResourceTypeRequest(server string, namespaceName NamespaceNameParam, body CreateResourceTypeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateResourceTypeRequestWithBody(server, namespaceName, "application/json", bodyReader)
+}
+
+// NewCreateResourceTypeRequestWithBody generates requests for CreateResourceType with any type of body
+func NewCreateResourceTypeRequestWithBody(server string, namespaceName NamespaceNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcetypes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteResourceTypeRequest generates requests for DeleteResourceType
+func NewDeleteResourceTypeRequest(server string, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "rtName", runtime.ParamLocationPath, rtName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcetypes/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetResourceTypeRequest generates requests for GetResourceType
+func NewGetResourceTypeRequest(server string, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "rtName", runtime.ParamLocationPath, rtName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcetypes/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateResourceTypeRequest calls the generic UpdateResourceType builder with application/json body
+func NewUpdateResourceTypeRequest(server string, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, body UpdateResourceTypeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateResourceTypeRequestWithBody(server, namespaceName, rtName, "application/json", bodyReader)
+}
+
+// NewUpdateResourceTypeRequestWithBody generates requests for UpdateResourceType with any type of body
+func NewUpdateResourceTypeRequestWithBody(server string, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "rtName", runtime.ParamLocationPath, rtName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcetypes/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetResourceTypeSchemaRequest generates requests for GetResourceTypeSchema
+func NewGetResourceTypeSchemaRequest(server string, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "rtName", runtime.ParamLocationPath, rtName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/resourcetypes/%s/schema", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListSecretReferencesRequest generates requests for ListSecretReferences
 func NewListSecretReferencesRequest(server string, namespaceName NamespaceNameParam, params *ListSecretReferencesParams) (*http.Request, error) {
 	var err error
@@ -11494,6 +13458,78 @@ func NewDeleteGitSecretRequest(server string, namespaceName NamespaceNameParam, 
 	return req, nil
 }
 
+// NewListSecretsRequest generates requests for ListSecrets
+func NewListSecretsRequest(server string, namespaceName NamespaceNameParam, params *ListSecretsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/namespaces/%s/secrets", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewCreateSecretRequest calls the generic CreateSecret builder with application/json body
 func NewCreateSecretRequest(server string, namespaceName NamespaceNameParam, body CreateSecretJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -11578,6 +13614,101 @@ func NewDeleteSecretRequest(server string, namespaceName NamespaceNameParam, sec
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewGetSecretRequest generates requests for GetSecret
+func NewGetSecretRequest(server string, namespaceName NamespaceNameParam, secretName SecretNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "secretName", runtime.ParamLocationPath, secretName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/namespaces/%s/secrets/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateSecretRequest calls the generic UpdateSecret builder with application/json body
+func NewUpdateSecretRequest(server string, namespaceName NamespaceNameParam, secretName SecretNameParam, body UpdateSecretJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateSecretRequestWithBody(server, namespaceName, secretName, "application/json", bodyReader)
+}
+
+// NewUpdateSecretRequestWithBody generates requests for UpdateSecret with any type of body
+func NewUpdateSecretRequestWithBody(server string, namespaceName NamespaceNameParam, secretName SecretNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "secretName", runtime.ParamLocationPath, secretName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/namespaces/%s/secrets/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -11847,6 +13978,28 @@ type ClientWithResponsesInterface interface {
 	UpdateClusterObservabilityPlaneWithBodyWithResponse(ctx context.Context, clusterObservabilityPlaneName ClusterObservabilityPlaneNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterObservabilityPlaneResp, error)
 
 	UpdateClusterObservabilityPlaneWithResponse(ctx context.Context, clusterObservabilityPlaneName ClusterObservabilityPlaneNameParam, body UpdateClusterObservabilityPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterObservabilityPlaneResp, error)
+
+	// ListClusterResourceTypesWithResponse request
+	ListClusterResourceTypesWithResponse(ctx context.Context, params *ListClusterResourceTypesParams, reqEditors ...RequestEditorFn) (*ListClusterResourceTypesResp, error)
+
+	// CreateClusterResourceTypeWithBodyWithResponse request with any body
+	CreateClusterResourceTypeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterResourceTypeResp, error)
+
+	CreateClusterResourceTypeWithResponse(ctx context.Context, body CreateClusterResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterResourceTypeResp, error)
+
+	// DeleteClusterResourceTypeWithResponse request
+	DeleteClusterResourceTypeWithResponse(ctx context.Context, crtName ClusterResourceTypeNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterResourceTypeResp, error)
+
+	// GetClusterResourceTypeWithResponse request
+	GetClusterResourceTypeWithResponse(ctx context.Context, crtName ClusterResourceTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterResourceTypeResp, error)
+
+	// UpdateClusterResourceTypeWithBodyWithResponse request with any body
+	UpdateClusterResourceTypeWithBodyWithResponse(ctx context.Context, crtName ClusterResourceTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterResourceTypeResp, error)
+
+	UpdateClusterResourceTypeWithResponse(ctx context.Context, crtName ClusterResourceTypeNameParam, body UpdateClusterResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterResourceTypeResp, error)
+
+	// GetClusterResourceTypeSchemaWithResponse request
+	GetClusterResourceTypeSchemaWithResponse(ctx context.Context, crtName ClusterResourceTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterResourceTypeSchemaResp, error)
 
 	// ListClusterTraitsWithResponse request
 	ListClusterTraitsWithResponse(ctx context.Context, params *ListClusterTraitsParams, reqEditors ...RequestEditorFn) (*ListClusterTraitsResp, error)
@@ -12173,6 +14326,80 @@ type ClientWithResponsesInterface interface {
 	// GetReleaseBindingK8sResourceTreeWithResponse request
 	GetReleaseBindingK8sResourceTreeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*GetReleaseBindingK8sResourceTreeResp, error)
 
+	// ListResourceReleaseBindingsWithResponse request
+	ListResourceReleaseBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourceReleaseBindingsParams, reqEditors ...RequestEditorFn) (*ListResourceReleaseBindingsResp, error)
+
+	// CreateResourceReleaseBindingWithBodyWithResponse request with any body
+	CreateResourceReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateResourceReleaseBindingResp, error)
+
+	CreateResourceReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateResourceReleaseBindingResp, error)
+
+	// DeleteResourceReleaseBindingWithResponse request
+	DeleteResourceReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*DeleteResourceReleaseBindingResp, error)
+
+	// GetResourceReleaseBindingWithResponse request
+	GetResourceReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*GetResourceReleaseBindingResp, error)
+
+	// UpdateResourceReleaseBindingWithBodyWithResponse request with any body
+	UpdateResourceReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateResourceReleaseBindingResp, error)
+
+	UpdateResourceReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, body UpdateResourceReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateResourceReleaseBindingResp, error)
+
+	// ListResourceReleasesWithResponse request
+	ListResourceReleasesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourceReleasesParams, reqEditors ...RequestEditorFn) (*ListResourceReleasesResp, error)
+
+	// CreateResourceReleaseWithBodyWithResponse request with any body
+	CreateResourceReleaseWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateResourceReleaseResp, error)
+
+	CreateResourceReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateResourceReleaseResp, error)
+
+	// DeleteResourceReleaseWithResponse request
+	DeleteResourceReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseName ResourceReleaseNameParam, reqEditors ...RequestEditorFn) (*DeleteResourceReleaseResp, error)
+
+	// GetResourceReleaseWithResponse request
+	GetResourceReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseName ResourceReleaseNameParam, reqEditors ...RequestEditorFn) (*GetResourceReleaseResp, error)
+
+	// ListResourcesWithResponse request
+	ListResourcesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourcesParams, reqEditors ...RequestEditorFn) (*ListResourcesResp, error)
+
+	// CreateResourceWithBodyWithResponse request with any body
+	CreateResourceWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateResourceResp, error)
+
+	CreateResourceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateResourceResp, error)
+
+	// DeleteResourceWithResponse request
+	DeleteResourceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, reqEditors ...RequestEditorFn) (*DeleteResourceResp, error)
+
+	// GetResourceWithResponse request
+	GetResourceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, reqEditors ...RequestEditorFn) (*GetResourceResp, error)
+
+	// UpdateResourceWithBodyWithResponse request with any body
+	UpdateResourceWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateResourceResp, error)
+
+	UpdateResourceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, body UpdateResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateResourceResp, error)
+
+	// ListResourceTypesWithResponse request
+	ListResourceTypesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourceTypesParams, reqEditors ...RequestEditorFn) (*ListResourceTypesResp, error)
+
+	// CreateResourceTypeWithBodyWithResponse request with any body
+	CreateResourceTypeWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateResourceTypeResp, error)
+
+	CreateResourceTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateResourceTypeResp, error)
+
+	// DeleteResourceTypeWithResponse request
+	DeleteResourceTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, reqEditors ...RequestEditorFn) (*DeleteResourceTypeResp, error)
+
+	// GetResourceTypeWithResponse request
+	GetResourceTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, reqEditors ...RequestEditorFn) (*GetResourceTypeResp, error)
+
+	// UpdateResourceTypeWithBodyWithResponse request with any body
+	UpdateResourceTypeWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateResourceTypeResp, error)
+
+	UpdateResourceTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, body UpdateResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateResourceTypeResp, error)
+
+	// GetResourceTypeSchemaWithResponse request
+	GetResourceTypeSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, reqEditors ...RequestEditorFn) (*GetResourceTypeSchemaResp, error)
+
 	// ListSecretReferencesWithResponse request
 	ListSecretReferencesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretReferencesParams, reqEditors ...RequestEditorFn) (*ListSecretReferencesResp, error)
 
@@ -12318,6 +14545,9 @@ type ClientWithResponsesInterface interface {
 	// DeleteGitSecretWithResponse request
 	DeleteGitSecretWithResponse(ctx context.Context, namespaceName NamespaceNameParam, gitSecretName GitSecretNameParam, reqEditors ...RequestEditorFn) (*DeleteGitSecretResp, error)
 
+	// ListSecretsWithResponse request
+	ListSecretsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretsParams, reqEditors ...RequestEditorFn) (*ListSecretsResp, error)
+
 	// CreateSecretWithBodyWithResponse request with any body
 	CreateSecretWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSecretResp, error)
 
@@ -12325,6 +14555,14 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteSecretWithResponse request
 	DeleteSecretWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, reqEditors ...RequestEditorFn) (*DeleteSecretResp, error)
+
+	// GetSecretWithResponse request
+	GetSecretWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, reqEditors ...RequestEditorFn) (*GetSecretResp, error)
+
+	// UpdateSecretWithBodyWithResponse request with any body
+	UpdateSecretWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSecretResp, error)
+
+	UpdateSecretWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, body UpdateSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSecretResp, error)
 
 	// GetHealthWithResponse request
 	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResp, error)
@@ -12416,6 +14654,7 @@ type EvaluatesResp struct {
 	JSON200      *[]Decision
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12495,6 +14734,7 @@ type CreateClusterRoleBindingResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12574,6 +14814,7 @@ type UpdateClusterRoleBindingResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12627,6 +14868,7 @@ type CreateClusterRoleResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12706,6 +14948,7 @@ type UpdateClusterRoleResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12759,6 +15002,7 @@ type CreateClusterComponentTypeResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12838,6 +15082,7 @@ type UpdateClusterComponentTypeResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12917,6 +15162,7 @@ type CreateClusterDataPlaneResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -12996,6 +15242,7 @@ type UpdateClusterDataPlaneResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13049,6 +15296,7 @@ type CreateClusterObservabilityPlaneResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13128,6 +15376,7 @@ type UpdateClusterObservabilityPlaneResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13141,6 +15390,164 @@ func (r UpdateClusterObservabilityPlaneResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateClusterObservabilityPlaneResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListClusterResourceTypesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterResourceTypeList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListClusterResourceTypesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListClusterResourceTypesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateClusterResourceTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ClusterResourceType
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateClusterResourceTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateClusterResourceTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteClusterResourceTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteClusterResourceTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteClusterResourceTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetClusterResourceTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterResourceType
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetClusterResourceTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetClusterResourceTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateClusterResourceTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterResourceType
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateClusterResourceTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateClusterResourceTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetClusterResourceTypeSchemaResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SchemaResponse
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetClusterResourceTypeSchemaResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetClusterResourceTypeSchemaResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -13181,6 +15588,7 @@ type CreateClusterTraitResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13260,6 +15668,7 @@ type UpdateClusterTraitResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13339,6 +15748,7 @@ type CreateClusterWorkflowPlaneResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13418,6 +15828,7 @@ type UpdateClusterWorkflowPlaneResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13471,6 +15882,7 @@ type CreateClusterWorkflowResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13550,6 +15962,7 @@ type UpdateClusterWorkflowResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13629,6 +16042,7 @@ type CreateNamespaceResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13707,6 +16121,7 @@ type UpdateNamespaceResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13760,6 +16175,7 @@ type CreateNamespaceRoleBindingResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13841,6 +16257,7 @@ type UpdateNamespaceRoleBindingResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13894,6 +16311,7 @@ type CreateNamespaceRoleResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -13975,6 +16393,7 @@ type UpdateNamespaceRoleResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14029,6 +16448,7 @@ type CreateComponentReleaseResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14134,6 +16554,7 @@ type CreateComponentResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14213,6 +16634,7 @@ type UpdateComponentResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14240,6 +16662,7 @@ type GenerateReleaseResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14319,6 +16742,7 @@ type CreateComponentTypeResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14398,6 +16822,7 @@ type UpdateComponentTypeResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14477,6 +16902,7 @@ type CreateDataPlaneResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14556,6 +16982,7 @@ type UpdateDataPlaneResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14609,6 +17036,7 @@ type CreateDeploymentPipelineResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14687,6 +17115,7 @@ type UpdateDeploymentPipelineResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14740,6 +17169,7 @@ type CreateEnvironmentResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14819,6 +17249,7 @@ type UpdateEnvironmentResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14872,6 +17303,7 @@ type CreateObservabilityAlertsNotificationChannelResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -14950,6 +17382,7 @@ type UpdateObservabilityAlertsNotificationChannelResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15003,6 +17436,7 @@ type CreateObservabilityPlaneResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15082,6 +17516,7 @@ type UpdateObservabilityPlaneResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15136,6 +17571,7 @@ type CreateProjectResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15215,6 +17651,7 @@ type UpdateProjectResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15269,6 +17706,7 @@ type CreateReleaseBindingResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15347,6 +17785,7 @@ type UpdateReleaseBindingResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15447,6 +17886,531 @@ func (r GetReleaseBindingK8sResourceTreeResp) StatusCode() int {
 	return 0
 }
 
+type ListResourceReleaseBindingsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourceReleaseBindingList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListResourceReleaseBindingsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListResourceReleaseBindingsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateResourceReleaseBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ResourceReleaseBinding
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateResourceReleaseBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateResourceReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteResourceReleaseBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteResourceReleaseBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteResourceReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetResourceReleaseBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourceReleaseBinding
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetResourceReleaseBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetResourceReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateResourceReleaseBindingResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourceReleaseBinding
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateResourceReleaseBindingResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateResourceReleaseBindingResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListResourceReleasesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourceReleaseList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListResourceReleasesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListResourceReleasesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateResourceReleaseResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ResourceRelease
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateResourceReleaseResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateResourceReleaseResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteResourceReleaseResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteResourceReleaseResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteResourceReleaseResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetResourceReleaseResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourceRelease
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetResourceReleaseResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetResourceReleaseResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListResourcesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourceInstanceList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListResourcesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListResourcesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateResourceResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ResourceInstance
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateResourceResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateResourceResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteResourceResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteResourceResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteResourceResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetResourceResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourceInstance
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetResourceResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetResourceResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateResourceResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourceInstance
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateResourceResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateResourceResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListResourceTypesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourceTypeList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListResourceTypesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListResourceTypesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateResourceTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ResourceType
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateResourceTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateResourceTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteResourceTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteResourceTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteResourceTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetResourceTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourceType
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetResourceTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetResourceTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateResourceTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ResourceType
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateResourceTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateResourceTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetResourceTypeSchemaResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SchemaResponse
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetResourceTypeSchemaResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetResourceTypeSchemaResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListSecretReferencesResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -15481,6 +18445,7 @@ type CreateSecretReferenceResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15559,6 +18524,7 @@ type UpdateSecretReferenceResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15612,6 +18578,7 @@ type CreateTraitResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15691,6 +18658,7 @@ type UpdateTraitResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15770,6 +18738,7 @@ type CreateWorkflowPlaneResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15849,6 +18818,7 @@ type UpdateWorkflowPlaneResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15902,6 +18872,7 @@ type CreateWorkflowRunResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -15980,6 +18951,7 @@ type UpdateWorkflowRunResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16110,6 +19082,7 @@ type CreateWorkflowResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16189,6 +19162,7 @@ type UpdateWorkflowResp struct {
 	JSON403      *Forbidden
 	JSON404      *NotFound
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16269,6 +19243,7 @@ type CreateWorkloadResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16347,6 +19322,7 @@ type UpdateWorkloadResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16372,6 +19348,7 @@ type HandleAutoBuildResp struct {
 	JSON200      *WebhookEventResponse
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16424,6 +19401,7 @@ type CreateGitSecretResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
 }
 
@@ -16468,15 +19446,44 @@ func (r DeleteGitSecretResp) StatusCode() int {
 	return 0
 }
 
+type ListSecretsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListSecretsResponse
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+	JSON501      *NotImplemented
+}
+
+// Status returns HTTPResponse.Status
+func (r ListSecretsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListSecretsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type CreateSecretResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *SecretResponse
+	JSON201      *Secret
 	JSON400      *BadRequest
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON409      *Conflict
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
+	JSON501      *NotImplemented
 }
 
 // Status returns HTTPResponse.Status
@@ -16502,7 +19509,9 @@ type DeleteSecretResp struct {
 	JSON401      *Unauthorized
 	JSON403      *Forbidden
 	JSON404      *NotFound
+	JSON422      *UnprocessableContent
 	JSON500      *InternalError
+	JSON501      *NotImplemented
 }
 
 // Status returns HTTPResponse.Status
@@ -16515,6 +19524,62 @@ func (r DeleteSecretResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r DeleteSecretResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetSecretResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Secret
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+	JSON501      *NotImplemented
+}
+
+// Status returns HTTPResponse.Status
+func (r GetSecretResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetSecretResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateSecretResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Secret
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON422      *UnprocessableContent
+	JSON500      *InternalError
+	JSON501      *NotImplemented
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateSecretResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateSecretResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -16972,6 +20037,76 @@ func (c *ClientWithResponses) UpdateClusterObservabilityPlaneWithResponse(ctx co
 		return nil, err
 	}
 	return ParseUpdateClusterObservabilityPlaneResp(rsp)
+}
+
+// ListClusterResourceTypesWithResponse request returning *ListClusterResourceTypesResp
+func (c *ClientWithResponses) ListClusterResourceTypesWithResponse(ctx context.Context, params *ListClusterResourceTypesParams, reqEditors ...RequestEditorFn) (*ListClusterResourceTypesResp, error) {
+	rsp, err := c.ListClusterResourceTypes(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListClusterResourceTypesResp(rsp)
+}
+
+// CreateClusterResourceTypeWithBodyWithResponse request with arbitrary body returning *CreateClusterResourceTypeResp
+func (c *ClientWithResponses) CreateClusterResourceTypeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterResourceTypeResp, error) {
+	rsp, err := c.CreateClusterResourceTypeWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterResourceTypeResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateClusterResourceTypeWithResponse(ctx context.Context, body CreateClusterResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterResourceTypeResp, error) {
+	rsp, err := c.CreateClusterResourceType(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterResourceTypeResp(rsp)
+}
+
+// DeleteClusterResourceTypeWithResponse request returning *DeleteClusterResourceTypeResp
+func (c *ClientWithResponses) DeleteClusterResourceTypeWithResponse(ctx context.Context, crtName ClusterResourceTypeNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterResourceTypeResp, error) {
+	rsp, err := c.DeleteClusterResourceType(ctx, crtName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteClusterResourceTypeResp(rsp)
+}
+
+// GetClusterResourceTypeWithResponse request returning *GetClusterResourceTypeResp
+func (c *ClientWithResponses) GetClusterResourceTypeWithResponse(ctx context.Context, crtName ClusterResourceTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterResourceTypeResp, error) {
+	rsp, err := c.GetClusterResourceType(ctx, crtName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetClusterResourceTypeResp(rsp)
+}
+
+// UpdateClusterResourceTypeWithBodyWithResponse request with arbitrary body returning *UpdateClusterResourceTypeResp
+func (c *ClientWithResponses) UpdateClusterResourceTypeWithBodyWithResponse(ctx context.Context, crtName ClusterResourceTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterResourceTypeResp, error) {
+	rsp, err := c.UpdateClusterResourceTypeWithBody(ctx, crtName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterResourceTypeResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateClusterResourceTypeWithResponse(ctx context.Context, crtName ClusterResourceTypeNameParam, body UpdateClusterResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterResourceTypeResp, error) {
+	rsp, err := c.UpdateClusterResourceType(ctx, crtName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterResourceTypeResp(rsp)
+}
+
+// GetClusterResourceTypeSchemaWithResponse request returning *GetClusterResourceTypeSchemaResp
+func (c *ClientWithResponses) GetClusterResourceTypeSchemaWithResponse(ctx context.Context, crtName ClusterResourceTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterResourceTypeSchemaResp, error) {
+	rsp, err := c.GetClusterResourceTypeSchema(ctx, crtName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetClusterResourceTypeSchemaResp(rsp)
 }
 
 // ListClusterTraitsWithResponse request returning *ListClusterTraitsResp
@@ -18013,6 +21148,242 @@ func (c *ClientWithResponses) GetReleaseBindingK8sResourceTreeWithResponse(ctx c
 	return ParseGetReleaseBindingK8sResourceTreeResp(rsp)
 }
 
+// ListResourceReleaseBindingsWithResponse request returning *ListResourceReleaseBindingsResp
+func (c *ClientWithResponses) ListResourceReleaseBindingsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourceReleaseBindingsParams, reqEditors ...RequestEditorFn) (*ListResourceReleaseBindingsResp, error) {
+	rsp, err := c.ListResourceReleaseBindings(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListResourceReleaseBindingsResp(rsp)
+}
+
+// CreateResourceReleaseBindingWithBodyWithResponse request with arbitrary body returning *CreateResourceReleaseBindingResp
+func (c *ClientWithResponses) CreateResourceReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateResourceReleaseBindingResp, error) {
+	rsp, err := c.CreateResourceReleaseBindingWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateResourceReleaseBindingResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateResourceReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateResourceReleaseBindingResp, error) {
+	rsp, err := c.CreateResourceReleaseBinding(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateResourceReleaseBindingResp(rsp)
+}
+
+// DeleteResourceReleaseBindingWithResponse request returning *DeleteResourceReleaseBindingResp
+func (c *ClientWithResponses) DeleteResourceReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*DeleteResourceReleaseBindingResp, error) {
+	rsp, err := c.DeleteResourceReleaseBinding(ctx, namespaceName, resourceReleaseBindingName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteResourceReleaseBindingResp(rsp)
+}
+
+// GetResourceReleaseBindingWithResponse request returning *GetResourceReleaseBindingResp
+func (c *ClientWithResponses) GetResourceReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*GetResourceReleaseBindingResp, error) {
+	rsp, err := c.GetResourceReleaseBinding(ctx, namespaceName, resourceReleaseBindingName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetResourceReleaseBindingResp(rsp)
+}
+
+// UpdateResourceReleaseBindingWithBodyWithResponse request with arbitrary body returning *UpdateResourceReleaseBindingResp
+func (c *ClientWithResponses) UpdateResourceReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateResourceReleaseBindingResp, error) {
+	rsp, err := c.UpdateResourceReleaseBindingWithBody(ctx, namespaceName, resourceReleaseBindingName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateResourceReleaseBindingResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateResourceReleaseBindingWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseBindingName ResourceReleaseBindingNameParam, body UpdateResourceReleaseBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateResourceReleaseBindingResp, error) {
+	rsp, err := c.UpdateResourceReleaseBinding(ctx, namespaceName, resourceReleaseBindingName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateResourceReleaseBindingResp(rsp)
+}
+
+// ListResourceReleasesWithResponse request returning *ListResourceReleasesResp
+func (c *ClientWithResponses) ListResourceReleasesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourceReleasesParams, reqEditors ...RequestEditorFn) (*ListResourceReleasesResp, error) {
+	rsp, err := c.ListResourceReleases(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListResourceReleasesResp(rsp)
+}
+
+// CreateResourceReleaseWithBodyWithResponse request with arbitrary body returning *CreateResourceReleaseResp
+func (c *ClientWithResponses) CreateResourceReleaseWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateResourceReleaseResp, error) {
+	rsp, err := c.CreateResourceReleaseWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateResourceReleaseResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateResourceReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateResourceReleaseResp, error) {
+	rsp, err := c.CreateResourceRelease(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateResourceReleaseResp(rsp)
+}
+
+// DeleteResourceReleaseWithResponse request returning *DeleteResourceReleaseResp
+func (c *ClientWithResponses) DeleteResourceReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseName ResourceReleaseNameParam, reqEditors ...RequestEditorFn) (*DeleteResourceReleaseResp, error) {
+	rsp, err := c.DeleteResourceRelease(ctx, namespaceName, resourceReleaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteResourceReleaseResp(rsp)
+}
+
+// GetResourceReleaseWithResponse request returning *GetResourceReleaseResp
+func (c *ClientWithResponses) GetResourceReleaseWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceReleaseName ResourceReleaseNameParam, reqEditors ...RequestEditorFn) (*GetResourceReleaseResp, error) {
+	rsp, err := c.GetResourceRelease(ctx, namespaceName, resourceReleaseName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetResourceReleaseResp(rsp)
+}
+
+// ListResourcesWithResponse request returning *ListResourcesResp
+func (c *ClientWithResponses) ListResourcesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourcesParams, reqEditors ...RequestEditorFn) (*ListResourcesResp, error) {
+	rsp, err := c.ListResources(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListResourcesResp(rsp)
+}
+
+// CreateResourceWithBodyWithResponse request with arbitrary body returning *CreateResourceResp
+func (c *ClientWithResponses) CreateResourceWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateResourceResp, error) {
+	rsp, err := c.CreateResourceWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateResourceResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateResourceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateResourceResp, error) {
+	rsp, err := c.CreateResource(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateResourceResp(rsp)
+}
+
+// DeleteResourceWithResponse request returning *DeleteResourceResp
+func (c *ClientWithResponses) DeleteResourceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, reqEditors ...RequestEditorFn) (*DeleteResourceResp, error) {
+	rsp, err := c.DeleteResource(ctx, namespaceName, resourceName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteResourceResp(rsp)
+}
+
+// GetResourceWithResponse request returning *GetResourceResp
+func (c *ClientWithResponses) GetResourceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, reqEditors ...RequestEditorFn) (*GetResourceResp, error) {
+	rsp, err := c.GetResource(ctx, namespaceName, resourceName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetResourceResp(rsp)
+}
+
+// UpdateResourceWithBodyWithResponse request with arbitrary body returning *UpdateResourceResp
+func (c *ClientWithResponses) UpdateResourceWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateResourceResp, error) {
+	rsp, err := c.UpdateResourceWithBody(ctx, namespaceName, resourceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateResourceResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateResourceWithResponse(ctx context.Context, namespaceName NamespaceNameParam, resourceName ResourceNameParam, body UpdateResourceJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateResourceResp, error) {
+	rsp, err := c.UpdateResource(ctx, namespaceName, resourceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateResourceResp(rsp)
+}
+
+// ListResourceTypesWithResponse request returning *ListResourceTypesResp
+func (c *ClientWithResponses) ListResourceTypesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListResourceTypesParams, reqEditors ...RequestEditorFn) (*ListResourceTypesResp, error) {
+	rsp, err := c.ListResourceTypes(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListResourceTypesResp(rsp)
+}
+
+// CreateResourceTypeWithBodyWithResponse request with arbitrary body returning *CreateResourceTypeResp
+func (c *ClientWithResponses) CreateResourceTypeWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateResourceTypeResp, error) {
+	rsp, err := c.CreateResourceTypeWithBody(ctx, namespaceName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateResourceTypeResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateResourceTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, body CreateResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateResourceTypeResp, error) {
+	rsp, err := c.CreateResourceType(ctx, namespaceName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateResourceTypeResp(rsp)
+}
+
+// DeleteResourceTypeWithResponse request returning *DeleteResourceTypeResp
+func (c *ClientWithResponses) DeleteResourceTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, reqEditors ...RequestEditorFn) (*DeleteResourceTypeResp, error) {
+	rsp, err := c.DeleteResourceType(ctx, namespaceName, rtName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteResourceTypeResp(rsp)
+}
+
+// GetResourceTypeWithResponse request returning *GetResourceTypeResp
+func (c *ClientWithResponses) GetResourceTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, reqEditors ...RequestEditorFn) (*GetResourceTypeResp, error) {
+	rsp, err := c.GetResourceType(ctx, namespaceName, rtName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetResourceTypeResp(rsp)
+}
+
+// UpdateResourceTypeWithBodyWithResponse request with arbitrary body returning *UpdateResourceTypeResp
+func (c *ClientWithResponses) UpdateResourceTypeWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateResourceTypeResp, error) {
+	rsp, err := c.UpdateResourceTypeWithBody(ctx, namespaceName, rtName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateResourceTypeResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateResourceTypeWithResponse(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, body UpdateResourceTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateResourceTypeResp, error) {
+	rsp, err := c.UpdateResourceType(ctx, namespaceName, rtName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateResourceTypeResp(rsp)
+}
+
+// GetResourceTypeSchemaWithResponse request returning *GetResourceTypeSchemaResp
+func (c *ClientWithResponses) GetResourceTypeSchemaWithResponse(ctx context.Context, namespaceName NamespaceNameParam, rtName ResourceTypeNameParam, reqEditors ...RequestEditorFn) (*GetResourceTypeSchemaResp, error) {
+	rsp, err := c.GetResourceTypeSchema(ctx, namespaceName, rtName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetResourceTypeSchemaResp(rsp)
+}
+
 // ListSecretReferencesWithResponse request returning *ListSecretReferencesResp
 func (c *ClientWithResponses) ListSecretReferencesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretReferencesParams, reqEditors ...RequestEditorFn) (*ListSecretReferencesResp, error) {
 	rsp, err := c.ListSecretReferences(ctx, namespaceName, params, reqEditors...)
@@ -18476,6 +21847,15 @@ func (c *ClientWithResponses) DeleteGitSecretWithResponse(ctx context.Context, n
 	return ParseDeleteGitSecretResp(rsp)
 }
 
+// ListSecretsWithResponse request returning *ListSecretsResp
+func (c *ClientWithResponses) ListSecretsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretsParams, reqEditors ...RequestEditorFn) (*ListSecretsResp, error) {
+	rsp, err := c.ListSecrets(ctx, namespaceName, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListSecretsResp(rsp)
+}
+
 // CreateSecretWithBodyWithResponse request with arbitrary body returning *CreateSecretResp
 func (c *ClientWithResponses) CreateSecretWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSecretResp, error) {
 	rsp, err := c.CreateSecretWithBody(ctx, namespaceName, contentType, body, reqEditors...)
@@ -18500,6 +21880,32 @@ func (c *ClientWithResponses) DeleteSecretWithResponse(ctx context.Context, name
 		return nil, err
 	}
 	return ParseDeleteSecretResp(rsp)
+}
+
+// GetSecretWithResponse request returning *GetSecretResp
+func (c *ClientWithResponses) GetSecretWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, reqEditors ...RequestEditorFn) (*GetSecretResp, error) {
+	rsp, err := c.GetSecret(ctx, namespaceName, secretName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetSecretResp(rsp)
+}
+
+// UpdateSecretWithBodyWithResponse request with arbitrary body returning *UpdateSecretResp
+func (c *ClientWithResponses) UpdateSecretWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSecretResp, error) {
+	rsp, err := c.UpdateSecretWithBody(ctx, namespaceName, secretName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSecretResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateSecretWithResponse(ctx context.Context, namespaceName NamespaceNameParam, secretName SecretNameParam, body UpdateSecretJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSecretResp, error) {
+	rsp, err := c.UpdateSecret(ctx, namespaceName, secretName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSecretResp(rsp)
 }
 
 // GetHealthWithResponse request returning *GetHealthResp
@@ -18686,6 +22092,13 @@ func ParseEvaluatesResp(rsp *http.Response) (*EvaluatesResp, error) {
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -18854,6 +22267,13 @@ func ParseCreateClusterRoleBindingResp(rsp *http.Response) (*CreateClusterRoleBi
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -19024,6 +22444,13 @@ func ParseUpdateClusterRoleBindingResp(rsp *http.Response) (*UpdateClusterRoleBi
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -19138,6 +22565,13 @@ func ParseCreateClusterRoleResp(rsp *http.Response) (*CreateClusterRoleResp, err
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -19308,6 +22742,13 @@ func ParseUpdateClusterRoleResp(rsp *http.Response) (*UpdateClusterRoleResp, err
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -19422,6 +22863,13 @@ func ParseCreateClusterComponentTypeResp(rsp *http.Response) (*CreateClusterComp
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -19592,6 +23040,13 @@ func ParseUpdateClusterComponentTypeResp(rsp *http.Response) (*UpdateClusterComp
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -19760,6 +23215,13 @@ func ParseCreateClusterDataPlaneResp(rsp *http.Response) (*CreateClusterDataPlan
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -19930,6 +23392,13 @@ func ParseUpdateClusterDataPlaneResp(rsp *http.Response) (*UpdateClusterDataPlan
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -20044,6 +23513,13 @@ func ParseCreateClusterObservabilityPlaneResp(rsp *http.Response) (*CreateCluste
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -20214,6 +23690,351 @@ func ParseUpdateClusterObservabilityPlaneResp(rsp *http.Response) (*UpdateCluste
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListClusterResourceTypesResp parses an HTTP response from a ListClusterResourceTypesWithResponse call
+func ParseListClusterResourceTypesResp(rsp *http.Response) (*ListClusterResourceTypesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListClusterResourceTypesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterResourceTypeList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateClusterResourceTypeResp parses an HTTP response from a CreateClusterResourceTypeWithResponse call
+func ParseCreateClusterResourceTypeResp(rsp *http.Response) (*CreateClusterResourceTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateClusterResourceTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ClusterResourceType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteClusterResourceTypeResp parses an HTTP response from a DeleteClusterResourceTypeWithResponse call
+func ParseDeleteClusterResourceTypeResp(rsp *http.Response) (*DeleteClusterResourceTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteClusterResourceTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetClusterResourceTypeResp parses an HTTP response from a GetClusterResourceTypeWithResponse call
+func ParseGetClusterResourceTypeResp(rsp *http.Response) (*GetClusterResourceTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetClusterResourceTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterResourceType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateClusterResourceTypeResp parses an HTTP response from a UpdateClusterResourceTypeWithResponse call
+func ParseUpdateClusterResourceTypeResp(rsp *http.Response) (*UpdateClusterResourceTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateClusterResourceTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterResourceType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetClusterResourceTypeSchemaResp parses an HTTP response from a GetClusterResourceTypeSchemaWithResponse call
+func ParseGetClusterResourceTypeSchemaResp(rsp *http.Response) (*GetClusterResourceTypeSchemaResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetClusterResourceTypeSchemaResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SchemaResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -20328,6 +24149,13 @@ func ParseCreateClusterTraitResp(rsp *http.Response) (*CreateClusterTraitResp, e
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -20498,6 +24326,13 @@ func ParseUpdateClusterTraitResp(rsp *http.Response) (*UpdateClusterTraitResp, e
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -20666,6 +24501,13 @@ func ParseCreateClusterWorkflowPlaneResp(rsp *http.Response) (*CreateClusterWork
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -20836,6 +24678,13 @@ func ParseUpdateClusterWorkflowPlaneResp(rsp *http.Response) (*UpdateClusterWork
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -20950,6 +24799,13 @@ func ParseCreateClusterWorkflowResp(rsp *http.Response) (*CreateClusterWorkflowR
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -21120,6 +24976,13 @@ func ParseUpdateClusterWorkflowResp(rsp *http.Response) (*UpdateClusterWorkflowR
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21289,6 +25152,13 @@ func ParseCreateNamespaceResp(rsp *http.Response) (*CreateNamespaceResp, error) 
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21451,6 +25321,13 @@ func ParseUpdateNamespaceResp(rsp *http.Response) (*UpdateNamespaceResp, error) 
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21565,6 +25442,13 @@ func ParseCreateNamespaceRoleBindingResp(rsp *http.Response) (*CreateNamespaceRo
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -21749,6 +25633,13 @@ func ParseUpdateNamespaceRoleBindingResp(rsp *http.Response) (*UpdateNamespaceRo
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21863,6 +25754,13 @@ func ParseCreateNamespaceRoleResp(rsp *http.Response) (*CreateNamespaceRoleResp,
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -22047,6 +25945,13 @@ func ParseUpdateNamespaceRoleResp(rsp *http.Response) (*UpdateNamespaceRoleResp,
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22168,6 +26073,13 @@ func ParseCreateComponentReleaseResp(rsp *http.Response) (*CreateComponentReleas
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -22392,6 +26304,13 @@ func ParseCreateComponentResp(rsp *http.Response) (*CreateComponentResp, error) 
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22561,6 +26480,13 @@ func ParseUpdateComponentResp(rsp *http.Response) (*UpdateComponentResp, error) 
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22621,6 +26547,13 @@ func ParseGenerateReleaseResp(rsp *http.Response) (*GenerateReleaseResp, error) 
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -22791,6 +26724,13 @@ func ParseCreateComponentTypeResp(rsp *http.Response) (*CreateComponentTypeResp,
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -22959,6 +26899,13 @@ func ParseUpdateComponentTypeResp(rsp *http.Response) (*UpdateComponentTypeResp,
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -23129,6 +27076,13 @@ func ParseCreateDataPlaneResp(rsp *http.Response) (*CreateDataPlaneResp, error) 
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23298,6 +27252,13 @@ func ParseUpdateDataPlaneResp(rsp *http.Response) (*UpdateDataPlaneResp, error) 
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23412,6 +27373,13 @@ func ParseCreateDeploymentPipelineResp(rsp *http.Response) (*CreateDeploymentPip
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -23575,6 +27543,13 @@ func ParseUpdateDeploymentPipelineResp(rsp *http.Response) (*UpdateDeploymentPip
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23689,6 +27664,13 @@ func ParseCreateEnvironmentResp(rsp *http.Response) (*CreateEnvironmentResp, err
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -23859,6 +27841,13 @@ func ParseUpdateEnvironmentResp(rsp *http.Response) (*UpdateEnvironmentResp, err
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -23973,6 +27962,13 @@ func ParseCreateObservabilityAlertsNotificationChannelResp(rsp *http.Response) (
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -24136,6 +28132,13 @@ func ParseUpdateObservabilityAlertsNotificationChannelResp(rsp *http.Response) (
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -24250,6 +28253,13 @@ func ParseCreateObservabilityPlaneResp(rsp *http.Response) (*CreateObservability
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -24420,6 +28430,13 @@ func ParseUpdateObservabilityPlaneResp(rsp *http.Response) (*UpdateObservability
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -24541,6 +28558,13 @@ func ParseCreateProjectResp(rsp *http.Response) (*CreateProjectResp, error) {
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -24711,6 +28735,13 @@ func ParseUpdateProjectResp(rsp *http.Response) (*UpdateProjectResp, error) {
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -24832,6 +28863,13 @@ func ParseCreateReleaseBindingResp(rsp *http.Response) (*CreateReleaseBindingRes
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -24994,6 +29032,13 @@ func ParseUpdateReleaseBindingResp(rsp *http.Response) (*UpdateReleaseBindingRes
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -25190,6 +29235,1121 @@ func ParseGetReleaseBindingK8sResourceTreeResp(rsp *http.Response) (*GetReleaseB
 	return response, nil
 }
 
+// ParseListResourceReleaseBindingsResp parses an HTTP response from a ListResourceReleaseBindingsWithResponse call
+func ParseListResourceReleaseBindingsResp(rsp *http.Response) (*ListResourceReleaseBindingsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListResourceReleaseBindingsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourceReleaseBindingList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateResourceReleaseBindingResp parses an HTTP response from a CreateResourceReleaseBindingWithResponse call
+func ParseCreateResourceReleaseBindingResp(rsp *http.Response) (*CreateResourceReleaseBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateResourceReleaseBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ResourceReleaseBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteResourceReleaseBindingResp parses an HTTP response from a DeleteResourceReleaseBindingWithResponse call
+func ParseDeleteResourceReleaseBindingResp(rsp *http.Response) (*DeleteResourceReleaseBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteResourceReleaseBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetResourceReleaseBindingResp parses an HTTP response from a GetResourceReleaseBindingWithResponse call
+func ParseGetResourceReleaseBindingResp(rsp *http.Response) (*GetResourceReleaseBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetResourceReleaseBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourceReleaseBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateResourceReleaseBindingResp parses an HTTP response from a UpdateResourceReleaseBindingWithResponse call
+func ParseUpdateResourceReleaseBindingResp(rsp *http.Response) (*UpdateResourceReleaseBindingResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateResourceReleaseBindingResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourceReleaseBinding
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListResourceReleasesResp parses an HTTP response from a ListResourceReleasesWithResponse call
+func ParseListResourceReleasesResp(rsp *http.Response) (*ListResourceReleasesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListResourceReleasesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourceReleaseList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateResourceReleaseResp parses an HTTP response from a CreateResourceReleaseWithResponse call
+func ParseCreateResourceReleaseResp(rsp *http.Response) (*CreateResourceReleaseResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateResourceReleaseResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ResourceRelease
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteResourceReleaseResp parses an HTTP response from a DeleteResourceReleaseWithResponse call
+func ParseDeleteResourceReleaseResp(rsp *http.Response) (*DeleteResourceReleaseResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteResourceReleaseResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetResourceReleaseResp parses an HTTP response from a GetResourceReleaseWithResponse call
+func ParseGetResourceReleaseResp(rsp *http.Response) (*GetResourceReleaseResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetResourceReleaseResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourceRelease
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListResourcesResp parses an HTTP response from a ListResourcesWithResponse call
+func ParseListResourcesResp(rsp *http.Response) (*ListResourcesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListResourcesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourceInstanceList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateResourceResp parses an HTTP response from a CreateResourceWithResponse call
+func ParseCreateResourceResp(rsp *http.Response) (*CreateResourceResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateResourceResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ResourceInstance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteResourceResp parses an HTTP response from a DeleteResourceWithResponse call
+func ParseDeleteResourceResp(rsp *http.Response) (*DeleteResourceResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteResourceResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetResourceResp parses an HTTP response from a GetResourceWithResponse call
+func ParseGetResourceResp(rsp *http.Response) (*GetResourceResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetResourceResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourceInstance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateResourceResp parses an HTTP response from a UpdateResourceWithResponse call
+func ParseUpdateResourceResp(rsp *http.Response) (*UpdateResourceResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateResourceResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourceInstance
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListResourceTypesResp parses an HTTP response from a ListResourceTypesWithResponse call
+func ParseListResourceTypesResp(rsp *http.Response) (*ListResourceTypesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListResourceTypesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourceTypeList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateResourceTypeResp parses an HTTP response from a CreateResourceTypeWithResponse call
+func ParseCreateResourceTypeResp(rsp *http.Response) (*CreateResourceTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateResourceTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ResourceType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteResourceTypeResp parses an HTTP response from a DeleteResourceTypeWithResponse call
+func ParseDeleteResourceTypeResp(rsp *http.Response) (*DeleteResourceTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteResourceTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetResourceTypeResp parses an HTTP response from a GetResourceTypeWithResponse call
+func ParseGetResourceTypeResp(rsp *http.Response) (*GetResourceTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetResourceTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourceType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateResourceTypeResp parses an HTTP response from a UpdateResourceTypeWithResponse call
+func ParseUpdateResourceTypeResp(rsp *http.Response) (*UpdateResourceTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateResourceTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ResourceType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetResourceTypeSchemaResp parses an HTTP response from a GetResourceTypeSchemaWithResponse call
+func ParseGetResourceTypeSchemaResp(rsp *http.Response) (*GetResourceTypeSchemaResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetResourceTypeSchemaResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SchemaResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListSecretReferencesResp parses an HTTP response from a ListSecretReferencesWithResponse call
 func ParseListSecretReferencesResp(rsp *http.Response) (*ListSecretReferencesResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -25292,6 +30452,13 @@ func ParseCreateSecretReferenceResp(rsp *http.Response) (*CreateSecretReferenceR
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -25455,6 +30622,13 @@ func ParseUpdateSecretReferenceResp(rsp *http.Response) (*UpdateSecretReferenceR
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -25569,6 +30743,13 @@ func ParseCreateTraitResp(rsp *http.Response) (*CreateTraitResp, error) {
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -25739,6 +30920,13 @@ func ParseUpdateTraitResp(rsp *http.Response) (*UpdateTraitResp, error) {
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -25907,6 +31095,13 @@ func ParseCreateWorkflowPlaneResp(rsp *http.Response) (*CreateWorkflowPlaneResp,
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -26077,6 +31272,13 @@ func ParseUpdateWorkflowPlaneResp(rsp *http.Response) (*UpdateWorkflowPlaneResp,
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -26191,6 +31393,13 @@ func ParseCreateWorkflowRunResp(rsp *http.Response) (*CreateWorkflowRunResp, err
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -26353,6 +31562,13 @@ func ParseUpdateWorkflowRunResp(rsp *http.Response) (*UpdateWorkflowRunResp, err
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -26624,6 +31840,13 @@ func ParseCreateWorkflowResp(rsp *http.Response) (*CreateWorkflowResp, error) {
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -26792,6 +32015,13 @@ func ParseUpdateWorkflowResp(rsp *http.Response) (*UpdateWorkflowResp, error) {
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -26969,6 +32199,13 @@ func ParseCreateWorkloadResp(rsp *http.Response) (*CreateWorkloadResp, error) {
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -27131,6 +32368,13 @@ func ParseUpdateWorkloadResp(rsp *http.Response) (*UpdateWorkloadResp, error) {
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -27177,6 +32421,13 @@ func ParseHandleAutoBuildResp(rsp *http.Response) (*HandleAutoBuildResp, error) 
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -27286,6 +32537,13 @@ func ParseCreateGitSecretResp(rsp *http.Response) (*CreateGitSecretResp, error) 
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -27345,6 +32603,67 @@ func ParseDeleteGitSecretResp(rsp *http.Response) (*DeleteGitSecretResp, error) 
 	return response, nil
 }
 
+// ParseListSecretsResp parses an HTTP response from a ListSecretsWithResponse call
+func ParseListSecretsResp(rsp *http.Response) (*ListSecretsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListSecretsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListSecretsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest NotImplemented
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseCreateSecretResp parses an HTTP response from a CreateSecretWithResponse call
 func ParseCreateSecretResp(rsp *http.Response) (*CreateSecretResp, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -27360,7 +32679,7 @@ func ParseCreateSecretResp(rsp *http.Response) (*CreateSecretResp, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest SecretResponse
+		var dest Secret
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -27394,12 +32713,26 @@ func ParseCreateSecretResp(rsp *http.Response) (*CreateSecretResp, error) {
 		}
 		response.JSON409 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest NotImplemented
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 
@@ -27448,12 +32781,162 @@ func ParseDeleteSecretResp(rsp *http.Response) (*DeleteSecretResp, error) {
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest NotImplemented
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetSecretResp parses an HTTP response from a GetSecretWithResponse call
+func ParseGetSecretResp(rsp *http.Response) (*GetSecretResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetSecretResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Secret
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest NotImplemented
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateSecretResp parses an HTTP response from a UpdateSecretWithResponse call
+func ParseUpdateSecretResp(rsp *http.Response) (*UpdateSecretResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateSecretResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Secret
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest UnprocessableContent
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest NotImplemented
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 

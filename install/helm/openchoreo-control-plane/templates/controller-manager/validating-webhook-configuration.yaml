@@ -153,6 +153,66 @@ webhooks:
     service:
       name: {{ .Values.controllerManager.name }}-webhook-service
       namespace: '{{ .Release.Namespace }}'
+      path: /validate-openchoreo-dev-v1alpha1-resourcerelease
+  failurePolicy: Fail
+  name: vresourcerelease-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - resourcereleases
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ .Values.controllerManager.name }}-webhook-service
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-openchoreo-dev-v1alpha1-resourcetype
+  failurePolicy: Fail
+  name: vresourcetype-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - resourcetypes
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ .Values.controllerManager.name }}-webhook-service
+      namespace: '{{ .Release.Namespace }}'
+      path: /validate-openchoreo-dev-v1alpha1-clusterresourcetype
+  failurePolicy: Fail
+  name: vclusterresourcetype-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clusterresourcetypes
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: {{ .Values.controllerManager.name }}-webhook-service
+      namespace: '{{ .Release.Namespace }}'
       path: /validate-openchoreo-dev-v1alpha1-trait
   failurePolicy: Fail
   name: vtrait-v1alpha1.kb.io

@@ -81,59 +81,78 @@ type ResolvedOutput struct {
 
 // MetadataContext is the platform-injected metadata surface exposed to CEL
 // templates as ${metadata.*}. The controller computes every field before
-// calling the pipeline.
+// calling the pipeline. JSON tags determine the CEL-facing field names when
+// the context is marshaled via structToMap, and are also reflected on by the
+// validation package to declare the CEL env surface.
 type MetadataContext struct {
 	// Name is the platform-computed base name for rendered resources,
 	// shaped {resource}-{env}-{hash} (mirrors component pipeline's
 	// {component}-{env}-{hash} convention).
-	Name string
+	Name string `json:"name"`
 
 	// Namespace is the DP-side project-env mapped namespace. Exposed via
 	// CEL only; the pipeline does NOT force-set metadata.namespace on
 	// rendered manifests.
-	Namespace string
+	Namespace string `json:"namespace"`
 
 	// ResourceNamespace is the CP namespace where the Resource CR lives.
-	ResourceNamespace string
+	ResourceNamespace string `json:"resourceNamespace"`
 
-	ResourceName    string
-	ResourceUID     string
-	ProjectName     string
-	ProjectUID      string
-	EnvironmentName string
-	EnvironmentUID  string
-	DataPlaneName   string
-	DataPlaneUID    string
+	ResourceName    string `json:"resourceName"`
+	ResourceUID     string `json:"resourceUID"`
+	ProjectName     string `json:"projectName"`
+	ProjectUID      string `json:"projectUID"`
+	EnvironmentName string `json:"environmentName"`
+	EnvironmentUID  string `json:"environmentUID"`
+	DataPlaneName   string `json:"dataPlaneName"`
+	DataPlaneUID    string `json:"dataPlaneUID"`
 
 	// Labels are platform-injected standard labels (openchoreo.dev/resource,
 	// openchoreo.dev/project, openchoreo.dev/environment, plus matching
 	// *-uid keys). PE templates that propagate ${metadata.labels} get
 	// consistent labeling across every rendered DP-side object.
-	Labels map[string]string
+	Labels map[string]string `json:"labels"`
 
 	// Annotations are propagated from the Resource CR.
-	Annotations map[string]string
+	Annotations map[string]string `json:"annotations"`
 }
 
 // DataPlaneContext is the dataplane surface exposed to CEL templates as
 // ${dataplane.*}. The surface is deliberately narrow — only the fields
 // managed-infra ResourceTypes commonly need; gateway and networking surface
-// is intentionally omitted.
+// is intentionally omitted. Optional fields use omitempty so templates can
+// guard with has(...) — mirrors the component pipeline's contract.
 type DataPlaneContext struct {
 	// SecretStore is the name of the ESO ClusterSecretStore configured on
 	// the DataPlane. ResourceTypes emitting ExternalSecret reference this.
-	SecretStore string
+	SecretStore string `json:"secretStore,omitempty"`
 
 	// ObservabilityPlaneRef is the observability plane reference for
 	// ResourceTypes that emit observability-plane-side resources (alert
 	// rules, dashboards). Optional; nil when the DataPlane has no
-	// observability plane configured.
-	ObservabilityPlaneRef *ObservabilityPlaneRefContext
+	// observability plane configured. PE templates that reference
+	// ${dataplane.observabilityPlaneRef.*} must guard with
+	// has(dataplane.observabilityPlaneRef) — same convention as
+	// dataplane.gateway in the component pipeline.
+	ObservabilityPlaneRef *ObservabilityPlaneRefContext `json:"observabilityPlaneRef,omitempty"`
 }
 
 // ObservabilityPlaneRefContext is the {kind, name} reference exposed under
 // ${dataplane.observabilityPlaneRef.*}.
 type ObservabilityPlaneRefContext struct {
-	Kind string
-	Name string
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+}
+
+// BaseContext is the top-level CEL surface produced by buildBaseContext and
+// fed into the template engine. withApplied layers applied.<id>.status.* on
+// top of it for output and readyWhen evaluation. The struct exists so the
+// pipeline and the validation package share a single source of truth for the
+// CEL surface — validation reflects on BaseContext to declare CEL variables;
+// the pipeline JSON-marshals it via structToMap for runtime evaluation.
+type BaseContext struct {
+	Metadata           MetadataContext  `json:"metadata"`
+	Parameters         map[string]any   `json:"parameters"`
+	EnvironmentConfigs map[string]any   `json:"environmentConfigs"`
+	DataPlane          DataPlaneContext `json:"dataplane"`
 }

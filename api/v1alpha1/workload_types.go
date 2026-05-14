@@ -207,12 +207,49 @@ type ConnectionEnvBindings struct {
 	BasePath string `json:"basePath,omitempty"`
 }
 
-// WorkloadDependencies defines the dependencies of a workload on other components' endpoints.
+// WorkloadDependencies defines the dependencies of a workload on other components' endpoints
+// and on project-bound Resources.
 type WorkloadDependencies struct {
 	// Endpoints define how this workload consumes endpoints from other components.
 	// +optional
 	// +kubebuilder:validation:MaxItems=50
 	Endpoints []WorkloadConnection `json:"endpoints,omitempty"`
+
+	// Resources define how this workload consumes outputs from project-bound Resources.
+	// Each entry references a Resource by name and binds named outputs of the resolved
+	// ResourceReleaseBinding to container env vars (envBindings) and file mounts (fileBindings).
+	// +optional
+	// +listType=map
+	// +listMapKey=ref
+	// +kubebuilder:validation:MaxItems=50
+	Resources []WorkloadResourceDependency `json:"resources,omitempty"`
+}
+
+// WorkloadResourceDependency represents a dependency on a project-bound Resource. Output names
+// declared on the referenced ResourceType are wired into the consuming container as env vars
+// (envBindings) and file mounts (fileBindings). Outputs not listed in either map are ignored.
+type WorkloadResourceDependency struct {
+	// Ref is the name of the Resource to consume. The Resource must live in the same project as
+	// the consuming Component (cross-project consumption is deferred to a later release).
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Ref string `json:"ref"`
+
+	// EnvBindings maps a ResourceType output name to a container environment variable name.
+	// The output's source kind (value, secretKeyRef, configMapKeyRef) determines whether the
+	// resulting env var is a literal or a valueFrom reference.
+	// +optional
+	// +kubebuilder:validation:MaxProperties=50
+	// +kubebuilder:validation:XValidation:rule="self.all(k, k.size() > 0 && self[k].size() > 0)",message="envBindings keys (output names) and values (env var names) cannot be empty"
+	EnvBindings map[string]string `json:"envBindings,omitempty"`
+
+	// FileBindings maps a ResourceType output name to a container mount path. The referenced
+	// output's source kind must be secretKeyRef or configMapKeyRef; value-kind outputs cannot
+	// be mounted as files because there is no DP-side object to mount.
+	// +optional
+	// +kubebuilder:validation:MaxProperties=50
+	// +kubebuilder:validation:XValidation:rule="self.all(k, k.size() > 0 && self[k].size() > 0)",message="fileBindings keys (output names) and values (mount paths) cannot be empty"
+	FileBindings map[string]string `json:"fileBindings,omitempty"`
 }
 
 // WorkloadTemplateSpec defines the desired state of Workload.
@@ -237,6 +274,14 @@ func (w *WorkloadTemplateSpec) GetDependencyEndpoints() []WorkloadConnection {
 		return nil
 	}
 	return w.Dependencies.Endpoints
+}
+
+// GetDependencyResources returns the resource dependencies, or nil if none.
+func (w *WorkloadTemplateSpec) GetDependencyResources() []WorkloadResourceDependency {
+	if w.Dependencies == nil {
+		return nil
+	}
+	return w.Dependencies.Resources
 }
 
 type WorkloadOwner struct {

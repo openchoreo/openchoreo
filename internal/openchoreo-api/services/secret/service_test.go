@@ -579,7 +579,11 @@ func TestDeleteSecret_NoTargetPlane(t *testing.T) {
 func TestDeleteSecret_PlaneNotFound(t *testing.T) {
 	scheme := newTestScheme(t)
 	ref := &openchoreov1alpha1.SecretReference{
-		ObjectMeta: metav1.ObjectMeta{Name: testSecretName, Namespace: testNamespace},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testSecretName,
+			Namespace: testNamespace,
+			Labels:    map[string]string{managedByLabel: managedByOpenchoreoAPI},
+		},
 		Spec: openchoreov1alpha1.SecretReferenceSpec{
 			TargetPlane: &openchoreov1alpha1.TargetPlaneRef{Kind: planeKindWorkflowPlane, Name: "missing"},
 			Template:    openchoreov1alpha1.SecretTemplate{Type: corev1.SecretTypeOpaque},
@@ -660,8 +664,8 @@ func TestCreateSecret_Success(t *testing.T) {
 	if info.Name != testSecretName {
 		t.Errorf("info.Name = %q", info.Name)
 	}
-	if len(info.Keys) != 2 {
-		t.Errorf("info.Keys = %v", info.Keys)
+	if len(info.Data) != 2 {
+		t.Errorf("info.Data has %d keys, want 2", len(info.Data))
 	}
 	if rec.count != 2 {
 		t.Errorf("expected 2 SSA patches (Secret + PushSecret), got %d", rec.count)
@@ -695,7 +699,11 @@ func TestDeleteSecret_Success(t *testing.T) {
 		},
 	}
 	ref := &openchoreov1alpha1.SecretReference{
-		ObjectMeta: metav1.ObjectMeta{Name: testSecretName, Namespace: testNamespace},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testSecretName,
+			Namespace: testNamespace,
+			Labels:    map[string]string{managedByLabel: managedByOpenchoreoAPI},
+		},
 		Spec: openchoreov1alpha1.SecretReferenceSpec{
 			TargetPlane: &openchoreov1alpha1.TargetPlaneRef{Kind: planeKindWorkflowPlane, Name: "wp1"},
 			Template:    openchoreov1alpha1.SecretTemplate{Type: corev1.SecretTypeOpaque},
@@ -730,5 +738,290 @@ func TestDeleteSecret_Success(t *testing.T) {
 	if err := targetClient.Get(context.Background(),
 		client.ObjectKey{Name: testSecretName, Namespace: kvNamespace(testNamespace)}, gotSecret); err == nil {
 		t.Error("expected target plane Secret to be deleted")
+	}
+}
+
+// --- GetSecret ---
+
+func managedRef(name string, secretType corev1.SecretType, keys []string) *openchoreov1alpha1.SecretReference {
+	dataSources := make([]openchoreov1alpha1.SecretDataSource, 0, len(keys))
+	for _, k := range keys {
+		dataSources = append(dataSources, openchoreov1alpha1.SecretDataSource{
+			SecretKey: k,
+			RemoteRef: openchoreov1alpha1.RemoteReference{
+				Key: remoteKeyFor(testNamespace, secretType, name), Property: k,
+			},
+		})
+	}
+	return &openchoreov1alpha1.SecretReference{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: testNamespace,
+			Labels:    map[string]string{managedByLabel: managedByOpenchoreoAPI},
+		},
+		Spec: openchoreov1alpha1.SecretReferenceSpec{
+			TargetPlane: &openchoreov1alpha1.TargetPlaneRef{Kind: planeKindWorkflowPlane, Name: "wp1"},
+			Template:    openchoreov1alpha1.SecretTemplate{Type: secretType},
+			Data:        dataSources,
+		},
+	}
+}
+
+func newWorkflowPlane() *openchoreov1alpha1.WorkflowPlane {
+	return &openchoreov1alpha1.WorkflowPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "wp1", Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
+			SecretStoreRef: &openchoreov1alpha1.SecretStoreRef{Name: "store"},
+		},
+	}
+}
+
+func TestGetSecret_Success(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	ref := managedRef(testSecretName, corev1.SecretTypeBasicAuth, []string{"password", "username"})
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
+
+	planeSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: testSecretName, Namespace: kvNamespace(testNamespace)},
+		Type:       corev1.SecretTypeBasicAuth,
+		Data: map[string][]byte{
+			"username": []byte("alice"),
+			"password": []byte("s3cret"),
+		},
+	}
+	targetClient := newTargetPlaneClient(t, scheme, []client.Object{planeSecret}, nil)
+
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
+
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+
+	got, err := svc.GetSecret(context.Background(), testNamespace, testSecretName)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Name != testSecretName || got.Namespace != testNamespace {
+		t.Errorf("metadata mismatch: %s/%s", got.Namespace, got.Name)
+	}
+	if got.Type != corev1.SecretTypeBasicAuth {
+		t.Errorf("type = %q", got.Type)
+	}
+	if string(got.Data["username"]) != "alice" || string(got.Data["password"]) != "s3cret" {
+		t.Errorf("data = %v", got.Data)
+	}
+}
+
+func TestGetSecret_NotFound_Missing(t *testing.T) {
+	scheme := newTestScheme(t)
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	svc := &secretService{k8sClient: cpClient, logger: newTestLogger()}
+
+	_, err := svc.GetSecret(context.Background(), testNamespace, testSecretName)
+	if !errors.Is(err, ErrSecretNotFound) {
+		t.Errorf("expected ErrSecretNotFound, got %v", err)
+	}
+}
+
+func TestGetSecret_NotFound_UnmanagedRef(t *testing.T) {
+	scheme := newTestScheme(t)
+	// SecretReference exists but has no managed-by label.
+	unmanaged := &openchoreov1alpha1.SecretReference{
+		ObjectMeta: metav1.ObjectMeta{Name: testSecretName, Namespace: testNamespace},
+		Spec: openchoreov1alpha1.SecretReferenceSpec{
+			TargetPlane: &openchoreov1alpha1.TargetPlaneRef{Kind: planeKindWorkflowPlane, Name: "wp1"},
+			Template:    openchoreov1alpha1.SecretTemplate{Type: corev1.SecretTypeOpaque},
+		},
+	}
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(unmanaged).Build()
+	svc := &secretService{k8sClient: cpClient, logger: newTestLogger()}
+
+	_, err := svc.GetSecret(context.Background(), testNamespace, testSecretName)
+	if !errors.Is(err, ErrSecretNotFound) {
+		t.Errorf("expected ErrSecretNotFound for unmanaged SecretReference, got %v", err)
+	}
+}
+
+func TestGetSecret_NotFound_TargetPlaneSecretMissing(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	ref := managedRef(testSecretName, corev1.SecretTypeOpaque, []string{"k"})
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
+
+	// Target plane has no Secret yet.
+	targetClient := newTargetPlaneClient(t, scheme, nil, nil)
+
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
+
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+
+	_, err := svc.GetSecret(context.Background(), testNamespace, testSecretName)
+	if !errors.Is(err, ErrSecretNotFound) {
+		t.Errorf("expected ErrSecretNotFound when target Secret missing, got %v", err)
+	}
+}
+
+// --- ListSecrets ---
+
+func TestListSecrets_FiltersManagedByLabel(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	managed := managedRef("managed", corev1.SecretTypeOpaque, []string{"k"})
+	unmanaged := &openchoreov1alpha1.SecretReference{
+		ObjectMeta: metav1.ObjectMeta{Name: "unmanaged", Namespace: testNamespace},
+		Spec: openchoreov1alpha1.SecretReferenceSpec{
+			TargetPlane: &openchoreov1alpha1.TargetPlaneRef{Kind: planeKindWorkflowPlane, Name: "wp1"},
+			Template:    openchoreov1alpha1.SecretTemplate{Type: corev1.SecretTypeOpaque},
+		},
+	}
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, managed, unmanaged).Build()
+
+	managedSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "managed", Namespace: kvNamespace(testNamespace)},
+		Data:       map[string][]byte{"k": []byte("v")},
+	}
+	targetClient := newTargetPlaneClient(t, scheme, []client.Object{managedSecret}, nil)
+
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
+
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+
+	result, err := svc.ListSecrets(context.Background(), testNamespace, services.ListOptions{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Items) != 1 || result.Items[0].Name != "managed" {
+		t.Errorf("expected only managed secret, got %+v", result.Items)
+	}
+	if string(result.Items[0].Data["k"]) != "v" {
+		t.Errorf("data not propagated: %v", result.Items[0].Data)
+	}
+}
+
+func TestListSecrets_SkipsMissingTargetSecret(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	ref := managedRef(testSecretName, corev1.SecretTypeOpaque, []string{"k"})
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
+
+	// Target plane has no Secret.
+	targetClient := newTargetPlaneClient(t, scheme, nil, nil)
+
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
+
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+
+	result, err := svc.ListSecrets(context.Background(), testNamespace, services.ListOptions{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Items) != 0 {
+		t.Errorf("expected items to be skipped, got %d", len(result.Items))
+	}
+}
+
+// --- UpdateSecret ---
+
+func TestUpdateSecret_Success_SameKeys(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	ref := managedRef(testSecretName, corev1.SecretTypeOpaque, []string{"a", "b"})
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
+
+	rec := &patchRec{}
+	targetClient := newTargetPlaneClient(t, scheme, nil, rec)
+
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
+
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+
+	got, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
+		Data: map[string]string{"a": "1", "b": "2"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.count != 2 {
+		t.Errorf("expected 2 SSA patches, got %d", rec.count)
+	}
+	if string(got.Data["a"]) != "1" {
+		t.Errorf("data not propagated: %v", got.Data)
+	}
+
+	// The SecretReference data section is unchanged on same-key updates.
+	updated := &openchoreov1alpha1.SecretReference{}
+	if err := cpClient.Get(context.Background(),
+		client.ObjectKey{Name: testSecretName, Namespace: testNamespace}, updated); err != nil {
+		t.Fatalf("get SecretReference: %v", err)
+	}
+	got2 := dataSourceKeys(updated.Spec.Data)
+	want := []string{"a", "b"}
+	if !sameStringSlice(got2, want) {
+		t.Errorf("spec.data keys = %v, want %v", got2, want)
+	}
+}
+
+func TestUpdateSecret_Success_KeysChanged(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	ref := managedRef(testSecretName, corev1.SecretTypeOpaque, []string{"a", "b"})
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
+
+	targetClient := newTargetPlaneClient(t, scheme, nil, &patchRec{})
+
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
+
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+
+	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
+		Data: map[string]string{"a": "1", "c": "3"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	updated := &openchoreov1alpha1.SecretReference{}
+	if err := cpClient.Get(context.Background(),
+		client.ObjectKey{Name: testSecretName, Namespace: testNamespace}, updated); err != nil {
+		t.Fatalf("get SecretReference: %v", err)
+	}
+	got := dataSourceKeys(updated.Spec.Data)
+	want := []string{"a", "c"}
+	if !sameStringSlice(got, want) {
+		t.Errorf("spec.data keys = %v, want %v", got, want)
+	}
+}
+
+func TestUpdateSecret_NotFound(t *testing.T) {
+	scheme := newTestScheme(t)
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	svc := &secretService{k8sClient: cpClient, logger: newTestLogger()}
+
+	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
+		Data: map[string]string{"k": "v"},
+	})
+	if !errors.Is(err, ErrSecretNotFound) {
+		t.Errorf("expected ErrSecretNotFound, got %v", err)
+	}
+}
+
+func TestUpdateSecret_ValidationFailure(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	ref := managedRef(testSecretName, corev1.SecretTypeBasicAuth, []string{"password", "username"})
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
+	svc := &secretService{k8sClient: cpClient, logger: newTestLogger()}
+
+	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
+		// Missing required keys for basic-auth.
+		Data: map[string]string{"username": "u"},
+	})
+	if !isValidationError(err) {
+		t.Errorf("expected ValidationError, got %v", err)
 	}
 }

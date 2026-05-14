@@ -2,6 +2,87 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.1.0-alpha-1
+
+Changes since [v1.0.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.0).
+
+### Features
+
+- **(CRD)** Resource abstraction CRDs and controllers for platform resource
+  management. ([#3392](https://github.com/openchoreo/openchoreo/pull/3392))
+- **(CRD)** Budget alert type added to ObservabilityAlertRule for cost
+  monitoring. ([#3381](https://github.com/openchoreo/openchoreo/pull/3381))
+- **(Authz)** CEL-based ABAC conditions support in role bindings with admission validation
+  webhooks. ([#3243](https://github.com/openchoreo/openchoreo/pull/3243),
+  [#3285](https://github.com/openchoreo/openchoreo/pull/3285))
+- **(Controller)** Rolling restart support via `openchoreo.dev/restartedAt` annotation on
+  ReleaseBinding. ([#3301](https://github.com/openchoreo/openchoreo/pull/3301))
+- **(Controller)** Event-forwarder for event-driven Backstage catalog
+  sync. ([#3382](https://github.com/openchoreo/openchoreo/pull/3382))
+- **(API)** Secret creation API across all plane types (workflow, data,
+  observability). ([#3261](https://github.com/openchoreo/openchoreo/pull/3261))
+- **(API)** WorkflowRun deletion endpoint. ([#3062](https://github.com/openchoreo/openchoreo/pull/3062))
+- **(MCP)** Expanded tool surface with workflow run status, logs, and events
+  tools. ([#3269](https://github.com/openchoreo/openchoreo/pull/3269),
+  [#3389](https://github.com/openchoreo/openchoreo/pull/3389))
+- **(MCP)** Permission-based tool filtering with toolset and authz query
+  parameters. ([#3201](https://github.com/openchoreo/openchoreo/pull/3201),
+  [#3384](https://github.com/openchoreo/openchoreo/pull/3384))
+- **(MCP)** FinOps agent for cost management and MCP server added to SRE
+  agent. ([#3358](https://github.com/openchoreo/openchoreo/pull/3358),
+  [#3351](https://github.com/openchoreo/openchoreo/pull/3351))
+- **(Observability)** Budget alert CRUD operations and webhook
+  actions. ([#3386](https://github.com/openchoreo/openchoreo/pull/3386))
+- **(Observability)** Metrics adapter support and logs/tracing forwarded to external adapter by
+  default. ([#3240](https://github.com/openchoreo/openchoreo/pull/3240),
+  [#3307](https://github.com/openchoreo/openchoreo/pull/3307))
+- **(Observability)** Alert suppression to deduplicate webhook
+  notifications. ([#3132](https://github.com/openchoreo/openchoreo/pull/3132))
+- **(Helm)** `extraVolumes`, `extraVolumeMounts`, `extraArgs`, and `appConfig` added to Backstage
+  values. ([#3219](https://github.com/openchoreo/openchoreo/pull/3219))
+- **(Backstage UI)** Dark theme support including cell-diagram
+  styling. ([#499](https://github.com/openchoreo/backstage-plugins/pull/499))
+- **(Backstage UI)** Environments page redesigned as split-view DAG canvas with detail
+  panel. ([#513](https://github.com/openchoreo/backstage-plugins/pull/513))
+- **(Backstage UI)** Rolling restart ("Rollout") support via
+  UI. ([#516](https://github.com/openchoreo/backstage-plugins/pull/516))
+- **(Backstage UI)** Secrets settings tab for managing
+  secrets. ([#505](https://github.com/openchoreo/backstage-plugins/pull/505))
+- **(Backstage UI)** Trace error status and span status added to traces
+  view. ([#497](https://github.com/openchoreo/backstage-plugins/pull/497))
+
+### Enhancements
+
+- **(Helm)** `kube-prometheus-stack` dependency removed from
+  data-plane. ([#3160](https://github.com/openchoreo/openchoreo/pull/3160))
+- **(Samples)** Linter as custom CI workflow step
+  sample. ([#3297](https://github.com/openchoreo/openchoreo/pull/3297))
+
+### Bug Fixes
+
+- **(Controller)** Trait-created secrets cleaned up on
+  deletion. ([#3321](https://github.com/openchoreo/openchoreo/pull/3321))
+- **(Controller)** File-mount volumes sorted to prevent rollout
+  loops. ([#3303](https://github.com/openchoreo/openchoreo/pull/3303))
+- **(Controller)** Traits validated to prevent workload resource
+  creation. ([#2922](https://github.com/openchoreo/openchoreo/pull/2922))
+- **(API)** Rendering fails when SecretKeyRef key missing from
+  SecretReference. ([#3215](https://github.com/openchoreo/openchoreo/pull/3215))
+- **(CRD)** `toServicePorts()` CEL function deduplicates service
+  ports. ([#3157](https://github.com/openchoreo/openchoreo/pull/3157))
+- **(CRD)** Timezone support added to `scheduled-task` component
+  type. ([#3081](https://github.com/openchoreo/openchoreo/pull/3081))
+- **(CLI)** Spec hash used to select release in binding
+  generate. ([#3006](https://github.com/openchoreo/openchoreo/pull/3006))
+- **(Install)** Quick-start scripts hardened against common
+  misconfigurations. ([#3406](https://github.com/openchoreo/openchoreo/pull/3406))
+- **(Backstage UI)** Environment dropdown scoped to project's deployment
+  pipeline. ([#512](https://github.com/openchoreo/backstage-plugins/pull/512))
+- **(Backstage UI)** Traces fetching logic handles multiple
+  components. ([#492](https://github.com/openchoreo/backstage-plugins/pull/492))
+- **(Backstage UI)** Intermediate login page re-introduced for in-browser redirect
+  logins. ([#484](https://github.com/openchoreo/backstage-plugins/pull/484))
+
 ## v1.0.0
 
 Changes since [v1.0.0-rc.2](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.0-rc.2).

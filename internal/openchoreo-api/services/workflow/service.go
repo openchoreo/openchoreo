@@ -133,8 +133,8 @@ func (s *workflowService) CreateWorkflow(ctx context.Context, namespaceName stri
 	wf.Status = openchoreov1alpha1.WorkflowStatus{}
 
 	if err := s.k8sClient.Create(ctx, wf); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create workflow CR", "error", err)
 		return nil, fmt.Errorf("failed to create workflow: %w", err)
@@ -169,8 +169,8 @@ func (s *workflowService) UpdateWorkflow(ctx context.Context, namespaceName stri
 	existing.Annotations = wf.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update workflow CR", "error", err)
 		return nil, fmt.Errorf("failed to update workflow: %w", err)
