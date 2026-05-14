@@ -18,6 +18,15 @@ import (
 
 const secretsDisabledMessage = "Secret API is disabled on this server"
 
+// dereferenceLabels converts the optional labels map from a request body into a
+// plain map, returning nil when the field is absent.
+func dereferenceLabels(labels *map[string]string) map[string]string {
+	if labels == nil {
+		return nil
+	}
+	return *labels
+}
+
 // secretsEnabled reports whether the Secret API endpoints are enabled.
 func (h *Handler) secretsEnabled() bool {
 	return h.Config != nil && h.Config.SecretManagement.Enabled
@@ -72,7 +81,8 @@ func (h *Handler) CreateSecret(
 			Kind: string(request.Body.TargetPlane.Kind),
 			Name: request.Body.TargetPlane.Name,
 		},
-		Data: request.Body.Data,
+		Data:   request.Body.Data,
+		Labels: dereferenceLabels(request.Body.Labels),
 	}
 
 	result, err := h.services.SecretService.CreateSecret(ctx, request.NamespaceName, params)
@@ -126,7 +136,8 @@ func (h *Handler) UpdateSecret(
 	}
 
 	params := &secretsvc.UpdateSecretParams{
-		Data: request.Body.Data,
+		Data:   request.Body.Data,
+		Labels: dereferenceLabels(request.Body.Labels),
 	}
 
 	result, err := h.services.SecretService.UpdateSecret(ctx, request.NamespaceName, request.SecretName, params)

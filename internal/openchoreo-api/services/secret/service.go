@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"sort"
 	"time"
 
@@ -113,6 +114,9 @@ func (s *secretService) CreateSecret(ctx context.Context, namespaceName string, 
 	if req.TargetPlane.Name == "" {
 		return nil, &services.ValidationError{Msg: "targetPlane.name is required"}
 	}
+	if err := validateLabels(req.Labels); err != nil {
+		return nil, err
+	}
 
 	// Conflict check on the SecretReference in the control plane.
 	existing := &openchoreov1alpha1.SecretReference{}
@@ -143,7 +147,7 @@ func (s *secretService) CreateSecret(ctx context.Context, namespaceName string, 
 		return nil, fmt.Errorf("failed to apply push secret in target plane: %w", err)
 	}
 
-	secretRef := buildSecretReference(namespaceName, req.SecretName, req.SecretType, req.TargetPlane, sortedKeys(req.Data))
+	secretRef := buildSecretReference(namespaceName, req.SecretName, req.SecretType, req.TargetPlane, sortedKeys(req.Data), req.Labels)
 	if err := s.k8sClient.Create(ctx, secretRef); err != nil {
 		return nil, fmt.Errorf("failed to create secret reference: %w", err)
 	}
@@ -174,6 +178,9 @@ func (s *secretService) UpdateSecret(ctx context.Context, namespaceName, secretN
 	if err := validateSecretData(secretType, req.Data); err != nil {
 		return nil, err
 	}
+	if err := validateLabels(req.Labels); err != nil {
+		return nil, err
+	}
 
 	planeInfo, err := s.resolvePlane(ctx, namespaceName, secretRef.Spec.TargetPlane.Kind, secretRef.Spec.TargetPlane.Name)
 	if err != nil {
@@ -194,8 +201,13 @@ func (s *secretService) UpdateSecret(ctx context.Context, namespaceName, secretN
 	}
 
 	existingKeys := dataSourceKeys(secretRef.Spec.Data)
-	if !sameStringSlice(existingKeys, newKeys) {
+	newLabels := mergeManagedLabels(req.Labels)
+
+	keysChanged := !sameStringSlice(existingKeys, newKeys)
+	labelsChanged := !maps.Equal(secretRef.Labels, newLabels)
+	if keysChanged || labelsChanged {
 		secretRef.Spec.Data = buildSecretDataSources(namespaceName, secretName, secretType, newKeys)
+		secretRef.Labels = newLabels
 		if err := s.k8sClient.Update(ctx, secretRef); err != nil {
 			if apierrors.IsInvalid(err) {
 				return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
@@ -595,7 +607,7 @@ func buildPushSecret(name, ownerNamespace, targetNamespace, secretStoreName stri
 	return ps
 }
 
-func buildSecretReference(ownerNamespace, name string, secretType corev1.SecretType, target openchoreov1alpha1.TargetPlaneRef, keys []string) *openchoreov1alpha1.SecretReference {
+func buildSecretReference(ownerNamespace, name string, secretType corev1.SecretType, target openchoreov1alpha1.TargetPlaneRef, keys []string, userLabels map[string]string) *openchoreov1alpha1.SecretReference {
 	return &openchoreov1alpha1.SecretReference{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: openchoreov1alpha1.GroupVersion.String(),
@@ -604,9 +616,7 @@ func buildSecretReference(ownerNamespace, name string, secretType corev1.SecretT
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ownerNamespace,
-			Labels: map[string]string{
-				managedByLabel: managedByOpenchoreoAPI,
-			},
+			Labels:    mergeManagedLabels(userLabels),
 		},
 		Spec: openchoreov1alpha1.SecretReferenceSpec{
 			TargetPlane: &openchoreov1alpha1.TargetPlaneRef{Kind: target.Kind, Name: target.Name},
@@ -614,6 +624,18 @@ func buildSecretReference(ownerNamespace, name string, secretType corev1.SecretT
 			Data:        buildSecretDataSources(ownerNamespace, name, secretType, keys),
 		},
 	}
+}
+
+// mergeManagedLabels returns a label map that contains the user-supplied
+// labels with the reserved managed-by label always set on top, so the
+// managed-by marker cannot be dropped or overridden by the caller.
+func mergeManagedLabels(userLabels map[string]string) map[string]string {
+	labels := make(map[string]string, len(userLabels)+1)
+	for k, v := range userLabels {
+		labels[k] = v
+	}
+	labels[managedByLabel] = managedByOpenchoreoAPI
+	return labels
 }
 
 func buildSecretDataSources(ownerNamespace, name string, secretType corev1.SecretType, keys []string) []openchoreov1alpha1.SecretDataSource {

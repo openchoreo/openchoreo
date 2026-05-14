@@ -5,8 +5,10 @@ package secret
 
 import (
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
@@ -73,6 +75,19 @@ func validateSecretData(secretType corev1.SecretType, data map[string]string) er
 	for _, required := range requiredKeys[secretType] {
 		if _, ok := data[required]; !ok {
 			return &services.ValidationError{Msg: fmt.Sprintf("data[%q] is required for secretType %s", required, secretType)}
+		}
+	}
+	return nil
+}
+
+// validateLabels checks that user-supplied labels are valid Kubernetes labels.
+func validateLabels(labels map[string]string) error {
+	for k, v := range labels {
+		if errs := validation.IsQualifiedName(k); len(errs) > 0 {
+			return &services.ValidationError{Msg: fmt.Sprintf("invalid label key %q: %s", k, strings.Join(errs, "; "))}
+		}
+		if errs := validation.IsValidLabelValue(v); len(errs) > 0 {
+			return &services.ValidationError{Msg: fmt.Sprintf("invalid label value for key %q: %s", k, strings.Join(errs, "; "))}
 		}
 	}
 	return nil

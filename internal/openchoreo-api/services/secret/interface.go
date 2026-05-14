@@ -18,6 +18,9 @@ type CreateSecretParams struct {
 	SecretType  corev1.SecretType
 	TargetPlane openchoreov1alpha1.TargetPlaneRef
 	Data        map[string]string
+	// Labels are applied as Kubernetes labels on the underlying
+	// SecretReference.
+	Labels map[string]string
 }
 
 // UpdateSecretParams holds the parameters for replacing a secret's data.
@@ -25,6 +28,8 @@ type CreateSecretParams struct {
 // absent here are pruned from the K8s Secret, PushSecret, and SecretReference.
 type UpdateSecretParams struct {
 	Data map[string]string
+	// Labels replace all user-set labels on the underlying SecretReference.
+	Labels map[string]string
 }
 
 // Service defines the secret operations exposed by the Secret API.

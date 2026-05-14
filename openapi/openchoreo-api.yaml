@@ -11643,6 +11643,16 @@ components:
           example:
             username: alice
             password: s3cret
+        labels:
+          type: object
+          description: |
+            Labels applied as Kubernetes labels on the underlying
+            SecretReference. Keys in the openchoreo.dev/ namespace are
+            reserved and rejected.
+          additionalProperties:
+            type: string
+          example:
+            team: payments
 
     UpdateSecretRequest:
       type: object
@@ -11662,6 +11672,16 @@ components:
           example:
             username: alice
             password: s3cret
+        labels:
+          type: object
+          description: |
+            Labels applied as Kubernetes labels on the underlying
+            SecretReference. The supplied map replaces all user-set labels;
+            keys in the openchoreo.dev/ namespace are reserved and rejected.
+          additionalProperties:
+            type: string
+          example:
+            team: payments
 
     Secret:
       type: object

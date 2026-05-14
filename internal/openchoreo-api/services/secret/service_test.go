@@ -27,6 +27,7 @@ import (
 const (
 	testNamespace  = "ns1"
 	testSecretName = "my-secret"
+	testLabelValue = "payments"
 )
 
 func newTestScheme(t *testing.T) *runtime.Scheme {
@@ -303,7 +304,8 @@ func TestBuildPushSecret(t *testing.T) {
 func TestBuildSecretReference(t *testing.T) {
 	ref := buildSecretReference(testNamespace, testSecretName, corev1.SecretTypeBasicAuth,
 		openchoreov1alpha1.TargetPlaneRef{Kind: planeKindWorkflowPlane, Name: "wp1"},
-		[]string{"password", "username"})
+		[]string{"password", "username"},
+		map[string]string{"team": testLabelValue})
 
 	if ref.Name != testSecretName || ref.Namespace != testNamespace {
 		t.Errorf("metadata = %s/%s", ref.Namespace, ref.Name)
@@ -328,6 +330,9 @@ func TestBuildSecretReference(t *testing.T) {
 	}
 	if ref.Labels[managedByLabel] != managedByOpenchoreoAPI {
 		t.Errorf("managed-by label = %q", ref.Labels[managedByLabel])
+	}
+	if ref.Labels["team"] != testLabelValue {
+		t.Errorf("user label team = %q, want payments", ref.Labels["team"])
 	}
 }
 
@@ -994,6 +999,132 @@ func TestUpdateSecret_Success_KeysChanged(t *testing.T) {
 	want := []string{"a", "c"}
 	if !sameStringSlice(got, want) {
 		t.Errorf("spec.data keys = %v, want %v", got, want)
+	}
+}
+
+func TestUpdateSecret_LabelsApplied(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	ref := managedRef(testSecretName, corev1.SecretTypeOpaque, []string{"a", "b"})
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
+
+	targetClient := newTargetPlaneClient(t, scheme, nil, &patchRec{})
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
+
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+
+	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
+		Data:   map[string]string{"a": "1", "b": "2"},
+		Labels: map[string]string{"team": testLabelValue},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	updated := &openchoreov1alpha1.SecretReference{}
+	if err := cpClient.Get(context.Background(),
+		client.ObjectKey{Name: testSecretName, Namespace: testNamespace}, updated); err != nil {
+		t.Fatalf("get SecretReference: %v", err)
+	}
+	if updated.Labels["team"] != testLabelValue {
+		t.Errorf("user label team = %q, want payments", updated.Labels["team"])
+	}
+	if updated.Labels[managedByLabel] != managedByOpenchoreoAPI {
+		t.Errorf("managed-by label = %q, want preserved", updated.Labels[managedByLabel])
+	}
+}
+
+func TestUpdateSecret_LabelsReplacedAndManagedByPreserved(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	ref := managedRef(testSecretName, corev1.SecretTypeOpaque, []string{"a", "b"})
+	ref.Labels["stale"] = "yes"
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
+
+	targetClient := newTargetPlaneClient(t, scheme, nil, &patchRec{})
+	mockProvider := k8sMocks.NewMockPlaneClientProvider(t)
+	mockProvider.EXPECT().WorkflowPlaneClient(wp).Return(targetClient, nil).Once()
+
+	svc := &secretService{k8sClient: cpClient, planeClientProvider: mockProvider, logger: newTestLogger()}
+
+	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
+		Data:   map[string]string{"a": "1", "b": "2"},
+		Labels: map[string]string{"team": testLabelValue},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	updated := &openchoreov1alpha1.SecretReference{}
+	if err := cpClient.Get(context.Background(),
+		client.ObjectKey{Name: testSecretName, Namespace: testNamespace}, updated); err != nil {
+		t.Fatalf("get SecretReference: %v", err)
+	}
+	if _, ok := updated.Labels["stale"]; ok {
+		t.Errorf("stale label should have been replaced, labels = %v", updated.Labels)
+	}
+	if updated.Labels[managedByLabel] != managedByOpenchoreoAPI {
+		t.Errorf("managed-by label = %q, want preserved", updated.Labels[managedByLabel])
+	}
+}
+
+func TestUpdateSecret_InvalidLabel(t *testing.T) {
+	scheme := newTestScheme(t)
+	wp := newWorkflowPlane()
+	ref := managedRef(testSecretName, corev1.SecretTypeOpaque, []string{"a", "b"})
+	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp, ref).Build()
+	svc := &secretService{k8sClient: cpClient, logger: newTestLogger()}
+
+	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
+		Data:   map[string]string{"a": "1", "b": "2"},
+		Labels: map[string]string{"bad key": "v"},
+	})
+	var vErr *services.ValidationError
+	if !errors.As(err, &vErr) {
+		t.Errorf("expected ValidationError, got %v", err)
+	}
+}
+
+func TestValidateLabels(t *testing.T) {
+	tests := []struct {
+		name    string
+		labels  map[string]string
+		wantErr bool
+	}{
+		{"nil", nil, false},
+		{"empty", map[string]string{}, false},
+		{"valid", map[string]string{"team": testLabelValue, "app.kubernetes.io/name": "x"}, false},
+		{"invalid key", map[string]string{"bad key": "v"}, true},
+		{"invalid value", map[string]string{"k": "bad value!"}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateLabels(tt.labels)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateLabels() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestMergeManagedLabels(t *testing.T) {
+	// The managed-by label is always set, even if the caller tries to override it.
+	got := mergeManagedLabels(map[string]string{
+		"team":         testLabelValue,
+		managedByLabel: "someone-else",
+	})
+	if got[managedByLabel] != managedByOpenchoreoAPI {
+		t.Errorf("managed-by label = %q, want %q", got[managedByLabel], managedByOpenchoreoAPI)
+	}
+	if got["team"] != testLabelValue {
+		t.Errorf("team label = %q, want payments", got["team"])
+	}
+
+	// A nil input still yields the managed-by label.
+	got = mergeManagedLabels(nil)
+	if got[managedByLabel] != managedByOpenchoreoAPI {
+		t.Errorf("managed-by label = %q, want %q", got[managedByLabel], managedByOpenchoreoAPI)
 	}
 }
 

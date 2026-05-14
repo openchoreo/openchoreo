@@ -1689,6 +1689,11 @@ type CreateSecretRequest struct {
 	// Data Map of secret keys to plaintext values. Required keys depend on secretType.
 	Data map[string]string `json:"data"`
 
+	// Labels Labels applied as Kubernetes labels on the underlying
+	// SecretReference. Keys in the openchoreo.dev/ namespace are
+	// reserved and rejected.
+	Labels *map[string]string `json:"labels,omitempty"`
+
 	// SecretName Name of the secret
 	SecretName string `json:"secretName"`
 
@@ -3610,6 +3615,11 @@ type UpdateSecretRequest struct {
 	// Data Map of secret keys to plaintext values. Required keys depend on
 	// the secret's existing type.
 	Data map[string]string `json:"data"`
+
+	// Labels Labels applied as Kubernetes labels on the underlying
+	// SecretReference. The supplied map replaces all user-set labels;
+	// keys in the openchoreo.dev/ namespace are reserved and rejected.
+	Labels *map[string]string `json:"labels,omitempty"`
 }
 
 // UserCapabilitiesResponse User authorization profile response
