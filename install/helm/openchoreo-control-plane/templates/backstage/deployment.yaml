@@ -117,6 +117,15 @@ spec:
           value: {{ .Values.security.authz.enabled | quote }}
         - name: OPENCHOREO_FEATURES_AUTH_REDIRECT_FLOW_ENABLED
           value: {{ .Values.backstage.features.auth.redirectFlow.enabled | quote }}
+        - name: OPENCHOREO_FEATURES_ASSISTANT_ENABLED
+          value: {{ .Values.backstage.features.assistant.enabled | quote }}
+        # Upstream URL the openchoreo-perch-backend plugin forwards to.
+        # Only meaningful when the assistant flag above is true — the
+        # plugin still loads when the URL is unset, but every chat
+        # call will 502. When perchAgentUrl is empty, fall back to the
+        # in-cluster perch-agent Service in the release namespace.
+        - name: OPENCHOREO_PERCH_AGENT_URL
+          value: {{ .Values.backstage.features.assistant.perchAgentUrl | default (printf "http://%s.%s.svc.cluster.local:%v" (include "openchoreo-control-plane.perchAgent.name" .) .Release.Namespace .Values.perchAgent.service.port) | quote }}
         - name: OPENCHOREO_FEATURES_SECRET_MANAGEMENT_ENABLED
           value: {{ .Values.features.secretManagement.enabled | quote }}
         # Catalog sync — periodic full sync acts as a safety net behind

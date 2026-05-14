@@ -472,6 +472,27 @@
           "additionalProperties": false,
           "description": "Feature flags for enabling/disabling OpenChoreo features in Backstage",
           "properties": {
+            "assistant": {
+              "additionalProperties": false,
+              "description": "Perch Agent chat assistant configuration. Defaults to off — enable to surface the \"Ask Perch\" affordance in Backstage and forward chat traffic to the perch-agent service.",
+              "properties": {
+                "enabled": {
+                  "default": false,
+                  "description": "Enable the Perch chat drawer + Logs-tab \"Ask Perch\" affordance. Maps to OPENCHOREO_FEATURES_ASSISTANT_ENABLED in the Backstage container.",
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "perchAgentUrl": {
+                  "default": "",
+                  "description": "Upstream URL the openchoreo-perch-backend Backstage plugin forwards /chat and /warmup to. Leave empty to default to the in-cluster perch-agent Service in the release namespace — override when the perch-agent runs in a different cluster or namespace. Maps to OPENCHOREO_PERCH_AGENT_URL.",
+                  "title": "perchAgentUrl",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "assistant",
+              "type": "object"
+            },
             "auth": {
               "additionalProperties": false,
               "description": "Authentication feature flags",

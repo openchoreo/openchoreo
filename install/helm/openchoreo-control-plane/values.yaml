@@ -2447,6 +2447,23 @@ backstage:
         # default: true
         # @schema
         enabled: true
+    # @schema
+    # type: object
+    # description: Perch Agent chat assistant configuration. Defaults to off — enable to surface the "Ask Perch" affordance in Backstage and forward chat traffic to the perch-agent service.
+    # @schema
+    assistant:
+      # @schema
+      # type: boolean
+      # description: Enable the Perch chat drawer + Logs-tab "Ask Perch" affordance. Maps to OPENCHOREO_FEATURES_ASSISTANT_ENABLED in the Backstage container.
+      # default: false
+      # @schema
+      enabled: false
+      # @schema
+      # type: string
+      # description: Upstream URL the openchoreo-perch-backend Backstage plugin forwards /chat and /warmup to. Leave empty to default to the in-cluster perch-agent Service in the release namespace — override when the perch-agent runs in a different cluster or namespace. Maps to OPENCHOREO_PERCH_AGENT_URL.
+      # default: ""
+      # @schema
+      perchAgentUrl: ""
 
   # @schema
   # type: object
