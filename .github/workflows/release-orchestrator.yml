@@ -94,7 +94,12 @@ jobs:
               exit 1
             fi
             VERSION="${VERSION}-${PRERELEASE}"
-            RELEASE_BRANCH="release-v${VERSION}"
+            STABLE_BRANCH="release-v${MAJOR}.${MINOR}"
+            if git ls-remote --exit-code origin "refs/heads/${STABLE_BRANCH}" 2>/dev/null; then
+              RELEASE_BRANCH="${STABLE_BRANCH}"
+            else
+              RELEASE_BRANCH="release-v${VERSION}"
+            fi
           else
             RELEASE_BRANCH="release-v${MAJOR}.${MINOR}"
           fi
@@ -111,9 +116,37 @@ jobs:
           echo "prerelease=${PRERELEASE}" >> $GITHUB_OUTPUT
           echo "release-branch=${RELEASE_BRANCH}" >> $GITHUB_OUTPUT
 
-      - name: Validate VERSION file
+      - name: Check if release branch exists
+        id: check-branch
         run: |
-          FILE_VERSION=$(cat VERSION | tr -d '\n\r')
+          if git ls-remote --exit-code origin "refs/heads/${{ steps.resolve-version.outputs.release-branch }}" 2>/dev/null; then
+            echo "branch-exists=true" >> $GITHUB_OUTPUT
+            echo "BRANCH_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "branch-exists=false" >> $GITHUB_OUTPUT
+            echo "BRANCH_EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      - name: Fail if tag mode without release branch
+        if: ${{ github.event.inputs.action == 'tag' && github.event.inputs.commit_sha == '' && steps.check-branch.outputs.branch-exists == 'false' }}
+        run: |
+          echo "::error::action=tag requires an existing release branch (${{ steps.resolve-version.outputs.release-branch }}), but it does not exist."
+          exit 1
+
+      - name: Validate VERSION file
+        env:
+          ACTION: ${{ github.event.inputs.action }}
+          IN_COMMIT_SHA: ${{ github.event.inputs.commit_sha || '' }}
+          BRANCH_EXISTS: ${{ steps.check-branch.outputs.branch-exists }}
+          RELEASE_BRANCH: ${{ steps.resolve-version.outputs.release-branch }}
+        run: |
+          if [ "$BRANCH_EXISTS" = "true" ]; then
+            FILE_VERSION=$(git show "origin/${RELEASE_BRANCH}:VERSION" | tr -d '\n\r')
+          elif [ "$ACTION" = "tag" ] && [ -n "$IN_COMMIT_SHA" ]; then
+            FILE_VERSION=$(git show "${IN_COMMIT_SHA}:VERSION" | tr -d '\n\r')
+          else
+            FILE_VERSION=$(cat VERSION | tr -d '\n\r')
+          fi
           if [ "${FILE_VERSION}" != "${{ env.VERSION }}" ]; then
             echo "::error::VERSION file contains '${FILE_VERSION}', expected '${{ env.VERSION }}'"
             exit 1
@@ -126,17 +159,6 @@ jobs:
           if git ls-remote --exit-code origin "refs/tags/${TAG}" >/dev/null 2>&1; then
             echo "::error::Tag ${TAG} already exists on remote. Remove it first if you want to retag."
             exit 1
-          fi
-
-      - name: Check if release branch exists
-        id: check-branch
-        run: |
-          if git ls-remote --exit-code origin "refs/heads/${{ steps.resolve-version.outputs.release-branch }}" 2>/dev/null; then
-            echo "branch-exists=true" >> $GITHUB_OUTPUT
-            echo "BRANCH_EXISTS=true" >> $GITHUB_ENV
-          else
-            echo "branch-exists=false" >> $GITHUB_OUTPUT
-            echo "BRANCH_EXISTS=false" >> $GITHUB_ENV
           fi
 
       - name: Determine commit to tag
