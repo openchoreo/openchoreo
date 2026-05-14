@@ -41,6 +41,7 @@ type runtimeTopologyAdapterResponse struct {
 
 type runtimeTopologyAdapterNode struct {
 	Kind         string                         `json:"kind"`
+	Component    string                         `json:"component,omitempty"`
 	ComponentUID string                         `json:"componentUid,omitempty"`
 	ProjectUID   string                         `json:"projectUid,omitempty"`
 	Namespace    string                         `json:"namespace,omitempty"`
@@ -59,6 +60,7 @@ type runtimeTopologyAdapterEdge struct {
 
 type runtimeTopologyAdapterNodeRef struct {
 	Kind         string `json:"kind"`
+	Component    string `json:"component,omitempty"`
 	ComponentUID string `json:"componentUid,omitempty"`
 	ProjectUID   string `json:"projectUid,omitempty"`
 	Namespace    string `json:"namespace,omitempty"`
@@ -271,6 +273,7 @@ func (a *MetricsAdapter) QueryRuntimeTopology(
 		return nil, fmt.Errorf("%w: invalid endTime: %w", ErrRuntimeTopologyInvalidRequest, err)
 	}
 
+	// Resolve names to UIDs for filtering.
 	projectUID, err := a.resolver.GetProjectUID(ctx, scope.Namespace, scope.Project)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get project UID: %w", ErrRuntimeTopologyResolveSearchScope, err)
@@ -302,9 +305,11 @@ func (a *MetricsAdapter) QueryRuntimeTopology(
 
 	a.logger.Debug("Forwarding runtime topology query to adapter",
 		"namespace", scope.Namespace,
+		"project", scope.Project,
 		"projectUID", projectUID,
+		"environment", scope.Environment,
 		"environmentUID", environmentUID,
-		"componentUID", componentUID,
+		"component", scope.Component,
 		"startTime", req.StartTime,
 		"endTime", req.EndTime,
 	)
@@ -345,8 +350,8 @@ func (a *MetricsAdapter) QueryRuntimeTopology(
 	}
 
 	out := &types.RuntimeTopologyResponse{
-		Nodes: convertTopologyAdapterNodes(adapterResp.Nodes, scope.Project, scope.Environment),
-		Edges: convertTopologyAdapterEdges(adapterResp.Edges, scope.Project, scope.Environment),
+		Nodes: convertTopologyAdapterNodes(adapterResp.Nodes),
+		Edges: convertTopologyAdapterEdges(adapterResp.Edges),
 		Summary: types.RuntimeTopologySummary{
 			StartTime:   coalesceTime(adapterResp.Summary.StartTime, startTime),
 			EndTime:     coalesceTime(adapterResp.Summary.EndTime, endTime),
@@ -356,10 +361,7 @@ func (a *MetricsAdapter) QueryRuntimeTopology(
 	return out, nil
 }
 
-func convertTopologyAdapterEdges(
-	in []runtimeTopologyAdapterEdge,
-	projectName, environmentName string,
-) []types.RuntimeTopologyEdge {
+func convertTopologyAdapterEdges(in []runtimeTopologyAdapterEdge) []types.RuntimeTopologyEdge {
 	if len(in) == 0 {
 		return nil
 	}
@@ -367,20 +369,16 @@ func convertTopologyAdapterEdges(
 	for _, e := range in {
 		out = append(out, types.RuntimeTopologyEdge{
 			ID:       e.ID,
-			Source:   convertTopologyAdapterNodeRef(e.Source, projectName),
-			Target:   convertTopologyAdapterNodeRef(e.Target, projectName),
+			Source:   convertTopologyAdapterNodeRef(e.Source),
+			Target:   convertTopologyAdapterNodeRef(e.Target),
 			Protocol: types.RuntimeTopologyProtocol(e.Protocol),
 			Metrics:  convertTopologyAdapterMetrics(e.Metrics),
 		})
 	}
-	_ = environmentName
 	return out
 }
 
-func convertTopologyAdapterNodes(
-	in []runtimeTopologyAdapterNode,
-	projectName, environmentName string,
-) []types.RuntimeTopologyNode {
+func convertTopologyAdapterNodes(in []runtimeTopologyAdapterNode) []types.RuntimeTopologyNode {
 	if len(in) == 0 {
 		return nil
 	}
@@ -390,37 +388,36 @@ func convertTopologyAdapterNodes(
 			RuntimeTopologyNodeRef: convertTopologyAdapterNodeRef(
 				runtimeTopologyAdapterNodeRef{
 					Kind:         n.Kind,
+					Component:    n.Component,
 					ComponentUID: n.ComponentUID,
 					ProjectUID:   n.ProjectUID,
 					Namespace:    n.Namespace,
 					GatewayName:  n.GatewayName,
 					ExternalHost: n.ExternalHost,
 				},
-				projectName,
 			),
 			Metrics: convertTopologyAdapterMetrics(n.Metrics),
 		})
 	}
-	_ = environmentName
 	return out
 }
 
-func convertTopologyAdapterNodeRef(in runtimeTopologyAdapterNodeRef, projectName string) types.RuntimeTopologyNodeRef {
+func convertTopologyAdapterNodeRef(in runtimeTopologyAdapterNodeRef) types.RuntimeTopologyNodeRef {
 	out := types.RuntimeTopologyNodeRef{
 		Kind:      types.RuntimeTopologyNodeKind(in.Kind),
 		Namespace: in.Namespace,
 	}
 	switch out.Kind {
 	case types.RuntimeTopologyNodeKindComponent:
+		out.Component = in.Component
 		out.ComponentUID = in.ComponentUID
 		out.ProjectUID = in.ProjectUID
-		if in.ProjectUID != "" {
-			out.Project = projectName
-		}
 	case types.RuntimeTopologyNodeKindGateway:
 		out.Name = in.GatewayName
+		out.ProjectUID = in.ProjectUID
 	case types.RuntimeTopologyNodeKindExternal:
 		out.Host = in.ExternalHost
+		out.Component = in.Component
 		out.ComponentUID = in.ComponentUID
 		out.ProjectUID = in.ProjectUID
 	}

@@ -106,17 +106,14 @@ type RuntimeTopologyMetrics struct {
 
 // RuntimeTopologyNodeRef identifies a node in the topology. The shape depends
 // on Kind:
-//   - Kind == "component": ComponentUID is always populated when the data
-//     comes from the metrics backend. Component (name) is populated when the
-//     observer can resolve it from ComponentUID.
+//   - Kind == "component": Component (name) + ComponentUID and Project (name) + ProjectUID
+//     are populated from the metrics backend using pod label data.
 //   - Kind == "gateway":   Name is required (e.g. "internet", "intranet").
-//   - Kind == "external":  at least one of Host or Component / ComponentUID
-//     should be set; Project / ProjectUID may be set when the source is in a
-//     different project.
+//   - Kind == "external":  at least one of Host or Component should be set.
 type RuntimeTopologyNodeRef struct {
 	Kind RuntimeTopologyNodeKind `json:"kind"`
 
-	// Component-kind fields.
+	// Component-kind fields — both name and UID from pod labels.
 	Component    string `json:"component,omitempty"`
 	ComponentUID string `json:"componentUid,omitempty"`
 	Service      string `json:"service,omitempty"`
@@ -129,8 +126,7 @@ type RuntimeTopologyNodeRef struct {
 	Project    string `json:"project,omitempty"`
 	ProjectUID string `json:"projectUid,omitempty"`
 
-	// Common identifier — namespace the node lives in. May differ from the
-	// request scope when the node refers to a cross-namespace external.
+	// Common identifier — namespace the node lives in.
 	Namespace string `json:"namespace,omitempty"`
 }
 
