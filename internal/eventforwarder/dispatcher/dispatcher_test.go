@@ -261,7 +261,18 @@ func TestDispatch_DropsEventsWhenQueueFull(t *testing.T) {
 	// should hit the `default:` branch and drop the event rather than
 	// block the producer (informer thread).
 	release := make(chan struct{})
+	// Signals once the first request reaches the handler — at that
+	// point the (single) worker has already drained its job from the
+	// channel and is stuck inside the handler, so subsequent Dispatch
+	// calls hit a deterministic channel state. Buffered + `default:`
+	// makes the send a no-op on the second handler invocation that
+	// runs during cleanup.
+	firstReqArrived := make(chan struct{}, 1)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		select {
+		case firstReqArrived <- struct{}{}:
+		default:
+		}
 		<-release
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -281,17 +292,16 @@ func TestDispatch_DropsEventsWhenQueueFull(t *testing.T) {
 	defer cancel()
 	d.Start(ctx)
 
-	// First dispatch lands on the worker (which is now blocked in the
-	// httptest handler). Second dispatch fits in the buffered queue.
-	// Third must be dropped.
-	for i := 0; i < 3; i++ {
-		d.Dispatch(ctx, Event{
-			Kind:      "Project",
-			Name:      "p" + string(rune('0'+i)),
-			Namespace: "default",
-			Action:    "updated",
-		})
-	}
+	// First dispatch lands on the worker. Wait until it's actually
+	// inside the handler before issuing the next two — otherwise the
+	// producer can win the race against the worker's first channel
+	// read, parking p0 in the buffer and dropping both p1 and p2.
+	d.Dispatch(ctx, Event{Kind: "Project", Name: "p0", Namespace: "default", Action: "updated"})
+	<-firstReqArrived
+
+	// Second dispatch fits in the buffered queue; third must drop.
+	d.Dispatch(ctx, Event{Kind: "Project", Name: "p1", Namespace: "default", Action: "updated"})
+	d.Dispatch(ctx, Event{Kind: "Project", Name: "p2", Namespace: "default", Action: "updated"})
 
 	// Verify only 2 of the 3 are queued/in-flight (the third was
 	// dropped). Channel still holds the second job, worker is in
