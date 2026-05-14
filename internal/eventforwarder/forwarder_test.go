@@ -33,10 +33,8 @@ var projectGVR = schema.GroupVersionResource{
 }
 
 // newProject constructs a minimal *unstructured.Unstructured shaped like an
-// OpenChoreo Project under the "default" namespace. Callers can override
-// sub-trees via the optional `mutate` callback to test specific diff
-// scenarios.
-func newProject(name string, mutate ...func(map[string]interface{})) *unstructured.Unstructured {
+// OpenChoreo Project under the "default" namespace.
+func newProject(name string) *unstructured.Unstructured {
 	obj := map[string]interface{}{
 		"apiVersion": "openchoreo.dev/v1alpha1",
 		"kind":       "Project",
@@ -63,9 +61,6 @@ func newProject(name string, mutate ...func(map[string]interface{})) *unstructur
 				},
 			},
 		},
-	}
-	for _, f := range mutate {
-		f(obj)
 	}
 	return &unstructured.Unstructured{Object: obj}
 }

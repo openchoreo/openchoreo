@@ -297,4 +297,3 @@ func (f *Forwarder) handleEvent(obj interface{}, action string, gvr schema.Group
 		Action:    action,
 	})
 }
-
