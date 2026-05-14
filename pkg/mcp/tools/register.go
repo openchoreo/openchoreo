@@ -230,10 +230,28 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterUpdateClusterWorkflow,
 		t.RegisterDeleteClusterWorkflow,
 
+		// Authz roles (scope-collapsed)
+		t.RegisterListAuthzRoles,
+		t.RegisterGetAuthzRole,
+		t.RegisterGetAuthzRoleCreationSchema,
+		t.RegisterCreateAuthzRole,
+		t.RegisterUpdateAuthzRole,
+		t.RegisterDeleteAuthzRole,
+
+		// Authz role bindings (scope-collapsed)
+		t.RegisterListAuthzRoleBindings,
+		t.RegisterGetAuthzRoleBinding,
+		t.RegisterGetAuthzRoleBindingCreationSchema,
+		t.RegisterCreateAuthzRoleBinding,
+		t.RegisterUpdateAuthzRoleBinding,
+		t.RegisterDeleteAuthzRoleBinding,
+
 		// Diagnostics
 		t.RegisterGetResourceTree,
 		t.RegisterGetResourceEvents,
 		t.RegisterGetResourceLogs,
+		t.RegisterEvaluateAuthz,
+		t.RegisterListAuthzActions,
 	}
 }
 

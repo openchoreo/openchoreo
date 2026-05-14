@@ -219,6 +219,50 @@ type PEToolsetHandler interface {
 		group, version, kind, name string) (any, error)
 	GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName,
 		podName string, sinceSeconds *int64) (any, error)
+
+	// Authz roles (namespace-scoped)
+	ListAuthzRoles(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetAuthzRole(ctx context.Context, namespaceName, roleName string) (any, error)
+	CreateAuthzRole(
+		ctx context.Context, namespaceName string, req *gen.CreateNamespaceRoleJSONRequestBody,
+	) (any, error)
+	UpdateAuthzRole(
+		ctx context.Context, namespaceName string, req *gen.UpdateNamespaceRoleJSONRequestBody,
+	) (any, error)
+	DeleteAuthzRole(ctx context.Context, namespaceName, roleName string) (any, error)
+
+	// Authz roles (cluster-scoped)
+	ListClusterAuthzRoles(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterAuthzRole(ctx context.Context, roleName string) (any, error)
+	CreateClusterAuthzRole(ctx context.Context, req *gen.CreateClusterRoleJSONRequestBody) (any, error)
+	UpdateClusterAuthzRole(ctx context.Context, req *gen.UpdateClusterRoleJSONRequestBody) (any, error)
+	DeleteClusterAuthzRole(ctx context.Context, roleName string) (any, error)
+
+	// Authz role bindings (namespace-scoped)
+	ListAuthzRoleBindings(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetAuthzRoleBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
+	CreateAuthzRoleBinding(
+		ctx context.Context, namespaceName string, req *gen.CreateNamespaceRoleBindingJSONRequestBody,
+	) (any, error)
+	UpdateAuthzRoleBinding(
+		ctx context.Context, namespaceName string, req *gen.UpdateNamespaceRoleBindingJSONRequestBody,
+	) (any, error)
+	DeleteAuthzRoleBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
+
+	// Authz role bindings (cluster-scoped)
+	ListClusterAuthzRoleBindings(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterAuthzRoleBinding(ctx context.Context, bindingName string) (any, error)
+	CreateClusterAuthzRoleBinding(
+		ctx context.Context, req *gen.CreateClusterRoleBindingJSONRequestBody,
+	) (any, error)
+	UpdateClusterAuthzRoleBinding(
+		ctx context.Context, req *gen.UpdateClusterRoleBindingJSONRequestBody,
+	) (any, error)
+	DeleteClusterAuthzRoleBinding(ctx context.Context, bindingName string) (any, error)
+
+	// Authz diagnostics
+	EvaluateAuthz(ctx context.Context, requests []gen.EvaluateRequest) (any, error)
+	ListAuthzActions(ctx context.Context) (any, error)
 }
 
 // NamespaceToolsetHandler handles namespace operations

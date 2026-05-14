@@ -14,19 +14,27 @@ import (
 
 // crdSpecSchemas caches the extracted spec schemas so YAML parsing happens only once.
 var crdSpecSchemas struct {
-	once                    sync.Once
-	componentType           map[string]any
-	clusterComponentType    map[string]any
-	trait                   map[string]any
-	clusterTrait            map[string]any
-	workflow                map[string]any
-	clusterWorkflow         map[string]any
-	componentTypeErr        error
-	clusterComponentTypeErr error
-	traitErr                error
-	clusterTraitErr         error
-	workflowErr             error
-	clusterWorkflowErr      error
+	once                       sync.Once
+	componentType              map[string]any
+	clusterComponentType       map[string]any
+	trait                      map[string]any
+	clusterTrait               map[string]any
+	workflow                   map[string]any
+	clusterWorkflow            map[string]any
+	authzRole                  map[string]any
+	clusterAuthzRole           map[string]any
+	authzRoleBinding           map[string]any
+	clusterAuthzRoleBinding    map[string]any
+	componentTypeErr           error
+	clusterComponentTypeErr    error
+	traitErr                   error
+	clusterTraitErr            error
+	workflowErr                error
+	clusterWorkflowErr         error
+	authzRoleErr               error
+	clusterAuthzRoleErr        error
+	authzRoleBindingErr        error
+	clusterAuthzRoleBindingErr error
 }
 
 // ComponentTypeCreationSchema returns the JSON schema for the ComponentType spec,
@@ -68,6 +76,30 @@ func ClusterWorkflowCreationSchema() (map[string]any, error) {
 	return crdSpecSchemas.clusterWorkflow, crdSpecSchemas.clusterWorkflowErr
 }
 
+// AuthzRoleCreationSchema returns the JSON schema for the AuthzRole spec.
+func AuthzRoleCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.authzRole, crdSpecSchemas.authzRoleErr
+}
+
+// ClusterAuthzRoleCreationSchema returns the JSON schema for the ClusterAuthzRole spec.
+func ClusterAuthzRoleCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.clusterAuthzRole, crdSpecSchemas.clusterAuthzRoleErr
+}
+
+// AuthzRoleBindingCreationSchema returns the JSON schema for the AuthzRoleBinding spec.
+func AuthzRoleBindingCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.authzRoleBinding, crdSpecSchemas.authzRoleBindingErr
+}
+
+// ClusterAuthzRoleBindingCreationSchema returns the JSON schema for the ClusterAuthzRoleBinding spec.
+func ClusterAuthzRoleBindingCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.clusterAuthzRoleBinding, crdSpecSchemas.clusterAuthzRoleBindingErr
+}
+
 func parseCRDSchemas() {
 	crdSpecSchemas.componentType, crdSpecSchemas.componentTypeErr = extractSpecSchema(
 		"bases/openchoreo.dev_componenttypes.yaml",
@@ -86,6 +118,18 @@ func parseCRDSchemas() {
 	)
 	crdSpecSchemas.clusterWorkflow, crdSpecSchemas.clusterWorkflowErr = extractSpecSchema(
 		"bases/openchoreo.dev_clusterworkflows.yaml",
+	)
+	crdSpecSchemas.authzRole, crdSpecSchemas.authzRoleErr = extractSpecSchema(
+		"bases/openchoreo.dev_authzroles.yaml",
+	)
+	crdSpecSchemas.clusterAuthzRole, crdSpecSchemas.clusterAuthzRoleErr = extractSpecSchema(
+		"bases/openchoreo.dev_clusterauthzroles.yaml",
+	)
+	crdSpecSchemas.authzRoleBinding, crdSpecSchemas.authzRoleBindingErr = extractSpecSchema(
+		"bases/openchoreo.dev_authzrolebindings.yaml",
+	)
+	crdSpecSchemas.clusterAuthzRoleBinding, crdSpecSchemas.clusterAuthzRoleBindingErr = extractSpecSchema(
+		"bases/openchoreo.dev_clusterauthzrolebindings.yaml",
 	)
 }
 

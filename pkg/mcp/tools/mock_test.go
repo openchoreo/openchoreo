@@ -697,3 +697,147 @@ func (m *MockCoreToolsetHandler) GetResourceLogs(
 	m.recordCall("GetResourceLogs", namespaceName, releaseBindingName, podName, sinceSeconds)
 	return `{"logEntries":[]}`, nil
 }
+
+// Authz role methods
+
+func (m *MockCoreToolsetHandler) ListAuthzRoles(
+	ctx context.Context, namespaceName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListAuthzRoles", namespaceName, opts)
+	return `[{"name":"role-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetAuthzRole(
+	ctx context.Context, namespaceName, roleName string,
+) (any, error) {
+	m.recordCall("GetAuthzRole", namespaceName, roleName)
+	return `{"name":"role-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateAuthzRole(
+	ctx context.Context, namespaceName string, req *gen.CreateNamespaceRoleJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateAuthzRole", namespaceName, req)
+	return `{"name":"new-role","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateAuthzRole(
+	ctx context.Context, namespaceName string, req *gen.UpdateNamespaceRoleJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateAuthzRole", namespaceName, req)
+	return `{"name":"updated-role","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteAuthzRole(
+	ctx context.Context, namespaceName, roleName string,
+) (any, error) {
+	m.recordCall("DeleteAuthzRole", namespaceName, roleName)
+	return deletedResponse, nil
+}
+
+func (m *MockCoreToolsetHandler) ListClusterAuthzRoles(ctx context.Context, opts ListOpts) (any, error) {
+	m.recordCall("ListClusterAuthzRoles", opts)
+	return `[{"name":"cluster-role-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterAuthzRole(ctx context.Context, roleName string) (any, error) {
+	m.recordCall("GetClusterAuthzRole", roleName)
+	return `{"name":"cluster-role-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateClusterAuthzRole(
+	ctx context.Context, req *gen.CreateClusterRoleJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateClusterAuthzRole", req)
+	return `{"name":"new-cluster-role","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateClusterAuthzRole(
+	ctx context.Context, req *gen.UpdateClusterRoleJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateClusterAuthzRole", req)
+	return `{"name":"updated-cluster-role","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteClusterAuthzRole(ctx context.Context, roleName string) (any, error) {
+	m.recordCall("DeleteClusterAuthzRole", roleName)
+	return deletedResponse, nil
+}
+
+// Authz role binding methods
+
+func (m *MockCoreToolsetHandler) ListAuthzRoleBindings(
+	ctx context.Context, namespaceName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListAuthzRoleBindings", namespaceName, opts)
+	return `[{"name":"binding-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetAuthzRoleBinding(
+	ctx context.Context, namespaceName, bindingName string,
+) (any, error) {
+	m.recordCall("GetAuthzRoleBinding", namespaceName, bindingName)
+	return `{"name":"binding-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateAuthzRoleBinding(
+	ctx context.Context, namespaceName string, req *gen.CreateNamespaceRoleBindingJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateAuthzRoleBinding", namespaceName, req)
+	return `{"name":"new-binding","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateAuthzRoleBinding(
+	ctx context.Context, namespaceName string, req *gen.UpdateNamespaceRoleBindingJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateAuthzRoleBinding", namespaceName, req)
+	return `{"name":"updated-binding","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteAuthzRoleBinding(
+	ctx context.Context, namespaceName, bindingName string,
+) (any, error) {
+	m.recordCall("DeleteAuthzRoleBinding", namespaceName, bindingName)
+	return deletedResponse, nil
+}
+
+func (m *MockCoreToolsetHandler) ListClusterAuthzRoleBindings(ctx context.Context, opts ListOpts) (any, error) {
+	m.recordCall("ListClusterAuthzRoleBindings", opts)
+	return `[{"name":"cluster-binding-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterAuthzRoleBinding(ctx context.Context, bindingName string) (any, error) {
+	m.recordCall("GetClusterAuthzRoleBinding", bindingName)
+	return `{"name":"cluster-binding-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateClusterAuthzRoleBinding(
+	ctx context.Context, req *gen.CreateClusterRoleBindingJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateClusterAuthzRoleBinding", req)
+	return `{"name":"new-cluster-binding","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateClusterAuthzRoleBinding(
+	ctx context.Context, req *gen.UpdateClusterRoleBindingJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateClusterAuthzRoleBinding", req)
+	return `{"name":"updated-cluster-binding","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteClusterAuthzRoleBinding(ctx context.Context, bindingName string) (any, error) {
+	m.recordCall("DeleteClusterAuthzRoleBinding", bindingName)
+	return deletedResponse, nil
+}
+
+// Authz diagnostics methods
+
+func (m *MockCoreToolsetHandler) EvaluateAuthz(ctx context.Context, requests []gen.EvaluateRequest) (any, error) {
+	m.recordCall("EvaluateAuthz", requests)
+	return `{"decisions":[{"decision":"allow"}]}`, nil
+}
+
+func (m *MockCoreToolsetHandler) ListAuthzActions(ctx context.Context) (any, error) {
+	m.recordCall("ListAuthzActions")
+	return `{"actions":[{"name":"component:view","lowest_scope":"component"}]}`, nil
+}
