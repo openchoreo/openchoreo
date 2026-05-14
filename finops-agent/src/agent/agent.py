@@ -179,7 +179,7 @@ def _synthesize_remediation_actions(report: FinOpsReport) -> list[RemediationAct
         RemediationAction(
             description=(
                 f"Right-size ReleaseBinding `{rec.release_binding}` "
-                "CPU and memory requests based on actual usage"
+                "CPU and memory requests and limits based on actual usage"
             ),
             rationale=rec.rationale,
             change=ResourceChange(
@@ -192,6 +192,14 @@ def _synthesize_remediation_actions(report: FinOpsReport) -> list[RemediationAct
                     FieldChange(
                         json_pointer="/spec/componentTypeEnvironmentConfigs/resources/requests/memory",
                         value=rec.memory_request,
+                    ),
+                    FieldChange(
+                        json_pointer="/spec/componentTypeEnvironmentConfigs/resources/limits/cpu",
+                        value=rec.cpu_limit,
+                    ),
+                    FieldChange(
+                        json_pointer="/spec/componentTypeEnvironmentConfigs/resources/limits/memory",
+                        value=rec.memory_limit,
                     ),
                 ],
             ),
@@ -258,8 +266,14 @@ async def run_analysis(
                 logger.debug("FinOps tool calls: %s", summary)
             logger.info("FinOps analysis completed: usage=%s", usage_callback.usage_metadata)
 
-            if settings.remediation_enabled:
-                finops_report.recommended_actions = _synthesize_remediation_actions(finops_report)
+            # Always overwrite recommended_actions — the LLM sees the field in the
+            # schema and may hallucinate paths; only the deterministic synthesiser
+            # should populate it.
+            finops_report.recommended_actions = (
+                _synthesize_remediation_actions(finops_report)
+                if settings.remediation_enabled
+                else []
+            )
 
             report_data = finops_report.model_dump()
 

@@ -1,7 +1,10 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Annotated
+
 from pydantic import BaseModel, Field
+from pydantic.json_schema import SkipJsonSchema
 
 from src.models.remediation_action import RemediationAction
 
@@ -119,7 +122,6 @@ class FinOpsReport(BaseModel):
     investigation_path: list[InvestigationStep] = Field(
         ..., min_length=1, description="Steps taken during the analysis"
     )
-    recommended_actions: list[RemediationAction] = Field(
+    recommended_actions: Annotated[list[RemediationAction], SkipJsonSchema()] = Field(
         default_factory=list,
-        description="Remediation actions synthesized from the overprovisioning recommendation",
     )
