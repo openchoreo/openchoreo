@@ -258,8 +258,8 @@ func validateAlertRuleRequest(req gen.AlertRuleRequest) error {
 			return fmt.Errorf("source.metric is required for metric-based alert rules")
 		}
 		metric := string(*req.Source.Metric)
-		if metric != "cpu_usage" && metric != "memory_usage" {
-			return fmt.Errorf("source.metric must be 'cpu_usage' or 'memory_usage' for metric-based alert rules")
+		if metric != "cpu_usage" && metric != "memory_usage" && metric != "budget" {
+			return fmt.Errorf("source.metric must be 'cpu_usage', 'memory_usage' or 'budget' for metric-based alert rules")
 		}
 	}
 
