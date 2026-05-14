@@ -85,21 +85,34 @@ async def stream_chat(
 
             # If the message wasn't recovered from streamed tool args,
             # fall back to the parsed structured_response that landed
-            # on agent state.
+            # on agent state. May also replace a placeholder the
+            # streaming pass surfaced with the model's final longer
+            # diagnosis — the drawer clears its streaming buffer on
+            # the terminal ``done`` event, so the final message in
+            # the timeline reflects parser.message after this call.
             async for recovery_event in _recover_from_structured_response(
                 parser, structured_response,
             ):
                 yield recovery_event
 
-            # Single message_chunk flush right before done. The
-            # streaming loop deliberately accumulated text into the
-            # parser without yielding mid-turn message_chunks (see the
-            # _yield_chunks docstring) — emit the assembled final
-            # message here so the drawer paints it in one go instead
-            # of flashing the model's early placeholder.
-            if parser.message:
+            # Final delta flush — idempotent across both code paths:
+            #   - Some models (e.g. gpt-4o-mini with structured_output)
+            #     never emit incremental ChatResponse args; the message
+            #     only materialises in the agent's structured_response
+            #     after _yield_chunks exits, then ``set_message`` puts
+            #     it on the parser. The streaming pass yielded zero
+            #     ``message_chunk`` events — this one final chunk gives
+            #     the drawer something to paint before ``done``.
+            #   - Models that DID stream args incrementally have
+            #     ``_emitted_len`` already aligned with ``len(message)``
+            #     so ``pop_delta`` returns "" — no double-emit.
+            #   - ``set_message`` (recovery path) resets ``_emitted_len``
+            #     to 0, so a recovery message is treated as "start
+            #     over" and the consumer re-renders cleanly.
+            trailing = parser.pop_delta()
+            if trailing:
                 yield _emit_event(
-                    {"type": "message_chunk", "content": parser.message},
+                    {"type": "message_chunk", "content": trailing},
                 )
 
             yield _emit_event({"type": "done", "message": parser.message})
@@ -128,21 +141,27 @@ async def _yield_chunks(
     the agent's terminal ``structured_response`` value (which arrives
     on the ``values`` stream mode, not on a single chunk).
 
-    **No mid-stream message_chunk emission.** We feed every text /
-    ChatResponse-args block into the parser so the final message
-    accumulates internally, but we do NOT yield ``message_chunk``
-    events while the agent is still iterating. The model has a habit
-    of emitting a parallel placeholder ChatResponse alongside the
-    first tool call ("Workflow has completed with failure" before the
-    real diagnosis is composed); streaming that placeholder would
-    flash it on screen before the real answer arrives. The final
-    parsed message is emitted as a single ``message_chunk`` right
-    before ``done`` in the orchestrator. The user still sees
-    ``tool_call`` pills in real time so the drawer doesn't go silent.
+    **Mid-stream message_chunk emission.** Each ``push`` to the parser
+    is followed by a ``pop_delta`` call so the drawer paints text as
+    it arrives instead of waiting ~25 s for the buffered final flush.
+    The drawer's existing ``done`` handler swaps the streamed buffer
+    for ``done.message`` — so on the rare case where the model emits
+    a placeholder ChatResponse alongside the first tool call, the
+    placeholder briefly appears and is then replaced by the model's
+    final diagnosis when ``_recover_from_structured_response`` rewrites
+    ``parser.message``. The user perceives this as "early progress
+    plus a quick correction at the end", which is strictly better than
+    the prior 25 s of silence.
     """
     # Track active ChatResponse tool calls per stream index. Subsequent
     # tool_call_chunks (which only carry args) inherit the routing.
     chat_response_indices: set[int] = set()
+
+    def _flush_delta() -> str | None:
+        delta = parser.pop_delta()
+        if not delta:
+            return None
+        return _emit_event({"type": "message_chunk", "content": delta})
 
     try:
         async for mode, payload in agent.astream(
@@ -176,12 +195,12 @@ async def _yield_chunks(
                 elif block_type == "text":
                     text = block.get("text", "")
                     if text:
-                        # Accumulate into the parser; do not stream.
                         parser.push(text)
 
             # Feed ChatResponse args into the parser so the final
-            # message lands in parser.message — but never stream them
-            # mid-turn. See the function docstring for why.
+            # message lands in parser.message. After each push we
+            # consult ``pop_delta`` to forward only the new bytes as
+            # an ndjson ``message_chunk`` event.
             for tc in getattr(chunk, "tool_call_chunks", []) or []:
                 idx = tc.get("index")
                 name = tc.get("name")
@@ -192,6 +211,15 @@ async def _yield_chunks(
                     chat_response_indices.discard(idx)
                 if idx in chat_response_indices and args_str:
                     parser.push(args_str)
+
+            # Drain any new content the parser surfaced this chunk —
+            # could be from either the text-block push above or one of
+            # the ChatResponse arg pushes. One flush per outer chunk
+            # keeps the event rate proportional to the model's token
+            # rate without firing on every micro-update.
+            delta_event = _flush_delta()
+            if delta_event is not None:
+                yield ("event", delta_event)
     except StructuredOutputValidationError:
         logger.warning(
             "Structured output validation failed; using streamed content",

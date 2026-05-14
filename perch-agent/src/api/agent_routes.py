@@ -44,6 +44,38 @@ class ChatMessage(BaseModel):
     content: str = Field(max_length=10000)
 
 
+class PrefetchedLogEntry(BaseModel):
+    """A single log row the frontend captured from the rendered Logs tab.
+
+    Forwarded so the agent can skip its first ``query_component_logs``
+    call when launching from runtime_debug. The fields mirror the
+    subset of ``ComponentLogEntry`` the prompt actually consumes —
+    keeping the shape tight so a malicious / oversized client cannot
+    blow the per-request content budget. Each row is sized-capped here
+    AND the list is length-capped on ``ChatScope.prefetched_logs``;
+    the per-request total-content validator below adds them up.
+    """
+
+    model_config = {"populate_by_name": True, "extra": "ignore"}
+
+    # 64 chars covers RFC3339 with fractional seconds and any tz suffix.
+    timestamp: str | None = Field(default=None, max_length=64)
+    # ERROR / WARN / INFO / DEBUG — generous cap so non-standard
+    # severities ("NOTICE", "TRACE") still parse without surprising
+    # the user.
+    level: str | None = Field(default=None, max_length=32)
+    # The frontend already trims each line; this is a defensive
+    # ceiling, not the intended length. A row hitting it is a hint
+    # the frontend trimmer broke.
+    message: str = Field(max_length=2000)
+    component_name: str | None = Field(
+        default=None, alias="componentName", max_length=253,
+    )
+    environment_name: str | None = Field(
+        default=None, alias="environmentName", max_length=253,
+    )
+
+
 class ChatScope(BaseModel):
     """Optional default scope hints derived from the Backstage entity context.
 
@@ -125,6 +157,17 @@ class ChatScope(BaseModel):
         default=None, alias="pinnedLogTraceId", max_length=128,
     )
 
+    # Snapshot of the rows the user has rendered on the Logs tab.
+    # When set, the runtime_debug prompt feeds these directly to the
+    # model and tells it to SKIP query_component_logs on turn 1 —
+    # eliminating a ~5-15 s tool roundtrip. List length capped at 50
+    # so a misbehaving client can't push the request past the
+    # _TOTAL_CONTENT_LIMIT (the per-row strings count toward it via
+    # the validator below).
+    prefetched_logs: list[PrefetchedLogEntry] | None = Field(
+        default=None, alias="prefetchedLogs", max_length=50,
+    )
+
 
 # Per-request total bytes of message content. Each ChatMessage.content
 # is already capped at 10,000 chars individually, but a 50-message list
@@ -146,7 +189,19 @@ class ChatRequest(BaseModel):
                 if isinstance(v, str):
                     total += len(v)
                 elif isinstance(v, (list, tuple)):
-                    total += sum(len(item) for item in v if isinstance(item, str))
+                    for item in v:
+                        if isinstance(item, str):
+                            total += len(item)
+                        elif isinstance(item, dict):
+                            # Lists of structured items (e.g. prefetched_logs
+                            # rendered via model_dump). Count every string
+                            # value so the per-request budget enforcement
+                            # covers them too.
+                            total += sum(
+                                len(field_value)
+                                for field_value in item.values()
+                                if isinstance(field_value, str)
+                            )
         if total > _TOTAL_CONTENT_LIMIT:
             raise ValueError(
                 f"request total content {total} chars exceeds limit "

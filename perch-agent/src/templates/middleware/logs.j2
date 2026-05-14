@@ -1,0 +1,36 @@
+{#- ``cell`` sanitises a value for inclusion in a single markdown table
+    cell. Three problems in raw log fields:
+      1. A literal ``|`` collapses the cell — subsequent text reads as
+         the next column. Escape with ``\|`` per CommonMark.
+      2. A literal ``\n`` (multi-line stack traces, Go panics) starts a
+         new row mid-record. Replace with a space so the message stays
+         on one logical line and trace_id substrings survive.
+      3. A literal ``\r`` (CRLF-emitting containers) leaves a stray
+         carriage return that some renderers reposition the cursor on;
+         strip outright.
+    Order matters: newline normalisation before pipe-escape would also
+    work, but doing pipe first means a message like ``a|b\nc`` becomes
+    ``a\|b c`` rather than ``a\|b\nc`` getting double-traversed.
+    ``(v or '')`` coalesces None — the observer's ComponentLogEntry has
+    every field optional, so any of the three columns can be None on
+    malformed indexer output. -#}
+{%- macro cell(v) -%}
+{{- (v or '') | replace('|', '\|') | replace('\n', ' ') | replace('\r', '') -}}
+{%- endmacro -%}
+## Logs
+
+**Namespace:** {{ namespaceName }}
+**Project:** {{ projectName }}
+**Environment:** {{ environmentName }}
+
+{% for component in components -%}
+
+**Component:** {{ component.componentName }}
+
+Timestamp | Log Level | Message
+--- | --- | ---
+{% for log in component.logs -%}
+{{ cell(log.timestamp) }} | {{ cell(log.level) }} | {{ cell(log.log) }}
+{% endfor %}
+
+{% endfor -%}

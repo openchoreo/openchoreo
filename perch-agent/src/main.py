@@ -53,10 +53,17 @@ async def lifespan(_app: FastAPI):
         )
 
     # Preload prompt templates so a missing/broken Jinja2 file fails the
-    # deploy instead of emitting a 500 on the first chat.
+    # deploy instead of emitting a 500 on the first chat. Includes the
+    # OutputTransformerMiddleware templates — without these on disk the
+    # first tool result that hits the middleware would 500 mid-stream.
     logger.info("Preloading prompt templates...")
     try:
-        preload_templates(["prompts/perch_prompt.j2"])
+        preload_templates([
+            "prompts/perch_prompt.j2",
+            "middleware/logs.j2",
+            "middleware/traces.j2",
+            "middleware/trace_spans.j2",
+        ])
     except Exception as e:
         logger.error("Prompt template preload failed: %s", e)
         raise RuntimeError(f"Prompt template preload failed: {e}") from e

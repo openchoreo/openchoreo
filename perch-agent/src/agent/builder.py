@@ -31,6 +31,7 @@ from src.agent.middleware import (
     EmptyResultGuardMiddleware,
     LoggingMiddleware,
     LoopGuardMiddleware,
+    OutputTransformerMiddleware,
     ToolErrorHandlerMiddleware,
     WriteGuardMiddleware,
 )
@@ -245,6 +246,13 @@ async def _build_agent(
         # ToolError so the synthetic refusal lands in the model's next
         # prompt unmodified.
         EmptyResultGuardMiddleware(),
+        # OutputTransformer compresses observability tool responses
+        # (logs/traces/spans) into compact markdown tables before the
+        # LLM ever sees them — benchmarked at ~60% token reduction
+        # across the three shapes. Sits AFTER EmptyResultGuard so empty
+        # short-circuits don't pay the render cost, and BEFORE
+        # WriteGuard so refusals land on raw input unmodified.
+        OutputTransformerMiddleware(),
         # WriteGuard runs before ToolErrorHandler so blocked writes surface as
         # errors the model can recover from, instead of being swallowed.
         WriteGuardMiddleware(tools_by_name=tools_by_name),

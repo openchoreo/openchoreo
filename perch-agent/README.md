@@ -21,7 +21,7 @@ uv run uvicorn src.main:app --port 8080
 
 Required env vars:
 
-- `PERCH_MODEL_NAME` — e.g. `openai:gpt-4o-mini`
+- `PERCH_MODEL_NAME` — e.g. `openai:gpt-5`
 - `PERCH_LLM_API_KEY`
 - `JWT_JWKS_URL`, `JWT_ISSUER`, `JWT_AUDIENCE` — point at your IDP
 - `OPENCHOREO_API_URL` — defaults to the in-cluster URL
