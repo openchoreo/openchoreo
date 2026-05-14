@@ -10701,12 +10701,13 @@ components:
           type: string
           description: >
             The lowest resource hierarchy level at which this action is evaluated.
-            One of cluster, namespace, project, or component.
+            One of cluster, namespace, project, component, or resource.
           enum:
             - cluster
             - namespace
             - project
             - component
+            - resource
           example: component
         conditions:
           type: array

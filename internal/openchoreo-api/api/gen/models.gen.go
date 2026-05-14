@@ -21,6 +21,7 @@ const (
 	ActionInfoLowestScopeComponent ActionInfoLowestScope = "component"
 	ActionInfoLowestScopeNamespace ActionInfoLowestScope = "namespace"
 	ActionInfoLowestScopeProject   ActionInfoLowestScope = "project"
+	ActionInfoLowestScopeResource  ActionInfoLowestScope = "resource"
 )
 
 // Defines values for AuthzRoleBindingSpecEffect.
@@ -435,14 +436,14 @@ type ActionInfo struct {
 	// Conditions ABAC attributes available for CEL condition expressions on this action. Empty means no conditions are supported.
 	Conditions *[]ConditionAttribute `json:"conditions,omitempty"`
 
-	// LowestScope The lowest resource hierarchy level at which this action is evaluated. One of cluster, namespace, project, or component.
+	// LowestScope The lowest resource hierarchy level at which this action is evaluated. One of cluster, namespace, project, component, or resource.
 	LowestScope ActionInfoLowestScope `json:"lowestScope"`
 
 	// Name The action identifier (e.g. "component:create").
 	Name string `json:"name"`
 }
 
-// ActionInfoLowestScope The lowest resource hierarchy level at which this action is evaluated. One of cluster, namespace, project, or component.
+// ActionInfoLowestScope The lowest resource hierarchy level at which this action is evaluated. One of cluster, namespace, project, component, or resource.
 type ActionInfoLowestScope string
 
 // AgentConnectionStatus Status of cluster agent connections
