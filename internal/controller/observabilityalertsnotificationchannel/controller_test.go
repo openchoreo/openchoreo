@@ -523,6 +523,179 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 		})
 	})
 
+	Context("When reconciling a webhook notification channel", func() {
+		var (
+			channel            *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel
+			dataPlane          *openchoreodevv1alpha1.DataPlane
+			environment        *openchoreodevv1alpha1.Environment
+			observabilityPlane *openchoreodevv1alpha1.ObservabilityPlane
+			opClient           client.Client
+			webhookAuthSecret  *corev1.Secret
+		)
+
+		BeforeEach(func() {
+			webhookAuthSecret = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "webhook-auth-secret",
+					Namespace: namespace,
+				},
+				Type: corev1.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"token": []byte("Bearer test-token-123"),
+				},
+			}
+			Expect(k8sClient.Create(testCtx, webhookAuthSecret)).To(Succeed())
+
+			observabilityPlane = &openchoreodevv1alpha1.ObservabilityPlane{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-observability-plane-webhook",
+					Namespace: namespace,
+				},
+				Spec: openchoreodevv1alpha1.ObservabilityPlaneSpec{
+					ClusterAgent: openchoreodevv1alpha1.ClusterAgentConfig{
+						ClientCA: openchoreodevv1alpha1.ValueFrom{
+							Value: "test-ca-cert",
+						},
+					},
+					ObserverURL: "http://observer.example.com",
+				},
+			}
+			Expect(k8sClient.Create(testCtx, observabilityPlane)).To(Succeed())
+
+			dataPlane = &openchoreodevv1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dataplane-webhook",
+					Namespace: namespace,
+				},
+				Spec: openchoreodevv1alpha1.DataPlaneSpec{
+					ObservabilityPlaneRef: &openchoreodevv1alpha1.ObservabilityPlaneRef{
+						Kind: openchoreodevv1alpha1.ObservabilityPlaneRefKindObservabilityPlane,
+						Name: observabilityPlane.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(testCtx, dataPlane)).To(Succeed())
+
+			environment = &openchoreodevv1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "development-webhook",
+					Namespace: namespace,
+				},
+				Spec: openchoreodevv1alpha1.EnvironmentSpec{
+					DataPlaneRef: &openchoreodevv1alpha1.DataPlaneRef{
+						Kind: openchoreodevv1alpha1.DataPlaneRefKindDataPlane,
+						Name: dataPlane.Name,
+					},
+				},
+			}
+			Expect(k8sClient.Create(testCtx, environment)).To(Succeed())
+
+			opClient = k8sClient
+
+			inlineHeader := "openchoreo"
+			channel = &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-channel-webhook",
+					Namespace: namespace,
+				},
+				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
+					Environment: environment.Name,
+					Type:        openchoreodevv1alpha1.NotificationChannelTypeWebhook,
+					WebhookConfig: &openchoreodevv1alpha1.WebhookConfig{
+						URL:             "https://hooks.example.com/services/abc",
+						PayloadTemplate: `{"text": "${alertName}"}`,
+						Headers: map[string]openchoreodevv1alpha1.WebhookHeaderValue{
+							"X-Source": {Value: &inlineHeader},
+							"Authorization": {
+								ValueFrom: &openchoreodevv1alpha1.SecretValueFrom{
+									SecretKeyRef: &openchoreodevv1alpha1.SecretKeyRef{
+										Name: "webhook-auth-secret",
+										Key:  "token",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(testCtx, channel)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			if channel != nil {
+				configMap := &corev1.ConfigMap{}
+				if err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, configMap); err == nil {
+					_ = k8sClient.Delete(testCtx, configMap)
+				}
+				secret := &corev1.Secret{}
+				if err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, secret); err == nil {
+					_ = k8sClient.Delete(testCtx, secret)
+				}
+				_ = k8sClient.Delete(testCtx, channel)
+				existing := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+				if err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, existing); err == nil {
+					if controllerutil.RemoveFinalizer(existing, NotificationChannelCleanupFinalizer) {
+						_ = k8sClient.Update(testCtx, existing)
+					}
+				}
+				Eventually(func() bool {
+					err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{})
+					return apierrors.IsNotFound(err)
+				}, time.Second*30, time.Millisecond*200).Should(BeTrue())
+			}
+			if webhookAuthSecret != nil {
+				_ = k8sClient.Delete(testCtx, webhookAuthSecret)
+			}
+			if environment != nil {
+				_ = k8sClient.Delete(testCtx, environment)
+			}
+			if dataPlane != nil {
+				_ = k8sClient.Delete(testCtx, dataPlane)
+			}
+			if observabilityPlane != nil {
+				_ = k8sClient.Delete(testCtx, observabilityPlane)
+			}
+		})
+
+		It("should create ConfigMap and Secret with resolved webhook config", func() {
+			localMockProvider := &k8sMocks.MockObservabilityPlaneClientProvider{}
+			localMockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Once()
+
+			reconciler := &Reconciler{
+				Client:              k8sClient,
+				Scheme:              k8sClient.Scheme(),
+				PlaneClientProvider: localMockProvider,
+			}
+
+			result, err := reconciler.Reconcile(testCtx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      channel.Name,
+					Namespace: namespace,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(reconcile.Result{}))
+
+			configMap := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, configMap)).To(Succeed())
+			Expect(configMap.Data["type"]).To(Equal("webhook"))
+			Expect(configMap.Data["webhook.url"]).To(Equal("https://hooks.example.com/services/abc"))
+			Expect(configMap.Data["webhook.payloadTemplate"]).To(Equal(`{"text": "${alertName}"}`))
+			Expect(configMap.Data["webhook.header.X-Source"]).To(Equal("openchoreo"))
+			// Secret-referenced header values are NOT stored in the ConfigMap.
+			Expect(configMap.Data).NotTo(HaveKey("webhook.header.Authorization"))
+			// Header name list contains both keys (order isn't guaranteed).
+			Expect(configMap.Data["webhook.headers"]).To(ContainSubstring("Authorization"))
+			Expect(configMap.Data["webhook.headers"]).To(ContainSubstring("X-Source"))
+
+			secret := &corev1.Secret{}
+			Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, secret)).To(Succeed())
+			Expect(string(secret.Data["webhook.header.Authorization"])).To(Equal("Bearer test-token-123"))
+			// Inline header values are not duplicated into the Secret.
+			Expect(secret.Data).NotTo(HaveKey("webhook.header.X-Source"))
+		})
+	})
+
 	Context("When testing createConfigMap", func() {
 		It("should create ConfigMap with correct data", func() {
 			channel := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{
