@@ -100,8 +100,10 @@ install_cert_manager
 install_eso
 install_gateway_crds
 
-# Step 4: Install kgateway and Thunder
+# Step 4: Install kgateway, OpenBao, generate secrets, and Thunder
 install_kgateway
+install_openbao
+BAO_TOKEN=root bash "${SCRIPT_DIR}/generate-thunder-secrets.sh"
 install_thunder
 
 # Step 5: Apply CoreDNS config
@@ -114,9 +116,8 @@ install_control_plane
 # Step 6b: Extract cluster-gateway CA into ConfigMap
 extract_cluster_gateway_ca
 
-# Step 7: Set up Data Plane CA and secret store
+# Step 7: Set up Data Plane CA
 setup_data_plane_ca
-install_openbao
 
 # Step 8: Install Data Plane
 install_data_plane
@@ -161,22 +162,23 @@ fi
 log_success "OpenChoreo installation completed successfully!"
 log_info "Access URLs:"
 log_info "  Backstage UI: http://openchoreo.localhost:8080/"
-log_info "    Login credentials:"
-log_info "      Admin:"
-log_info "        Username: admin@openchoreo.dev"
-log_info "        Password: Admin@123"
-log_info "      Developer:"
-log_info "        Username: developer@openchoreo.dev"
-log_info "        Password: Dev@123"
-log_info "      Platform Engineer:"
-log_info "        Username: platform-engineer@openchoreo.dev"
-log_info "        Password: PE@123"
 log_info "  OpenChoreo API: http://api.openchoreo.localhost:8080/"
 log_info "  Thunder Identity Provider: http://thunder.openchoreo.localhost:8080/"
 log_info "  Thunder Identity Provider UI: http://thunder.openchoreo.localhost:8080/console"
-log_info "    Logins:"
-log_info "      Username: admin"
-log_info "      Password: admin"
+echo ""
+log_info "Default User Credentials (passwords were randomly generated):"
+log_info "  admin@openchoreo.dev (role: admin):"
+log_info "    kubectl get secret openchoreo-initial-credentials -n thunder -o jsonpath='{.data.admin-password}' | openssl base64 -d -A"
+log_info "  developer@openchoreo.dev (role: developer):"
+log_info "    kubectl get secret openchoreo-initial-credentials -n thunder -o jsonpath='{.data.developer-password}' | openssl base64 -d -A"
+log_info "  platform-engineer@openchoreo.dev (role: platform-engineer):"
+log_info "    kubectl get secret openchoreo-initial-credentials -n thunder -o jsonpath='{.data.pe-password}' | openssl base64 -d -A"
+log_info "  sre@openchoreo.dev (role: sre):"
+log_info "    kubectl get secret openchoreo-initial-credentials -n thunder -o jsonpath='{.data.sre-password}' | openssl base64 -d -A"
+echo ""
+log_info "  Important: Delete the openchoreo-initial-credentials secret after distributing"
+log_info "  credentials to your users, or require password change on first login."
+echo ""
 echo ""
 log_info "OCC CLI Login:"
 log_info "  Run the following commands to login:"

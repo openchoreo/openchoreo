@@ -38,24 +38,22 @@ server:
         bound_service_account_namespaces="openbao,openchoreo-workflow-plane" \
         policies=openchoreo-secret-writer-policy ttl=20m
 
-      # Sample apps
+      # OpenSearch (observability)
+      bao kv put secret/opensearch-username value="admin"
+      bao kv put secret/opensearch-password value="ThisIsTheOpenSearchPassword1"
+      
+      # Backstage backend secret — only generate if not already in OpenBao
+      # (create_backstage_secret() reads this value; generates and writes one
+      # here only if not already present)
+      if ! bao kv get secret/backstage-backend-secret >/dev/null 2>&1; then
+        BACKEND_SECRET=$(openssl rand -hex 32)
+        bao kv put secret/backstage-backend-secret value="${BACKEND_SECRET}"
+      fi
+
+      # Sample app credentials (for demo workflows)
       bao kv put secret/npm-token value="fake-npm-token-for-development"
       bao kv put secret/docker-username value="dev-user"
       bao kv put secret/docker-password value="dev-password"
       bao kv put secret/github-pat value="fake-github-token-for-development"
       bao kv put secret/username value="dev-user"
       bao kv put secret/password value="dev-password"
-
-      # Backstage (web console)
-      bao kv put secret/backstage-backend-secret value="local-dev-backend-secret"
-      bao kv put secret/backstage-client-secret value="backstage-portal-secret"
-      bao kv put secret/backstage-jenkins-api-key value="placeholder-not-in-use"
-      # Observer (observability)
-      bao kv put secret/observer-oauth-client-secret value="openchoreo-observer-resource-reader-client-secret"
-      # RCA Agent (observability)
-      bao kv put secret/rca-oauth-client-secret value="openchoreo-rca-agent-secret"
-      # FinOps Agent (observability)
-      bao kv put secret/finops-agent-oauth-client-secret value="openchoreo-finops-agent-secret"
-      # OpenSearch (observability)
-      bao kv put secret/opensearch-username value="admin"
-      bao kv put secret/opensearch-password value="ThisIsTheOpenSearchPassword1"

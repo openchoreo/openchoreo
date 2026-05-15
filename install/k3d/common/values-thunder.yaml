@@ -55,6 +55,67 @@ configuration:
 
 setup:
   enabled: true
+  env:
+    - name: ADMIN_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: openchoreo-initial-credentials
+          key: admin-password
+    - name: DEVELOPER_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: openchoreo-initial-credentials
+          key: developer-password
+    - name: PE_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: openchoreo-initial-credentials
+          key: pe-password
+    - name: SRE_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: openchoreo-initial-credentials
+          key: sre-password
+    - name: BACKSTAGE_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: openchoreo-initial-credentials
+          key: backstage-client-secret
+    - name: CUSTOMER_PORTAL_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: openchoreo-initial-credentials
+          key: customer-portal-client-secret
+    - name: RCA_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: openchoreo-initial-credentials
+          key: rca-client-secret
+    - name: SYSTEM_APP_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: openchoreo-initial-credentials
+          key: system-app-client-secret
+    - name: SERVICE_MCP_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: openchoreo-initial-credentials
+          key: service-mcp-client-secret
+    - name: WORKLOAD_PUBLISHER_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: openchoreo-initial-credentials
+          key: workload-publisher-client-secret
+    - name: OBSERVER_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: openchoreo-initial-credentials
+          key: observer-client-secret
+    - name: FINOPS_AGENT_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: openchoreo-initial-credentials
+          key: finops-agent-client-secret
 
 bootstrap:
   scripts:
@@ -218,10 +279,10 @@ bootstrap:
         log_info "Group '${group_name}' created successfully"
       }
 
-      ADMIN_ID=$(ensure_user "admin@openchoreo.dev"            "Admin@123" "Admin"     "User")
-      DEVELOPER_ID=$(ensure_user "developer@openchoreo.dev"   "Dev@123"   "Developer" "User")
-      PE_ID=$(ensure_user "platform-engineer@openchoreo.dev"  "PE@123"    "Platform"  "Engineer")
-      SRE_ID=$(ensure_user "sre@openchoreo.dev"               "SRE@123"   "SRE"       "User")
+      ADMIN_ID=$(ensure_user "admin@openchoreo.dev"           "${ADMIN_PASSWORD}"      "Admin"     "User")
+      DEVELOPER_ID=$(ensure_user "developer@openchoreo.dev"   "${DEVELOPER_PASSWORD}"  "Developer" "User")
+      PE_ID=$(ensure_user "platform-engineer@openchoreo.dev"  "${PE_PASSWORD}"         "Platform"  "Engineer")
+      SRE_ID=$(ensure_user "sre@openchoreo.dev"               "${SRE_PASSWORD}"        "SRE"       "User")
 
       ensure_group "admins"             "Openchoreo Admins group"             "$ADMIN_ID"
       ensure_group "developers"         "Openchoreo Developers group"         "$DEVELOPER_ID"
@@ -239,73 +300,72 @@ bootstrap:
 
       app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"Backstage"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"name":"Backstage"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
-      APP_PAYLOAD='{
-        "name": "Backstage",
-        "description": "OpenChoreo Backstage Portal",
-        "logo_url": "https://cdn.statically.io/gh/openchoreo/openchoreo.github.io@main/static/img/openchoreo-logo.png",
-        "allowed_user_types": ["openchoreo-user"],
-        "assertion": {
-          "validity_period": 3600
+      APP_PAYLOAD="{
+        \"name\": \"Backstage\",
+        \"description\": \"OpenChoreo Backstage Portal\",
+        \"logo_url\": \"https://cdn.statically.io/gh/openchoreo/openchoreo.github.io@main/static/img/openchoreo-logo.png\",
+        \"allowed_user_types\": [\"openchoreo-user\"],
+        \"assertion\": {
+          \"validity_period\": 3600
         },
-        "inbound_auth_config": [
+        \"inbound_auth_config\": [
           {
-            "type": "oauth2",
-            "config": {
-              "client_id": "openchoreo-backstage-client",
-              "client_secret": "backstage-portal-secret",
-              "redirect_uris": [
-                "http://openchoreo.localhost:8080/api/auth/openchoreo-auth/handler/frame"
+            \"type\": \"oauth2\",
+            \"config\": {
+              \"client_id\": \"openchoreo-backstage-client\",
+              \"client_secret\": \"${BACKSTAGE_CLIENT_SECRET}\",
+              \"redirect_uris\": [
+                \"http://openchoreo.localhost:8080/api/auth/openchoreo-auth/handler/frame\"
               ],
-              "grant_types": [
-                "authorization_code",
-                "client_credentials",
-                "refresh_token"
+              \"grant_types\": [
+                \"authorization_code\",
+                \"client_credentials\",
+                \"refresh_token\"
               ],
-              "response_types": [
-                "code"
+              \"response_types\": [
+                \"code\"
               ],
-              "token_endpoint_auth_method": "client_secret_post",
-              "pkce_required": false,
-              "public_client": false,
-              "token": {
-                "access_token": {
-                  "validity_period": 86400,
-                  "user_attributes": [
-                    "given_name",
-                    "family_name",
-                    "username",
-                    "groups"
+              \"token_endpoint_auth_method\": \"client_secret_post\",
+              \"pkce_required\": false,
+              \"public_client\": false,
+              \"token\": {
+                \"access_token\": {
+                  \"validity_period\": 86400,
+                  \"user_attributes\": [
+                    \"given_name\",
+                    \"family_name\",
+                    \"username\",
+                    \"groups\"
                   ]
                 },
-                "id_token": {
-                  "validity_period": 86400,
-                  "user_attributes": [
-                    "given_name",
-                    "family_name",
-                    "username",
-                    "groups"
+                \"id_token\": {
+                  \"validity_period\": 86400,
+                  \"user_attributes\": [
+                    \"given_name\",
+                    \"family_name\",
+                    \"username\",
+                    \"groups\"
                   ]
                 }
               },
-              "scope_claims": {
-                "email": [
-                  "email"
+              \"scope_claims\": {
+                \"email\": [
+                  \"email\"
                 ],
-                "groups": [
-                  "groups"
+                \"groups\": [
+                  \"groups\"
                 ],
-                "profile": [
-                  "username",
-                  "given_name",
-                  "family_name",
-                  "picture"
+                \"profile\": [
+                  \"username\",
+                  \"given_name\",
+                  \"family_name\",
+                  \"picture\"
                 ]
               }
             }
           }
         ]
-      }'
-
+      }"
       if [ -n "$app_id" ]; then
         log_info "Application 'Backstage' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
@@ -341,31 +401,30 @@ bootstrap:
 
       app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"client_id":"customer-portal-client"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"customer-portal-client"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
-      APP_PAYLOAD='{
-        "name": "Customer Portal",
-        "description": "Customer Portal Application",
-        "inbound_auth_config": [
+      APP_PAYLOAD="{
+        \"name\": \"Customer Portal\",
+        \"description\": \"Customer Portal Application\",
+        \"inbound_auth_config\": [
           {
-            "type": "oauth2",
-            "config": {
-              "client_id": "customer-portal-client",
-              "client_secret": "supersecret",
-              "grant_types": [
-                "client_credentials"
+            \"type\": \"oauth2\",
+            \"config\": {
+              \"client_id\": \"customer-portal-client\",
+              \"client_secret\": \"${CUSTOMER_PORTAL_CLIENT_SECRET}\",
+              \"grant_types\": [
+                \"client_credentials\"
               ],
-              "token_endpoint_auth_method": "client_secret_post",
-              "pkce_required": false,
-              "public_client": false,
-              "token": {
-                "access_token": {
-                  "validity_period": 3600
+              \"token_endpoint_auth_method\": \"client_secret_post\",
+              \"pkce_required\": false,
+              \"public_client\": false,
+              \"token\": {
+                \"access_token\": {
+                  \"validity_period\": 3600
                 }
               }
             }
           }
         ]
-      }'
-
+      }"
       if [ -n "$app_id" ]; then
         log_info "Application 'Customer Portal' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
@@ -401,31 +460,30 @@ bootstrap:
 
       app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"client_id":"openchoreo-rca-agent"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"openchoreo-rca-agent"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
-      APP_PAYLOAD='{
-        "name": "RCA Agent",
-        "description": "OpenChoreo RCA Agent Client",
-        "inbound_auth_config": [
+      APP_PAYLOAD="{
+        \"name\": \"RCA Agent\",
+        \"description\": \"OpenChoreo RCA Agent Client\",
+        \"inbound_auth_config\": [
           {
-            "type": "oauth2",
-            "config": {
-              "client_id": "openchoreo-rca-agent",
-              "client_secret": "openchoreo-rca-agent-secret",
-              "grant_types": [
-                "client_credentials"
+            \"type\": \"oauth2\",
+            \"config\": {
+              \"client_id\": \"openchoreo-rca-agent\",
+              \"client_secret\": \"${RCA_CLIENT_SECRET}\",
+              \"grant_types\": [
+                \"client_credentials\"
               ],
-              "token_endpoint_auth_method": "client_secret_post",
-              "pkce_required": false,
-              "public_client": false,
-              "token": {
-                "access_token": {
-                  "validity_period": 3600
+              \"token_endpoint_auth_method\": \"client_secret_post\",
+              \"pkce_required\": false,
+              \"public_client\": false,
+              \"token\": {
+                \"access_token\": {
+                  \"validity_period\": 3600
                 }
               }
             }
           }
         ]
-      }'
-
+      }"
       if [ -n "$app_id" ]; then
         log_info "RCA Agent application already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
@@ -461,71 +519,70 @@ bootstrap:
 
       app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"OpenChoreo CLI"[^}]*"id":"[^\"]*"\|"id":"[^\"]*"[^}]*"name":"OpenChoreo CLI"' | grep -o '"id":"[^\"]*"' | head -1 | cut -d'"' -f4)
 
-      APP_PAYLOAD='{
-        "name": "OpenChoreo CLI",
-        "description": "OpenChoreo CLI Default Application",
-        "logo_url": "https://cdn.statically.io/gh/openchoreo/openchoreo.github.io@main/static/img/openchoreo-logo.png",
-        "allowed_user_types": ["openchoreo-user"],
-        "assertion": {
-          "validity_period": 3600
+      APP_PAYLOAD="{
+        \"name\": \"OpenChoreo CLI\",
+        \"description\": \"OpenChoreo CLI Default Application\",
+        \"logo_url\": \"https://cdn.statically.io/gh/openchoreo/openchoreo.github.io@main/static/img/openchoreo-logo.png\",
+        \"allowed_user_types\": [\"openchoreo-user\"],
+        \"assertion\": {
+          \"validity_period\": 3600
         },
-        "inbound_auth_config": [
+        \"inbound_auth_config\": [
           {
-            "type": "oauth2",
-            "config": {
-              "client_id": "openchoreo-cli",
-              "redirect_uris": [
-                "http://127.0.0.1:55152/auth-callback"
+            \"type\": \"oauth2\",
+            \"config\": {
+              \"client_id\": \"openchoreo-cli\",
+              \"redirect_uris\": [
+                \"http://127.0.0.1:55152/auth-callback\"
               ],
-              "grant_types": [
-                "authorization_code", "refresh_token"
+              \"grant_types\": [
+                \"authorization_code\", \"refresh_token\"
               ],
-              "response_types": [
-                "code"
+              \"response_types\": [
+                \"code\"
               ],
-              "token_endpoint_auth_method": "none",
-              "pkce_required": true,
-              "public_client": true,
-              "token": {
-                "access_token": {
-                  "validity_period": 3600,
-                  "user_attributes": [
-                    "given_name",
-                    "family_name",
-                    "username",
-                    "groups"
+              \"token_endpoint_auth_method\": \"none\",
+              \"pkce_required\": true,
+              \"public_client\": true,
+              \"token\": {
+                \"access_token\": {
+                  \"validity_period\": 3600,
+                  \"user_attributes\": [
+                    \"given_name\",
+                    \"family_name\",
+                    \"username\",
+                    \"groups\"
                   ]
                 },
-                "id_token": {
-                  "validity_period": 3600,
-                  "user_attributes": [
-                    "given_name",
-                    "family_name",
-                    "username",
-                    "groups"
+                \"id_token\": {
+                  \"validity_period\": 3600,
+                  \"user_attributes\": [
+                    \"given_name\",
+                    \"family_name\",
+                    \"username\",
+                    \"groups\"
                   ]
                 }
               },
-              "scope_claims": {
-                "email": [
-                  "email"
+              \"scope_claims\": {
+                \"email\": [
+                  \"email\"
                 ],
-                "groups": [
-                  "groups"
+                \"groups\": [
+                  \"groups\"
                 ],
-                "profile": [
-                  "username",
-                  "given_name",
-                  "family_name",
-                  "picture",
-                  "groups"
+                \"profile\": [
+                  \"username\",
+                  \"given_name\",
+                  \"family_name\",
+                  \"picture\",
+                  \"groups\"
                 ]
               }
             }
           }
         ]
-      }'
-
+      }"
       if [ -n "$app_id" ]; then
         log_info "Application 'OpenChoreo CLI' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
@@ -561,31 +618,30 @@ bootstrap:
 
       app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"client_id":"openchoreo-system-app"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"openchoreo-system-app"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
-      APP_PAYLOAD='{
-        "name": "System Application",
-        "description": "Generic system application for automation and integrations",
-        "inbound_auth_config": [
+      APP_PAYLOAD="{
+        \"name\": \"System Application\",
+        \"description\": \"Generic system application for automation and integrations\",
+        \"inbound_auth_config\": [
           {
-            "type": "oauth2",
-            "config": {
-              "client_id": "openchoreo-system-app",
-              "client_secret": "openchoreo-system-app-secret",
-              "grant_types": [
-                "client_credentials"
+            \"type\": \"oauth2\",
+            \"config\": {
+              \"client_id\": \"openchoreo-system-app\",
+              \"client_secret\": \"${SYSTEM_APP_CLIENT_SECRET}\",
+              \"grant_types\": [
+                \"client_credentials\"
               ],
-              "token_endpoint_auth_method": "client_secret_post",
-              "pkce_required": false,
-              "public_client": false,
-              "token": {
-                "access_token": {
-                  "validity_period": 3600
+              \"token_endpoint_auth_method\": \"client_secret_post\",
+              \"pkce_required\": false,
+              \"public_client\": false,
+              \"token\": {
+                \"access_token\": {
+                  \"validity_period\": 3600
                 }
               }
             }
           }
         ]
-      }'
-
+      }"
       if [ -n "$app_id" ]; then
         log_info "System application already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
@@ -623,60 +679,60 @@ bootstrap:
       app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"User MCP App"[^}]*"id":"[^\"]*"\|"id":"[^\"]*"[^}]*"name":"User MCP App"' | grep -o '"id":"[^\"]*"' | head -1 | cut -d'"' -f4)
 
       # Define the application payload
-      APP_PAYLOAD='{
-        "name": "User MCP App",
-        "description": "User MCP app to be used by terminals and user facing AI agents",
-        "allowed_user_types": ["openchoreo-user"],
-        "assertion": {
-          "validity_period": 3600
+      APP_PAYLOAD="{
+        \"name\": \"User MCP App\",
+        \"description\": \"User MCP app to be used by terminals and user facing AI agents\",
+        \"allowed_user_types\": [\"openchoreo-user\"],
+        \"assertion\": {
+          \"validity_period\": 3600
         },
-        "inbound_auth_config": [
+        \"inbound_auth_config\": [
           {
-            "type": "oauth2",
-            "config": {
-              "client_id": "user_mcp_client",
-              "redirect_uris": [
-                "http://localhost:8075/callback",
-                "cursor://anysphere.cursor-mcp/oauth/callback",
-                "http://127.0.0.1:19876/mcp/oauth/callback"
+            \"type\": \"oauth2\",
+            \"config\": {
+              \"client_id\": \"user_mcp_client\",
+              \"redirect_uris\": [
+                \"http://localhost:8075/callback\",
+                \"cursor://anysphere.cursor-mcp/oauth/callback\",
+                \"http://127.0.0.1:19876/mcp/oauth/callback\"
               ],
-              "grant_types": [
-                "authorization_code",
-                "refresh_token"
+              \"grant_types\": [
+                \"authorization_code\",
+                \"refresh_token\"
               ],
-              "response_types": [
-                "code"
+              \"response_types\": [
+                \"code\"
               ],
-              "token_endpoint_auth_method": "none",
-              "pkce_required": true,
-              "public_client": true,
-              "token": {
-                "access_token": {
-                  "validity_period": 86400,
-                  "user_attributes": [
-                    "given_name",
-                    "family_name",
-                    "username",
-                    "groups"
+              \"token_endpoint_auth_method\": \"none\",
+              \"pkce_required\": true,
+              \"public_client\": true,
+              \"token\": {
+                \"access_token\": {
+                  \"validity_period\": 86400,
+                  \"user_attributes\": [
+                    \"given_name\",
+                    \"family_name\",
+                    \"username\",
+                    \"groups\"
                   ]
                 },
-                "id_token": {
-                  "validity_period": 86400,
-                  "user_attributes": [
-                    "given_name",
-                    "family_name",
-                    "username",
-                    "groups"
+                \"id_token\": {
+                  \"validity_period\": 86400,
+                  \"user_attributes\": [
+                    \"given_name\",
+                    \"family_name\",
+                    \"username\",
+                    \"groups\"
                   ],
-                  "scope_claims": {
-                    "groups": [
-                      "groups"
+                  \"scope_claims\": {
+                    \"groups\": [
+                      \"groups\"
                     ],
-                    "profile": [
-                      "username",
-                      "given_name",
-                      "family_name",
-                      "picture"
+                    \"profile\": [
+                      \"username\",
+                      \"given_name\",
+                      \"family_name\",
+                      \"picture\"
                     ]
                   }
                 }
@@ -684,8 +740,7 @@ bootstrap:
             }
           }
         ]
-      }'
-
+      }"
       if [ -n "$app_id" ]; then
         log_info "Application 'User MCP App' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
@@ -723,30 +778,29 @@ bootstrap:
       app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"Service MCP App"[^}]*"id":"[^\"]*"\|"id":"[^\"]*"[^}]*"name":"Service MCP App"' | grep -o '"id":"[^\"]*"' | head -1 | cut -d'"' -f4)
 
       # Define the application payload
-      APP_PAYLOAD='{
-          "name": "Service MCP App",
-          "description": "Service MCP app to be used by backend services which can securely store the secret",
-          "auth_flow_graph_id": "auth_flow_config_basic",
-          "inbound_auth_config": [
+      APP_PAYLOAD="{
+          \"name\": \"Service MCP App\",
+          \"description\": \"Service MCP app to be used by backend services which can securely store the secret\",
+          \"auth_flow_graph_id\": \"auth_flow_config_basic\",
+          \"inbound_auth_config\": [
               {
-                  "type": "oauth2",
-                  "config": {
-                      "client_id": "service_mcp_client",
-                      "client_secret": "service_mcp_client_secret",
-                      "grant_types": [
-                          "client_credentials"
+                  \"type\": \"oauth2\",
+                  \"config\": {
+                      \"client_id\": \"service_mcp_client\",
+                      \"client_secret\": \"${SERVICE_MCP_CLIENT_SECRET}\",
+                      \"grant_types\": [
+                          \"client_credentials\"
                       ],
-                      "token_endpoint_auth_method": "client_secret_basic",
-                      "token": {
-                          "access_token": {
-                              "validity_period": 86400
+                      \"token_endpoint_auth_method\": \"client_secret_basic\",
+                      \"token\": {
+                          \"access_token\": {
+                              \"validity_period\": 86400
                           }
                       }
                   }
               }
           ]
-      }'
-
+      }"
       if [ -n "$app_id" ]; then
         log_info "Application 'Service MCP App' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
@@ -782,31 +836,30 @@ bootstrap:
 
       app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"client_id":"openchoreo-workload-publisher-client"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"openchoreo-workload-publisher-client"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
-      APP_PAYLOAD='{
-        "name": "Workload Publisher",
-        "description": "OpenChoreo Workload Publisher Client for creating workloads from CI workflows",
-        "inbound_auth_config": [
+      APP_PAYLOAD="{
+        \"name\": \"Workload Publisher\",
+        \"description\": \"OpenChoreo Workload Publisher Client for creating workloads from CI workflows\",
+        \"inbound_auth_config\": [
           {
-            "type": "oauth2",
-            "config": {
-              "client_id": "openchoreo-workload-publisher-client",
-              "client_secret": "openchoreo-workload-publisher-secret",
-              "grant_types": [
-                "client_credentials"
+            \"type\": \"oauth2\",
+            \"config\": {
+              \"client_id\": \"openchoreo-workload-publisher-client\",
+              \"client_secret\": \"${WORKLOAD_PUBLISHER_CLIENT_SECRET}\",
+              \"grant_types\": [
+                \"client_credentials\"
               ],
-              "token_endpoint_auth_method": "client_secret_post",
-              "pkce_required": false,
-              "public_client": false,
-              "token": {
-                "access_token": {
-                  "validity_period": 3600
+              \"token_endpoint_auth_method\": \"client_secret_post\",
+              \"pkce_required\": false,
+              \"public_client\": false,
+              \"token\": {
+                \"access_token\": {
+                  \"validity_period\": 3600
                 }
               }
             }
           }
         ]
-      }'
-
+      }"
       if [ -n "$app_id" ]; then
         log_info "Workload Publisher application already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
@@ -842,31 +895,30 @@ bootstrap:
 
       app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"OpenChoreo Observer Resource Reader"[^}]*"id":"[^\"]*"\|"id":"[^\"]*"[^}]*"name":"OpenChoreo Observer Resource Reader"' | grep -o '"id":"[^\"]*"' | head -1 | cut -d'"' -f4)
 
-      APP_PAYLOAD='{
-        "name": "OpenChoreo Observer Resource Reader",
-        "description": "OpenChoreo Observer Resource Reader Client",
-        "inbound_auth_config": [
+      APP_PAYLOAD="{
+        \"name\": \"OpenChoreo Observer Resource Reader\",
+        \"description\": \"OpenChoreo Observer Resource Reader Client\",
+        \"inbound_auth_config\": [
           {
-            "type": "oauth2",
-            "config": {
-              "client_id": "openchoreo-observer-resource-reader-client",
-              "client_secret": "openchoreo-observer-resource-reader-client-secret",
-              "grant_types": [
-                "client_credentials"
+            \"type\": \"oauth2\",
+            \"config\": {
+              \"client_id\": \"openchoreo-observer-resource-reader-client\",
+              \"client_secret\": \"${OBSERVER_CLIENT_SECRET}\",
+              \"grant_types\": [
+                \"client_credentials\"
               ],
-              "token_endpoint_auth_method": "client_secret_post",
-              "pkce_required": false,
-              "public_client": false,
-              "token": {
-                "access_token": {
-                  "validity_period": 3600
+              \"token_endpoint_auth_method\": \"client_secret_post\",
+              \"pkce_required\": false,
+              \"public_client\": false,
+              \"token\": {
+                \"access_token\": {
+                  \"validity_period\": 3600
                 }
               }
             }
           }
         ]
-      }'
-
+      }"
       if [ -n "$app_id" ]; then
         log_info "Application 'OpenChoreo Observer Resource Reader' already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
@@ -902,31 +954,30 @@ bootstrap:
 
       app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"client_id":"openchoreo-finops-agent"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"openchoreo-finops-agent"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
-      APP_PAYLOAD='{
-        "name": "FinOps Agent",
-        "description": "OpenChoreo FinOps Agent Client",
-        "inbound_auth_config": [
+      APP_PAYLOAD="{
+        \"name\": \"FinOps Agent\",
+        \"description\": \"OpenChoreo FinOps Agent Client\",
+        \"inbound_auth_config\": [
           {
-            "type": "oauth2",
-            "config": {
-              "client_id": "openchoreo-finops-agent",
-              "client_secret": "openchoreo-finops-agent-secret",
-              "grant_types": [
-                "client_credentials"
+            \"type\": \"oauth2\",
+            \"config\": {
+              \"client_id\": \"openchoreo-finops-agent\",
+              \"client_secret\": \"${FINOPS_AGENT_CLIENT_SECRET}\",
+              \"grant_types\": [
+                \"client_credentials\"
               ],
-              "token_endpoint_auth_method": "client_secret_post",
-              "pkce_required": false,
-              "public_client": false,
-              "token": {
-                "access_token": {
-                  "validity_period": 3600
+              \"token_endpoint_auth_method\": \"client_secret_post\",
+              \"pkce_required\": false,
+              \"public_client\": false,
+              \"token\": {
+                \"access_token\": {
+                  \"validity_period\": 3600
                 }
               }
             }
           }
         ]
-      }'
-
+      }"
       if [ -n "$app_id" ]; then
         log_info "FinOps Agent application already exists (id: $app_id), updating..."
         curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
