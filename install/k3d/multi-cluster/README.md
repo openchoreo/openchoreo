@@ -692,7 +692,7 @@ helm upgrade --install observability-metrics-prometheus \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.4.2 \
+  --version 0.6.0 \
   --set global.installationMode="multiClusterReceiver" \
   --set-json 'prometheusCustomizations.http.hostnames=["prometheus.observability.openchoreo.localhost", "host.k3d.internal"]'
 ```
@@ -705,7 +705,7 @@ helm upgrade --install observability-metrics-prometheus \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.4.2 \
+  --version 0.6.0 \
   --set global.installationMode="multiClusterExporter" \
   --set prometheusCustomizations.http.observabilityPlaneUrl=http://host.k3d.internal:11080/api/v1/write \
   --set kube-prometheus-stack.prometheus.enabled=false \
