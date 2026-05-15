@@ -4,14 +4,14 @@ metadata:
   labels:
     app.kubernetes.io/name: openchoreo
     app.kubernetes.io/managed-by: kustomize
-  name: analytics-shared-db-dev
+  name: resource-sample-development
+  namespace: default
 spec:
   owner:
-    projectName: analytics
-    resourceName: analytics-shared-db
-  resourceRelease: analytics-shared-db-abc123
-  environment: dev
+    projectName: default
+    resourceName: resource-sample
+  resourceRelease: resource-sample-abc123
+  environment: development
   retainPolicy: Delete
   resourceTypeEnvironmentConfigs:
-    storageGB: 100
-    tlsMode: required
+    replicas: 1

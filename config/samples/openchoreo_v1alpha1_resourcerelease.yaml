@@ -1,9 +1,61 @@
+# ResourceRelease is normally cut by the Resource controller; this sample
+# illustrates the frozen-snapshot shape. spec is immutable after creation.
 apiVersion: openchoreo.dev/v1alpha1
 kind: ResourceRelease
 metadata:
   labels:
     app.kubernetes.io/name: openchoreo
     app.kubernetes.io/managed-by: kustomize
-  name: resourcerelease-sample
+  name: resource-sample-abc123
+  namespace: default
 spec:
-  # TODO(user): Add fields here
+  owner:
+    projectName: default
+    resourceName: resource-sample
+  resourceType:
+    kind: ClusterResourceType
+    name: clusterresourcetype-sample
+    spec:
+      parameters:
+        openAPIV3Schema:
+          type: object
+          properties:
+            image:
+              type: string
+              default: nginx:1.27-alpine
+      environmentConfigs:
+        openAPIV3Schema:
+          type: object
+          properties:
+            replicas:
+              type: integer
+              default: 1
+      retainPolicy: Delete
+      outputs:
+        - name: host
+          value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"
+        - name: port
+          value: "80"
+      resources:
+        - id: deployment
+          template:
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: ${metadata.name}
+              namespace: ${metadata.namespace}
+            spec:
+              replicas: ${environmentConfigs.replicas}
+              selector:
+                matchLabels:
+                  app: ${metadata.name}
+              template:
+                metadata:
+                  labels:
+                    app: ${metadata.name}
+                spec:
+                  containers:
+                    - name: app
+                      image: ${parameters.image}
+  parameters:
+    image: nginx:1.27-alpine

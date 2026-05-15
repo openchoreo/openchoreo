@@ -1,6 +1,6 @@
 # Getting Started Resources
 
-Default resources for OpenChoreo. Apply these after installing the control plane to set up a working environment with projects, environments, component types, and build workflows.
+Default resources for OpenChoreo. Apply these after installing the control plane to set up a working environment with projects, environments, component types, build workflows, and resource types.
 
 ## Quick Start
 
@@ -19,7 +19,7 @@ kubectl apply -f samples/getting-started/all.yaml
 ## Verify Installation
 
 ```bash
-kubectl get project,environment,deploymentpipeline,componenttype,workflow,trait -n default
+kubectl get project,environment,deploymentpipeline,clustercomponenttype,clusterresourcetype,clusterworkflow,clustertrait
 ```
 
 Expected output:
@@ -36,20 +36,25 @@ environment.openchoreo.dev/staging         10s
 NAME                                           AGE
 deploymentpipeline.openchoreo.dev/default      10s
 
-NAME                                        AGE
-componenttype.openchoreo.dev/scheduled-task    10s
-componenttype.openchoreo.dev/service           10s
-componenttype.openchoreo.dev/web-application   10s
-componenttype.openchoreo.dev/worker            10s
+NAME                                                    AGE
+clustercomponenttype.openchoreo.dev/scheduled-task      10s
+clustercomponenttype.openchoreo.dev/service             10s
+clustercomponenttype.openchoreo.dev/web-application     10s
+clustercomponenttype.openchoreo.dev/worker              10s
 
-NAME                                                   AGE
-workflow.openchoreo.dev/ballerina-buildpack             10s
-workflow.openchoreo.dev/docker                          10s
-workflow.openchoreo.dev/google-cloud-buildpacks         10s
-workflow.openchoreo.dev/react                           10s
+NAME                                          AGE
+clusterresourcetype.openchoreo.dev/nats       10s
+clusterresourcetype.openchoreo.dev/postgres   10s
+clusterresourcetype.openchoreo.dev/valkey     10s
 
-NAME                                               AGE
-trait.openchoreo.dev/observability-alert-rule         10s
+NAME                                                       AGE
+clusterworkflow.openchoreo.dev/ballerina-buildpack          10s
+clusterworkflow.openchoreo.dev/docker                       10s
+clusterworkflow.openchoreo.dev/google-cloud-buildpacks      10s
+clusterworkflow.openchoreo.dev/react                        10s
+
+NAME                                                      AGE
+clustertrait.openchoreo.dev/observability-alert-rule      10s
 ```
 
 ## What Gets Created
@@ -74,6 +79,17 @@ trait.openchoreo.dev/observability-alert-rule         10s
 | service | Deployment | docker, google-cloud-buildpacks, ballerina-buildpack | At least 1 endpoint |
 | web-application | Deployment | react, docker | HTTP endpoint required |
 | scheduled-task | CronJob | docker, google-cloud-buildpacks | - |
+
+### Cluster Resource Types
+
+Templates for in-cluster managed infrastructure that developers can consume via
+`Workload.spec.dependencies.resources[]`.
+
+| Name | Backed By | App outputs | Admin tool |
+|------|-----------|-------------|------------|
+| postgres | StatefulSet, emptyDir | `host`, `port`, `database`, `username`, `password` | Adminer (form login with the published `demo` password) |
+| valkey | StatefulSet, in-memory | `host`, `port`, `password` | Redis Commander (auto-connects, no login) |
+| nats | Deployment, in-memory | `host`, `port`, `token` | NATS built-in HTTP monitoring at `/varz` (no auth) |
 
 ### Workflows
 
@@ -105,6 +121,10 @@ getting-started/
 │   ├── service.yaml
 │   ├── webapp.yaml
 │   └── scheduled-task.yaml
+├── cluster-resource-types/
+│   ├── postgres.yaml
+│   ├── valkey.yaml
+│   └── nats.yaml
 ├── ci-workflows/
 │   ├── dockerfile-builder.yaml
 │   ├── paketo-buildpacks-builder.yaml

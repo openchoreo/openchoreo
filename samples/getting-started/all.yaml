@@ -7,7 +7,7 @@
 # environments, pipeline, component types, workflows, and traits.
 #
 # Usage:
-#   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml
+#   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/issue-3339-pipeline-gateway/samples/getting-started/all.yaml
 #
 # Or if you have cloned the repository:
 #   kubectl apply -f samples/getting-started/all.yaml
@@ -964,6 +964,544 @@ spec:
                 key: ${file.remoteRef.key}
                 property: |
                   ${has(file.remoteRef.property) ? file.remoteRef.property : oc_omit()}
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterResourceType
+metadata:
+  name: postgres
+  annotations:
+    openchoreo.dev/description: >-
+      In-cluster PostgreSQL database backed by a single-replica StatefulSet.
+      Ephemeral storage (emptyDir); for demonstration purposes only. Set
+      environmentConfigs.adminEnabled=true on a binding to expose Adminer via
+      the data plane's gateway.
+spec:
+  parameters:
+    openAPIV3Schema:
+      database: "string | default=appdb"
+
+  environmentConfigs:
+    openAPIV3Schema:
+      memory: "string | default=256Mi"
+      adminEnabled: "boolean | default=false"
+
+  retainPolicy: Delete
+
+  outputs:
+    - name: host
+      value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"
+    - name: port
+      value: "5432"
+    - name: database
+      configMapKeyRef:
+        name: "${metadata.name}-config"
+        key: database
+    - name: username
+      configMapKeyRef:
+        name: "${metadata.name}-config"
+        key: username
+    - name: password
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: password
+    - name: adminURL
+      value: >-
+        ${environmentConfigs.adminEnabled
+          ? (has(gateway.ingress.external.https)
+              ? "https://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.https.host + ":" + string(gateway.ingress.external.https.port) + "/"
+              : has(gateway.ingress.external.http)
+                  ? "http://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.http.host + ":" + string(gateway.ingress.external.http.port) + "/"
+                  : "")
+          : ""}
+
+  resources:
+    - id: config
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${metadata.name}-config
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        data:
+          database: ${parameters.database}
+          username: appuser
+
+    - id: creds
+      template:
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        type: Opaque
+        stringData:
+          password: ${metadata.name}-password
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}
+          ports:
+            - name: postgres
+              port: 5432
+              targetPort: 5432
+
+    - id: statefulset
+      readyWhen: "${applied.statefulset.status.readyReplicas == applied.statefulset.status.replicas && applied.statefulset.status.replicas > 0}"
+      template:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          serviceName: ${metadata.name}
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${metadata.name}
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}
+            spec:
+              containers:
+                - name: postgres
+                  image: postgres:16-alpine
+                  resources:
+                    limits:
+                      memory: ${environmentConfigs.memory}
+                  env:
+                    - name: POSTGRES_DB
+                      valueFrom:
+                        configMapKeyRef:
+                          name: ${metadata.name}-config
+                          key: database
+                    - name: POSTGRES_USER
+                      valueFrom:
+                        configMapKeyRef:
+                          name: ${metadata.name}-config
+                          key: username
+                    - name: POSTGRES_PASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${metadata.name}-creds
+                          key: password
+                    - name: PGDATA
+                      value: /var/lib/postgresql/data/pgdata
+                  ports:
+                    - containerPort: 5432
+                      name: postgres
+                  volumeMounts:
+                    - name: data
+                      mountPath: /var/lib/postgresql/data
+              volumes:
+                - name: data
+                  emptyDir: {}
+
+    - id: admin-deployment
+      includeWhen: "${environmentConfigs.adminEnabled}"
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${metadata.name}-admin
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}-admin
+            spec:
+              containers:
+                - name: adminer
+                  image: adminer:4.8.1-standalone
+                  env:
+                    - name: ADMINER_DEFAULT_SERVER
+                      value: ${metadata.name}
+                  ports:
+                    - containerPort: 8080
+                      name: http
+
+    - id: admin-service
+      includeWhen: "${environmentConfigs.adminEnabled}"
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}-admin
+          ports:
+            - name: http
+              port: 8080
+              targetPort: 8080
+
+    - id: admin-route
+      includeWhen: "${environmentConfigs.adminEnabled}"
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
+          hostnames: |
+            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + h)}
+          rules:
+            - backendRefs:
+                - name: ${metadata.name}-admin
+                  port: 8080
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterResourceType
+metadata:
+  name: valkey
+  annotations:
+    openchoreo.dev/description: >-
+      In-cluster Valkey cache (Redis protocol-compatible) backed by a
+      single-replica StatefulSet. Data is in-memory only and is lost on pod
+      restart. Set environmentConfigs.adminEnabled=true on a binding to expose
+      Redis Commander via the data plane's gateway.
+spec:
+  parameters:
+    openAPIV3Schema:
+      image: "string | default=valkey/valkey:8-alpine"
+
+  environmentConfigs:
+    openAPIV3Schema:
+      memory: "string | default=128Mi"
+      adminEnabled: "boolean | default=false"
+
+  retainPolicy: Delete
+
+  outputs:
+    - name: host
+      value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"
+    - name: port
+      value: "6379"
+    - name: password
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: password
+
+  resources:
+    - id: creds
+      template:
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        type: Opaque
+        stringData:
+          password: ${metadata.name}-password
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}
+          ports:
+            - name: valkey
+              port: 6379
+              targetPort: 6379
+
+    - id: statefulset
+      readyWhen: "${applied.statefulset.status.readyReplicas == applied.statefulset.status.replicas && applied.statefulset.status.replicas > 0}"
+      template:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          serviceName: ${metadata.name}
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${metadata.name}
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}
+            spec:
+              containers:
+                - name: valkey
+                  image: ${parameters.image}
+                  resources:
+                    limits:
+                      memory: ${environmentConfigs.memory}
+                  args:
+                    - --requirepass
+                    - $(VALKEY_PASSWORD)
+                  env:
+                    - name: VALKEY_PASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${metadata.name}-creds
+                          key: password
+                  ports:
+                    - containerPort: 6379
+                      name: valkey
+
+    - id: admin-deployment
+      includeWhen: "${environmentConfigs.adminEnabled}"
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${metadata.name}-admin
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}-admin
+            spec:
+              containers:
+                - name: redis-commander
+                  image: rediscommander/redis-commander:latest
+                  env:
+                    - name: REDIS_HOST
+                      value: ${metadata.name}
+                    - name: REDIS_PORT
+                      value: "6379"
+                    - name: REDIS_PASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${metadata.name}-creds
+                          key: password
+                  ports:
+                    - containerPort: 8081
+                      name: http
+
+    - id: admin-service
+      includeWhen: "${environmentConfigs.adminEnabled}"
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}-admin
+          ports:
+            - name: http
+              port: 8081
+              targetPort: 8081
+
+    - id: admin-route
+      includeWhen: "${environmentConfigs.adminEnabled}"
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
+          hostnames: |
+            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, metadata.environmentName + "-" + metadata.resourceNamespace + "." + h)}
+          rules:
+            - matches:
+                - path:
+                    type: PathPrefix
+                    value: /${metadata.resourceName}-admin
+              filters:
+                - type: URLRewrite
+                  urlRewrite:
+                    path:
+                      type: ReplacePrefixMatch
+                      replacePrefixMatch: /
+              backendRefs:
+                - name: ${metadata.name}-admin
+                  port: 8081
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterResourceType
+metadata:
+  name: nats
+  annotations:
+    openchoreo.dev/description: >-
+      In-cluster NATS Core pub/sub server (no JetStream). Stateless, in-memory,
+      backed by a single-replica Deployment. Token-based auth. Set
+      environmentConfigs.adminEnabled=true on a binding to expose NATS's built-in
+      :8222 monitoring endpoint via the data plane's gateway.
+spec:
+  parameters:
+    openAPIV3Schema:
+      image: "string | default=nats:2.10-alpine"
+
+  environmentConfigs:
+    openAPIV3Schema:
+      memory: "string | default=64Mi"
+      adminEnabled: "boolean | default=false"
+
+  retainPolicy: Delete
+
+  outputs:
+    - name: host
+      value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"
+    - name: port
+      value: "4222"
+    - name: token
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: token
+
+  resources:
+    - id: creds
+      template:
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        type: Opaque
+        stringData:
+          token: ${metadata.name}-token
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}
+          ports:
+            - name: client
+              port: 4222
+              targetPort: 4222
+            - name: monitor
+              port: 8222
+              targetPort: 8222
+
+    - id: deployment
+      readyWhen: "${applied.deployment.status.readyReplicas == applied.deployment.status.replicas && applied.deployment.status.replicas > 0}"
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${metadata.name}
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}
+            spec:
+              containers:
+                - name: nats
+                  image: ${parameters.image}
+                  resources:
+                    limits:
+                      memory: ${environmentConfigs.memory}
+                  args:
+                    - --http_port
+                    - "8222"
+                    - --auth
+                    - $(NATS_TOKEN)
+                  env:
+                    - name: NATS_TOKEN
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${metadata.name}-creds
+                          key: token
+                  ports:
+                    - containerPort: 4222
+                      name: client
+                    - containerPort: 8222
+                      name: monitor
+
+    - id: admin-route
+      includeWhen: "${environmentConfigs.adminEnabled}"
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
+          hostnames: |
+            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, metadata.environmentName + "-" + metadata.resourceNamespace + "." + h)}
+          rules:
+            - matches:
+                - path:
+                    type: PathPrefix
+                    value: /${metadata.resourceName}-admin
+              filters:
+                - type: URLRewrite
+                  urlRewrite:
+                    path:
+                      type: ReplacePrefixMatch
+                      replacePrefixMatch: /
+              backendRefs:
+                - name: ${metadata.name}
+                  port: 8222
 
 ---
 apiVersion: openchoreo.dev/v1alpha1

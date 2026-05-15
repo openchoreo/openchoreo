@@ -1,0 +1,218 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterResourceType
+metadata:
+  name: valkey
+  annotations:
+    openchoreo.dev/description: >-
+      In-cluster Valkey cache (Redis-protocol-compatible) backed by a
+      single-replica StatefulSet. In-memory only; data is lost on pod restart.
+      For demonstration purposes only.
+spec:
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        memory:
+          type: string
+          default: 128Mi
+        adminEnabled:
+          type: boolean
+          default: false
+
+  retainPolicy: Delete
+
+  outputs:
+    - name: host
+      value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"
+    - name: port
+      value: "6379"
+    - name: password
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: password
+    # Admin URL points at a Redis Commander instance that auto-connects to
+    # Valkey using the same ESO-generated password (wired via env vars on the
+    # admin pod). The dev opens the URL and lands directly in the data
+    # browser — no login form, no password to paste.
+    - name: adminURL
+      value: >-
+        ${environmentConfigs.adminEnabled
+          ? (has(gateway.ingress.external.https)
+              ? "https://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.https.host + ":" + string(gateway.ingress.external.https.port) + "/"
+              : has(gateway.ingress.external.http)
+                  ? "http://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.http.host + ":" + string(gateway.ingress.external.http.port) + "/"
+                  : "no-gateway-configured")
+          : "disabled"}
+
+  resources:
+    # Valkey requirepass: generated on the data plane by ESO and never written
+    # to the control plane. Surfaced via the `password` output as a
+    # secretKeyRef.
+    - id: password-generator
+      template:
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          length: 32
+          digits: 8
+          symbols: 0
+          noUpper: false
+          allowRepeat: true
+
+    - id: creds
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          refreshInterval: "0"
+          target:
+            name: ${metadata.name}-creds
+            creationPolicy: Owner
+          dataFrom:
+            - sourceRef:
+                generatorRef:
+                  apiVersion: generators.external-secrets.io/v1alpha1
+                  kind: Password
+                  name: ${metadata.name}-creds
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}
+          ports:
+            - name: valkey
+              port: 6379
+              targetPort: 6379
+
+    - id: statefulset
+      readyWhen: "${applied.statefulset.status.readyReplicas == applied.statefulset.status.replicas && applied.statefulset.status.replicas > 0}"
+      template:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          serviceName: ${metadata.name}
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${metadata.name}
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}
+            spec:
+              containers:
+                - name: valkey
+                  image: valkey/valkey:8-alpine
+                  resources:
+                    limits:
+                      memory: ${environmentConfigs.memory}
+                  env:
+                    - name: VALKEY_PASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${metadata.name}-creds
+                          key: password
+                  args:
+                    - --requirepass
+                    - $(VALKEY_PASSWORD)
+                  ports:
+                    - containerPort: 6379
+                      name: valkey
+
+    - id: admin-deployment
+      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${metadata.name}-admin
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}-admin
+            spec:
+              containers:
+                # Redis Commander upstream does not publish semver tags; only
+                # :latest and branch-style tags. Production CRTs should pin a
+                # digest. Acceptable for getting-started demo.
+                - name: redis-commander
+                  image: rediscommander/redis-commander:latest
+                  env:
+                    # REDIS_PASSWORD must be defined before REDIS_HOSTS so
+                    # K8s's $(VAR) substitution can fold it into the
+                    # connection string at container start.
+                    - name: REDIS_PASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${metadata.name}-creds
+                          key: password
+                    - name: REDIS_HOSTS
+                      value: "${metadata.resourceName}:${metadata.name}:6379:0:$(REDIS_PASSWORD)"
+                  ports:
+                    - containerPort: 8081
+                      name: http
+
+    - id: admin-service
+      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}-admin
+          ports:
+            - name: http
+              port: 8081
+              targetPort: 8081
+
+    - id: admin-route
+      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
+          hostnames: |
+            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + h)}
+          rules:
+            - backendRefs:
+                - name: ${metadata.name}-admin
+                  port: 8081

@@ -5,11 +5,12 @@ metadata:
     app.kubernetes.io/name: openchoreo
     app.kubernetes.io/managed-by: kustomize
   name: resource-sample
+  namespace: default
 spec:
   owner:
-    projectName: analytics
+    projectName: default
   type:
-    kind: ResourceType
-    name: mysql
+    kind: ClusterResourceType
+    name: clusterresourcetype-sample
   parameters:
-    version: "8.0"
+    image: nginx:1.27-alpine

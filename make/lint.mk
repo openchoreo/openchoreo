@@ -92,6 +92,9 @@ GETTING_STARTED_FILES := \
 	$(GETTING_STARTED_DIR)/component-types/service.yaml \
 	$(GETTING_STARTED_DIR)/component-types/webapp.yaml \
 	$(GETTING_STARTED_DIR)/component-types/scheduled-task.yaml \
+	$(GETTING_STARTED_DIR)/cluster-resource-types/postgres.yaml \
+	$(GETTING_STARTED_DIR)/cluster-resource-types/valkey.yaml \
+	$(GETTING_STARTED_DIR)/cluster-resource-types/nats.yaml \
 	$(GETTING_STARTED_DIR)/ci-workflows/paketo-buildpacks-builder.yaml \
 	$(GETTING_STARTED_DIR)/ci-workflows/gcp-buildpacks-builder.yaml \
 	$(GETTING_STARTED_DIR)/ci-workflows/ballerina-buildpack-builder.yaml \
