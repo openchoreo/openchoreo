@@ -167,7 +167,7 @@ func NewClientWithConfig(config *Config) (*Client, error) {
 		return nil, fmt.Errorf("baseURL is required")
 	}
 
-	tlsConfig, err := buildTLSConfig(&config.TLS)
+	tlsConfig, err := BuildTLSConfig(&config.TLS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build TLS config: %w", err)
 	}
@@ -190,7 +190,7 @@ func NewClientWithConfig(config *Config) (*Client, error) {
 	}, nil
 }
 
-func buildTLSConfig(config *TLSConfig) (*tls.Config, error) {
+func BuildTLSConfig(config *TLSConfig) (*tls.Config, error) {
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12, // Enforce minimum TLS 1.2
 	}

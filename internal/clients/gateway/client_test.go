@@ -758,11 +758,11 @@ func TestGetPodEventsFromPlane(t *testing.T) {
 	})
 }
 
-// ─── buildTLSConfig tests ─────────────────────────────────────────────────────
+// ─── BuildTLSConfig tests ─────────────────────────────────────────────────────
 
 func TestBuildTLSConfig(t *testing.T) {
 	t.Run("empty config uses default verification", func(t *testing.T) {
-		cfg, err := buildTLSConfig(&TLSConfig{})
+		cfg, err := BuildTLSConfig(&TLSConfig{})
 		require.NoError(t, err)
 		assert.False(t, cfg.InsecureSkipVerify)
 		assert.Equal(t, uint16(tls.VersionTLS12), cfg.MinVersion)
@@ -771,7 +771,7 @@ func TestBuildTLSConfig(t *testing.T) {
 	})
 
 	t.Run("InsecureSkipVerify=true opts into skipping verification", func(t *testing.T) {
-		cfg, err := buildTLSConfig(&TLSConfig{InsecureSkipVerify: true})
+		cfg, err := BuildTLSConfig(&TLSConfig{InsecureSkipVerify: true})
 		require.NoError(t, err)
 		assert.True(t, cfg.InsecureSkipVerify)
 	})
@@ -784,7 +784,7 @@ func TestBuildTLSConfig(t *testing.T) {
 		require.NoError(t, os.WriteFile(certFile, certPEM, 0o600))
 		require.NoError(t, os.WriteFile(keyFile, keyPEM, 0o600))
 
-		cfg, err := buildTLSConfig(&TLSConfig{
+		cfg, err := BuildTLSConfig(&TLSConfig{
 			InsecureSkipVerify: true,
 			ClientCertFile:     certFile,
 			ClientKeyFile:      keyFile,
@@ -795,7 +795,7 @@ func TestBuildTLSConfig(t *testing.T) {
 	})
 
 	t.Run("ServerName is propagated", func(t *testing.T) {
-		cfg, err := buildTLSConfig(&TLSConfig{ServerName: "gateway.example"})
+		cfg, err := BuildTLSConfig(&TLSConfig{ServerName: "gateway.example"})
 		require.NoError(t, err)
 		assert.Equal(t, "gateway.example", cfg.ServerName)
 	})
@@ -805,19 +805,19 @@ func TestBuildTLSConfig(t *testing.T) {
 		caFile := filepath.Join(t.TempDir(), "ca.crt")
 		require.NoError(t, os.WriteFile(caFile, certPEM, 0o600))
 
-		cfg, err := buildTLSConfig(&TLSConfig{CAFile: caFile})
+		cfg, err := BuildTLSConfig(&TLSConfig{CAFile: caFile})
 		require.NoError(t, err)
 		assert.NotNil(t, cfg.RootCAs)
 	})
 
 	t.Run("missing CAFile returns error", func(t *testing.T) {
-		_, err := buildTLSConfig(&TLSConfig{CAFile: "/path/does/not/exist/ca.crt"})
+		_, err := BuildTLSConfig(&TLSConfig{CAFile: "/path/does/not/exist/ca.crt"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to read CA file")
 	})
 
 	t.Run("malformed CAData returns parse error", func(t *testing.T) {
-		_, err := buildTLSConfig(&TLSConfig{CAData: []byte("not-a-cert")})
+		_, err := BuildTLSConfig(&TLSConfig{CAData: []byte("not-a-cert")})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to parse CA certificate")
 	})
@@ -830,7 +830,7 @@ func TestBuildTLSConfig(t *testing.T) {
 		require.NoError(t, os.WriteFile(certFile, certPEM, 0o600))
 		require.NoError(t, os.WriteFile(keyFile, keyPEM, 0o600))
 
-		cfg, err := buildTLSConfig(&TLSConfig{
+		cfg, err := BuildTLSConfig(&TLSConfig{
 			ClientCertFile: certFile,
 			ClientKeyFile:  keyFile,
 		})
@@ -839,19 +839,19 @@ func TestBuildTLSConfig(t *testing.T) {
 	})
 
 	t.Run("only ClientCertFile set returns asymmetric-config error", func(t *testing.T) {
-		_, err := buildTLSConfig(&TLSConfig{ClientCertFile: "/tmp/client.crt"})
+		_, err := BuildTLSConfig(&TLSConfig{ClientCertFile: "/tmp/client.crt"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "both ClientCertFile and ClientKeyFile must be set")
 	})
 
 	t.Run("only ClientKeyFile set returns asymmetric-config error", func(t *testing.T) {
-		_, err := buildTLSConfig(&TLSConfig{ClientKeyFile: "/tmp/client.key"})
+		_, err := BuildTLSConfig(&TLSConfig{ClientKeyFile: "/tmp/client.key"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "both ClientCertFile and ClientKeyFile must be set")
 	})
 
 	t.Run("invalid client key pair returns load error", func(t *testing.T) {
-		_, err := buildTLSConfig(&TLSConfig{
+		_, err := BuildTLSConfig(&TLSConfig{
 			ClientCertFile: "/path/does/not/exist/client.crt",
 			ClientKeyFile:  "/path/does/not/exist/client.key",
 		})

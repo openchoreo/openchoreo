@@ -237,7 +237,17 @@ func main() {
 	var topHandler http.Handler = handler
 	if cfg.ClusterGateway.Enabled && gatewayURL != "" {
 		execAuthzChecker := svcpkg.NewAuthzChecker(runtime.pdp, logger.With("component", "exec-authz"))
-		execHandler := openapihandlers.NewExecHandler(k8sClient, gwClient, gatewayURL, execAuthzChecker, logger)
+		gwTLSConf, err := gatewayClient.BuildTLSConfig(&gatewayClient.TLSConfig{
+			CAFile:             cfg.ClusterGateway.TLS.CACertPath,
+			ClientCertFile:     cfg.ClusterGateway.TLS.ClientCertPath,
+			ClientKeyFile:      cfg.ClusterGateway.TLS.ClientKeyPath,
+			InsecureSkipVerify: cfg.ClusterGateway.TLS.Insecure,
+		})
+		if err != nil {
+			logger.Error("Failed to build gateway TLS config for exec", slog.Any("error", err))
+			os.Exit(1)
+		}
+		execHandler := openapihandlers.NewExecHandler(k8sClient, gwClient, gatewayURL, gwTLSConf, execAuthzChecker, logger)
 		authedExecHandler := jwtMiddleware(execHandler)
 		topMux := http.NewServeMux()
 		topMux.Handle("/exec/", authedExecHandler)
