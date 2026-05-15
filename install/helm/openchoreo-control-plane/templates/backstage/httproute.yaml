@@ -26,6 +26,9 @@ spec:
         - path:
             type: PathPrefix
             value: /api/openchoreo-observability-backend/chat
+        - path:
+            type: PathPrefix
+            value: /api/openchoreo-perch-backend/api/v1alpha1/perch-agent/chat
       timeouts:
         request: "450s"
         backendRequest: "450s"
