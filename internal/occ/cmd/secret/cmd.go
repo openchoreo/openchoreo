@@ -182,7 +182,7 @@ func newCreateCmd(f client.NewClientFunc) *cobra.Command {
 func addCommonCreateFlags(cmd *cobra.Command) {
 	flags.AddNamespace(cmd)
 	cmd.Flags().String("target-plane", "", "Target plane in Kind/Name form (e.g. DataPlane/dp-prod)")
-	cmd.Flags().String("category", "", "Secret category: 'generic' (default, no label) or 'git-credentials'")
+	cmd.Flags().String("category", "", "Secret category: 'generic' (default) or 'git-credentials'")
 }
 
 func readCreateInput(cmd *cobra.Command, args []string) CreateInput {
