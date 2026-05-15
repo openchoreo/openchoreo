@@ -4078,15 +4078,38 @@ type WorkloadOverrides struct {
 	Container *ContainerOverride `json:"container,omitempty"`
 }
 
+// WorkloadResourceDependency Dependency on a Resource. Output names declared on the referenced ResourceType are wired
+// into the consuming container as env vars (envBindings) and file mounts (fileBindings).
+// Outputs not listed in either map are ignored.
+type WorkloadResourceDependency struct {
+	// EnvBindings Maps a ResourceType output name to a container environment variable name. The
+	// output's source kind (value, secretKeyRef, configMapKeyRef) determines whether the
+	// resulting env var is a literal or a valueFrom reference.
+	EnvBindings *map[string]string `json:"envBindings,omitempty"`
+
+	// FileBindings Maps a ResourceType output name to a container mount path. The referenced output's
+	// source kind must be secretKeyRef or configMapKeyRef; value-kind outputs cannot be
+	// mounted as files because there is no DP-side object to mount.
+	FileBindings *map[string]string `json:"fileBindings,omitempty"`
+
+	// Ref Name of the Resource to consume.
+	Ref string `json:"ref"`
+}
+
 // WorkloadSpec Desired state of a Workload
 type WorkloadSpec struct {
 	// Container Container specification
 	Container *WorkloadContainer `json:"container,omitempty"`
 
-	// Dependencies Dependencies on other components' endpoints
+	// Dependencies Dependencies on other components' endpoints and on Resources
 	Dependencies *struct {
 		// Endpoints Endpoint connections to other components
 		Endpoints *[]WorkloadConnection `json:"endpoints,omitempty"`
+
+		// Resources Resource dependencies. Each entry references a Resource by name and wires named
+		// outputs of the resolved ResourceReleaseBinding into the container as env vars
+		// (envBindings) and file mounts (fileBindings).
+		Resources *[]WorkloadResourceDependency `json:"resources,omitempty"`
 	} `json:"dependencies,omitempty"`
 
 	// Endpoints Named endpoint specifications

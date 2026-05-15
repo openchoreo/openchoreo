@@ -11050,13 +11050,22 @@ components:
             $ref: '#/components/schemas/WorkloadEndpoint'
         dependencies:
           type: object
-          description: Dependencies on other components' endpoints
+          description: Dependencies on other components' endpoints and on Resources
           properties:
             endpoints:
               type: array
               description: Endpoint connections to other components
               items:
                 $ref: '#/components/schemas/WorkloadConnection'
+            resources:
+              type: array
+              description: |
+                Resource dependencies. Each entry references a Resource by name and wires named
+                outputs of the resolved ResourceReleaseBinding into the container as env vars
+                (envBindings) and file mounts (fileBindings).
+              maxItems: 50
+              items:
+                $ref: '#/components/schemas/WorkloadResourceDependency'
 
     WorkloadStatus:
       type: object
@@ -11181,6 +11190,38 @@ components:
         basePath:
           type: string
           description: Env var name for just the base path
+
+    WorkloadResourceDependency:
+      type: object
+      description: |
+        Dependency on a Resource. Output names declared on the referenced ResourceType are wired
+        into the consuming container as env vars (envBindings) and file mounts (fileBindings).
+        Outputs not listed in either map are ignored.
+      required:
+        - ref
+      properties:
+        ref:
+          type: string
+          description: Name of the Resource to consume.
+          minLength: 1
+        envBindings:
+          type: object
+          description: |
+            Maps a ResourceType output name to a container environment variable name. The
+            output's source kind (value, secretKeyRef, configMapKeyRef) determines whether the
+            resulting env var is a literal or a valueFrom reference.
+          maxProperties: 50
+          additionalProperties:
+            type: string
+        fileBindings:
+          type: object
+          description: |
+            Maps a ResourceType output name to a container mount path. The referenced output's
+            source kind must be secretKeyRef or configMapKeyRef; value-kind outputs cannot be
+            mounted as files because there is no DP-side object to mount.
+          maxProperties: 50
+          additionalProperties:
+            type: string
 
     # -------------------------------------------------------------------------
     # Deployment Pipeline Schemas
