@@ -135,8 +135,65 @@ func TestBuildResourceCELEnv_DataPlaneFields(t *testing.T) {
 	}
 
 	rejected := []string{
-		"dataplane.gateway",
 		"dataplane.observabilityPlaneRef.unknown",
+	}
+	for _, expr := range rejected {
+		t.Run(expr, func(t *testing.T) {
+			_, issues := env.Compile(expr)
+			require.NotNil(t, issues)
+			assert.NotNil(t, issues.Err(), "expr %q should fail", expr)
+		})
+	}
+}
+
+// Gateway surface mirrors the component pipeline: dataplane.gateway is the raw
+// DP value, environment.gateway is the env-or-dp merged value, top-level
+// gateway is an alias for environment.gateway. All three are exposed at the
+// validation level so a ResourceType template can reference them without
+// admission rejection.
+func TestBuildResourceCELEnv_GatewayFields(t *testing.T) {
+	env, err := buildResourceCELEnv(SchemaOptions{})
+	require.NoError(t, err)
+
+	okExprs := []string{
+		// dataplane.gateway.* — raw DP gateway
+		"dataplane.gateway.ingress.external.https.host",
+		"dataplane.gateway.ingress.external.https.port",
+		"dataplane.gateway.ingress.external.https.listenerName",
+		"dataplane.gateway.ingress.external.http.host",
+		"dataplane.gateway.ingress.external.tls.host",
+		"dataplane.gateway.ingress.external.name",
+		"dataplane.gateway.ingress.external.namespace",
+		"dataplane.gateway.ingress.internal.https.host",
+		"dataplane.gateway.egress.external.https.host",
+
+		// environment.gateway.* — env-or-dp merged
+		"environment.gateway.ingress.external.https.host",
+		"environment.gateway.ingress.internal.https.host",
+		"environment.gateway.egress.external.https.host",
+
+		// top-level gateway — alias for environment.gateway
+		"gateway.ingress.external.https.host",
+		"gateway.ingress.external.https.port",
+		"gateway.ingress.internal.https.host",
+		"gateway.egress.external.https.host",
+
+		// has() guards must compile on the gateway field-access positions.
+		"has(dataplane.gateway)",
+		"has(environment.gateway)",
+		"has(gateway.ingress)",
+	}
+	for _, expr := range okExprs {
+		t.Run(expr, func(t *testing.T) {
+			_, issues := env.Compile(expr)
+			assert.Nil(t, issues.Err(), "expr %q should compile", expr)
+		})
+	}
+
+	rejected := []string{
+		"dataplane.gateway.unknown",
+		"environment.gateway.unknown",
+		"gateway.unknown",
 	}
 	for _, expr := range rejected {
 		t.Run(expr, func(t *testing.T) {

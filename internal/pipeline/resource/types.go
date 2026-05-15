@@ -45,6 +45,12 @@ type RenderInput struct {
 	// DataPlane is the controller-computed dataplane surface exposed to CEL
 	// as ${dataplane.*}.
 	DataPlane DataPlaneContext
+
+	// Environment is the controller-computed per-environment surface
+	// exposed to CEL as ${environment.*}. Gateway carries the merged
+	// effective gateway (environment-or-dataplane fallback at each leaf)
+	// for templates that emit HTTPRoute / Ingress resources.
+	Environment EnvironmentContext
 }
 
 // RenderOutput carries the rendered manifests in spec order.
@@ -118,23 +124,67 @@ type MetadataContext struct {
 }
 
 // DataPlaneContext is the dataplane surface exposed to CEL templates as
-// ${dataplane.*}. The surface is deliberately narrow — only the fields
-// managed-infra ResourceTypes commonly need; gateway and networking surface
-// is intentionally omitted. Optional fields use omitempty so templates can
-// guard with has(...) — mirrors the component pipeline's contract.
+// ${dataplane.*}. Optional fields use omitempty so templates can guard with
+// has(...) — mirrors the component pipeline's contract.
 type DataPlaneContext struct {
 	// SecretStore is the name of the ESO ClusterSecretStore configured on
 	// the DataPlane. ResourceTypes emitting ExternalSecret reference this.
 	SecretStore string `json:"secretStore,omitempty"`
+
+	// Gateway is the raw DataPlane-level gateway configuration. Templates
+	// emitting HTTPRoute / Ingress against the DP gateway reference it via
+	// ${dataplane.gateway.ingress.external.https.host} etc. Nil when the
+	// DataPlane has no gateway configured. The effective gateway used by
+	// most templates is the merged Environment-or-DataPlane value exposed
+	// at the top-level ${gateway.*} and on ${environment.gateway.*}.
+	Gateway *GatewayData `json:"gateway,omitempty"`
 
 	// ObservabilityPlaneRef is the observability plane reference for
 	// ResourceTypes that emit observability-plane-side resources (alert
 	// rules, dashboards). Optional; nil when the DataPlane has no
 	// observability plane configured. PE templates that reference
 	// ${dataplane.observabilityPlaneRef.*} must guard with
-	// has(dataplane.observabilityPlaneRef) — same convention as
-	// dataplane.gateway in the component pipeline.
+	// has(dataplane.observabilityPlaneRef).
 	ObservabilityPlaneRef *ObservabilityPlaneRefContext `json:"observabilityPlaneRef,omitempty"`
+}
+
+// EnvironmentContext is the per-environment surface exposed to CEL templates
+// as ${environment.*}. Gateway carries the merged effective gateway:
+// environment-level overrides take precedence, falling back to dataplane-level
+// values at each leaf. Mirrors the component pipeline's EnvironmentData
+// (the resource side omits DefaultNotificationChannel — that field is
+// alert-routing-specific and not relevant to the managed-infra surface).
+type EnvironmentContext struct {
+	Gateway *GatewayData `json:"gateway,omitempty"`
+}
+
+// GatewayData provides gateway configuration in templates.
+type GatewayData struct {
+	Ingress *GatewayNetworkData `json:"ingress,omitempty"`
+	Egress  *GatewayNetworkData `json:"egress,omitempty"`
+}
+
+// GatewayNetworkData provides traffic gateway data for ingress/egress in
+// templates.
+type GatewayNetworkData struct {
+	External *GatewayEndpointData `json:"external,omitempty"`
+	Internal *GatewayEndpointData `json:"internal,omitempty"`
+}
+
+// GatewayEndpointData provides endpoint data for a gateway in templates.
+type GatewayEndpointData struct {
+	Name      string               `json:"name,omitempty"`
+	Namespace string               `json:"namespace,omitempty"`
+	HTTP      *GatewayListenerData `json:"http,omitempty"`
+	HTTPS     *GatewayListenerData `json:"https,omitempty"`
+	TLS       *GatewayListenerData `json:"tls,omitempty"`
+}
+
+// GatewayListenerData provides listener data for a gateway in templates.
+type GatewayListenerData struct {
+	ListenerName string `json:"listenerName,omitempty"`
+	Port         int32  `json:"port,omitempty"`
+	Host         string `json:"host,omitempty"`
 }
 
 // ObservabilityPlaneRefContext is the {kind, name} reference exposed under
@@ -151,8 +201,18 @@ type ObservabilityPlaneRefContext struct {
 // CEL surface — validation reflects on BaseContext to declare CEL variables;
 // the pipeline JSON-marshals it via structToMap for runtime evaluation.
 type BaseContext struct {
-	Metadata           MetadataContext  `json:"metadata"`
-	Parameters         map[string]any   `json:"parameters"`
-	EnvironmentConfigs map[string]any   `json:"environmentConfigs"`
-	DataPlane          DataPlaneContext `json:"dataplane"`
+	Metadata           MetadataContext    `json:"metadata"`
+	Parameters         map[string]any     `json:"parameters"`
+	EnvironmentConfigs map[string]any     `json:"environmentConfigs"`
+	DataPlane          DataPlaneContext   `json:"dataplane"`
+	Environment        EnvironmentContext `json:"environment"`
+	// Gateway is the effective gateway (Environment.Gateway, which itself
+	// is env-or-dp merged) exposed at the top level for terseness:
+	// ${gateway.ingress.external.https.host} is identical to
+	// ${environment.gateway.ingress.external.https.host}.
+	//
+	// Templates that may evaluate against a missing gateway must guard via
+	// has(environment.gateway) — has(gateway) is invalid CEL because the
+	// top-level alias is omitted from the marshaled map when nil.
+	Gateway *GatewayData `json:"gateway,omitempty"`
 }

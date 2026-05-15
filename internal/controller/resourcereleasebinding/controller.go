@@ -211,7 +211,8 @@ func (r *Reconciler) renderAndEmit(
 	resourceType := buildResourceTypeFromRelease(release)
 	snapshotResource := buildResourceFromRelease(release)
 	metadataCtx := buildMetadataContext(binding, environment, dataPlane, resource, project)
-	dpCtx := buildDataPlaneContext(dataPlane)
+	dpCtx := resourcepipeline.BuildDataPlaneContext(dataPlane)
+	envCtx := resourcepipeline.BuildEnvironmentContext(environment, dataPlane)
 
 	input := &resourcepipeline.RenderInput{
 		ResourceType:           resourceType,
@@ -219,6 +220,7 @@ func (r *Reconciler) renderAndEmit(
 		ResourceReleaseBinding: binding,
 		Metadata:               metadataCtx,
 		DataPlane:              dpCtx,
+		Environment:            envCtx,
 	}
 
 	output, err := r.Pipeline.RenderManifests(input)
@@ -415,22 +417,6 @@ func buildMetadataContext(
 		Labels:            standardLabels,
 		Annotations:       binding.Annotations,
 	}
-}
-
-// buildDataPlaneContext exposes the dataplane fields the resource pipeline
-// surfaces to CEL templates: secretStore and observabilityPlaneRef.
-func buildDataPlaneContext(dataPlane *openchoreov1alpha1.DataPlane) resourcepipeline.DataPlaneContext {
-	dpCtx := resourcepipeline.DataPlaneContext{}
-	if dataPlane.Spec.SecretStoreRef != nil {
-		dpCtx.SecretStore = dataPlane.Spec.SecretStoreRef.Name
-	}
-	if dataPlane.Spec.ObservabilityPlaneRef != nil {
-		dpCtx.ObservabilityPlaneRef = &resourcepipeline.ObservabilityPlaneRefContext{
-			Kind: string(dataPlane.Spec.ObservabilityPlaneRef.Kind),
-			Name: dataPlane.Spec.ObservabilityPlaneRef.Name,
-		}
-	}
-	return dpCtx
 }
 
 // validateReleaseOwner enforces that the binding and the pinned

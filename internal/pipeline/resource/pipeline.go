@@ -332,6 +332,8 @@ func buildBaseContext(input *RenderInput) (map[string]any, error) {
 		Parameters:         parameters,
 		EnvironmentConfigs: envConfigs,
 		DataPlane:          input.DataPlane,
+		Environment:        input.Environment,
+		Gateway:            input.Environment.Gateway,
 	})
 }
 

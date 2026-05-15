@@ -228,6 +228,150 @@ func TestRenderManifests(t *testing.T) {
 		})
 	})
 
+	t.Run("exposes_gateway_surface", func(t *testing.T) {
+		// Three CEL paths reach the gateway: ${dataplane.gateway.*} is the raw
+		// DP gateway, ${environment.gateway.*} is the env-or-dp merged value,
+		// and top-level ${gateway.*} is shorthand for the merged value.
+
+		dpGateway := &GatewayData{
+			Ingress: &GatewayNetworkData{
+				External: &GatewayEndpointData{
+					Name:      "dp-gateway",
+					Namespace: "openchoreo-system",
+					HTTPS: &GatewayListenerData{
+						ListenerName: "https",
+						Port:         443,
+						Host:         "*.dp.example.com",
+					},
+				},
+			},
+		}
+		envGateway := &GatewayData{
+			Ingress: &GatewayNetworkData{
+				External: &GatewayEndpointData{
+					Name:      "env-gateway",
+					Namespace: "openchoreo-system",
+					HTTPS: &GatewayListenerData{
+						ListenerName: "https",
+						Port:         443,
+						Host:         "*.dev.example.com",
+					},
+				},
+			},
+		}
+
+		t.Run("dataplane_gateway_returns_raw_dp_value", func(t *testing.T) {
+			// dataplane.gateway is the raw DP value, unaffected by env overrides.
+			input := renderSingle(t,
+				rawExt(t, map[string]any{
+					"apiVersion": "v1",
+					"kind":       "Probe",
+					"host":       "${dataplane.gateway.ingress.external.https.host}",
+				}),
+				func(in *RenderInput) {
+					in.DataPlane = DataPlaneContext{Gateway: dpGateway}
+					in.Environment = EnvironmentContext{Gateway: envGateway}
+				},
+			)
+
+			got, err := NewPipeline().RenderManifests(input)
+			require.NoError(t, err)
+			require.Equal(t, "*.dp.example.com", got.Entries[0].Object["host"])
+		})
+
+		t.Run("environment_gateway_returns_merged_value", func(t *testing.T) {
+			// environment.gateway is the merged (env-or-dp) value. With both set,
+			// env wins.
+			input := renderSingle(t,
+				rawExt(t, map[string]any{
+					"apiVersion": "v1",
+					"kind":       "Probe",
+					"host":       "${environment.gateway.ingress.external.https.host}",
+				}),
+				func(in *RenderInput) {
+					in.DataPlane = DataPlaneContext{Gateway: dpGateway}
+					in.Environment = EnvironmentContext{Gateway: envGateway}
+				},
+			)
+
+			got, err := NewPipeline().RenderManifests(input)
+			require.NoError(t, err)
+			require.Equal(t, "*.dev.example.com", got.Entries[0].Object["host"])
+		})
+
+		t.Run("top_level_gateway_aliases_environment_gateway", func(t *testing.T) {
+			// ${gateway.*} is shorthand for ${environment.gateway.*}: same merged
+			// value. Locks the alias contract.
+			input := renderSingle(t,
+				rawExt(t, map[string]any{
+					"apiVersion":  "v1",
+					"kind":        "Probe",
+					"host":        "${gateway.ingress.external.https.host}",
+					"port":        "${gateway.ingress.external.https.port}",
+					"endpointRef": "${gateway.ingress.external.name}",
+				}),
+				func(in *RenderInput) {
+					in.DataPlane = DataPlaneContext{Gateway: dpGateway}
+					in.Environment = EnvironmentContext{Gateway: envGateway}
+				},
+			)
+
+			got, err := NewPipeline().RenderManifests(input)
+			require.NoError(t, err)
+			require.Equal(t, "*.dev.example.com", got.Entries[0].Object["host"])
+			require.EqualValues(t, 443, got.Entries[0].Object["port"])
+			require.Equal(t, "env-gateway", got.Entries[0].Object["endpointRef"])
+		})
+
+		t.Run("environment_gateway_falls_back_to_dataplane_when_unset", func(t *testing.T) {
+			// When the binding controller's BuildEnvironmentContext merges a nil
+			// env gateway with a populated DP gateway, environment.gateway and
+			// top-level gateway both surface the DP values.
+			input := renderSingle(t,
+				rawExt(t, map[string]any{
+					"apiVersion":      "v1",
+					"kind":            "Probe",
+					"envHost":         "${environment.gateway.ingress.external.https.host}",
+					"effectiveHost":   "${gateway.ingress.external.https.host}",
+					"dataPlaneHostDP": "${dataplane.gateway.ingress.external.https.host}",
+				}),
+				func(in *RenderInput) {
+					// Simulate the merged result the controller produces when
+					// env has no gateway: Environment.Gateway points at the DP
+					// gateway data directly.
+					in.DataPlane = DataPlaneContext{Gateway: dpGateway}
+					in.Environment = EnvironmentContext{Gateway: dpGateway}
+				},
+			)
+
+			got, err := NewPipeline().RenderManifests(input)
+			require.NoError(t, err)
+			require.Equal(t, "*.dp.example.com", got.Entries[0].Object["envHost"])
+			require.Equal(t, "*.dp.example.com", got.Entries[0].Object["effectiveHost"])
+			require.Equal(t, "*.dp.example.com", got.Entries[0].Object["dataPlaneHostDP"])
+		})
+
+		t.Run("gateway_absent_guarded_by_has_on_field_access", func(t *testing.T) {
+			// CEL's has() macro guards field selections, not bare identifiers,
+			// so the guard idiom is has(dataplane.gateway) /
+			// has(environment.gateway) — not has(gateway). When both env and dp
+			// lack a gateway, both guards return false. The top-level shortcut
+			// ${gateway.*} requires a populated gateway and should be wrapped
+			// in has(environment.gateway) when it might be absent.
+			input := renderSingle(t, rawExt(t, map[string]any{
+				"apiVersion": "v1",
+				"kind":       "Probe",
+				"dpHost":     `${has(dataplane.gateway) ? dataplane.gateway.ingress.external.https.host : "no-dp-gateway"}`,
+				"envHost":    `${has(environment.gateway) ? environment.gateway.ingress.external.https.host : "no-env-gateway"}`,
+			}))
+
+			got, err := NewPipeline().RenderManifests(input)
+			require.NoError(t, err)
+			require.Equal(t, "no-dp-gateway", got.Entries[0].Object["dpHost"])
+			require.Equal(t, "no-env-gateway", got.Entries[0].Object["envHost"])
+		})
+	})
+
 	t.Run("applies_parameter_defaults_from_schema", func(t *testing.T) {
 		input := renderSingle(t, rawExt(t, map[string]any{
 			"apiVersion": "v1",

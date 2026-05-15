@@ -283,6 +283,7 @@ func buildPipelineInput(
 		Resource:               buildResourceFromRelease(release),
 		ResourceReleaseBinding: binding,
 		Metadata:               buildMetadataContext(binding, environment, dataPlane, resource, project),
-		DataPlane:              buildDataPlaneContext(dataPlane),
+		DataPlane:              resourcepipeline.BuildDataPlaneContext(dataPlane),
+		Environment:            resourcepipeline.BuildEnvironmentContext(environment, dataPlane),
 	}
 }
