@@ -97,6 +97,10 @@ spec:
                   type: boolean
                   default: false
                   description: "Enables incident creation when this alert fires. When enabled, a corresponding incident will be created in the incident management system."
+                triggerAiCostAnalysis:
+                  type: boolean
+                  default: false
+                  description: "Enables AI-powered cost analysis when an incident is created for a budget alert. Provides automated cost breakdown and optimization recommendations. Requires incident.enabled to also be true and is only valid for budget source type."
                 triggerAiRca:
                   type: boolean
                   default: false
@@ -107,6 +111,10 @@ spec:
       message: "A notification channel is mandatory for alert rules (incident-only rules are not supported). Provide environmentConfigs.actions.notifications.channels or set environment.defaultNotificationChannel."
     - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiRca == false || environmentConfigs.actions.incident.enabled == true}"
       message: "incident.enabled must be true when triggerAiRca is true. AI-powered root cause analysis requires incident creation to be enabled."
+    - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiCostAnalysis == false || environmentConfigs.actions.incident.enabled == true}"
+      message: "incident.enabled must be true when triggerAiCostAnalysis is true. AI-powered cost analysis requires incident creation to be enabled."
+    - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiCostAnalysis == false || parameters.source.type == 'budget'}"
+      message: "triggerAiCostAnalysis can only be enabled for budget source type alerts."
 
   creates:
     - targetPlane: observabilityplane
@@ -143,5 +151,6 @@ spec:
                   ? environmentConfigs.actions.notifications.channels
                   : [environment.defaultNotificationChannel]}
             incident:
-              enabled: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && (environmentConfigs.actions.incident.enabled || environmentConfigs.actions.incident.triggerAiRca)}
+              enabled: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && (environmentConfigs.actions.incident.enabled || environmentConfigs.actions.incident.triggerAiRca || environmentConfigs.actions.incident.triggerAiCostAnalysis)}
+              triggerAiCostAnalysis: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiCostAnalysis}
               triggerAiRca: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiRca}
