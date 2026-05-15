@@ -338,3 +338,4 @@ async def test_middleware_passes_through_non_tool_message_result():
     request = type("ReqStub", (), {"tool_call": {"name": "query_component_logs"}})()
     result = await mw.awrap_tool_call(request, handler)
     assert result is sentinel
+

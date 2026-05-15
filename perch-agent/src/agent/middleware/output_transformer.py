@@ -52,6 +52,14 @@ logger = logging.getLogger(__name__)
 # untouched. Kept as plain strings (not an enum) because perch doesn't
 # have an internal tool registry — tool names arrive verbatim from the
 # upstream MCP servers.
+#
+# Note: ``get_workflow_run_logs`` / ``query_workflow_logs`` are
+# intentionally NOT in this set. A workflow-log compressor was added
+# and benchmarked (Option A) — N=5 A/B showed it made the chat ~7 s
+# slower on mean with no measurable answer-quality improvement; the
+# raw build-log dump gives the model better evidence quotes than the
+# tail-capped rendering. Restored only if a future benchmark shows
+# the trade flips on a different model / drawer rendering.
 _TOOL_LOGS = "query_component_logs"
 _TOOL_TRACES = "query_traces"
 _TOOL_TRACE_SPANS = "query_trace_spans"
@@ -356,7 +364,15 @@ class OutputTransformerMiddleware(AgentMiddleware):
         # per observability tool call. The ``empty`` flag fires when
         # the processor returned a "No X found" sentinel — useful for
         # spotting shape mismatches without scraping the rendered text.
-        is_empty = processed_text in {"No logs found", "No traces found", "No spans found"}
+        # Sentinel strings the processors emit when they receive a
+        # parseable shape but zero usable rows. Listed explicitly so a
+        # processor change that silently drops "No logs found" doesn't
+        # vanish from the ``empty=True`` instrumentation grep.
+        is_empty = processed_text in {
+            "No logs found",
+            "No traces found",
+            "No spans found",
+        }
         logger.info(
             "OutputTransformerMiddleware tool=%s rendered_len=%d empty=%s",
             tool_name,
