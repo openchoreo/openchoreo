@@ -278,10 +278,17 @@ _e2e.install-op:
 		--timeout $(E2E_SETUP_TIMEOUT)
 	$(call e2e_patch_gateway,$(E2E_OP_NS))
 	@$(call log_info, Installing observability modules)
+	@$(E2E_KUBECTL) create secret generic opensearch-admin-credentials \
+		-n $(E2E_OP_NS) \
+		--from-literal=username="admin" \
+		--from-literal=password="ThisIsTheOpenSearchPassword1" \
+		--dry-run=client -o yaml | $(E2E_KUBECTL) apply -f -
 	$(E2E_HELM) upgrade --install observability-logs-opensearch \
 		oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
-		--version 0.4.0 \
+		--version 0.4.1 \
 		--namespace $(E2E_OP_NS) \
+		--set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
+		--set adapter.openSearchSecretName="opensearch-admin-credentials" \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 	$(E2E_HELM) upgrade --install observability-metrics-prometheus \
 		oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \

@@ -601,7 +601,7 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.4.0 \
+  --version 0.4.1 \
   --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
   --set openSearchCluster.credentialsSecretName="opensearch-admin-credentials" \
   --set adapter.openSearchSecretName="opensearch-admin-credentials" \
@@ -617,7 +617,7 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.4.0 \
+  --version 0.4.1 \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
@@ -636,7 +636,7 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-wp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.4.0 \
+  --version 0.4.1 \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
