@@ -2274,7 +2274,7 @@
             },
             "watch": {
               "additionalProperties": false,
-              "description": "Kubernetes resources the event-forwarder watches. Each entry is a\nGroupVersionResource — the lowercase plural form (e.g. \"projects\",\nnot \"Project\"), matching what `kubectl api-resources` prints. The\nlist is authoritative and replaces the default on override — to\nadd a custom CRD, append one entry; to stop watching a default\nresource, remove its entry.\n\n`labelSelector` is optional. When set, the K8s API server filters\nlist/watch responses server-side, so the informer only ever sees\nmatching objects. The canonical use is the Namespace entry below,\nwhich restricts the forwarder to OpenChoreo Organization\nnamespaces (label `openchoreo.dev/control-plane=true`) and\nexcludes kube-system, cert-manager, dp-* data-plane namespaces,\nand other ambient cluster activity. Removing or weakening that\nselector causes Namespace events to fire for every namespace in\nthe cluster.",
+              "description": "Resources to watch, as GroupVersionResource entries (lowercase\nplural `resource`, like `kubectl api-resources`). The list is\nauthoritative — overrides replace it entirely. Optional\n`labelSelector` filters list/watch server-side; used below to\nscope Namespace events to OpenChoreo Organizations only.",
               "properties": {
                 "resources": {
                   "items": {

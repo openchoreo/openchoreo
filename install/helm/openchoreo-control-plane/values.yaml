@@ -3744,22 +3744,11 @@ eventForwarder:
       endpoints:
         - url: http://backstage:7007/api/events/http/openchoreo
 
-    # Kubernetes resources the event-forwarder watches. Each entry is a
-    # GroupVersionResource — the lowercase plural form (e.g. "projects",
-    # not "Project"), matching what `kubectl api-resources` prints. The
-    # list is authoritative and replaces the default on override — to
-    # add a custom CRD, append one entry; to stop watching a default
-    # resource, remove its entry.
-    #
-    # `labelSelector` is optional. When set, the K8s API server filters
-    # list/watch responses server-side, so the informer only ever sees
-    # matching objects. The canonical use is the Namespace entry below,
-    # which restricts the forwarder to OpenChoreo Organization
-    # namespaces (label `openchoreo.dev/control-plane=true`) and
-    # excludes kube-system, cert-manager, dp-* data-plane namespaces,
-    # and other ambient cluster activity. Removing or weakening that
-    # selector causes Namespace events to fire for every namespace in
-    # the cluster.
+    # Resources to watch, as GroupVersionResource entries (lowercase
+    # plural `resource`, like `kubectl api-resources`). The list is
+    # authoritative — overrides replace it entirely. Optional
+    # `labelSelector` filters list/watch server-side; used below to
+    # scope Namespace events to OpenChoreo Organizations only.
     # @schema
     # type: object
     # additionalProperties: false
