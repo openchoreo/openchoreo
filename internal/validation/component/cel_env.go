@@ -118,9 +118,51 @@ func createBaseEnv() (*cel.Env, error) {
 // returning an empty object type if schema is nil or conversion fails.
 func schemaToTypeOrEmpty(schema *apiextschema.Structural, typeName string) *apiservercel.DeclType {
 	if schema != nil {
-		if dt := model.SchemaDeclType(schema, false); dt != nil {
+		normalized := normalizeForCEL(schema)
+		if dt := model.SchemaDeclType(normalized, false); dt != nil {
 			return dt.MaybeAssignTypeName(typeName)
 		}
 	}
 	return apiservercel.NewObjectType(typeName, map[string]*apiservercel.DeclField{})
+}
+
+// normalizeForCEL returns a shallow-cloned structural schema where nodes that
+// have no top-level type but carry oneOf/anyOf/allOf variants are marked as
+// x-kubernetes-int-or-string. This makes the Kubernetes SchemaDeclType
+// function treat them as CEL dyn values instead of returning nil and
+// silently dropping the enclosing field from the CEL type environment.
+func normalizeForCEL(s *apiextschema.Structural) *apiextschema.Structural {
+	if s == nil {
+		return nil
+	}
+	out := *s
+
+	if out.Type == "" && hasCompositionValidation(out.ValueValidation) {
+		out.Extensions.XIntOrString = true
+	}
+
+	if out.Items != nil {
+		out.Items = normalizeForCEL(out.Items)
+	}
+
+	if len(out.Properties) > 0 {
+		props := make(map[string]apiextschema.Structural, len(out.Properties))
+		for k, v := range out.Properties {
+			normalized := normalizeForCEL(&v)
+			props[k] = *normalized
+		}
+		out.Properties = props
+	}
+
+	if out.AdditionalProperties != nil && out.AdditionalProperties.Structural != nil {
+		ap := *out.AdditionalProperties
+		ap.Structural = normalizeForCEL(ap.Structural)
+		out.AdditionalProperties = &ap
+	}
+
+	return &out
+}
+
+func hasCompositionValidation(v *apiextschema.ValueValidation) bool {
+	return v != nil && (len(v.OneOf) > 0 || len(v.AnyOf) > 0 || len(v.AllOf) > 0)
 }

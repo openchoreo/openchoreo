@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	ocschema "github.com/openchoreo/openchoreo/internal/schema"
 )
 
 func TestValidateClusterComponentTypeResourcesWithSchema(t *testing.T) {
@@ -149,6 +150,158 @@ func TestValidateClusterComponentTypeResourcesWithSchema_WithTypedSchema(t *test
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			errs := ValidateClusterComponentTypeResourcesWithSchema(tt.cct, parametersSchema, nil)
+			if tt.wantError {
+				assert.NotEmpty(t, errs, "expected validation error")
+				if tt.errMsg != "" {
+					errStr := errs.ToAggregate().Error()
+					assert.Contains(t, errStr, tt.errMsg)
+				}
+			} else {
+				assert.Empty(t, errs, "unexpected validation errors: %v", errs)
+			}
+		})
+	}
+}
+
+func TestValidateResourcesWithSchema_OneOfInEnvironmentConfigs(t *testing.T) {
+	envConfigsSchema, err := ocschema.OpenAPIV3ToStructural(map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"corsAllowedOrigins": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"oneOf": []any{
+						map[string]any{"type": "string"},
+						map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"regex": map[string]any{"type": "string"},
+							},
+							"required":             []any{"regex"},
+							"additionalProperties": false,
+						},
+					},
+				},
+				"default": []any{"https://localhost:3000", "http://localhost:3000"},
+			},
+			"maxAge": map[string]any{
+				"type":    "integer",
+				"default": float64(3600),
+			},
+		},
+	})
+	require.NoError(t, err, "failed to build environmentConfigs structural schema")
+
+	tests := []struct {
+		name      string
+		ct        *v1alpha1.ComponentType
+		wantError bool
+		errMsg    string
+	}{
+		{
+			name: "CEL referencing oneOf array field should be valid",
+			ct: &v1alpha1.ComponentType{
+				Spec: v1alpha1.ComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID: "cors-config",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "data": {"origins": "${environmentConfigs.corsAllowedOrigins}"}}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "CEL referencing typed sibling field alongside oneOf should be valid",
+			ct: &v1alpha1.ComponentType{
+				Spec: v1alpha1.ComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID: "cors-config",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "data": {"origins": "${environmentConfigs.corsAllowedOrigins}", "maxAge": "${environmentConfigs.maxAge}"}}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "CEL referencing undefined environmentConfigs field should fail",
+			ct: &v1alpha1.ComponentType{
+				Spec: v1alpha1.ComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID: "cors-config",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "data": {"origins": "${environmentConfigs.nonExistent}"}}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: true,
+			errMsg:    "undefined field 'nonExistent'",
+		},
+		{
+			name: "CEL referencing undefined field alongside valid oneOf field should fail",
+			ct: &v1alpha1.ComponentType{
+				Spec: v1alpha1.ComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID: "cors-config",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "data": {"origins": "${environmentConfigs.corsAllowedOrigins}", "bad": "${environmentConfigs.notAField}"}}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: true,
+			errMsg:    "undefined field 'notAField'",
+		},
+		{
+			name: "CEL indexing into oneOf array and accessing element field should be valid",
+			ct: &v1alpha1.ComponentType{
+				Spec: v1alpha1.ComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID: "cors-config",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "data": {"regex": "${environmentConfigs.corsAllowedOrigins[0].regex}"}}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "CEL accessing field directly on oneOf array should fail",
+			ct: &v1alpha1.ComponentType{
+				Spec: v1alpha1.ComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID: "cors-config",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "data": {"bad": "${environmentConfigs.corsAllowedOrigins.something}"}}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: true,
+			errMsg:    "does not support field selection",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := ValidateComponentTypeResourcesWithSchema(tt.ct, nil, envConfigsSchema)
 			if tt.wantError {
 				assert.NotEmpty(t, errs, "expected validation error")
 				if tt.errMsg != "" {
