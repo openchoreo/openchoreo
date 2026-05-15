@@ -6,6 +6,7 @@ package releasebinding
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -1056,7 +1057,7 @@ func TestSetReleaseSyncedCondition_Created(t *testing.T) {
 	rb := makeReleaseBindingForConditions()
 
 	r.setReleaseSyncedCondition(rb, "my-release", controllerutil.OperationResultCreated, 3,
-		observabilityReleaseResult{managed: false})
+		observabilityReleaseResult{managed: false, skipReason: "no observability resources to deploy"})
 
 	cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
 	if cond == nil {
@@ -1068,6 +1069,9 @@ func TestSetReleaseSyncedCondition_Created(t *testing.T) {
 	if cond.Reason != string(ReasonReleaseCreated) {
 		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonReleaseCreated)
 	}
+	if !strings.Contains(cond.Message, "no observability resources to deploy") {
+		t.Errorf("Message = %q, want to contain skip reason", cond.Message)
+	}
 }
 
 func TestSetReleaseSyncedCondition_Updated(t *testing.T) {
@@ -1075,7 +1079,7 @@ func TestSetReleaseSyncedCondition_Updated(t *testing.T) {
 	rb := makeReleaseBindingForConditions()
 
 	r.setReleaseSyncedCondition(rb, "my-release", controllerutil.OperationResultUpdated, 5,
-		observabilityReleaseResult{managed: false})
+		observabilityReleaseResult{managed: false, skipReason: "no observability resources to deploy"})
 
 	cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
 	if cond == nil {
@@ -1094,7 +1098,7 @@ func TestSetReleaseSyncedCondition_None(t *testing.T) {
 	rb := makeReleaseBindingForConditions()
 
 	r.setReleaseSyncedCondition(rb, "my-release", controllerutil.OperationResultNone, 3,
-		observabilityReleaseResult{managed: false})
+		observabilityReleaseResult{managed: false, skipReason: "no observability resources to deploy"})
 
 	cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
 	if cond == nil {
@@ -1105,6 +1109,40 @@ func TestSetReleaseSyncedCondition_None(t *testing.T) {
 	}
 	if cond.Reason != string(ReasonReleaseSynced) {
 		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonReleaseSynced)
+	}
+}
+
+func TestSetReleaseSyncedCondition_SkippedDueToPlaneLookupFailure(t *testing.T) {
+	r := newTestReconciler()
+
+	cases := []struct {
+		name string
+		op   controllerutil.OperationResult
+	}{
+		{name: "created", op: controllerutil.OperationResultCreated},
+		{name: "none", op: controllerutil.OperationResultNone},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rb := makeReleaseBindingForConditions()
+			skipReason := `failed to resolve ObservabilityPlane: observabilityplanes.openchoreo.dev "default" not found`
+
+			r.setReleaseSyncedCondition(rb, "my-release", tc.op, 3,
+				observabilityReleaseResult{managed: false, skipReason: skipReason})
+
+			cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
+			if cond == nil {
+				t.Fatal("ReleaseSynced condition should be set")
+			}
+			if !strings.Contains(cond.Message, skipReason) {
+				t.Errorf("Message = %q, want to contain underlying skip reason %q", cond.Message, skipReason)
+			}
+			// Sanity check: the old generic boilerplate should no longer leak through.
+			if strings.Contains(cond.Message, "no ObservabilityPlaneRef or no resources") {
+				t.Errorf("Message = %q, must not contain the misleading boilerplate", cond.Message)
+			}
+		})
 	}
 }
 

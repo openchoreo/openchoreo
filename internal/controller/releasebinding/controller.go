@@ -818,6 +818,9 @@ type observabilityReleaseResult struct {
 	resourceCount     int
 	managed           bool
 	ownershipConflict bool
+	// skipReason explains why the observability Release was skipped when managed == false.
+	// Empty when managed == true.
+	skipReason string
 }
 
 // reconcileObservabilityRelease handles the creation, update, or cleanup of the observability plane Release.
@@ -832,13 +835,20 @@ func (r *Reconciler) reconcileObservabilityRelease(
 	logger := log.FromContext(ctx)
 
 	// Determine if we should create/manage an observability Release:
-	// 1. ObservabilityPlane must exist (with default fallback)
-	// 2. There must be observability plane resources to deploy
+	// 1. There must be observability plane resources to deploy
+	// 2. ObservabilityPlane must resolve (with default fallback)
 	shouldManage := false
-	if len(observabilityPlaneReleaseResources) > 0 {
+	var skipReason string
+	if len(observabilityPlaneReleaseResources) == 0 {
+		skipReason = "no observability resources to deploy"
+	} else {
 		// Try to resolve the ObservabilityPlane - this will use "default" if not explicitly specified
-		_, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client)
-		shouldManage = (err == nil)
+		if _, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client); err != nil {
+			skipReason = fmt.Sprintf("failed to resolve ObservabilityPlane: %v", err)
+			logger.Info("Skipping observability Release reconciliation", "reason", skipReason)
+		} else {
+			shouldManage = true
+		}
 	}
 
 	releaseName := makeObservabilityReleaseName(componentRelease, releaseBinding)
@@ -847,6 +857,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 		releaseName:   releaseName,
 		resourceCount: len(observabilityPlaneReleaseResources),
 		managed:       shouldManage,
+		skipReason:    skipReason,
 	}
 
 	if shouldManage {
@@ -954,8 +965,8 @@ func (r *Reconciler) setReleaseSyncedCondition(
 				dpReleaseName, dpOp, dpResourceCount,
 				obsResult.releaseName, obsResult.operation, obsResult.resourceCount)
 		} else {
-			msg = fmt.Sprintf("Dataplane Release %q %s with %d resources (observability release skipped: no ObservabilityPlaneRef or no resources)",
-				dpReleaseName, dpOp, dpResourceCount)
+			msg = fmt.Sprintf("Dataplane Release %q %s with %d resources (observability release skipped: %s)",
+				dpReleaseName, dpOp, dpResourceCount, obsResult.skipReason)
 		}
 		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseCreated, msg)
 
@@ -965,8 +976,8 @@ func (r *Reconciler) setReleaseSyncedCondition(
 			msg = fmt.Sprintf("Dataplane Release %q is up to date; observability Release %q is %s",
 				dpReleaseName, obsResult.releaseName, obsResult.operation)
 		} else {
-			msg = fmt.Sprintf("Dataplane Release %q is up to date (observability release skipped: no ObservabilityPlaneRef or no resources)",
-				dpReleaseName)
+			msg = fmt.Sprintf("Dataplane Release %q is up to date (observability release skipped: %s)",
+				dpReleaseName, obsResult.skipReason)
 		}
 		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseSynced, msg)
 	}
