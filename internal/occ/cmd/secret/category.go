@@ -14,8 +14,8 @@ const (
 	// (openchoreo.dev/secret-type) so the CLI and UI agree on categories.
 	secretTypeLabel = "openchoreo.dev/secret-type"
 
-	// categoryGeneric is the default category. It is represented by the
-	// absence of the secret-type label.
+	// categoryGeneric is the default category, emitted as the value
+	// of the secret-type label when no other category is specified.
 	categoryGeneric = "generic"
 
 	// categoryGitCredentials marks a secret that holds git credentials.
@@ -26,17 +26,7 @@ const (
 // knownCategories lists every category accepted by the CLI.
 var knownCategories = []string{categoryGeneric, categoryGitCredentials}
 
-// labelsFor returns the label map to send on a Create or Update request for
-// the given category, plus an error if the category is unknown.
-//
-// The returned map captures the full intended label set: the caller can
-// pass it through as-is for full-replace label semantics. The secret-type
-// label is always set (including for the default "generic" category), so
-// the category is explicit on every secret managed by the CLI.
-//
-//   - "" (unspecified): defaults to the generic category.
-//   - "generic": {secretTypeLabel: "generic"}.
-//   - "git-credentials": {secretTypeLabel: "git-credentials"}.
+// labelsFor returns the secret-type label for the given category (defaulting to generic), or an error if the category is unknown.
 func labelsFor(category string) (map[string]string, error) {
 	if category == "" {
 		category = categoryGeneric
