@@ -106,6 +106,16 @@ spec:
         - name: OPENCHOREO_AUTH_SCOPE
           value: {{ .Values.backstage.auth.scope | quote }}
         {{- end }}
+        # Service client credentials for background tasks (Catalog Provider)
+        # Independent from the user-facing sign-in client above.
+        # Defaults to the sign-in client values for backward compatibility.
+        - name: OPENCHOREO_SERVICE_CLIENT_ID
+          value: {{ .Values.backstage.auth.serviceClientId | default .Values.backstage.auth.clientId | quote }}
+        - name: OPENCHOREO_SERVICE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.backstage.secretName }}
+              key: {{ .Values.backstage.auth.serviceClientSecretKey | default "client-secret" }}
         # Feature flags for OpenChoreo functionality
         - name: OPENCHOREO_FEATURES_WORKFLOWS_ENABLED
           value: {{ .Values.backstage.features.workflows.enabled | quote }}

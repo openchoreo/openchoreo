@@ -2237,7 +2237,7 @@ backstage:
 
   # @schema
   # type: string
-  # description: "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db."
+  # description: "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db. Optional: service-client-secret if backstage.auth.serviceClientSecretKey is set to a different key."
   # default: ""
   # @schema
   secretName: ""
@@ -2615,6 +2615,18 @@ backstage:
     # default: ""
     # @schema
     scope: ""
+    # @schema
+    # type: string
+    # description: "OAuth client ID for background service tasks (Catalog Provider). Uses a dedicated client independent from the user sign-in client. Defaults to auth.clientId for backward compatibility."
+    # default: ""
+    # @schema
+    serviceClientId: ""
+    # @schema
+    # type: string
+    # description: "Key within backstage.secretName that holds the service client secret. Defaults to 'client-secret' (same key as the sign-in client) for backward compatibility. Set to a different key (e.g. 'service-client-secret') when using a dedicated service client credential stored separately in the Secret."
+    # default: "client-secret"
+    # @schema
+    serviceClientSecretKey: "client-secret"
     # @schema
     # type: array
     # description: OAuth redirect URLs
