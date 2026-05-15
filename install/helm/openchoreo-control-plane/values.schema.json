@@ -3996,6 +3996,27 @@
               "default": "",
               "title": "rcaAgentApiUrl",
               "type": "string"
+            },
+            "reasoningEffort": {
+              "default": "low",
+              "description": "OpenAI gpt-5 / o-series reasoning effort. One of \"minimal\" / \"low\" /\n\"medium\" / \"high\"; empty string leaves the model on its default\n(medium for gpt-5-mini). N=5 A/B on 2026-05-15 showed \"low\" cuts\nbuild_failure chat latency from 28 s mean to 12 s mean with no\nquality regression on the env-var-pinpoint grade — same diagnosis\nshape, 2-4x tighter variance. Set empty to use the provider\ndefault; non-reasoning models ignore the value safely.\n",
+              "enum": [
+                "",
+                "minimal",
+                "low",
+                "medium",
+                "high"
+              ],
+              "required": [],
+              "title": "reasoningEffort"
+            },
+            "recursionLimit": {
+              "default": 15,
+              "description": "langgraph recursion_limit — bounds the worst-case per-turn supersteps\nbefore the framework aborts with GraphRecursionError and the\nrecover_with_fallback path returns a tool-less reply. 0 means \"use\nthe per-case defaults in builder.py\" (build_failure / runtime_debug\nboth set to 15 today). N=5 A/B on 2026-05-15 measured: build_failure\ntypically uses 8-9 supersteps with occasional 11+ outliers, so\nsetting this to 10 aborted 40 % of build chats; 15 has 5 supersteps\nof headroom without measurable regression. Set to a higher value\n(e.g. 25-30) only when a future chat shape genuinely needs the\nextra budget.\n",
+              "maximum": 100,
+              "minimum": 0,
+              "title": "recursionLimit",
+              "type": "integer"
             }
           },
           "required": [

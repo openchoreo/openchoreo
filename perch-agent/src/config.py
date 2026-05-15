@@ -14,6 +14,30 @@ class Settings(BaseSettings):
     # LLM — independent of rca-agent so ops can pick a cheaper model for chat.
     perch_model_name: str = ""
     perch_llm_api_key: str = ""
+    # OpenAI gpt-5 / o-series reasoning effort. One of "minimal" /
+    # "low" / "medium" / "high"; empty string leaves the model on its
+    # default (medium for gpt-5-mini). Reasoning tokens are generated
+    # invisibly before the user-facing response and are a large
+    # contributor to the composition turn's wall-clock — tuning this
+    # is the cheapest knob for latency vs. depth-of-analysis.
+    perch_reasoning_effort: str = ""
+    # langgraph recursion_limit — bounds the worst-case per-turn
+    # supersteps before the framework aborts with GraphRecursionError
+    # and ``recover_with_fallback`` returns a tool-less reply.
+    #
+    # 0 means "use the per-case map default in builder.py" (the
+    # _DEFAULT_RECURSION_LIMIT / _RECURSION_LIMIT_FOR_CASE constants).
+    # Setting a non-zero value via this env var overrides BOTH the
+    # default and any per-case entry.
+    #
+    # Empirical sizing from N=5 on 2026-05-15:
+    #   runtime_debug (3 tools): ≤9 supersteps observed.
+    #   build_failure (3 tools): typically 8-9, sometimes 11+.
+    # A limit of 15 gives 5 supersteps of headroom over the build
+    # failure max — catches genuine loops without clipping normal
+    # chats. The chart default is 15; 10 caused a 40 % build-failure
+    # abort rate in the same benchmark.
+    perch_recursion_limit: int = 0
 
     # The openchoreo control-plane API hosts the MCP endpoint at /mcp.
     openchoreo_api_url: str = (

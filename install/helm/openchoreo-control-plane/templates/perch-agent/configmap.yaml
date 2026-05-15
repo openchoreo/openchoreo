@@ -26,6 +26,20 @@ data:
   AUTH_CONFIG_PATH: /app/auth-config.yaml
   {{- end }}
   LOG_LEVEL: {{ .Values.perchAgent.config.logLevel | quote }}
+  # OpenAI reasoning_effort knob (gpt-5 / o-series). The chart defaults
+  # to "low" because the N=5 A/B captured in values.yaml's @schema block
+  # showed it cuts build_failure / runtime_debug latency by ~50 % with
+  # no quality regression. Quoting unconditionally so an empty value
+  # (== "use the provider default") still renders as ``""`` and
+  # pydantic-settings parses it as the empty-string sentinel that
+  # src/clients/llm.py treats as "don't pass the kwarg".
+  PERCH_REASONING_EFFORT: {{ .Values.perchAgent.config.reasoningEffort | default "" | quote }}
+  # langgraph recursion_limit override. 0 = use the per-case defaults
+  # baked into src/agent/builder.py (build_failure / runtime_debug
+  # both 15 today). See the @schema block on perchAgent.config.recursionLimit
+  # in values.yaml for the sizing rationale and the N=5 A/B that
+  # justifies 15 over 10.
+  PERCH_RECURSION_LIMIT: {{ .Values.perchAgent.config.recursionLimit | default 0 | quote }}
   {{- if .Values.perchAgent.cors.allowedOrigins }}
   CORS_ALLOWED_ORIGINS: {{ join "," .Values.perchAgent.cors.allowedOrigins | quote }}
   {{- end }}

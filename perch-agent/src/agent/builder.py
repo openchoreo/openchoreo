@@ -38,6 +38,7 @@ from src.agent.middleware import (
 from src.agent.tool_registry import is_mutating
 from src.auth.bearer import BearerTokenAuth
 from src.clients import get_model, get_tools_for_user
+from src.config import settings
 from src.models import ChatResponse
 from src.template_manager import render
 
@@ -59,17 +60,23 @@ _DEFAULT_RECURSION_LIMIT = 30
 # WriteGuard / ToolErrorHandler) + agent node + tool node, one tool
 # cycle is roughly 4-6 supersteps. So the per-case caps below
 # translate to:
-#   build_failure (20)  ≈ 3-4 tool cycles + final reply
-#   runtime_debug (20)  ≈ 3-4 tool cycles + final reply — bumped from
-#                         the old logs_debug (14) to account for the
-#                         cross-correlation pivot (logs → trace, or
-#                         trace → logs) that the unified branch does
-#                         per turn.
+#   build_failure (15)  ≈ 3 tool cycles + final reply, ~5 supersteps
+#                         of headroom over the observed max from a
+#                         2026-05-15 N=5 bench (build_failure with 3
+#                         tools occasionally needs 11+ supersteps).
+#   runtime_debug (15)  ≈ 3 tool cycles + final reply, more headroom
+#                         because the path lacks build_failure's
+#                         Phase A discovery step.
 # (EmptyResultGuard short-circuits the empty-data loop separately, so
 #  this cap is the safety net for non-empty-but-unproductive iteration.)
+#
+# Operators can override the per-case map globally via the
+# ``PERCH_RECURSION_LIMIT`` env var (chart value
+# ``perchAgent.config.recursionLimit``). When that env var is non-zero
+# it wins over both ``_DEFAULT_RECURSION_LIMIT`` and the map below.
 _RECURSION_LIMIT_FOR_CASE: dict[str, int] = {
-    "build_failure": 20,
-    "runtime_debug": 20,
+    "build_failure": 15,
+    "runtime_debug": 15,
 }
 
 
@@ -281,13 +288,19 @@ async def _build_agent(
         response_format=ToolStrategy(ChatResponse),
     )
 
-    # 100 was the original budget. Lowered to 30: if the model can't reach a
-    # ChatResponse in 30 model↔tool hops it's almost certainly looping — the
-    # WriteGuard / LoopGuard refusals make the right next step obvious. The
-    # outer error handler in stream_chat translates the recursion exception
-    # into a friendly user-facing message.
-    recursion_limit = _RECURSION_LIMIT_FOR_CASE.get(
-        case_type or "", _DEFAULT_RECURSION_LIMIT
-    )
+    # langgraph recursion budget — see comments on _RECURSION_LIMIT_FOR_CASE
+    # for sizing rationale. The order of precedence:
+    #   1. ``settings.perch_recursion_limit`` (env / Helm chart override) when > 0
+    #   2. The per-case map (build_failure / runtime_debug etc.)
+    #   3. ``_DEFAULT_RECURSION_LIMIT`` for unknown case_types
+    # A breached limit raises GraphRecursionError, which the outer error
+    # handler in ``stream_chat`` translates into a recovery_with_fallback
+    # reply (tool-less model call returning a generic answer).
+    if settings.perch_recursion_limit > 0:
+        recursion_limit = settings.perch_recursion_limit
+    else:
+        recursion_limit = _RECURSION_LIMIT_FOR_CASE.get(
+            case_type or "", _DEFAULT_RECURSION_LIMIT
+        )
     runnable_config: RunnableConfig = {"recursion_limit": recursion_limit}
     return agent.with_config(runnable_config), tools, tools_by_name
