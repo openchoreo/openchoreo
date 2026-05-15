@@ -142,6 +142,100 @@ func (s *Secret) Delete(params DeleteParams) error {
 	return nil
 }
 
+// Update changes a secret's data. By default it merges: keys named via
+// --from-* are set or added, and every other existing key is preserved.
+// With --replace, the data is exactly what --from-* specifies and all
+// other keys are pruned. The secret's category is preserved through every
+// update (use 'occ secret delete' + 'create' to change it).
+func (s *Secret) Update(in UpdateInput) error {
+	if err := cmdutil.RequireFields("update", "secret", map[string]string{
+		"namespace": in.Namespace,
+		"name":      in.SecretName,
+	}); err != nil {
+		return err
+	}
+
+	if len(in.FromLiteral) == 0 && len(in.FromFile) == 0 && len(in.FromEnvFile) == 0 {
+		return fmt.Errorf("at least one of --from-literal, --from-file, or --from-env-file is required")
+	}
+
+	ctx := context.Background()
+
+	// We always need the existing secret so we can carry forward the
+	// category label: the API's UpdateSecret treats Labels as a full
+	// replace, so omitting it (or sending an empty map) would strip
+	// any user-set labels. Re-sending the existing category label keeps
+	// the categorization intact across data-only updates.
+	existing, err := s.client.GetSecret(ctx, in.Namespace, in.SecretName)
+	if err != nil {
+		return err
+	}
+
+	var data map[string]string
+	if in.Replace {
+		data, err = collectData(in.FromLiteral, in.FromFile, in.FromEnvFile)
+		if err != nil {
+			return err
+		}
+	} else {
+		data = bytesMapToString(existing.Data)
+		updates, err := collectData(in.FromLiteral, in.FromFile, in.FromEnvFile)
+		if err != nil {
+			return err
+		}
+		for k, v := range updates {
+			data[k] = v
+		}
+	}
+	if len(data) == 0 {
+		return fmt.Errorf("update would leave the secret with no data keys; use 'occ secret delete' to remove a secret")
+	}
+
+	labels := preservedLabels(existing.Metadata.Labels)
+	resp, err := s.client.UpdateSecret(ctx, in.Namespace, in.SecretName, gen.UpdateSecretRequest{
+		Data:   data,
+		Labels: &labels,
+	})
+	if err != nil {
+		return err
+	}
+	respName := in.SecretName
+	if resp != nil && resp.Metadata.Name != "" {
+		respName = resp.Metadata.Name
+	}
+	fmt.Printf("Secret '%s' updated\n", respName)
+	return nil
+}
+
+// preservedLabels returns the subset of an existing secret's labels that
+// the CLI carries forward on update. We forward the category label
+// (openchoreo.dev/secret-type) so it survives the API's full-replace
+// label semantics. The managed-by label is dropped here because the API
+// re-stamps it itself; sending it back is redundant and the API would
+// reject any caller-supplied managed-by anyway.
+func preservedLabels(existing *map[string]string) map[string]string {
+	out := map[string]string{}
+	if existing == nil {
+		return out
+	}
+	if v, ok := (*existing)[secretTypeLabel]; ok {
+		out[secretTypeLabel] = v
+	}
+	return out
+}
+
+// bytesMapToString decodes a Secret response's data map into plaintext strings.
+func bytesMapToString(data *map[string][]byte) map[string]string {
+	out := map[string]string{}
+	if data == nil {
+		return out
+	}
+	for k, v := range *data {
+		out[k] = string(v)
+	}
+	return out
+}
+
 // CreateGeneric creates an Opaque secret (or basic-auth / ssh-auth via the
 // optional secretType override).
 func (s *Secret) CreateGeneric(in CreateInput, secretType string) error {
@@ -166,7 +260,7 @@ func (s *Secret) CreateGeneric(in CreateInput, secretType string) error {
 	if secretType != "" {
 		st = gen.SecretType(secretType)
 	}
-	return s.create(in.Namespace, in.SecretName, st, *tp, data)
+	return s.create(in.Namespace, in.SecretName, st, *tp, data, in.Category)
 }
 
 // CreateDockerRegistry creates a kubernetes.io/dockerconfigjson secret.
@@ -194,7 +288,7 @@ func (s *Secret) CreateDockerRegistry(in CreateInput, server, username, password
 	}
 	data := map[string]string{".dockerconfigjson": cfg}
 
-	return s.create(in.Namespace, in.SecretName, gen.SecretTypeKubernetesIodockerconfigjson, *tp, data)
+	return s.create(in.Namespace, in.SecretName, gen.SecretTypeKubernetesIodockerconfigjson, *tp, data, in.Category)
 }
 
 // CreateTLS creates a kubernetes.io/tls secret from a cert/key pair.
@@ -227,16 +321,22 @@ func (s *Secret) CreateTLS(in CreateInput, certPath, keyPath string) error {
 		"tls.key": string(key),
 	}
 
-	return s.create(in.Namespace, in.SecretName, gen.SecretTypeKubernetesIotls, *tp, data)
+	return s.create(in.Namespace, in.SecretName, gen.SecretTypeKubernetesIotls, *tp, data, in.Category)
 }
 
-func (s *Secret) create(namespace, name string, st gen.SecretType, tp gen.TargetPlaneRef, data map[string]string) error {
+func (s *Secret) create(namespace, name string, st gen.SecretType, tp gen.TargetPlaneRef, data map[string]string, category string) error {
+	labels, err := labelsFor(category)
+	if err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 	req := gen.CreateSecretRequest{
 		SecretName:  name,
 		SecretType:  st,
 		TargetPlane: tp,
 		Data:        data,
+		Labels:      &labels,
 	}
 	resp, err := s.client.CreateSecret(ctx, namespace, req)
 	if err != nil {

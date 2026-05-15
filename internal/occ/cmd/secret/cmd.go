@@ -25,6 +25,7 @@ func NewSecretCmd(f client.NewClientFunc) *cobra.Command {
 		newGetCmd(f),
 		newDeleteCmd(f),
 		newCreateCmd(f),
+		newUpdateCmd(f),
 	)
 	return cmd
 }
@@ -99,6 +100,70 @@ func newDeleteCmd(f client.NewClientFunc) *cobra.Command {
 	return cmd
 }
 
+func readUpdateInput(cmd *cobra.Command, args []string) UpdateInput {
+	literals, _ := cmd.Flags().GetStringArray("from-literal")
+	files, _ := cmd.Flags().GetStringArray("from-file")
+	envFiles, _ := cmd.Flags().GetStringArray("from-env-file")
+	replace, _ := cmd.Flags().GetBool("replace")
+
+	name := ""
+	if len(args) > 0 {
+		name = args[0]
+	}
+	return UpdateInput{
+		Namespace:   flags.GetNamespace(cmd),
+		SecretName:  name,
+		FromLiteral: literals,
+		FromFile:    files,
+		FromEnvFile: envFiles,
+		Replace:     replace,
+	}
+}
+
+func newUpdateCmd(f client.NewClientFunc) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update [SECRET_NAME]",
+		Short: "Update a secret's data",
+		Long: `Update the data of an existing secret.
+
+By default the update merges: keys passed via --from-literal, --from-file, or
+--from-env-file are set or added, and every other existing key is left
+unchanged.
+
+Use --replace to set the data to exactly what the --from-* flags specify,
+pruning any keys not listed.
+
+The secret type, target plane, and category cannot be changed; use
+'occ secret delete' and 'occ secret create' to change them.`,
+		Example: `  # Rotate one key, keep the rest
+  occ secret update db-creds --namespace acme-corp \
+    --from-literal=password=n3ws3cret
+
+  # Add a key from a file
+  occ secret update db-creds --namespace acme-corp \
+    --from-file=ca.crt=./ca.crt
+
+  # Replace the data with exactly these keys
+  occ secret update db-creds --namespace acme-corp --replace \
+    --from-literal=username=admin --from-literal=password=n3ws3cret`,
+		Args:    cmdutil.ExactOneArgWithUsage(),
+		PreRunE: auth.RequireLogin(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := f()
+			if err != nil {
+				return err
+			}
+			return New(cl).Update(readUpdateInput(cmd, args))
+		},
+	}
+	flags.AddNamespace(cmd)
+	cmd.Flags().StringArray("from-literal", nil, "Key=value literal to set (repeatable)")
+	cmd.Flags().StringArray("from-file", nil, "Key=path or path to set (repeatable). Key defaults to the filename.")
+	cmd.Flags().StringArray("from-env-file", nil, "Path to a KEY=VALUE env file (repeatable)")
+	cmd.Flags().Bool("replace", false, "Replace the secret data with exactly the --from-* keys, pruning all others")
+	return cmd
+}
+
 func newCreateCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -117,6 +182,7 @@ func newCreateCmd(f client.NewClientFunc) *cobra.Command {
 func addCommonCreateFlags(cmd *cobra.Command) {
 	flags.AddNamespace(cmd)
 	cmd.Flags().String("target-plane", "", "Target plane in Kind/Name form (e.g. DataPlane/dp-prod)")
+	cmd.Flags().String("category", "", "Secret category: 'generic' (default, no label) or 'git-credentials'")
 }
 
 func readCreateInput(cmd *cobra.Command, args []string) CreateInput {
@@ -124,6 +190,7 @@ func readCreateInput(cmd *cobra.Command, args []string) CreateInput {
 	files, _ := cmd.Flags().GetStringArray("from-file")
 	envFiles, _ := cmd.Flags().GetStringArray("from-env-file")
 	targetPlane, _ := cmd.Flags().GetString("target-plane")
+	category, _ := cmd.Flags().GetString("category")
 
 	name := ""
 	if len(args) > 0 {
@@ -133,6 +200,7 @@ func readCreateInput(cmd *cobra.Command, args []string) CreateInput {
 		Namespace:   flags.GetNamespace(cmd),
 		SecretName:  name,
 		TargetPlane: targetPlane,
+		Category:    category,
 		FromLiteral: literals,
 		FromFile:    files,
 		FromEnvFile: envFiles,

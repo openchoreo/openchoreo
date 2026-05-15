@@ -33,7 +33,21 @@ type CreateInput struct {
 	Namespace   string
 	SecretName  string
 	TargetPlane string // raw "Kind/Name"
+	Category    string // "" (default: generic), "generic", or "git-credentials"
 	FromLiteral []string
 	FromFile    []string
 	FromEnvFile []string
 }
+
+// UpdateInput is the parsed input for the update command.
+type UpdateInput struct {
+	Namespace   string
+	SecretName  string
+	FromLiteral []string
+	FromFile    []string
+	FromEnvFile []string
+	Replace     bool
+}
+
+func (in UpdateInput) GetNamespace() string  { return in.Namespace }
+func (in UpdateInput) GetSecretName() string { return in.SecretName }

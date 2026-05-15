@@ -45,7 +45,7 @@ func TestNewSecretCmd_Subcommands(t *testing.T) {
 	for _, sub := range cmd.Commands() {
 		names = append(names, sub.Name())
 	}
-	assert.ElementsMatch(t, []string{"list", "get", "delete", "create"}, names)
+	assert.ElementsMatch(t, []string{"list", "get", "delete", "create", "update"}, names)
 }
 
 func TestCreateCmd_Subcommands(t *testing.T) {
@@ -145,6 +145,62 @@ func TestDeleteCmd_Success(t *testing.T) {
 		require.NoError(t, cmd.RunE(cmd, []string{"my-secret"}))
 	})
 	assert.Contains(t, out, "deleted")
+}
+
+// --- update ---
+
+func TestUpdateCmd_MissingArg(t *testing.T) {
+	cmd := newUpdateCmd(errFactory("unused"))
+	err := cmd.Args(cmd, []string{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SECRET_NAME")
+}
+
+func TestUpdateCmd_FactoryError(t *testing.T) {
+	cmd := newUpdateCmd(errFactory("factory failed"))
+	err := cmd.RunE(cmd, []string{"my-secret"})
+	assert.EqualError(t, err, "factory failed")
+}
+
+func TestUpdateCmd_Merge_Success(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	existing := map[string][]byte{"username": []byte("admin"), "password": []byte("old")}
+	mc.EXPECT().GetSecret(mock.Anything, "acme-corp", "db-creds").Return(
+		&gen.Secret{Metadata: gen.ObjectMeta{Name: "db-creds"}, Type: "Opaque", Data: &existing}, nil,
+	)
+	mc.EXPECT().UpdateSecret(mock.Anything, "acme-corp", "db-creds", mock.MatchedBy(func(req gen.UpdateSecretRequest) bool {
+		return req.Data["username"] == "admin" && req.Data["password"] == "new" && len(req.Data) == 2
+	})).Return(&gen.Secret{Metadata: gen.ObjectMeta{Name: "db-creds"}}, nil)
+
+	cmd := newUpdateCmd(mockFactory(mc))
+	require.NoError(t, cmd.Flags().Set("namespace", "acme-corp"))
+	require.NoError(t, cmd.Flags().Set("from-literal", "password=new"))
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cmd.RunE(cmd, []string{"db-creds"}))
+	})
+	assert.Contains(t, out, "updated")
+}
+
+func TestUpdateCmd_Replace_Success(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	existing := map[string][]byte{"old": []byte("v")}
+	mc.EXPECT().GetSecret(mock.Anything, "acme-corp", "db-creds").Return(
+		&gen.Secret{Metadata: gen.ObjectMeta{Name: "db-creds"}, Type: "Opaque", Data: &existing}, nil,
+	)
+	mc.EXPECT().UpdateSecret(mock.Anything, "acme-corp", "db-creds", mock.MatchedBy(func(req gen.UpdateSecretRequest) bool {
+		return len(req.Data) == 1 && req.Data["password"] == "new"
+	})).Return(&gen.Secret{Metadata: gen.ObjectMeta{Name: "db-creds"}}, nil)
+
+	cmd := newUpdateCmd(mockFactory(mc))
+	require.NoError(t, cmd.Flags().Set("namespace", "acme-corp"))
+	require.NoError(t, cmd.Flags().Set("replace", "true"))
+	require.NoError(t, cmd.Flags().Set("from-literal", "password=new"))
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cmd.RunE(cmd, []string{"db-creds"}))
+	})
+	assert.Contains(t, out, "updated")
 }
 
 // --- create generic ---

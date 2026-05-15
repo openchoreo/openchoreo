@@ -130,6 +130,167 @@ func TestDelete_Success(t *testing.T) {
 	assert.Contains(t, out, "Secret 'x' deleted")
 }
 
+// --- Update ---
+
+func bytesData(m map[string]string) *map[string][]byte {
+	out := make(map[string][]byte, len(m))
+	for k, v := range m {
+		out[k] = []byte(v)
+	}
+	return &out
+}
+
+func TestUpdate_ValidationError_NoNamespace(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	err := New(mc).Update(UpdateInput{SecretName: "x", FromLiteral: []string{"k=v"}})
+	assert.ErrorContains(t, err, "Missing required parameter: --namespace")
+}
+
+func TestUpdate_ValidationError_NoName(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	err := New(mc).Update(UpdateInput{Namespace: "ns", FromLiteral: []string{"k=v"}})
+	assert.ErrorContains(t, err, "Missing required parameter: --name")
+}
+
+func TestUpdate_RequiresMutatingFlag(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	err := New(mc).Update(UpdateInput{Namespace: "ns", SecretName: "x"})
+	assert.ErrorContains(t, err, "at least one of --from-literal")
+}
+
+// labelsPtr is a small helper for tests that populates the Metadata.Labels
+// pointer on a fake gen.Secret response.
+func labelsPtr(in map[string]string) *map[string]string {
+	cp := make(map[string]string, len(in))
+	for k, v := range in {
+		cp[k] = v
+	}
+	return &cp
+}
+
+func TestUpdate_Replace_RequiresFrom(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	err := New(mc).Update(UpdateInput{Namespace: "ns", SecretName: "x", Replace: true})
+	assert.ErrorContains(t, err, "at least one of --from-literal")
+}
+
+func TestUpdate_Merge_KeepsUnmentionedKeys(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetSecret(mock.Anything, "ns", "db-creds").Return(&gen.Secret{
+		Metadata: gen.ObjectMeta{
+			Name:   "db-creds",
+			Labels: labelsPtr(map[string]string{"openchoreo.dev/secret-type": "generic"}),
+		},
+		Type: "Opaque",
+		Data: bytesData(map[string]string{"username": "admin", "password": "old"}),
+	}, nil)
+	mc.EXPECT().UpdateSecret(mock.Anything, "ns", "db-creds", mock.MatchedBy(func(req gen.UpdateSecretRequest) bool {
+		if req.Data["username"] != "admin" || req.Data["password"] != "new" || len(req.Data) != 2 {
+			return false
+		}
+		// Category label must be carried forward so the API's full-replace
+		// of labels does not drop it.
+		if req.Labels == nil {
+			return false
+		}
+		return (*req.Labels)["openchoreo.dev/secret-type"] == "generic"
+	})).Return(&gen.Secret{Metadata: gen.ObjectMeta{Name: "db-creds"}}, nil)
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, New(mc).Update(UpdateInput{
+			Namespace:   "ns",
+			SecretName:  "db-creds",
+			FromLiteral: []string{"password=new"},
+		}))
+	})
+	assert.Contains(t, out, "Secret 'db-creds' updated")
+}
+
+func TestUpdate_Merge_NoCategoryLabelOnExisting(t *testing.T) {
+	// If the existing secret has no secret-type label, the request sends
+	// an empty labels map so other user labels are reset but no category
+	// is invented.
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetSecret(mock.Anything, "ns", "x").Return(&gen.Secret{
+		Metadata: gen.ObjectMeta{Name: "x"},
+		Type:     "Opaque",
+		Data:     bytesData(map[string]string{"k": "v"}),
+	}, nil)
+	mc.EXPECT().UpdateSecret(mock.Anything, "ns", "x", mock.MatchedBy(func(req gen.UpdateSecretRequest) bool {
+		if req.Labels == nil {
+			return false
+		}
+		return len(*req.Labels) == 0
+	})).Return(&gen.Secret{}, nil)
+
+	require.NoError(t, New(mc).Update(UpdateInput{
+		Namespace:   "ns",
+		SecretName:  "x",
+		FromLiteral: []string{"k=v2"},
+	}))
+}
+
+func TestUpdate_Merge_GetError(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetSecret(mock.Anything, "ns", "x").Return(nil, fmt.Errorf("not found"))
+	err := New(mc).Update(UpdateInput{
+		Namespace:   "ns",
+		SecretName:  "x",
+		FromLiteral: []string{"k=v"},
+	})
+	assert.EqualError(t, err, "not found")
+}
+
+func TestUpdate_Replace_PrunesAndPreservesCategory(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	// Replace mode still GETs the secret so it can carry the existing
+	// category label through the full-replace update.
+	mc.EXPECT().GetSecret(mock.Anything, "ns", "db-creds").Return(&gen.Secret{
+		Metadata: gen.ObjectMeta{
+			Name:   "db-creds",
+			Labels: labelsPtr(map[string]string{"openchoreo.dev/secret-type": "git-credentials"}),
+		},
+		Type: "Opaque",
+		Data: bytesData(map[string]string{"old-key": "should-be-pruned"}),
+	}, nil)
+	mc.EXPECT().UpdateSecret(mock.Anything, "ns", "db-creds", mock.MatchedBy(func(req gen.UpdateSecretRequest) bool {
+		if len(req.Data) != 2 || req.Data["username"] != "admin" || req.Data["password"] != "new" {
+			return false
+		}
+		if req.Labels == nil {
+			return false
+		}
+		return (*req.Labels)["openchoreo.dev/secret-type"] == "git-credentials"
+	})).Return(&gen.Secret{Metadata: gen.ObjectMeta{Name: "db-creds"}}, nil)
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, New(mc).Update(UpdateInput{
+			Namespace:   "ns",
+			SecretName:  "db-creds",
+			Replace:     true,
+			FromLiteral: []string{"username=admin", "password=new"},
+		}))
+	})
+	assert.Contains(t, out, "updated")
+}
+
+func TestUpdate_APIError(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetSecret(mock.Anything, "ns", "x").Return(&gen.Secret{
+		Metadata: gen.ObjectMeta{Name: "x"},
+		Type:     "Opaque",
+		Data:     bytesData(map[string]string{"a": "b"}),
+	}, nil)
+	mc.EXPECT().UpdateSecret(mock.Anything, "ns", "x", mock.Anything).Return(nil, fmt.Errorf("boom"))
+	err := New(mc).Update(UpdateInput{
+		Namespace:   "ns",
+		SecretName:  "x",
+		Replace:     true,
+		FromLiteral: []string{"k=v"},
+	})
+	assert.EqualError(t, err, "boom")
+}
+
 // --- CreateGeneric ---
 
 func TestCreateGeneric_RequiresData(t *testing.T) {
@@ -156,7 +317,14 @@ func TestCreateGeneric_InvalidTargetPlane(t *testing.T) {
 func TestCreateGeneric_OpaqueByDefault(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().CreateSecret(mock.Anything, "ns", mock.MatchedBy(func(req gen.CreateSecretRequest) bool {
-		return req.SecretType == gen.SecretTypeOpaque && req.Data["k"] == "v"
+		if req.SecretType != gen.SecretTypeOpaque || req.Data["k"] != "v" {
+			return false
+		}
+		// Default category should always stamp the secret-type label.
+		if req.Labels == nil {
+			return false
+		}
+		return (*req.Labels)["openchoreo.dev/secret-type"] == "generic" && len(*req.Labels) == 1
 	})).Return(&gen.Secret{}, nil)
 
 	require.NoError(t, New(mc).CreateGeneric(CreateInput{
@@ -165,6 +333,75 @@ func TestCreateGeneric_OpaqueByDefault(t *testing.T) {
 		TargetPlane: "DataPlane/dp",
 		FromLiteral: []string{"k=v"},
 	}, ""))
+}
+
+func TestCreateGeneric_CategoryGitCredentials(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().CreateSecret(mock.Anything, "ns", mock.MatchedBy(func(req gen.CreateSecretRequest) bool {
+		if req.Labels == nil {
+			return false
+		}
+		return (*req.Labels)["openchoreo.dev/secret-type"] == "git-credentials"
+	})).Return(&gen.Secret{}, nil)
+
+	require.NoError(t, New(mc).CreateGeneric(CreateInput{
+		Namespace:   "ns",
+		SecretName:  "n",
+		TargetPlane: "DataPlane/dp",
+		Category:    "git-credentials",
+		FromLiteral: []string{"username=admin", "password=s3"},
+	}, "kubernetes.io/basic-auth"))
+}
+
+func TestCreateGeneric_UnknownCategory(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	// No CreateSecret call expected: validation must fail first.
+	err := New(mc).CreateGeneric(CreateInput{
+		Namespace:   "ns",
+		SecretName:  "n",
+		TargetPlane: "DataPlane/dp",
+		Category:    "bogus",
+		FromLiteral: []string{"k=v"},
+	}, "")
+	assert.ErrorContains(t, err, "invalid --category")
+}
+
+func TestCreateDockerRegistry_CategoryDefault(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().CreateSecret(mock.Anything, "ns", mock.MatchedBy(func(req gen.CreateSecretRequest) bool {
+		if req.Labels == nil {
+			return false
+		}
+		return (*req.Labels)["openchoreo.dev/secret-type"] == "generic"
+	})).Return(&gen.Secret{}, nil)
+
+	require.NoError(t, New(mc).CreateDockerRegistry(CreateInput{
+		Namespace:   "ns",
+		SecretName:  "regcred",
+		TargetPlane: "DataPlane/dp",
+	}, "https://reg.example/v1/", "jdoe", "hunter2", ""))
+}
+
+func TestCreateTLS_CategoryDefault(t *testing.T) {
+	dir := t.TempDir()
+	cert := filepath.Join(dir, "tls.crt")
+	key := filepath.Join(dir, "tls.key")
+	require.NoError(t, os.WriteFile(cert, []byte("C"), 0o600))
+	require.NoError(t, os.WriteFile(key, []byte("K"), 0o600))
+
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().CreateSecret(mock.Anything, "ns", mock.MatchedBy(func(req gen.CreateSecretRequest) bool {
+		if req.Labels == nil {
+			return false
+		}
+		return (*req.Labels)["openchoreo.dev/secret-type"] == "generic"
+	})).Return(&gen.Secret{}, nil)
+
+	require.NoError(t, New(mc).CreateTLS(CreateInput{
+		Namespace:   "ns",
+		SecretName:  "tls",
+		TargetPlane: "DataPlane/dp",
+	}, cert, key))
 }
 
 func TestCreateGeneric_TypeOverride(t *testing.T) {
