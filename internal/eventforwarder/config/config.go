@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/openchoreo/openchoreo/internal/logging"
 )
@@ -18,7 +19,38 @@ import (
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Webhooks WebhooksConfig `yaml:"webhooks"`
+	Watch    WatchConfig    `yaml:"watch"`
 	Logging  LoggingConfig  `yaml:"logging"`
+}
+
+// WatchConfig declares which Kubernetes resources the forwarder watches.
+// The list is authoritative — if `resources` is empty, the forwarder
+// watches nothing besides the always-on, label-filtered Namespace
+// informer (Namespaces are handled separately because they carry the
+// `openchoreo.dev/control-plane=true` label selector).
+type WatchConfig struct {
+	Resources []ResourceConfig `yaml:"resources"`
+}
+
+// ResourceConfig identifies a single Kubernetes resource to watch by
+// its API GroupVersionResource — the same form `kubectl api-resources`
+// prints. The plural-lowercase `resource` field is required because
+// the informer factory consumes GVRs directly; no Kind-to-Resource
+// discovery is performed at startup.
+//
+// `labelSelector` is optional. When set, the K8s API server applies
+// the selector server-side during list/watch, so the informer cache
+// only ever holds matching objects. The forwarder uses this to scope
+// the core Namespace informer to OpenChoreo Organizations (label
+// `openchoreo.dev/control-plane=true`) so events for kube-system,
+// cert-manager, data-plane, and other ambient namespaces never reach
+// the dispatcher. Operators can apply the same mechanism to any
+// other watched resource — e.g. scoping `components` to a team label.
+type ResourceConfig struct {
+	Group         string `yaml:"group"`
+	Version       string `yaml:"version"`
+	Resource      string `yaml:"resource"`
+	LabelSelector string `yaml:"labelSelector,omitempty"`
 }
 
 // ServerConfig holds HTTP server settings.
@@ -95,6 +127,25 @@ func Load(path string) (*Config, error) {
 			}
 			if ep.Retry.BackoffMs < 0 {
 				return nil, fmt.Errorf("webhooks.endpoints[%d].retry.backoffMs must be >= 0", i)
+			}
+		}
+	}
+
+	for i, r := range cfg.Watch.Resources {
+		// `group` may legitimately be empty (the core "" group, e.g. v1
+		// resources like ConfigMaps). `version` and `resource` are not.
+		if strings.TrimSpace(r.Version) == "" {
+			return nil, fmt.Errorf("watch.resources[%d]: version is required", i)
+		}
+		if strings.TrimSpace(r.Resource) == "" {
+			return nil, fmt.Errorf("watch.resources[%d]: resource is required (lowercase plural, e.g. \"projects\")", i)
+		}
+		// Parse the label selector up front so a typo surfaces at
+		// startup with a clear error, not as a cryptic informer
+		// failure mid-flight after pods are already running.
+		if strings.TrimSpace(r.LabelSelector) != "" {
+			if _, err := labels.Parse(r.LabelSelector); err != nil {
+				return nil, fmt.Errorf("watch.resources[%d]: invalid labelSelector %q: %w", i, r.LabelSelector, err)
 			}
 		}
 	}

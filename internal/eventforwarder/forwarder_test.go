@@ -316,14 +316,19 @@ func TestHandleEvent_ClusterScopedHasEmptyNamespace(t *testing.T) {
 }
 
 // =====================================================================
-// gvrList — basic sanity check (no behavioral test; the list is static)
+// Forwarder.watchResources — the GVR list is now config-driven; the
+// list itself is validated in the config package's tests. Here we just
+// confirm Forwarder.New propagates the supplied list onto the struct.
 // =====================================================================
 
-func TestGVRList_AllOpenChoreoGroup(t *testing.T) {
-	for _, gvr := range gvrList() {
-		assert.Equal(t, "openchoreo.dev", gvr.Group, "every CRD watched should be in the openchoreo.dev API group")
-		assert.Equal(t, "v1alpha1", gvr.Version)
-		assert.NotEmpty(t, gvr.Resource)
+func TestForwarder_NewStoresWatchResources(t *testing.T) {
+	want := []WatchResource{
+		{GVR: schema.GroupVersionResource{Group: "openchoreo.dev", Version: "v1alpha1", Resource: "projects"}},
+		{
+			GVR:           schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+			LabelSelector: "openchoreo.dev/control-plane=true",
+		},
 	}
-	require.NotEmpty(t, gvrList(), "watched-resource list must not be empty")
+	f := New(nil, nil, slog.Default(), want)
+	require.Equal(t, want, f.watchResources)
 }

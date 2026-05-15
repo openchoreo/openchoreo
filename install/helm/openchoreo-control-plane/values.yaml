@@ -3743,6 +3743,72 @@ eventForwarder:
       # @schema
       endpoints:
         - url: http://backstage:7007/api/events/http/openchoreo
+
+    # Kubernetes resources the event-forwarder watches. Each entry is a
+    # GroupVersionResource — the lowercase plural form (e.g. "projects",
+    # not "Project"), matching what `kubectl api-resources` prints. The
+    # list is authoritative and replaces the default on override — to
+    # add a custom CRD, append one entry; to stop watching a default
+    # resource, remove its entry.
+    #
+    # `labelSelector` is optional. When set, the K8s API server filters
+    # list/watch responses server-side, so the informer only ever sees
+    # matching objects. The canonical use is the Namespace entry below,
+    # which restricts the forwarder to OpenChoreo Organization
+    # namespaces (label `openchoreo.dev/control-plane=true`) and
+    # excludes kube-system, cert-manager, dp-* data-plane namespaces,
+    # and other ambient cluster activity. Removing or weakening that
+    # selector causes Namespace events to fire for every namespace in
+    # the cluster.
+    # @schema
+    # type: object
+    # additionalProperties: false
+    # required: [resources]
+    # properties:
+    #   resources:
+    #     type: array
+    #     items:
+    #       type: object
+    #       additionalProperties: false
+    #       required: [version, resource]
+    #       properties:
+    #         group:
+    #           type: string
+    #         version:
+    #           type: string
+    #           minLength: 1
+    #         resource:
+    #           type: string
+    #           minLength: 1
+    #         labelSelector:
+    #           type: string
+    # @schema
+    watch:
+      resources:
+        # Core K8s Namespaces — filtered to OpenChoreo Organizations
+        # only. Removing this entry stops Namespace events from
+        # flowing to subscribers.
+        - { group: "", version: v1, resource: namespaces, labelSelector: "openchoreo.dev/control-plane=true" }
+        # Namespaced OpenChoreo CRDs
+        - { group: openchoreo.dev, version: v1alpha1, resource: projects }
+        - { group: openchoreo.dev, version: v1alpha1, resource: components }
+        - { group: openchoreo.dev, version: v1alpha1, resource: workloads }
+        - { group: openchoreo.dev, version: v1alpha1, resource: environments }
+        - { group: openchoreo.dev, version: v1alpha1, resource: dataplanes }
+        - { group: openchoreo.dev, version: v1alpha1, resource: deploymentpipelines }
+        - { group: openchoreo.dev, version: v1alpha1, resource: componenttypes }
+        - { group: openchoreo.dev, version: v1alpha1, resource: traits }
+        - { group: openchoreo.dev, version: v1alpha1, resource: workflows }
+        - { group: openchoreo.dev, version: v1alpha1, resource: workflowplanes }
+        - { group: openchoreo.dev, version: v1alpha1, resource: observabilityplanes }
+        # Cluster-scoped OpenChoreo CRDs
+        - { group: openchoreo.dev, version: v1alpha1, resource: clustercomponenttypes }
+        - { group: openchoreo.dev, version: v1alpha1, resource: clustertraits }
+        - { group: openchoreo.dev, version: v1alpha1, resource: clusterworkflows }
+        - { group: openchoreo.dev, version: v1alpha1, resource: clusterdataplanes }
+        - { group: openchoreo.dev, version: v1alpha1, resource: clusterobservabilityplanes }
+        - { group: openchoreo.dev, version: v1alpha1, resource: clusterworkflowplanes }
+
     logging:
       level: info
 

@@ -160,6 +160,94 @@ webhooks:
 	}
 }
 
+func TestLoad_ParsesWatchResources(t *testing.T) {
+	path := writeTempConfig(t, `
+webhooks:
+  endpoints:
+    - url: http://example.com/webhook
+watch:
+  resources:
+    - group: openchoreo.dev
+      version: v1alpha1
+      resource: projects
+    - group: ""
+      version: v1
+      resource: namespaces
+      labelSelector: openchoreo.dev/control-plane=true
+`)
+
+	cfg, err := Load(path)
+	require.NoError(t, err)
+	require.Len(t, cfg.Watch.Resources, 2)
+	assert.Equal(t, "openchoreo.dev", cfg.Watch.Resources[0].Group)
+	assert.Equal(t, "v1alpha1", cfg.Watch.Resources[0].Version)
+	assert.Equal(t, "projects", cfg.Watch.Resources[0].Resource)
+	assert.Equal(t, "", cfg.Watch.Resources[0].LabelSelector,
+		"labelSelector is optional and defaults to empty (no filter)")
+	assert.Equal(t, "", cfg.Watch.Resources[1].Group,
+		"empty group must be allowed — the core API group is the empty string")
+	assert.Equal(t, "namespaces", cfg.Watch.Resources[1].Resource)
+	assert.Equal(t, "openchoreo.dev/control-plane=true", cfg.Watch.Resources[1].LabelSelector)
+}
+
+func TestLoad_RejectsInvalidWatchResources(t *testing.T) {
+	cases := []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name: "missing version",
+			yaml: `
+webhooks:
+  endpoints:
+    - url: http://example.com/webhook
+watch:
+  resources:
+    - group: openchoreo.dev
+      resource: projects
+`,
+			wantErr: "version is required",
+		},
+		{
+			name: "invalid label selector",
+			yaml: `
+webhooks:
+  endpoints:
+    - url: http://example.com/webhook
+watch:
+  resources:
+    - group: ""
+      version: v1
+      resource: namespaces
+      labelSelector: "==bad=="
+`,
+			wantErr: "invalid labelSelector",
+		},
+		{
+			name: "missing resource",
+			yaml: `
+webhooks:
+  endpoints:
+    - url: http://example.com/webhook
+watch:
+  resources:
+    - group: openchoreo.dev
+      version: v1alpha1
+`,
+			wantErr: "resource is required",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := writeTempConfig(t, tc.yaml)
+			_, err := Load(path)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
+
 func TestLoad_InvalidYAML(t *testing.T) {
 	// Tabs are not valid YAML indentation.
 	path := writeTempConfig(t, "\tnot: valid\n")
