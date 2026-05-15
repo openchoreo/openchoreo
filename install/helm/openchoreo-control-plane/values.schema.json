@@ -4092,7 +4092,7 @@
               "type": "string"
             },
             "repository": {
-              "default": "ghcr.io/openchoreo/perch-agent",
+              "default": "ghcr.io/openchoreo/ai-perch-agent",
               "title": "repository",
               "type": "string"
             },

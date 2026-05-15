@@ -3784,7 +3784,7 @@ perchAgent:
   name: perch-agent
 
   image:
-    repository: ghcr.io/openchoreo/perch-agent
+    repository: ghcr.io/openchoreo/ai-perch-agent
     tag: ""
     pullPolicy: IfNotPresent
 
