@@ -179,13 +179,13 @@ func TestUpdate_Merge_KeepsUnmentionedKeys(t *testing.T) {
 	mc.EXPECT().GetSecret(mock.Anything, "ns", "db-creds").Return(&gen.Secret{
 		Metadata: gen.ObjectMeta{
 			Name:   "db-creds",
-			Labels: labelsPtr(map[string]string{"openchoreo.dev/secret-type": "generic"}),
+			Labels: labelsPtr(map[string]string{"openchoreo.dev/secret-type": categoryGeneric}),
 		},
 		Type: "Opaque",
-		Data: bytesData(map[string]string{"username": "admin", "password": "old"}),
+		Data: bytesData(map[string]string{"username": testUsername, "password": "old"}),
 	}, nil)
 	mc.EXPECT().UpdateSecret(mock.Anything, "ns", "db-creds", mock.MatchedBy(func(req gen.UpdateSecretRequest) bool {
-		if req.Data["username"] != "admin" || req.Data["password"] != "new" || len(req.Data) != 2 {
+		if req.Data["username"] != testUsername || req.Data["password"] != testNewPassword || len(req.Data) != 2 {
 			return false
 		}
 		// Category label must be carried forward so the API's full-replace
@@ -193,14 +193,14 @@ func TestUpdate_Merge_KeepsUnmentionedKeys(t *testing.T) {
 		if req.Labels == nil {
 			return false
 		}
-		return (*req.Labels)["openchoreo.dev/secret-type"] == "generic"
+		return (*req.Labels)["openchoreo.dev/secret-type"] == categoryGeneric
 	})).Return(&gen.Secret{Metadata: gen.ObjectMeta{Name: "db-creds"}}, nil)
 
 	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, New(mc).Update(UpdateInput{
 			Namespace:   "ns",
 			SecretName:  "db-creds",
-			FromLiteral: []string{"password=new"},
+			FromLiteral: []string{"password=" + testNewPassword},
 		}))
 	})
 	assert.Contains(t, out, "Secret 'db-creds' updated")
@@ -254,7 +254,7 @@ func TestUpdate_Replace_PrunesAndPreservesCategory(t *testing.T) {
 		Data: bytesData(map[string]string{"old-key": "should-be-pruned"}),
 	}, nil)
 	mc.EXPECT().UpdateSecret(mock.Anything, "ns", "db-creds", mock.MatchedBy(func(req gen.UpdateSecretRequest) bool {
-		if len(req.Data) != 2 || req.Data["username"] != "admin" || req.Data["password"] != "new" {
+		if len(req.Data) != 2 || req.Data["username"] != testUsername || req.Data["password"] != testNewPassword {
 			return false
 		}
 		if req.Labels == nil {
@@ -268,7 +268,7 @@ func TestUpdate_Replace_PrunesAndPreservesCategory(t *testing.T) {
 			Namespace:   "ns",
 			SecretName:  "db-creds",
 			Replace:     true,
-			FromLiteral: []string{"username=admin", "password=new"},
+			FromLiteral: []string{"username=" + testUsername, "password=" + testNewPassword},
 		}))
 	})
 	assert.Contains(t, out, "updated")
@@ -324,7 +324,7 @@ func TestCreateGeneric_OpaqueByDefault(t *testing.T) {
 		if req.Labels == nil {
 			return false
 		}
-		return (*req.Labels)["openchoreo.dev/secret-type"] == "generic" && len(*req.Labels) == 1
+		return (*req.Labels)["openchoreo.dev/secret-type"] == categoryGeneric && len(*req.Labels) == 1
 	})).Return(&gen.Secret{}, nil)
 
 	require.NoError(t, New(mc).CreateGeneric(CreateInput{
@@ -349,7 +349,7 @@ func TestCreateGeneric_CategoryGitCredentials(t *testing.T) {
 		SecretName:  "n",
 		TargetPlane: "DataPlane/dp",
 		Category:    "git-credentials",
-		FromLiteral: []string{"username=admin", "password=s3"},
+		FromLiteral: []string{"username=" + testUsername, "password=s3"},
 	}, "kubernetes.io/basic-auth"))
 }
 
@@ -372,7 +372,7 @@ func TestCreateDockerRegistry_CategoryDefault(t *testing.T) {
 		if req.Labels == nil {
 			return false
 		}
-		return (*req.Labels)["openchoreo.dev/secret-type"] == "generic"
+		return (*req.Labels)["openchoreo.dev/secret-type"] == categoryGeneric
 	})).Return(&gen.Secret{}, nil)
 
 	require.NoError(t, New(mc).CreateDockerRegistry(CreateInput{
@@ -394,7 +394,7 @@ func TestCreateTLS_CategoryDefault(t *testing.T) {
 		if req.Labels == nil {
 			return false
 		}
-		return (*req.Labels)["openchoreo.dev/secret-type"] == "generic"
+		return (*req.Labels)["openchoreo.dev/secret-type"] == categoryGeneric
 	})).Return(&gen.Secret{}, nil)
 
 	require.NoError(t, New(mc).CreateTLS(CreateInput{
@@ -414,7 +414,7 @@ func TestCreateGeneric_TypeOverride(t *testing.T) {
 		Namespace:   "ns",
 		SecretName:  "n",
 		TargetPlane: "DataPlane/dp",
-		FromLiteral: []string{"username=admin", "password=s3"},
+		FromLiteral: []string{"username=" + testUsername, "password=s3"},
 	}, "kubernetes.io/basic-auth"))
 }
 
