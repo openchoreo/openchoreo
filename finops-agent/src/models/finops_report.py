@@ -59,7 +59,7 @@ class CostBreakdown(BaseModel):
     )
     breakdown_source: str = Field(
         ...,
-        description="How breakdown was obtained (e.g. 'opencost_allocation', 'estimated_from_usage_ratio', 'unavailable')",
+        description="How breakdown was obtained (e.g. 'cost_backend_allocation', 'estimated_from_usage_ratio', 'unavailable')",
     )
 
 
