@@ -78,9 +78,12 @@ lint: golangci-lint-check license-check newline-check ## Run golangci-lint linte
 .PHONY: lint-fix
 lint-fix: golangci-lint-fix license-fix newline-fix ## Run golangci-lint linter, licenser, and newline fix to perform fixes
 
-# Detect the current git branch for use in generated file headers.
-# Falls back to "main" in detached HEAD state (e.g. during CI checkout by SHA).
-SAMPLES_BRANCH = $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | sed 's/^HEAD$$/main/')
+# Branch reference baked into generated file headers (e.g. the kubectl apply URL
+# in samples/getting-started/all.yaml). Only "main" and "release-v*" branches are
+# considered publishable; everything else (feature branches, detached HEAD) falls
+# back to "main" so contributor-local generation never burns ephemeral branch
+# names into committed files. Override with SAMPLES_BRANCH=<name> for local testing.
+SAMPLES_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null | grep -E '^(main|release-v.*)$$' || echo main)
 
 # Individual getting-started sample files that compose all.yaml (order matters)
 GETTING_STARTED_DIR := samples/getting-started

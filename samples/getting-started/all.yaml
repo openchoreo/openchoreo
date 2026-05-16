@@ -7,7 +7,7 @@
 # environments, pipeline, component types, workflows, and traits.
 #
 # Usage:
-#   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/issue-3339-pipeline-gateway/samples/getting-started/all.yaml
+#   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml
 #
 # Or if you have cloned the repository:
 #   kubectl apply -f samples/getting-started/all.yaml
@@ -973,18 +973,26 @@ metadata:
   annotations:
     openchoreo.dev/description: >-
       In-cluster PostgreSQL database backed by a single-replica StatefulSet.
-      Ephemeral storage (emptyDir); for demonstration purposes only. Set
-      environmentConfigs.adminEnabled=true on a binding to expose Adminer via
-      the data plane's gateway.
+      Ephemeral storage (emptyDir); for demonstration purposes only.
 spec:
   parameters:
     openAPIV3Schema:
-      database: "string | default=appdb"
+      type: object
+      properties:
+        database:
+          type: string
+          default: appdb
 
   environmentConfigs:
     openAPIV3Schema:
-      memory: "string | default=256Mi"
-      adminEnabled: "boolean | default=false"
+      type: object
+      properties:
+        memory:
+          type: string
+          default: 256Mi
+        adminEnabled:
+          type: boolean
+          default: false
 
   retainPolicy: Delete
 
@@ -997,6 +1005,8 @@ spec:
       configMapKeyRef:
         name: "${metadata.name}-config"
         key: database
+    # The application user (limited grants), created at initdb by the bootstrap
+    # script. Applications consume this output via Workload envBindings.
     - name: username
       configMapKeyRef:
         name: "${metadata.name}-config"
@@ -1005,15 +1015,24 @@ spec:
       secretKeyRef:
         name: "${metadata.name}-creds"
         key: password
+    # Adminer URL with driver=pgsql, server, username=demo (deliberately weak
+    # superuser created for the demo UI), db pre-filled via query params.
+    # Paste the value of adminPassword on the Adminer login form.
     - name: adminURL
       value: >-
         ${environmentConfigs.adminEnabled
           ? (has(gateway.ingress.external.https)
-              ? "https://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.https.host + ":" + string(gateway.ingress.external.https.port) + "/"
+              ? "https://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.https.host + ":" + string(gateway.ingress.external.https.port) + "/?pgsql=" + metadata.name + "&username=demo&db=" + parameters.database
               : has(gateway.ingress.external.http)
-                  ? "http://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.http.host + ":" + string(gateway.ingress.external.http.port) + "/"
-                  : "")
-          : ""}
+                  ? "http://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.http.host + ":" + string(gateway.ingress.external.http.port) + "/?pgsql=" + metadata.name + "&username=demo&db=" + parameters.database
+                  : "no-gateway-configured")
+          : "disabled"}
+    # DEMO ONLY: literal "demo" password for the demo superuser. Used to log
+    # into the admin UI. The postgres built-in superuser and the application
+    # user have ESO-generated random passwords that never appear in any output.
+    - name: adminPassword
+      value: >-
+        ${environmentConfigs.adminEnabled ? "demo" : "disabled"}
 
   resources:
     - id: config
@@ -1026,19 +1045,112 @@ spec:
           labels: ${metadata.labels}
         data:
           database: ${parameters.database}
-          username: appuser
+          username: ${metadata.resourceName}-user
 
-    - id: creds
+    # Bootstrap scripts: 01 creates the application user, 02 creates a
+    # demo superuser used by the Adminer login. Both run once on initdb
+    # (when the data directory is empty) in alphabetical order. The
+    # superuser created by the image (postgres) is reserved for internal
+    # use; its password is ESO-generated and never surfaced.
+    - id: init-scripts
       template:
         apiVersion: v1
-        kind: Secret
+        kind: ConfigMap
+        metadata:
+          name: ${metadata.name}-init
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        data:
+          01-create-app-user.sh: |
+            #!/bin/bash
+            set -e
+            psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<EOSQL
+              CREATE USER "$APPUSER" WITH PASSWORD '$APPUSER_PASSWORD';
+              GRANT ALL ON DATABASE "$POSTGRES_DB" TO "$APPUSER";
+              GRANT ALL ON SCHEMA public TO "$APPUSER";
+            EOSQL
+          02-create-demo-user.sh: |
+            #!/bin/bash
+            set -e
+            psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<EOSQL
+              CREATE USER demo WITH SUPERUSER PASSWORD 'demo';
+            EOSQL
+
+    # Postgres superuser password: generated on the data plane by ESO and
+    # never written to the control plane. Used by initdb and by the init
+    # scripts above; not surfaced to consumers.
+    - id: password-gen-postgres
+      template:
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
+        metadata:
+          name: ${metadata.name}-creds-postgres
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          length: 32
+          digits: 8
+          symbols: 0
+          noUpper: false
+          allowRepeat: true
+
+    - id: creds-postgres
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.name}-creds-postgres
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          refreshInterval: "0"
+          target:
+            name: ${metadata.name}-creds-postgres
+            creationPolicy: Owner
+          dataFrom:
+            - sourceRef:
+                generatorRef:
+                  apiVersion: generators.external-secrets.io/v1alpha1
+                  kind: Password
+                  name: ${metadata.name}-creds-postgres
+
+    # Application user password: generated on the data plane by ESO and
+    # never written to the control plane. Surfaced via the `password` output
+    # as a secretKeyRef.
+    - id: password-gen-app
+      template:
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
         metadata:
           name: ${metadata.name}-creds
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
-        type: Opaque
-        stringData:
-          password: ${metadata.name}-password
+        spec:
+          length: 32
+          digits: 8
+          symbols: 0
+          noUpper: false
+          allowRepeat: true
+
+    - id: creds
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          refreshInterval: "0"
+          target:
+            name: ${metadata.name}-creds
+            creationPolicy: Owner
+          dataFrom:
+            - sourceRef:
+                generatorRef:
+                  apiVersion: generators.external-secrets.io/v1alpha1
+                  kind: Password
+                  name: ${metadata.name}-creds
 
     - id: service
       template:
@@ -1083,17 +1195,24 @@ spec:
                     limits:
                       memory: ${environmentConfigs.memory}
                   env:
+                    - name: POSTGRES_USER
+                      value: postgres
                     - name: POSTGRES_DB
                       valueFrom:
                         configMapKeyRef:
                           name: ${metadata.name}-config
                           key: database
-                    - name: POSTGRES_USER
+                    - name: POSTGRES_PASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${metadata.name}-creds-postgres
+                          key: password
+                    - name: APPUSER
                       valueFrom:
                         configMapKeyRef:
                           name: ${metadata.name}-config
                           key: username
-                    - name: POSTGRES_PASSWORD
+                    - name: APPUSER_PASSWORD
                       valueFrom:
                         secretKeyRef:
                           name: ${metadata.name}-creds
@@ -1106,12 +1225,18 @@ spec:
                   volumeMounts:
                     - name: data
                       mountPath: /var/lib/postgresql/data
+                    - name: init-scripts
+                      mountPath: /docker-entrypoint-initdb.d
               volumes:
                 - name: data
                   emptyDir: {}
+                - name: init-scripts
+                  configMap:
+                    name: ${metadata.name}-init
+                    defaultMode: 0755
 
     - id: admin-deployment
-      includeWhen: "${environmentConfigs.adminEnabled}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
       template:
         apiVersion: apps/v1
         kind: Deployment
@@ -1140,7 +1265,7 @@ spec:
                       name: http
 
     - id: admin-service
-      includeWhen: "${environmentConfigs.adminEnabled}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
       template:
         apiVersion: v1
         kind: Service
@@ -1157,7 +1282,7 @@ spec:
               targetPort: 8080
 
     - id: admin-route
-      includeWhen: "${environmentConfigs.adminEnabled}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
       template:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
@@ -1185,19 +1310,20 @@ metadata:
   name: valkey
   annotations:
     openchoreo.dev/description: >-
-      In-cluster Valkey cache (Redis protocol-compatible) backed by a
-      single-replica StatefulSet. Data is in-memory only and is lost on pod
-      restart. Set environmentConfigs.adminEnabled=true on a binding to expose
-      Redis Commander via the data plane's gateway.
+      In-cluster Valkey cache (Redis-protocol-compatible) backed by a
+      single-replica StatefulSet. In-memory only; data is lost on pod restart.
+      For demonstration purposes only.
 spec:
-  parameters:
-    openAPIV3Schema:
-      image: "string | default=valkey/valkey:8-alpine"
-
   environmentConfigs:
     openAPIV3Schema:
-      memory: "string | default=128Mi"
-      adminEnabled: "boolean | default=false"
+      type: object
+      properties:
+        memory:
+          type: string
+          default: 128Mi
+        adminEnabled:
+          type: boolean
+          default: false
 
   retainPolicy: Delete
 
@@ -1210,19 +1336,58 @@ spec:
       secretKeyRef:
         name: "${metadata.name}-creds"
         key: password
+    # Admin URL points at a Redis Commander instance that auto-connects to
+    # Valkey using the same ESO-generated password (wired via env vars on the
+    # admin pod). The dev opens the URL and lands directly in the data
+    # browser — no login form, no password to paste.
+    - name: adminURL
+      value: >-
+        ${environmentConfigs.adminEnabled
+          ? (has(gateway.ingress.external.https)
+              ? "https://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.https.host + ":" + string(gateway.ingress.external.https.port) + "/"
+              : has(gateway.ingress.external.http)
+                  ? "http://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.http.host + ":" + string(gateway.ingress.external.http.port) + "/"
+                  : "no-gateway-configured")
+          : "disabled"}
 
   resources:
-    - id: creds
+    # Valkey requirepass: generated on the data plane by ESO and never written
+    # to the control plane. Surfaced via the `password` output as a
+    # secretKeyRef.
+    - id: password-generator
       template:
-        apiVersion: v1
-        kind: Secret
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
         metadata:
           name: ${metadata.name}-creds
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
-        type: Opaque
-        stringData:
-          password: ${metadata.name}-password
+        spec:
+          length: 32
+          digits: 8
+          symbols: 0
+          noUpper: false
+          allowRepeat: true
+
+    - id: creds
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          refreshInterval: "0"
+          target:
+            name: ${metadata.name}-creds
+            creationPolicy: Owner
+          dataFrom:
+            - sourceRef:
+                generatorRef:
+                  apiVersion: generators.external-secrets.io/v1alpha1
+                  kind: Password
+                  name: ${metadata.name}-creds
 
     - id: service
       template:
@@ -1262,25 +1427,25 @@ spec:
             spec:
               containers:
                 - name: valkey
-                  image: ${parameters.image}
+                  image: valkey/valkey:8-alpine
                   resources:
                     limits:
                       memory: ${environmentConfigs.memory}
-                  args:
-                    - --requirepass
-                    - $(VALKEY_PASSWORD)
                   env:
                     - name: VALKEY_PASSWORD
                       valueFrom:
                         secretKeyRef:
                           name: ${metadata.name}-creds
                           key: password
+                  args:
+                    - --requirepass
+                    - $(VALKEY_PASSWORD)
                   ports:
                     - containerPort: 6379
                       name: valkey
 
     - id: admin-deployment
-      includeWhen: "${environmentConfigs.adminEnabled}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
       template:
         apiVersion: apps/v1
         kind: Deployment
@@ -1299,24 +1464,28 @@ spec:
                 app: ${metadata.name}-admin
             spec:
               containers:
+                # Redis Commander upstream does not publish semver tags; only
+                # :latest and branch-style tags. Production CRTs should pin a
+                # digest. Acceptable for getting-started demo.
                 - name: redis-commander
                   image: rediscommander/redis-commander:latest
                   env:
-                    - name: REDIS_HOST
-                      value: ${metadata.name}
-                    - name: REDIS_PORT
-                      value: "6379"
+                    # REDIS_PASSWORD must be defined before REDIS_HOSTS so
+                    # K8s's $(VAR) substitution can fold it into the
+                    # connection string at container start.
                     - name: REDIS_PASSWORD
                       valueFrom:
                         secretKeyRef:
                           name: ${metadata.name}-creds
                           key: password
+                    - name: REDIS_HOSTS
+                      value: "${metadata.resourceName}:${metadata.name}:6379:0:$(REDIS_PASSWORD)"
                   ports:
                     - containerPort: 8081
                       name: http
 
     - id: admin-service
-      includeWhen: "${environmentConfigs.adminEnabled}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
       template:
         apiVersion: v1
         kind: Service
@@ -1333,7 +1502,7 @@ spec:
               targetPort: 8081
 
     - id: admin-route
-      includeWhen: "${environmentConfigs.adminEnabled}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
       template:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
@@ -1348,19 +1517,9 @@ spec:
           hostnames: |
             ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-              .map(h, metadata.environmentName + "-" + metadata.resourceNamespace + "." + h)}
+              .map(h, metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + h)}
           rules:
-            - matches:
-                - path:
-                    type: PathPrefix
-                    value: /${metadata.resourceName}-admin
-              filters:
-                - type: URLRewrite
-                  urlRewrite:
-                    path:
-                      type: ReplacePrefixMatch
-                      replacePrefixMatch: /
-              backendRefs:
+            - backendRefs:
                 - name: ${metadata.name}-admin
                   port: 8081
 
@@ -1371,19 +1530,21 @@ metadata:
   name: nats
   annotations:
     openchoreo.dev/description: >-
-      In-cluster NATS Core pub/sub server (no JetStream). Stateless, in-memory,
-      backed by a single-replica Deployment. Token-based auth. Set
-      environmentConfigs.adminEnabled=true on a binding to expose NATS's built-in
-      :8222 monitoring endpoint via the data plane's gateway.
+      In-cluster NATS Core pub/sub server (no JetStream) backed by a
+      single-replica Deployment. Stateless and in-memory; for demonstration
+      purposes only. Token-based auth on the client port; the monitoring
+      port serves read-only diagnostics.
 spec:
-  parameters:
-    openAPIV3Schema:
-      image: "string | default=nats:2.10-alpine"
-
   environmentConfigs:
     openAPIV3Schema:
-      memory: "string | default=64Mi"
-      adminEnabled: "boolean | default=false"
+      type: object
+      properties:
+        memory:
+          type: string
+          default: 64Mi
+        adminEnabled:
+          type: boolean
+          default: false
 
   retainPolicy: Delete
 
@@ -1395,20 +1556,59 @@ spec:
     - name: token
       secretKeyRef:
         name: "${metadata.name}-creds"
-        key: token
+        key: password
+    # Admin URL points at NATS's built-in HTTP monitoring endpoint (port
+    # 8222), which serves JSON diagnostics like /varz, /connz, /subsz. The
+    # endpoint is unauthenticated and read-only; the dev opens the URL and
+    # navigates the JSON pages directly.
+    - name: adminURL
+      value: >-
+        ${environmentConfigs.adminEnabled
+          ? (has(gateway.ingress.external.https)
+              ? "https://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.https.host + ":" + string(gateway.ingress.external.https.port) + "/"
+              : has(gateway.ingress.external.http)
+                  ? "http://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.http.host + ":" + string(gateway.ingress.external.http.port) + "/"
+                  : "no-gateway-configured")
+          : "disabled"}
 
   resources:
-    - id: creds
+    # NATS auth token: generated on the data plane by ESO and never written
+    # to the control plane. Surfaced via the `token` output as a
+    # secretKeyRef.
+    - id: password-generator
       template:
-        apiVersion: v1
-        kind: Secret
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
         metadata:
           name: ${metadata.name}-creds
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
-        type: Opaque
-        stringData:
-          token: ${metadata.name}-token
+        spec:
+          length: 32
+          digits: 8
+          symbols: 0
+          noUpper: false
+          allowRepeat: true
+
+    - id: creds
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          refreshInterval: "0"
+          target:
+            name: ${metadata.name}-creds
+            creationPolicy: Owner
+          dataFrom:
+            - sourceRef:
+                generatorRef:
+                  apiVersion: generators.external-secrets.io/v1alpha1
+                  kind: Password
+                  name: ${metadata.name}-creds
 
     - id: service
       template:
@@ -1450,7 +1650,7 @@ spec:
             spec:
               containers:
                 - name: nats
-                  image: ${parameters.image}
+                  image: nats:2.10-alpine
                   resources:
                     limits:
                       memory: ${environmentConfigs.memory}
@@ -1464,15 +1664,18 @@ spec:
                       valueFrom:
                         secretKeyRef:
                           name: ${metadata.name}-creds
-                          key: token
+                          key: password
                   ports:
                     - containerPort: 4222
                       name: client
                     - containerPort: 8222
                       name: monitor
 
+    # NATS's monitoring port (8222) is exposed on the same Service that
+    # serves the client port. The HTTPRoute below just routes the gateway
+    # to that monitoring port — no separate admin pod is needed.
     - id: admin-route
-      includeWhen: "${environmentConfigs.adminEnabled}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
       template:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
@@ -1487,19 +1690,9 @@ spec:
           hostnames: |
             ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-              .map(h, metadata.environmentName + "-" + metadata.resourceNamespace + "." + h)}
+              .map(h, metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + h)}
           rules:
-            - matches:
-                - path:
-                    type: PathPrefix
-                    value: /${metadata.resourceName}-admin
-              filters:
-                - type: URLRewrite
-                  urlRewrite:
-                    path:
-                      type: ReplacePrefixMatch
-                      replacePrefixMatch: /
-              backendRefs:
+            - backendRefs:
                 - name: ${metadata.name}
                   port: 8222
 
