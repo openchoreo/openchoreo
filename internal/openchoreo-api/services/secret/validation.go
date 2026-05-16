@@ -26,7 +26,7 @@ var supportedSecretTypes = map[corev1.SecretType]struct{}{
 // data map for each typed Secret. Opaque has no required keys but must contain
 // at least one entry (enforced separately).
 var requiredKeys = map[corev1.SecretType][]string{
-	corev1.SecretTypeBasicAuth:        {"username", "password"},
+	corev1.SecretTypeBasicAuth:        {"password"},
 	corev1.SecretTypeSSHAuth:          {"ssh-privatekey"},
 	corev1.SecretTypeDockerConfigJson: {".dockerconfigjson"},
 	corev1.SecretTypeTLS:              {"tls.crt", "tls.key"},

@@ -83,10 +83,9 @@ func TestValidateSecretData(t *testing.T) {
 			wantErr:    true,
 		},
 		{
-			name:       "basic-auth missing username fails",
+			name:       "basic-auth with password only succeeds",
 			secretType: corev1.SecretTypeBasicAuth,
 			data:       map[string]string{"password": "p"},
-			wantErr:    true,
 		},
 		{
 			name:       "ssh-auth with key succeeds",
@@ -502,7 +501,7 @@ func TestCreateSecret_ValidationErrors(t *testing.T) {
 				SecretName:  testSecretName,
 				SecretType:  corev1.SecretTypeBasicAuth,
 				TargetPlane: openchoreov1alpha1.TargetPlaneRef{Kind: planeKindWorkflowPlane, Name: "wp1"},
-				Data:        map[string]string{"username": "u"}, // missing password
+				Data:        map[string]string{"username": "u", "other": "v"}, // missing password
 			},
 		},
 		{
@@ -1149,8 +1148,8 @@ func TestUpdateSecret_ValidationFailure(t *testing.T) {
 	svc := &secretService{k8sClient: cpClient, logger: newTestLogger()}
 
 	_, err := svc.UpdateSecret(context.Background(), testNamespace, testSecretName, &UpdateSecretParams{
-		// Missing required keys for basic-auth.
-		Data: map[string]string{"username": "u"},
+		// Missing required password key for basic-auth.
+		Data: map[string]string{"username": "u", "other": "v"},
 	})
 	if !isValidationError(err) {
 		t.Errorf("expected ValidationError, got %v", err)
