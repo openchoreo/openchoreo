@@ -263,8 +263,8 @@ spec:
         targetCPUUtilizationPercentage: 75
       # Wire environment-specific overrides (only for replica counts)
       environmentConfigs:
-        minReplicas: ${environmentConfigs.autoscaling.minReplicas}
-        maxReplicas: ${environmentConfigs.autoscaling.maxReplicas}
+        minReplicas: "${has(environmentConfigs.autoscaling) ? environmentConfigs.autoscaling.minReplicas : parameters.autoscaling.minReplicas}"
+        maxReplicas: "${has(environmentConfigs.autoscaling) ? environmentConfigs.autoscaling.maxReplicas : parameters.autoscaling.maxReplicas}"
 
   resources:
     - id: deployment
