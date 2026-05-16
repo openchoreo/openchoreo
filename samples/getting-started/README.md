@@ -82,14 +82,11 @@ clustertrait.openchoreo.dev/observability-alert-rule      10s
 
 ### Cluster Resource Types
 
-Templates for in-cluster managed infrastructure that developers can consume via
-`Workload.spec.dependencies.resources[]`.
-
-| Name | Backed By | App outputs | Admin tool |
-|------|-----------|-------------|------------|
-| postgres | StatefulSet, emptyDir | `host`, `port`, `database`, `username`, `password` | Adminer (form login with the published `demo` password) |
-| valkey | StatefulSet, in-memory | `host`, `port`, `password` | Redis Commander (auto-connects, no login) |
-| nats | Deployment, in-memory | `host`, `port`, `token` | NATS built-in HTTP monitoring at `/varz` (no auth) |
+| Name | Description |
+|------|-------------|
+| postgres | PostgreSQL database backed by a StatefulSet |
+| valkey | Redis-protocol-compatible cache backed by a StatefulSet |
+| nats | NATS Core pub/sub server backed by a Deployment |
 
 ### Workflows
 
