@@ -92,9 +92,10 @@ rules:
   - clustersecretstores
   - pushsecrets
   verbs: ["*"]
-# External Secrets Operator generators (Password, GithubAccessToken, etc.)
+# External Secrets Operator generators
 - apiGroups: ["generators.external-secrets.io"]
-  resources: ["*"]
+  resources:
+  - passwords
   verbs: ["*"]
 # KGateway resources (if using KGateway)
 - apiGroups: ["gateway.kgateway.dev"]
