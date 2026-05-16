@@ -97,12 +97,13 @@ spec:
   # Schema defines what developers can configure
   schema:
     parameters:
-      # Static across environments and exposed as inputs to the developer when creating a Component of this type
-      # Examples provided after Component definition section
+      # Static across environments and exposed as inputs to the developer when creating a Component of this type.
+      # Examples provided after Component definition section.
 
     envOverrides:
-      # Can be overriden per environment via ComponentDeployment by the PE
-      # Examples provided after Component definition section
+      # Defaults can be provided when creating a Component (optional).
+      # Can be overridden per environment via ComponentDeployment.
+      # Examples provided after Component definition section.
 
   # Templates generate K8s resources dynamically
   resources:
@@ -121,25 +122,25 @@ spec:
               labels: |
                 ${merge({"app": metadata.name}, metadata.podSelectors)}
             spec:
-              terminationGracePeriodSeconds: ${spec.lifecycle.terminationGracePeriodSeconds}
+              terminationGracePeriodSeconds: ${parameters.lifecycle.terminationGracePeriodSeconds}
               containers:
                 - name: app
                   image: ${build.image}
-                  imagePullPolicy: ${spec.lifecycle.imagePullPolicy}
-                  command: ${spec.runtime.command}
-                  args: ${spec.runtime.args}
+                  imagePullPolicy: ${parameters.lifecycle.imagePullPolicy}
+                  command: ${parameters.runtime.command}
+                  args: ${parameters.runtime.args}
                   ports: |
                     ${workload.endpoints.map(e, {"containerPort": e.port})}
                   resources:
                     requests:
-                      cpu: ${spec.resources.requests.cpu}
-                      memory: ${spec.resources.requests.memory}
+                      cpu: ${parameters.resources.requests.cpu}
+                      memory: ${parameters.resources.requests.memory}
                     limits:
-                      cpu: ${spec.resources.limits.cpu}
-                      memory: ${spec.resources.limits.memory}
+                      cpu: ${parameters.resources.limits.cpu}
+                      memory: ${parameters.resources.limits.memory}
 
     - id: hpa
-      includeWhen: ${spec.autoscaling.enabled}
+      includeWhen: ${parameters.autoscaling.enabled}
       template:
         apiVersion: autoscaling/v2
         kind: HorizontalPodAutoscaler
@@ -150,18 +151,18 @@ spec:
             apiVersion: apps/v1
             kind: Deployment
             name: ${metadata.name}
-          minReplicas: ${spec.autoscaling.minReplicas}
-          maxReplicas: ${spec.autoscaling.maxReplicas}
+          minReplicas: ${parameters.autoscaling.minReplicas}
+          maxReplicas: ${parameters.autoscaling.maxReplicas}
           metrics:
             - type: Resource
               resource:
                 name: cpu
                 target:
                   type: Utilization
-                  averageUtilization: ${spec.autoscaling.targetCPUUtilization}
+                  averageUtilization: ${parameters.autoscaling.targetCPUUtilization}
 
     - id: pdb
-      includeWhen: ${spec.autoscaling.enabled}
+      includeWhen: ${parameters.autoscaling.enabled}
       template:
         apiVersion: policy/v1
         kind: PodDisruptionBudget
@@ -181,7 +182,7 @@ spec:
 - `${metadata.labels}` - Component instance labels
 - `${metadata.annotations}` - Component instance annotations
 - `${metadata.podSelectors}` - Platform-injected pod selectors (e.g., `openchoreo.io/component-id`, `openchoreo.io/environment`, `openchoreo.io/project-id`) for component identity and environment tracking
-- `${spec.*}` - Developer configuration from Component (merged parameters + envOverrides)
+- `${parameters.*}` - Developer configuration from Component (merged parameters + envOverrides)
 - `${build.*}` - Build context from Component's build field
 - `${workload.*}` - Application metadata extracted from source repo at build time
 
@@ -192,7 +193,7 @@ ComponentTypeDefinitions support `forEach` to generate multiple instances of a r
 ```yaml
 resources:
   - id: config
-    forEach: ${spec.configurations}
+    forEach: ${parameters.configurations}
     var: config
     template:
       apiVersion: v1
@@ -246,7 +247,7 @@ spec:
     name: deployment/web-app
 
   # Parameters from ComponentTypeDefinition (oneOf schema based on componentType).
-  # Like all other parameters, these are typed, validated and can have default values (so can be optional when necessary).
+  # Env overridable fields also can be set here as defaults.
   parameters:
     lifecycle:
       terminationGracePeriodSeconds: 60
@@ -269,7 +270,7 @@ spec:
     # Create PVC and add volume to pod
     - name: persistent-volume-claim
       instanceName: app-data
-      config:
+      parameters:
         volumeName: app-data-vol
         mountPath: /app/data
         size: 50Gi
@@ -278,7 +279,7 @@ spec:
     # Add logging sidecar for file-based logs
     - name: add-file-logging-sidecar
       instanceName: app-logs
-      config:
+      parameters:
         logFilePath: /var/log/app/application.log
         containerName: app
 
@@ -305,12 +306,12 @@ The Component CRD uses a **oneOf schema** for the `parameters` field based on th
 - When `componentType: web-app`, the `parameters` field schema is the **merged schema** of the ComponentTypeDefinition's `parameters` and `envOverrides`
 - This allows developers to configure both static parameters and environment-overridable settings in one place
 - At runtime, these are split: `parameters` remain static, `envOverrides` can be overridden in ComponentDeployment
-- Templates access merged values via `${spec.*}` (e.g., `${spec.lifecycle.terminationGracePeriodSeconds}`, `${spec.resources.requests.cpu}`)
+- Templates access merged values via `${parameters.*}` (e.g., `${parameters.lifecycle.terminationGracePeriodSeconds}`, `${parameters.resources.requests.cpu}`)
 
 **Workload Spec (extracted from source repo at build time):**
 
 - The workload spec will be a developer-facing resource that's committed to the application's source repository (as the "workload.yaml").
-- This will contain OpenChoreo developer concepts like `endpoints`, `connections`, and `config schema(?)` and will be proceed by the system and uses it as (automatic) inputs to the ComponentTypeDefinitions when composing the final Kubernetes resources.
+- This will contain OpenChoreo developer concepts like `endpoints`, `connections`, and `config schema(?)` and will be processed by the system and used as (automatic) inputs to the ComponentTypeDefinitions when composing the final Kubernetes resources.
 
 ```yaml
 # workload.yaml in source repo
@@ -336,34 +337,60 @@ configSchema: ... # Design TBD
 
 This workload spec is available as `${workload.*}` in ComponentTypeDefinition templates, so that PEs can also build additional capabilities based on the values provided here by the developers.
 
-**Example ComponentTypeDefinition schema with parameters and envOverrides:**
+#### Schema Definition Flexibility
+
+ComponentTypeDefinitions and Addons use a concise shorthand schema syntax that allows platform engineers to define type-safe, validated parameters. This shorthand notation provides an intuitive way to express schemas inline within YAML definitions, which are converted to JSON Schema for runtime validation.
+
+**Schema Extraction**: The shorthand schemas are automatically converted to standard JSON Schemas at runtime using OpenChoreo's schema extraction mechanism. This provides the foundation for:
+- Type validation for developer inputs
+- Auto-generation of UI forms on UI
+
+**Supported Features**:
+
+The schema syntax supports a rich set of capabilities for defining component parameters:
+
+- **Primitive types**: `string`, `integer`, `number`, `boolean`
+- **Reusable custom types**: Define types once in a `types` section and reference them across multiple fields
+- **Arrays**: Using `[]Type` syntax (e.g., `[]string`, `[]MountInfo`)
+- **Maps**: Using `map<ValueType>` syntax for key-value pairs with string keys
+- **Nested objects**: Define structured schemas with nested properties inline
+- **Constraints and validation**: Rich set of validation markers including `default`, `required`, `enum`, `minimum`, `maximum`, `minLength`, `maxLength`, `pattern`, `nullable`, and more
+- **Documentation**: Add `description` marker to provide inline documentation
+- **Custom markers**: Support for custom markers that are ignored during schema validations but can be used by tooling (e.g., CLI scaffolding can use custom markers to skip less important optional fields when generating component manifests)
+
+**Example ComponentTypeDefinition with schema definitions:**
 
 ```yaml
 schema:
+  # Optional types section for reusable type definitions
+  types:
+    ResourceSpec:
+      cpu: string | default=100m
+      memory: string | default=256Mi
+
   parameters:
     # Component-level parameters - static across environments
     runtime:
-      command: array<string> | default=[]
-      args: array<string> | default=[]
+      command: []string | default=[]
+      args: []string | default=[]
     lifecycle:
-      terminationGracePeriodSeconds: integer | default=30
-      imagePullPolicy: string | default=IfNotPresent enum="Always,IfNotPresent,Never"
+      terminationGracePeriodSeconds: integer | default=30 minimum=1 maximum=300
+      imagePullPolicy: string | default=IfNotPresent enum=Always,IfNotPresent,Never
+    labels: map<string> | default={}
 
   envOverrides:
     # Environment-overridable parameters
     resources:
-      requests:
-        cpu: string | default=100m
-        memory: string | default=256Mi
-      limits:
-        cpu: string | default=500m
-        memory: string | default=512Mi
+      requests: ResourceSpec
+      limits: ResourceSpec
     autoscaling:
       enabled: boolean | default=false
-      minReplicas: integer | default=1
-      maxReplicas: integer | default=10
-      targetCPUUtilization: integer | default=80
+      minReplicas: integer | default=1 minimum=1
+      maxReplicas: integer | default=10 minimum=1
+      targetCPUUtilization: integer | default=80 minimum=1 maximum=100
 ```
+
+**How it works**: When a ComponentTypeDefinition is registered, the schema extractor processes the shorthand notation and generates a full JSON Schema. This schema is then used to validate Component definitions and generate user interfaces. The shorthand format significantly reduces verbosity while maintaining expressiveness and type safety.
 
 **Example Addon 1: Persistent Volume Claim with Mount** - A PE defined Addon that allows developers to add a persistent volume mount to a Component.
 
@@ -395,8 +422,8 @@ spec:
             - ReadWriteOnce
           resources:
             requests:
-              storage: ${spec.size}
-          storageClassName: ${spec.storageClass}
+              storage: ${parameters.size}
+          storageClassName: ${parameters.storageClass}
 
   patches:
     # Attach PVC as a volume in the pod spec
@@ -408,7 +435,7 @@ spec:
         - op: add
           path: /spec/template/spec/volumes/-
           value:
-            name: ${spec.volumeName}
+            name: ${parameters.volumeName}
             persistentVolumeClaim:
               claimName: ${metadata.name}-${instanceName}
 
@@ -419,10 +446,10 @@ spec:
         kind: Deployment
       operations:
         - op: add
-          path: /spec/template/spec/containers/[?(@.name=='${spec.containerName}')]/volumeMounts/-
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/volumeMounts/-
           value:
-            name: ${spec.volumeName}
-            mountPath: ${spec.mountPath}
+            name: ${parameters.volumeName}
+            mountPath: ${parameters.mountPath}
 ```
 
 **Example Addon 2: EmptyDir Volume with Sidecar** - Allows legacy applications to stream their file based logs to stdout for log collection.
@@ -457,15 +484,15 @@ spec:
             command: ["/bin/sh", "-c"]
             args:
               - |
-                echo "Starting log tail for ${spec.logFilePath}"
-                tail -n+1 -F ${spec.logFilePath}
+                echo "Starting log tail for ${parameters.logFilePath}"
+                tail -n+1 -F ${parameters.logFilePath}
             volumeMounts:
               - name: app-logs
                 mountPath: /logs
 
         # Ensure main container has log volume
         - op: add
-          path: /spec/template/spec/containers/[?(@.name=='${spec.containerName}')]/volumeMounts/-
+          path: /spec/template/spec/containers/[?(@.name=='${parameters.containerName}')]/volumeMounts/-
           value:
             name: app-logs
             mountPath: /logs
@@ -542,7 +569,7 @@ Addons apply changes to rendered resources through patch documents that mirror K
 
   ```yaml
   patches:
-    - forEach: ${spec.mounts}
+    - forEach: ${parameters.mounts}
       var: mount
       target:
         group: apps
@@ -552,7 +579,7 @@ Addons apply changes to rendered resources through patch documents that mirror K
         - op: add
           path: /spec/template/spec/containers/[?(@.name=='${mount.containerName}')]/volumeMounts/-
           value:
-            name: ${spec.volumeName}
+            name: ${parameters.volumeName}
             mountPath: ${mount.mountPath}
             readOnly: ${has(mount.readOnly) ? mount.readOnly : false}
             subPath: ${has(mount.subPath) ? mount.subPath : ""}
