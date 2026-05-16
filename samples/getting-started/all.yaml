@@ -1236,7 +1236,7 @@ spec:
                     defaultMode: 0755
 
     - id: admin-deployment
-      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
       template:
         apiVersion: apps/v1
         kind: Deployment
@@ -1265,7 +1265,7 @@ spec:
                       name: http
 
     - id: admin-service
-      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
       template:
         apiVersion: v1
         kind: Service
@@ -1282,7 +1282,7 @@ spec:
               targetPort: 8080
 
     - id: admin-route
-      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
       template:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
@@ -1445,7 +1445,7 @@ spec:
                       name: valkey
 
     - id: admin-deployment
-      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
       template:
         apiVersion: apps/v1
         kind: Deployment
@@ -1485,7 +1485,7 @@ spec:
                       name: http
 
     - id: admin-service
-      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
       template:
         apiVersion: v1
         kind: Service
@@ -1502,7 +1502,7 @@ spec:
               targetPort: 8081
 
     - id: admin-route
-      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
       template:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
@@ -1675,7 +1675,7 @@ spec:
     # serves the client port. The HTTPRoute below just routes the gateway
     # to that monitoring port — no separate admin pod is needed.
     - id: admin-route
-      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
       template:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute

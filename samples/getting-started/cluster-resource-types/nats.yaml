@@ -149,7 +149,7 @@ spec:
     # serves the client port. The HTTPRoute below just routes the gateway
     # to that monitoring port — no separate admin pod is needed.
     - id: admin-route
-      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway.ingress.external)}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
       template:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
