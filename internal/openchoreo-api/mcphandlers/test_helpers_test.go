@@ -5,6 +5,7 @@ package mcphandlers
 
 import (
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
+	clusterresourcetypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterresourcetype"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componentreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componentrelease"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
@@ -14,6 +15,10 @@ import (
 	namespacesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/namespace"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
+	resourcesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resource"
+	resourcereleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcerelease"
+	resourcereleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcereleasebinding"
+	resourcetypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcetype"
 	secretreferencesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference"
 	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
 	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
@@ -74,4 +79,24 @@ func withSecretReferenceService(s secretreferencesvc.Service) func(*handlerservi
 
 func withComponentReleaseService(s componentreleasesvc.Service) func(*handlerservices.Services) {
 	return func(svc *handlerservices.Services) { svc.ComponentReleaseService = s }
+}
+
+func withResourceTypeService(s resourcetypesvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.ResourceTypeService = s }
+}
+
+func withClusterResourceTypeService(s clusterresourcetypesvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.ClusterResourceTypeService = s }
+}
+
+func withResourceService(s resourcesvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.ResourceService = s }
+}
+
+func withResourceReleaseService(s resourcereleasesvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.ResourceReleaseService = s }
+}
+
+func withResourceReleaseBindingService(s resourcereleasebindingsvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.ResourceReleaseBindingService = s }
 }
