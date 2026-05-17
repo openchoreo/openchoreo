@@ -141,9 +141,12 @@ func (t *Toolsets) RegisterUpdateResource(s *mcp.Server, perms map[string]ToolPe
 		Description   string                 `json:"description"`
 		Parameters    map[string]interface{} `json:"parameters"`
 	}) (*mcp.CallToolResult, any, error) {
-		annotations := annotationsFromDisplayDesc(args.DisplayName, args.Description)
 		body := &gen.UpdateResourceJSONRequestBody{
-			Metadata: gen.ObjectMeta{Name: args.Name, Annotations: &annotations},
+			Metadata: gen.ObjectMeta{Name: args.Name},
+		}
+		if args.DisplayName != "" || args.Description != "" {
+			annotations := annotationsFromDisplayDesc(args.DisplayName, args.Description)
+			body.Metadata.Annotations = &annotations
 		}
 		if args.Parameters != nil {
 			body.Spec = &gen.ResourceInstanceSpec{Parameters: &args.Parameters}

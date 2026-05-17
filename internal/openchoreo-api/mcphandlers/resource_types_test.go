@@ -212,6 +212,13 @@ func TestCreateResourceType(t *testing.T) {
 		})
 		require.ErrorIs(t, err, expected)
 	})
+
+	t.Run("rejects nil body", func(t *testing.T) {
+		h := newTestHandler()
+		_, err := h.CreateResourceType(ctx, testNS, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "request body is required")
+	})
 }
 
 func TestUpdateResourceType(t *testing.T) {
@@ -285,6 +292,52 @@ func TestUpdateResourceType(t *testing.T) {
 			Metadata: gen.ObjectMeta{Name: testResourceTypeName},
 		})
 		require.ErrorIs(t, err, expected)
+	})
+
+	t.Run("rejects nil body", func(t *testing.T) {
+		h := newTestHandler()
+		_, err := h.UpdateResourceType(ctx, testNS, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "request body is required")
+	})
+
+	t.Run("strips empty display-name and description on merge", func(t *testing.T) {
+		existing := sampleResourceType()
+		existing.Annotations = map[string]string{
+			"openchoreo.dev/display-name": "Existing Name",
+			"keep-me":                     "value",
+		}
+		incoming := map[string]string{
+			"openchoreo.dev/display-name": "",
+			"openchoreo.dev/description":  "",
+			"new-key":                     "new-value",
+		}
+
+		rtSvc := resourcetypemocks.NewMockService(t)
+		rtSvc.EXPECT().
+			GetResourceType(mock.Anything, testNS, testResourceTypeName).
+			Return(existing, nil)
+
+		var sent *openchoreov1alpha1.ResourceType
+		rtSvc.EXPECT().
+			UpdateResourceType(mock.Anything, testNS, mock.Anything).
+			Run(func(_ context.Context, _ string, rt *openchoreov1alpha1.ResourceType) {
+				sent = rt
+			}).
+			Return(existing, nil)
+
+		h := newTestHandler(withResourceTypeService(rtSvc))
+		_, err := h.UpdateResourceType(ctx, testNS, &gen.UpdateResourceTypeJSONRequestBody{
+			Metadata: gen.ObjectMeta{Name: testResourceTypeName, Annotations: &incoming},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, sent)
+		assert.Equal(t, "Existing Name", sent.Annotations["openchoreo.dev/display-name"],
+			"empty display-name in incoming must not overwrite existing value")
+		_, hasDesc := sent.Annotations["openchoreo.dev/description"]
+		assert.False(t, hasDesc, "empty description annotation must be stripped, not added")
+		assert.Equal(t, "value", sent.Annotations["keep-me"])
+		assert.Equal(t, "new-value", sent.Annotations["new-key"])
 	})
 }
 
@@ -467,6 +520,13 @@ func TestCreateClusterResourceType(t *testing.T) {
 		})
 		require.ErrorIs(t, err, expected)
 	})
+
+	t.Run("rejects nil body", func(t *testing.T) {
+		h := newTestHandler()
+		_, err := h.CreateClusterResourceType(ctx, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "request body is required")
+	})
 }
 
 func TestUpdateClusterResourceType(t *testing.T) {
@@ -540,6 +600,13 @@ func TestUpdateClusterResourceType(t *testing.T) {
 			Metadata: gen.ObjectMeta{Name: testClusterResourceTypeName},
 		})
 		require.ErrorIs(t, err, expected)
+	})
+
+	t.Run("rejects nil body", func(t *testing.T) {
+		h := newTestHandler()
+		_, err := h.UpdateClusterResourceType(ctx, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "request body is required")
 	})
 }
 

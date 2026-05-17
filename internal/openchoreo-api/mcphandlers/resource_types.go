@@ -5,6 +5,7 @@ package mcphandlers
 
 import (
 	"context"
+	"errors"
 	"maps"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,6 +14,22 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
+
+// mergeAnnotations applies the create-path annotation sanitizer to incoming
+// annotations and merges the cleaned result into dst. Used by Update handlers
+// to keep parity with Create paths.
+func mergeAnnotations(dst, incoming map[string]string) map[string]string {
+	cleaned := maps.Clone(incoming)
+	cleanAnnotations(cleaned)
+	if len(cleaned) == 0 {
+		return dst
+	}
+	if dst == nil {
+		dst = map[string]string{}
+	}
+	maps.Copy(dst, cleaned)
+	return dst
+}
 
 // ---------------------------------------------------------------------------
 // ResourceType (namespace-scoped)
@@ -41,6 +58,9 @@ func (h *MCPHandler) GetResourceTypeSchema(ctx context.Context, namespaceName, r
 func (h *MCPHandler) CreateResourceType(
 	ctx context.Context, namespaceName string, req *gen.CreateResourceTypeJSONRequestBody,
 ) (any, error) {
+	if req == nil {
+		return nil, errors.New("request body is required")
+	}
 	annotations := map[string]string{}
 	if req.Metadata.Annotations != nil {
 		maps.Copy(annotations, *req.Metadata.Annotations)
@@ -72,16 +92,16 @@ func (h *MCPHandler) CreateResourceType(
 func (h *MCPHandler) UpdateResourceType(
 	ctx context.Context, namespaceName string, req *gen.UpdateResourceTypeJSONRequestBody,
 ) (any, error) {
+	if req == nil {
+		return nil, errors.New("request body is required")
+	}
 	existing, err := h.services.ResourceTypeService.GetResourceType(ctx, namespaceName, req.Metadata.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	if req.Metadata.Annotations != nil {
-		if existing.Annotations == nil {
-			existing.Annotations = map[string]string{}
-		}
-		maps.Copy(existing.Annotations, *req.Metadata.Annotations)
+		existing.Annotations = mergeAnnotations(existing.Annotations, *req.Metadata.Annotations)
 	}
 	if req.Spec != nil {
 		spec, err := convertSpec[gen.ResourceTypeSpec, openchoreov1alpha1.ResourceTypeSpec](*req.Spec)
@@ -136,6 +156,9 @@ func (h *MCPHandler) GetClusterResourceTypeSchema(ctx context.Context, crtName s
 func (h *MCPHandler) CreateClusterResourceType(
 	ctx context.Context, req *gen.CreateClusterResourceTypeJSONRequestBody,
 ) (any, error) {
+	if req == nil {
+		return nil, errors.New("request body is required")
+	}
 	annotations := map[string]string{}
 	if req.Metadata.Annotations != nil {
 		maps.Copy(annotations, *req.Metadata.Annotations)
@@ -166,16 +189,16 @@ func (h *MCPHandler) CreateClusterResourceType(
 func (h *MCPHandler) UpdateClusterResourceType(
 	ctx context.Context, req *gen.UpdateClusterResourceTypeJSONRequestBody,
 ) (any, error) {
+	if req == nil {
+		return nil, errors.New("request body is required")
+	}
 	existing, err := h.services.ClusterResourceTypeService.GetClusterResourceType(ctx, req.Metadata.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	if req.Metadata.Annotations != nil {
-		if existing.Annotations == nil {
-			existing.Annotations = map[string]string{}
-		}
-		maps.Copy(existing.Annotations, *req.Metadata.Annotations)
+		existing.Annotations = mergeAnnotations(existing.Annotations, *req.Metadata.Annotations)
 	}
 	if req.Spec != nil {
 		spec, err := convertSpec[gen.ResourceTypeSpec, openchoreov1alpha1.ClusterResourceTypeSpec](*req.Spec)

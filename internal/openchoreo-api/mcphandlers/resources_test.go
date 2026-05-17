@@ -203,11 +203,29 @@ func TestCreateResource(t *testing.T) {
 		assert.Equal(t, "created", m["action"])
 	})
 
-	t.Run("prefers explicit body project owner over arg", func(t *testing.T) {
+	t.Run("rejects when body project owner mismatches path-scoped projectName", func(t *testing.T) {
+		// Defense-in-depth: the path-scoped projectName is the authz boundary; the body
+		// must not be allowed to broaden it.
+		h := newTestHandler()
+		req := &gen.CreateResourceJSONRequestBody{
+			Metadata: gen.ObjectMeta{Name: testResourceName},
+			Spec: &gen.ResourceInstanceSpec{
+				Owner: struct {
+					ProjectName string `json:"projectName"`
+				}{ProjectName: "other-project"},
+				Type: gen.ResourceTypeRef{Name: "postgres"},
+			},
+		}
+		_, err := h.CreateResource(ctx, testNS, testProject, req)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must match projectName")
+	})
+
+	t.Run("accepts matching body project owner", func(t *testing.T) {
 		rSvc := resourcemocks.NewMockService(t)
 		rSvc.EXPECT().
 			CreateResource(mock.Anything, testNS, mock.MatchedBy(func(r *openchoreov1alpha1.Resource) bool {
-				return r.Spec.Owner.ProjectName == "from-body"
+				return r.Spec.Owner.ProjectName == testProject
 			})).
 			Return(sampleResource(), nil)
 
@@ -216,7 +234,7 @@ func TestCreateResource(t *testing.T) {
 			Spec: &gen.ResourceInstanceSpec{
 				Owner: struct {
 					ProjectName string `json:"projectName"`
-				}{ProjectName: "from-body"},
+				}{ProjectName: testProject},
 				Type: gen.ResourceTypeRef{Name: "postgres"},
 			},
 		}

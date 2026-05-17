@@ -75,8 +75,11 @@ func (h *MCPHandler) CreateResource(
 	if req.Spec.Type.Kind != nil {
 		r.Spec.Type.Kind = openchoreov1alpha1.ResourceTypeRefKind(*req.Spec.Type.Kind)
 	}
-	if req.Spec.Owner.ProjectName != "" {
-		r.Spec.Owner.ProjectName = req.Spec.Owner.ProjectName
+	if req.Spec.Owner.ProjectName != "" && req.Spec.Owner.ProjectName != projectName {
+		return nil, fmt.Errorf(
+			"spec.owner.projectName (%s) must match projectName (%s)",
+			req.Spec.Owner.ProjectName, projectName,
+		)
 	}
 	if req.Spec.Parameters != nil {
 		paramsBytes, err := json.Marshal(*req.Spec.Parameters)
@@ -111,10 +114,7 @@ func (h *MCPHandler) UpdateResource(
 	}
 
 	if req.Metadata.Annotations != nil {
-		if existing.Annotations == nil {
-			existing.Annotations = map[string]string{}
-		}
-		maps.Copy(existing.Annotations, *req.Metadata.Annotations)
+		existing.Annotations = mergeAnnotations(existing.Annotations, *req.Metadata.Annotations)
 	}
 	if req.Spec != nil && req.Spec.Parameters != nil {
 		paramsBytes, err := json.Marshal(*req.Spec.Parameters)
