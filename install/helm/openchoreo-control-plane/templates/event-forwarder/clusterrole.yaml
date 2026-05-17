@@ -21,12 +21,15 @@ rules:
   - workflows
   - workflowplanes
   - observabilityplanes
+  - resources
+  - resourcetypes
   - clustercomponenttypes
   - clustertraits
   - clusterworkflows
   - clusterdataplanes
   - clusterobservabilityplanes
   - clusterworkflowplanes
+  - clusterresourcetypes
   verbs:
   - get
   - list
