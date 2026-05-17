@@ -155,6 +155,57 @@ endpoints:
 	require.Len(t, ep.Visibility, 1)
 	assert.Equal(t, openchoreov1alpha1.EndpointVisibilityProject, ep.Visibility[0])
 }
+func TestGenerateWorkloadCR_WithResourceDependencies(t *testing.T) {
+	wr, err := NewWorkloadResource(resources.WorkloadV1Config, "my-ns")
+	require.NoError(t, err)
+	descriptorYAML := `apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: test-workload
+dependencies:
+  resources:
+    - ref: orders-db
+      envBindings:
+        host: DB_HOST
+        password: DB_PASSWORD
+      fileBindings:
+        caCert: /etc/ssl/db-ca.crt
+    - ref: cache
+      envBindings:
+        host: REDIS_HOST
+`
+	tmpDir := t.TempDir()
+	descriptorPath := filepath.Join(tmpDir, "workload.yaml")
+	require.NoError(t, os.WriteFile(descriptorPath, []byte(descriptorYAML), 0600))
+	params := synth.CreateWorkloadParams{
+		NamespaceName: "my-ns",
+		ProjectName:   "my-project",
+		ComponentName: "my-comp",
+		ImageURL:      "nginx:latest",
+		FilePath:      descriptorPath,
+	}
+	workloadCR, err := wr.GenerateWorkloadCR(params)
+	require.NoError(t, err)
+	require.NotNil(t, workloadCR)
+	require.NotNil(t, workloadCR.Spec.Dependencies)
+	require.Len(t, workloadCR.Spec.Dependencies.Resources, 2)
+
+	first := workloadCR.Spec.Dependencies.Resources[0]
+	assert.Equal(t, "orders-db", first.Ref)
+	assert.Equal(t, map[string]string{
+		"host":     "DB_HOST",
+		"password": "DB_PASSWORD",
+	}, first.EnvBindings)
+	assert.Equal(t, map[string]string{
+		"caCert": "/etc/ssl/db-ca.crt",
+	}, first.FileBindings)
+
+	second := workloadCR.Spec.Dependencies.Resources[1]
+	assert.Equal(t, "cache", second.Ref)
+	assert.Equal(t, map[string]string{"host": "REDIS_HOST"}, second.EnvBindings)
+	assert.Empty(t, second.FileBindings)
+
+	assert.Empty(t, workloadCR.Spec.Dependencies.Endpoints)
+}
 func TestCreateWorkload_OutputToFile(t *testing.T) {
 	wr, err := NewWorkloadResource(resources.WorkloadV1Config, "my-ns")
 	require.NoError(t, err)
@@ -240,6 +291,44 @@ endpoints:
 	yamlStr := string(data)
 	assert.Contains(t, yamlStr, "grpc-ep")
 	assert.Contains(t, yamlStr, "image: myimg:v1")
+}
+func TestCreateWorkload_WithResourceDependencies(t *testing.T) {
+	wr, err := NewWorkloadResource(resources.WorkloadV1Config, "my-ns")
+	require.NoError(t, err)
+	descriptorYAML := `apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: test-workload
+dependencies:
+  resources:
+    - ref: orders-db
+      envBindings:
+        host: DB_HOST
+        password: DB_PASSWORD
+      fileBindings:
+        caCert: /etc/ssl/db-ca.crt
+`
+	tmpDir := t.TempDir()
+	descriptorPath := filepath.Join(tmpDir, "workload.yaml")
+	require.NoError(t, os.WriteFile(descriptorPath, []byte(descriptorYAML), 0600))
+	outPath := filepath.Join(tmpDir, "out.yaml")
+	params := synth.CreateWorkloadParams{
+		NamespaceName: "my-ns",
+		ProjectName:   "my-project",
+		ComponentName: "my-comp",
+		ImageURL:      "myimg:v1",
+		FilePath:      descriptorPath,
+		OutputPath:    outPath,
+	}
+	err = wr.CreateWorkload(params)
+	require.NoError(t, err)
+	data, err := os.ReadFile(outPath)
+	require.NoError(t, err)
+	yamlStr := string(data)
+	assert.Contains(t, yamlStr, "resources:")
+	assert.Contains(t, yamlStr, "ref: orders-db")
+	assert.Contains(t, yamlStr, "host: DB_HOST")
+	assert.Contains(t, yamlStr, "password: DB_PASSWORD")
+	assert.Contains(t, yamlStr, "caCert: /etc/ssl/db-ca.crt")
 }
 func TestCreateWorkload_Validation(t *testing.T) {
 	wr, err := NewWorkloadResource(resources.WorkloadV1Config, "my-ns")

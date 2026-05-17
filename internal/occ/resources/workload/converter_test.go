@@ -295,6 +295,188 @@ func TestAddDependenciesFromDescriptor(t *testing.T) {
 		})
 	}
 }
+func TestAddDependenciesFromDescriptor_Resources(t *testing.T) {
+	baseWorkload := func() *openchoreov1alpha1.Workload {
+		return &openchoreov1alpha1.Workload{
+			Spec: openchoreov1alpha1.WorkloadSpec{
+				WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{},
+			},
+		}
+	}
+	tests := []struct {
+		name          string
+		descriptor    *WorkloadDescriptor
+		wantNilDeps   bool
+		wantResources int
+		wantEndpoints int
+		wantRef       string
+		wantEnv       map[string]string
+		wantFile      map[string]string
+		wantErr       string
+	}{
+		{
+			name: "valid resources only",
+			descriptor: &WorkloadDescriptor{
+				Dependencies: &WorkloadDescriptorDependencies{
+					Resources: []WorkloadDescriptorResourceDependency{
+						{
+							Ref: "orders-db",
+							EnvBindings: map[string]string{
+								"host":     "DB_HOST",
+								"port":     "DB_PORT",
+								"password": "DB_PASSWORD",
+							},
+							FileBindings: map[string]string{
+								"caCert": "/etc/ssl/db-ca.crt",
+							},
+						},
+					},
+				},
+			},
+			wantResources: 1,
+			wantRef:       "orders-db",
+			wantEnv: map[string]string{
+				"host":     "DB_HOST",
+				"port":     "DB_PORT",
+				"password": "DB_PASSWORD",
+			},
+			wantFile: map[string]string{
+				"caCert": "/etc/ssl/db-ca.crt",
+			},
+		},
+		{
+			name: "endpoints and resources together",
+			descriptor: &WorkloadDescriptor{
+				Dependencies: &WorkloadDescriptorDependencies{
+					Endpoints: []WorkloadDescriptorConnection{
+						{
+							Component:  "svc-b",
+							Name:       "http-ep",
+							Visibility: "project",
+							EnvBindings: WorkloadDescriptorConnectionEnvBindings{
+								Address: "SVC_B_URL",
+							},
+						},
+					},
+					Resources: []WorkloadDescriptorResourceDependency{
+						{
+							Ref:         "cache",
+							EnvBindings: map[string]string{"host": "REDIS_HOST"},
+						},
+					},
+				},
+			},
+			wantEndpoints: 1,
+			wantResources: 1,
+			wantRef:       "cache",
+			wantEnv:       map[string]string{"host": "REDIS_HOST"},
+		},
+		{
+			name: "resource without env or file bindings",
+			descriptor: &WorkloadDescriptor{
+				Dependencies: &WorkloadDescriptorDependencies{
+					Resources: []WorkloadDescriptorResourceDependency{
+						{Ref: "queue"},
+					},
+				},
+			},
+			wantResources: 1,
+			wantRef:       "queue",
+		},
+		{
+			name: "missing ref returns error",
+			descriptor: &WorkloadDescriptor{
+				Dependencies: &WorkloadDescriptorDependencies{
+					Resources: []WorkloadDescriptorResourceDependency{
+						{EnvBindings: map[string]string{"host": "DB_HOST"}},
+					},
+				},
+			},
+			wantErr: "ref is required",
+		},
+		{
+			name: "empty env binding key returns error",
+			descriptor: &WorkloadDescriptor{
+				Dependencies: &WorkloadDescriptorDependencies{
+					Resources: []WorkloadDescriptorResourceDependency{
+						{
+							Ref:         "db",
+							EnvBindings: map[string]string{"": "DB_HOST"},
+						},
+					},
+				},
+			},
+			wantErr: "envBindings",
+		},
+		{
+			name: "empty env binding value returns error",
+			descriptor: &WorkloadDescriptor{
+				Dependencies: &WorkloadDescriptorDependencies{
+					Resources: []WorkloadDescriptorResourceDependency{
+						{
+							Ref:         "db",
+							EnvBindings: map[string]string{"host": ""},
+						},
+					},
+				},
+			},
+			wantErr: "envBindings",
+		},
+		{
+			name: "empty file binding value returns error",
+			descriptor: &WorkloadDescriptor{
+				Dependencies: &WorkloadDescriptorDependencies{
+					Resources: []WorkloadDescriptorResourceDependency{
+						{
+							Ref:          "db",
+							FileBindings: map[string]string{"caCert": ""},
+						},
+					},
+				},
+			},
+			wantErr: "fileBindings",
+		},
+		{
+			name: "empty resources slice and no endpoints",
+			descriptor: &WorkloadDescriptor{
+				Dependencies: &WorkloadDescriptorDependencies{
+					Resources: []WorkloadDescriptorResourceDependency{},
+				},
+			},
+			wantNilDeps: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := baseWorkload()
+			err := addDependenciesFromDescriptor(w, tt.descriptor)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			if tt.wantNilDeps {
+				assert.Nil(t, w.Spec.Dependencies)
+				return
+			}
+			require.NotNil(t, w.Spec.Dependencies)
+			assert.Len(t, w.Spec.Dependencies.Endpoints, tt.wantEndpoints)
+			require.Len(t, w.Spec.Dependencies.Resources, tt.wantResources)
+			assert.Equal(t, tt.wantRef, w.Spec.Dependencies.Resources[0].Ref)
+			if tt.wantEnv != nil {
+				assert.Equal(t, tt.wantEnv, w.Spec.Dependencies.Resources[0].EnvBindings)
+			} else {
+				assert.Empty(t, w.Spec.Dependencies.Resources[0].EnvBindings)
+			}
+			if tt.wantFile != nil {
+				assert.Equal(t, tt.wantFile, w.Spec.Dependencies.Resources[0].FileBindings)
+			} else {
+				assert.Empty(t, w.Spec.Dependencies.Resources[0].FileBindings)
+			}
+		})
+	}
+}
 func TestReadWorkloadDescriptorDependencies(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -302,6 +484,10 @@ func TestReadWorkloadDescriptorDependencies(t *testing.T) {
 		wantNilDeps   bool
 		wantEndpoints int
 		wantComponent string
+		wantResources int
+		wantRef       string
+		wantEnv       map[string]string
+		wantFile      map[string]string
 	}{
 		{
 			name: "parses dependencies with endpoints",
@@ -324,6 +510,30 @@ dependencies:
 `,
 			wantEndpoints: 2,
 			wantComponent: "postgres",
+		},
+		{
+			name: "parses dependencies with resources",
+			yaml: `apiVersion: openchoreo.dev/v1alpha1
+metadata:
+  name: my-service
+dependencies:
+  resources:
+    - ref: orders-db
+      envBindings:
+        host: DB_HOST
+        password: DB_PASSWORD
+      fileBindings:
+        caCert: /etc/ssl/db-ca.crt
+`,
+			wantResources: 1,
+			wantRef:       "orders-db",
+			wantEnv: map[string]string{
+				"host":     "DB_HOST",
+				"password": "DB_PASSWORD",
+			},
+			wantFile: map[string]string{
+				"caCert": "/etc/ssl/db-ca.crt",
+			},
 		},
 		{
 			name: "no dependencies section",
@@ -354,12 +564,21 @@ connections:
 			descriptor, err := readWorkloadDescriptorFromReader(reader)
 			require.NoError(t, err)
 			if tt.wantNilDeps {
-				assert.True(t, descriptor.Dependencies == nil || len(descriptor.Dependencies.Endpoints) == 0)
+				assert.True(t, descriptor.Dependencies == nil ||
+					(len(descriptor.Dependencies.Endpoints) == 0 && len(descriptor.Dependencies.Resources) == 0))
 				return
 			}
 			require.NotNil(t, descriptor.Dependencies)
 			assert.Len(t, descriptor.Dependencies.Endpoints, tt.wantEndpoints)
-			assert.Equal(t, tt.wantComponent, descriptor.Dependencies.Endpoints[0].Component)
+			if tt.wantEndpoints > 0 {
+				assert.Equal(t, tt.wantComponent, descriptor.Dependencies.Endpoints[0].Component)
+			}
+			assert.Len(t, descriptor.Dependencies.Resources, tt.wantResources)
+			if tt.wantResources > 0 {
+				assert.Equal(t, tt.wantRef, descriptor.Dependencies.Resources[0].Ref)
+				assert.Equal(t, tt.wantEnv, descriptor.Dependencies.Resources[0].EnvBindings)
+				assert.Equal(t, tt.wantFile, descriptor.Dependencies.Resources[0].FileBindings)
+			}
 		})
 	}
 }

@@ -45,6 +45,21 @@ type WorkloadDescriptorEndpoint struct {
 type WorkloadDescriptorDependencies struct {
 	// Endpoints define how this workload consumes endpoints from other components.
 	Endpoints []WorkloadDescriptorConnection `yaml:"endpoints,omitempty"`
+	// Resources define how this workload consumes outputs from project-bound Resources.
+	Resources []WorkloadDescriptorResourceDependency `yaml:"resources,omitempty"`
+}
+
+// WorkloadDescriptorResourceDependency represents a dependency on a project-bound Resource.
+// Output names declared on the referenced ResourceType are wired into the consuming container
+// as env vars (envBindings) and file mounts (fileBindings).
+type WorkloadDescriptorResourceDependency struct {
+	// Ref is the name of the Resource to consume.
+	Ref string `yaml:"ref"`
+	// EnvBindings maps a ResourceType output name to a container environment variable name.
+	EnvBindings map[string]string `yaml:"envBindings,omitempty"`
+	// FileBindings maps a ResourceType output name to a container mount path. The referenced
+	// output's source kind must be secretKeyRef or configMapKeyRef.
+	FileBindings map[string]string `yaml:"fileBindings,omitempty"`
 }
 
 type WorkloadDescriptorConnection struct {
@@ -299,27 +314,53 @@ var validDependencyVisibilities = map[openchoreov1alpha1.EndpointVisibility]bool
 
 // addDependenciesFromDescriptor adds dependencies from the descriptor to the workload
 func addDependenciesFromDescriptor(workload *openchoreov1alpha1.Workload, descriptor *WorkloadDescriptor) error {
-	if descriptor.Dependencies == nil || len(descriptor.Dependencies.Endpoints) == 0 {
+	if descriptor.Dependencies == nil ||
+		(len(descriptor.Dependencies.Endpoints) == 0 && len(descriptor.Dependencies.Resources) == 0) {
 		return nil
 	}
 
-	connections := make([]openchoreov1alpha1.WorkloadConnection, 0, len(descriptor.Dependencies.Endpoints))
-	for i, dc := range descriptor.Dependencies.Endpoints {
+	connections, err := buildEndpointConnections(descriptor.Dependencies.Endpoints)
+	if err != nil {
+		return err
+	}
+	resources, err := buildResourceDependencies(descriptor.Dependencies.Resources)
+	if err != nil {
+		return err
+	}
+
+	if len(connections) == 0 && len(resources) == 0 {
+		return nil
+	}
+
+	if workload.Spec.Dependencies == nil {
+		workload.Spec.Dependencies = &openchoreov1alpha1.WorkloadDependencies{}
+	}
+	workload.Spec.Dependencies.Endpoints = connections
+	workload.Spec.Dependencies.Resources = resources
+	return nil
+}
+
+func buildEndpointConnections(entries []WorkloadDescriptorConnection) ([]openchoreov1alpha1.WorkloadConnection, error) {
+	if len(entries) == 0 {
+		return nil, nil
+	}
+	connections := make([]openchoreov1alpha1.WorkloadConnection, 0, len(entries))
+	for i, dc := range entries {
 		if dc.Component == "" {
-			return fmt.Errorf("dependency endpoint[%d]: component is required", i)
+			return nil, fmt.Errorf("dependency endpoint[%d]: component is required", i)
 		}
 		if dc.Name == "" {
-			return fmt.Errorf("dependency endpoint[%d] (component %q): name is required", i, dc.Component)
+			return nil, fmt.Errorf("dependency endpoint[%d] (component %q): name is required", i, dc.Component)
 		}
 		if dc.Visibility == "" {
-			return fmt.Errorf("dependency endpoint[%d] (component %q): visibility is required", i, dc.Component)
+			return nil, fmt.Errorf("dependency endpoint[%d] (component %q): visibility is required", i, dc.Component)
 		}
 		visibility := openchoreov1alpha1.EndpointVisibility(dc.Visibility)
 		if !validDependencyVisibilities[visibility] {
-			return fmt.Errorf("invalid dependency endpoint visibility %q for component %q endpoint %q: must be one of [project, namespace]",
+			return nil, fmt.Errorf("invalid dependency endpoint visibility %q for component %q endpoint %q: must be one of [project, namespace]",
 				dc.Visibility, dc.Component, dc.Name)
 		}
-		connection := openchoreov1alpha1.WorkloadConnection{
+		connections = append(connections, openchoreov1alpha1.WorkloadConnection{
 			Project:    dc.Project,
 			Component:  dc.Component,
 			Name:       dc.Name,
@@ -330,14 +371,37 @@ func addDependenciesFromDescriptor(workload *openchoreov1alpha1.Workload, descri
 				Port:     dc.EnvBindings.Port,
 				BasePath: dc.EnvBindings.BasePath,
 			},
+		})
+	}
+	return connections, nil
+}
+
+func buildResourceDependencies(entries []WorkloadDescriptorResourceDependency) ([]openchoreov1alpha1.WorkloadResourceDependency, error) {
+	if len(entries) == 0 {
+		return nil, nil
+	}
+	resources := make([]openchoreov1alpha1.WorkloadResourceDependency, 0, len(entries))
+	for i, dr := range entries {
+		if dr.Ref == "" {
+			return nil, fmt.Errorf("dependency resource[%d]: ref is required", i)
 		}
-		connections = append(connections, connection)
+		for k, v := range dr.EnvBindings {
+			if k == "" || v == "" {
+				return nil, fmt.Errorf("dependency resource[%d] (ref %q): envBindings keys (output names) and values (env var names) cannot be empty", i, dr.Ref)
+			}
+		}
+		for k, v := range dr.FileBindings {
+			if k == "" || v == "" {
+				return nil, fmt.Errorf("dependency resource[%d] (ref %q): fileBindings keys (output names) and values (mount paths) cannot be empty", i, dr.Ref)
+			}
+		}
+		resources = append(resources, openchoreov1alpha1.WorkloadResourceDependency{
+			Ref:          dr.Ref,
+			EnvBindings:  dr.EnvBindings,
+			FileBindings: dr.FileBindings,
+		})
 	}
-	if workload.Spec.Dependencies == nil {
-		workload.Spec.Dependencies = &openchoreov1alpha1.WorkloadDependencies{}
-	}
-	workload.Spec.Dependencies.Endpoints = connections
-	return nil
+	return resources, nil
 }
 
 // addConfigurationsFromDescriptor adds configurations (env vars and files) from the descriptor to the workload
