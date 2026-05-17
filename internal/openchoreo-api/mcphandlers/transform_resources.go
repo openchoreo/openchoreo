@@ -722,6 +722,196 @@ func resourceTreeDetail(result *k8sresourcessvc.K8sResourceTreeResult) map[strin
 }
 
 // ---------------------------------------------------------------------------
+// ResourceType
+// ---------------------------------------------------------------------------
+
+func resourceTypeSummary(rt openchoreov1alpha1.ResourceType) map[string]any {
+	m := extractCommonMeta(&rt)
+	if rt.Spec.RetainPolicy != "" {
+		m["retainPolicy"] = string(rt.Spec.RetainPolicy)
+	}
+	if names := resourceTypeOutputNames(rt.Spec.Outputs); len(names) > 0 {
+		m["outputs"] = names
+	}
+	return m
+}
+
+func resourceTypeDetail(rt *openchoreov1alpha1.ResourceType) map[string]any {
+	m := extractCommonMeta(rt)
+	if spec := specToMap(rt.Spec); len(spec) > 0 {
+		m["spec"] = spec
+	}
+	return m
+}
+
+// ---------------------------------------------------------------------------
+// ClusterResourceType
+// ---------------------------------------------------------------------------
+
+func clusterResourceTypeSummary(crt openchoreov1alpha1.ClusterResourceType) map[string]any {
+	m := extractCommonMeta(&crt)
+	if crt.Spec.RetainPolicy != "" {
+		m["retainPolicy"] = string(crt.Spec.RetainPolicy)
+	}
+	if names := resourceTypeOutputNames(crt.Spec.Outputs); len(names) > 0 {
+		m["outputs"] = names
+	}
+	return m
+}
+
+func clusterResourceTypeDetail(crt *openchoreov1alpha1.ClusterResourceType) map[string]any {
+	m := extractCommonMeta(crt)
+	if spec := specToMap(crt.Spec); len(spec) > 0 {
+		m["spec"] = spec
+	}
+	return m
+}
+
+func resourceTypeOutputNames(outputs []openchoreov1alpha1.ResourceTypeOutput) []string {
+	if len(outputs) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(outputs))
+	for i := range outputs {
+		names = append(names, outputs[i].Name)
+	}
+	return names
+}
+
+// ---------------------------------------------------------------------------
+// Resource
+// ---------------------------------------------------------------------------
+
+func resourceSummary(r openchoreov1alpha1.Resource) map[string]any {
+	m := extractCommonMeta(&r)
+	m["projectName"] = r.Spec.Owner.ProjectName
+	m["type"] = map[string]any{
+		"kind": string(r.Spec.Type.Kind),
+		"name": r.Spec.Type.Name,
+	}
+	setIfNotEmpty(m, "status", readyStatus(r.Status.Conditions))
+	if r.Status.LatestRelease != nil {
+		m["latestRelease"] = r.Status.LatestRelease.Name
+	}
+	return m
+}
+
+func resourceDetail(r *openchoreov1alpha1.Resource) map[string]any {
+	m := extractCommonMeta(r)
+	m["projectName"] = r.Spec.Owner.ProjectName
+	m["type"] = map[string]any{
+		"kind": string(r.Spec.Type.Kind),
+		"name": r.Spec.Type.Name,
+	}
+	if r.Spec.Parameters != nil {
+		m["parameters"] = rawExtensionToAny(r.Spec.Parameters)
+	}
+	if r.Status.LatestRelease != nil {
+		m["latestRelease"] = map[string]any{
+			"name": r.Status.LatestRelease.Name,
+			"hash": r.Status.LatestRelease.Hash,
+		}
+	}
+	setIfNotEmpty(m, "status", readyStatus(r.Status.Conditions))
+	if conds := conditionsSummary(r.Status.Conditions); conds != nil {
+		m["conditions"] = conds
+	}
+	return m
+}
+
+// ---------------------------------------------------------------------------
+// ResourceRelease
+// ---------------------------------------------------------------------------
+
+func resourceReleaseSummary(rr openchoreov1alpha1.ResourceRelease) map[string]any {
+	m := extractCommonMeta(&rr)
+	m["projectName"] = rr.Spec.Owner.ProjectName
+	m["resourceName"] = rr.Spec.Owner.ResourceName
+	m["resourceType"] = map[string]any{
+		"kind": string(rr.Spec.ResourceType.Kind),
+		"name": rr.Spec.ResourceType.Name,
+	}
+	return m
+}
+
+func resourceReleaseDetail(rr *openchoreov1alpha1.ResourceRelease) map[string]any {
+	m := extractCommonMeta(rr)
+	m["projectName"] = rr.Spec.Owner.ProjectName
+	m["resourceName"] = rr.Spec.Owner.ResourceName
+	m["resourceType"] = map[string]any{
+		"kind": string(rr.Spec.ResourceType.Kind),
+		"name": rr.Spec.ResourceType.Name,
+	}
+	if spec := specToMap(rr.Spec.ResourceType.Spec); len(spec) > 0 {
+		m["resourceTypeSpec"] = spec
+	}
+	if rr.Spec.Parameters != nil {
+		m["parameters"] = rawExtensionToAny(rr.Spec.Parameters)
+	}
+	return m
+}
+
+// ---------------------------------------------------------------------------
+// ResourceReleaseBinding
+// ---------------------------------------------------------------------------
+
+func resourceReleaseBindingSummary(rb openchoreov1alpha1.ResourceReleaseBinding) map[string]any {
+	m := extractCommonMeta(&rb)
+	m["projectName"] = rb.Spec.Owner.ProjectName
+	m["resourceName"] = rb.Spec.Owner.ResourceName
+	m["environment"] = rb.Spec.Environment
+	setIfNotEmpty(m, "resourceRelease", rb.Spec.ResourceRelease)
+	if rb.Spec.RetainPolicy != "" {
+		m["retainPolicy"] = string(rb.Spec.RetainPolicy)
+	}
+	setIfNotEmpty(m, "status", readyStatus(rb.Status.Conditions))
+	return m
+}
+
+func resourceReleaseBindingDetail(rb *openchoreov1alpha1.ResourceReleaseBinding) map[string]any {
+	m := extractCommonMeta(rb)
+	m["projectName"] = rb.Spec.Owner.ProjectName
+	m["resourceName"] = rb.Spec.Owner.ResourceName
+	m["environment"] = rb.Spec.Environment
+	setIfNotEmpty(m, "resourceRelease", rb.Spec.ResourceRelease)
+	if rb.Spec.RetainPolicy != "" {
+		m["retainPolicy"] = string(rb.Spec.RetainPolicy)
+	}
+	if rb.Spec.ResourceTypeEnvironmentConfigs != nil {
+		m["resourceTypeEnvironmentConfigs"] = rawExtensionToAny(rb.Spec.ResourceTypeEnvironmentConfigs)
+	}
+	if outputs := resolvedResourceOutputs(rb.Status.Outputs); len(outputs) > 0 {
+		m["outputs"] = outputs
+	}
+	setIfNotEmpty(m, "status", readyStatus(rb.Status.Conditions))
+	if conds := conditionsSummary(rb.Status.Conditions); conds != nil {
+		m["conditions"] = conds
+	}
+	return m
+}
+
+func resolvedResourceOutputs(outputs []openchoreov1alpha1.ResolvedResourceOutput) []map[string]any {
+	if len(outputs) == 0 {
+		return nil
+	}
+	result := make([]map[string]any, 0, len(outputs))
+	for i := range outputs {
+		entry := map[string]any{"name": outputs[i].Name}
+		if outputs[i].Value != "" {
+			entry["value"] = outputs[i].Value
+		}
+		if ref := outputs[i].SecretKeyRef; ref != nil {
+			entry["secretKeyRef"] = map[string]any{"name": ref.Name, "key": ref.Key}
+		}
+		if ref := outputs[i].ConfigMapKeyRef; ref != nil {
+			entry["configMapKeyRef"] = map[string]any{"name": ref.Name, "key": ref.Key}
+		}
+		result = append(result, entry)
+	}
+	return result
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

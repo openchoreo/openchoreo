@@ -30,6 +30,7 @@ func MCPDefaults() MCPConfig {
 			string(tools.ToolsetComponent),
 			string(tools.ToolsetDeployment),
 			string(tools.ToolsetBuild),
+			string(tools.ToolsetResource),
 		},
 	}
 }
@@ -42,6 +43,7 @@ var validToolsets = map[string]bool{
 	string(tools.ToolsetDeployment): true,
 	string(tools.ToolsetBuild):      true,
 	string(tools.ToolsetPE):         true,
+	string(tools.ToolsetResource):   true,
 }
 
 // ValidateMCPConfig validates the MCP configuration.

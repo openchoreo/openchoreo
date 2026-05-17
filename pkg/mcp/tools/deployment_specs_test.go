@@ -13,6 +13,8 @@ func deploymentToolSpecs() []toolTestSpec {
 	specs = append(specs, deploymentBindingSpecs()...)
 	specs = append(specs, deploymentPipelineSpecs()...)
 	specs = append(specs, deploymentEnvironmentSpecs()...)
+	specs = append(specs, deploymentResourceReleaseSpecs()...)
+	specs = append(specs, deploymentResourceReleaseBindingSpecs()...)
 	return specs
 }
 

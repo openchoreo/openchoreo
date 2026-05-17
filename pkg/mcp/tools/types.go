@@ -21,6 +21,7 @@ const (
 	ToolsetDeployment ToolsetType = "deployment"
 	ToolsetBuild      ToolsetType = "build"
 	ToolsetPE         ToolsetType = "pe"
+	ToolsetResource   ToolsetType = "resource"
 )
 
 // requestedToolsetsCtxKey is the context key used to carry the set of toolsets
@@ -116,6 +117,7 @@ type Toolsets struct {
 	DeploymentToolset DeploymentToolsetHandler
 	BuildToolset      BuildToolsetHandler
 	PEToolset         PEToolsetHandler
+	ResourceToolset   ResourceToolsetHandler
 }
 
 // PEToolsetHandler handles platform engineering operations on openchoreo
@@ -133,6 +135,16 @@ type PEToolsetHandler interface {
 	GetComponentReleaseSchema(
 		ctx context.Context, namespaceName, componentName, releaseName string,
 	) (any, error)
+
+	// Resource release operations
+	ListResourceReleases(
+		ctx context.Context, namespaceName, resourceName string, opts ListOpts,
+	) (any, error)
+	CreateResourceRelease(
+		ctx context.Context, namespaceName string,
+		req *gen.CreateResourceReleaseJSONRequestBody,
+	) (any, error)
+	GetResourceRelease(ctx context.Context, namespaceName, releaseName string) (any, error)
 
 	// DeploymentPipeline operations
 	CreateDeploymentPipeline(ctx context.Context, namespaceName string,
@@ -212,6 +224,34 @@ type PEToolsetHandler interface {
 	CreateClusterWorkflow(ctx context.Context, req *gen.CreateClusterWorkflowJSONRequestBody) (any, error)
 	UpdateClusterWorkflow(ctx context.Context, req *gen.UpdateClusterWorkflowJSONRequestBody) (any, error)
 	DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName string) (any, error)
+
+	// Resource types (namespace-scoped) — read
+	ListResourceTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetResourceType(ctx context.Context, namespaceName, rtName string) (any, error)
+	GetResourceTypeSchema(ctx context.Context, namespaceName, rtName string) (any, error)
+
+	// Resource types (namespace-scoped) — write
+	CreateResourceType(
+		ctx context.Context, namespaceName string, req *gen.CreateResourceTypeJSONRequestBody,
+	) (any, error)
+	UpdateResourceType(
+		ctx context.Context, namespaceName string, req *gen.UpdateResourceTypeJSONRequestBody,
+	) (any, error)
+	DeleteResourceType(ctx context.Context, namespaceName, rtName string) (any, error)
+
+	// Resource types (cluster-scoped) — read
+	ListClusterResourceTypes(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterResourceType(ctx context.Context, crtName string) (any, error)
+	GetClusterResourceTypeSchema(ctx context.Context, crtName string) (any, error)
+
+	// Resource types (cluster-scoped) — write
+	CreateClusterResourceType(
+		ctx context.Context, req *gen.CreateClusterResourceTypeJSONRequestBody,
+	) (any, error)
+	UpdateClusterResourceType(
+		ctx context.Context, req *gen.UpdateClusterResourceTypeJSONRequestBody,
+	) (any, error)
+	DeleteClusterResourceType(ctx context.Context, crtName string) (any, error)
 
 	// Diagnostics
 	GetResourceTree(ctx context.Context, namespaceName, releaseBindingName string) (any, error)
@@ -356,6 +396,24 @@ type DeploymentToolsetHandler interface {
 	ListDeploymentPipelines(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetDeploymentPipeline(ctx context.Context, namespaceName, pipelineName string) (any, error)
 	ListEnvironments(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+
+	// Resource release delete (dev-side cleanup; mirrors DeleteComponentRelease).
+	DeleteResourceRelease(ctx context.Context, namespaceName, resourceReleaseName string) (any, error)
+
+	// Resource release binding operations
+	ListResourceReleaseBindings(
+		ctx context.Context, namespaceName, resourceName string, opts ListOpts,
+	) (any, error)
+	GetResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
+	CreateResourceReleaseBinding(
+		ctx context.Context, namespaceName string,
+		req *gen.CreateResourceReleaseBindingJSONRequestBody,
+	) (any, error)
+	UpdateResourceReleaseBinding(
+		ctx context.Context, namespaceName string,
+		req *gen.UpdateResourceReleaseBindingJSONRequestBody,
+	) (any, error)
+	DeleteResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
 }
 
 // BuildToolsetHandler handles workflow and CI/CD operations
@@ -383,6 +441,34 @@ type BuildToolsetHandler interface {
 	ListClusterWorkflows(ctx context.Context, opts ListOpts) (any, error)
 	GetClusterWorkflow(ctx context.Context, cwfName string) (any, error)
 	GetClusterWorkflowSchema(ctx context.Context, cwfName string) (any, error)
+}
+
+// ResourceToolsetHandler handles the dev-facing surface of the managed-infrastructure
+// resource family: Resource CRUD plus read-only access to ResourceType and
+// ClusterResourceType templates. Template writes, releases, and bindings live on
+// PEToolsetHandler / DeploymentToolsetHandler matching the component-family role split.
+type ResourceToolsetHandler interface {
+	// Resource operations
+	CreateResource(
+		ctx context.Context, namespaceName, projectName string,
+		req *gen.CreateResourceJSONRequestBody,
+	) (any, error)
+	ListResources(ctx context.Context, namespaceName, projectName string, opts ListOpts) (any, error)
+	GetResource(ctx context.Context, namespaceName, resourceName string) (any, error)
+	UpdateResource(
+		ctx context.Context, namespaceName string, req *gen.UpdateResourceJSONRequestBody,
+	) (any, error)
+	DeleteResource(ctx context.Context, namespaceName, resourceName string) (any, error)
+
+	// Resource types (read-only, namespace-scoped)
+	ListResourceTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetResourceType(ctx context.Context, namespaceName, rtName string) (any, error)
+	GetResourceTypeSchema(ctx context.Context, namespaceName, rtName string) (any, error)
+
+	// Resource types (read-only, cluster-scoped)
+	ListClusterResourceTypes(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterResourceType(ctx context.Context, crtName string) (any, error)
+	GetClusterResourceTypeSchema(ctx context.Context, crtName string) (any, error)
 }
 
 // RegisterFunc is a function type for registering MCP tools.

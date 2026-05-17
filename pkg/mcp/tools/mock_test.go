@@ -841,3 +841,187 @@ func (m *MockCoreToolsetHandler) ListAuthzActions(ctx context.Context) (any, err
 	m.recordCall("ListAuthzActions")
 	return `{"actions":[{"name":"component:view","lowest_scope":"component"}]}`, nil
 }
+
+// Resource methods
+
+func (m *MockCoreToolsetHandler) CreateResource(
+	ctx context.Context, namespaceName, projectName string, req *gen.CreateResourceJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateResource", namespaceName, projectName, req)
+	return `{"name":"new-resource","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) ListResources(
+	ctx context.Context, namespaceName, projectName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListResources", namespaceName, projectName, opts)
+	return `[{"name":"resource-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetResource(
+	ctx context.Context, namespaceName, resourceName string,
+) (any, error) {
+	m.recordCall("GetResource", namespaceName, resourceName)
+	return `{"name":"resource-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateResource(
+	ctx context.Context, namespaceName string, req *gen.UpdateResourceJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateResource", namespaceName, req)
+	return `{"name":"updated-resource","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteResource(
+	ctx context.Context, namespaceName, resourceName string,
+) (any, error) {
+	m.recordCall("DeleteResource", namespaceName, resourceName)
+	return deletedResponse, nil
+}
+
+// Resource type methods (namespace-scoped)
+
+func (m *MockCoreToolsetHandler) ListResourceTypes(
+	ctx context.Context, namespaceName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListResourceTypes", namespaceName, opts)
+	return `[{"name":"resource-type-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetResourceType(
+	ctx context.Context, namespaceName, rtName string,
+) (any, error) {
+	m.recordCall("GetResourceType", namespaceName, rtName)
+	return `{"name":"resource-type-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetResourceTypeSchema(
+	ctx context.Context, namespaceName, rtName string,
+) (any, error) {
+	m.recordCall("GetResourceTypeSchema", namespaceName, rtName)
+	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateResourceType(
+	ctx context.Context, namespaceName string, req *gen.CreateResourceTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateResourceType", namespaceName, req)
+	return `{"name":"new-resource-type","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateResourceType(
+	ctx context.Context, namespaceName string, req *gen.UpdateResourceTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateResourceType", namespaceName, req)
+	return `{"name":"updated-resource-type","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteResourceType(
+	ctx context.Context, namespaceName, rtName string,
+) (any, error) {
+	m.recordCall("DeleteResourceType", namespaceName, rtName)
+	return deletedResponse, nil
+}
+
+// Resource type methods (cluster-scoped)
+
+func (m *MockCoreToolsetHandler) ListClusterResourceTypes(ctx context.Context, opts ListOpts) (any, error) {
+	m.recordCall("ListClusterResourceTypes", opts)
+	return `[{"name":"cluster-resource-type-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterResourceType(ctx context.Context, crtName string) (any, error) {
+	m.recordCall("GetClusterResourceType", crtName)
+	return `{"name":"cluster-resource-type-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterResourceTypeSchema(ctx context.Context, crtName string) (any, error) {
+	m.recordCall("GetClusterResourceTypeSchema", crtName)
+	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateClusterResourceType(
+	ctx context.Context, req *gen.CreateClusterResourceTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateClusterResourceType", req)
+	return `{"name":"new-cluster-resource-type","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateClusterResourceType(
+	ctx context.Context, req *gen.UpdateClusterResourceTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateClusterResourceType", req)
+	return `{"name":"updated-cluster-resource-type","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteClusterResourceType(ctx context.Context, crtName string) (any, error) {
+	m.recordCall("DeleteClusterResourceType", crtName)
+	return deletedResponse, nil
+}
+
+// ResourceRelease methods
+
+func (m *MockCoreToolsetHandler) ListResourceReleases(
+	ctx context.Context, namespaceName, resourceName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListResourceReleases", namespaceName, resourceName, opts)
+	return `[{"name":"resource-release-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateResourceRelease(
+	ctx context.Context, namespaceName string, req *gen.CreateResourceReleaseJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateResourceRelease", namespaceName, req)
+	return `{"name":"new-resource-release","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetResourceRelease(
+	ctx context.Context, namespaceName, releaseName string,
+) (any, error) {
+	m.recordCall("GetResourceRelease", namespaceName, releaseName)
+	return `{"name":"resource-release-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteResourceRelease(
+	ctx context.Context, namespaceName, resourceReleaseName string,
+) (any, error) {
+	m.recordCall("DeleteResourceRelease", namespaceName, resourceReleaseName)
+	return deletedResponse, nil
+}
+
+// ResourceReleaseBinding methods
+
+func (m *MockCoreToolsetHandler) ListResourceReleaseBindings(
+	ctx context.Context, namespaceName, resourceName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListResourceReleaseBindings", namespaceName, resourceName, opts)
+	return `[{"name":"resource-release-binding-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetResourceReleaseBinding(
+	ctx context.Context, namespaceName, bindingName string,
+) (any, error) {
+	m.recordCall("GetResourceReleaseBinding", namespaceName, bindingName)
+	return `{"name":"resource-release-binding-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateResourceReleaseBinding(
+	ctx context.Context, namespaceName string, req *gen.CreateResourceReleaseBindingJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateResourceReleaseBinding", namespaceName, req)
+	return `{"name":"new-resource-release-binding","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateResourceReleaseBinding(
+	ctx context.Context, namespaceName string, req *gen.UpdateResourceReleaseBindingJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateResourceReleaseBinding", namespaceName, req)
+	return `{"name":"updated-resource-release-binding","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteResourceReleaseBinding(
+	ctx context.Context, namespaceName, bindingName string,
+) (any, error) {
+	m.recordCall("DeleteResourceReleaseBinding", namespaceName, bindingName)
+	return deletedResponse, nil
+}

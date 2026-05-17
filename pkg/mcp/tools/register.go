@@ -118,6 +118,12 @@ func (t *Toolsets) deploymentToolRegistrations() []RegisterFunc {
 		t.RegisterUpdateReleaseBinding,
 		t.RegisterDeleteReleaseBinding,
 		t.RegisterDeleteComponentRelease,
+		t.RegisterDeleteResourceRelease,
+		t.RegisterListResourceReleaseBindings,
+		t.RegisterGetResourceReleaseBinding,
+		t.RegisterCreateResourceReleaseBinding,
+		t.RegisterUpdateResourceReleaseBinding,
+		t.RegisterDeleteResourceReleaseBinding,
 		t.RegisterListDeploymentPipelines,
 		t.RegisterGetDeploymentPipeline,
 		t.RegisterListEnvironments,
@@ -165,6 +171,11 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterPEGetComponentRelease,
 		t.RegisterPEGetComponentReleaseSchema,
 
+		// Resource releases (admin: list/get/create; delete lives on the deployment toolset).
+		t.RegisterPEListResourceReleases,
+		t.RegisterPECreateResourceRelease,
+		t.RegisterPEGetResourceRelease,
+
 		// Plane resources (scope-collapsed: pass scope="cluster" for cluster-scoped planes).
 		t.RegisterListDataPlanes,
 		t.RegisterGetDataPlane,
@@ -191,9 +202,13 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterPEListWorkflows,
 		t.RegisterPEGetWorkflow,
 		t.RegisterPEGetWorkflowSchema,
+		t.RegisterPEListResourceTypes,
+		t.RegisterPEGetResourceType,
+		t.RegisterPEGetResourceTypeSchema,
 		t.RegisterGetComponentTypeCreationSchema,
 		t.RegisterGetTraitCreationSchema,
 		t.RegisterGetWorkflowCreationSchema,
+		t.RegisterGetResourceTypeCreationSchema,
 		t.RegisterCreateComponentType,
 		t.RegisterUpdateComponentType,
 		t.RegisterDeleteComponentType,
@@ -203,6 +218,9 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterPECreateWorkflow,
 		t.RegisterPEUpdateWorkflow,
 		t.RegisterPEDeleteWorkflow,
+		t.RegisterCreateResourceType,
+		t.RegisterUpdateResourceType,
+		t.RegisterDeleteResourceType,
 
 		// Deprecated cluster-prefixed platform-standards aliases (hidden from the default tools/list).
 		t.RegisterGetClusterComponentTypeCreationSchema,
@@ -256,6 +274,26 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterGetResourceLogs,
 		t.RegisterEvaluateAuthz,
 		t.RegisterListAuthzActions,
+	}
+}
+
+// resourceToolRegistrations returns the dev-facing resource toolset.
+// Mirrors componentToolRegistrations' role: Resource CRUD plus read-only access to
+// (Cluster)ResourceType templates. Template writes, releases, and bindings live on
+// the pe / deployment toolsets.
+func (t *Toolsets) resourceToolRegistrations() []RegisterFunc {
+	return []RegisterFunc{
+		// Resource CRUD.
+		t.RegisterListResources,
+		t.RegisterGetResource,
+		t.RegisterCreateResource,
+		t.RegisterUpdateResource,
+		t.RegisterDeleteResource,
+
+		// Resource types (read-only, scope-collapsed: pass scope="cluster" for ClusterResourceType).
+		t.RegisterListResourceTypes,
+		t.RegisterGetResourceType,
+		t.RegisterGetResourceTypeSchema,
 	}
 }
 
@@ -313,6 +351,10 @@ func (t *Toolsets) Register(s *mcp.Server) (
 
 	if t.PEToolset != nil {
 		registerGroup(ToolsetPE, t.peToolRegistrations())
+	}
+
+	if t.ResourceToolset != nil {
+		registerGroup(ToolsetResource, t.resourceToolRegistrations())
 	}
 
 	return perms, toolToToolsets

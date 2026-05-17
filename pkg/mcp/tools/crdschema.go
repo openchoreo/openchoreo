@@ -21,6 +21,8 @@ var crdSpecSchemas struct {
 	clusterTrait               map[string]any
 	workflow                   map[string]any
 	clusterWorkflow            map[string]any
+	resourceType               map[string]any
+	clusterResourceType        map[string]any
 	authzRole                  map[string]any
 	clusterAuthzRole           map[string]any
 	authzRoleBinding           map[string]any
@@ -31,6 +33,8 @@ var crdSpecSchemas struct {
 	clusterTraitErr            error
 	workflowErr                error
 	clusterWorkflowErr         error
+	resourceTypeErr            error
+	clusterResourceTypeErr     error
 	authzRoleErr               error
 	clusterAuthzRoleErr        error
 	authzRoleBindingErr        error
@@ -76,6 +80,18 @@ func ClusterWorkflowCreationSchema() (map[string]any, error) {
 	return crdSpecSchemas.clusterWorkflow, crdSpecSchemas.clusterWorkflowErr
 }
 
+// ResourceTypeCreationSchema returns the JSON schema for the ResourceType spec.
+func ResourceTypeCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.resourceType, crdSpecSchemas.resourceTypeErr
+}
+
+// ClusterResourceTypeCreationSchema returns the JSON schema for the ClusterResourceType spec.
+func ClusterResourceTypeCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.clusterResourceType, crdSpecSchemas.clusterResourceTypeErr
+}
+
 // AuthzRoleCreationSchema returns the JSON schema for the AuthzRole spec.
 func AuthzRoleCreationSchema() (map[string]any, error) {
 	crdSpecSchemas.once.Do(parseCRDSchemas)
@@ -118,6 +134,12 @@ func parseCRDSchemas() {
 	)
 	crdSpecSchemas.clusterWorkflow, crdSpecSchemas.clusterWorkflowErr = extractSpecSchema(
 		"bases/openchoreo.dev_clusterworkflows.yaml",
+	)
+	crdSpecSchemas.resourceType, crdSpecSchemas.resourceTypeErr = extractSpecSchema(
+		"bases/openchoreo.dev_resourcetypes.yaml",
+	)
+	crdSpecSchemas.clusterResourceType, crdSpecSchemas.clusterResourceTypeErr = extractSpecSchema(
+		"bases/openchoreo.dev_clusterresourcetypes.yaml",
 	)
 	crdSpecSchemas.authzRole, crdSpecSchemas.authzRoleErr = extractSpecSchema(
 		"bases/openchoreo.dev_authzroles.yaml",
