@@ -31,6 +31,13 @@ spec:
       secretKeyRef:
         name: "${metadata.name}-creds"
         key: password
+    # Convenience output: full NATS client URL with the token embedded.
+    # Composed on the data plane by ESO's secret template; the token bytes
+    # never reach the control plane (same guarantee as the `token` output).
+    - name: url
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: url
     # Admin URL points at NATS's built-in HTTP monitoring endpoint (port
     # 8222), which serves JSON diagnostics like /varz, /connz, /subsz. The
     # endpoint is unauthenticated and read-only; the dev opens the URL and
@@ -73,10 +80,22 @@ spec:
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
+          # Sync once. The Password generator is stateless — every call
+          # returns a NEW random value, so a non-zero refreshInterval would
+          # rotate the password periodically and desync running consumers
+          # whose env vars were resolved at pod-start.
           refreshInterval: "0"
           target:
             name: ${metadata.name}-creds
             creationPolicy: Owner
+            # ESO templates the Secret data DP-side using the fetched
+            # password. The control plane only stores the literal `{{ .password }}`
+            # placeholder, never the resolved bytes.
+            template:
+              type: Opaque
+              data:
+                password: "{{ .password }}"
+                url: "nats://{{ .password }}@${metadata.name}.${metadata.namespace}.svc.cluster.local:4222"
           dataFrom:
             - sourceRef:
                 generatorRef:

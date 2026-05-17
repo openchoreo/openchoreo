@@ -72,6 +72,10 @@ spec:
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
+          # Sync once. The Password generator is stateless — every call
+          # returns a NEW random value, so a non-zero refreshInterval would
+          # rotate the password periodically and desync running consumers
+          # whose env vars were resolved at pod-start.
           refreshInterval: "0"
           target:
             name: ${metadata.name}-creds

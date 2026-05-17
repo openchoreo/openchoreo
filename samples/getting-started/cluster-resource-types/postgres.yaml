@@ -47,6 +47,15 @@ spec:
       secretKeyRef:
         name: "${metadata.name}-creds"
         key: password
+    # Convenience output: full Postgres connection URL with the application
+    # user's password embedded. Composed on the data plane by ESO's secret
+    # template; the password bytes never reach the control plane (same
+    # guarantee as the `password` output). sslmode=disable matches the
+    # CRT's plaintext StatefulSet config.
+    - name: url
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: url
     # Adminer URL with driver=pgsql, server, username=demo (deliberately weak
     # superuser created for the demo UI), db pre-filled via query params.
     # Paste the value of adminPassword on the Adminer login form.
@@ -135,6 +144,10 @@ spec:
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
+          # Sync once. The Password generator is stateless — every call
+          # returns a NEW random value, so a non-zero refreshInterval would
+          # rotate the password and break the postgres user (whose password
+          # is baked in at initdb).
           refreshInterval: "0"
           target:
             name: ${metadata.name}-creds-postgres
@@ -173,10 +186,19 @@ spec:
           namespace: ${metadata.namespace}
           labels: ${metadata.labels}
         spec:
+          # Sync once — see note above the `creds-postgres` ExternalSecret.
           refreshInterval: "0"
           target:
             name: ${metadata.name}-creds
             creationPolicy: Owner
+            # ESO templates the Secret data DP-side using the fetched
+            # password. The control plane only stores the literal `{{ .password }}`
+            # placeholder, never the resolved bytes.
+            template:
+              type: Opaque
+              data:
+                password: "{{ .password }}"
+                url: "postgres://${metadata.resourceName}-user:{{ .password }}@${metadata.name}.${metadata.namespace}.svc.cluster.local:5432/${parameters.database}?sslmode=disable"
           dataFrom:
             - sourceRef:
                 generatorRef:
