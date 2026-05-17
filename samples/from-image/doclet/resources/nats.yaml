@@ -1,0 +1,11 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Resource
+metadata:
+  name: doclet-nats
+  namespace: default
+spec:
+  owner:
+    projectName: doclet
+  type:
+    kind: ClusterResourceType
+    name: nats

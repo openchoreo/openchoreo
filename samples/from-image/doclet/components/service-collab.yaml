@@ -1,0 +1,36 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: doclet-collab
+  namespace: default
+spec:
+  owner:
+    projectName: doclet
+
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: doclet-collab
+  namespace: default
+spec:
+  owner:
+    componentName: doclet-collab
+    projectName: doclet
+  endpoints:
+    ws:
+      type: HTTP
+      port: 8090
+      visibility: [project]
+  dependencies:
+    resources:
+      - ref: doclet-nats
+        envBindings:
+          url: DOCLET_NATS_URL
+  container:
+    image: ghcr.io/openchoreo/samples/doclet-collab:latest
