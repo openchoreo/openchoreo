@@ -230,17 +230,26 @@ type EndpointURL struct {
 	Path string `json:"path,omitempty"`
 }
 
-// EndpointGatewayURLs holds resolved gateway URLs for an endpoint.
+// EndpointGatewayURLs holds resolved gateway URLs for an endpoint, grouped by
+// the gateway listener that serves the route. The field name identifies the
+// listener (http / https / tls); the scheme inside the EndpointURL reflects the
+// workload endpoint type (for example, http, https, ws, wss, grpc, grpcs, tls).
 type EndpointGatewayURLs struct {
-	// HTTP is the HTTP gateway URL.
+	// HTTP is the URL served via the cleartext http listener. Populated when the
+	// endpoint is exposed by an HTTPRoute or GRPCRoute and the gateway has an
+	// http listener configured.
 	// +optional
 	HTTP *EndpointURL `json:"http,omitempty"`
 
-	// HTTPS is the HTTPS gateway URL.
+	// HTTPS is the URL served via the https listener (TLS terminated at the
+	// gateway). Populated when the endpoint is exposed by an HTTPRoute or
+	// GRPCRoute and the gateway has an https listener configured.
 	// +optional
 	HTTPS *EndpointURL `json:"https,omitempty"`
 
-	// TLS is the TLS gateway URL.
+	// TLS is the URL served via the tls listener (TLS passthrough; the
+	// application terminates TLS). Populated when a TLSRoute exposes the
+	// endpoint and the gateway has a tls listener configured.
 	// +optional
 	TLS *EndpointURL `json:"tls,omitempty"`
 }

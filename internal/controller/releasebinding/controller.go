@@ -37,8 +37,36 @@ import (
 
 const (
 	httpRouteKind   = "HTTPRoute"
+	grpcRouteKind   = "GRPCRoute"
+	tlsRouteKind    = "TLSRoute"
 	gatewayAPIGroup = "gateway.networking.k8s.io"
 )
+
+// routeKindCompat lists which workload endpoint types each Gateway API route kind
+// may expose. HTTPRoute/GRPCRoute attach to the http and https gateway listeners
+// (the gateway terminates TLS on https); TLSRoute attaches to the tls listener for
+// SNI-based passthrough where the application terminates TLS. A given endpoint
+// is exposed by at most one route kind per visibility — the TLS trait swaps an
+// HTTPRoute/GRPCRoute for a TLSRoute when application-level TLS termination is
+// required.
+var routeKindCompat = map[string]map[openchoreov1alpha1.EndpointType]bool{
+	httpRouteKind: {
+		openchoreov1alpha1.EndpointTypeHTTP:      true,
+		openchoreov1alpha1.EndpointTypeGraphQL:   true,
+		openchoreov1alpha1.EndpointTypeWebsocket: true,
+		openchoreov1alpha1.EndpointTypeGRPC:      true,
+	},
+	grpcRouteKind: {
+		openchoreov1alpha1.EndpointTypeGRPC: true,
+	},
+	tlsRouteKind: {
+		openchoreov1alpha1.EndpointTypeHTTP:      true,
+		openchoreov1alpha1.EndpointTypeGraphQL:   true,
+		openchoreov1alpha1.EndpointTypeWebsocket: true,
+		openchoreov1alpha1.EndpointTypeGRPC:      true,
+		openchoreov1alpha1.EndpointTypeTCP:       true,
+	},
+}
 
 // Reconciler reconciles a ReleaseBinding object
 type Reconciler struct {
@@ -1127,19 +1155,32 @@ type endpointMeta struct {
 	visibility   []openchoreov1alpha1.EndpointVisibility
 }
 
-// endpointRoutes holds the indexed HTTPRoute objects for a single endpoint,
-// split into external and internal buckets.
-type endpointRoutes struct {
-	external *unstructured.Unstructured
-	internal *unstructured.Unstructured
+// indexedRoute is a Gateway API route resource paired with its kind so the URL
+// resolution pass can pick path-extraction and listener-targeting rules without
+// re-inspecting the unstructured object.
+type indexedRoute struct {
+	obj  *unstructured.Unstructured
+	kind string
 }
 
-// resolveEndpointURLStatuses matches each rendered HTTPRoute to a named workload endpoint
-// using the openchoreo.dev/endpoint-name and openchoreo.dev/endpoint-visibility labels,
-// then derives the invoke URL from the HTTPRoute hostname and optional path prefix.
-// The gateway port is selected based on the endpoint visibility: external visibility uses
-// the external ingress gateway; all other visibilities use the internal ingress gateway.
-// Environment-level gateway configuration takes precedence over dataplane-level configuration.
+// endpointRoutes holds the indexed Gateway API route for a single endpoint,
+// split into external and internal buckets. The TLS trait keeps route kinds
+// mutually exclusive per visibility, so a single pointer per bucket is enough.
+type endpointRoutes struct {
+	external *indexedRoute
+	internal *indexedRoute
+}
+
+// resolveEndpointURLStatuses matches each rendered Gateway API route (HTTPRoute,
+// GRPCRoute, or TLSRoute) to a named workload endpoint using the
+// openchoreo.dev/endpoint-name and openchoreo.dev/endpoint-visibility labels,
+// then derives the invoke URLs from the route hostname (and HTTPRoute path).
+// The gateway port is selected based on endpoint visibility: external visibility
+// uses the external ingress gateway; all other visibilities use the internal
+// ingress gateway. Environment-level gateway configuration takes precedence over
+// dataplane-level configuration. HTTPRoute and GRPCRoute populate the http/https
+// listener URLs; TLSRoute populates the tls listener URL. URL schemes are
+// derived from the endpoint type (e.g. ws/wss for Websocket, grpc/grpcs for gRPC).
 func resolveEndpointURLStatuses(
 	ctx context.Context,
 	resources []openchoreov1alpha1.RenderedManifest,
@@ -1154,26 +1195,25 @@ func resolveEndpointURLStatuses(
 		return nil
 	}
 
-	// Build a map of endpoint name → endpointMeta for HTTP-compatible endpoint types.
-	// Only HTTP, GraphQL and Websocket endpoints are exposed via HTTPRoutes.
-	httpEndpoints := make(map[string]endpointMeta, len(endpoints))
+	// Build a map of endpoint name → endpointMeta for endpoint types that some
+	// route kind can expose. Routes targeting any other endpoint type are skipped
+	// during the indexing pass below.
+	routableEndpoints := make(map[string]endpointMeta, len(endpoints))
 	for name, ep := range endpoints {
-		switch ep.Type {
-		case openchoreov1alpha1.EndpointTypeHTTP,
-			openchoreov1alpha1.EndpointTypeGraphQL,
-			openchoreov1alpha1.EndpointTypeWebsocket:
-			httpEndpoints[name] = endpointMeta{
-				endpointType: ep.Type,
-				visibility:   ep.Visibility,
-			}
-			logger.Info("Registered HTTP-compatible endpoint", "name", name, "type", ep.Type)
-		default:
-			logger.Info("Skipping non-HTTP endpoint", "name", name, "type", ep.Type)
+		if !isRoutableEndpointType(ep.Type) {
+			logger.Info("Skipping endpoint type not exposed by any Gateway API route",
+				"name", name, "type", ep.Type)
+			continue
 		}
+		routableEndpoints[name] = endpointMeta{
+			endpointType: ep.Type,
+			visibility:   ep.Visibility,
+		}
+		logger.Info("Registered routable endpoint", "name", name, "type", ep.Type)
 	}
 
-	// First pass: index HTTPRoutes by endpoint name into external/internal buckets.
-	// No URL resolution happens here — just collect the objects.
+	// First pass: index Gateway API routes by endpoint name into external/internal
+	// buckets. No URL resolution happens here — just collect the objects.
 	routeIndex := make(map[string]*endpointRoutes)
 	for i := range resources {
 		res := &resources[i]
@@ -1187,25 +1227,34 @@ func resolveEndpointURLStatuses(
 			continue
 		}
 
-		if obj.GetKind() != httpRouteKind {
+		if obj.GetObjectKind().GroupVersionKind().Group != gatewayAPIGroup {
 			continue
 		}
-		if obj.GetObjectKind().GroupVersionKind().Group != gatewayAPIGroup {
+		kind := obj.GetKind()
+		compat, isRoute := routeKindCompat[kind]
+		if !isRoute {
 			continue
 		}
 
 		objLabels := obj.GetLabels()
 		endpointName := objLabels[labels.LabelKeyEndpointName]
 		if endpointName == "" {
-			logger.Info("HTTPRoute missing endpoint-name label, skipping", "httpRouteName", obj.GetName())
+			logger.Info("Route missing endpoint-name label, skipping",
+				"kind", kind, "routeName", obj.GetName())
 			continue
 		}
 
-		if _, ok := httpEndpoints[endpointName]; !ok {
-			logger.Info("HTTPRoute endpoint name not in supported HTTP endpoints, skipping",
-				"httpRouteName", obj.GetName(),
-				"endpointName", endpointName,
-			)
+		meta, ok := routableEndpoints[endpointName]
+		if !ok {
+			logger.Info("Route endpoint name not in routable endpoints, skipping",
+				"kind", kind, "routeName", obj.GetName(), "endpointName", endpointName)
+			continue
+		}
+
+		if !compat[meta.endpointType] {
+			logger.Info("Route kind incompatible with endpoint type, skipping",
+				"kind", kind, "routeName", obj.GetName(),
+				"endpointName", endpointName, "endpointType", meta.endpointType)
 			continue
 		}
 
@@ -1213,17 +1262,23 @@ func resolveEndpointURLStatuses(
 			routeIndex[endpointName] = &endpointRoutes{}
 		}
 
+		route := &indexedRoute{obj: obj, kind: kind}
 		visibility := openchoreov1alpha1.EndpointVisibility(objLabels[labels.LabelKeyEndpointVisibility])
+		bucket := &routeIndex[endpointName].internal
 		if visibility == openchoreov1alpha1.EndpointVisibilityExternal {
-			routeIndex[endpointName].external = obj
-		} else {
-			routeIndex[endpointName].internal = obj
+			bucket = &routeIndex[endpointName].external
 		}
+		if *bucket != nil {
+			logger.Info("Multiple routes target the same endpoint+visibility, overwriting",
+				"endpointName", endpointName, "visibility", visibility,
+				"existingKind", (*bucket).kind, "newKind", kind)
+		}
+		*bucket = route
 	}
 
 	// Second pass: iterate endpoints in sorted order and build one EndpointURLStatus per endpoint.
-	endpointNames := make([]string, 0, len(httpEndpoints))
-	for name := range httpEndpoints {
+	endpointNames := make([]string, 0, len(routableEndpoints))
+	for name := range routableEndpoints {
 		endpointNames = append(endpointNames, name)
 	}
 	sort.Strings(endpointNames)
@@ -1235,32 +1290,36 @@ func resolveEndpointURLStatuses(
 			continue
 		}
 
+		epType := routableEndpoints[name].endpointType
 		status := openchoreov1alpha1.EndpointURLStatus{
 			Name: name,
-			Type: httpEndpoints[name].endpointType,
+			Type: epType,
 		}
 
-		if routes.external != nil {
-			hostname := extractFirstHostname(routes.external)
+		if r := routes.external; r != nil {
+			hostname := extractFirstHostname(r.obj)
 			gwEndpoint := resolveGatewayEndpointByVisibility(openchoreov1alpha1.EndpointVisibilityExternal, environment, dataPlane)
 			if hostname == "" || gwEndpoint == nil {
 				logger.Info("No external gateway endpoint configured, skipping", "endpointName", name)
 			} else {
-				status.ExternalURLs = buildGatewayURLs(hostname, extractFirstPathValue(routes.external), gwEndpoint)
-				logger.Info("Resolved external endpoint URLs", "endpointName", name, "hostname", hostname)
+				status.ExternalURLs = buildRouteURLs(r.kind, epType, hostname, routePath(r), gwEndpoint)
+				logger.Info("Resolved external endpoint URLs",
+					"endpointName", name, "kind", r.kind, "hostname", hostname)
 			}
 		}
 
-		if routes.internal != nil {
-			hostname := extractFirstHostname(routes.internal)
-			visibilityStr := routes.internal.GetLabels()[labels.LabelKeyEndpointVisibility]
+		if r := routes.internal; r != nil {
+			hostname := extractFirstHostname(r.obj)
+			visibilityStr := r.obj.GetLabels()[labels.LabelKeyEndpointVisibility]
 			gwEndpoint := resolveGatewayEndpointByVisibility(openchoreov1alpha1.EndpointVisibility(visibilityStr), environment, dataPlane)
 			if hostname == "" || gwEndpoint == nil {
 				logger.Info("No internal gateway endpoint configured, skipping",
 					"endpointName", name, "visibility", visibilityStr)
 			} else {
-				status.InternalURLs = buildGatewayURLs(hostname, extractFirstPathValue(routes.internal), gwEndpoint)
-				logger.Info("Resolved internal endpoint URLs", "endpointName", name, "hostname", hostname, "visibility", visibilityStr)
+				status.InternalURLs = buildRouteURLs(r.kind, epType, hostname, routePath(r), gwEndpoint)
+				logger.Info("Resolved internal endpoint URLs",
+					"endpointName", name, "kind", r.kind,
+					"hostname", hostname, "visibility", visibilityStr)
 			}
 		}
 
@@ -1269,23 +1328,88 @@ func resolveEndpointURLStatuses(
 	return result
 }
 
-// buildGatewayURLs constructs an EndpointGatewayURLs from the configured listeners in the given
-// GatewayEndpointSpec. Each listener URL is only set when the corresponding listener is non-nil.
-func buildGatewayURLs(hostname, path string, ep *openchoreov1alpha1.GatewayEndpointSpec) *openchoreov1alpha1.EndpointGatewayURLs {
+// isRoutableEndpointType reports whether any route kind can expose this endpoint type.
+func isRoutableEndpointType(t openchoreov1alpha1.EndpointType) bool {
+	for _, compat := range routeKindCompat {
+		if compat[t] {
+			return true
+		}
+	}
+	return false
+}
+
+// routePath returns the URL path prefix carried by the route. Only HTTPRoute exposes
+// a path; GRPCRoute (method-based) and TLSRoute (SNI-based) return an empty string.
+func routePath(r *indexedRoute) string {
+	if r.kind == httpRouteKind {
+		return extractFirstPathValue(r.obj)
+	}
+	return ""
+}
+
+// buildRouteURLs constructs an EndpointGatewayURLs by writing into the listener
+// fields that the given route kind targets. HTTPRoute and GRPCRoute populate
+// urls.HTTP (cleartext) and urls.HTTPS (gateway-terminated TLS); TLSRoute
+// populates urls.TLS (SNI passthrough, application terminates TLS). The URL
+// scheme inside each entry is derived from the workload endpoint type — the
+// field name reflects the gateway listener, not the scheme.
+func buildRouteURLs(
+	routeKind string,
+	epType openchoreov1alpha1.EndpointType,
+	hostname, path string,
+	ep *openchoreov1alpha1.GatewayEndpointSpec,
+) *openchoreov1alpha1.EndpointGatewayURLs {
 	if ep == nil {
 		return nil
 	}
 	urls := &openchoreov1alpha1.EndpointGatewayURLs{}
-	if ep.HTTP != nil {
-		urls.HTTP = buildInvokeURL("http", hostname, path, ep.HTTP.Port)
+	switch routeKind {
+	case httpRouteKind, grpcRouteKind:
+		if ep.HTTP != nil {
+			urls.HTTP = buildInvokeURL(schemeFor(epType, false), hostname, path, ep.HTTP.Port)
+		}
+		if ep.HTTPS != nil {
+			urls.HTTPS = buildInvokeURL(schemeFor(epType, true), hostname, path, ep.HTTPS.Port)
+		}
+	case tlsRouteKind:
+		if ep.TLS != nil {
+			urls.TLS = buildInvokeURL(schemeFor(epType, true), hostname, path, ep.TLS.Port)
+		}
 	}
-	if ep.HTTPS != nil {
-		urls.HTTPS = buildInvokeURL("https", hostname, path, ep.HTTPS.Port)
-	}
-	if ep.TLS != nil {
-		urls.TLS = buildInvokeURL("https", hostname, path, ep.TLS.Port)
+	if urls.HTTP == nil && urls.HTTPS == nil && urls.TLS == nil {
+		return nil
 	}
 	return urls
+}
+
+// schemeFor returns the URL scheme used by clients of the given endpoint type.
+// The tls flag selects between the cleartext form (over the http listener) and
+// the TLS form (over the https or tls listener). Returns "" for endpoint types
+// that don't have a meaningful URL scheme for the requested TLS variant
+// (e.g. TCP without TLS).
+func schemeFor(t openchoreov1alpha1.EndpointType, tls bool) string {
+	switch t {
+	case openchoreov1alpha1.EndpointTypeHTTP, openchoreov1alpha1.EndpointTypeGraphQL:
+		if tls {
+			return "https"
+		}
+		return "http"
+	case openchoreov1alpha1.EndpointTypeWebsocket:
+		if tls {
+			return "wss"
+		}
+		return "ws"
+	case openchoreov1alpha1.EndpointTypeGRPC:
+		if tls {
+			return "grpcs"
+		}
+		return "grpc"
+	case openchoreov1alpha1.EndpointTypeTCP:
+		if tls {
+			return "tls"
+		}
+	}
+	return ""
 }
 
 // buildInvokeURL constructs a single EndpointURL from the given components.

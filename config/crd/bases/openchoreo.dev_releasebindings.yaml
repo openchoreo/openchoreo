@@ -332,7 +332,10 @@ spec:
                         URLs.
                       properties:
                         http:
-                          description: HTTP is the HTTP gateway URL.
+                          description: |-
+                            HTTP is the URL served via the cleartext http listener. Populated when the
+                            endpoint is exposed by an HTTPRoute or GRPCRoute and the gateway has an
+                            http listener configured.
                           properties:
                             host:
                               description: Host is the hostname or IP address.
@@ -353,7 +356,10 @@ spec:
                           - host
                           type: object
                         https:
-                          description: HTTPS is the HTTPS gateway URL.
+                          description: |-
+                            HTTPS is the URL served via the https listener (TLS terminated at the
+                            gateway). Populated when the endpoint is exposed by an HTTPRoute or
+                            GRPCRoute and the gateway has an https listener configured.
                           properties:
                             host:
                               description: Host is the hostname or IP address.
@@ -374,7 +380,10 @@ spec:
                           - host
                           type: object
                         tls:
-                          description: TLS is the TLS gateway URL.
+                          description: |-
+                            TLS is the URL served via the tls listener (TLS passthrough; the
+                            application terminates TLS). Populated when a TLSRoute exposes the
+                            endpoint and the gateway has a tls listener configured.
                           properties:
                             host:
                               description: Host is the hostname or IP address.
@@ -400,7 +409,10 @@ spec:
                         URLs.
                       properties:
                         http:
-                          description: HTTP is the HTTP gateway URL.
+                          description: |-
+                            HTTP is the URL served via the cleartext http listener. Populated when the
+                            endpoint is exposed by an HTTPRoute or GRPCRoute and the gateway has an
+                            http listener configured.
                           properties:
                             host:
                               description: Host is the hostname or IP address.
@@ -421,7 +433,10 @@ spec:
                           - host
                           type: object
                         https:
-                          description: HTTPS is the HTTPS gateway URL.
+                          description: |-
+                            HTTPS is the URL served via the https listener (TLS terminated at the
+                            gateway). Populated when the endpoint is exposed by an HTTPRoute or
+                            GRPCRoute and the gateway has an https listener configured.
                           properties:
                             host:
                               description: Host is the hostname or IP address.
@@ -442,7 +457,10 @@ spec:
                           - host
                           type: object
                         tls:
-                          description: TLS is the TLS gateway URL.
+                          description: |-
+                            TLS is the URL served via the tls listener (TLS passthrough; the
+                            application terminates TLS). Populated when a TLSRoute exposes the
+                            endpoint and the gateway has a tls listener configured.
                           properties:
                             host:
                               description: Host is the hostname or IP address.
