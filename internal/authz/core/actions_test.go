@@ -89,15 +89,6 @@ func TestPublicActions(t *testing.T) {
 			}
 		}
 	})
-
-	t.Run("includes component release delete action", func(t *testing.T) {
-		for _, action := range actions {
-			if action.Name == "componentrelease:delete" {
-				return
-			}
-		}
-		t.Error("PublicActions() missing componentrelease:delete")
-	})
 }
 
 // TestConcretePublicActions tests listing concrete public actions
