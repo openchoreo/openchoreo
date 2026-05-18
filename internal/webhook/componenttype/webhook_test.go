@@ -813,6 +813,52 @@ var _ = Describe("ComponentType Webhook", func() {
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
 		})
+
+		It("should reject a validation rule referencing a parameters field absent from the schema", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.unknownField > 0}", Message: "uses an undeclared field"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred(),
+				"schema-aware type checking should reject CEL referencing a field not in the parameters schema")
+		})
+
+		It("should reject a validation rule referencing environmentConfigs when no environmentConfigs schema is declared", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${environmentConfigs.maxReplicas >= parameters.replicas}", Message: "envConfigs ref without a schema"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred(),
+				"CEL referencing environmentConfigs should be rejected when no environmentConfigs schema is declared")
+		})
+
+		It("should reject the entire validation slice when any single rule is malformed", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.replicas > 0}", Message: "valid rule"},
+				{Rule: "${parameters.replicas +}", Message: "malformed second rule"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred(),
+				"a malformed rule anywhere in spec.validations should reject the whole object")
+		})
 	})
 
 	Context("OpenAPIV3Schema Support", func() {
