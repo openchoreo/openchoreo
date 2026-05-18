@@ -85,28 +85,30 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 		return fmt.Errorf("componentrelease generate only supports file-system mode; use --mode file-system (got %q)", mode)
 	}
 
-	// 2. Load context for other defaults (namespace, etc.)
-	cfg, err := config.LoadStoredConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	if cfg.CurrentContext == "" {
-		return fmt.Errorf("no current context set")
-	}
-
-	// Find current context
+	// 2. Load context for namespace fallback. Skip entirely if --namespace is set,
+	//    so the flag can be used without a configured context.
 	var ctx *config.Context
-	for _, c := range cfg.Contexts {
-		if c.Name == cfg.CurrentContext {
-			ctxCopy := c
-			ctx = &ctxCopy
-			break
+	if params.Namespace == "" {
+		cfg, err := config.LoadStoredConfig()
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w", err)
 		}
-	}
 
-	if ctx == nil {
-		return fmt.Errorf("current context %q not found in config", cfg.CurrentContext)
+		if cfg.CurrentContext == "" {
+			return fmt.Errorf("no current context set")
+		}
+
+		for _, c := range cfg.Contexts {
+			if c.Name == cfg.CurrentContext {
+				ctxCopy := c
+				ctx = &ctxCopy
+				break
+			}
+		}
+
+		if ctx == nil {
+			return fmt.Errorf("current context %q not found in config", cfg.CurrentContext)
+		}
 	}
 
 	repoPath := params.RootDir
@@ -145,7 +147,7 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 
 	// 6. Resolve namespace: prefer --namespace flag, fall back to current context
 	namespace := params.Namespace
-	if namespace == "" {
+	if namespace == "" && ctx != nil {
 		namespace = ctx.Namespace
 	}
 	if namespace == "" {
