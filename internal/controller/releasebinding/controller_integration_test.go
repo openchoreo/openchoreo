@@ -4,6 +4,7 @@
 package releasebinding
 
 import (
+	"encoding/json"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1670,6 +1671,144 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			)).To(Succeed(), "RenderedRelease should survive a render failure")
 			Expect(survivingRelease.UID).To(Equal(originalReleaseUID),
 				"RenderedRelease should be the same object, not recreated")
+		})
+	})
+
+	Context("when environment-level configs are supplied via the ReleaseBinding", func() {
+		const (
+			project  = "envcfg-proj"
+			compName = "envcfg-comp"
+			envName  = "envcfg-env"
+			dpName   = "envcfg-dp"
+			rbName   = "rb-envcfg"
+			crName   = "cr-envcfg"
+		)
+		req := reconcileRequest(rbName)
+		expectedReleaseName := compName + "-" + envName
+
+		// Template references parameters.replicas (numeric) and
+		// environmentConfigs.image (string). Because each CEL placeholder
+		// occupies its entire field, renderString returns the native CEL type:
+		// replicas comes through as a JSON number, image as a string.
+		templatedDeployment := &runtime.RawExtension{
+			Raw: []byte(`{` +
+				`"apiVersion":"apps/v1",` +
+				`"kind":"Deployment",` +
+				`"metadata":{"name":"envcfg-deployment"},` +
+				`"spec":{` +
+				`"replicas":"${parameters.replicas}",` +
+				`"selector":{"matchLabels":{"app":"envcfg"}},` +
+				`"template":{` +
+				`"metadata":{"labels":{"app":"envcfg"}},` +
+				`"spec":{"containers":[{"name":"app","image":"${environmentConfigs.image}"}]}` +
+				`}}}`,
+			),
+		}
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(expectedReleaseName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("propagates parameters and environmentConfigs into the rendered Deployment", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating a ComponentRelease whose template references parameters.replicas and environmentConfigs.image")
+			cr := crFixture(crName, project, compName)
+			cr.Spec.ComponentType.Spec.Resources = []openchoreov1alpha1.ResourceTemplate{
+				{ID: "deployment", Template: templatedDeployment},
+			}
+			cr.Spec.ComponentType.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			cr.Spec.ComponentType.Spec.EnvironmentConfigs = &openchoreov1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"image":{"type":"string","default":"nginx:latest"}}}`),
+				},
+			}
+			cr.Spec.ComponentProfile = &openchoreov1alpha1.ComponentProfile{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"replicas":3}`),
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			By("Creating the remaining dependencies")
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ReleaseBinding with environmentConfigs={image: nginx:1.27}")
+			rb := rbFixture(rbName, project, compName, envName, crName, true)
+			rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{
+				Raw: []byte(`{"image":"nginx:1.27"}`),
+			}
+			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+
+			By("Reconciling — the Pipeline renders and creates the RenderedRelease")
+			result := mustReconcile(r, req)
+			Expect(result.Requeue).To(BeTrue())
+
+			By("Fetching the RenderedRelease and locating the rendered Deployment")
+			createdRelease := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				createdRelease,
+			)).To(Succeed())
+			Expect(createdRelease.Spec.Resources).NotTo(BeEmpty())
+
+			// The pipeline also injects auxiliary resources (e.g. a NetworkPolicy)
+			// alongside the Deployment, so look it up by kind rather than by index.
+			var rendered map[string]any
+			for _, res := range createdRelease.Spec.Resources {
+				if res.Object == nil {
+					continue
+				}
+				var obj map[string]any
+				Expect(json.Unmarshal(res.Object.Raw, &obj)).To(Succeed())
+				if obj["kind"] == "Deployment" {
+					rendered = obj
+					break
+				}
+			}
+			Expect(rendered).NotTo(BeNil(), "expected a rendered Deployment among the pipeline outputs")
+
+			By("Verifying parameters.replicas landed as the integer 3 on .spec.replicas")
+			spec, ok := rendered["spec"].(map[string]any)
+			Expect(ok).To(BeTrue(), "rendered Deployment should have a spec object")
+			Expect(spec["replicas"]).To(BeNumerically("==", 3),
+				"parameters.replicas should substitute as a native int, not a quoted string")
+
+			By("Verifying environmentConfigs.image landed verbatim on the container")
+			tmpl, ok := spec["template"].(map[string]any)
+			Expect(ok).To(BeTrue(), "rendered Deployment should have spec.template")
+			podSpec, ok := tmpl["spec"].(map[string]any)
+			Expect(ok).To(BeTrue(), "rendered Deployment should have spec.template.spec")
+			containersAny, ok := podSpec["containers"].([]any)
+			Expect(ok).To(BeTrue(), "rendered Deployment should have containers slice")
+			Expect(containersAny).To(HaveLen(1))
+			container, ok := containersAny[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(container["image"]).To(Equal("nginx:1.27"),
+				"environmentConfigs.image from the ReleaseBinding should land in the rendered container")
 		})
 	})
 })
