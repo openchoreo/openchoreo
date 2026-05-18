@@ -126,6 +126,15 @@ _TOOLS_FOR_CASE: dict[str, set[str]] = {
         "query_traces",
         "query_trace_spans",
         "get_span_details",
+        # Tier 1 — platform topology. Lets the agent name the *originating*
+        # component when prefetched logs only carry the proxying frontend's
+        # connection-refused line. Without these, Perch can quote the symptom
+        # ("can't reach localhost:8080") but can't enumerate siblings in the
+        # project to identify which one is actually down.
+        "list_components",
+        "get_component",
+        "list_release_bindings",
+        "get_release_binding",
         # Tier 2 — rca escalation
         "list_rca_reports",
         "get_rca_report",

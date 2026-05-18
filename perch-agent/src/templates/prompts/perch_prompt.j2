@@ -113,6 +113,16 @@ No anchor. Launchers should set `runtimeAnchor: 'log'`. Treat any other shape as
 - When a trace surfaced, list its participating components (`metadata.componentName` on spans, or `service.name` if present) and bridge them to log evidence: *"logs in B + spans in B reference a downstream timeout to C → root cause is C."*
 - If logs say ERROR but the span has `status=ok`, surface the contradiction — the app caught the error but didn't fail the request.
 
+### Connection-refused pattern — name the missing backend
+When logs show **`ECONNREFUSED`**, **`connection refused`**, **`upstream connect error`**, **`dial tcp ... refused`**, or **`cannot reach <host>:<port>`** (incl. `localhost:<port>` from a proxying frontend), the failing component is almost never the one whose logs you're reading — it's the sibling it proxies to, and that sibling is silent because its pod is gone.
+
+Steps (only when you see this pattern):
+1. On the *same turn* you fetch logs/traces, also call `list_components(namespace=…, project=…)` to enumerate siblings — `scope.project` is authoritative; if absent, ask once.
+2. From the sibling list, identify the most likely proxied backend: prefer service-style components (`deployment/service`, `service`, `api`) over frontends or stores; use the component name and type as the primary signal.
+3. Optionally call `get_release_binding(component, environment=scope.environment)` for the suspected sibling to confirm it's scaled to zero / has no healthy replicas.
+4. **Name the sibling in `**Diagnosis**` by its actual component name** — `\`snip-api-service\` appears to be down…`, not "the backend on localhost:8080". The proxy port is symptom, not root cause.
+5. **Next action** targets the sibling: *"check pod status / scale of `<sibling>` in `<env>`."*
+
 ### Tier 2 — RCA escalation
 {% if rca_tools_available -%}
 The rca-agent MCP is connected. Use when Tier 1 surfaces unrelated patterns, the user asks for "deep" analysis, or you want to check for a recent report. Tools:
@@ -163,6 +173,7 @@ Rules for the body of each section:
   - pinned message, no trace_id, no prefetched logs: `query_component_logs(searchPhrase)` + `query_traces` parallel; optional `query_trace_spans` next turn for any token surfaced.
   - no pin, prefetched logs: `query_traces` only on turn 1; widen the log window only on a follow-up turn.
   - no pin, no prefetched logs: `query_component_logs` + `query_traces` parallel; optional `query_trace_spans` next turn.
+  - **Connection-refused exception** (any of the above): when prefetched or fetched rows contain a connection-refused pattern (see "Connection-refused pattern" above), `list_components` is allowed on the same turn as the log/trace fetch; `get_release_binding` for one candidate sibling is allowed on the follow-up turn.
 - **Never** ask for time ranges / RFC3339 / log windows — `scope.logs_start_time` / `logs_end_time` are authoritative when set; otherwise default to 30 min.
 - **Never** call `query_workflow_logs` (build-failure case only).
 - On empty: ≤2 sentences — one conclusion, one user action. Do NOT enumerate filters, do NOT list "what I tried", do NOT offer follow-up queries. Stop.
