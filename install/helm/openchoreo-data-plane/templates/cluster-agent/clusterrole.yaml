@@ -39,6 +39,11 @@ rules:
   - pods/status
   - events
   verbs: ["get", "list"]
+# Pod exec (required for occ component exec / interactive shell into pods)
+- apiGroups: [""]
+  resources:
+  - pods/exec
+  verbs: ["create", "get"]
 # Batch jobs
 - apiGroups: ["batch"]
   resources:
