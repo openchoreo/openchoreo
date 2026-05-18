@@ -73,13 +73,15 @@ async def lifespan(_app: FastAPI):
         # Minimal probe: we only need to verify the endpoint is reachable
         # and the API key is valid — we don't need a useful response.
         # "Reply with exactly: Pong" steers the model to a 1-token answer;
-        # max_tokens=5 caps billing even if a model ignores the prompt
-        # framing (reasoning models occasionally do). Both knobs together
-        # turn the per-pod-startup probe from ~50 tokens down to ~2.
+        # max_tokens caps billing even if a model ignores the prompt framing
+        # (reasoning models occasionally do). 16 is the floor required by
+        # OpenAI's /v1/responses API (max_output_tokens >= 16); using a
+        # lower value (e.g. 5) trips a 400 on gpt-5*-mini variants that
+        # route through the responses endpoint.
         model = get_model()
         test_response = await model.ainvoke(
             "Reply with exactly: Pong",
-            max_tokens=5,
+            max_tokens=16,
         )
         logger.info("LLM test successful: %s", str(test_response.content)[:50])
     except Exception as e:
