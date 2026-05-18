@@ -667,7 +667,7 @@ helm upgrade --install observability-tracing-opensearch \
 Install the tracing exporter in the data plane cluster:
 
 ```bash
-helm upgrade --install observability-tracing-opensearch \
+helm upgrade --install observability-traces-opensearch \
   oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
