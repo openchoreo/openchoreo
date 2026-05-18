@@ -85,10 +85,11 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 		return fmt.Errorf("componentrelease generate only supports file-system mode; use --mode file-system (got %q)", mode)
 	}
 
-	// 2. Load context for namespace fallback. Skip entirely if --namespace is set,
-	//    so the flag can be used without a configured context.
-	var ctx *config.Context
-	if params.Namespace == "" {
+	// 2. Resolve namespace: prefer --namespace flag, fall back to current context.
+	//    Skip the context lookup entirely when --namespace is set, so the flag
+	//    can be used without a configured context.
+	namespace := params.Namespace
+	if namespace == "" {
 		cfg, err := config.LoadStoredConfig()
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
@@ -98,6 +99,7 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 			return fmt.Errorf("no current context set")
 		}
 
+		var ctx *config.Context
 		for _, c := range cfg.Contexts {
 			if c.Name == cfg.CurrentContext {
 				ctxCopy := c
@@ -109,6 +111,12 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 		if ctx == nil {
 			return fmt.Errorf("current context %q not found in config", cfg.CurrentContext)
 		}
+
+		namespace = ctx.Namespace
+	}
+
+	if namespace == "" {
+		return fmt.Errorf("namespace is required (set via --namespace or current context)")
 	}
 
 	repoPath := params.RootDir
@@ -145,16 +153,7 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 	baseDir := repoPath
 	customOutputPath := params.OutputPath
 
-	// 6. Resolve namespace: prefer --namespace flag, fall back to current context
-	namespace := params.Namespace
-	if namespace == "" && ctx != nil {
-		namespace = ctx.Namespace
-	}
-	if namespace == "" {
-		return fmt.Errorf("namespace is required (set via --namespace or current context)")
-	}
-
-	// 7. Build output directory resolver for when no release-config.yaml exists
+	// 6. Build output directory resolver for when no release-config.yaml exists
 	resolver := buildOutputDirResolver(ocIndex, namespace)
 
 	// 8. Generate releases based on scope
