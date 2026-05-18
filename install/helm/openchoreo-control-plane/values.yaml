@@ -3755,6 +3755,61 @@ eventForwarder:
       # @schema
       endpoints:
         - url: http://backstage:7007/api/events/http/openchoreo
+
+    # Resources to watch, as GroupVersionResource entries (lowercase
+    # plural `resource`, like `kubectl api-resources`). The list is
+    # authoritative — overrides replace it entirely. Optional
+    # `labelSelector` filters list/watch server-side; used below to
+    # scope Namespace events to OpenChoreo Organizations only.
+    # @schema
+    # type: object
+    # additionalProperties: false
+    # required: [resources]
+    # properties:
+    #   resources:
+    #     type: array
+    #     items:
+    #       type: object
+    #       additionalProperties: false
+    #       required: [version, resource]
+    #       properties:
+    #         group:
+    #           type: string
+    #         version:
+    #           type: string
+    #           minLength: 1
+    #         resource:
+    #           type: string
+    #           minLength: 1
+    #         labelSelector:
+    #           type: string
+    # @schema
+    watch:
+      resources:
+        # Core K8s Namespaces — filtered to OpenChoreo Organizations
+        # only. Removing this entry stops Namespace events from
+        # flowing to subscribers.
+        - { group: "", version: v1, resource: namespaces, labelSelector: "openchoreo.dev/control-plane=true" }
+        # Namespaced OpenChoreo CRDs
+        - { group: openchoreo.dev, version: v1alpha1, resource: projects }
+        - { group: openchoreo.dev, version: v1alpha1, resource: components }
+        - { group: openchoreo.dev, version: v1alpha1, resource: workloads }
+        - { group: openchoreo.dev, version: v1alpha1, resource: environments }
+        - { group: openchoreo.dev, version: v1alpha1, resource: dataplanes }
+        - { group: openchoreo.dev, version: v1alpha1, resource: deploymentpipelines }
+        - { group: openchoreo.dev, version: v1alpha1, resource: componenttypes }
+        - { group: openchoreo.dev, version: v1alpha1, resource: traits }
+        - { group: openchoreo.dev, version: v1alpha1, resource: workflows }
+        - { group: openchoreo.dev, version: v1alpha1, resource: workflowplanes }
+        - { group: openchoreo.dev, version: v1alpha1, resource: observabilityplanes }
+        # Cluster-scoped OpenChoreo CRDs
+        - { group: openchoreo.dev, version: v1alpha1, resource: clustercomponenttypes }
+        - { group: openchoreo.dev, version: v1alpha1, resource: clustertraits }
+        - { group: openchoreo.dev, version: v1alpha1, resource: clusterworkflows }
+        - { group: openchoreo.dev, version: v1alpha1, resource: clusterdataplanes }
+        - { group: openchoreo.dev, version: v1alpha1, resource: clusterobservabilityplanes }
+        - { group: openchoreo.dev, version: v1alpha1, resource: clusterworkflowplanes }
+
     logging:
       level: info
 

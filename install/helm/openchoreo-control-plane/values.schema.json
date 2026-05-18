@@ -2284,6 +2284,44 @@
               "title": "server",
               "type": "object"
             },
+            "watch": {
+              "additionalProperties": false,
+              "description": "Resources to watch, as GroupVersionResource entries (lowercase\nplural `resource`, like `kubectl api-resources`). The list is\nauthoritative — overrides replace it entirely. Optional\n`labelSelector` filters list/watch server-side; used below to\nscope Namespace events to OpenChoreo Organizations only.",
+              "properties": {
+                "resources": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "group": {
+                        "type": "string"
+                      },
+                      "labelSelector": {
+                        "type": "string"
+                      },
+                      "resource": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "version": {
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "version",
+                      "resource"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "resources"
+              ],
+              "title": "watch",
+              "type": "object"
+            },
             "webhooks": {
               "additionalProperties": false,
               "properties": {

@@ -16,6 +16,10 @@ data:
       endpoints:
         {{- toYaml .Values.eventForwarder.config.webhooks.endpoints | nindent 8 }}
 
+    watch:
+      resources:
+        {{- toYaml .Values.eventForwarder.config.watch.resources | nindent 8 }}
+
     logging:
       level: {{ .Values.eventForwarder.config.logging.level | quote }}
 {{- end }}

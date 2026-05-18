@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -65,8 +66,31 @@ func main() {
 	// Initialize dispatcher
 	d := dispatcher.New(cfg.Webhooks, logger.With("component", "dispatcher"))
 
+	// Convert the YAML-shaped resource list into the form the
+	// forwarder consumes. The conversion is config-only — there's no
+	// Kind-to-Resource discovery at startup; the Helm values ship the
+	// resource (plural-lowercase) form directly. The optional
+	// labelSelector is plumbed straight through; the config package
+	// has already validated its syntax.
+	watchResources := make([]eventforwarder.WatchResource, 0, len(cfg.Watch.Resources))
+	for _, r := range cfg.Watch.Resources {
+		watchResources = append(watchResources, eventforwarder.WatchResource{
+			GVR: schema.GroupVersionResource{
+				Group:    r.Group,
+				Version:  r.Version,
+				Resource: r.Resource,
+			},
+			LabelSelector: r.LabelSelector,
+		})
+	}
+
 	// Initialize event-forwarder
-	f := eventforwarder.New(dynamicClient, d, logger.With("component", "event-forwarder"))
+	f := eventforwarder.New(
+		dynamicClient,
+		d,
+		logger.With("component", "event-forwarder"),
+		watchResources,
+	)
 
 	// Initialize health server
 	healthSrv := eventforwarder.NewHealthServer(logger.With("component", "health"))

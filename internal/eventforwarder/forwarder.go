@@ -20,22 +20,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/eventforwarder/dispatcher"
 )
 
-// ocControlPlaneLabelSelector matches namespaces marked as OpenChoreo
-// Organizations (control-plane namespaces). The OC API server itself
-// uses the same label to distinguish OC-managed namespaces from system
-// namespaces (kube-system, etc.) and unrelated namespaces.
-const ocControlPlaneLabelSelector = "openchoreo.dev/control-plane=true"
-
-// namespaceGVR identifies the cluster-scoped Kubernetes Namespace
-// resource. Watched separately from the OC custom resources because
-// (a) it lives in the core API group and (b) we apply a label selector
-// to scope to OC Organizations only.
-var namespaceGVR = schema.GroupVersionResource{
-	Group:    "",
-	Version:  "v1",
-	Resource: "namespaces",
-}
-
 // debounceWindow is the duration to wait before dispatching an event
 // for the same resource, to avoid flooding on rapid successive updates.
 const debounceWindow = 1 * time.Second
@@ -44,6 +28,18 @@ const debounceWindow = 1 * time.Second
 // debounce map. Without this, a long-lived process that sees many distinct
 // resources over time would accumulate keys forever.
 const debounceCleanupInterval = 5 * time.Minute
+
+// WatchResource is a single entry in the configured watch list — a
+// GVR plus an optional Kubernetes label selector. When LabelSelector
+// is non-empty, the K8s API server filters list/watch responses
+// server-side so the informer cache only holds matching objects. The
+// canonical use is scoping the core Namespace informer to
+// OpenChoreo-labeled namespaces only, but operators can apply the
+// same filter to any watched resource.
+type WatchResource struct {
+	GVR           schema.GroupVersionResource
+	LabelSelector string
+}
 
 // Forwarder watches OpenChoreo Kubernetes resources and forwards
 // change-notification webhooks to configured subscribers (typically the
@@ -57,6 +53,14 @@ type Forwarder struct {
 	dispatcher *dispatcher.Dispatcher
 	logger     *slog.Logger
 
+	// watchResources is the list of resources the forwarder watches,
+	// sourced from config (eventForwarder.config.watch.resources in
+	// Helm values). Each entry carries an optional label selector
+	// applied server-side — Namespace uses this to scope to
+	// OC-managed namespaces only, and the same mechanism is available
+	// to any other resource an operator wants to filter.
+	watchResources []WatchResource
+
 	// dispatchCtx is captured from Start() and passed to Dispatch so that
 	// in-flight HTTP retries and backoffs abort cleanly on shutdown.
 	// Informer event-handler callbacks don't carry their own context, so
@@ -68,52 +72,24 @@ type Forwarder struct {
 	lastEvent map[string]time.Time
 }
 
-// New creates a new Forwarder.
-func New(client dynamic.Interface, d *dispatcher.Dispatcher, logger *slog.Logger) *Forwarder {
+// New creates a new Forwarder. `watchResources` is the list the
+// forwarder will watch (one informer per entry). It comes from the
+// `eventForwarder.config.watch.resources` Helm value, parsed by the
+// config package. The list is authoritative — passing an empty slice
+// means the forwarder watches nothing.
+func New(
+	client dynamic.Interface,
+	d *dispatcher.Dispatcher,
+	logger *slog.Logger,
+	watchResources []WatchResource,
+) *Forwarder {
 	return &Forwarder{
-		client:     client,
-		dispatcher: d,
-		logger:     logger,
-		lastEvent:  make(map[string]time.Time),
+		client:         client,
+		dispatcher:     d,
+		logger:         logger,
+		watchResources: watchResources,
+		lastEvent:      make(map[string]time.Time),
 	}
-}
-
-// gvrList returns the GroupVersionResources to watch.
-func gvrList() []schema.GroupVersionResource {
-	group := "openchoreo.dev"
-	version := "v1alpha1"
-
-	resources := []string{
-		// Namespaced
-		"projects",
-		"components",
-		"workloads",
-		"environments",
-		"dataplanes",
-		"deploymentpipelines",
-		"componenttypes",
-		"traits",
-		"workflows",
-		"workflowplanes",
-		"observabilityplanes",
-		// Cluster-scoped
-		"clustercomponenttypes",
-		"clustertraits",
-		"clusterworkflows",
-		"clusterdataplanes",
-		"clusterobservabilityplanes",
-		"clusterworkflowplanes",
-	}
-
-	gvrs := make([]schema.GroupVersionResource, 0, len(resources))
-	for _, r := range resources {
-		gvrs = append(gvrs, schema.GroupVersionResource{
-			Group:    group,
-			Version:  version,
-			Resource: r,
-		})
-	}
-	return gvrs
 }
 
 // Start begins watching all OpenChoreo resources (and OC-labeled core
@@ -127,15 +103,25 @@ func gvrList() []schema.GroupVersionResource {
 func (f *Forwarder) Start(ctx context.Context, onReady func()) error {
 	f.dispatchCtx = ctx
 
-	// Resource informers — unfiltered. Each watched OC resource has its
-	// own informer so we receive events for every Project, Component,
-	// Workload, etc.
-	crdFactory := dynamicinformer.NewDynamicSharedInformerFactory(f.client, 0)
-
-	for _, gvr := range gvrList() {
-		informer := crdFactory.ForResource(gvr).Informer()
-
-		gvrCopy := gvr // capture for closures
+	// One factory per watch entry so each carries its own (optional)
+	// label-selector tweak. NewFilteredDynamicSharedInformerFactory
+	// applies a single TweakListOptionsFunc to every resource it
+	// serves, so resources with different selectors can't share a
+	// factory. An empty selector means "no filter" — the tweak fn is
+	// still wired up but leaves opts.LabelSelector untouched.
+	factories := make([]dynamicinformer.DynamicSharedInformerFactory, 0, len(f.watchResources))
+	for _, w := range f.watchResources {
+		gvrCopy := w.GVR
+		selector := w.LabelSelector
+		factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(
+			f.client, 0, metav1.NamespaceAll,
+			func(opts *metav1.ListOptions) {
+				if selector != "" {
+					opts.LabelSelector = selector
+				}
+			},
+		)
+		informer := factory.ForResource(gvrCopy).Informer()
 		_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				f.handleEvent(obj, "created", gvrCopy)
@@ -151,48 +137,22 @@ func (f *Forwarder) Start(ctx context.Context, onReady func()) error {
 			return fmt.Errorf("adding event handler for %s: %w", gvrCopy.Resource, err)
 		}
 
-		f.logger.Info("Watching resource", "resource", gvr.Resource, "group", gvr.Group)
-	}
-
-	// Namespace informer — filtered to OC-managed namespaces only via a
-	// label selector. The Kubernetes API server applies the selector
-	// server-side, so the informer's cache holds only OC Organization
-	// namespaces and we never receive events for kube-system,
-	// cert-manager, dp-* data-plane namespaces, or any other ambient
-	// cluster activity.
-	nsFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(
-		f.client, 0, metav1.NamespaceAll,
-		func(opts *metav1.ListOptions) {
-			opts.LabelSelector = ocControlPlaneLabelSelector
-		},
-	)
-	nsInformer := nsFactory.ForResource(namespaceGVR).Informer()
-	_, err := nsInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			f.handleEvent(obj, "created", namespaceGVR)
-		},
-		UpdateFunc: func(_ interface{}, newObj interface{}) {
-			f.handleEvent(newObj, "updated", namespaceGVR)
-		},
-		DeleteFunc: func(obj interface{}) {
-			f.handleEvent(obj, "deleted", namespaceGVR)
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("adding event handler for %s: %w", namespaceGVR.Resource, err)
-	}
-	f.logger.Info("Watching Namespaces", "labelSelector", ocControlPlaneLabelSelector)
-
-	crdFactory.Start(ctx.Done())
-	nsFactory.Start(ctx.Done())
-	for gvr, ok := range crdFactory.WaitForCacheSync(ctx.Done()) {
-		if !ok {
-			return fmt.Errorf("informer cache failed to sync for %s", gvr.Resource)
+		args := []any{"resource", gvrCopy.Resource, "group", gvrCopy.Group}
+		if selector != "" {
+			args = append(args, "labelSelector", selector)
 		}
+		f.logger.Info("Watching resource", args...)
+		factories = append(factories, factory)
 	}
-	for gvr, ok := range nsFactory.WaitForCacheSync(ctx.Done()) {
-		if !ok {
-			return fmt.Errorf("informer cache failed to sync for %s", gvr.Resource)
+
+	for _, factory := range factories {
+		factory.Start(ctx.Done())
+	}
+	for _, factory := range factories {
+		for gvr, ok := range factory.WaitForCacheSync(ctx.Done()) {
+			if !ok {
+				return fmt.Errorf("informer cache failed to sync for %s", gvr.Resource)
+			}
 		}
 	}
 
