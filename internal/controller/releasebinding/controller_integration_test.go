@@ -1941,4 +1941,196 @@ var _ = Describe("ReleaseBinding Controller", func() {
 				"trait parameters.maxReplicas should substitute as a native int")
 		})
 	})
+
+	Context("when the Workload carries literal env vars and file configs", func() {
+		const (
+			project  = "configs-proj"
+			compName = "configs-comp"
+			envName  = "configs-env"
+			dpName   = "configs-dp"
+			rbName   = "rb-configs"
+			crName   = "cr-configs"
+		)
+		req := reconcileRequest(rbName)
+		expectedReleaseName := compName + "-" + envName
+
+		// Deployment template uses the ${configurations.*} CEL helpers from the
+		// component-with-configs sample: literal env vars become an envFrom
+		// configMapRef and literal files become container volumeMounts + pod
+		// volumes referencing a ConfigMap.
+		configsDeployment := &runtime.RawExtension{
+			Raw: []byte(`{` +
+				`"apiVersion":"apps/v1",` +
+				`"kind":"Deployment",` +
+				`"metadata":{"name":"configs-deployment"},` +
+				`"spec":{` +
+				`"selector":{"matchLabels":{"app":"configs"}},` +
+				`"template":{` +
+				`"metadata":{"labels":{"app":"configs"}},` +
+				`"spec":{` +
+				`"containers":[{` +
+				`"name":"app",` +
+				`"image":"nginx:latest",` +
+				`"envFrom":"${configurations.toContainerEnvFrom()}",` +
+				`"volumeMounts":"${configurations.toContainerVolumeMounts()}"` +
+				`}],` +
+				`"volumes":"${configurations.toVolumes()}"` +
+				`}}}}`),
+		}
+
+		// One ConfigMap per container-grouped env-var set.
+		envConfigTemplate := &runtime.RawExtension{
+			Raw: []byte(`{` +
+				`"apiVersion":"v1",` +
+				`"kind":"ConfigMap",` +
+				`"metadata":{"name":"${envConfig.resourceName}"}` +
+				`}`),
+		}
+
+		// One ConfigMap per literal file.
+		fileConfigTemplate := &runtime.RawExtension{
+			Raw: []byte(`{` +
+				`"apiVersion":"v1",` +
+				`"kind":"ConfigMap",` +
+				`"metadata":{"name":"${config.resourceName}"}` +
+				`}`),
+		}
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(expectedReleaseName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("injects env vars via envFrom and files via volumeMounts/volumes into the rendered Deployment", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating a ComponentRelease whose template uses ${configurations.*} helpers and forEach ConfigMaps")
+			cr := crFixture(crName, project, compName)
+			cr.Spec.ComponentType.Spec.Resources = []openchoreov1alpha1.ResourceTemplate{
+				{ID: "deployment", Template: configsDeployment},
+				{
+					ID:       "env-config",
+					ForEach:  "${configurations.toConfigEnvsByContainer()}",
+					Var:      "envConfig",
+					Template: envConfigTemplate,
+				},
+				{
+					ID:       "file-config",
+					ForEach:  "${configurations.toConfigFileList()}",
+					Var:      "config",
+					Template: fileConfigTemplate,
+				},
+			}
+			// Workload carries one literal env var and one literal file —
+			// both go through the configs (non-secret) extraction path.
+			cr.Spec.Workload = openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "nginx:latest",
+					Env: []openchoreov1alpha1.EnvVar{
+						{Key: "LOG_LEVEL", Value: "info"},
+					},
+					Files: []openchoreov1alpha1.FileVar{
+						{Key: "application.toml", MountPath: "/conf", Value: "schema_generation:\n  enable: true\n"},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			By("Creating the remaining dependencies")
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ReleaseBinding")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, project, compName, envName, crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — the Pipeline renders the Deployment plus env-config and file-config ConfigMaps")
+			result := mustReconcile(r, req)
+			Expect(result.Requeue).To(BeTrue())
+
+			By("Fetching the RenderedRelease and partitioning resources by kind")
+			createdRelease := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				createdRelease,
+			)).To(Succeed())
+
+			var deployment map[string]any
+			var configMaps []map[string]any
+			for _, res := range createdRelease.Spec.Resources {
+				if res.Object == nil {
+					continue
+				}
+				var obj map[string]any
+				Expect(json.Unmarshal(res.Object.Raw, &obj)).To(Succeed())
+				switch obj["kind"] {
+				case "Deployment":
+					deployment = obj
+				case "ConfigMap":
+					configMaps = append(configMaps, obj)
+				}
+			}
+			Expect(deployment).NotTo(BeNil(), "workload Deployment should be rendered")
+			Expect(len(configMaps)).To(BeNumerically(">=", 1),
+				"at least one ConfigMap (env-config or file-config) should be rendered alongside the Deployment")
+
+			By("Locating the Deployment container spec")
+			depSpec, ok := deployment["spec"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			tmpl, ok := depSpec["template"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			podSpec, ok := tmpl["spec"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			containers, ok := podSpec["containers"].([]any)
+			Expect(ok).To(BeTrue())
+			Expect(containers).To(HaveLen(1))
+			container, ok := containers[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+
+			By("Verifying envFrom carries a configMapRef (env-var injection path)")
+			envFromAny, ok := container["envFrom"].([]any)
+			Expect(ok).To(BeTrue(), "container.envFrom should be a list, got %T", container["envFrom"])
+			Expect(envFromAny).NotTo(BeEmpty(), "container.envFrom should contain at least one configMapRef entry")
+			firstEnvFrom, ok := envFromAny[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(firstEnvFrom).To(HaveKey("configMapRef"),
+				"envFrom entry from a literal env var should be a configMapRef, not a secretRef")
+
+			By("Verifying volumeMounts carries the file's mount path (file-mount injection path)")
+			volMountsAny, ok := container["volumeMounts"].([]any)
+			Expect(ok).To(BeTrue(), "container.volumeMounts should be a list, got %T", container["volumeMounts"])
+			Expect(volMountsAny).NotTo(BeEmpty(), "container.volumeMounts should include the literal file's mount")
+			firstMount, ok := volMountsAny[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(firstMount["mountPath"]).To(Equal("/conf/application.toml"),
+				"mountPath should be derived from FileVar.MountPath + FileVar.Key")
+
+			By("Verifying volumes carries a ConfigMap-backed volume")
+			volumesAny, ok := podSpec["volumes"].([]any)
+			Expect(ok).To(BeTrue(), "spec.template.spec.volumes should be a list, got %T", podSpec["volumes"])
+			Expect(volumesAny).NotTo(BeEmpty(), "spec.template.spec.volumes should include the file-config ConfigMap volume")
+			firstVolume, ok := volumesAny[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(firstVolume).To(HaveKey("configMap"),
+				"a volume for a literal file should be backed by configMap, not secret")
+		})
+	})
 })
