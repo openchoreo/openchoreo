@@ -1811,4 +1811,134 @@ var _ = Describe("ReleaseBinding Controller", func() {
 				"environmentConfigs.image from the ReleaseBinding should land in the rendered container")
 		})
 	})
+
+	Context("when the ComponentType embeds a trait that creates an extra resource", func() {
+		const (
+			project  = "embedtrait-proj"
+			compName = "embedtrait-comp"
+			envName  = "embedtrait-env"
+			dpName   = "embedtrait-dp"
+			rbName   = "rb-embedtrait"
+			crName   = "cr-embedtrait"
+		)
+		req := reconcileRequest(rbName)
+		expectedReleaseName := compName + "-" + envName
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(expectedReleaseName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("renders the embedded trait's Creates[] resource alongside the workload Deployment", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating a ComponentRelease whose ComponentType embeds an HPA trait")
+			cr := crFixture(crName, project, compName)
+			// Embed the trait instance on the ComponentType (PE-defined, the
+			// 'component-with-embedded-traits' sample shape).
+			cr.Spec.ComponentType.Spec.Traits = []openchoreov1alpha1.ComponentTypeTrait{
+				{
+					Kind:         openchoreov1alpha1.TraitRefKindTrait,
+					Name:         "hpa-trait",
+					InstanceName: "autoscaler",
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"minReplicas":2,"maxReplicas":5}`),
+					},
+				},
+			}
+			// Freeze the trait's spec on the ComponentRelease so the Pipeline
+			// can resolve hpa-trait's Creates[] templates.
+			cr.Spec.Traits = []openchoreov1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreov1alpha1.TraitRefKindTrait,
+					Name: "hpa-trait",
+					Spec: openchoreov1alpha1.TraitSpec{
+						Parameters: &openchoreov1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{"type":"object","properties":{"minReplicas":{"type":"integer"},"maxReplicas":{"type":"integer"}}}`),
+							},
+						},
+						Creates: []openchoreov1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{` +
+										`"apiVersion":"autoscaling/v2",` +
+										`"kind":"HorizontalPodAutoscaler",` +
+										`"metadata":{"name":"embedtrait-hpa"},` +
+										`"spec":{` +
+										`"scaleTargetRef":{"apiVersion":"apps/v1","kind":"Deployment","name":"test-deployment"},` +
+										`"minReplicas":"${parameters.minReplicas}",` +
+										`"maxReplicas":"${parameters.maxReplicas}"` +
+										`}}`),
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			By("Creating the remaining dependencies")
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ReleaseBinding")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, project, compName, envName, crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — the Pipeline renders both the workload Deployment and the embedded trait's HPA")
+			result := mustReconcile(r, req)
+			Expect(result.Requeue).To(BeTrue())
+
+			By("Fetching the RenderedRelease and asserting both resources are present")
+			createdRelease := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				createdRelease,
+			)).To(Succeed())
+
+			var foundDeployment, foundHPA map[string]any
+			for _, res := range createdRelease.Spec.Resources {
+				if res.Object == nil {
+					continue
+				}
+				var obj map[string]any
+				Expect(json.Unmarshal(res.Object.Raw, &obj)).To(Succeed())
+				switch obj["kind"] {
+				case "Deployment":
+					foundDeployment = obj
+				case "HorizontalPodAutoscaler":
+					foundHPA = obj
+				}
+			}
+			Expect(foundDeployment).NotTo(BeNil(), "workload Deployment should be rendered")
+			Expect(foundHPA).NotTo(BeNil(), "embedded trait's HPA should be rendered")
+
+			By("Verifying trait parameters substituted into the HPA spec")
+			hpaSpec, ok := foundHPA["spec"].(map[string]any)
+			Expect(ok).To(BeTrue(), "rendered HPA should have a spec object")
+			Expect(hpaSpec["minReplicas"]).To(BeNumerically("==", 2),
+				"trait parameters.minReplicas should substitute as a native int")
+			Expect(hpaSpec["maxReplicas"]).To(BeNumerically("==", 5),
+				"trait parameters.maxReplicas should substitute as a native int")
+		})
+	})
 })
