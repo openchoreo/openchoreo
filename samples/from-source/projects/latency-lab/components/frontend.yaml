@@ -1,0 +1,66 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: lab-frontend
+  namespace: default
+spec:
+  owner:
+    projectName: latency-lab
+
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/web-application
+
+  autoDeploy: true
+
+  traits:
+    - kind: ClusterTrait
+      name: observability-alert-rule
+      instanceName: lab-frontend-5xx-log-alert
+      parameters:
+        description: "Alert when frontend logs indicate HTTP 500 responses (likely from injected fail_rate or real upstream errors)"
+        severity: critical
+        source:
+          type: log
+          query: "status=500"
+        condition:
+          window: 1m
+          interval: 1m
+          operator: gt
+          threshold: 5
+
+  workflow:
+    kind: ClusterWorkflow
+    name: dockerfile-builder
+    parameters:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+        appPath: "/project-latency-lab/frontend"
+      docker:
+        context: "/project-latency-lab/frontend"
+        filePath: "/project-latency-lab/frontend/Dockerfile"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: WorkflowRun
+metadata:
+  name: lab-frontend-build-01
+  namespace: default
+  labels:
+    openchoreo.dev/project: "latency-lab"
+    openchoreo.dev/component: "lab-frontend"
+spec:
+  workflow:
+    kind: ClusterWorkflow
+    name: dockerfile-builder
+    parameters:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+        appPath: "/project-latency-lab/frontend"
+      docker:
+        context: "/project-latency-lab/frontend"
+        filePath: "/project-latency-lab/frontend/Dockerfile"

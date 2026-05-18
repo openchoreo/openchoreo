@@ -1,0 +1,50 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: lab-analytics-service
+  namespace: default
+spec:
+  owner:
+    projectName: latency-lab
+
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+
+  autoDeploy: true
+
+  workflow:
+    kind: ClusterWorkflow
+    name: dockerfile-builder
+    parameters:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+        appPath: "/project-latency-lab/analytics-service"
+      docker:
+        context: "/project-latency-lab/analytics-service"
+        filePath: "/project-latency-lab/analytics-service/Dockerfile"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: WorkflowRun
+metadata:
+  name: lab-analytics-service-build-01
+  namespace: default
+  labels:
+    openchoreo.dev/project: "latency-lab"
+    openchoreo.dev/component: "lab-analytics-service"
+spec:
+  workflow:
+    kind: ClusterWorkflow
+    name: dockerfile-builder
+    parameters:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+        appPath: "/project-latency-lab/analytics-service"
+      docker:
+        context: "/project-latency-lab/analytics-service"
+        filePath: "/project-latency-lab/analytics-service/Dockerfile"

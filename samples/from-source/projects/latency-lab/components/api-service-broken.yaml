@@ -1,0 +1,50 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: lab-api-service-broken
+  namespace: default
+spec:
+  owner:
+    projectName: latency-lab
+
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+
+  autoDeploy: true
+
+  workflow:
+    kind: ClusterWorkflow
+    name: dockerfile-builder
+    parameters:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+        appPath: "/project-latency-lab/api-service-broken"
+      docker:
+        context: "/project-latency-lab/api-service-broken"
+        filePath: "/project-latency-lab/api-service-broken/Dockerfile"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: WorkflowRun
+metadata:
+  name: lab-api-service-broken-build-01
+  namespace: default
+  labels:
+    openchoreo.dev/project: "latency-lab"
+    openchoreo.dev/component: "lab-api-service-broken"
+spec:
+  workflow:
+    kind: ClusterWorkflow
+    name: dockerfile-builder
+    parameters:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+        appPath: "/project-latency-lab/api-service-broken"
+      docker:
+        context: "/project-latency-lab/api-service-broken"
+        filePath: "/project-latency-lab/api-service-broken/Dockerfile"
