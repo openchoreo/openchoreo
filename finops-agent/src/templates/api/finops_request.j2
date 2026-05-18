@@ -13,8 +13,11 @@ Analyze the following component that has exceeded its budget:
 - **Amount**: {{ budgeted_cost.amount }} {{ budgeted_cost.currency }}
 - **Period**: {{ budgeted_cost.period }}
 
-## Actual Cost
+## Actual Cost (authoritative — from the triggering budget alert)
 - **Amount**: {{ actual_cost.amount }} {{ actual_cost.currency }}
+
+> The `actual_cost` field in your final report will be populated deterministically
+> from this value; do not re-query or recompute it.
 
 Please investigate this budget overrun by:
 1. Querying resource metrics (CPU and memory requests, limits, and actual usage) for this component over the budget period ({{ budgeted_cost.period }})

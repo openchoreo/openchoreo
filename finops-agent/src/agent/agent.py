@@ -24,7 +24,7 @@ from src.auth import get_oauth2_auth
 from src.clients import MCPClient, get_model, get_report_backend
 from src.config import settings
 from src.logging_config import request_id_context
-from src.models import FinOpsReport, FieldChange, RemediationAction, ResourceChange
+from src.models import CostBreakdown, FinOpsReport, FieldChange, RemediationAction, ResourceChange
 from src.template_manager import render
 
 if TYPE_CHECKING:
@@ -273,6 +273,16 @@ async def run_analysis(
                 _synthesize_remediation_actions(finops_report)
                 if settings.remediation_enabled
                 else []
+            )
+
+            inbound_actual = request_context["actual_cost"]
+            finops_report.actual_cost = CostBreakdown(
+                cpu_cost=None,
+                memory_cost=None,
+                total_cost=inbound_actual["amount"],
+                currency=inbound_actual["currency"],
+                is_estimated=False,
+                breakdown_source="observer_alert_value",
             )
 
             report_data = finops_report.model_dump()
