@@ -652,7 +652,7 @@ helm upgrade --install observability-logs-opensearch \
 Install the tracing receiver in the observability plane cluster. Since the logs module already installed OpenSearch, disable it here:
 
 ```bash
-helm upgrade --install observability-tracing-opensearch \
+helm upgrade --install observability-traces-opensearch \
   oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
