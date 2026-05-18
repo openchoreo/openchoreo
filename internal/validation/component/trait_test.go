@@ -4,6 +4,7 @@
 package component
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -248,6 +249,167 @@ func TestValidateTraitPatch(t *testing.T) {
 					found := false
 					for _, err := range errs {
 						if assert.Contains(t, err.Error(), tt.errMsg) {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("expected error containing %q, got %v", tt.errMsg, errs)
+					}
+				}
+			} else {
+				assert.Empty(t, errs, "unexpected validation errors: %v", errs)
+			}
+		})
+	}
+}
+
+func TestValidateTraitRemove(t *testing.T) {
+	parametersSchema := &apiextschema.Structural{
+		Generic: apiextschema.Generic{Type: "object"},
+		Properties: map[string]apiextschema.Structural{
+			"names": {
+				Generic: apiextschema.Generic{Type: "array"},
+				Items: &apiextschema.Structural{
+					Generic: apiextschema.Generic{Type: "string"},
+				},
+			},
+		},
+	}
+
+	validator, err := NewCELValidator(TraitResource, SchemaOptions{
+		ParametersSchema: parametersSchema,
+	})
+	require.NoError(t, err)
+
+	basePath := field.NewPath("spec", "removes").Index(0)
+
+	tests := []struct {
+		name      string
+		remove    v1alpha1.TraitRemove
+		wantError bool
+		errMsg    string
+	}{
+		{
+			name: "valid remove by GVK",
+			remove: v1alpha1.TraitRemove{
+				Target: v1alpha1.PatchTarget{
+					Group:   "gateway.networking.k8s.io",
+					Version: "v1",
+					Kind:    "HTTPRoute",
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid remove with where",
+			remove: v1alpha1.TraitRemove{
+				Target: v1alpha1.PatchTarget{
+					Group:   "gateway.networking.k8s.io",
+					Version: "v1",
+					Kind:    "HTTPRoute",
+					Where:   `${resource.metadata.labels.mode == "passthrough"}`,
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid forEach with var",
+			remove: v1alpha1.TraitRemove{
+				ForEach: "${parameters.names}",
+				Var:     "name",
+				Target: v1alpha1.PatchTarget{
+					Group:   "",
+					Version: "v1",
+					Kind:    "ConfigMap",
+					Where:   "${resource.metadata.name == name}",
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "missing version",
+			remove: v1alpha1.TraitRemove{
+				Target: v1alpha1.PatchTarget{
+					Group: "gateway.networking.k8s.io",
+					Kind:  "HTTPRoute",
+				},
+			},
+			wantError: true,
+			errMsg:    "version",
+		},
+		{
+			name: "missing kind",
+			remove: v1alpha1.TraitRemove{
+				Target: v1alpha1.PatchTarget{
+					Group:   "gateway.networking.k8s.io",
+					Version: "v1",
+				},
+			},
+			wantError: true,
+			errMsg:    "kind",
+		},
+		{
+			name: "forbidden workload kind: Deployment",
+			remove: v1alpha1.TraitRemove{
+				Target: v1alpha1.PatchTarget{
+					Group:   "apps",
+					Version: "v1",
+					Kind:    "Deployment",
+				},
+			},
+			wantError: true,
+			errMsg:    "must not remove workload resources",
+		},
+		{
+			name: "forbidden workload kind: StatefulSet",
+			remove: v1alpha1.TraitRemove{
+				Target: v1alpha1.PatchTarget{
+					Group:   "apps",
+					Version: "v1",
+					Kind:    "StatefulSet",
+				},
+			},
+			wantError: true,
+			errMsg:    "must not remove workload resources",
+		},
+		{
+			name: "forbidden workload kind: CronJob",
+			remove: v1alpha1.TraitRemove{
+				Target: v1alpha1.PatchTarget{
+					Group:   "batch",
+					Version: "v1",
+					Kind:    "CronJob",
+				},
+			},
+			wantError: true,
+			errMsg:    "must not remove workload resources",
+		},
+		{
+			name: "non-iterable forEach",
+			remove: v1alpha1.TraitRemove{
+				ForEach: "${parameters.names[0]}",
+				Var:     "name",
+				Target: v1alpha1.PatchTarget{
+					Group:   "",
+					Version: "v1",
+					Kind:    "ConfigMap",
+				},
+			},
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validateTraitRemove(tt.remove, validator, basePath)
+
+			if tt.wantError {
+				assert.NotEmpty(t, errs, "expected validation error")
+				if tt.errMsg != "" {
+					found := false
+					for _, e := range errs {
+						if strings.Contains(e.Error(), tt.errMsg) {
 							found = true
 							break
 						}

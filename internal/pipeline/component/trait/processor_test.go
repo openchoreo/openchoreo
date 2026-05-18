@@ -2148,6 +2148,352 @@ spec:
 	assert.Contains(t, err.Error(), "path")
 }
 
+func TestApplyTraitRemoves(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: app-route
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: app-svc
+- apiVersion: gateway.networking.k8s.io/v1alpha2
+  kind: TLSRoute
+  metadata:
+    name: app-tls-route
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: passthrough
+spec:
+  removes:
+    - target:
+        kind: HTTPRoute
+        version: v1
+        group: gateway.networking.k8s.io
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	got, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
+	require.NoError(t, err)
+
+	gotResources := extractResources(got)
+	wantYAML := `
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: app-svc
+- apiVersion: gateway.networking.k8s.io/v1alpha2
+  kind: TLSRoute
+  metadata:
+    name: app-tls-route
+`
+	var wantResources []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(wantYAML), &wantResources))
+	if diff := cmp.Diff(wantResources, gotResources); diff != "" {
+		t.Errorf("ApplyTraitRemoves() mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestApplyTraitRemoves_WhereClause(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: app-route
+    labels:
+      mode: terminate
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: passthrough-route
+    labels:
+      mode: passthrough
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: drop-passthrough
+spec:
+  removes:
+    - target:
+        kind: HTTPRoute
+        version: v1
+        group: gateway.networking.k8s.io
+        where: ${resource.metadata.labels.mode == "passthrough"}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	got, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
+	require.NoError(t, err)
+
+	require.Len(t, got, 1)
+	gotMeta := got[0].Resource["metadata"].(map[string]any)
+	assert.Equal(t, "app-route", gotMeta["name"])
+}
+
+func TestApplyTraitRemoves_NoMatch(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: app-svc
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: nothing-to-remove
+spec:
+  removes:
+    - target:
+        kind: HTTPRoute
+        version: v1
+        group: gateway.networking.k8s.io
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	got, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
+	require.NoError(t, err)
+	require.Len(t, got, 1, "no-match must be a silent no-op")
+}
+
+func TestApplyTraitRemoves_ForEach(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: a
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: b
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: c
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: prune
+spec:
+  removes:
+    - forEach: ${parameters.names}
+      var: name
+      target:
+        kind: ConfigMap
+        version: v1
+        group: ""
+        where: ${resource.metadata.name == name}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{
+		"parameters": map[string]any{
+			"names": []any{"a", "c"},
+		},
+	}
+
+	got, err := processor.ApplyTraitRemoves(resources, &trait, ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	gotMeta := got[0].Resource["metadata"].(map[string]any)
+	assert.Equal(t, "b", gotMeta["name"])
+}
+
+func TestApplyTraitRemoves_TargetPlane(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: dp-config
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: obs-config
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+
+	resources := []renderer.RenderedResource{
+		{Resource: deepCopy(resourceMaps[0]), TargetPlane: v1alpha1.TargetPlaneDataPlane},
+		{Resource: deepCopy(resourceMaps[1]), TargetPlane: v1alpha1.TargetPlaneObservabilityPlane},
+	}
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: dp-only
+spec:
+  removes:
+    - target:
+        kind: ConfigMap
+        version: v1
+        group: ""
+      targetPlane: dataplane
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	got, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	gotMeta := got[0].Resource["metadata"].(map[string]any)
+	assert.Equal(t, "obs-config", gotMeta["name"], "observability resource must survive a dataplane-scoped remove")
+}
+
+func TestApplyTraitRemoves_WhereClauseNonBoolean(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: foo
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: bad-where
+spec:
+  removes:
+    - target:
+        kind: ConfigMap
+        version: v1
+        group: ""
+        where: ${resource.metadata.name}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	_, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must evaluate to boolean")
+}
+
+func TestProcessTraits_CreatesPatchesRemovesOrder(t *testing.T) {
+	// Verifies the documented Creates -> Patches -> Removes ordering: a single trait
+	// can create a replacement, patch an unrelated sibling, and then drop the
+	// originally-rendered HTTPRoute, all in one pass.
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: app-route
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: app-svc
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: passthrough
+spec:
+  creates:
+    - template:
+        apiVersion: gateway.networking.k8s.io/v1alpha2
+        kind: TLSRoute
+        metadata:
+          name: app-tls-route
+  patches:
+    - target:
+        kind: Service
+        version: v1
+        group: ""
+      operations:
+        - op: add
+          path: /metadata/labels
+          value:
+            tls-mode: passthrough
+  removes:
+    - target:
+        kind: HTTPRoute
+        version: v1
+        group: gateway.networking.k8s.io
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	got, err := processor.ProcessTraits(resources, &trait, map[string]any{})
+	require.NoError(t, err)
+
+	gotResources := extractResources(got)
+	wantYAML := `
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: app-svc
+    labels:
+      tls-mode: passthrough
+- apiVersion: gateway.networking.k8s.io/v1alpha2
+  kind: TLSRoute
+  metadata:
+    name: app-tls-route
+`
+	var wantResources []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(wantYAML), &wantResources))
+	if diff := cmp.Diff(wantResources, gotResources); diff != "" {
+		t.Errorf("ProcessTraits() mismatch (-want +got):\n%s", diff)
+	}
+}
+
 // Helper functions
 
 func toRenderedResources(resourceMaps []map[string]any) []renderer.RenderedResource {

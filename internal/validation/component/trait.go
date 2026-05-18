@@ -14,7 +14,8 @@ import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
-// ValidateTraitCreatesAndPatchesWithSchema validates all creates and patches in a Trait with schema-aware type checking.
+// ValidateTraitCreatesAndPatchesWithSchema validates all creates, patches, removes and
+// validations in a Trait with schema-aware type checking.
 func ValidateTraitCreatesAndPatchesWithSchema(
 	trait *v1alpha1.Trait,
 	parametersSchema *apiextschema.Structural,
@@ -23,7 +24,8 @@ func ValidateTraitCreatesAndPatchesWithSchema(
 	return ValidateTraitSpec(trait.Spec, parametersSchema, environmentConfigsSchema, field.NewPath("spec"))
 }
 
-// ValidateClusterTraitCreatesAndPatchesWithSchema validates all creates, patches, and validations in a ClusterTrait with schema-aware type checking.
+// ValidateClusterTraitCreatesAndPatchesWithSchema validates all creates, patches, removes
+// and validations in a ClusterTrait with schema-aware type checking.
 func ValidateClusterTraitCreatesAndPatchesWithSchema(
 	ct *v1alpha1.ClusterTrait,
 	parametersSchema *apiextschema.Structural,
@@ -37,11 +39,12 @@ func ValidateClusterTraitCreatesAndPatchesWithSchema(
 		Validations:        ct.Spec.Validations,
 		Creates:            ct.Spec.Creates,
 		Patches:            ct.Spec.Patches,
+		Removes:            ct.Spec.Removes,
 	}
 	return ValidateTraitSpec(spec, parametersSchema, environmentConfigsSchema, field.NewPath("spec"))
 }
 
-// ValidateTraitSpec validates all creates, patches, and validations in a TraitSpec with schema-aware type checking.
+// ValidateTraitSpec validates all creates, patches, removes, and validations in a TraitSpec with schema-aware type checking.
 // basePath is the field path prefix for error reporting (e.g., field.NewPath("spec") for top-level CRDs,
 // or a nested path for embedded trait specs in ComponentRelease).
 //
@@ -84,6 +87,13 @@ func ValidateTraitSpec(
 	for i, patch := range spec.Patches {
 		patchPath := basePath.Child("patches").Index(i)
 		errs := validateTraitPatch(patch, validator, patchPath)
+		allErrs = append(allErrs, errs...)
+	}
+
+	// Validate removes
+	for i, remove := range spec.Removes {
+		removePath := basePath.Child("removes").Index(i)
+		errs := validateTraitRemove(remove, validator, removePath)
 		allErrs = append(allErrs, errs...)
 	}
 
@@ -258,6 +268,80 @@ func validateTraitPatch(
 		errs := validatePatchOperation(op, validator, env, opPath)
 		allErrs = append(allErrs, errs...)
 	}
+
+	return allErrs
+}
+
+// validateTraitRemove validates a single trait remove entry.
+//
+// Removes share PatchTarget with patches, so most validation is delegated to
+// validatePatchTarget. The one extra rule is that workload resource kinds
+// (Deployment, StatefulSet, CronJob etc) cannot be removed. This mirrors the
+// existing restriction on creates. The primary workload is owned by the
+// ComponentType, not by traits.
+func validateTraitRemove(
+	remove v1alpha1.TraitRemove,
+	validator *CELValidator,
+	basePath *field.Path,
+) field.ErrorList {
+	allErrs := field.ErrorList{}
+	env := validator.GetBaseEnv()
+
+	// Handle forEach: analyze and extend environment with loop variable
+	if remove.ForEach != "" {
+		forEachCEL, ok := extractCELFromTemplate(remove.ForEach)
+		if !ok {
+			allErrs = append(allErrs, field.Invalid(
+				basePath.Child("forEach"),
+				remove.ForEach,
+				"forEach must be a template expression wrapped with ${...}"))
+		} else {
+			if err := validator.ValidateIterableExpression(forEachCEL, env); err != nil {
+				allErrs = append(allErrs, field.Invalid(
+					basePath.Child("forEach"),
+					remove.ForEach,
+					err.Error()))
+			}
+
+			forEachInfo, err := analyzeForEachExpression(
+				forEachCEL,
+				remove.Var,
+				env,
+			)
+			if err != nil {
+				if !strings.Contains(err.Error(), "type check") {
+					allErrs = append(allErrs, field.Invalid(
+						basePath.Child("forEach"),
+						remove.ForEach,
+						fmt.Sprintf("failed to analyze forEach: %v", err)))
+				}
+			}
+
+			if forEachInfo != nil {
+				extendedEnv, err := extendEnvWithForEach(env, forEachInfo, validator.GetTypeProvider())
+				if err != nil {
+					allErrs = append(allErrs, field.InternalError(
+						basePath.Child("forEach"),
+						fmt.Errorf("failed to extend environment: %w", err)))
+				} else {
+					env = extendedEnv
+				}
+			}
+		}
+	}
+
+	// Reject workload kinds. The primary workload is defined by the ComponentType
+	// and must not be deleted by traits.
+	if IsWorkloadResourceKind(remove.Target.Kind) {
+		allErrs = append(allErrs, field.Forbidden(
+			basePath.Child("target").Child("kind"),
+			fmt.Sprintf("traits must not remove workload resources (kind %q); the primary workload is defined by the ComponentType", remove.Target.Kind),
+		))
+	}
+
+	// Validate target (group/version/kind required, where must be boolean)
+	targetErrs := validatePatchTarget(remove.Target, validator, env, basePath.Child("target"))
+	allErrs = append(allErrs, targetErrs...)
 
 	return allErrs
 }
