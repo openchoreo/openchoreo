@@ -143,10 +143,13 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 	baseDir := repoPath
 	customOutputPath := params.OutputPath
 
-	// 6. Get namespace from context (same as namespace)
-	namespace := ctx.Namespace
+	// 6. Resolve namespace: prefer --namespace flag, fall back to current context
+	namespace := params.Namespace
 	if namespace == "" {
-		return fmt.Errorf("namespace is required in context")
+		namespace = ctx.Namespace
+	}
+	if namespace == "" {
+		return fmt.Errorf("namespace is required (set via --namespace or current context)")
 	}
 
 	// 7. Build output directory resolver for when no release-config.yaml exists

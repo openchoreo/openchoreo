@@ -66,6 +66,7 @@ func newGenerateCmd() *cobra.Command {
 			}
 
 			params := GenerateParams{
+				Namespace:  flags.GetNamespace(cmd),
 				OutputPath: flags.GetOutputPath(cmd),
 				DryRun:     flags.GetDryRun(cmd),
 				Mode:       flags.GetMode(cmd),
@@ -89,6 +90,7 @@ func newGenerateCmd() *cobra.Command {
 	}
 	cmd.Flags().String("name", "", "Name of the resource (must be lowercase letters, numbers, or hyphens)")
 	flags.AddAll(cmd)
+	flags.AddNamespace(cmd)
 	flags.AddProject(cmd)
 	flags.AddComponent(cmd)
 	flags.AddOutputPath(cmd)

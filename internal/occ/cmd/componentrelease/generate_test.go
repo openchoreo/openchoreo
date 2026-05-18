@@ -113,7 +113,7 @@ func TestGenerate_EmptyNamespaceInContext(t *testing.T) {
 		RootDir: repoDir,
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "namespace is required in context")
+	assert.Contains(t, err.Error(), "namespace is required")
 }
 
 // --- Generate: component requires project ---
