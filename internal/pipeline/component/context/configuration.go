@@ -30,36 +30,28 @@ func ExtractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.Sec
 
 	container := workload.Spec.Container
 
-	// Process environment variables from container
+	// Process environment variables from container.
+	// CRD-level CEL guarantees value and valueFrom are not both set, so a missing
+	// valueFrom means the literal value (possibly empty string) is intended.
 	for _, env := range container.Env {
-		if env.Value != "" {
-			// Direct value - goes to configs
-			result.Configs.Envs = append(result.Configs.Envs, EnvConfiguration{
-				Name:  env.Key,
-				Value: env.Value,
-			})
-		} else if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
-			// Resolve secret reference and add to secrets
+		if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
 			if remoteRef := resolveSecretRef(secretReferences, env.ValueFrom.SecretKeyRef); remoteRef != nil {
 				result.Secrets.Envs = append(result.Secrets.Envs, EnvConfiguration{
 					Name:      env.Key,
 					RemoteRef: remoteRef,
 				})
 			}
+		} else {
+			result.Configs.Envs = append(result.Configs.Envs, EnvConfiguration{
+				Name:  env.Key,
+				Value: env.Value,
+			})
 		}
 	}
 
-	// Process file configurations from container
+	// Process file configurations from container.
 	for _, file := range container.Files {
-		if file.Value != "" {
-			// Direct content - goes to configs
-			result.Configs.Files = append(result.Configs.Files, FileConfiguration{
-				Name:      file.Key,
-				MountPath: file.MountPath,
-				Value:     file.Value,
-			})
-		} else if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
-			// Resolve secret reference and add to secrets
+		if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
 			if remoteRef := resolveSecretRef(secretReferences, file.ValueFrom.SecretKeyRef); remoteRef != nil {
 				result.Secrets.Files = append(result.Secrets.Files, FileConfiguration{
 					Name:      file.Key,
@@ -67,6 +59,12 @@ func ExtractConfigurationsFromWorkload(secretReferences map[string]*v1alpha1.Sec
 					RemoteRef: remoteRef,
 				})
 			}
+		} else {
+			result.Configs.Files = append(result.Configs.Files, FileConfiguration{
+				Name:      file.Key,
+				MountPath: file.MountPath,
+				Value:     file.Value,
+			})
 		}
 	}
 

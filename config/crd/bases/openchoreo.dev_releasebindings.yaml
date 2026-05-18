@@ -154,8 +154,8 @@ spec:
                           - key
                           type: object
                           x-kubernetes-validations:
-                          - message: exactly one of value or valueFrom must be set
-                            rule: has(self.value) != has(self.valueFrom)
+                          - message: value and valueFrom are mutually exclusive
+                            rule: '!(has(self.value) && has(self.valueFrom))'
                         type: array
                       files:
                         description: File configurations.
@@ -198,8 +198,8 @@ spec:
                           - mountPath
                           type: object
                           x-kubernetes-validations:
-                          - message: exactly one of value or valueFrom must be set
-                            rule: has(self.value) != has(self.valueFrom)
+                          - message: value and valueFrom are mutually exclusive
+                            rule: '!(has(self.value) && has(self.valueFrom))'
                         type: array
                     type: object
                 type: object

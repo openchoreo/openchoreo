@@ -11,7 +11,7 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // EnvVar represents an environment variable present in the container.
-// +kubebuilder:validation:XValidation:rule="has(self.value) != has(self.valueFrom)",message="exactly one of value or valueFrom must be set"
+// +kubebuilder:validation:XValidation:rule="!(has(self.value) && has(self.valueFrom))",message="value and valueFrom are mutually exclusive"
 type EnvVar struct {
 	// The environment variable key.
 	// +required
@@ -36,7 +36,7 @@ type EnvVarValueFrom struct {
 }
 
 // FileVar represents a file configuration in a container.
-// +kubebuilder:validation:XValidation:rule="has(self.value) != has(self.valueFrom)",message="exactly one of value or valueFrom must be set"
+// +kubebuilder:validation:XValidation:rule="!(has(self.value) && has(self.valueFrom))",message="value and valueFrom are mutually exclusive"
 type FileVar struct {
 	// The file key/name.
 	// +kubebuilder:validation:Required

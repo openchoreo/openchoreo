@@ -326,9 +326,11 @@ type ConfigurationItems struct {
 }
 
 // EnvConfiguration represents an environment variable configuration.
+// Value is always emitted (no omitempty) so that empty-string literals survive
+// the JSON round-trip into the CEL evaluation context.
 type EnvConfiguration struct {
 	Name      string         `json:"name"`
-	Value     string         `json:"value,omitempty"`
+	Value     string         `json:"value"`
 	RemoteRef *RemoteRefData `json:"remoteRef,omitempty"`
 }
 
@@ -336,7 +338,7 @@ type EnvConfiguration struct {
 type FileConfiguration struct {
 	Name      string         `json:"name"`
 	MountPath string         `json:"mountPath"`
-	Value     string         `json:"value,omitempty"`
+	Value     string         `json:"value"`
 	RemoteRef *RemoteRefData `json:"remoteRef,omitempty"`
 }
 
