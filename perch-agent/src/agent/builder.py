@@ -71,8 +71,8 @@ _DEFAULT_RECURSION_LIMIT = 30
 #  this cap is the safety net for non-empty-but-unproductive iteration.)
 #
 # Operators can override the per-case map globally via the
-# ``PERCH_RECURSION_LIMIT`` env var (chart value
-# ``perchAgent.config.recursionLimit``). When that env var is non-zero
+# ``PORTAL_ASSISTANT_RECURSION_LIMIT`` env var (chart value
+# ``portalAssistant.config.recursionLimit``). When that env var is non-zero
 # it wins over both ``_DEFAULT_RECURSION_LIMIT`` and the map below.
 _RECURSION_LIMIT_FOR_CASE: dict[str, int] = {
     "build_failure": 15,
@@ -290,14 +290,14 @@ async def _build_agent(
 
     # langgraph recursion budget — see comments on _RECURSION_LIMIT_FOR_CASE
     # for sizing rationale. The order of precedence:
-    #   1. ``settings.perch_recursion_limit`` (env / Helm chart override) when > 0
+    #   1. ``settings.portal_assistant_recursion_limit`` (env / Helm chart override) when > 0
     #   2. The per-case map (build_failure / runtime_debug etc.)
     #   3. ``_DEFAULT_RECURSION_LIMIT`` for unknown case_types
     # A breached limit raises GraphRecursionError, which the outer error
     # handler in ``stream_chat`` translates into a recovery_with_fallback
     # reply (tool-less model call returning a generic answer).
-    if settings.perch_recursion_limit > 0:
-        recursion_limit = settings.perch_recursion_limit
+    if settings.portal_assistant_recursion_limit > 0:
+        recursion_limit = settings.portal_assistant_recursion_limit
     else:
         recursion_limit = _RECURSION_LIMIT_FOR_CASE.get(
             case_type or "", _DEFAULT_RECURSION_LIMIT

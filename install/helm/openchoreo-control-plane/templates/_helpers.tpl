@@ -191,17 +191,17 @@ Event-forwarder service account name
 {{- end }}
 
 {{/*
-Perch Agent resource name
+Portal Assistant resource name
 */}}
-{{- define "openchoreo-control-plane.perchAgent.name" -}}
-{{- default "perch-agent" .Values.perchAgent.name }}
+{{- define "openchoreo-control-plane.portalAssistant.name" -}}
+{{- default "portal-assistant" .Values.portalAssistant.name }}
 {{- end }}
 
 {{/*
-Perch Agent service account name
+Portal Assistant service account name
 */}}
-{{- define "openchoreo-control-plane.perchAgent.serviceAccountName" -}}
-{{- default "perch-agent" .Values.perchAgent.name }}
+{{- define "openchoreo-control-plane.portalAssistant.serviceAccountName" -}}
+{{- default "portal-assistant" .Values.portalAssistant.name }}
 {{- end }}
 
 {{/*

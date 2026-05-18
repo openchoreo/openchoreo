@@ -18,7 +18,7 @@ from src.models import BaseModel
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/v1alpha1/perch-agent", tags=["Perch Agent"])
+router = APIRouter(prefix="/api/v1alpha1/portal-assistant", tags=["Portal Assistant"])
 
 # Strong references for fire-and-forget background tasks. Without this set,
 # asyncio only weakly references the task and may garbage-collect it mid-flight.

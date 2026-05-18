@@ -41,14 +41,14 @@ if settings.jwt_insecure_allow_unverified:
 async def lifespan(_app: FastAPI):
     # Fail-fast config validation: a runtime LLM 401 is a confusing user
     # experience; surface a clear startup error when the API key isn't set.
-    if not settings.perch_llm_api_key:
+    if not settings.portal_assistant_llm_api_key:
         raise RuntimeError(
-            "PERCH_LLM_API_KEY is not set — refusing to start. "
+            "PORTAL_ASSISTANT_LLM_API_KEY is not set — refusing to start. "
             "Set the env var (or values.yaml llm.apiKeySecret) and redeploy."
         )
-    if not settings.perch_model_name:
+    if not settings.portal_assistant_model_name:
         raise RuntimeError(
-            "PERCH_MODEL_NAME is not set — refusing to start. "
+            "PORTAL_ASSISTANT_MODEL_NAME is not set — refusing to start. "
             "Set the env var (or values.yaml llm.modelName) and redeploy."
         )
 

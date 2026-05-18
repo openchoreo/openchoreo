@@ -243,4 +243,4 @@ class AuthorizationChecker:
 # Coarse gate used by /chat and /warmup. Mirrors the rcareport:view pattern
 # in rca-agent — a single action that admins can grant/revoke independently of
 # the user's per-tool MCP permissions.
-require_invoke_authz = AuthorizationChecker(action="perch:invoke", resource_type="perch")
+require_invoke_authz = AuthorizationChecker(action="portal-assistant:invoke", resource_type="portal-assistant")

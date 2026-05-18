@@ -486,18 +486,18 @@
           "properties": {
             "assistant": {
               "additionalProperties": false,
-              "description": "Perch Agent chat assistant configuration. Defaults to off — enable to surface the \"Ask Perch\" affordance in Backstage and forward chat traffic to the perch-agent service.",
+              "description": "Portal Assistant chat assistant configuration. Defaults to off — enable to surface the \"Ask Portal Assistant\" affordance in Backstage and forward chat traffic to the portal-assistant service.",
               "properties": {
                 "enabled": {
                   "default": false,
-                  "description": "Enable the Perch chat drawer + Logs-tab \"Ask Perch\" affordance. Maps to OPENCHOREO_FEATURES_ASSISTANT_ENABLED in the Backstage container.",
+                  "description": "Enable the Portal Assistant chat drawer + Logs-tab \"Ask Portal Assistant\" affordance. Maps to OPENCHOREO_FEATURES_ASSISTANT_ENABLED in the Backstage container.",
                   "title": "enabled",
                   "type": "boolean"
                 },
-                "perchAgentUrl": {
+                "portalAssistantUrl": {
                   "default": "",
-                  "description": "Upstream URL the openchoreo-perch-backend Backstage plugin forwards /chat and /warmup to. Leave empty to default to the in-cluster perch-agent Service in the release namespace — override when the perch-agent runs in a different cluster or namespace. Maps to OPENCHOREO_PERCH_AGENT_URL.",
-                  "title": "perchAgentUrl",
+                  "description": "Upstream URL the Backstage forwarder posts /chat and /warmup to. Leave empty to default to the in-cluster portal-assistant Service in the release namespace — override when the portal-assistant runs in a different cluster or namespace. Maps to OPENCHOREO_PORTAL_ASSISTANT_URL.",
+                  "title": "portalAssistantUrl",
                   "type": "string"
                 }
               },
@@ -3967,9 +3967,9 @@
       "title": "openchoreoApi",
       "type": "object"
     },
-    "perchAgent": {
+    "portalAssistant": {
       "additionalProperties": false,
-      "description": "Optional Perch chat agent. Disabled by default; enable to opt in.",
+      "description": "Optional Portal Assistant chat agent. Disabled by default; enable to opt in.",
       "properties": {
         "authConfigConfigMap": {
           "default": "",
@@ -4104,7 +4104,7 @@
               "type": "string"
             },
             "repository": {
-              "default": "ghcr.io/openchoreo/ai-perch-agent",
+              "default": "ghcr.io/openchoreo/portal-assistant",
               "title": "repository",
               "type": "string"
             },
@@ -4144,7 +4144,7 @@
           "type": "object"
         },
         "name": {
-          "default": "perch-agent",
+          "default": "portal-assistant",
           "title": "name",
           "type": "string"
         },
@@ -4247,7 +4247,7 @@
         "http",
         "resources"
       ],
-      "title": "perchAgent",
+      "title": "portalAssistant",
       "type": "object"
     },
     "security": {

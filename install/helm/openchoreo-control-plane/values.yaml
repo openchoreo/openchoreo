@@ -1296,7 +1296,7 @@ openchoreoApi:
                 - "alerts:view"
                 - "rcareport:view"
                 - "finopsreport:view"
-                - "perch:invoke"
+                - "portal-assistant:invoke"
 
             # SRE role - operations engineers focused on reliability and incident response.
             # Assign namespace-reader and cluster-reader alongside this role so SREs
@@ -1347,7 +1347,7 @@ openchoreoApi:
                 - "rcareport:update"
                 - "finopsreport:view"
                 - "finopsreport:update"
-                - "perch:invoke"
+                - "portal-assistant:invoke"
 
             # Platform engineer role - engineers managing the OpenChoreo platform infrastructure
             - name: platform-engineer
@@ -1438,7 +1438,7 @@ openchoreoApi:
                 - "rcareport:update"
                 - "finopsreport:view"
                 - "finopsreport:update"
-                - "perch:invoke"
+                - "portal-assistant:invoke"
                 - "observabilityalertsnotificationchannel:view"
                 - "observabilityalertsnotificationchannel:create"
                 - "observabilityalertsnotificationchannel:update"
@@ -2451,21 +2451,21 @@ backstage:
         enabled: true
     # @schema
     # type: object
-    # description: Perch Agent chat assistant configuration. Defaults to off — enable to surface the "Ask Perch" affordance in Backstage and forward chat traffic to the perch-agent service.
+    # description: Portal Assistant chat assistant configuration. Defaults to off — enable to surface the "Ask Portal Assistant" affordance in Backstage and forward chat traffic to the portal-assistant service.
     # @schema
     assistant:
       # @schema
       # type: boolean
-      # description: Enable the Perch chat drawer + Logs-tab "Ask Perch" affordance. Maps to OPENCHOREO_FEATURES_ASSISTANT_ENABLED in the Backstage container.
+      # description: Enable the Portal Assistant chat drawer + Logs-tab "Ask Portal Assistant" affordance. Maps to OPENCHOREO_FEATURES_ASSISTANT_ENABLED in the Backstage container.
       # default: false
       # @schema
       enabled: false
       # @schema
       # type: string
-      # description: Upstream URL the openchoreo-perch-backend Backstage plugin forwards /chat and /warmup to. Leave empty to default to the in-cluster perch-agent Service in the release namespace — override when the perch-agent runs in a different cluster or namespace. Maps to OPENCHOREO_PERCH_AGENT_URL.
+      # description: Upstream URL the Backstage forwarder posts /chat and /warmup to. Leave empty to default to the in-cluster portal-assistant Service in the release namespace — override when the portal-assistant runs in a different cluster or namespace. Maps to OPENCHOREO_PORTAL_ASSISTANT_URL.
       # default: ""
       # @schema
-      perchAgentUrl: ""
+      portalAssistantUrl: ""
 
   # @schema
   # type: object
@@ -3788,15 +3788,15 @@ eventForwarder:
 
 # @schema
 # type: object
-# description: Optional Perch chat agent. Disabled by default; enable to opt in.
+# description: Optional Portal Assistant chat agent. Disabled by default; enable to opt in.
 # required: false
 # @schema
-perchAgent:
+portalAssistant:
   enabled: false
-  name: perch-agent
+  name: portal-assistant
 
   image:
-    repository: ghcr.io/openchoreo/ai-perch-agent
+    repository: ghcr.io/openchoreo/portal-assistant
     tag: ""
     pullPolicy: IfNotPresent
 

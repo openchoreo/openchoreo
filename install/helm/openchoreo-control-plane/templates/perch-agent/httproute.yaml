@@ -1,16 +1,16 @@
-{{- if and .Values.perchAgent.enabled .Values.perchAgent.http.enabled .Values.gateway.enabled }}
+{{- if and .Values.portalAssistant.enabled .Values.portalAssistant.http.enabled .Values.gateway.enabled }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: {{ include "openchoreo-control-plane.perchAgent.name" . }}
+  name: {{ include "openchoreo-control-plane.portalAssistant.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
-    app.kubernetes.io/component: perch-agent
+    app.kubernetes.io/component: portal-assistant
 spec:
   parentRefs:
   - name: gateway-default
-  {{- with .Values.perchAgent.http.hostnames }}
+  {{- with .Values.portalAssistant.http.hostnames }}
   hostnames:
     {{- range . }}
     - {{ . | quote }}
@@ -21,7 +21,7 @@ spec:
     matches:
     - path:
         type: PathPrefix
-        value: /api/v1alpha1/perch-agent/chat
+        value: /api/v1alpha1/portal-assistant/chat
     timeouts:
       # /chat streams NDJSON for the duration of an LLM turn. The
       # *gateway-side* request timeout is disabled by the TrafficPolicy
@@ -31,13 +31,13 @@ spec:
       # remains a generous 450s.
       backendRequest: "450s"
     backendRefs:
-    - name: {{ include "openchoreo-control-plane.perchAgent.name" . }}
-      port: {{ .Values.perchAgent.service.port }}
+    - name: {{ include "openchoreo-control-plane.portalAssistant.name" . }}
+      port: {{ .Values.portalAssistant.service.port }}
   - matches:
     - path:
         type: PathPrefix
-        value: /api/v1alpha1/perch-agent/warmup
+        value: /api/v1alpha1/portal-assistant/warmup
     backendRefs:
-    - name: {{ include "openchoreo-control-plane.perchAgent.name" . }}
-      port: {{ .Values.perchAgent.service.port }}
+    - name: {{ include "openchoreo-control-plane.portalAssistant.name" . }}
+      port: {{ .Values.portalAssistant.service.port }}
 {{- end }}

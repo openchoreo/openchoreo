@@ -1,51 +1,51 @@
-{{- if .Values.perchAgent.enabled }}
-{{- if not .Values.perchAgent.llm.secretName }}
-{{- fail "perchAgent.llm.secretName is required when perchAgent is enabled. Create a Secret containing PERCH_LLM_API_KEY and set perchAgent.llm.secretName to its name." }}
+{{- if .Values.portalAssistant.enabled }}
+{{- if not .Values.portalAssistant.llm.secretName }}
+{{- fail "portalAssistant.llm.secretName is required when portalAssistant is enabled. Create a Secret containing PORTAL_ASSISTANT_LLM_API_KEY and set portalAssistant.llm.secretName to its name." }}
 {{- end }}
-{{- if not .Values.perchAgent.llm.modelName }}
-{{- fail "perchAgent.llm.modelName is required when perchAgent is enabled (e.g. 'openai:gpt-4o-mini')." }}
+{{- if not .Values.portalAssistant.llm.modelName }}
+{{- fail "portalAssistant.llm.modelName is required when portalAssistant is enabled (e.g. 'openai:gpt-4o-mini')." }}
 {{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "openchoreo-control-plane.perchAgent.name" . }}
+  name: {{ include "openchoreo-control-plane.portalAssistant.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
-    app.kubernetes.io/component: perch-agent
+    app.kubernetes.io/component: portal-assistant
 spec:
-  replicas: {{ .Values.perchAgent.replicas }}
+  replicas: {{ .Values.portalAssistant.replicas }}
   selector:
     matchLabels:
       {{- include "openchoreo-control-plane.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: perch-agent
+      app.kubernetes.io/component: portal-assistant
   template:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/perch-agent/configmap.yaml") . | sha256sum }}
       labels:
         {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: perch-agent
+        app.kubernetes.io/component: portal-assistant
     spec:
-      serviceAccountName: {{ include "openchoreo-control-plane.perchAgent.serviceAccountName" . }}
+      serviceAccountName: {{ include "openchoreo-control-plane.portalAssistant.serviceAccountName" . }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 12000
         runAsGroup: 12000
         fsGroup: 12000
       containers:
-      - name: perch-agent
-        image: "{{ .Values.perchAgent.image.repository }}:{{ .Values.perchAgent.image.tag | default .Chart.AppVersion }}"
-        imagePullPolicy: {{ .Values.perchAgent.image.pullPolicy }}
+      - name: portal-assistant
+        image: "{{ .Values.portalAssistant.image.repository }}:{{ .Values.portalAssistant.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.portalAssistant.image.pullPolicy }}
         ports:
         - name: http
-          containerPort: {{ .Values.perchAgent.service.port }}
+          containerPort: {{ .Values.portalAssistant.service.port }}
           protocol: TCP
         envFrom:
         - secretRef:
-            name: {{ .Values.perchAgent.llm.secretName }}
+            name: {{ .Values.portalAssistant.llm.secretName }}
         - configMapRef:
-            name: {{ include "openchoreo-control-plane.perchAgent.name" . }}-config
+            name: {{ include "openchoreo-control-plane.portalAssistant.name" . }}-config
         env:
         # readOnlyRootFilesystem: true means any library that wants to
         # write outside the mounted scratch volumes (typically /tmp)
@@ -71,11 +71,11 @@ spec:
           value: /tmp/.cache
         - name: TIKTOKEN_CACHE_DIR
           value: /tmp/.cache/tiktoken
-        {{- with .Values.perchAgent.extraEnvs }}
+        {{- with .Values.portalAssistant.extraEnvs }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
         resources:
-          {{- toYaml .Values.perchAgent.resources | nindent 10 }}
+          {{- toYaml .Values.portalAssistant.resources | nindent 10 }}
         livenessProbe:
           httpGet:
             path: /health
@@ -98,7 +98,7 @@ spec:
         # its tokenizer downloads under XDG_CACHE_HOME=/tmp/.cache.
         - name: tmp
           mountPath: /tmp
-        {{- if .Values.perchAgent.authConfigConfigMap }}
+        {{- if .Values.portalAssistant.authConfigConfigMap }}
         - name: auth-config
           mountPath: /etc/openchoreo
           readOnly: true
@@ -111,9 +111,9 @@ spec:
       volumes:
       - name: tmp
         emptyDir: {}
-      {{- if .Values.perchAgent.authConfigConfigMap }}
+      {{- if .Values.portalAssistant.authConfigConfigMap }}
       - name: auth-config
         configMap:
-          name: {{ .Values.perchAgent.authConfigConfigMap }}
+          name: {{ .Values.portalAssistant.authConfigConfigMap }}
       {{- end }}
 {{- end }}

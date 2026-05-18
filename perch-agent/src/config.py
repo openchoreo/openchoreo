@@ -12,15 +12,15 @@ class Settings(BaseSettings):
     )
 
     # LLM — independent of rca-agent so ops can pick a cheaper model for chat.
-    perch_model_name: str = ""
-    perch_llm_api_key: str = ""
+    portal_assistant_model_name: str = ""
+    portal_assistant_llm_api_key: str = ""
     # OpenAI gpt-5 / o-series reasoning effort. One of "minimal" /
     # "low" / "medium" / "high"; empty string leaves the model on its
     # default (medium for gpt-5-mini). Reasoning tokens are generated
     # invisibly before the user-facing response and are a large
     # contributor to the composition turn's wall-clock — tuning this
     # is the cheapest knob for latency vs. depth-of-analysis.
-    perch_reasoning_effort: str = ""
+    portal_assistant_reasoning_effort: str = ""
     # langgraph recursion_limit — bounds the worst-case per-turn
     # supersteps before the framework aborts with GraphRecursionError
     # and ``recover_with_fallback`` returns a tool-less reply.
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # failure max — catches genuine loops without clipping normal
     # chats. The chart default is 15; 10 caused a 40 % build-failure
     # abort rate in the same benchmark.
-    perch_recursion_limit: int = 0
+    portal_assistant_recursion_limit: int = 0
 
     # The openchoreo control-plane API hosts the MCP endpoint at /mcp.
     openchoreo_api_url: str = (

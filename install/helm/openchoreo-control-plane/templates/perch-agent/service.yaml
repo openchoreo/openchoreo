@@ -1,20 +1,20 @@
-{{- if .Values.perchAgent.enabled }}
+{{- if .Values.portalAssistant.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "openchoreo-control-plane.perchAgent.name" . }}
+  name: {{ include "openchoreo-control-plane.portalAssistant.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
-    app.kubernetes.io/component: perch-agent
+    app.kubernetes.io/component: portal-assistant
 spec:
-  type: {{ .Values.perchAgent.service.type }}
+  type: {{ .Values.portalAssistant.service.type }}
   ports:
-  - port: {{ .Values.perchAgent.service.port }}
+  - port: {{ .Values.portalAssistant.service.port }}
     targetPort: http
     protocol: TCP
     name: http
   selector:
     {{- include "openchoreo-control-plane.selectorLabels" . | nindent 4 }}
-    app.kubernetes.io/component: perch-agent
+    app.kubernetes.io/component: portal-assistant
 {{- end }}
