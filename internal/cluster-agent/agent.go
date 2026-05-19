@@ -46,6 +46,9 @@ type Agent struct {
 	// activeStreams tracks active exec streaming sessions indexed by requestID
 	activeStreams   map[string]*execSession
 	activeStreamsMu sync.Mutex
+	// hubbleStreams tracks active hubble flow streaming sessions indexed by requestID
+	hubbleStreams   map[string]*hubbleSession
+	hubbleStreamsMu sync.Mutex
 }
 
 func New(cfg *Config, k8sClient client.Client, k8sConfig *rest.Config, logger *slog.Logger) (*Agent, error) {
@@ -99,6 +102,7 @@ func New(cfg *Config, k8sClient client.Client, k8sConfig *rest.Config, logger *s
 		logger:        logger.With("component", "agent", "planeID", cfg.PlaneID),
 		stopChan:      make(chan struct{}),
 		activeStreams: make(map[string]*execSession),
+		hubbleStreams: make(map[string]*hubbleSession),
 	}, nil
 }
 
@@ -237,17 +241,27 @@ func (a *Agent) handleConnection(ctx context.Context) {
 			return
 		}
 
-		// Try to parse as stream init (exec requests)
+		// Try to parse as stream init (exec / hubble requests)
 		var streamInit messaging.HTTPTunnelStreamInit
 		if err := json.Unmarshal(message, &streamInit); err == nil && streamInit.IsUpgrade && streamInit.RequestID != "" {
-			go a.handleHTTPTunnelStreamInit(&streamInit)
+			switch streamInit.Target {
+			case "hubble":
+				go a.handleHubbleStreamInit(&streamInit)
+			default:
+				go a.handleHTTPTunnelStreamInit(&streamInit)
+			}
 			continue
 		}
 
-		// Try to parse as stream chunk (stdin data for active exec sessions)
+		// Try to parse as stream chunk (stdin data for active exec sessions, or
+		// the close signal for exec/hubble sessions). A close carries IsClose with
+		// no Data, so it must be accepted even when Data is nil — otherwise the
+		// session never cancels and leaks its goroutine/upstream stream.
 		var streamChunk messaging.HTTPTunnelStreamChunk
-		if err := json.Unmarshal(message, &streamChunk); err == nil && streamChunk.RequestID != "" && streamChunk.Data != nil {
-			a.routeStreamChunk(&streamChunk)
+		if err := json.Unmarshal(message, &streamChunk); err == nil && streamChunk.RequestID != "" && (streamChunk.Data != nil || streamChunk.IsClose) {
+			if !a.routeHubbleChunk(&streamChunk) {
+				a.routeStreamChunk(&streamChunk)
+			}
 			continue
 		}
 

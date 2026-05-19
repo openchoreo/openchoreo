@@ -402,6 +402,22 @@ clusterAgent:
   logLevel: info
 
   # @schema
+  # type: array
+  # description: Additional environment variables to set in the cluster agent container.
+  # items:
+  #   type: object
+  #   properties:
+  #     name:
+  #       type: string
+  #       description: Name of the environment variable
+  #     value:
+  #       type: string
+  #       description: Value of the environment variable
+  # default: []
+  # @schema
+  extraEnvs: []
+
+  # @schema
   # type: object
   # description: Resource limits and requests for cluster agent
   # @schema

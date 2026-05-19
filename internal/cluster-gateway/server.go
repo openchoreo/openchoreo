@@ -116,8 +116,9 @@ func (s *Server) Start() error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", s.handleWebSocket)
-	mux.HandleFunc("/api/proxy/", s.handleHTTPProxy) // HTTP proxy to data plane services
-	mux.HandleFunc("/api/exec/", s.handleExec)       // WebSocket exec proxy to data plane pods
+	mux.HandleFunc("/api/proxy/", s.handleHTTPProxy)   // HTTP proxy to data plane services
+	mux.HandleFunc("/api/exec/", s.handleExec)         // WebSocket exec proxy to data plane pods
+	mux.HandleFunc("/api/wirelogs/", s.handleWirelogs) // WebSocket wirelogs (Cilium Hubble flow) stream
 
 	// Register plane lifecycle API (for controller notifications and status queries)
 	planeAPI := NewPlaneAPI(s.connMgr, s, s.logger)
