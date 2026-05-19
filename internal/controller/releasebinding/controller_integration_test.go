@@ -1784,7 +1784,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 				}
 				var obj map[string]any
 				Expect(json.Unmarshal(res.Object.Raw, &obj)).To(Succeed())
-				if obj["kind"] == "Deployment" {
+				if obj["kind"] == kindDeployment {
 					rendered = obj
 					break
 				}
@@ -1923,7 +1923,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 				var obj map[string]any
 				Expect(json.Unmarshal(res.Object.Raw, &obj)).To(Succeed())
 				switch obj["kind"] {
-				case "Deployment":
+				case kindDeployment:
 					foundDeployment = obj
 				case "HorizontalPodAutoscaler":
 					foundHPA = obj
@@ -2082,14 +2082,14 @@ var _ = Describe("ReleaseBinding Controller", func() {
 				var obj map[string]any
 				Expect(json.Unmarshal(res.Object.Raw, &obj)).To(Succeed())
 				switch obj["kind"] {
-				case "Deployment":
+				case kindDeployment:
 					deployment = obj
 				case "ConfigMap":
 					configMaps = append(configMaps, obj)
 				}
 			}
 			Expect(deployment).NotTo(BeNil(), "workload Deployment should be rendered")
-			Expect(len(configMaps)).To(BeNumerically(">=", 1),
+			Expect(configMaps).ToNot(BeEmpty(),
 				"at least one ConfigMap (env-config or file-config) should be rendered alongside the Deployment")
 
 			By("Locating the Deployment container spec")
