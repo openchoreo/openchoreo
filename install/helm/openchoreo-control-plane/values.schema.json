@@ -4130,6 +4130,12 @@
               "title": "modelName",
               "type": "string"
             },
+            "modelProvider": {
+              "default": "",
+              "description": "LLM model provider (e.g., google-genai, openai, anthropic). If empty, inferred from model name.",
+              "title": "modelProvider",
+              "type": "string"
+            },
             "secretName": {
               "default": "",
               "title": "secretName",

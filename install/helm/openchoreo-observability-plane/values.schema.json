@@ -1768,6 +1768,12 @@
               "description": "LLM model name (e.g., gpt-5.2)",
               "title": "modelName",
               "type": "string"
+            },
+            "modelProvider": {
+              "default": "",
+              "description": "LLM model provider (e.g., google-genai, openai, anthropic). If empty, inferred from model name.",
+              "title": "modelProvider",
+              "type": "string"
             }
           },
           "required": [],
