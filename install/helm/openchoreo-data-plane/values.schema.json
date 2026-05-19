@@ -14,6 +14,26 @@
           "title": "affinity",
           "type": "object"
         },
+        "extraEnvs": {
+          "default": [],
+          "description": "Additional environment variables to set in the cluster agent container.",
+          "items": {
+            "properties": {
+              "name": {
+                "description": "Name of the environment variable",
+                "type": "string"
+              },
+              "value": {
+                "description": "Value of the environment variable",
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "title": "extraEnvs",
+          "type": "array"
+        },
         "heartbeatInterval": {
           "default": "30s",
           "description": "Interval between heartbeat messages to control plane",
