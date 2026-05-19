@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     )
 
     rca_model_name: str = ""
+    rca_model_provider: str = ""
     rca_llm_api_key: str = ""
 
     observer_api_url: str = "http://observer:8080"
