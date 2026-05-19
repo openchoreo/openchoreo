@@ -21,10 +21,12 @@ def _requires_responses_api(model_name: str) -> bool:
 
 def get_model(
     model_name: str | None = None,
+    model_provider: str | None = None,
     api_key: str | None = None,
     **kwargs: Any,
 ) -> BaseChatModel:
     model_name = model_name or settings.portal_assistant_model_name
+    model_provider = model_provider or settings.portal_assistant_model_provider
     api_key = api_key or settings.portal_assistant_llm_api_key
     # OpenAI gpt-5 / o-series reasoning_effort. ``init_chat_model`` forwards
     # unknown kwargs to the provider class (langchain-openai's ChatOpenAI),
@@ -40,4 +42,8 @@ def get_model(
             and "use_responses_api" not in kwargs
         ):
             kwargs["use_responses_api"] = True
+
+    if model_provider:
+        kwargs["model_provider"] = model_provider
+
     return init_chat_model(model=model_name, api_key=api_key, **kwargs)

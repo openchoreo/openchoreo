@@ -3805,6 +3805,7 @@ portalAssistant:
   llm:
     secretName: ""
     modelName: ""
+    modelProvider: ""
 
   config:
     openchoreoApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"

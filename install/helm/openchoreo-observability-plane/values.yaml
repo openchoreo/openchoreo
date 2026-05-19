@@ -1435,6 +1435,13 @@ rca:
     # @schema
     modelName: ""
 
+    # @schema
+    # type: string
+    # description: LLM model provider (e.g., google-genai, openai, anthropic). If empty, inferred from model name.
+    # default: ""
+    # @schema
+    modelProvider: ""
+
 
   # @schema
   # description: Report storage backend type
