@@ -76,6 +76,11 @@ setup:
         secretKeyRef:
           name: openchoreo-initial-credentials
           key: sre-password
+    - name: THUNDER_CONSOLE_ADMIN_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: openchoreo-initial-credentials
+          key: thunder-console-admin-password
     - name: BACKSTAGE_CLIENT_SECRET
       valueFrom:
         secretKeyRef:
@@ -119,6 +124,53 @@ setup:
 
 bootstrap:
   scripts:
+    49-update-console-admin-password.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      log_info "Updating Thunder console admin password..."
+
+      ADMIN_USER=$(curl -s --max-time 10 "${THUNDER_URL}/users?filter=username%20eq%20%22admin%22")
+
+      ADMIN_USER_ID=$(echo "$ADMIN_USER" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+      if [ -n "$ADMIN_USER_ID" ]; then
+        log_info "Found Thunder console admin user (id: $ADMIN_USER_ID), updating password..."
+
+        ADMIN_TYPE=$(echo "$ADMIN_USER" | grep -o '"type":"[^"]*"' | head -1 | cut -d'"' -f4)
+        ADMIN_ORG=$(echo "$ADMIN_USER" | grep -o '"organizationUnit":"[^"]*"' | head -1 | cut -d'"' -f4)
+        ADMIN_ATTRS=$(echo "$ADMIN_USER" | grep -o '"attributes":{[^}]*}' | head -1 | sed 's/"password":"[^"]*"//' | sed 's/,,*/,/g' | sed 's/^,//' | sed 's/,$//')
+
+        # Build the PUT payload with existing attributes merged with new password
+        ADMIN_PAYLOAD="{"
+        if [ -n "$ADMIN_TYPE" ]; then
+          ADMIN_PAYLOAD="${ADMIN_PAYLOAD}\"type\":\"${ADMIN_TYPE}\","
+        fi
+        if [ -n "$ADMIN_ORG" ]; then
+          ADMIN_PAYLOAD="${ADMIN_PAYLOAD}\"organizationUnit\":\"${ADMIN_ORG}\","
+        fi
+        ADMIN_PAYLOAD="${ADMIN_PAYLOAD}\"attributes\":{"
+        if [ -n "$ADMIN_ATTRS" ] && [ "$ADMIN_ATTRS" != "{}" ]; then
+          ADMIN_PAYLOAD="${ADMIN_PAYLOAD}${ADMIN_ATTRS},"
+        fi
+        ADMIN_PAYLOAD="${ADMIN_PAYLOAD}\"password\":\"${THUNDER_CONSOLE_ADMIN_PASSWORD}\""
+        ADMIN_PAYLOAD="${ADMIN_PAYLOAD}}"
+        ADMIN_PAYLOAD="${ADMIN_PAYLOAD}}"
+
+        curl --location -X PUT "${THUNDER_URL}/users/${ADMIN_USER_ID}" \
+          --header 'Content-Type: application/json' \
+          --data "$ADMIN_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+        log_success "Thunder console admin password updated"
+      else
+        log_warning "Thunder console admin user not found, skipping password update"
+      fi
+
     50-user-schema-and-users.sh: |
       #!/bin/bash
       set -e

@@ -62,6 +62,11 @@ PE_PASSWORD=$(read_existing_secret "pe-password" "$(openssl rand -base64 16)")
 SRE_PASSWORD=$(read_existing_secret "sre-password" "$(openssl rand -base64 16)")
 
 # ---------------------------------------------------------------------------
+# Section: Thunder Console — built-in admin password
+# ---------------------------------------------------------------------------
+THUNDER_CONSOLE_ADMIN_PASSWORD=$(read_existing_secret "thunder-console-admin-password" "$(openssl rand -base64 16)")
+
+# ---------------------------------------------------------------------------
 # Section: Thunder — OAuth2 client secrets
 # ---------------------------------------------------------------------------
 BACKSTAGE_CLIENT_SECRET=$(read_existing_secret "backstage-client-secret" "$(openssl rand -hex 32)")
@@ -89,6 +94,7 @@ kubectl create secret generic openchoreo-initial-credentials \
   --from-literal=developer-password="${DEVELOPER_PASSWORD}" \
   --from-literal=pe-password="${PE_PASSWORD}" \
   --from-literal=sre-password="${SRE_PASSWORD}" \
+  --from-literal=thunder-console-admin-password="${THUNDER_CONSOLE_ADMIN_PASSWORD}" \
   --from-literal=backstage-client-secret="${BACKSTAGE_CLIENT_SECRET}" \
   --from-literal=customer-portal-client-secret="${CUSTOMER_PORTAL_CLIENT_SECRET}" \
   --from-literal=rca-client-secret="${RCA_CLIENT_SECRET}" \
