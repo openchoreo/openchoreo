@@ -137,36 +137,78 @@ bootstrap:
       ADMIN_USER_ID=$(echo "$ADMIN_USER" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 
       if [ -n "$ADMIN_USER_ID" ]; then
-        log_info "Found Thunder console admin user (id: $ADMIN_USER_ID), updating password..."
+        log_info "Found Thunder console admin user (id: $ADMIN_USER_ID), recreating with new password..."
+
+        # Fetch Administrators group before deleting the user (preserve group data)
+        ADMIN_GROUP=$(curl -s --max-time 10 "${THUNDER_URL}/groups")
+        ADMIN_GROUP_ID=$(echo "$ADMIN_GROUP" | grep -o '"name":"Administrators"[^}]*"id":"[^"]*"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+        ADMIN_GROUP_ORG=$(echo "$ADMIN_GROUP" | grep -o '"name":"Administrators"[^}]*"organizationUnitId":"[^"]*"' | grep -o '"organizationUnitId":"[^"]*"' | head -1 | cut -d'"' -f4)
+        ADMIN_GROUP_NAME=$(echo "$ADMIN_GROUP" | grep -o '"name":"Administrators"' | head -1 | cut -d'"' -f4)
+        ADMIN_GROUP_DESC=$(echo "$ADMIN_GROUP" | grep -o '"name":"Administrators"[^}]*"description":"[^"]*"' | grep -o '"description":"[^"]*"' | head -1 | cut -d'"' -f4)
 
         ADMIN_TYPE=$(echo "$ADMIN_USER" | grep -o '"type":"[^"]*"' | head -1 | cut -d'"' -f4)
         ADMIN_ORG=$(echo "$ADMIN_USER" | grep -o '"organizationUnit":"[^"]*"' | head -1 | cut -d'"' -f4)
-        ADMIN_ATTRS=$(echo "$ADMIN_USER" | grep -o '"attributes":{[^}]*}' | head -1 | sed 's/"password":"[^"]*"//' | sed 's/,,*/,/g' | sed 's/^,//' | sed 's/,$//')
 
-        # Build the PUT payload with existing attributes merged with new password
+        # Extract existing attributes inner content (strip "attributes":{ prefix and } suffix)
+        ADMIN_ATTRS_RAW=$(echo "$ADMIN_USER" | grep -o '"attributes":{[^}]*}' | head -1)
+        ADMIN_ATTRS_INNER=$(echo "$ADMIN_ATTRS_RAW" | sed 's/^"attributes":{//' | sed 's/}$//')
+        # Remove old password
+        ADMIN_ATTRS_INNER=$(echo "$ADMIN_ATTRS_INNER" | sed 's/"password":"[^"]*"//g' | sed 's/,,*/,/g' | sed 's/^,//' | sed 's/,$//')
+
+        # Build recreate payload — same attributes but with new password
         ADMIN_PAYLOAD="{"
-        if [ -n "$ADMIN_TYPE" ]; then
-          ADMIN_PAYLOAD="${ADMIN_PAYLOAD}\"type\":\"${ADMIN_TYPE}\","
-        fi
-        if [ -n "$ADMIN_ORG" ]; then
-          ADMIN_PAYLOAD="${ADMIN_PAYLOAD}\"organizationUnit\":\"${ADMIN_ORG}\","
-        fi
+        ADMIN_PAYLOAD="${ADMIN_PAYLOAD}\"type\":\"${ADMIN_TYPE}\","
+        ADMIN_PAYLOAD="${ADMIN_PAYLOAD}\"organizationUnit\":\"${ADMIN_ORG}\","
         ADMIN_PAYLOAD="${ADMIN_PAYLOAD}\"attributes\":{"
-        if [ -n "$ADMIN_ATTRS" ] && [ "$ADMIN_ATTRS" != "{}" ]; then
-          ADMIN_PAYLOAD="${ADMIN_PAYLOAD}${ADMIN_ATTRS},"
+        if [ -n "$ADMIN_ATTRS_INNER" ]; then
+          ADMIN_PAYLOAD="${ADMIN_PAYLOAD}${ADMIN_ATTRS_INNER},"
         fi
         ADMIN_PAYLOAD="${ADMIN_PAYLOAD}\"password\":\"${THUNDER_CONSOLE_ADMIN_PASSWORD}\""
         ADMIN_PAYLOAD="${ADMIN_PAYLOAD}}"
         ADMIN_PAYLOAD="${ADMIN_PAYLOAD}}"
 
-        curl --location -X PUT "${THUNDER_URL}/users/${ADMIN_USER_ID}" \
+        log_info "Deleting old admin user..."
+        curl -s -X DELETE "${THUNDER_URL}/users/${ADMIN_USER_ID}" \
+          --max-time 10 \
+          --retry 3 \
+          --retry-delay 2 \
+          -w "%{http_code}" -o /dev/null || true
+
+        log_info "Recreating admin user with new password..."
+        NEW_ADMIN_RESPONSE=$(curl -s -X POST "${THUNDER_URL}/users" \
           --header 'Content-Type: application/json' \
           --data "$ADMIN_PAYLOAD" \
-          --fail-with-body \
           --max-time 30 \
           --retry 3 \
-          --retry-delay 5
-        log_success "Thunder console admin password updated"
+          --retry-delay 5)
+        NEW_ADMIN_ID=$(echo "$NEW_ADMIN_RESPONSE" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+        if [ -n "$NEW_ADMIN_ID" ]; then
+          log_success "Admin user recreated with new ID: $NEW_ADMIN_ID"
+
+          # Update Administrators group membership to reference the new admin user
+          if [ -n "$ADMIN_GROUP_ID" ]; then
+            log_info "Updating Administrators group membership..."
+            curl -s -X PUT "${THUNDER_URL}/groups/${ADMIN_GROUP_ID}" \
+              --header 'Content-Type: application/json' \
+              --data "{
+                \"name\": \"${ADMIN_GROUP_NAME}\",
+                \"description\": \"${ADMIN_GROUP_DESC}\",
+                \"organizationUnitId\": \"${ADMIN_GROUP_ORG}\",
+                \"members\": [{\"id\": \"${NEW_ADMIN_ID}\", \"type\": \"user\"}]
+              }" \
+              --max-time 10 \
+              --retry 3 \
+              --retry-delay 2 \
+              -w "%{http_code}" -o /dev/null || log_warning "Failed to update Administrators group membership"
+            log_success "Administrators group membership updated"
+          else
+            log_warning "Administrators group not found, skipping membership update"
+          fi
+        else
+          log_error "Failed to recreate admin user"
+          exit 1
+        fi
       else
         log_warning "Thunder console admin user not found, skipping password update"
       fi

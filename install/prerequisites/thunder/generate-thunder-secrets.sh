@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/.config.sh"
+# Simple logging helpers (standalone — no dependency on .helpers.sh)
+log_info()  { printf "\033[34m[INFO]\033[0m %s\n" "$*"; }
+log_success() { printf "\033[32m[SUCCESS]\033[0m %s\n" "$*"; }
+log_warning() { printf "\033[33m[WARNING]\033[0m %s\n" "$*"; }
+log_error()   { printf "\033[31m[ERROR]\033[0m %s\n" "$*"; }
 
 log_info "Generating random Thunder secrets..."
 
