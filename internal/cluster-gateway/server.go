@@ -29,9 +29,10 @@ import (
 )
 
 const (
-	planeTypeDataPlane          = "dataplane"
-	planeTypeWorkflowPlane      = "workflowplane"
-	planeTypeObservabilityPlane = "observabilityplane"
+	planeTypeDataPlane            = "dataplane"
+	planeTypeWorkflowPlane        = "workflowplane"
+	planeTypeObservabilityPlane   = "observabilityplane"
+	crNamespaceClusterPlaceholder = "_cluster" // Special placeholder for cluster-scoped CRs (no namespace)
 )
 
 // Connection abstracts a WebSocket connection for testability.
@@ -443,9 +444,9 @@ func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
 
 	// Construct identifiers for CR-aware routing
 	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
-	// Handle cluster-scoped CR namespace placeholder: "_cluster" maps to empty namespace
+	// Handle cluster-scoped CR namespace placeholder: crNamespaceClusterPlaceholder maps to empty namespace
 	// to match the key format "/name" used by getAllPlaneClientCAs for cluster-scoped resources
-	if crNamespace == "_cluster" {
+	if crNamespace == crNamespaceClusterPlaceholder {
 		crNamespace = ""
 	}
 	crKey := fmt.Sprintf("%s/%s", crNamespace, crName)

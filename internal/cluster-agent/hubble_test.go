@@ -6,6 +6,7 @@ package clusteragent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -48,14 +49,18 @@ func TestNewGetFlowsRequest_LiveTail(t *testing.T) {
 	assert.Len(t, req.GetWhitelist(), 2, "request must carry both source and destination filters")
 }
 
-func TestHubbleRelayAddr_DefaultWhenUnset(t *testing.T) {
+func TestHubbleRelayAddr_ErrorWhenUnset(t *testing.T) {
 	t.Setenv("HUBBLE_RELAY_ADDR", "")
-	assert.Equal(t, defaultHubbleRelayAddr, hubbleRelayAddr())
+	addr, err := hubbleRelayAddr()
+	assert.ErrorIs(t, err, errors.New("HUBBLE_RELAY_ADDR env var is not set; it is required when configuring the Cilium module"))
+	assert.Empty(t, addr)
 }
 
-func TestHubbleRelayAddr_OverrideFromEnv(t *testing.T) {
+func TestHubbleRelayAddr_FromEnv(t *testing.T) {
 	t.Setenv("HUBBLE_RELAY_ADDR", "hubble-relay.custom.svc:4245")
-	assert.Equal(t, "hubble-relay.custom.svc:4245", hubbleRelayAddr())
+	addr, err := hubbleRelayAddr()
+	assert.NoError(t, err)
+	assert.Equal(t, "hubble-relay.custom.svc:4245", addr)
 }
 
 func TestHubbleSession_HandleChunkIsNoOp(t *testing.T) {

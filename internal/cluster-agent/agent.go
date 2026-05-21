@@ -254,9 +254,7 @@ func (a *Agent) handleConnection(ctx context.Context) {
 		}
 
 		// Try to parse as stream chunk (stdin data for active exec sessions, or
-		// the close signal for exec/hubble sessions). A close carries IsClose with
-		// no Data, so it must be accepted even when Data is nil — otherwise the
-		// session never cancels and leaks its goroutine/upstream stream.
+		// the close signal for exec/hubble sessions).
 		var streamChunk messaging.HTTPTunnelStreamChunk
 		if err := json.Unmarshal(message, &streamChunk); err == nil && streamChunk.RequestID != "" && (streamChunk.Data != nil || streamChunk.IsClose) {
 			if !a.routeHubbleChunk(&streamChunk) {

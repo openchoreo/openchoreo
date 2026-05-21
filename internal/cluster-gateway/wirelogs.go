@@ -17,19 +17,6 @@ import (
 
 // handleWirelogs handles the wirelogs (Cilium Hubble flow) Server-Sent Events endpoint.
 // URL: /api/wirelogs/{planeType}/{planeID}/{crNamespace}/{crName}?component=...&environment=...&namespace=...
-//
-// Flow:
-//  1. Respond with text/event-stream; each Hubble flow JSON is emitted as a single SSE
-//     `data:` frame followed by a blank line.
-//  2. Send a HTTPTunnelStreamInit{Target: "hubble"} to the data-plane agent
-//     authorized for the CR; the agent opens a gRPC GetFlows stream against
-//     hubble-relay and forwards each flow as a HTTPTunnelStreamChunk.
-//  3. Forward chunks one-way (agent → API server). When the API server's request
-//     context is canceled (client disconnect / timeout) send IsClose to the agent
-//     so it cancels the gRPC stream.
-//
-// Note: the gateway↔agent hop is still the persistent multiplexed WebSocket
-// tunnel (`/ws`). Only the api↔gateway leg is SSE.
 func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 	requestID := getOrGenerateRequestID(r)
 	logger := s.logger.With("requestId", requestID)
@@ -57,7 +44,7 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
-	if crNamespace == "_cluster" {
+	if crNamespace == crNamespaceClusterPlaceholder {
 		crNamespace = ""
 	}
 	crKey := fmt.Sprintf("%s/%s", crNamespace, crName)
@@ -79,10 +66,8 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 
 	// The http.Server's WriteTimeout is an absolute deadline from when request
 	// headers are read; for a long-lived SSE stream it would kill the connection
-	// after that deadline regardless of activity (the classic "curl: (18) transfer
-	// closed with outstanding read data remaining" once nothing has been sent for
-	// a while). Clear the deadline on this connection only — other endpoints keep
-	// the server's default protection.
+	// after that deadline regardless of activity. Hence, clear the deadline on this connection only
+	// Other endpoints keep the server's default protection.
 	if err := http.NewResponseController(w).SetWriteDeadline(time.Time{}); err != nil {
 		logger.Warn("Failed to disable write deadline for SSE stream", "error", err)
 	}
@@ -134,8 +119,7 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Wirelogs stream init sent to agent")
 
-	// Wait for the agent's first chunk (sentinel) so we know the stream is live
-	// before we commit to a 200 SSE response.
+	// Wait for the agent's first chunk (sentinel) before commit to a 200 SSE response.
 	select {
 	case chunk := <-session.fromAgent:
 		if chunk == nil {
@@ -215,11 +199,7 @@ func writeSSEHeaders(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// writeSSEEvent serializes a single payload as one `data:` SSE frame and flushes
-// it. Each newline in the payload is emitted as a continuation `data:` line so
-// the framing remains valid even if Hubble's protojson output ever contains a
-// newline (it currently does not — `protojson.MarshalOptions` produces compact
-// JSON — but the cost of being defensive is one bytes.Index call per flow).
+// writeSSEEvent serializes a single payload as one `data:` SSE frame and flushes it.
 // Returns false if the write failed and the caller should stop streaming.
 func writeSSEEvent(w http.ResponseWriter, flusher http.Flusher, data []byte) bool {
 	var buf bytes.Buffer
