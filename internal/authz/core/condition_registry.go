@@ -39,9 +39,20 @@ var AttrResourceEnvironment = AttributeSpec{
 	CELType:     cel.StringType,
 }
 
+// AttrResourceComponentType declares resource.componentType — the ComponentType
+// (or ClusterComponentType) name referenced by a Component,
+var AttrResourceComponentType = AttributeSpec{
+	Key:         "resource.componentType",
+	Description: "ComponentType name referenced by the component",
+	CELType:     cel.StringType,
+}
+
 // conditionRegistry maps concrete action names to the attributes available to CEL
 // expressions scoped to that action. Treat as immutable after init.
 var conditionRegistry = map[string][]AttributeSpec{
+	ActionCreateComponent:              {AttrResourceComponentType},
+	ActionUpdateComponent:              {AttrResourceComponentType},
+	ActionDeleteComponent:              {AttrResourceComponentType},
 	ActionCreateReleaseBinding:         {AttrResourceEnvironment},
 	ActionViewReleaseBinding:           {AttrResourceEnvironment},
 	ActionUpdateReleaseBinding:         {AttrResourceEnvironment},

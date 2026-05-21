@@ -501,6 +501,9 @@ type AuthzCondition struct {
 type AuthzContext struct {
 	// Resource Resource-level attributes for condition evaluation
 	Resource *struct {
+		// ComponentType ComponentType name referenced by the Component (e.g. "deployment/web-app")
+		ComponentType *string `json:"componentType,omitempty"`
+
 		// Environment Target deployment environment (e.g. "dev", "staging", "prod")
 		Environment *string `json:"environment,omitempty"`
 	} `json:"resource,omitempty"`
