@@ -24,7 +24,7 @@ from typing import Any
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import SummarizationMiddleware
-from langchain.agents.structured_output import ToolStrategy
+from langchain.agents.structured_output import ProviderStrategy
 from langchain_core.runnables import Runnable, RunnableConfig
 
 from src.agent.middleware import (
@@ -294,7 +294,19 @@ async def _build_agent(
         tools=tools,
         system_prompt=system_prompt,
         middleware=middleware,
-        response_format=ToolStrategy(ChatResponse),
+        # ProviderStrategy uses the LLM provider's native structured-output
+        # mode (OpenAI ``response_format={"type":"json_schema"}``, Anthropic
+        # strict tools). The JSON emerges as STREAMING TEXT content, so
+        # ``parser.push`` sees incremental bytes and ``pop_delta`` yields a
+        # word-by-word ``message_chunk`` stream to the drawer.
+        #
+        # ToolStrategy used to wrap the answer in a final ChatResponse
+        # tool-call; many providers buffer tool-call args and emit them
+        # in larger chunks (or all-at-once), which collapsed the stream
+        # into one big trailing flush. Same end state in the timeline,
+        # but the user saw seconds of silence instead of live typing.
+        # Mirrors what rca-agent has been doing successfully.
+        response_format=ProviderStrategy(ChatResponse),
     )
 
     # langgraph recursion budget — see comments on _RECURSION_LIMIT_FOR_CASE
