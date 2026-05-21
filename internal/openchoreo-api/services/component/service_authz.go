@@ -37,6 +37,14 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 	}
 }
 
+// formatComponentTypeAttr returns the authz-engine identifier for the ComponentType
+// (or ClusterComponentType) referenced by a Component, suitable for the
+// resource.componentType ABAC attribute.
+func formatComponentTypeAttr(namespace string, ref openchoreov1alpha1.ComponentTypeRef) string {
+	isClusterScoped := ref.Kind == openchoreov1alpha1.ComponentTypeRefKindClusterComponentType
+	return services.FormatDualScopedResourceName(namespace, ref.Name, isClusterScoped)
+}
+
 func (s *componentServiceWithAuthz) CreateComponent(ctx context.Context, namespaceName string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       authz.ActionCreateComponent,
@@ -46,6 +54,11 @@ func (s *componentServiceWithAuthz) CreateComponent(ctx context.Context, namespa
 			Namespace: namespaceName,
 			Project:   component.Spec.Owner.ProjectName,
 			Component: component.Name,
+		},
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{
+				ComponentType: formatComponentTypeAttr(namespaceName, component.Spec.ComponentType),
+			},
 		},
 	}); err != nil {
 		return nil, err
@@ -62,6 +75,11 @@ func (s *componentServiceWithAuthz) UpdateComponent(ctx context.Context, namespa
 			Namespace: namespaceName,
 			Project:   component.Spec.Owner.ProjectName,
 			Component: component.Name,
+		},
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{
+				ComponentType: formatComponentTypeAttr(namespaceName, component.Spec.ComponentType),
+			},
 		},
 	}); err != nil {
 		return nil, err
@@ -124,6 +142,11 @@ func (s *componentServiceWithAuthz) DeleteComponent(ctx context.Context, namespa
 			Namespace: namespaceName,
 			Project:   comp.Spec.Owner.ProjectName,
 			Component: componentName,
+		},
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{
+				ComponentType: formatComponentTypeAttr(namespaceName, comp.Spec.ComponentType),
+			},
 		},
 	}); err != nil {
 		return err
