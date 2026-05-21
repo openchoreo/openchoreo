@@ -231,3 +231,18 @@ Validate that placeholder .invalid hostnames have been replaced with real domain
   {{- fail (printf "Placeholder domains found. Set real hostnames for:\n  - %s" (join "\n  - " $errors)) -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Validate Backstage database settings that can break multi-replica deployments.
+SQLite is local to the Backstage pod or PVC and is not safe for multiple
+Backstage replicas. Use PostgreSQL before enabling horizontal scale-out.
+*/}}
+{{- define "openchoreo-control-plane.validateBackstageDatabase" -}}
+{{- if and .Values.backstage.enabled (eq .Values.backstage.database.type "sqlite") -}}
+  {{- $replicas := int .Values.backstage.replicas -}}
+  {{- $maxReplicas := int .Values.backstage.autoscaling.maxReplicas -}}
+  {{- if or (gt $replicas 1) (and .Values.backstage.autoscaling.enabled (gt $maxReplicas 1)) -}}
+    {{- fail "Backstage SQLite database is only supported with a single replica. Set backstage.database.type=postgresql before using backstage.replicas > 1 or backstage.autoscaling.maxReplicas > 1." -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
