@@ -2266,6 +2266,9 @@ func TestApplyTraitRemoves_NoMatch(t *testing.T) {
 	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
 	resources := toRenderedResources(resourceMaps)
 
+	// Snapshot the resource before the call to verify it is truly unmodified
+	before := deepCopy(resources[0].Resource)
+
 	traitYAML := `
 apiVersion: choreo.dev/v1alpha1
 kind: Trait
@@ -2284,6 +2287,9 @@ spec:
 	got, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
 	require.NoError(t, err)
 	require.Len(t, got, 1, "no-match must be a silent no-op")
+	if diff := cmp.Diff(before, got[0].Resource); diff != "" {
+		t.Errorf("resource was modified despite no matching remove target (-before +after):\n%s", diff)
+	}
 }
 
 func TestApplyTraitRemoves_ForEach(t *testing.T) {
