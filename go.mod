@@ -36,7 +36,7 @@ require (
 	k8s.io/apimachinery v0.32.3
 	k8s.io/client-go v0.32.3
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
-	modernc.org/sqlite v1.46.1
+	modernc.org/sqlite v1.50.1
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -76,7 +76,7 @@ require (
 	golang.org/x/mod v0.34.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
-	modernc.org/libc v1.67.6 // indirect
+	modernc.org/libc v1.72.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
