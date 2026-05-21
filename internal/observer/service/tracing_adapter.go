@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -12,6 +13,28 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
+
+// openObserveStreamNotFoundCode is the error code OpenObserve returns when a
+// queried stream has never been written to (typical when no telemetry has been
+// ingested yet). Surfaces as HTTP 400 with body
+// {"code":20002,"message":"Search stream not found: ..."}.
+const openObserveStreamNotFoundCode = 20002
+
+type openObserveError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+// isStreamNotFound reports whether the OpenObserve response body indicates
+// that the queried stream does not exist yet, which should surface as an
+// empty result set rather than an internal server error. Issue #3435.
+func isStreamNotFound(body []byte) bool {
+	var e openObserveError
+	if err := json.Unmarshal(body, &e); err != nil {
+		return false
+	}
+	return e.Code == openObserveStreamNotFoundCode
+}
 
 type TracingAdapter struct {
 	client *gen.ClientWithResponses
@@ -72,6 +95,9 @@ func (t *TracingAdapter) GetTraces(ctx context.Context, params observability.Tra
 	}
 
 	if resp.StatusCode() != http.StatusOK {
+		if isStreamNotFound(resp.Body) {
+			return &observability.TracesQueryResult{}, nil
+		}
 		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode(), string(resp.Body))
 	}
 

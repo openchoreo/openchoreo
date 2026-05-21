@@ -182,3 +182,45 @@ func TestConvertSpansAdapterResponse_NilAttributes(t *testing.T) {
 		t.Errorf("Expected ResourceAttributes to be nil, got %v", span.ResourceAttributes)
 	}
 }
+
+func TestIsStreamNotFound(t *testing.T) {
+	tests := []struct {
+		name string
+		body []byte
+		want bool
+	}{
+		{
+			name: "openobserve stream not found",
+			body: []byte(`{"code":20002,"message":"Search stream not found: default"}`),
+			want: true,
+		},
+		{
+			name: "openobserve other error code",
+			body: []byte(`{"code":12345,"message":"some other error"}`),
+			want: false,
+		},
+		{
+			name: "empty body",
+			body: []byte(``),
+			want: false,
+		},
+		{
+			name: "non-json body",
+			body: []byte(`Internal Server Error`),
+			want: false,
+		},
+		{
+			name: "json without code field",
+			body: []byte(`{"message":"some error"}`),
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isStreamNotFound(tt.body); got != tt.want {
+				t.Errorf("isStreamNotFound(%q) = %v, want %v", tt.body, got, tt.want)
+			}
+		})
+	}
+}
