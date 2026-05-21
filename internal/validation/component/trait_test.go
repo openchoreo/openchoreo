@@ -409,6 +409,38 @@ func TestValidateTraitRemove(t *testing.T) {
 			},
 			wantError: true,
 		},
+		{
+			// CRD-level regex enforces the ${...} wrapping, but the Go validator
+			// also rejects a bare expression as a defense in depth and for tests
+			// that bypass the CRD admission path.
+			name: "forEach not wrapped in template syntax",
+			remove: v1alpha1.TraitRemove{
+				ForEach: "parameters.names",
+				Var:     "name",
+				Target: v1alpha1.PatchTarget{
+					Group:   "",
+					Version: "v1",
+					Kind:    "ConfigMap",
+				},
+			},
+			wantError: true,
+			errMsg:    "template expression",
+		},
+		{
+			// Reference to a variable that doesn't exist on the trait CEL env —
+			// exercises the "failed to analyze forEach" branch (non-type-check error).
+			name: "forEach references undefined variable",
+			remove: v1alpha1.TraitRemove{
+				ForEach: "${notARealVariable}",
+				Var:     "x",
+				Target: v1alpha1.PatchTarget{
+					Group:   "",
+					Version: "v1",
+					Kind:    "ConfigMap",
+				},
+			},
+			wantError: true,
+		},
 	}
 
 	for _, tt := range tests {
