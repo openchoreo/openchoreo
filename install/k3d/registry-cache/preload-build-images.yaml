@@ -1,0 +1,90 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: preload-build-images
+  namespace: default
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 2
+  template:
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      initContainers:
+        - name: cache-git
+          image: alpine/git:v2.52.0
+          command: ["sh", "-c", "echo 'alpine/git cached on node'"]
+
+      containers:
+        - name: pull
+          image: ghcr.io/openchoreo/podman-runner:v1.1
+          command: ["sh", "-c"]
+          args:
+            - |-
+              set -e
+
+              mkdir -p /etc/containers
+              cat > /etc/containers/registries.conf <<'EOF'
+              unqualified-search-registries = ["docker.io"]
+
+              [[registry]]
+              location = "host.k3d.internal:10082"
+              insecure = true
+
+              [[registry]]
+              location = "docker.io"
+              [[registry.mirror]]
+              location = "host.k3d.internal:5602"
+              insecure = true
+
+              [[registry]]
+              location = "ghcr.io"
+              [[registry.mirror]]
+              location = "host.k3d.internal:5601"
+              insecure = true
+
+              [[registry]]
+              location = "quay.io"
+              [[registry.mirror]]
+              location = "host.k3d.internal:5603"
+              insecure = true
+
+              [[registry]]
+              location = "cr.kgateway.dev"
+              [[registry.mirror]]
+              location = "host.k3d.internal:5604"
+              insecure = true
+
+              [[registry]]
+              location = "gcr.io"
+              [[registry.mirror]]
+              location = "host.k3d.internal:5605"
+              insecure = true
+              EOF
+
+              IMAGES="
+              docker.io/alpine/git:v2.52.0
+              ghcr.io/jqlang/jq:1.7.1
+              docker.io/mikefarah/yq
+              docker.io/paketobuildpacks/builder-jammy-full:0.3.603
+              docker.io/paketobuildpacks/run-jammy-full:0.1.130
+              gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1
+              gcr.io/buildpacks/google-22/run:latest
+              ghcr.io/openchoreo/buildpack/ballerina:18
+              ghcr.io/openchoreo/openchoreo-cli:latest-dev
+              "
+
+              BATCH_SIZE=3
+              count=0
+              for img in $IMAGES; do
+                echo ">> Pulling $img"
+                podman pull --quiet "$img" &
+                count=$((count + 1))
+                if [ $((count % BATCH_SIZE)) -eq 0 ]; then
+                  wait
+                fi
+              done
+              wait
+              echo ">> All build images preloaded"
+          securityContext:
+            privileged: true

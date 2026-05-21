@@ -29,6 +29,7 @@ registry.
 | 5602 | docker.io       |
 | 5603 | quay.io         |
 | 5604 | cr.kgateway.dev |
+| 5605 | gcr.io          |
 
 ## Quick Start
 
@@ -47,6 +48,9 @@ Then create your k3d cluster with the registry mirrors. Add this to your k3d con
 registries:
   config: |
     mirrors:
+      "host.k3d.internal:10082":
+        endpoint:
+          - http://host.k3d.internal:10082
       "ghcr.io":
         endpoint:
           - http://host.k3d.internal:5601
@@ -59,6 +63,9 @@ registries:
       "cr.kgateway.dev":
         endpoint:
           - http://host.k3d.internal:5604
+      "gcr.io":
+        endpoint:
+          - http://host.k3d.internal:5605
 ```
 
 ## Browsing Cached Images
@@ -94,6 +101,56 @@ Use the purge script to invalidate stale images:
 # Purge everything from all caches
 ./purge-cache.sh --all
 ```
+
+## Build Pipeline Integration
+
+The registry cache can also accelerate build-time image pulls (buildpacks, base images, tools).
+This requires patching two resource types:
+
+1. **ClusterWorkflows** (control plane) — injects a `registries-conf` ConfigMap resource into each
+   WorkflowRun so the cache mirror configuration is available to build pods.
+2. **ClusterWorkflowTemplates** (data/workflow plane) — mounts that ConfigMap at
+   `/etc/containers/registries.conf` so podman/buildah in build containers pull through the cache.
+
+Both scripts are idempotent and support `--revert`. They require `kubectl` and `docker`.
+
+### Single-cluster setup
+
+```bash
+# Patch ClusterWorkflows (control plane context)
+./patch-build-workflows.sh
+
+# Patch ClusterWorkflowTemplates (same context for single-cluster)
+./patch-build-templates.sh
+```
+
+### Multi-cluster setup
+
+```bash
+# Patch ClusterWorkflows on the control plane cluster
+./patch-build-workflows.sh --context k3d-openchoreo-cp
+
+# Patch ClusterWorkflowTemplates on the workflow plane cluster
+./patch-build-templates.sh --context k3d-openchoreo-wp
+```
+
+### Reverting
+
+```bash
+./patch-build-workflows.sh --revert
+./patch-build-templates.sh --revert
+```
+
+### Preloading Build Images
+
+After patching, you can warm the cache by running a Job that pulls common build images
+(buildpacks, git, yq, jq, etc.) through the mirrors:
+
+```bash
+kubectl apply -f preload-build-images.yaml
+```
+
+The Job runs in the `default` namespace and auto-deletes after 5 minutes.
 
 ## Cleanup
 

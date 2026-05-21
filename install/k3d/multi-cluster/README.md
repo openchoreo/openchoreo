@@ -366,6 +366,30 @@ $(echo "$AGENT_CA" | sed 's/^/        /')
 EOF
 ```
 
+### Route Build Pulls Through Registry Cache (Optional)
+
+Speed up build-time image pulls (buildpacks, base images, tools) by routing them through a
+local registry cache. Start the cache, then patch the build pipeline:
+
+```bash
+# Start the registry cache (if not already running)
+docker compose -f install/k3d/registry-cache/compose.yaml up -d
+
+# Patch ClusterWorkflows on the control plane cluster
+install/k3d/registry-cache/patch-build-workflows.sh --context k3d-openchoreo-cp
+
+# Patch ClusterWorkflowTemplates on the workflow plane cluster
+install/k3d/registry-cache/patch-build-templates.sh --context k3d-openchoreo-wp
+```
+
+Optionally, warm the cache by pre-pulling common build images:
+
+```bash
+kubectl --context k3d-openchoreo-wp apply -f install/k3d/registry-cache/preload-build-images.yaml
+```
+
+See [registry-cache/README.md](../registry-cache/README.md) for details and how to revert.
+
 ## 5. Observability Plane (Optional)
 
 ```bash

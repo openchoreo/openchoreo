@@ -50,8 +50,19 @@ services:
       REGISTRY_PROXY_REMOTEURL: https://cr.kgateway.dev
     restart: unless-stopped
 
+  gcr-cache:
+    image: registry:2
+    ports:
+      - "5605:5000"
+    volumes:
+      - gcr-cache:/var/lib/registry
+    environment:
+      REGISTRY_PROXY_REMOTEURL: https://gcr.io
+    restart: unless-stopped
+
 volumes:
   ghcr-cache:
   dockerhub-cache:
   quay-cache:
   kgateway-cache:
+  gcr-cache:
