@@ -11,7 +11,14 @@ log_info "Configuring OCC CLI login..."
 
 # System app credentials
 SYSTEM_APP_CLIENT_ID="openchoreo-system-app"
-SYSTEM_APP_CLIENT_SECRET="openchoreo-system-app-secret"
+SYSTEM_APP_CLIENT_SECRET=$(kubectl get secret openchoreo-initial-credentials \
+    -n thunder -o jsonpath='{.data.system-app-client-secret}' 2>/dev/null | base64 -d || true)
+
+if [ -z "$SYSTEM_APP_CLIENT_SECRET" ]; then
+    log_error "openchoreo-initial-credentials secret not found in thunder namespace"
+    log_error "Run generate-thunder-secrets.sh first"
+    exit 1
+fi
 
 # CLI app credentials
 CLI_CLIENT_ID="openchoreo-cli-quickstart"
