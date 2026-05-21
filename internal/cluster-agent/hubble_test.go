@@ -6,7 +6,6 @@ package clusteragent
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"testing"
 	"time"
 
@@ -19,26 +18,19 @@ import (
 func TestBuildHubbleFlowFilters_ORsSourceAndDestination(t *testing.T) {
 	filters := buildHubbleFlowFilters("checkout", "shopfront", "development", "my-team")
 
-	// Expect exactly two FlowFilters: one with SourceLabel, one with DestinationLabel,
-	// so flows match when the component pods are EITHER source OR destination.
+	// Two filters (source-only, destination-only) so flows match when the
+	// component is EITHER side. Labels within a filter are comma-joined into one
+	// selector so they AND together — separate entries would OR.
 	require.Len(t, filters, 2)
-
-	// Each FlowFilter.SourceLabel entry is its own k8s label selector that is
-	// OR'd across the list. To require ALL labels match (AND semantics), the
-	// labels must be joined into a single comma-separated selector string.
-	// Each selector term is prefixed with `k8s:` so Hubble matches them against
-	// the pod's Kubernetes labels (which it surfaces in the `k8s:` namespace).
 	expected := "k8s:openchoreo.dev/component=checkout,k8s:openchoreo.dev/project=shopfront,k8s:openchoreo.dev/environment=development,k8s:openchoreo.dev/namespace=my-team"
 
-	require.Len(t, filters[0].GetSourceLabel(), 1, "source filter must be a single comma-joined selector (AND), not multiple OR'd entries")
+	require.Len(t, filters[0].GetSourceLabel(), 1, "must be a single comma-joined selector (AND), not multiple OR'd entries")
 	assert.Equal(t, expected, filters[0].GetSourceLabel()[0])
-	assert.Empty(t, filters[0].GetDestinationLabel(),
-		"first filter must not constrain destination")
+	assert.Empty(t, filters[0].GetDestinationLabel())
 
-	require.Len(t, filters[1].GetDestinationLabel(), 1, "destination filter must be a single comma-joined selector")
+	require.Len(t, filters[1].GetDestinationLabel(), 1)
 	assert.Equal(t, expected, filters[1].GetDestinationLabel()[0])
-	assert.Empty(t, filters[1].GetSourceLabel(),
-		"second filter must not constrain source")
+	assert.Empty(t, filters[1].GetSourceLabel())
 }
 
 func TestNewGetFlowsRequest_LiveTail(t *testing.T) {
@@ -52,7 +44,8 @@ func TestNewGetFlowsRequest_LiveTail(t *testing.T) {
 func TestHubbleRelayAddr_ErrorWhenUnset(t *testing.T) {
 	t.Setenv("HUBBLE_RELAY_ADDR", "")
 	addr, err := hubbleRelayAddr()
-	assert.ErrorIs(t, err, errors.New("HUBBLE_RELAY_ADDR env var is not set; it is required when configuring the Cilium module"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "HUBBLE_RELAY_ADDR")
 	assert.Empty(t, addr)
 }
 
@@ -64,24 +57,20 @@ func TestHubbleRelayAddr_FromEnv(t *testing.T) {
 }
 
 func TestHubbleSession_HandleChunkIsNoOp(t *testing.T) {
-	// Hubble is server-streaming only; payload chunks from the API client are
-	// ignored. Verify handleChunk does not panic and does not mutate state.
+	// Hubble is server-streaming only; client-side payload chunks are ignored.
 	s := &hubbleSession{requestID: "x", cancel: func() {}, done: make(chan struct{})}
 	require.NotPanics(t, func() {
 		s.handleChunk(nil)
 	})
 }
 
-// TestAgent_HandleConnection_RoutesHubbleCloseWithNilData guards the gateway↔agent
-// close protocol: the gateway signals close with IsClose set and no Data (see
-// internal/cluster-gateway/wirelogs.go). The agent must still route it to the
-// hubble session so the upstream gRPC stream is canceled. A nil-Data guard here
-// previously dropped the close, leaking the session and misrouting the message
-// as an HTTPTunnelRequest.
+// Regression: the gateway signals close with IsClose set and no Data. A nil-Data
+// guard in handleConnection previously dropped these, leaking the session and
+// misrouting the message as an HTTPTunnelRequest.
 func TestAgent_HandleConnection_RoutesHubbleCloseWithNilData(t *testing.T) {
 	closeChunk, err := json.Marshal(&messaging.HTTPTunnelStreamChunk{
 		RequestID: "hubble-req-1",
-		IsClose:   true, // Data intentionally left nil, mirroring the gateway
+		IsClose:   true,
 	})
 	require.NoError(t, err)
 
@@ -103,14 +92,12 @@ func TestAgent_HandleConnection_RoutesHubbleCloseWithNilData(t *testing.T) {
 	defer cancel()
 	agent.handleConnection(ctx)
 
-	// The close chunk must cancel the hubble session's gRPC context.
 	select {
 	case <-canceled:
 	case <-time.After(time.Second):
 		t.Fatal("close chunk with nil Data did not cancel the hubble session")
 	}
 
-	// It must NOT be misrouted as an HTTPTunnelRequest (which would write a response).
 	assert.Empty(t, mock.getWrittenMessages(),
 		"close chunk must not be handled as an HTTP tunnel request")
 }
@@ -123,6 +110,6 @@ func TestHubbleSession_CloseIsIdempotent(t *testing.T) {
 		done:      make(chan struct{}),
 	}
 	s.close()
-	s.close() // second close must not panic on closed channel or recall cancel
+	s.close()
 	assert.Equal(t, 1, cancelCalls)
 }

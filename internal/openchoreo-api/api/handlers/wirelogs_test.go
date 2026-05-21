@@ -20,9 +20,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
-// wirelogsRequest builds an HTTP request that mimics what the JWT middleware
-// would hand the handler: a subject is attached to the request context so the
-// AuthzChecker can resolve it.
+// Mimics the JWT middleware by attaching a subject the AuthzChecker can resolve.
 func wirelogsRequest(t *testing.T, path string) *http.Request {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, path, nil)
@@ -50,9 +48,9 @@ func TestWirelogsHandler_RejectsMalformedPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// authzChecker is set so the handler can't short-circuit there;
-			// URL parsing runs before authz so this path must fail with 400.
-			pdp := authzmocks.NewMockPDP(t) // no expectations: panics if called
+			// Path parsing runs before authz, so a configured PDP with no
+			// expectations doubles as a guard that authz isn't reached.
+			pdp := authzmocks.NewMockPDP(t)
 			h := &WirelogsHandler{
 				authzChecker: svcpkg.NewAuthzChecker(pdp, slog.Default()),
 				logger:       slog.Default(),
@@ -61,13 +59,28 @@ func TestWirelogsHandler_RejectsMalformedPath(t *testing.T) {
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, wirelogsRequest(t, tt.path))
 
-			assert.Equal(t, http.StatusBadRequest, rec.Code, "malformed URL must produce 400")
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
 		})
 	}
 }
 
+func TestWirelogsHandler_RequiresEnvironmentQueryParam(t *testing.T) {
+	// environment is mandatory — there's no lowest-environment fallback.
+	pdp := authzmocks.NewMockPDP(t)
+	h := &WirelogsHandler{
+		authzChecker: svcpkg.NewAuthzChecker(pdp, slog.Default()),
+		logger:       slog.Default(),
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, wirelogsRequest(t, "/wirelogs/namespaces/ns-a/projects/demo/components/checkout"))
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), "environment query parameter is required")
+}
+
 func TestWirelogsHandler_AuthzNotConfigured(t *testing.T) {
-	h := &WirelogsHandler{logger: slog.Default()} // authzChecker == nil
+	h := &WirelogsHandler{logger: slog.Default()}
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, wirelogsRequest(t, "/wirelogs/namespaces/ns-a/projects/demo/components/checkout?environment=development"))
@@ -93,8 +106,8 @@ func TestWirelogsHandler_Forbidden(t *testing.T) {
 }
 
 func TestWirelogsHandler_PassesActionViewLogs(t *testing.T) {
-	// Verify the handler asks the PDP about logs:view at the component scope.
-	// Capture the request via RunAndReturn so we can assert its shape.
+	// Capture the PDP request to assert the handler asks about logs:view at the
+	// component scope. Deny so the handler returns 403 before dialing the gateway.
 	var captured *authz.EvaluateRequest
 
 	pdp := authzmocks.NewMockPDP(t)
@@ -102,7 +115,6 @@ func TestWirelogsHandler_PassesActionViewLogs(t *testing.T) {
 		RunAndReturn(func(_ context.Context, req *authz.EvaluateRequest) (*authz.Decision, error) {
 			require.NotNil(t, req)
 			captured = req
-			// Deny so the handler returns 403 before attempting to dial the gateway.
 			return &authz.Decision{Decision: false, Context: &authz.DecisionContext{}}, nil
 		})
 
@@ -120,7 +132,7 @@ func TestWirelogsHandler_PassesActionViewLogs(t *testing.T) {
 	assert.Equal(t, "component", captured.Resource.Type)
 	assert.Equal(t, "checkout", captured.Resource.ID)
 	assert.Equal(t, "ns-a", captured.Resource.Hierarchy.Namespace)
-	assert.Equal(t, "demo", captured.Resource.Hierarchy.Project, "project must come from the URL path")
+	assert.Equal(t, "demo", captured.Resource.Hierarchy.Project)
 }
 
 func TestBuildGatewayWirelogsURL(t *testing.T) {
