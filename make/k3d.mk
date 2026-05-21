@@ -145,22 +145,22 @@ k3d.update: ## Rebuild, load, and restart all components
 	@$(MAKE) k3d.build
 	@$(MAKE) k3d.load
 	@$(call log_info, Performing rollout restarts...)
-	@kubectl rollout restart deployment/controller-manager -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) || true
-	@kubectl rollout restart deployment/openchoreo-api -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) || true
-	@kubectl rollout restart deployment/cluster-gateway -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) || true
-	@kubectl rollout restart deployment/observer -n $(K3D_OP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) || true
+	@kubectl rollout restart deployment/controller-manager -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME)
+	@kubectl rollout restart deployment/openchoreo-api -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME)
+	@kubectl rollout restart deployment/cluster-gateway -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME)
+	@kubectl rollout restart deployment/observer -n $(K3D_OP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME)
 	@for ns in $(K3D_DP_NAMESPACE) $(K3D_WP_NAMESPACE) $(K3D_OP_NAMESPACE); do \
-		dep=$$(kubectl get deployment -n $$ns --context k3d-$(K3D_CLUSTER_NAME) -l app=cluster-agent -o name 2>/dev/null); \
-		if [ -n "$$dep" ]; then kubectl rollout restart $$dep -n $$ns --context k3d-$(K3D_CLUSTER_NAME) || true; fi; \
+		dep=$$(kubectl get deployment -n $$ns --context k3d-$(K3D_CLUSTER_NAME) -l app=cluster-agent -o name) || exit $$?; \
+		if [ -n "$$dep" ]; then kubectl rollout restart $$dep -n $$ns --context k3d-$(K3D_CLUSTER_NAME); fi; \
 	done
 	@$(call log_info, Waiting for rollouts to complete...)
-	@kubectl rollout status deployment/controller-manager -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s || true
-	@kubectl rollout status deployment/openchoreo-api -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s || true
-	@kubectl rollout status deployment/cluster-gateway -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s || true
-	@kubectl rollout status deployment/observer -n $(K3D_OP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s || true
+	@kubectl rollout status deployment/controller-manager -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s
+	@kubectl rollout status deployment/openchoreo-api -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s
+	@kubectl rollout status deployment/cluster-gateway -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s
+	@kubectl rollout status deployment/observer -n $(K3D_OP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s
 	@for ns in $(K3D_DP_NAMESPACE) $(K3D_WP_NAMESPACE) $(K3D_OP_NAMESPACE); do \
-		dep=$$(kubectl get deployment -n $$ns --context k3d-$(K3D_CLUSTER_NAME) -l app=cluster-agent -o name 2>/dev/null); \
-		if [ -n "$$dep" ]; then kubectl rollout status $$dep -n $$ns --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s || true; fi; \
+		dep=$$(kubectl get deployment -n $$ns --context k3d-$(K3D_CLUSTER_NAME) -l app=cluster-agent -o name) || exit $$?; \
+		if [ -n "$$dep" ]; then kubectl rollout status $$dep -n $$ns --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s; fi; \
 	done
 	@$(call log_success, All components updated!)
 
@@ -206,7 +206,7 @@ k3d.update.cluster-agent: ## Update cluster-agent: build, load, restart across a
 	@$(MAKE) k3d.build.cluster-agent
 	@$(MAKE) k3d.load.cluster-agent
 	@for ns in $(K3D_DP_NAMESPACE) $(K3D_WP_NAMESPACE) $(K3D_OP_NAMESPACE); do \
-		dep=$$(kubectl get deployment -n $$ns --context k3d-$(K3D_CLUSTER_NAME) -l app=cluster-agent -o name 2>/dev/null); \
+		dep=$$(kubectl get deployment -n $$ns --context k3d-$(K3D_CLUSTER_NAME) -l app=cluster-agent -o name) || exit $$?; \
 		if [ -n "$$dep" ]; then \
 			kubectl rollout restart $$dep -n $$ns --context k3d-$(K3D_CLUSTER_NAME); \
 			kubectl rollout status $$dep -n $$ns --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s; \
