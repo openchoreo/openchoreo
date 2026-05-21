@@ -15,9 +15,13 @@ This document describes the resource kinds used in OpenChoreo CRDs, the relation
     - [ComponentRelease](#componentrelease)
     - [ReleaseBinding](#releasebinding)
     - [RenderedRelease](#renderedrelease)
+    - [Resource](#resource)
+    - [ResourceRelease](#resourcerelease)
+    - [ResourceReleaseBinding](#resourcereleasebinding)
   - [Composition and Templating](#composition-and-templating)
     - [ComponentType / ClusterComponentType](#componenttype--clustercomponenttype)
     - [Trait / ClusterTrait](#trait--clustertrait)
+    - [ResourceType / ClusterResourceType](#resourcetype--clusterresourcetype)
     - [Workflow / ClusterWorkflow](#workflow--clusterworkflow)
     - [WorkflowRun](#workflowrun)
   - [Platform Infrastructure](#platform-infrastructure)
@@ -56,12 +60,19 @@ The following diagram shows the relationships between the core resource kinds in
 ```mermaid
 erDiagram
     Project ||--o{ Component : "contains"
+    Project ||--o{ Resource : "contains"
     Component ||--|| Workload : "has"
     Component }o--|| ComponentType : "references"
     Component ||--o{ ComponentRelease : "creates"
     ComponentRelease ||--o{ ReleaseBinding : "bound to"
     ReleaseBinding ||--o{ RenderedRelease : "renders"
     ReleaseBinding }o--|| Environment : "targets"
+    Resource }o--|| ResourceType : "references"
+    Resource ||--o{ ResourceRelease : "creates"
+    ResourceRelease ||--o{ ResourceReleaseBinding : "bound to"
+    ResourceReleaseBinding ||--o{ RenderedRelease : "renders"
+    ResourceReleaseBinding }o--|| Environment : "targets"
+    Workload }o--o{ Resource : "depends on"
     Environment }o--|| DataPlane : "references"
     Project }o--|| DeploymentPipeline : "references"
     DeploymentPipeline }o--o{ Environment : "defines promotion paths"
@@ -75,11 +86,24 @@ erDiagram
 ```
 Project (defines deployment pipeline)
   └── Component (references ComponentType, attaches Traits, configures Workflow)
-       ├── Workload (container spec, endpoints, dependencies)
+       ├── Workload (container spec, endpoints, dependencies on endpoints + resources)
        └── ComponentRelease (immutable snapshot of ComponentType + Traits + Workload)
             └── ReleaseBinding (binds release to Environment with overrides)
                  └── RenderedRelease (final K8s manifests → applied to DataPlane)
 ```
+
+### Managed-Infrastructure Flow
+
+```
+Project
+  └── Resource (references ResourceType, supplies parameters)
+       └── ResourceRelease (immutable snapshot of Resource.spec + ResourceType.spec)
+            └── ResourceReleaseBinding (pins release to Environment with overrides)
+                 └── RenderedRelease (provisioned K8s manifests → applied to DataPlane)
+```
+
+Workloads consume Resources via `Workload.spec.dependencies.resources[]`; the ReleaseBinding render waits for each
+referenced ResourceReleaseBinding to be Ready before producing its RenderedRelease.
 
 ### Platform Infrastructure
 
@@ -200,6 +224,7 @@ Resources are organized under Kubernetes namespaces which serve as organizationa
 | `container.files[]` | FileVar[] | No | Mounted files (key/mountPath/value or secretKeyRef) |
 | `endpoints` | map[string]WorkloadEndpoint | No | Named endpoints with type, port, visibility, basePath |
 | `dependencies.endpoints[]` | WorkloadConnection[] | No | Dependencies on other components' endpoints |
+| `dependencies.resources[]` | WorkloadResourceDependency[] | No | Dependencies on project-bound Resources (ref + envBindings + fileBindings) |
 
 **Endpoint Fields:**
 
@@ -214,6 +239,7 @@ Resources are organized under Kubernetes namespaces which serve as organizationa
 
 **Relationships:**
 - Owner: Component (via `spec.owner.componentName`)
+- References: Resource (via `dependencies.resources[].ref`)
 - Referenced by: ComponentRelease (snapshot copy)
 
 [Back to Top](#overview)
@@ -327,6 +353,110 @@ For detailed design documentation, see [RenderedRelease CRD Design](crds/rendere
 
 ---
 
+#### Resource
+
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Short Names** | `res` |
+| **Purpose** | Developer-declared dependency on managed infrastructure provisioned through a ResourceType |
+
+**Spec:**
+
+| Field | Type | Required | Mutable | Description |
+|-------|------|----------|---------|-------------|
+| `owner.projectName` | string | Yes | No | Parent Project name (immutable) |
+| `type` | ResourceTypeRef | Yes | No | References ResourceType (`kind` + `name`); `kind` defaults to `ResourceType` (immutable) |
+| `parameters` | RawExtension | No | Yes | Developer-provided values matching the referenced ResourceType's parameters schema |
+
+**Status:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `observedGeneration` | int64 | Last observed generation |
+| `conditions` | []Condition | Standard Kubernetes conditions |
+| `latestRelease` | LatestResourceRelease | Name and hash of the latest ResourceRelease cut from this Resource |
+
+**Relationships:**
+- Owner: Project (via `spec.owner.projectName`)
+- References: ResourceType or ClusterResourceType
+- Creates: ResourceRelease (when spec or referenced ResourceType spec changes)
+- Consumed by: Workload (via `dependencies.resources[].ref`)
+
+[Back to Top](#overview)
+
+---
+
+#### ResourceRelease
+
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Purpose** | Immutable snapshot of a Resource and its referenced (Cluster)ResourceType at release time |
+
+All spec fields are **immutable** after creation (enforced via `XValidation:rule="self == oldSelf"`).
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `owner.projectName` | string | Yes | Parent Project |
+| `owner.resourceName` | string | Yes | Parent Resource |
+| `resourceType.kind` | string | Yes | `ResourceType` or `ClusterResourceType` (source kind at snapshot time) |
+| `resourceType.name` | string | Yes | Name of the source (Cluster)ResourceType |
+| `resourceType.spec` | ResourceTypeSpec | Yes | Frozen spec of the (Cluster)ResourceType at release time |
+| `parameters` | RawExtension | No | Frozen `Resource.spec.parameters` at release time |
+
+**Naming:** ResourceReleases are named `{resource}-{hash}`, where the hash covers `Resource.spec` + `(Cluster)ResourceType.spec` at the moment the release was cut.
+
+**Relationships:**
+- Owner: Resource (deletion is cascaded by the Resource finalizer, second phase)
+- Referenced by: ResourceReleaseBinding (via `spec.resourceRelease`)
+- Contains frozen copies of: (Cluster)ResourceType spec, Resource parameters
+
+[Back to Top](#overview)
+
+---
+
+#### ResourceReleaseBinding
+
+| | |
+|---|---|
+| **Scope** | Namespaced |
+| **Short Names** | `rrb`, `rrbs` |
+| **Purpose** | Binds a ResourceRelease to an Environment with environment-specific overrides and retention policy |
+
+**Spec:**
+
+| Field | Type | Required | Mutable | Description |
+|-------|------|----------|---------|-------------|
+| `owner.projectName` | string | Yes | No | Parent Project |
+| `owner.resourceName` | string | Yes | No | Parent Resource |
+| `environment` | string | Yes | No | Target environment name (immutable) |
+| `resourceRelease` | string | No | Yes | ResourceRelease name to pin. Advanced manually via `occ resource promote` or kubectl edit |
+| `retainPolicy` | ResourceRetainPolicy | No | Yes | `Delete` or `Retain`. Per-env override; falls back to the (Cluster)ResourceType's `retainPolicy` (default `Delete`) |
+| `resourceTypeEnvironmentConfigs` | RawExtension | No | Yes | Per-environment values validated against `(Cluster)ResourceType.spec.environmentConfigs` |
+
+**Status:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `conditions` | []Condition | Standard Kubernetes conditions: `Synced`, `ResourcesReady`, `OutputsResolved`, `Ready`, `Finalizing` |
+| `outputs[]` | ResolvedResourceOutput[] | Resolved output values per declared output (value / secretKeyRef / configMapKeyRef) |
+
+**Relationships:**
+- Owner: Resource (via `spec.owner.resourceName`); Resource finalizer's first phase blocks Resource deletion while any binding still references it
+- References: ResourceRelease, Environment
+- Creates: RenderedRelease (rendered K8s manifests applied to the target DataPlane)
+
+**Retention:** `retainPolicy: Retain` holds the binding's finalizer on deletion. The binding stays in `Terminating` with `Finalizing` reason `RetainHold` and the data-plane state persists until the policy is flipped back to `Delete`.
+
+**Authoring:** ResourceReleaseBindings are authored by platform engineers or GitOps tooling. The Resource controller never fans them out automatically.
+
+[Back to Top](#overview)
+
+---
+
 ### Composition and Templating
 
 ---
@@ -400,6 +530,52 @@ For detailed design documentation, see [RenderedRelease CRD Design](crds/rendere
 | `targetPlane` | string | No | `dataplane` (default) or `observabilityplane` |
 | `forEach` | string | No | CEL expression for iteration |
 | `operations[]` | JSONPatchOperation[] | Yes (min 1) | JSONPatch operations (op: add/replace/remove, path, value) |
+
+[Back to Top](#overview)
+
+---
+
+#### ResourceType / ClusterResourceType
+
+| | |
+|---|---|
+| **Scope** | Namespaced (`ResourceType`) / Cluster (`ClusterResourceType`) |
+| **Short Names** | `rt`, `rts` / `crt`, `crts` |
+| **Purpose** | Platform engineer's template for provisioning managed infrastructure (databases, queues, caches) and declaring the outputs consumers wire into containers |
+
+**Spec:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `parameters` | SchemaSection | No | Schema for `Resource.spec.parameters` values (validated by the Resource controller) |
+| `environmentConfigs` | SchemaSection | No | Schema for `ResourceReleaseBinding.spec.resourceTypeEnvironmentConfigs` per-env overrides |
+| `retainPolicy` | ResourceRetainPolicy | No | Default deletion behavior for bindings of this type: `Delete` (default) or `Retain` |
+| `outputs[]` | ResourceTypeOutput[] | No | Named outputs consumers bind to via `Workload.spec.dependencies.resources[]` |
+| `resources[]` | ResourceTypeManifest[] | Yes (min 1) | K8s manifest templates the provisioner emits on the data plane |
+
+**ResourceTypeOutput Fields:** Each output picks exactly one of `value`, `secretKeyRef`, or `configMapKeyRef`.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Unique output identifier (referenced by consumer `envBindings` / `fileBindings` keys) |
+| `value` | string | No | Literal or `${...}` CEL expression. The resolved value transits to the control plane |
+| `secretKeyRef.name` | string | Yes (when set) | Data-plane Secret name (CEL-templated). Only `{name, key}` transits to the control plane |
+| `secretKeyRef.key` | string | Yes (when set) | Key within the Secret (CEL-templated) |
+| `configMapKeyRef.name` | string | Yes (when set) | Data-plane ConfigMap name (CEL-templated) |
+| `configMapKeyRef.key` | string | Yes (when set) | Key within the ConfigMap (CEL-templated) |
+
+**ResourceTypeManifest Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | string | Yes | Unique identifier within the ResourceType (referenced by `readyWhen` / `outputs` via `applied.<id>.*`) |
+| `includeWhen` | string | No | `${...}`-wrapped CEL boolean; when false, the entry is omitted from the render and any prior object is GC'd |
+| `template` | RawExtension | Yes | K8s resource template with `${...}` CEL expressions |
+| `readyWhen` | string | No | `${...}`-wrapped CEL boolean evaluated after the manifest has been applied; gates `ResourceReleaseBinding.status.conditions[ResourcesReady]`. Falls back to per-Kind health heuristic when unset |
+
+**CEL Surface:** Templates have access to `metadata.*`, `parameters.*`, `environmentConfigs.*`, `dataplane.*`, and `gateway.*`. `outputs[]` and `readyWhen` additionally see `applied.<id>.status.*` once the manifest has been applied. `includeWhen` is evaluated at render time and does **not** see `applied.<id>.*`.
+
+**Cluster-scoped variant** (`ClusterResourceType`) shares the same spec shape. Example ClusterResourceTypes (`postgres`, `valkey`, `nats`) ship under `samples/getting-started/cluster-resource-types/` to demonstrate the pattern; these use in-cluster StatefulSets and are intended for local development, not production use.
 
 [Back to Top](#overview)
 
@@ -750,6 +926,7 @@ OpenChoreo uses typed reference types to link resources together. Each reference
 |----------------|-------------|--------------|
 | `ComponentTypeRef` | ComponentType, ClusterComponentType | ComponentType |
 | `TraitRef` | Trait, ClusterTrait | Trait |
+| `ResourceTypeRef` | ResourceType, ClusterResourceType | ResourceType |
 | `WorkflowRef` | Workflow, ClusterWorkflow | ClusterWorkflow |
 | `DataPlaneRef` | DataPlane, ClusterDataPlane | DataPlane |
 | `WorkflowPlaneRef` | WorkflowPlane, ClusterWorkflowPlane | ClusterWorkflowPlane |
