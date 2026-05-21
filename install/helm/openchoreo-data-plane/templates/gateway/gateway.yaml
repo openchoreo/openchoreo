@@ -22,7 +22,7 @@ spec:
       port: {{ .Values.gateway.httpPort | default 80 }}
       allowedRoutes:
         namespaces:
-          from: All
+          from: {{ .Values.gateway.allowedRoutes.namespaces.from }}
 {{- if .Values.gateway.tls.enabled }}
     - name: https
       protocol: HTTPS
@@ -32,7 +32,7 @@ spec:
       {{- end }}
       allowedRoutes:
         namespaces:
-          from: All
+          from: {{ .Values.gateway.allowedRoutes.namespaces.from }}
       tls:
         mode: Terminate
         certificateRefs:

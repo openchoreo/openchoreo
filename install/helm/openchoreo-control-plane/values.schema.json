@@ -2549,6 +2549,34 @@
       "additionalProperties": true,
       "description": "KGateway (Gateway API) configuration. kgateway is installed separately; these values configure the Gateway CR created by this chart.",
       "properties": {
+        "allowedRoutes": {
+          "additionalProperties": false,
+          "description": "Gateway listener route attachment policy. Use Same to restrict routes to the Gateway namespace, or All to allow routes from any namespace.",
+          "properties": {
+            "namespaces": {
+              "additionalProperties": false,
+              "description": "Namespace policy for routes that attach to Gateway listeners",
+              "properties": {
+                "from": {
+                  "default": "All",
+                  "description": "Gateway API allowedRoutes.namespaces.from value",
+                  "enum": [
+                    "All",
+                    "Same"
+                  ],
+                  "required": [],
+                  "title": "from"
+                }
+              },
+              "required": [],
+              "title": "namespaces",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "allowedRoutes",
+          "type": "object"
+        },
         "annotations": {
           "additionalProperties": {
             "type": "string"
