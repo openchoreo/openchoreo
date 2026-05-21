@@ -1358,6 +1358,15 @@ const singleDeploymentResourceYAML = `
     name: app
 `
 
+// singleConfigMapAResourceYAML is a minimal single-ConfigMap fixture reused by
+// the trait-removes error-path tests.
+const singleConfigMapAResourceYAML = `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: a
+`
+
 func TestApplyTraitCreates_ForEach(t *testing.T) {
 	engine := template.NewEngine()
 	processor := NewProcessor(engine)
@@ -2534,14 +2543,8 @@ func TestApplyTraitRemoves_ForEachInnerError(t *testing.T) {
 	engine := template.NewEngine()
 	processor := NewProcessor(engine)
 
-	resourcesYAML := `
-- apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: a
-`
 	var resourceMaps []map[string]any
-	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	require.NoError(t, yaml.Unmarshal([]byte(singleConfigMapAResourceYAML), &resourceMaps))
 	resources := toRenderedResources(resourceMaps)
 
 	traitYAML := `
@@ -2573,14 +2576,8 @@ func TestApplyTraitRemoves_WhereClauseError(t *testing.T) {
 	engine := template.NewEngine()
 	processor := NewProcessor(engine)
 
-	resourcesYAML := `
-- apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: a
-`
 	var resourceMaps []map[string]any
-	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	require.NoError(t, yaml.Unmarshal([]byte(singleConfigMapAResourceYAML), &resourceMaps))
 	resources := toRenderedResources(resourceMaps)
 
 	traitYAML := `
@@ -2597,7 +2594,6 @@ spec:
         where: ${nonexistent.deeply.nested}
 `
 	var trait v1alpha1.Trait
-	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
 	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
 
 	_, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
@@ -2612,14 +2608,8 @@ func TestApplyTraitRemoves_PreservesResourceBinding(t *testing.T) {
 	engine := template.NewEngine()
 	processor := NewProcessor(engine)
 
-	resourcesYAML := `
-- apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: a
-`
 	var resourceMaps []map[string]any
-	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	require.NoError(t, yaml.Unmarshal([]byte(singleConfigMapAResourceYAML), &resourceMaps))
 	resources := toRenderedResources(resourceMaps)
 
 	traitYAML := `
