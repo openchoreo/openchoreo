@@ -5,6 +5,7 @@ package component
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -114,7 +115,12 @@ func dialExecWebSocket(ctx context.Context, params ExecParams) (*websocket.Conn,
 		headers.Set("Authorization", "Bearer "+currentToken)
 	}
 
-	conn, resp, err := websocket.DefaultDialer.DialContext(ctx, wsURL, headers)
+	dialer := websocket.Dialer{
+		TLSClientConfig: &tls.Config{
+			NextProtos: []string{"http/1.1"},
+		},
+	}
+	conn, resp, err := dialer.DialContext(ctx, wsURL, headers)
 	if err != nil {
 		if resp != nil && resp.StatusCode != http.StatusSwitchingProtocols {
 			return nil, fmt.Errorf("exec connection failed (HTTP %d): %w", resp.StatusCode, err)
