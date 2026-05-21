@@ -58,7 +58,7 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request) {
 	}
 
 	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
-	if crNamespace == "_cluster" {
+	if crNamespace == crNamespaceClusterPlaceholder {
 		crNamespace = ""
 	}
 	crKey := fmt.Sprintf("%s/%s", crNamespace, crName)

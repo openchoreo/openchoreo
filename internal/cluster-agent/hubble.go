@@ -19,25 +19,19 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
+	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
-// defaultHubbleRelayAddr is the in-cluster gRPC endpoint of the Hubble relay.
-// Override with the HUBBLE_RELAY_ADDR env var on the cluster-agent.
-const defaultHubbleRelayAddr = "hubble-relay.kube-system.svc.cluster.local:4245"
-
 // buildHubbleFlowFilters returns the OR'd whitelist of FlowFilters used to follow
-// Hubble flows for an OpenChoreo component. The list contains two filters so flows
-// match when the component's pods are EITHER source OR destination.
-//
-// Each entry in FlowFilter.SourceLabel / DestinationLabel is treated as an
-// independent label selector that is OR'd across the list; within a single
-// selector, comma-separated k8s-style terms are AND'd (k8s.io/labels.Parse
-// semantics). So all the component-identifying labels are joined into ONE
-// comma-separated string per filter to ensure they must ALL match.
-func buildHubbleFlowFilters(component, project, environment, controlPlaneNamespace string) []*flow.FlowFilter {
+// Hubble flows for a component. The list contains two filters so flows match
+// when the component's pods are EITHER source OR destination.
+func buildHubbleFlowFilters(component, project, environment, namespace string) []*flow.FlowFilter {
 	selector := fmt.Sprintf(
-		"k8s:openchoreo.dev/component=%s,k8s:openchoreo.dev/project=%s,k8s:openchoreo.dev/environment=%s,k8s:openchoreo.dev/namespace=%s",
-		component, project, environment, controlPlaneNamespace,
+		"k8s:%s=%s,k8s:%s=%s,k8s:%s=%s,k8s:%s=%s",
+		labels.LabelKeyComponentName, component,
+		labels.LabelKeyProjectName, project,
+		labels.LabelKeyEnvironmentName, environment,
+		labels.LabelKeyNamespaceName, namespace,
 	)
 	return []*flow.FlowFilter{
 		{SourceLabel: []string{selector}},
@@ -46,10 +40,10 @@ func buildHubbleFlowFilters(component, project, environment, controlPlaneNamespa
 }
 
 // newGetFlowsRequest assembles the live-tail flow request for a component.
-func newGetFlowsRequest(component, project, environment, controlPlaneNamespace string) *observer.GetFlowsRequest {
+func newGetFlowsRequest(component, project, environment, namespace string) *observer.GetFlowsRequest {
 	return &observer.GetFlowsRequest{
 		Follow:    true,
-		Whitelist: buildHubbleFlowFilters(component, project, environment, controlPlaneNamespace),
+		Whitelist: buildHubbleFlowFilters(component, project, environment, namespace),
 	}
 }
 
@@ -74,9 +68,7 @@ func (s *hubbleSession) close() {
 }
 
 // routeHubbleChunk delivers an inbound chunk to its hubble session, if one exists
-// for the chunk's requestID. Hubble is server-streaming, so the only meaningful
-// inbound chunk is the close signal. Returns true if the chunk belonged to a
-// hubble session, letting the caller fall back to the exec router otherwise.
+// for the chunk's requestID.
 func (a *Agent) routeHubbleChunk(chunk *messaging.HTTPTunnelStreamChunk) bool {
 	a.hubbleStreamsMu.Lock()
 	session, ok := a.hubbleStreams[chunk.RequestID]
@@ -95,22 +87,17 @@ func (a *Agent) routeHubbleChunk(chunk *messaging.HTTPTunnelStreamChunk) bool {
 	return true
 }
 
-// hubbleRelayAddr returns the Hubble relay endpoint from the HUBBLE_RELAY_ADDR
-// env var, falling back to the in-cluster default when unset. It is read lazily
-// when the gateway invokes the hubble path, so wirelogs stay optional and the
-// address is not a required cluster-agent startup config.
-func hubbleRelayAddr() string {
-	if addr := os.Getenv("HUBBLE_RELAY_ADDR"); addr != "" {
-		return addr
+func hubbleRelayAddr() (string, error) {
+	addr := os.Getenv("HUBBLE_RELAY_ADDR")
+	if addr == "" {
+		return "", errors.New("HUBBLE_RELAY_ADDR env var is not set; it is required when configuring the Cilium module")
 	}
-	return defaultHubbleRelayAddr
+	return addr, nil
 }
 
 // handleHubbleStreamInit opens a server-streaming gRPC call to Hubble relay
 // and forwards each flow event as an HTTPTunnelStreamChunk back to the gateway.
 // Dispatched from Agent.handleHTTPTunnelStreamInit for Target == "hubble".
-//
-// Expected init.Query params: component, environment, namespace.
 func (a *Agent) handleHubbleStreamInit(init *messaging.HTTPTunnelStreamInit) {
 	logger := a.logger.With("requestID", init.RequestID, "target", "hubble")
 	logger.Info("Received hubble stream init")
@@ -148,8 +135,16 @@ func (a *Agent) handleHubbleStreamInit(init *messaging.HTTPTunnelStreamInit) {
 		a.hubbleStreamsMu.Unlock()
 	}()
 
-	relayAddr := hubbleRelayAddr()
-	logger = logger.With("hubbleRelay", relayAddr, "component", component, "project", project, "environment", environment)
+	relayAddr, err := hubbleRelayAddr()
+	if err != nil {
+		logger.Error("hubble relay address not configured", "error", err)
+		a.sendStreamClose(init.RequestID, err.Error())
+		return
+	}
+	logger = logger.With(
+		"hubbleRelay", relayAddr,
+		"component", component, "project", project, "environment", environment, "namespace", namespace,
+	)
 
 	conn, err := grpc.NewClient(
 		relayAddr,
@@ -170,7 +165,7 @@ func (a *Agent) handleHubbleStreamInit(init *messaging.HTTPTunnelStreamInit) {
 		return
 	}
 
-	// Sentinel chunk so the gateway knows the stream is active (mirrors exec).
+	// Sentinel chunk so the gateway knows the stream is active
 	a.sendStreamChunkRaw(init.RequestID, []byte{}, 0)
 
 	logger.Info("Hubble flow stream started")
