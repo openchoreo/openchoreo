@@ -386,6 +386,17 @@ func TestValidateTraitRemove(t *testing.T) {
 			errMsg:    "must not remove workload resources",
 		},
 		{
+			name: "custom CRD sharing built-in workload kind name is allowed",
+			remove: v1alpha1.TraitRemove{
+				Target: v1alpha1.PatchTarget{
+					Group:   "example.com",
+					Version: "v1",
+					Kind:    "Deployment",
+				},
+			},
+			wantError: false,
+		},
+		{
 			name: "non-iterable forEach",
 			remove: v1alpha1.TraitRemove{
 				ForEach: "${parameters.names[0]}",

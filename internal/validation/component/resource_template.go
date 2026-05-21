@@ -196,6 +196,17 @@ func IsWorkloadResourceKind(kind string) bool {
 	return workloadResourceKinds[strings.ToLower(kind)]
 }
 
+// IsBuiltInWorkloadGVK reports whether the given group/kind identifies a built-in
+// Kubernetes workload resource. All five workload kinds in workloadResourceKinds
+// live in either the "apps" or "batch" group, so a custom CRD that reuses a
+// workload kind name in a different group is not a built-in workload.
+func IsBuiltInWorkloadGVK(group, kind string) bool {
+	if !IsWorkloadResourceKind(kind) {
+		return false
+	}
+	return group == "apps" || group == "batch"
+}
+
 // ValidateTraitCreateTemplates validates that trait create templates have required
 // K8s resource fields (apiVersion, kind, metadata.name) and do not create workload resources.
 func ValidateTraitCreateTemplates(creates []v1alpha1.TraitCreate, basePath *field.Path) field.ErrorList {

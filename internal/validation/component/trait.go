@@ -330,9 +330,11 @@ func validateTraitRemove(
 		}
 	}
 
-	// Reject workload kinds. The primary workload is defined by the ComponentType
-	// and must not be deleted by traits.
-	if IsWorkloadResourceKind(remove.Target.Kind) {
+	// Reject built-in workload GVKs. The primary workload is defined by the
+	// ComponentType and must not be deleted by traits. Match on the full GVK so a
+	// custom CRD that happens to share a built-in workload kind name (e.g.
+	// example.com/v1 Kind=Deployment) is not falsely rejected.
+	if IsBuiltInWorkloadGVK(remove.Target.Group, remove.Target.Kind) {
 		allErrs = append(allErrs, field.Forbidden(
 			basePath.Child("target").Child("kind"),
 			fmt.Sprintf("traits must not remove workload resources (kind %q); the primary workload is defined by the ComponentType", remove.Target.Kind),
