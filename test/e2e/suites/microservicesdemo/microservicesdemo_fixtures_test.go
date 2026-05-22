@@ -40,7 +40,7 @@ func testerPodYAML(dpNamespace string) string {
 		Spec: corev1.PodSpec{Containers: []corev1.Container{{
 			Name:    "tester",
 			Image:   "busybox:1.36",
-			Command: []string{"sleep", "3600"},
+			Command: []string{"sleep", "infinity"},
 		}}},
 	}
 	return mustYAMLDocs(pod)
