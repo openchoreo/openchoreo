@@ -109,7 +109,7 @@ func TestCreateComponent_AuthzCheck(t *testing.T) {
 		require.Equal(t, comp, result)
 		require.Len(t, pdp.Captured, 1)
 		testutil.RequireEvalRequest(t, pdp.Captured[0], "component:create", "component", "my-comp", compHierarchy)
-		require.Equal(t, "ns-1/deployment/web-app", pdp.Captured[0].Context.Resource.ComponentType)
+		require.Equal(t, "ns-1/web-app", pdp.Captured[0].Context.Resource.ComponentType)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -142,7 +142,7 @@ func TestUpdateComponent_AuthzCheck(t *testing.T) {
 		require.Equal(t, comp, result)
 		require.Len(t, pdp.Captured, 1)
 		testutil.RequireEvalRequest(t, pdp.Captured[0], "component:update", "component", "my-comp", compHierarchy)
-		require.Equal(t, "ns-1/deployment/web-app", pdp.Captured[0].Context.Resource.ComponentType)
+		require.Equal(t, "ns-1/web-app", pdp.Captured[0].Context.Resource.ComponentType)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -268,7 +268,7 @@ func TestDeleteComponent_AuthzCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, pdp.Captured, 1)
 		testutil.RequireEvalRequest(t, pdp.Captured[0], "component:delete", "component", "my-comp", compHierarchy)
-		require.Equal(t, "ns-1/deployment/web-app", pdp.Captured[0].Context.Resource.ComponentType)
+		require.Equal(t, "ns-1/web-app", pdp.Captured[0].Context.Resource.ComponentType)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -454,22 +454,28 @@ func TestFormatComponentTypeAttr(t *testing.T) {
 		want      string
 	}{
 		{
-			name:      "namespace-scoped ComponentType is prefixed with namespace",
+			name:      "namespace-scoped ComponentType is prefixed with namespace and strips workloadType",
 			namespace: "ns-1",
 			ref:       openchoreov1alpha1.ComponentTypeRef{Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType, Name: "deployment/web-app"},
-			want:      "ns-1/deployment/web-app",
+			want:      "ns-1/web-app",
 		},
 		{
 			name:      "empty kind defaults to namespace-scoped (matches CRD default)",
 			namespace: "ns-1",
 			ref:       openchoreov1alpha1.ComponentTypeRef{Name: "deployment/web-app"},
-			want:      "ns-1/deployment/web-app",
+			want:      "ns-1/web-app",
 		},
 		{
-			name:      "ClusterComponentType is not namespace-prefixed",
+			name:      "ClusterComponentType is not namespace-prefixed and strips workloadType",
 			namespace: "ns-1",
 			ref:       openchoreov1alpha1.ComponentTypeRef{Kind: openchoreov1alpha1.ComponentTypeRefKindClusterComponentType, Name: "deployment/web-app"},
-			want:      "deployment/web-app",
+			want:      "web-app",
+		},
+		{
+			name:      "name without workloadType prefix is used as-is (defensive)",
+			namespace: "ns-1",
+			ref:       openchoreov1alpha1.ComponentTypeRef{Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType, Name: "web-app"},
+			want:      "ns-1/web-app",
 		},
 	}
 

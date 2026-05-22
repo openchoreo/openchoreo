@@ -6,6 +6,7 @@ package component
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,10 +40,15 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 
 // formatComponentTypeAttr returns the authz-engine identifier for the ComponentType
 // (or ClusterComponentType) referenced by a Component, suitable for the
-// resource.componentType ABAC attribute.
+// resource.componentType ABAC attribute. ref.Name is "{workloadType}/{componentTypeName}";
+// only the componentTypeName segment identifies the (Cluster)ComponentType resource.
 func formatComponentTypeAttr(namespace string, ref openchoreov1alpha1.ComponentTypeRef) string {
+	_, name, ok := strings.Cut(ref.Name, "/")
+	if !ok {
+		name = ref.Name
+	}
 	isClusterScoped := ref.Kind == openchoreov1alpha1.ComponentTypeRefKindClusterComponentType
-	return services.FormatDualScopedResourceName(namespace, ref.Name, isClusterScoped)
+	return services.FormatDualScopedResourceName(namespace, name, isClusterScoped)
 }
 
 func (s *componentServiceWithAuthz) CreateComponent(ctx context.Context, namespaceName string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
