@@ -106,6 +106,12 @@ class ChatScope(BaseModel):
     # first calling list_*.
     workflow_name: str | None = Field(default=None, alias="workflowName", max_length=253)
     workflow_kind: str | None = Field(default=None, alias="workflowKind", max_length=64)
+    # Git repository URL extracted from the component's workflow schema by
+    # the Backstage launcher. Forwarded to the system prompt so the model
+    # can include it in the build_failure ``fix_prompt`` without an extra
+    # tool call. Optional — components without a workflow ``repository.url``
+    # parameter omit it, and the prompt template degrades gracefully.
+    repo_url: str | None = Field(default=None, alias="repoUrl", max_length=2000)
     # Optional case discriminator set by purpose-built launchers
     # (e.g. failed-build snackbar). The base prompt branches on this to
     # layer in case-specific guidance — see perch_prompt.j2 case_type

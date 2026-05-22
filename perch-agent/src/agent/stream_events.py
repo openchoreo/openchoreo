@@ -68,11 +68,20 @@ class DoneEvent(_StreamEventBase):
     fallback path: ``"model"`` means the tool-less fallback LLM
     answered, ``"stub"`` means even the fallback failed and the user is
     seeing a canned apology. Absent on normal (non-recovery) turns so
-    existing clients that ignore the field keep working unchanged."""
+    existing clients that ignore the field keep working unchanged.
+
+    ``fix_prompt`` carries the model's paste-ready prompt for an
+    external coding bot (CodeRabbit / Cursor / Claude Code). Populated
+    only for ``build_failure`` turns where the agent identified a
+    concrete code-level root cause; absent for everything else (infra
+    issues, empty logs, runtime_debug, the generic FAB). Frontends use
+    its presence to gate the per-message "Copy as prompt" affordance —
+    they never synthesise the prompt themselves."""
 
     type: Literal["done"] = "done"
     message: str
     recovery: Literal["model", "stub"] | None = None
+    fix_prompt: str | None = None
 
 
 class ErrorEvent(_StreamEventBase):
