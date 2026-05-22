@@ -154,9 +154,13 @@ func componentWithImageYAML(name, componentType, image string, port int, args []
 			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
 				Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
 					"http": {
-						Type:       openchoreov1alpha1.EndpointType("HTTP"),
-						Port:       int32(port),
-						Visibility: []openchoreov1alpha1.EndpointVisibility{"project"},
+						Type: openchoreov1alpha1.EndpointType("HTTP"),
+						Port: int32(port),
+						// project keeps the in-cluster ClusterIP probe alive;
+						// external renders an HTTPRoute on the data plane's
+						// external kgateway listener so the same workload is
+						// reachable through the public URL too.
+						Visibility: []openchoreov1alpha1.EndpointVisibility{"project", "external"},
 					},
 				},
 				Container: openchoreov1alpha1.Container{

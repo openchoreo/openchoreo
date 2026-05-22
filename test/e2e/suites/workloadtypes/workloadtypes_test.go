@@ -176,6 +176,39 @@ var _ = Describe("Workload Type Matrix", Ordered, func() {
 					"CronJob for %s should have status.lastScheduleTime populated", componentScheduled)
 			}, 3*time.Minute, 5*time.Second).Should(Succeed())
 		})
+
+		It("service: public URL is reachable through kgateway", func() {
+			// visibility includes external, so the controller renders an
+			// HTTPRoute on the data plane's external gateway. The service
+			// ClusterComponentType matches /<componentName>-<endpoint> and
+			// URL-rewrites that prefix back to "/" before forwarding to the
+			// backend — so we append the greeter sample's documented REST
+			// path (/greeter/greet) to hit a known-200 handler.
+			base := endpointExternalHTTPURL(componentService, "http")
+			url := base + "/greeter/greet"
+			Eventually(func() error {
+				_, err := framework.InvokeFromPodByLabel(
+					kubeContext, dpNs, testerLabel, testerContainer, url, 10,
+				)
+				return err
+			}, 3*time.Minute, 5*time.Second).Should(Succeed(),
+				"service public URL %s should return 200", url)
+		})
+
+		It("web-application: public URL is reachable through kgateway", func() {
+			// The web-application template forwards all paths without a
+			// prefix rewrite, and http-echo replies 200 with the configured
+			// text on any path — so a plain GET of the externalURL is enough.
+			base := endpointExternalHTTPURL(componentWebApp, "http")
+			url := base + "/"
+			Eventually(func() error {
+				_, err := framework.InvokeFromPodByLabel(
+					kubeContext, dpNs, testerLabel, testerContainer, url, 10,
+				)
+				return err
+			}, 3*time.Minute, 5*time.Second).Should(Succeed(),
+				"web-application public URL %s should return 200", url)
+		})
 	})
 
 	Context("deletion drains rendered resources", func() {
@@ -255,6 +288,35 @@ var _ = Describe("Workload Type Matrix", Ordered, func() {
 		})
 	})
 })
+
+// endpointExternalHTTPURL reads the rendered external HTTP gateway URL for a
+// named endpoint off the ReleaseBinding status, assembled from scheme/host/
+// port/path. This is the URL a real caller would hit through kgateway.
+// Path is optional — the web-application template renders no path prefix,
+// while the service template uses /<componentName>-<endpointKey>.
+func endpointExternalHTTPURL(component, endpoint string) string {
+	rbName := component + releaseBindingSuffix
+	jp := func(g Gomega, field string) string {
+		out, err := framework.KubectlGetJsonpath(
+			kubeContext, cpNs, "releasebinding", rbName,
+			fmt.Sprintf(`{.status.endpoints[?(@.name=="%s")].externalURLs.http.%s}`, endpoint, field),
+		)
+		g.Expect(err).NotTo(HaveOccurred())
+		return out
+	}
+	var url string
+	Eventually(func(g Gomega) {
+		scheme := jp(g, "scheme")
+		host := jp(g, "host")
+		port := jp(g, "port")
+		path := jp(g, "path") // empty for web-application; "/<componentName>-<endpointKey>" for service
+		g.Expect(scheme).NotTo(BeEmpty(), "externalURLs.http.scheme empty on %s endpoint %s", rbName, endpoint)
+		g.Expect(host).NotTo(BeEmpty(), "externalURLs.http.host empty on %s endpoint %s", rbName, endpoint)
+		g.Expect(port).NotTo(BeEmpty(), "externalURLs.http.port empty on %s endpoint %s", rbName, endpoint)
+		url = fmt.Sprintf("%s://%s:%s%s", scheme, host, port, path)
+	}, 3*time.Minute, 2*time.Second).Should(Succeed())
+	return url
+}
 
 // endpointHostPort reads the rendered Service URL host+port for a named endpoint
 // off the ReleaseBinding status. Returns string host + string port (port is
