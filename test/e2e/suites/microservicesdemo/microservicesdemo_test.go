@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2" //nolint:revive
@@ -26,8 +25,11 @@ const (
 
 	demoSampleSubpath = "samples/gcp-microservices-demo"
 
-	demoFrontend  = "frontend"
-	demoCatalog   = "productcatalog"
+	demoFrontend = "frontend"
+	demoCatalog  = "productcatalog"
+
+	// Stable product ID from the demo's productcatalogservice/products.json.
+	demoProductID = "OLJCESPC7Z"
 
 	demoTesterLabel     = "app=msd-tester"
 	demoTesterContainer = "tester"
@@ -114,43 +116,86 @@ var _ = Describe("GCP Microservices Demo", Ordered, func() {
 			}, 8*time.Minute, 5*time.Second).Should(Succeed())
 		})
 
-		It("frontend serves traffic and reaches productcatalog over gRPC", func() {
-			// External invoke goes through kgateway; for a deterministic
-			// cross-service signal we hit the rendered ClusterIP Service for
-			// frontend from inside the DP namespace. If frontend's `/` returns
-			// 200, the rendered page included the product list, which means
-			// the in-pod gRPC client successfully reached productcatalog.
-			host, port := serviceForComponent(demoDPNs, demoFrontend)
+		It("frontend home page is reachable over the public URL", func() {
+			// Probe goes through the kgateway external listener — this is the
+			// URL a real user would hit. A 200 on `/` transitively proves the
+			// frontend → productcatalog gRPC hop, because the home template
+			// renders the product list and the handler 5xx's if that gRPC fails.
+			base := frontendExternalHTTPURL()
+			homeURL := base + "/"
 			Eventually(func() error {
 				_, err := framework.InvokeFromPodByLabel(
 					kubeContext, demoDPNs, demoTesterLabel, demoTesterContainer,
-					fmt.Sprintf("http://%s:%s/", host, port), 10,
+					homeURL, 10,
 				)
 				return err
 			}, 3*time.Minute, 5*time.Second).Should(Succeed(),
-				"frontend at %s:%s should return success (proves frontend → %s connectivity)",
-				host, port, demoCatalog)
+				"frontend home %s should return 200 (proves frontend → %s connectivity)",
+				homeURL, demoCatalog)
+		})
+
+		It("frontend product detail page returns 200 for a known product", func() {
+			// /product/<id> drives a GetProduct gRPC to productcatalog plus a
+			// currency conversion via the currency service. 200 means both
+			// downstream RPCs succeeded.
+			productURL := frontendExternalHTTPURL() + "/product/" + demoProductID
+			Eventually(func() error {
+				_, err := framework.InvokeFromPodByLabel(
+					kubeContext, demoDPNs, demoTesterLabel, demoTesterContainer,
+					productURL, 10,
+				)
+				return err
+			}, 3*time.Minute, 5*time.Second).Should(Succeed(),
+				"frontend product page %s should return 200 (proves %s GetProduct + currency)",
+				productURL, demoCatalog)
+		})
+
+		It("frontend cart page returns 200", func() {
+			// /cart drives a GetCart RPC to the cart service (empty cart on a
+			// fresh session is still a successful 200). This covers the cart
+			// service which is otherwise only verified at the pod-running level.
+			cartURL := frontendExternalHTTPURL() + "/cart"
+			Eventually(func() error {
+				_, err := framework.InvokeFromPodByLabel(
+					kubeContext, demoDPNs, demoTesterLabel, demoTesterContainer,
+					cartURL, 10,
+				)
+				return err
+			}, 3*time.Minute, 5*time.Second).Should(Succeed(),
+				"frontend cart page %s should return 200 (proves cart GetCart)",
+				cartURL)
 		})
 	})
 })
 
-// serviceForComponent returns the name + first port of the rendered Service
-// for an OpenChoreo component in the given DP namespace. Looked up by label.
-func serviceForComponent(dpNamespace, component string) (name, port string) {
-	var svcName, svcPort string
-	Eventually(func(g Gomega) {
-		out, err := framework.Kubectl(kubeContext,
-			"get", "service",
-			"-n", dpNamespace,
-			"-l", "openchoreo.dev/component="+component,
-			"-o", "jsonpath={.items[0].metadata.name}|{.items[0].spec.ports[0].port}",
+// frontendExternalHTTPURL polls the frontend ReleaseBinding until its `http`
+// endpoint has an externally-resolved HTTP gateway URL, then returns the
+// assembled base URL (scheme://host:port, no trailing slash). This is what a
+// caller outside the cluster — or here, the tester pod going through CoreDNS
+// rewrite + k3d port-forward — would actually hit on kgateway.
+func frontendExternalHTTPURL() string {
+	rbName := demoFrontend + "-" + demoEnvironment
+	jp := func(expr string) (string, error) {
+		return framework.KubectlGetJsonpath(
+			kubeContext, demoCPNamespace, "releasebinding", rbName,
+			fmt.Sprintf(`{.status.endpoints[?(@.name=="http")].externalURLs.http.%s}`, expr),
 		)
+	}
+	var url string
+	Eventually(func(g Gomega) {
+		scheme, err := jp("scheme")
 		g.Expect(err).NotTo(HaveOccurred())
-		parts := strings.SplitN(out, "|", 2)
-		g.Expect(parts).To(HaveLen(2), "unexpected output from service lookup: %q", out)
-		svcName, svcPort = parts[0], parts[1]
-		g.Expect(svcName).NotTo(BeEmpty(), "no Service found for component %s in %s", component, dpNamespace)
-		g.Expect(svcPort).NotTo(BeEmpty(), "Service for component %s has no port", component)
+		g.Expect(scheme).NotTo(BeEmpty(), "externalURLs.http.scheme not populated on %s", rbName)
+
+		host, err := jp("host")
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(host).NotTo(BeEmpty(), "externalURLs.http.host not populated on %s", rbName)
+
+		port, err := jp("port")
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(port).NotTo(BeEmpty(), "externalURLs.http.port not populated on %s", rbName)
+
+		url = fmt.Sprintf("%s://%s:%s", scheme, host, port)
 	}, 3*time.Minute, 2*time.Second).Should(Succeed())
-	return svcName, svcPort
+	return url
 }
