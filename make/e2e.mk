@@ -328,6 +328,11 @@ _e2e.configure-dp:
 _e2e.configure-wp:
 	@$(call log_info, Registering WorkflowPlane)
 	$(call e2e_register_plane,$(E2E_WP_NS),$(E2E_K3D_DIR)/workflowplane.yaml)
+	@$(call log_info, Applying ClusterWorkflowTemplates used by the builder workflows)
+	$(E2E_KUBECTL) apply -f $(PROJECT_DIR)/samples/getting-started/workflow-templates/checkout-source.yaml
+	$(E2E_KUBECTL) apply -f $(PROJECT_DIR)/samples/getting-started/workflow-templates.yaml
+	$(E2E_KUBECTL) apply -f $(PROJECT_DIR)/samples/getting-started/workflow-templates/publish-image-k3d.yaml
+	$(E2E_KUBECTL) apply -f $(PROJECT_DIR)/samples/getting-started/workflow-templates/generate-workload-k3d.yaml
 
 .PHONY: _e2e.configure-op
 _e2e.configure-op:
