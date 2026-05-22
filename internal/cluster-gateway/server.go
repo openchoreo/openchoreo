@@ -29,9 +29,10 @@ import (
 )
 
 const (
-	planeTypeDataPlane          = "dataplane"
-	planeTypeWorkflowPlane      = "workflowplane"
-	planeTypeObservabilityPlane = "observabilityplane"
+	planeTypeDataPlane            = "dataplane"
+	planeTypeWorkflowPlane        = "workflowplane"
+	planeTypeObservabilityPlane   = "observabilityplane"
+	crNamespaceClusterPlaceholder = "_cluster" // Special placeholder for cluster-scoped CRs (no namespace)
 )
 
 // Connection abstracts a WebSocket connection for testability.
@@ -116,8 +117,9 @@ func (s *Server) Start() error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", s.handleWebSocket)
-	mux.HandleFunc("/api/proxy/", s.handleHTTPProxy) // HTTP proxy to data plane services
-	mux.HandleFunc("/api/exec/", s.handleExec)       // WebSocket exec proxy to data plane pods
+	mux.HandleFunc("/api/proxy/", s.handleHTTPProxy)   // HTTP proxy to data plane services
+	mux.HandleFunc("/api/exec/", s.handleExec)         // WebSocket exec proxy to data plane pods
+	mux.HandleFunc("/api/wirelogs/", s.handleWirelogs) // WebSocket wirelogs (Cilium Hubble flow) stream
 
 	// Register plane lifecycle API (for controller notifications and status queries)
 	planeAPI := NewPlaneAPI(s.connMgr, s, s.logger)
@@ -442,9 +444,9 @@ func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
 
 	// Construct identifiers for CR-aware routing
 	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
-	// Handle cluster-scoped CR namespace placeholder: "_cluster" maps to empty namespace
+	// Handle cluster-scoped CR namespace placeholder: crNamespaceClusterPlaceholder maps to empty namespace
 	// to match the key format "/name" used by getAllPlaneClientCAs for cluster-scoped resources
-	if crNamespace == "_cluster" {
+	if crNamespace == crNamespaceClusterPlaceholder {
 		crNamespace = ""
 	}
 	crKey := fmt.Sprintf("%s/%s", crNamespace, crName)

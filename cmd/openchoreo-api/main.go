@@ -249,11 +249,22 @@ func main() {
 		}
 		execHandler := openapihandlers.NewExecHandler(k8sClient, gwClient, gatewayURL, gwTLSConf, execAuthzChecker, logger)
 		authedExecHandler := jwtMiddleware(execHandler)
+
+		// Wirelogs handler shares the same gateway TLS config and authz checker
+		// (authz reuses logs:view at the component scope).
+		wirelogsAuthzChecker := svcpkg.NewAuthzChecker(runtime.pdp, logger.With("component", "wirelogs-authz"))
+		wirelogsHandler := openapihandlers.NewWirelogsHandler(
+			k8sClient, gwClient, gatewayURL, gwTLSConf, wirelogsAuthzChecker, logger,
+		)
+		authedWirelogsHandler := jwtMiddleware(wirelogsHandler)
+
 		topMux := http.NewServeMux()
 		topMux.Handle("/exec/", authedExecHandler)
+		topMux.Handle("/wirelogs/", authedWirelogsHandler)
 		topMux.Handle("/", handler)
 		topHandler = topMux
 		logger.Info("Exec endpoint registered", "path", "/exec/namespaces/{ns}/components/{name}")
+		logger.Info("Wirelogs endpoint registered", "path", "/wirelogs/namespaces/{ns}/components/{name}")
 	}
 
 	// Create server from configuration
