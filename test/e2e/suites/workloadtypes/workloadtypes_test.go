@@ -27,7 +27,7 @@ const (
 
 var dpNs string
 
-var _ = Describe("Workload Type Matrix", Ordered, func() {
+var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 	SetDefaultEventuallyTimeout(framework.DefaultTimeout)
 	SetDefaultEventuallyPollingInterval(framework.DefaultPolling)
 

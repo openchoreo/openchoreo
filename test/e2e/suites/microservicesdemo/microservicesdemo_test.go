@@ -44,7 +44,7 @@ var demoComponents = []string{
 
 var demoDPNs string
 
-var _ = Describe("GCP Microservices Demo", Ordered, func() {
+var _ = Describe("GCP Microservices Demo", Ordered, Label("tier1"), func() {
 	SetDefaultEventuallyTimeout(framework.DefaultTimeout)
 	SetDefaultEventuallyPollingInterval(framework.DefaultPolling)
 

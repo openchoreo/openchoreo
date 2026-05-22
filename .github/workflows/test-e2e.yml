@@ -65,7 +65,8 @@ jobs:
             E2E_HELM_SOURCE=oci \
             HELM_CHART_VERSION=${{ env.HELM_CHART_VERSION }} \
             E2E_WITH_BUILD=${{ env.E2E_WITH_BUILD }} \
-            E2E_WITH_OBSERVABILITY=${{ env.E2E_WITH_OBSERVABILITY }}
+            E2E_WITH_OBSERVABILITY=${{ env.E2E_WITH_OBSERVABILITY }} \
+            E2E_LABEL_FILTER='tier1 || tier2'
 
       - name: Upload diagnostics
         if: failure()

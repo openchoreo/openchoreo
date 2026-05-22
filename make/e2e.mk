@@ -13,6 +13,19 @@ E2E_WITH_OBSERVABILITY ?= false
 E2E_TEST_TIMEOUT       ?= 20m
 # Go duration for each individual helm install and kubectl wait (not the overall setup timeout)
 E2E_SETUP_TIMEOUT      ?= 5m
+# Ginkgo label-filter expression to select which specs run. Empty = run everything.
+# Suites are labeled `tier1`, `tier2`, … on their top-level Describe; see proposal #3509.
+# Examples: `tier1`, `tier1 || tier2`, `tier1 && !tier2`.
+E2E_LABEL_FILTER       ?=
+
+# Conditionally render the Ginkgo label-filter flag so the unfiltered command line stays clean.
+# Single-quote the value so shell metacharacters in the expression (e.g. `||`, `&&`) are not
+# interpreted by the shell when Make substitutes the variable into the recipe.
+ifneq ($(strip $(E2E_LABEL_FILTER)),)
+  E2E_GINKGO_LABEL_FLAG := --ginkgo.label-filter='$(E2E_LABEL_FILTER)'
+else
+  E2E_GINKGO_LABEL_FLAG :=
+endif
 
 # Directories
 E2E_DIR                := $(PROJECT_DIR)/test/e2e
@@ -336,12 +349,12 @@ _e2e.link-observability:
 # ---------------------------------------------------------------------------
 
 .PHONY: e2e.test
-e2e.test: ## Run e2e test suite
-	@$(call log_info, Running e2e tests)
+e2e.test: ## Run e2e test suite (set E2E_LABEL_FILTER to scope by tier)
+	@$(call log_info, Running e2e tests$(if $(E2E_GINKGO_LABEL_FLAG), with label filter '$(E2E_LABEL_FILTER)'))
 	go test $(E2E_DIR)/ -v -ginkgo.v -timeout $(E2E_TEST_TIMEOUT) \
-		--e2e.kubecontext=$(E2E_KUBECONTEXT)
+		--e2e.kubecontext=$(E2E_KUBECONTEXT) $(E2E_GINKGO_LABEL_FLAG)
 	go test $(E2E_DIR)/suites/... -v -ginkgo.v -timeout $(E2E_TEST_TIMEOUT) \
-		--e2e.kubecontext=$(E2E_KUBECONTEXT)
+		--e2e.kubecontext=$(E2E_KUBECONTEXT) $(E2E_GINKGO_LABEL_FLAG)
 
 # ---------------------------------------------------------------------------
 # Utility targets
