@@ -10587,7 +10587,11 @@ components:
             environment:
               type: string
               description: Target deployment environment (e.g. "dev", "staging", "prod")
-              example: dev
+              example: acme/dev
+            componentType:
+              type: string
+              description: ComponentType name referenced by the Component (e.g. "deployment/web-app")
+              example: acme/deployment/web-app
 
     SubjectContext:
       type: object

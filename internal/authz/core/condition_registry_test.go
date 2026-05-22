@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/cel-go/cel"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,9 +29,8 @@ func TestLookupConditions(t *testing.T) {
 		require.Equal(t, AttrResourceEnvironment.Key, specs[0].Key)
 	})
 
-	t.Run("unknown action returns nil", func(t *testing.T) {
-		specs := LookupConditions("component:view")
-		require.Nil(t, specs)
+	t.Run("action without registered conditions returns nil", func(t *testing.T) {
+		require.Nil(t, LookupConditions(ActionViewComponent))
 	})
 
 	t.Run("empty action returns nil", func(t *testing.T) {
@@ -52,21 +50,32 @@ func TestLookupConditions(t *testing.T) {
 			require.Equal(t, AttrResourceEnvironment.Key, specs[0].Key, "action %q", action)
 		}
 	})
+
+	t.Run("component mutating actions support resource.componentType", func(t *testing.T) {
+		for _, action := range []string{
+			ActionCreateComponent,
+			ActionUpdateComponent,
+			ActionDeleteComponent,
+		} {
+			specs := LookupConditions(action)
+			require.Len(t, specs, 1, "action %q should expose one attribute", action)
+			require.Equal(t, AttrResourceComponentType.Key, specs[0].Key, "action %q", action)
+		}
+	})
 }
 
 func TestIntersectConditionsForActions(t *testing.T) {
-	// resource.tier and resource.region are test-only attrs not wired to production code.
-	attrCT := AttributeSpec{Key: "resource.componentType", CELType: cel.StringType}
-	attrLabel := AttributeSpec{Key: "resource.label", CELType: cel.StringType}
+	// resource.release is a test-only attr not wired to production code.
+	attrLabel := AttributeSpec{Key: "resource.release"}
 
 	SetConditionRegistryForTest(t, map[string][]AttributeSpec{
-		ActionCreateReleaseBinding: {AttrResourceEnvironment, attrCT, attrLabel},
-		ActionViewReleaseBinding:   {AttrResourceEnvironment, attrCT, attrLabel},
-		ActionUpdateReleaseBinding: {AttrResourceEnvironment, attrCT, attrLabel},
-		ActionDeleteReleaseBinding: {AttrResourceEnvironment, attrCT, attrLabel},
-		ActionViewLogs:             {AttrResourceEnvironment, attrCT},
+		ActionCreateReleaseBinding: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionViewReleaseBinding:   {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionUpdateReleaseBinding: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionDeleteReleaseBinding: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionViewLogs:             {AttrResourceEnvironment, AttrResourceComponentType},
 		ActionViewMetrics:          {AttrResourceEnvironment},
-		ActionViewTraces:           {attrCT, attrLabel},
+		ActionViewTraces:           {AttrResourceComponentType, attrLabel},
 	})
 
 	tests := []struct {
@@ -77,12 +86,12 @@ func TestIntersectConditionsForActions(t *testing.T) {
 		{
 			name:     "full overlap returns all attrs",
 			actions:  []string{ActionCreateReleaseBinding, ActionViewReleaseBinding, ActionUpdateReleaseBinding, ActionDeleteReleaseBinding},
-			wantKeys: []string{AttrResourceEnvironment.Key, attrCT.Key, attrLabel.Key},
+			wantKeys: []string{AttrResourceEnvironment.Key, AttrResourceComponentType.Key, attrLabel.Key},
 		},
 		{
 			name:     "partial overlap drops missing attr",
 			actions:  []string{ActionCreateReleaseBinding, ActionViewLogs},
-			wantKeys: []string{AttrResourceEnvironment.Key, attrCT.Key},
+			wantKeys: []string{AttrResourceEnvironment.Key, AttrResourceComponentType.Key},
 		},
 		{
 			name:     "overlap narrows to single attr",
@@ -92,7 +101,7 @@ func TestIntersectConditionsForActions(t *testing.T) {
 		{
 			name:     "overlap on non-env attrs only",
 			actions:  []string{ActionCreateReleaseBinding, ActionViewTraces},
-			wantKeys: []string{attrCT.Key, attrLabel.Key},
+			wantKeys: []string{AttrResourceComponentType.Key, attrLabel.Key},
 		},
 		{
 			name:     "completely disjoint actions yield empty",
@@ -107,7 +116,7 @@ func TestIntersectConditionsForActions(t *testing.T) {
 		{
 			name:     "resource wildcard expands and returns common attrs",
 			actions:  []string{"releasebinding:*"},
-			wantKeys: []string{AttrResourceEnvironment.Key, attrCT.Key, attrLabel.Key},
+			wantKeys: []string{AttrResourceEnvironment.Key, AttrResourceComponentType.Key, attrLabel.Key},
 		},
 		{
 			name:     "resource wildcard intersected with concrete action",

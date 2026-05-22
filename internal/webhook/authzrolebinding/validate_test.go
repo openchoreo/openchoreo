@@ -116,6 +116,13 @@ func TestValidateCondition(t *testing.T) {
 			},
 		},
 		{
+			name: "valid resource.componentType condition on component:create",
+			cond: openchoreodevv1alpha1.AuthzCondition{
+				Actions:    []string{authzcore.ActionCreateComponent},
+				Expression: `resource.componentType in ["deployment/service", "deployment/web-app"]`,
+			},
+		},
+		{
 			name: "empty actions",
 			cond: openchoreodevv1alpha1.AuthzCondition{
 				Actions:    []string{},

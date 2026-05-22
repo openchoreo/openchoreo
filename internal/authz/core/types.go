@@ -53,6 +53,8 @@ type Context struct {
 type ResourceAttribute struct {
 	// Environment is the target environment (e.g. "dev", "staging", "prod").
 	Environment string `json:"environment,omitempty"`
+	// ComponentType is the ComponentType (or ClusterComponentType) name referenced by the Component being acted upon.
+	ComponentType string `json:"componentType,omitempty"`
 }
 
 // Decision represents the authorization decision response
