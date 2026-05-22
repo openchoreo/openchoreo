@@ -19,12 +19,17 @@ const (
 	// clusterLocalSuffix is the default Kubernetes cluster domain suffix.
 	clusterLocalSuffix = "svc.cluster.local"
 
-	// URL scheme constants for endpoint types.
-	schemeHTTP = "http"
-	schemeWS   = "ws"
-	schemeGRPC = "grpc"
-	schemeTCP  = "tcp"
-	schemeUDP  = "udp"
+	// URL scheme constants for endpoint types. The TLS variants are used when the
+	// workload speaks the protocol over TLS (gateway-terminated or passthrough).
+	schemeHTTP  = "http"
+	schemeHTTPS = "https"
+	schemeWS    = "ws"
+	schemeWSS   = "wss"
+	schemeGRPC  = "grpc"
+	schemeGRPCS = "grpcs"
+	schemeTCP   = "tcp"
+	schemeTLS   = "tls"
+	schemeUDP   = "udp"
 )
 
 // serviceInfo holds the name, namespace, and ports extracted from a rendered K8s Service resource.

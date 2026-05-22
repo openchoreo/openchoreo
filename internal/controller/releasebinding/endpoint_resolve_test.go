@@ -26,7 +26,7 @@ func urlToString(u *openchoreov1alpha1.EndpointURL) string {
 	url := u.Scheme + "://" + u.Host
 
 	// Add port if it's not the default port for the scheme
-	if u.Port != 0 && !((u.Scheme == "http" && u.Port == 80) || (u.Scheme == "https" && u.Port == 443)) {
+	if u.Port != 0 && !((u.Scheme == schemeHTTP && u.Port == 80) || (u.Scheme == schemeHTTPS && u.Port == 443)) {
 		url += fmt.Sprintf(":%d", u.Port)
 	}
 
@@ -1285,7 +1285,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			)
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].ServiceURL).NotTo(BeNil())
-			Expect(result[0].ServiceURL.Scheme).To(Equal("http"))
+			Expect(result[0].ServiceURL.Scheme).To(Equal(schemeHTTP))
 			Expect(result[0].ServiceURL.Host).To(Equal(
 				fmt.Sprintf("%s.%s.svc.cluster.local", svcName, svcNS)))
 			Expect(result[0].ServiceURL.Port).To(Equal(int32(8080)))
@@ -1448,7 +1448,7 @@ var _ = Describe("resolveServiceURLs", func() {
 					Name: "greeter",
 					ExternalURLs: &openchoreov1alpha1.EndpointGatewayURLs{
 						HTTPS: &openchoreov1alpha1.EndpointURL{
-							Scheme: "https",
+							Scheme: schemeHTTPS,
 							Host:   "app.example.com",
 							Port:   443,
 						},
@@ -1501,11 +1501,11 @@ var _ = Describe("schemeForEndpointType", func() {
 		func(epType openchoreov1alpha1.EndpointType, expected string) {
 			Expect(schemeForEndpointType(epType)).To(Equal(expected))
 		},
-		Entry("HTTP", openchoreov1alpha1.EndpointTypeHTTP, "http"),
-		Entry("GraphQL", openchoreov1alpha1.EndpointTypeGraphQL, "http"),
-		Entry("Websocket", openchoreov1alpha1.EndpointTypeWebsocket, "ws"),
-		Entry("gRPC", openchoreov1alpha1.EndpointTypeGRPC, "grpc"),
-		Entry("TCP", openchoreov1alpha1.EndpointTypeTCP, "tcp"),
-		Entry("UDP", openchoreov1alpha1.EndpointTypeUDP, "udp"),
+		Entry("HTTP", openchoreov1alpha1.EndpointTypeHTTP, schemeHTTP),
+		Entry("GraphQL", openchoreov1alpha1.EndpointTypeGraphQL, schemeHTTP),
+		Entry("Websocket", openchoreov1alpha1.EndpointTypeWebsocket, schemeWS),
+		Entry("gRPC", openchoreov1alpha1.EndpointTypeGRPC, schemeGRPC),
+		Entry("TCP", openchoreov1alpha1.EndpointTypeTCP, schemeTCP),
+		Entry("UDP", openchoreov1alpha1.EndpointTypeUDP, schemeUDP),
 	)
 })

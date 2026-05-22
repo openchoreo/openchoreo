@@ -1391,22 +1391,22 @@ func schemeFor(t openchoreov1alpha1.EndpointType, tls bool) string {
 	switch t {
 	case openchoreov1alpha1.EndpointTypeHTTP, openchoreov1alpha1.EndpointTypeGraphQL:
 		if tls {
-			return "https"
+			return schemeHTTPS
 		}
-		return "http"
+		return schemeHTTP
 	case openchoreov1alpha1.EndpointTypeWebsocket:
 		if tls {
-			return "wss"
+			return schemeWSS
 		}
-		return "ws"
+		return schemeWS
 	case openchoreov1alpha1.EndpointTypeGRPC:
 		if tls {
-			return "grpcs"
+			return schemeGRPCS
 		}
-		return "grpc"
+		return schemeGRPC
 	case openchoreov1alpha1.EndpointTypeTCP:
 		if tls {
-			return "tls"
+			return schemeTLS
 		}
 	}
 	return ""
