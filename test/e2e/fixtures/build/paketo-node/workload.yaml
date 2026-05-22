@@ -1,0 +1,15 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: pkt-svc
+spec:
+  endpoints:
+    http:
+      type: HTTP
+      port: 8080
+      visibility:
+        - project
+  container:
+    env:
+      - key: PORT
+        value: "8080"
