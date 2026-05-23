@@ -45,14 +45,20 @@ func KubectlLogs(kubeContext, namespace, labelSelector string, tail int) (string
 		"--tail", fmt.Sprintf("%d", tail))
 }
 
+// KubectlRolloutStatus runs: kubectl rollout status <resource> -n <namespace> --timeout=<timeout>
+// Returns nil immediately if the rollout is already complete.
+func KubectlRolloutStatus(kubeContext, namespace, resource, timeout string) error {
+	_, err := Kubectl(kubeContext, "rollout", "status", resource, "-n", namespace, "--timeout="+timeout)
+	return err
+}
+
 // KubectlRolloutRestart runs: kubectl rollout restart <resource> -n <namespace>
 // and then waits for the rollout to complete.
 func KubectlRolloutRestart(kubeContext, namespace, resource string) error {
 	if _, err := Kubectl(kubeContext, "rollout", "restart", resource, "-n", namespace); err != nil {
 		return err
 	}
-	_, err := Kubectl(kubeContext, "rollout", "status", resource, "-n", namespace, "--timeout=120s")
-	return err
+	return KubectlRolloutStatus(kubeContext, namespace, resource, "120s")
 }
 
 // KubectlExec runs: kubectl exec <pod> -n <namespace> [-c <container>] -- <command...>

@@ -149,6 +149,30 @@ func AssertPodsRunning(g gomega.Gomega, kubeContext, namespace, labelSelector st
 	}
 }
 
+// AssertRolloutComplete discovers a Deployment by label selector and waits for its rollout
+// to finish. Returns immediately if the rollout is already complete.
+// Designed for use inside Eventually(func(g Gomega) { ... }).
+func AssertRolloutComplete(g gomega.Gomega, kubeContext, namespace, labelSelector, timeout string) {
+	names, err := Kubectl(kubeContext,
+		"get", "deployment", "-n", namespace,
+		"-l", labelSelector,
+		"-o", "jsonpath={.items[*].metadata.name}",
+	)
+	g.Expect(err).NotTo(gomega.HaveOccurred(),
+		fmt.Sprintf("failed to find deployment with selector %q in %s", labelSelector, namespace))
+	g.Expect(names).NotTo(gomega.BeEmpty(),
+		fmt.Sprintf("no deployment found with selector %q in %s", labelSelector, namespace))
+
+	fields := strings.Fields(names)
+	g.Expect(fields).To(gomega.HaveLen(1),
+		fmt.Sprintf("expected exactly 1 deployment with selector %q in %s, found %d: %v",
+			labelSelector, namespace, len(fields), fields))
+
+	err = KubectlRolloutStatus(kubeContext, namespace, "deployment/"+fields[0], timeout)
+	g.Expect(err).NotTo(gomega.HaveOccurred(),
+		fmt.Sprintf("rollout not complete for deployment/%s in %s", fields[0], namespace))
+}
+
 // AssertResourceGone checks that a named resource does not exist in the namespace.
 // Designed for use inside Eventually(func(g Gomega) { ... }).
 func AssertResourceGone(g gomega.Gomega, kubeContext, namespace, resource, name string) {
