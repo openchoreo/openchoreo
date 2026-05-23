@@ -25,8 +25,8 @@ var clusterresourcetypelog = logf.Log.WithName("clusterresourcetype-resource")
 // SetupClusterResourceTypeWebhookWithManager registers the validating webhook
 // for ClusterResourceType in the manager.
 func SetupClusterResourceTypeWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.ClusterResourceType{}).
-		WithValidator(&Validator{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.ClusterResourceType{}).
+		WithCustomValidator(&Validator{}).
 		Complete()
 }
 

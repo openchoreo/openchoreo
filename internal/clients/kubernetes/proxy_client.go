@@ -363,6 +363,11 @@ func (pc *ProxyClient) DeleteAllOf(ctx context.Context, obj client.Object, opts 
 	return fmt.Errorf("DeleteAllOf not implemented for ProxyClient")
 }
 
+// Apply applies a server-side apply configuration. Not implemented for the proxy client.
+func (pc *ProxyClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+	return fmt.Errorf("Apply not implemented for ProxyClient")
+}
+
 // Status returns a StatusWriter for updating object status
 func (pc *ProxyClient) Status() client.StatusWriter {
 	return &proxyStatusWriter{client: pc}
@@ -409,6 +414,11 @@ type proxyStatusWriter struct {
 // Create is not supported for status subresources
 func (psw *proxyStatusWriter) Create(ctx context.Context, obj client.Object, subResource client.Object, opts ...client.SubResourceCreateOption) error {
 	return fmt.Errorf("Create not supported for status subresource")
+}
+
+// Apply applies a server-side apply configuration to the status subresource. Not implemented for the proxy client.
+func (psw *proxyStatusWriter) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.SubResourceApplyOption) error {
+	return fmt.Errorf("Apply not supported for status subresource")
 }
 
 // Update updates the status subresource
@@ -535,6 +545,11 @@ func (psr *proxySubResourceClient) Update(ctx context.Context, obj client.Object
 // Patch patches a subresource
 func (psr *proxySubResourceClient) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.SubResourcePatchOption) error {
 	return fmt.Errorf("SubResource.Patch not implemented for ProxyClient")
+}
+
+// Apply applies a server-side apply configuration to a subresource. Not implemented for the proxy client.
+func (psr *proxySubResourceClient) Apply(ctx context.Context, obj runtime.ApplyConfiguration, opts ...client.SubResourceApplyOption) error {
+	return fmt.Errorf("SubResource.Apply not implemented for ProxyClient")
 }
 
 // buildGetPath builds the Kubernetes API path for a GET request

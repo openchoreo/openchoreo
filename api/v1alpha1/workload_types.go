@@ -179,7 +179,7 @@ type WorkloadConnection struct {
 	// Visibility is the visibility level at which this connection consumes the endpoint.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=project;namespace
-	Visibility EndpointVisibility `json:"visibility"`
+	Visibility string `json:"visibility"`
 
 	// EnvBindings maps semantic URL components to environment variable names.
 	// +kubebuilder:validation:Required

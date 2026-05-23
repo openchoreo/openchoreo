@@ -158,7 +158,7 @@ func componentYAML(name, image string, args []string, endpoints map[string]endpo
 			Labels:    map[string]string{"openchoreo.dev/name": name},
 		},
 		Spec: openchoreov1alpha1.ComponentSpec{
-			Owner:    openchoreov1alpha1.ComponentOwner{ProjectName: projectName},
+			Owner: openchoreov1alpha1.ComponentOwner{ProjectName: projectName},
 			ComponentType: openchoreov1alpha1.ComponentTypeRef{
 				Kind: openchoreov1alpha1.ComponentTypeRefKindClusterComponentType,
 				Name: componentTypeService,
@@ -229,7 +229,7 @@ func releaseBindingYAML(component, releaseName, environment string) string {
 				"componentName": component,
 			},
 			"releaseName": releaseName,
-			"environment":          environment,
+			"environment": environment,
 		},
 	}
 	data, err := yaml.Marshal(rb)
@@ -259,4 +259,3 @@ func testerPodYAML(dpNamespace string) string {
 	}
 	return mustYAMLDocs(pod)
 }
-

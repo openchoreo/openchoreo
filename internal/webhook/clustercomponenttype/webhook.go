@@ -26,8 +26,8 @@ var clustercomponenttypelog = logf.Log.WithName("clustercomponenttype-resource")
 
 // SetupClusterComponentTypeWebhookWithManager registers the webhook for ClusterComponentType in the manager.
 func SetupClusterComponentTypeWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.ClusterComponentType{}).
-		WithValidator(&Validator{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.ClusterComponentType{}).
+		WithCustomValidator(&Validator{}).
 		Complete()
 }
 

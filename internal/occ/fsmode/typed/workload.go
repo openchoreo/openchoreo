@@ -152,7 +152,7 @@ func (w *Workload) GetDependencies() []interface{} {
 		connMap := map[string]interface{}{
 			"component":  conn.Component,
 			"name":       conn.Name,
-			"visibility": string(conn.Visibility),
+			"visibility": conn.Visibility,
 		}
 		if conn.Project != "" {
 			connMap["project"] = conn.Project

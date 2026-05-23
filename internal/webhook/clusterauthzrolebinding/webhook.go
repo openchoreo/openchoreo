@@ -24,9 +24,8 @@ var log = logf.Log.WithName("clusterauthzrolebinding-webhook")
 
 // SetupClusterAuthzRoleBindingWebhookWithManager registers the validating webhook for ClusterAuthzRoleBinding.
 func SetupClusterAuthzRoleBindingWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&openchoreodevv1alpha1.ClusterAuthzRoleBinding{}).
-		WithValidator(&ClusterAuthzRoleBindingValidator{Client: mgr.GetClient()}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.ClusterAuthzRoleBinding{}).
+		WithCustomValidator(&ClusterAuthzRoleBindingValidator{Client: mgr.GetClient()}).
 		Complete()
 }
 

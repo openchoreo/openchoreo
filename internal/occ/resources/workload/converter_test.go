@@ -287,7 +287,7 @@ func TestAddDependenciesFromDescriptor(t *testing.T) {
 			require.NotNil(t, w.Spec.Dependencies)
 			assert.Len(t, w.Spec.Dependencies.Endpoints, tt.wantEndpoints)
 			assert.Equal(t, tt.wantComponent, w.Spec.Dependencies.Endpoints[0].Component)
-			assert.Equal(t, tt.wantVisibility, w.Spec.Dependencies.Endpoints[0].Visibility)
+			assert.Equal(t, string(tt.wantVisibility), w.Spec.Dependencies.Endpoints[0].Visibility)
 			// verify env bindings are mapped
 			assert.Equal(t, "SVC_B_URL", w.Spec.Dependencies.Endpoints[0].EnvBindings.Address)
 			assert.Equal(t, "SVC_B_HOST", w.Spec.Dependencies.Endpoints[0].EnvBindings.Host)

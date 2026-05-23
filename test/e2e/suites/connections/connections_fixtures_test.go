@@ -175,7 +175,7 @@ func populateConnections(workload *openchoreov1alpha1.Workload, connections []co
 			Project:    conn.project,
 			Component:  conn.component,
 			Name:       conn.endpoint,
-			Visibility: openchoreov1alpha1.EndpointVisibility(conn.visibility),
+			Visibility: conn.visibility,
 			EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
 				Address: conn.envURL,
 				Host:    conn.envHost,

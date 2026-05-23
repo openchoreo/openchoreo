@@ -5,6 +5,7 @@ package renderedrelease
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -973,7 +975,6 @@ var _ = Describe("RenderedRelease Controller", func() {
 
 			By("Creating a RenderedRelease with a resource that will fail to apply")
 			release := makeMinimalRelease(releaseName, envName)
-			// Use a resource with an invalid GVK that the fake client cannot handle
 			badJSON := []byte(`{
 				"apiVersion": "nonexistent.example.com/v1",
 				"kind": "DoesNotExist",
@@ -990,8 +991,12 @@ var _ = Describe("RenderedRelease Controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, release)).To(Succeed())
 
-			By("Using a fake DP client that does not know the CRD (will fail on apply)")
-			dpClient := fake.NewClientBuilder().Build()
+			By("Using a fake DP client that returns an error on Patch")
+			dpClient := fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+				Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+					return apierrors.NewInternalError(fmt.Errorf("simulated apply failure"))
+				},
+			}).Build()
 			r := testReconcilerWithDPClient(dpClient, planeID, cdpName)
 
 			By("First reconcile: adds finalizer")
