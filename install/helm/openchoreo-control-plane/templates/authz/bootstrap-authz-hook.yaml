@@ -1,0 +1,170 @@
+{{- if .Values.security.authz.enabled }}
+{{- if or .Values.openchoreoApi.config.security.authorization.bootstrap.roles .Values.openchoreoApi.config.security.authorization.bootstrap.mappings }}
+---
+# ServiceAccount used by the bootstrap-authz hook Job to apply
+# bootstrap authz resources after the webhook is ready.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "openchoreo-control-plane.name" . }}-bootstrap-authz
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+---
+# ClusterRole granting the minimum permissions needed to create/update
+# bootstrap authz CRs.  Uses server-side apply so repeated runs are
+# idempotent.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "openchoreo-control-plane.name" . }}-bootstrap-authz
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+  - apiGroups:
+      - openchoreo.dev
+    resources:
+      - clusterauthzroles
+      - authzroles
+      - clusterauthzrolebindings
+      - authzrolebindings
+    verbs:
+      - create
+      - update
+      - patch
+      - get
+      - list
+  # Needed so the Job can read the ConfigMap containing the YAML to apply.
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "openchoreo-control-plane.name" . }}-bootstrap-authz
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "openchoreo-control-plane.name" . }}-bootstrap-authz
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "openchoreo-control-plane.name" . }}-bootstrap-authz
+    namespace: {{ .Release.Namespace }}
+---
+# Post-install/post-upgrade Job that:
+#   1. Waits for the controller-manager Deployment to be fully rolled out
+#      (ensuring the validating webhook is ready to serve requests).
+#   2. Applies the bootstrap authz resources via `kubectl apply --server-side`.
+#
+# Using hook-weight "5" so it runs after the ServiceAccount/RBAC (weight "0")
+# and the bootstrap ConfigMap (weight "0") are already created.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "openchoreo-control-plane.name" . }}-bootstrap-authz
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.bootstrapJob.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "openchoreo-control-plane.labels" . | nindent 8 }}
+        app.kubernetes.io/component: bootstrap-authz
+    spec:
+      serviceAccountName: {{ include "openchoreo-control-plane.name" . }}-bootstrap-authz
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      # ------------------------------------------------------------------ #
+      # Init container: wait for the admission webhook to be fully ready.    #
+      # This performs a server-side dry-run apply of the bootstrap payload.  #
+      # If the webhook is not ready, the dry-run will be rejected. Once it   #
+      # succeeds, we have strict proof the webhook admission path is working.#
+      # ------------------------------------------------------------------ #
+      initContainers:
+        - name: wait-for-webhook
+          image: {{ .Values.bootstrapJob.image.repository }}:{{ .Values.bootstrapJob.image.tag }}
+          imagePullPolicy: {{ .Values.bootstrapJob.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          command:
+            - sh
+            - -ec
+            - |
+              echo "Waiting up to {{ .Values.bootstrapJob.webhookReadyTimeoutSeconds }}s for the validating webhook to serve requests..."
+              end=$(($(date +%s) + {{ .Values.bootstrapJob.webhookReadyTimeoutSeconds }}))
+              while true; do
+                if kubectl get configmap {{ include "openchoreo-control-plane.name" . }}-bootstrap-authz \
+                    --namespace {{ .Release.Namespace }} \
+                    -o jsonpath='{.data.bootstrap\.yaml}' \
+                  | kubectl apply --server-side --dry-run=server -f - ; then
+                    echo "Webhook is ready and accepting requests."
+                    exit 0
+                fi
+                if [ $(date +%s) -gt $end ]; then
+                  echo "Timeout waiting for webhook."
+                  exit 1
+                fi
+                sleep 5
+              done
+      # ------------------------------------------------------------------ #
+      # Main container: apply bootstrap resources using server-side apply.   #
+      # ------------------------------------------------------------------ #
+      containers:
+        - name: apply-bootstrap
+          image: {{ .Values.bootstrapJob.image.repository }}:{{ .Values.bootstrapJob.image.tag }}
+          imagePullPolicy: {{ .Values.bootstrapJob.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          command:
+            - sh
+            - -ec
+            - |
+              echo "Applying bootstrap authz resources..."
+              kubectl get configmap {{ include "openchoreo-control-plane.name" . }}-bootstrap-authz \
+                --namespace {{ .Release.Namespace }} \
+                -o jsonpath='{.data.bootstrap\.yaml}' \
+              | kubectl apply --server-side --field-manager=helm-bootstrap-authz -f -
+              echo "Bootstrap authz resources applied successfully."
+{{- end }}
+{{- end }}

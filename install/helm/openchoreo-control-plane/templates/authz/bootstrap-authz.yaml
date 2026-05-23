@@ -1,127 +1,138 @@
 {{- if .Values.security.authz.enabled }}
-{{- if .Values.openchoreoApi.config.security.authorization.bootstrap.roles }}
-{{- range .Values.openchoreoApi.config.security.authorization.bootstrap.roles }}
-{{- if eq (default "" .namespace) "" }}
+{{- if or .Values.openchoreoApi.config.security.authorization.bootstrap.roles .Values.openchoreoApi.config.security.authorization.bootstrap.mappings }}
 ---
-# Cluster-scoped role
-apiVersion: openchoreo.dev/v1alpha1
-kind: ClusterAuthzRole
+# ConfigMap holding all bootstrap authz resources (ClusterAuthzRole, AuthzRole,
+# ClusterAuthzRoleBinding, AuthzRoleBinding). Applied by the post-install Job
+# (bootstrap-authz-hook.yaml) AFTER the controller-manager webhook is ready,
+# eliminating the race condition described in issue #3524.
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: {{ .name }}
+  name: {{ include "openchoreo-control-plane.name" . }}-bootstrap-authz
+  namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "openchoreo-control-plane.labels" $ | nindent 4 }}
-    openchoreo.io/bootstrap: "true"
-    {{- if .system }}
-    openchoreo.io/system: "true"
-    {{- end }}
-spec:
-  {{- if and .description (ne .description "") }}
-  description: {{ .description | quote }}
-  {{- end }}
-  actions:
-    {{- range .actions }}
-    - {{ . | quote }}
-    {{- end }}
-{{- else }}
----
-# Namespace-scoped role
-apiVersion: openchoreo.dev/v1alpha1
-kind: AuthzRole
-metadata:
-  name: {{ .name }}
-  namespace: {{ .namespace }}
-  labels:
-    {{- include "openchoreo-control-plane.labels" $ | nindent 4 }}
-    openchoreo.io/bootstrap: "true"
-    {{- if .system }}
-    openchoreo.io/system: "true"
-    {{- end }}
-spec:
-  {{- if and .description (ne .description "") }}
-  description: {{ .description | quote }}
-  {{- end }}
-  actions:
-    {{- range .actions }}
-    - {{ . | quote }}
-    {{- end }}
-{{- end }}
-{{- end }}
-{{- end }}
-
-{{- if .Values.openchoreoApi.config.security.authorization.bootstrap.mappings }}
-{{- range .Values.openchoreoApi.config.security.authorization.bootstrap.mappings }}
-{{- $bindingKind := default "ClusterAuthzRoleBinding" .kind }}
-{{- if eq $bindingKind "ClusterAuthzRoleBinding" }}
----
-# Cluster-scoped binding
-apiVersion: openchoreo.dev/v1alpha1
-kind: ClusterAuthzRoleBinding
-metadata:
-  name: {{ .name }}
-  labels:
-    {{- include "openchoreo-control-plane.labels" $ | nindent 4 }}
-    openchoreo.io/bootstrap: "true"
-    {{- if .system }}
-    openchoreo.io/system: "true"
-    {{- end }}
-spec:
-  roleMappings:
-    {{- range .roleMappings }}
-    - roleRef:
-        name: {{ .roleRef.name }}
-        kind: {{ .roleRef.kind }}
-      {{- if and .scope (or .scope.namespace .scope.project .scope.component) }}
-      scope:
-        {{- if .scope.namespace }}
-        namespace: {{ .scope.namespace }}
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+data:
+  bootstrap.yaml: |
+    {{- if .Values.openchoreoApi.config.security.authorization.bootstrap.roles }}
+    {{- range .Values.openchoreoApi.config.security.authorization.bootstrap.roles }}
+    {{- if eq (default "" .namespace) "" }}
+    ---
+    apiVersion: openchoreo.dev/v1alpha1
+    kind: ClusterAuthzRole
+    metadata:
+      name: {{ .name }}
+      labels:
+        openchoreo.io/bootstrap: "true"
+        {{- if .system }}
+        openchoreo.io/system: "true"
         {{- end }}
-        {{- if .scope.project }}
-        project: {{ .scope.project }}
-        {{- end }}
-        {{- if .scope.component }}
-        component: {{ .scope.component }}
-        {{- end }}
+    spec:
+      {{- if and .description (ne .description "") }}
+      description: {{ .description | quote }}
       {{- end }}
-    {{- end }}
-  entitlement:
-    claim: {{ .entitlement.claim }}
-    value: {{ .entitlement.value }}
-  effect: {{ .effect }}
-{{- else }}
----
-# Namespace-scoped binding
-apiVersion: openchoreo.dev/v1alpha1
-kind: AuthzRoleBinding
-metadata:
-  name: {{ .name }}
-  namespace: {{ .namespace }}
-  labels:
-    {{- include "openchoreo-control-plane.labels" $ | nindent 4 }}
-    openchoreo.io/bootstrap: "true"
-    {{- if .system }}
-    openchoreo.io/system: "true"
-    {{- end }}
-spec:
-  roleMappings:
-    {{- range .roleMappings }}
-    - roleRef:
-        name: {{ .roleRef.name }}
-        kind: {{ .roleRef.kind }}
-      {{- if and .scope (or .scope.project .scope.component) }}
-      scope:
-        {{- if .scope.project }}
-        project: {{ .scope.project }}
+      actions:
+        {{- range .actions }}
+        - {{ . | quote }}
         {{- end }}
-        {{- if .scope.component }}
-        component: {{ .scope.component }}
+    {{- else }}
+    ---
+    apiVersion: openchoreo.dev/v1alpha1
+    kind: AuthzRole
+    metadata:
+      name: {{ .name }}
+      namespace: {{ .namespace }}
+      labels:
+        openchoreo.io/bootstrap: "true"
+        {{- if .system }}
+        openchoreo.io/system: "true"
         {{- end }}
+    spec:
+      {{- if and .description (ne .description "") }}
+      description: {{ .description | quote }}
       {{- end }}
+      actions:
+        {{- range .actions }}
+        - {{ . | quote }}
+        {{- end }}
     {{- end }}
-  entitlement:
-    claim: {{ .entitlement.claim }}
-    value: {{ .entitlement.value }}
-  effect: {{ .effect }}
-{{- end }}
-{{- end }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.openchoreoApi.config.security.authorization.bootstrap.mappings }}
+    {{- range .Values.openchoreoApi.config.security.authorization.bootstrap.mappings }}
+    {{- $bindingKind := default "ClusterAuthzRoleBinding" .kind }}
+    {{- if eq $bindingKind "ClusterAuthzRoleBinding" }}
+    ---
+    apiVersion: openchoreo.dev/v1alpha1
+    kind: ClusterAuthzRoleBinding
+    metadata:
+      name: {{ .name }}
+      labels:
+        openchoreo.io/bootstrap: "true"
+        {{- if .system }}
+        openchoreo.io/system: "true"
+        {{- end }}
+    spec:
+      roleMappings:
+        {{- range .roleMappings }}
+        - roleRef:
+            name: {{ .roleRef.name }}
+            kind: {{ .roleRef.kind }}
+          {{- if and .scope (or .scope.namespace .scope.project .scope.component) }}
+          scope:
+            {{- if .scope.namespace }}
+            namespace: {{ .scope.namespace }}
+            {{- end }}
+            {{- if .scope.project }}
+            project: {{ .scope.project }}
+            {{- end }}
+            {{- if .scope.component }}
+            component: {{ .scope.component }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      entitlement:
+        claim: {{ .entitlement.claim }}
+        value: {{ .entitlement.value }}
+      effect: {{ .effect }}
+    {{- else }}
+    ---
+    apiVersion: openchoreo.dev/v1alpha1
+    kind: AuthzRoleBinding
+    metadata:
+      name: {{ .name }}
+      namespace: {{ .namespace }}
+      labels:
+        openchoreo.io/bootstrap: "true"
+        {{- if .system }}
+        openchoreo.io/system: "true"
+        {{- end }}
+    spec:
+      roleMappings:
+        {{- range .roleMappings }}
+        - roleRef:
+            name: {{ .roleRef.name }}
+            kind: {{ .roleRef.kind }}
+          {{- if and .scope (or .scope.project .scope.component) }}
+          scope:
+            {{- if .scope.project }}
+            project: {{ .scope.project }}
+            {{- end }}
+            {{- if .scope.component }}
+            component: {{ .scope.component }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+      entitlement:
+        claim: {{ .entitlement.claim }}
+        value: {{ .entitlement.value }}
+      effect: {{ .effect }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
 {{- end }}
 {{- end }}

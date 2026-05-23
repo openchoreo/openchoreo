@@ -741,6 +741,54 @@ controllerManager:
       insecure: false
 
 # @schema
+# type: object
+# description: Configuration for the post-install/post-upgrade hook Job that applies bootstrap
+#   authz resources (ClusterAuthzRole, AuthzRole, ClusterAuthzRoleBinding, AuthzRoleBinding)
+#   AFTER the controller-manager webhook is ready, preventing the race condition on first install.
+# @schema
+bootstrapJob:
+  # @schema
+  # type: object
+  # description: Container image for the hook Job (needs kubectl)
+  # @schema
+  image:
+    # @schema
+    # type: string
+    # description: Image repository providing kubectl
+    # default: bitnami/kubectl
+    # @schema
+    repository: bitnami/kubectl
+    # @schema
+    # type: string
+    # description: Image tag. Pinned to a specific version for reproducibility.
+    # default: "1.30.2"
+    # @schema
+    tag: "1.30.2"
+    # @schema
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
+    pullPolicy: IfNotPresent
+
+  # @schema
+  # type: integer
+  # description: Number of retries before marking the Job as failed
+  # minimum: 0
+  # default: 3
+  # @schema
+  backoffLimit: 3
+
+  # @schema
+  # type: integer
+  # description: Seconds to wait for the controller-manager Deployment to become ready
+  #   before applying bootstrap authz resources. Increase this on slow clusters.
+  # minimum: 30
+  # default: 120
+  # @schema
+  webhookReadyTimeoutSeconds: 120
+
+# @schema
 # type: string
 # description: Kubernetes cluster domain suffix
 # default: cluster.local

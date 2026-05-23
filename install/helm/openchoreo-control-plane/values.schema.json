@@ -1479,10 +1479,66 @@
       "title": "clusterGateway",
       "type": "object"
     },
+    "bootstrapJob": {
+      "additionalProperties": false,
+      "description": "Configuration for the post-install/post-upgrade hook Job that applies bootstrap authz resources after the controller-manager webhook is ready",
+      "properties": {
+        "backoffLimit": {
+          "default": 3,
+          "description": "Number of retries before marking the Job as failed",
+          "minimum": 0,
+          "title": "backoffLimit",
+          "type": "integer"
+        },
+        "image": {
+          "additionalProperties": false,
+          "description": "Container image for the hook Job (needs kubectl)",
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "Image pull policy",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": [],
+              "title": "pullPolicy"
+            },
+            "repository": {
+              "default": "bitnami/kubectl",
+              "description": "Image repository providing kubectl",
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "1.30.2",
+              "description": "Image tag",
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "webhookReadyTimeoutSeconds": {
+          "default": 120,
+          "description": "Seconds to wait for the controller-manager Deployment to become ready before applying bootstrap authz resources",
+          "minimum": 30,
+          "title": "webhookReadyTimeoutSeconds",
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "title": "bootstrapJob",
+      "type": "object"
+    },
     "controllerManager": {
       "additionalProperties": false,
       "description": "Controller Manager configuration - the main controller for OpenChoreo CRDs",
       "properties": {
+
         "affinity": {
           "additionalProperties": false,
           "default": {},
