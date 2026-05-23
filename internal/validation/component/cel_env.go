@@ -28,18 +28,6 @@ var (
 	traitContextFields     = decltype.ExtractFields(reflect.TypeFor[context.TraitContext](), schemaBasedFields)
 )
 
-// functionReturnDeclTypes are DeclTypes for the return types of CEL helper functions.
-// Derived from context.FunctionReturnTypes() so the type list stays in sync
-// with CELExtensions() and CELValidationExtensions() automatically.
-var functionReturnDeclTypes = func() []*apiservercel.DeclType {
-	returnTypes := context.FunctionReturnTypes()
-	result := make([]*apiservercel.DeclType, len(returnTypes))
-	for i, t := range returnTypes {
-		result[i] = decltype.FromGoType(t)
-	}
-	return result
-}()
-
 // SchemaOptions provides schema configuration for CEL environment and validation.
 // Used by both component and trait CEL environments.
 type SchemaOptions struct {
@@ -72,7 +60,7 @@ func buildCELEnv(contextFields []decltype.FieldInfo, opts SchemaOptions) (*cel.E
 	}
 
 	numFields := len(contextFields) + len(schemaBasedFields)
-	declTypes := make([]*apiservercel.DeclType, 0, numFields+len(functionReturnDeclTypes))
+	declTypes := make([]*apiservercel.DeclType, 0, numFields)
 	varOpts := make([]cel.EnvOption, 0, numFields)
 
 	// Register schema-based fields
@@ -89,9 +77,6 @@ func buildCELEnv(contextFields []decltype.FieldInfo, opts SchemaOptions) (*cel.E
 		declTypes = append(declTypes, f.DeclType)
 		varOpts = append(varOpts, cel.Variable(f.Name, f.DeclType.CelType()))
 	}
-
-	// Register function return types so the type checker can validate field access
-	declTypes = append(declTypes, functionReturnDeclTypes...)
 
 	provider := apiservercel.NewDeclTypeProvider(declTypes...)
 	providerOpts, err := provider.EnvOptions(baseEnv.CELTypeProvider())
@@ -110,7 +95,7 @@ func buildCELEnv(contextFields []decltype.FieldInfo, opts SchemaOptions) (*cel.E
 // createBaseEnv creates the base CEL environment with standard extensions.
 func createBaseEnv() (*cel.Env, error) {
 	baseEnvOpts := template.BaseCELExtensions()
-	baseEnvOpts = append(baseEnvOpts, context.CELValidationExtensions()...)
+	baseEnvOpts = append(baseEnvOpts, context.CELExtensions()...)
 	return cel.NewEnv(baseEnvOpts...)
 }
 

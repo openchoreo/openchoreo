@@ -138,7 +138,7 @@ func TestCELMacroIntegration(t *testing.T) {
 	}
 	sort.Slice(sortedVols, func(i, j int) bool { return sortedVols[i].name < sortedVols[j].name })
 
-	expectedConfigVolumes := make([]map[string]any, len(sortedVols))
+	expectedConfigVolumes := make([]any, len(sortedVols))
 	for i, v := range sortedVols {
 		expectedConfigVolumes[i] = map[string]any{
 			"name":      v.name,
@@ -181,14 +181,14 @@ func TestCELMacroIntegration(t *testing.T) {
 
 	t.Run("configurations.toConfigFileList", func(t *testing.T) {
 		got := eval(t, "configurations.toConfigFileList()", buildContext(t, workload, nil, ConnectionsData{}))
-		want := []map[string]any{
-			{
+		want := []any{
+			map[string]any{
 				"name":         "app.yaml",
 				"mountPath":    "/etc/config",
 				"value":        "server:\n  port: 8080",
 				"resourceName": appYamlConfigRes,
 			},
-			{
+			map[string]any{
 				"name":         "logging.properties",
 				"mountPath":    "/etc/config",
 				"value":        "log.level=INFO",
@@ -202,15 +202,15 @@ func TestCELMacroIntegration(t *testing.T) {
 
 	t.Run("configurations.toSecretFileList_empty", func(t *testing.T) {
 		got := eval(t, "configurations.toSecretFileList()", buildContext(t, workload, nil, ConnectionsData{}))
-		if diff := cmp.Diff([]map[string]any{}, got, diffOpts...); diff != "" {
+		if diff := cmp.Diff([]any{}, got, diffOpts...); diff != "" {
 			t.Errorf("mismatch (-want +got):\n%s", diff)
 		}
 	})
 
 	t.Run("configurations.toContainerEnvFrom_config_only", func(t *testing.T) {
 		got := eval(t, "configurations.toContainerEnvFrom()", buildContext(t, workload, nil, ConnectionsData{}))
-		want := []map[string]any{
-			{
+		want := []any{
+			map[string]any{
 				"configMapRef": map[string]any{"name": envConfigsRes},
 			},
 		}
@@ -221,11 +221,11 @@ func TestCELMacroIntegration(t *testing.T) {
 
 	t.Run("configurations.toContainerEnvFrom_with_secrets", func(t *testing.T) {
 		got := eval(t, "configurations.toContainerEnvFrom()", buildContext(t, workloadWithSecrets, secretRefs, ConnectionsData{}))
-		want := []map[string]any{
-			{
+		want := []any{
+			map[string]any{
 				"configMapRef": map[string]any{"name": envConfigsRes},
 			},
-			{
+			map[string]any{
 				"secretRef": map[string]any{"name": envSecretsRes},
 			},
 		}
@@ -236,13 +236,13 @@ func TestCELMacroIntegration(t *testing.T) {
 
 	t.Run("configurations.toContainerVolumeMounts", func(t *testing.T) {
 		got := eval(t, "configurations.toContainerVolumeMounts()", buildContext(t, workload, nil, ConnectionsData{}))
-		want := []map[string]any{
-			{
+		want := []any{
+			map[string]any{
 				"name":      appYamlVolName,
 				"mountPath": "/etc/config/app.yaml",
 				"subPath":   "app.yaml",
 			},
-			{
+			map[string]any{
 				"name":      loggingVolName,
 				"mountPath": "/etc/config/logging.properties",
 				"subPath":   "logging.properties",
@@ -262,8 +262,8 @@ func TestCELMacroIntegration(t *testing.T) {
 
 	t.Run("configurations.toConfigEnvsByContainer", func(t *testing.T) {
 		got := eval(t, "configurations.toConfigEnvsByContainer()", buildContext(t, workload, nil, ConnectionsData{}))
-		want := []map[string]any{
-			{
+		want := []any{
+			map[string]any{
 				"resourceName": envConfigsRes,
 				"envs": []any{
 					map[string]any{"name": "LOG_LEVEL", "value": "info"},
@@ -278,8 +278,8 @@ func TestCELMacroIntegration(t *testing.T) {
 
 	t.Run("configurations.toSecretEnvsByContainer", func(t *testing.T) {
 		got := eval(t, "configurations.toSecretEnvsByContainer()", buildContext(t, workloadWithSecrets, secretRefs, ConnectionsData{}))
-		want := []map[string]any{
-			{
+		want := []any{
+			map[string]any{
 				"resourceName": envSecretsRes,
 				"envs": []any{
 					map[string]any{
@@ -300,9 +300,9 @@ func TestCELMacroIntegration(t *testing.T) {
 
 	t.Run("workload.toServicePorts", func(t *testing.T) {
 		got := eval(t, "workload.toServicePorts()", buildContext(t, workload, nil, ConnectionsData{}))
-		want := []map[string]any{
-			{"name": "grpc", "port": int64(9090), "targetPort": int64(9090), "protocol": "TCP"},
-			{"name": "http", "port": int64(8080), "targetPort": int64(8080), "protocol": "TCP"},
+		want := []any{
+			map[string]any{"name": "grpc", "port": float64(9090), "targetPort": float64(9090), "protocol": "TCP"},
+			map[string]any{"name": "http", "port": float64(8080), "targetPort": float64(8080), "protocol": "TCP"},
 		}
 		if diff := cmp.Diff(want, got, diffOpts...); diff != "" {
 			t.Errorf("mismatch (-want +got):\n%s", diff)
@@ -346,14 +346,13 @@ func TestCELMacroIntegration(t *testing.T) {
 
 	t.Run("volume_concat_configurations_plus_dependencies", func(t *testing.T) {
 		got := eval(t, "configurations.toVolumes() + dependencies.toVolumes()", buildContext(t, workload, nil, depData))
-		want := make([]any, 0, len(expectedConfigVolumes)+1)
-		for _, v := range expectedConfigVolumes {
-			want = append(want, v)
-		}
-		want = append(want, map[string]any{
-			"name":   "db-creds",
-			"secret": map[string]any{"secretName": "db-conn-secret"},
-		})
+		want := append(
+			append([]any{}, expectedConfigVolumes...),
+			map[string]any{
+				"name":   "db-creds",
+				"secret": map[string]any{"secretName": "db-conn-secret"},
+			},
+		)
 		if diff := cmp.Diff(want, got, diffOpts...); diff != "" {
 			t.Errorf("mismatch (-want +got):\n%s", diff)
 		}
@@ -361,9 +360,7 @@ func TestCELMacroIntegration(t *testing.T) {
 
 	t.Run("all_macros_empty_inputs", func(t *testing.T) {
 		ctxMap := buildContext(t, nil, nil, ConnectionsData{})
-
-		// Configuration and workload runtime functions return []map[string]any.
-		typedMacros := []string{
+		macros := []string{
 			"configurations.toConfigFileList()",
 			"configurations.toSecretFileList()",
 			"configurations.toContainerEnvFrom()",
@@ -372,23 +369,11 @@ func TestCELMacroIntegration(t *testing.T) {
 			"configurations.toConfigEnvsByContainer()",
 			"configurations.toSecretEnvsByContainer()",
 			"workload.toServicePorts()",
-		}
-		for _, macro := range typedMacros {
-			t.Run(macro, func(t *testing.T) {
-				got := eval(t, macro, ctxMap)
-				if diff := cmp.Diff([]map[string]any{}, got, diffOpts...); diff != "" {
-					t.Errorf("expected empty list, mismatch (-want +got):\n%s", diff)
-				}
-			})
-		}
-
-		// Dependency macros return []any.
-		depMacros := []string{
 			"dependencies.toContainerEnvs()",
 			"dependencies.toContainerVolumeMounts()",
 			"dependencies.toVolumes()",
 		}
-		for _, macro := range depMacros {
+		for _, macro := range macros {
 			t.Run(macro, func(t *testing.T) {
 				got := eval(t, macro, ctxMap)
 				if diff := cmp.Diff([]any{}, got, diffOpts...); diff != "" {
