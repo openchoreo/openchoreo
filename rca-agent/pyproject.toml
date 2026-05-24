@@ -31,6 +31,20 @@ dependencies = [
 [tool.uv]
 exclude-dependencies = ["zstandard", "pywin32"]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["."]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py314"
