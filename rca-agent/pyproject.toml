@@ -41,9 +41,6 @@ dev = [
 testpaths = ["tests"]
 asyncio_mode = "auto"
 pythonpath = ["."]
-filterwarnings = [
-    "ignore::DeprecationWarning",
-]
 
 [tool.ruff]
 line-length = 100

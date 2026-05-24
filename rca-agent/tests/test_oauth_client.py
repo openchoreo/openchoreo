@@ -121,6 +121,8 @@ class TestCheckOauth2Connection:
             ("", "my-client-id", ""),
             ("", "", "my-secret"),
             ("https://token.example.com", "my-client-id", ""),
+            ("https://token.example.com", "", "my-secret"),
+            ("", "my-client-id", "my-secret"),
         ],
     )
     async def test_partial_config_raises(self, monkeypatch, token_url, client_id, client_secret):
