@@ -67,7 +67,7 @@ spec:
         buildEnv:
           type: array
           default: []
-          description: "Environment variables available during the build"
+          description: "Environment variables available during the build (passed as --env to podman build). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#env-env-value"
           items:
             type: object
             required: [name, value]
@@ -81,7 +81,7 @@ spec:
         buildArgs:
           type: array
           default: []
-          description: "Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg)"
+          description: "Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#build-arg-arg-value"
           items:
             type: object
             required: [name, value]
