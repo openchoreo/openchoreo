@@ -35,8 +35,11 @@ def get_model(
     # support the param aren't surprised by it. Caller-supplied kwargs win
     # over the settings value so per-call probes (e.g. main.py's startup
     # ping) can override without touching configuration.
-    is_openai = "openai" in str(model_name).lower() or (
-        model_provider and "openai" in str(model_provider).lower()
+    model_name_lower = str(model_name).lower()
+    is_openai = (
+        "openai" in model_name_lower
+        or (model_provider and "openai" in str(model_provider).lower())
+        or model_name_lower.startswith(("gpt-", "o1-", "o3-"))
     )
 
     if (
