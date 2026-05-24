@@ -10,6 +10,8 @@ Three states are covered for both functions:
 3. All credentials present  → success path (auth object constructed / token fetch).
 """
 
+import logging
+
 import pytest
 
 import src.auth.oauth_client as oauth_module
@@ -26,7 +28,10 @@ from src.auth.oauth_client import (
 
 
 def _patch_settings(monkeypatch, *, token_url="", client_id="", client_secret="", scope=""):
-    """Monkeypatch only the OAuth-related attributes on the module-level settings."""
+    """Monkeypatch only the OAuth-related attributes on the module-level settings.
+
+    All fields default to empty string, which represents the unconfigured state.
+    """
     monkeypatch.setattr(oauth_module.settings, "oauth_token_url", token_url)
     monkeypatch.setattr(oauth_module.settings, "oauth_client_id", client_id)
     monkeypatch.setattr(oauth_module.settings, "oauth_client_secret", client_secret)
@@ -39,10 +44,10 @@ def _patch_settings(monkeypatch, *, token_url="", client_id="", client_secret=""
 
 
 class TestGetOauth2Auth:
+    """Tests for the get_oauth2_auth factory function."""
+
     def test_all_empty_returns_none(self, monkeypatch, caplog):
         """When no OAuth fields are set the function must skip auth silently."""
-        import logging
-
         _patch_settings(monkeypatch)
         with caplog.at_level(logging.DEBUG, logger="src.auth.oauth_client"):
             result = get_oauth2_auth()
@@ -96,11 +101,11 @@ class TestGetOauth2Auth:
 
 
 class TestCheckOauth2Connection:
+    """Tests for the check_oauth2_connection async function."""
+
     @pytest.mark.asyncio
     async def test_all_empty_skips_check(self, monkeypatch, caplog):
         """When no OAuth fields are set the connection check must be skipped."""
-        import logging
-
         _patch_settings(monkeypatch)
         with caplog.at_level(logging.DEBUG, logger="src.auth.oauth_client"):
             result = await check_oauth2_connection()
@@ -131,10 +136,10 @@ class TestCheckOauth2Connection:
 
     @pytest.mark.asyncio
     async def test_all_present_fetches_token(self, monkeypatch):
-        """When all credentials are set the function tries to fetch a token.
+        """When all credentials are set the function successfully fetches a token.
 
-        We mock the underlying AsyncOAuth2Client.fetch_token so no real network
-        call is made, and verify that check_oauth2_connection returns True.
+        The underlying AsyncOAuth2Client.fetch_token is mocked so no real
+        network call is made. Asserts that check_oauth2_connection returns True.
         """
         _patch_settings(
             monkeypatch,
@@ -146,14 +151,18 @@ class TestCheckOauth2Connection:
         fake_token = {"access_token": "fake-token", "expires_in": 3600}
 
         class _FakeAsyncOAuth2Client:
+            """Minimal AsyncOAuth2Client stub that returns a pre-baked token."""
+
             def __init__(self, **kwargs):
+                """Initialise with an empty token slot."""
                 self.token = None
 
             async def fetch_token(self, url, **kwargs):
+                """Return a fake token without making a real HTTP request."""
                 return fake_token
 
             async def aclose(self):
-                pass
+                """No-op cleanup."""
 
         monkeypatch.setattr(oauth_module, "AsyncOAuth2Client", _FakeAsyncOAuth2Client)
 
