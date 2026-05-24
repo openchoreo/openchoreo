@@ -79,9 +79,17 @@ async def lifespan(_app: FastAPI):
         # lower value (e.g. 5) trips a 400 on gpt-5*-mini variants that
         # route through the responses endpoint.
         model = get_model()
+        # Google models (Gemini) use max_output_tokens, not max_tokens.
+        # Check both the type name and the provider name.
+        model_type = str(type(model)).lower()
+        if any(x in model_type for x in ["google", "vertex"]):
+            probe_kwargs = {"max_output_tokens": 16}
+        else:
+            probe_kwargs = {"max_tokens": 16}
+
         test_response = await model.ainvoke(
             "Reply with exactly: Pong",
-            max_tokens=16,
+            **probe_kwargs,
         )
         logger.info("LLM test successful: %s", str(test_response.content)[:50])
     except Exception as e:

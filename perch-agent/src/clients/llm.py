@@ -35,15 +35,22 @@ def get_model(
     # support the param aren't surprised by it. Caller-supplied kwargs win
     # over the settings value so per-call probes (e.g. main.py's startup
     # ping) can override without touching configuration.
-    if settings.portal_assistant_reasoning_effort and "reasoning_effort" not in kwargs:
+    is_openai = "openai" in str(model_name).lower() or (
+        model_provider and "openai" in str(model_provider).lower()
+    )
+
+    if (
+        is_openai
+        and settings.portal_assistant_reasoning_effort
+        and "reasoning_effort" not in kwargs
+    ):
         kwargs["reasoning_effort"] = settings.portal_assistant_reasoning_effort
-        if (
-            _requires_responses_api(model_name)
-            and "use_responses_api" not in kwargs
-        ):
+        if _requires_responses_api(model_name) and "use_responses_api" not in kwargs:
             kwargs["use_responses_api"] = True
 
-    if model_provider:
-        kwargs["model_provider"] = model_provider
-
-    return init_chat_model(model=model_name, api_key=api_key, **kwargs)
+    return init_chat_model(
+        model=model_name,
+        model_provider=model_provider or None,
+        api_key=api_key or None,
+        **kwargs,
+    )
