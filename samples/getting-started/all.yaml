@@ -978,9 +978,7 @@ spec:
   workflowPlaneRef:
     kind: ClusterWorkflowPlane
     name: default
-
   ttlAfterCompletion: "1d"
-
   parameters:
     openAPIV3Schema:
       type: object
@@ -1062,7 +1060,6 @@ spec:
             value: ${parameters.repository.appPath}
           - name: build-env
             value: ${parameters.buildEnv}
-          # PE-controlled parameters
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
@@ -1119,13 +1116,11 @@ spec:
             resources:
               requests:
                 storage: 2Gi
-
   externalRefs:
     - id: git-secret-reference
       apiVersion: openchoreo.dev/v1alpha1
       kind: SecretReference
       name: ${parameters.repository.secretRef}
-
   resources:
     - id: git-secret
       includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
@@ -1153,7 +1148,6 @@ spec:
                 "property": has(secret.remoteRef.property) && secret.remoteRef.property != "" ? secret.remoteRef.property : oc_omit()
               }
             })}
-
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1
@@ -1667,7 +1661,7 @@ spec:
         buildEnv:
           type: array
           default: []
-          description: "Environment variables available during the build (passed as --env to podman build). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#env-env-value"
+          description: "Environment variables available during the build"
           items:
             type: object
             required: [name, value]
@@ -1681,7 +1675,7 @@ spec:
         buildArgs:
           type: array
           default: []
-          description: "Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#build-arg-arg-value"
+          description: "Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg)"
           items:
             type: object
             required: [name, value]

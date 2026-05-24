@@ -5,6 +5,7 @@ metadata:
 spec:
   templates:
     - name: publish-image
+      podSpecPatch: '{"hostUsers": false}'
       inputs:
         parameters:
           - name: git-revision
@@ -18,8 +19,11 @@ spec:
           secret:
             optional: true
             secretName: '{{workflow.parameters.registry-push-secret}}'
+        - name: storage
+          emptyDir:
+            sizeLimit: 10Gi
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.1
+        image: quay.io/podman/stable:v5.8.2
         command:
           - sh
           - -c
@@ -33,47 +37,70 @@ spec:
             SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
 
             REGISTRY_ENDPOINT="host.k3d.internal:10082"
+            DEST_IMAGE="${REGISTRY_ENDPOINT}/${SRC_IMAGE}"
             AUTH_FILE="/etc/secrets/registry-push-secret/.dockerconfigjson"
 
-            # --- Parameter Validation ---
+            export HOME=/tmp/podman-home
+            export XDG_RUNTIME_DIR=/tmp/podman-run
+            mkdir -p "$HOME" "$XDG_RUNTIME_DIR"
+            chmod 700 "$XDG_RUNTIME_DIR"
+
             echo ">> Source image: $SRC_IMAGE"
             echo ">> Registry: $REGISTRY_ENDPOINT"
+            echo ">> Destination: $DEST_IMAGE"
             echo ">> Authentication: $([ -f "$AUTH_FILE" ] && echo "registry secret found" || echo "no registry secret (anonymous push)")"
 
-            if [ ! -f "/mnt/vol/app-image.tar" ]; then
+            LOAD_INPUT=/mnt/vol/app-image.tar
+            if [ ! -f "$LOAD_INPUT" ]; then
               echo ">> Error: Built image tar not found at /mnt/vol/app-image.tar"
               echo ">> Hint: The build step may have failed to produce an image. Check the build step logs."
               exit 1
             fi
 
-            mkdir -p /etc/containers
-            cat <<EOF > /etc/containers/storage.conf
+            # Configure overlay storage 
+            mkdir -p /storage/run /storage/graph
+            cat > /tmp/storage.conf <<'STORAGEEOF'
             [storage]
             driver = "overlay"
-            runroot = "/run/containers/storage"
-            graphroot = "/var/lib/containers/storage"
+            runroot = "/storage/run"
+            graphroot = "/storage/graph"
+            rootless_storage_path = "/storage/graph"
+            [storage.options]
+            pull_options = {enable_partial_images = "true", use_hard_links = "false", ostree_repos=""}
             [storage.options.overlay]
-            mount_program = "/usr/bin/fuse-overlayfs"
-            EOF
+            STORAGEEOF
 
-            podman load -i /mnt/vol/app-image.tar
+            export CONTAINERS_STORAGE_CONF=/tmp/storage.conf
 
-            podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
+            podman load -i "$LOAD_INPUT"
+
+            if ! podman tag "$SRC_IMAGE" "$DEST_IMAGE"; then
+              echo ">> Source tag $SRC_IMAGE not found after load; tagging the loaded image ID"
+              LOADED_IMAGE_ID="$(podman images --format '{{.ID}}' | head -n 1)"
+              if [ -z "$LOADED_IMAGE_ID" ]; then
+                echo ">> Error: No image was loaded from $LOAD_INPUT"
+                exit 1
+              fi
+              podman tag "$LOADED_IMAGE_ID" "$DEST_IMAGE"
+            fi
 
             echo ">> Pushing image to registry"
             if [ -f "$AUTH_FILE" ]; then
-              podman push --tls-verify=false --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
+              podman push --tls-verify=false --authfile "$AUTH_FILE" "$DEST_IMAGE"
             else
-              podman push --tls-verify=false $REGISTRY_ENDPOINT/$SRC_IMAGE
+              podman push --tls-verify=false "$DEST_IMAGE"
             fi
 
-            echo ">> Image published successfully: $REGISTRY_ENDPOINT/$SRC_IMAGE"
-            echo -n "$REGISTRY_ENDPOINT/$SRC_IMAGE" > /tmp/image.txt
+            echo "$DEST_IMAGE" > /tmp/image.txt
+            echo ">> Image published successfully: $DEST_IMAGE"
         securityContext:
-          privileged: true
+          runAsUser: 1000
+          runAsGroup: 1000
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
+          - mountPath: /storage
+            name: storage
           - mountPath: /etc/secrets/registry-push-secret
             name: registry-push-secret
             readOnly: true
