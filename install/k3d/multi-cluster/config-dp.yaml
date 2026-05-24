@@ -2,7 +2,7 @@ apiVersion: k3d.io/v1alpha5
 kind: Simple
 metadata:
   name: openchoreo-dp
-image: rancher/k3s:v1.32.9-k3s1
+image: rancher/k3s:v1.35.4-k3s1
 servers: 1
 agents: 0
 kubeAPI:
