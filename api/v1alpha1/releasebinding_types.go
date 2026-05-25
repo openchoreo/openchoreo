@@ -212,7 +212,7 @@ type ReleaseBindingOwner struct {
 
 // EndpointURL represents a structured URL with its components.
 type EndpointURL struct {
-	// Scheme is the URL scheme (e.g., http, https, tcp, udp, ws, wss, tls).
+	// Scheme is the URL scheme (e.g., http, https, tcp, udp, ws, wss, grpc, grpcs, tls).
 	// +optional
 	Scheme string `json:"scheme,omitempty"`
 
