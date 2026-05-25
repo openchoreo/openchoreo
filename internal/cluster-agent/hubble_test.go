@@ -6,14 +6,78 @@ package clusteragent
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
 )
+
+// fakeFlowStream is a test double for hubbleFlowStream that yields canned
+// responses in order, then an optional terminal error (defaults to io.EOF).
+type fakeFlowStream struct {
+	responses []*observer.GetFlowsResponse
+	idx       int
+	endErr    error
+}
+
+func (f *fakeFlowStream) Recv() (*observer.GetFlowsResponse, error) {
+	if f.idx >= len(f.responses) {
+		if f.endErr != nil {
+			return nil, f.endErr
+		}
+		return nil, io.EOF
+	}
+	r := f.responses[f.idx]
+	f.idx++
+	return r, nil
+}
+
+// stubOpenHubbleFlowStream replaces the package-level dialer with a function
+// returning the supplied stream (or err). The original is restored via t.Cleanup.
+func stubOpenHubbleFlowStream(t *testing.T, stream hubbleFlowStream, err error) {
+	t.Helper()
+	prev := openHubbleFlowStream
+	closerCalls := 0
+	openHubbleFlowStream = func(_ context.Context, _ string, _ *observer.GetFlowsRequest) (hubbleFlowStream, func(), error) {
+		if err != nil {
+			return nil, nil, err
+		}
+		return stream, func() { closerCalls++ }, nil
+	}
+	t.Cleanup(func() {
+		openHubbleFlowStream = prev
+		// Closer must run exactly once on the happy/error-after-open paths.
+		if err == nil && closerCalls != 1 {
+			t.Errorf("closer expected to run exactly once, got %d", closerCalls)
+		}
+	})
+}
+
+// inScopeFlow returns a GetFlowsResponse whose Source labels mark it as
+// in-scope for the test scope, so redactFlowResponse keeps the chunk.
+func inScopeFlow(t *testing.T) *observer.GetFlowsResponse {
+	t.Helper()
+	return &observer.GetFlowsResponse{
+		ResponseTypes: &observer.GetFlowsResponse_Flow{
+			Flow: &flow.Flow{
+				Source: &flow.Endpoint{
+					Namespace: "dp-team-1",
+					Labels: []string{
+						"k8s:openchoreo.dev/namespace=team-1",
+						"k8s:openchoreo.dev/environment=development",
+					},
+				},
+			},
+		},
+	}
+}
 
 func TestBuildHubbleFlowFilters_ORsSourceAndDestination(t *testing.T) {
 	filters := buildHubbleFlowFilters("checkout", "shopfront", "development", "my-team")
@@ -144,4 +208,172 @@ func TestHubbleSession_CloseIsIdempotent(t *testing.T) {
 	s.close()
 	s.close()
 	assert.Equal(t, 1, cancelCalls)
+}
+
+// newHubbleTestAgent wires a fresh Agent + mockConnection together with the
+// hubbleStreams map initialized, which newTestAgent leaves nil.
+func newHubbleTestAgent(t *testing.T) (*Agent, *mockConnection) {
+	t.Helper()
+	agent := newTestAgent(t, "ws://unused", nil)
+	mock := &mockConnection{}
+	agent.conn = mock
+	agent.hubbleStreams = make(map[string]*hubbleSession)
+	return agent, mock
+}
+
+// decodeChunks unmarshals every captured websocket frame as an
+// HTTPTunnelStreamChunk. The handler only writes chunk messages, so a failure
+// here means the agent emitted an unexpected frame type.
+func decodeChunks(t *testing.T, raw [][]byte) []messaging.HTTPTunnelStreamChunk {
+	t.Helper()
+	out := make([]messaging.HTTPTunnelStreamChunk, 0, len(raw))
+	for _, b := range raw {
+		var c messaging.HTTPTunnelStreamChunk
+		require.NoError(t, json.Unmarshal(b, &c))
+		out = append(out, c)
+	}
+	return out
+}
+
+func TestAgent_HandleHubbleStreamInit_InvalidQuery(t *testing.T) {
+	agent, mock := newHubbleTestAgent(t)
+
+	// "%zz" is an invalid percent-escape — url.ParseQuery rejects it.
+	agent.handleHubbleStreamInit(&messaging.HTTPTunnelStreamInit{
+		RequestID: "req-1",
+		Target:    "hubble",
+		Query:     "%zz",
+	})
+
+	chunks := decodeChunks(t, mock.getWrittenMessages())
+	require.Len(t, chunks, 1, "should emit a single close chunk")
+	assert.Equal(t, "req-1", chunks[0].RequestID)
+	assert.True(t, chunks[0].IsClose)
+	assert.Contains(t, string(chunks[0].Data), "invalid hubble query")
+	assert.Empty(t, agent.hubbleStreams, "session must be removed before any registration")
+}
+
+func TestAgent_HandleHubbleStreamInit_MissingRequiredParams(t *testing.T) {
+	agent, mock := newHubbleTestAgent(t)
+
+	// "environment" is set but "namespace" is missing.
+	agent.handleHubbleStreamInit(&messaging.HTTPTunnelStreamInit{
+		RequestID: "req-2",
+		Target:    "hubble",
+		Query:     "environment=development",
+	})
+
+	chunks := decodeChunks(t, mock.getWrittenMessages())
+	require.Len(t, chunks, 1)
+	assert.True(t, chunks[0].IsClose)
+	assert.Contains(t, string(chunks[0].Data), "namespace")
+}
+
+func TestAgent_HandleHubbleStreamInit_RelayAddrUnset(t *testing.T) {
+	t.Setenv("HUBBLE_RELAY_ADDR", "")
+	agent, mock := newHubbleTestAgent(t)
+
+	agent.handleHubbleStreamInit(&messaging.HTTPTunnelStreamInit{
+		RequestID: "req-3",
+		Target:    "hubble",
+		Query:     "environment=development&namespace=team-1",
+	})
+
+	chunks := decodeChunks(t, mock.getWrittenMessages())
+	require.Len(t, chunks, 1)
+	assert.True(t, chunks[0].IsClose)
+	assert.Contains(t, string(chunks[0].Data), "HUBBLE_RELAY_ADDR")
+	assert.Empty(t, agent.hubbleStreams, "session must be cleaned up on early failure")
+}
+
+func TestAgent_HandleHubbleStreamInit_OpenStreamError(t *testing.T) {
+	t.Setenv("HUBBLE_RELAY_ADDR", "hubble-relay.test.svc:4245")
+	stubOpenHubbleFlowStream(t, nil, errors.New("dial refused"))
+
+	agent, mock := newHubbleTestAgent(t)
+	agent.handleHubbleStreamInit(&messaging.HTTPTunnelStreamInit{
+		RequestID: "req-4",
+		Target:    "hubble",
+		Query:     "environment=development&namespace=team-1",
+	})
+
+	chunks := decodeChunks(t, mock.getWrittenMessages())
+	require.Len(t, chunks, 1)
+	assert.True(t, chunks[0].IsClose)
+	assert.Contains(t, string(chunks[0].Data), "dial refused")
+	assert.Empty(t, agent.hubbleStreams)
+}
+
+func TestAgent_HandleHubbleStreamInit_HappyPath(t *testing.T) {
+	t.Setenv("HUBBLE_RELAY_ADDR", "hubble-relay.test.svc:4245")
+
+	stream := &fakeFlowStream{
+		responses: []*observer.GetFlowsResponse{inScopeFlow(t), inScopeFlow(t)},
+		// endErr unset → second Recv after responses returns io.EOF and the
+		// handler exits its loop cleanly.
+	}
+	stubOpenHubbleFlowStream(t, stream, nil)
+
+	agent, mock := newHubbleTestAgent(t)
+	agent.handleHubbleStreamInit(&messaging.HTTPTunnelStreamInit{
+		RequestID: "req-5",
+		Target:    "hubble",
+		Query:     "environment=development&namespace=team-1",
+	})
+
+	chunks := decodeChunks(t, mock.getWrittenMessages())
+	// Expected: 1 sentinel (empty Data) + 2 flow chunks + 1 final close.
+	require.Len(t, chunks, 4, "sentinel + 2 flows + close")
+
+	assert.False(t, chunks[0].IsClose)
+	assert.Empty(t, chunks[0].Data, "first frame is the activation sentinel")
+
+	for i, c := range chunks[1:3] {
+		assert.False(t, c.IsClose, "flow chunk %d must not be a close", i)
+		assert.NotEmpty(t, c.Data, "flow chunk %d must carry payload", i)
+		assert.Contains(t, string(c.Data), "openchoreo.dev/environment=development",
+			"protojson payload should carry the in-scope label")
+	}
+
+	assert.True(t, chunks[3].IsClose, "final frame must be the EOF close marker")
+	assert.Empty(t, chunks[3].Data, "clean EOF close carries no error message")
+
+	assert.Empty(t, agent.hubbleStreams, "session must be deregistered on stream completion")
+}
+
+// On a non-EOF stream error the handler still exits cleanly and emits the
+// terminal close chunk; the seam's closer must still fire (asserted by
+// stubOpenHubbleFlowStream's cleanup).
+func TestAgent_HandleHubbleStreamInit_StreamErrorAfterFlows(t *testing.T) {
+	t.Setenv("HUBBLE_RELAY_ADDR", "hubble-relay.test.svc:4245")
+
+	stream := &fakeFlowStream{
+		responses: []*observer.GetFlowsResponse{inScopeFlow(t)},
+		endErr:    errors.New("relay closed unexpectedly"),
+	}
+	stubOpenHubbleFlowStream(t, stream, nil)
+
+	agent, mock := newHubbleTestAgent(t)
+
+	done := make(chan struct{})
+	go func() {
+		agent.handleHubbleStreamInit(&messaging.HTTPTunnelStreamInit{
+			RequestID: "req-6",
+			Target:    "hubble",
+			Query:     "environment=development&namespace=team-1",
+		})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("handler did not exit after stream returned error")
+	}
+
+	chunks := decodeChunks(t, mock.getWrittenMessages())
+	// sentinel + 1 flow + final close.
+	require.Len(t, chunks, 3)
+	assert.True(t, chunks[2].IsClose)
+	assert.Empty(t, agent.hubbleStreams)
 }

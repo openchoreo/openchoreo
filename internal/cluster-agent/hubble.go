@@ -52,6 +52,27 @@ func newGetFlowsRequest(component, project, environment, namespace string) *obse
 	}
 }
 
+// hubbleFlowStream is the subset of observer.Observer_GetFlowsClient
+type hubbleFlowStream interface {
+	Recv() (*observer.GetFlowsResponse, error)
+}
+
+// openHubbleFlowStream dials hubble-relay over gRPC, opens a GetFlows server-stream,
+// and returns the stream plus a closer that tears down the connection.
+var openHubbleFlowStream = func(ctx context.Context, addr string, req *observer.GetFlowsRequest) (hubbleFlowStream, func(), error) {
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to dial hubble-relay: %w", err)
+	}
+	client := observer.NewObserverClient(conn)
+	stream, err := client.GetFlows(ctx, req)
+	if err != nil {
+		_ = conn.Close()
+		return nil, nil, fmt.Errorf("hubble GetFlows failed: %w", err)
+	}
+	return stream, func() { _ = conn.Close() }, nil
+}
+
 // hubbleSession is a server-streaming session that forwards Hubble flow events
 // from hubble-relay to the gateway, framed as HTTPTunnelStreamChunks.
 type hubbleSession struct {
@@ -151,24 +172,13 @@ func (a *Agent) handleHubbleStreamInit(init *messaging.HTTPTunnelStreamInit) {
 		"component", component, "project", project, "environment", environment, "namespace", namespace,
 	)
 
-	conn, err := grpc.NewClient(
-		relayAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
+	stream, closer, err := openHubbleFlowStream(ctx, relayAddr, newGetFlowsRequest(component, project, environment, namespace))
 	if err != nil {
-		logger.Error("failed to create hubble-relay client", "error", err)
-		a.sendStreamClose(init.RequestID, fmt.Sprintf("failed to dial hubble-relay: %v", err))
+		logger.Error("failed to open hubble flow stream", "error", err)
+		a.sendStreamClose(init.RequestID, err.Error())
 		return
 	}
-	defer conn.Close()
-
-	client := observer.NewObserverClient(conn)
-	stream, err := client.GetFlows(ctx, newGetFlowsRequest(component, project, environment, namespace))
-	if err != nil {
-		logger.Error("GetFlows failed", "error", err)
-		a.sendStreamClose(init.RequestID, fmt.Sprintf("hubble GetFlows failed: %v", err))
-		return
-	}
+	defer closer()
 
 	// Sentinel chunk so the gateway knows the stream is active
 	a.sendStreamChunkRaw(init.RequestID, []byte{}, 0)
