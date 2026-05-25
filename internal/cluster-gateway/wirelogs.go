@@ -15,6 +15,16 @@ import (
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
 )
 
+// wirelogsAgentConn is the subset of *AgentConnection that handleWirelogs uses.
+type wirelogsAgentConn interface {
+	SendRawMessage(data []byte) error
+}
+
+// getAgentConnectionForWirelogs defers to the server's ConnectionManager.
+var getAgentConnectionForWirelogs = func(s *Server, planeIdentifier, crKey string) (wirelogsAgentConn, error) {
+	return s.connMgr.GetForCR(planeIdentifier, crKey)
+}
+
 // handleWirelogs handles the wirelogs (Cilium Hubble flow) Server-Sent Events endpoint.
 // URL: /api/wirelogs/{planeType}/{planeID}/{crNamespace}/{crName}?environment=...&namespace=...[&project=...][&component=...]
 // project and component are optional Hubble flow filters; when both are omitted
@@ -75,7 +85,7 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 		logger.Warn("Failed to disable write deadline for SSE stream", "error", err)
 	}
 
-	conn, err := s.connMgr.GetForCR(planeIdentifier, crKey)
+	conn, err := getAgentConnectionForWirelogs(s, planeIdentifier, crKey)
 	if err != nil {
 		logger.Warn("No agent available for wirelogs", "error", err)
 		http.Error(w, fmt.Sprintf("no agent available: %v", err), http.StatusServiceUnavailable)
