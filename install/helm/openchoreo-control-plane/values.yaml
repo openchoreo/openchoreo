@@ -3802,10 +3802,32 @@ portalAssistant:
 
   replicas: 1
 
+  # @schema
+  # type: object
+  # description: LLM configuration for Portal Assistant
+  # required: [secretName, modelName]
+  # @schema
   llm:
+    # @schema
+    # type: string
+    # description: Name of the secret containing LLM API keys
+    # default: ""
+    # @schema
     secretName: ""
+    # @schema
+    # type: string
+    # description: LLM model name (e.g., gpt-5.2)
+    # default: ""
+    # @schema
     modelName: ""
+    # @schema
+    # type: string
+    # description: LLM model provider (e.g., google-genai, openai, anthropic). If empty, inferred from model name.
+    # default: ""
+    # required: false
+    # @schema
     modelProvider: ""
+
 
   config:
     openchoreoApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"

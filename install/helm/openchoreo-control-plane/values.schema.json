@@ -4124,9 +4124,11 @@
         },
         "llm": {
           "additionalProperties": false,
+          "description": "LLM configuration for Portal Assistant",
           "properties": {
             "modelName": {
               "default": "",
+              "description": "LLM model name (e.g., gpt-5.2)",
               "title": "modelName",
               "type": "string"
             },
@@ -4138,6 +4140,7 @@
             },
             "secretName": {
               "default": "",
+              "description": "Name of the secret containing LLM API keys",
               "title": "secretName",
               "type": "string"
             }
@@ -4244,7 +4247,6 @@
         "name",
         "image",
         "replicas",
-        "llm",
         "config",
         "cors",
         "authConfigConfigMap",
