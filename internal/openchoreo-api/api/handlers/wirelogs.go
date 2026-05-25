@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -23,6 +24,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
+
+// RFC1123 DNS label (the k8s name form accepted by the gateway).
+var wirelogsNameRE = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+
+const wirelogsMaxNameLen = 63
 
 // WirelogsHandler streams Cilium Hubble flow events for an environment (optionally filtered by project/component)
 // as a Server-Sent Events response.
@@ -70,6 +76,23 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if component != "" && project == "" {
 		http.Error(w, "component filter requires project filter", http.StatusBadRequest)
+		return
+	}
+
+	if len(namespace) > wirelogsMaxNameLen || !wirelogsNameRE.MatchString(namespace) {
+		http.Error(w, "invalid namespace parameter", http.StatusBadRequest)
+		return
+	}
+	if len(environment) > wirelogsMaxNameLen || !wirelogsNameRE.MatchString(environment) {
+		http.Error(w, "invalid environment parameter", http.StatusBadRequest)
+		return
+	}
+	if project != "" && (len(project) > wirelogsMaxNameLen || !wirelogsNameRE.MatchString(project)) {
+		http.Error(w, "invalid project parameter", http.StatusBadRequest)
+		return
+	}
+	if component != "" && (len(component) > wirelogsMaxNameLen || !wirelogsNameRE.MatchString(component)) {
+		http.Error(w, "invalid component parameter", http.StatusBadRequest)
 		return
 	}
 
@@ -164,25 +187,26 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.Info("Wirelogs SSE stream started")
 
-	// The gateway already emits valid SSE framing. Flush after every read so
-	// events reach the client immediately rather than being buffered.
-	buf := make([]byte, 32*1024)
-	for {
-		n, readErr := resp.Body.Read(buf)
-		if n > 0 {
-			if _, werr := w.Write(buf[:n]); werr != nil {
-				logger.Debug("Client write failed; ending stream", "error", werr)
-				return
-			}
-			flusher.Flush()
-		}
-		if readErr != nil {
-			if !errors.Is(readErr, io.EOF) && !errors.Is(readErr, context.Canceled) {
-				logger.Debug("Gateway stream ended with error", "error", readErr)
-			}
-			return
+	// The gateway already emits valid SSE framing; flush after every chunk so events arrive without buffering.
+	if _, err := io.Copy(&sseFlushingWriter{w: w, flusher: flusher}, resp.Body); err != nil {
+		if !errors.Is(err, context.Canceled) {
+			logger.Debug("Wirelogs stream ended with error", "error", err)
 		}
 	}
+}
+
+// sseFlushingWriter flushes the underlying ResponseWriter after each write.
+type sseFlushingWriter struct {
+	w       http.ResponseWriter
+	flusher http.Flusher
+}
+
+func (fw *sseFlushingWriter) Write(p []byte) (int, error) {
+	n, err := fw.w.Write(p)
+	if err == nil {
+		fw.flusher.Flush()
+	}
+	return n, err
 }
 
 // wirelogsCheckRequest derives the most-specific authz scope from the supplied filters. The environment
