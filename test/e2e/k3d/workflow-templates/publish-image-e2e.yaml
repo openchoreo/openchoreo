@@ -1,0 +1,94 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# E2E variant of samples/getting-started/workflow-templates/publish-image-k3d.yaml.
+#
+# The shared k3d sample template hardcodes `host.k3d.internal:10082` which
+# collides with a parallel single-cluster install on the same host. The e2e
+# k3d cluster uses host port 20082 -> container 10082 (see
+# test/e2e/k3d/config.yaml) to avoid that collision, so this variant pushes
+# to `host.k3d.internal:20082`. The published image ref also uses :20082 so
+# containerd's mirror config (host.k3d.internal:20082 -> http://host.k3d.internal:20082)
+# applies on pull.
+#
+# Keep in sync with samples/getting-started/workflow-templates/publish-image-k3d.yaml
+# until the upstream template is parameterised.
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: publish-image
+spec:
+  templates:
+    - name: publish-image
+      inputs:
+        parameters:
+          - name: git-revision
+      outputs:
+        parameters:
+          - name: image
+            valueFrom:
+              path: /tmp/image.txt
+      volumes:
+        - name: registry-push-secret
+          secret:
+            optional: true
+            secretName: '{{workflow.parameters.registry-push-secret}}'
+      container:
+        image: ghcr.io/openchoreo/podman-runner:v1.1
+        command:
+          - sh
+          - -c
+        args:
+          - |-
+            set -e
+
+            GIT_REVISION={{inputs.parameters.git-revision}}
+            IMAGE_NAME={{workflow.parameters.image-name}}
+            IMAGE_TAG={{workflow.parameters.image-tag}}
+            SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
+
+            REGISTRY_ENDPOINT="host.k3d.internal:20082"
+            AUTH_FILE="/etc/secrets/registry-push-secret/.dockerconfigjson"
+
+            # --- Parameter Validation ---
+            echo ">> Source image: $SRC_IMAGE"
+            echo ">> Registry: $REGISTRY_ENDPOINT"
+            echo ">> Authentication: $([ -f "$AUTH_FILE" ] && echo "registry secret found" || echo "no registry secret (anonymous push)")"
+
+            if [ ! -f "/mnt/vol/app-image.tar" ]; then
+              echo ">> Error: Built image tar not found at /mnt/vol/app-image.tar"
+              echo ">> Hint: The build step may have failed to produce an image. Check the build step logs."
+              exit 1
+            fi
+
+            mkdir -p /etc/containers
+            cat <<EOF > /etc/containers/storage.conf
+            [storage]
+            driver = "overlay"
+            runroot = "/run/containers/storage"
+            graphroot = "/var/lib/containers/storage"
+            [storage.options.overlay]
+            mount_program = "/usr/bin/fuse-overlayfs"
+            EOF
+
+            podman load -i /mnt/vol/app-image.tar
+
+            podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
+
+            echo ">> Pushing image to registry"
+            if [ -f "$AUTH_FILE" ]; then
+              podman push --tls-verify=false --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
+            else
+              podman push --tls-verify=false $REGISTRY_ENDPOINT/$SRC_IMAGE
+            fi
+
+            echo ">> Image published successfully: $REGISTRY_ENDPOINT/$SRC_IMAGE"
+            echo -n "$REGISTRY_ENDPOINT/$SRC_IMAGE" > /tmp/image.txt
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace
+          - mountPath: /etc/secrets/registry-push-secret
+            name: registry-push-secret
+            readOnly: true

@@ -88,7 +88,13 @@ func MigrateRepo(kubeContext, giteaNamespace, repoName, cloneAddr string) error 
 	resp, err := giteaCurl(kubeContext, giteaNamespace,
 		"POST", "/api/v1/repos/migrate", string(body))
 	if err != nil {
-		return fmt.Errorf("gitea migrate %q failed: %w (body: %s)", repoName, err, resp)
+		// Repo may already exist (e.g. when the suite re-runs against a
+		// gitea namespace that survived a previous AfterAll's
+		// --wait=false delete). Verify with GET — match EnsureGiteaRepo.
+		if _, getErr := giteaCurl(kubeContext, giteaNamespace, "GET",
+			fmt.Sprintf("/api/v1/repos/%s/%s", GiteaAdminUser, repoName), ""); getErr != nil {
+			return fmt.Errorf("gitea migrate %q failed: %w (body: %s)", repoName, err, resp)
+		}
 	}
 	return nil
 }

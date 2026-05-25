@@ -83,6 +83,7 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 				repoName:     sampleWorkloadsRepo,
 				appPath:      "/service-go-greeter",
 				dockerfile:   "/service-go-greeter/Dockerfile",
+				endpoint:     "greeter-api",
 				assertReach:  true,
 			})
 		})
@@ -93,8 +94,9 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 				componentTyp: "deployment/web-application",
 				workflow:     "dockerfile-builder",
 				repoName:     sampleWorkloadsRepo,
-				appPath:      "/web-app-react-starter",
-				dockerfile:   "/web-app-react-starter/Dockerfile",
+				appPath:      "/webapp-react-nginx",
+				dockerfile:   "/webapp-react-nginx/Dockerfile",
+				endpoint:     "webapp-endpoint",
 				assertReach:  true,
 			})
 		})
@@ -106,6 +108,7 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 				workflow:     "gcp-buildpacks-builder",
 				repoName:     sampleWorkloadsRepo,
 				appPath:      "/service-go-reading-list",
+				endpoint:     "reading-list-api",
 				assertReach:  false, // upstream sample's port surface varies; deploy + ComponentRelease are the meaningful signal
 			})
 		})
@@ -117,6 +120,7 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 				workflow:     "paketo-buildpacks-builder",
 				repoName:     paketoNodeRepo,
 				appPath:      "/",
+				endpoint:     "http",
 				assertReach:  true,
 			})
 		})
@@ -128,6 +132,7 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 				workflow:     "ballerina-buildpack-builder",
 				repoName:     sampleWorkloadsRepo,
 				appPath:      "/service-ballerina-patient-management",
+				endpoint:     "patient-management-api",
 				assertReach:  false,
 			})
 		})
@@ -135,14 +140,20 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 
 	Context("solo specs", func() {
 		It("workload-auto-generation: build without a workload.yaml lands a Workload+ComponentRelease", func() {
+			// Worker (not service) because `occ workload create` without a
+			// descriptor produces a Workload with zero endpoints, and the
+			// service CCT's CEL validation requires `size(workload.endpoints) > 0`
+			// — it would reject the rendered release. worker requires == 0,
+			// which matches the auto-generation output. Reachability is N/A
+			// for workers (no endpoints), so assertReach is false.
 			runDeployableBuildSpec(buildSpec{
 				component:    componentNoWorkload,
-				componentTyp: "deployment/service",
+				componentTyp: "deployment/worker",
 				workflow:     "dockerfile-builder",
 				repoName:     noWorkloadRepo,
 				appPath:      "/",
 				dockerfile:   "/Dockerfile",
-				assertReach:  true,
+				assertReach:  false,
 			})
 
 			By("Workload CR was created by the pipeline (auto-generated)")
@@ -235,6 +246,7 @@ type buildSpec struct {
 	repoName     string
 	appPath      string
 	dockerfile   string // optional — leave empty for buildpacks
+	endpoint     string // endpoint name as declared in the workload.yaml the build checks out
 	assertReach  bool   // whether to assert in-cluster HTTP reachability of the rendered Service
 }
 
@@ -298,7 +310,7 @@ func runDeployableBuildSpec(spec buildSpec) {
 	}, 3*time.Minute, 3*time.Second).Should(Succeed())
 
 	By("rendered Service is TCP-reachable from the tester pod")
-	host, port := endpointHostPort(spec.component, "http")
+	host, port := endpointHostPort(spec.component, spec.endpoint)
 	Eventually(func() error {
 		_, err := framework.CheckTCPReachableFromPodByLabel(
 			kubeContext, dpNs, testerLabel, testerContainer, host, port, 5,

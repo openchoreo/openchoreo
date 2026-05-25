@@ -4,6 +4,7 @@
 package e2e
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -152,7 +153,10 @@ func buildComponentYAML(name, componentType, workflowName, gitURL, appPath, dock
 			"filePath": dockerfilePath,
 		}
 	}
-	raw, err := yaml.Marshal(params)
+	// RawExtension.Raw is JSON, not YAML — using sigs.k8s.io/yaml.Marshal here
+	// produces YAML bytes which RawExtension.MarshalJSON later rejects with
+	// "cannot convert RawExtension with unrecognized content type to unstructured".
+	raw, err := json.Marshal(params)
 	if err != nil {
 		panic(err)
 	}
@@ -203,7 +207,10 @@ func workflowRunYAML(componentName, runName, workflowName, gitURL, appPath, dock
 			"filePath": dockerfilePath,
 		}
 	}
-	raw, err := yaml.Marshal(params)
+	// RawExtension.Raw is JSON, not YAML — using sigs.k8s.io/yaml.Marshal here
+	// produces YAML bytes which RawExtension.MarshalJSON later rejects with
+	// "cannot convert RawExtension with unrecognized content type to unstructured".
+	raw, err := json.Marshal(params)
 	if err != nil {
 		panic(err)
 	}

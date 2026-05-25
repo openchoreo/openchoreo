@@ -1,15 +1,17 @@
+# Workload descriptor (parsed by `occ workload create --descriptor`).
+# This is NOT a Workload CR — fields live at the top level, not under `spec:`.
+# Match the openchoreo/sample-workloads convention.
 apiVersion: openchoreo.dev/v1alpha1
-kind: Workload
 metadata:
   name: pkt-svc
-spec:
-  endpoints:
-    http:
-      type: HTTP
-      port: 8080
-      visibility:
-        - project
-  container:
-    env:
-      - key: PORT
-        value: "8080"
+endpoints:
+  - name: http
+    type: HTTP
+    port: 8080
+    visibility:
+      - project
+      - external
+configurations:
+  env:
+    - name: PORT
+      value: "8080"

@@ -43,6 +43,7 @@ GATEWAY_API_VERSION    ?= v1.4.1
 CERT_MANAGER_VERSION   ?= v1.19.4
 ESO_VERSION            ?= 2.0.1
 KGATEWAY_VERSION       ?= v2.2.1
+OPENBAO_CHART_VERSION  ?= 0.25.6
 THUNDER_VERSION        ?= 0.28.0
 
 # Helm chart references: local chart dirs or OCI registry
@@ -187,6 +188,7 @@ e2e.setup-install: ## Install all planes via Helm
 	@$(MAKE) _e2e.install-thunder
 	@$(MAKE) _e2e.install-cp
 	@$(MAKE) _e2e.install-dp
+	@if [ "$(E2E_WITH_BUILD)" = "true" ]; then $(MAKE) _e2e.install-openbao; fi
 	@if [ "$(E2E_WITH_BUILD)" = "true" ]; then $(MAKE) _e2e.install-wp; fi
 	@if [ "$(E2E_WITH_OBSERVABILITY)" = "true" ]; then $(MAKE) _e2e.install-op; fi
 	@$(call log_success, All planes installed)
@@ -254,6 +256,18 @@ _e2e.install-dp:
 	$(call e2e_patch_gateway,$(E2E_DP_NS))
 	$(E2E_KUBECTL) wait -n $(E2E_DP_NS) \
 		--for=condition=available --timeout=$(E2E_SETUP_TIMEOUT) deployment --all
+
+.PHONY: _e2e.install-openbao
+_e2e.install-openbao:
+	@$(call log_info, Installing OpenBao $(OPENBAO_CHART_VERSION))
+	$(E2E_HELM) upgrade --install openbao oci://ghcr.io/openbao/charts/openbao \
+		--namespace openbao --create-namespace \
+		--version $(OPENBAO_CHART_VERSION) \
+		--values $(PROJECT_DIR)/install/k3d/common/values-openbao.yaml \
+		--wait --timeout $(E2E_SETUP_TIMEOUT)
+	@$(call log_info, Replacing fake ClusterSecretStore with openbao-backed default)
+	$(E2E_KUBECTL) delete clustersecretstore default --ignore-not-found
+	$(E2E_KUBECTL) apply -f $(E2E_K3D_DIR)/openbao-secretstore.yaml
 
 .PHONY: _e2e.install-wp
 _e2e.install-wp:
@@ -328,11 +342,19 @@ _e2e.configure-dp:
 _e2e.configure-wp:
 	@$(call log_info, Registering WorkflowPlane)
 	$(call e2e_register_plane,$(E2E_WP_NS),$(E2E_K3D_DIR)/workflowplane.yaml)
+	@$(call log_info, Registering ClusterWorkflowPlane)
+	$(call e2e_register_plane,$(E2E_WP_NS),$(E2E_K3D_DIR)/clusterworkflowplane.yaml)
 	@$(call log_info, Applying ClusterWorkflowTemplates used by the builder workflows)
 	$(E2E_KUBECTL) apply -f $(PROJECT_DIR)/samples/getting-started/workflow-templates/checkout-source.yaml
 	$(E2E_KUBECTL) apply -f $(PROJECT_DIR)/samples/getting-started/workflow-templates.yaml
-	$(E2E_KUBECTL) apply -f $(PROJECT_DIR)/samples/getting-started/workflow-templates/publish-image-k3d.yaml
-	$(E2E_KUBECTL) apply -f $(PROJECT_DIR)/samples/getting-started/workflow-templates/generate-workload-k3d.yaml
+	@# Apply the e2e-specific publish-image template instead of the
+	@# shared sample (samples/.../publish-image-k3d.yaml hardcodes
+	@# host.k3d.internal:10082, which collides with a parallel
+	@# single-cluster install; e2e uses port 20082 — see config.yaml).
+	$(E2E_KUBECTL) apply -f $(E2E_K3D_DIR)/workflow-templates/publish-image-e2e.yaml
+	@# Same reason as publish-image-e2e — the sample template hardcodes
+	@# host.k3d.internal:8080 for the CP gateway (OAuth + API). e2e uses 28080.
+	$(E2E_KUBECTL) apply -f $(E2E_K3D_DIR)/workflow-templates/generate-workload-e2e.yaml
 
 .PHONY: _e2e.configure-op
 _e2e.configure-op:
