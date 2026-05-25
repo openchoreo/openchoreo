@@ -22,7 +22,7 @@ func TestBuildHubbleFlowFilters_ORsSourceAndDestination(t *testing.T) {
 	// component is EITHER side. Labels within a filter are comma-joined into one
 	// selector so they AND together — separate entries would OR.
 	require.Len(t, filters, 2)
-	expected := "k8s:openchoreo.dev/component=checkout,k8s:openchoreo.dev/project=shopfront,k8s:openchoreo.dev/environment=development,k8s:openchoreo.dev/namespace=my-team"
+	expected := "k8s:openchoreo.dev/namespace=my-team,k8s:openchoreo.dev/environment=development,k8s:openchoreo.dev/project=shopfront,k8s:openchoreo.dev/component=checkout"
 
 	require.Len(t, filters[0].GetSourceLabel(), 1, "must be a single comma-joined selector (AND), not multiple OR'd entries")
 	assert.Equal(t, expected, filters[0].GetSourceLabel()[0])
@@ -31,6 +31,38 @@ func TestBuildHubbleFlowFilters_ORsSourceAndDestination(t *testing.T) {
 	require.Len(t, filters[1].GetDestinationLabel(), 1)
 	assert.Equal(t, expected, filters[1].GetDestinationLabel()[0])
 	assert.Empty(t, filters[1].GetSourceLabel())
+}
+
+func TestBuildHubbleFlowFilters_EnvironmentWide(t *testing.T) {
+	filters := buildHubbleFlowFilters("", "", "development", "my-team")
+
+	require.Len(t, filters, 2)
+	expected := "k8s:openchoreo.dev/namespace=my-team,k8s:openchoreo.dev/environment=development"
+
+	require.Len(t, filters[0].GetSourceLabel(), 1)
+	assert.Equal(t, expected, filters[0].GetSourceLabel()[0])
+	assert.Empty(t, filters[0].GetDestinationLabel())
+
+	require.Len(t, filters[1].GetDestinationLabel(), 1)
+	assert.Equal(t, expected, filters[1].GetDestinationLabel()[0])
+}
+
+func TestBuildHubbleFlowFilters_ProjectOnly(t *testing.T) {
+	filters := buildHubbleFlowFilters("", "shopfront", "development", "my-team")
+
+	require.Len(t, filters, 2)
+	expected := "k8s:openchoreo.dev/namespace=my-team,k8s:openchoreo.dev/environment=development,k8s:openchoreo.dev/project=shopfront"
+	assert.Equal(t, expected, filters[0].GetSourceLabel()[0])
+	assert.Equal(t, expected, filters[1].GetDestinationLabel()[0])
+}
+
+func TestBuildHubbleFlowFilters_ComponentWithoutProject(t *testing.T) {
+	filters := buildHubbleFlowFilters("checkout", "", "development", "my-team")
+
+	require.Len(t, filters, 2)
+	expected := "k8s:openchoreo.dev/namespace=my-team,k8s:openchoreo.dev/environment=development,k8s:openchoreo.dev/component=checkout"
+	assert.Equal(t, expected, filters[0].GetSourceLabel()[0])
+	assert.Equal(t, expected, filters[1].GetDestinationLabel()[0])
 }
 
 func TestNewGetFlowsRequest_LiveTail(t *testing.T) {

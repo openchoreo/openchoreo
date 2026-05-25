@@ -227,6 +227,9 @@ const (
 	// Logs actions
 	ActionViewLogs = "logs:view"
 
+	// Wirelogs actions
+	ActionViewWirelogs = "wirelogs:view"
+
 	// Metrics actions
 	ActionViewMetrics = "metrics:view"
 
@@ -461,6 +464,9 @@ var systemActions = []Action{
 
 	// logs (dynamic scope: namespace or component depending on query)
 	{Name: ActionViewLogs, LowestScope: ScopeComponent, IsInternal: false},
+
+	// wirelogs (dynamic scope: environment, project, or component depending on query)
+	{Name: ActionViewWirelogs, LowestScope: ScopeComponent, IsInternal: false},
 
 	// metrics (dynamic scope: namespace or component depending on query)
 	{Name: ActionViewMetrics, LowestScope: ScopeComponent, IsInternal: false},

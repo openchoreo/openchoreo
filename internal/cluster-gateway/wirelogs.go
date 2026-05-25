@@ -16,7 +16,9 @@ import (
 )
 
 // handleWirelogs handles the wirelogs (Cilium Hubble flow) Server-Sent Events endpoint.
-// URL: /api/wirelogs/{planeType}/{planeID}/{crNamespace}/{crName}?component=...&environment=...&namespace=...
+// URL: /api/wirelogs/{planeType}/{planeID}/{crNamespace}/{crName}?environment=...&namespace=...[&project=...][&component=...]
+// project and component are optional Hubble flow filters; when both are omitted
+// the stream covers the entire environment.
 func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 	requestID := getOrGenerateRequestID(r)
 	logger := s.logger.With("requestId", requestID)
@@ -34,12 +36,12 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 	crName := parts[3]
 
 	query := r.URL.Query()
-	component := query.Get("component")
-	project := query.Get("project")
 	environment := query.Get("environment")
 	namespace := query.Get("namespace")
-	if component == "" || project == "" || environment == "" || namespace == "" {
-		http.Error(w, "component, project, environment, and namespace query parameters are required", http.StatusBadRequest)
+	project := query.Get("project")
+	component := query.Get("component")
+	if environment == "" || namespace == "" {
+		http.Error(w, "environment and namespace query parameters are required", http.StatusBadRequest)
 		return
 	}
 
@@ -52,9 +54,10 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 	logger.Info("Wirelogs request received",
 		"plane", planeIdentifier,
 		"cr", crKey,
-		"component", component,
-		"project", project,
+		"namespace", namespace,
 		"environment", environment,
+		"project", project,
+		"component", component,
 	)
 
 	flusher, ok := w.(http.Flusher)
@@ -89,10 +92,14 @@ func (s *Server) handleWirelogs(w http.ResponseWriter, r *http.Request) {
 	defer s.unregisterStreamSession(requestID)
 
 	agentQuery := url.Values{}
-	agentQuery.Set("component", component)
-	agentQuery.Set("project", project)
-	agentQuery.Set("environment", environment)
 	agentQuery.Set("namespace", namespace)
+	agentQuery.Set("environment", environment)
+	if project != "" {
+		agentQuery.Set("project", project)
+	}
+	if component != "" {
+		agentQuery.Set("component", component)
+	}
 
 	streamInit := &messaging.HTTPTunnelStreamInit{
 		RequestID:    requestID,

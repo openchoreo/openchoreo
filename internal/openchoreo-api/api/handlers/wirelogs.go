@@ -24,8 +24,8 @@ import (
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
-// WirelogsHandler streams Cilium Hubble flow events for a component as a
-// Server-Sent Events response.
+// WirelogsHandler streams Cilium Hubble flow events for an environment (optionally filtered by project/component)
+// as a Server-Sent Events response.
 type WirelogsHandler struct {
 	k8sClient      client.Client
 	gatewayClient  *gatewayClient.Client
@@ -57,41 +57,38 @@ func NewWirelogsHandler(k8sClient client.Client, gwClient *gatewayClient.Client,
 
 // ServeHTTP authorizes the caller, resolves the target data plane, and proxies
 // the gateway's SSE stream to the client.
-// URL: /wirelogs/namespaces/{namespace}/projects/{project}/components/{component}?environment=...
+// URL: /namespaces/{namespace}/environments/{environment}/wirelogs?project=&component=
 func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	namespace, project, component, ok := parseWirelogsPath(r.URL.Path)
+	namespace, environment, ok := parseWirelogsPath(r)
 	if !ok {
-		http.Error(w, "invalid wirelogs URL: expected /wirelogs/namespaces/{ns}/projects/{proj}/components/{name}", http.StatusBadRequest)
+		http.Error(w, "invalid wirelogs URL: expected /namespaces/{namespace}/environments/{environment}/wirelogs", http.StatusBadRequest)
 		return
 	}
 
-	environment := r.URL.Query().Get("environment")
-	if environment == "" {
-		http.Error(w, "environment query parameter is required", http.StatusBadRequest)
+	project := r.URL.Query().Get("project")
+	component := r.URL.Query().Get("component")
+
+	if component != "" && project == "" {
+		http.Error(w, "component filter requires project filter", http.StatusBadRequest)
 		return
 	}
 
 	ctx := r.Context()
-	logger := h.logger.With("namespace", namespace, "component", component)
+	logger := h.logger.With(
+		"namespace", namespace,
+		"environment", environment,
+		"project", project,
+		"component", component,
+	)
 
-	// Authorize: caller must have logs:view on the component.
-	// TODO: Add a separate permission (wirelogs:view)
 	if h.authzChecker == nil {
 		logger.Error("Authorization checker not configured")
 		http.Error(w, "authorization not configured", http.StatusInternalServerError)
 		return
 	}
-	if err := h.authzChecker.Check(ctx, svcpkg.CheckRequest{
-		Action:       authz.ActionViewLogs,
-		ResourceType: "component",
-		ResourceID:   component,
-		Hierarchy: authz.ResourceHierarchy{
-			Namespace: namespace,
-			Project:   project,
-		},
-	}); err != nil {
+	if err := h.authzChecker.Check(ctx, wirelogsCheckRequest(namespace, environment, project, component)); err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
-			http.Error(w, "you do not have permission to view wirelogs for this component", http.StatusForbidden)
+			http.Error(w, "you do not have permission to view wirelogs for this scope", http.StatusForbidden)
 			return
 		}
 		logger.Error("Authorization check failed", "error", err)
@@ -99,15 +96,14 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	plane, err := h.resolvePlane(ctx, namespace, component, environment)
+	plane, err := h.resolvePlane(ctx, namespace, environment)
 	if err != nil {
 		logger.Error("Failed to resolve data plane for wirelogs", "error", err)
 		http.Error(w, fmt.Sprintf("failed to resolve data plane: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	logger = logger.With("environment", environment,
-		"planeType", plane.planeType, "planeID", plane.planeID)
+	logger = logger.With("planeType", plane.planeType, "planeID", plane.planeID)
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -123,7 +119,7 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		logger.Warn("Failed to disable write deadline for SSE stream", "error", err)
 	}
 
-	gwURL, err := h.buildGatewayWirelogsURL(plane, component, project, environment, namespace)
+	gwURL, err := h.buildGatewayWirelogsURL(plane, namespace, environment, project, component)
 	if err != nil {
 		logger.Error("Failed to build gateway wirelogs URL", "error", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -189,13 +185,49 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// resolvePlane resolves the data plane for a component+environment. The flow filter targets pods by label.
-func (h *WirelogsHandler) resolvePlane(ctx context.Context, namespace, component, environment string) (execPlaneInfo, error) {
-	comp := &openchoreov1alpha1.Component{}
-	if err := h.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: component}, comp); err != nil {
-		return execPlaneInfo{}, fmt.Errorf("component %q not found: %w", component, err)
-	}
+// wirelogsCheckRequest derives the most-specific authz scope from the supplied filters. The environment
+// is always exposed via Context so CEL policies can scope per-environment.
+func wirelogsCheckRequest(namespace, environment, project, component string) svcpkg.CheckRequest {
+	envAttr := svcpkg.FormatDualScopedResourceName(namespace, environment, false)
+	authzCtx := authz.Context{Resource: authz.ResourceAttribute{Environment: envAttr}}
 
+	switch {
+	case component != "":
+		return svcpkg.CheckRequest{
+			Action:       authz.ActionViewWirelogs,
+			ResourceType: "component",
+			ResourceID:   component,
+			Hierarchy: authz.ResourceHierarchy{
+				Namespace: namespace,
+				Project:   project,
+				Component: component,
+			},
+			Context: authzCtx,
+		}
+	case project != "":
+		return svcpkg.CheckRequest{
+			Action:       authz.ActionViewWirelogs,
+			ResourceType: "project",
+			ResourceID:   project,
+			Hierarchy: authz.ResourceHierarchy{
+				Namespace: namespace,
+				Project:   project,
+			},
+			Context: authzCtx,
+		}
+	default:
+		return svcpkg.CheckRequest{
+			Action:       authz.ActionViewWirelogs,
+			ResourceType: "environment",
+			ResourceID:   environment,
+			Hierarchy:    authz.ResourceHierarchy{Namespace: namespace},
+			Context:      authzCtx,
+		}
+	}
+}
+
+// resolvePlane resolves the data plane for an environment.
+func (h *WirelogsHandler) resolvePlane(ctx context.Context, namespace, environment string) (execPlaneInfo, error) {
 	env := &openchoreov1alpha1.Environment{}
 	if err := h.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: environment}, env); err != nil {
 		return execPlaneInfo{}, fmt.Errorf("environment %q not found: %w", environment, err)
@@ -217,7 +249,7 @@ func (h *WirelogsHandler) resolvePlane(ctx context.Context, namespace, component
 }
 
 // buildGatewayWirelogsURL constructs the HTTPS URL for the gateway wirelogs SSE endpoint.
-func (h *WirelogsHandler) buildGatewayWirelogsURL(plane execPlaneInfo, component, project, environment, namespace string) (string, error) {
+func (h *WirelogsHandler) buildGatewayWirelogsURL(plane execPlaneInfo, namespace, environment, project, component string) (string, error) {
 	u, err := url.Parse(h.gatewayURL)
 	if err != nil {
 		return "", err
@@ -236,27 +268,37 @@ func (h *WirelogsHandler) buildGatewayWirelogsURL(plane execPlaneInfo, component
 		plane.planeType, plane.planeID, plane.crNamespace, plane.crName)
 
 	q := u.Query()
-	q.Set("component", component)
-	q.Set("project", project)
-	q.Set("environment", environment)
 	q.Set("namespace", namespace)
+	q.Set("environment", environment)
+	if project != "" {
+		q.Set("project", project)
+	}
+	if component != "" {
+		q.Set("component", component)
+	}
 	u.RawQuery = q.Encode()
 
 	return u.String(), nil
 }
 
-// parseWirelogsPath extracts (namespace, project, component) from the request path.
-// Expected form: /wirelogs/namespaces/{ns}/projects/{proj}/components/{comp}
-func parseWirelogsPath(p string) (namespace, project, component string, ok bool) {
-	parts := strings.Split(strings.Trim(p, "/"), "/")
-	if len(parts) != 7 {
-		return "", "", "", false
+// parseWirelogsPath extracts (namespace, environment) from the request path.
+// Expected form: /namespaces/{namespace}/environments/{environment}/wirelogs
+func parseWirelogsPath(r *http.Request) (namespace, environment string, ok bool) {
+	namespace = r.PathValue("namespace")
+	environment = r.PathValue("environment")
+	if namespace != "" && environment != "" {
+		return namespace, environment, true
 	}
-	if parts[0] != "wirelogs" || parts[1] != "namespaces" || parts[3] != "projects" || parts[5] != "components" {
-		return "", "", "", false
+
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) != 5 {
+		return "", "", false
 	}
-	if parts[2] == "" || parts[4] == "" || parts[6] == "" {
-		return "", "", "", false
+	if parts[0] != "namespaces" || parts[2] != "environments" || parts[4] != "wirelogs" {
+		return "", "", false
 	}
-	return parts[2], parts[4], parts[6], true
+	if parts[1] == "" || parts[3] == "" {
+		return "", "", false
+	}
+	return parts[1], parts[3], true
 }

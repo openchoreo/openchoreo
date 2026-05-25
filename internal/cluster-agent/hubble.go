@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/cilium/cilium/api/v1/flow"
@@ -23,23 +24,27 @@ import (
 )
 
 // buildHubbleFlowFilters returns the OR'd whitelist of FlowFilters used to follow
-// Hubble flows for a component. The list contains two filters so flows match
-// when the component's pods are EITHER source OR destination.
+// Hubble flows for components in the specified environment. The list contains two filters
+// so flows match when the matching pods are EITHER source OR destination.
 func buildHubbleFlowFilters(component, project, environment, namespace string) []*flow.FlowFilter {
-	selector := fmt.Sprintf(
-		"k8s:%s=%s,k8s:%s=%s,k8s:%s=%s,k8s:%s=%s",
-		labels.LabelKeyComponentName, component,
-		labels.LabelKeyProjectName, project,
-		labels.LabelKeyEnvironmentName, environment,
-		labels.LabelKeyNamespaceName, namespace,
-	)
+	parts := []string{
+		fmt.Sprintf("k8s:%s=%s", labels.LabelKeyNamespaceName, namespace),
+		fmt.Sprintf("k8s:%s=%s", labels.LabelKeyEnvironmentName, environment),
+	}
+	if project != "" {
+		parts = append(parts, fmt.Sprintf("k8s:%s=%s", labels.LabelKeyProjectName, project))
+	}
+	if component != "" {
+		parts = append(parts, fmt.Sprintf("k8s:%s=%s", labels.LabelKeyComponentName, component))
+	}
+	selector := strings.Join(parts, ",")
 	return []*flow.FlowFilter{
 		{SourceLabel: []string{selector}},
 		{DestinationLabel: []string{selector}},
 	}
 }
 
-// newGetFlowsRequest assembles the live-tail flow request for a component.
+// newGetFlowsRequest assembles the live-tail flow request for the specified filters.
 func newGetFlowsRequest(component, project, environment, namespace string) *observer.GetFlowsRequest {
 	return &observer.GetFlowsRequest{
 		Follow:    true,
@@ -108,12 +113,12 @@ func (a *Agent) handleHubbleStreamInit(init *messaging.HTTPTunnelStreamInit) {
 		a.sendStreamClose(init.RequestID, fmt.Sprintf("invalid hubble query: %v", err))
 		return
 	}
-	component := params.Get("component")
-	project := params.Get("project")
 	environment := params.Get("environment")
 	namespace := params.Get("namespace")
-	if component == "" || project == "" || environment == "" || namespace == "" {
-		a.sendStreamClose(init.RequestID, "component, project, environment, namespace query params are required")
+	project := params.Get("project")
+	component := params.Get("component")
+	if environment == "" || namespace == "" {
+		a.sendStreamClose(init.RequestID, "environment and namespace query params are required")
 		return
 	}
 
