@@ -192,3 +192,11 @@ func AssertNamespaceGone(g gomega.Gomega, kubeContext, namespace string) {
 	g.Expect(err.Error()).To(gomega.ContainSubstring("NotFound"),
 		fmt.Sprintf("expected NotFound for namespace %s, got: %v", namespace, err))
 }
+
+// WaitForReleaseBindingReady polls until the named ReleaseBinding has condition Ready=True.
+func WaitForReleaseBindingReady(kubeContext, namespace, name string) {
+	gomega.Eventually(func(g gomega.Gomega) {
+		AssertReleaseBindingReady(g, kubeContext, namespace, name)
+	}, DefaultTimeout, 5*time.Second).Should(gomega.Succeed(),
+		"ReleaseBinding %s/%s should be Ready", namespace, name)
+}

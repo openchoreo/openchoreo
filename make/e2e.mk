@@ -42,7 +42,7 @@ E2E_OP_NS              := openchoreo-observability-plane
 GATEWAY_API_VERSION    ?= v1.4.1
 CERT_MANAGER_VERSION   ?= v1.19.4
 ESO_VERSION            ?= 2.0.1
-KGATEWAY_VERSION       ?= v2.1.1
+KGATEWAY_VERSION       ?= v2.2.1
 THUNDER_VERSION        ?= 0.28.0
 
 # Helm chart references: local chart dirs or OCI registry

@@ -17,6 +17,10 @@ data:
       answer auto
     }
     rewrite stop {
+      name regex (.+\.)?e2e-dp-internal\.local gateway-internal.openchoreo-data-plane.svc.cluster.local
+      answer auto
+    }
+    rewrite stop {
       name regex (.+\.)?e2e-wp\.local host.k3d.internal
       answer auto
     }
