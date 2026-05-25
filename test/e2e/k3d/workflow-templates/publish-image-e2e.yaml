@@ -34,7 +34,7 @@ spec:
             optional: true
             secretName: '{{workflow.parameters.registry-push-secret}}'
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.1
+        image: ghcr.io/openchoreo/podman-runner@sha256:2165f0d5ca5c8286c234388d542f50ede8f38108fc25a57ce141fcdf5cc87b00
         command:
           - sh
           - -c

@@ -98,8 +98,8 @@ spec:
 }
 
 // WaitForKustomizationReady polls until the Flux Kustomization reports the
-// Ready=True condition with an `ApplySucceeded` reason. Returns the time the
-// condition flipped (useful for timing assertions on reconciliation).
+// Ready=True condition and returns an error if it does not become ready before
+// the timeout.
 func WaitForKustomizationReady(kubeContext, namespace, name string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {

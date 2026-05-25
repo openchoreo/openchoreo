@@ -46,10 +46,7 @@ func InstallGitea(kubeContext, namespace string) error {
 	); err != nil {
 		return fmt.Errorf("gitea deployment did not become ready: %w", err)
 	}
-	// Idempotent admin-user create — Gitea exits 0 if the user already exists
-	// with the same admin flag, non-zero on conflict. We tolerate non-zero and
-	// rely on the subsequent API auth probe to confirm credentials are valid.
-	_, _ = Kubectl(kubeContext,
+	adminCreateOutput, adminCreateErr := Kubectl(kubeContext,
 		"-n", namespace,
 		"exec", "deployment/"+giteaAppName, "--",
 		"su", "git", "-c", fmt.Sprintf(
@@ -57,6 +54,17 @@ func InstallGitea(kubeContext, namespace string) error {
 			GiteaAdminUser, GiteaAdminPassword, GiteaAdminEmail,
 		),
 	)
+	probeOutput, probeErr := giteaCurl(kubeContext, namespace, "GET", "/api/v1/user", "")
+	if adminCreateErr != nil {
+		if probeErr != nil {
+			return fmt.Errorf("failed to create gitea admin user: %w (output: %s); auth probe also failed: %v (body: %s)",
+				adminCreateErr, adminCreateOutput, probeErr, probeOutput)
+		}
+		return fmt.Errorf("failed to create gitea admin user: %w (output: %s)", adminCreateErr, adminCreateOutput)
+	}
+	if probeErr != nil {
+		return fmt.Errorf("gitea admin auth probe failed: %w (body: %s)", probeErr, probeOutput)
+	}
 	return nil
 }
 
@@ -103,10 +111,10 @@ func MigrateRepo(kubeContext, giteaNamespace, repoName, cloneAddr string) error 
 // exist. It accepts a 409 conflict response (repo already exists) as success.
 func EnsureGiteaRepo(kubeContext, giteaNamespace, repoName string) error {
 	body, err := json.Marshal(map[string]any{
-		"name":      repoName,
-		"auto_init": true,
+		"name":           repoName,
+		"auto_init":      true,
 		"default_branch": "main",
-		"private":   false,
+		"private":        false,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to marshal repo body: %w", err)

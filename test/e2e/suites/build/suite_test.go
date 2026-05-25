@@ -44,4 +44,13 @@ var _ = BeforeSuite(func() {
 	_, err = framework.Kubectl(kubeContext, "get", "clusterworkflow", "dockerfile-builder")
 	Expect(err).NotTo(HaveOccurred(),
 		"dockerfile-builder ClusterWorkflow not found; check the platform sample install")
+	_, err = framework.Kubectl(kubeContext, "get", "clusterworkflow", "gcp-buildpacks-builder")
+	Expect(err).NotTo(HaveOccurred(),
+		"gcp-buildpacks-builder ClusterWorkflow not found; check the platform sample install")
+	_, err = framework.Kubectl(kubeContext, "get", "clusterworkflow", "paketo-buildpacks-builder")
+	Expect(err).NotTo(HaveOccurred(),
+		"paketo-buildpacks-builder ClusterWorkflow not found; check the platform sample install")
+	_, err = framework.Kubectl(kubeContext, "get", "clusterworkflow", "ballerina-buildpack-builder")
+	Expect(err).NotTo(HaveOccurred(),
+		"ballerina-buildpack-builder ClusterWorkflow not found; check the platform sample install")
 })

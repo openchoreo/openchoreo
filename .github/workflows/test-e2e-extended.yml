@@ -37,6 +37,8 @@ jobs:
     steps:
       - name: Clone the code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -54,13 +56,26 @@ jobs:
           echo "${{ env.YQ_SHA256 }}  /tmp/yq" | sha256sum -c -
           sudo install /tmp/yq /usr/local/bin/yq
 
+      - name: Validate Helm chart version
+        run: |
+          if [ -z "${HELM_CHART_VERSION}" ]; then
+            echo "::error::HELM_CHART_VERSION is required"
+            exit 1
+          fi
+          case "${HELM_CHART_VERSION}" in
+            *[!A-Za-z0-9._-]*)
+              echo "::error::HELM_CHART_VERSION contains unsupported characters"
+              exit 1
+              ;;
+          esac
+
       - name: Run extended e2e tests (tier 3)
         run: |
           make e2e \
             E2E_HELM_SOURCE=oci \
-            HELM_CHART_VERSION=${{ env.HELM_CHART_VERSION }} \
-            E2E_WITH_BUILD=${{ env.E2E_WITH_BUILD }} \
-            E2E_WITH_OBSERVABILITY=${{ env.E2E_WITH_OBSERVABILITY }} \
+            HELM_CHART_VERSION="${HELM_CHART_VERSION}" \
+            E2E_WITH_BUILD="${E2E_WITH_BUILD}" \
+            E2E_WITH_OBSERVABILITY="${E2E_WITH_OBSERVABILITY}" \
             E2E_TEST_TIMEOUT=120m \
             E2E_LABEL_FILTER='tier3'
 

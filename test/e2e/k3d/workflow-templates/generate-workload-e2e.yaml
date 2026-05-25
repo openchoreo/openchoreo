@@ -92,7 +92,7 @@ spec:
               echo ">> Generating workload CR from workload descriptor"
               podman run --rm --network=none \
               -v $DESCRIPTOR_PATH:/app:rw -w /app \
-              ghcr.io/openchoreo/openchoreo-cli:latest-dev \
+              ghcr.io/openchoreo/openchoreo-cli@sha256:9d5e9a52205b3a9998a2af18b93aae31c2668d3832c8138f6d6875c4743b7f96 \
                 workload create \
                 --namespace "${NAMESPACE_NAME}" \
                 --project "${PROJECT_NAME}" \
@@ -104,7 +104,7 @@ spec:
               echo ">> Generating default workload CR"
               podman run --rm --network=none \
               -v $DESCRIPTOR_PATH:/app:rw -w /app \
-              ghcr.io/openchoreo/openchoreo-cli:latest-dev \
+              ghcr.io/openchoreo/openchoreo-cli@sha256:9d5e9a52205b3a9998a2af18b93aae31c2668d3832c8138f6d6875c4743b7f96 \
                 workload create \
                 --namespace "${NAMESPACE_NAME}" \
                 --project "${PROJECT_NAME}" \
@@ -118,7 +118,7 @@ spec:
             # --- Step 2: Convert workload CR YAML to JSON (strip apiVersion and kind) ---
              podman run --rm \
                -v /mnt/vol:/data:rw \
-               mikefarah/yq -o=json 'del(.apiVersion) | del(.kind)' /data/workload-cr.yaml \
+               mikefarah/yq:4.45.4 -o=json 'del(.apiVersion) | del(.kind)' /data/workload-cr.yaml \
                > /mnt/vol/workload-cr-raw.json
              podman run --rm \
                -v /mnt/vol:/data:rw \
@@ -152,7 +152,7 @@ spec:
                 --data-urlencode "client_secret=${CLIENT_SECRET}")
             fi
 
-            ACCESS_TOKEN=$(echo "${TOKEN_RESPONSE}" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+            ACCESS_TOKEN=$(printf '%s' "${TOKEN_RESPONSE}" | podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.access_token')
 
             if [ -z "${ACCESS_TOKEN}" ]; then
               echo ">> Failed to get access token: ${TOKEN_RESPONSE}"
@@ -165,7 +165,7 @@ spec:
             API_URL="{{inputs.parameters.api-server-url}}"
             API_HOST="{{inputs.parameters.api-server-host-header}}"
 
-            WORKLOAD_NAME=$(podman run --rm -v /mnt/vol:/data:ro mikefarah/yq -r '.metadata.name' /data/workload-cr.json)
+            WORKLOAD_NAME=$(podman run --rm -v /mnt/vol:/data:ro mikefarah/yq:4.45.4 -r '.metadata.name' /data/workload-cr.json)
 
             echo ">> Creating workload via ${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads"
             RESPONSE=$(curl -s -w "\n%{http_code}" \

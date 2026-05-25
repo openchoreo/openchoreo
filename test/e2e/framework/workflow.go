@@ -4,7 +4,6 @@
 package framework
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -59,23 +58,30 @@ func AssertComponentReleasePresent(g gomega.Gomega, kubeContext, namespace, comp
 // pointer copied from WorkflowRun.status.runReference. Returns ("", "", "")
 // (all empty) when the controller has not populated runReference yet.
 func WorkflowRunReference(kubeContext, namespace, workflowRunName string) (kind, name, ns string, err error) {
-	out, err := KubectlGetJsonpath(kubeContext, namespace, "workflowrun", workflowRunName,
-		`{.status.runReference}`)
+	kind, err = workflowRunReferenceField(kubeContext, namespace, workflowRunName, "kind")
 	if err != nil {
 		return "", "", "", err
 	}
+	name, err = workflowRunReferenceField(kubeContext, namespace, workflowRunName, "name")
+	if err != nil {
+		return "", "", "", err
+	}
+	ns, err = workflowRunReferenceField(kubeContext, namespace, workflowRunName, "namespace")
+	if err != nil {
+		return "", "", "", err
+	}
+	return kind, name, ns, nil
+}
+
+func workflowRunReferenceField(kubeContext, namespace, workflowRunName, field string) (string, error) {
+	out, err := KubectlGetJsonpath(kubeContext, namespace, "workflowrun", workflowRunName,
+		fmt.Sprintf(`{.status.runReference.%s}`, field))
+	if err != nil {
+		return "", err
+	}
 	out = strings.TrimSpace(out)
 	if out == "" || out == "null" {
-		return "", "", "", nil
+		return "", nil
 	}
-	var ref struct {
-		APIVersion string `json:"apiVersion"`
-		Kind       string `json:"kind"`
-		Name       string `json:"name"`
-		Namespace  string `json:"namespace"`
-	}
-	if err := json.Unmarshal([]byte(out), &ref); err != nil {
-		return "", "", "", fmt.Errorf("decode runReference: %w (raw: %s)", err, out)
-	}
-	return ref.Kind, ref.Name, ref.Namespace, nil
+	return out, nil
 }
