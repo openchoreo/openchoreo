@@ -179,6 +179,12 @@ func (a *Agent) handleHubbleStreamInit(init *messaging.HTTPTunnelStreamInit) {
 		UseProtoNames:   true,
 		EmitUnpopulated: false,
 	}
+	scope := wirelogsScope{
+		environment: environment,
+		namespace:   namespace,
+		project:     project,
+		component:   component,
+	}
 
 	for {
 		resp, err := stream.Recv()
@@ -189,6 +195,10 @@ func (a *Agent) handleHubbleStreamInit(init *messaging.HTTPTunnelStreamInit) {
 				logger.Warn("hubble stream ended with error", "error", err)
 			}
 			break
+		}
+
+		if !redactFlowResponse(resp, scope) {
+			continue
 		}
 
 		data, err := marshalOpts.Marshal(resp)
