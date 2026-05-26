@@ -86,7 +86,6 @@ jobs:
           IMAGES=(
             controller
             quick-start
-            init-observability-opensearch
             openchoreo-api
             observer
             event-forwarder

@@ -1277,7 +1277,7 @@
     },
     "observer": {
       "additionalProperties": true,
-      "description": "OpenChoreo Observer service configuration - REST API that abstracts OpenSearch for logging, metrics, and tracing",
+      "description": "OpenChoreo Observer service configuration - REST API that abstracts observability backends for logging, metrics, and tracing via adapters",
       "properties": {
         "alertStoreBackend": {
           "default": "sqlite",
@@ -1437,12 +1437,6 @@
           "additionalProperties": false,
           "description": "Configurations for logs adapter connectivity",
           "properties": {
-            "enabled": {
-              "default": true,
-              "description": "Enable logs adapter for fetching logs from an external adapter",
-              "title": "enabled",
-              "type": "boolean"
-            },
             "timeout": {
               "default": "30s",
               "description": "Timeout for logs adapter requests",
@@ -1471,33 +1465,6 @@
           "description": "Optional OAuth2 scope to request in the client credentials token request",
           "title": "oauthScope",
           "type": "string"
-        },
-        "openSearchSecretName": {
-          "default": "",
-          "description": "Name of an existing Secret with 'username' and 'password' keys for OpenSearch authentication. Required.",
-          "title": "openSearchSecretName",
-          "type": "string"
-        },
-        "prometheus": {
-          "additionalProperties": false,
-          "description": "Prometheus connection configuration",
-          "properties": {
-            "address": {
-              "default": "",
-              "description": "Prometheus server address (auto-constructed from release name if empty)",
-              "title": "address",
-              "type": "string"
-            },
-            "timeout": {
-              "default": "30s",
-              "description": "Timeout for Prometheus queries",
-              "title": "timeout",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "prometheus",
-          "type": "object"
         },
         "replicas": {
           "default": 1,
@@ -1559,7 +1526,7 @@
         },
         "secretName": {
           "default": "",
-          "description": "Name of an existing Secret injected via envFrom into the Observer container. Required keys - OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD, UID_RESOLVER_OAUTH_CLIENT_SECRET. Optional keys - ALERT_STORE_DSN (when alertStoreBackend is postgresql).",
+          "description": "Name of an existing Secret injected via envFrom into the Observer container. Required keys - UID_RESOLVER_OAUTH_CLIENT_SECRET; ALERT_STORE_DSN is also required when alertStoreBackend=postgresql (Observer fails to start otherwise) and ignored for sqlite (a default DSN is used).",
           "title": "secretName",
           "type": "string"
         },
@@ -1654,12 +1621,6 @@
           "additionalProperties": false,
           "description": "Configurations for tracing adapter connectivity",
           "properties": {
-            "enabled": {
-              "default": true,
-              "description": "Enable tracing adapter for fetching traces from an external adapter",
-              "title": "enabled",
-              "type": "boolean"
-            },
             "timeout": {
               "default": "30s",
               "description": "Timeout for tracing adapter requests",

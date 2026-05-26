@@ -368,7 +368,7 @@ controllerManager:
 # @schema
 # type: object
 # additionalProperties: true
-# description: OpenChoreo Observer service configuration - REST API that abstracts OpenSearch for logging, metrics, and tracing
+# description: OpenChoreo Observer service configuration - REST API that abstracts observability backends for logging, metrics, and tracing via adapters
 # @schema
 observer:
   # @schema
@@ -390,12 +390,6 @@ observer:
   # description: Configurations for logs adapter connectivity
   # @schema
   logsAdapter:
-    # @schema
-    # type: boolean
-    # description: Enable logs adapter for fetching logs from an external adapter
-    # default: true
-    # @schema
-    enabled: true
     # @schema
     # type: string
     # description: URL of the logs adapter service
@@ -500,12 +494,6 @@ observer:
   # @schema
   tracingAdapter:
     # @schema
-    # type: boolean
-    # description: Enable tracing adapter for fetching traces from an external adapter
-    # default: true
-    # @schema
-    enabled: true
-    # @schema
     # type: string
     # description: URL of the tracing adapter service
     # default: "http://tracing-adapter:9100"
@@ -532,7 +520,7 @@ observer:
   oauthScope: ""
   # @schema
   # type: string
-  # description: Name of an existing Secret injected via envFrom into the Observer container. Required keys - OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD, UID_RESOLVER_OAUTH_CLIENT_SECRET. Optional keys - ALERT_STORE_DSN (when alertStoreBackend is postgresql).
+  # description: Name of an existing Secret injected via envFrom into the Observer container. Required keys - UID_RESOLVER_OAUTH_CLIENT_SECRET; ALERT_STORE_DSN is also required when alertStoreBackend=postgresql (Observer fails to start otherwise) and ignored for sqlite (a default DSN is used).
   # default: ""
   # @schema
   secretName: ""
@@ -566,12 +554,6 @@ observer:
   extraEnvs:
   - name: OBSERVER_BASE_URL
     value: "http://observer.openchoreo.localhost:11080"
-  - name: OPENSEARCH_ADDRESS
-    value: "https://opensearch:9200"
-  - name: PROMETHEUS_ADDRESS
-    value: "http://openchoreo-observability-prometheus:9091"
-  - name: PROMETHEUS_TIMEOUT
-    value: "30s"
   - name: AUTHZ_TIMEOUT
     value: "30s"
 
@@ -642,24 +624,6 @@ observer:
 
   # @schema
   # type: object
-  # description: Prometheus connection configuration
-  # @schema
-  prometheus:
-    # @schema
-    # type: string
-    # description: Prometheus server address (auto-constructed from release name if empty)
-    # default: ""
-    # @schema
-    address: ""
-    # @schema
-    # type: string
-    # description: Timeout for Prometheus queries
-    # default: 30s
-    # @schema
-    timeout: 30s
-
-  # @schema
-  # type: object
   # description: Resource requests and limits for the Observer container
   # @schema
   resources:
@@ -697,13 +661,6 @@ observer:
       # default: 128Mi
       # @schema
       memory: 128Mi
-
-  # @schema
-  # type: string
-  # description: Name of an existing Secret with 'username' and 'password' keys for OpenSearch authentication. Required.
-  # default: ""
-  # @schema
-  openSearchSecretName: ""
 
   # @schema
   # type: object

@@ -10,6 +10,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"sync"
@@ -21,7 +22,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	observermcp "github.com/openchoreo/openchoreo/internal/observer/mcp"
 	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
-	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
@@ -60,12 +60,6 @@ func main() {
 		// Continue without k8s client - notifications will be skipped
 	}
 
-	// Initialize OpenSearch client
-	osClient, err := opensearch.NewClient(&cfg.OpenSearch, logger)
-	if err != nil {
-		log.Fatalf("Failed to initialize OpenSearch client: %v", err)
-	}
-
 	// Initialize resource UID resolver for name-to-UID resolution
 	uidResolver := service.NewResourceUIDResolver(&cfg.UIDResolver, logger.With("component", "resource-resolver"))
 
@@ -76,57 +70,37 @@ func main() {
 		uidResolver,
 		logger.With("component", "metrics-adapter"),
 	)
-	logger.Info("Metrics adapter initialized", "adapter_url", cfg.Adapters.MetricsAdapterURL)
+	logger.Info("Metrics adapter initialized", "adapter_url", sanitizeURL(cfg.Adapters.MetricsAdapterURL))
 
 	// Initialize metrics adapter HTTP client for alert CRUD forwarding
 	metricsAdapterClient := &http.Client{
 		Timeout: cfg.Adapters.MetricsAdapterTimeout,
 	}
 
-	// Initialize logs adapter (optional)
-	var logsAdapter observability.LogsAdapter
-	var concreteLogsAdapter *service.LogsAdapter
-	if cfg.Adapters.LogsAdapterEnabled {
-		logger.Info("Using logs adapter",
-			"adapter_url", cfg.Adapters.LogsAdapterURL)
-
-		// Initialize HTTP-based adapter (e.g., OpenObserve)
-		adapterConfig := service.LogsAdapterConfig{
-			BaseURL: cfg.Adapters.LogsAdapterURL,
-			Timeout: cfg.Adapters.LogsAdapterTimeout,
-		}
-		var adapterErr error
-		concreteLogsAdapter, adapterErr = service.NewLogsAdapter(adapterConfig)
-		if adapterErr != nil {
-			logger.Error("Failed to create logs adapter", "error", adapterErr)
-			os.Exit(1)
-		}
-		logsAdapter = concreteLogsAdapter
-		logger.Info("Logs adapter initialized")
-	} else {
-		logger.Info("Using OpenSearch for component logs")
+	// Initialize logs adapter
+	logger.Info("Initializing logs adapter", "adapter_url", sanitizeURL(cfg.Adapters.LogsAdapterURL))
+	concreteLogsAdapter, err := service.NewLogsAdapter(service.LogsAdapterConfig{
+		BaseURL: cfg.Adapters.LogsAdapterURL,
+		Timeout: cfg.Adapters.LogsAdapterTimeout,
+	})
+	if err != nil {
+		logger.Error("Failed to create logs adapter", "error", err)
+		os.Exit(1)
 	}
+	var logsAdapter observability.LogsAdapter = concreteLogsAdapter
+	logger.Info("Logs adapter initialized")
 
-	// Initialize tracing adapter (optional)
-	var tracingAdapter observability.TracingAdapter
-	if cfg.Adapters.TracingAdapterEnabled {
-		logger.Info("Using tracing adapter",
-			"adapter_url", cfg.Adapters.TracingAdapterURL)
-
-		adapterConfig := service.TracingAdapterConfig{
-			BaseURL: cfg.Adapters.TracingAdapterURL,
-			Timeout: cfg.Adapters.TracingAdapterTimeout,
-		}
-		var adapterErr error
-		tracingAdapter, adapterErr = service.NewTracingAdapter(adapterConfig)
-		if adapterErr != nil {
-			logger.Error("Failed to create tracing adapter", "error", adapterErr)
-			os.Exit(1)
-		}
-		logger.Info("Tracing adapter initialized")
-	} else {
-		logger.Info("Using OpenSearch for traces")
+	// Initialize tracing adapter
+	logger.Info("Initializing tracing adapter", "adapter_url", sanitizeURL(cfg.Adapters.TracingAdapterURL))
+	tracingAdapter, err := service.NewTracingAdapter(service.TracingAdapterConfig{
+		BaseURL: cfg.Adapters.TracingAdapterURL,
+		Timeout: cfg.Adapters.TracingAdapterTimeout,
+	})
+	if err != nil {
+		logger.Error("Failed to create tracing adapter", "error", err)
+		os.Exit(1)
 	}
+	logger.Info("Tracing adapter initialized")
 
 	// Initialize authz client
 	authzClient, err := observerAuthz.NewClient(&cfg.Authz, logger.With("component", "authz-client"))
@@ -203,8 +177,6 @@ func main() {
 
 	// Initialize alert service for the internal v1alpha1 API
 	alertService := service.NewAlertService(
-		osClient,
-		opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
 		alertEntryStore,
 		incidentEntryStore,
 		k8sClient,
@@ -384,6 +356,21 @@ func main() {
 
 	wg.Wait()
 	logger.Info("Server shutdown complete")
+}
+
+// sanitizeURL strips userinfo (user:password) from a URL so it can be safely logged.
+// On parse failure, returns "<invalid url>" rather than the raw string to avoid leaking
+// credentials embedded in a malformed URL.
+func sanitizeURL(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "<invalid url>"
+	}
+	u.User = nil
+	return u.String()
 }
 
 func initLogger(level string) *slog.Logger {

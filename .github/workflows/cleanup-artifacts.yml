@@ -32,7 +32,6 @@ jobs:
           - event-forwarder
           - openchoreo-cli
           - quick-start
-          - init-observability-opensearch
     steps:
       - name: Calculate cutoff date
         id: cutoff

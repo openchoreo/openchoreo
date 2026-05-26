@@ -6,7 +6,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -18,15 +17,12 @@ import (
 )
 
 // MaxLimit is the maximum number of results that can be returned by any query endpoint.
-// This matches the OpenAPI spec's maximum for the limit field and is used to cap
-// the total count reported by OpenSearch (whose hits.total.value caps at 10000).
+// This matches the OpenAPI spec's maximum for the limit field.
 const MaxLimit = 1000
 
 // Config holds all configuration for the logging service
 type Config struct {
 	Server      ServerConfig      `koanf:"server"`
-	OpenSearch  OpenSearchConfig  `koanf:"opensearch"`
-	Prometheus  PrometheusConfig  `koanf:"prometheus"`
 	Auth        AuthConfig        `koanf:"auth"`
 	Authz       AuthzConfig       `koanf:"authz"`
 	Logging     LoggingConfig     `koanf:"logging"`
@@ -39,11 +35,9 @@ type Config struct {
 
 // AdaptersConfig holds adapter configuration
 type AdaptersConfig struct {
-	LogsAdapterEnabled bool          `koanf:"logs.adapter.enabled"`
 	LogsAdapterURL     string        `koanf:"logs.adapter.url"`
 	LogsAdapterTimeout time.Duration `koanf:"logs.adapter.timeout"`
 
-	TracingAdapterEnabled bool          `koanf:"tracing.adapter.enabled"`
 	TracingAdapterURL     string        `koanf:"tracing.adapter.url"`
 	TracingAdapterTimeout time.Duration `koanf:"tracing.adapter.timeout"`
 
@@ -63,24 +57,6 @@ type ServerConfig struct {
 // CORSConfig holds CORS configuration
 type CORSConfig struct {
 	AllowedOrigins []string `koanf:"allowed.origins"`
-}
-
-// OpenSearchConfig holds OpenSearch connection configuration
-type OpenSearchConfig struct {
-	Address       string        `koanf:"address"`
-	Username      string        `koanf:"username"`
-	Password      string        `koanf:"password"`
-	Timeout       time.Duration `koanf:"timeout"`
-	MaxRetries    int           `koanf:"max.retries"`
-	IndexPrefix   string        `koanf:"index.prefix"`
-	IndexPattern  string        `koanf:"index.pattern"`
-	LegacyPattern string        `koanf:"legacy.pattern"`
-}
-
-// PrometheusConfig holds Prometheus connection configuration
-type PrometheusConfig struct {
-	Address string        `koanf:"address"`
-	Timeout time.Duration `koanf:"timeout"`
 }
 
 // AuthConfig holds authentication configuration
@@ -193,16 +169,6 @@ func Load() (*Config, error) {
 		"SERVER_READ_TIMEOUT":                   "server.read.timeout",
 		"SERVER_WRITE_TIMEOUT":                  "server.write.timeout",
 		"SERVER_SHUTDOWN_TIMEOUT":               "server.shutdown.timeout",
-		"OPENSEARCH_ADDRESS":                    "opensearch.address",
-		"OPENSEARCH_USERNAME":                   "opensearch.username",
-		"OPENSEARCH_PASSWORD":                   "opensearch.password",
-		"OPENSEARCH_TIMEOUT":                    "opensearch.timeout",
-		"OPENSEARCH_MAX_RETRIES":                "opensearch.max.retries",
-		"OPENSEARCH_INDEX_PREFIX":               "opensearch.index.prefix",
-		"OPENSEARCH_INDEX_PATTERN":              "opensearch.index.pattern",
-		"OPENSEARCH_LEGACY_PATTERN":             "opensearch.legacy.pattern",
-		"PROMETHEUS_ADDRESS":                    "prometheus.address",
-		"PROMETHEUS_TIMEOUT":                    "prometheus.timeout",
 		"AUTH_JWT_SECRET":                       "auth.jwt.secret",
 		"AUTH_ENABLE_AUTH":                      "auth.enable.auth",
 		"AUTH_REQUIRED_ROLE":                    "auth.required.role",
@@ -227,10 +193,8 @@ func Load() (*Config, error) {
 		"JWT_SECRET":                            "auth.jwt.secret",       // Common alias
 		"ENABLE_AUTH":                           "auth.enable.auth",      // Common alias
 		"MAX_LOG_LIMIT":                         "logging.max.log.limit", // Common alias
-		"LOGS_ADAPTER_ENABLED":                  "adapters.logs.adapter.enabled",
 		"LOGS_ADAPTER_URL":                      "adapters.logs.adapter.url",
 		"LOGS_ADAPTER_TIMEOUT":                  "adapters.logs.adapter.timeout",
-		"TRACING_ADAPTER_ENABLED":               "adapters.tracing.adapter.enabled",
 		"TRACING_ADAPTER_URL":                   "adapters.tracing.adapter.url",
 		"TRACING_ADAPTER_TIMEOUT":               "adapters.tracing.adapter.timeout",
 		"METRICS_ADAPTER_URL":                   "adapters.metrics.adapter.url",
@@ -245,24 +209,10 @@ func Load() (*Config, error) {
 		"UID_RESOLVER_MAX_AUTH_RETRY":           "uid_resolver.max.auth.retry",
 	}
 
-	// Environment variables that require string-to-boolean conversion
-	boolEnvKeys := map[string]bool{
-		"LOGS_ADAPTER_ENABLED":    true,
-		"TRACING_ADAPTER_ENABLED": true,
-	}
-
 	// Check for environment variables and map them to nested structure
 	for envKey, configKey := range envMappings {
 		if value := os.Getenv(envKey); value != "" {
-			// Convert string value to the appropriate type
 			var parsedValue interface{} = value
-			if boolEnvKeys[envKey] {
-				b, err := strconv.ParseBool(value)
-				if err != nil {
-					return nil, fmt.Errorf("invalid boolean value for env %s: %q: %w", envKey, value, err)
-				}
-				parsedValue = b
-			}
 
 			// Split the config key and create nested structure
 			parts := strings.Split(configKey, ".")
@@ -287,18 +237,6 @@ func Load() (*Config, error) {
 				envOverrides[section].(map[string]interface{})[key] = parsedValue
 			}
 		}
-	}
-
-	// Print deprecation notices for adapter-enabled environment variables
-	if os.Getenv("LOGS_ADAPTER_ENABLED") != "" {
-		fmt.Fprintln(os.Stderr, "NOTICE: LOGS_ADAPTER_ENABLED is deprecated. "+
-			"OpenChoreo observability now uses the adapter architecture by default. "+
-			"This environment variable will be removed in a future version.")
-	}
-	if os.Getenv("TRACING_ADAPTER_ENABLED") != "" {
-		fmt.Fprintln(os.Stderr, "NOTICE: TRACING_ADAPTER_ENABLED is deprecated. "+
-			"OpenChoreo observability now uses the adapter architecture by default. "+
-			"This environment variable will be removed in a future version.")
 	}
 
 	// Load environment overrides
@@ -352,19 +290,6 @@ func getDefaults() map[string]interface{} {
 			"write.timeout":    "30s",
 			"shutdown.timeout": "10s",
 		},
-		"opensearch": map[string]interface{}{
-			"address":        "http://localhost:9200",
-			"username":       "admin",
-			"password":       "admin",
-			"timeout":        "180s",
-			"max.retries":    3,
-			"index.prefix":   "container-logs-",
-			"index.pattern":  "container-logs-*",
-			"legacy.pattern": "choreo*",
-		},
-		"prometheus": map[string]interface{}{
-			"timeout": "30s",
-		},
 		"auth": map[string]interface{}{
 			"enable.auth":   false,
 			"jwt.secret":    "default-secret",
@@ -392,10 +317,8 @@ func getDefaults() map[string]interface{} {
 			"finops.agent.enabled":     false,
 		},
 		"adapters": map[string]interface{}{
-			"logs.adapter.enabled":    true,
 			"logs.adapter.url":        "http://logs-adapter:9098",
 			"logs.adapter.timeout":    "30s",
-			"tracing.adapter.enabled": true,
 			"tracing.adapter.url":     "http://tracing-adapter:9100",
 			"tracing.adapter.timeout": "30s",
 			"metrics.adapter.url":     "http://metrics-adapter:9099",
@@ -425,20 +348,6 @@ func (c *Config) validate() error {
 
 	if c.Server.InternalPort == c.Server.Port {
 		return fmt.Errorf("server internal port must differ from server port: %d", c.Server.Port)
-	}
-
-	if c.OpenSearch.Address == "" {
-		return fmt.Errorf("opensearch address is required")
-	}
-
-	if c.OpenSearch.Timeout <= 0 {
-		return fmt.Errorf("opensearch timeout must be positive")
-	}
-
-	// Prometheus configuration is optional when using MetricsAdapter
-	// Only validate if Prometheus address is explicitly provided
-	if c.Prometheus.Address != "" && c.Prometheus.Timeout <= 0 {
-		return fmt.Errorf("prometheus timeout must be positive when prometheus address is set")
 	}
 
 	if c.Logging.MaxLogLimit <= 0 {

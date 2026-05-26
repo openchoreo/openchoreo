@@ -11,16 +11,9 @@ observer:
     hostnames:
     - host.k3d.internal
     - observer.openchoreo.localhost
-  openSearchSecretName: opensearch-admin-credentials
   extraEnvs:
     - name: OBSERVER_BASE_URL
       value: "http://observer.openchoreo.localhost:11080"
-    - name: OPENSEARCH_ADDRESS
-      value: "https://opensearch:9200"
-    - name: PROMETHEUS_ADDRESS
-      value: "http://openchoreo-observability-prometheus:9091"
-    - name: PROMETHEUS_TIMEOUT
-      value: "30s"
   resources:
     limits:
       cpu: 50m

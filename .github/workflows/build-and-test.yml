@@ -213,7 +213,7 @@ jobs:
         run: |
           SHA=$(git rev-parse --short=8 HEAD)
           ALL_EXIST=true
-          for IMG in controller quick-start init-observability-opensearch openchoreo-api observer event-forwarder ai-rca-agent finops-agent openchoreo-cli cluster-gateway cluster-agent; do
+          for IMG in controller quick-start openchoreo-api observer event-forwarder ai-rca-agent finops-agent openchoreo-cli cluster-gateway cluster-agent; do
             if docker buildx imagetools inspect "ghcr.io/openchoreo/${IMG}:${SHA}" >/dev/null 2>&1; then
               echo "  ✅ ${IMG}:${SHA} exists"
             else

@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/openchoreo/openchoreo/internal/observer/adaptor"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 	"github.com/openchoreo/openchoreo/pkg/observability"
@@ -18,22 +17,20 @@ import (
 
 // LogsService provides logging functionality for the new API
 type LogsService struct {
-	logsAdapter    observability.LogsAdapter
-	defaultAdaptor *adaptor.DefaultLogsAdaptor
-	config         *config.Config
-	resolver       *ResourceUIDResolver
-	logger         *slog.Logger
+	logsAdapter observability.LogsAdapter
+	config      *config.Config
+	resolver    *ResourceUIDResolver
+	logger      *slog.Logger
 }
 
 var (
 	// ErrLogsResolveSearchScope indicates a failure while resolving scope/resource identifiers.
 	ErrLogsResolveSearchScope = errors.New("logs search scope resolution failed")
-	// ErrLogsRetrieval indicates a failure while retrieving logs from adapter or adaptor.
+	// ErrLogsRetrieval indicates a failure while retrieving logs from the adapter.
 	ErrLogsRetrieval = errors.New("logs retrieval failed")
 )
 
-// NewLogsService creates a new LogsService instance.
-// It initializes its own DefaultLogsAdaptor internally for OpenSearch queries.
+// NewLogsService creates a new LogsService instance backed by the HTTP logs adapter.
 // The resolver is passed in as it's shared across multiple services.
 func NewLogsService(
 	logsAdapter observability.LogsAdapter,
@@ -41,22 +38,14 @@ func NewLogsService(
 	cfg *config.Config,
 	logger *slog.Logger,
 ) (*LogsService, error) {
-	var defaultAdaptor *adaptor.DefaultLogsAdaptor
-	// Initialize default logs adaptor (queries OpenSearch when logs adapter is not enabled)
-	if !cfg.Adapters.LogsAdapterEnabled || logsAdapter == nil {
-		var err error
-		defaultAdaptor, err = adaptor.NewDefaultLogsAdaptor(&cfg.OpenSearch, logger)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize default logs adaptor: %w", err)
-		}
+	if logsAdapter == nil {
+		return nil, fmt.Errorf("logs adapter is required")
 	}
-
 	return &LogsService{
-		logsAdapter:    logsAdapter,
-		defaultAdaptor: defaultAdaptor,
-		config:         cfg,
-		resolver:       resolver,
-		logger:         logger,
+		logsAdapter: logsAdapter,
+		config:      cfg,
+		resolver:    resolver,
+		logger:      logger,
 	}, nil
 }
 
@@ -76,9 +65,7 @@ type internalSearchScope struct {
 	IsWorkflowScope bool
 }
 
-// QueryLogs queries logs based on the provided request
-// If experimental.use.logs.adapter is enabled, uses logs adapter
-// Otherwise, falls back to the default adaptor
+// QueryLogs queries logs based on the provided request, forwarding to the logs adapter.
 func (s *LogsService) QueryLogs(ctx context.Context, req *types.LogsQueryRequest) (*types.LogsQueryResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("request is required")
@@ -87,8 +74,7 @@ func (s *LogsService) QueryLogs(ctx context.Context, req *types.LogsQueryRequest
 		"startTime", req.StartTime,
 		"endTime", req.EndTime,
 		"hasSearchPhrase", req.SearchPhrase != "",
-		"limit", req.Limit,
-		"useLogsAdapter", s.config.Adapters.LogsAdapterEnabled)
+		"limit", req.Limit)
 
 	// Convert request to internal representation with resolved UIDs
 	scope, err := s.resolveSearchScope(ctx, req.SearchScope)
@@ -129,7 +115,6 @@ func (s *LogsService) queryComponentLogs(
 		"componentUid", scope.ComponentUID,
 		"environmentUid", scope.EnvironmentUID)
 
-	// Build adapter params for component logs
 	params := observability.ComponentApplicationLogsParams{
 		ComponentID:   scope.ComponentUID,
 		EnvironmentID: scope.EnvironmentUID,
@@ -143,21 +128,18 @@ func (s *LogsService) queryComponentLogs(
 		SortOrder:     req.SortOrder,
 	}
 
-	var result *observability.ComponentApplicationLogsResult
-	var err error
-
-	// Check if adapter is enabled and available
-	if s.config.Adapters.LogsAdapterEnabled && s.logsAdapter != nil {
-		s.logger.Debug("Using logs adapter for component logs query")
-		result, err = s.getComponentLogsFromAdapter(ctx, params)
-	} else {
-		s.logger.Debug("Using default adaptor for component logs query")
-		result, err = s.getComponentLogsFromDefaultAdaptor(ctx, params)
-	}
-
+	result, err := s.logsAdapter.GetComponentApplicationLogs(ctx, params)
 	if err != nil {
+		s.logger.Error("Failed to get component logs from adapter", "error", err)
 		return nil, fmt.Errorf("%w: %w", ErrLogsRetrieval, err)
 	}
+	if result == nil {
+		return nil, fmt.Errorf("%w: component logs adapter returned nil result", ErrLogsRetrieval)
+	}
+
+	s.logger.Debug("Component logs retrieved from adapter",
+		"count", len(result.Logs),
+		"total", result.TotalCount)
 
 	return s.convertComponentLogsToResponse(result), nil
 }
@@ -173,7 +155,6 @@ func (s *LogsService) queryWorkflowLogs(
 		"namespaceName", scope.NamespaceName,
 		"workflowRunName", scope.WorkflowRunName)
 
-	// Build adapter params for workflow logs
 	params := observability.WorkflowLogsParams{
 		Namespace:       scope.NamespaceName,
 		WorkflowRunName: scope.WorkflowRunName,
@@ -186,116 +167,20 @@ func (s *LogsService) queryWorkflowLogs(
 		SortOrder:       req.SortOrder,
 	}
 
-	var result *observability.WorkflowLogsResult
-	var err error
-
-	// Check if adapter is enabled and available
-	if s.config.Adapters.LogsAdapterEnabled && s.logsAdapter != nil {
-		s.logger.Debug("Using logs adapter for workflow logs query")
-		result, err = s.getWorkflowLogsFromAdapter(ctx, params)
-	} else {
-		s.logger.Debug("Using default adaptor for workflow logs query")
-		result, err = s.getWorkflowLogsFromDefaultAdaptor(ctx, params)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrLogsRetrieval, err)
-	}
-
-	return s.convertWorkflowLogsToResponse(result), nil
-}
-
-// getComponentLogsFromAdapter fetches component logs from the configured logs adapter
-func (s *LogsService) getComponentLogsFromAdapter(
-	ctx context.Context,
-	params observability.ComponentApplicationLogsParams,
-) (*observability.ComponentApplicationLogsResult, error) {
-	result, err := s.logsAdapter.GetComponentApplicationLogs(ctx, params)
-	if err != nil {
-		s.logger.Error("Failed to get component logs from adapter", "error", err)
-		return nil, fmt.Errorf("failed to get component logs from adapter: %w", err)
-	}
-	if result == nil {
-		return nil, fmt.Errorf("component logs adapter returned nil result")
-	}
-
-	s.logger.Debug("Component logs retrieved from adapter",
-		"count", len(result.Logs),
-		"total", result.TotalCount)
-
-	return result, nil
-}
-
-// getComponentLogsFromDefaultAdaptor fetches component logs from the default adaptor
-func (s *LogsService) getComponentLogsFromDefaultAdaptor(
-	ctx context.Context,
-	params observability.ComponentApplicationLogsParams,
-) (*observability.ComponentApplicationLogsResult, error) {
-	if s.defaultAdaptor == nil {
-		return nil, fmt.Errorf("default adaptor is not initialized")
-	}
-	result, err := s.defaultAdaptor.GetComponentApplicationLogs(ctx, params)
-	if err != nil {
-		s.logger.Error("Failed to get component logs from default adaptor", "error", err)
-		return nil, fmt.Errorf("failed to get component logs from default adaptor: %w", err)
-	}
-	if result == nil {
-		return nil, fmt.Errorf("default adaptor returned nil result for component logs")
-	}
-
-	s.logger.Debug("Component logs retrieved from default adaptor",
-		"count", len(result.Logs),
-		"total", result.TotalCount)
-
-	return result, nil
-}
-
-// getWorkflowLogsFromAdapter fetches workflow logs from the configured logs adapter
-func (s *LogsService) getWorkflowLogsFromAdapter(
-	ctx context.Context,
-	params observability.WorkflowLogsParams,
-) (*observability.WorkflowLogsResult, error) {
-	if s.logsAdapter == nil {
-		return nil, fmt.Errorf("logs adapter is not initialized")
-	}
 	result, err := s.logsAdapter.GetWorkflowLogs(ctx, params)
 	if err != nil {
 		s.logger.Error("Failed to get workflow logs from adapter", "error", err)
-		return nil, fmt.Errorf("failed to get workflow logs from adapter: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrLogsRetrieval, err)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("workflow logs adapter returned nil result")
+		return nil, fmt.Errorf("%w: workflow logs adapter returned nil result", ErrLogsRetrieval)
 	}
 
 	s.logger.Debug("Workflow logs retrieved from adapter",
 		"count", len(result.Logs),
 		"total", result.TotalCount)
 
-	return result, nil
-}
-
-// getWorkflowLogsFromDefaultAdaptor fetches workflow logs from the default adaptor
-func (s *LogsService) getWorkflowLogsFromDefaultAdaptor(
-	ctx context.Context,
-	params observability.WorkflowLogsParams,
-) (*observability.WorkflowLogsResult, error) {
-	if s.defaultAdaptor == nil {
-		return nil, fmt.Errorf("default adaptor is not initialized")
-	}
-	result, err := s.defaultAdaptor.GetWorkflowLogs(ctx, params)
-	if err != nil {
-		s.logger.Error("Failed to get workflow logs from default adaptor", "error", err)
-		return nil, fmt.Errorf("failed to get workflow logs from default adaptor: %w", err)
-	}
-	if result == nil {
-		return nil, fmt.Errorf("default adaptor returned nil result for workflow logs")
-	}
-
-	s.logger.Debug("Workflow logs retrieved from default adaptor",
-		"count", len(result.Logs),
-		"total", result.TotalCount)
-
-	return result, nil
+	return s.convertWorkflowLogsToResponse(result), nil
 }
 
 // convertComponentLogsToResponse converts component logs result to types response

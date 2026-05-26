@@ -134,6 +134,7 @@ func TestMetricsAdapter_QueryMetrics_NilRequest(t *testing.T) {
 
 	assert.Nil(t, result)
 	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrMetricsInvalidRequest)
 	assert.Contains(t, err.Error(), "request must not be nil")
 }
 
