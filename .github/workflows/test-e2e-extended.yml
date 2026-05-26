@@ -69,6 +69,9 @@ jobs:
               ;;
           esac
 
+      - name: Add e2e host entries
+        run: echo '127.0.0.1 api.e2e-cp.local thunder.e2e-cp.local openchoreo.e2e-cp.local' | sudo tee -a /etc/hosts
+
       - name: Run extended e2e tests (tier 3)
         run: |
           make e2e \

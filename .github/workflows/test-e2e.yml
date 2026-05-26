@@ -59,6 +59,9 @@ jobs:
           echo "${{ env.YQ_SHA256 }}  /tmp/yq" | sha256sum -c -
           sudo install /tmp/yq /usr/local/bin/yq
 
+      - name: Add e2e host entries
+        run: echo '127.0.0.1 api.e2e-cp.local thunder.e2e-cp.local openchoreo.e2e-cp.local' | sudo tee -a /etc/hosts
+
       - name: Run e2e tests
         run: |
           make e2e \
