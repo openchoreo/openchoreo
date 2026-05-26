@@ -5,8 +5,10 @@ package workflowrun
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -16,6 +18,7 @@ import (
 	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 )
 
 const (
@@ -205,11 +208,15 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRunStatus(ctx context.Context, 
 func (s *workflowRunServiceWithAuthz) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error) {
 	// Resolve the component's workflow reference for the authz check
 	var workflowAttr string
-	var component openchoreov1alpha1.Component
-	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: componentName, Namespace: namespaceName}, &component); err == nil {
-		if component.Spec.Workflow != nil {
-			workflowAttr = formatWorkflowAttr(namespaceName, component.Spec.Workflow.Kind, component.Spec.Workflow.Name)
+	var comp openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: componentName, Namespace: namespaceName}, &comp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, component.ErrComponentNotFound
 		}
+		return nil, fmt.Errorf("failed to resolve component %s/%s for authz check: %w", namespaceName, componentName, err)
+	}
+	if comp.Spec.Workflow != nil {
+		workflowAttr = formatWorkflowAttr(namespaceName, comp.Spec.Workflow.Kind, comp.Spec.Workflow.Name)
 	}
 
 	if err := s.authz.Check(ctx, services.CheckRequest{
