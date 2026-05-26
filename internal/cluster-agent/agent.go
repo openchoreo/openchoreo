@@ -246,7 +246,7 @@ func (a *Agent) handleConnection(ctx context.Context) {
 		if err := json.Unmarshal(message, &streamInit); err == nil && streamInit.IsUpgrade && streamInit.RequestID != "" {
 			switch streamInit.Target {
 			case "hubble":
-				go a.handleHubbleStreamInit(&streamInit)
+				go a.handleHubbleStreamInit(ctx, &streamInit)
 			default:
 				go a.handleHTTPTunnelStreamInit(&streamInit)
 			}

@@ -124,7 +124,11 @@ func hubbleRelayAddr() (string, error) {
 // handleHubbleStreamInit opens a server-streaming gRPC call to Hubble relay
 // and forwards each flow event as an HTTPTunnelStreamChunk back to the gateway.
 // Dispatched from Agent.handleHTTPTunnelStreamInit for Target == "hubble".
-func (a *Agent) handleHubbleStreamInit(init *messaging.HTTPTunnelStreamInit) {
+//
+// parentCtx is the agent's message-loop context, so a websocket disconnect (or
+// any cancel upstream) propagates into the gRPC Recv loop and tears the stream
+// down without relying on the gateway delivering a Close chunk.
+func (a *Agent) handleHubbleStreamInit(parentCtx context.Context, init *messaging.HTTPTunnelStreamInit) {
 	logger := a.logger.With("requestID", init.RequestID, "target", "hubble")
 	logger.Info("Received hubble stream init")
 
@@ -143,7 +147,7 @@ func (a *Agent) handleHubbleStreamInit(init *messaging.HTTPTunnelStreamInit) {
 		return
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(parentCtx)
 	session := &hubbleSession{
 		requestID: init.RequestID,
 		cancel:    cancel,

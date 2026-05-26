@@ -239,7 +239,7 @@ func TestAgent_HandleHubbleStreamInit_InvalidQuery(t *testing.T) {
 	agent, mock := newHubbleTestAgent(t)
 
 	// "%zz" is an invalid percent-escape — url.ParseQuery rejects it.
-	agent.handleHubbleStreamInit(&messaging.HTTPTunnelStreamInit{
+	agent.handleHubbleStreamInit(context.Background(), &messaging.HTTPTunnelStreamInit{
 		RequestID: "req-1",
 		Target:    "hubble",
 		Query:     "%zz",
@@ -257,7 +257,7 @@ func TestAgent_HandleHubbleStreamInit_MissingRequiredParams(t *testing.T) {
 	agent, mock := newHubbleTestAgent(t)
 
 	// "environment" is set but "namespace" is missing.
-	agent.handleHubbleStreamInit(&messaging.HTTPTunnelStreamInit{
+	agent.handleHubbleStreamInit(context.Background(), &messaging.HTTPTunnelStreamInit{
 		RequestID: "req-2",
 		Target:    "hubble",
 		Query:     "environment=development",
@@ -273,7 +273,7 @@ func TestAgent_HandleHubbleStreamInit_RelayAddrUnset(t *testing.T) {
 	t.Setenv("HUBBLE_RELAY_ADDR", "")
 	agent, mock := newHubbleTestAgent(t)
 
-	agent.handleHubbleStreamInit(&messaging.HTTPTunnelStreamInit{
+	agent.handleHubbleStreamInit(context.Background(), &messaging.HTTPTunnelStreamInit{
 		RequestID: "req-3",
 		Target:    "hubble",
 		Query:     "environment=development&namespace=team-1",
@@ -291,7 +291,7 @@ func TestAgent_HandleHubbleStreamInit_OpenStreamError(t *testing.T) {
 	stubOpenHubbleFlowStream(t, nil, errors.New("dial refused"))
 
 	agent, mock := newHubbleTestAgent(t)
-	agent.handleHubbleStreamInit(&messaging.HTTPTunnelStreamInit{
+	agent.handleHubbleStreamInit(context.Background(), &messaging.HTTPTunnelStreamInit{
 		RequestID: "req-4",
 		Target:    "hubble",
 		Query:     "environment=development&namespace=team-1",
@@ -315,7 +315,7 @@ func TestAgent_HandleHubbleStreamInit_HappyPath(t *testing.T) {
 	stubOpenHubbleFlowStream(t, stream, nil)
 
 	agent, mock := newHubbleTestAgent(t)
-	agent.handleHubbleStreamInit(&messaging.HTTPTunnelStreamInit{
+	agent.handleHubbleStreamInit(context.Background(), &messaging.HTTPTunnelStreamInit{
 		RequestID: "req-5",
 		Target:    "hubble",
 		Query:     "environment=development&namespace=team-1",
@@ -341,6 +341,65 @@ func TestAgent_HandleHubbleStreamInit_HappyPath(t *testing.T) {
 	assert.Empty(t, agent.hubbleStreams, "session must be deregistered on stream completion")
 }
 
+// ctxBlockingFlowStream blocks Recv until its ctx is cancelled, then returns
+// the ctx error. Used to drive the parent-cancellation regression test.
+type ctxBlockingFlowStream struct {
+	ctx context.Context
+}
+
+func (s *ctxBlockingFlowStream) Recv() (*observer.GetFlowsResponse, error) {
+	<-s.ctx.Done()
+	return nil, s.ctx.Err()
+}
+
+// Regression: canceling the parent ctx (e.g. websocket disconnect) must
+// propagate into the gRPC Recv loop so the hubble session tears down without
+// waiting for the gateway to deliver a Close chunk.
+func TestAgent_HandleHubbleStreamInit_ParentCtxCancelStopsStream(t *testing.T) {
+	t.Setenv("HUBBLE_RELAY_ADDR", "hubble-relay.test.svc:4245")
+
+	// Capture the ctx the handler hands to the dialer and route it into a
+	// stream that blocks until cancelled — so we can verify the parent ctx
+	// reaches the Recv loop end-to-end.
+	prev := openHubbleFlowStream
+	openHubbleFlowStream = func(ctx context.Context, _ string, _ *observer.GetFlowsRequest) (hubbleFlowStream, func(), error) {
+		return &ctxBlockingFlowStream{ctx: ctx}, func() {}, nil
+	}
+	t.Cleanup(func() { openHubbleFlowStream = prev })
+
+	agent, mock := newHubbleTestAgent(t)
+
+	parentCtx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		agent.handleHubbleStreamInit(parentCtx, &messaging.HTTPTunnelStreamInit{
+			RequestID: "req-ctx",
+			Target:    "hubble",
+			Query:     "environment=development&namespace=team-1",
+		})
+		close(done)
+	}()
+
+	// Wait for the sentinel chunk so we know the handler has entered the Recv loop.
+	require.Eventually(t, func() bool {
+		return len(mock.getWrittenMessages()) >= 1
+	}, time.Second, 5*time.Millisecond, "sentinel chunk should fire once stream is active")
+
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("parent ctx cancel did not unblock handleHubbleStreamInit")
+	}
+
+	chunks := decodeChunks(t, mock.getWrittenMessages())
+	require.GreaterOrEqual(t, len(chunks), 2, "expected at least sentinel + final close")
+	last := chunks[len(chunks)-1]
+	assert.True(t, last.IsClose, "final frame must be the close marker")
+	assert.Empty(t, agent.hubbleStreams, "session must be deregistered after ctx cancel")
+}
+
 // On a non-EOF stream error the handler still exits cleanly and emits the
 // terminal close chunk; the seam's closer must still fire (asserted by
 // stubOpenHubbleFlowStream's cleanup).
@@ -357,7 +416,7 @@ func TestAgent_HandleHubbleStreamInit_StreamErrorAfterFlows(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		agent.handleHubbleStreamInit(&messaging.HTTPTunnelStreamInit{
+		agent.handleHubbleStreamInit(context.Background(), &messaging.HTTPTunnelStreamInit{
 			RequestID: "req-6",
 			Target:    "hubble",
 			Query:     "environment=development&namespace=team-1",
