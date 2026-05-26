@@ -262,12 +262,8 @@ func generateTrafficAndQuery(marker string) {
 		url, marker, trafficRPS, trafficDuration,
 	)
 	if err != nil {
-		// Fail soft — a partial loadgen still produces a few log lines and
-		// metric samples, which is often enough for the subsequent
-		// Eventually to satisfy. Surface the error in the writer so a CI
-		// failure is diagnosable.
-		fmt.Fprintf(GinkgoWriter, "loadgen returned error: %v\noutput tail: %s\n",
-			err, lastLines(out, 20))
+		Fail(fmt.Sprintf("loadgen returned error: %v\noutput tail: %s",
+			err, lastLines(out, 20)))
 	}
 }
 

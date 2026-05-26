@@ -3,9 +3,8 @@
 # headers, and body — to stdout as a single-line JSON blob. The alerts suite
 # reads back received notifications by `kubectl logs` on this pod.
 #
-# We pin to a digest-free tag in the major-version range (31) so a new minor
-# can ship without re-pinning the suite. The image is ~25MB and starts in
-# <1s on the k3d node.
+# We pin to the multi-arch digest for tag 31 so e2e runs stay deterministic.
+# The image is ~25MB and starts in <1s on the k3d node.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,9 +22,23 @@ spec:
       labels:
         app: webhook-receiver
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: receiver
-          image: mendhak/http-https-echo:31
+          image: mendhak/http-https-echo@sha256:0fefe04350131d7bb28355e3bf037062643e45f4a8a32f23679529e1b09d8ce4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 10001
+            seccompProfile:
+              type: RuntimeDefault
           env:
             - name: HTTP_PORT
               value: "8080"

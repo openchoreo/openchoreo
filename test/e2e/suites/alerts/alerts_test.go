@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -206,7 +205,7 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 				"-o", `jsonpath={.items[*].spec.name}`,
 			)
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(out).To(ContainSubstring(alertRuleLog),
+			g.Expect(strings.Fields(out)).To(ContainElement(alertRuleLog),
 				"no rendered ObservabilityAlertRule yet for %s", alertRuleLog)
 		}, 5*time.Minute, 5*time.Second).Should(Succeed())
 
@@ -319,21 +318,172 @@ func containsAlert(bodies []string, ruleName string) bool {
 	return false
 }
 
-// alertRuleTraitYAML returns the observability-alert-rule ClusterTrait
-// definition copied verbatim from samples/component-alerts/alert-rule-trait.yaml.
+// alertRuleTraitManifest is copied verbatim from
+// samples/component-alerts/alert-rule-trait.yaml.
 // The samples tree is not a stable test input (the plan calls this out), so
 // we keep an inline copy here.
+const alertRuleTraitManifest = `---
+# Trait for Alert Rules
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterTrait
+metadata:
+  name: observability-alert-rule
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      properties:
+        description:
+          type: string
+          description: "A human-readable description of what this alert rule monitors and when it triggers."
+        severity:
+          type: string
+          enum:
+            - info
+            - warning
+            - critical
+          default: warning
+          description: "The severity level of alerts triggered by this rule. Determines alert priority and notification urgency."
+        source:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - log
+                - metric
+                - budget
+              description: "The data source type for the alert rule."
+            query:
+              type: string
+              default: ""
+              description: "The query expression for log-based alerts. Required when source type is 'log'."
+            metric:
+              type: string
+              default: ""
+              description: "The predefined metric to monitor for metric-based alerts. Must be one of: cpu_usage, memory_usage. Required when source type is 'metric'."
+          required:
+            - type
+        condition:
+          type: object
+          properties:
+            window:
+              type: string
+              default: "5m"
+              description: "The time window over which data is aggregated before evaluating the alert condition (e.g. 5m, 10m, 30m, 1h)."
+            interval:
+              type: string
+              default: "1m"
+              description: "The frequency at which the alert rule is evaluated (e.g. 1m, 5m, 15m, 30m)."
+            operator:
+              type: string
+              enum:
+                - gt
+                - lt
+                - gte
+                - lte
+                - eq
+              default: gt
+              description: "The comparison operator used to evaluate the condition against the threshold (gt: greater than, lt: less than, gte: greater than or equal, lte: less than or equal, eq: equal)."
+            threshold:
+              type: integer
+              default: 10
+              description: "The numeric threshold value used with the operator to determine when the alert triggers."
+      required:
+        - description
+        - source
+        - condition
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          default: true
+          description: "Controls whether this alert rule is active. When disabled, the rule will not trigger alerts."
+        actions:
+          type: object
+          properties:
+            notifications:
+              type: object
+              properties:
+                channels:
+                  type: array
+                  items:
+                    type: string
+                  default: []
+                  description: "The notification channel identifiers where alerts should be delivered. Configured per environment by platform engineers. If not provided, defaults to the environment's default notification channel."
+            incident:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  default: false
+                  description: "Enables incident creation when this alert fires. When enabled, a corresponding incident will be created in the incident management system."
+                triggerAiCostAnalysis:
+                  type: boolean
+                  default: false
+                  description: "Enables AI-powered cost analysis when an incident is created for a budget alert. Provides automated cost breakdown and optimization recommendations. Requires incident.enabled to also be true and is only valid for budget source type."
+                triggerAiRca:
+                  type: boolean
+                  default: false
+                  description: "Enables AI-powered root cause analysis when an incident is created. When enabled, provides automated reports of root causes for alert conditions. Requires incident.enabled to also be true."
+
+  validations:
+    - rule: "${(has(environmentConfigs.actions) && has(environmentConfigs.actions.notifications) && environmentConfigs.actions.notifications.channels.size() > 0) || (has(environment.defaultNotificationChannel) && environment.defaultNotificationChannel != '')}"
+      message: "A notification channel is mandatory for alert rules (incident-only rules are not supported). Provide environmentConfigs.actions.notifications.channels or set environment.defaultNotificationChannel."
+    - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiRca == false || environmentConfigs.actions.incident.enabled == true}"
+      message: "incident.enabled must be true when triggerAiRca is true. AI-powered root cause analysis requires incident creation to be enabled."
+    - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiCostAnalysis == false || environmentConfigs.actions.incident.enabled == true}"
+      message: "incident.enabled must be true when triggerAiCostAnalysis is true. AI-powered cost analysis requires incident creation to be enabled."
+    - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiCostAnalysis == false || parameters.source.type == 'budget'}"
+      message: "triggerAiCostAnalysis can only be enabled for budget source type alerts."
+
+  creates:
+    - targetPlane: observabilityplane
+      includeWhen: ${has(dataplane.observabilityPlaneRef)}
+      template:
+        apiVersion: openchoreo.dev/v1alpha1
+        kind: ObservabilityAlertRule
+        metadata:
+          name: ${metadata.name}-${trait.instanceName}
+          namespace: ${metadata.namespace}
+          labels:
+            # Required for observability backends. Automatically populated by the controller.
+            openchoreo.dev/component-uid: ${metadata.componentUID}
+            openchoreo.dev/project-uid: ${metadata.projectUID}
+            openchoreo.dev/environment-uid: ${metadata.environmentUID}
+        spec:
+          name: ${trait.instanceName}
+          description: ${parameters.description}
+          severity: ${parameters.severity}
+          enabled: ${environmentConfigs.enabled}
+          source:
+            type: ${parameters.source.type}
+            query: ${parameters.source.query}
+            metric: ${parameters.source.metric}
+          condition:
+            window: ${parameters.condition.window}
+            interval: ${parameters.condition.interval}
+            operator: ${parameters.condition.operator}
+            threshold: ${parameters.condition.threshold}
+          actions:
+            notifications:
+              channels: >-
+                ${(has(environmentConfigs.actions) && has(environmentConfigs.actions.notifications) && environmentConfigs.actions.notifications.channels.size() > 0)
+                  ? environmentConfigs.actions.notifications.channels
+                  : [environment.defaultNotificationChannel]}
+            incident:
+              enabled: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && (environmentConfigs.actions.incident.enabled || environmentConfigs.actions.incident.triggerAiRca || environmentConfigs.actions.incident.triggerAiCostAnalysis)}
+              triggerAiCostAnalysis: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiCostAnalysis}
+              triggerAiRca: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiRca}
+`
+
+// alertRuleTraitYAML returns the observability-alert-rule ClusterTrait
+// definition used by the alerts suite.
 func alertRuleTraitYAML() string {
-	root, err := framework.RepoRoot()
-	if err != nil {
-		panic(err)
-	}
-	path := filepath.Join(root, "samples/component-alerts/alert-rule-trait.yaml")
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		panic(fmt.Sprintf("read %s: %v", path, err))
-	}
-	return string(raw)
+	return alertRuleTraitManifest
 }
 
 // buildComponentForLogsYAML returns a Component + WorkflowRun pair for the

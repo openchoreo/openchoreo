@@ -32,7 +32,7 @@ const (
 	releaseBindingSuffix   = "-" + envDev
 	servicePort            = 9090
 	notificationChannel    = "webhook-notification-channel-development"
-	imageGreeter           = "ghcr.io/openchoreo/samples/greeter-service:latest"
+	imageGreeter           = "ghcr.io/openchoreo/samples/greeter-service@sha256:5c67732c99ac3505dbab14c7ec92c33be57904420d62812694c64b56c5f92d40"
 	curlImage              = "curlimages/curl:8.10.1"
 	curlPodLabel           = "app=alerts-tester"
 	curlContainer          = "tester"
