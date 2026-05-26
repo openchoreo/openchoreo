@@ -75,7 +75,7 @@
               - configMapRef:
                   name: test-app-dev-env-configs-6f21fc92
               - secretRef:
-                  name: test-app-dev-env-secrets-8271181d
+                  name: test-app-dev-env-secrets-757009dd
             volumeMounts:
               - name: file-mount-6c698306
                 mountPath: /etc/config/config.json
@@ -98,14 +98,14 @@
               name: test-app-dev-config-app-properties-ac691794
           - name: file-mount-9b2ef275
             secret:
-              secretName: test-app-dev-secret-tls-crt-82109527
+              secretName: test-app-dev-secret-tls-crt-1381e562
           - name: file-mount-5953ef7b
             secret:
-              secretName: test-app-dev-secret-application-yaml-b333f692
+              secretName: test-app-dev-secret-application-yaml-07d48de3
 - apiVersion: external-secrets.io/v1
   kind: ExternalSecret
   metadata:
-    name: test-app-dev-env-secrets-8271181d
+    name: test-app-dev-env-secrets-757009dd
     namespace: test-namespace
     labels:
       openchoreo.dev/component: test-app
@@ -121,7 +121,7 @@
       name: dev-vault-store
       kind: ClusterSecretStore
     target:
-      name: test-app-dev-env-secrets-8271181d
+      name: test-app-dev-env-secrets-757009dd
       creationPolicy: Owner
     data:
       - secretKey: DB_PASSWORD
@@ -135,7 +135,7 @@
 - apiVersion: external-secrets.io/v1
   kind: ExternalSecret
   metadata:
-    name: test-app-dev-secret-application-yaml-b333f692
+    name: test-app-dev-secret-application-yaml-07d48de3
     namespace: test-namespace
     labels:
       openchoreo.dev/component: test-app
@@ -151,7 +151,7 @@
       name: dev-vault-store
       kind: ClusterSecretStore
     target:
-      name: test-app-dev-secret-application-yaml-b333f692
+      name: test-app-dev-secret-application-yaml-07d48de3
       creationPolicy: Owner
     data:
       - secretKey: application.yaml
@@ -161,7 +161,7 @@
 - apiVersion: external-secrets.io/v1
   kind: ExternalSecret
   metadata:
-    name: test-app-dev-secret-tls-crt-82109527
+    name: test-app-dev-secret-tls-crt-1381e562
     namespace: test-namespace
     labels:
       openchoreo.dev/component: test-app
@@ -177,7 +177,7 @@
       name: dev-vault-store
       kind: ClusterSecretStore
     target:
-      name: test-app-dev-secret-tls-crt-82109527
+      name: test-app-dev-secret-tls-crt-1381e562
       creationPolicy: Owner
     data:
       - secretKey: tls.crt

@@ -124,8 +124,8 @@ func TestCELMacroIntegration(t *testing.T) {
 	loggingVolName := "file-mount-" + generateVolumeHash("/etc/config", "logging.properties")
 	appYamlConfigRes := generateConfigResourceName(prefix, "app.yaml")
 	loggingConfigRes := generateConfigResourceName(prefix, "logging.properties")
-	envConfigsRes := generateEnvResourceName(prefix, "env-configs")
-	envSecretsRes := generateEnvResourceName(prefix, "env-secrets")
+	envConfigsRes := generateEnvResourceName(prefix)
+	envSecretsRes := generateSecretEnvResourceName(prefix, []EnvConfiguration{{Name: "DB_PASSWORD", RemoteRef: &RemoteRefData{Key: "db/password", Property: "value"}}})
 
 	// buildVolumes sorts output by volume name; compute the sorted order.
 	type volInfo struct {

@@ -81,7 +81,7 @@ func buildSecretFileList(cc ContainerConfigurations, prefix string) []SecretFile
 		result[i] = SecretFileListEntry{
 			Name:         f.Name,
 			MountPath:    f.MountPath,
-			ResourceName: generateSecretResourceName(prefix, f.Name),
+			ResourceName: generateSecretResourceName(prefix, f.Name, f.RemoteRef),
 			RemoteRef:    f.RemoteRef,
 		}
 	}
@@ -92,12 +92,12 @@ func buildEnvFrom(cc ContainerConfigurations, prefix string) []EnvFromEntry {
 	result := make([]EnvFromEntry, 0, 2)
 	if len(cc.Configs.Envs) > 0 {
 		result = append(result, EnvFromEntry{
-			ConfigMapRef: &NameRef{Name: generateEnvResourceName(prefix, "env-configs")},
+			ConfigMapRef: &NameRef{Name: generateEnvResourceName(prefix)},
 		})
 	}
 	if len(cc.Secrets.Envs) > 0 {
 		result = append(result, EnvFromEntry{
-			SecretRef: &NameRef{Name: generateEnvResourceName(prefix, "env-secrets")},
+			SecretRef: &NameRef{Name: generateSecretEnvResourceName(prefix, cc.Secrets.Envs)},
 		})
 	}
 	return result
@@ -135,7 +135,7 @@ func buildVolumes(cc ContainerConfigurations, prefix string) []VolumeEntry {
 		name := "file-mount-" + generateVolumeHash(f.MountPath, f.Name)
 		byName[name] = VolumeEntry{
 			Name:   name,
-			Secret: &SecretVolume{SecretName: generateSecretResourceName(prefix, f.Name)},
+			Secret: &SecretVolume{SecretName: generateSecretResourceName(prefix, f.Name, f.RemoteRef)},
 		}
 	}
 
@@ -157,7 +157,7 @@ func buildConfigEnvs(cc ContainerConfigurations, prefix string) []EnvsByContaine
 		return []EnvsByContainerEntry{}
 	}
 	return []EnvsByContainerEntry{{
-		ResourceName: generateEnvResourceName(prefix, "env-configs"),
+		ResourceName: generateEnvResourceName(prefix),
 		Envs:         cc.Configs.Envs,
 	}}
 }
@@ -167,7 +167,7 @@ func buildSecretEnvs(cc ContainerConfigurations, prefix string) []EnvsByContaine
 		return []EnvsByContainerEntry{}
 	}
 	return []EnvsByContainerEntry{{
-		ResourceName: generateEnvResourceName(prefix, "env-secrets"),
+		ResourceName: generateSecretEnvResourceName(prefix, cc.Secrets.Envs),
 		Envs:         cc.Secrets.Envs,
 	}}
 }
@@ -296,20 +296,60 @@ func generateConfigResourceName(prefix, filename string) string {
 	)
 }
 
-func generateSecretResourceName(prefix, filename string) string {
-	return kubernetes.GenerateK8sNameWithLengthLimit(
+// generateSecretResourceName generates a resource name for a secret file.
+// The remoteRef content is included in the hash computation so that a change
+// in secret reference produces a new ExternalSecret (and K8s Secret),
+// preventing pods from reading stale values.
+func generateSecretResourceName(prefix, filename string, remoteRef *RemoteRefData) string {
+	return kubernetes.GenerateK8sNameWithExtraHashInput(
 		kubernetes.MaxResourceNameLength,
+		remoteRefContentHash(remoteRef),
 		prefix,
 		"secret",
 		strings.ReplaceAll(filename, ".", "-"),
 	)
 }
 
-func generateEnvResourceName(prefix, suffix string) string {
+// generateSecretEnvResourceName generates a resource name for secret env resources.
+// The remoteRef content from all env entries is included in the hash computation
+// so that a change in secret references produces a new ExternalSecret.
+func generateSecretEnvResourceName(prefix string, envs []EnvConfiguration) string {
+	return kubernetes.GenerateK8sNameWithExtraHashInput(
+		kubernetes.MaxResourceNameLength,
+		secretEnvsContentHash(envs),
+		prefix,
+		"env-secrets",
+	)
+}
+
+func remoteRefContentHash(ref *RemoteRefData) string {
+	if ref == nil {
+		return ""
+	}
+	h := fnv.New32a()
+	fmt.Fprintf(h, "%s\x00%s\x00%s", ref.Key, ref.Property, ref.Version)
+	return fmt.Sprintf("%08x", h.Sum32())
+}
+
+func secretEnvsContentHash(envs []EnvConfiguration) string {
+	if len(envs) == 0 {
+		return ""
+	}
+	h := fnv.New32a()
+	for _, env := range envs {
+		if env.RemoteRef == nil {
+			continue
+		}
+		fmt.Fprintf(h, "%s\x00%s\x00%s\x00%s\x00", env.Name, env.RemoteRef.Key, env.RemoteRef.Property, env.RemoteRef.Version)
+	}
+	return fmt.Sprintf("%08x", h.Sum32())
+}
+
+func generateEnvResourceName(prefix string) string {
 	return kubernetes.GenerateK8sNameWithLengthLimit(
 		kubernetes.MaxResourceNameLength,
 		prefix,
-		suffix,
+		"env-configs",
 	)
 }
 

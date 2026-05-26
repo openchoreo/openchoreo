@@ -190,7 +190,7 @@ func TestConfigurationsToSecretFileListMacro(t *testing.T) {
 			want: []any{
 				map[string]any{
 					"name": "secret.yaml", "mountPath": "/etc/secret.yaml",
-					"resourceName": generateSecretResourceName("app-dev", "secret.yaml"),
+					"resourceName": generateSecretResourceName("app-dev", "secret.yaml", &RemoteRefData{Key: "my-secret", Property: "password"}),
 					"remoteRef":    map[string]any{"key": "my-secret", "property": "password"},
 				},
 			},
@@ -207,7 +207,7 @@ func TestConfigurationsToSecretFileListMacro(t *testing.T) {
 				Secrets: ConfigurationItems{Files: []FileConfiguration{{Name: "secret.yaml", MountPath: "/s", RemoteRef: &RemoteRefData{Key: "k"}}}},
 			}),
 			want: []any{
-				map[string]any{"name": "secret.yaml", "mountPath": "/s", "resourceName": generateSecretResourceName("app-dev", "secret.yaml"), "remoteRef": map[string]any{"key": "k"}},
+				map[string]any{"name": "secret.yaml", "mountPath": "/s", "resourceName": generateSecretResourceName("app-dev", "secret.yaml", &RemoteRefData{Key: "k"}), "remoteRef": map[string]any{"key": "k"}},
 			},
 		},
 	}
@@ -241,8 +241,8 @@ func TestContainerConfigEnvFromMacro(t *testing.T) {
 				Secrets: ConfigurationItems{Envs: []EnvConfiguration{{Name: "API_KEY", RemoteRef: &RemoteRefData{Key: "api-secret", Property: "key"}}}},
 			}),
 			want: []any{
-				map[string]any{"configMapRef": map[string]any{"name": generateEnvResourceName("app-dev", "env-configs")}},
-				map[string]any{"secretRef": map[string]any{"name": generateEnvResourceName("app-dev", "env-secrets")}},
+				map[string]any{"configMapRef": map[string]any{"name": generateEnvResourceName("app-dev")}},
+				map[string]any{"secretRef": map[string]any{"name": generateSecretEnvResourceName("app-dev", []EnvConfiguration{{Name: "API_KEY", RemoteRef: &RemoteRefData{Key: "api-secret", Property: "key"}}})}},
 			},
 		},
 		{
@@ -251,7 +251,7 @@ func TestContainerConfigEnvFromMacro(t *testing.T) {
 				Configs: ConfigurationItems{Envs: []EnvConfiguration{{Name: "DEBUG", Value: "true"}}},
 			}),
 			want: []any{
-				map[string]any{"configMapRef": map[string]any{"name": generateEnvResourceName("app-dev", "env-configs")}},
+				map[string]any{"configMapRef": map[string]any{"name": generateEnvResourceName("app-dev")}},
 			},
 		},
 		{
@@ -313,7 +313,10 @@ func TestEnvFromCanBeUsedWithCELOperations(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		want := []any{generateEnvResourceName("app-dev", "env-configs"), generateEnvResourceName("app-dev", "env-secrets")}
+		want := []any{
+			generateEnvResourceName("app-dev"),
+			generateSecretEnvResourceName("app-dev", []EnvConfiguration{{Name: "S1", RemoteRef: &RemoteRefData{Key: "s", Property: "k"}}}),
+		}
 		if diff := cmp.Diff(want, result); diff != "" {
 			t.Errorf("mismatch (-want +got):\n%s", diff)
 		}
@@ -380,7 +383,7 @@ func TestConfigurationsToVolumesMacro(t *testing.T) {
 			}),
 			want: []any{
 				map[string]any{"name": "file-mount-" + generateVolumeHash("/etc/config", "app.properties"), "configMap": map[string]any{"name": generateConfigResourceName("app-dev", "app.properties")}},
-				map[string]any{"name": "file-mount-" + generateVolumeHash("/etc/tls", "tls.crt"), "secret": map[string]any{"secretName": generateSecretResourceName("app-dev", "tls.crt")}},
+				map[string]any{"name": "file-mount-" + generateVolumeHash("/etc/tls", "tls.crt"), "secret": map[string]any{"secretName": generateSecretResourceName("app-dev", "tls.crt", &RemoteRefData{Key: "tls"})}},
 			},
 		},
 		{
@@ -447,7 +450,7 @@ func TestConfigurationsToConfigEnvsByContainerMacro(t *testing.T) {
 			}),
 			want: []any{
 				map[string]any{
-					"resourceName": generateEnvResourceName("app-dev", "env-configs"),
+					"resourceName": generateEnvResourceName("app-dev"),
 					"envs": []any{
 						map[string]any{"name": "LOG_LEVEL", "value": "info"},
 						map[string]any{"name": "DEBUG_MODE", "value": "true"},
@@ -498,7 +501,7 @@ func TestConfigurationsToSecretEnvsByContainerMacro(t *testing.T) {
 			}),
 			want: []any{
 				map[string]any{
-					"resourceName": generateEnvResourceName("app-dev", "env-secrets"),
+					"resourceName": generateSecretEnvResourceName("app-dev", []EnvConfiguration{{Name: "DB_PASSWORD", RemoteRef: &RemoteRefData{Key: "db-password", Property: "password"}}}),
 					"envs": []any{
 						map[string]any{"name": "DB_PASSWORD", "value": "", "remoteRef": map[string]any{"key": "db-password", "property": "password"}},
 					},
