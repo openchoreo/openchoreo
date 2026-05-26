@@ -191,6 +191,21 @@ func TestEndpointInScope_ProjectMismatchRejects(t *testing.T) {
 		"a project mismatch is enough to mark the peer out-of-scope even if other labels line up")
 }
 
+func TestEndpointInScope_DuplicateLabelsDoNotInflateMatch(t *testing.T) {
+	// Regression: duplicate matching labels must not be counted twice.
+	// Here only two of the four required keys are actually present, but each
+	// appears twice — naive counting would treat it as a full match.
+	scope := tenantScope()
+	ep := &flow.Endpoint{Labels: []string{
+		"k8s:openchoreo.dev/namespace=default",
+		"k8s:openchoreo.dev/namespace=default",
+		"k8s:openchoreo.dev/environment=development",
+		"k8s:openchoreo.dev/environment=development",
+	}}
+	assert.False(t, endpointInScope(ep, scope),
+		"missing project+component must still mark endpoint out-of-scope despite duplicate matches on namespace/environment")
+}
+
 func TestFilterLabels_DropsCiliumAndUIDsForInScope(t *testing.T) {
 	got := filterLabels([]string{
 		"k8s:io.cilium.k8s.policy.cluster=default",

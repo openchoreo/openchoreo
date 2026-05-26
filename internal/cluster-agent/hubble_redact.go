@@ -92,17 +92,17 @@ func endpointInScope(ep *flow.Endpoint, scope wirelogsScope) bool {
 	if scope.component != "" {
 		want[labels.LabelKeyComponentName] = scope.component
 	}
-	matched := 0
+	matchedKeys := make(map[string]struct{}, len(want))
 	for _, l := range ep.Labels {
 		k, v, ok := parseLabel(l)
 		if !ok {
 			continue
 		}
 		if w, needs := want[k]; needs && w == v {
-			matched++
+			matchedKeys[k] = struct{}{}
 		}
 	}
-	return matched == len(want)
+	return len(matchedKeys) == len(want)
 }
 
 func filterLabels(in []string, inScope bool) []string {
