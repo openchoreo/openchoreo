@@ -4,7 +4,7 @@ go 1.26.3
 
 require (
 	github.com/casbin/casbin/v2 v2.135.0
-	github.com/cilium/cilium v1.16.5
+	github.com/cilium/cilium v1.16.19
 	github.com/getkin/kin-openapi v0.138.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-playground/validator/v10 v10.30.2
