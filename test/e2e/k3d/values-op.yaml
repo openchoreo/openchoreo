@@ -15,6 +15,33 @@ observer:
   # default (`http://api.openchoreo.localhost:8080`) is a single-cluster /etc/hosts
   # convention that does not resolve from inside the cluster.
   controlPlaneApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+  # Route logs and traces queries through the observer's bundled OpenSearch
+  # adaptor (internal/observer/adaptor) instead of the external logs-adapter
+  # sidecar at version 0.4.1. The sidecar in 0.4.1 returns empty results for
+  # every component log query; the bundled adaptor uses the
+  # `kubernetes.labels.openchoreo_dev/*` field shape that fluent-bit actually
+  # writes to OpenSearch.
+  # LOGS_ADAPTER_ENABLED / TRACING_ADAPTER_ENABLED are flagged deprecated by
+  # the observer but are still honoured at startup
+  # (internal/observer/config/config.go). The remaining vars mirror the chart
+  # defaults (`observer.extraEnvs` in values.yaml) — declaring `extraEnvs`
+  # here replaces the chart list entirely, so the OpenSearch / Prometheus /
+  # base-URL pointers have to be re-stated.
+  extraEnvs:
+    - name: LOGS_ADAPTER_ENABLED
+      value: "false"
+    - name: TRACING_ADAPTER_ENABLED
+      value: "false"
+    - name: OBSERVER_BASE_URL
+      value: "http://observer.e2e-op.local:11080"
+    - name: OPENSEARCH_ADDRESS
+      value: "https://opensearch:9200"
+    - name: PROMETHEUS_ADDRESS
+      value: "http://openchoreo-observability-prometheus:9091"
+    - name: PROMETHEUS_TIMEOUT
+      value: "30s"
+    - name: AUTHZ_TIMEOUT
+      value: "30s"
 
 security:
   oidc:

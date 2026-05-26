@@ -268,14 +268,11 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		By("polling observer for logs scoped to the (now-deleted) WorkflowRun")
 		// The observer indexes workflow logs against the WorkflowRun's
 		// CR name + workflows-<cpNs> namespace, so the assertion holds
-		// after the CR itself is gone. As with the observability/logs-queryable
-		// spec, we split the assertion in two so the suite is robust to
-		// the in-tree fluent-bit → logs-adapter version drift:
-		//   1. The endpoint must respond 200 with a structurally valid
-		//      response (proves the observer's workflow-logs query path
-		//      is still reachable after CR deletion).
-		//   2. Non-empty logs are recorded but not required to pass.
-		var sawLogs bool
+		// after the CR itself is gone. This is the spec that motivates
+		// keeping OP on for the build flow — the WP-only
+		// `build-logs-via-k8s` spec stops at "logs available *during*
+		// the build", whereas this asserts they remain queryable via
+		// the observer API after the run resource is reaped.
 		Eventually(func(g Gomega) {
 			resp, qerr := framework.QueryLogs(observerQ, token, framework.LogsQueryRequest{
 				StartTime: time.Now().Add(-60 * time.Minute),
@@ -288,13 +285,9 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 			})
 			g.Expect(qerr).NotTo(HaveOccurred(),
 				"observer workflow logs query failed")
-			if len(resp.Logs) > 0 {
-				sawLogs = true
-			}
+			g.Expect(resp.Logs).NotTo(BeEmpty(),
+				"observer returned no logs for deleted WorkflowRun %s", runName)
 		}, framework.IngestionBudget, alertPoll).Should(Succeed())
-		fmt.Fprintf(GinkgoWriter,
-			"alerts/build-logs-after-deletion: workflow-logs query observed records=%v "+
-				"(rune=%s deleted)\n", sawLogs, runName)
 	})
 })
 

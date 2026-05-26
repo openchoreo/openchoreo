@@ -126,33 +126,13 @@ var _ = Describe("Observability Signals", Ordered, Label("tier3"), func() {
 
 		start := time.Now().Add(-30 * time.Minute)
 		end := time.Now()
-		// The greeter logs each request on stdout. The framework's
-		// loadgen also emits a `loadgen <marker>` line per call which is
-		// captured by the busybox loop; we search for "/greeter/greet"
-		// because that's what the greeter logs and what'll always be
-		// in the request path regardless of the loadgen line shape.
-		searchPhrase := "greeter/greet"
+		// Greeter sample only logs startup/shutdown messages, not per-
+		// request hits. Search for a phrase that's always present in its
+		// startup banner so the assertion checks both the wiring and
+		// real ingestion.
+		searchPhrase := "Starting HTTP Greeter"
 
 		By("polling observer for the greeter's log lines")
-		// The assertion asks for "endpoint reachable + non-empty results".
-		// In the in-tree e2e environment the fluent-bit → logs-adapter
-		// version pairing (observability-logs-opensearch 0.4.1) doesn't
-		// surface log records back to the observer's
-		// `/api/v1/logs/query` route, even though fluent-bit ships
-		// `kubernetes.labels.openchoreo_dev/component-uid` documents to
-		// OpenSearch. We therefore split the assertion in two:
-		//   1. The endpoint must respond 200 with a structurally valid
-		//      LogsQueryResponse — that proves auth, JWT subject
-		//      detection, the openchoreo-api authz call (e.g.
-		//      logs:view), and the observer→logs-adapter routing all
-		//      work.
-		//   2. If a non-empty result lands within IngestionBudget, the
-		//      stronger end-to-end signal is captured too — but
-		//      missing results are recorded as a flag in the suite's
-		//      output rather than failing the spec.
-		// The shift from a hard non-empty assertion is documented in
-		// `TIER3-OP-PLAN.md` under "What shifted during implementation".
-		var sawLogs bool
 		Eventually(func(g Gomega) {
 			resp, qerr := framework.QueryLogs(observerQ, token, framework.LogsQueryRequest{
 				StartTime: start,
@@ -168,20 +148,13 @@ var _ = Describe("Observability Signals", Ordered, Label("tier3"), func() {
 			})
 			g.Expect(qerr).NotTo(HaveOccurred(),
 				"observer logs query failed (marker=%s)", marker)
-			if len(resp.Logs) > 0 {
-				sawLogs = true
-			}
+			g.Expect(resp.Logs).NotTo(BeEmpty(),
+				"observer returned no logs for component=%s in cpNs=%s (marker=%s)",
+				componentGreeter, cpNs, marker)
 		}, framework.IngestionBudget, pollPoll).Should(Succeed())
-		if !sawLogs {
-			fmt.Fprintf(GinkgoWriter,
-				"observability/logs-queryable: observer responded 200 but logs slice "+
-					"stayed empty within %s — wiring verified, ingestion pipeline did not "+
-					"surface records (cluster fluent-bit+logs-adapter version drift).\n",
-				framework.IngestionBudget)
-		}
 	})
 
-	It("metrics-queryable: POST /api/v1/metrics/query returns non-empty HTTP RPS", func() {
+	It("metrics-queryable: POST /api/v1/metrics/query returns non-empty resource metrics", func() {
 		marker := framework.LoadGenMarker("metrics-queryable")
 		generateTrafficAndQuery(marker)
 
@@ -192,16 +165,18 @@ var _ = Describe("Observability Signals", Ordered, Label("tier3"), func() {
 		end := time.Now()
 		step := "1m"
 
-		By("polling observer for HTTP metric series")
-		// Same lenience as the logs spec — see comment there. We assert
-		// the endpoint accepts the request and returns a parseable
-		// JSON object; non-empty series are logged but not required.
-		var sawMetrics bool
+		By("polling observer for resource (CPU/memory) metric series")
+		// `resource` metrics come from kube-state-metrics + cadvisor,
+		// which Prometheus scrapes regardless of whether the workload
+		// itself emits Prometheus metrics. `http` metrics would need
+		// envoy/istio sidecars or instrumented apps — not present in
+		// the e2e setup — so we use `resource` here to assert real
+		// data flow through observer → metrics-adapter → Prometheus.
 		Eventually(func(g Gomega) {
 			resp, qerr := framework.QueryMetrics(observerQ, token, framework.MetricsQueryRequest{
 				StartTime: start,
 				EndTime:   end,
-				Metric:    "http",
+				Metric:    "resource",
 				SearchScope: framework.ComponentSearchScope{
 					Namespace:   cpNs,
 					Project:     framework.StringPtr(projectName),
@@ -212,17 +187,10 @@ var _ = Describe("Observability Signals", Ordered, Label("tier3"), func() {
 			})
 			g.Expect(qerr).NotTo(HaveOccurred(),
 				"observer metrics query failed (marker=%s)", marker)
-			if len(resp) > 0 {
-				sawMetrics = true
-			}
+			g.Expect(resp).NotTo(BeEmpty(),
+				"observer returned an empty metrics object for component=%s (marker=%s)",
+				componentGreeter, marker)
 		}, framework.IngestionBudget, pollPoll).Should(Succeed())
-		if !sawMetrics {
-			fmt.Fprintf(GinkgoWriter,
-				"observability/metrics-queryable: observer responded 200 but metrics map "+
-					"stayed empty within %s — wiring verified, Prometheus scrape may not "+
-					"yet have surfaced records (or chart pairing drift).\n",
-				framework.IngestionBudget)
-		}
 	})
 
 	It("traces-queryable: POST /api/v1alpha1/traces/query returns at least one trace", func() {
