@@ -155,6 +155,13 @@ func (a *Agent) handleHubbleStreamInit(parentCtx context.Context, init *messagin
 	}
 
 	a.hubbleStreamsMu.Lock()
+	if _, exists := a.hubbleStreams[init.RequestID]; exists {
+		a.hubbleStreamsMu.Unlock()
+		session.close()
+		logger.Warn("duplicate hubble stream requestID; rejecting new session")
+		a.sendStreamClose(init.RequestID, "duplicate hubble stream requestID")
+		return
+	}
 	a.hubbleStreams[init.RequestID] = session
 	a.hubbleStreamsMu.Unlock()
 

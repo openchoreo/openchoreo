@@ -400,6 +400,40 @@ func TestAgent_HandleHubbleStreamInit_ParentCtxCancelStopsStream(t *testing.T) {
 	assert.Empty(t, agent.hubbleStreams, "session must be deregistered after ctx cancel")
 }
 
+// Regression: a second init for an already-active RequestID must NOT overwrite
+// or evict the existing session. The guard rejects the duplicate with a
+// close chunk and leaves the original session intact.
+func TestAgent_HandleHubbleStreamInit_DuplicateRequestIDRejected(t *testing.T) {
+	agent, mock := newHubbleTestAgent(t)
+
+	cancelCalls := 0
+	existing := &hubbleSession{
+		requestID: "req-dup",
+		cancel:    func() { cancelCalls++ },
+		done:      make(chan struct{}),
+	}
+	agent.hubbleStreams["req-dup"] = existing
+
+	// The duplicate guard fires before HUBBLE_RELAY_ADDR is read or any stream
+	// is dialed, so neither the env var nor the dialer stub needs to be set.
+	agent.handleHubbleStreamInit(context.Background(), &messaging.HTTPTunnelStreamInit{
+		RequestID: "req-dup",
+		Target:    "hubble",
+		Query:     "environment=development&namespace=team-1",
+	})
+
+	chunks := decodeChunks(t, mock.getWrittenMessages())
+	require.Len(t, chunks, 1, "rejected duplicate should emit exactly one close chunk")
+	assert.Equal(t, "req-dup", chunks[0].RequestID)
+	assert.True(t, chunks[0].IsClose)
+	assert.Contains(t, string(chunks[0].Data), "duplicate hubble stream requestID")
+
+	assert.Same(t, existing, agent.hubbleStreams["req-dup"],
+		"duplicate init must not evict the original session")
+	assert.Zero(t, cancelCalls,
+		"the original session's cancel must not fire from the rejected duplicate")
+}
+
 // On a non-EOF stream error the handler still exits cleanly and emits the
 // terminal close chunk; the seam's closer must still fire (asserted by
 // stubOpenHubbleFlowStream's cleanup).
