@@ -16,19 +16,65 @@
         },
         "extraEnvs": {
           "default": [],
-          "description": "Additional environment variables to set in the cluster agent container.",
+          "description": "Additional environment variables to set in the cluster agent container. Each entry must specify exactly one of 'value' (literal) or 'valueFrom.secretKeyRef' (reference to an existing Kubernetes Secret).",
           "items": {
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "required": [
+                  "name",
+                  "value"
+                ]
+              },
+              {
+                "required": [
+                  "name",
+                  "valueFrom"
+                ]
+              }
+            ],
             "properties": {
               "name": {
                 "description": "Name of the environment variable",
                 "type": "string"
               },
               "value": {
-                "description": "Value of the environment variable",
+                "description": "Literal value of the environment variable. Avoid for secret material; use valueFrom.secretKeyRef instead.",
                 "type": "string"
+              },
+              "valueFrom": {
+                "additionalProperties": false,
+                "description": "Source the value from an existing Kubernetes resource. Currently only secretKeyRef is supported.",
+                "properties": {
+                  "secretKeyRef": {
+                    "additionalProperties": false,
+                    "description": "Reference to a key in an existing Kubernetes Secret.",
+                    "properties": {
+                      "key": {
+                        "description": "Key within the Secret whose value to inject.",
+                        "type": "string"
+                      },
+                      "name": {
+                        "description": "Name of the Secret (must exist in the cluster-agent's namespace).",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "key"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "secretKeyRef"
+                ],
+                "type": "object"
               }
             },
-            "required": [],
+            "required": [
+              "name"
+            ],
             "type": "object"
           },
           "title": "extraEnvs",
