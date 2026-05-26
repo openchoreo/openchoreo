@@ -74,6 +74,18 @@ func TestLookupConditions(t *testing.T) {
 			require.Equal(t, AttrResourceResourceType.Key, specs[0].Key, "action %q", action)
 		}
 	})
+
+	t.Run("workflowrun mutating actions support resource.workflow", func(t *testing.T) {
+		for _, action := range []string{
+			ActionCreateWorkflowRun,
+			ActionUpdateWorkflowRun,
+			ActionDeleteWorkflowRun,
+		} {
+			specs := LookupConditions(action)
+			require.Len(t, specs, 1, "action %q should expose one attribute", action)
+			require.Equal(t, AttrResourceWorkflow.Key, specs[0].Key, "action %q", action)
+		}
+	})
 }
 
 func TestIntersectConditionsForActions(t *testing.T) {

@@ -27,8 +27,9 @@ const (
 
 // workflowRunServiceWithAuthz wraps a Service and adds authorization checks.
 type workflowRunServiceWithAuthz struct {
-	internal Service
-	authz    *services.AuthzChecker
+	internal  Service
+	authz     *services.AuthzChecker
+	k8sClient client.Client
 }
 
 var _ Service = (*workflowRunServiceWithAuthz)(nil)
@@ -36,9 +37,19 @@ var _ Service = (*workflowRunServiceWithAuthz)(nil)
 // NewServiceWithAuthz creates a workflow run service with authorization checks.
 func NewServiceWithAuthz(k8sClient client.Client, planeClientProvider kubernetesClient.WorkflowPlaneClientProvider, gwClient *gatewayClient.Client, authzPDP authz.PDP, logger *slog.Logger) Service {
 	return &workflowRunServiceWithAuthz{
-		internal: NewService(k8sClient, planeClientProvider, gwClient, logger),
-		authz:    services.NewAuthzChecker(authzPDP, logger),
+		internal:  NewService(k8sClient, planeClientProvider, gwClient, logger),
+		authz:     services.NewAuthzChecker(authzPDP, logger),
+		k8sClient: k8sClient,
 	}
+}
+
+// formatWorkflowAttr returns the authz-engine identifier for the Workflow
+// (or ClusterWorkflow) referenced by a WorkflowRun, suitable for the
+// resource.workflow ABAC attribute. An empty kind defaults to ClusterWorkflow
+// to match the WorkflowRunConfig / ComponentWorkflowConfig CRD defaults.
+func formatWorkflowAttr(namespace string, kind openchoreov1alpha1.WorkflowRefKind, name string) string {
+	isClusterScoped := kind == "" || kind == openchoreov1alpha1.WorkflowRefKindClusterWorkflow
+	return services.FormatDualScopedResourceName(namespace, name, isClusterScoped)
 }
 
 // constructHierarchyForAuthzCheck builds a ResourceHierarchy from workflow run labels.
@@ -62,6 +73,11 @@ func (s *workflowRunServiceWithAuthz) CreateWorkflowRun(ctx context.Context, nam
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   wfRun.Name,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wfRun.Labels),
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{
+				Workflow: formatWorkflowAttr(namespaceName, wfRun.Spec.Workflow.Kind, wfRun.Spec.Workflow.Name),
+			},
+		},
 	}); err != nil {
 		return nil, err
 	}
@@ -74,6 +90,11 @@ func (s *workflowRunServiceWithAuthz) UpdateWorkflowRun(ctx context.Context, nam
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   wfRun.Name,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wfRun.Labels),
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{
+				Workflow: formatWorkflowAttr(namespaceName, wfRun.Spec.Workflow.Kind, wfRun.Spec.Workflow.Name),
+			},
+		},
 	}); err != nil {
 		return nil, err
 	}
@@ -122,6 +143,11 @@ func (s *workflowRunServiceWithAuthz) DeleteWorkflowRun(ctx context.Context, nam
 		ResourceType: resourceTypeWorkflowRun,
 		ResourceID:   runName,
 		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wr.Labels),
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{
+				Workflow: formatWorkflowAttr(namespaceName, wr.Spec.Workflow.Kind, wr.Spec.Workflow.Name),
+			},
+		},
 	}); err != nil {
 		return err
 	}
@@ -177,6 +203,15 @@ func (s *workflowRunServiceWithAuthz) GetWorkflowRunStatus(ctx context.Context, 
 }
 
 func (s *workflowRunServiceWithAuthz) TriggerWorkflow(ctx context.Context, namespaceName, projectName, componentName, commit string) (*models.WorkflowRunTriggerResponse, error) {
+	// Resolve the component's workflow reference for the authz check
+	var workflowAttr string
+	var component openchoreov1alpha1.Component
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Name: componentName, Namespace: namespaceName}, &component); err == nil {
+		if component.Spec.Workflow != nil {
+			workflowAttr = formatWorkflowAttr(namespaceName, component.Spec.Workflow.Kind, component.Spec.Workflow.Name)
+		}
+	}
+
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       authz.ActionCreateWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
@@ -185,6 +220,11 @@ func (s *workflowRunServiceWithAuthz) TriggerWorkflow(ctx context.Context, names
 			Namespace: namespaceName,
 			Project:   projectName,
 			Component: componentName,
+		},
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{
+				Workflow: workflowAttr,
+			},
 		},
 	}); err != nil {
 		return nil, err

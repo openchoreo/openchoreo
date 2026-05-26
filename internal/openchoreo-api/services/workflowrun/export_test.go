@@ -6,6 +6,8 @@ package workflowrun
 import (
 	"log/slog"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
@@ -23,10 +25,14 @@ var (
 // ExportConstructHierarchy exposes constructHierarchyForAuthzCheck for testing.
 var ExportConstructHierarchy = constructHierarchyForAuthzCheck
 
+// ExportFormatWorkflowAttr exposes formatWorkflowAttr for testing.
+var ExportFormatWorkflowAttr = formatWorkflowAttr
+
 // NewTestServiceWithAuthz creates a workflowRunServiceWithAuthz with injectable dependencies for testing.
-func NewTestServiceWithAuthz(internal Service, pdp authz.PDP, logger *slog.Logger) Service {
+func NewTestServiceWithAuthz(internal Service, k8sClient client.Client, pdp authz.PDP, logger *slog.Logger) Service {
 	return &workflowRunServiceWithAuthz{
-		internal: internal,
-		authz:    services.NewAuthzChecker(pdp, logger),
+		internal:  internal,
+		authz:     services.NewAuthzChecker(pdp, logger),
+		k8sClient: k8sClient,
 	}
 }

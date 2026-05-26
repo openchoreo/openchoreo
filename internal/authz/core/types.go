@@ -57,6 +57,8 @@ type ResourceAttribute struct {
 	ComponentType string `json:"componentType,omitempty"`
 	// ResourceType is the ResourceType (or ClusterResourceType) name referenced by the Resource being acted upon.
 	ResourceType string `json:"resourceType,omitempty"`
+	// Workflow is the Workflow (or ClusterWorkflow) name referenced by the WorkflowRun being acted upon.
+	Workflow string `json:"workflow,omitempty"`
 }
 
 // Decision represents the authorization decision response

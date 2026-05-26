@@ -55,6 +55,14 @@ var AttrResourceResourceType = AttributeSpec{
 	CELType:     cel.StringType,
 }
 
+// AttrResourceWorkflow declares resource.workflow — the Workflow
+// (or ClusterWorkflow) name referenced by a WorkflowRun.
+var AttrResourceWorkflow = AttributeSpec{
+	Key:         "resource.workflow",
+	Description: "Workflow name referenced by the workflow run",
+	CELType:     cel.StringType,
+}
+
 // conditionRegistry maps concrete action names to the attributes available to CEL
 // expressions scoped to that action. Treat as immutable after init.
 var conditionRegistry = map[string][]AttributeSpec{
@@ -64,6 +72,9 @@ var conditionRegistry = map[string][]AttributeSpec{
 	ActionCreateResource:               {AttrResourceResourceType},
 	ActionUpdateResource:               {AttrResourceResourceType},
 	ActionDeleteResource:               {AttrResourceResourceType},
+	ActionCreateWorkflowRun:            {AttrResourceWorkflow},
+	ActionUpdateWorkflowRun:            {AttrResourceWorkflow},
+	ActionDeleteWorkflowRun:            {AttrResourceWorkflow},
 	ActionCreateReleaseBinding:         {AttrResourceEnvironment},
 	ActionViewReleaseBinding:           {AttrResourceEnvironment},
 	ActionUpdateReleaseBinding:         {AttrResourceEnvironment},

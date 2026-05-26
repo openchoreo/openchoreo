@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -51,9 +52,11 @@ func denyDecision() *authz.Decision {
 }
 
 // newAuthzService creates a workflowRunServiceWithAuthz with mock Service and mock PDP.
+// An empty fake k8s client is wired by default; tests exercising TriggerWorkflow's
+// component lookup should use newAuthzServiceWithClient instead.
 func newAuthzService(t *testing.T, mockSvc *wfrmocks.MockService, mockPDP *authzmocks.MockPDP) workflowrun.Service {
 	t.Helper()
-	return workflowrun.NewTestServiceWithAuthz(mockSvc, mockPDP, testutil.TestLogger())
+	return workflowrun.NewTestServiceWithAuthz(mockSvc, testutil.NewFakeClient(), mockPDP, testutil.TestLogger())
 }
 
 // newWorkflowRun creates a test WorkflowRun with optional project/component labels.
@@ -162,7 +165,8 @@ func TestCreateWorkflowRun_Authz(t *testing.T) {
 				req.Resource.ID == testRunName &&
 				req.Resource.Hierarchy.Namespace == testNamespace &&
 				req.Resource.Hierarchy.Project == testProjectName &&
-				req.Resource.Hierarchy.Component == testComponentName
+				req.Resource.Hierarchy.Component == testComponentName &&
+				req.Context.Resource.Workflow == testNamespace+"/"+testWorkflowName
 		})).Return(allowDecision(), nil)
 		mockSvc.EXPECT().CreateWorkflowRun(mock.Anything, testNamespace, run).Return(run, nil)
 
@@ -211,7 +215,8 @@ func TestUpdateWorkflowRun_Authz(t *testing.T) {
 		update := newWorkflowRun(testRunName, "", "")
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
 			return req.Action == authz.ActionUpdateWorkflowRun &&
-				req.Resource.Type == workflowrun.ExportResourceType
+				req.Resource.Type == workflowrun.ExportResourceType &&
+				req.Context.Resource.Workflow == testNamespace+"/"+testWorkflowName
 		})).Return(allowDecision(), nil)
 		mockSvc.EXPECT().UpdateWorkflowRun(mock.Anything, testNamespace, update).Return(update, nil)
 
@@ -400,7 +405,8 @@ func TestDeleteWorkflowRun_Authz(t *testing.T) {
 				req.Resource.ID == testRunName &&
 				req.Resource.Hierarchy.Namespace == testNamespace &&
 				req.Resource.Hierarchy.Project == testProjectName &&
-				req.Resource.Hierarchy.Component == testComponentName
+				req.Resource.Hierarchy.Component == testComponentName &&
+				req.Context.Resource.Workflow == testNamespace+"/"+testWorkflowName
 		})).Return(allowDecision(), nil)
 		mockSvc.EXPECT().DeleteWorkflowRun(mock.Anything, testNamespace, testRunName).Return(nil)
 
@@ -612,4 +618,66 @@ func TestTriggerWorkflow_Authz(t *testing.T) {
 		assert.Equal(t, "my-comp", result.ComponentName)
 		assert.Equal(t, workflowrun.ExportStatusPending, result.Status)
 	})
+
+	t.Run("populates resource.workflow from component spec", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		comp := &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-comp", Namespace: testNamespace},
+			Spec: openchoreov1alpha1.ComponentSpec{
+				Workflow: &openchoreov1alpha1.ComponentWorkflowConfig{
+					Kind: openchoreov1alpha1.WorkflowRefKindWorkflow,
+					Name: "build-go",
+				},
+			},
+		}
+		fakeClient := testutil.NewFakeClient(comp)
+
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
+			return req.Action == authz.ActionCreateWorkflowRun &&
+				req.Context.Resource.Workflow == testNamespace+"/build-go"
+		})).Return(denyDecision(), nil)
+
+		svc := workflowrun.NewTestServiceWithAuthz(mockSvc, fakeClient, mockPDP, testutil.TestLogger())
+		_, _ = svc.TriggerWorkflow(ctxWithSubject(), testNamespace, "proj", "my-comp", "abc1234f")
+	})
+}
+
+func TestFormatWorkflowAttr(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		kind      openchoreov1alpha1.WorkflowRefKind
+		wfName    string
+		want      string
+	}{
+		{
+			name:      "namespace-scoped Workflow is prefixed with namespace",
+			namespace: "ns-1",
+			kind:      openchoreov1alpha1.WorkflowRefKindWorkflow,
+			wfName:    "build-go",
+			want:      "ns-1/build-go",
+		},
+		{
+			name:      "empty kind defaults to cluster-scoped (matches CRD default)",
+			namespace: "ns-1",
+			kind:      "",
+			wfName:    "build-go",
+			want:      "build-go",
+		},
+		{
+			name:      "ClusterWorkflow is not namespace-prefixed",
+			namespace: "ns-1",
+			kind:      openchoreov1alpha1.WorkflowRefKindClusterWorkflow,
+			wfName:    "build-go",
+			want:      "build-go",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, workflowrun.ExportFormatWorkflowAttr(tt.namespace, tt.kind, tt.wfName))
+		})
+	}
 }

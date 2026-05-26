@@ -130,6 +130,13 @@ func TestValidateCondition(t *testing.T) {
 			},
 		},
 		{
+			name: "valid resource.workflow condition on workflowrun:create",
+			cond: openchoreodevv1alpha1.AuthzCondition{
+				Actions:    []string{authzcore.ActionCreateWorkflowRun},
+				Expression: `resource.workflow in ["acme/build-go", "deploy"]`,
+			},
+		},
+		{
 			name: "empty actions",
 			cond: openchoreodevv1alpha1.AuthzCondition{
 				Actions:    []string{},

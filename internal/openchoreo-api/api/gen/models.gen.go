@@ -509,6 +509,9 @@ type AuthzContext struct {
 
 		// ResourceType ResourceType referenced by the Resource as an authz identifier. Namespace-scoped ResourceTypes are namespace-prefixed (e.g. "acme/postgres"); cluster-scoped ClusterResourceTypes are unprefixed (e.g. "postgres").
 		ResourceType *string `json:"resourceType,omitempty"`
+
+		// Workflow Workflow referenced by the WorkflowRun as an authz identifier. Namespace-scoped Workflows are namespace-prefixed (e.g. "acme/build-go"); cluster-scoped ClusterWorkflows are unprefixed (e.g. "build-go").
+		Workflow *string `json:"workflow,omitempty"`
 	} `json:"resource,omitempty"`
 }
 
