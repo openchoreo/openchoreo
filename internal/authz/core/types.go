@@ -55,6 +55,8 @@ type ResourceAttribute struct {
 	Environment string `json:"environment,omitempty"`
 	// ComponentType is the ComponentType (or ClusterComponentType) name referenced by the Component being acted upon.
 	ComponentType string `json:"componentType,omitempty"`
+	// ResourceType is the ResourceType (or ClusterResourceType) name referenced by the Resource being acted upon.
+	ResourceType string `json:"resourceType,omitempty"`
 }
 
 // Decision represents the authorization decision response

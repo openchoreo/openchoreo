@@ -35,6 +35,14 @@ func NewServiceWithAuthz(k8sClient client.Client, authzPDP authz.PDP, logger *sl
 	}
 }
 
+// formatResourceTypeAttr returns the authz-engine identifier for the ResourceType
+// (or ClusterResourceType) referenced by a Resource, suitable for the
+// resource.resourceType ABAC attribute.
+func formatResourceTypeAttr(namespace string, ref openchoreov1alpha1.ResourceTypeRef) string {
+	isClusterScoped := ref.Kind == openchoreov1alpha1.ResourceTypeRefKindClusterResourceType
+	return services.FormatDualScopedResourceName(namespace, ref.Name, isClusterScoped)
+}
+
 func (s *resourceServiceWithAuthz) CreateResource(ctx context.Context, namespaceName string, resource *openchoreov1alpha1.Resource) (*openchoreov1alpha1.Resource, error) {
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       authz.ActionCreateResource,
@@ -44,6 +52,11 @@ func (s *resourceServiceWithAuthz) CreateResource(ctx context.Context, namespace
 			Namespace: namespaceName,
 			Project:   resource.Spec.Owner.ProjectName,
 			Resource:  resource.Name,
+		},
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{
+				ResourceType: formatResourceTypeAttr(namespaceName, resource.Spec.Type),
+			},
 		},
 	}); err != nil {
 		return nil, err
@@ -60,6 +73,11 @@ func (s *resourceServiceWithAuthz) UpdateResource(ctx context.Context, namespace
 			Namespace: namespaceName,
 			Project:   resource.Spec.Owner.ProjectName,
 			Resource:  resource.Name,
+		},
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{
+				ResourceType: formatResourceTypeAttr(namespaceName, resource.Spec.Type),
+			},
 		},
 	}); err != nil {
 		return nil, err
@@ -122,6 +140,11 @@ func (s *resourceServiceWithAuthz) DeleteResource(ctx context.Context, namespace
 			Namespace: namespaceName,
 			Project:   r.Spec.Owner.ProjectName,
 			Resource:  resourceName,
+		},
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{
+				ResourceType: formatResourceTypeAttr(namespaceName, r.Spec.Type),
+			},
 		},
 	}); err != nil {
 		return err

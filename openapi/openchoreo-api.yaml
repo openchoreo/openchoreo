@@ -10592,6 +10592,10 @@ components:
               type: string
               description: ComponentType referenced by the Component as an authz identifier. Namespace-scoped ComponentTypes are namespace-prefixed (e.g. "acme/web-app"); cluster-scoped ClusterComponentTypes are unprefixed (e.g. "web-app").
               example: acme/web-app
+            resourceType:
+              type: string
+              description: ResourceType referenced by the Resource as an authz identifier. Namespace-scoped ResourceTypes are namespace-prefixed (e.g. "acme/postgres"); cluster-scoped ClusterResourceTypes are unprefixed (e.g. "postgres").
+              example: acme/postgres
 
     SubjectContext:
       type: object

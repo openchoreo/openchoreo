@@ -123,6 +123,13 @@ func TestValidateCondition(t *testing.T) {
 			},
 		},
 		{
+			name: "valid resource.resourceType condition on resource:create",
+			cond: openchoreodevv1alpha1.AuthzCondition{
+				Actions:    []string{authzcore.ActionCreateResource},
+				Expression: `resource.resourceType in ["postgres", "mysql"]`,
+			},
+		},
+		{
 			name: "empty actions",
 			cond: openchoreodevv1alpha1.AuthzCondition{
 				Actions:    []string{},

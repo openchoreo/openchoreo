@@ -506,6 +506,9 @@ type AuthzContext struct {
 
 		// Environment Namespace-prefixed target deployment Environment name (e.g. "acme/dev").
 		Environment *string `json:"environment,omitempty"`
+
+		// ResourceType ResourceType referenced by the Resource as an authz identifier. Namespace-scoped ResourceTypes are namespace-prefixed (e.g. "acme/postgres"); cluster-scoped ClusterResourceTypes are unprefixed (e.g. "postgres").
+		ResourceType *string `json:"resourceType,omitempty"`
 	} `json:"resource,omitempty"`
 }
 
