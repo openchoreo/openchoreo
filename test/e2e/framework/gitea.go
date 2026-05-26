@@ -46,26 +46,47 @@ func InstallGitea(kubeContext, namespace string) error {
 	); err != nil {
 		return fmt.Errorf("gitea deployment did not become ready: %w", err)
 	}
-	adminCreateOutput, adminCreateErr := Kubectl(kubeContext,
+	adminListOutput, adminListErr := Kubectl(kubeContext,
 		"-n", namespace,
 		"exec", "deployment/"+giteaAppName, "--",
-		"su", "git", "-c", fmt.Sprintf(
-			"gitea admin user create --username %s --password %s --email %s --admin --must-change-password=false",
-			GiteaAdminUser, GiteaAdminPassword, GiteaAdminEmail,
-		),
+		"su", "git", "-c", "gitea admin user list --admin",
 	)
-	probeOutput, probeErr := giteaCurl(kubeContext, namespace, "GET", "/api/v1/user", "")
-	if adminCreateErr != nil {
-		if probeErr != nil {
-			return fmt.Errorf("failed to create gitea admin user: %w (output: %s); auth probe also failed: %v (body: %s)",
-				adminCreateErr, adminCreateOutput, probeErr, probeOutput)
-		}
-		return fmt.Errorf("failed to create gitea admin user: %w (output: %s)", adminCreateErr, adminCreateOutput)
+	if adminListErr != nil {
+		return fmt.Errorf("failed to list gitea admin users: %w (output: %s)", adminListErr, adminListOutput)
 	}
+	if !giteaUserExists(adminListOutput, GiteaAdminUser) {
+		adminCreateOutput, adminCreateErr := Kubectl(kubeContext,
+			"-n", namespace,
+			"exec", "deployment/"+giteaAppName, "--",
+			"su", "git", "-c", fmt.Sprintf(
+				"gitea admin user create --username %s --password %s --email %s --admin --must-change-password=false",
+				GiteaAdminUser, GiteaAdminPassword, GiteaAdminEmail,
+			),
+		)
+		if adminCreateErr != nil {
+			return fmt.Errorf("failed to create missing gitea admin user %q: %w (output: %s; admin users: %s)",
+				GiteaAdminUser, adminCreateErr, adminCreateOutput, adminListOutput)
+		}
+	}
+	probeOutput, probeErr := giteaCurl(kubeContext, namespace, "GET", "/api/v1/user", "")
 	if probeErr != nil {
-		return fmt.Errorf("gitea admin auth probe failed: %w (body: %s)", probeErr, probeOutput)
+		return fmt.Errorf("gitea admin user %q exists, but auth probe failed: %w (body: %s)",
+			GiteaAdminUser, probeErr, probeOutput)
 	}
 	return nil
+}
+
+// The function doesn't check the `username` field,
+// It just checks whether the response contains the given username for simplicity.
+// Since this is used with explicit usernames like "e2eadmin", the function is safe to use.
+// Notable that the function may produce false positives for usernames matching other column values.
+func giteaUserExists(userListOutput, username string) bool {
+	for _, field := range strings.Fields(userListOutput) {
+		if field == username {
+			return true
+		}
+	}
+	return false
 }
 
 // GiteaInClusterURL returns the http:// URL the builder pods use to reach the
