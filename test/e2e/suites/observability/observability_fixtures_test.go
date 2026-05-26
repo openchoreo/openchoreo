@@ -30,9 +30,9 @@ const (
 
 	servicePort = 9090
 
-	// imageGreeter mirrors the workloadtypes suite — public OpenChoreo
-	// sample image with a `/greeter/greet` endpoint and stdout logging.
-	imageGreeter = "ghcr.io/openchoreo/samples/greeter-service:latest"
+	// imageGreeter is the public OpenChoreo sample image with a
+	// `/greeter/greet` endpoint and stdout logging.
+	imageGreeter = "ghcr.io/openchoreo/samples/greeter-service@sha256:5c67732c99ac3505dbab14c7ec92c33be57904420d62812694c64b56c5f92d40"
 
 	// curlImage is the in-cluster pod the framework execs queries through.
 	// curl is available in the curlimages/curl image and the image is tiny

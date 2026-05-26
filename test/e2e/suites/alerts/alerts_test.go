@@ -111,11 +111,11 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 			out, err := framework.Kubectl(kubeContext,
 				"get", "observabilityalertrule", "-A",
 				"-l", "openchoreo.dev/component-uid",
-				"-o", `jsonpath={.items[*].metadata.name}`,
+				"-o", `jsonpath={.items[*].spec.name}`,
 			)
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(strings.TrimSpace(out)).NotTo(BeEmpty(),
-				"no rendered ObservabilityAlertRule yet")
+			g.Expect(strings.Fields(out)).To(ContainElement(alertRuleMetric),
+				"no rendered ObservabilityAlertRule yet for %s", alertRuleMetric)
 		}, 3*time.Minute, 5*time.Second).Should(Succeed())
 
 		By("polling webhook receiver for the alert notification (best-effort)")
@@ -170,18 +170,33 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		// the logs-adapter flush. The greeter image runs `/usr/bin/env`
 		// then `./greeter-service`, both of which write to stdout — we
 		// just `echo` to stdout via kubectl exec.
+		logEmitted := false
+		var lastExecOut string
+		var lastExecErr error
 		for i := 0; i < 5; i++ {
 			out, err := framework.KubectlExecByLabel(
 				kubeContext, dpNs,
 				"openchoreo.dev/component="+componentLog, "",
 				"sh", "-c", fmt.Sprintf("echo %s; echo %s 1>&2", searchPhrase, searchPhrase),
 			)
+			lastExecOut = out
+			lastExecErr = err
 			if err != nil {
 				fmt.Fprintf(GinkgoWriter, "log-alert exec (attempt %d) failed: %v\n%s\n",
 					i, err, out)
+			} else if strings.Contains(out, searchPhrase) {
+				logEmitted = true
+				break
+			} else {
+				fmt.Fprintf(GinkgoWriter,
+					"log-alert exec (attempt %d) did not echo expected phrase; output:\n%s\n",
+					i, out)
 			}
 			time.Sleep(2 * time.Second)
 		}
+		Expect(logEmitted).To(BeTrue(),
+			"failed to emit log phrase %q via kubectl exec; last error=%v; last output=%s",
+			searchPhrase, lastExecErr, lastExecOut)
 
 		By("rendered ObservabilityAlertRule for the log rule reaches the OP")
 		Eventually(func(g Gomega) {

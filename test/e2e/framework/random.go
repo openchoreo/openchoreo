@@ -6,6 +6,7 @@ package framework
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 )
 
 // RandSuffix returns a lowercase hex string of the requested length. Used by
@@ -17,7 +18,9 @@ func RandSuffix(n int) string {
 	}
 	// hex encoding doubles size, so request ceil(n/2) bytes.
 	buf := make([]byte, (n+1)/2)
-	_, _ = rand.Read(buf)
+	if _, err := rand.Read(buf); err != nil {
+		panic(fmt.Sprintf("failed to read random suffix bytes: %v", err))
+	}
 	out := hex.EncodeToString(buf)
 	if len(out) > n {
 		out = out[:n]

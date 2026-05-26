@@ -37,6 +37,8 @@ const (
 	// ingestion + Prometheus scrape lag adds up; we use the shared
 	// framework.IngestionBudget to keep the value consistent across specs.
 	pollPoll = 10 * time.Second
+
+	tracesRetrievalFailedCode = "OBS-V1-T-05"
 )
 
 var _ = Describe("Observability Signals", Ordered, Label("tier3"), func() {
@@ -224,19 +226,26 @@ var _ = Describe("Observability Signals", Ordered, Label("tier3"), func() {
 			Limit: framework.IntPtr(10),
 		})
 		if qerr != nil {
+			qerrText := qerr.Error()
+			if !strings.Contains(qerrText, tracesRetrievalFailedCode) ||
+				!strings.Contains(qerrText, "Failed to retrieve traces") {
+				Fail(fmt.Sprintf(
+					"observability/traces-queryable: unexpected traces query error: %v (marker=%s)",
+					qerr, marker))
+			}
 			fmt.Fprintf(GinkgoWriter,
 				"observability/traces-queryable: observer traces query returned an "+
 					"expected error because the tracing module is not installed in the e2e "+
 					"setup: %v (marker=%s)\n", qerr, marker)
-		} else if resp != nil && len(resp.Traces) > 0 {
-			fmt.Fprintf(GinkgoWriter,
-				"observability/traces-queryable: observer returned %d traces "+
-					"(marker=%s)\n", len(resp.Traces), marker)
-		} else {
-			fmt.Fprintf(GinkgoWriter,
-				"observability/traces-queryable: observer returned 200 with empty "+
-					"traces slice (marker=%s)\n", marker)
+			return
 		}
+		Expect(resp).NotTo(BeNil(),
+			"observability/traces-queryable: observer returned nil response (marker=%s)", marker)
+		Expect(resp.Traces).NotTo(BeEmpty(),
+			"observability/traces-queryable: observer returned no traces (marker=%s)", marker)
+		fmt.Fprintf(GinkgoWriter,
+			"observability/traces-queryable: observer returned %d traces "+
+				"(marker=%s)\n", len(resp.Traces), marker)
 	})
 })
 

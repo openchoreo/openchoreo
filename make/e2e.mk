@@ -392,8 +392,8 @@ _e2e.link-observability:
 	@# resolves true in either path.
 	$(E2E_KUBECTL) patch clusterdataplane default --type merge \
 		-p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}'
-	-$(E2E_KUBECTL) patch clusterdataplane e2e-shared --type merge \
-		-p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}' 2>/dev/null || true
+	$(E2E_KUBECTL) patch clusterdataplane e2e-shared --type merge \
+		-p '{"spec":{"observabilityPlaneRef":{"kind":"ClusterObservabilityPlane","name":"default"}}}'
 	@if [ "$(E2E_WITH_BUILD)" = "true" ]; then \
 		$(E2E_KUBECTL) patch workflowplane default -n default --type merge \
 			-p '{"spec":{"observabilityPlaneRef":{"kind":"ObservabilityPlane","name":"default"}}}'; \

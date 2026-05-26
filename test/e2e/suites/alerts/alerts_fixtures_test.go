@@ -14,7 +14,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-
 	"github.com/openchoreo/openchoreo/test/e2e/framework"
 )
 
