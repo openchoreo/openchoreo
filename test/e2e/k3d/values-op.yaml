@@ -1,8 +1,9 @@
 # Helm values for OpenChoreo Observability Plane in e2e testing setup
 # Only used when E2E_WITH_OBSERVABILITY=true.
-# The OpenSearch and Prometheus modules are separate Helm charts installed by
-# `_e2e.install-op`; this file only configures the openchoreo-observability-plane
-# chart itself.
+# The OpenSearch logs, OpenSearch tracing, and Prometheus metrics modules are
+# separate Helm charts installed by `_e2e.install-op`; this file only configures
+# the openchoreo-observability-plane chart itself and keeps Observer routed
+# through those module adapters.
 
 observer:
   openSearchSecretName: observer-opensearch-credentials
@@ -15,23 +16,16 @@ observer:
   # default (`http://api.openchoreo.localhost:8080`) is a single-cluster /etc/hosts
   # convention that does not resolve from inside the cluster.
   controlPlaneApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
-  # Route logs and traces queries through the observer's bundled OpenSearch
-  # adaptor (internal/observer/adaptor) instead of the external logs-adapter
-  # sidecar at version 0.4.1. The sidecar in 0.4.1 returns empty results for
-  # every component log query; the bundled adaptor uses the
-  # `kubernetes.labels.openchoreo_dev/*` field shape that fluent-bit actually
-  # writes to OpenSearch.
-  # LOGS_ADAPTER_ENABLED / TRACING_ADAPTER_ENABLED are flagged deprecated by
-  # the observer but are still honoured at startup
-  # (internal/observer/config/config.go). The remaining vars mirror the chart
-  # defaults (`observer.extraEnvs` in values.yaml) — declaring `extraEnvs`
-  # here replaces the chart list entirely, so the OpenSearch / Prometheus /
-  # base-URL pointers have to be re-stated.
+  logsAdapter:
+    enabled: true
+    url: "http://logs-adapter:9098"
+  tracingAdapter:
+    enabled: true
+    url: "http://tracing-adapter:9100"
+  # Declaring `extraEnvs` replaces the chart defaults, so keep only the
+  # e2e-specific runtime URLs here. Adapter enablement stays in the chart
+  # config above so Observer exercises the installed observability modules.
   extraEnvs:
-    - name: LOGS_ADAPTER_ENABLED
-      value: "false"
-    - name: TRACING_ADAPTER_ENABLED
-      value: "false"
     - name: OBSERVER_BASE_URL
       value: "http://observer.e2e-op.local:11080"
     - name: OPENSEARCH_ADDRESS

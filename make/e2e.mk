@@ -45,6 +45,9 @@ ESO_VERSION            ?= 2.0.1
 KGATEWAY_VERSION       ?= v2.2.1
 OPENBAO_CHART_VERSION  ?= 0.25.6
 THUNDER_VERSION        ?= 0.28.0
+OBSERVABILITY_LOGS_OPENSEARCH_VERSION     ?= 0.4.1
+OBSERVABILITY_TRACES_OPENSEARCH_VERSION   ?= 0.4.1
+OBSERVABILITY_METRICS_PROMETHEUS_VERSION  ?= 0.6.1
 
 # Helm chart references: local chart dirs or OCI registry
 ifeq ($(E2E_HELM_SOURCE),oci)
@@ -328,17 +331,34 @@ _e2e.install-op:
 		--from-literal=username="admin" \
 		--from-literal=password="ThisIsTheOpenSearchPassword1" \
 		--dry-run=client -o yaml | $(E2E_KUBECTL) apply -f -
+	@$(call log_info, Installing logs module without Fluent Bit so index templates are ready first)
 	$(E2E_HELM) upgrade --install observability-logs-opensearch \
 		oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
-		--version 0.4.1 \
+		--version $(OBSERVABILITY_LOGS_OPENSEARCH_VERSION) \
+		--namespace $(E2E_OP_NS) \
+		--set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
+		--set adapter.openSearchSecretName="opensearch-admin-credentials" \
+		--set fluent-bit.enabled=false \
+		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
+	@$(call log_info, Enabling Fluent Bit after logs module setup)
+	$(E2E_HELM) upgrade --install observability-logs-opensearch \
+		oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
+		--version $(OBSERVABILITY_LOGS_OPENSEARCH_VERSION) \
 		--namespace $(E2E_OP_NS) \
 		--set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
 		--set adapter.openSearchSecretName="opensearch-admin-credentials" \
 		--set fluent-bit.enabled=true \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
+		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
+	$(E2E_HELM) upgrade --install observability-traces-opensearch \
+		oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
+		--version $(OBSERVABILITY_TRACES_OPENSEARCH_VERSION) \
+		--namespace $(E2E_OP_NS) \
+		--set openSearch.enabled=false \
+		--set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
+		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
 	$(E2E_HELM) upgrade --install observability-metrics-prometheus \
 		oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
-		--version 0.6.1 \
+		--version $(OBSERVABILITY_METRICS_PROMETHEUS_VERSION) \
 		--namespace $(E2E_OP_NS) \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 	$(E2E_KUBECTL) wait -n $(E2E_OP_NS) \
