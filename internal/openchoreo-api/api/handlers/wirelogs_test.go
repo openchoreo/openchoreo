@@ -492,4 +492,15 @@ func TestNewWirelogsHandler_InitialisesHTTPClient(t *testing.T) {
 	assert.NotNil(t, h.httpClient, "httpClient must be initialized")
 	assert.Equal(t, "https://gw.example.com", h.gatewayURL)
 	assert.NotNil(t, h.logger)
+
+	// Client.Timeout must stay zero — an absolute request deadline would kill
+	// the long-lived SSE stream. Pre-stream phases are bounded via Transport.
+	assert.Zero(t, h.httpClient.Timeout,
+		"Client.Timeout must be unset; it would abort the long-lived SSE stream")
+
+	tr, ok := h.httpClient.Transport.(*http.Transport)
+	require.True(t, ok, "Transport must be *http.Transport")
+	assert.NotZero(t, tr.TLSHandshakeTimeout, "TLSHandshakeTimeout must be set to bound the handshake")
+	assert.NotZero(t, tr.ResponseHeaderTimeout, "ResponseHeaderTimeout must be set so a stuck gateway can't block before the stream starts")
+	assert.NotNil(t, tr.DialContext, "DialContext must be set to bound TCP connect")
 }
