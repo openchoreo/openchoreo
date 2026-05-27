@@ -24,7 +24,8 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Deploy the GCP Microservices Demo to OpenChoreo."
-            echo "This demo includes 11 microservices (frontend, cart, checkout, payment, etc.)"
+            echo "This demo includes 10 microservices (frontend, cart, checkout, payment, etc.)"
+            echo "plus a managed Redis cache provisioned as a Resource."
             echo ""
             echo "Options:"
             echo "  --clean        Delete all deployed services and exit"
@@ -59,6 +60,12 @@ if [[ "$CLEAN_MODE" == "true" ]]; then
         kubectl delete -f "$SAMPLE_DIR/components/" 2>/dev/null || log_warning "  Components may not exist"
     fi
 
+    # Delete redis Resource + binding (cascades to the StatefulSet + Secret on the data plane)
+    if [[ -f "$SAMPLE_DIR/resources/redis.yaml" ]]; then
+        log_info "Deleting redis Resource..."
+        kubectl delete -f "$SAMPLE_DIR/resources/redis.yaml" 2>/dev/null || log_warning "  Resource may not exist"
+    fi
+
     # Delete project last
     if [[ -f "$SAMPLE_DIR/gcp-microservice-demo-project.yaml" ]]; then
         log_info "Deleting project..."
@@ -70,7 +77,7 @@ if [[ "$CLEAN_MODE" == "true" ]]; then
 fi
 
 log_info "Sample: $SAMPLE_DIR"
-log_info "This will deploy 11 microservices to demonstrate a complex application."
+log_info "This will deploy 10 microservices plus a managed Redis cache to demonstrate a complex application."
 
 # Apply the project first
 PROJECT_FILE="$SAMPLE_DIR/gcp-microservice-demo-project.yaml"
@@ -81,6 +88,57 @@ if [[ -f "$PROJECT_FILE" ]]; then
     else
         log_warning "Project may already exist"
     fi
+fi
+
+# Provision the redis Resource (Cart depends on it via dependencies.resources[])
+REDIS_FILE="$SAMPLE_DIR/resources/redis.yaml"
+if [[ -f "$REDIS_FILE" ]]; then
+    log_info "Provisioning redis Resource..."
+    if kubectl apply -f "$REDIS_FILE" >/dev/null 2>&1; then
+        log_success "Resource + binding applied"
+    else
+        log_error "Failed to apply redis Resource"
+        exit 1
+    fi
+
+    # Wait for the Resource controller to cut a ResourceRelease
+    log_info "  Waiting for ResourceRelease to be cut..."
+    elapsed=0
+    while true; do
+        release=$(kubectl get resource redis -n "$NAMESPACE" -o jsonpath='{.status.latestRelease.name}' 2>/dev/null || echo "")
+        if [[ -n "$release" ]]; then
+            break
+        fi
+        if [[ $elapsed -ge 60 ]]; then
+            log_error "  Timeout waiting for ResourceRelease"
+            exit 1
+        fi
+        sleep 2
+        elapsed=$((elapsed + 2))
+    done
+
+    # Promote the binding to the latest release
+    log_info "  Promoting binding to $release..."
+    kubectl patch resourcereleasebinding redis-development -n "$NAMESPACE" \
+        --type=merge -p "{\"spec\":{\"resourceRelease\":\"$release\"}}" >/dev/null 2>&1
+
+    # Wait for the binding to reach Ready
+    log_info "  Waiting for binding to reach Ready..."
+    elapsed=0
+    while true; do
+        ready=$(kubectl get resourcereleasebinding redis-development -n "$NAMESPACE" \
+            -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+        if [[ "$ready" == "True" ]]; then
+            log_success "redis Resource is ready"
+            break
+        fi
+        if [[ $elapsed -ge 120 ]]; then
+            log_error "  Timeout waiting for redis binding Ready"
+            exit 1
+        fi
+        sleep 2
+        elapsed=$((elapsed + 2))
+    done
 fi
 
 # Apply all component files
@@ -178,7 +236,8 @@ log_info "  • Product Catalog Service"
 log_info "  • Currency Service"
 log_info "  • Recommendation Service"
 log_info "  • Ad Service"
-log_info "  • Redis (Cache)"
+log_info "Resources:"
+log_info "  • Redis (provisioned via Resource → ClusterResourceType/valkey)"
 echo ""
 
 if [[ -n "$HOSTNAME" ]] && [[ "$HOSTNAME" != "null" ]]; then
