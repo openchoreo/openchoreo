@@ -260,11 +260,12 @@ func main() {
 
 		topMux := http.NewServeMux()
 		topMux.Handle("/exec/", authedExecHandler)
-		topMux.Handle("GET /namespaces/{namespace}/environments/{environment}/wirelogs", authedWirelogsHandler)
+		topMux.Handle("GET /api/v1/namespaces/{namespace}/environments/{environment}/wirelogs", authedWirelogsHandler)
 		topMux.Handle("/", handler)
 		topHandler = topMux
 		logger.Info("Exec endpoint registered", "path", "/exec/namespaces/{ns}/components/{name}")
-		logger.Info("Wirelogs endpoint registered", "path", "/namespaces/{namespace}/environments/{environment}/wirelogs")
+		logger.Info("Wirelogs endpoint registered",
+			"path", "/api/v1/namespaces/{namespace}/environments/{environment}/wirelogs")
 	}
 
 	// Create server from configuration

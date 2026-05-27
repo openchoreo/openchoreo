@@ -44,12 +44,12 @@ func TestWirelogsHandler_RejectsMalformedPath(t *testing.T) {
 		name string
 		path string
 	}{
-		{"missing namespaces segment", "/environments/development/wirelogs"},
-		{"missing environments segment", "/namespaces/ns-a/wirelogs"},
-		{"wrong final segment", "/namespaces/ns-a/environments/development/foo"},
-		{"empty namespace", "/namespaces//environments/development/wirelogs"},
-		{"empty environment", "/namespaces/ns-a/environments//wirelogs"},
-		{"extra trailing path", "/namespaces/ns-a/environments/development/wirelogs/extra"},
+		{"missing namespaces segment", "/api/v1/environments/development/wirelogs"},
+		{"missing environments segment", "/api/v1/namespaces/ns-a/wirelogs"},
+		{"wrong final segment", "/api/v1/namespaces/ns-a/environments/development/foo"},
+		{"empty namespace", "/api/v1/namespaces//environments/development/wirelogs"},
+		{"empty environment", "/api/v1/namespaces/ns-a/environments//wirelogs"},
+		{"extra trailing path", "/api/v1/namespaces/ns-a/environments/development/wirelogs/extra"},
 	}
 
 	for _, tt := range tests {
@@ -82,7 +82,7 @@ func TestWirelogsHandler_AcceptsEnvironmentWideRequest(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, wirelogsRequest(t, "/namespaces/ns-a/environments/development/wirelogs"))
+	h.ServeHTTP(rec, wirelogsRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs"))
 
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
@@ -91,7 +91,7 @@ func TestWirelogsHandler_AuthzNotConfigured(t *testing.T) {
 	h := &WirelogsHandler{logger: slog.Default()}
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, wirelogsRequest(t, "/namespaces/ns-a/environments/development/wirelogs"))
+	h.ServeHTTP(rec, wirelogsRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs"))
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	assert.Contains(t, rec.Body.String(), "authorization not configured")
@@ -108,7 +108,7 @@ func TestWirelogsHandler_Forbidden(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, wirelogsRequest(t, "/namespaces/ns-a/environments/development/wirelogs?project=demo&component=checkout"))
+	h.ServeHTTP(rec, wirelogsRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=checkout"))
 
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
@@ -141,7 +141,7 @@ func captureAuthzRequest(t *testing.T, path string) *authz.EvaluateRequest {
 }
 
 func TestWirelogsHandler_AuthzScope_Component(t *testing.T) {
-	req := captureAuthzRequest(t, "/namespaces/ns-a/environments/development/wirelogs?project=demo&component=checkout")
+	req := captureAuthzRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=checkout")
 
 	assert.Equal(t, authz.ActionViewWirelogs, req.Action, "wirelogs must check its own action, not logs:view")
 	assert.Equal(t, "component", req.Resource.Type)
@@ -154,7 +154,7 @@ func TestWirelogsHandler_AuthzScope_Component(t *testing.T) {
 }
 
 func TestWirelogsHandler_AuthzScope_ProjectOnly(t *testing.T) {
-	req := captureAuthzRequest(t, "/namespaces/ns-a/environments/development/wirelogs?project=demo")
+	req := captureAuthzRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo")
 
 	assert.Equal(t, "project", req.Resource.Type)
 	assert.Equal(t, "demo", req.Resource.ID)
@@ -171,14 +171,14 @@ func TestWirelogsHandler_ComponentWithoutProjectRejected(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, wirelogsRequest(t, "/namespaces/ns-a/environments/development/wirelogs?component=checkout"))
+	h.ServeHTTP(rec, wirelogsRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs?component=checkout"))
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "component filter requires project filter")
 }
 
 func TestWirelogsHandler_AuthzScope_EnvironmentWide(t *testing.T) {
-	req := captureAuthzRequest(t, "/namespaces/ns-a/environments/development/wirelogs")
+	req := captureAuthzRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs")
 
 	assert.Equal(t, "environment", req.Resource.Type)
 	assert.Equal(t, "development", req.Resource.ID)
@@ -272,11 +272,11 @@ func TestWirelogsHandler_RejectsInvalidNameParams(t *testing.T) {
 		path string
 		want string
 	}{
-		{"namespace too long", "/namespaces/" + strings.Repeat("a", 64) + "/environments/development/wirelogs", "invalid namespace parameter"},
-		{"namespace uppercase", "/namespaces/NS_A/environments/development/wirelogs", "invalid namespace parameter"},
-		{"environment uppercase", "/namespaces/ns-a/environments/DEV/wirelogs", "invalid environment parameter"},
-		{"project uppercase", "/namespaces/ns-a/environments/development/wirelogs?project=DEMO", "invalid project parameter"},
-		{"component uppercase", "/namespaces/ns-a/environments/development/wirelogs?project=demo&component=Checkout", "invalid component parameter"},
+		{"namespace too long", "/api/v1/namespaces/" + strings.Repeat("a", 64) + "/environments/development/wirelogs", "invalid namespace parameter"},
+		{"namespace uppercase", "/api/v1/namespaces/NS_A/environments/development/wirelogs", "invalid namespace parameter"},
+		{"environment uppercase", "/api/v1/namespaces/ns-a/environments/DEV/wirelogs", "invalid environment parameter"},
+		{"project uppercase", "/api/v1/namespaces/ns-a/environments/development/wirelogs?project=DEMO", "invalid project parameter"},
+		{"component uppercase", "/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=Checkout", "invalid component parameter"},
 	}
 
 	for _, tc := range cases {
@@ -305,7 +305,7 @@ func TestWirelogsHandler_AuthzCheckInternalError(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, wirelogsRequest(t, "/namespaces/ns-a/environments/development/wirelogs"))
+	h.ServeHTTP(rec, wirelogsRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs"))
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	assert.Contains(t, rec.Body.String(), "authorization check failed")
@@ -320,7 +320,7 @@ func TestWirelogsHandler_PlaneResolve_EnvironmentNotFound(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, wirelogsRequest(t, "/namespaces/ns-a/environments/development/wirelogs"))
+	h.ServeHTTP(rec, wirelogsRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs"))
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "failed to resolve data plane")
@@ -340,7 +340,7 @@ func TestWirelogsHandler_PlaneResolve_EnvironmentMissingDataPlaneRef(t *testing.
 	}
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, wirelogsRequest(t, "/namespaces/ns-a/environments/development/wirelogs"))
+	h.ServeHTTP(rec, wirelogsRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs"))
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "no data plane reference")
@@ -364,7 +364,7 @@ func TestWirelogsHandler_NoFlusherSupport(t *testing.T) {
 	}
 
 	rec := &wirelogsNoFlushRecorder{rec: httptest.NewRecorder()}
-	h.ServeHTTP(rec, wirelogsRequest(t, "/namespaces/ns-a/environments/development/wirelogs"))
+	h.ServeHTTP(rec, wirelogsRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs"))
 
 	assert.Equal(t, http.StatusInternalServerError, rec.rec.Code)
 	assert.Contains(t, rec.rec.Body.String(), "streaming unsupported")
@@ -384,7 +384,7 @@ func TestWirelogsHandler_GatewayDialError(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, wirelogsRequest(t, "/namespaces/ns-a/environments/development/wirelogs"))
+	h.ServeHTTP(rec, wirelogsRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs"))
 
 	assert.Equal(t, http.StatusBadGateway, rec.Code)
 	assert.Contains(t, rec.Body.String(), "failed to connect to data plane")
@@ -405,7 +405,7 @@ func TestWirelogsHandler_GatewayNonOKStatus(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, wirelogsRequest(t, "/namespaces/ns-a/environments/development/wirelogs"))
+	h.ServeHTTP(rec, wirelogsRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs"))
 
 	assert.Equal(t, http.StatusServiceUnavailable, rec.Code,
 		"503 from the gateway must be propagated, not collapsed to 502")
@@ -430,7 +430,7 @@ func TestWirelogsHandler_GatewayWeirdStatusCoercedTo502(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, wirelogsRequest(t, "/namespaces/ns-a/environments/development/wirelogs"))
+	h.ServeHTTP(rec, wirelogsRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs"))
 
 	assert.Equal(t, http.StatusBadGateway, rec.Code)
 }
@@ -471,7 +471,7 @@ func TestWirelogsHandler_HappyPath(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, wirelogsRequest(t,
-		"/namespaces/ns-a/environments/development/wirelogs?project=shopfront"))
+		"/api/v1/namespaces/ns-a/environments/development/wirelogs?project=shopfront"))
 
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "text/event-stream", rec.Header().Get("Content-Type"))

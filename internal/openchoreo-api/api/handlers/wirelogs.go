@@ -74,11 +74,11 @@ func NewWirelogsHandler(k8sClient client.Client, gwClient *gatewayClient.Client,
 
 // ServeHTTP authorizes the caller, resolves the target data plane, and proxies
 // the gateway's SSE stream to the client.
-// URL: /namespaces/{namespace}/environments/{environment}/wirelogs?project=&component=
+// URL: /api/v1/namespaces/{namespace}/environments/{environment}/wirelogs?project=&component=
 func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	namespace, environment, ok := parseWirelogsPath(r)
 	if !ok {
-		http.Error(w, "invalid wirelogs URL: expected /namespaces/{namespace}/environments/{environment}/wirelogs", http.StatusBadRequest)
+		http.Error(w, "invalid wirelogs URL: expected /api/v1/namespaces/{namespace}/environments/{environment}/wirelogs", http.StatusBadRequest)
 		return
 	}
 
@@ -317,7 +317,7 @@ func (h *WirelogsHandler) buildGatewayWirelogsURL(plane execPlaneInfo, namespace
 }
 
 // parseWirelogsPath extracts (namespace, environment) from the request path.
-// Expected form: /namespaces/{namespace}/environments/{environment}/wirelogs
+// Expected form: /api/v1/namespaces/{namespace}/environments/{environment}/wirelogs
 func parseWirelogsPath(r *http.Request) (namespace, environment string, ok bool) {
 	namespace = r.PathValue("namespace")
 	environment = r.PathValue("environment")
@@ -326,14 +326,14 @@ func parseWirelogsPath(r *http.Request) (namespace, environment string, ok bool)
 	}
 
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) != 5 {
+	if len(parts) != 7 {
 		return "", "", false
 	}
-	if parts[0] != "namespaces" || parts[2] != "environments" || parts[4] != "wirelogs" {
+	if parts[0] != "api" || parts[1] != "v1" || parts[2] != "namespaces" || parts[4] != "environments" || parts[6] != "wirelogs" {
 		return "", "", false
 	}
-	if parts[1] == "" || parts[3] == "" {
+	if parts[3] == "" || parts[5] == "" {
 		return "", "", false
 	}
-	return parts[1], parts[3], true
+	return parts[3], parts[5], true
 }
