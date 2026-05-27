@@ -7,7 +7,7 @@
 # environments, pipeline, component types, workflows, and traits.
 #
 # Usage:
-#   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml
+#   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/issue-fix_root_access_podman/samples/getting-started/all.yaml
 #
 # Or if you have cloned the repository:
 #   kubectl apply -f samples/getting-started/all.yaml
@@ -1060,6 +1060,7 @@ spec:
             value: ${parameters.repository.appPath}
           - name: build-env
             value: ${parameters.buildEnv}
+          # PE-controlled parameters
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag

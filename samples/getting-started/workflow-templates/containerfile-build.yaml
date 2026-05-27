@@ -29,6 +29,7 @@ spec:
             IMAGE="${IMAGE_NAME}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
             DOCKER_CONTEXT="{{workflow.parameters.docker-context}}"
             DOCKERFILE_PATH="{{workflow.parameters.dockerfile-path}}"
+            BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
             BUILD_ARGS_JSON='{{inputs.parameters.build-args}}'
 
             echo ">> Image: $IMAGE"
@@ -49,9 +50,19 @@ spec:
               exit 1
             fi
 
+            apk add --no-cache jq > /dev/null 2>&1 || true
+
+            # build-env: environment variables available during build (passed as build-args to BuildKit)
+            BUILD_ENV_OPTS=""
+            if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
+              BUILD_ENV_OPTS=$(echo "$BUILD_ENV_JSON" | \
+                jq -r '.[] | "--opt build-arg:\(.name)=\(.value)"' | \
+                tr '\n' ' ')
+            fi
+
+            # build-args: explicit Docker build arguments (ARG in Dockerfile)
             BUILD_ARG_OPTS=""
             if [ -n "$BUILD_ARGS_JSON" ] && [ "$BUILD_ARGS_JSON" != "[]" ]; then
-              apk add --no-cache jq > /dev/null 2>&1 || true
               BUILD_ARG_OPTS=$(echo "$BUILD_ARGS_JSON" | \
                 jq -r '.[] | "--opt build-arg:\(.name)=\(.value)"' | \
                 tr '\n' ' ')
@@ -66,6 +77,7 @@ spec:
               --local context="$WORKDIR/$DOCKER_CONTEXT" \
               --local dockerfile="$DOCKERFILE_DIR" \
               --opt filename="$DOCKERFILE_NAME" \
+              $BUILD_ENV_OPTS \
               $BUILD_ARG_OPTS \
               --output "type=docker,name=$IMAGE,dest=/mnt/vol/app-image.tar"
 

@@ -92,6 +92,7 @@ spec:
             value: ${parameters.repository.appPath}
           - name: build-env
             value: ${parameters.buildEnv}
+          # PE-controlled parameters
           - name: image-name
             value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
           - name: image-tag
