@@ -192,7 +192,6 @@ spec:
                   -d @"${WORKLOAD_JSON}")
               else
                 echo ">> Workload already exists, updating only container image (auto-generated)"
-                # GET the existing workload
                 GET_RESPONSE=$(curl -sk -w "\n%{http_code}" \
                   -X GET "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads/${WORKLOAD_NAME}" \
                   -H "Authorization: Bearer ${ACCESS_TOKEN}")
@@ -205,7 +204,6 @@ spec:
                   exit 1
                 fi
 
-                # Extract the new image from the generated workload and merge into existing
                 echo "${GET_BODY}" > "${WORK_DIR}/workload-existing.json"
                 NEW_IMAGE=$(jq -r '.spec.container.image' "${WORKLOAD_JSON}")
 
@@ -237,7 +235,6 @@ spec:
             fi
 
             # --- Step 5: Annotate the WorkflowRun with the workload CR ---
-            # Get the current WorkflowRun
             echo ">> Getting WorkflowRun ${RUN_NAME}"
             WF_RUN_RESPONSE=$(curl -sk -w "\n%{http_code}" \
               -X GET "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workflowruns/${RUN_NAME}" \

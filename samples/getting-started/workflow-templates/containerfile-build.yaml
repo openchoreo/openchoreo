@@ -15,8 +15,23 @@ spec:
         - name: storage
           emptyDir:
             sizeLimit: 10Gi
+        - name: tools
+          emptyDir: {}
+      initContainers:
+        - name: install-tools
+          image: ghcr.io/openchoreo/ci-tools:1.0
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /tools/bin /tools/lib
+              cp /ci-tools/bin/* /tools/bin/
+              cp /ci-tools/lib/* /tools/lib/
+          volumeMounts:
+            - name: tools
+              mountPath: /tools
       container:
-        image: moby/buildkit:v0.30.0
+        image: quay.io/podman/stable:v5.8.2
         command:
           - sh
           - -c
@@ -24,9 +39,11 @@ spec:
           - |-
             set -e
 
+            export PATH="/tools/bin:${PATH}"
+            export LD_LIBRARY_PATH="/tools/lib"
+
             WORKDIR="/mnt/vol/source"
-            IMAGE_NAME="{{workflow.parameters.image-name}}"
-            IMAGE="${IMAGE_NAME}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
+            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
             DOCKER_CONTEXT="{{workflow.parameters.docker-context}}"
             DOCKERFILE_PATH="{{workflow.parameters.dockerfile-path}}"
             BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
@@ -38,6 +55,7 @@ spec:
 
             if [ ! -f "$WORKDIR/$DOCKERFILE_PATH" ]; then
               echo ">> Error: Dockerfile not found at: '$DOCKERFILE_PATH'"
+              echo ">> Hint: Verify that the Dockerfile path is correct and relative to the repository root."
               echo ">> Repository contents:"
               ls -la "$WORKDIR/"
               exit 1
@@ -45,40 +63,41 @@ spec:
 
             if [ ! -d "$WORKDIR/$DOCKER_CONTEXT" ]; then
               echo ">> Error: Docker build context directory not found: '$DOCKER_CONTEXT'"
+              echo ">> Hint: Verify that the Docker build context points to a valid directory relative to the repository root."
               echo ">> Repository contents:"
               ls -la "$WORKDIR/"
               exit 1
             fi
 
-            apk add --no-cache jq > /dev/null 2>&1 || true
+            mkdir -p /storage/run /storage/graph
+            cat > /etc/containers/storage.conf <<EOF
+            [storage]
+            driver = "overlay"
+            runroot = "/storage/run"
+            graphroot = "/storage/graph"
+            [storage.options.overlay]
+            EOF
 
-            set --
-            # build-env: environment variables available during build (passed as build-args to BuildKit)
+            # Build --env and --build-arg flags
+            ENV_ARGS=""
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-              eval "$(echo "$BUILD_ENV_JSON" | jq -r '.[] | @sh "set -- \"$@\" --opt \"build-arg:\(.name)=\(.value)\""')"
+              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
+                jq -r '.[] | "--env \(.name)=\(.value)"' | \
+                tr '\n' ' ')
             fi
 
-            # build-args: explicit Docker build arguments (ARG in Dockerfile)
+            BUILD_ARG_ARGS=""
             if [ -n "$BUILD_ARGS_JSON" ] && [ "$BUILD_ARGS_JSON" != "[]" ]; then
-              eval "$(echo "$BUILD_ARGS_JSON" | jq -r '.[] | @sh "set -- \"$@\" --opt \"build-arg:\(.name)=\(.value)\""')"
+              BUILD_ARG_ARGS=$(echo "$BUILD_ARGS_JSON" | \
+                jq -r '.[] | "--build-arg \(.name)=\(.value)"' | \
+                tr '\n' ' ')
             fi
 
-            DOCKERFILE_DIR=$(dirname "$WORKDIR/$DOCKERFILE_PATH")
-            DOCKERFILE_NAME=$(basename "$DOCKERFILE_PATH")
-
-            echo ">> Building image with BuildKit"
-            buildctl-daemonless.sh build \
-              --frontend dockerfile.v0 \
-              --local context="$WORKDIR/$DOCKER_CONTEXT" \
-              --local dockerfile="$DOCKERFILE_DIR" \
-              --opt filename="$DOCKERFILE_NAME" \
-              "$@" \
-              --output "type=docker,name=$IMAGE,dest=/mnt/vol/app-image.tar"
-
+            echo ">> Building image"
+            podman build -t $IMAGE -f $WORKDIR/$DOCKERFILE_PATH $ENV_ARGS $BUILD_ARG_ARGS $WORKDIR/$DOCKER_CONTEXT
             echo ">> Image built successfully"
-        env:
-          - name: BUILDKITD_FLAGS
-            value: "--root=/storage"
+            echo ">> Saving image"
+            podman save -o /mnt/vol/app-image.tar $IMAGE
         securityContext:
           privileged: true
         volumeMounts:
@@ -86,3 +105,6 @@ spec:
             name: workspace
           - mountPath: /storage
             name: storage
+          - mountPath: /tools
+            name: tools
+            readOnly: true

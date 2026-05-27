@@ -22,7 +22,7 @@ metadata:
 spec:
   templates:
     - name: build-image
-      podSpecPatch: '{"hostUsers":false,"securityContext":{"fsGroup":1000,"fsGroupChangePolicy":"OnRootMismatch"}}'
+      podSpecPatch: '{"hostUsers": false}'
       inputs:
         parameters:
           - name: git-revision
@@ -30,164 +30,85 @@ spec:
         - name: storage
           emptyDir:
             sizeLimit: 10Gi
-        - name: podman-run
-          emptyDir: {}
-        - name: cnb-layers
-          emptyDir: {}
-      sidecars:
-        - name: podman-service
-          image: quay.io/podman/stable:v5.8.2
-          imagePullPolicy: IfNotPresent
-          command:
-            - sh
-            - -c
-          args:
-            - |-
-              set -e
+      container:
+        image: quay.io/podman/stable:v5.8.2
+        command:
+          - sh
+          - -c
+        args:
+          - |-
+            set -e
 
-              export HOME=/tmp/podman-home
-              export XDG_RUNTIME_DIR=/podman-run
-              mkdir -p "$HOME" "$XDG_RUNTIME_DIR"
+            dnf install -y --setopt=install_weak_deps=False jq > /dev/null 2>&1
 
-              mkdir -p /storage/run/containers/storage /storage/.local/share/containers/storage
-              cat > /tmp/storage.conf <<'STORAGEEOF'
-              [storage]
-              driver = "overlay"
-              runroot = "/storage/run/containers/storage"
-              graphroot = "/storage/.local/share/containers/storage"
-              rootless_storage_path = "/storage/.local/share/containers/storage"
-              [storage.options]
-              pull_options = {enable_partial_images = "true", use_hard_links = "false", ostree_repos=""}
-              [storage.options.overlay]
-              STORAGEEOF
-              export CONTAINERS_STORAGE_CONF=/tmp/storage.conf
+            WORKDIR=/mnt/vol/source
 
-              podman pull -q "docker.io/paketobuildpacks/run-jammy-full:0.1.130"
+            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
+            APP_PATH="{{workflow.parameters.app-path}}"
+            BUILD_ENV_JSON='{{workflow.parameters.build-env}}'
 
-              exec podman system service --time=0 unix:///podman-run/podman.sock
-          securityContext:
-            runAsUser: 1000
-            runAsGroup: 1000
-          volumeMounts:
-            - mountPath: /storage
-              name: storage
-            - mountPath: /podman-run
-              name: podman-run
-      containerSet:
+            echo ">> Image: $IMAGE"
+            echo ">> App path: $APP_PATH"
+
+            if [ ! -d "$WORKDIR/$APP_PATH" ]; then
+              echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
+              echo ">> Hint: Verify that the application path points to a valid directory in your repository."
+              echo ">> Repository contents:"
+              ls -la "$WORKDIR/"
+              exit 1
+            fi
+
+            mkdir -p /storage/run /storage/graph
+            cat > /etc/containers/storage.conf <<EOF
+            [storage]
+            driver = "overlay"
+            runroot = "/storage/run"
+            graphroot = "/storage/graph"
+            [storage.options.overlay]
+            EOF
+
+            echo ">> Initializing build environment"
+            mkdir -p /run/podman
+            podman system service --time=0 unix:///run/podman/podman.sock &
+            until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
+            export DOCKER_HOST=unix:///run/podman/podman.sock
+
+            BUILDER="docker.io/paketobuildpacks/builder-jammy-full:0.3.603"
+            RUN_IMG="docker.io/paketobuildpacks/run-jammy-full:0.1.130"
+
+            # Install pack CLI
+            echo ">> Installing pack CLI"
+            PACK_VERSION="v0.40.1"
+            curl -sSL "https://github.com/buildpacks/pack/releases/download/${PACK_VERSION}/pack-${PACK_VERSION}-linux.tgz" | tar xz -C /tmp
+            chmod +x /tmp/pack
+
+            # Build --env flags
+            ENV_ARGS=""
+            if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
+              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
+                jq -r '.[] | "--env \(.name)=\(.value)"' | \
+                tr '\n' ' ')
+            fi
+
+            echo ">> Building image with Paketo buildpacks"
+            /tmp/pack build "$IMAGE" \
+              --builder "$BUILDER" \
+              --run-image "$RUN_IMG" \
+              --docker-host inherit \
+              --path "$WORKDIR/$APP_PATH" \
+              --pull-policy always \
+              $ENV_ARGS
+
+            echo ">> Image built successfully"
+            echo ">> Saving image"
+            podman save -o /mnt/vol/app-image.tar "$IMAGE"
+        securityContext:
+          privileged: true
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
-          - mountPath: /podman-run
-            name: podman-run
-          - mountPath: /layers
-            name: cnb-layers
-        containers:
-          - name: main
-            image: docker.io/paketobuildpacks/builder-jammy-full:0.3.603
-            imagePullPolicy: IfNotPresent
-            command:
-              - sh
-              - -c
-            args:
-              - |-
-                set -e
-
-                WORKDIR=/mnt/vol/source
-                APP_PATH="{{workflow.parameters.app-path}}"
-                BUILD_ENV_JSON='{{workflow.parameters.build-env}}'
-                GIT_REVISION="{{inputs.parameters.git-revision}}"
-
-                IMAGE_NAME="{{workflow.parameters.image-name}}"
-                IMAGE_TAG="{{workflow.parameters.image-tag}}"
-                SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
-                RUN_IMG="docker.io/paketobuildpacks/run-jammy-full:0.1.130"
-
-                echo ">> [cnb-rootless] Source image: $SRC_IMAGE"
-                echo ">> App path: $APP_PATH"
-                echo ">> Run image: $RUN_IMG"
-
-                if [ ! -d "$WORKDIR/$APP_PATH" ]; then
-                  echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
-                  echo ">> Repository contents:"
-                  ls -la "$WORKDIR/"
-                  exit 1
-                fi
-
-                for i in $(seq 1 300); do
-                  if [ -S /podman-run/podman.sock ]; then
-                    break
-                  fi
-                  sleep 1
-                done
-                if [ ! -S /podman-run/podman.sock ]; then
-                  echo ">> Error: Podman service socket was not created at /podman-run/podman.sock"
-                  exit 1
-                fi
-
-                rm -f /mnt/vol/app-image.tar
-                mkdir -p /mnt/vol/cnb-cache /mnt/vol/cnb-platform/env
-                chmod -R a+rwX /mnt/vol/cnb-cache /mnt/vol/cnb-platform
-                export HOME=/tmp/cnb-home
-                mkdir -p "$HOME"
-                git config --global --add safe.directory "$WORKDIR" 2>/dev/null || true
-                git config --global --add safe.directory "$WORKDIR/$APP_PATH" 2>/dev/null || true
-                printf '%s' '-buildvcs=false' > /mnt/vol/cnb-platform/env/GOFLAGS
-
-                if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-                  echo "$BUILD_ENV_JSON" | \
-                    python3 -c "
-                import json, sys
-                for e in json.loads(sys.stdin.read()):
-                    with open('/mnt/vol/cnb-platform/env/' + e['name'], 'w') as f:
-                        f.write(e['value'])
-                " 2>/dev/null || {
-                    echo ">> Warning: Could not parse build env JSON, skipping build env vars"
-                  }
-                fi
-
-                chmod -R a+rX "$WORKDIR/$APP_PATH" 2>/dev/null || true
-
-                echo ">> Building image with CNB lifecycle creator (local daemon export)"
-                /cnb/lifecycle/creator \
-                  -daemon \
-                  -app="$WORKDIR/$APP_PATH" \
-                  -run-image="$RUN_IMG" \
-                  -cache-dir=/mnt/vol/cnb-cache \
-                  -platform=/mnt/vol/cnb-platform \
-                  "$SRC_IMAGE"
-                echo ">> Image built successfully"
-            env:
-              - name: DOCKER_HOST
-                value: unix:///podman-run/podman.sock
-              - name: CNB_PLATFORM_API
-                value: "0.14"
-            securityContext:
-              runAsUser: 1000
-              runAsGroup: 1000
-          - name: save-image
-            dependencies:
-              - main
-            image: quay.io/podman/stable:v5.8.2
-            imagePullPolicy: IfNotPresent
-            command:
-              - sh
-              - -c
-            args:
-              - |-
-                set -e
-
-                IMAGE_NAME="{{workflow.parameters.image-name}}"
-                IMAGE_TAG="{{workflow.parameters.image-tag}}"
-                GIT_REVISION="{{inputs.parameters.git-revision}}"
-                SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
-
-                echo ">> Saving CNB image as docker-archive tarball"
-                podman --remote --url unix:///podman-run/podman.sock save -o /mnt/vol/app-image.tar "$SRC_IMAGE"
-                chmod a+r /mnt/vol/app-image.tar
-                echo ">> Image saved successfully"
-            securityContext:
-              runAsUser: 1000
-              runAsGroup: 1000
+          - mountPath: /storage
+            name: storage
 
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -197,7 +118,7 @@ metadata:
 spec:
   templates:
     - name: build-image
-      podSpecPatch: '{"hostUsers":false,"securityContext":{"fsGroup":1000,"fsGroupChangePolicy":"OnRootMismatch"}}'
+      podSpecPatch: '{"hostUsers": false}'
       inputs:
         parameters:
           - name: git-revision
@@ -205,163 +126,85 @@ spec:
         - name: storage
           emptyDir:
             sizeLimit: 10Gi
-        - name: podman-run
-          emptyDir: {}
-        - name: cnb-layers
-          emptyDir: {}
-      sidecars:
-        - name: podman-service
-          image: quay.io/podman/stable:v5.8.2
-          imagePullPolicy: IfNotPresent
-          command:
-            - sh
-            - -c
-          args:
-            - |-
-              set -e
+      container:
+        image: quay.io/podman/stable:v5.8.2
+        command:
+          - sh
+          - -c
+        args:
+          - |-
+            set -e
 
-              export HOME=/tmp/podman-home
-              export XDG_RUNTIME_DIR=/podman-run
-              mkdir -p "$HOME" "$XDG_RUNTIME_DIR"
+            dnf install -y --setopt=install_weak_deps=False jq > /dev/null 2>&1
 
-              mkdir -p /storage/run/containers/storage /storage/.local/share/containers/storage
-              cat > /tmp/storage.conf <<'STORAGEEOF'
-              [storage]
-              driver = "overlay"
-              runroot = "/storage/run/containers/storage"
-              graphroot = "/storage/.local/share/containers/storage"
-              rootless_storage_path = "/storage/.local/share/containers/storage"
-              [storage.options]
-              pull_options = {enable_partial_images = "true", use_hard_links = "false", ostree_repos=""}
-              [storage.options.overlay]
-              STORAGEEOF
-              export CONTAINERS_STORAGE_CONF=/tmp/storage.conf
+            WORKDIR=/mnt/vol/source
 
-              podman pull -q "gcr.io/buildpacks/google-22/run@sha256:a8ccb6641b4d98b0adf6397f954e7194611d1ae61310f0561f1c00fdf7f9ba96"
+            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
+            APP_PATH="{{workflow.parameters.app-path}}"
+            BUILD_ENV_JSON='{{workflow.parameters.build-env}}'
 
-              exec podman system service --time=0 unix:///podman-run/podman.sock
-          securityContext:
-            runAsUser: 1000
-            runAsGroup: 1000
-          volumeMounts:
-            - mountPath: /storage
-              name: storage
-            - mountPath: /podman-run
-              name: podman-run
-      containerSet:
+            echo ">> Image: $IMAGE"
+            echo ">> App path: $APP_PATH"
+
+            if [ ! -d "$WORKDIR/$APP_PATH" ]; then
+              echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
+              echo ">> Hint: Verify that the application path points to a valid directory in your repository."
+              echo ">> Repository contents:"
+              ls -la "$WORKDIR/"
+              exit 1
+            fi
+
+            mkdir -p /storage/run /storage/graph
+            cat > /etc/containers/storage.conf <<EOF
+            [storage]
+            driver = "overlay"
+            runroot = "/storage/run"
+            graphroot = "/storage/graph"
+            [storage.options.overlay]
+            EOF
+
+            echo ">> Initializing build environment"
+            mkdir -p /run/podman
+            podman system service --time=0 unix:///run/podman/podman.sock &
+            until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
+            export DOCKER_HOST=unix:///run/podman/podman.sock
+
+            BUILDER="gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
+            RUN_IMG="gcr.io/buildpacks/google-22/run@sha256:a8ccb6641b4d98b0adf6397f954e7194611d1ae61310f0561f1c00fdf7f9ba96"
+
+            # Install pack CLI
+            echo ">> Installing pack CLI"
+            PACK_VERSION="v0.40.1"
+            curl -sSL "https://github.com/buildpacks/pack/releases/download/${PACK_VERSION}/pack-${PACK_VERSION}-linux.tgz" | tar xz -C /tmp
+            chmod +x /tmp/pack
+
+            # Build --env flags
+            ENV_ARGS=""
+            if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
+              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
+                jq -r '.[] | "--env \(.name)=\(.value)"' | \
+                tr '\n' ' ')
+            fi
+
+            echo ">> Building image with GCP buildpacks"
+            /tmp/pack build "$IMAGE" \
+              --builder "$BUILDER" \
+              --run-image "$RUN_IMG" \
+              --docker-host inherit \
+              --path "$WORKDIR/$APP_PATH" \
+              --pull-policy always \
+              $ENV_ARGS
+
+            echo ">> Image built successfully"
+            echo ">> Saving image"
+            podman save -o /mnt/vol/app-image.tar "$IMAGE"
+        securityContext:
+          privileged: true
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
-          - mountPath: /podman-run
-            name: podman-run
-          - mountPath: /layers
-            name: cnb-layers
-        containers:
-          - name: main
-            image: gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1
-            imagePullPolicy: IfNotPresent
-            command:
-              - sh
-              - -c
-            args:
-              - |-
-                set -e
-
-                WORKDIR=/mnt/vol/source
-                APP_PATH="{{workflow.parameters.app-path}}"
-                BUILD_ENV_JSON='{{workflow.parameters.build-env}}'
-                GIT_REVISION="{{inputs.parameters.git-revision}}"
-
-                IMAGE_NAME="{{workflow.parameters.image-name}}"
-                IMAGE_TAG="{{workflow.parameters.image-tag}}"
-                SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
-                RUN_IMG="gcr.io/buildpacks/google-22/run@sha256:a8ccb6641b4d98b0adf6397f954e7194611d1ae61310f0561f1c00fdf7f9ba96"
-
-                echo ">> Source image: $SRC_IMAGE"
-                echo ">> App path: $APP_PATH"
-                echo ">> Run image: $RUN_IMG"
-
-                if [ ! -d "$WORKDIR/$APP_PATH" ]; then
-                  echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
-                  echo ">> Repository contents:"
-                  ls -la "$WORKDIR/"
-                  exit 1
-                fi
-
-                for i in $(seq 1 300); do
-                  if [ -S /podman-run/podman.sock ]; then
-                    break
-                  fi
-                  sleep 1
-                done
-                if [ ! -S /podman-run/podman.sock ]; then
-                  echo ">> Error: Podman service socket was not created at /podman-run/podman.sock"
-                  exit 1
-                fi
-
-                rm -f /mnt/vol/app-image.tar
-                mkdir -p /mnt/vol/cnb-cache /mnt/vol/cnb-platform/env
-                chmod -R a+rwX /mnt/vol/cnb-cache /mnt/vol/cnb-platform
-                export HOME=/tmp/cnb-home
-                mkdir -p "$HOME"
-                git config --global --add safe.directory "$WORKDIR" 2>/dev/null || true
-                git config --global --add safe.directory "$WORKDIR/$APP_PATH" 2>/dev/null || true
-                printf '%s' '-buildvcs=false' > /mnt/vol/cnb-platform/env/GOFLAGS
-
-                if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-                  echo "$BUILD_ENV_JSON" | \
-                    python3 -c "
-                import json, sys
-                for e in json.loads(sys.stdin.read()):
-                    with open('/mnt/vol/cnb-platform/env/' + e['name'], 'w') as f:
-                        f.write(e['value'])
-                " 2>/dev/null || {
-                    echo ">> Warning: Could not parse build env JSON, skipping build env vars"
-                  }
-                fi
-
-                chmod -R a+rX "$WORKDIR/$APP_PATH" 2>/dev/null || true
-
-                echo ">> Building image with CNB lifecycle creator"
-                /cnb/lifecycle/creator \
-                  -daemon \
-                  -app="$WORKDIR/$APP_PATH" \
-                  -run-image="$RUN_IMG" \
-                  -cache-dir=/mnt/vol/cnb-cache \
-                  -platform=/mnt/vol/cnb-platform \
-                  "$SRC_IMAGE"
-                echo ">> Image built successfully"
-            env:
-              - name: DOCKER_HOST
-                value: unix:///podman-run/podman.sock
-              - name: CNB_PLATFORM_API
-                value: "0.14"
-            securityContext:
-              runAsUser: 1000
-              runAsGroup: 1000
-          - name: save-image
-            dependencies:
-              - main
-            image: quay.io/podman/stable:v5.8.2
-            imagePullPolicy: IfNotPresent
-            command:
-              - sh
-              - -c
-            args:
-              - |-
-                set -e
-
-                IMAGE_NAME="{{workflow.parameters.image-name}}"
-                IMAGE_TAG="{{workflow.parameters.image-tag}}"
-                GIT_REVISION="{{inputs.parameters.git-revision}}"
-                SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
-
-                podman --remote --url unix:///podman-run/podman.sock save -o /mnt/vol/app-image.tar "$SRC_IMAGE"
-                chmod a+r /mnt/vol/app-image.tar
-                echo ">> Image saved successfully"
-            securityContext:
-              runAsUser: 1000
-              runAsGroup: 1000
+          - mountPath: /storage
+            name: storage
 
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -371,7 +214,7 @@ metadata:
 spec:
   templates:
     - name: build-image
-      podSpecPatch: '{"hostUsers":false,"securityContext":{"fsGroup":1000,"fsGroupChangePolicy":"OnRootMismatch"}}'
+      podSpecPatch: '{"hostUsers": false}'
       inputs:
         parameters:
           - name: git-revision
@@ -380,169 +223,90 @@ spec:
         - name: storage
           emptyDir:
             sizeLimit: 10Gi
-        - name: podman-run
-          emptyDir: {}
-        - name: cnb-layers
-          emptyDir: {}
         - name: app-dir
           emptyDir: {}
-      sidecars:
-        - name: podman-service
-          image: quay.io/podman/stable:v5.8.2
-          imagePullPolicy: IfNotPresent
-          command:
-            - sh
-            - -c
-          args:
-            - |-
-              set -e
+      container:
+        image: quay.io/podman/stable:v5.8.2
+        command:
+          - sh
+          - -c
+        args:
+          - |-
+            set -e
 
-              export HOME=/tmp/podman-home
-              export XDG_RUNTIME_DIR=/podman-run
-              mkdir -p "$HOME" "$XDG_RUNTIME_DIR"
+            dnf install -y --setopt=install_weak_deps=False jq > /dev/null 2>&1
 
-              mkdir -p /storage/run/containers/storage /storage/.local/share/containers/storage
-              cat > /tmp/storage.conf <<'STORAGEEOF'
-              [storage]
-              driver = "overlay"
-              runroot = "/storage/run/containers/storage"
-              graphroot = "/storage/.local/share/containers/storage"
-              rootless_storage_path = "/storage/.local/share/containers/storage"
-              [storage.options]
-              pull_options = {enable_partial_images = "true", use_hard_links = "false", ostree_repos=""}
-              [storage.options.overlay]
-              STORAGEEOF
-              export CONTAINERS_STORAGE_CONF=/tmp/storage.conf
+            WORKDIR=/mnt/vol/source
 
-              podman pull -q "ghcr.io/openchoreo/buildpack/ballerina:18-run"
+            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
+            APP_PATH="{{workflow.parameters.app-path}}"
+            BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
 
-              exec podman system service --time=0 unix:///podman-run/podman.sock
-          securityContext:
-            runAsUser: 1000
-            runAsGroup: 1000
-          volumeMounts:
-            - mountPath: /storage
-              name: storage
-            - mountPath: /podman-run
-              name: podman-run
-      containerSet:
+            echo ">> Image: $IMAGE"
+            echo ">> App path: $APP_PATH"
+
+            if [ ! -d "$WORKDIR/$APP_PATH" ]; then
+              echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
+              echo ">> Hint: Verify that the application path points to a valid directory in your repository."
+              echo ">> Repository contents:"
+              ls -la "$WORKDIR/"
+              exit 1
+            fi
+
+            mkdir -p /storage/run /storage/graph
+            cat > /etc/containers/storage.conf <<EOF
+            [storage]
+            driver = "overlay"
+            runroot = "/storage/run"
+            graphroot = "/storage/graph"
+            [storage.options.overlay]
+            EOF
+
+            echo ">> Initializing build environment"
+            mkdir -p /run/podman
+            podman system service --time=0 unix:///run/podman/podman.sock &
+            until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
+            export DOCKER_HOST=unix:///run/podman/podman.sock
+
+            BUILDER="ghcr.io/openchoreo/buildpack/ballerina:18"
+            RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina:18-run"
+
+            # Install pack CLI
+            echo ">> Installing pack CLI"
+            PACK_VERSION="v0.40.1"
+            curl -sSL "https://github.com/buildpacks/pack/releases/download/${PACK_VERSION}/pack-${PACK_VERSION}-linux.tgz" | tar xz -C /tmp
+            chmod +x /tmp/pack
+
+            # Build --env flags
+            ENV_ARGS=""
+            if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
+              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
+                jq -r '.[] | "--env \(.name)=\(.value)"' | \
+                tr '\n' ' ')
+            fi
+
+            echo ">> Building image with Ballerina buildpack"
+            /tmp/pack build "$IMAGE" \
+              --builder "$BUILDER" \
+              --run-image "$RUN_IMAGE" \
+              --docker-host inherit \
+              --path "$WORKDIR/$APP_PATH" \
+              --volume "/mnt/vol:/app/generated-artifacts:rw" \
+              --pull-policy always \
+              $ENV_ARGS
+
+            echo ">> Image built successfully"
+            echo ">> Saving image"
+            podman save -o /mnt/vol/app-image.tar "$IMAGE"
+        securityContext:
+          privileged: true
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
-          - mountPath: /podman-run
-            name: podman-run
-          - mountPath: /layers
-            name: cnb-layers
-        containers:
-          - name: main
-            image: ghcr.io/openchoreo/buildpack/ballerina:18
-            imagePullPolicy: IfNotPresent
-            volumeMounts:
-              - mountPath: /app
-                name: app-dir
-            command:
-              - sh
-              - -c
-            args:
-              - |-
-                set -e
-
-                WORKDIR=/mnt/vol/source
-                APP_PATH="{{workflow.parameters.app-path}}"
-                BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
-                GIT_REVISION="{{inputs.parameters.git-revision}}"
-
-                IMAGE_NAME="{{workflow.parameters.image-name}}"
-                IMAGE_TAG="{{workflow.parameters.image-tag}}"
-                SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
-                RUN_IMG="ghcr.io/openchoreo/buildpack/ballerina:18-run"
-
-                echo ">> Source image: $SRC_IMAGE"
-                echo ">> App path: $APP_PATH"
-                echo ">> Run image: $RUN_IMG"
-
-                if [ ! -d "$WORKDIR/$APP_PATH" ]; then
-                  echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
-                  echo ">> Repository contents:"
-                  ls -la "$WORKDIR/"
-                  exit 1
-                fi
-
-                for i in $(seq 1 300); do
-                  if [ -S /podman-run/podman.sock ]; then
-                    break
-                  fi
-                  sleep 1
-                done
-                if [ ! -S /podman-run/podman.sock ]; then
-                  echo ">> Error: Podman service socket was not created at /podman-run/podman.sock"
-                  exit 1
-                fi
-
-                rm -f /mnt/vol/app-image.tar
-                mkdir -p /mnt/vol/cnb-cache /mnt/vol/cnb-platform/env /mnt/vol/generated-artifacts
-                chmod -R a+rwX /mnt/vol/cnb-cache /mnt/vol/cnb-platform /mnt/vol/generated-artifacts
-                export HOME=/tmp/cnb-home
-                mkdir -p "$HOME"
-                git config --global --add safe.directory "$WORKDIR" 2>/dev/null || true
-                git config --global --add safe.directory "$WORKDIR/$APP_PATH" 2>/dev/null || true
-                printf '%s' '-buildvcs=false' > /mnt/vol/cnb-platform/env/GOFLAGS
-
-                if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-                  echo "$BUILD_ENV_JSON" | \
-                    python3 -c "
-                import json, sys
-                for e in json.loads(sys.stdin.read()):
-                    with open('/mnt/vol/cnb-platform/env/' + e['name'], 'w') as f:
-                        f.write(e['value'])
-                " 2>/dev/null || {
-                    echo ">> Warning: Could not parse build env JSON, skipping build env vars"
-                  }
-                fi
-
-                chmod -R a+rX "$WORKDIR/$APP_PATH" 2>/dev/null || true
-
-                echo ">> Building image with CNB lifecycle creator"
-                /cnb/lifecycle/creator \
-                  -daemon \
-                  -app="$WORKDIR/$APP_PATH" \
-                  -run-image="$RUN_IMG" \
-                  -cache-dir=/mnt/vol/cnb-cache \
-                  -platform=/mnt/vol/cnb-platform \
-                  "$SRC_IMAGE"
-                echo ">> Image built successfully"
-            env:
-              - name: DOCKER_HOST
-                value: unix:///podman-run/podman.sock
-              - name: CNB_PLATFORM_API
-                value: "0.14"
-            securityContext:
-              runAsUser: 1000
-              runAsGroup: 1000
-          - name: save-image
-            dependencies:
-              - main
-            image: quay.io/podman/stable:v5.8.2
-            imagePullPolicy: IfNotPresent
-            command:
-              - sh
-              - -c
-            args:
-              - |-
-                set -e
-
-                IMAGE_NAME="{{workflow.parameters.image-name}}"
-                IMAGE_TAG="{{workflow.parameters.image-tag}}"
-                GIT_REVISION="{{inputs.parameters.git-revision}}"
-                SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
-
-                echo ">> Saving CNB image as docker-archive tarball"
-                podman --remote --url unix:///podman-run/podman.sock save -o /mnt/vol/app-image.tar "$SRC_IMAGE"
-                chmod a+r /mnt/vol/app-image.tar
-                echo ">> Image saved successfully"
-            securityContext:
-              runAsUser: 1000
-              runAsGroup: 1000
+          - mountPath: /storage
+            name: storage
+          - mountPath: /app
+            name: app-dir
 
 ---
 apiVersion: argoproj.io/v1alpha1
@@ -562,8 +326,23 @@ spec:
         - name: storage
           emptyDir:
             sizeLimit: 10Gi
+        - name: tools
+          emptyDir: {}
+      initContainers:
+        - name: install-tools
+          image: ghcr.io/openchoreo/ci-tools:1.0
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /tools/bin /tools/lib
+              cp /ci-tools/bin/* /tools/bin/
+              cp /ci-tools/lib/* /tools/lib/
+          volumeMounts:
+            - name: tools
+              mountPath: /tools
       container:
-        image: moby/buildkit:v0.30.0
+        image: quay.io/podman/stable:v5.8.2
         command:
           - sh
           - -c
@@ -571,9 +350,11 @@ spec:
           - |-
             set -e
 
+            export PATH="/tools/bin:${PATH}"
+            export LD_LIBRARY_PATH="/tools/lib"
+
             WORKDIR="/mnt/vol/source"
-            IMAGE_NAME="{{workflow.parameters.image-name}}"
-            IMAGE="${IMAGE_NAME}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
+            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
             DOCKER_CONTEXT="{{workflow.parameters.docker-context}}"
             DOCKERFILE_PATH="{{workflow.parameters.dockerfile-path}}"
             BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
@@ -585,6 +366,7 @@ spec:
 
             if [ ! -f "$WORKDIR/$DOCKERFILE_PATH" ]; then
               echo ">> Error: Dockerfile not found at: '$DOCKERFILE_PATH'"
+              echo ">> Hint: Verify that the Dockerfile path is correct and relative to the repository root."
               echo ">> Repository contents:"
               ls -la "$WORKDIR/"
               exit 1
@@ -592,40 +374,41 @@ spec:
 
             if [ ! -d "$WORKDIR/$DOCKER_CONTEXT" ]; then
               echo ">> Error: Docker build context directory not found: '$DOCKER_CONTEXT'"
+              echo ">> Hint: Verify that the Docker build context points to a valid directory relative to the repository root."
               echo ">> Repository contents:"
               ls -la "$WORKDIR/"
               exit 1
             fi
 
-            apk add --no-cache jq > /dev/null 2>&1 || true
+            mkdir -p /storage/run /storage/graph
+            cat > /etc/containers/storage.conf <<EOF
+            [storage]
+            driver = "overlay"
+            runroot = "/storage/run"
+            graphroot = "/storage/graph"
+            [storage.options.overlay]
+            EOF
 
-            set --
-            # build-env: environment variables available during build (passed as build-args to BuildKit)
+            # Build --env and --build-arg flags
+            ENV_ARGS=""
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-              eval "$(echo "$BUILD_ENV_JSON" | jq -r '.[] | @sh "set -- \"$@\" --opt \"build-arg:\(.name)=\(.value)\""')"
+              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
+                jq -r '.[] | "--env \(.name)=\(.value)"' | \
+                tr '\n' ' ')
             fi
 
-            # build-args: explicit Docker build arguments (ARG in Dockerfile)
+            BUILD_ARG_ARGS=""
             if [ -n "$BUILD_ARGS_JSON" ] && [ "$BUILD_ARGS_JSON" != "[]" ]; then
-              eval "$(echo "$BUILD_ARGS_JSON" | jq -r '.[] | @sh "set -- \"$@\" --opt \"build-arg:\(.name)=\(.value)\""')"
+              BUILD_ARG_ARGS=$(echo "$BUILD_ARGS_JSON" | \
+                jq -r '.[] | "--build-arg \(.name)=\(.value)"' | \
+                tr '\n' ' ')
             fi
 
-            DOCKERFILE_DIR=$(dirname "$WORKDIR/$DOCKERFILE_PATH")
-            DOCKERFILE_NAME=$(basename "$DOCKERFILE_PATH")
-
-            echo ">> Building image with BuildKit"
-            buildctl-daemonless.sh build \
-              --frontend dockerfile.v0 \
-              --local context="$WORKDIR/$DOCKER_CONTEXT" \
-              --local dockerfile="$DOCKERFILE_DIR" \
-              --opt filename="$DOCKERFILE_NAME" \
-              "$@" \
-              --output "type=docker,name=$IMAGE,dest=/mnt/vol/app-image.tar"
-
+            echo ">> Building image"
+            podman build -t $IMAGE -f $WORKDIR/$DOCKERFILE_PATH $ENV_ARGS $BUILD_ARG_ARGS $WORKDIR/$DOCKER_CONTEXT
             echo ">> Image built successfully"
-        env:
-          - name: BUILDKITD_FLAGS
-            value: "--root=/storage"
+            echo ">> Saving image"
+            podman save -o /mnt/vol/app-image.tar $IMAGE
         securityContext:
           privileged: true
         volumeMounts:
@@ -633,3 +416,6 @@ spec:
             name: workspace
           - mountPath: /storage
             name: storage
+          - mountPath: /tools
+            name: tools
+            readOnly: true

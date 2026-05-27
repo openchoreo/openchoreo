@@ -37,65 +37,42 @@ spec:
             SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
 
             REGISTRY_ENDPOINT="ttl.sh/openchoreo-builds"
-            DEST_IMAGE="${REGISTRY_ENDPOINT}/${SRC_IMAGE}"
             AUTH_FILE="/etc/secrets/registry-push-secret/.dockerconfigjson"
-
-            export HOME=/tmp/podman-home
-            export XDG_RUNTIME_DIR=/tmp/podman-run
-            mkdir -p "$HOME" "$XDG_RUNTIME_DIR"
-            chmod 700 "$XDG_RUNTIME_DIR"
 
             echo ">> Source image: $SRC_IMAGE"
             echo ">> Registry: $REGISTRY_ENDPOINT"
-            echo ">> Destination: $DEST_IMAGE"
             echo ">> Authentication: $([ -f "$AUTH_FILE" ] && echo "registry secret found" || echo "no registry secret (anonymous push)")"
 
-            LOAD_INPUT=/mnt/vol/app-image.tar
-            if [ ! -f "$LOAD_INPUT" ]; then
+            if [ ! -f "/mnt/vol/app-image.tar" ]; then
               echo ">> Error: Built image tar not found at /mnt/vol/app-image.tar"
               echo ">> Hint: The build step may have failed to produce an image. Check the build step logs."
               exit 1
             fi
 
-            # Configure overlay storage
             mkdir -p /storage/run /storage/graph
-            cat > /tmp/storage.conf <<'STORAGEEOF'
+            cat > /etc/containers/storage.conf <<EOF
             [storage]
             driver = "overlay"
             runroot = "/storage/run"
             graphroot = "/storage/graph"
-            rootless_storage_path = "/storage/graph"
-            [storage.options]
-            pull_options = {enable_partial_images = "true", use_hard_links = "false", ostree_repos=""}
             [storage.options.overlay]
-            STORAGEEOF
+            EOF
 
-            export CONTAINERS_STORAGE_CONF=/tmp/storage.conf
+            podman load -i /mnt/vol/app-image.tar
 
-            podman load -i "$LOAD_INPUT"
-
-            if ! podman tag "$SRC_IMAGE" "$DEST_IMAGE"; then
-              echo ">> Source tag $SRC_IMAGE not found after load; tagging the loaded image ID"
-              LOADED_IMAGE_ID="$(podman images --format '{{.ID}}' | head -n 1)"
-              if [ -z "$LOADED_IMAGE_ID" ]; then
-                echo ">> Error: No image was loaded from $LOAD_INPUT"
-                exit 1
-              fi
-              podman tag "$LOADED_IMAGE_ID" "$DEST_IMAGE"
-            fi
+            podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
 
             echo ">> Pushing image to registry"
             if [ -f "$AUTH_FILE" ]; then
-              podman push --tls-verify=true --authfile "$AUTH_FILE" "$DEST_IMAGE"
+              podman push --tls-verify=true --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
             else
-              podman push --tls-verify=true "$DEST_IMAGE"
+              podman push --tls-verify=true $REGISTRY_ENDPOINT/$SRC_IMAGE
             fi
 
-            echo "$DEST_IMAGE" > /tmp/image.txt
-            echo ">> Image published successfully: $DEST_IMAGE"
+            echo ">> Image published successfully: $REGISTRY_ENDPOINT/$SRC_IMAGE"
+            echo -n "$REGISTRY_ENDPOINT/$SRC_IMAGE" > /tmp/image.txt
         securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
+          privileged: true
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
