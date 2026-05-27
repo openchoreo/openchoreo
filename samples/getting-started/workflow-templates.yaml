@@ -100,7 +100,7 @@ spec:
               $ENV_ARGS
 
             echo ">> Image built successfully"
-            echo ">> Saving image"
+            until podman image exists "$IMAGE" 2>/dev/null; do sleep 1; done
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:
           privileged: true
@@ -196,7 +196,7 @@ spec:
               $ENV_ARGS
 
             echo ">> Image built successfully"
-            echo ">> Saving image"
+            until podman image exists "$IMAGE" 2>/dev/null; do sleep 1; done
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:
           privileged: true
@@ -296,7 +296,7 @@ spec:
               $ENV_ARGS
 
             echo ">> Image built successfully"
-            echo ">> Saving image"
+            until podman image exists "$IMAGE" 2>/dev/null; do sleep 1; done
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:
           privileged: true
