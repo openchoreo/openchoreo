@@ -1,0 +1,10 @@
+# Overlay that turns Backstage on for the UI test suite. Layered on top of
+# test/e2e/k3d/values-cp.yaml so the default e2e install stays Backstage-off.
+
+backstage:
+  enabled: true
+  secretName: backstage-secrets
+  baseUrl: "http://openchoreo.e2e-cp.local:28080"
+  http:
+    hostnames:
+      - openchoreo.e2e-cp.local

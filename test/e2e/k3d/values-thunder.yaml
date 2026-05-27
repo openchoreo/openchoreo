@@ -21,3 +21,111 @@ configuration:
   passkey:
     allowedOrigins:
       - "http://openchoreo.e2e-cp.local:28080"
+
+bootstrap:
+  scripts:
+    # Add the openchoreo.e2e-cp.local:28080 redirect URI alongside the
+    # single-cluster default so Thunder accepts the OIDC redirect-back from
+    # Backstage on this cluster. PUT path is idempotent.
+    51-backstage-app.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      log_info "Checking if application 'Backstage' already exists..."
+      existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
+
+      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"Backstage"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"name":"Backstage"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+      APP_PAYLOAD='{
+        "name": "Backstage",
+        "description": "OpenChoreo Backstage Portal",
+        "logo_url": "https://cdn.statically.io/gh/openchoreo/openchoreo.github.io@main/static/img/openchoreo-logo.png",
+        "allowed_user_types": ["openchoreo-user"],
+        "assertion": {
+          "validity_period": 3600
+        },
+        "inbound_auth_config": [
+          {
+            "type": "oauth2",
+            "config": {
+              "client_id": "openchoreo-backstage-client",
+              "client_secret": "backstage-portal-secret",
+              "redirect_uris": [
+                "http://openchoreo.localhost:8080/api/auth/openchoreo-auth/handler/frame",
+                "http://openchoreo.e2e-cp.local:28080/api/auth/openchoreo-auth/handler/frame"
+              ],
+              "grant_types": [
+                "authorization_code",
+                "client_credentials",
+                "refresh_token"
+              ],
+              "response_types": [
+                "code"
+              ],
+              "token_endpoint_auth_method": "client_secret_post",
+              "pkce_required": false,
+              "public_client": false,
+              "token": {
+                "access_token": {
+                  "validity_period": 86400,
+                  "user_attributes": [
+                    "given_name",
+                    "family_name",
+                    "username",
+                    "groups"
+                  ]
+                },
+                "id_token": {
+                  "validity_period": 86400,
+                  "user_attributes": [
+                    "given_name",
+                    "family_name",
+                    "username",
+                    "groups"
+                  ]
+                }
+              },
+              "scope_claims": {
+                "email": [
+                  "email"
+                ],
+                "groups": [
+                  "groups"
+                ],
+                "profile": [
+                  "username",
+                  "given_name",
+                  "family_name",
+                  "picture"
+                ]
+              }
+            }
+          }
+        ]
+      }'
+
+      if [ -n "$app_id" ]; then
+        log_info "Application 'Backstage' already exists (id: $app_id), updating..."
+        curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Application updated successfully"
+      else
+        log_info "Application does not exist, creating default application..."
+        curl --location "${THUNDER_URL}/applications" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Default application created successfully"
+      fi

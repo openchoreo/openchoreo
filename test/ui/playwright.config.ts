@@ -1,0 +1,53 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+import { defineConfig, devices } from '@playwright/test';
+
+// Mapped into Chromium via --host-resolver-rules below so the suite runs
+// without /etc/hosts edits.
+const E2E_HOSTS = [
+  'openchoreo.e2e-cp.local',
+  'thunder.e2e-cp.local',
+  'api.e2e-cp.local',
+];
+
+const hostResolverRules = E2E_HOSTS.map(h => `MAP ${h} 127.0.0.1`).join(', ');
+
+export default defineConfig({
+  testDir: './specs',
+  timeout: 60_000,
+  expect: { timeout: 10_000 },
+
+  fullyParallel: false,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: 1,
+
+  reporter: [
+    ['list'],
+    ['html', { open: 'never', outputFolder: '_report' }],
+  ],
+
+  use: {
+    baseURL: process.env.UI_BASE_URL ?? 'http://openchoreo.e2e-cp.local:28080',
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    actionTimeout: 15_000,
+    navigationTimeout: 30_000,
+  },
+
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: [`--host-resolver-rules=${hostResolverRules}`],
+        },
+      },
+    },
+  ],
+
+  outputDir: '_test-results',
+});
