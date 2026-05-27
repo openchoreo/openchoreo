@@ -30,6 +30,27 @@ spec:
       secretKeyRef:
         name: "${metadata.name}-creds"
         key: password
+    # Standard Redis URI (IANA-registered `redis://` scheme). Consumed
+    # natively by go-redis, redis-py, Jedis URI mode, Lettuce, node-redis,
+    # `redis-cli -u`, and most other Redis clients. Composed DP-side by
+    # ESO's secret template; the password bytes never reach the control
+    # plane (same guarantee as the `password` output).
+    - name: url
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: url
+    # StackExchange.Redis configuration string ("host:port,password=xxx").
+    # This is the format expected by .NET Redis clients including
+    # Microsoft.Extensions.Caching.StackExchangeRedis (ASP.NET's
+    # IDistributedCache). Documented at
+    # https://stackexchange.github.io/StackExchange.Redis/Configuration —
+    # consumers can append further options inline (e.g.
+    # ",abortConnect=false,ssl=false"). Composed DP-side by ESO; password
+    # bytes never reach the control plane.
+    - name: connectionString
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: connectionString
     # Admin URL points at a Redis Commander instance that auto-connects to
     # Valkey using the same ESO-generated password (wired via env vars on the
     # admin pod). The dev opens the URL and lands directly in the data
@@ -80,6 +101,15 @@ spec:
           target:
             name: ${metadata.name}-creds
             creationPolicy: Owner
+            # ESO templates the Secret data DP-side using the fetched
+            # password. The control plane only stores the literal
+            # `{{ .password }}` placeholder, never the resolved bytes.
+            template:
+              type: Opaque
+              data:
+                password: "{{ .password }}"
+                url: "redis://:{{ .password }}@${metadata.name}.${metadata.namespace}.svc.cluster.local:6379"
+                connectionString: "${metadata.name}.${metadata.namespace}.svc.cluster.local:6379,password={{ .password }}"
           dataFrom:
             - sourceRef:
                 generatorRef:
