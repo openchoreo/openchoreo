@@ -35,27 +35,28 @@ spec:
           emptyDir: {}
       initContainers:
         - name: install-tools
-          image: alpine:3.23.4
+          image: ghcr.io/openchoreo/ci-tools:1.0
           command:
             - sh
             - -c
             - |
-              set -e
-              apk add --no-cache curl jq yq > /dev/null 2>&1
               mkdir -p /tools/bin /tools/lib
-              chmod 777 /tools/bin /tools/lib
-              cp /usr/bin/curl /usr/bin/jq /usr/bin/yq /tools/bin/
-              for bin in /tools/bin/*; do
-                ldd "$bin" 2>/dev/null | awk '/=>/{print $3}' | while read -r lib; do
-                  [ -f "$lib" ] && cp -n "$lib" /tools/lib/
-                done
-              done
+              cp /ci-tools/bin/* /tools/bin/
+              cp /ci-tools/lib/* /tools/lib/
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
           volumeMounts:
             - name: tools
               mountPath: /tools
         - name: copy-occ
           image: "{{inputs.parameters.openchoreo-cli-image}}"
           command: [cp, /usr/local/bin/occ, /tools/bin/occ]
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
           volumeMounts:
             - name: tools
               mountPath: /tools
