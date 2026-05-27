@@ -1,0 +1,30 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Resource
+metadata:
+  name: redis
+  namespace: default
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  type:
+    kind: ClusterResourceType
+    name: valkey
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: ResourceReleaseBinding
+metadata:
+  name: redis-development
+  namespace: default
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+    resourceName: redis
+  environment: development
+  retainPolicy: Delete
+  # spec.resourceRelease intentionally unset. The Resource controller
+  # generates a ResourceRelease named ${resource}-${hash}; the README's
+  # follow-up step promotes this binding to that release via
+  # `occ resource promote --env development redis` or by patching this
+  # field directly.
