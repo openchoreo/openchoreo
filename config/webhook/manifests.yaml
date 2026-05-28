@@ -10,26 +10,6 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-openchoreo-dev-v1alpha1-workflow
-  failurePolicy: Fail
-  name: mworkflow-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - openchoreo.dev
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - workflows
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
       path: /mutate-openchoreo-dev-v1alpha1-clusterworkflow
   failurePolicy: Fail
   name: mclusterworkflow-v1alpha1.kb.io
@@ -123,6 +103,26 @@ webhooks:
     - UPDATE
     resources:
     - releasebindings
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-openchoreo-dev-v1alpha1-workflow
+  failurePolicy: Fail
+  name: mworkflow-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - workflows
   sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
@@ -229,26 +229,6 @@ webhooks:
     - UPDATE
     resources:
     - clustertraits
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-openchoreo-dev-v1alpha1-workflow
-  failurePolicy: Fail
-  name: vworkflow-v1alpha1.kb.io
-  rules:
-  - apiGroups:
-    - openchoreo.dev
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - workflows
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -429,4 +409,24 @@ webhooks:
     - UPDATE
     resources:
     - traits
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-openchoreo-dev-v1alpha1-workflow
+  failurePolicy: Fail
+  name: vworkflow-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - workflows
   sideEffects: None

@@ -48,7 +48,7 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "bin", "tools", "k8s",
-			fmt.Sprintf("1.32.0-%s-%s", runtime.GOOS, runtime.GOARCH)),
+			fmt.Sprintf("1.36.0-%s-%s", runtime.GOOS, runtime.GOARCH)),
 	}
 
 	var err error

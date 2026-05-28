@@ -17,6 +17,15 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
+var (
+	// ErrMetricsResolveSearchScope indicates a failure while resolving scope/resource identifiers.
+	ErrMetricsResolveSearchScope = errors.New("metrics search scope resolution failed")
+	// ErrMetricsRetrieval indicates a failure while retrieving metrics from the adapter.
+	ErrMetricsRetrieval = errors.New("metrics retrieval failed")
+	// ErrMetricsInvalidRequest indicates that the inbound metrics request is malformed.
+	ErrMetricsInvalidRequest = errors.New("invalid metrics request")
+)
+
 // runtimeTopologyAdapterRequest matches the metrics-adapter runtime-topology spec.
 type runtimeTopologyAdapterRequest struct {
 	SearchScope     runtimeTopologyAdapterScope `json:"searchScope"`
@@ -150,7 +159,7 @@ func NewMetricsAdapter(baseURL string, timeout time.Duration, resolver *Resource
 // request to the external adapter, returning the raw JSON response.
 func (a *MetricsAdapter) QueryMetrics(ctx context.Context, req *types.MetricsQueryRequest) (any, error) {
 	if req == nil {
-		return nil, fmt.Errorf("request must not be nil")
+		return nil, fmt.Errorf("%w: request must not be nil", ErrMetricsInvalidRequest)
 	}
 
 	scope := &req.SearchScope
@@ -225,7 +234,7 @@ func (a *MetricsAdapter) QueryMetrics(ctx context.Context, req *types.MetricsQue
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read metrics adapter response: %w", err)
+		return nil, fmt.Errorf("%w: failed to read metrics adapter response: %w", ErrMetricsRetrieval, err)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {

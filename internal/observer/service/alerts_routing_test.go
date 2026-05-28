@@ -19,61 +19,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/api/logsadapterclientgen"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
-	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
 )
 
-// trackingOpenSearchClient records which methods were called on the AlertOpenSearchClient.
-type trackingOpenSearchClient struct {
-	searchCalled atomic.Int32
-	getCalled    atomic.Int32
-	createCalled atomic.Int32
-	updateCalled atomic.Int32
-	deleteCalled atomic.Int32
-}
-
-func (c *trackingOpenSearchClient) SearchMonitorByName(_ context.Context, _ string) (string, bool, error) {
-	c.searchCalled.Add(1)
-	return "mon-id", false, nil // not found by default (for create path)
-}
-
-func (c *trackingOpenSearchClient) GetMonitorByID(_ context.Context, _ string) (map[string]interface{}, error) {
-	c.getCalled.Add(1)
-	return map[string]interface{}{}, nil
-}
-
-func (c *trackingOpenSearchClient) CreateMonitor(_ context.Context, _ map[string]interface{}) (string, int64, error) {
-	c.createCalled.Add(1)
-	return "new-mon-id", 1700000000000, nil
-}
-
-func (c *trackingOpenSearchClient) UpdateMonitor(_ context.Context, _ string, _ map[string]interface{}) (int64, error) {
-	c.updateCalled.Add(1)
-	return 1700000000000, nil
-}
-
-func (c *trackingOpenSearchClient) DeleteMonitor(_ context.Context, _ string) error {
-	c.deleteCalled.Add(1)
-	return nil
-}
-
-// searchExistsOpenSearchClient returns exists=true for SearchMonitorByName so
-// that get/update/delete OpenSearch paths succeed.
-type searchExistsOpenSearchClient struct {
-	trackingOpenSearchClient
-}
-
-func (c *searchExistsOpenSearchClient) SearchMonitorByName(_ context.Context, _ string) (string, bool, error) {
-	c.searchCalled.Add(1)
-	return "mon-id", true, nil
-}
-
-func TestAlertServiceRouting(t *testing.T) {
-	t.Parallel()
-
-	ruleName := "test-rule"
+func newLogAlertRoutingRequest(ruleName string) gen.AlertRuleRequest {
 	query := "level=error"
-
-	logAlertReq := gen.AlertRuleRequest{
+	return gen.AlertRuleRequest{
 		Source: struct {
 			Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
 			Query  *string                           `json:"query,omitempty"`
@@ -82,7 +32,7 @@ func TestAlertServiceRouting(t *testing.T) {
 			Type:  gen.AlertRuleRequestSourceTypeLog,
 			Query: &query,
 		},
-		//nolint:revive,staticcheck // field names match generated code (e.g. ComponentUid not ComponentUID)
+		//nolint:revive,staticcheck
 		Metadata: struct {
 			ComponentUid   openapi_types.UUID `json:"componentUid"`
 			EnvironmentUid openapi_types.UUID `json:"environmentUid"`
@@ -107,166 +57,123 @@ func TestAlertServiceRouting(t *testing.T) {
 			Window:    "5m",
 		},
 	}
+}
+
+// TestLogAlertRoutesViaAdapter verifies that log alert CRUD operations route to the logs adapter.
+func TestLogAlertRoutesViaAdapter(t *testing.T) {
+	t.Parallel()
+
+	ruleName := "test-rule"
 
 	type operation struct {
 		name string
-		// call invokes the operation and returns an error.
 		call func(svc *AlertService) error
-		// checkOpenSearch verifies that the OpenSearch client received the request.
-		checkOpenSearch func(os *trackingOpenSearchClient) bool
 	}
 
 	operations := []operation{
-		{
-			name: "Create",
-			call: func(svc *AlertService) error {
-				_, err := svc.CreateAlertRule(context.Background(), logAlertReq)
-				return err
-			},
-			checkOpenSearch: func(os *trackingOpenSearchClient) bool {
-				return os.createCalled.Load() > 0
-			},
-		},
-		{
-			name: "Get",
-			call: func(svc *AlertService) error {
-				_, err := svc.GetAlertRule(context.Background(), ruleName, sourceTypeLog)
-				return err
-			},
-			checkOpenSearch: func(os *trackingOpenSearchClient) bool {
-				return os.searchCalled.Load() > 0
-			},
-		},
-		{
-			name: "Update",
-			call: func(svc *AlertService) error {
-				_, err := svc.UpdateAlertRule(context.Background(), ruleName, logAlertReq)
-				return err
-			},
-			checkOpenSearch: func(os *trackingOpenSearchClient) bool {
-				return os.searchCalled.Load() > 0
-			},
-		},
-		{
-			name: "Delete",
-			call: func(svc *AlertService) error {
-				_, err := svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeLog)
-				return err
-			},
-			checkOpenSearch: func(os *trackingOpenSearchClient) bool {
-				return os.searchCalled.Load() > 0
-			},
-		},
-	}
-
-	type routingCase struct {
-		name           string
-		adapterEnabled bool
-		adapterNil     bool
-		expectAdapter  bool
-	}
-
-	routingCases := []routingCase{
-		{
-			name:           "adapter enabled and non-nil",
-			adapterEnabled: true,
-			adapterNil:     false,
-			expectAdapter:  true,
-		},
-		{
-			name:           "adapter disabled",
-			adapterEnabled: false,
-			adapterNil:     false,
-			expectAdapter:  false,
-		},
-		{
-			name:           "adapter nil",
-			adapterEnabled: true,
-			adapterNil:     true,
-			expectAdapter:  false,
-		},
+		{name: "Create", call: func(svc *AlertService) error {
+			_, err := svc.CreateAlertRule(context.Background(), newLogAlertRoutingRequest(ruleName))
+			return err
+		}},
+		{name: "Get", call: func(svc *AlertService) error {
+			_, err := svc.GetAlertRule(context.Background(), ruleName, sourceTypeLog)
+			return err
+		}},
+		{name: "Update", call: func(svc *AlertService) error {
+			_, err := svc.UpdateAlertRule(context.Background(), ruleName, newLogAlertRoutingRequest(ruleName))
+			return err
+		}},
+		{name: "Delete", call: func(svc *AlertService) error {
+			_, err := svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeLog)
+			return err
+		}},
 	}
 
 	for _, op := range operations {
-		for _, rc := range routingCases {
-			t.Run(op.name+"/"+rc.name, func(t *testing.T) {
-				t.Parallel()
+		t.Run(op.name, func(t *testing.T) {
+			t.Parallel()
 
-				// Track adapter HTTP calls.
-				var adapterCallCount atomic.Int32
-				ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					adapterCallCount.Add(1)
-					// Return a valid sync/rule response.
-					w.Header().Set("Content-Type", "application/json")
-					if r.Method == http.MethodGet {
-						_ = json.NewEncoder(w).Encode(gen.AlertRuleResponse{})
-					} else {
-						_ = json.NewEncoder(w).Encode(gen.AlertingRuleSyncResponse{})
-					}
-				}))
-				defer ts.Close()
-
-				var logsAdapter *LogsAdapter
-				if !rc.adapterNil {
-					adapterClient, err := logsadapterclientgen.NewClient(ts.URL)
-					if err != nil {
-						t.Fatalf("failed to create adapter client: %v", err)
-					}
-					logsAdapter = &LogsAdapter{
-						baseURL:       ts.URL,
-						httpClient:    ts.Client(),
-						adapterClient: adapterClient,
-					}
-				}
-
-				// For OpenSearch path, use the "exists" variant for get/update/delete.
-				var osClient AlertOpenSearchClient
-				if op.name == "Create" {
-					osClient = &trackingOpenSearchClient{}
+			var adapterCallCount atomic.Int32
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				adapterCallCount.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				if r.Method == http.MethodGet {
+					_ = json.NewEncoder(w).Encode(gen.AlertRuleResponse{})
 				} else {
-					osClient = &searchExistsOpenSearchClient{}
+					_ = json.NewEncoder(w).Encode(gen.AlertingRuleSyncResponse{})
 				}
+			}))
+			defer ts.Close()
 
-				cfg := &config.Config{}
-				cfg.Adapters.LogsAdapterEnabled = rc.adapterEnabled
+			adapterClient, err := logsadapterclientgen.NewClient(ts.URL)
+			if err != nil {
+				t.Fatalf("failed to create adapter client: %v", err)
+			}
+			logsAdapter := &LogsAdapter{
+				baseURL:       ts.URL,
+				httpClient:    ts.Client(),
+				adapterClient: adapterClient,
+			}
 
-				svc := &AlertService{
-					osClient:     osClient,
-					queryBuilder: &opensearch.QueryBuilder{},
-					config:       cfg,
-					logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
-					logsAdapter:  logsAdapter,
-				}
+			svc := &AlertService{
+				config:      &config.Config{},
+				logger:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+				logsAdapter: logsAdapter,
+			}
 
-				err := op.call(svc)
+			if err := op.call(svc); err != nil {
+				t.Fatalf("expected adapter call to succeed, got error: %v", err)
+			}
+			if adapterCallCount.Load() == 0 {
+				t.Fatalf("expected logs adapter to be called, but it was not")
+			}
+		})
+	}
+}
 
-				if rc.expectAdapter {
-					// Should have called the adapter; no error expected.
-					if err != nil {
-						t.Fatalf("expected adapter call to succeed, got error: %v", err)
-					}
-					if adapterCallCount.Load() == 0 {
-						t.Fatalf("expected adapter to be called, but it was not")
-					}
-				} else {
-					// Should have used OpenSearch path.
-					var tracker *trackingOpenSearchClient
-					switch v := osClient.(type) {
-					case *searchExistsOpenSearchClient:
-						tracker = &v.trackingOpenSearchClient
-					case *trackingOpenSearchClient:
-						tracker = v
-					}
-					if !op.checkOpenSearch(tracker) {
-						t.Fatalf("expected OpenSearch client to be called, but it was not")
-					}
-					// Adapter should NOT have been called.
-					if adapterCallCount.Load() > 0 {
-						t.Fatalf("adapter should not have been called when routing to OpenSearch")
-					}
-				}
-			})
-		}
+// TestLogAlertWithoutAdapter verifies that log alert CRUD fails when the logs adapter is not configured.
+func TestLogAlertWithoutAdapter(t *testing.T) {
+	t.Parallel()
+
+	ruleName := "test-rule"
+	svc := &AlertService{
+		config: &config.Config{},
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		// logsAdapter intentionally nil
+	}
+
+	cases := []struct {
+		name string
+		call func() error
+	}{
+		{"Create", func() error {
+			_, err := svc.CreateAlertRule(context.Background(), newLogAlertRoutingRequest(ruleName))
+			return err
+		}},
+		{"Get", func() error {
+			_, err := svc.GetAlertRule(context.Background(), ruleName, sourceTypeLog)
+			return err
+		}},
+		{"Update", func() error {
+			_, err := svc.UpdateAlertRule(context.Background(), ruleName, newLogAlertRoutingRequest(ruleName))
+			return err
+		}},
+		{"Delete", func() error {
+			_, err := svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeLog)
+			return err
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.call()
+			if err == nil {
+				t.Fatal("expected error when logs adapter is not configured")
+			}
+			if !strings.Contains(err.Error(), "logs adapter is required") {
+				t.Fatalf("expected error about missing logs adapter, got: %v", err)
+			}
+		})
 	}
 }
 
@@ -284,7 +191,7 @@ func TestBudgetAlertServiceRouting(t *testing.T) {
 		}{
 			Type: gen.AlertRuleRequestSourceTypeBudget,
 		},
-		//nolint:revive,staticcheck // field names match generated code
+		//nolint:revive,staticcheck
 		Metadata: struct {
 			ComponentUid   openapi_types.UUID `json:"componentUid"`
 			EnvironmentUid openapi_types.UUID `json:"environmentUid"`
@@ -314,12 +221,10 @@ func TestBudgetAlertServiceRouting(t *testing.T) {
 	var adapterCallCount atomic.Int32
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		adapterCallCount.Add(1)
-		// Return a valid sync/rule response
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == http.MethodGet {
 			_ = json.NewEncoder(w).Encode(gen.AlertRuleResponse{})
 		} else {
-			// Return a properly populated sync response
 			status := gen.Synced
 			action := gen.Created
 			if r.Method == http.MethodPut {
@@ -349,7 +254,6 @@ func TestBudgetAlertServiceRouting(t *testing.T) {
 		metricsAdapterClient: ts.Client(),
 	}
 
-	// Test Create
 	resp, err := svc.CreateAlertRule(context.Background(), budgetAlertReq)
 	if err != nil {
 		t.Fatalf("CreateAlertRule failed: %v", err)
@@ -358,7 +262,6 @@ func TestBudgetAlertServiceRouting(t *testing.T) {
 		t.Fatalf("CreateAlertRule response invalid: %+v", resp)
 	}
 
-	// Test Update
 	resp, err = svc.UpdateAlertRule(context.Background(), ruleName, budgetAlertReq)
 	if err != nil {
 		t.Fatalf("UpdateAlertRule failed: %v", err)
@@ -367,13 +270,10 @@ func TestBudgetAlertServiceRouting(t *testing.T) {
 		t.Fatalf("UpdateAlertRule response invalid: %+v", resp)
 	}
 
-	// Test Get
-	_, err = svc.GetAlertRule(context.Background(), ruleName, sourceTypeBudget)
-	if err != nil {
+	if _, err = svc.GetAlertRule(context.Background(), ruleName, sourceTypeBudget); err != nil {
 		t.Fatalf("GetAlertRule failed: %v", err)
 	}
 
-	// Test Delete
 	resp, err = svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeBudget)
 	if err != nil {
 		t.Fatalf("DeleteAlertRule failed: %v", err)
@@ -382,7 +282,6 @@ func TestBudgetAlertServiceRouting(t *testing.T) {
 		t.Fatalf("DeleteAlertRule response invalid: %+v", resp)
 	}
 
-	// Verify metrics adapter was called
 	if adapterCallCount.Load() == 0 {
 		t.Fatalf("expected metrics adapter to be called, but it was not")
 	}
@@ -431,42 +330,40 @@ func TestBudgetAlertWithoutAdapter(t *testing.T) {
 	svc := &AlertService{
 		config:               cfg,
 		logger:               slog.New(slog.NewTextHandler(io.Discard, nil)),
-		metricsAdapterClient: nil, // No adapter configured
+		metricsAdapterClient: nil,
 	}
 
-	// Test Create
-	_, err := svc.CreateAlertRule(context.Background(), budgetAlertReq)
-	if err == nil {
-		t.Fatal("CreateAlertRule should fail when metrics adapter is not configured for budget alerts")
-	}
-	if !strings.Contains(err.Error(), "metrics adapter is required for budget alert rules") {
-		t.Fatalf("expected error about missing metrics adapter, got: %v", err)
-	}
-
-	// Test Update
-	_, err = svc.UpdateAlertRule(context.Background(), ruleName, budgetAlertReq)
-	if err == nil {
-		t.Fatal("UpdateAlertRule should fail when metrics adapter is not configured for budget alerts")
-	}
-	if !strings.Contains(err.Error(), "metrics adapter is required for budget alert rules") {
-		t.Fatalf("expected error about missing metrics adapter, got: %v", err)
-	}
-
-	// Test Get
-	_, err = svc.GetAlertRule(context.Background(), ruleName, sourceTypeBudget)
-	if err == nil {
-		t.Fatal("GetAlertRule should fail when metrics adapter is not configured for budget alerts")
-	}
-	if !strings.Contains(err.Error(), "metrics adapter is required for budget alert rules") {
-		t.Fatalf("expected error about missing metrics adapter, got: %v", err)
+	cases := []struct {
+		name string
+		call func() error
+	}{
+		{"Create", func() error {
+			_, err := svc.CreateAlertRule(context.Background(), budgetAlertReq)
+			return err
+		}},
+		{"Update", func() error {
+			_, err := svc.UpdateAlertRule(context.Background(), ruleName, budgetAlertReq)
+			return err
+		}},
+		{"Get", func() error {
+			_, err := svc.GetAlertRule(context.Background(), ruleName, sourceTypeBudget)
+			return err
+		}},
+		{"Delete", func() error {
+			_, err := svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeBudget)
+			return err
+		}},
 	}
 
-	// Test Delete
-	_, err = svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeBudget)
-	if err == nil {
-		t.Fatal("DeleteAlertRule should fail when metrics adapter is not configured for budget alerts")
-	}
-	if !strings.Contains(err.Error(), "metrics adapter is required for budget alert rules") {
-		t.Fatalf("expected error about missing metrics adapter, got: %v", err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.call()
+			if err == nil {
+				t.Fatal("expected error when metrics adapter is not configured for budget alerts")
+			}
+			if !strings.Contains(err.Error(), "metrics adapter is required for budget alert rules") {
+				t.Fatalf("expected error about missing metrics adapter, got: %v", err)
+			}
+		})
 	}
 }

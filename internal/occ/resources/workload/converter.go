@@ -364,7 +364,7 @@ func buildEndpointConnections(entries []WorkloadDescriptorConnection) ([]opencho
 			Project:    dc.Project,
 			Component:  dc.Component,
 			Name:       dc.Name,
-			Visibility: visibility,
+			Visibility: string(visibility),
 			EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
 				Address:  dc.EnvBindings.Address,
 				Host:     dc.EnvBindings.Host,

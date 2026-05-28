@@ -1,17 +1,10 @@
 # Helm values for OpenChoreo Observability Plane in k3d multi-cluster setup
 
 observer:
-  openSearchSecretName: opensearch-admin-credentials
   secretName: observer-secret
   extraEnvs:
   - name: OBSERVER_BASE_URL
     value: "http://observer.openchoreo.localhost:11080"
-  - name: OPENSEARCH_ADDRESS
-    value: "https://opensearch:9200"
-  - name: PROMETHEUS_ADDRESS
-    value: "http://openchoreo-observability-prometheus:9091"
-  - name: PROMETHEUS_TIMEOUT
-    value: "30s"
   - name: AUTHZ_TIMEOUT
     value: "30s"
   http:

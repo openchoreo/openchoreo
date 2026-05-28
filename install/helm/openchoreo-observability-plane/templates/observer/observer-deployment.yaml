@@ -1,5 +1,5 @@
 {{- if not .Values.observer.secretName }}
-{{- fail "observer.secretName is required. Create a Secret with keys matching the Observer's expected env vars (OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD, UID_RESOLVER_OAUTH_CLIENT_SECRET, and optionally ALERT_STORE_DSN), then set observer.secretName." }}
+{{- fail "observer.secretName is required. Create a Secret with keys matching the Observer's expected env vars (UID_RESOLVER_OAUTH_CLIENT_SECRET; ALERT_STORE_DSN is also required when alertStoreBackend=postgresql), then set observer.secretName." }}
 {{- end }}
 {{- if and (eq (.Values.observer.alertStoreBackend | default "sqlite") "sqlite") (gt (.Values.observer.replicas | int) 1) }}
 {{- fail "observer.replicas must be 1 when observer.alertStoreBackend=sqlite (ReadWriteOnce PVC). Set observer.replicas=1 or use observer.alertStoreBackend=postgresql." }}

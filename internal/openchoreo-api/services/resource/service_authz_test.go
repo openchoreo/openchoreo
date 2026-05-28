@@ -42,6 +42,10 @@ func newResourceFixture(name string) *openchoreov1alpha1.Resource {
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: authzNamespace},
 		Spec: openchoreov1alpha1.ResourceSpec{
 			Owner: openchoreov1alpha1.ResourceOwner{ProjectName: authzProject},
+			Type: openchoreov1alpha1.ResourceTypeRef{
+				Kind: openchoreov1alpha1.ResourceTypeRefKindResourceType,
+				Name: "postgres",
+			},
 		},
 	}
 }
@@ -59,6 +63,7 @@ func TestCreateResource_AuthzCheck(t *testing.T) {
 		require.Equal(t, resource, result)
 		require.Len(t, pdp.Captured, 1)
 		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:create", "resource", "my-r", projectHierarchy("my-r"))
+		require.Equal(t, "ns-a/postgres", pdp.Captured[0].Context.Resource.ResourceType)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -83,6 +88,7 @@ func TestUpdateResource_AuthzCheck(t *testing.T) {
 		require.Equal(t, resource, result)
 		require.Len(t, pdp.Captured, 1)
 		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:update", "resource", "my-r", projectHierarchy("my-r"))
+		require.Equal(t, "ns-a/postgres", pdp.Captured[0].Context.Resource.ResourceType)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -142,6 +148,7 @@ func TestDeleteResource_AuthzCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, pdp.Captured, 1)
 		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:delete", "resource", "my-r", projectHierarchy("my-r"))
+		require.Equal(t, "ns-a/postgres", pdp.Captured[0].Context.Resource.ResourceType)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -192,4 +199,38 @@ func TestListResources_AuthzCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, result.Items)
 	})
+}
+
+func TestFormatResourceTypeAttr(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		ref       openchoreov1alpha1.ResourceTypeRef
+		want      string
+	}{
+		{
+			name:      "namespace-scoped ResourceType is prefixed with namespace",
+			namespace: "ns-1",
+			ref:       openchoreov1alpha1.ResourceTypeRef{Kind: openchoreov1alpha1.ResourceTypeRefKindResourceType, Name: "postgres"},
+			want:      "ns-1/postgres",
+		},
+		{
+			name:      "empty kind defaults to namespace-scoped (matches CRD default)",
+			namespace: "ns-1",
+			ref:       openchoreov1alpha1.ResourceTypeRef{Name: "postgres"},
+			want:      "ns-1/postgres",
+		},
+		{
+			name:      "ClusterResourceType is not namespace-prefixed",
+			namespace: "ns-1",
+			ref:       openchoreov1alpha1.ResourceTypeRef{Kind: openchoreov1alpha1.ResourceTypeRefKindClusterResourceType, Name: "postgres"},
+			want:      "postgres",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, formatResourceTypeAttr(tt.namespace, tt.ref))
+		})
+	}
 }

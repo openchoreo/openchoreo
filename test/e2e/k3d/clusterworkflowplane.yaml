@@ -1,0 +1,20 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# ClusterWorkflowPlane CR for e2e testing.
+# Cluster-scoped WorkflowPlane that can be referenced from any control plane
+# namespace — required because the built-in ClusterWorkflow builders
+# (dockerfile-builder, paketo-buildpacks-builder, …) carry
+# `workflowPlaneRef.kind: ClusterWorkflowPlane`.
+# The clusterAgent.clientCA.value is replaced at apply time by the Makefile.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterWorkflowPlane
+metadata:
+  name: default
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: ""
+  secretStoreRef:
+    name: default

@@ -20,9 +20,9 @@ const (
 	// github-issue-reporter come from the public OpenChoreo sample images;
 	// the web-app slot uses hashicorp/http-echo because the react sample
 	// image is not consistently reachable from CI.
-	imageService     = "ghcr.io/openchoreo/samples/greeter-service:latest"
-	imageWebApp      = "hashicorp/http-echo:1.0.0"
-	imageScheduled   = "ghcr.io/openchoreo/samples/github-issue-reporter:latest"
+	imageService   = "ghcr.io/openchoreo/samples/greeter-service@sha256:5c67732c99ac3505dbab14c7ec92c33be57904420d62812694c64b56c5f92d40"
+	imageWebApp    = "hashicorp/http-echo:1.0.0"
+	imageScheduled = "ghcr.io/openchoreo/samples/github-issue-reporter:latest"
 )
 
 var dpNs string

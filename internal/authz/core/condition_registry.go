@@ -47,12 +47,34 @@ var AttrResourceComponentType = AttributeSpec{
 	CELType:     cel.StringType,
 }
 
+// AttrResourceResourceType declares resource.resourceType — the ResourceType
+// (or ClusterResourceType) name referenced by a Resource.
+var AttrResourceResourceType = AttributeSpec{
+	Key:         "resource.resourceType",
+	Description: "ResourceType name referenced by the resource",
+	CELType:     cel.StringType,
+}
+
+// AttrResourceWorkflow declares resource.workflow — the Workflow
+// (or ClusterWorkflow) name referenced by a WorkflowRun.
+var AttrResourceWorkflow = AttributeSpec{
+	Key:         "resource.workflow",
+	Description: "Workflow name referenced by the workflow run",
+	CELType:     cel.StringType,
+}
+
 // conditionRegistry maps concrete action names to the attributes available to CEL
 // expressions scoped to that action. Treat as immutable after init.
 var conditionRegistry = map[string][]AttributeSpec{
 	ActionCreateComponent:              {AttrResourceComponentType},
 	ActionUpdateComponent:              {AttrResourceComponentType},
 	ActionDeleteComponent:              {AttrResourceComponentType},
+	ActionCreateResource:               {AttrResourceResourceType},
+	ActionUpdateResource:               {AttrResourceResourceType},
+	ActionDeleteResource:               {AttrResourceResourceType},
+	ActionCreateWorkflowRun:            {AttrResourceWorkflow},
+	ActionUpdateWorkflowRun:            {AttrResourceWorkflow},
+	ActionDeleteWorkflowRun:            {AttrResourceWorkflow},
 	ActionCreateReleaseBinding:         {AttrResourceEnvironment},
 	ActionViewReleaseBinding:           {AttrResourceEnvironment},
 	ActionUpdateReleaseBinding:         {AttrResourceEnvironment},
@@ -62,6 +84,7 @@ var conditionRegistry = map[string][]AttributeSpec{
 	ActionUpdateResourceReleaseBinding: {AttrResourceEnvironment},
 	ActionDeleteResourceReleaseBinding: {AttrResourceEnvironment},
 	ActionViewLogs:                     {AttrResourceEnvironment},
+	ActionViewWirelogs:                 {AttrResourceEnvironment},
 	ActionViewMetrics:                  {AttrResourceEnvironment},
 	ActionViewTraces:                   {AttrResourceEnvironment},
 }

@@ -380,8 +380,12 @@ metadata:
 				return
 			}
 
-			// Compare the entire result using cmp.Diff
-			if diff := cmp.Diff(tt.want, got.ToMap()); diff != "" {
+			gotMap := got.ToMap()
+			if _, ok := gotMap["derived"]; !ok {
+				t.Fatal("BuildComponentContext() result missing 'derived' key")
+			}
+			delete(gotMap, "derived")
+			if diff := cmp.Diff(tt.want, gotMap); diff != "" {
 				t.Errorf("BuildComponentContext() mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -699,10 +703,11 @@ spec:
 				return
 			}
 
-			// Convert to map for comparison
 			got := traitCtx.ToMap()
-
-			// Compare the entire result using cmp.Diff
+			if _, ok := got["derived"]; !ok {
+				t.Fatal("BuildTraitContext() result missing 'derived' key")
+			}
+			delete(got, "derived")
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("BuildTraitContext() mismatch (-want +got):\n%s", diff)
 			}

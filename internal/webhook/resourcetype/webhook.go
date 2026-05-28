@@ -27,8 +27,8 @@ var resourcetypelog = logf.Log.WithName("resourcetype-resource")
 // SetupResourceTypeWebhookWithManager registers the validating webhook for
 // ResourceType in the manager.
 func SetupResourceTypeWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.ResourceType{}).
-		WithValidator(&Validator{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.ResourceType{}).
+		WithCustomValidator(&Validator{}).
 		Complete()
 }
 

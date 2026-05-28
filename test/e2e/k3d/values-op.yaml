@@ -1,29 +1,43 @@
 # Helm values for OpenChoreo Observability Plane in e2e testing setup
-# Only used when E2E_WITH_OBSERVABILITY=true
-# Uses external OIDC URLs (not svc.cluster.local) to test production-like paths
-
-openSearch:
-  enabled: true
-  service:
-    type: LoadBalancer
-
-openSearchCluster:
-  enabled: false
+# Only used when E2E_WITH_OBSERVABILITY=true.
+# The OpenSearch logs, OpenSearch tracing, and Prometheus metrics modules are
+# separate Helm charts installed by `_e2e.install-op`; this file only configures
+# the openchoreo-observability-plane chart itself and keeps Observer routed
+# through those module adapters.
 
 observer:
   openSearchSecretName: observer-opensearch-credentials
+  secretName: observer-secret
   http:
     hostnames:
     - observer.e2e-op.local
-
-openSearchDashboards:
-  service:
-    type: LoadBalancer
+  # In-cluster URL of the openchoreo-api service. Used by the observer's authz
+  # client (`/api/v1/authz/evaluates`) and by the UID resolver. The chart
+  # default (`http://api.openchoreo.localhost:8080`) is a single-cluster /etc/hosts
+  # convention that does not resolve from inside the cluster.
+  controlPlaneApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
+  logsAdapter:
+    url: "http://logs-adapter:9098"
+  tracingAdapter:
+    url: "http://tracing-adapter:9100"
+  # Declaring `extraEnvs` replaces the chart defaults, so keep only the
+  # e2e-specific runtime URLs here.
+  extraEnvs:
+    - name: OBSERVER_BASE_URL
+      value: "http://observer.e2e-op.local:11080"
+    - name: OPENSEARCH_ADDRESS
+      value: "https://opensearch:9200"
+    - name: PROMETHEUS_ADDRESS
+      value: "http://openchoreo-observability-prometheus:9091"
+    - name: PROMETHEUS_TIMEOUT
+      value: "30s"
+    - name: AUTHZ_TIMEOUT
+      value: "30s"
 
 security:
   oidc:
-    jwksUrl: "http://thunder.e2e-cp.local:28080/oauth2/jwks"
-    tokenUrl: "http://thunder.e2e-cp.local:28080/oauth2/token"
+    jwksUrl: "http://thunder-service.thunder.svc.cluster.local:8090/oauth2/jwks"
+    tokenUrl: "http://thunder-service.thunder.svc.cluster.local:8090/oauth2/token"
 
 gateway:
   httpPort: 11080

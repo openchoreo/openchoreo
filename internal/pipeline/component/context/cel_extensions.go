@@ -4,79 +4,65 @@
 package context
 
 import (
-	"fmt"
-	"hash/fnv"
-	"math"
-	"sort"
-	"strings"
-
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
-	"github.com/google/cel-go/common/types"
-	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/parser"
-
-	"github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 const (
 	configurationsIdentifier = "configurations"
 	dependenciesIdentifier   = "dependencies"
-	protocolTCP              = "TCP"
-	protocolUDP              = "UDP"
+	derivedIdentifier        = "derived"
 )
 
-// CELExtensions and CELValidationExtensions are generated from helperFuncRegistry
-// in cel_return_types.go. To add a new helper function, add an entry there.
-
-// buildPrefixExpr creates an AST expression for: metadata.componentName + "-" + metadata.environmentName
-func buildPrefixExpr(eh parser.ExprHelper) ast.Expr {
-	componentNameExpr := eh.NewSelect(eh.NewIdent("metadata"), "componentName")
-	environmentNameExpr := eh.NewSelect(eh.NewIdent("metadata"), "environmentName")
-	componentWithDash := eh.NewCall("_+_", componentNameExpr, eh.NewLiteral(types.String("-")))
-	// metadata.componentName + "-" + metadata.environmentName
-	return eh.NewCall("_+_", componentWithDash, environmentNameExpr)
+// CELExtensions returns CEL environment options for configuration, workload,
+// and dependency helpers. All macros rewrite method-call syntax to field
+// selects on the precomputed "derived" context variable.
+func CELExtensions() []cel.EnvOption {
+	return []cel.EnvOption{
+		cel.Macros(
+			toConfigFileListMacro,
+			toSecretFileListMacro,
+			toContainerEnvFromMacro,
+			toContainerVolumeMountsMacro,
+			toVolumesMacro,
+			toConfigEnvsByContainerMacro,
+			toSecretEnvsByContainerMacro,
+			toServicePortsMacro,
+			toContainerEnvsMacro,
+		),
+	}
 }
 
-// toConfigFileListMacro transforms configurations.toConfigFileList() into
-// configurationsToConfigFileList(configurations, prefix) at compile time.
+func derivedField(eh parser.ExprHelper, fieldName string) ast.Expr {
+	return eh.NewSelect(eh.NewIdent(derivedIdentifier), fieldName)
+}
+
 var toConfigFileListMacro = cel.ReceiverMacro("toConfigFileList", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
-			prefixExpr := buildPrefixExpr(eh)
-			return eh.NewCall("configurationsToConfigFileList", target, prefixExpr), nil
+			return derivedField(eh, "configFileList"), nil
 		}
 		return nil, nil
 	})
 
-// toSecretFileListMacro transforms configurations.toSecretFileList() into
-// configurationsToSecretFileList(configurations, prefix) at compile time.
 var toSecretFileListMacro = cel.ReceiverMacro("toSecretFileList", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
-			prefixExpr := buildPrefixExpr(eh)
-			return eh.NewCall("configurationsToSecretFileList", target, prefixExpr), nil
+			return derivedField(eh, "secretFileList"), nil
 		}
 		return nil, nil
 	})
 
-// toContainerEnvFromMacro transforms configurations.toContainerEnvFrom() into
-// configurationsToContainerEnvFrom(configurations, prefix) at compile time.
 var toContainerEnvFromMacro = cel.ReceiverMacro("toContainerEnvFrom", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
-			prefixExpr := buildPrefixExpr(eh)
-			return eh.NewCall("configurationsToContainerEnvFrom", target, prefixExpr), nil
+			return derivedField(eh, "containerEnvFrom"), nil
 		}
 		return nil, nil
 	})
 
-// toContainerVolumeMountsMacro transforms either:
-//   - configurations.toContainerVolumeMounts() into configurationsToContainerVolumeMounts(configurations)
-//   - dependencies.toContainerVolumeMounts() into dependencies.volumeMounts (field select)
-//
-// at compile time. The receiver guard disambiguates which rewrite applies.
 var toContainerVolumeMountsMacro = cel.ReceiverMacro("toContainerVolumeMounts", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() != ast.IdentKind {
@@ -84,18 +70,13 @@ var toContainerVolumeMountsMacro = cel.ReceiverMacro("toContainerVolumeMounts", 
 		}
 		switch target.AsIdent() {
 		case configurationsIdentifier:
-			return eh.NewCall("configurationsToContainerVolumeMounts", target), nil
+			return derivedField(eh, "configVolumeMounts"), nil
 		case dependenciesIdentifier:
-			return eh.NewSelect(target, "volumeMounts"), nil
+			return derivedField(eh, "dependencyVolumeMounts"), nil
 		}
 		return nil, nil
 	})
 
-// toVolumesMacro transforms either:
-//   - configurations.toVolumes() into configurationsToVolumes(configurations, prefix)
-//   - dependencies.toVolumes() into dependencies.volumes (field select)
-//
-// at compile time. The receiver guard disambiguates which rewrite applies.
 var toVolumesMacro = cel.ReceiverMacro("toVolumes", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() != ast.IdentKind {
@@ -103,680 +84,41 @@ var toVolumesMacro = cel.ReceiverMacro("toVolumes", 0,
 		}
 		switch target.AsIdent() {
 		case configurationsIdentifier:
-			prefixExpr := buildPrefixExpr(eh)
-			return eh.NewCall("configurationsToVolumes", target, prefixExpr), nil
+			return derivedField(eh, "configVolumes"), nil
 		case dependenciesIdentifier:
-			return eh.NewSelect(target, "volumes"), nil
+			return derivedField(eh, "dependencyVolumes"), nil
 		}
 		return nil, nil
 	})
 
-// toConfigEnvsByContainerMacro transforms configurations.toConfigEnvsByContainer() into
-// configurationsToConfigEnvsByContainer(configurations, prefix) at compile time.
 var toConfigEnvsByContainerMacro = cel.ReceiverMacro("toConfigEnvsByContainer", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
-			prefixExpr := buildPrefixExpr(eh)
-			return eh.NewCall("configurationsToConfigEnvsByContainer", target, prefixExpr), nil
+			return derivedField(eh, "configEnvs"), nil
 		}
 		return nil, nil
 	})
 
-// toSecretEnvsByContainerMacro transforms configurations.toSecretEnvsByContainer() into
-// configurationsToSecretEnvsByContainer(configurations, prefix) at compile time.
 var toSecretEnvsByContainerMacro = cel.ReceiverMacro("toSecretEnvsByContainer", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == configurationsIdentifier {
-			prefixExpr := buildPrefixExpr(eh)
-			return eh.NewCall("configurationsToSecretEnvsByContainer", target, prefixExpr), nil
+			return derivedField(eh, "secretEnvs"), nil
 		}
 		return nil, nil
 	})
 
-// toServicePortsMacro transforms workload.toServicePorts() into
-// workloadToServicePorts(workload) at compile time.
 var toServicePortsMacro = cel.ReceiverMacro("toServicePorts", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
-		// Check if target is workload
 		if target.Kind() == ast.IdentKind && target.AsIdent() == "workload" {
-			return eh.NewCall("workloadToServicePorts", target), nil
+			return derivedField(eh, "servicePorts"), nil
 		}
 		return nil, nil
 	})
 
-// toContainerEnvsMacro rewrites dependencies.toContainerEnvs() to dependencies.envVars at compile time.
 var toContainerEnvsMacro = cel.ReceiverMacro("toContainerEnvs", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == dependenciesIdentifier {
-			return eh.NewSelect(target, "envVars"), nil
+			return derivedField(eh, "dependencyEnvVars"), nil
 		}
 		return nil, nil
 	})
-
-// configurationsToConfigFileListFunction is the CEL binding for configurations.toConfigFileList().
-// The macro automatically injects prefix (metadata.componentName + "-" + metadata.environmentName) as the prefix parameter.
-// Returns a list of maps, each containing: name, mountPath, value, resourceName, and optionally remoteRef.
-func configurationsToConfigFileListFunction(configurations, prefix ref.Val) ref.Val {
-	prefixStr, ok := prefix.Value().(string)
-	if !ok {
-		return types.NewErr("toConfigFileList: prefix must be a string")
-	}
-
-	containerConfig, ok := configurations.Value().(map[string]any)
-	if !ok {
-		return types.NewErr("toConfigFileList: expected map[string]any, got %T", configurations.Value())
-	}
-	result := makeConfigFileList(containerConfig, prefixStr)
-	return types.DefaultTypeAdapter.NativeToValue(result)
-}
-
-// configurationsToSecretFileListFunction is the CEL binding for configurations.toSecretFileList().
-// The macro automatically injects prefix (metadata.componentName + "-" + metadata.environmentName) as the prefix parameter.
-// Returns a list of maps, each containing: name, mountPath, resourceName, and remoteRef.
-// Note: Secret files do not have inline values, only remoteRef for external secret references.
-func configurationsToSecretFileListFunction(configurations, prefix ref.Val) ref.Val {
-	prefixStr, ok := prefix.Value().(string)
-	if !ok {
-		return types.NewErr("toSecretFileList: prefix must be a string")
-	}
-
-	containerConfig, ok := configurations.Value().(map[string]any)
-	if !ok {
-		return types.NewErr("toSecretFileList: expected map[string]any, got %T", configurations.Value())
-	}
-	result := makeSecretFileList(containerConfig, prefixStr)
-	return types.DefaultTypeAdapter.NativeToValue(result)
-}
-
-// configurationsToContainerEnvFromFunction is the CEL binding for configurations.toContainerEnvFrom().
-// The macro automatically injects prefix (metadata.componentName + "-" + metadata.environmentName) as the second parameter.
-// Returns a list of envFrom entries (configMapRef and/or secretRef) based on container config.
-func configurationsToContainerEnvFromFunction(configurations, prefix ref.Val) ref.Val {
-	prefixStr, ok := prefix.Value().(string)
-	if !ok {
-		return types.NewErr("toContainerEnvFrom: prefix must be a string")
-	}
-
-	containerConfig, ok := configurations.Value().(map[string]any)
-	if !ok {
-		return types.NewErr("toContainerEnvFrom: expected map[string]any, got %T", configurations.Value())
-	}
-
-	result := makeEnvFromList(containerConfig, prefixStr)
-	return types.DefaultTypeAdapter.NativeToValue(result)
-}
-
-// makeConfigFileList extracts configs.files from the container configuration and returns a list of maps.
-// Each map contains: name, mountPath, value, resourceName, and optionally remoteRef.
-func makeConfigFileList(containerConfig map[string]any, prefix string) []map[string]any {
-	if len(containerConfig) == 0 {
-		return []map[string]any{}
-	}
-
-	result := make([]map[string]any, 0)
-
-	configs, ok := containerConfig["configs"].(map[string]any)
-	if !ok {
-		return result
-	}
-	files, ok := configs["files"].([]any)
-	if !ok {
-		return result
-	}
-
-	for _, fileVal := range files {
-		file, ok := fileVal.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		name, _ := file["name"].(string)
-		mountPath, _ := file["mountPath"].(string)
-		value, _ := file["value"].(string)
-
-		entry := map[string]any{
-			"name":         name,
-			"mountPath":    mountPath,
-			"value":        value,
-			"resourceName": generateConfigResourceName(prefix, name),
-		}
-		if remoteRef, ok := file["remoteRef"].(map[string]any); ok {
-			entry["remoteRef"] = remoteRef
-		}
-		result = append(result, entry)
-	}
-	return result
-}
-
-// makeSecretFileList extracts secrets.files from the container configuration and returns a list of maps.
-// Each map contains: name, mountPath, resourceName, and remoteRef.
-func makeSecretFileList(containerConfig map[string]any, prefix string) []map[string]any {
-	if len(containerConfig) == 0 {
-		return []map[string]any{}
-	}
-
-	result := make([]map[string]any, 0)
-
-	secrets, ok := containerConfig["secrets"].(map[string]any)
-	if !ok {
-		return result
-	}
-	files, ok := secrets["files"].([]any)
-	if !ok {
-		return result
-	}
-
-	for _, fileVal := range files {
-		file, ok := fileVal.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		name, _ := file["name"].(string)
-		mountPath, _ := file["mountPath"].(string)
-
-		entry := map[string]any{
-			"name":         name,
-			"mountPath":    mountPath,
-			"resourceName": generateSecretResourceName(prefix, name),
-		}
-		if remoteRef, ok := file["remoteRef"].(map[string]any); ok {
-			entry["remoteRef"] = remoteRef
-		}
-		result = append(result, entry)
-	}
-	return result
-}
-
-// generateConfigResourceName generates a Kubernetes-compliant resource name for a config file.
-func generateConfigResourceName(prefix, filename string) string {
-	return kubernetes.GenerateK8sNameWithLengthLimit(
-		kubernetes.MaxResourceNameLength,
-		prefix,
-		"config",
-		strings.ReplaceAll(filename, ".", "-"),
-	)
-}
-
-// configurationsToContainerVolumeMountsFunction is the CEL binding for configurations.toContainerVolumeMounts().
-// Returns a list of volumeMount entries based on the container's config files.
-func configurationsToContainerVolumeMountsFunction(configurations ref.Val) ref.Val {
-	containerConfig, ok := configurations.Value().(map[string]any)
-	if !ok {
-		return types.NewErr("toContainerVolumeMounts: expected map[string]any, got %T", configurations.Value())
-	}
-
-	result := makeVolumeMountsList(containerConfig)
-	return types.DefaultTypeAdapter.NativeToValue(result)
-}
-
-// configurationsToVolumesFunction is the CEL binding for configurations.toVolumes().
-// The macro automatically injects prefix (metadata.componentName + "-" + metadata.environmentName) as the prefix parameter.
-// Returns a list of volume entries for the container's files.
-func configurationsToVolumesFunction(configurations, prefix ref.Val) ref.Val {
-	prefixStr, ok := prefix.Value().(string)
-	if !ok {
-		return types.NewErr("toVolumes: prefix must be a string")
-	}
-
-	containerConfig, ok := configurations.Value().(map[string]any)
-	if !ok {
-		return types.NewErr("toVolumes: expected map[string]any, got %T", configurations.Value())
-	}
-	result := makeVolumesList(containerConfig, prefixStr)
-	return types.DefaultTypeAdapter.NativeToValue(result)
-}
-
-// makeEnvFromList generates envFrom entries for a single container configuration.
-// Returns a list containing configMapRef and/or secretRef based on what envs are available.
-func makeEnvFromList(containerConfig map[string]any, prefix string) []map[string]any {
-	if len(containerConfig) == 0 {
-		return []map[string]any{}
-	}
-
-	result := make([]map[string]any, 0)
-
-	// Check for config environment variables
-	if configs, ok := containerConfig["configs"].(map[string]any); ok {
-		if envs, ok := configs["envs"].([]any); ok && len(envs) > 0 {
-			configMapName := generateEnvResourceName(prefix, "env-configs")
-			result = append(result, map[string]any{
-				"configMapRef": map[string]any{
-					"name": configMapName,
-				},
-			})
-		}
-	}
-
-	// Check for secret environment variables
-	if secrets, ok := containerConfig["secrets"].(map[string]any); ok {
-		if envs, ok := secrets["envs"].([]any); ok && len(envs) > 0 {
-			secretName := generateEnvResourceName(prefix, "env-secrets")
-			result = append(result, map[string]any{
-				"secretRef": map[string]any{
-					"name": secretName,
-				},
-			})
-		}
-	}
-
-	return result
-}
-
-// generateSecretResourceName generates a Kubernetes-compliant resource name for a secret file.
-func generateSecretResourceName(prefix, filename string) string {
-	return kubernetes.GenerateK8sNameWithLengthLimit(
-		kubernetes.MaxResourceNameLength,
-		prefix,
-		"secret",
-		strings.ReplaceAll(filename, ".", "-"),
-	)
-}
-
-// makeVolumeMountsList generates volumeMount entries for a single container configuration.
-// Returns a list containing volumeMount entries for all files (both config and secret files).
-func makeVolumeMountsList(containerConfig map[string]any) []map[string]any {
-	if len(containerConfig) == 0 {
-		return []map[string]any{}
-	}
-
-	result := make([]map[string]any, 0)
-
-	// Process config files
-	if configs, ok := containerConfig["configs"].(map[string]any); ok {
-		if files, ok := configs["files"].([]any); ok {
-			for _, fileVal := range files {
-				if file, ok := fileVal.(map[string]any); ok {
-					name, _ := file["name"].(string)
-					mountPath, _ := file["mountPath"].(string)
-					volumeName := "file-mount-" + generateVolumeHash(mountPath, name)
-
-					result = append(result, map[string]any{
-						"name":      volumeName,
-						"mountPath": mountPath + "/" + name,
-						"subPath":   name,
-					})
-				}
-			}
-		}
-	}
-
-	// Process secret files
-	if secrets, ok := containerConfig["secrets"].(map[string]any); ok {
-		if files, ok := secrets["files"].([]any); ok {
-			for _, fileVal := range files {
-				if file, ok := fileVal.(map[string]any); ok {
-					name, _ := file["name"].(string)
-					mountPath, _ := file["mountPath"].(string)
-					volumeName := "file-mount-" + generateVolumeHash(mountPath, name)
-
-					result = append(result, map[string]any{
-						"name":      volumeName,
-						"mountPath": mountPath + "/" + name,
-						"subPath":   name,
-					})
-				}
-			}
-		}
-	}
-
-	return result
-}
-
-// makeVolumesList generates volume entries for the container's files.
-// Returns a list containing volume definitions for all files (both config and secret files).
-func makeVolumesList(containerConfig map[string]any, prefix string) []map[string]any {
-	if len(containerConfig) == 0 {
-		return []map[string]any{}
-	}
-
-	result := make([]map[string]any, 0)
-	volumes := make(map[string]map[string]any)
-
-	// Process config files
-	if configs, ok := containerConfig["configs"].(map[string]any); ok {
-		if files, ok := configs["files"].([]any); ok {
-			for _, fileVal := range files {
-				if file, ok := fileVal.(map[string]any); ok {
-					name, _ := file["name"].(string)
-					mountPath, _ := file["mountPath"].(string)
-					volumeName := "file-mount-" + generateVolumeHash(mountPath, name)
-					configMapName := generateConfigResourceName(prefix, name)
-
-					volumes[volumeName] = map[string]any{
-						"name": volumeName,
-						"configMap": map[string]any{
-							"name": configMapName,
-						},
-					}
-				}
-			}
-		}
-	}
-
-	// Process secret files
-	if secrets, ok := containerConfig["secrets"].(map[string]any); ok {
-		if files, ok := secrets["files"].([]any); ok {
-			for _, fileVal := range files {
-				if file, ok := fileVal.(map[string]any); ok {
-					name, _ := file["name"].(string)
-					mountPath, _ := file["mountPath"].(string)
-					volumeName := "file-mount-" + generateVolumeHash(mountPath, name)
-					secretName := generateSecretResourceName(prefix, name)
-
-					volumes[volumeName] = map[string]any{
-						"name": volumeName,
-						"secret": map[string]any{
-							"secretName": secretName,
-						},
-					}
-				}
-			}
-		}
-	}
-
-	// Sort by name so the slice order is stable across renders; otherwise
-	// the Deployment's pod-template-hash flips on every reconcile.
-	names := make([]string, 0, len(volumes))
-	for name := range volumes {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		result = append(result, volumes[name])
-	}
-
-	return result
-}
-
-// configurationsToConfigEnvsByContainerFunction is the CEL binding for configurations.toConfigEnvsByContainer().
-// The macro automatically injects prefix (metadata.componentName + "-" + metadata.environmentName) as the prefix parameter.
-// Returns a list of objects with resourceName and envs for the container with config envs.
-func configurationsToConfigEnvsByContainerFunction(configurations, prefix ref.Val) ref.Val {
-	prefixStr, ok := prefix.Value().(string)
-	if !ok {
-		return types.NewErr("toConfigEnvsByContainer: prefix must be a string")
-	}
-
-	containerConfig, ok := configurations.Value().(map[string]any)
-	if !ok {
-		return types.NewErr("toConfigEnvsByContainer: expected map[string]any, got %T", configurations.Value())
-	}
-
-	result := makeConfigEnvList(containerConfig, prefixStr)
-	return types.DefaultTypeAdapter.NativeToValue(result)
-}
-
-// makeConfigEnvList creates a list of objects with resourceName and envs.
-// Returns a single-item list if the container has config envs, empty list otherwise.
-func makeConfigEnvList(containerConfig map[string]any, prefix string) []map[string]any {
-	if len(containerConfig) == 0 {
-		return []map[string]any{}
-	}
-
-	result := make([]map[string]any, 0, 1)
-
-	configs, ok := containerConfig["configs"].(map[string]any)
-	if !ok {
-		return result
-	}
-
-	envs, ok := configs["envs"].([]any)
-	if !ok || len(envs) == 0 {
-		return result
-	}
-
-	resourceName := generateEnvResourceName(prefix, "env-configs")
-
-	entry := map[string]any{
-		"resourceName": resourceName,
-		"envs":         envs,
-	}
-	result = append(result, entry)
-
-	return result
-}
-
-// configurationsToSecretEnvsByContainerFunction is the CEL binding for configurations.toSecretEnvsByContainer().
-// The macro automatically injects prefix (metadata.componentName + "-" + metadata.environmentName) as the prefix parameter.
-// Returns a list of objects with resourceName and envs for the container with secret envs.
-func configurationsToSecretEnvsByContainerFunction(configurations, prefix ref.Val) ref.Val {
-	prefixStr, ok := prefix.Value().(string)
-	if !ok {
-		return types.NewErr("toSecretEnvsByContainer: prefix must be a string")
-	}
-
-	containerConfig, ok := configurations.Value().(map[string]any)
-	if !ok {
-		return types.NewErr("toSecretEnvsByContainer: expected map[string]any, got %T", configurations.Value())
-	}
-
-	result := makeSecretEnvList(containerConfig, prefixStr)
-	return types.DefaultTypeAdapter.NativeToValue(result)
-}
-
-// makeSecretEnvList creates a list of objects with resourceName and envs.
-// Returns a single-item list if the container has secret envs, empty list otherwise.
-func makeSecretEnvList(containerConfig map[string]any, prefix string) []map[string]any {
-	if len(containerConfig) == 0 {
-		return []map[string]any{}
-	}
-
-	result := make([]map[string]any, 0, 1)
-
-	secrets, ok := containerConfig["secrets"].(map[string]any)
-	if !ok {
-		return result
-	}
-
-	envs, ok := secrets["envs"].([]any)
-	if !ok || len(envs) == 0 {
-		return result
-	}
-
-	resourceName := generateEnvResourceName(prefix, "env-secrets")
-
-	entry := map[string]any{
-		"resourceName": resourceName,
-		"envs":         envs,
-	}
-	result = append(result, entry)
-
-	return result
-}
-
-// generateVolumeHash generates a hash for volume names to match the template pattern.
-// This uses the same hash function as the oc_hash CEL function (FNV-1a 32-bit).
-func generateVolumeHash(mountPath, filename string) string {
-	input := mountPath + "/" + filename
-	h := fnv.New32a()
-	h.Write([]byte(input))
-	return fmt.Sprintf("%08x", h.Sum32())
-}
-
-func generateEnvResourceName(prefix, suffix string) string {
-	return kubernetes.GenerateK8sNameWithLengthLimit(
-		kubernetes.MaxResourceNameLength,
-		prefix,
-		suffix,
-	)
-}
-
-// toInt64 converts a numeric value (int, int32, int64, float64) to int64.
-// Returns (value, true) on success, or (0, false) if the value is not a supported numeric type.
-// For float64 values, returns an error-indicating (0, false) if the value is not a whole number.
-func toInt64(v any) (int64, bool) {
-	switch n := v.(type) {
-	case int64:
-		return n, true
-	case float64:
-		if math.Trunc(n) != n {
-			return 0, false
-		}
-		return int64(n), true
-	case int:
-		return int64(n), true
-	case int32:
-		return int64(n), true
-	default:
-		return 0, false
-	}
-}
-
-// workloadToServicePortsFunction is the CEL binding for workload.toServicePorts().
-// Returns a list of Service port definitions, each containing: name, port, targetPort, protocol.
-func workloadToServicePortsFunction(workload ref.Val) ref.Val {
-	workloadMap, ok := workload.Value().(map[string]any)
-	if !ok {
-		return types.NewErr("toServicePorts: expected workload to be a map, got %T", workload.Value())
-	}
-
-	endpointsVal, hasEndpoints := workloadMap["endpoints"]
-	if !hasEndpoints {
-		return types.DefaultTypeAdapter.NativeToValue([]map[string]any{})
-	}
-
-	endpointsMap, ok := endpointsVal.(map[string]any)
-	if !ok {
-		return types.NewErr("toServicePorts: workload.endpoints must be a map, got %T", endpointsVal)
-	}
-
-	if len(endpointsMap) == 0 {
-		return types.DefaultTypeAdapter.NativeToValue([]map[string]any{})
-	}
-
-	// Sort endpoint names for deterministic output
-	endpointNames := make([]string, 0, len(endpointsMap))
-	for endpointName := range endpointsMap {
-		endpointNames = append(endpointNames, endpointName)
-	}
-	sort.Strings(endpointNames)
-
-	result := make([]map[string]any, 0, len(endpointsMap))
-	usedNames := make(map[string]bool)
-	// Kubernetes Services require (port, protocol) to be unique across ports[],
-	// so skip endpoints that would produce a duplicate entry.
-	seenPortProto := make(map[string]bool)
-
-	for _, endpointName := range endpointNames {
-		endpointVal := endpointsMap[endpointName]
-		endpoint, ok := endpointVal.(map[string]any)
-		if !ok {
-			return types.NewErr("toServicePorts: endpoint '%s' must be an object, got %T", endpointName, endpointVal)
-		}
-
-		portVal := endpoint["port"]
-		if portVal == nil {
-			return types.NewErr("toServicePorts: endpoint '%s' is missing required 'port' field", endpointName)
-		}
-		port, ok := toInt64(portVal)
-		if !ok {
-			return types.NewErr("toServicePorts: endpoint '%s' must have a numeric integer port, got %v (%T)", endpointName, portVal, portVal)
-		}
-
-		// targetPort is already resolved by ExtractWorkloadData (defaults to port when unset),
-		// so read it directly; fall back to port only for raw/unresolved data.
-		targetPort := port
-		if tpVal := endpoint["targetPort"]; tpVal != nil {
-			if tp, ok := toInt64(tpVal); ok && tp != 0 {
-				targetPort = tp
-			}
-		}
-
-		endpointType, _ := endpoint["type"].(string)
-		protocol := mapEndpointTypeToProtocol(endpointType)
-
-		portProtoKey := fmt.Sprintf("%d/%s", port, protocol)
-		if seenPortProto[portProtoKey] {
-			continue
-		}
-		seenPortProto[portProtoKey] = true
-
-		// Sanitize endpoint name for Kubernetes port naming
-		sanitizedName := sanitizePortName(endpointName)
-		if sanitizedName == "" {
-			sanitizedName = fmt.Sprintf("port-%d", port)
-		}
-
-		// Ensure uniqueness by adding suffix if needed
-		finalName := sanitizedName
-		counter := 2
-		for usedNames[finalName] {
-			finalName = fmt.Sprintf("%s-%d", sanitizedName, counter)
-			// Ensure the final name doesn't exceed 15 characters
-			if len(finalName) > 15 {
-				// Truncate the base name to make room for suffix
-				maxBaseLen := 15 - len(fmt.Sprintf("-%d", counter))
-				if maxBaseLen > 0 {
-					finalName = fmt.Sprintf("%s-%d", sanitizedName[:maxBaseLen], counter)
-				} else {
-					// If counter is too large, use minimal name
-					finalName = fmt.Sprintf("p-%d", counter)
-				}
-			}
-			counter++
-		}
-		usedNames[finalName] = true
-
-		result = append(result, map[string]any{
-			"name":       finalName,
-			"port":       port,
-			"targetPort": targetPort,
-			"protocol":   protocol,
-		})
-	}
-
-	return types.DefaultTypeAdapter.NativeToValue(result)
-}
-
-// mapEndpointTypeToProtocol maps WorkloadEndpoint.Type to Kubernetes Service protocol.
-func mapEndpointTypeToProtocol(endpointType string) string {
-	switch endpointType {
-	case protocolTCP:
-		return protocolTCP
-	case protocolUDP:
-		return protocolUDP
-	default:
-		// HTTP, gRPC, GraphQL, Websocket all use TCP
-		return protocolTCP
-	}
-}
-
-// sanitizePortName sanitizes endpoint names for use as Kubernetes port names.
-// Kubernetes port names must be:
-// - lowercase alphanumeric + hyphens
-// - start and end with alphanumeric (not hyphen)
-// - max 15 characters (IANA service name limit)
-// Returns empty string if name cannot be sanitized.
-func sanitizePortName(name string) string {
-	// Convert to lowercase
-	name = strings.ToLower(name)
-	// Replace underscores with hyphens
-	name = strings.ReplaceAll(name, "_", "-")
-
-	// Remove invalid characters (keep only alphanumeric and hyphens)
-	var result strings.Builder
-	for _, ch := range name {
-		if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' {
-			result.WriteRune(ch)
-		}
-	}
-	sanitized := result.String()
-
-	// Trim leading and trailing hyphens (Kubernetes requirement)
-	sanitized = strings.Trim(sanitized, "-")
-
-	// If empty after sanitization, return empty (caller must handle)
-	if len(sanitized) == 0 {
-		return ""
-	}
-
-	// Limit to 15 characters (IANA service name limit)
-	if len(sanitized) > 15 {
-		sanitized = sanitized[:15]
-		// Trim trailing hyphen if we cut in the middle of a word
-		sanitized = strings.TrimRight(sanitized, "-")
-	}
-
-	return sanitized
-}

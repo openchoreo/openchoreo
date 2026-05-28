@@ -5,19 +5,42 @@ metadata:
 spec:
   templates:
     - name: build-image
+      podSpecPatch: '{"hostUsers": false}'
       inputs:
         parameters:
           - name: git-revision
           - name: build-env
           - name: build-args
+      volumes:
+        - name: storage
+          emptyDir:
+            sizeLimit: 10Gi
+        - name: tools
+          emptyDir: {}
+      initContainers:
+        - name: install-tools
+          image: ghcr.io/openchoreo/ci-tools:1.0
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /tools/bin /tools/lib
+              cp /ci-tools/bin/* /tools/bin/
+              cp /ci-tools/lib/* /tools/lib/
+          volumeMounts:
+            - name: tools
+              mountPath: /tools
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.1
+        image: quay.io/podman/stable:v5.8.2
         command:
           - sh
           - -c
         args:
           - |-
             set -e
+
+            export PATH="/tools/bin:${PATH}"
+            export LD_LIBRARY_PATH="/tools/lib"
 
             WORKDIR="/mnt/vol/source"
             IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
@@ -26,7 +49,6 @@ spec:
             BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
             BUILD_ARGS_JSON='{{inputs.parameters.build-args}}'
 
-            # --- Parameter Validation ---
             echo ">> Image: $IMAGE"
             echo ">> Dockerfile: $DOCKERFILE_PATH"
             echo ">> Docker context: $DOCKER_CONTEXT"
@@ -47,29 +69,27 @@ spec:
               exit 1
             fi
 
-            mkdir -p /etc/containers
+            mkdir -p /storage/run /storage/graph
             cat > /etc/containers/storage.conf <<EOF
             [storage]
             driver = "overlay"
-            runroot = "/run/containers/storage"
-            graphroot = "/var/lib/containers/storage"
+            runroot = "/storage/run"
+            graphroot = "/storage/graph"
             [storage.options.overlay]
-            mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
-            # Build --env flags
+            # Build --env and --build-arg flags
             ENV_ARGS=""
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
               ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--env \(.name)=\(.value)"' | \
+                jq -r '.[] | "--env \(.name)=\(.value)"' | \
                 tr '\n' ' ')
             fi
 
-            # Build --build-arg flags
             BUILD_ARG_ARGS=""
             if [ -n "$BUILD_ARGS_JSON" ] && [ "$BUILD_ARGS_JSON" != "[]" ]; then
               BUILD_ARG_ARGS=$(echo "$BUILD_ARGS_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--build-arg \(.name)=\(.value)"' | \
+                jq -r '.[] | "--build-arg \(.name)=\(.value)"' | \
                 tr '\n' ' ')
             fi
 
@@ -83,3 +103,8 @@ spec:
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
+          - mountPath: /storage
+            name: storage
+          - mountPath: /tools
+            name: tools
+            readOnly: true

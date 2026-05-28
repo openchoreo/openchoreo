@@ -31,8 +31,8 @@ var omitValue = field.OmitValueType{}
 // SetupResourceReleaseWebhookWithManager registers the validating webhook for
 // ResourceRelease in the manager.
 func SetupResourceReleaseWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.ResourceRelease{}).
-		WithValidator(&Validator{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.ResourceRelease{}).
+		WithCustomValidator(&Validator{}).
 		Complete()
 }
 

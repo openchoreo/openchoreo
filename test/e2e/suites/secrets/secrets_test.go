@@ -340,7 +340,10 @@ var _ = Describe("Secrets and External Secrets", Ordered, Label("tier2"), func()
 
 	// --- Test Case 2: SecretReference update triggers rollout gated on ESO sync ---
 
-	It("updates ExternalSecret in-place and triggers rollout via dp-resource-hash", func() {
+	It("creates a new ExternalSecret with content hash and triggers rollout", func() {
+		previousESName := envESName
+		previousSecretK8s := envSecretK8s
+
 		By("updating SecretReference/env-secret to point at fake store key 'npm-token'")
 		output, err := framework.KubectlApplyLiteral(kubeContext,
 			secretReferenceYAML("env-secret", cpNs, "APP_USERNAME", "npm-token"))
@@ -349,18 +352,10 @@ var _ = Describe("Secrets and External Secrets", Ordered, Label("tier2"), func()
 		By("waiting for ReleaseBinding to re-reconcile and reach Ready=True")
 		assertRBCondition("Ready", "True", "Ready")
 
-		By("waiting for ExternalSecret to be updated in-place with new remoteRef")
-		// Current behavior: ExternalSecret name is derived from component+environment (not
-		// content), so it's updated in-place. dp-resource-hash triggers a rolling update.
-		//
-		// Race condition: the rollout starts before ESO syncs the new value, so new pods
-		// may read stale secrets. This passes here because the fake ESO provider syncs
-		// near-instantly, but with a real backend (Vault, AWS SM) the sync delay would
-		// cause pods to start with old values.
-		//
-		// Fix: include a content hash (remoteRef keys) in the ExternalSecret resource name.
-		// A new name means a new K8s Secret, and pods block until ESO syncs it — naturally
-		// gating the rollout on ESO readiness.
+		By("waiting for new ExternalSecret with updated remoteRef")
+		// ExternalSecret resource name includes a content hash derived from remoteRef keys.
+		// Changing the SecretReference produces a new ExternalSecret (and K8s Secret),
+		// ensuring pods block on ESO sync before starting with the new value.
 		Eventually(func(g Gomega) {
 			esItems, err := listExternalSecrets(dpNs)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -368,9 +363,17 @@ var _ = Describe("Secrets and External Secrets", Ordered, Label("tier2"), func()
 			g.Expect(envES).NotTo(BeNil(), "env ExternalSecret not found after update")
 			g.Expect(esRemoteKey(envES, "APP_USERNAME")).To(Equal("npm-token"),
 				"env ExternalSecret should reference 'npm-token' after update")
-		}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
 
-		By("waiting for ExternalSecret to be Ready after in-place update")
+			envESName = esName(envES)
+			envSecretK8s = esTargetName(envES)
+			g.Expect(envESName).NotTo(Equal(previousESName),
+				"ExternalSecret name should change due to content hash")
+			g.Expect(envSecretK8s).NotTo(Equal(previousSecretK8s),
+				"K8s Secret name should change with the new ExternalSecret")
+		}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
+		fmt.Fprintf(GinkgoWriter, "new env ES: %s (target: %s)\n", envESName, envSecretK8s)
+
+		By("waiting for new ExternalSecret to be Ready")
 		assertExternalSecretReady(dpNs, envESName)
 
 		By("waiting for K8s Secret to have the updated value")

@@ -3,7 +3,7 @@ apiVersion: k3d.io/v1alpha5
 kind: Simple
 metadata:
   name: openchoreo-e2e
-image: rancher/k3s:v1.32.9-k3s1
+image: rancher/k3s:v1.36.1-k3s1
 servers: 1
 agents: 0
 kubeAPI:
@@ -23,7 +23,10 @@ ports:
   - port: 29443:19443
     nodeFilters:
       - loadbalancer
-  # Workflow Plane — port range 20xxx (only used when E2E_WITH_BUILD=true)
+  # Workflow Plane — port range 20xxx (only used when E2E_WITH_BUILD=true).
+  # 20082 host-side avoids collision with a parallel single-cluster install
+  # (which uses 10082). _e2e.configure-wp applies an e2e-specific
+  # publish-image template that pushes to host.k3d.internal:20082 to match.
   - port: 20082:10082
     nodeFilters:
       - loadbalancer

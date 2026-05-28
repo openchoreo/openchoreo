@@ -5,11 +5,16 @@ metadata:
 spec:
   templates:
     - name: build-image
+      podSpecPatch: '{"hostUsers": false}'
       inputs:
         parameters:
           - name: git-revision
+      volumes:
+        - name: storage
+          emptyDir:
+            sizeLimit: 10Gi
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.1
+        image: quay.io/podman/stable:v5.8.2
         command:
           - sh
           - -c
@@ -17,13 +22,14 @@ spec:
           - |-
             set -e
 
+            dnf install -y --setopt=install_weak_deps=False jq > /dev/null 2>&1
+
             WORKDIR=/mnt/vol/source
 
             IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
             APP_PATH="{{workflow.parameters.app-path}}"
             BUILD_ENV_JSON='{{workflow.parameters.build-env}}'
 
-            # --- Parameter Validation ---
             echo ">> Image: $IMAGE"
             echo ">> App path: $APP_PATH"
 
@@ -35,33 +41,40 @@ spec:
               exit 1
             fi
 
-            mkdir -p /etc/containers
+            mkdir -p /storage/run /storage/graph
             cat > /etc/containers/storage.conf <<EOF
             [storage]
             driver = "overlay"
-            runroot = "/run/containers/storage"
-            graphroot = "/var/lib/containers/storage"
+            runroot = "/storage/run"
+            graphroot = "/storage/graph"
             [storage.options.overlay]
-            mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
             echo ">> Initializing build environment"
-            podman system service --time=0 &
+            mkdir -p /run/podman
+            podman system service --time=0 unix:///run/podman/podman.sock &
             until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
+            export DOCKER_HOST=unix:///run/podman/podman.sock
 
             BUILDER="docker.io/paketobuildpacks/builder-jammy-full:0.3.603"
             RUN_IMG="docker.io/paketobuildpacks/run-jammy-full:0.1.130"
 
-            # Build --env flags from the buildEnv JSON array (e.g. [{"name":"BP_NODE_RUN_SCRIPTS","value":"build"}])
+            # Install pack CLI
+            echo ">> Installing pack CLI"
+            PACK_VERSION="v0.40.1"
+            curl -sSL "https://github.com/buildpacks/pack/releases/download/${PACK_VERSION}/pack-${PACK_VERSION}-linux.tgz" | tar xz -C /tmp
+            chmod +x /tmp/pack
+
+            # Build --env flags
             ENV_ARGS=""
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
               ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--env \(.name)=\(.value)"' | \
+                jq -r '.[] | "--env \(.name)=\(.value)"' | \
                 tr '\n' ' ')
             fi
 
             echo ">> Building image with Paketo buildpacks"
-            /usr/local/bin/pack build "$IMAGE" \
+            /tmp/pack build "$IMAGE" \
               --builder "$BUILDER" \
               --run-image "$RUN_IMG" \
               --docker-host inherit \
@@ -70,10 +83,12 @@ spec:
               $ENV_ARGS
 
             echo ">> Image built successfully"
-            echo ">> Saving image"
+            until podman image exists "$IMAGE" 2>/dev/null; do sleep 1; done
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:
           privileged: true
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
+          - mountPath: /storage
+            name: storage

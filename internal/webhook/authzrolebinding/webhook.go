@@ -22,9 +22,8 @@ var log = logf.Log.WithName("authzrolebinding-webhook")
 
 // SetupAuthzRoleBindingWebhookWithManager registers the validating webhook for AuthzRoleBinding.
 func SetupAuthzRoleBindingWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&openchoreodevv1alpha1.AuthzRoleBinding{}).
-		WithValidator(&AuthzRoleBindingValidator{Client: mgr.GetClient()}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.AuthzRoleBinding{}).
+		WithCustomValidator(&AuthzRoleBindingValidator{Client: mgr.GetClient()}).
 		Complete()
 }
 

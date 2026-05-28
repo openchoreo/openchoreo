@@ -25,9 +25,9 @@ var clusterworkflowlog = logf.Log.WithName("clusterworkflow-resource")
 
 // SetupClusterWorkflowWebhookWithManager registers the webhook for ClusterWorkflow in the manager.
 func SetupClusterWorkflowWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.ClusterWorkflow{}).
-		WithValidator(&Validator{}).
-		WithDefaulter(&Defaulter{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.ClusterWorkflow{}).
+		WithCustomValidator(&Validator{}).
+		WithCustomDefaulter(&Defaulter{}).
 		Complete()
 }
 

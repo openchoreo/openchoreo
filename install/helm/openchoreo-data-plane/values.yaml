@@ -402,6 +402,46 @@ clusterAgent:
   logLevel: info
 
   # @schema
+  # type: array
+  # description: Additional environment variables to set in the cluster agent container. Each entry must specify exactly one of 'value' (literal) or 'valueFrom.secretKeyRef' (reference to an existing Kubernetes Secret).
+  # items:
+  #   type: object
+  #   additionalProperties: false
+  #   required:
+  #     - name
+  #   oneOf:
+  #     - required: [name, value]
+  #     - required: [name, valueFrom]
+  #   properties:
+  #     name:
+  #       type: string
+  #       description: Name of the environment variable
+  #     value:
+  #       type: string
+  #       description: Literal value of the environment variable. Avoid for secret material; use valueFrom.secretKeyRef instead.
+  #     valueFrom:
+  #       type: object
+  #       additionalProperties: false
+  #       description: Source the value from an existing Kubernetes resource. Currently only secretKeyRef is supported.
+  #       required: [secretKeyRef]
+  #       properties:
+  #         secretKeyRef:
+  #           type: object
+  #           additionalProperties: false
+  #           description: Reference to a key in an existing Kubernetes Secret.
+  #           required: [name, key]
+  #           properties:
+  #             name:
+  #               type: string
+  #               description: Name of the Secret (must exist in the cluster-agent's namespace).
+  #             key:
+  #               type: string
+  #               description: Key within the Secret whose value to inject.
+  # default: []
+  # @schema
+  extraEnvs: []
+
+  # @schema
   # type: object
   # description: Resource limits and requests for cluster agent
   # @schema

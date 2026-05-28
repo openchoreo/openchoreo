@@ -26,8 +26,8 @@ var clustertraitlog = logf.Log.WithName("clustertrait-resource")
 
 // SetupClusterTraitWebhookWithManager registers the webhook for ClusterTrait in the manager.
 func SetupClusterTraitWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.ClusterTrait{}).
-		WithValidator(&Validator{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.ClusterTrait{}).
+		WithCustomValidator(&Validator{}).
 		Complete()
 }
 

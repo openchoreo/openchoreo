@@ -1755,7 +1755,7 @@ func TestBuildConnectionTargets(t *testing.T) {
 
 	t.Run("builds targets with explicit project", func(t *testing.T) {
 		conns := []openchoreov1alpha1.WorkloadConnection{
-			{Project: "other-proj", Component: "svc-a", Name: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+			{Project: "other-proj", Component: "svc-a", Name: "api", Visibility: string(openchoreov1alpha1.EndpointVisibilityProject)},
 		}
 		targets := buildConnectionTargets(rb, conns)
 		if len(targets) != 1 {
@@ -1774,7 +1774,7 @@ func TestBuildConnectionTargets(t *testing.T) {
 
 	t.Run("defaults project to owner", func(t *testing.T) {
 		conns := []openchoreov1alpha1.WorkloadConnection{
-			{Component: "svc-a", Name: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+			{Component: "svc-a", Name: "api", Visibility: string(openchoreov1alpha1.EndpointVisibilityProject)},
 		}
 		targets := buildConnectionTargets(rb, conns)
 		if len(targets) != 1 {
@@ -1811,7 +1811,7 @@ func TestAllConnectionsResolved(t *testing.T) {
 				URL: openchoreov1alpha1.EndpointURL{Host: "svc-a.default.svc.cluster.local", Port: 8080}},
 		})
 		conns := []openchoreov1alpha1.WorkloadConnection{
-			{Component: "svc-a", Name: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+			{Component: "svc-a", Name: "api", Visibility: string(openchoreov1alpha1.EndpointVisibilityProject)},
 		}
 		if !allConnectionsResolved(rb, conns) {
 			t.Error("expected true when all resolved")
@@ -1821,7 +1821,7 @@ func TestAllConnectionsResolved(t *testing.T) {
 	t.Run("missing resolution", func(t *testing.T) {
 		rb := makeRB(nil)
 		conns := []openchoreov1alpha1.WorkloadConnection{
-			{Component: "svc-a", Name: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+			{Component: "svc-a", Name: "api", Visibility: string(openchoreov1alpha1.EndpointVisibilityProject)},
 		}
 		if allConnectionsResolved(rb, conns) {
 			t.Error("expected false when no resolutions")
@@ -1910,7 +1910,7 @@ func TestBuildConnectionItems(t *testing.T) {
 			{
 				Component:  "svc-a",
 				Name:       "api",
-				Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+				Visibility: string(openchoreov1alpha1.EndpointVisibilityProject),
 				EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
 					Address:  "SVC_A_ADDRESS",
 					Host:     "SVC_A_HOST",
@@ -1951,7 +1951,7 @@ func TestBuildConnectionItems(t *testing.T) {
 			{
 				Component:  "svc-a",
 				Name:       "api",
-				Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+				Visibility: string(openchoreov1alpha1.EndpointVisibilityProject),
 				EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
 					Address: "SVC_A_ADDRESS",
 				},
@@ -1975,7 +1975,7 @@ func TestBuildConnectionItems(t *testing.T) {
 			{
 				Component:  "svc-a",
 				Name:       "api",
-				Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+				Visibility: string(openchoreov1alpha1.EndpointVisibilityProject),
 				EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
 					Host: "SVC_A_HOST",
 					Port: "SVC_A_PORT",

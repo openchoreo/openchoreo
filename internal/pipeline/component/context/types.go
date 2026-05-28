@@ -240,6 +240,9 @@ type ComponentContext struct {
 	// Dependencies contains dependency metadata and merged env vars for templates.
 	// Accessed via ${dependencies.items} and ${dependencies.envVars}.
 	Dependencies ConnectionsContextData `json:"dependencies"`
+
+	// Derived holds precomputed views that CEL macros resolve to via field selects.
+	Derived DerivedContext `json:"derived"`
 }
 
 // DataPlaneData provides data plane configuration in templates.
@@ -472,6 +475,9 @@ type TraitContext struct {
 	// Dependencies contains dependency metadata and merged env vars for templates.
 	// Accessed via ${dependencies.items} and ${dependencies.envVars}.
 	Dependencies ConnectionsContextData `json:"dependencies"`
+
+	// Derived holds precomputed views that CEL macros resolve to via field selects.
+	Derived DerivedContext `json:"derived"`
 }
 
 // TraitMetadata contains trait-specific metadata.

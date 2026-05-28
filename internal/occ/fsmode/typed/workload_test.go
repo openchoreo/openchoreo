@@ -390,7 +390,7 @@ func TestGetDependencies(t *testing.T) {
 				{
 					Component:  "postgres",
 					Name:       "tcp",
-					Visibility: v1alpha1.EndpointVisibilityProject,
+					Visibility: "project",
 					EnvBindings: v1alpha1.ConnectionEnvBindings{
 						Address: "DATABASE_URL",
 					},
@@ -432,7 +432,7 @@ func TestGetDependencies(t *testing.T) {
 					Project:    "other-project",
 					Component:  "redis",
 					Name:       "tcp",
-					Visibility: v1alpha1.EndpointVisibilityNamespace,
+					Visibility: "namespace",
 					EnvBindings: v1alpha1.ConnectionEnvBindings{
 						Address:  "REDIS_URL",
 						Host:     "REDIS_HOST",
@@ -472,7 +472,7 @@ func TestGetDependencies(t *testing.T) {
 				{
 					Component:  "postgres",
 					Name:       "tcp",
-					Visibility: v1alpha1.EndpointVisibilityProject,
+					Visibility: "project",
 					EnvBindings: v1alpha1.ConnectionEnvBindings{
 						Address: "DB_URL",
 					},
@@ -480,7 +480,7 @@ func TestGetDependencies(t *testing.T) {
 				{
 					Component:  "nats",
 					Name:       "tcp",
-					Visibility: v1alpha1.EndpointVisibilityProject,
+					Visibility: "project",
 					EnvBindings: v1alpha1.ConnectionEnvBindings{
 						Address: "NATS_URL",
 					},
