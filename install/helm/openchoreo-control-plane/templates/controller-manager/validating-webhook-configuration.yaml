@@ -26,6 +26,12 @@ webhooks:
     - UPDATE
     resources:
     - authzrolebindings
+  objectSelector:
+    matchExpressions:
+    - key: openchoreo.io/bootstrap
+      operator: NotIn
+      values:
+      - "true"
   sideEffects: None
 - admissionReviewVersions:
   - v1
@@ -46,6 +52,12 @@ webhooks:
     - UPDATE
     resources:
     - clusterauthzrolebindings
+  objectSelector:
+    matchExpressions:
+    - key: openchoreo.io/bootstrap
+      operator: NotIn
+      values:
+      - "true"
   sideEffects: None
 - admissionReviewVersions:
   - v1
