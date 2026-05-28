@@ -1,0 +1,35 @@
+# Example of how a developer's repository invokes the reusable workflow
+# defined in ./register-workload.yml. Drop a copy of this file into your repo
+# at .github/workflows/deploy.yml, adjust the `with:` block, and you are
+# done. No long-lived secrets need to be added to the repository - GitHub
+# Actions OIDC is used to authenticate the call.
+
+name: build-and-deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.image.outputs.ref }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: image
+        run: |
+          IMAGE_REF="ghcr.io/${{ github.repository }}:${{ github.sha }}"
+          echo "ref=$IMAGE_REF" >> "$GITHUB_OUTPUT"
+      # ... your real docker build / push steps here ...
+
+  register-workload:
+    needs: build
+    uses: openchoreo/openchoreo/.github/workflows/register-workload.yml@main
+    with:
+      project: my-project
+      component: my-service
+      environment: dev
+      image: ${{ needs.build.outputs.image }}
+      openchoreo_api_url: https://api.openchoreo.example.com
+      oidc_audience: https://github.com/my-org

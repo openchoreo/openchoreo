@@ -1,0 +1,118 @@
+# Reusable GitHub Actions workflow that registers a Workload back into
+# OpenChoreo after a build step in the caller's repository. The caller
+# invokes this workflow via `uses:` and OpenChoreo authenticates the request
+# using GitHub's OIDC token - no long-lived secrets need to be configured in
+# the caller's repository.
+#
+# This sample lives in this repository for the initial release; a future
+# release may move it to a dedicated `openchoreo/actions` repository so the
+# caller can pin a SemVer tag (`@v1`). When that happens the `uses:` ref will
+# change but the input/secret shape will stay backwards compatible.
+#
+# Caller example: see ./.github/workflows/example-usage.yml in this folder.
+
+name: openchoreo / register workload
+
+on:
+  workflow_call:
+    inputs:
+      project:
+        description: Name of the OpenChoreo Project that owns the Component.
+        required: true
+        type: string
+      component:
+        description: Name of the OpenChoreo Component to register the Workload against.
+        required: true
+        type: string
+      environment:
+        description: Target environment name (e.g. "dev", "prod").
+        required: true
+        type: string
+      image:
+        description: Fully-qualified container image reference (registry/repo:tag) that the Workload should run.
+        required: true
+        type: string
+      namespace:
+        description: OpenChoreo namespace that holds the Project. Defaults to "default".
+        required: false
+        type: string
+        default: default
+      openchoreo_api_url:
+        description: Base URL of the OpenChoreo API server (e.g. https://api.openchoreo.example.com).
+        required: true
+        type: string
+      oidc_audience:
+        description: |
+          Audience to request from GitHub's OIDC provider. MUST match the
+          value the platform engineer set in
+          `security.authentication.github_oidc.audience` on openchoreo-api.
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  register:
+    name: Register Workload
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request GitHub OIDC token
+        id: oidc
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const audience = ${{ toJSON(inputs.oidc_audience) }};
+            const token = await core.getIDToken(audience);
+            core.setSecret(token);
+            core.setOutput('token', token);
+
+      - name: POST workload to openchoreo-api
+        env:
+          OPENCHOREO_API_URL: ${{ inputs.openchoreo_api_url }}
+          OPENCHOREO_NAMESPACE: ${{ inputs.namespace }}
+          OPENCHOREO_PROJECT: ${{ inputs.project }}
+          OPENCHOREO_COMPONENT: ${{ inputs.component }}
+          OPENCHOREO_ENVIRONMENT: ${{ inputs.environment }}
+          OPENCHOREO_IMAGE: ${{ inputs.image }}
+          OPENCHOREO_TOKEN: ${{ steps.oidc.outputs.token }}
+          WORKLOAD_NAME: ${{ inputs.component }}-${{ inputs.environment }}
+        run: |
+          set -euo pipefail
+          payload=$(jq -n \
+            --arg apiVersion "openchoreo.dev/v1alpha1" \
+            --arg kind "Workload" \
+            --arg name "$WORKLOAD_NAME" \
+            --arg namespace "$OPENCHOREO_NAMESPACE" \
+            --arg project "$OPENCHOREO_PROJECT" \
+            --arg component "$OPENCHOREO_COMPONENT" \
+            --arg image "$OPENCHOREO_IMAGE" \
+            '{
+              apiVersion: $apiVersion,
+              kind: $kind,
+              metadata: { name: $name, namespace: $namespace },
+              spec: {
+                owner: { projectName: $project, componentName: $component },
+                containers: { main: { image: $image } }
+              }
+            }')
+
+          http_code=$(curl -sS -o /tmp/openchoreo-resp.json -w "%{http_code}" \
+            -X POST "$OPENCHOREO_API_URL/api/v1/namespaces/$OPENCHOREO_NAMESPACE/workloads" \
+            -H "Authorization: Bearer $OPENCHOREO_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$payload")
+
+          if [ "$http_code" != "201" ] && [ "$http_code" != "200" ] && [ "$http_code" != "409" ]; then
+            echo "::error::openchoreo-api returned $http_code"
+            cat /tmp/openchoreo-resp.json
+            exit 1
+          fi
+
+          if [ "$http_code" = "409" ]; then
+            echo "Workload already exists; treating as success."
+          else
+            echo "Workload registered."
+          fi
+          cat /tmp/openchoreo-resp.json

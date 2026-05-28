@@ -6556,6 +6556,58 @@ components:
               example: default
           required:
             - name
+        externalCI:
+          $ref: '#/components/schemas/ProjectExternalCI'
+
+    ProjectExternalCI:
+      type: object
+      description: |
+        External CI platform integrations trusted to create Workloads in this Project.
+      properties:
+        githubActions:
+          $ref: '#/components/schemas/ProjectGitHubActions'
+
+    ProjectGitHubActions:
+      type: object
+      description: |
+        Trust boundary for GitHub Actions workflows that authenticate to
+        openchoreo-api via GitHub's OIDC token. Values are matched against the
+        corresponding claims in the OIDC token. Empty arrays mean "no restriction"
+        for that dimension.
+      properties:
+        allowedRepositories:
+          type: array
+          description: |
+            Allow-list of "owner/repo" entries matched against the `repository`
+            claim. At least one repository MUST be listed for OIDC-authenticated
+            requests to be accepted for this Project.
+          items:
+            type: string
+          uniqueItems: true
+          example:
+            - my-org/my-service
+        allowedRefs:
+          type: array
+          description: |
+            Optional allow-list of git refs (e.g. "refs/heads/main") matched
+            against the `ref` claim. Empty means any ref from an allowed
+            repository is accepted.
+          items:
+            type: string
+          uniqueItems: true
+        allowedJobWorkflowRefs:
+          type: array
+          description: |
+            Optional allow-list of immutable `job_workflow_ref` values matched
+            against the `job_workflow_ref` claim. This provides the strongest
+            trust boundary because `job_workflow_ref` is immutable for the
+            duration of a workflow run. Empty means any workflow from an
+            allowed repository and ref is accepted.
+          items:
+            type: string
+          uniqueItems: true
+          example:
+            - my-org/my-service/.github/workflows/deploy.yml@refs/heads/main
 
     ProjectStatus:
       type: object

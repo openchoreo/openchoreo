@@ -79,12 +79,17 @@ func (c *SecurityConfig) validateSubjects(path *config.Path) config.ValidationEr
 type AuthenticationConfig struct {
 	// JWT defines JWT authentication settings.
 	JWT JWTConfig `koanf:"jwt"`
+	// GitHubOIDC defines GitHub Actions OIDC authentication settings.
+	// Tokens whose `iss` claim matches GitHubOIDC.Issuer are routed to the
+	// GitHub OIDC verifier; everything else is routed to the JWT verifier.
+	GitHubOIDC GitHubOIDCConfig `koanf:"github_oidc"`
 }
 
 // AuthenticationDefaults returns the default authentication configuration.
 func AuthenticationDefaults() AuthenticationConfig {
 	return AuthenticationConfig{
-		JWT: JWTDefaults(),
+		JWT:        JWTDefaults(),
+		GitHubOIDC: GitHubOIDCDefaults(),
 	}
 }
 
@@ -92,6 +97,44 @@ func AuthenticationDefaults() AuthenticationConfig {
 func (c *AuthenticationConfig) Validate(path *config.Path) config.ValidationErrors {
 	var errs config.ValidationErrors
 	errs = append(errs, c.JWT.Validate(path.Child("jwt"))...)
+	errs = append(errs, c.GitHubOIDC.Validate(path.Child("github_oidc"))...)
+	return errs
+}
+
+// GitHubOIDCConfig defines GitHub Actions OIDC authentication settings.
+type GitHubOIDCConfig struct {
+	// Enabled turns the GitHub Actions OIDC verifier on. When false, the
+	// verifier is short-circuited and any token whose `iss` claim matches the
+	// GitHub issuer is rejected.
+	Enabled bool `koanf:"enabled"`
+	// Issuer is the expected `iss` claim. Defaults to
+	// https://token.actions.githubusercontent.com.
+	Issuer string `koanf:"issuer"`
+	// Audience is the expected `aud` claim. Required when Enabled is true.
+	// Workflows configure their requested audience to match this value.
+	Audience string `koanf:"audience"`
+}
+
+// GitHubOIDCDefaults returns the default GitHub Actions OIDC configuration.
+func GitHubOIDCDefaults() GitHubOIDCConfig {
+	return GitHubOIDCConfig{
+		Enabled: false,
+		Issuer:  "https://token.actions.githubusercontent.com",
+	}
+}
+
+// Validate validates the GitHub Actions OIDC configuration.
+func (c *GitHubOIDCConfig) Validate(path *config.Path) config.ValidationErrors {
+	var errs config.ValidationErrors
+	if !c.Enabled {
+		return errs
+	}
+	if c.Issuer == "" {
+		errs = append(errs, config.Required(path.Child("issuer")))
+	}
+	if c.Audience == "" {
+		errs = append(errs, config.Required(path.Child("audience")))
+	}
 	return errs
 }
 

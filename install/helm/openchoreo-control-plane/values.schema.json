@@ -396,8 +396,35 @@
         },
         "externalCI": {
           "additionalProperties": false,
-          "description": "External CI platform integrations (Jenkins). GitHub Actions and GitLab support coming soon.",
+          "description": "External CI platform integrations (Jenkins, GitHub Actions). GitLab support coming soon.",
           "properties": {
+            "githubActions": {
+              "additionalProperties": false,
+              "description": "GitHub Actions CI integration configuration. Requires Components to carry the `github.com/project-slug` annotation. The API token must be provided via the Secret referenced by `backstage.secretName` under key `github-actions-token` (a GitHub PAT or GitHub App installation token).",
+              "properties": {
+                "apiBaseUrl": {
+                  "default": "",
+                  "description": "GitHub API base URL. Leave empty for public GitHub (Backstage will derive `https://api.github.com` from the host). For GitHub Enterprise Server, set to `https://\u003chost\u003e/api/v3`.",
+                  "title": "apiBaseUrl",
+                  "type": "string"
+                },
+                "enabled": {
+                  "default": false,
+                  "description": "Enable GitHub Actions integration by injecting environment variables consumed by the Backstage GitHub integration",
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "host": {
+                  "default": "github.com",
+                  "description": "GitHub host. Use `github.com` for public GitHub or the hostname of your GitHub Enterprise Server (e.g., `ghe.example.com`).",
+                  "title": "host",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "githubActions",
+              "type": "object"
+            },
             "jenkins": {
               "additionalProperties": false,
               "description": "Jenkins CI integration configuration",
@@ -936,7 +963,7 @@
         },
         "secretName": {
           "default": "",
-          "description": "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db. Optional: service-client-secret if backstage.auth.serviceClientSecretKey is set to a different key.",
+          "description": "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. Optional keys: github-actions-token (required when externalCI.githubActions.enabled=true), service-client-secret (if backstage.auth.serviceClientSecretKey is set to a different key). When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db.",
           "title": "secretName",
           "type": "string"
         },
