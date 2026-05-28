@@ -123,9 +123,115 @@ plugin reads, so any existing Backstage docs that reference it apply unchanged.
 | Helm value `externalCI.githubActions`  | ✅ in this release                         |
 | `GITHUB_HOST`, `GITHUB_API_BASE_URL`, `GITHUB_TOKEN` env vars injected into Backstage | ✅ in this release                         |
 | `app-config.ci.yaml` `integrations.github` block | ✅ in this release                         |
+| Reusable workflow → Workload bridge    | ✅ in this release (`samples/github-actions/`) |
+| GitHub OIDC token validation           | ✅ in this release                         |
+| Project-level allow-list (`spec.externalCI.githubActions`) | ✅ in this release                         |
 | Component-creation wizard option       | 🚧 tracked in `openchoreo/backstage-plugins` |
-| Reusable workflow → Workload bridge    | 🚧 deferred to PR-B of #3551               |
-| GitHub OIDC token validation           | 🚧 deferred to PR-B of #3551               |
+
+## Deployment bridge (GitHub Actions → Workload)
+
+Beyond the read-only Backstage tab covered above, openchoreo-api can accept
+`POST /workloads` requests authenticated via GitHub Actions OIDC tokens. A
+reusable workflow at [`samples/github-actions/register-workload.yml`](../../samples/github-actions/register-workload.yml)
+wraps the API call so callers do not need to embed the curl + JSON
+themselves.
+
+### 1. Turn on OIDC verification
+
+In your openchoreo-api configuration (typically passed via Helm values for
+the `openchoreoApi` chart subsection, or via env vars):
+
+```yaml
+security:
+  enabled: true
+  authentication:
+    github_oidc:
+      enabled: true
+      issuer: https://token.actions.githubusercontent.com   # default
+      audience: https://github.com/my-org                   # MUST match the caller's oidc_audience input
+```
+
+The middleware performs an OIDC discovery request against `issuer` at
+process startup; misconfigured values surface as a startup error rather
+than a runtime 401.
+
+### 2. Opt your Project in to a repository
+
+Without a Project-level allow-list, OIDC-authenticated requests are
+rejected with `403`. Edit (or create) the target Project CR:
+
+```yaml
+apiVersion: openchoreo.dev/v1alpha1
+kind: Project
+metadata:
+  name: my-project
+  namespace: default
+spec:
+  deploymentPipelineRef:
+    name: default
+  externalCI:
+    githubActions:
+      allowedRepositories:
+        - my-org/my-service
+      # Optional: also restrict ref and/or workflow file. Empty = any.
+      allowedRefs:
+        - refs/heads/main
+      allowedJobWorkflowRefs:
+        - my-org/my-service/.github/workflows/deploy.yml@refs/heads/main
+```
+
+`AllowedRepositories` is mandatory; `AllowedRefs` and
+`AllowedJobWorkflowRefs` are optional defence-in-depth. The strongest
+control is `AllowedJobWorkflowRefs` because GitHub's `job_workflow_ref`
+claim is immutable for the duration of a workflow run.
+
+### 3. Call the reusable workflow from the developer's repo
+
+```yaml
+jobs:
+  register-workload:
+    needs: build
+    uses: openchoreo/openchoreo/.github/workflows/register-workload.yml@main
+    with:
+      project: my-project
+      component: my-service
+      environment: dev
+      image: ${{ needs.build.outputs.image }}
+      openchoreo_api_url: https://api.openchoreo.example.com
+      oidc_audience: https://github.com/my-org
+```
+
+A full caller example lives at [`samples/github-actions/example-usage.yml`](../../samples/github-actions/example-usage.yml).
+
+### 4. Workload annotations
+
+The resulting Workload CR carries:
+
+| Annotation | Value |
+| --- | --- |
+| `ci.openchoreo.dev/ci-platform` | `github-actions` |
+| `github.com/repository` | `owner/repo` |
+| `github.com/ref` | `refs/heads/main` |
+| `github.com/sha` | commit SHA that triggered the run |
+| `github.com/run-id` | GitHub workflow run ID |
+| `github.com/run-attempt` | GitHub workflow run attempt |
+| `github.com/workflow` | workflow display name |
+| `github.com/workflow-ref` | mutable workflow ref |
+| `github.com/job-workflow-ref` | immutable workflow ref (use for trust) |
+
+`ci.openchoreo.dev/ci-platform` is a platform-owned discriminator that
+authorization policies and dashboards can key off without parsing the
+`github.com/*` keys. The `github.com/*` keys mirror the names GitHub uses
+in the OIDC token so any reader can correlate a Workload back to the
+originating workflow run.
+
+### 5. Where the reusable workflow lives
+
+The workflow ships at `samples/github-actions/register-workload.yml` in
+this repository. A future release may move it to a dedicated
+[`openchoreo/actions`](https://github.com/openchoreo) repository so callers
+can pin a SemVer tag (`@v1`); the input shape will stay backwards
+compatible. See [#3551](https://github.com/openchoreo/openchoreo/issues/3551).
 
 ## Troubleshooting
 

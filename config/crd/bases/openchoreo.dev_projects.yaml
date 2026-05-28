@@ -61,6 +61,49 @@ spec:
                 required:
                 - name
                 type: object
+              externalCI:
+                description: |-
+                  ExternalCI optionally configures external CI platform integrations that are
+                  trusted to create Workloads in this Project.
+                properties:
+                  githubActions:
+                    description: |-
+                      GitHubActions configures the trust boundary for GitHub Actions workflows
+                      that authenticate to openchoreo-api via GitHub's OIDC token.
+                    properties:
+                      allowedJobWorkflowRefs:
+                        description: |-
+                          AllowedJobWorkflowRefs is an optional allow-list of immutable
+                          `job_workflow_ref` values (e.g.
+                          "octo-org/octo-repo/.github/workflows/release.yml@refs/heads/main")
+                          matched against the `job_workflow_ref` claim. This provides the
+                          strongest trust boundary because `job_workflow_ref` is immutable for
+                          the duration of a workflow run. Empty means any workflow from an
+                          allowed repository and ref is accepted.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: set
+                      allowedRefs:
+                        description: |-
+                          AllowedRefs is an optional allow-list of git refs (e.g.
+                          "refs/heads/main") matched against the `ref` claim. Empty means any ref
+                          from an allowed repository is accepted.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: set
+                      allowedRepositories:
+                        description: |-
+                          AllowedRepositories is an allow-list of "owner/repo" entries matched
+                          against the `repository` claim. At least one repository MUST be listed
+                          for OIDC-authenticated requests to be accepted for this Project.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: set
+                    type: object
+                type: object
             required:
             - deploymentPipelineRef
             type: object

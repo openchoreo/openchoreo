@@ -192,9 +192,27 @@ func main() {
 	// Initialize JWT middleware
 	jwtMiddleware := openapihandlers.InitJWTMiddleware(&cfg, logger)
 
+	// Initialize GitHub Actions OIDC middleware (optional). When enabled, tokens
+	// whose `iss` claim matches the configured GitHub issuer are routed to the
+	// GitHub OIDC verifier; everything else falls through to the JWT verifier.
+	githubMiddleware, err := openapihandlers.InitGitHubOIDCMiddleware(ctx, &cfg, logger)
+	if err != nil {
+		logger.Error("Failed to initialize GitHub OIDC middleware", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	tokenAuth := jwtMiddleware
+	if githubMiddleware != nil {
+		tokenAuth = auth.IssuerDispatch(
+			cfg.Security.Authentication.GitHubOIDC.Issuer,
+			githubMiddleware,
+			jwtMiddleware,
+		)
+	}
+
 	// Initialize middlewares for OpenAPI handler
 	loggerMiddleware := apilogger.LoggerMiddleware(logger.With("component", "openapi"))
-	authMiddleware := auth.OpenAPIAuth(jwtMiddleware, gen.BearerAuthScopes)
+	authMiddleware := auth.OpenAPIAuth(tokenAuth, gen.BearerAuthScopes)
 
 	// Create base mux for the OpenAPI router.
 	// Non-OpenAPI routes (e.g. /mcp) are registered here before the generated

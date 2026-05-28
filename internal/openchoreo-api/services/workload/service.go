@@ -71,6 +71,10 @@ func (s *workloadService) CreateWorkload(ctx context.Context, namespaceName stri
 	w.Labels[labels.LabelKeyProjectName] = w.Spec.Owner.ProjectName
 	w.Labels[labels.LabelKeyComponentName] = w.Spec.Owner.ComponentName
 
+	if err := s.applyGitHubOIDCTrust(ctx, namespaceName, w); err != nil {
+		return nil, err
+	}
+
 	if err := s.k8sClient.Create(ctx, w); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			s.logger.Warn("Workload already exists", "namespace", namespaceName, "workload", w.Name)

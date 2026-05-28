@@ -2585,6 +2585,38 @@ type Project struct {
 	Status *ProjectStatus `json:"status,omitempty"`
 }
 
+// ProjectExternalCI External CI platform integrations trusted to create Workloads in this Project.
+type ProjectExternalCI struct {
+	// GithubActions Trust boundary for GitHub Actions workflows that authenticate to
+	// openchoreo-api via GitHub's OIDC token. Values are matched against the
+	// corresponding claims in the OIDC token. Empty arrays mean "no restriction"
+	// for that dimension.
+	GithubActions *ProjectGitHubActions `json:"githubActions,omitempty"`
+}
+
+// ProjectGitHubActions Trust boundary for GitHub Actions workflows that authenticate to
+// openchoreo-api via GitHub's OIDC token. Values are matched against the
+// corresponding claims in the OIDC token. Empty arrays mean "no restriction"
+// for that dimension.
+type ProjectGitHubActions struct {
+	// AllowedJobWorkflowRefs Optional allow-list of immutable `job_workflow_ref` values matched
+	// against the `job_workflow_ref` claim. This provides the strongest
+	// trust boundary because `job_workflow_ref` is immutable for the
+	// duration of a workflow run. Empty means any workflow from an
+	// allowed repository and ref is accepted.
+	AllowedJobWorkflowRefs *[]string `json:"allowedJobWorkflowRefs,omitempty"`
+
+	// AllowedRefs Optional allow-list of git refs (e.g. "refs/heads/main") matched
+	// against the `ref` claim. Empty means any ref from an allowed
+	// repository is accepted.
+	AllowedRefs *[]string `json:"allowedRefs,omitempty"`
+
+	// AllowedRepositories Allow-list of "owner/repo" entries matched against the `repository`
+	// claim. At least one repository MUST be listed for OIDC-authenticated
+	// requests to be accepted for this Project.
+	AllowedRepositories *[]string `json:"allowedRepositories,omitempty"`
+}
+
 // ProjectList Paginated list of projects
 type ProjectList struct {
 	Items []Project `json:"items"`
@@ -2605,6 +2637,9 @@ type ProjectSpec struct {
 		// Name Name of the deployment pipeline resource
 		Name string `json:"name"`
 	} `json:"deploymentPipelineRef,omitempty"`
+
+	// ExternalCI External CI platform integrations trusted to create Workloads in this Project.
+	ExternalCI *ProjectExternalCI `json:"externalCI,omitempty"`
 }
 
 // ProjectSpecDeploymentPipelineRefKind Kind of deployment pipeline resource
