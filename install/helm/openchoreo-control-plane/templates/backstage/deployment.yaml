@@ -161,6 +161,23 @@ spec:
             secretKeyRef:
               name: {{ .Values.backstage.secretName }}
               key: jenkins-api-key
+        # GitHub Actions: requires github.com/project-slug annotation on entity.
+        # Only injected when the integration is enabled, so a disabled provider
+        # leaves no GitHub footprint in the Backstage config. GITHUB_TOKEN is
+        # optional so the pod still boots if the operator enabled the integration
+        # but has not yet populated the github-actions-token Secret key.
+        {{- if .Values.backstage.externalCI.githubActions.enabled }}
+        - name: GITHUB_HOST
+          value: {{ .Values.backstage.externalCI.githubActions.host | quote }}
+        - name: GITHUB_API_BASE_URL
+          value: {{ .Values.backstage.externalCI.githubActions.apiBaseUrl | quote }}
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.backstage.secretName }}
+              key: github-actions-token
+              optional: true
+        {{- end }}
         # Database configuration
         {{- if eq .Values.backstage.database.type "sqlite" }}
         - name: DATABASE_CLIENT

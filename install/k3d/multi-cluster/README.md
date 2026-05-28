@@ -94,7 +94,8 @@ kubectl --context k3d-openchoreo-cp create secret generic backstage-secrets \
   -n openchoreo-control-plane \
   --from-literal=backend-secret="$(head -c 32 /dev/urandom | base64)" \
   --from-literal=client-secret="backstage-portal-secret" \
-  --from-literal=jenkins-api-key="placeholder-not-in-use"
+  --from-literal=jenkins-api-key="placeholder-not-in-use" \
+  --from-literal=github-actions-token="placeholder-not-in-use"
 ```
 
 ### Install Control Plane
