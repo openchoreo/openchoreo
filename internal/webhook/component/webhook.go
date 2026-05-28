@@ -6,6 +6,7 @@ package component
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -82,6 +83,10 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	// Note: Required field validations (componentType, owner.projectName, traits.name, traits.instanceName) are enforced by the CRD schema
 	// Note: Cross-resource validation (ComponentType, Trait, schema validation) is handled by the controller
 
+	// Validate component name against DNS-1035 constraints.
+	// The component name is used directly as a Kubernetes Service name, which must satisfy DNS-1035.
+	allErrs = append(allErrs, validateComponentName(component)...)
+
 	// Validate unique trait instance names
 	allErrs = append(allErrs, validateUniqueTraitInstanceNames(component)...)
 
@@ -112,6 +117,10 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	// Note: spec.componentType immutability is enforced by CEL rules in the CRD schema
 	// Note: Cross-resource validation (ComponentType, Trait, schema validation) is handled by the controller
 
+	// Validate component name against DNS-1035 constraints.
+	// The component name is used directly as a Kubernetes Service name, which must satisfy DNS-1035.
+	allErrs = append(allErrs, validateComponentName(newComponent)...)
+
 	// Validate unique trait instance names
 	allErrs = append(allErrs, validateUniqueTraitInstanceNames(newComponent)...)
 
@@ -132,6 +141,28 @@ func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (adm
 
 	// No special validation needed for deletion
 	return nil, nil
+}
+
+// dns1035LabelFmt is the regex for a valid Kubernetes DNS-1035 label.
+// A DNS-1035 label must start with a lowercase letter, consist of lowercase alphanumeric characters
+// or '-', and end with an alphanumeric character.
+var dns1035LabelRegex = regexp.MustCompile(`^[a-z]([-a-z0-9]*[a-z0-9])?$`)
+
+// validateComponentName validates that the Component metadata.name satisfies the Kubernetes
+// DNS-1035 label format required by downstream resource names (e.g. Service names).
+func validateComponentName(component *openchoreodevv1alpha1.Component) field.ErrorList {
+	allErrs := field.ErrorList{}
+	name := component.GetName()
+	if name != "" && !dns1035LabelRegex.MatchString(name) {
+		allErrs = append(allErrs, field.Invalid(
+			field.NewPath("metadata").Child("name"),
+			name,
+			"a DNS-1035 label must consist of lower case alphanumeric characters or '-', "+
+				"start with an alphabetic character, and end with an alphanumeric character "+
+				"(e.g. 'my-component', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')",
+		))
+	}
+	return allErrs
 }
 
 // validateUniqueTraitInstanceNames validates that trait instance names are unique within a component
