@@ -109,12 +109,12 @@ if [[ -f "$REDIS_FILE" ]]; then
         if [[ -n "$release" ]]; then
             break
         fi
-        if [[ $elapsed -ge 60 ]]; then
-            log_error "  Timeout waiting for ResourceRelease"
+        if [[ $elapsed -ge $MAX_WAIT ]]; then
+            log_error "  Timeout waiting for ResourceRelease (${MAX_WAIT}s)"
             exit 1
         fi
-        sleep 2
-        elapsed=$((elapsed + 2))
+        sleep $SLEEP_INTERVAL
+        elapsed=$((elapsed + SLEEP_INTERVAL))
     done
 
     # Promote the binding to the latest release
@@ -132,12 +132,12 @@ if [[ -f "$REDIS_FILE" ]]; then
             log_success "redis Resource is ready"
             break
         fi
-        if [[ $elapsed -ge 120 ]]; then
-            log_error "  Timeout waiting for redis binding Ready"
+        if [[ $elapsed -ge $MAX_WAIT ]]; then
+            log_error "  Timeout waiting for redis binding Ready (${MAX_WAIT}s)"
             exit 1
         fi
-        sleep 2
-        elapsed=$((elapsed + 2))
+        sleep $SLEEP_INTERVAL
+        elapsed=$((elapsed + SLEEP_INTERVAL))
     done
 fi
 

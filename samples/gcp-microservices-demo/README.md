@@ -62,10 +62,10 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 ```
 
 The binding ships with `spec.resourceRelease` unset. Pin it to the resource's latest
-release:
+release (waits for the Resource controller to cut the release first):
 
 ```bash
-release=$(kubectl get resource redis -n default -o jsonpath='{.status.latestRelease.name}')
+until release=$(kubectl get resource redis -n default -o jsonpath='{.status.latestRelease.name}') && [ -n "$release" ]; do sleep 2; done
 kubectl patch resourcereleasebinding redis-development -n default \
   --type=merge -p "{\"spec\":{\"resourceRelease\":\"$release\"}}"
 ```
