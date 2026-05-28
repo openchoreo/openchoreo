@@ -5,6 +5,7 @@ package e2e
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2" //nolint:revive
@@ -48,6 +49,39 @@ func describeResourceCommands() {
 				g.Expect(stdout).To(ContainSubstring(componentName),
 					"expected component name in releasebinding list output")
 			}, 3*time.Minute, 2*time.Second).Should(Succeed())
+		})
+
+		It("lists component releases for component", func() {
+			Eventually(func(g Gomega) {
+				stdout, _, err := occ.Run("componentrelease", "list", "-n", cpNs,
+					"--component", componentName)
+				g.Expect(err).NotTo(HaveOccurred(), "occ componentrelease list failed")
+				g.Expect(stdout).To(ContainSubstring(componentName),
+					"expected component name in componentrelease list output")
+			}, 3*time.Minute, 2*time.Second).Should(Succeed())
+		})
+
+		It("gets a specific component release", func() {
+			var crName string
+			Eventually(func(g Gomega) {
+				stdout, _, err := occ.Run("componentrelease", "list", "-n", cpNs,
+					"--component", componentName)
+				g.Expect(err).NotTo(HaveOccurred(), "occ componentrelease list failed")
+				for _, line := range strings.Split(stdout, "\n") {
+					fields := strings.Fields(line)
+					if len(fields) >= 2 && fields[1] == componentName {
+						crName = fields[0]
+						return
+					}
+				}
+				g.Expect(crName).NotTo(BeEmpty(),
+					"could not find componentrelease name in list output:\n%s", stdout)
+			}, 3*time.Minute, 2*time.Second).Should(Succeed())
+
+			stdout, _, err := occ.Run("componentrelease", "get", crName, "-n", cpNs)
+			Expect(err).NotTo(HaveOccurred(), "occ componentrelease get failed")
+			Expect(stdout).To(ContainSubstring(crName),
+				"expected componentrelease name in get output")
 		})
 
 		DescribeTable("cluster-scoped list and get",

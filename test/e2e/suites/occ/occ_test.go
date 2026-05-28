@@ -37,6 +37,7 @@ var _ = Describe("OCC CLI", Ordered, Label("tier2"), func() {
 	describeSecretCommands()
 	describeLoginCommands()
 	describeNegative()
+	describeDeleteCommands()
 
 	AfterAll(func() {
 		if os.Getenv("E2E_KEEP_RESOURCES") == "true" {
