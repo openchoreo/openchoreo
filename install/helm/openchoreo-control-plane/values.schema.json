@@ -4406,7 +4406,7 @@
       "description": "Wait job configuration for Helm hooks",
       "properties": {
         "image": {
-          "default": "bitnamilegacy/kubectl:1.32.4",
+          "default": "rancher/kubectl:v1.36.0",
           "description": "Container image for wait jobs",
           "title": "image",
           "type": "string"

@@ -6,7 +6,7 @@ Local development setups for OpenChoreo using k3d (k3s in Docker).
 
 - Docker 20.10+
 - k3d 5.8+
-- kubectl 1.32+
+- kubectl 1.36+
 - Helm 3.12+
 
 ## Setup Options

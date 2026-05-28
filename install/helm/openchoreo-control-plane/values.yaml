@@ -816,9 +816,9 @@ waitJob:
   # @schema
   # type: string
   # description: Container image for wait jobs
-  # default: bitnamilegacy/kubectl:1.32.4
+  # default: rancher/kubectl:v1.36.0
   # @schema
-  image: bitnamilegacy/kubectl:1.32.4
+  image: rancher/kubectl:v1.36.0
 
 # @schema
 # type: object
