@@ -65,6 +65,10 @@ spec:
               containers:
                 - name: main
                   image: "${workload.container.image}"
+                  command: |
+                    ${has(workload.container.command) ? workload.container.command : oc_omit()}
+                  args: |
+                    ${has(workload.container.args) ? workload.container.args : oc_omit()}
 `, namespace, name)
 }
 
@@ -117,6 +121,7 @@ func newWorkload(name, componentName, projectName string) gen.Workload {
 	port := 8080
 	epType := gen.WorkloadEndpointTypeHTTP
 	basePath := "/"
+	args := []string{"-listen=:8080", "-text=api-e2e"}
 	return gen.Workload{
 		Metadata: gen.ObjectMeta{
 			Name: name,
@@ -124,6 +129,7 @@ func newWorkload(name, componentName, projectName string) gen.Workload {
 		Spec: &gen.WorkloadSpec{
 			Container: &gen.WorkloadContainer{
 				Image: "hashicorp/http-echo:0.2.3",
+				Args:  &args,
 			},
 			Owner: &struct {
 				ComponentName string `json:"componentName"`
