@@ -34,25 +34,9 @@ spec:
         - name: tools
           emptyDir: {}
       initContainers:
-        - name: install-tools
-          image: ghcr.io/openchoreo/ci-tools:1.0
-          command:
-            - sh
-            - -c
-            - |
-              mkdir -p /tools/bin /tools/lib
-              cp /ci-tools/bin/* /tools/bin/
-              cp /ci-tools/lib/* /tools/lib/
-          securityContext:
-            runAsUser: 1000
-            runAsGroup: 1000
-            runAsNonRoot: true
-          volumeMounts:
-            - name: tools
-              mountPath: /tools
         - name: copy-occ
           image: "{{inputs.parameters.openchoreo-cli-image}}"
-          command: [cp, /usr/local/bin/occ, /tools/bin/occ]
+          command: [sh, -c, "mkdir -p /tools/bin && cp /usr/local/bin/occ /tools/bin/occ"]
           securityContext:
             runAsUser: 1000
             runAsGroup: 1000
@@ -61,7 +45,7 @@ spec:
             - name: tools
               mountPath: /tools
       container:
-        image: alpine:3.23.4
+        image: ghcr.io/openchoreo/podman-runner:v1.2
         command:
           - sh
           - -c
@@ -70,7 +54,6 @@ spec:
             set -e
 
             export PATH="/tools/bin:${PATH}"
-            export LD_LIBRARY_PATH="/tools/lib"
             export HOME="/tmp/openchoreo"
             mkdir -p "${HOME}"
 

@@ -23,7 +23,7 @@ spec:
           emptyDir:
             sizeLimit: 10Gi
       container:
-        image: quay.io/podman/stable:v5.8.2
+        image: ghcr.io/openchoreo/podman-runner:v1.2
         command:
           - sh
           - -c

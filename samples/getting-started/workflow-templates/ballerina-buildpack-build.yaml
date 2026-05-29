@@ -17,15 +17,13 @@ spec:
         - name: app-dir
           emptyDir: {}
       container:
-        image: quay.io/podman/stable:v5.8.2
+        image: ghcr.io/openchoreo/podman-runner:v1.2
         command:
           - sh
           - -c
         args:
           - |-
             set -e
-
-            dnf install -y --setopt=install_weak_deps=False jq > /dev/null 2>&1
 
             WORKDIR=/mnt/vol/source
 
@@ -53,6 +51,21 @@ spec:
             [storage.options.overlay]
             EOF
 
+            cat > /etc/containers/containers.conf <<CEOF
+            [containers]
+            netns="host"
+            userns="host"
+            ipcns="host"
+            utsns="host"
+            cgroupns="host"
+            cgroups="disabled"
+            log_driver = "k8s-file"
+            [engine]
+            cgroup_manager = "cgroupfs"
+            events_logger="file"
+            runtime="crun"
+            CEOF
+
             echo ">> Initializing build environment"
             mkdir -p /run/podman
             podman system service --time=0 unix:///run/podman/podman.sock &
@@ -61,12 +74,6 @@ spec:
 
             BUILDER="ghcr.io/openchoreo/buildpack/ballerina:18"
             RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina:18-run"
-
-            # Install pack CLI
-            echo ">> Installing pack CLI"
-            PACK_VERSION="v0.40.1"
-            curl -sSL "https://github.com/buildpacks/pack/releases/download/${PACK_VERSION}/pack-${PACK_VERSION}-linux.tgz" | tar xz -C /tmp
-            chmod +x /tmp/pack
 
             # Build --env flags
             ENV_ARGS=""
@@ -77,7 +84,7 @@ spec:
             fi
 
             echo ">> Building image with Ballerina buildpack"
-            /tmp/pack build "$IMAGE" \
+            pack build "$IMAGE" \
               --builder "$BUILDER" \
               --run-image "$RUN_IMAGE" \
               --docker-host inherit \
