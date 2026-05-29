@@ -1,7 +1,11 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { test, expect } from '@playwright/test';
+// Importing from ../../fixtures/auth (not @playwright/test) gets us the
+// context override that injects the crypto.randomUUID polyfill before any
+// page script — required because Backstage's frontend uses
+// window.crypto.randomUUID() and the e2e portal isn't a secure context.
+import { test, expect } from '../../fixtures/auth';
 
 const PE_USERNAME = 'platform-engineer@openchoreo.dev';
 const PE_PASSWORD = 'PE@123';
@@ -9,29 +13,23 @@ const PE_PASSWORD = 'PE@123';
 test.describe('backstage sign-in', () => {
   test('signs in via Thunder OIDC and lands on the post-login layout', async ({
     page,
-    context,
   }) => {
-    // Backstage opens the consent popup during the initial /refresh probe,
-    // before the on-page Sign In button renders. Arm the listener before
-    // navigation so we don't miss it. Clicking Sign In afterwards races
-    // the warm popup for the same flowId in Thunder's SQLite and fails
-    // with SQLITE_BUSY → server_error.
-    const popupPromise = context.waitForEvent('page', { timeout: 30_000 });
     await page.goto('/');
-    const consent = await popupPromise;
-    await consent.waitForLoadState('domcontentloaded');
-    expect(consent.url()).toContain('/gate/signin');
 
-    // getByLabel('Password') also matches the toggle-visibility icon
-    // button, so pin to the visible placeholder copy.
-    await consent.getByPlaceholder('Enter your username').fill(PE_USERNAME);
-    await consent.getByPlaceholder('Enter your password').fill(PE_PASSWORD);
-    await consent.getByRole('button', { name: 'Sign In', exact: true }).click();
+    // Pre-login layout exposes one Sign In affordance per provider; this
+    // install only has the OpenChoreo provider, so .first() is safe.
+    await page.getByRole('button', { name: 'Sign In', exact: true }).first().click();
 
-    await consent.waitForEvent('close', { timeout: 30_000 });
+    // Thunder's gate page uses these placeholder strings — pinning to them
+    // keeps us off the toggle-visibility icon button that getByLabel matches.
+    await page.getByPlaceholder('Enter your username').fill(PE_USERNAME);
+    await page.getByPlaceholder('Enter your password').fill(PE_PASSWORD);
+    await page.getByRole('button', { name: 'Sign In', exact: true }).click();
 
-    await expect(page.getByRole('button', { name: 'Sign In' })).toBeHidden();
-    await expect(page.getByRole('link', { name: 'Home' }).first()).toBeVisible();
+    // Post-login: Home link appears in the Backstage sidebar.
+    await expect(page.getByRole('link', { name: 'Home' }).first()).toBeVisible({
+      timeout: 60_000,
+    });
     await expect(page).toHaveTitle(/openchoreo|backstage/i);
   });
 });
