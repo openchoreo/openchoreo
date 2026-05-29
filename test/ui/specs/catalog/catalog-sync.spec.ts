@@ -67,8 +67,8 @@ test.describe('catalog-sync: kubectl-applied component appears in Backstage cata
 
     const catalog = new CatalogTablePO(page);
 
-    // Filter the catalog to Components via the URL query parameter.
-    await catalog.gotoKind('component');
+    // Open the catalog and filter to Components via the Kind picker.
+    await catalog.openKind('component');
 
     // Reload on each attempt to re-query until the kubectl-created row appears
     // — give it longer than one provider cycle (300s) plus slack.

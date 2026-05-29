@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, type Page } from '@playwright/test';
+import { CreatePO } from './create';
 
 export interface CreateProjectInput {
   name: string;
@@ -12,9 +13,10 @@ export interface CreateProjectInput {
 }
 
 // Project creation flows through the Backstage Scaffolder template
-// `create-openchoreo-project`. The action button on the namespace's
-// "Has Projects" card navigates to that template with `?namespace=` set so
-// the NamespaceEntityPicker preselects. We can do the same here.
+// `create-openchoreo-project`, reached by clicking the "Project" card on the
+// Create page (CreatePO). The NamespaceEntityPicker auto-selects the `default`
+// namespace when no preselection is supplied, so the click flow needs no
+// `?namespace=` query.
 //
 // Field titles come from the template YAML: "Namespace Name", "Project Name",
 // "Display Name", "Description", "Deployment Pipeline". MUI labels are wired
@@ -22,10 +24,12 @@ export interface CreateProjectInput {
 export class ProjectPO {
   constructor(private readonly page: Page) {}
 
+  // `namespace` is accepted for API symmetry; only the auto-selected `default`
+  // namespace is exercised. A non-default namespace would need the
+  // NamespaceEntityPicker driven explicitly here.
   async openCreateForm(namespace = 'default'): Promise<void> {
-    await this.page.goto(
-      `/create/templates/default/create-openchoreo-project?namespace=${namespace}`,
-    );
+    void namespace;
+    await new CreatePO(this.page).chooseTemplate('Project');
   }
 
   async fillCreateForm(input: CreateProjectInput): Promise<void> {

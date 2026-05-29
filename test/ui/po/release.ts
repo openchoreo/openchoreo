@@ -17,11 +17,12 @@ const ACTIVE = /status:\s*(Active|Ready|Healthy|Running|Succeeded)/i;
 export class ReleasePO {
   constructor(private readonly page: Page) {}
 
-  // Ensure we're on the Deploy/environments graph for the component.
-  async openDeployTab(componentName: string): Promise<void> {
-    await this.page.goto(
-      `/catalog/default/component/${componentName}/environments`,
-    );
+  // Ensure we're on the Deploy/environments graph for the component. Callers
+  // reach this right after deploying, so the component entity (with its tab
+  // bar) is already open — click the "Deploy" tab to land on the graph. The
+  // `/environments` route maps to the "Deploy" entity tab (EntityPage.tsx).
+  async openDeployTab(_componentName: string): Promise<void> {
+    await this.page.getByRole('tab', { name: 'Deploy', exact: true }).click();
   }
 
   async expectActive(

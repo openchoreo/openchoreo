@@ -7,6 +7,7 @@ import { ProjectPO } from '../../po/project';
 import { ComponentPO } from '../../po/component';
 import { ReleasePO } from '../../po/release';
 import { DeletePO } from '../../po/delete';
+import { CatalogTablePO } from '../../po/catalogTable';
 
 // Pre-built greeter sample. Pinned to the same digest the e2e Ginkgo suites
 // use (test/e2e/suites/observability) so the cluster can already pull it and
@@ -50,6 +51,7 @@ test.describe('lifecycle: full kubectl-equivalent flow through Backstage UI', ()
     const component = new ComponentPO(page);
     const release = new ReleasePO(page);
     const del = new DeletePO(page);
+    const catalog = new CatalogTablePO(page);
 
     await page.goto('/');
 
@@ -142,7 +144,7 @@ test.describe('lifecycle: full kubectl-equivalent flow through Backstage UI', ()
       .toBe(true);
 
     // ---- Delete project via UI ----
-    await page.goto(`/catalog/${NS}/system/${PROJECT_NAME}`);
+    await catalog.openEntity('system', PROJECT_NAME);
     await del.openOverflowAndDelete('Project');
     await del.confirm();
 

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, type Page } from '@playwright/test';
+import { CreatePO } from './create';
+import { CatalogTablePO } from './catalogTable';
 
 export interface CreateComponentInput {
   name: string;
@@ -37,24 +39,13 @@ export interface DeployOptions {
 // accessible name, so they are disambiguated by document order (namespace
 // first, project second).
 export class ComponentPO {
-  // Template form URL captured on open, so the Project picker can reload the
-  // form to re-fetch the project list while waiting for catalog sync.
-  private formUrl = '';
-
   constructor(private readonly page: Page) {}
 
   async openCreateForm(template = 'Web Application'): Promise<void> {
-    await this.page.goto('/create');
-    await this.page
-      .getByRole('button', { name: /Component Browse component templates/i })
-      .click();
-    await this.page
-      .getByRole('button', { name: `Use template ${template}`, exact: true })
-      .click();
+    await new CreatePO(this.page).chooseComponentTemplate(template);
     await this.page
       .getByRole('textbox', { name: 'Component Name' })
       .waitFor({ state: 'visible', timeout: 30_000 });
-    this.formUrl = this.page.url();
   }
 
   // Step 1: Component Metadata.
@@ -95,7 +86,7 @@ export class ComponentPO {
           }
           // Not synced yet — close the menu and reload the form to re-query.
           await this.page.keyboard.press('Escape').catch(() => undefined);
-          await this.page.goto(this.formUrl);
+          await this.page.reload();
           await this.page
             .getByRole('textbox', { name: 'Component Name' })
             .waitFor({ state: 'visible', timeout: 30_000 });
@@ -164,27 +155,19 @@ export class ComponentPO {
   }
 
   async openByName(name: string): Promise<void> {
-    await this.gotoComponentRoute(name);
+    await this.openComponentEntity(name);
   }
 
-  // Navigate to a component catalog route, tolerating the brief window after
-  // create where the Backstage catalog entity isn't resolvable yet (the page
-  // renders "Warning: Entity not found"). Reload-retry until it resolves —
-  // under full-suite load this race is otherwise intermittent.
-  private async gotoComponentRoute(name: string, suffix = ''): Promise<void> {
-    await expect
-      .poll(
-        async () => {
-          await this.page.goto(`/catalog/default/component/${name}${suffix}`);
-          const notFound = await this.page
-            .getByText(/Entity not found/i)
-            .isVisible({ timeout: 8_000 })
-            .catch(() => false);
-          return !notFound;
-        },
-        { timeout: 90_000, intervals: [3_000] },
-      )
-      .toBe(true);
+  // Open a component's catalog entity page by clicking through the Component
+  // catalog list (CatalogTablePO.openEntity handles the eventually-consistent
+  // row sync and the brief post-create "Entity not found" race). When a `tab`
+  // is requested, click the entity tab to reach that sub-route — e.g. the
+  // "Deploy" tab for the /environments graph.
+  private async openComponentEntity(name: string, tab = ''): Promise<void> {
+    await new CatalogTablePO(this.page).openEntity('component', name);
+    if (tab) {
+      await this.page.getByRole('tab', { name: tab, exact: true }).click();
+    }
   }
 
   // Deploy tab is a graph canvas, not a "Deploy" button. The flow is:
@@ -197,7 +180,7 @@ export class ComponentPO {
     opts: DeployOptions = {},
   ): Promise<void> {
     // Tolerate the post-create catalog-entity race before the graph renders.
-    await this.gotoComponentRoute(componentName, '/environments');
+    await this.openComponentEntity(componentName, 'Deploy');
     await this.openSetupPanel();
 
     // --- Create a release from the current workload ---

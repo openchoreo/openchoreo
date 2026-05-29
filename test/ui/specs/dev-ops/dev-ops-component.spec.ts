@@ -4,6 +4,7 @@
 import { test, expect, storageStateFor } from '../../fixtures/auth';
 import { kApplyYAML, kDelete, kubectl } from '../../fixtures/kube';
 import { ComponentPO } from '../../po/component';
+import { CreatePO } from '../../po/create';
 
 const ts = Date.now().toString(36);
 const PROJECT_NAME = `ui-dev-${ts}`;
@@ -97,7 +98,7 @@ test.describe('dev-ops: Dev CRUD inside a PE-seeded project', () => {
     // gating is enforced server-side when the create action calls the API — so
     // the assertion drives the form to submit and expects the deny on the task
     // page, plus no ComponentType CR.
-    await page.goto('/create/templates/default/create-openchoreo-componenttype');
+    await new CreatePO(page).chooseTemplate('ComponentType');
     await page
       .getByRole('textbox', { name: /ComponentType Name/i })
       .waitFor({ state: 'visible', timeout: 30_000 });
