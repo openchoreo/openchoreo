@@ -1,0 +1,36 @@
+name: Cleanup Version Branch
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+      - release-v*
+
+jobs:
+  cleanup:
+    name: Delete release-next branch after merge
+    if: github.event.pull_request.merged == true && startsWith(github.head_ref, 'release-next-v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Delete branch
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        with:
+          script: |
+            try {
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'heads/' + process.env.HEAD_REF
+              })
+            } catch (error) {
+              if (error.status === 404 || (error.message && error.message.includes('Reference does not exist'))) {
+                console.log(`Branch ${process.env.HEAD_REF} already deleted, skipping.`)
+              } else {
+                throw error
+              }
+            }
