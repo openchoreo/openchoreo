@@ -2,6 +2,20 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.1.1
+
+Changes since [v1.1.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.0).
+
+### Enhancements
+
+- **(Backstage UI)** Display resource entities in the project overview page. ([#590](https://github.com/openchoreo/backstage-plugins/pull/590))
+- **(Backstage UI)** Runtime network observability toggle added to the cell diagram. ([#578](https://github.com/openchoreo/backstage-plugins/pull/578))
+
+### Bug Fixes
+
+- **(Backstage UI)** HTTP metrics now refresh on refresh button click. ([#595](https://github.com/openchoreo/backstage-plugins/pull/595))
+- **(Backstage UI)** Resource Deploy actions gated on environment-scoped permissions. ([#577](https://github.com/openchoreo/backstage-plugins/pull/577))
+
 ## v1.1.0
 
 Changes since [v1.1.0-alpha-1](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.0-alpha-1).
