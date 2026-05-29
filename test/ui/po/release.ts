@@ -17,20 +17,22 @@ const ACTIVE = /status:\s*(Active|Ready|Healthy|Running|Succeeded)/i;
 export class ReleasePO {
   constructor(private readonly page: Page) {}
 
-  // Ensure we're on the Deploy/environments graph for the component. Callers
-  // reach this right after deploying, so the component entity (with its tab
-  // bar) is already open — click the "Deploy" tab to land on the graph. The
-  // `/environments` route maps to the "Deploy" entity tab (EntityPage.tsx).
-  async openDeployTab(_componentName: string): Promise<void> {
-    await this.page.getByRole('tab', { name: 'Deploy', exact: true }).click();
+  // Ensure we're on the Deploy/environments graph for the component. Uses the
+  // entity route directly (see ComponentPO.gotoComponentRoute) — the filtered
+  // catalog list can't reach a component until it has synced.
+  async openDeployTab(componentName: string): Promise<void> {
+    await this.page.goto(
+      `/catalog/default/component/${encodeURIComponent(componentName)}/environments`,
+    );
   }
 
   async expectActive(
     componentName: string,
-    _environment: string,
+    environment: string,
     timeoutMs = 120_000,
   ): Promise<void> {
     await this.openDeployTab(componentName);
+    const envRe = new RegExp(environment, 'i');
     await expect
       .poll(
         async () => {
@@ -41,13 +43,16 @@ export class ReleasePO {
             .catch(() => undefined);
           // The status string ("status: Active deployed: …") is split across
           // CSS-uppercased spans, so innerText can't see it contiguously — the
-          // accessibility tree preserves the combined text node.
-          const aria = await this.page
-            .locator('article')
-            .first()
-            .ariaSnapshot()
-            .catch(() => '');
-          if (ACTIVE.test(aria)) return true;
+          // accessibility tree preserves the combined text node. Each
+          // environment renders its own article node, so scope the check to
+          // the article that names the requested environment rather than
+          // assuming it comes first in document order.
+          const articles = this.page.locator('article');
+          const count = await articles.count().catch(() => 0);
+          for (let i = 0; i < count; i++) {
+            const aria = await articles.nth(i).ariaSnapshot().catch(() => '');
+            if (envRe.test(aria) && ACTIVE.test(aria)) return true;
+          }
           // The graph has no in-page refresh; reload to re-poll the binding.
           await this.page.reload();
           return false;

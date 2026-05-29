@@ -3,14 +3,15 @@
 
 import { expect, type Page } from '@playwright/test';
 import { CreatePO } from './create';
-import { CatalogTablePO } from './catalogTable';
 
 export interface CreateComponentInput {
   name: string;
   project: string; // project metadata name to select in the form's Project picker
-  // Template card label on the "Browse component templates" page, e.g.
-  // "Web Application", "Service", "Worker". Defaults to "Web Application".
-  template?: string;
+  // Template card label on the "Browse component templates" page. Restricted
+  // to the endpoint-bearing templates: create() drives the endpoint sub-form
+  // ("Add Endpoint" / "Apply changes") unconditionally, which non-HTTP
+  // templates (e.g. "Worker") don't render. Defaults to "Web Application".
+  template?: 'Web Application' | 'Service';
   image: string; // container image reference (Container Image deployment source)
   // Web Application / Service component types require at least one HTTP
   // endpoint at render time, so creation adds one. Defaults to 8080.
@@ -155,19 +156,30 @@ export class ComponentPO {
   }
 
   async openByName(name: string): Promise<void> {
-    await this.openComponentEntity(name);
+    await this.gotoComponentRoute(name);
   }
 
-  // Open a component's catalog entity page by clicking through the Component
-  // catalog list (CatalogTablePO.openEntity handles the eventually-consistent
-  // row sync and the brief post-create "Entity not found" race). When a `tab`
-  // is requested, click the entity tab to reach that sub-route — e.g. the
-  // "Deploy" tab for the /environments graph.
-  private async openComponentEntity(name: string, tab = ''): Promise<void> {
-    await new CatalogTablePO(this.page).openEntity('component', name);
-    if (tab) {
-      await this.page.getByRole('tab', { name: tab, exact: true }).click();
-    }
+  // Navigate to a component's catalog entity route directly. This deliberately
+  // uses a URL rather than click-through the catalog: the Backstage entity
+  // route resolves as soon as the component is created, whereas the Kind picker
+  // only lists the "Component" kind once at least one component has synced into
+  // the catalog list — so the filtered-list click path can't reach a
+  // freshly-created component. Reload-retry rides out the brief post-create
+  // "Entity not found" window.
+  private async gotoComponentRoute(name: string, suffix = ''): Promise<void> {
+    await expect
+      .poll(
+        async () => {
+          await this.page.goto(`/catalog/default/component/${name}${suffix}`);
+          const notFound = await this.page
+            .getByText(/Entity not found/i)
+            .isVisible({ timeout: 8_000 })
+            .catch(() => false);
+          return !notFound;
+        },
+        { timeout: 90_000, intervals: [3_000] },
+      )
+      .toBe(true);
   }
 
   // Deploy tab is a graph canvas, not a "Deploy" button. The flow is:
@@ -180,7 +192,7 @@ export class ComponentPO {
     opts: DeployOptions = {},
   ): Promise<void> {
     // Tolerate the post-create catalog-entity race before the graph renders.
-    await this.openComponentEntity(componentName, 'Deploy');
+    await this.gotoComponentRoute(componentName, '/environments');
     await this.openSetupPanel();
 
     // --- Create a release from the current workload ---
@@ -213,10 +225,12 @@ export class ComponentPO {
       .getByRole('dialog')
       .getByRole('button', { name: 'Create release', exact: true })
       .click();
+    // A dialog stuck open means the release was not snapshotted — fail here
+    // with a precise error rather than letting the Deploy step time out.
+    // waitFor(hidden) also resolves when the dialog detaches entirely.
     await this.page
       .getByRole('dialog')
-      .waitFor({ state: 'hidden', timeout: 30_000 })
-      .catch(() => undefined);
+      .waitFor({ state: 'hidden', timeout: 30_000 });
 
     // --- Deploy the release to the environment ---
     await this.openSetupPanel();

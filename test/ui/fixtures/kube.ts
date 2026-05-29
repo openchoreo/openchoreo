@@ -96,5 +96,15 @@ export function kDelete(
 ): KubectlResult {
   const args = ['delete', kind, name, '--ignore-not-found', '--wait=false'];
   if (namespace) args.splice(3, 0, '-n', namespace);
-  return kubectl(args, { check: false });
+  try {
+    return kubectl(args);
+  } catch (err) {
+    // --ignore-not-found only covers the resource itself; a missing namespace
+    // or CRD still exits non-zero. Treat those as already-deleted, but surface
+    // anything else (auth failures, timeouts, wrong context).
+    if (err instanceof Error && /not ?found/i.test(err.message)) {
+      return { status: 0, stdout: '', stderr: err.message };
+    }
+    throw err;
+  }
 }

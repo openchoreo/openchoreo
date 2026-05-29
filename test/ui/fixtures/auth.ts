@@ -146,9 +146,14 @@ export const test = base.extend<AuthFixtures>({
   // Mint (or reuse) a persisted storageState file for a role. Specs that just
   // want a logged-in session should call this in a beforeAll and then
   // test.use({ storageState }) rather than signing in for every test.
-  mintAuthState: async ({ browser }, use) => {
+  mintAuthState: async ({ browser, baseURL }, use) => {
     await use(async (role: Role) => {
-      const ctx = await browser.newContext();
+      // A context made via browser.newContext() inherits neither the config's
+      // baseURL nor the fixture context's init scripts, so wire both up
+      // explicitly — signIn navigates to '/' and Backstage needs the
+      // crypto.randomUUID polyfill before any page script runs.
+      const ctx = await browser.newContext({ baseURL });
+      await ctx.addInitScript(cryptoUUIDPolyfill);
       const path = await mintStorageState(ctx, role);
       await ctx.close();
       return path;

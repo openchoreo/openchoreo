@@ -5,6 +5,7 @@ import { chromium, type FullConfig } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { ROLES, cryptoUUIDPolyfill, signIn, storageStateFor, type Role } from './fixtures/auth';
+import { hostResolverRules } from './fixtures/hosts';
 
 // Mint per-role storage-state files once, before any test workers spin up.
 // `test.use({ storageState })` is resolved when Playwright builds a browser
@@ -18,15 +19,6 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
     config.projects[0]?.use.baseURL ??
     process.env.UI_BASE_URL ??
     'http://openchoreo.e2e-cp.local:28080';
-
-  // Mirror playwright.config's host-resolver-rules so the *.e2e-cp.local
-  // hostnames map to 127.0.0.1 inside this Chromium too.
-  const E2E_HOSTS = [
-    'openchoreo.e2e-cp.local',
-    'thunder.e2e-cp.local',
-    'api.e2e-cp.local',
-  ];
-  const hostResolverRules = E2E_HOSTS.map(h => `MAP ${h} 127.0.0.1`).join(', ');
 
   const roles: Role[] = ['pe', 'dev', 'abac'];
 
@@ -70,10 +62,10 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
       } catch {
         /* best-effort dump */
       }
-      // ABAC role is provisioned by test/ui/scripts/seed-idp-users.sh, which
-      // can't talk to Thunder when admin gating is on. Don't fail the whole
-      // run when only that identity is missing — the abac-ui spec self-skips
-      // when its storage state file isn't on disk.
+      // The ABAC identity has no provisioning path yet — Thunder's admin API
+      // is auth-gated, so it isn't part of the bootstrap-seeded users. Don't
+      // fail the whole run when only that identity is missing — the abac-ui
+      // spec self-skips when its storage state file isn't on disk.
       if (role === 'abac') {
         // eslint-disable-next-line no-console
         console.warn(

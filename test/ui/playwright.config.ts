@@ -2,16 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { defineConfig, devices } from '@playwright/test';
-
 // Mapped into Chromium via --host-resolver-rules below so the suite runs
-// without /etc/hosts edits.
-const E2E_HOSTS = [
-  'openchoreo.e2e-cp.local',
-  'thunder.e2e-cp.local',
-  'api.e2e-cp.local',
-];
-
-const hostResolverRules = E2E_HOSTS.map(h => `MAP ${h} 127.0.0.1`).join(', ');
+// without /etc/hosts edits. Shared with global-setup.ts.
+import { hostResolverRules } from './fixtures/hosts';
 
 export default defineConfig({
   testDir: './specs',

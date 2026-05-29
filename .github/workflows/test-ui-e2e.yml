@@ -1,0 +1,139 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+name: UI E2E Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      helm_chart_version:
+        description: "Helm chart version (e.g., 0.0.0-latest-dev or 0.0.0-<commit-sha>)"
+        required: false
+        default: "0.0.0-latest-dev"
+  schedule:
+    # Weekly: Monday 04:00 UTC (09:30 IST). The UI suite installs every plane,
+    # so keep it away from the regular nightly and extended e2e windows.
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HELM_CHART_VERSION: ${{ github.event.inputs.helm_chart_version || '0.0.0-latest-dev' }}
+  E2E_WITH_BUILD: "true"
+  E2E_WITH_OBSERVABILITY: "true"
+  E2E_WITH_UI: "true"
+  E2E_KUBECONTEXT: k3d-openchoreo-e2e
+  UI_BASE_URL: http://openchoreo.e2e-cp.local:28080
+  K3D_VERSION: v5.8.3
+  K3D_SHA256: dbaa79a76ace7f4ca230a1ff41dc7d8a5036a8ad0309e9c54f9bf3836dbe853e
+  YQ_VERSION: v4.45.4
+  YQ_SHA256: b96de04645707e14a12f52c37e6266832e03c29e95b9b139cddcae7314466e69
+
+jobs:
+  ui-e2e:
+    name: UI E2E (Playwright)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: test/ui/package-lock.json
+
+      - name: Install k3d
+        run: |
+          curl -fsSL -o /tmp/k3d https://github.com/k3d-io/k3d/releases/download/${{ env.K3D_VERSION }}/k3d-linux-amd64
+          echo "${{ env.K3D_SHA256 }}  /tmp/k3d" | sha256sum -c -
+          sudo install /tmp/k3d /usr/local/bin/k3d
+          k3d version
+
+      - name: Install yq
+        run: |
+          curl -fsSL -o /tmp/yq https://github.com/mikefarah/yq/releases/download/${{ env.YQ_VERSION }}/yq_linux_amd64
+          echo "${{ env.YQ_SHA256 }}  /tmp/yq" | sha256sum -c -
+          sudo install /tmp/yq /usr/local/bin/yq
+
+      - name: Validate Helm chart version
+        run: |
+          if [ -z "${HELM_CHART_VERSION}" ]; then
+            echo "::error::HELM_CHART_VERSION is required"
+            exit 1
+          fi
+          case "${HELM_CHART_VERSION}" in
+            *[!A-Za-z0-9._-]*)
+              echo "::error::HELM_CHART_VERSION contains unsupported characters"
+              exit 1
+              ;;
+          esac
+
+      - name: Install UI test dependencies
+        working-directory: test/ui
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: test/ui
+        run: npx playwright install --with-deps chromium
+
+      - name: Install OpenChoreo e2e cluster
+        run: |
+          make e2e.setup \
+            E2E_HELM_SOURCE=oci \
+            HELM_CHART_VERSION="${HELM_CHART_VERSION}" \
+            E2E_WITH_BUILD="${E2E_WITH_BUILD}" \
+            E2E_WITH_OBSERVABILITY="${E2E_WITH_OBSERVABILITY}" \
+            E2E_WITH_UI="${E2E_WITH_UI}" \
+            E2E_SETUP_TIMEOUT=10m
+
+      - name: Run UI e2e tests
+        working-directory: test/ui
+        run: npm test
+
+      - name: Collect e2e diagnostics
+        if: failure()
+        run: make e2e.diagnostics || true
+
+      - name: Upload e2e diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ui-e2e-diagnostics
+          path: test/e2e/_diagnostics/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ui-e2e-playwright-report
+          path: test/ui/_report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload Playwright test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ui-e2e-test-results
+          path: test/ui/_test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Delete e2e cluster
+        if: always()
+        run: make e2e.down || true

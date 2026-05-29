@@ -66,12 +66,24 @@ export class CatalogTablePO {
     await this.page.waitForLoadState('networkidle').catch(() => undefined);
   }
 
+  // Navigate to the catalog pre-filtered to a kind via the URL query. The Kind
+  // picker only lists kinds that already have ≥1 entity in the catalog, so a
+  // kind cannot be selected through the dropdown until something of that kind
+  // has synced. Pre-filtering to a not-yet-populated kind (e.g. waiting for a
+  // kubectl-applied Component to appear) therefore has no click path — the
+  // query parameter is the only way. The picker reads `filters[kind]` on mount.
+  async gotoKind(kind: string): Promise<void> {
+    await this.page.goto(
+      `/catalog?filters%5Bkind%5D=${encodeURIComponent(kind.toLowerCase())}`,
+    );
+  }
+
   // Open the catalog (via the sidebar) filtered to a given entity kind by
   // driving the Kind picker dropdown — a MUI v4 Select rendered as a
   // role=button with aria-haspopup="listbox", whose menu items are role=option.
   // The catalog opens on the System (Project) kind, so for projects no dropdown
-  // interaction is needed. Changing the kind pushes it into the URL query, so a
-  // later reload() preserves the filter.
+  // interaction is needed. NOTE: only works for kinds that already have entities
+  // in the catalog (see gotoKind) — fine for the default System kind.
   async openKind(kind: string): Promise<void> {
     await new SidebarPO(this.page).goCatalog();
     if (kind.toLowerCase() === DEFAULT_KIND) return;
@@ -105,6 +117,12 @@ export class CatalogTablePO {
               .isVisible({ timeout: 6_000 })
               .catch(() => false);
             if (!notFound) return true;
+            // The click navigated to the entity route and 404'd — reload()
+            // would just re-render the not-found page, so re-enter the
+            // filtered catalog instead. The kind provably has ≥1 entity
+            // (the link was visible), so the click path is safe here.
+            await this.openKind(kind);
+            return false;
           }
           await this.reload();
           return false;

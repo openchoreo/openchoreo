@@ -59,16 +59,21 @@ export class ProjectPO {
     // Scaffolder uses a multi-step layout. The Project template surfaces
     // step 1 with a "Review" button (advances to step 2) and step 2 with a
     // "Create" button (submits). Some templates also intersperse "Next" on
-    // wider steps. We walk the labels in order and *wait* for each before
-    // clicking — isVisible() doesn't accept a timeout argument, so we use
-    // waitFor with a tolerant timeout to ride out the picker auto-select +
-    // re-render gap.
-    for (const label of ['Next', 'Review', 'Create']) {
+    // wider steps, so that label is probed but optional. "Review" and
+    // "Create" are mandatory: a timeout there means a slow/broken render and
+    // must fail loudly — treating it as "absent" would skip the submit and
+    // surface as a confusing downstream failure.
+    for (const { label, required } of [
+      { label: 'Next', required: false },
+      { label: 'Review', required: true },
+      { label: 'Create', required: true },
+    ]) {
       const btn = this.page.getByRole('button', { name: label, exact: true });
       try {
-        await btn.waitFor({ state: 'visible', timeout: 10_000 });
-      } catch {
-        continue; // this label is not part of this template's flow
+        await btn.waitFor({ state: 'visible', timeout: required ? 30_000 : 10_000 });
+      } catch (err) {
+        if (required) throw err;
+        continue; // 'Next' is genuinely not part of this template's flow
       }
       await btn.click();
     }

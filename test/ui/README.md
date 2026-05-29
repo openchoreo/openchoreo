@@ -10,7 +10,7 @@ The cleanest path is to let the Makefile do the bring-up:
 ```sh
 make e2e.setup E2E_WITH_UI=true
 cd test/ui
-npm install
+npm ci
 npx playwright install --with-deps chromium
 UI_BASE_URL=http://openchoreo.e2e-cp.local:28080 npm test
 ```
@@ -90,6 +90,19 @@ kubectl --context k3d-openchoreo-e2e -n thunder wait --for=delete pod \
 
 # Re-apply the setup Job manifest (renamed, helm hooks stripped) — bootstrap
 # scripts PUT-update each app idempotently against the existing PVC data.
+helm --kube-context k3d-openchoreo-e2e template thunder \
+  oci://ghcr.io/asgardeo/helm-charts/thunder --namespace thunder --version 0.28.0 \
+  --values install/k3d/common/values-thunder.yaml \
+  --values test/e2e/k3d/values-thunder.yaml \
+  --show-only templates/setup-job.yaml \
+  | yq '.metadata.name = "thunder-setup-rerun" | del(.metadata.annotations)' \
+  | kubectl --context k3d-openchoreo-e2e -n thunder apply -f -
+kubectl --context k3d-openchoreo-e2e -n thunder wait \
+  --for=condition=complete job/thunder-setup-rerun --timeout=5m
+kubectl --context k3d-openchoreo-e2e -n thunder delete job thunder-setup-rerun
+
+# Bring Thunder back up.
+kubectl --context k3d-openchoreo-e2e -n thunder scale deploy thunder-deployment --replicas=1
 ```
 
 ## Headed runs

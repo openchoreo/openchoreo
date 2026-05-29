@@ -5,10 +5,11 @@
 // context override that injects the crypto.randomUUID polyfill before any
 // page script — required because Backstage's frontend uses
 // window.crypto.randomUUID() and the e2e portal isn't a secure context.
-import { test, expect } from '../../fixtures/auth';
+import { test, expect, ROLES } from '../../fixtures/auth';
 
-const PE_USERNAME = 'platform-engineer@openchoreo.dev';
-const PE_PASSWORD = 'PE@123';
+// Pull the PE credentials from the shared role catalogue so credential
+// changes stay centralized in fixtures/auth.ts.
+const { username: PE_USERNAME, password: PE_PASSWORD } = ROLES.pe;
 
 test.describe('backstage sign-in', () => {
   test('signs in via Thunder OIDC and lands on the post-login layout', async ({

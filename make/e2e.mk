@@ -168,12 +168,15 @@ e2e.setup: ## All setup: cluster + prerequisites + install + configure (+ UI whe
 	@$(call log_success, E2E setup complete)
 
 .PHONY: e2e.setup-ui
-e2e.setup-ui: ## Enable Backstage and wait for the Backstage pod (idempotent)
+e2e.setup-ui: ## Enable Backstage on the control plane and wait for it to become Ready (idempotent)
+	@# When run standalone against a cluster installed without E2E_WITH_UI=true,
+	@# Backstage is not deployed yet — re-run the CP install with the UI overlay
+	@# (which also provisions backstage-secrets). When invoked from e2e.setup
+	@# the deployment already exists, so this branch is a no-op.
+	@if ! $(E2E_KUBECTL) -n $(E2E_CP_NS) get deploy backstage >/dev/null 2>&1; then \
+		$(MAKE) _e2e.install-cp E2E_WITH_UI=true; \
+	fi
 	@$(call log_info, Waiting for Backstage deployment to become Ready)
-	@for i in $$(seq 1 60); do \
-		$(E2E_KUBECTL) -n $(E2E_CP_NS) get deploy backstage >/dev/null 2>&1 && break; \
-		sleep 2; \
-	done
 	$(E2E_KUBECTL) wait -n $(E2E_CP_NS) \
 		--for=condition=available --timeout=$(E2E_SETUP_TIMEOUT) deploy/backstage
 	@$(call log_success, UI setup complete (Backstage Ready))

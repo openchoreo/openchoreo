@@ -4,7 +4,6 @@
 import { test, expect, storageStateFor } from '../../fixtures/auth';
 import { kApplyYAML, kDelete, kubectl } from '../../fixtures/kube';
 import { ComponentPO } from '../../po/component';
-import { CreatePO } from '../../po/create';
 
 const ts = Date.now().toString(36);
 const PROJECT_NAME = `ui-dev-${ts}`;
@@ -41,6 +40,12 @@ test.describe('dev-ops: Dev CRUD inside a PE-seeded project', () => {
   });
 
   test.use({ storageState: storageStateFor('dev') });
+
+  // Load the app shell before each test so sidebar click-navigation works
+  // (the storageState context starts on about:blank).
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
 
   test.afterAll(async () => {
     kDelete('component', COMPONENT_NAME, NS);
@@ -98,7 +103,13 @@ test.describe('dev-ops: Dev CRUD inside a PE-seeded project', () => {
     // gating is enforced server-side when the create action calls the API — so
     // the assertion drives the form to submit and expects the deny on the task
     // page, plus no ComponentType CR.
-    await new CreatePO(page).chooseTemplate('ComponentType');
+    // Navigate straight to the template form by URL — deliberately NOT via the
+    // Create page card. The Dev role lacks componenttype:create, so the card is
+    // disabled client-side ("Use template ComponentType" button is disabled).
+    // This test verifies the *server-side* denial: the form still renders, and
+    // the deny surfaces only when the create action calls the API. Reaching the
+    // form past the disabled card has no click path, so the URL is required.
+    await page.goto('/create/templates/default/create-openchoreo-componenttype');
     await page
       .getByRole('textbox', { name: /ComponentType Name/i })
       .waitFor({ state: 'visible', timeout: 30_000 });

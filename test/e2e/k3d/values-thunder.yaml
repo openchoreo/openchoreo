@@ -34,7 +34,22 @@ bootstrap:
       THUNDER_URL="http://localhost:8090"
 
       log_info "Checking if application 'Backstage' already exists..."
-      existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
+      # Fail on HTTP errors and retry: a transient Thunder error here would
+      # otherwise silently yield an empty app_id and divert into the create
+      # path instead of the idempotent PUT update.
+      existing_apps=""
+      for attempt in 1 2 3; do
+        if existing_apps=$(curl -s --fail --max-time 10 "${THUNDER_URL}/applications"); then
+          break
+        fi
+        existing_apps=""
+        log_info "Listing applications failed (attempt ${attempt}/3), retrying in 5s..."
+        sleep 5
+      done
+      if [ -z "$existing_apps" ]; then
+        log_error "Failed to list applications from ${THUNDER_URL} after 3 attempts"
+        exit 1
+      fi
 
       app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"Backstage"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"name":"Backstage"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
 

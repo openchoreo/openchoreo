@@ -103,6 +103,5 @@ var _ = AfterSuite(func() {
 		occ.Cleanup()
 	}
 	framework.Kubectl(kubeContext, "delete", "clusterauthzrolebinding", clusterAuthzBindingName, "--ignore-not-found", "--wait=false") //nolint:errcheck
-	framework.Kubectl(kubeContext, "delete", "clusterauthzrole", clusterAuthzRoleName, "--ignore-not-found", "--wait=false")        //nolint:errcheck
+	framework.Kubectl(kubeContext, "delete", "clusterauthzrole", clusterAuthzRoleName, "--ignore-not-found", "--wait=false")           //nolint:errcheck
 })
-

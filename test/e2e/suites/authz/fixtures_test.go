@@ -192,7 +192,7 @@ func newComponentWithType(name, project, typeName string, typeKind gen.Component
 			AutoDeploy: &autoDeploy,
 			ComponentType: struct {
 				Kind *gen.ComponentSpecComponentTypeKind `json:"kind,omitempty"`
-				Name string                             `json:"name"`
+				Name string                              `json:"name"`
 			}{
 				Kind: &typeKind,
 				Name: typeName,
@@ -272,7 +272,7 @@ func newEnvironment(name string) gen.Environment {
 		Spec: &gen.EnvironmentSpec{
 			DataPlaneRef: &struct {
 				Kind gen.EnvironmentSpecDataPlaneRefKind `json:"kind"`
-				Name string                             `json:"name"`
+				Name string                              `json:"name"`
 			}{
 				Kind: dpKind,
 				Name: "default",
