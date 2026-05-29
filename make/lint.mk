@@ -82,14 +82,11 @@ lint-fix: golangci-lint-fix license-fix newline-fix ## Run golangci-lint linter,
 # considered publishable; everything else (feature branches, detached HEAD) falls
 # back to "main" so contributor-local generation never burns ephemeral branch
 # names into committed files. Override with SAMPLES_BRANCH=<name> for local testing.
-# release-next-vX.Y.Z branches (created by prepare-next-version workflow) map to
-# their parent release-vX.Y branch so code.gen-check passes on version-bump PRs.
+# Resolves from GITHUB_BASE_REF (PR target), GITHUB_REF_NAME (push), then git.
 SAMPLES_BRANCH ?= $(shell \
-  BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null); \
+  BRANCH=$${GITHUB_BASE_REF:-$${GITHUB_REF_NAME:-$$(git rev-parse --abbrev-ref HEAD 2>/dev/null)}}; \
   if echo "$$BRANCH" | grep -qE '^(main|release-v.*)$$'; then \
     echo "$$BRANCH"; \
-  elif echo "$$BRANCH" | grep -qE '^release-next-v[0-9]+\.[0-9]+'; then \
-    echo "$$BRANCH" | sed -E 's/^release-next-v([0-9]+\.[0-9]+).*/release-v\1/'; \
   else \
     echo main; \
   fi)
