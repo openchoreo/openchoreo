@@ -10,5 +10,5 @@
     "resolveJsonModule": true,
     "types": ["node"]
   },
-  "include": ["specs/**/*", "po/**/*", "fixtures/**/*", "playwright.config.ts"]
+  "include": ["specs/**/*", "po/**/*", "fixtures/**/*", "playwright.config.ts", "global-setup.ts"]
 }

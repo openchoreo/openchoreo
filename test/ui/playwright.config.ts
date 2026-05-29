@@ -15,6 +15,10 @@ const hostResolverRules = E2E_HOSTS.map(h => `MAP ${h} 127.0.0.1`).join(', ');
 
 export default defineConfig({
   testDir: './specs',
+  // globalSetup mints per-role storage-state files in .auth/ before any
+  // worker starts — test.use({ storageState }) only resolves after the
+  // files exist on disk, so this can't live in a beforeAll hook.
+  globalSetup: './global-setup.ts',
   timeout: 60_000,
   expect: { timeout: 10_000 },
 
@@ -36,6 +40,11 @@ export default defineConfig({
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
   },
+
+  // Backstage's frontend bundle calls window.crypto.randomUUID() which is
+  // only exposed in a "secure context". The e2e portal is plain HTTP, so a
+  // polyfill is injected via an init script — see fixtures/auth.ts (test
+  // contexts) and global-setup.ts (sign-in mint context).
 
   projects: [
     {
