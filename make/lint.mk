@@ -77,6 +77,24 @@ lint: golangci-lint-check license-check newline-check ## Run golangci-lint linte
 .PHONY: lint-fix
 lint-fix: golangci-lint-fix license-fix newline-fix ## Run golangci-lint linter, licenser, and newline fix to perform fixes
 
+# Branch reference baked into generated file headers (e.g. the kubectl apply URL
+# in samples/getting-started/all.yaml). Only "main" and "release-v*" branches are
+# considered publishable; everything else (feature branches, detached HEAD) falls
+# back to "main" so contributor-local generation never burns ephemeral branch
+# names into committed files. Override with SAMPLES_BRANCH=<name> for local testing.
+# release-next-vX.Y.Z branches (created by prepare-next-version workflow) map to
+# their parent release-vX.Y branch so code.gen-check passes on version-bump PRs.
+SAMPLES_BRANCH ?= $(shell \
+  BRANCH=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null); \
+  if echo "$$BRANCH" | grep -qE '^(main|release-v.*)$$'; then \
+    echo "$$BRANCH"; \
+  elif echo "$$BRANCH" | grep -qE '^release-next-v[0-9]+\.[0-9]+'; then \
+    echo "$$BRANCH" | sed -E 's/^release-next-v([0-9]+\.[0-9]+).*/release-v\1/'; \
+  else \
+    echo main; \
+  fi)
+
+
 # Individual getting-started sample files that compose all.yaml (order matters)
 GETTING_STARTED_DIR := samples/getting-started
 GETTING_STARTED_FILES := \
