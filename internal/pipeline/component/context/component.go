@@ -13,8 +13,10 @@ import (
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
 	"k8s.io/apimachinery/pkg/runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/schemaextract"
 	"github.com/openchoreo/openchoreo/internal/schema"
 )
 
@@ -356,6 +358,16 @@ func ExtractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
 			}
 		}
 
+		// Extract routes from the endpoint API schema (OpenAPI/proto). Best effort:
+		// a missing or unparseable schema yields an empty list and a warning, letting
+		// templates fall back to catch all routing.
+		resources, err := schemaextract.Extract(endpoint.Type, endpoint.Schema)
+		if err != nil {
+			logf.Log.WithName("schemaextract").Info(
+				"failed to extract endpoint API schema; falling back to catch-all routing",
+				"endpoint", name, "type", endpoint.Type, "error", err.Error())
+		}
+
 		epData := EndpointData{
 			DisplayName: endpoint.DisplayName,
 			Port:        endpoint.Port,
@@ -363,6 +375,7 @@ func ExtractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
 			Type:        string(endpoint.Type),
 			BasePath:    endpoint.BasePath,
 			Visibility:  visibility,
+			Resources:   resources,
 		}
 		data.Endpoints[name] = epData
 	}

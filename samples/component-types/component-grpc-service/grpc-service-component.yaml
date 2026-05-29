@@ -104,7 +104,15 @@ spec:
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
               .map(h, metadata.environmentName + "-" + metadata.componentNamespace + "." + h)}
           rules:
-            - backendRefs:
+            # Render one match per (service, method) extracted from the endpoint's
+            # proto schema. Falls back to a catch-all rule (no matches) when the
+            # endpoint has no parseable schema.
+            - matches: >-
+                ${size(endpoint.value.resources) > 0
+                  ? endpoint.value.resources.map(r,
+                      {"method": {"type": "Exact", "service": r.service, "method": r.method}})
+                  : oc_omit()}
+              backendRefs:
                 - name: ${metadata.componentName}
                   port: ${endpoint.value.port}
 
@@ -127,7 +135,15 @@ spec:
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
               .map(h, metadata.environmentName + "-" + metadata.componentNamespace + "." + h)}
           rules:
-            - backendRefs:
+            # Render one match per (service, method) extracted from the endpoint's
+            # proto schema. Falls back to a catch-all rule (no matches) when the
+            # endpoint has no parseable schema.
+            - matches: >-
+                ${size(endpoint.value.resources) > 0
+                  ? endpoint.value.resources.map(r,
+                      {"method": {"type": "Exact", "service": r.service, "method": r.method}})
+                  : oc_omit()}
+              backendRefs:
                 - name: ${metadata.componentName}
                   port: ${endpoint.value.port}
 
@@ -161,6 +177,18 @@ spec:
       type: gRPC
       port: 9090
       visibility: [external]
+      # The proto schema is parsed at render time; each rpc becomes an explicit
+      # (service, method) match in the generated GRPCRoute.
+      schema:
+        type: proto
+        content: |
+          syntax = "proto3";
+          package greeter;
+          service Greeter {
+            rpc SayHello (HelloRequest) returns (HelloReply);
+          }
+          message HelloRequest { string name = 1; }
+          message HelloReply  { string message = 1; }
 
   container:
     image: "ghcr.io/openchoreo/samples/hello-world-grpc:latest"

@@ -5,6 +5,7 @@ package context
 
 import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/schemaextract"
 )
 
 // MetadataContext provides structured metadata for resource generation.
@@ -314,6 +315,10 @@ type EndpointData struct {
 	Type        string   `json:"type"`
 	BasePath    string   `json:"basePath,omitempty"`
 	Visibility  []string `json:"visibility"`
+	// Resources are the routes (paths/methods or services/methods) extracted from
+	// the endpoint API schema. Always non-nil so templates can map/size over it;
+	// empty when the endpoint has no parseable schema.
+	Resources []schemaextract.EndpointResource `json:"resources"`
 }
 
 // ContainerConfigurations contains configs and secrets for a container.

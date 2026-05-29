@@ -3,6 +3,7 @@ module github.com/openchoreo/openchoreo
 go 1.26.3
 
 require (
+	github.com/bufbuild/protocompile v0.14.1
 	github.com/casbin/casbin/v2 v2.135.0
 	github.com/cilium/cilium v1.19.4
 	github.com/getkin/kin-openapi v0.139.0

@@ -540,6 +540,37 @@ dynamicHash: ${oc_hash(metadata.value)}
 dynamicHash: 578fbe87
 `,
 		},
+		{
+			name: "endpoint resources mapped into grpcroute matches",
+			template: `
+matches: '${size(endpoint.resources) > 0 ? endpoint.resources.map(r, {"method": {"type": "Exact", "service": r.service, "method": r.method}}) : oc_omit()}'
+`,
+			inputs: `{
+  "endpoint": {"resources": [
+    {"kind": "gRPC", "service": "greeter.Greeter", "method": "SayHello"}
+  ]}
+}`,
+			want: `matches:
+- method:
+    method: SayHello
+    service: greeter.Greeter
+    type: Exact
+`,
+		},
+		{
+			name: "empty endpoint resources omit matches (catch-all fallback)",
+			template: `
+rule:
+  matches: '${size(endpoint.resources) > 0 ? endpoint.resources.map(r, {"method": {"type": "Exact", "service": r.service, "method": r.method}}) : oc_omit()}'
+  port: ${endpoint.port}
+`,
+			inputs: `{
+  "endpoint": {"resources": [], "port": 9090}
+}`,
+			want: `rule:
+  port: 9090
+`,
+		},
 	}
 
 	engine := NewEngine()

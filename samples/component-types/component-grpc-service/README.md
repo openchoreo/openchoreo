@@ -21,7 +21,7 @@ References the `deployment/grpc-service` ClusterComponentType.
 
 ### Workload (`demo-app-grpc-service-workload`)
 
-Specifies the container image ([`ghcr.io/openchoreo/samples/hello-world-grpc`](https://github.com/openchoreo/samples) — a public gRPC server that exposes `greeter.Greeter/SayHello` on port `9090` with reflection enabled) and a `grpc` endpoint.
+Specifies the container image ([`ghcr.io/openchoreo/samples/hello-world-grpc`](https://github.com/openchoreo/samples) — a public gRPC server that exposes `greeter.Greeter/SayHello` on port `9090` with reflection enabled) and a `grpc` endpoint. The endpoint carries an inline `schema` (`type: proto`) describing the `Greeter` service. OpenChoreo parses this proto at render time and injects the extracted services/methods into the template context (`workload.endpoints[name].resources`), so the generated `GRPCRoute` matches the exact `(service, method)` rather than routing all traffic. If the schema is omitted, the route falls back to a catch-all rule.
 
 ### ReleaseBinding (`demo-app-grpc-service-development`)
 
@@ -76,10 +76,24 @@ You should see something like:
 
 ## Invoke the service
 
-Using `grpcurl` against the cleartext gateway listener:
+Because the generated `GRPCRoute` matches only the methods declared in the endpoint's proto schema (`greeter.Greeter/SayHello`), the gateway does **not** route reflection (`grpc.reflection.*`) or health (`grpc.health.v1.Health`) traffic. Supply the proto to `grpcurl` instead of relying on server reflection.
+
+Create `greeter.proto`:
+
+```proto
+syntax = "proto3";
+package greeter;
+message HelloRequest { string name = 1; }
+message HelloReply  { string message = 1; }
+service Greeter {
+  rpc SayHello (HelloRequest) returns (HelloReply);
+}
+```
+
+Then invoke against the cleartext gateway listener:
 
 ```bash
-grpcurl -plaintext \
+grpcurl -plaintext -import-path . -proto greeter.proto \
   -authority development-default.openchoreoapis.localhost \
   -d '{"name":"OpenChoreo"}' \
   127.0.0.1:19080 \
@@ -122,8 +136,11 @@ kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/h
    kubectl get deployment,pods -A -l openchoreo.dev/component=demo-app-grpc-service
    ```
 
-4. **List services exposed by the backend via reflection:**
+4. **Verify the rendered route carries the schema-derived method match:**
 
    ```bash
-   grpcurl -plaintext -authority development-default.openchoreoapis.localhost 127.0.0.1:19080 list
+   kubectl get grpcroute -A -l openchoreo.dev/component=demo-app-grpc-service \
+     -o jsonpath='{.items[0].spec.rules[0].matches}' | jq .
    ```
+
+   Expect a match for `{service: greeter.Greeter, method: SayHello}`. If `matches` is absent, the route is a catch-all — the endpoint's proto schema was missing or failed to parse (the controller logs a `schemaextract` warning in that case). Note that listing services via reflection (`grpcurl ... list`) does **not** work through the gateway once explicit method matches are in effect, since reflection traffic is not routed.

@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/schemaextract"
 )
 
 // validMetadata returns a MetadataContext that satisfies all "required" validation tags.
@@ -704,6 +705,56 @@ func TestExtractWorkloadData_NilWorkload(t *testing.T) {
 	assert.NotNil(t, data.Endpoints, "Endpoints map should be initialized, not nil")
 	assert.Empty(t, data.Endpoints)
 	assert.Empty(t, data.Container.Image)
+}
+
+func TestExtractWorkloadData_Resources(t *testing.T) {
+	workload := &v1alpha1.Workload{
+		Spec: v1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
+				Container: v1alpha1.Container{Image: "myapp:v1"},
+				Endpoints: map[string]v1alpha1.WorkloadEndpoint{
+					"grpc": {
+						Type: v1alpha1.EndpointTypeGRPC,
+						Port: 9090,
+						Schema: &v1alpha1.Schema{
+							Type: "proto",
+							Content: `syntax = "proto3";
+package greeter;
+service Greeter { rpc SayHello (Req) returns (Req); }
+message Req { string name = 1; }`,
+						},
+					},
+					"no-schema": {
+						Type: v1alpha1.EndpointTypeGRPC,
+						Port: 9091,
+					},
+					"bad-schema": {
+						Type:   v1alpha1.EndpointTypeGRPC,
+						Port:   9092,
+						Schema: &v1alpha1.Schema{Type: "proto", Content: "not a proto"},
+					},
+				},
+			},
+		},
+	}
+
+	data := ExtractWorkloadData(workload)
+
+	// Endpoint with a valid proto schema gets explicit (service, method) resources.
+	grpc := data.Endpoints["grpc"]
+	assert.Equal(t, []schemaextract.EndpointResource{
+		{Kind: "gRPC", Service: "greeter.Greeter", Method: "SayHello"},
+	}, grpc.Resources)
+
+	// Endpoint without a schema: empty but non-nil so templates can map/size over it.
+	noSchema := data.Endpoints["no-schema"]
+	assert.NotNil(t, noSchema.Resources)
+	assert.Empty(t, noSchema.Resources)
+
+	// Endpoint with unparseable schema degrades gracefully to an empty list (no panic).
+	badSchema := data.Endpoints["bad-schema"]
+	assert.NotNil(t, badSchema.Resources)
+	assert.Empty(t, badSchema.Resources)
 }
 
 // --- extractParameters tests ---
