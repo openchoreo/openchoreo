@@ -41,7 +41,7 @@ Changes since [v1.1.0-alpha-1](https://github.com/openchoreo/openchoreo/releases
 ### Deprecation Notice
 
 - Git secret management APIs are deprecated and removed in v1.2
-- Deprecated cluster-prefixed mcp tools. Hidden in v1.2 and removed in v1.3 (https://openchoreo.dev/docs/v1.1.0/reference/mcp-servers/#deprecated-cluster-prefixed-tools)
+- Deprecated cluster-prefixed mcp tools. Hidden in v1.2 and removed in v1.3 (https://openchoreo.dev/docs/v1.1.x/reference/mcp-servers/#deprecated-cluster-prefixed-tools)
 
 ## v1.1.0-alpha-1
 
