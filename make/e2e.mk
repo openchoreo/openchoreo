@@ -9,6 +9,10 @@ E2E_HELM_SOURCE        ?= local
 # Set to "true" to include workflow plane and observability plane in the e2e setup
 E2E_WITH_BUILD         ?= false
 E2E_WITH_OBSERVABILITY ?= false
+# Set to "true" to enable Backstage in the control plane and run the Tier 5 UI suite
+# (see test/ui/). Off by default so the existing e2e workflow keeps the lighter
+# Backstage-disabled install.
+E2E_WITH_UI            ?= false
 # Go duration for the test suite (go test -timeout)
 E2E_TEST_TIMEOUT       ?= 20m
 # Go duration for each individual helm install and kubectl wait (not the overall setup timeout)
@@ -31,6 +35,16 @@ endif
 E2E_DIR                := $(PROJECT_DIR)/test/e2e
 E2E_K3D_DIR            := $(E2E_DIR)/k3d
 E2E_DIAGNOSTICS_DIR    ?= $(E2E_DIR)/_diagnostics
+UI_DIR                 := $(PROJECT_DIR)/test/ui
+UI_K3D_DIR             := $(UI_DIR)/k3d
+
+# When the UI suite is enabled, layer the cp-ui overlay on top of the default
+# control-plane values so Backstage gets switched on.
+ifeq ($(E2E_WITH_UI),true)
+  E2E_CP_EXTRA_VALUES := --values $(UI_K3D_DIR)/values-cp-ui.yaml
+else
+  E2E_CP_EXTRA_VALUES :=
+endif
 
 # Namespaces
 E2E_CP_NS              := openchoreo-control-plane
@@ -145,12 +159,40 @@ e2e: ## Full e2e lifecycle: setup → test → down (collects diagnostics on fai
 # ---------------------------------------------------------------------------
 
 .PHONY: e2e.setup
-e2e.setup: ## All setup: cluster + prerequisites + install + configure
+e2e.setup: ## All setup: cluster + prerequisites + install + configure (+ UI when E2E_WITH_UI=true)
 	@$(MAKE) e2e.setup-cluster
 	@$(MAKE) e2e.setup-prerequisites
 	@$(MAKE) e2e.setup-install
 	@$(MAKE) e2e.setup-configure
+	@if [ "$(E2E_WITH_UI)" = "true" ]; then $(MAKE) e2e.setup-ui; fi
 	@$(call log_success, E2E setup complete)
+
+.PHONY: e2e.setup-ui
+e2e.setup-ui: ## Enable Backstage and wait for the Backstage pod (idempotent)
+	@$(call log_info, Waiting for Backstage deployment to become Ready)
+	@for i in $$(seq 1 60); do \
+		$(E2E_KUBECTL) -n $(E2E_CP_NS) get deploy backstage >/dev/null 2>&1 && break; \
+		sleep 2; \
+	done
+	$(E2E_KUBECTL) wait -n $(E2E_CP_NS) \
+		--for=condition=available --timeout=$(E2E_SETUP_TIMEOUT) deploy/backstage
+	@$(call log_success, UI setup complete (Backstage Ready))
+
+.PHONY: _e2e.prepare-backstage-secret
+_e2e.prepare-backstage-secret:
+	@# The cp-ui overlay sets backstage.secretName=backstage-secrets. The
+	@# Helm chart references it via envFrom, so it must exist before install.
+	@$(call log_info, Provisioning backstage-secrets in $(E2E_CP_NS))
+	$(E2E_KUBECTL) create namespace $(E2E_CP_NS) --dry-run=client -o yaml | $(E2E_KUBECTL) apply -f -
+	@if ! $(E2E_KUBECTL) -n $(E2E_CP_NS) get secret backstage-secrets >/dev/null 2>&1; then \
+		BACKEND_SECRET=$$(head -c 32 /dev/urandom | base64 | tr -d '\n'); \
+		$(E2E_KUBECTL) -n $(E2E_CP_NS) create secret generic backstage-secrets \
+			--from-literal=backend-secret="$$BACKEND_SECRET" \
+			--from-literal=client-secret="backstage-portal-secret" \
+			--from-literal=jenkins-api-key="placeholder-not-in-use"; \
+	else \
+		echo "backstage-secrets already exists, leaving in place"; \
+	fi
 
 .PHONY: e2e.setup-cluster
 e2e.setup-cluster: ## Create k3d cluster
@@ -227,10 +269,12 @@ _e2e.install-thunder:
 .PHONY: _e2e.install-cp
 _e2e.install-cp:
 	@$(call log_info, Installing Control Plane)
+	@if [ "$(E2E_WITH_UI)" = "true" ]; then $(MAKE) _e2e.prepare-backstage-secret; fi
 	$(E2E_HELM) upgrade --install openchoreo-control-plane $(E2E_CP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
 		--namespace $(E2E_CP_NS) --create-namespace \
 		--values $(E2E_K3D_DIR)/values-cp.yaml \
+		$(E2E_CP_EXTRA_VALUES) \
 		--timeout $(E2E_SETUP_TIMEOUT)
 	$(call e2e_patch_gateway,$(E2E_CP_NS))
 	$(E2E_KUBECTL) wait -n $(E2E_CP_NS) \
