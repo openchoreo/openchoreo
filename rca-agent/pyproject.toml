@@ -10,7 +10,7 @@ dependencies = [
     "jinja2>=3.1.0",
     "langchain>=1.0.5",
     "langchain-mcp-adapters>=0.2.2",
-    "langchain-openai>=1.1.10",
+    "langchain-openai>=1.2.2",
     # Pin to >=1.23.0: earlier versions had a different default for
     # TransportSecuritySettings.enable_dns_rebinding_protection. We
     # explicitly disable it in src/mcp_server.py for in-cluster
