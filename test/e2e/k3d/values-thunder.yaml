@@ -144,3 +144,77 @@ bootstrap:
 
         log_info "Default application created successfully"
       fi
+
+    # Provision the ABAC-restricted identity the abac-ui Playwright suite
+    # signs in as. Thunder's admin API rejects all requests (401) once the
+    # server is up — even from loopback — so users can only be seeded from
+    # inside the setup Job, where these bootstrap scripts run. Runs after the
+    # stock 50-user-schema-and-users.sh (which creates the org unit, the
+    # openchoreo-user schema, and the PE/Dev identities) and reuses the same
+    # idempotent ensure-user / ensure-group shape.
+    52-abac-user.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      ORG_UNIT_ID=$(curl -s --max-time 10 "${THUNDER_URL}/organization-units/tree/default" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      if [ -z "$ORG_UNIT_ID" ]; then
+        log_error "Failed to resolve default organization unit ID from ${THUNDER_URL}"
+        exit 1
+      fi
+      log_info "Using organization unit ID: $ORG_UNIT_ID"
+
+      ABAC_USERNAME="abac-dev@openchoreo.dev"
+      ABAC_GROUP="abac-developers"
+
+      existing_users=$(curl -s --max-time 10 "${THUNDER_URL}/users")
+      if echo "$existing_users" | grep -q "\"username\" *: *\"${ABAC_USERNAME}\""; then
+        log_info "User '${ABAC_USERNAME}' already exists, getting ID..."
+        abac_user_id=$(echo "$existing_users" | tr '\n' ' ' | sed 's/" *: *"/":"/g' \
+          | grep -o "\"username\":\"${ABAC_USERNAME}\"[^}]*\"id\":\"[^\"]*\"\|\"id\":\"[^\"]*\"[^}]*\"username\":\"${ABAC_USERNAME}\"" \
+          | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      else
+        log_info "Creating user '${ABAC_USERNAME}'..."
+        response=$(curl --location "${THUNDER_URL}/users" \
+          --header 'accept: application/json' \
+          --header 'Content-Type: application/json' \
+          --data "{
+            \"type\": \"openchoreo-user\",
+            \"organizationUnit\": \"$ORG_UNIT_ID\",
+            \"attributes\": {
+              \"username\": \"${ABAC_USERNAME}\",
+              \"email\": \"${ABAC_USERNAME}\",
+              \"password\": \"Abac@123\",
+              \"given_name\": \"ABAC\",
+              \"family_name\": \"Developer\"
+            }
+          }" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5)
+        log_info "User '${ABAC_USERNAME}' created successfully"
+        abac_user_id=$(echo "$response" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      fi
+
+      existing_groups=$(curl -s --max-time 10 "${THUNDER_URL}/groups")
+      if echo "$existing_groups" | grep -q "\"name\" *: *\"${ABAC_GROUP}\""; then
+        log_info "Group '${ABAC_GROUP}' already exists, skipping creation"
+      else
+        log_info "Creating group '${ABAC_GROUP}'..."
+        curl --location "${THUNDER_URL}/groups" \
+          --header 'accept: application/json' \
+          --header 'Content-Type: application/json' \
+          --data "{
+            \"name\": \"${ABAC_GROUP}\",
+            \"organizationUnitId\": \"$ORG_UNIT_ID\",
+            \"description\": \"ABAC-restricted developers (environment-scoped access, used by the abac-ui Playwright suite)\",
+            \"members\": [{\"type\":\"user\",\"id\":\"${abac_user_id}\"}]
+          }" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+        log_info "Group '${ABAC_GROUP}' created successfully"
+      fi
