@@ -123,7 +123,7 @@ func makeTraitContext(input *TraitContextInput, parameters, envConfigs map[strin
 	ctx.Dependencies = newDependenciesContextData(base.Dependencies)
 
 	prefix := base.Metadata.ComponentName + "-" + base.Metadata.EnvironmentName
-	ctx.Derived = BuildDerivedContext(ctx.Configurations, ctx.Workload, ctx.Dependencies, prefix)
+	ctx.Derived = BuildDerivedContext(ctx.Configurations, ctx.Workload, ctx.Dependencies, prefix, base.EndpointResources)
 
 	return ctx
 }

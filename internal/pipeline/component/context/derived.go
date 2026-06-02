@@ -35,14 +35,21 @@ type DerivedContext struct {
 	DependencyEnvVars      []EnvVarEntry      `json:"dependencyEnvVars"`
 	DependencyVolumeMounts []VolumeMountEntry `json:"dependencyVolumeMounts"`
 	DependencyVolumes      []VolumeEntry      `json:"dependencyVolumes"`
+
+	// EndpointResources backs the workload.toEndpointResources() macro. It is nil
+	// unless a template opts in, so it adds nothing to the marshaled context for
+	// the common case.
+	EndpointResources EndpointResourceMap `json:"endpointResources,omitempty"`
 }
 
 // BuildDerivedContext precomputes all derived views from typed inputs.
+// endpointResources is nil unless a template opts in via workload.toEndpointResources().
 func BuildDerivedContext(
 	configurations ContainerConfigurations,
 	workload WorkloadData,
 	dependencies ConnectionsContextData,
 	prefix string,
+	endpointResources EndpointResourceMap,
 ) DerivedContext {
 	return DerivedContext{
 		ConfigFileList:         buildConfigFileList(configurations, prefix),
@@ -56,6 +63,7 @@ func BuildDerivedContext(
 		DependencyEnvVars:      nonNilEnvVars(dependencies.EnvVars),
 		DependencyVolumeMounts: nonNilVolumeMounts(dependencies.VolumeMounts),
 		DependencyVolumes:      nonNilVolumes(dependencies.Volumes),
+		EndpointResources:      endpointResources,
 	}
 }
 

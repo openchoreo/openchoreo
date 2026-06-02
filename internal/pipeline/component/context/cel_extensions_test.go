@@ -14,7 +14,7 @@ import (
 )
 
 func derivedInputs(configs ContainerConfigurations, workload WorkloadData, deps ConnectionsContextData) map[string]any {
-	derived := BuildDerivedContext(configs, workload, deps, "app-dev")
+	derived := BuildDerivedContext(configs, workload, deps, "app-dev", nil)
 	derivedMap, err := structToMap(&derived)
 	if err != nil {
 		panic("structToMap failed for DerivedContext: " + err.Error())
@@ -869,7 +869,7 @@ func TestConfigurationsVolumeMountsConcatWithDependencies(t *testing.T) {
 }
 
 func TestBuildDerivedContext_EmptyInputs(t *testing.T) {
-	derived := BuildDerivedContext(ContainerConfigurations{}, WorkloadData{}, ConnectionsContextData{}, "app-dev")
+	derived := BuildDerivedContext(ContainerConfigurations{}, WorkloadData{}, ConnectionsContextData{}, "app-dev", nil)
 
 	if derived.ConfigFileList == nil {
 		t.Error("ConfigFileList should be non-nil")
@@ -914,5 +914,38 @@ func TestMacroDoesNotExpandOnWrongReceiver(t *testing.T) {
 				t.Logf("error (expected macro guard): %v", err)
 			}
 		})
+	}
+}
+
+func TestWorkloadToEndpointResourcesMacro(t *testing.T) {
+	derived := BuildDerivedContext(ContainerConfigurations{}, WorkloadData{}, ConnectionsContextData{}, "app-dev",
+		EndpointResourceMap{
+			"grpc": {{Kind: "gRPC", Service: "greeter.Greeter", Method: "SayHello"}},
+		})
+	derivedMap, err := structToMap(&derived)
+	if err != nil {
+		t.Fatalf("structToMap failed: %v", err)
+	}
+	inputs := map[string]any{"derived": derivedMap}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+
+	// The macro rewrites workload.toEndpointResources() to derived.endpointResources;
+	// indexing by endpoint name and mapping yields the extracted route fields.
+	got, err := engine.Render(`${workload.toEndpointResources()["grpc"].map(r, r.service + "/" + r.method)}`, inputs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if diff := cmp.Diff([]any{"greeter.Greeter/SayHello"}, got); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+
+	// Missing endpoint key is absent from the map (templates branch on `in`).
+	present, err := engine.Render(`${"missing" in workload.toEndpointResources()}`, inputs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if present != false {
+		t.Errorf("expected false for missing key, got %v", present)
 	}
 }

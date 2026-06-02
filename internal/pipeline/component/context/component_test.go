@@ -707,7 +707,7 @@ func TestExtractWorkloadData_NilWorkload(t *testing.T) {
 	assert.Empty(t, data.Container.Image)
 }
 
-func TestExtractWorkloadData_Resources(t *testing.T) {
+func TestExtractEndpointResources(t *testing.T) {
 	workload := &v1alpha1.Workload{
 		Spec: v1alpha1.WorkloadSpec{
 			WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
@@ -738,23 +738,23 @@ message Req { string name = 1; }`,
 		},
 	}
 
-	data := ExtractWorkloadData(workload)
+	got := ExtractEndpointResources(workload)
 
-	// Endpoint with a valid proto schema gets explicit (service, method) resources.
-	grpc := data.Endpoints["grpc"]
+	// Endpoint with a valid proto schema yields explicit (service, method) resources.
 	assert.Equal(t, []schemaextract.EndpointResource{
 		{Kind: "gRPC", Service: "greeter.Greeter", Method: "SayHello"},
-	}, grpc.Resources)
+	}, got["grpc"])
 
-	// Endpoint without a schema: empty but non-nil so templates can map/size over it.
-	noSchema := data.Endpoints["no-schema"]
-	assert.NotNil(t, noSchema.Resources)
-	assert.Empty(t, noSchema.Resources)
+	// Endpoints without a schema or with an unparseable schema are simply absent
+	// (templates index by key and fall back to catch-all routing).
+	_, hasNoSchema := got["no-schema"]
+	assert.False(t, hasNoSchema)
+	_, hasBadSchema := got["bad-schema"]
+	assert.False(t, hasBadSchema)
 
-	// Endpoint with unparseable schema degrades gracefully to an empty list (no panic).
-	badSchema := data.Endpoints["bad-schema"]
-	assert.NotNil(t, badSchema.Resources)
-	assert.Empty(t, badSchema.Resources)
+	// ExtractWorkloadData no longer carries resources on the endpoint itself.
+	data := ExtractWorkloadData(workload)
+	assert.NotEmpty(t, data.Endpoints, "endpoints should still be extracted")
 }
 
 // --- extractParameters tests ---

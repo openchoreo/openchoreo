@@ -66,14 +66,50 @@ var registry = map[SchemaType]Extractor{
 	SchemaTypeProto:   protoExtractor{},
 }
 
+// maxParseCacheEntries bounds the parse cache so a controller managing many
+// components with distinct large schemas cannot grow memory without limit.
+const maxParseCacheEntries = 512
+
 // parseCache memoizes successful extractions keyed by content hash + type.
-// Schema content is immutable within a ComponentRelease, but ExtractWorkloadData
-// re-runs on every reconcile, so this avoids re-compiling identical schemas.
-var parseCache sync.Map // map[cacheKey][]EndpointResource
+// Schema content is immutable within a ComponentRelease, but extraction may run
+// on every reconcile, so this avoids re-compiling identical schemas.
+var parseCache = newResultCache(maxParseCacheEntries)
 
 type cacheKey struct {
 	st  SchemaType
 	sha [32]byte
+}
+
+// resultCache is a simple bounded, concurrency-safe cache for parsed results.
+// When at capacity, new keys are not stored (existing entries keep serving),
+// which bounds memory without per-entry LRU bookkeeping. Entries never go stale
+// because schema content is immutable per ComponentRelease.
+type resultCache struct {
+	mu  sync.RWMutex
+	max int
+	m   map[cacheKey][]EndpointResource
+}
+
+func newResultCache(max int) *resultCache {
+	return &resultCache{max: max, m: make(map[cacheKey][]EndpointResource)}
+}
+
+func (c *resultCache) get(k cacheKey) ([]EndpointResource, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	v, ok := c.m[k]
+	return v, ok
+}
+
+func (c *resultCache) put(k cacheKey, v []EndpointResource) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.m) >= c.max {
+		if _, exists := c.m[k]; !exists {
+			return // at capacity: don't admit new keys
+		}
+	}
+	c.m[k] = v
 }
 
 // Extract returns the routes extracted from an endpoint's schema. It never fails
@@ -103,8 +139,8 @@ func Extract(epType v1alpha1.EndpointType, schema *v1alpha1.Schema) ([]EndpointR
 	}
 
 	key := cacheKey{st: st, sha: sha256.Sum256([]byte(schema.Content))}
-	if v, ok := parseCache.Load(key); ok {
-		return v.([]EndpointResource), nil
+	if v, ok := parseCache.get(key); ok {
+		return v, nil
 	}
 
 	res, err := ex.Extract(schema.Content)
@@ -116,7 +152,7 @@ func Extract(epType v1alpha1.EndpointType, schema *v1alpha1.Schema) ([]EndpointR
 	}
 	sortResources(res)
 
-	parseCache.Store(key, res)
+	parseCache.put(key, res)
 	return res, nil
 }
 

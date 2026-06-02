@@ -31,6 +31,7 @@ func CELExtensions() []cel.EnvOption {
 			toSecretEnvsByContainerMacro,
 			toServicePortsMacro,
 			toContainerEnvsMacro,
+			toEndpointResourcesMacro,
 		),
 	}
 }
@@ -119,6 +120,18 @@ var toContainerEnvsMacro = cel.ReceiverMacro("toContainerEnvs", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == dependenciesIdentifier {
 			return derivedField(eh, "dependencyEnvVars"), nil
+		}
+		return nil, nil
+	})
+
+// toEndpointResourcesMacro rewrites workload.toEndpointResources() to
+// derived.endpointResources (a map keyed by endpoint name). The backing map is
+// only computed when this macro is used, so schema parsing and context cost are
+// avoided unless a template opts in.
+var toEndpointResourcesMacro = cel.ReceiverMacro("toEndpointResources", 0,
+	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
+		if target.Kind() == ast.IdentKind && target.AsIdent() == "workload" {
+			return derivedField(eh, "endpointResources"), nil
 		}
 		return nil, nil
 	})

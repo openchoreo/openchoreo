@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/yaml"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -2003,4 +2004,46 @@ func computeTestHash(content []map[string]any) string {
 	annotations := templateMeta["annotations"].(map[string]any)
 
 	return annotations["openchoreo.dev/dp-resource-hash"].(string)
+}
+
+func TestUsesEndpointResources(t *testing.T) {
+	withTemplate := func(raw string) *RenderInput {
+		return &RenderInput{
+			ComponentType: &v1alpha1.ComponentType{
+				Spec: v1alpha1.ComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{ID: "r", Template: &runtime.RawExtension{Raw: []byte(raw)}},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("absent when no template references the macro", func(t *testing.T) {
+		in := withTemplate(`{"spec": {"port": "${endpoint.value.port}"}}`)
+		if usesEndpointResources(in) {
+			t.Fatal("expected false when macro is not used")
+		}
+	})
+
+	t.Run("detected in a component type resource template", func(t *testing.T) {
+		in := withTemplate(`{"spec": {"m": "${workload.toEndpointResources()[endpoint.key]}"}}`)
+		if !usesEndpointResources(in) {
+			t.Fatal("expected true when macro is used in a resource template")
+		}
+	})
+
+	t.Run("detected in a trait", func(t *testing.T) {
+		in := withTemplate(`{"spec": {}}`)
+		in.Traits = []v1alpha1.Trait{{
+			Spec: v1alpha1.TraitSpec{
+				Creates: []v1alpha1.TraitCreate{
+					{Template: &runtime.RawExtension{Raw: []byte(`{"x": "${workload.toEndpointResources()}"}`)}},
+				},
+			},
+		}}
+		if !usesEndpointResources(in) {
+			t.Fatal("expected true when macro is used in a trait")
+		}
+	})
 }

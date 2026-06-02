@@ -70,7 +70,7 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 	ctx.Gateway = ctx.Environment.Gateway
 
 	prefix := input.Metadata.ComponentName + "-" + input.Metadata.EnvironmentName
-	ctx.Derived = BuildDerivedContext(ctx.Configurations, ctx.Workload, ctx.Dependencies, prefix)
+	ctx.Derived = BuildDerivedContext(ctx.Configurations, ctx.Workload, ctx.Dependencies, prefix, input.EndpointResources)
 
 	return ctx, nil
 }
@@ -358,16 +358,6 @@ func ExtractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
 			}
 		}
 
-		// Extract routes from the endpoint API schema (OpenAPI/proto). Best effort:
-		// a missing or unparseable schema yields an empty list and a warning, letting
-		// templates fall back to catch all routing.
-		resources, err := schemaextract.Extract(endpoint.Type, endpoint.Schema)
-		if err != nil {
-			logf.Log.WithName("schemaextract").Info(
-				"failed to extract endpoint API schema; falling back to catch-all routing",
-				"endpoint", name, "type", endpoint.Type, "error", err.Error())
-		}
-
 		epData := EndpointData{
 			DisplayName: endpoint.DisplayName,
 			Port:        endpoint.Port,
@@ -375,12 +365,39 @@ func ExtractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
 			Type:        string(endpoint.Type),
 			BasePath:    endpoint.BasePath,
 			Visibility:  visibility,
-			Resources:   resources,
 		}
 		data.Endpoints[name] = epData
 	}
 
 	return data
+}
+
+// ExtractEndpointResources parses each endpoint's API schema (OpenAPI for HTTP,
+// protobuf for gRPC) and returns the extracted routes keyed by endpoint name.
+// Only endpoints with at least one extracted resource are included.
+//
+// This is computed lazily by the pipeline only when a template references the
+// workload.toEndpointResources() macro, so schema-less or unused endpoints incur
+// no parsing cost. Extraction is best effort: a missing or unparseable schema is
+// logged as a warning and simply omitted, letting templates fall back to
+// catch-all routing.
+func ExtractEndpointResources(workload *v1alpha1.Workload) EndpointResourceMap {
+	result := make(EndpointResourceMap)
+	if workload == nil {
+		return result
+	}
+	for name, endpoint := range workload.Spec.Endpoints {
+		resources, err := schemaextract.Extract(endpoint.Type, endpoint.Schema)
+		if err != nil {
+			logf.Log.WithName("schemaextract").Info(
+				"failed to extract endpoint API schema; falling back to catch-all routing",
+				"endpoint", name, "type", endpoint.Type, "error", err.Error())
+		}
+		if len(resources) > 0 {
+			result[name] = resources
+		}
+	}
+	return result
 }
 
 // structToMap converts typed Go structs to map[string]any for CEL evaluation.

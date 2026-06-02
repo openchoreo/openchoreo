@@ -1,0 +1,265 @@
+# Sample: HTTP Service Component whose routes are derived from an OpenAPI schema
+#
+# This sample demonstrates:
+# - A custom ClusterComponentType that emits a Gateway API HTTPRoute
+# - Using the opt-in workload.toEndpointResources() macro to read the endpoint's
+#   OpenAPI schema and render one HTTPRoute match per (path, method)
+# - OpenAPI path templates (e.g. /books/{id}) translated to Gateway path matches
+# - Graceful fallback to a catch-all route when no schema is present
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterComponentType
+metadata:
+  name: http-openapi-service
+  annotations:
+    openchoreo.dev/description: "An HTTP service whose Gateway API HTTPRoute is generated from the endpoint's OpenAPI schema"
+spec:
+  workloadType: deployment
+
+  validations:
+    - rule: "${size(workload.endpoints) > 0}"
+      message: "http-openapi-service components must have at least one endpoint."
+    - rule: >-
+        ${workload.endpoints.all(name, ep, ep.type == "HTTP")}
+      message: "http-openapi-service only supports endpoints of type HTTP."
+    - rule: >-
+        ${workload.endpoints.exists(name, ep, "external" in ep.visibility)
+          ? has(gateway.ingress) && has(gateway.ingress.external)
+          : true}
+      message: "Endpoints with 'external' visibility require gateway.ingress.external to be configured."
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        replicas:
+          type: integer
+          default: 1
+          minimum: 0
+        imagePullPolicy:
+          type: string
+          default: IfNotPresent
+          enum: [Always, IfNotPresent, Never]
+
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: ${environmentConfigs.replicas}
+          selector:
+            matchLabels: ${metadata.podSelectors}
+          template:
+            metadata:
+              labels: ${metadata.podSelectors}
+            spec:
+              containers:
+                - name: main
+                  image: ${workload.container.image}
+                  imagePullPolicy: ${environmentConfigs.imagePullPolicy}
+                  command: |
+                    ${has(workload.container.command) ? workload.container.command : oc_omit()}
+                  args: |
+                    ${has(workload.container.args) ? workload.container.args : oc_omit()}
+                  env: ${dependencies.toContainerEnvs()}
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.componentName}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          type: ClusterIP
+          selector: ${metadata.podSelectors}
+          ports: ${workload.toServicePorts()}
+
+    - id: httproute-external
+      forEach: '${workload.endpoints.transformMap(name, ep, "external" in ep.visibility && ep.type == "HTTP", ep)}'
+      var: endpoint
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${oc_generate_name(metadata.componentName, endpoint.key)}
+          namespace: ${metadata.namespace}
+          labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "external"})}'
+          # The gateway exposes a unique per-endpoint prefix (/<component>-<endpoint>) and
+          # the rules below render one match per API operation, so the first match is a
+          # specific operation rather than the base. Declare the invoke base path here so
+          # the ReleaseBinding controller can build the endpoint invoke URL.
+          annotations:
+            openchoreo.dev/endpoint-base-path: /${metadata.componentName}-${endpoint.key}
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
+          hostnames: |
+            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, metadata.environmentName + "-" + metadata.componentNamespace + "." + h)}
+          # One rule per (path, method) extracted from the endpoint's OpenAPI schema via
+          # the opt-in workload.toEndpointResources() macro, under the unique gateway
+          # prefix /<component>-<endpoint>. Static paths use an Exact match; parameterized
+          # paths (/books/{id}) become a RegularExpression match ({param} -> [^/]+). The
+          # prefix is rewritten back to the real basePath by the TrafficPolicy below.
+          rules: >-
+            ${endpoint.key in workload.toEndpointResources()
+              ? workload.toEndpointResources()[endpoint.key].map(r, {
+                  "matches": [{
+                    "path": {
+                      "type": r.path.contains("{") ? "RegularExpression" : "Exact",
+                      "value": r.path.contains("{")
+                        ? ("/" + metadata.componentName + "-" + endpoint.key + r.path).split("/").map(s, s.startsWith("{") ? "[^/]+" : s).join("/")
+                        : "/" + metadata.componentName + "-" + endpoint.key + r.path
+                    },
+                    "method": r.method
+                  }],
+                  "backendRefs": [{"name": metadata.componentName, "port": endpoint.value.port}]
+                })
+              : []}
+
+    - id: trafficpolicy-external
+      forEach: '${workload.endpoints.transformMap(name, ep, "external" in ep.visibility && ep.type == "HTTP", ep)}'
+      var: endpoint
+      template:
+        apiVersion: gateway.kgateway.dev/v1alpha1
+        kind: TrafficPolicy
+        metadata:
+          name: '${oc_generate_name(metadata.componentName, endpoint.key, "rewrite")}'
+          namespace: ${metadata.namespace}
+          labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "external"})}'
+        spec:
+          # Target the HTTPRoute rendered above for this endpoint.
+          targetRefs:
+            - group: gateway.networking.k8s.io
+              kind: HTTPRoute
+              name: ${oc_generate_name(metadata.componentName, endpoint.key)}
+          # Strip the unique gateway prefix and restore the endpoint's real basePath,
+          # preserving everything after it (capture group \1 includes any path parameter
+          # matched by the route's RegularExpression rules). A single rewrite covers every
+          # operation of the endpoint.
+          urlRewrite:
+            pathRegex:
+              pattern: '${"^/" + metadata.componentName + "-" + endpoint.key + "(/.*)?$"}'
+              substitution: '${endpoint.value.?basePath.orValue("") + "\\1"}'
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: demo-app-reading-list
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/http-openapi-service
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: demo-app-reading-list-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-app-reading-list
+
+  endpoints:
+    reading-list-api:
+      type: HTTP
+      port: 8080
+      visibility: [external]
+      # Base path the service serves under; prepended to the OpenAPI paths.
+      basePath: /api/v1/reading-list
+      # The OpenAPI spec is parsed at render time; each (path, operation) becomes an
+      # explicit match in the generated HTTPRoute.
+      schema:
+        type: openapi
+        content: |
+          openapi: 3.0.1
+          info:
+            title: Choreo Reading List
+            description: This is a sample service that manages a list of reading items.
+            version: "1.0"
+          servers:
+            - url: //localhost:8080/api/v1/reading-list
+          paths:
+            /books:
+              get:
+                tags: [books]
+                summary: List all the reading list books
+                responses:
+                  "200":
+                    description: successful operation
+              post:
+                tags: [books]
+                summary: Add a new book to the reading list
+                responses:
+                  "201":
+                    description: successful operation
+            /books/{id}:
+              get:
+                tags: [books]
+                summary: Get reading list book by id
+                parameters:
+                  - name: id
+                    in: path
+                    required: true
+                    schema: { type: string }
+                responses:
+                  "200":
+                    description: successful operation
+              put:
+                tags: [books]
+                summary: Update a reading list book by id
+                parameters:
+                  - name: id
+                    in: path
+                    required: true
+                    schema: { type: string }
+                responses:
+                  "200":
+                    description: successful operation
+              delete:
+                tags: [books]
+                summary: Delete a reading list book by id
+                parameters:
+                  - name: id
+                    in: path
+                    required: true
+                    schema: { type: string }
+                responses:
+                  "200":
+                    description: successful operation
+
+  container:
+    image: "ghcr.io/openchoreo/samples/reading-list:latest"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: demo-app-reading-list-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-app-reading-list
+
+  environment: development
+
+  componentTypeEnvironmentConfigs:
+    replicas: 1

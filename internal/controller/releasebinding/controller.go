@@ -1338,9 +1338,18 @@ func isRoutableEndpointType(t openchoreov1alpha1.EndpointType) bool {
 	return false
 }
 
-// routePath returns the URL path prefix carried by the route. Only HTTPRoute exposes
-// a path; GRPCRoute (method-based) and TLSRoute (SNI-based) return an empty string.
+// routePath returns the URL base path that clients use to reach the endpoint via
+// the gateway. A route may advertise this explicitly through the
+// openchoreo.dev/endpoint-base-path annotation; this is required for routes that
+// render one match per API resource (e.g. an HTTPRoute with an Exact match per
+// OpenAPI path), where the first match is a specific operation rather than the
+// endpoint base. When the annotation is absent, fall back to the first HTTPRoute
+// match path — the prefix-routing convention where the single match value is the
+// exposed base. GRPCRoute (method-based) and TLSRoute (SNI-based) carry no path.
 func routePath(r *indexedRoute) string {
+	if base := r.obj.GetAnnotations()[labels.AnnotationKeyEndpointBasePath]; base != "" {
+		return base
+	}
 	if r.kind == httpRouteKind {
 		return extractFirstPathValue(r.obj)
 	}

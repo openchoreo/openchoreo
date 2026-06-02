@@ -511,7 +511,7 @@ func TestValidateResourceTemplate_ForEachListFieldAccess(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name: "valid map forEach accessing endpoint resources from schema",
+			name: "valid map forEach accessing endpoint resources via macro",
 			cct: &v1alpha1.ClusterComponentType{
 				Spec: v1alpha1.ClusterComponentTypeSpec{
 					Resources: []v1alpha1.ResourceTemplate{
@@ -520,7 +520,7 @@ func TestValidateResourceTemplate_ForEachListFieldAccess(t *testing.T) {
 							ForEach: `${workload.endpoints.transformMap(name, ep, ep.type == "gRPC", ep)}`,
 							Var:     "endpoint",
 							Template: &runtime.RawExtension{
-								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "${endpoint.key}"}, "data": {"svc": "${size(endpoint.value.resources) > 0 ? endpoint.value.resources[0].service : \"\"}"}}`),
+								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "${endpoint.key}"}, "data": {"svc": "${endpoint.key in workload.toEndpointResources() ? workload.toEndpointResources()[endpoint.key][0].service : \"\"}"}}`),
 							},
 						},
 					},
