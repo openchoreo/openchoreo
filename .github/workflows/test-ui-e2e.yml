@@ -29,6 +29,9 @@ env:
   E2E_WITH_UI: "true"
   E2E_KUBECONTEXT: k3d-openchoreo-e2e
   UI_BASE_URL: http://openchoreo.e2e-cp.local:28080
+  # OpenChoreo API URL the pkce-login spec points occ at (NOT the Backstage
+  # portal URL above).
+  OCC_CONTROL_PLANE_URL: http://api.e2e-cp.local:28080
   K3D_VERSION: v5.8.3
   K3D_SHA256: dbaa79a76ace7f4ca230a1ff41dc7d8a5036a8ad0309e9c54f9bf3836dbe853e
   YQ_VERSION: v4.45.4
@@ -80,6 +83,17 @@ jobs:
               exit 1
               ;;
           esac
+
+      - name: Map e2e hostnames for host processes
+        # The browsers resolve *.e2e-cp.local via Chromium host-resolver-rules,
+        # but occ (driven by the pkce-login spec) is a host process and needs
+        # real DNS — without this entry the spec self-skips.
+        run: |
+          echo "127.0.0.1 openchoreo.e2e-cp.local api.e2e-cp.local thunder.e2e-cp.local" | sudo tee -a /etc/hosts
+
+      - name: Build occ CLI
+        # The pkce-login spec spawns bin/occ for the browser-assisted PKCE leg.
+        run: make go.build.occ
 
       - name: Install UI test dependencies
         working-directory: test/ui
