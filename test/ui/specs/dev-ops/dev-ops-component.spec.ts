@@ -56,6 +56,9 @@ test.describe('dev-ops: Dev CRUD inside a PE-seeded project', () => {
   });
 
   test('creates and views Component + Workload as Dev', async ({ page }) => {
+    // The entity-route wait inside openByName can ride a full
+    // catalog-provider sync cycle (default 300s) on stock installs.
+    test.setTimeout(600_000);
     const component = new ComponentPO(page);
 
     await component.create({

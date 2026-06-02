@@ -11,7 +11,9 @@ const KIND_DISPLAY: Record<string, string> = {
   system: 'Project',
   component: 'Component',
   componenttype: 'Component Type',
-  trait: 'Trait',
+  // Trait CRs surface in the catalog as kind "traittype" — there is no
+  // catalog kind named "trait".
+  traittype: 'Trait Type',
   api: 'API',
   resource: 'Resource',
   environment: 'Environment',
@@ -98,12 +100,19 @@ export class CatalogTablePO {
   // reloading to re-query — then open the entity by clicking its catalog link.
   // Tolerates the brief "Entity not found" window after a fresh create by
   // re-clicking on the next iteration.
+  //
+  // Navigates via gotoKind (URL query) rather than the openKind click path,
+  // for two reasons: (1) the Kind picker only lists kinds that already have a
+  // synced entity, so the dropdown cannot reach a kind whose *first* entity
+  // is the one still syncing in (the pe-ops trait case); (2) a dropdown
+  // selection is not reflected in the URL, so the reload-to-repoll loop
+  // would reset the filter back to the initialKind on every iteration.
   async openEntity(
     kind: string,
     name: string,
     timeoutMs = 90_000,
   ): Promise<void> {
-    await this.openKind(kind);
+    await this.gotoKind(kind);
     await expect
       .poll(
         async () => {
@@ -119,9 +128,8 @@ export class CatalogTablePO {
             if (!notFound) return true;
             // The click navigated to the entity route and 404'd — reload()
             // would just re-render the not-found page, so re-enter the
-            // filtered catalog instead. The kind provably has ≥1 entity
-            // (the link was visible), so the click path is safe here.
-            await this.openKind(kind);
+            // filtered catalog instead.
+            await this.gotoKind(kind);
             return false;
           }
           await this.reload();

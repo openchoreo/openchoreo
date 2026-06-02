@@ -33,7 +33,7 @@ Chromium's `--host-resolver-rules`, so no `/etc/hosts` edit is needed.
 
 - `playwright.config.ts` — runner config.
 - `specs/` — one folder per suite (`auth/`, `catalog/`, `lifecycle/`,
-  `dev-ops/`).
+  `dev-ops/`, `pe-ops/`, `abac-ui/`).
 - `po/` — page objects (intent-named methods, semantic locators). Every
   affordance currently resolves via `getByRole` + accessible name or
   `getByLabel`; no `data-testid` escape hatches are required against the
@@ -41,17 +41,20 @@ Chromium's `--host-resolver-rules`, so no `/etc/hosts` edit is needed.
 - `fixtures/` — Playwright `test.extend` fixtures (per-role storage state via
   `mintAuthState` + `storageStateFor`, a thin `kubectl` wrapper).
 - `k3d/` — Helm value overlays that turn the e2e cluster into a UI-test target.
+- `scripts/` — `seed-idp-users.sh`, the Thunder setup-Job re-run for
+  already-installed clusters (see below).
 
 ## Specs
 
 | Suite | Spec | What it asserts |
 |---|---|---|
 | `auth/` | sign-in | Thunder OIDC sign-in lands on the post-login Backstage layout |
+| `auth/` | pkce-login | `occ login` PKCE round-trip: Playwright drives the consent form, token persists, `occ get components` succeeds (self-skips unless the e2e hostnames resolve on the host — see below) |
 | `catalog/` | catalog-sync | kubectl-applied Component shows up in the Backstage catalog within polling timeout |
 | `lifecycle/` | full-lifecycle | UI-driven project + component create → deploy → delete, kubectl agreement on each step |
 | `dev-ops/` | dev-ops-component | Dev creates + views a Component; ComponentType create is denied server-side |
-
-Further suites (`pe-ops`, `abac-ui`, `auth/pkce-login`) land in follow-up PRs.
+| `pe-ops/` | pe-ops-pipeline | PE CRUD via the Scaffolder templates (ComponentType, Trait): create → kubectl shape → delete via the entity overflow menu |
+| `abac-ui/` | abac-env-restriction | Env-conditioned ClusterAuthzRoleBinding: deploy-to-dev + promote-to-staging allowed, promote-to-production renders the Promote button permission-disabled; relogin keeps the same permission shape (regression guard for backstage-plugins#549). Self-skips unless the ABAC identity is seeded — see below |
 
 ## Sign-in spec
 
@@ -63,47 +66,53 @@ fill the Thunder gate (`Enter your username` / `Enter your password`) → submit
 wait for the post-login sidebar `Home` link. The shared helper in
 `fixtures/auth.ts` drives the same flow to mint per-role `storageState`.
 
-## Thunder Backstage app must list the e2e redirect URI
+## Thunder bootstrap overlay (redirect URI + ABAC identity)
 
-The chart's `bootstrap.scripts.51-backstage-app.sh` is overlaid in
-`test/e2e/k3d/values-thunder.yaml` to add
-`http://openchoreo.e2e-cp.local:28080/api/auth/openchoreo-auth/handler/frame`
-alongside the single-cluster default. The Thunder helm chart only runs the
-bootstrap on `helm install` (`helm.sh/hook: pre-install`,
-`hook-delete-policy: hook-succeeded`), so applying the overlay to an
-already-installed cluster needs three steps:
+`test/e2e/k3d/values-thunder.yaml` overlays two bootstrap scripts onto the
+Thunder chart:
+
+- `51-backstage-app.sh` — adds
+  `http://openchoreo.e2e-cp.local:28080/api/auth/openchoreo-auth/handler/frame`
+  alongside the single-cluster default redirect URI.
+- `52-abac-user.sh` — provisions the ABAC-restricted identity
+  (`abac-dev@openchoreo.dev` in group `abac-developers`) the `abac-ui` suite
+  signs in as. Thunder's admin API rejects every request (401) once the
+  server is up — even from loopback inside the pod — so identities can only
+  be seeded from the bootstrap setup Job, which runs against the SQLite
+  store directly.
+
+The Thunder helm chart only runs the bootstrap on `helm install`
+(`helm.sh/hook: pre-install`, `hook-delete-policy: hook-succeeded`), so
+fresh installs (`make e2e.setup E2E_WITH_UI=true`) get both automatically.
+For an already-installed cluster, re-run the setup Job with:
 
 ```sh
-# Re-render with the e2e overlay and patch the bootstrap ConfigMap in place.
-helm --kube-context k3d-openchoreo-e2e template thunder \
-  oci://ghcr.io/asgardeo/helm-charts/thunder --namespace thunder --version 0.28.0 \
-  --values install/k3d/common/values-thunder.yaml \
-  --values test/e2e/k3d/values-thunder.yaml \
-  | awk '/^# Source: thunder\/templates\/bootstrap-configmap.yaml/,/^# Source:/' \
-  | sed '/^# Source: thunder\/templates\/[^b]/,$d' \
-  | kubectl --context k3d-openchoreo-e2e -n thunder apply -f -
-
-# Free the RWO sqlite PVC so the setup Job can mount it.
-kubectl --context k3d-openchoreo-e2e -n thunder scale deploy thunder-deployment --replicas=0
-kubectl --context k3d-openchoreo-e2e -n thunder wait --for=delete pod \
-  -l app.kubernetes.io/name=thunder --timeout=2m
-
-# Re-apply the setup Job manifest (renamed, helm hooks stripped) — bootstrap
-# scripts PUT-update each app idempotently against the existing PVC data.
-helm --kube-context k3d-openchoreo-e2e template thunder \
-  oci://ghcr.io/asgardeo/helm-charts/thunder --namespace thunder --version 0.28.0 \
-  --values install/k3d/common/values-thunder.yaml \
-  --values test/e2e/k3d/values-thunder.yaml \
-  --show-only templates/setup-job.yaml \
-  | yq '.metadata.name = "thunder-setup-rerun" | del(.metadata.annotations)' \
-  | kubectl --context k3d-openchoreo-e2e -n thunder apply -f -
-kubectl --context k3d-openchoreo-e2e -n thunder wait \
-  --for=condition=complete job/thunder-setup-rerun --timeout=5m
-kubectl --context k3d-openchoreo-e2e -n thunder delete job thunder-setup-rerun
-
-# Bring Thunder back up.
-kubectl --context k3d-openchoreo-e2e -n thunder scale deploy thunder-deployment --replicas=1
+test/ui/scripts/seed-idp-users.sh
 ```
+
+The script re-renders the bootstrap ConfigMap with the e2e overlay, scales
+Thunder to zero (the setup Job needs the RWO SQLite PVC), re-applies the
+setup Job (renamed, helm hooks stripped — the bootstrap scripts are
+idempotent), and scales Thunder back up. Sign-ins fail during the ~1–2
+minute window while Thunder is down. Requires `helm`, `kubectl`, `yq`.
+
+## pkce-login prerequisites
+
+The `auth/pkce-login` spec spawns `occ` as a host process — unlike the
+browser specs it cannot use Chromium's `--host-resolver-rules`, so the e2e
+hostnames must resolve via real DNS on the host:
+
+```sh
+sudo sh -c 'echo "127.0.0.1 openchoreo.e2e-cp.local api.e2e-cp.local thunder.e2e-cp.local" >> /etc/hosts'
+```
+
+The spec self-skips when the control-plane hostname doesn't resolve, so the
+rest of the suite is unaffected by a missing entry. It also needs the `occ`
+binary — `make go.build.occ` places it under `bin/dist/<os>/<arch>/occ`,
+which the spec resolves automatically (override with `OCC_BIN`). The
+control-plane API URL defaults to `http://api.e2e-cp.local:28080`; override
+with `OCC_CONTROL_PLANE_URL` (deliberately not `UI_BASE_URL`, which is the
+Backstage portal, not the API).
 
 ## Headed runs
 

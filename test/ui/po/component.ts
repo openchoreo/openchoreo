@@ -164,20 +164,31 @@ export class ComponentPO {
   // route resolves as soon as the component is created, whereas the Kind picker
   // only lists the "Component" kind once at least one component has synced into
   // the catalog list — so the filtered-list click path can't reach a
-  // freshly-created component. Reload-retry rides out the brief post-create
+  // freshly-created component. Reload-retry rides out the post-create
   // "Entity not found" window.
+  //
+  // Polls for a POSITIVE readiness signal (the entity page heading carries
+  // the component name) rather than the absence of "Entity not found" — on
+  // a slow load neither state is painted yet, so an absence check passes
+  // spuriously and the caller then times out on a half-rendered page. The
+  // budget covers a full catalog-provider sync cycle (default 300s) for
+  // installs without the UI-test values overlay.
   private async gotoComponentRoute(name: string, suffix = ''): Promise<void> {
     await expect
       .poll(
         async () => {
           await this.page.goto(`/catalog/default/component/${name}${suffix}`);
-          const notFound = await this.page
-            .getByText(/Entity not found/i)
-            .isVisible({ timeout: 8_000 })
-            .catch(() => false);
-          return !notFound;
+          try {
+            await this.page
+              .getByRole('heading', { name })
+              .first()
+              .waitFor({ state: 'visible', timeout: 8_000 });
+            return true;
+          } catch {
+            return false;
+          }
         },
-        { timeout: 90_000, intervals: [3_000] },
+        { timeout: 360_000, intervals: [3_000] },
       )
       .toBe(true);
   }
@@ -260,12 +271,65 @@ export class ComponentPO {
     }
   }
 
-  async promoteTo(environment: string): Promise<void> {
-    await this.page.getByRole('tab', { name: /Deploy/i }).click();
+  // The canvas's Promote affordance. The Deploy graph renders every
+  // environment node inside a single <article>, so per-environment scoping
+  // is not possible via roles — but it isn't needed: the Promote button only
+  // renders on an environment with a deployed binding, and once its target
+  // is promoted the button reads "Promoted" instead. At most one button
+  // named exactly "Promote" therefore exists at any time, and it always
+  // belongs to the most-recently-deployed pipeline stage.
+  private promoteButton() {
+    return this.page.getByRole('button', { name: 'Promote', exact: true });
+  }
+
+  // Promote the deployed release to `targetEnvironment` (its single
+  // promotion source is whichever stage currently shows the Promote
+  // button). Clicking it opens the target's overrides page, where "Promote"
+  // (or "Save & Promote" when overrides changed) confirms.
+  async promoteToNext(targetEnvironment: string): Promise<void> {
+    const promote = this.promoteButton();
+    await expect(promote).toBeEnabled({ timeout: 60_000 });
+    await promote.click();
+    await this.page.waitForURL(new RegExp(`overrides/${targetEnvironment}`), {
+      timeout: 15_000,
+    });
     await this.page
-      .getByRole('button', { name: `Actions for ${environment}`, exact: true })
+      .getByRole('button', { name: /^(Save & )?Promote$/ })
+      .first()
       .click();
-    await this.page.getByRole('menuitem', { name: /Promote/i }).click();
+  }
+
+  // Assert the canvas's Promote affordance is permission-denied for
+  // `targetEnvironment`. The UI gates Promote client-side per TARGET
+  // environment (usePromoteToEnvPermission: releasebinding:create + update),
+  // so an ABAC deny renders a DISABLED button wrapped in a tooltip naming
+  // the missing permission — there is no click → server-deny → toast path.
+  async expectPromoteDenied(
+    targetEnvironment: string,
+    timeoutMs = 60_000,
+  ): Promise<void> {
+    const promote = this.promoteButton();
+    // Auto-retries through the window where the previous stage's button is
+    // still enabled: once the target stage deploys, the previous button
+    // renames to "Promoted" and this locator re-resolves to the new stage.
+    await expect(promote).toBeDisabled({ timeout: timeoutMs });
+    // Disabled is also the transient state while the permission check loads;
+    // the deny tooltip naming the target is what distinguishes "denied"
+    // from "still loading". The tooltip's hover listener is only armed once
+    // the deny resolves, and MUI won't show it for a pointer already resting
+    // on the element — so re-hover (leave + enter) on every retry instead of
+    // hovering once and polling visibility.
+    const tooltip = this.page.getByText(
+      new RegExp(
+        `do not have permission to (promote|deploy)( to)? .*${targetEnvironment}`,
+        'i',
+      ),
+    );
+    await expect(async () => {
+      await this.page.mouse.move(0, 0);
+      await promote.hover({ force: true });
+      await expect(tooltip).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
   }
 
   async expectListed(name: string): Promise<void> {

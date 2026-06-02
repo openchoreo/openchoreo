@@ -46,7 +46,9 @@ test.describe('lifecycle: full kubectl-equivalent flow through Backstage UI', ()
     page,
   }) => {
     // create + multi-step deploy + wait-for-Ready exceeds the global 60s.
-    test.setTimeout(360_000);
+    // Sized to absorb a full catalog-provider sync cycle (default 300s)
+    // inside the entity-route wait on installs without the UI values overlay.
+    test.setTimeout(900_000);
     const project = new ProjectPO(page);
     const component = new ComponentPO(page);
     const release = new ReleasePO(page);
