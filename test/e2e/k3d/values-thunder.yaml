@@ -168,7 +168,23 @@ bootstrap:
       ABAC_USERNAME="abac-dev@openchoreo.dev"
       ABAC_GROUP="abac-developers"
 
-      existing_users=$(curl -s --max-time 10 "${THUNDER_URL}/users")
+      # Fail on HTTP errors and retry: a transient Thunder error here would
+      # otherwise yield an empty list and divert into the create path
+      # (which then fails on the already-existing user). Mirrors the retry
+      # in 51-backstage-app.sh.
+      existing_users=""
+      for attempt in 1 2 3; do
+        if existing_users=$(curl -s --fail --max-time 10 "${THUNDER_URL}/users"); then
+          break
+        fi
+        existing_users=""
+        log_info "Listing users failed (attempt ${attempt}/3), retrying in 5s..."
+        sleep 5
+      done
+      if [ -z "$existing_users" ]; then
+        log_error "Failed to list users from ${THUNDER_URL} after 3 attempts"
+        exit 1
+      fi
       if echo "$existing_users" | grep -q "\"username\" *: *\"${ABAC_USERNAME}\""; then
         log_info "User '${ABAC_USERNAME}' already exists, getting ID..."
         abac_user_id=$(echo "$existing_users" | tr '\n' ' ' | sed 's/" *: *"/":"/g' \
@@ -198,7 +214,20 @@ bootstrap:
         abac_user_id=$(echo "$response" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
       fi
 
-      existing_groups=$(curl -s --max-time 10 "${THUNDER_URL}/groups")
+      # Same fail-and-retry rationale as the user listing above.
+      existing_groups=""
+      for attempt in 1 2 3; do
+        if existing_groups=$(curl -s --fail --max-time 10 "${THUNDER_URL}/groups"); then
+          break
+        fi
+        existing_groups=""
+        log_info "Listing groups failed (attempt ${attempt}/3), retrying in 5s..."
+        sleep 5
+      done
+      if [ -z "$existing_groups" ]; then
+        log_error "Failed to list groups from ${THUNDER_URL} after 3 attempts"
+        exit 1
+      fi
       if echo "$existing_groups" | grep -q "\"name\" *: *\"${ABAC_GROUP}\""; then
         log_info "Group '${ABAC_GROUP}' already exists, skipping creation"
       else

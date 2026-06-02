@@ -159,6 +159,14 @@ test.describe('pkce-login: occ login drives PKCE through the Backstage browser',
       });
     });
 
+    // Arm the exit listener before driving the consent form — occ exits as
+    // soon as the callback round-trips, which can race a listener attached
+    // only after the form interactions (a 'close' event that fired earlier
+    // would never reach it, hanging the test).
+    const exitPromise = new Promise<number>(resolve => {
+      child.on('close', code => resolve(code ?? 1));
+    });
+
     // Drive the consent form via Playwright. Reuse the PE identity — the
     // pkce flow only validates the browser leg, not RBAC.
     await page.goto(authURL);
@@ -174,9 +182,7 @@ test.describe('pkce-login: occ login drives PKCE through the Backstage browser',
     // callback (http://127.0.0.1:<port>/callback). The browser shows the
     // success page rendered by occ's local server; the CLI process should
     // then exit 0.
-    const exitCode = await new Promise<number>(resolve => {
-      child.on('close', code => resolve(code ?? 1));
-    });
+    const exitCode = await exitPromise;
     expect(exitCode).toBe(0);
 
     // Verify a token round-trip via a follow-on occ call (occ has no

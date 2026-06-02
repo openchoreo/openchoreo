@@ -54,10 +54,12 @@ helm_template --show-only templates/bootstrap-configmap.yaml \
   | "${KUBECTL[@]}" apply -f -
 
 log_info "Scaling thunder-deployment to 0 to free the RWO SQLite PVC"
+# Install the restore trap before touching the replica count so any early
+# exit (including a failed wait below) scales Thunder back up.
+trap restore_thunder EXIT
 "${KUBECTL[@]}" scale deploy thunder-deployment --replicas=0
 "${KUBECTL[@]}" wait --for=delete pod \
   -l app.kubernetes.io/name=thunder --timeout=2m
-trap restore_thunder EXIT
 
 log_info "Re-running the setup Job (renamed, helm hooks stripped)"
 "${KUBECTL[@]}" delete job "${RERUN_JOB}" --ignore-not-found
