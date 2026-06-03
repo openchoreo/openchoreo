@@ -99,10 +99,15 @@ spec:
           parentRefs:
             - name: ${gateway.ingress.external.name}
               namespace: ${gateway.ingress.external.namespace}
+          # Unlike HTTP (which disambiguates components by path prefix), gRPC has no
+          # base path — the request path IS /<package>.<Service>/<Method>. So routing
+          # is by hostname + service/method, and multi-tenant isolation requires a
+          # UNIQUE hostname per component endpoint. oc_dns_label() builds a DNS-safe
+          # (<=63 char) subdomain from component/endpoint/environment/namespace.
           hostnames: |
             ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-              .map(h, metadata.environmentName + "-" + metadata.componentNamespace + "." + h)}
+              .map(h, oc_dns_label(metadata.componentName, endpoint.key, metadata.environmentName, metadata.componentNamespace) + "." + h)}
           rules:
             # Render one match per (service, method) extracted from the endpoint's
             # proto schema. workload.toEndpointResources() is an opt-in macro: the
@@ -135,7 +140,7 @@ spec:
           hostnames: |
             ${[gateway.ingress.internal.?http, gateway.ingress.internal.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
-              .map(h, metadata.environmentName + "-" + metadata.componentNamespace + "." + h)}
+              .map(h, oc_dns_label(metadata.componentName, endpoint.key, metadata.environmentName, metadata.componentNamespace) + "." + h)}
           rules:
             # Render one match per (service, method) extracted from the endpoint's
             # proto schema. workload.toEndpointResources() is an opt-in macro: the

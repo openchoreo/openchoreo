@@ -14,6 +14,7 @@ A reusable template for gRPC services. It:
 - Templates the underlying Kubernetes resources (`Deployment`, `Service`, `GRPCRoute`)
 - Restricts endpoints to `type: gRPC`
 - Emits one `GRPCRoute` per external endpoint and one per internal endpoint
+- Gives each endpoint a **unique hostname** for multi-tenant isolation (see below)
 
 ### Component (`demo-app-grpc-service`)
 
@@ -33,6 +34,29 @@ The OpenChoreo controller manager renders the ClusterComponentType templates int
 
 - `externalURLs.http` — cleartext gRPC over the gateway's `http` listener (scheme `grpc`)
 - `externalURLs.https` — gRPC + TLS terminated at the gateway over the `https` listener (scheme `grpcs`)
+
+### Hostname-based routing (multi-tenancy)
+
+A gRPC request's HTTP/2 path **is** `/<package>.<Service>/<Method>`, so the gateway
+routes by **hostname + service/method**. Unlike HTTP — where components on a shared host
+are disambiguated by a unique path prefix (`/<component>-<endpoint>`) — gRPC has no base
+path to attach a prefix to. So for multiple gRPC components to coexist on the same gateway
+without colliding (e.g. two components both serving `greeter.Greeter`), each endpoint needs
+its **own hostname**.
+
+This ComponentType builds a unique subdomain per endpoint with `oc_dns_label(...)` (a
+DNS-safe, ≤63-character label derived from component / endpoint / environment / namespace):
+
+```
+<oc_dns_label(component, endpoint, environment, namespace)>.openchoreoapis.localhost
+# e.g. demo-app-grpc-grpc-development-default-3b9d1d04.openchoreoapis.localhost
+```
+
+The resolved `externalURLs` host (and the `:authority` clients dial) is this unique name.
+
+> **Deployment note:** per-endpoint hostnames require wildcard DNS (`*.openchoreoapis.localhost`)
+> and a matching wildcard gateway certificate in real environments. On k3d, `*.localhost`
+> already resolves to `127.0.0.1`, so setting `grpcurl -authority <host>` is enough.
 
 ## Deploy the sample
 
@@ -60,12 +84,12 @@ You should see something like:
     },
     "externalURLs": {
       "http": {
-        "host": "development-default.openchoreoapis.localhost",
+        "host": "demo-app-grpc-grpc-development-default-3b9d1d04.openchoreoapis.localhost",
         "port": 19080,
         "scheme": "grpc"
       },
       "https": {
-        "host": "development-default.openchoreoapis.localhost",
+        "host": "demo-app-grpc-grpc-development-default-3b9d1d04.openchoreoapis.localhost",
         "port": 19443,
         "scheme": "grpcs"
       }
@@ -90,11 +114,15 @@ service Greeter {
 }
 ```
 
-Then invoke against the cleartext gateway listener:
+Get the endpoint's unique hostname from the ReleaseBinding status, then invoke against the
+cleartext gateway listener (the `:authority` selects the host the gateway routes on):
 
 ```bash
+HOST=$(kubectl get releasebinding demo-app-grpc-service-development \
+  -o jsonpath='{.status.endpoints[0].externalURLs.http.host}')
+
 grpcurl -plaintext -import-path . -proto greeter.proto \
-  -authority development-default.openchoreoapis.localhost \
+  -authority "$HOST" \
   -d '{"name":"OpenChoreo"}' \
   127.0.0.1:19080 \
   greeter.Greeter/SayHello
@@ -108,7 +136,11 @@ Expected response:
 }
 ```
 
-> If `development-default.openchoreoapis.localhost` resolves to `127.0.0.1` on your machine, you can omit `-authority` and dial the hostname directly. The `-authority` flag here sets the gRPC `:authority` pseudo-header that the gateway uses for hostname matching.
+> `$HOST` is the per-endpoint subdomain (e.g. `demo-app-grpc-grpc-development-default-3b9d1d04.openchoreoapis.localhost`).
+> Because `*.openchoreoapis.localhost` resolves to `127.0.0.1`, you can also `curl`/dial the
+> hostname directly; `-authority` sets the gRPC `:authority` header the gateway matches on.
+> The shared `development-default.openchoreoapis.localhost` host no longer routes to this
+> service — that isolation is the point of the per-endpoint hostname.
 
 ## Cleanup
 
