@@ -13,11 +13,9 @@
 package schemaextract
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 )
@@ -66,56 +64,14 @@ var registry = map[SchemaType]Extractor{
 	SchemaTypeProto:   protoExtractor{},
 }
 
-// maxParseCacheEntries bounds the parse cache so a controller managing many
-// components with distinct large schemas cannot grow memory without limit.
-const maxParseCacheEntries = 512
-
-// parseCache memoizes successful extractions keyed by content hash + type.
-// Schema content is immutable within a ComponentRelease, but extraction may run
-// on every reconcile, so this avoids re-compiling identical schemas.
-var parseCache = newResultCache(maxParseCacheEntries)
-
-type cacheKey struct {
-	st  SchemaType
-	sha [32]byte
-}
-
-// resultCache is a simple bounded, concurrency-safe cache for parsed results.
-// When at capacity, new keys are not stored (existing entries keep serving),
-// which bounds memory without per-entry LRU bookkeeping. Entries never go stale
-// because schema content is immutable per ComponentRelease.
-type resultCache struct {
-	mu  sync.RWMutex
-	max int
-	m   map[cacheKey][]EndpointResource
-}
-
-func newResultCache(max int) *resultCache {
-	return &resultCache{max: max, m: make(map[cacheKey][]EndpointResource)}
-}
-
-func (c *resultCache) get(k cacheKey) ([]EndpointResource, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	v, ok := c.m[k]
-	return v, ok
-}
-
-func (c *resultCache) put(k cacheKey, v []EndpointResource) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if len(c.m) >= c.max {
-		if _, exists := c.m[k]; !exists {
-			return // at capacity: don't admit new keys
-		}
-	}
-	c.m[k] = v
-}
-
 // Extract returns the routes extracted from an endpoint's schema. It never fails
 // fatally: a nil/blank schema, an unresolved type, an unregistered extractor, or
 // a parse error all return a non-nil empty slice. A non-nil error is returned for
 // the caller to log as a warning only (rendering must continue regardless).
+//
+// The schema is parsed on each call. The pipeline only invokes this once per
+// render (and only when a template opts into the workload.toEndpointResources()
+// macro), so no result memoization is kept here.
 func Extract(epType v1alpha1.EndpointType, schema *v1alpha1.Schema) ([]EndpointResource, error) {
 	if schema == nil || strings.TrimSpace(schema.Content) == "" {
 		return empty(), nil
@@ -138,11 +94,6 @@ func Extract(epType v1alpha1.EndpointType, schema *v1alpha1.Schema) ([]EndpointR
 		return empty(), fmt.Errorf("no extractor registered for schema type %q", st)
 	}
 
-	key := cacheKey{st: st, sha: sha256.Sum256([]byte(schema.Content))}
-	if v, ok := parseCache.get(key); ok {
-		return v, nil
-	}
-
 	res, err := ex.Extract(schema.Content)
 	if err != nil {
 		return empty(), fmt.Errorf("extract %s schema: %w", st, err)
@@ -151,8 +102,6 @@ func Extract(epType v1alpha1.EndpointType, schema *v1alpha1.Schema) ([]EndpointR
 		res = empty()
 	}
 	sortResources(res)
-
-	parseCache.put(key, res)
 	return res, nil
 }
 
