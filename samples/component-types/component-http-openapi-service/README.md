@@ -165,8 +165,8 @@ kubectl get trafficpolicy -A -l openchoreo.dev/component=demo-app-reading-list
 kubectl get deployment,pods -A -l openchoreo.dev/component=demo-app-reading-list
 ```
 
-- **`matches` is missing / route is catch-all** — the endpoint has no parseable schema, or
-  the template doesn't call `workload.toEndpointResources()`. The controller logs a
-  `schemaextract` warning when schema content fails to parse.
+- **HTTPRoute has no rules** — the endpoint has no parseable schema (this ComponentType
+  requires one; there is no catch-all fallback). The controller logs a `schemaextract`
+  warning when schema content fails to parse.
 - **`TrafficPolicy ... is forbidden`** — the data-plane cluster-agent lacks RBAC for
   `trafficpolicies.gateway.kgateway.dev` (see [Prerequisites](#prerequisites)).

@@ -5,7 +5,7 @@
 # - Using the opt-in workload.toEndpointResources() macro to read the endpoint's
 #   OpenAPI schema and render one HTTPRoute match per (path, method)
 # - OpenAPI path templates (e.g. /books/{id}) translated to Gateway path matches
-# - Graceful fallback to a catch-all route when no schema is present
+# - Routes require a parseable OpenAPI schema; an endpoint without one renders no HTTPRoute rules
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -111,6 +111,8 @@ spec:
           # prefix /<component>-<endpoint>. Static paths use an Exact match; parameterized
           # paths (/books/{id}) become a RegularExpression match ({param} -> [^/]+). The
           # prefix is rewritten back to the real basePath by the TrafficPolicy below.
+          # This sample assumes the endpoint always has a parseable schema; an endpoint
+          # without one renders no rules (no catch-all fallback).
           rules: >-
             ${endpoint.key in workload.toEndpointResources()
               ? workload.toEndpointResources()[endpoint.key].map(r, {
