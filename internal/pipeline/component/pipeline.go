@@ -315,17 +315,27 @@ func (p *Pipeline) validateInput(input *RenderInput) error {
 // workload.toEndpointResources().
 const endpointResourcesMacroToken = "toEndpointResources"
 
-// usesEndpointResources reports whether any ComponentType template or trait
-// references the workload.toEndpointResources() macro. It scans the marshaled
-// definitions for the macro token; a false positive only causes harmless extra
-// work, while the literal token cannot be absent when the macro is actually used.
+// usesEndpointResources reports whether any ComponentType or trait template
+// uses the workload.toEndpointResources() macro.
 func usesEndpointResources(input *RenderInput) bool {
 	token := []byte(endpointResourcesMacroToken)
-	if b, err := json.Marshal(input.ComponentType); err == nil && bytes.Contains(b, token) {
+	ct := input.ComponentType.Spec
+	if jsonContainsToken(token, ct.Resources, ct.Validations, ct.Traits) {
 		return true
 	}
 	for i := range input.Traits {
-		if b, err := json.Marshal(&input.Traits[i]); err == nil && bytes.Contains(b, token) {
+		t := input.Traits[i].Spec
+		if jsonContainsToken(token, t.Validations, t.Creates, t.Patches, t.Removes) {
+			return true
+		}
+	}
+	return false
+}
+
+// jsonContainsToken reports whether the JSON encoding of any value contains token.
+func jsonContainsToken(token []byte, values ...any) bool {
+	for _, v := range values {
+		if b, err := json.Marshal(v); err == nil && bytes.Contains(b, token) {
 			return true
 		}
 	}
