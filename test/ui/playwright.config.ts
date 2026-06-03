@@ -46,6 +46,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         launchOptions: {
           args: [`--host-resolver-rules=${hostResolverRules}`],
+          ...(process.env.PWSLOWMO && { slowMo: Number(process.env.PWSLOWMO) }),
         },
       },
     },

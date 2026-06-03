@@ -183,6 +183,12 @@ export class ComponentPO {
               .getByRole('heading', { name })
               .first()
               .waitFor({ state: 'visible', timeout: 8_000 });
+            // The heading renders even on the "Entity not found" page —
+            // reject that state so the poll retries until the entity syncs.
+            const notFound = this.page.getByText('Entity not found');
+            if (await notFound.isVisible({ timeout: 1_000 }).catch(() => false)) {
+              return false;
+            }
             return true;
           } catch {
             return false;
