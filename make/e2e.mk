@@ -144,8 +144,9 @@ endef
 e2e: ## Full e2e lifecycle: setup → test → down (collects diagnostics on failure)
 	@setup_ok=0; \
 	$(MAKE) e2e.setup && setup_ok=1; \
+	test_exit=0; \
 	if [ $$setup_ok -eq 1 ]; then \
-		$(MAKE) e2e.test; test_exit=$$?; \
+		$(MAKE) e2e.test || test_exit=$$?; \
 		if [ $$test_exit -ne 0 ]; then $(MAKE) e2e.diagnostics || true; fi; \
 	else \
 		test_exit=1; \
