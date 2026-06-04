@@ -2,7 +2,7 @@
 #
 # This sample demonstrates:
 # - A custom ClusterComponentType that emits a Gateway API HTTPRoute
-# - Using the opt-in workload.toEndpointResources() macro to read the endpoint's
+# - Using the opt-in workload.toEndpointResources(<endpointName>) macro to read the endpoint's
 #   OpenAPI schema and render one HTTPRoute match per (path, method)
 # - OpenAPI path templates (e.g. /books/{id}) translated to Gateway path matches
 # - Routes require a parseable OpenAPI schema; an endpoint without one renders no HTTPRoute rules
@@ -107,27 +107,25 @@ spec:
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
               .map(h, metadata.environmentName + "-" + metadata.componentNamespace + "." + h)}
           # One rule per (path, method) extracted from the endpoint's OpenAPI schema via
-          # the opt-in workload.toEndpointResources() macro, under the unique gateway
+          # the opt-in workload.toEndpointResources(<endpointName>) macro, under the unique gateway
           # prefix /<component>-<endpoint>. Static paths use an Exact match; parameterized
           # paths (/books/{id}) become a RegularExpression match ({param} -> [^/]+). The
           # prefix is rewritten back to the real basePath by the TrafficPolicy below.
           # This sample assumes the endpoint always has a parseable schema; an endpoint
           # without one renders no rules (no catch-all fallback).
           rules: >-
-            ${endpoint.key in workload.toEndpointResources()
-              ? workload.toEndpointResources()[endpoint.key].map(r, {
-                  "matches": [{
-                    "path": {
-                      "type": r.path.contains("{") ? "RegularExpression" : "Exact",
-                      "value": r.path.contains("{")
-                        ? ("/" + metadata.componentName + "-" + endpoint.key + r.path).split("/").map(s, s.startsWith("{") ? "[^/]+" : s).join("/")
-                        : "/" + metadata.componentName + "-" + endpoint.key + r.path
-                    },
-                    "method": r.method
-                  }],
-                  "backendRefs": [{"name": metadata.componentName, "port": endpoint.value.port}]
-                })
-              : []}
+            ${workload.toEndpointResources(endpoint.key).orValue([]).map(r, {
+                "matches": [{
+                  "path": {
+                    "type": r.path.contains("{") ? "RegularExpression" : "Exact",
+                    "value": r.path.contains("{")
+                      ? ("/" + metadata.componentName + "-" + endpoint.key + r.path).split("/").map(s, s.startsWith("{") ? "[^/]+" : s).join("/")
+                      : "/" + metadata.componentName + "-" + endpoint.key + r.path
+                  },
+                  "method": r.method
+                }],
+                "backendRefs": [{"name": metadata.componentName, "port": endpoint.value.port}]
+              })}
 
     - id: trafficpolicy-external
       forEach: '${workload.endpoints.transformMap(name, ep, "external" in ep.visibility && ep.type == "HTTP", ep)}'

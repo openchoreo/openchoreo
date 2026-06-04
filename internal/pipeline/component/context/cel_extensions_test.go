@@ -930,9 +930,9 @@ func TestWorkloadToEndpointResourcesMacro(t *testing.T) {
 
 	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
 
-	// The macro rewrites workload.toEndpointResources() to derived.endpointResources;
-	// indexing by endpoint name and mapping yields the extracted route fields.
-	got, err := engine.Render(`${workload.toEndpointResources()["grpc"].map(r, r.service + "/" + r.method)}`, inputs)
+	// The macro rewrites workload.toEndpointResources(<name>) to an optional index
+	// into derived.endpointResources; mapping yields the extracted route fields.
+	got, err := engine.Render(`${workload.toEndpointResources("grpc").orValue([]).map(r, r.service + "/" + r.method)}`, inputs)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -940,12 +940,21 @@ func TestWorkloadToEndpointResourcesMacro(t *testing.T) {
 		t.Errorf("mismatch (-want +got):\n%s", diff)
 	}
 
-	// Missing endpoint key is absent from the map (templates branch on `in`).
-	present, err := engine.Render(`${"missing" in workload.toEndpointResources()}`, inputs)
+	// A missing endpoint name yields optional.none -> orValue fallback.
+	missing, err := engine.Render(`${workload.toEndpointResources("missing").orValue([]).size()}`, inputs)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if present != false {
-		t.Errorf("expected false for missing key, got %v", present)
+	if missing != int64(0) {
+		t.Errorf("expected 0 for missing key, got %v", missing)
+	}
+
+	// hasValue() distinguishes present vs absent endpoints.
+	present, err := engine.Render(`${workload.toEndpointResources("grpc").hasValue() && !workload.toEndpointResources("missing").hasValue()}`, inputs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if present != true {
+		t.Errorf("expected true, got %v", present)
 	}
 }

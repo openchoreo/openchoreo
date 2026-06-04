@@ -520,7 +520,7 @@ func TestValidateResourceTemplate_ForEachListFieldAccess(t *testing.T) {
 							ForEach: `${workload.endpoints.transformMap(name, ep, ep.type == "gRPC", ep)}`,
 							Var:     "endpoint",
 							Template: &runtime.RawExtension{
-								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "${endpoint.key}"}, "data": {"svc": "${endpoint.key in workload.toEndpointResources() ? workload.toEndpointResources()[endpoint.key][0].service : \"\"}"}}`),
+								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "${endpoint.key}"}, "data": {"svc": "${workload.toEndpointResources(endpoint.key).orValue([]).map(r, r.service).join(\",\")}"}}`),
 							},
 						},
 					},

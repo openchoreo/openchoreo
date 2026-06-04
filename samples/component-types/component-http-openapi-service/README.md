@@ -27,7 +27,7 @@ The sample's YAML is self-contained: it defines a custom `ClusterComponentType`
 ### `ClusterComponentType` (`http-openapi-service`)
 
 Emits a `Deployment`, `Service`, `HTTPRoute`, and `TrafficPolicy`. The HTTPRoute uses the
-opt-in **`workload.toEndpointResources()`** macro to read the parsed OpenAPI schema and
+opt-in **`workload.toEndpointResources(<endpointName>)`** macro to read the parsed OpenAPI schema and
 build one rule per `(path, method)`:
 
 - Each match is the unique gateway prefix `/<component>-<endpoint>` + the OpenAPI path.
@@ -55,7 +55,7 @@ the HTTPRoute matches, the rewrite is a uniform prefix-swap.
 
 Declares a `reading-list-api` HTTP endpoint on port `8080` with `basePath: /api/v1/reading-list`
 and an inline OpenAPI `schema` (`type: openapi`). The controller parses this schema **only
-because** the ComponentType template references `workload.toEndpointResources()` — the macro
+because** the ComponentType template references `workload.toEndpointResources(<endpointName>)` — the macro
 is opt-in, so endpoints whose templates don't use it incur no schema parsing.
 
 ## Prerequisites
