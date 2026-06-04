@@ -958,3 +958,43 @@ func TestWorkloadToEndpointResourcesMacro(t *testing.T) {
 		t.Errorf("expected true, got %v", present)
 	}
 }
+
+// TestWorkloadToEndpointResourcesMacroEmptyMap pins the regression where a template
+// uses the macro but no endpoint produced resources (e.g. all schemas missing or
+// malformed): the backing map must still be present in the marshaled context so the
+// macro degrades to optional.none instead of failing the render with
+// "no such key: endpointResources".
+func TestWorkloadToEndpointResourcesMacroEmptyMap(t *testing.T) {
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+
+	for name, endpointResources := range map[string]EndpointResourceMap{
+		"empty map": {},
+		"nil map":   nil, // normalized to an empty map by BuildDerivedContext
+	} {
+		derived := BuildDerivedContext(ContainerConfigurations{}, WorkloadData{}, ConnectionsContextData{}, "app-dev", endpointResources)
+		derivedMap, err := structToMap(&derived)
+		if err != nil {
+			t.Fatalf("%s: structToMap failed: %v", name, err)
+		}
+		if _, ok := derivedMap["endpointResources"]; !ok {
+			t.Fatalf("%s: endpointResources must be present in the marshaled derived context", name)
+		}
+		inputs := map[string]any{"derived": derivedMap}
+
+		got, err := engine.Render(`${workload.toEndpointResources("grpc").orValue([]).size()}`, inputs)
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", name, err)
+		}
+		if got != int64(0) {
+			t.Errorf("%s: expected 0, got %v", name, got)
+		}
+
+		has, err := engine.Render(`${workload.toEndpointResources("grpc").hasValue()}`, inputs)
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", name, err)
+		}
+		if has != false {
+			t.Errorf("%s: expected false, got %v", name, has)
+		}
+	}
+}
