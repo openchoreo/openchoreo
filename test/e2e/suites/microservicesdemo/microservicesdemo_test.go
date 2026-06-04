@@ -36,10 +36,13 @@ const (
 )
 
 // All components shipped by the demo. Used to wait for each RB to reach Ready.
+// redis is not listed: it ships as a Resource (backed by the valkey
+// ClusterResourceType), so it has a ResourceReleaseBinding instead of a
+// ReleaseBinding and is waited on separately.
 var demoComponents = []string{
 	"ad", "cart", "checkout", "currency", "email",
 	"frontend", "payment", "productcatalog",
-	"recommendation", "redis", "shipping",
+	"recommendation", "shipping",
 }
 
 var demoDPNs string
@@ -59,6 +62,24 @@ var _ = Describe("GCP Microservices Demo", Ordered, Label("tier1"), func() {
 		By("applying gcp-microservices-demo sample manifests")
 		output, err := framework.Kubectl(kubeContext, "apply", "-f", sampleDir, "-R")
 		Expect(err).NotTo(HaveOccurred(), "kubectl apply failed: %s", output)
+
+		// The redis ResourceReleaseBinding ships with spec.resourceRelease
+		// unset (see samples/gcp-microservices-demo/resources/redis.yaml);
+		// the README has the user promote it manually. Do that promote here,
+		// otherwise the cart component's resource dependency never resolves.
+		By("promoting the redis ResourceReleaseBinding to the latest ResourceRelease")
+		var redisRelease string
+		Eventually(func(g Gomega) {
+			name, jpErr := framework.KubectlGetJsonpath(kubeContext, demoCPNamespace,
+				"resource", "redis", `{.status.latestRelease.name}`)
+			g.Expect(jpErr).NotTo(HaveOccurred())
+			g.Expect(name).NotTo(BeEmpty(), "Resource redis has no latestRelease yet")
+			redisRelease = name
+		}, 2*time.Minute, 2*time.Second).Should(Succeed())
+		output, err = framework.Kubectl(kubeContext, "patch", "resourcereleasebinding",
+			"redis-development", "-n", demoCPNamespace, "--type=merge",
+			"-p", fmt.Sprintf(`{"spec":{"resourceRelease":%q}}`, redisRelease))
+		Expect(err).NotTo(HaveOccurred(), "failed to promote redis binding: %s", output)
 
 		By("waiting for project DP namespace discovery")
 		Eventually(func() error {
@@ -100,6 +121,16 @@ var _ = Describe("GCP Microservices Demo", Ordered, Label("tier1"), func() {
 
 	Context("multi-service deployment", func() {
 		It("all ReleaseBindings reach Ready", func() {
+			// redis is a Resource, not a Component — its readiness gates the
+			// cart component below, so wait on its ResourceReleaseBinding first.
+			By("waiting on ResourceReleaseBinding redis-" + demoEnvironment)
+			Eventually(func(g Gomega) {
+				framework.AssertJsonpathEquals(g, kubeContext, demoCPNamespace,
+					"resourcereleasebinding", "redis-"+demoEnvironment,
+					`{.status.conditions[?(@.type=="Ready")].status}`, "True")
+			}, 8*time.Minute, 5*time.Second).Should(Succeed(),
+				"ResourceReleaseBinding redis-%s should be Ready", demoEnvironment)
+
 			for _, comp := range demoComponents {
 				rbName := comp + "-" + demoEnvironment
 				By("waiting on ReleaseBinding " + rbName)
