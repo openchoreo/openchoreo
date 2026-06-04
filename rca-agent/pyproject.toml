@@ -21,7 +21,7 @@ dependencies = [
     "aiosqlite>=0.20.0",
     "asyncpg>=0.30.0",
     "sqlalchemy[asyncio]>=2.0.0",
-    "pyjwt[crypto]>=2.8.0",
+    "pyjwt[crypto]>=2.13.0",
     "pyyaml>=6.0.0",
     "uvicorn>=0.41.0",
 ]
