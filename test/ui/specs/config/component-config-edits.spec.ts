@@ -392,7 +392,7 @@ test.describe('component config edits through Backstage UI', () => {
     const component = new ComponentPO(page);
     const release = new ReleasePO(page);
 
-    await component.deployTo(COMPONENT_NAME, 'development');
+    await component.deployLatestRelease(COMPONENT_NAME, 'development');
     await release.expectActive(COMPONENT_NAME, 'development', 120_000);
   });
 

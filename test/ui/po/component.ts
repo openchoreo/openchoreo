@@ -267,6 +267,30 @@ export class ComponentPO {
       .click();
   }
 
+  // Deploy the latest existing release to `environment`. Use when releases
+  // have already been created (e.g. via saveAndCreateRelease) and the setup
+  // panel shows a release picker instead of the "Create release" button.
+  async deployLatestRelease(
+    componentName: string,
+    environment: string,
+  ): Promise<void> {
+    await this.gotoComponentRoute(componentName, '/environments');
+    await this.openSetupPanel();
+
+    const panelDeploy = this.page
+      .getByRole('button', { name: 'Deploy', exact: true })
+      .first();
+    await expect(panelDeploy).toBeEnabled({ timeout: 30_000 });
+    await panelDeploy.click();
+    await this.page.waitForURL(new RegExp(`overrides/${environment}`), {
+      timeout: 15_000,
+    });
+    await this.page
+      .getByRole('button', { name: 'Deploy', exact: true })
+      .first()
+      .click();
+  }
+
   // Open the "Set up" node's detail panel if it isn't already open. Clicking an
   // already-pressed node would toggle it closed, so guard on aria-pressed.
   private async openSetupPanel(): Promise<void> {
