@@ -912,6 +912,8 @@ create_backstage_secret() {
         --from-literal=backend-secret="$backend_secret" \
         --from-literal=client-secret="backstage-portal-secret" \
         --from-literal=jenkins-api-key="placeholder-not-in-use" \
+        --from-literal=github-actions-token="placeholder-not-in-use" \
+        --from-literal=github-oauth-client-secret="placeholder-not-in-use" \
         -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1 || {
         log_error "Failed to create backstage secret in $namespace"
         return 1
