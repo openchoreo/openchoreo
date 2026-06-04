@@ -467,6 +467,65 @@ func TestRoute_InvalidMethod(t *testing.T) {
 	assert.Contains(t, resp.Error.Message, "failed to create request")
 }
 
+func TestRoute_StripsAuthorizationForK8sBackend(t *testing.T) {
+	var capturedAuth string
+	route := newMockRoute("k8s", "https://kubernetes.svc", func(req *http.Request) (*http.Response, error) {
+		capturedAuth = req.Header.Get("Authorization")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	})
+	route.Backend = "kubernetes"
+
+	router := newTestRouter(t, map[string]*Route{"k8s": route})
+
+	req := &messaging.HTTPTunnelRequest{
+		RequestID: "req-k8s-auth",
+		Target:    "k8s",
+		Method:    "GET",
+		Path:      "/api/v1/pods",
+		Headers: map[string][]string{
+			"Authorization": {"Bearer client-supplied-token"},
+			"X-Custom":      {"keep-me"},
+		},
+	}
+
+	resp := router.Route(req)
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Empty(t, capturedAuth, "client-supplied Authorization header must be stripped for k8s backend")
+}
+
+func TestRoute_PreservesAuthorizationForHTTPBackend(t *testing.T) {
+	var capturedAuth string
+	route := newMockRoute("monitoring", "https://prometheus.svc", func(req *http.Request) (*http.Response, error) {
+		capturedAuth = req.Header.Get("Authorization")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("")),
+		}, nil
+	})
+
+	router := newTestRouter(t, map[string]*Route{"monitoring": route})
+
+	req := &messaging.HTTPTunnelRequest{
+		RequestID: "req-http-auth",
+		Target:    "monitoring",
+		Method:    "GET",
+		Path:      "/api/v1/query",
+		Headers: map[string][]string{
+			"Authorization": {"Bearer client-supplied-token"},
+		},
+	}
+
+	resp := router.Route(req)
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "Bearer client-supplied-token", capturedAuth,
+		"Authorization header must pass through for non-k8s backends")
+}
+
 // errReader is an io.Reader that always returns an error.
 type errReader struct{}
 

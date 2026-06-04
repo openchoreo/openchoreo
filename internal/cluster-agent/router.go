@@ -16,6 +16,12 @@ import (
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
 )
 
+// Backend types supported by the router.
+const (
+	backendKubernetes = "kubernetes"
+	backendHTTP       = "http"
+)
+
 // RouteConfig represents the configuration for a backend route
 type RouteConfig struct {
 	Name               string
@@ -122,6 +128,14 @@ func (r *Router) Route(req *messaging.HTTPTunnelRequest) *messaging.HTTPTunnelRe
 
 	httpReq.Header = req.Headers
 
+	// Strip any client-supplied Authorization header for k8s requests. The
+	// transport returned by rest.TransportFor only injects the agent's
+	// ServiceAccount token when no Authorization header is already set, so
+	// leaving a client token here would defeat the intended auth model.
+	if route.Backend == backendKubernetes {
+		httpReq.Header.Del("Authorization")
+	}
+
 	route.applyAuth(httpReq)
 
 	resp, err := route.Transport.RoundTrip(httpReq)
@@ -171,7 +185,7 @@ func createK8sRoute(config *rest.Config) (*Route, error) {
 
 	return &Route{
 		Name:      "k8s",
-		Backend:   "kubernetes",
+		Backend:   backendKubernetes,
 		Endpoint:  config.Host,
 		Transport: transport,
 	}, nil
@@ -187,7 +201,7 @@ func createRoute(cfg RouteConfig) *Route {
 
 	return &Route{
 		Name:      cfg.Name,
-		Backend:   "http",
+		Backend:   backendHTTP,
 		Endpoint:  cfg.Endpoint,
 		Auth:      cfg.Auth,
 		Transport: transport,
