@@ -290,6 +290,7 @@ jobs:
             E2E_WITH_OBSERVABILITY=true \
             E2E_SETUP_TIMEOUT=10m \
             E2E_TEST_TIMEOUT=120m \
+            E2E_JOB_FIXTURE_SET=tier3 \
             E2E_LABEL_FILTER='tier3'
 
       - name: Upload diagnostics

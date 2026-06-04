@@ -6,7 +6,6 @@ package e2e
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -30,24 +29,8 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 	SetDefaultEventuallyPollingInterval(framework.DefaultPolling)
 
 	BeforeAll(func() {
-		By("installing in-cluster Gitea")
-		Expect(framework.InstallGitea(kubeContext, giteaNamespace)).To(Succeed())
-
-		By("mirroring openchoreo/sample-workloads into Gitea")
-		Expect(framework.MigrateRepo(kubeContext, giteaNamespace,
-			sampleWorkloadsRepo, upstreamSampleWorkloads)).To(Succeed())
-
-		By("seeding the no-workload fixture into Gitea")
-		Expect(framework.EnsureGiteaRepo(kubeContext, giteaNamespace, noWorkloadRepo)).To(Succeed())
-		repoRoot, err := framework.RepoRoot()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(framework.PushTree(kubeContext, giteaNamespace, noWorkloadRepo, "main",
-			filepath.Join(repoRoot, "test/e2e/fixtures/build/no-workload"))).To(Succeed())
-
-		By("seeding the paketo-node fixture into Gitea")
-		Expect(framework.EnsureGiteaRepo(kubeContext, giteaNamespace, paketoNodeRepo)).To(Succeed())
-		Expect(framework.PushTree(kubeContext, giteaNamespace, paketoNodeRepo, "main",
-			filepath.Join(repoRoot, "test/e2e/fixtures/build/paketo-node"))).To(Succeed())
+		By("ensuring shared Tier 3 Gitea build sources are present")
+		Expect(framework.EnsureTier3BuildSources(kubeContext)).To(Succeed())
 
 		By("creating control plane namespace")
 		output, err := framework.KubectlApplyLiteral(kubeContext, cpNamespaceYAML())
@@ -70,8 +53,6 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 			_, _ = framework.Kubectl(kubeContext, "delete", "namespace", dpNs,
 				"--ignore-not-found", "--wait=false")
 		}
-		_, _ = framework.Kubectl(kubeContext, "delete", "namespace", giteaNamespace,
-			"--ignore-not-found", "--wait=false")
 	})
 
 	Context("builder matrix", func() {
@@ -85,6 +66,7 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 				dockerfile:   "/service-go-greeter/Dockerfile",
 				endpoint:     "greeter-api",
 				assertReach:  true,
+				assertLogs:   true,
 			})
 		})
 
@@ -198,44 +180,6 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 			}, 3*time.Minute, 5*time.Second).Should(Succeed())
 		})
 
-		It("build-logs-via-k8s: live logs reachable from a running WorkflowRun pod", func() {
-			component := componentLogs
-			runName := component + "-run-01"
-
-			By("applying component + workflowrun")
-			gitURL := framework.GiteaRepoCloneURL(giteaNamespace, sampleWorkloadsRepo)
-			output, err := framework.KubectlApplyLiteral(kubeContext, buildComponentYAML(
-				component, "deployment/service", "dockerfile-builder",
-				gitURL, "/service-go-greeter", "/service-go-greeter/Dockerfile",
-			))
-			Expect(err).NotTo(HaveOccurred(), "failed to apply component: %s", output)
-			output, err = framework.KubectlApplyLiteral(kubeContext, workflowRunYAML(
-				component, runName, "dockerfile-builder",
-				gitURL, "/service-go-greeter", "/service-go-greeter/Dockerfile",
-			))
-			Expect(err).NotTo(HaveOccurred(), "failed to apply workflow run: %s", output)
-
-			By("waiting for the build Argo Workflow pod to appear")
-			wfNs := "workflows-" + cpNs
-			Eventually(func(g Gomega) {
-				out, err := framework.Kubectl(kubeContext,
-					"get", "pods", "-n", wfNs,
-					"-l", "workflows.argoproj.io/workflow="+runName,
-					"-o", "jsonpath={.items[*].metadata.name}")
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(strings.TrimSpace(out)).NotTo(BeEmpty(),
-					"no pod found yet for WorkflowRun %s in %s", runName, wfNs)
-			}, 5*time.Minute, 5*time.Second).Should(Succeed())
-
-			By("kubectl logs against the build pod returns non-empty content")
-			Eventually(func(g Gomega) {
-				out, err := framework.KubectlLogs(kubeContext, wfNs,
-					"workflows.argoproj.io/workflow="+runName, 50)
-				g.Expect(err).NotTo(HaveOccurred(), "kubectl logs failed: %s", out)
-				g.Expect(strings.TrimSpace(out)).NotTo(BeEmpty(),
-					"expected non-empty build pod logs while WorkflowRun is running")
-			}, 5*time.Minute, 5*time.Second).Should(Succeed())
-		})
 	})
 })
 
@@ -248,6 +192,7 @@ type buildSpec struct {
 	dockerfile   string // optional — leave empty for buildpacks
 	endpoint     string // endpoint name as declared in the workload.yaml the build checks out
 	assertReach  bool   // whether to assert in-cluster HTTP reachability of the rendered Service
+	assertLogs   bool   // whether to assert the live build pod exposes non-empty logs
 }
 
 // runDeployableBuildSpec drives a Component + WorkflowRun through the build
@@ -269,6 +214,10 @@ func runDeployableBuildSpec(spec buildSpec) {
 		spec.component, runName, spec.workflow, gitURL, spec.appPath, spec.dockerfile,
 	))
 	Expect(err).NotTo(HaveOccurred(), "failed to apply workflow run: %s", output)
+
+	if spec.assertLogs {
+		assertWorkflowRunLogs(runName)
+	}
 
 	By("waiting for WorkflowRun to succeed")
 	Eventually(func(g Gomega) {
@@ -318,6 +267,29 @@ func runDeployableBuildSpec(spec buildSpec) {
 		return err
 	}, 2*time.Minute, 5*time.Second).Should(Succeed(),
 		"%s:%s should be TCP-reachable for component %s", host, port, spec.component)
+}
+
+func assertWorkflowRunLogs(runName string) {
+	By("waiting for the build Argo Workflow pod to appear")
+	wfNs := "workflows-" + cpNs
+	Eventually(func(g Gomega) {
+		out, err := framework.Kubectl(kubeContext,
+			"get", "pods", "-n", wfNs,
+			"-l", "workflows.argoproj.io/workflow="+runName,
+			"-o", "jsonpath={.items[*].metadata.name}")
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(strings.TrimSpace(out)).NotTo(BeEmpty(),
+			"no pod found yet for WorkflowRun %s in %s", runName, wfNs)
+	}, 5*time.Minute, 5*time.Second).Should(Succeed())
+
+	By("kubectl logs against the build pod returns non-empty content")
+	Eventually(func(g Gomega) {
+		out, err := framework.KubectlLogs(kubeContext, wfNs,
+			"workflows.argoproj.io/workflow="+runName, 50)
+		g.Expect(err).NotTo(HaveOccurred(), "kubectl logs failed: %s", out)
+		g.Expect(strings.TrimSpace(out)).NotTo(BeEmpty(),
+			"expected non-empty build pod logs while WorkflowRun is running")
+	}, 5*time.Minute, 5*time.Second).Should(Succeed())
 }
 
 // endpointHostPort reads the rendered Service URL host+port for a named endpoint

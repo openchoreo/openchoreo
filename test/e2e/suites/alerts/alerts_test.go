@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	dpNs      string
-	observerQ framework.ObserverQueryFrom
+	dpNs            string
+	observerQ       framework.ObserverQueryFrom
+	logSearchPhrase string
 )
 
 const (
@@ -32,16 +33,8 @@ const (
 	// same node as the test, so generous bounds avoid CI flakiness.
 	buildTimeout = 20 * time.Minute
 
-	// giteaNamespace is the in-cluster Gitea fixture's namespace. The WP
-	// plan installs it via framework.InstallGitea; the alerts suite re-
-	// uses the same namespace so a parallel run of build + alerts shares
-	// one Gitea install.
-	giteaNamespace = "e2e-gitea"
-
-	// upstreamSampleWorkloads mirrors the constant in the build suite so
-	// the build-logs-after-deletion spec can find the same source.
-	upstreamSampleWorkloads = "https://github.com/openchoreo/sample-workloads.git"
-	sampleWorkloadsRepo     = "sample-workloads"
+	giteaNamespace      = framework.Tier3GiteaNamespace
+	sampleWorkloadsRepo = framework.Tier3SampleWorkloadsRepo
 )
 
 var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
@@ -67,6 +60,29 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		By("applying the webhook notification channel")
 		out, err = framework.KubectlApplyLiteral(kubeContext, notificationChannelYAML())
 		Expect(err).NotTo(HaveOccurred(), "apply notification channel: %s", out)
+
+		logSearchPhrase = "e2e-log-alert-trigger-" + framework.RandSuffix(6)
+
+		By("applying shared alert component")
+		out, err = framework.KubectlApplyLiteral(kubeContext, alertComponentYAML(
+			componentAlerts,
+			alertRuleFixture{name: alertRuleMetric, params: metricAlertParams()},
+			alertRuleFixture{name: alertRuleLog, params: logAlertParams(logSearchPhrase)},
+		))
+		Expect(err).NotTo(HaveOccurred(), "apply shared alert component: %s", out)
+
+		By("discovering data plane namespace")
+		Eventually(func() error {
+			var derr error
+			dpNs, derr = framework.GetDPNamespace(kubeContext, cpNs, projectName, envDev)
+			return derr
+		}, 3*time.Minute, 5*time.Second).Should(Succeed())
+
+		By("waiting for shared alert component pod to be Running")
+		Eventually(func(g Gomega) {
+			framework.AssertPodsRunning(g, kubeContext, dpNs,
+				"openchoreo.dev/component="+componentAlerts)
+		}, 5*time.Minute, 5*time.Second).Should(Succeed())
 	})
 
 	AfterAll(func() {
@@ -86,25 +102,6 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 	})
 
 	It("metric-alert-fires: webhook receiver records a notification when CPU rule trips", func() {
-		By("applying metric-alert component (low CPU threshold → trips quickly)")
-		out, err := framework.KubectlApplyLiteral(kubeContext, alertComponentYAML(
-			componentMetric, alertRuleMetric, metricAlertParams(),
-		))
-		Expect(err).NotTo(HaveOccurred(), "apply metric-alert component: %s", out)
-
-		By("discovering data plane namespace")
-		Eventually(func() error {
-			var derr error
-			dpNs, derr = framework.GetDPNamespace(kubeContext, cpNs, projectName, envDev)
-			return derr
-		}, 3*time.Minute, 5*time.Second).Should(Succeed())
-
-		By("waiting for metric-alert component pod to be Running")
-		Eventually(func(g Gomega) {
-			framework.AssertPodsRunning(g, kubeContext, dpNs,
-				"openchoreo.dev/component="+componentMetric)
-		}, 5*time.Minute, 5*time.Second).Should(Succeed())
-
 		By("rendered ObservabilityAlertRule reaches Ready or Pending phase")
 		Eventually(func(g Gomega) {
 			out, err := framework.Kubectl(kubeContext,
@@ -139,32 +136,11 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 	})
 
 	It("log-alert-fires: webhook receiver records a notification on a log-pattern match", func() {
+		By("emitting the matching log phrase from the component pod")
 		// Use a distinctive phrase the greeter never emits naturally so
 		// the trigger is deterministic. We "emit" it by directly writing
 		// to the greeter pod's stdout via `kubectl exec`. This avoids
 		// having to wedge a misconfiguration into the sample image.
-		searchPhrase := "e2e-log-alert-trigger-" + framework.RandSuffix(6)
-
-		By("applying log-alert component")
-		out, err := framework.KubectlApplyLiteral(kubeContext, alertComponentYAML(
-			componentLog, alertRuleLog, logAlertParams(searchPhrase),
-		))
-		Expect(err).NotTo(HaveOccurred(), "apply log-alert component: %s", out)
-
-		By("discovering data plane namespace (idempotent)")
-		Eventually(func() error {
-			var derr error
-			dpNs, derr = framework.GetDPNamespace(kubeContext, cpNs, projectName, envDev)
-			return derr
-		}, 3*time.Minute, 5*time.Second).Should(Succeed())
-
-		By("waiting for log-alert component pod to be Running")
-		Eventually(func(g Gomega) {
-			framework.AssertPodsRunning(g, kubeContext, dpNs,
-				"openchoreo.dev/component="+componentLog)
-		}, 5*time.Minute, 5*time.Second).Should(Succeed())
-
-		By("emitting the matching log phrase from the component pod")
 		// Repeat enough times to clear the rule's threshold and to let
 		// the logs-adapter flush. The greeter image runs `/usr/bin/env`
 		// then `./greeter-service`, both of which write to stdout — we
@@ -175,15 +151,15 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		for i := 0; i < 5; i++ {
 			out, err := framework.KubectlExecByLabel(
 				kubeContext, dpNs,
-				"openchoreo.dev/component="+componentLog, "",
-				"sh", "-c", fmt.Sprintf("echo %s; echo %s 1>&2", searchPhrase, searchPhrase),
+				"openchoreo.dev/component="+componentAlerts, "",
+				"sh", "-c", fmt.Sprintf("echo %s; echo %s 1>&2", logSearchPhrase, logSearchPhrase),
 			)
 			lastExecOut = out
 			lastExecErr = err
 			if err != nil {
 				fmt.Fprintf(GinkgoWriter, "log-alert exec (attempt %d) failed: %v\n%s\n",
 					i, err, out)
-			} else if strings.Contains(out, searchPhrase) {
+			} else if strings.Contains(out, logSearchPhrase) {
 				logEmitted = true
 				break
 			} else {
@@ -195,7 +171,7 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		}
 		Expect(logEmitted).To(BeTrue(),
 			"failed to emit log phrase %q via kubectl exec; last error=%v; last output=%s",
-			searchPhrase, lastExecErr, lastExecOut)
+			logSearchPhrase, lastExecErr, lastExecOut)
 
 		By("rendered ObservabilityAlertRule for the log rule reaches the OP")
 		Eventually(func(g Gomega) {
@@ -227,13 +203,11 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 
 	It("build-logs-after-deletion: deleted WorkflowRun's logs remain queryable via observer", func() {
 		// This spec composes the WP build flow with the OP query path —
-		// the only Tier 3 spec that needs both planes. It re-uses the WP
-		// suite's Gitea install (idempotent) so this PR's framework doesn't
-		// duplicate the Gitea helper.
-		By("ensuring Gitea + sample-workloads mirror are present")
-		Expect(framework.InstallGitea(kubeContext, giteaNamespace)).To(Succeed())
-		Expect(framework.MigrateRepo(kubeContext, giteaNamespace,
-			sampleWorkloadsRepo, upstreamSampleWorkloads)).To(Succeed())
+		// the only Tier 3 spec that needs both planes. It uses the shared
+		// Tier 3 source fixture but keeps its WorkflowRun dedicated because
+		// the test deletes that run before querying observer logs.
+		By("ensuring shared Tier 3 sample-workloads source is present")
+		Expect(framework.EnsureTier3SampleWorkloads(kubeContext)).To(Succeed())
 
 		runName := componentBuildLogs + "-run-01"
 		gitURL := framework.GiteaRepoCloneURL(giteaNamespace, sampleWorkloadsRepo)

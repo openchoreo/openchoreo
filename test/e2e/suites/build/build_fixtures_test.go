@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/test/e2e/framework"
 )
 
 const (
@@ -26,16 +27,10 @@ const (
 	envDev      = "development"
 	envStaging  = "staging"
 
-	// In-cluster Gitea sits in its own namespace so it survives across builds
-	// in the same e2e session and so the WP namespace stays uncluttered.
-	giteaNamespace = "e2e-gitea"
-	// Public sample-workloads repo we mirror into Gitea. Pinned by branch so
-	// the build matrix is reproducible.
-	upstreamSampleWorkloads = "https://github.com/openchoreo/sample-workloads.git"
-	sampleWorkloadsRepo     = "sample-workloads"
-	noWorkloadRepo          = "no-workload-sample"
-	paketoNodeRepo          = "paketo-node-sample"
-	externalRefsRepo        = "externalrefs-sample"
+	giteaNamespace      = framework.Tier3GiteaNamespace
+	sampleWorkloadsRepo = framework.Tier3SampleWorkloadsRepo
+	noWorkloadRepo      = framework.Tier3NoWorkloadRepo
+	paketoNodeRepo      = framework.Tier3PaketoNodeRepo
 
 	// Component / workflow names. Kept short so the rendered Argo Workflow's
 	// generated names don't blow past Kubernetes' 63-char DNS label limit.
@@ -46,7 +41,6 @@ const (
 	componentBallerina       = "bal-svc"
 	componentNoWorkload      = "auto-wl"
 	componentExternalRefs    = "extref-svc"
-	componentLogs            = "logs-svc"
 
 	releaseBindingSuffix = "-" + envDev
 

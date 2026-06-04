@@ -21,6 +21,9 @@ E2E_SETUP_TIMEOUT      ?= 5m
 # Suites are labeled `tier1`, `tier2`, … on their top-level Describe; see proposal #3509.
 # Examples: `tier1`, `tier1 || tier2`, `tier1 && !tier2`.
 E2E_LABEL_FILTER       ?=
+# Optional job-local fixture set to run after e2e.setup and before the Go
+# suite package fan-out. Current supported value: tier3.
+E2E_JOB_FIXTURE_SET    ?=
 
 # Conditionally render the Ginkgo label-filter flag so the unfiltered command line stays clean.
 # Single-quote the value so shell metacharacters in the expression (e.g. `||`, `&&`) are not
@@ -146,7 +149,8 @@ e2e: ## Full e2e lifecycle: setup → test → down (collects diagnostics on fai
 	$(MAKE) e2e.setup && setup_ok=1; \
 	test_exit=0; \
 	if [ $$setup_ok -eq 1 ]; then \
-		$(MAKE) e2e.test || test_exit=$$?; \
+		$(MAKE) e2e.setup-tier-fixtures || test_exit=$$?; \
+		if [ $$test_exit -eq 0 ]; then $(MAKE) e2e.test || test_exit=$$?; fi; \
 		if [ $$test_exit -ne 0 ]; then $(MAKE) e2e.diagnostics || true; fi; \
 	else \
 		test_exit=1; \
@@ -167,6 +171,19 @@ e2e.setup: ## All setup: cluster + prerequisites + install + configure (+ UI whe
 	@$(MAKE) e2e.setup-configure
 	@if [ "$(E2E_WITH_UI)" = "true" ]; then $(MAKE) e2e.setup-ui; fi
 	@$(call log_success, E2E setup complete)
+
+.PHONY: e2e.setup-tier-fixtures
+e2e.setup-tier-fixtures: ## Run optional job-local shared fixture setup before tests
+	@if [ -z "$(strip $(E2E_JOB_FIXTURE_SET))" ]; then exit 0; fi; \
+	case "$(E2E_JOB_FIXTURE_SET)" in \
+		tier3) $(MAKE) _e2e.setup-tier3-fixtures ;; \
+		*) echo "Unsupported E2E_JOB_FIXTURE_SET='$(E2E_JOB_FIXTURE_SET)'"; exit 1 ;; \
+	esac
+
+.PHONY: _e2e.setup-tier3-fixtures
+_e2e.setup-tier3-fixtures:
+	@$(call log_info, Setting up Tier 3 shared e2e fixtures)
+	go run $(E2E_DIR)/cmd/tier3-fixtures --e2e.kubecontext=$(E2E_KUBECONTEXT)
 
 .PHONY: e2e.setup-ui
 e2e.setup-ui: ## Enable Backstage on the control plane and wait for it to become Ready (idempotent)
