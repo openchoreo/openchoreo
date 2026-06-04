@@ -70,8 +70,21 @@ spec:
 
             mkdir -p /run/podman
             podman system service --time=0 unix:///run/podman/podman.sock &
-            until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
+            PODMAN_SVC_PID=$!
             export DOCKER_HOST=unix:///run/podman/podman.sock
+            i=0
+            until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do
+              if ! kill -0 "$PODMAN_SVC_PID" 2>/dev/null; then
+                echo ">> Error: podman service exited before its socket became ready"
+                exit 1
+              fi
+              i=$((i + 1))
+              if [ "$i" -ge 30 ]; then
+                echo ">> Error: timed out waiting for the podman socket after 30s"
+                exit 1
+              fi
+              sleep 1
+            done
 
             BUILDER="gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
             RUN_IMG="gcr.io/buildpacks/google-22/run@sha256:a8ccb6641b4d98b0adf6397f954e7194611d1ae61310f0561f1c00fdf7f9ba96"
