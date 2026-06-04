@@ -27,8 +27,13 @@ const (
 	apiURL   = "http://api.e2e-cp.local:28080"
 	tokenURL = "http://thunder.e2e-cp.local:28080/oauth2/token"
 
-	clientID     = "customer-portal-client"
-	clientSecret = "supersecret"
+	// openchoreo-system-app, NOT customer-portal-client: the authz suite owns
+	// customer-portal-client and asserts exact grants/revocations for it, and
+	// suite packages run in parallel within a tier — the cluster-wide admin
+	// binding this suite creates for its subject would leak into those
+	// assertions (seen as a tier2 flake in CI).
+	clientID     = "openchoreo-system-app"
+	clientSecret = "openchoreo-system-app-secret"
 )
 
 func init() {
@@ -72,8 +77,8 @@ spec:
         kind: ClusterAuthzRole
   entitlement:
     claim: sub
-    value: customer-portal-client
-  effect: allow`, clusterAuthzBindingName)
+    value: %s
+  effect: allow`, clusterAuthzBindingName, clientID)
 	out, err = framework.KubectlApplyLiteral(kubeContext, abacBinding)
 	Expect(err).NotTo(HaveOccurred(), "failed to create ABAC binding: %s", out)
 

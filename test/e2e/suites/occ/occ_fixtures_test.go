@@ -231,7 +231,7 @@ func authzRoleWithBindingYAML() string {
 		Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
 			Entitlement: openchoreov1alpha1.EntitlementClaim{
 				Claim: "sub",
-				Value: "customer-portal-client",
+				Value: clientID,
 			},
 			RoleMappings: []openchoreov1alpha1.RoleMapping{{
 				RoleRef: openchoreov1alpha1.RoleRef{
