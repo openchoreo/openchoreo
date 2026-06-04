@@ -29,7 +29,12 @@ export default defineConfig({
     baseURL: process.env.UI_BASE_URL ?? 'http://openchoreo.e2e-cp.local:28080',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    // Playwright downscales videos to fit 800x800 unless a size is given —
+    // record at the full viewport resolution instead.
+    video: {
+      mode: 'retain-on-failure',
+      size: { width: 1920, height: 1080 },
+    },
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
   },
@@ -44,6 +49,8 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
+        viewport: { width: 1920, height: 1080 },
+        deviceScaleFactor: 2,
         launchOptions: {
           args: [`--host-resolver-rules=${hostResolverRules}`],
           ...(process.env.PWSLOWMO && { slowMo: Number(process.env.PWSLOWMO) }),
