@@ -138,6 +138,12 @@ jobs:
           echo "::error::action=tag requires an existing release branch (${{ steps.resolve-version.outputs.release-branch }}), but it does not exist."
           exit 1
 
+      - name: Fail if full mode uses an explicit commit
+        if: ${{ github.event.inputs.action == 'full' && github.event.inputs.commit_sha != '' }}
+        run: |
+          echo "::error::commit_sha cannot be used with action=full because branch creation and tagging would resolve different histories. Use action=tag with commit_sha after preparing the release branch, or omit commit_sha for action=full."
+          exit 1
+
       - name: Validate VERSION file
         env:
           ACTION: ${{ github.event.inputs.action }}
@@ -339,15 +345,16 @@ jobs:
           else
             # Always resolve the release branch tip so the gate and tag point to the actual
             # released state, including any URL-update commit added by the branch job.
-            git fetch origin "refs/heads/${RELEASE_BRANCH}:refs/remotes/origin/${RELEASE_BRANCH}" 2>/dev/null || true
-            BRANCH_TIP=$(git rev-parse "origin/${RELEASE_BRANCH}" 2>/dev/null || echo "")
-            if [ -n "$BRANCH_TIP" ]; then
-              TARGET="$BRANCH_TIP"
-              echo "Target: HEAD of ${RELEASE_BRANCH} (${TARGET})"
-            else
-              TARGET="$VALIDATE_TARGET"
-              echo "Target: validate fallback — ${RELEASE_BRANCH} not found (${TARGET})"
+            if ! git fetch origin "refs/heads/${RELEASE_BRANCH}:refs/remotes/origin/${RELEASE_BRANCH}"; then
+              echo "::error::Failed to fetch release branch ${RELEASE_BRANCH}"
+              exit 1
             fi
+            if ! BRANCH_TIP=$(git rev-parse --verify "origin/${RELEASE_BRANCH}^{commit}"); then
+              echo "::error::Failed to resolve release branch ${RELEASE_BRANCH}"
+              exit 1
+            fi
+            TARGET="$BRANCH_TIP"
+            echo "Target: HEAD of ${RELEASE_BRANCH} (${TARGET})"
           fi
           SHORT_SHA=$(git rev-parse --short=8 "${TARGET}")
           echo "target=${TARGET}" >> $GITHUB_OUTPUT
