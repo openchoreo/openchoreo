@@ -265,7 +265,7 @@ export class OverridesPO {
       .last();
   }
 
-  private async cancelAnyOpenEditor(): Promise<void> {
+  async cancelAnyOpenEditor(): Promise<void> {
     const cancelBtn = this.page.getByRole('button', { name: 'Cancel editing' });
     if (await cancelBtn.count() > 0) {
       await cancelBtn.first().scrollIntoViewIfNeeded();
@@ -294,7 +294,7 @@ export class OverridesPO {
       .waitFor({ state: 'visible', timeout: 10_000 });
   }
 
-  private async clickApply(): Promise<void> {
+  async clickApply(): Promise<void> {
     await this.page
       .getByRole('button', { name: 'Apply changes' })
       .click();

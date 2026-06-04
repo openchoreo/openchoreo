@@ -124,12 +124,10 @@ spec:
   data:
     - secretKey: token
       remoteRef:
-        key: ui/config/${SECRET_REF_NAME}
-        property: token
+        key: npm-token
     - secretKey: config-data
       remoteRef:
-        key: ui/config/${SECRET_REF_NAME}
-        property: config-data
+        key: github-pat
 `;
 
 // ABAC: narrow role + deny binding for production releasebinding actions.
@@ -384,39 +382,9 @@ test.describe('component config edits through Backstage UI', () => {
     expect(secretFile?.valueFrom?.secretKeyRef?.key).toBe('config-data');
   });
 
-  // ─── 5. Delete all component-level entries ──────────────────────────
-  // Delete all added entries so the next deploy (test 6) uses a clean
-  // workload without secret-backed mounts that would require an external
-  // secret store to resolve.
-  test('deletes component-level env var and file mount entries', async ({
-    page,
-  }) => {
-    test.setTimeout(180_000);
-    const wc = new WorkloadConfigPO(page);
-    await wc.open(COMPONENT_NAME);
-
-    await wc.deleteEnv('GREETING_PREFIX');
-    await wc.deleteEnv('GREETER_TOKEN');
-    await wc.deleteFile('app.properties');
-    await wc.deleteFile('token.txt');
-
-    await wc.saveAndCreateRelease();
-
-    await expect
-      .poll(() => getWorkloadEnvByKey('GREETING_PREFIX'), { timeout: 30_000 })
-      .toBeUndefined();
-    await expect
-      .poll(() => getWorkloadEnvByKey('GREETER_TOKEN'), { timeout: 30_000 })
-      .toBeUndefined();
-    await expect
-      .poll(() => getWorkloadFileByKey('app.properties'), { timeout: 30_000 })
-      .toBeUndefined();
-    await expect
-      .poll(() => getWorkloadFileByKey('token.txt'), { timeout: 30_000 })
-      .toBeUndefined();
-  });
-
-  // ─── 6. Deploy the updated release so overrides tests have current state
+  // ─── 5. Deploy the updated release so overrides tests have current state
+  // All 4 entries (plain + secret) survive — the fake ClusterSecretStore
+  // resolves the SecretReference remote keys (npm-token, github-pat).
   test('deploys updated release so override tests see current workload', async ({
     page,
   }) => {
@@ -428,7 +396,7 @@ test.describe('component config edits through Backstage UI', () => {
     await release.expectActive(COMPONENT_NAME, 'development', 120_000);
   });
 
-  // ─── 7. Per-environment env var overrides ─────────────────────────────
+  // ─── 6. Per-environment env var overrides ─────────────────────────────
   test('adds per-environment env var overrides', async ({ page }) => {
     test.setTimeout(180_000);
     const overrides = new OverridesPO(page);
@@ -449,7 +417,7 @@ test.describe('component config edits through Backstage UI', () => {
       .toBe('development');
   });
 
-  // ─── 8. Per-environment file mount overrides ──────────────────────────
+  // ─── 7. Per-environment file mount overrides ──────────────────────────
   test('adds per-environment file mount overrides', async ({ page }) => {
     test.setTimeout(180_000);
     const overrides = new OverridesPO(page);
@@ -471,8 +439,8 @@ test.describe('component config edits through Backstage UI', () => {
       .toBe('env=development');
   });
 
-  // ─── 9. Override validation: empty name ───────────────────────────────
-  test('validates per-environment env var editor rejects empty name', async ({
+  // ─── 8. Override validation: empty name / file name ────────────────────
+  test('validates per-environment editors reject empty name and file name', async ({
     page,
   }) => {
     test.setTimeout(120_000);
@@ -480,6 +448,7 @@ test.describe('component config edits through Backstage UI', () => {
     await overrides.open(COMPONENT_NAME, 'development');
     await overrides.openWorkloadTab();
 
+    // Env var: empty Name with non-empty Value should disable Apply.
     await page
       .getByRole('button', { name: 'Add Environment Variable', exact: true })
       .click();
@@ -490,9 +459,105 @@ test.describe('component config edits through Backstage UI', () => {
 
     await overrides.expectApplyDisabled();
     await overrides.cancelEditing();
+
+    // File mount: empty File Name with non-empty Mount Path should disable Apply.
+    await page
+      .getByRole('button', { name: 'Add File Mount', exact: true })
+      .click();
+    await page
+      .getByRole('button', { name: 'Apply changes' })
+      .waitFor({ state: 'visible', timeout: 10_000 });
+    await page
+      .getByLabel('Mount Path', { exact: true })
+      .last()
+      .fill('/etc/greeter/orphan');
+
+    await overrides.expectApplyDisabled();
+    await overrides.cancelEditing();
+  });
+
+  // ─── 9. Override inherited component-level entries ────────────────────
+  // Inherited plain entries (GREETING_PREFIX, app.properties) survived
+  // test 5 and were deployed in test 6. The Override button copies them
+  // into override state with a locked (read-only) Name/FileName field.
+  test('overrides inherited entries with read-only name fields', async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const overrides = new OverridesPO(page);
+    await overrides.open(COMPONENT_NAME, 'development');
+    await overrides.openWorkloadTab();
+
+    // Override inherited env var — Name must be disabled.
+    const envCard = page
+      .getByText('GREETING_PREFIX', { exact: true })
+      .locator('xpath=ancestor::div[.//button]')
+      .filter({
+        has: page.getByRole('button', {
+          name: /^(edit|override|remove environment variable)$/i,
+        }),
+      })
+      .last();
+    await envCard
+      .getByRole('button', { name: 'Override', exact: true })
+      .click();
+    const envNameField = page.getByLabel('Name', { exact: true }).last();
+    await expect(envNameField).toBeDisabled();
+
+    const envValueField = page.getByLabel('Value', { exact: true }).last();
+    await envValueField.clear();
+    await envValueField.fill('overridden-hello');
+    await overrides.clickApply();
+
+    // Override inherited file mount — File Name must be disabled.
+    await overrides.cancelAnyOpenEditor();
+    const fileCard = page
+      .getByText('app.properties', { exact: true })
+      .locator('xpath=ancestor::div[.//button]')
+      .filter({
+        has: page.getByRole('button', {
+          name: /^(edit|override|remove file mount)$/i,
+        }),
+      })
+      .last();
+    await fileCard
+      .getByRole('button', { name: 'Override', exact: true })
+      .click();
+    const fileNameField = page
+      .getByLabel('File Name', { exact: true })
+      .last();
+    await expect(fileNameField).toBeDisabled();
+
+    const expandBtn = page.getByRole('button', { name: /expand content/i });
+    if (await expandBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await expandBtn.click();
+    }
+    const content = page.getByLabel(/^(Edit )?Content$/).last();
+    await content.waitFor({ state: 'visible', timeout: 5_000 });
+    await content.scrollIntoViewIfNeeded();
+    await content.clear();
+    await content.fill('message=overridden');
+    await overrides.clickApply();
+
+    await overrides.saveOverrides();
+
+    await expect
+      .poll(() => getOverrideEnvByKey('GREETING_PREFIX')?.value, {
+        timeout: 30_000,
+      })
+      .toBe('overridden-hello');
+
+    await expect
+      .poll(() => getOverrideFileByKey('app.properties')?.value, {
+        timeout: 30_000,
+      })
+      .toBe('message=overridden');
   });
 
   // ─── 10. Edit + delete per-environment overrides ──────────────────────
+  // Covers both "add new" overrides (from tests 7+8) and inherited
+  // overrides (from test 10). Edits the "add new" entries, then deletes
+  // all four overrides.
   test('edits and then deletes per-environment overrides', async ({
     page,
   }) => {
@@ -501,7 +566,7 @@ test.describe('component config edits through Backstage UI', () => {
     await overrides.open(COMPONENT_NAME, 'development');
     await overrides.openWorkloadTab();
 
-    // Edit existing overrides.
+    // Edit "add new" overrides created in tests 7+8.
     await overrides.editOverrideEnv(
       'ENV_ONLY_GREETING',
       'development-updated',
@@ -525,21 +590,32 @@ test.describe('component config edits through Backstage UI', () => {
       })
       .toBe('env=development-updated');
 
-    // Re-open and delete the overrides.
+    // Re-open and delete all overrides (inherited + new).
     await overrides.open(COMPONENT_NAME, 'development');
     await overrides.openWorkloadTab();
 
+    await overrides.deleteOverrideEnv('GREETING_PREFIX');
     await overrides.deleteOverrideEnv('ENV_ONLY_GREETING');
+    await overrides.deleteOverrideFile('app.properties');
     await overrides.deleteOverrideFile('env-only.properties');
 
     await overrides.saveOverrides();
 
     await expect
+      .poll(() => getOverrideEnvByKey('GREETING_PREFIX'), {
+        timeout: 30_000,
+      })
+      .toBeUndefined();
+    await expect
       .poll(() => getOverrideEnvByKey('ENV_ONLY_GREETING'), {
         timeout: 30_000,
       })
       .toBeUndefined();
-
+    await expect
+      .poll(() => getOverrideFileByKey('app.properties'), {
+        timeout: 30_000,
+      })
+      .toBeUndefined();
     await expect
       .poll(() => getOverrideFileByKey('env-only.properties'), {
         timeout: 30_000,
@@ -688,7 +764,36 @@ test.describe('component config edits through Backstage UI', () => {
     }
   });
 
-  // ─── 13. Cleanup ──────────────────────────────────────────────────────
+  // ─── 13. Delete component-level entries ────────────────────────────────
+  test('deletes all component-level env var and file mount entries', async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    const wc = new WorkloadConfigPO(page);
+    await wc.open(COMPONENT_NAME);
+
+    await wc.deleteEnv('GREETING_PREFIX');
+    await wc.deleteEnv('GREETER_TOKEN');
+    await wc.deleteFile('app.properties');
+    await wc.deleteFile('token.txt');
+
+    await wc.saveAndCreateRelease();
+
+    await expect
+      .poll(() => getWorkloadEnvByKey('GREETING_PREFIX'), { timeout: 30_000 })
+      .toBeUndefined();
+    await expect
+      .poll(() => getWorkloadEnvByKey('GREETER_TOKEN'), { timeout: 30_000 })
+      .toBeUndefined();
+    await expect
+      .poll(() => getWorkloadFileByKey('app.properties'), { timeout: 30_000 })
+      .toBeUndefined();
+    await expect
+      .poll(() => getWorkloadFileByKey('token.txt'), { timeout: 30_000 })
+      .toBeUndefined();
+  });
+
+  // ─── 14. Cleanup ──────────────────────────────────────────────────────
   test('cleans up component and project via UI', async ({ page }) => {
     test.setTimeout(180_000);
     const component = new ComponentPO(page);
