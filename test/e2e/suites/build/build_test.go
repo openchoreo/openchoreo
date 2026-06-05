@@ -24,6 +24,69 @@ const (
 
 var dpNs string
 
+// Matrix specs are declared up front so BeforeAll can trigger every build in
+// one pass — the workflow plane runs them concurrently and each spec below
+// only waits on its own run. Wall-clock is then bounded by the slowest single
+// build instead of the sum of all of them.
+var (
+	specDockerfileService = buildSpec{
+		component:    componentDockerfile,
+		componentTyp: "deployment/service",
+		workflow:     "dockerfile-builder",
+		repoName:     sampleWorkloadsRepo,
+		appPath:      "/service-go-greeter",
+		dockerfile:   "/service-go-greeter/Dockerfile",
+		endpoint:     "greeter-api",
+		assertReach:  true,
+		assertLogs:   true,
+	}
+	specDockerfileReact = buildSpec{
+		component:    componentDockerfileReact,
+		componentTyp: "deployment/web-application",
+		workflow:     "dockerfile-builder",
+		repoName:     sampleWorkloadsRepo,
+		appPath:      "/webapp-react-nginx",
+		dockerfile:   "/webapp-react-nginx/Dockerfile",
+		endpoint:     "webapp-endpoint",
+		assertReach:  true,
+	}
+	specGCPBuildpacks = buildSpec{
+		component:    componentGCP,
+		componentTyp: "deployment/service",
+		workflow:     "gcp-buildpacks-builder",
+		repoName:     sampleWorkloadsRepo,
+		appPath:      "/service-go-reading-list",
+		endpoint:     "reading-list-api",
+		assertReach:  false, // upstream sample's port surface varies; deploy + ComponentRelease are the meaningful signal
+	}
+	specPaketoBuildpacks = buildSpec{
+		component:    componentPaketo,
+		componentTyp: "deployment/service",
+		workflow:     "paketo-buildpacks-builder",
+		repoName:     paketoNodeRepo,
+		appPath:      "/",
+		endpoint:     "http",
+		assertReach:  true,
+	}
+	specBallerinaBuildpack = buildSpec{
+		component:    componentBallerina,
+		componentTyp: "deployment/service",
+		workflow:     "ballerina-buildpack-builder",
+		repoName:     sampleWorkloadsRepo,
+		appPath:      "/service-ballerina-patient-management",
+		endpoint:     "patient-management-api",
+		assertReach:  false,
+	}
+
+	matrixSpecs = []buildSpec{
+		specDockerfileService,
+		specDockerfileReact,
+		specGCPBuildpacks,
+		specPaketoBuildpacks,
+		specBallerinaBuildpack,
+	}
+)
+
 var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 	SetDefaultEventuallyTimeout(framework.DefaultTimeout)
 	SetDefaultEventuallyPollingInterval(framework.DefaultPolling)
@@ -39,6 +102,11 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 		By("applying platform resources (pipeline, environments, project)")
 		output, err = framework.KubectlApplyLiteral(kubeContext, platformResourcesYAML())
 		Expect(err).NotTo(HaveOccurred(), "failed to apply platform resources: %s", output)
+
+		By("triggering all matrix builds up front so they run concurrently")
+		for _, spec := range matrixSpecs {
+			triggerDeployableBuildSpec(spec)
+		}
 	})
 
 	AfterAll(func() {
@@ -56,67 +124,26 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 	})
 
 	Context("builder matrix", func() {
+		// Builds were already triggered in BeforeAll; each spec only waits on
+		// its own WorkflowRun and asserts the post-build chain.
 		It("dockerfile-builder: builds, deploys, and is reachable (service)", func() {
-			runDeployableBuildSpec(buildSpec{
-				component:    componentDockerfile,
-				componentTyp: "deployment/service",
-				workflow:     "dockerfile-builder",
-				repoName:     sampleWorkloadsRepo,
-				appPath:      "/service-go-greeter",
-				dockerfile:   "/service-go-greeter/Dockerfile",
-				endpoint:     "greeter-api",
-				assertReach:  true,
-				assertLogs:   true,
-			})
+			assertDeployableBuildSpec(specDockerfileService)
 		})
 
 		It("dockerfile-builder: react web-application builds and is reachable", func() {
-			runDeployableBuildSpec(buildSpec{
-				component:    componentDockerfileReact,
-				componentTyp: "deployment/web-application",
-				workflow:     "dockerfile-builder",
-				repoName:     sampleWorkloadsRepo,
-				appPath:      "/webapp-react-nginx",
-				dockerfile:   "/webapp-react-nginx/Dockerfile",
-				endpoint:     "webapp-endpoint",
-				assertReach:  true,
-			})
+			assertDeployableBuildSpec(specDockerfileReact)
 		})
 
 		It("gcp-buildpacks-builder: builds and deploys reading-list", func() {
-			runDeployableBuildSpec(buildSpec{
-				component:    componentGCP,
-				componentTyp: "deployment/service",
-				workflow:     "gcp-buildpacks-builder",
-				repoName:     sampleWorkloadsRepo,
-				appPath:      "/service-go-reading-list",
-				endpoint:     "reading-list-api",
-				assertReach:  false, // upstream sample's port surface varies; deploy + ComponentRelease are the meaningful signal
-			})
+			assertDeployableBuildSpec(specGCPBuildpacks)
 		})
 
 		It("paketo-buildpacks-builder: builds and deploys the in-tree node fixture", func() {
-			runDeployableBuildSpec(buildSpec{
-				component:    componentPaketo,
-				componentTyp: "deployment/service",
-				workflow:     "paketo-buildpacks-builder",
-				repoName:     paketoNodeRepo,
-				appPath:      "/",
-				endpoint:     "http",
-				assertReach:  true,
-			})
+			assertDeployableBuildSpec(specPaketoBuildpacks)
 		})
 
 		It("ballerina-buildpack-builder: builds and deploys patient-management", func() {
-			runDeployableBuildSpec(buildSpec{
-				component:    componentBallerina,
-				componentTyp: "deployment/service",
-				workflow:     "ballerina-buildpack-builder",
-				repoName:     sampleWorkloadsRepo,
-				appPath:      "/service-ballerina-patient-management",
-				endpoint:     "patient-management-api",
-				assertReach:  false,
-			})
+			assertDeployableBuildSpec(specBallerinaBuildpack)
 		})
 	})
 
@@ -196,10 +223,17 @@ type buildSpec struct {
 }
 
 // runDeployableBuildSpec drives a Component + WorkflowRun through the build
-// pipeline and asserts the post-build artifacts (ComponentRelease, ReleaseBinding,
-// pod Running). Optionally probes the rendered Service for TCP reachability.
-// Shared by every spec in the builder matrix so the assertions stay in lockstep.
+// pipeline end to end: trigger, then wait and assert. Used by solo specs that
+// are not part of the concurrently-triggered builder matrix.
 func runDeployableBuildSpec(spec buildSpec) {
+	triggerDeployableBuildSpec(spec)
+	assertDeployableBuildSpec(spec)
+}
+
+// triggerDeployableBuildSpec applies the Component + WorkflowRun for a build
+// spec without waiting on the run. The matrix specs are all triggered from
+// BeforeAll so their builds execute concurrently on the workflow plane.
+func triggerDeployableBuildSpec(spec buildSpec) {
 	runName := spec.component + "-run-01"
 	gitURL := framework.GiteaRepoCloneURL(giteaNamespace, spec.repoName)
 
@@ -214,6 +248,14 @@ func runDeployableBuildSpec(spec buildSpec) {
 		spec.component, runName, spec.workflow, gitURL, spec.appPath, spec.dockerfile,
 	))
 	Expect(err).NotTo(HaveOccurred(), "failed to apply workflow run: %s", output)
+}
+
+// assertDeployableBuildSpec waits for an already-triggered WorkflowRun and
+// asserts the post-build artifacts (ComponentRelease, ReleaseBinding, pod
+// Running). Optionally probes the rendered Service for TCP reachability.
+// Shared by every spec in the builder matrix so the assertions stay in lockstep.
+func assertDeployableBuildSpec(spec buildSpec) {
+	runName := spec.component + "-run-01"
 
 	if spec.assertLogs {
 		assertWorkflowRunLogs(runName)
@@ -252,7 +294,7 @@ func runDeployableBuildSpec(spec buildSpec) {
 	}
 
 	By("ensuring a tester pod is available in the DP namespace")
-	output, err = framework.KubectlApplyLiteral(kubeContext, testerPodYAML(dpNs))
+	output, err := framework.KubectlApplyLiteral(kubeContext, testerPodYAML(dpNs))
 	Expect(err).NotTo(HaveOccurred(), "failed to apply tester pod: %s", output)
 	Eventually(func(g Gomega) {
 		framework.AssertPodsRunning(g, kubeContext, dpNs, testerLabel)
