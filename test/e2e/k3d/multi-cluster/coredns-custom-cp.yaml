@@ -1,0 +1,28 @@
+# CoreDNS custom config for the CP cluster in the multi-cluster e2e setup.
+# Rewrites all e2e-mc plane domains to host.k3d.internal so pods in the CP
+# cluster can reach services exposed via k3d load balancers on the host.
+# The dp-internal rewrite is needed when CP-side tests resolve workload
+# endpoints that use the internal gateway hostname.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  e2e-mc.override: |
+    rewrite stop {
+      name regex (.+\.)?e2e-mc-cp\.local host.k3d.internal
+      answer auto
+    }
+    rewrite stop {
+      name regex (.+\.)?e2e-mc-dp\.local host.k3d.internal
+      answer auto
+    }
+    rewrite stop {
+      name regex (.+\.)?e2e-mc-dp-internal\.local gateway-internal.openchoreo-data-plane.svc.cluster.local
+      answer auto
+    }
+    rewrite stop {
+      name regex (.+\.)?e2e-mc-op\.local host.k3d.internal
+      answer auto
+    }

@@ -1,0 +1,57 @@
+# Helm values for OpenChoreo Observability Plane in the multi-cluster e2e setup.
+# Agent connects to the CP cluster-gateway via host.k3d.internal:38443.
+# Thunder and CP API are reached via *.e2e-mc-cp.local (resolved by the OP
+# cluster's CoreDNS rewrite → host.k3d.internal:38080).
+
+observer:
+  openSearchSecretName: observer-opensearch-credentials
+  secretName: observer-secret
+  http:
+    hostnames:
+    - observer.e2e-mc-op.local
+  # CP API URL for the observer's authz client and UID resolver.
+  # CoreDNS in the OP cluster rewrites api.e2e-mc-cp.local → host.k3d.internal,
+  # so this reaches the CP kgateway on host port 38080.
+  controlPlaneApiUrl: "http://api.e2e-mc-cp.local:38080"
+  logsAdapter:
+    url: "http://logs-adapter:9098"
+  tracingAdapter:
+    url: "http://tracing-adapter:9100"
+  extraEnvs:
+    - name: OBSERVER_BASE_URL
+      value: "http://observer.e2e-mc-op.local:31080"
+    - name: OPENSEARCH_ADDRESS
+      value: "https://opensearch:9200"
+    - name: PROMETHEUS_ADDRESS
+      value: "http://openchoreo-observability-prometheus:9091"
+    - name: PROMETHEUS_TIMEOUT
+      value: "30s"
+    - name: AUTHZ_TIMEOUT
+      value: "30s"
+
+security:
+  oidc:
+    # Thunder is in the CP cluster; CoreDNS rewrites *.e2e-mc-cp.local → host.k3d.internal
+    jwksUrl: "http://thunder.e2e-mc-cp.local:38080/oauth2/jwks"
+    tokenUrl: "http://thunder.e2e-mc-cp.local:38080/oauth2/token"
+
+gateway:
+  httpPort: 11080
+  httpsPort: 11085
+  tls:
+    enabled: false
+  tlsPassthrough:
+    enabled: true
+    hostname: "opensearch.observability.openchoreo.localhost"
+    port: 11085
+
+# tls.enabled=true creates the openchoreo-observability-plane-ca-issuer that the
+# OpenSearch operator uses to issue transport and HTTP certificates.
+tls:
+  enabled: true
+  dnsNames:
+    - "observability.openchoreo.localhost"
+    - "*.observability.openchoreo.localhost"
+
+clusterAgent:
+  serverUrl: "wss://host.k3d.internal:38443/ws"

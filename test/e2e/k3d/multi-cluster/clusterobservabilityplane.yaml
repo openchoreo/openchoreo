@@ -1,0 +1,22 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# ClusterObservabilityPlane CR for the multi-cluster e2e setup.
+# Cluster-scoped; referenced by _e2e.mc.link-observability which patches
+# clusterdataplane.spec.observabilityPlaneRef to point at this CR.
+# Applied to the CP cluster. The clusterAgent.clientCA.value is injected at
+# apply time by e2e_register_plane_cross_cluster in make/e2e.mk.
+#
+# observerURL points to the OP cluster's external observer gateway. Tests that
+# query the observer directly use the OP kubecontext and exec into a pod in
+# the OP cluster, where the in-cluster service DNS resolves correctly.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterObservabilityPlane
+metadata:
+  name: default
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: ""
+  observerURL: http://observer.e2e-mc-op.local:31080

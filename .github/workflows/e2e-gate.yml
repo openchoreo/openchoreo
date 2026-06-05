@@ -5,7 +5,7 @@
 # runner + k3d cluster each, so callers pay the wall-clock of the slowest
 # leg instead of the serial sum:
 #   tier1, tier2 — control plane + data plane only
-#   tier3       — full stack (workflow + observability planes)
+#   tier3       — multi-cluster (4 separate k3d clusters, one per plane)
 #   ui          — full stack + Backstage portal (Playwright)
 #
 # Callers: the scheduled e2e workflows (test-e2e, test-e2e-extended,
@@ -230,7 +230,7 @@ jobs:
           if-no-files-found: ignore
 
   tier3:
-    name: E2E (Tier 3)
+    name: E2E (Tier 3 — Multi-cluster)
     if: ${{ inputs.run_tier3 }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -278,19 +278,18 @@ jobs:
               ;;
           esac
 
-      - name: Add e2e host entries
-        run: echo '127.0.0.1 api.e2e-cp.local thunder.e2e-cp.local openchoreo.e2e-cp.local' | sudo tee -a /etc/hosts
+      - name: Add e2e multi-cluster host entries
+        # CP cluster external domains only — DP/WP/OP clusters are reached
+        # via host.k3d.internal from within k3d nodes, not the CI runner.
+        run: echo '127.0.0.1 api.e2e-mc-cp.local thunder.e2e-mc-cp.local openchoreo.e2e-mc-cp.local cluster-gateway.e2e-mc-cp.local' | sudo tee -a /etc/hosts
 
-      - name: Run e2e tests (tier 3)
+      - name: Run multi-cluster e2e tests (tier 3)
         run: |
-          make e2e \
+          make e2e.multi \
             E2E_HELM_SOURCE=oci \
             HELM_CHART_VERSION="${HELM_CHART_VERSION}" \
-            E2E_WITH_BUILD=true \
-            E2E_WITH_OBSERVABILITY=true \
-            E2E_SETUP_TIMEOUT=10m \
-            E2E_TEST_TIMEOUT=120m \
-            E2E_JOB_FIXTURE_SET=tier3 \
+            E2E_SETUP_TIMEOUT=20m \
+            E2E_TEST_TIMEOUT=60m \
             E2E_LABEL_FILTER='tier3'
 
       - name: Upload diagnostics

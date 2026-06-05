@@ -1,0 +1,20 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# ClusterWorkflowPlane CR for the multi-cluster e2e setup.
+# Cluster-scoped; required because the built-in ClusterWorkflow builders
+# (dockerfile-builder, paketo-buildpacks-builder, …) carry
+# workflowPlaneRef.kind: ClusterWorkflowPlane. Applied to the CP cluster.
+# The clusterAgent.clientCA.value is injected at apply time by
+# e2e_register_plane_cross_cluster in make/e2e.mk.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterWorkflowPlane
+metadata:
+  name: default
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: ""
+  secretStoreRef:
+    name: default

@@ -63,7 +63,7 @@ func InstallGitea(kubeContext, namespace string) error {
 				GiteaAdminUser, GiteaAdminPassword, GiteaAdminEmail,
 			),
 		)
-		if adminCreateErr != nil {
+		if adminCreateErr != nil && !strings.Contains(adminCreateOutput, "already exists") {
 			return fmt.Errorf("failed to create missing gitea admin user %q: %w (output: %s; admin users: %s)",
 				GiteaAdminUser, adminCreateErr, adminCreateOutput, adminListOutput)
 		}

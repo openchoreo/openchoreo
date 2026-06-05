@@ -27,10 +27,11 @@ const (
 	envDev      = "development"
 	envStaging  = "staging"
 
-	giteaNamespace      = framework.Tier3GiteaNamespace
-	sampleWorkloadsRepo = framework.Tier3SampleWorkloadsRepo
-	noWorkloadRepo      = framework.Tier3NoWorkloadRepo
-	paketoNodeRepo      = framework.Tier3PaketoNodeRepo
+	giteaNamespace          = framework.Tier3GiteaNamespace
+	sampleWorkloadsRepo     = framework.Tier3SampleWorkloadsRepo
+	noWorkloadRepo          = framework.Tier3NoWorkloadRepo
+	paketoNodeRepo          = framework.Tier3PaketoNodeRepo
+	upstreamSampleWorkloads = framework.Tier3UpstreamSampleWorkloads
 
 	// Component / workflow names. Kept short so the rendered Argo Workflow's
 	// generated names don't blow past Kubernetes' 63-char DNS label limit.
@@ -41,6 +42,7 @@ const (
 	componentBallerina       = "bal-svc"
 	componentNoWorkload      = "auto-wl"
 	componentExternalRefs    = "extref-svc"
+	componentLogs            = "logs-svc"
 
 	releaseBindingSuffix = "-" + envDev
 

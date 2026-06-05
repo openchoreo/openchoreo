@@ -6,6 +6,7 @@ package e2e
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -92,8 +93,26 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 	SetDefaultEventuallyPollingInterval(framework.DefaultPolling)
 
 	BeforeAll(func() {
-		By("ensuring shared Tier 3 Gitea build sources are present")
-		Expect(framework.EnsureTier3BuildSources(kubeContext)).To(Succeed())
+		By("installing in-cluster Gitea")
+		// Gitea must be in the WP cluster so Argo Workflow pods can clone via
+		// in-cluster DNS. In single-cluster mode wpCtx() == kubeContext.
+		Expect(framework.InstallGitea(wpCtx(), giteaNamespace)).To(Succeed())
+
+		By("mirroring openchoreo/sample-workloads into Gitea")
+		Expect(framework.MigrateRepo(wpCtx(), giteaNamespace,
+			sampleWorkloadsRepo, upstreamSampleWorkloads)).To(Succeed())
+
+		By("seeding the no-workload fixture into Gitea")
+		Expect(framework.EnsureGiteaRepo(wpCtx(), giteaNamespace, noWorkloadRepo)).To(Succeed())
+		repoRoot, err := framework.RepoRoot()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(framework.PushTree(wpCtx(), giteaNamespace, noWorkloadRepo, "main",
+			filepath.Join(repoRoot, "test/e2e/fixtures/build/no-workload"))).To(Succeed())
+
+		By("seeding the paketo-node fixture into Gitea")
+		Expect(framework.EnsureGiteaRepo(wpCtx(), giteaNamespace, paketoNodeRepo)).To(Succeed())
+		Expect(framework.PushTree(wpCtx(), giteaNamespace, paketoNodeRepo, "main",
+			filepath.Join(repoRoot, "test/e2e/fixtures/build/paketo-node"))).To(Succeed())
 
 		By("creating control plane namespace")
 		output, err := framework.KubectlApplyLiteral(kubeContext, cpNamespaceYAML())
@@ -118,9 +137,11 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 		_, _ = framework.Kubectl(kubeContext, "delete", "namespace", cpNs,
 			"--ignore-not-found", "--wait=false")
 		if dpNs != "" {
-			_, _ = framework.Kubectl(kubeContext, "delete", "namespace", dpNs,
+			_, _ = framework.Kubectl(dpCtx(), "delete", "namespace", dpNs,
 				"--ignore-not-found", "--wait=false")
 		}
+		_, _ = framework.Kubectl(wpCtx(), "delete", "namespace", giteaNamespace,
+			"--ignore-not-found", "--wait=false")
 	})
 
 	Context("builder matrix", func() {
@@ -196,8 +217,9 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 			fmt.Fprintf(GinkgoWriter, "rendered workflow ref: %s %s/%s\n", kind, refNs, refName)
 
 			By("rendered Argo Workflow carries the resolved externalRef value as a label")
+			// The Argo Workflow lives in the WP cluster in multi-cluster mode.
 			Eventually(func(g Gomega) {
-				out, err := framework.KubectlGetJsonpath(kubeContext, refNs,
+				out, err := framework.KubectlGetJsonpath(wpCtx(), refNs,
 					"workflow.argoproj.io", refName,
 					`{.metadata.labels['openchoreo\.dev/e2e-cel-probe']}`,
 				)
@@ -207,6 +229,58 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 			}, 3*time.Minute, 5*time.Second).Should(Succeed())
 		})
 
+		It("build-logs-via-k8s: live logs reachable from a running WorkflowRun pod", func() {
+			component := componentLogs
+			runName := component + "-run-01"
+
+			By("waiting for controller-manager webhook to be ready")
+			Eventually(func() error {
+				out, err := framework.KubectlGetJsonpath(kubeContext, "openchoreo-control-plane",
+					"endpoints", "controller-manager-webhook-service",
+					`{.subsets[0].addresses[0].ip}`)
+				if err != nil || strings.TrimSpace(out) == "" {
+					return fmt.Errorf("webhook endpoint not ready yet")
+				}
+				return nil
+			}, 3*time.Minute, 5*time.Second).Should(Succeed(),
+				"controller-manager webhook endpoint never became ready")
+
+			By("applying component + workflowrun")
+			gitURL := framework.GiteaRepoCloneURL(giteaNamespace, sampleWorkloadsRepo)
+			output, err := framework.KubectlApplyLiteral(kubeContext, buildComponentYAML(
+				component, "deployment/service", "dockerfile-builder",
+				gitURL, "/service-go-greeter", "/service-go-greeter/Dockerfile",
+			))
+			Expect(err).NotTo(HaveOccurred(), "failed to apply component: %s", output)
+			output, err = framework.KubectlApplyLiteral(kubeContext, workflowRunYAML(
+				component, runName, "dockerfile-builder",
+				gitURL, "/service-go-greeter", "/service-go-greeter/Dockerfile",
+			))
+			Expect(err).NotTo(HaveOccurred(), "failed to apply workflow run: %s", output)
+
+			By("waiting for the build Argo Workflow pod to appear")
+			// Argo Workflow pods run in the WP cluster; wpCtx() is the WP
+			// kubecontext in multi-cluster mode and falls back to kubeContext.
+			wfNs := "workflows-" + cpNs
+			Eventually(func(g Gomega) {
+				out, err := framework.Kubectl(wpCtx(),
+					"get", "pods", "-n", wfNs,
+					"-l", "workflows.argoproj.io/workflow="+runName,
+					"-o", "jsonpath={.items[*].metadata.name}")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(strings.TrimSpace(out)).NotTo(BeEmpty(),
+					"no pod found yet for WorkflowRun %s in %s", runName, wfNs)
+			}, 5*time.Minute, 5*time.Second).Should(Succeed())
+
+			By("kubectl logs against the build pod returns non-empty content")
+			Eventually(func(g Gomega) {
+				out, err := framework.KubectlLogs(wpCtx(), wfNs,
+					"workflows.argoproj.io/workflow="+runName, 50)
+				g.Expect(err).NotTo(HaveOccurred(), "kubectl logs failed: %s", out)
+				g.Expect(strings.TrimSpace(out)).NotTo(BeEmpty(),
+					"expected non-empty build pod logs while WorkflowRun is running")
+			}, 5*time.Minute, 5*time.Second).Should(Succeed())
+		})
 	})
 })
 
@@ -237,6 +311,21 @@ func triggerDeployableBuildSpec(spec buildSpec) {
 	runName := spec.component + "-run-01"
 	gitURL := framework.GiteaRepoCloneURL(giteaNamespace, spec.repoName)
 
+	// The CP controller-manager webhook may be temporarily unavailable if the
+	// controller restarted due to leader election loss during a long test run.
+	// Wait for the webhook endpoint to be ready before applying any resources.
+	By("waiting for controller-manager webhook to be ready")
+	Eventually(func() error {
+		out, err := framework.KubectlGetJsonpath(kubeContext, "openchoreo-control-plane",
+			"endpoints", "controller-manager-webhook-service",
+			`{.subsets[0].addresses[0].ip}`)
+		if err != nil || strings.TrimSpace(out) == "" {
+			return fmt.Errorf("webhook endpoint not ready yet")
+		}
+		return nil
+	}, 3*time.Minute, 5*time.Second).Should(Succeed(),
+		"controller-manager webhook endpoint never became ready")
+
 	By(fmt.Sprintf("applying Component %s with workflow %s", spec.component, spec.workflow))
 	output, err := framework.KubectlApplyLiteral(kubeContext, buildComponentYAML(
 		spec.component, spec.componentTyp, spec.workflow, gitURL, spec.appPath, spec.dockerfile,
@@ -263,6 +352,11 @@ func assertDeployableBuildSpec(spec buildSpec) {
 
 	By("waiting for WorkflowRun to succeed")
 	Eventually(func(g Gomega) {
+		// Emit runReference on each poll so CI logs show whether the CP
+		// controller ever created the Argo Workflow in the WP cluster.
+		kind, name, ns, _ := framework.WorkflowRunReference(kubeContext, cpNs, runName)
+		fmt.Fprintf(GinkgoWriter, "WorkflowRun %s runReference: kind=%s name=%s ns=%s\n",
+			runName, kind, name, ns)
 		framework.AssertWorkflowRunSucceeded(g, kubeContext, cpNs, runName)
 	}, buildTimeout, 10*time.Second).Should(Succeed())
 
@@ -279,13 +373,13 @@ func assertDeployableBuildSpec(spec buildSpec) {
 	By("discovering the data plane namespace")
 	Eventually(func() error {
 		var discoverErr error
-		dpNs, discoverErr = framework.GetDPNamespace(kubeContext, cpNs, projectName, envDev)
+		dpNs, discoverErr = framework.GetDPNamespace(dpCtx(), cpNs, projectName, envDev)
 		return discoverErr
 	}, 3*time.Minute, 5*time.Second).Should(Succeed())
 
 	By("workload pod is Running")
 	Eventually(func(g Gomega) {
-		framework.AssertPodsRunning(g, kubeContext, dpNs,
+		framework.AssertPodsRunning(g, dpCtx(), dpNs,
 			"openchoreo.dev/component="+spec.component)
 	}, 3*time.Minute, 5*time.Second).Should(Succeed())
 
@@ -294,17 +388,17 @@ func assertDeployableBuildSpec(spec buildSpec) {
 	}
 
 	By("ensuring a tester pod is available in the DP namespace")
-	output, err := framework.KubectlApplyLiteral(kubeContext, testerPodYAML(dpNs))
+	output, err := framework.KubectlApplyLiteral(dpCtx(), testerPodYAML(dpNs))
 	Expect(err).NotTo(HaveOccurred(), "failed to apply tester pod: %s", output)
 	Eventually(func(g Gomega) {
-		framework.AssertPodsRunning(g, kubeContext, dpNs, testerLabel)
+		framework.AssertPodsRunning(g, dpCtx(), dpNs, testerLabel)
 	}, 3*time.Minute, 3*time.Second).Should(Succeed())
 
 	By("rendered Service is TCP-reachable from the tester pod")
 	host, port := endpointHostPort(spec.component, spec.endpoint)
 	Eventually(func() error {
 		_, err := framework.CheckTCPReachableFromPodByLabel(
-			kubeContext, dpNs, testerLabel, testerContainer, host, port, 5,
+			dpCtx(), dpNs, testerLabel, testerContainer, host, port, 5,
 		)
 		return err
 	}, 2*time.Minute, 5*time.Second).Should(Succeed(),
@@ -315,7 +409,7 @@ func assertWorkflowRunLogs(runName string) {
 	By("waiting for the build Argo Workflow pod to appear")
 	wfNs := "workflows-" + cpNs
 	Eventually(func(g Gomega) {
-		out, err := framework.Kubectl(kubeContext,
+		out, err := framework.Kubectl(wpCtx(),
 			"get", "pods", "-n", wfNs,
 			"-l", "workflows.argoproj.io/workflow="+runName,
 			"-o", "jsonpath={.items[*].metadata.name}")
@@ -326,7 +420,7 @@ func assertWorkflowRunLogs(runName string) {
 
 	By("kubectl logs against the build pod returns non-empty content")
 	Eventually(func(g Gomega) {
-		out, err := framework.KubectlLogs(kubeContext, wfNs,
+		out, err := framework.KubectlLogs(wpCtx(), wfNs,
 			"workflows.argoproj.io/workflow="+runName, 50)
 		g.Expect(err).NotTo(HaveOccurred(), "kubectl logs failed: %s", out)
 		g.Expect(strings.TrimSpace(out)).NotTo(BeEmpty(),

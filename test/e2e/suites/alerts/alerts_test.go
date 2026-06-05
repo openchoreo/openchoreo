@@ -33,8 +33,9 @@ const (
 	// same node as the test, so generous bounds avoid CI flakiness.
 	buildTimeout = 20 * time.Minute
 
-	giteaNamespace      = framework.Tier3GiteaNamespace
-	sampleWorkloadsRepo = framework.Tier3SampleWorkloadsRepo
+	giteaNamespace          = framework.Tier3GiteaNamespace
+	sampleWorkloadsRepo     = framework.Tier3SampleWorkloadsRepo
+	upstreamSampleWorkloads = framework.Tier3UpstreamSampleWorkloads
 )
 
 var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
@@ -42,8 +43,10 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 	SetDefaultEventuallyPollingInterval(framework.DefaultPolling)
 
 	BeforeAll(func() {
-		By("deploying the in-cluster webhook receiver")
-		Expect(framework.DeployWebhookReceiver(kubeContext, alertReceiverNamespace)).To(Succeed())
+		By("deploying the webhook receiver")
+		// In multi-cluster mode the receiver must be in the same cluster as
+		// alertmanager (OP cluster) so notifications are deliverable in-cluster.
+		Expect(framework.DeployWebhookReceiver(opCtx(), alertReceiverNamespace)).To(Succeed())
 
 		By("creating control plane namespace")
 		out, err := framework.KubectlApplyLiteral(kubeContext, cpNamespaceYAML())
@@ -74,13 +77,13 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		By("discovering data plane namespace")
 		Eventually(func() error {
 			var derr error
-			dpNs, derr = framework.GetDPNamespace(kubeContext, cpNs, projectName, envDev)
+			dpNs, derr = framework.GetDPNamespace(dpCtx(), cpNs, projectName, envDev)
 			return derr
 		}, 3*time.Minute, 5*time.Second).Should(Succeed())
 
 		By("waiting for shared alert component pod to be Running")
 		Eventually(func(g Gomega) {
-			framework.AssertPodsRunning(g, kubeContext, dpNs,
+			framework.AssertPodsRunning(g, dpCtx(), dpNs,
 				"openchoreo.dev/component="+componentAlerts)
 		}, 5*time.Minute, 5*time.Second).Should(Succeed())
 	})
@@ -94,17 +97,17 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		_, _ = framework.Kubectl(kubeContext, "delete", "namespace", cpNs,
 			"--ignore-not-found", "--wait=false")
 		if dpNs != "" {
-			_, _ = framework.Kubectl(kubeContext, "delete", "namespace", dpNs,
+			_, _ = framework.Kubectl(dpCtx(), "delete", "namespace", dpNs,
 				"--ignore-not-found", "--wait=false")
 		}
-		_, _ = framework.Kubectl(kubeContext, "delete", "namespace",
+		_, _ = framework.Kubectl(opCtx(), "delete", "namespace",
 			alertReceiverNamespace, "--ignore-not-found", "--wait=false")
 	})
 
 	It("metric-alert-fires: webhook receiver records a notification when CPU rule trips", func() {
 		By("rendered ObservabilityAlertRule reaches Ready or Pending phase")
 		Eventually(func(g Gomega) {
-			out, err := framework.Kubectl(kubeContext,
+			out, err := framework.Kubectl(opCtx(),
 				"get", "observabilityalertrule", "-A",
 				"-l", "openchoreo.dev/component-uid",
 				"-o", `jsonpath={.items[*].spec.name}`,
@@ -124,7 +127,7 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		// the reasoning behind the looser delivery check.
 		var metricDelivered bool
 		Eventually(func(g Gomega) {
-			bodies, rerr := framework.ReceivedNotifications(kubeContext, alertReceiverNamespace)
+			bodies, rerr := framework.ReceivedNotifications(opCtx(), alertReceiverNamespace)
 			g.Expect(rerr).NotTo(HaveOccurred())
 			if containsAlert(bodies, alertRuleMetric) {
 				metricDelivered = true
@@ -150,7 +153,7 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		var lastExecErr error
 		for i := 0; i < 5; i++ {
 			out, err := framework.KubectlExecByLabel(
-				kubeContext, dpNs,
+				dpCtx(), dpNs,
 				"openchoreo.dev/component="+componentAlerts, "",
 				"sh", "-c", fmt.Sprintf("echo %s; echo %s 1>&2", logSearchPhrase, logSearchPhrase),
 			)
@@ -175,7 +178,7 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 
 		By("rendered ObservabilityAlertRule for the log rule reaches the OP")
 		Eventually(func(g Gomega) {
-			out, err := framework.Kubectl(kubeContext,
+			out, err := framework.Kubectl(opCtx(),
 				"get", "observabilityalertrule", "-A",
 				"-l", "openchoreo.dev/component-uid",
 				"-o", `jsonpath={.items[*].spec.name}`,
@@ -190,7 +193,7 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		// and TIER3-OP-PLAN.md "What shifted during implementation".
 		var logDelivered bool
 		Eventually(func(g Gomega) {
-			bodies, rerr := framework.ReceivedNotifications(kubeContext, alertReceiverNamespace)
+			bodies, rerr := framework.ReceivedNotifications(opCtx(), alertReceiverNamespace)
 			g.Expect(rerr).NotTo(HaveOccurred())
 			if containsAlert(bodies, alertRuleLog) {
 				logDelivered = true
@@ -206,8 +209,12 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		// the only Tier 3 spec that needs both planes. It uses the shared
 		// Tier 3 source fixture but keeps its WorkflowRun dedicated because
 		// the test deletes that run before querying observer logs.
-		By("ensuring shared Tier 3 sample-workloads source is present")
-		Expect(framework.EnsureTier3SampleWorkloads(kubeContext)).To(Succeed())
+		// Gitea must be in the WP cluster so Argo Workflow pods can clone via
+		// in-cluster DNS. In single-cluster mode wpCtx() == kubeContext.
+		By("ensuring Gitea + sample-workloads mirror are present in the WP cluster")
+		Expect(framework.InstallGitea(wpCtx(), giteaNamespace)).To(Succeed())
+		Expect(framework.MigrateRepo(wpCtx(), giteaNamespace,
+			sampleWorkloadsRepo, upstreamSampleWorkloads)).To(Succeed())
 
 		runName := componentBuildLogs + "-run-01"
 		gitURL := framework.GiteaRepoCloneURL(giteaNamespace, sampleWorkloadsRepo)
@@ -235,20 +242,22 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		By("setting up an observer-query tester pod in the DP namespace")
 		Eventually(func() error {
 			var derr error
-			dpNs, derr = framework.GetDPNamespace(kubeContext, cpNs, projectName, envDev)
+			dpNs, derr = framework.GetDPNamespace(dpCtx(), cpNs, projectName, envDev)
 			return derr
 		}, 3*time.Minute, 5*time.Second).Should(Succeed())
-		out, err = framework.KubectlApplyLiteral(kubeContext, curlPodYAML(dpNs))
+		out, err = framework.KubectlApplyLiteral(dpCtx(), curlPodYAML(dpNs))
 		Expect(err).NotTo(HaveOccurred(), "create tester pod: %s", out)
 		Eventually(func(g Gomega) {
-			framework.AssertPodsRunning(g, kubeContext, dpNs, curlPodLabel)
+			framework.AssertPodsRunning(g, dpCtx(), dpNs, curlPodLabel)
 		}, 4*time.Minute, 3*time.Second).Should(Succeed())
 
 		observerQ = framework.ObserverQueryFrom{
-			KubeContext: kubeContext,
-			Namespace:   dpNs,
-			PodLabel:    curlPodLabel,
-			Container:   curlContainer,
+			KubeContext:     dpCtx(),
+			Namespace:       dpNs,
+			PodLabel:        curlPodLabel,
+			Container:       curlContainer,
+			ThunderTokenURL: mcThunderURL(),
+			ObserverURL:     mcObserverURL(),
 		}
 		token, err := framework.AcquireObserverToken(observerQ)
 		Expect(err).NotTo(HaveOccurred(), "acquire observer token")
@@ -278,6 +287,20 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		}, framework.IngestionBudget, alertPoll).Should(Succeed())
 	})
 })
+
+func mcThunderURL() string {
+	if opKubeContext != "" {
+		return "http://thunder.e2e-mc-cp.local:38080/oauth2/token"
+	}
+	return ""
+}
+
+func mcObserverURL() string {
+	if opKubeContext != "" {
+		return "http://observer.e2e-mc-op.local:31080"
+	}
+	return ""
+}
 
 // containsAlert returns true if any of the JSON bodies references the named
 // alert rule. The exact payload shape is observer-defined; we look for the
