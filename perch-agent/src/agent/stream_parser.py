@@ -89,6 +89,12 @@ class ChatResponseParser:
         # the *new* content since the last call so the wire stays a
         # true delta stream rather than re-sending the prefix each tick.
         self._emitted_len = 0
+        # Sibling field on ChatResponse — set only on build_failure
+        # turns where the model has a code-level fix. Read at end-of-
+        # stream by the orchestrator to populate DoneEvent.fix_prompt.
+        # No incremental ``pop_delta`` analogue because the frontend
+        # only renders this once the message is finalised.
+        self._fix_prompt = ""
 
     def push(self, chunk: str) -> None:
         if not chunk:
@@ -123,10 +129,17 @@ class ChatResponseParser:
         msg = as_dict.get("message")
         if isinstance(msg, str):
             self._message = msg
+        fp = as_dict.get("fix_prompt")
+        if isinstance(fp, str):
+            self._fix_prompt = fp
 
     @property
     def message(self) -> str:
         return self._message
+
+    @property
+    def fix_prompt(self) -> str:
+        return self._fix_prompt
 
     def set_message(self, msg: str) -> None:
         """Overwrite the parsed message.

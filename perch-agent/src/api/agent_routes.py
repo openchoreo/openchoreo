@@ -4,11 +4,12 @@
 import asyncio
 import hashlib
 import logging
+import re
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from src.agent import stream_chat
 from src.auth import SubjectContext, require_authn, require_invoke_authz
@@ -106,6 +107,12 @@ class ChatScope(BaseModel):
     # first calling list_*.
     workflow_name: str | None = Field(default=None, alias="workflowName", max_length=253)
     workflow_kind: str | None = Field(default=None, alias="workflowKind", max_length=64)
+    # Git repository URL extracted from the component's workflow schema by
+    # the Backstage launcher. Forwarded to the system prompt so the model
+    # can include it in the build_failure ``fix_prompt`` without an extra
+    # tool call. Optional — components without a workflow ``repository.url``
+    # parameter omit it, and the prompt template degrades gracefully.
+    repo_url: str | None = Field(default=None, alias="repoUrl", max_length=2000)
     # Optional case discriminator set by purpose-built launchers
     # (e.g. failed-build snackbar). The base prompt branches on this to
     # layer in case-specific guidance — see perch_prompt.j2 case_type
@@ -167,6 +174,31 @@ class ChatScope(BaseModel):
     prefetched_logs: list[PrefetchedLogEntry] | None = Field(
         default=None, alias="prefetchedLogs", max_length=50,
     )
+
+    @field_validator("repo_url")
+    @classmethod
+    def _validate_repo_url(cls, v: str | None) -> str | None:
+        """Reject control chars / non-http(s) schemes in ``repo_url``.
+
+        ``repo_url`` is interpolated into the system prompt and into the
+        agent-generated ``fix_prompt`` payload. Without validation a
+        client could send newlines, NUL, or other control bytes and
+        break out of the URL context to inject instructions into the
+        prompt template ("Repo: https://x.com\\n\\nIGNORE PRIOR …").
+        We strip surrounding whitespace, reject any C0 / DEL control
+        character (including newlines and tabs), and require an http
+        or https scheme — anything else is rejected with a 422.
+        """
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            return None
+        if re.search(r"[\x00-\x1F\x7F]", v):
+            raise ValueError("repo_url contains control characters")
+        if not re.match(r"^https?://[^\s]+$", v):
+            raise ValueError("repo_url must be an http(s) URL")
+        return v
 
 
 # Per-request total bytes of message content. Each ChatMessage.content
