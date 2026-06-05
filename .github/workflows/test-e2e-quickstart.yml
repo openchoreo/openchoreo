@@ -1,0 +1,76 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Quick Start E2E Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: 'Quick-start container image'
+        required: false
+        default: 'ghcr.io/openchoreo/quick-start:latest-dev'
+      version:
+        description: 'OpenChoreo version to install'
+        required: false
+        default: 'latest-dev'
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 06:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  quickstart-e2e:
+    name: Quick Start Guide
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v6.0.2
+        with:
+          go-version-file: go.mod
+
+      - name: Run quick-start e2e test
+        run: |
+          go test ./test/e2e-quickstart/... \
+            -v \
+            -timeout 25m \
+            -args \
+            -qs.image="${{ inputs.image || 'ghcr.io/openchoreo/quick-start:latest-dev' }}" \
+            -qs.version="${{ inputs.version || 'latest-dev' }}"
+
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          echo "=== Container status ==="
+          docker ps -a --filter name=openchoreo-qs-e2e-test || true
+
+          echo "=== Container logs ==="
+          docker logs openchoreo-qs-e2e-test 2>&1 | tail -100 || true
+
+          echo "=== k3d cluster list ==="
+          docker exec --user openchoreo -w /home/openchoreo openchoreo-qs-e2e-test \
+            bash -lc "k3d cluster list" 2>/dev/null || true
+
+          echo "=== Pod status (all namespaces) ==="
+          docker exec --user openchoreo -w /home/openchoreo openchoreo-qs-e2e-test \
+            bash -lc "kubectl get pods -A" 2>/dev/null || true
+
+          echo "=== Events ==="
+          docker exec --user openchoreo -w /home/openchoreo openchoreo-qs-e2e-test \
+            bash -lc "kubectl get events -A --sort-by=.lastTimestamp | tail -50" 2>/dev/null || true
+
+          echo "=== Components ==="
+          docker exec --user openchoreo -w /home/openchoreo openchoreo-qs-e2e-test \
+            bash -lc "kubectl get components,workloads,releasebindings -A -o wide" 2>/dev/null || true
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker exec --user openchoreo -w /home/openchoreo openchoreo-qs-e2e-test \
+            bash -lc "./uninstall.sh --force" 2>/dev/null || true
+          docker rm -f openchoreo-qs-e2e-test 2>/dev/null || true
