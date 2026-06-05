@@ -307,7 +307,7 @@ func getDefaults() map[string]interface{} {
 			"max.log.lines.per.file":  600000,
 		},
 		"alerting": map[string]interface{}{
-			"rca.service.url":          "http://ai-rca-agent:8080",
+			"rca.service.url":          "http://sre-agent:8080",
 			"ai.rca.enabled":           false,
 			"observability.namespace":  "openchoreo-observability-plane",
 			"alert.store.backend":      "sqlite",

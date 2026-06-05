@@ -22,7 +22,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/perch-agent/configmap.yaml") . | sha256sum }}
+        checksum/config: {{ include (print $.Template.BasePath "/portal-assistant/configmap.yaml") . | sha256sum }}
       labels:
         {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: portal-assistant

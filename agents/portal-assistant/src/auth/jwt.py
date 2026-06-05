@@ -62,7 +62,7 @@ class JWTValidator:
             self.jwks_url,
             cache_keys=True,
             lifespan=self.refresh_interval,
-            headers={"User-Agent": "perch-agent/1.0"},
+            headers={"User-Agent": "portal-assistant/1.0"},
             ssl_context=ssl_context,
         )
 

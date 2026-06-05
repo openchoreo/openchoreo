@@ -38,6 +38,7 @@ updates:
 
   # Python dependencies (uv)
   - package-ecosystem: "uv"
-    directory: "/rca-agent"
+    directories:
+      - "/agents/*"
     schedule:
       interval: "weekly"

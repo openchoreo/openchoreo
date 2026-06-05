@@ -21,7 +21,9 @@ jobs:
           - event-forwarder
           - cluster-gateway
           - cluster-agent
-          - ai-rca-agent
+          - sre-agent
+          - finops-agent
+          - portal-assistant
     steps:
       - name: Set image tag
         id: tag

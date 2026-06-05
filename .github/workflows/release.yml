@@ -89,7 +89,9 @@ jobs:
             openchoreo-api
             observer
             event-forwarder
-            ai-rca-agent
+            sre-agent
+            finops-agent
+            portal-assistant
             openchoreo-cli
             cluster-gateway
             cluster-agent

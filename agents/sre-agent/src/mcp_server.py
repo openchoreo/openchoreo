@@ -94,7 +94,7 @@ mcp_server = FastMCP(
     # FastMCP's default DNS-rebinding protection rejects any Host header
     # not on a tiny allowlist (localhost). In-cluster traffic from the
     # assistant-agent uses the Service DNS host (e.g.
-    # ai-rca-agent.openchoreo-observability-plane.svc.cluster.local),
+    # sre-agent.openchoreo-observability-plane.svc.cluster.local),
     # which would 421. We disable the protection because (a) ingress is
     # already gated by JWT auth and (b) the protection guards browsers,
     # not service-to-service callers.

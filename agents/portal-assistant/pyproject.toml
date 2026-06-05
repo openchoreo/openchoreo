@@ -1,5 +1,5 @@
 [project]
-name = "perch-agent"
+name = "portal-assistant"
 version = "0.1.0"
 description = "OpenChoreo control-plane copilot — read-only chat over the openchoreo MCP"
 requires-python = ">=3.14"

@@ -161,7 +161,7 @@ async def require_authn(request: Request) -> SubjectContext:
 class AuthorizationChecker:
     """Coarse-grained gate. Per-tool authz is enforced by the openchoreo MCP itself
     using the same user JWT we forward, so this checker only authorizes the
-    broader perch-agent endpoint (chat + warmup).
+    broader portal-assistant endpoint (chat + warmup).
     """
 
     def __init__(self, action: str, resource_type: str):
@@ -187,7 +187,7 @@ class AuthorizationChecker:
         # is redundant work on every authz check.
         token = getattr(request.state, "bearer_token", None)
 
-        # The perch-agent endpoint itself has no per-resource hierarchy; it's
+        # The portal-assistant endpoint itself has no per-resource hierarchy; it's
         # a coarse "is this user allowed to invoke perch at all?" check.
         # Fine-grained checks happen per-tool in the openchoreo MCP layer.
         authz_request = EvaluateRequest(
@@ -202,7 +202,7 @@ class AuthorizationChecker:
         )
 
         # Map AuthzClient's framework-agnostic domain exceptions to the
-        # HTTP responses the perch-agent endpoint promises. The status
+        # HTTP responses the portal-assistant endpoint promises. The status
         # codes + body shapes here MUST match what the previous direct-
         # HTTPException implementation emitted — frontend / Backstage
         # error handling already keys on them.

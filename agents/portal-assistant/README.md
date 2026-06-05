@@ -4,12 +4,12 @@ A read-only control-plane copilot service that consumes the openchoreo MCP serve
 
 ## Status
 
-V1 — backend only. The Backstage chat-view plugin is a follow-up workstream. Validate the service with `curl` against `/api/v1alpha1/perch-agent/chat`.
+V1 — backend only. The Backstage chat-view plugin is a follow-up workstream. Validate the service with `curl` against `/api/v1alpha1/portal-assistant/chat`.
 
 ## Endpoints
 
-- `POST /api/v1alpha1/perch-agent/chat` — NDJSON `StreamEvent` stream
-- `POST /api/v1alpha1/perch-agent/warmup` — Pre-warm the per-user MCP tool cache
+- `POST /api/v1alpha1/portal-assistant/chat` — NDJSON `StreamEvent` stream
+- `POST /api/v1alpha1/portal-assistant/warmup` — Pre-warm the per-user MCP tool cache
 - `GET  /health`
 
 ## Running locally
