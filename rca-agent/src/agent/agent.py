@@ -67,7 +67,7 @@ class Agent:
 
     async def create(
         self,
-        auth: httpx.Auth,
+        auth: httpx.Auth | None,
         usage_callback: BaseCallbackHandler | None = None,
         context: dict[str, Any] | None = None,
     ) -> tuple[Runnable, LoggingMiddleware | None]:

@@ -13,6 +13,8 @@ data:
   RCA_AGENT_API_URL: {{ default "" .Values.portalAssistant.config.rcaAgentApiUrl | quote }}
   PORTAL_ASSISTANT_MODEL_NAME: {{ .Values.portalAssistant.llm.modelName | quote }}
   PORTAL_ASSISTANT_MODEL_PROVIDER: {{ .Values.portalAssistant.llm.modelProvider | quote }}
+  GOOGLE_CLOUD_PROJECT: {{ .Values.portalAssistant.llm.googleCloudProject | default "" | quote }}
+  GOOGLE_CLOUD_LOCATION: {{ .Values.portalAssistant.llm.googleCloudLocation | default "" | quote }}
   MAX_CONCURRENT_CHATS: {{ .Values.portalAssistant.config.maxConcurrentChats | quote }}
   AUTHZ_TIMEOUT_SECONDS: {{ .Values.portalAssistant.config.authzTimeoutSeconds | quote }}
   JWKS_URL_TLS_INSECURE_SKIP_VERIFY: {{ .Values.security.oidc.jwksUrlTlsInsecureSkipVerify | default "false" | quote }}

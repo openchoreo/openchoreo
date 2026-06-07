@@ -39,7 +39,7 @@ def get_model(
     is_openai = (
         "openai" in model_name_lower
         or (model_provider and "openai" in str(model_provider).lower())
-        or model_name_lower.startswith(("gpt-", "o1-", "o3-"))
+        or model_name_lower.startswith(("gpt-", "o1-", "o3-", "o4-"))
     )
 
     if (

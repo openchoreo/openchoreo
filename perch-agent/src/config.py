@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     portal_assistant_model_name: str = ""
     portal_assistant_model_provider: str = ""
     portal_assistant_llm_api_key: str = ""
+    google_cloud_project: str = ""
+    google_cloud_location: str = ""
     # OpenAI gpt-5 / o-series reasoning effort. One of "minimal" /
     # "low" / "medium" / "high"; empty string leaves the model on its
     # default (medium for gpt-5-mini). Reasoning tokens are generated

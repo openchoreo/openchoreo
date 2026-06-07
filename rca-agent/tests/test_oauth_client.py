@@ -170,3 +170,36 @@ class TestCheckOauth2Connection:
 
         result = await check_oauth2_connection()
         assert result is True
+
+    @pytest.mark.asyncio
+    async def test_fetch_token_failure(self, monkeypatch):
+        """Simulate a failure during fetch_token to ensure proper cleanup and error handling."""
+        _patch_settings(
+            monkeypatch,
+            token_url="https://token.example.com/token",
+            client_id="my-client",
+            client_secret="my-secret",
+        )
+
+        class _FakeAsyncOAuth2ClientRaises:
+            def __init__(self, **kwargs):
+                self.aclose_called = False
+
+            async def fetch_token(self, url, **kwargs):
+                raise RuntimeError("fetch failed")
+
+            async def aclose(self):
+                self.aclose_called = True
+
+        fake_client_instance = _FakeAsyncOAuth2ClientRaises()
+
+        # monkeypatch the constructor to return our instance
+        def fake_init(*args, **kwargs):
+            return fake_client_instance
+
+        monkeypatch.setattr(oauth_module, "AsyncOAuth2Client", fake_init)
+
+        with pytest.raises(RuntimeError, match="Failed to fetch OAuth2 token"):
+            await check_oauth2_connection()
+
+        assert fake_client_instance.aclose_called is True
