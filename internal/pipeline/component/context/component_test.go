@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/schemaextract"
 )
 
 // validMetadata returns a MetadataContext that satisfies all "required" validation tags.
@@ -704,6 +705,56 @@ func TestExtractWorkloadData_NilWorkload(t *testing.T) {
 	assert.NotNil(t, data.Endpoints, "Endpoints map should be initialized, not nil")
 	assert.Empty(t, data.Endpoints)
 	assert.Empty(t, data.Container.Image)
+}
+
+func TestExtractEndpointResources(t *testing.T) {
+	workload := &v1alpha1.Workload{
+		Spec: v1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
+				Container: v1alpha1.Container{Image: "myapp:v1"},
+				Endpoints: map[string]v1alpha1.WorkloadEndpoint{
+					"grpc": {
+						Type: v1alpha1.EndpointTypeGRPC,
+						Port: 9090,
+						Schema: &v1alpha1.Schema{
+							Type: "proto",
+							Content: `syntax = "proto3";
+package greeter;
+service Greeter { rpc SayHello (Req) returns (Req); }
+message Req { string name = 1; }`,
+						},
+					},
+					"no-schema": {
+						Type: v1alpha1.EndpointTypeGRPC,
+						Port: 9091,
+					},
+					"bad-schema": {
+						Type:   v1alpha1.EndpointTypeGRPC,
+						Port:   9092,
+						Schema: &v1alpha1.Schema{Type: "proto", Content: "not a proto"},
+					},
+				},
+			},
+		},
+	}
+
+	got := ExtractEndpointResources(workload)
+
+	// Endpoint with a valid proto schema yields explicit (service, method) resources.
+	assert.Equal(t, []schemaextract.EndpointResource{
+		{Kind: "gRPC", Service: "greeter.Greeter", Method: "SayHello"},
+	}, got["grpc"])
+
+	// Endpoints without a schema or with an unparseable schema are simply absent
+	// (templates index by key and fall back to catch-all routing).
+	_, hasNoSchema := got["no-schema"]
+	assert.False(t, hasNoSchema)
+	_, hasBadSchema := got["bad-schema"]
+	assert.False(t, hasBadSchema)
+
+	// ExtractWorkloadData no longer carries resources on the endpoint itself.
+	data := ExtractWorkloadData(workload)
+	assert.NotEmpty(t, data.Endpoints, "endpoints should still be extracted")
 }
 
 // --- extractParameters tests ---

@@ -1030,6 +1030,40 @@ var _ = Describe("extractFirstPathValue", func() {
 	})
 })
 
+var _ = Describe("routePath", func() {
+	It("prefers the endpoint-base-path annotation when present", func() {
+		obj := unmarshalHTTPRoute(makeHTTPRouteJSON(httpRouteOpts{
+			name:      "route",
+			pathValue: "/demo-endpoint/books", // a specific operation match
+		}))
+		obj.SetAnnotations(map[string]string{
+			labels.AnnotationKeyEndpointBasePath: "/demo-endpoint",
+		})
+		Expect(routePath(&indexedRoute{obj: obj, kind: httpRouteKind})).To(Equal("/demo-endpoint"))
+	})
+
+	It("falls back to the first HTTPRoute match path when the annotation is absent", func() {
+		obj := unmarshalHTTPRoute(makeHTTPRouteJSON(httpRouteOpts{
+			name:      "route",
+			pathValue: "/demo-endpoint",
+		}))
+		Expect(routePath(&indexedRoute{obj: obj, kind: httpRouteKind})).To(Equal("/demo-endpoint"))
+	})
+
+	It("uses the annotation even for non-HTTPRoute kinds", func() {
+		obj := unmarshalHTTPRoute(makeHTTPRouteJSON(httpRouteOpts{name: "route"}))
+		obj.SetAnnotations(map[string]string{
+			labels.AnnotationKeyEndpointBasePath: "/grpc-base",
+		})
+		Expect(routePath(&indexedRoute{obj: obj, kind: grpcRouteKind})).To(Equal("/grpc-base"))
+	})
+
+	It("returns empty for a GRPCRoute without the annotation", func() {
+		obj := unmarshalHTTPRoute(makeHTTPRouteJSON(httpRouteOpts{name: "route", pathValue: "/ignored"}))
+		Expect(routePath(&indexedRoute{obj: obj, kind: grpcRouteKind})).To(BeEmpty())
+	})
+})
+
 var _ = Describe("resolveGatewayEndpointByVisibility", func() {
 	It("should return nil when dataplane is nil", func() {
 		Expect(resolveGatewayEndpointByVisibility(openchoreov1alpha1.EndpointVisibilityExternal, nil, nil)).To(BeNil())

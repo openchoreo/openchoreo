@@ -1,0 +1,16 @@
+{
+  "name": "@openchoreo/test-ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Playwright UI tests (Tier 5) for OpenChoreo Backstage portal — runs against an e2e k3d cluster.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "PWDEBUG=1 playwright test",
+    "report": "playwright show-report _report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.5"
+  }
+}

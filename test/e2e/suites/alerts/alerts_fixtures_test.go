@@ -26,8 +26,7 @@ const (
 	envDev      = "development"
 	envStaging  = "staging"
 
-	componentMetric        = "alert-metric-svc"
-	componentLog           = "alert-log-svc"
+	componentAlerts        = "alert-greeter-svc"
 	componentBuildLogs     = "alert-build-svc"
 	releaseBindingSuffix   = "-" + envDev
 	servicePort            = 9090
@@ -157,7 +156,30 @@ func notificationChannelYAML() string {
 // not surface). Setting
 // `releaseBinding.spec.traitEnvironmentConfigs.<ruleName>.actions.notifications.channels`
 // pins the channel deterministically.
-func alertComponentYAML(componentName, ruleName string, params map[string]any) string {
+type alertRuleFixture struct {
+	name   string
+	params map[string]any
+}
+
+func alertComponentYAML(componentName string, rules ...alertRuleFixture) string {
+	traits := make([]any, 0, len(rules))
+	traitEnvConfigs := make(map[string]any, len(rules))
+	for _, rule := range rules {
+		traits = append(traits, map[string]any{
+			"name":         "observability-alert-rule",
+			"kind":         "ClusterTrait",
+			"instanceName": rule.name,
+			"parameters":   rule.params,
+		})
+		traitEnvConfigs[rule.name] = map[string]any{
+			"enabled": true,
+			"actions": map[string]any{
+				"notifications": map[string]any{
+					"channels": []string{notificationChannel},
+				},
+			},
+		}
+	}
 	comp := map[string]any{
 		"apiVersion": openChoreoAPIVer,
 		"kind":       "Component",
@@ -173,12 +195,7 @@ func alertComponentYAML(componentName, ruleName string, params map[string]any) s
 				"name": "deployment/service",
 			},
 			"autoDeploy": true,
-			"traits": []any{map[string]any{
-				"name":         "observability-alert-rule",
-				"kind":         "ClusterTrait",
-				"instanceName": ruleName,
-				"parameters":   params,
-			}},
+			"traits":     traits,
 		},
 	}
 	wl := map[string]any{
@@ -219,17 +236,8 @@ func alertComponentYAML(componentName, ruleName string, params map[string]any) s
 				"projectName":   projectName,
 				"componentName": componentName,
 			},
-			"environment": envDev,
-			"traitEnvironmentConfigs": map[string]any{
-				ruleName: map[string]any{
-					"enabled": true,
-					"actions": map[string]any{
-						"notifications": map[string]any{
-							"channels": []string{notificationChannel},
-						},
-					},
-				},
-			},
+			"environment":             envDev,
+			"traitEnvironmentConfigs": traitEnvConfigs,
 		},
 	}
 	return mustYAMLDocs(comp, wl, rb)

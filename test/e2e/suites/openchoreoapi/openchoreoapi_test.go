@@ -25,10 +25,10 @@ var _ = Describe("OpenChoreo API", Ordered, Label("tier2"), func() {
 		client *gen.ClientWithResponses
 		ctx    context.Context
 
-		nsName      string
-		kubectlNs   string
-		projectName string
-		compName    string
+		nsName       string
+		kubectlNs    string
+		projectName  string
+		compName     string
 		workloadName string
 
 		ct1Name string

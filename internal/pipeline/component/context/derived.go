@@ -35,14 +35,22 @@ type DerivedContext struct {
 	DependencyEnvVars      []EnvVarEntry      `json:"dependencyEnvVars"`
 	DependencyVolumeMounts []VolumeMountEntry `json:"dependencyVolumeMounts"`
 	DependencyVolumes      []VolumeEntry      `json:"dependencyVolumes"`
+
+	// EndpointResources backs the workload.toEndpointResources() macro. Always a
+	// non-nil map (possibly empty) so the macro's optional index evaluates even when
+	// no endpoint produced resources; omitting the key would fail the field select
+	// with "no such key" instead of yielding optional.none.
+	EndpointResources EndpointResourceMap `json:"endpointResources"`
 }
 
 // BuildDerivedContext precomputes all derived views from typed inputs.
+// endpointResources is nil unless a template opts in via workload.toEndpointResources().
 func BuildDerivedContext(
 	configurations ContainerConfigurations,
 	workload WorkloadData,
 	dependencies ConnectionsContextData,
 	prefix string,
+	endpointResources EndpointResourceMap,
 ) DerivedContext {
 	return DerivedContext{
 		ConfigFileList:         buildConfigFileList(configurations, prefix),
@@ -56,6 +64,7 @@ func BuildDerivedContext(
 		DependencyEnvVars:      nonNilEnvVars(dependencies.EnvVars),
 		DependencyVolumeMounts: nonNilVolumeMounts(dependencies.VolumeMounts),
 		DependencyVolumes:      nonNilVolumes(dependencies.Volumes),
+		EndpointResources:      nonNilEndpointResources(endpointResources),
 	}
 }
 
@@ -257,6 +266,13 @@ func nonNilVolumes(s []VolumeEntry) []VolumeEntry {
 		return []VolumeEntry{}
 	}
 	return s
+}
+
+func nonNilEndpointResources(m EndpointResourceMap) EndpointResourceMap {
+	if m == nil {
+		return EndpointResourceMap{}
+	}
+	return m
 }
 
 func sanitizePortName(name string) string {

@@ -14,7 +14,7 @@ reviews:
   high_level_summary_in_walkthrough: true
   high_level_summary_instructions: |
     Keep the summary evidence-based and quant-heavy:
-    1) Show a mini breakdown: changed files count by top-level folder (api/, config/, internal/, pkg/, install/, docs/, openapi/, rca-agent/, make/, cmd/, samples/).
+    1) Show a mini breakdown: changed files count by top-level folder (api/, config/, internal/, pkg/, install/, docs/, openapi/, agents/, make/, cmd/, samples/).
     2) Call out API/CRD surface changes explicitly (what changed, compatibility risk: low/med/high).
     3) List tests added/updated (and what critical paths still lack tests).
     4) Highlight risk hotspots with short reasons (authn/authz, RBAC, secrets, reconciliation loops, install/upgrade paths).
@@ -145,7 +145,7 @@ reviews:
         - Avoid global mutable state; validate config early.
         - Flag breaking changes to commands, flags, or output formats.
 
-    - path: "rca-agent/**"
+    - path: "agents/**"
       instructions: |
         LEVEL: STANDARD (Agent)
         - Reliability-sensitive: prioritize timeouts, retries, and telemetry.

@@ -7,6 +7,7 @@ import (
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common"
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/parser"
 )
 
@@ -31,6 +32,7 @@ func CELExtensions() []cel.EnvOption {
 			toSecretEnvsByContainerMacro,
 			toServicePortsMacro,
 			toContainerEnvsMacro,
+			toEndpointResourcesMacro,
 		),
 	}
 }
@@ -119,6 +121,20 @@ var toContainerEnvsMacro = cel.ReceiverMacro("toContainerEnvs", 0,
 	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
 		if target.Kind() == ast.IdentKind && target.AsIdent() == dependenciesIdentifier {
 			return derivedField(eh, "dependencyEnvVars"), nil
+		}
+		return nil, nil
+	})
+
+// toEndpointResourcesMacro rewrites workload.toEndpointResources(<endpointName>)
+// to an optional index into the precomputed map of extracted endpoint resources
+// (derived.endpointResources[?<endpointName>]). The result is a CEL optional:
+// consume it with .orValue([]), or .hasValue()/.value(). The backing map is only
+// computed when this macro is used, so schema parsing and context cost are
+// avoided unless a template opts in.
+var toEndpointResourcesMacro = cel.ReceiverMacro("toEndpointResources", 1,
+	func(eh parser.ExprHelper, target ast.Expr, args []ast.Expr) (ast.Expr, *common.Error) {
+		if target.Kind() == ast.IdentKind && target.AsIdent() == "workload" {
+			return eh.NewCall(operators.OptIndex, derivedField(eh, "endpointResources"), args[0]), nil
 		}
 		return nil, nil
 	})

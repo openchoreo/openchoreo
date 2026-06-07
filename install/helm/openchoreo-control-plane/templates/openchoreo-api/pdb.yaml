@@ -17,5 +17,5 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/component: api-server
-      app.kubernetes.io/name: {{ include "openchoreo-control-plane.fullname" . }}
+      {{- include "openchoreo-control-plane.selectorLabels" . | nindent 6 }}
 {{- end }}

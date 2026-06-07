@@ -511,6 +511,24 @@ func TestValidateResourceTemplate_ForEachListFieldAccess(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid map forEach accessing endpoint resources via macro",
+			cct: &v1alpha1.ClusterComponentType{
+				Spec: v1alpha1.ClusterComponentTypeSpec{
+					Resources: []v1alpha1.ResourceTemplate{
+						{
+							ID:      "route",
+							ForEach: `${workload.endpoints.transformMap(name, ep, ep.type == "gRPC", ep)}`,
+							Var:     "endpoint",
+							Template: &runtime.RawExtension{
+								Raw: []byte(`{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "${endpoint.key}"}, "data": {"svc": "${workload.toEndpointResources(endpoint.key).orValue([]).map(r, r.service).join(\",\")}"}}`),
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
 			name: "invalid map forEach with transformMap catches bad field on value",
 			cct: &v1alpha1.ClusterComponentType{
 				Spec: v1alpha1.ClusterComponentTypeSpec{

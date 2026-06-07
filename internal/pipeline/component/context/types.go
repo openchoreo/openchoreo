@@ -5,6 +5,7 @@ package context
 
 import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/schemaextract"
 )
 
 // MetadataContext provides structured metadata for resource generation.
@@ -98,6 +99,11 @@ type ComponentContextInput struct {
 	// Should be computed once by the caller using ExtractWorkloadData and shared.
 	WorkloadData WorkloadData
 
+	// EndpointResources holds routes extracted from endpoint API schemas, keyed by
+	// endpoint name. Optional and typically nil: the pipeline only computes it when
+	// a template references the workload.toEndpointResources() macro.
+	EndpointResources EndpointResourceMap
+
 	// Configurations is the pre-computed configurations from workload.
 	// Should be computed once by the caller using ExtractConfigurationsFromWorkload
 	// and shared across ComponentContext and all TraitContexts.
@@ -136,6 +142,11 @@ type TraitContextBase struct {
 	// WorkloadData is the pre-computed workload data (containers, endpoints).
 	// Should be computed once by the caller using ExtractWorkloadData and shared.
 	WorkloadData WorkloadData
+
+	// EndpointResources holds routes extracted from endpoint API schemas, keyed by
+	// endpoint name. Optional and typically nil: the pipeline only computes it when
+	// a template references the workload.toEndpointResources() macro.
+	EndpointResources EndpointResourceMap
 
 	// Configurations is the pre-computed configurations from workload.
 	// Should be computed once by the caller using ExtractConfigurationsFromWorkload
@@ -315,6 +326,13 @@ type EndpointData struct {
 	BasePath    string   `json:"basePath,omitempty"`
 	Visibility  []string `json:"visibility"`
 }
+
+// EndpointResourceMap maps an endpoint name to the routes extracted from its API
+// schema. It is computed only when a template opts in via the
+// workload.toEndpointResources() macro, so schema-less or unused endpoints incur
+// no parsing or context cost. Only endpoints with at least one extracted resource
+// appear as keys.
+type EndpointResourceMap = map[string][]schemaextract.EndpointResource
 
 // ContainerConfigurations contains configs and secrets for a container.
 type ContainerConfigurations struct {

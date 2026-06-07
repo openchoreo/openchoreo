@@ -6,7 +6,6 @@ package e2e
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -25,29 +24,76 @@ const (
 
 var dpNs string
 
+// Matrix specs are declared up front so BeforeAll can trigger every build in
+// one pass — the workflow plane runs them concurrently and each spec below
+// only waits on its own run. Wall-clock is then bounded by the slowest single
+// build instead of the sum of all of them.
+var (
+	specDockerfileService = buildSpec{
+		component:    componentDockerfile,
+		componentTyp: "deployment/service",
+		workflow:     "dockerfile-builder",
+		repoName:     sampleWorkloadsRepo,
+		appPath:      "/service-go-greeter",
+		dockerfile:   "/service-go-greeter/Dockerfile",
+		endpoint:     "greeter-api",
+		assertReach:  true,
+		assertLogs:   true,
+	}
+	specDockerfileReact = buildSpec{
+		component:    componentDockerfileReact,
+		componentTyp: "deployment/web-application",
+		workflow:     "dockerfile-builder",
+		repoName:     sampleWorkloadsRepo,
+		appPath:      "/webapp-react-nginx",
+		dockerfile:   "/webapp-react-nginx/Dockerfile",
+		endpoint:     "webapp-endpoint",
+		assertReach:  true,
+	}
+	specGCPBuildpacks = buildSpec{
+		component:    componentGCP,
+		componentTyp: "deployment/service",
+		workflow:     "gcp-buildpacks-builder",
+		repoName:     sampleWorkloadsRepo,
+		appPath:      "/service-go-reading-list",
+		endpoint:     "reading-list-api",
+		assertReach:  false, // upstream sample's port surface varies; deploy + ComponentRelease are the meaningful signal
+	}
+	specPaketoBuildpacks = buildSpec{
+		component:    componentPaketo,
+		componentTyp: "deployment/service",
+		workflow:     "paketo-buildpacks-builder",
+		repoName:     paketoNodeRepo,
+		appPath:      "/",
+		endpoint:     "http",
+		assertReach:  true,
+	}
+	specBallerinaBuildpack = buildSpec{
+		component:    componentBallerina,
+		componentTyp: "deployment/service",
+		workflow:     "ballerina-buildpack-builder",
+		repoName:     sampleWorkloadsRepo,
+		appPath:      "/service-ballerina-patient-management",
+		endpoint:     "patient-management-api",
+		assertReach:  false,
+	}
+
+	matrixSpecs = []buildSpec{
+		specDockerfileService,
+		specDockerfileReact,
+		specGCPBuildpacks,
+		specPaketoBuildpacks,
+		specBallerinaBuildpack,
+	}
+)
+
 var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 	SetDefaultEventuallyTimeout(framework.DefaultTimeout)
 	SetDefaultEventuallyPollingInterval(framework.DefaultPolling)
 
 	BeforeAll(func() {
-		By("installing in-cluster Gitea")
-		Expect(framework.InstallGitea(kubeContext, giteaNamespace)).To(Succeed())
-
-		By("mirroring openchoreo/sample-workloads into Gitea")
-		Expect(framework.MigrateRepo(kubeContext, giteaNamespace,
-			sampleWorkloadsRepo, upstreamSampleWorkloads)).To(Succeed())
-
-		By("seeding the no-workload fixture into Gitea")
-		Expect(framework.EnsureGiteaRepo(kubeContext, giteaNamespace, noWorkloadRepo)).To(Succeed())
-		repoRoot, err := framework.RepoRoot()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(framework.PushTree(kubeContext, giteaNamespace, noWorkloadRepo, "main",
-			filepath.Join(repoRoot, "test/e2e/fixtures/build/no-workload"))).To(Succeed())
-
-		By("seeding the paketo-node fixture into Gitea")
-		Expect(framework.EnsureGiteaRepo(kubeContext, giteaNamespace, paketoNodeRepo)).To(Succeed())
-		Expect(framework.PushTree(kubeContext, giteaNamespace, paketoNodeRepo, "main",
-			filepath.Join(repoRoot, "test/e2e/fixtures/build/paketo-node"))).To(Succeed())
+		By("ensuring shared Tier 3 Gitea build sources are present")
+		Expect(framework.EnsureTier3BuildSources(kubeContext)).To(Succeed())
 
 		By("creating control plane namespace")
 		output, err := framework.KubectlApplyLiteral(kubeContext, cpNamespaceYAML())
@@ -56,6 +102,11 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 		By("applying platform resources (pipeline, environments, project)")
 		output, err = framework.KubectlApplyLiteral(kubeContext, platformResourcesYAML())
 		Expect(err).NotTo(HaveOccurred(), "failed to apply platform resources: %s", output)
+
+		By("triggering all matrix builds up front so they run concurrently")
+		for _, spec := range matrixSpecs {
+			triggerDeployableBuildSpec(spec)
+		}
 	})
 
 	AfterAll(func() {
@@ -70,71 +121,29 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 			_, _ = framework.Kubectl(kubeContext, "delete", "namespace", dpNs,
 				"--ignore-not-found", "--wait=false")
 		}
-		_, _ = framework.Kubectl(kubeContext, "delete", "namespace", giteaNamespace,
-			"--ignore-not-found", "--wait=false")
 	})
 
 	Context("builder matrix", func() {
+		// Builds were already triggered in BeforeAll; each spec only waits on
+		// its own WorkflowRun and asserts the post-build chain.
 		It("dockerfile-builder: builds, deploys, and is reachable (service)", func() {
-			runDeployableBuildSpec(buildSpec{
-				component:    componentDockerfile,
-				componentTyp: "deployment/service",
-				workflow:     "dockerfile-builder",
-				repoName:     sampleWorkloadsRepo,
-				appPath:      "/service-go-greeter",
-				dockerfile:   "/service-go-greeter/Dockerfile",
-				endpoint:     "greeter-api",
-				assertReach:  true,
-			})
+			assertDeployableBuildSpec(specDockerfileService)
 		})
 
 		It("dockerfile-builder: react web-application builds and is reachable", func() {
-			runDeployableBuildSpec(buildSpec{
-				component:    componentDockerfileReact,
-				componentTyp: "deployment/web-application",
-				workflow:     "dockerfile-builder",
-				repoName:     sampleWorkloadsRepo,
-				appPath:      "/webapp-react-nginx",
-				dockerfile:   "/webapp-react-nginx/Dockerfile",
-				endpoint:     "webapp-endpoint",
-				assertReach:  true,
-			})
+			assertDeployableBuildSpec(specDockerfileReact)
 		})
 
 		It("gcp-buildpacks-builder: builds and deploys reading-list", func() {
-			runDeployableBuildSpec(buildSpec{
-				component:    componentGCP,
-				componentTyp: "deployment/service",
-				workflow:     "gcp-buildpacks-builder",
-				repoName:     sampleWorkloadsRepo,
-				appPath:      "/service-go-reading-list",
-				endpoint:     "reading-list-api",
-				assertReach:  false, // upstream sample's port surface varies; deploy + ComponentRelease are the meaningful signal
-			})
+			assertDeployableBuildSpec(specGCPBuildpacks)
 		})
 
 		It("paketo-buildpacks-builder: builds and deploys the in-tree node fixture", func() {
-			runDeployableBuildSpec(buildSpec{
-				component:    componentPaketo,
-				componentTyp: "deployment/service",
-				workflow:     "paketo-buildpacks-builder",
-				repoName:     paketoNodeRepo,
-				appPath:      "/",
-				endpoint:     "http",
-				assertReach:  true,
-			})
+			assertDeployableBuildSpec(specPaketoBuildpacks)
 		})
 
 		It("ballerina-buildpack-builder: builds and deploys patient-management", func() {
-			runDeployableBuildSpec(buildSpec{
-				component:    componentBallerina,
-				componentTyp: "deployment/service",
-				workflow:     "ballerina-buildpack-builder",
-				repoName:     sampleWorkloadsRepo,
-				appPath:      "/service-ballerina-patient-management",
-				endpoint:     "patient-management-api",
-				assertReach:  false,
-			})
+			assertDeployableBuildSpec(specBallerinaBuildpack)
 		})
 	})
 
@@ -198,44 +207,6 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 			}, 3*time.Minute, 5*time.Second).Should(Succeed())
 		})
 
-		It("build-logs-via-k8s: live logs reachable from a running WorkflowRun pod", func() {
-			component := componentLogs
-			runName := component + "-run-01"
-
-			By("applying component + workflowrun")
-			gitURL := framework.GiteaRepoCloneURL(giteaNamespace, sampleWorkloadsRepo)
-			output, err := framework.KubectlApplyLiteral(kubeContext, buildComponentYAML(
-				component, "deployment/service", "dockerfile-builder",
-				gitURL, "/service-go-greeter", "/service-go-greeter/Dockerfile",
-			))
-			Expect(err).NotTo(HaveOccurred(), "failed to apply component: %s", output)
-			output, err = framework.KubectlApplyLiteral(kubeContext, workflowRunYAML(
-				component, runName, "dockerfile-builder",
-				gitURL, "/service-go-greeter", "/service-go-greeter/Dockerfile",
-			))
-			Expect(err).NotTo(HaveOccurred(), "failed to apply workflow run: %s", output)
-
-			By("waiting for the build Argo Workflow pod to appear")
-			wfNs := "workflows-" + cpNs
-			Eventually(func(g Gomega) {
-				out, err := framework.Kubectl(kubeContext,
-					"get", "pods", "-n", wfNs,
-					"-l", "workflows.argoproj.io/workflow="+runName,
-					"-o", "jsonpath={.items[*].metadata.name}")
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(strings.TrimSpace(out)).NotTo(BeEmpty(),
-					"no pod found yet for WorkflowRun %s in %s", runName, wfNs)
-			}, 5*time.Minute, 5*time.Second).Should(Succeed())
-
-			By("kubectl logs against the build pod returns non-empty content")
-			Eventually(func(g Gomega) {
-				out, err := framework.KubectlLogs(kubeContext, wfNs,
-					"workflows.argoproj.io/workflow="+runName, 50)
-				g.Expect(err).NotTo(HaveOccurred(), "kubectl logs failed: %s", out)
-				g.Expect(strings.TrimSpace(out)).NotTo(BeEmpty(),
-					"expected non-empty build pod logs while WorkflowRun is running")
-			}, 5*time.Minute, 5*time.Second).Should(Succeed())
-		})
 	})
 })
 
@@ -248,13 +219,21 @@ type buildSpec struct {
 	dockerfile   string // optional — leave empty for buildpacks
 	endpoint     string // endpoint name as declared in the workload.yaml the build checks out
 	assertReach  bool   // whether to assert in-cluster HTTP reachability of the rendered Service
+	assertLogs   bool   // whether to assert the live build pod exposes non-empty logs
 }
 
 // runDeployableBuildSpec drives a Component + WorkflowRun through the build
-// pipeline and asserts the post-build artifacts (ComponentRelease, ReleaseBinding,
-// pod Running). Optionally probes the rendered Service for TCP reachability.
-// Shared by every spec in the builder matrix so the assertions stay in lockstep.
+// pipeline end to end: trigger, then wait and assert. Used by solo specs that
+// are not part of the concurrently-triggered builder matrix.
 func runDeployableBuildSpec(spec buildSpec) {
+	triggerDeployableBuildSpec(spec)
+	assertDeployableBuildSpec(spec)
+}
+
+// triggerDeployableBuildSpec applies the Component + WorkflowRun for a build
+// spec without waiting on the run. The matrix specs are all triggered from
+// BeforeAll so their builds execute concurrently on the workflow plane.
+func triggerDeployableBuildSpec(spec buildSpec) {
 	runName := spec.component + "-run-01"
 	gitURL := framework.GiteaRepoCloneURL(giteaNamespace, spec.repoName)
 
@@ -269,6 +248,18 @@ func runDeployableBuildSpec(spec buildSpec) {
 		spec.component, runName, spec.workflow, gitURL, spec.appPath, spec.dockerfile,
 	))
 	Expect(err).NotTo(HaveOccurred(), "failed to apply workflow run: %s", output)
+}
+
+// assertDeployableBuildSpec waits for an already-triggered WorkflowRun and
+// asserts the post-build artifacts (ComponentRelease, ReleaseBinding, pod
+// Running). Optionally probes the rendered Service for TCP reachability.
+// Shared by every spec in the builder matrix so the assertions stay in lockstep.
+func assertDeployableBuildSpec(spec buildSpec) {
+	runName := spec.component + "-run-01"
+
+	if spec.assertLogs {
+		assertWorkflowRunLogs(runName)
+	}
 
 	By("waiting for WorkflowRun to succeed")
 	Eventually(func(g Gomega) {
@@ -303,7 +294,7 @@ func runDeployableBuildSpec(spec buildSpec) {
 	}
 
 	By("ensuring a tester pod is available in the DP namespace")
-	output, err = framework.KubectlApplyLiteral(kubeContext, testerPodYAML(dpNs))
+	output, err := framework.KubectlApplyLiteral(kubeContext, testerPodYAML(dpNs))
 	Expect(err).NotTo(HaveOccurred(), "failed to apply tester pod: %s", output)
 	Eventually(func(g Gomega) {
 		framework.AssertPodsRunning(g, kubeContext, dpNs, testerLabel)
@@ -318,6 +309,29 @@ func runDeployableBuildSpec(spec buildSpec) {
 		return err
 	}, 2*time.Minute, 5*time.Second).Should(Succeed(),
 		"%s:%s should be TCP-reachable for component %s", host, port, spec.component)
+}
+
+func assertWorkflowRunLogs(runName string) {
+	By("waiting for the build Argo Workflow pod to appear")
+	wfNs := "workflows-" + cpNs
+	Eventually(func(g Gomega) {
+		out, err := framework.Kubectl(kubeContext,
+			"get", "pods", "-n", wfNs,
+			"-l", "workflows.argoproj.io/workflow="+runName,
+			"-o", "jsonpath={.items[*].metadata.name}")
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(strings.TrimSpace(out)).NotTo(BeEmpty(),
+			"no pod found yet for WorkflowRun %s in %s", runName, wfNs)
+	}, 5*time.Minute, 5*time.Second).Should(Succeed())
+
+	By("kubectl logs against the build pod returns non-empty content")
+	Eventually(func(g Gomega) {
+		out, err := framework.KubectlLogs(kubeContext, wfNs,
+			"workflows.argoproj.io/workflow="+runName, 50)
+		g.Expect(err).NotTo(HaveOccurred(), "kubectl logs failed: %s", out)
+		g.Expect(strings.TrimSpace(out)).NotTo(BeEmpty(),
+			"expected non-empty build pod logs while WorkflowRun is running")
+	}, 5*time.Minute, 5*time.Second).Should(Succeed())
 }
 
 // endpointHostPort reads the rendered Service URL host+port for a named endpoint

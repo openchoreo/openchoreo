@@ -12,6 +12,8 @@
 package component
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -92,6 +94,14 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		Resources: input.ResourceDependencyItems,
 	}
 
+	// Endpoint API schema parsing is opt-in: only extract resources when a template
+	// references the workload.toEndpointResources() macro. This keeps large schemas
+	// out of the render context (and skips parsing) for the common case.
+	var endpointResources context.EndpointResourceMap
+	if usesEndpointResources(input) {
+		endpointResources = context.ExtractEndpointResources(workload)
+	}
+
 	// Build the trait context base once and reuse it for every trait built in this render.
 	// Both regular and embedded trait inputs embed TraitContextBase.
 	traitBase := context.TraitContextBase{
@@ -99,6 +109,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		DataPlane:                  input.DataPlane,
 		Environment:                input.Environment,
 		WorkloadData:               workloadData,
+		EndpointResources:          endpointResources,
 		Configurations:             configurations,
 		Dependencies:               dependenciesData,
 		DefaultNotificationChannel: input.DefaultNotificationChannel,
@@ -112,6 +123,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		DataPlane:                  input.DataPlane,
 		Environment:                input.Environment,
 		WorkloadData:               workloadData,
+		EndpointResources:          endpointResources,
 		Configurations:             configurations,
 		Dependencies:               dependenciesData,
 		Metadata:                   input.Metadata,
@@ -296,6 +308,38 @@ func (p *Pipeline) validateInput(input *RenderInput) error {
 	}
 
 	return nil
+}
+
+// endpointResourcesMacroToken is the literal that appears in a template's CEL
+// expressions when it opts into endpoint schema extraction via
+// workload.toEndpointResources().
+const endpointResourcesMacroToken = "toEndpointResources"
+
+// usesEndpointResources reports whether any ComponentType or trait template
+// uses the workload.toEndpointResources() macro.
+func usesEndpointResources(input *RenderInput) bool {
+	token := []byte(endpointResourcesMacroToken)
+	ct := input.ComponentType.Spec
+	if jsonContainsToken(token, ct.Resources, ct.Validations, ct.Traits) {
+		return true
+	}
+	for i := range input.Traits {
+		t := input.Traits[i].Spec
+		if jsonContainsToken(token, t.Validations, t.Creates, t.Patches, t.Removes) {
+			return true
+		}
+	}
+	return false
+}
+
+// jsonContainsToken reports whether the JSON encoding of any value contains token.
+func jsonContainsToken(token []byte, values ...any) bool {
+	for _, v := range values {
+		if b, err := json.Marshal(v); err == nil && bytes.Contains(b, token) {
+			return true
+		}
+	}
+	return false
 }
 
 // postProcessResources adds labels, annotations, and performs cleanup.

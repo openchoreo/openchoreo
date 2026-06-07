@@ -9,8 +9,7 @@ on:
         default: "0.0.0-latest-dev"
   schedule:
     # Weekly: Sunday 03:00 UTC (08:30 IST). Stays off the nightly path so the
-    # extended suite's wall-clock budget (~90-120 min) does not encroach on the
-    # nightly's ~45 min slot.
+    # extended suite (~20-25 min, all planes) does not encroach on the nightly's slot.
     - cron: "0 3 * * 0"
 
 permissions:
@@ -20,72 +19,15 @@ concurrency:
   group: e2e-extended-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  HELM_CHART_VERSION: ${{ github.event.inputs.helm_chart_version || '0.0.0-latest-dev' }}
-  E2E_WITH_BUILD: "true"
-  E2E_WITH_OBSERVABILITY: "true"
-  K3D_VERSION: v5.8.3
-  K3D_SHA256: dbaa79a76ace7f4ca230a1ff41dc7d8a5036a8ad0309e9c54f9bf3836dbe853e
-  YQ_VERSION: v4.45.4
-  YQ_SHA256: b96de04645707e14a12f52c37e6266832e03c29e95b9b139cddcae7314466e69
-
 jobs:
   e2e-extended:
     name: E2E Extended (Tier 3)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 150
-    steps:
-      - name: Clone the code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: Setup Go
-        uses: ./.github/actions/setup-go
-
-      - name: Install k3d
-        run: |
-          curl -fsSL -o /tmp/k3d https://github.com/k3d-io/k3d/releases/download/${{ env.K3D_VERSION }}/k3d-linux-amd64
-          echo "${{ env.K3D_SHA256 }}  /tmp/k3d" | sha256sum -c -
-          sudo install /tmp/k3d /usr/local/bin/k3d
-          k3d version
-
-      - name: Install yq
-        run: |
-          curl -fsSL -o /tmp/yq https://github.com/mikefarah/yq/releases/download/${{ env.YQ_VERSION }}/yq_linux_amd64
-          echo "${{ env.YQ_SHA256 }}  /tmp/yq" | sha256sum -c -
-          sudo install /tmp/yq /usr/local/bin/yq
-
-      - name: Validate Helm chart version
-        run: |
-          if [ -z "${HELM_CHART_VERSION}" ]; then
-            echo "::error::HELM_CHART_VERSION is required"
-            exit 1
-          fi
-          case "${HELM_CHART_VERSION}" in
-            *[!A-Za-z0-9._-]*)
-              echo "::error::HELM_CHART_VERSION contains unsupported characters"
-              exit 1
-              ;;
-          esac
-
-      - name: Add e2e host entries
-        run: echo '127.0.0.1 api.e2e-cp.local thunder.e2e-cp.local openchoreo.e2e-cp.local' | sudo tee -a /etc/hosts
-
-      - name: Run extended e2e tests (tier 3)
-        run: |
-          make e2e \
-            E2E_HELM_SOURCE=oci \
-            HELM_CHART_VERSION="${HELM_CHART_VERSION}" \
-            E2E_WITH_BUILD="${E2E_WITH_BUILD}" \
-            E2E_WITH_OBSERVABILITY="${E2E_WITH_OBSERVABILITY}" \
-            E2E_TEST_TIMEOUT=120m \
-            E2E_LABEL_FILTER='tier3'
-
-      - name: Upload diagnostics
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: e2e-extended-diagnostics
-          path: test/e2e/_diagnostics/
-          retention-days: 7
+    uses: ./.github/workflows/e2e-gate.yml
+    permissions:
+      contents: read
+    with:
+      helm_chart_version: ${{ github.event.inputs.helm_chart_version || '0.0.0-latest-dev' }}
+      run_tier1: false
+      run_tier2: false
+      run_tier3: true
+      run_ui: false

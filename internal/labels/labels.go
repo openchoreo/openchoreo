@@ -79,6 +79,13 @@ const (
 	// to trigger pod rollout when dependent ConfigMaps, Secrets, etc. change.
 	AnnotationKeyDPResourceHash = "openchoreo.dev/dp-resource-hash"
 
+	// AnnotationKeyEndpointBasePath records the gateway-exposed base path of a rendered route
+	// (e.g. HTTPRoute). The ReleaseBinding controller uses it to construct the endpoint invoke URL.
+	// It is required for routes that render per-resource matches (e.g. one match per OpenAPI path),
+	// where the first route match is a specific operation rather than the endpoint base. When absent,
+	// the controller falls back to the first route match path (the prefix-routing convention).
+	AnnotationKeyEndpointBasePath = "openchoreo.dev/endpoint-base-path"
+
 	LabelValueManagedBy = "openchoreo-control-plane"
 	// LabelValueTrue is the standard "true" value for boolean labels
 	LabelValueTrue = "true"

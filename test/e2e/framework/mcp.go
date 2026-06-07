@@ -24,7 +24,7 @@ var httpClientWithTimeout = &http.Client{Timeout: mcpCallTimeout}
 type MCPClientConfig struct {
 	Endpoint               string
 	Token                  string
-	Toolsets                []string
+	Toolsets               []string
 	FilterByAuthz          *bool
 	IncludeDeprecatedTools *bool
 }

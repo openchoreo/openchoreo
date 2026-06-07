@@ -31,6 +31,11 @@ on:
         description: 'Explicit commit SHA to tag (overrides automatic resolution)'
         required: false
         type: string
+      skip_e2e:
+        description: 'Skip the e2e gate (emergency releases only)'
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: release-orchestrator-${{ github.event.inputs.major }}-${{ github.event.inputs.minor }}
@@ -64,7 +69,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
@@ -131,6 +136,12 @@ jobs:
         if: ${{ github.event.inputs.action == 'tag' && github.event.inputs.commit_sha == '' && steps.check-branch.outputs.branch-exists == 'false' }}
         run: |
           echo "::error::action=tag requires an existing release branch (${{ steps.resolve-version.outputs.release-branch }}), but it does not exist."
+          exit 1
+
+      - name: Fail if full mode uses an explicit commit
+        if: ${{ github.event.inputs.action == 'full' && github.event.inputs.commit_sha != '' }}
+        run: |
+          echo "::error::commit_sha cannot be used with action=full because branch creation and tagging would resolve different histories. Use action=tag with commit_sha after preparing the release branch, or omit commit_sha for action=full."
           exit 1
 
       - name: Validate VERSION file
@@ -257,7 +268,7 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           token: ${{ steps.app-token.outputs.token }}
           ref: ${{ needs.validate.outputs.checkout-sha }}
@@ -297,30 +308,26 @@ jobs:
           echo "Pushed branch: ${BRANCH}"
 
   # ----------------------------------------------------------------
-  # Tag: create and push the annotated release tag at the release branch tip.
+  # Resolve target: pin the exact commit to gate and tag, then wait for
+  # build-and-test at that commit so the e2e gate can consume the
+  # sha-tagged images and Helm charts its publish job pushes.
   # always() allows this to run even when branch is skipped (action=tag
-  # or branch already exists). !failure() prevents tagging after errors.
+  # or branch already exists). !failure() prevents running after errors.
   # ----------------------------------------------------------------
-  tag:
+  resolve-target:
     needs: [validate, branch]
     if: ${{ always() && !failure() && !cancelled() && (github.event.inputs.action == 'full' || github.event.inputs.action == 'tag') }}
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      contents: read
       actions: read
+    outputs:
+      target: ${{ steps.resolve-target.outputs.target }}
+      helm-chart-version: ${{ steps.resolve-target.outputs.helm-chart-version }}
     steps:
-      - name: Generate GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ secrets.OC_RELEASE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.OC_RELEASE_APP_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          token: ${{ steps.app-token.outputs.token }}
           ref: ${{ needs.validate.outputs.checkout-sha }}
           fetch-depth: 0
 
@@ -336,19 +343,22 @@ jobs:
             TARGET="$VALIDATE_TARGET"
             echo "Target: explicit commit_sha (${TARGET})"
           else
-            # Always resolve the release branch tip so the tag points to the actual released
-            # state, including any URL-update commit added by the branch job.
-            git fetch origin "refs/heads/${RELEASE_BRANCH}:refs/remotes/origin/${RELEASE_BRANCH}" 2>/dev/null || true
-            BRANCH_TIP=$(git rev-parse "origin/${RELEASE_BRANCH}" 2>/dev/null || echo "")
-            if [ -n "$BRANCH_TIP" ]; then
-              TARGET="$BRANCH_TIP"
-              echo "Target: HEAD of ${RELEASE_BRANCH} (${TARGET})"
-            else
-              TARGET="$VALIDATE_TARGET"
-              echo "Target: validate fallback — ${RELEASE_BRANCH} not found (${TARGET})"
+            # Always resolve the release branch tip so the gate and tag point to the actual
+            # released state, including any URL-update commit added by the branch job.
+            if ! git fetch origin "refs/heads/${RELEASE_BRANCH}:refs/remotes/origin/${RELEASE_BRANCH}"; then
+              echo "::error::Failed to fetch release branch ${RELEASE_BRANCH}"
+              exit 1
             fi
+            if ! BRANCH_TIP=$(git rev-parse --verify "origin/${RELEASE_BRANCH}^{commit}"); then
+              echo "::error::Failed to resolve release branch ${RELEASE_BRANCH}"
+              exit 1
+            fi
+            TARGET="$BRANCH_TIP"
+            echo "Target: HEAD of ${RELEASE_BRANCH} (${TARGET})"
           fi
+          SHORT_SHA=$(git rev-parse --short=8 "${TARGET}")
           echo "target=${TARGET}" >> $GITHUB_OUTPUT
+          echo "helm-chart-version=0.0.0-${SHORT_SHA}" >> $GITHUB_OUTPUT
 
       - name: Wait for build-and-test workflow
         env:
@@ -389,6 +399,51 @@ jobs:
           echo "::error::build-and-test for ${SHORT_SHA} not completed after 30 minutes."
           exit 1
 
+  # ----------------------------------------------------------------
+  # E2E gate: All e2e suits plus the Playwright UI suite must pass
+  # at the exact commit being released before the tag is created. Legs run
+  # in parallel, one k3d cluster each. skip_e2e bypasses the gate for
+  # declared emergencies only.
+  # ----------------------------------------------------------------
+  e2e:
+    needs: [validate, resolve-target]
+    if: ${{ always() && !failure() && !cancelled() && (github.event.inputs.action == 'full' || github.event.inputs.action == 'tag') && !inputs.skip_e2e }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/e2e-gate.yml
+    with:
+      ref: ${{ needs.resolve-target.outputs.target }}
+      helm_chart_version: ${{ needs.resolve-target.outputs.helm-chart-version }}
+
+  # ----------------------------------------------------------------
+  # Tag: create and push the annotated release tag at the gated commit.
+  # always() allows this to run even when branch is skipped (action=tag
+  # or branch already exists) or e2e is skipped (skip_e2e). !failure()
+  # prevents tagging after errors, including any failed e2e leg.
+  # ----------------------------------------------------------------
+  tag:
+    needs: [validate, branch, resolve-target, e2e]
+    if: ${{ always() && !failure() && !cancelled() && (github.event.inputs.action == 'full' || github.event.inputs.action == 'tag') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.OC_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.OC_RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.repository }}
+
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          ref: ${{ needs.validate.outputs.checkout-sha }}
+          fetch-depth: 0
+
       - name: Set git identity
         run: |
           git config user.name "${{ steps.app-token.outputs.app-slug }}[bot]"
@@ -397,7 +452,7 @@ jobs:
       - name: Create and push tag
         run: |
           TAG="${{ needs.validate.outputs.release-tag }}"
-          TARGET="${{ steps.resolve-target.outputs.target }}"
+          TARGET="${{ needs.resolve-target.outputs.target }}"
           VERSION="${{ needs.validate.outputs.release-version }}"
           git tag -a "${TAG}" -m "Release ${VERSION}" "${TARGET}"
           git push origin "${TAG}"

@@ -107,5 +107,6 @@ rules:
   resources:
   - backends
   - gatewayparameters
+  - trafficpolicies
   verbs: ["*"]
 {{- end }}

@@ -14,7 +14,7 @@ import (
 )
 
 func derivedInputs(configs ContainerConfigurations, workload WorkloadData, deps ConnectionsContextData) map[string]any {
-	derived := BuildDerivedContext(configs, workload, deps, "app-dev")
+	derived := BuildDerivedContext(configs, workload, deps, "app-dev", nil)
 	derivedMap, err := structToMap(&derived)
 	if err != nil {
 		panic("structToMap failed for DerivedContext: " + err.Error())
@@ -869,7 +869,7 @@ func TestConfigurationsVolumeMountsConcatWithDependencies(t *testing.T) {
 }
 
 func TestBuildDerivedContext_EmptyInputs(t *testing.T) {
-	derived := BuildDerivedContext(ContainerConfigurations{}, WorkloadData{}, ConnectionsContextData{}, "app-dev")
+	derived := BuildDerivedContext(ContainerConfigurations{}, WorkloadData{}, ConnectionsContextData{}, "app-dev", nil)
 
 	if derived.ConfigFileList == nil {
 		t.Error("ConfigFileList should be non-nil")
@@ -914,5 +914,87 @@ func TestMacroDoesNotExpandOnWrongReceiver(t *testing.T) {
 				t.Logf("error (expected macro guard): %v", err)
 			}
 		})
+	}
+}
+
+func TestWorkloadToEndpointResourcesMacro(t *testing.T) {
+	derived := BuildDerivedContext(ContainerConfigurations{}, WorkloadData{}, ConnectionsContextData{}, "app-dev",
+		EndpointResourceMap{
+			"grpc": {{Kind: "gRPC", Service: "greeter.Greeter", Method: "SayHello"}},
+		})
+	derivedMap, err := structToMap(&derived)
+	if err != nil {
+		t.Fatalf("structToMap failed: %v", err)
+	}
+	inputs := map[string]any{"derived": derivedMap}
+
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+
+	// The macro rewrites workload.toEndpointResources(<name>) to an optional index
+	// into derived.endpointResources; mapping yields the extracted route fields.
+	got, err := engine.Render(`${workload.toEndpointResources("grpc").orValue([]).map(r, r.service + "/" + r.method)}`, inputs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if diff := cmp.Diff([]any{"greeter.Greeter/SayHello"}, got); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%s", diff)
+	}
+
+	// A missing endpoint name yields optional.none -> orValue fallback.
+	missing, err := engine.Render(`${workload.toEndpointResources("missing").orValue([]).size()}`, inputs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if missing != int64(0) {
+		t.Errorf("expected 0 for missing key, got %v", missing)
+	}
+
+	// hasValue() distinguishes present vs absent endpoints.
+	present, err := engine.Render(`${workload.toEndpointResources("grpc").hasValue() && !workload.toEndpointResources("missing").hasValue()}`, inputs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if present != true {
+		t.Errorf("expected true, got %v", present)
+	}
+}
+
+// TestWorkloadToEndpointResourcesMacroEmptyMap pins the regression where a template
+// uses the macro but no endpoint produced resources (e.g. all schemas missing or
+// malformed): the backing map must still be present in the marshaled context so the
+// macro degrades to optional.none instead of failing the render with
+// "no such key: endpointResources".
+func TestWorkloadToEndpointResourcesMacroEmptyMap(t *testing.T) {
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+
+	for name, endpointResources := range map[string]EndpointResourceMap{
+		"empty map": {},
+		"nil map":   nil, // normalized to an empty map by BuildDerivedContext
+	} {
+		derived := BuildDerivedContext(ContainerConfigurations{}, WorkloadData{}, ConnectionsContextData{}, "app-dev", endpointResources)
+		derivedMap, err := structToMap(&derived)
+		if err != nil {
+			t.Fatalf("%s: structToMap failed: %v", name, err)
+		}
+		if _, ok := derivedMap["endpointResources"]; !ok {
+			t.Fatalf("%s: endpointResources must be present in the marshaled derived context", name)
+		}
+		inputs := map[string]any{"derived": derivedMap}
+
+		got, err := engine.Render(`${workload.toEndpointResources("grpc").orValue([]).size()}`, inputs)
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", name, err)
+		}
+		if got != int64(0) {
+			t.Errorf("%s: expected 0, got %v", name, got)
+		}
+
+		has, err := engine.Render(`${workload.toEndpointResources("grpc").hasValue()}`, inputs)
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", name, err)
+		}
+		if has != false {
+			t.Errorf("%s: expected false, got %v", name, has)
+		}
 	}
 }

@@ -1278,9 +1278,9 @@ rca:
   # @schema
   # type: string
   # description: Name of the RCA agent deployment
-  # default: ai-rca-agent
+  # default: sre-agent
   # @schema
-  name: ai-rca-agent
+  name: sre-agent
 
   # @schema
   # type: integer
@@ -1326,9 +1326,9 @@ rca:
     # @schema
     # type: string
     # description: Container image repository
-    # default: ghcr.io/openchoreo/ai-rca-agent
+    # default: ghcr.io/openchoreo/sre-agent
     # @schema
-    repository: ghcr.io/openchoreo/ai-rca-agent
+    repository: ghcr.io/openchoreo/sre-agent
     # @schema
     # type: string
     # description: Container image tag (defaults to Chart.AppVersion if empty)

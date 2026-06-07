@@ -1,0 +1,36 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+name: UI E2E Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      helm_chart_version:
+        description: "Helm chart version (e.g., 0.0.0-latest-dev or 0.0.0-<commit-sha>)"
+        required: false
+        default: "0.0.0-latest-dev"
+  schedule:
+    # Weekly: Monday 04:00 UTC (09:30 IST). The UI suite installs every plane,
+    # so keep it away from the regular nightly and extended e2e windows.
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ui-e2e:
+    name: UI E2E (Playwright)
+    uses: ./.github/workflows/e2e-gate.yml
+    permissions:
+      contents: read
+    with:
+      helm_chart_version: ${{ github.event.inputs.helm_chart_version || '0.0.0-latest-dev' }}
+      run_tier1: false
+      run_tier2: false
+      run_tier3: false
+      run_ui: true

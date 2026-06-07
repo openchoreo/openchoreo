@@ -102,7 +102,7 @@ func newComponent(name, projectName, clusterComponentTypeName string) gen.Compon
 			AutoDeploy: &autoDeploy,
 			ComponentType: struct {
 				Kind *gen.ComponentSpecComponentTypeKind `json:"kind,omitempty"`
-				Name string                             `json:"name"`
+				Name string                              `json:"name"`
 			}{
 				Kind: &kind,
 				Name: clusterComponentTypeName,
