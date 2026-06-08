@@ -31,6 +31,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterdataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterobservabilityplane"
+	"github.com/openchoreo/openchoreo/internal/controller/clusterprojecttype"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterresourcetype"
 	"github.com/openchoreo/openchoreo/internal/controller/clustertrait"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterworkflow"
@@ -45,6 +46,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertsnotificationchannel"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityplane"
 	"github.com/openchoreo/openchoreo/internal/controller/project"
+	"github.com/openchoreo/openchoreo/internal/controller/projecttype"
 	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/resource"
@@ -172,6 +174,8 @@ func setupControlPlaneControllers(
 			CacheVersion:  "v2",
 		},
 		&project.Reconciler{Client: c, Scheme: s},
+		&clusterprojecttype.Reconciler{Client: c, Scheme: s},
+		&projecttype.Reconciler{Client: c, Scheme: s},
 		&component.Reconciler{Client: c, Scheme: s},
 		&componenttype.Reconciler{Client: c, Scheme: s},
 		&clustercomponenttype.Reconciler{Client: c, Scheme: s},

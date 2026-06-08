@@ -74,6 +74,7 @@ rules:
     - clustercomponenttypes
     - clusterdataplanes
     - clusterobservabilityplanes
+    - clusterprojecttypes
     - clusterresourcetypes
     - clustertraits
     - clusterworkflowplanes
@@ -87,6 +88,7 @@ rules:
     - observabilityalertsnotificationchannels
     - observabilityplanes
     - projects
+    - projecttypes
     - releasebindings
     - resourcereleasebindings
     - resourcereleases
@@ -112,6 +114,7 @@ rules:
     - clustercomponenttypes/finalizers
     - clusterdataplanes/finalizers
     - clusterobservabilityplanes/finalizers
+    - clusterprojecttypes/finalizers
     - clusterresourcetypes/finalizers
     - clustertraits/finalizers
     - clusterworkflowplanes/finalizers
@@ -125,6 +128,7 @@ rules:
     - observabilityalertsnotificationchannels/finalizers
     - observabilityplanes/finalizers
     - projects/finalizers
+    - projecttypes/finalizers
     - releasebindings/finalizers
     - renderedreleases/finalizers
     - resourcereleasebindings/finalizers
@@ -145,6 +149,7 @@ rules:
     - clustercomponenttypes/status
     - clusterdataplanes/status
     - clusterobservabilityplanes/status
+    - clusterprojecttypes/status
     - clusterresourcetypes/status
     - clustertraits/status
     - clusterworkflowplanes/status
@@ -158,6 +163,7 @@ rules:
     - observabilityalertsnotificationchannels/status
     - observabilityplanes/status
     - projects/status
+    - projecttypes/status
     - releasebindings/status
     - renderedreleases/status
     - resourcereleasebindings/status

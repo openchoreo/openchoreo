@@ -1,0 +1,173 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: clusterprojecttypes.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: ClusterProjectType
+    listKind: ClusterProjectTypeList
+    plural: clusterprojecttypes
+    shortNames:
+    - cpt
+    - cpts
+    singular: clusterprojecttype
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          ClusterProjectType is the Schema for the clusterprojecttypes API.
+          ClusterProjectType is the cluster-scoped sibling of ProjectType. Projects in
+          any namespace can reference a ClusterProjectType via Project.spec.type.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ClusterProjectTypeSpec defines the desired state of ClusterProjectType.
+              Currently mirrors ProjectTypeSpec; may diverge as cluster-scoped concerns emerge.
+            properties:
+              environmentConfigs:
+                description: |-
+                  EnvironmentConfigs defines the per-env schema.
+                  Validates ProjectReleaseBinding.spec.environmentConfigs.
+                properties:
+                  openAPIV3Schema:
+                    description: OpenAPIV3Schema defines the schema using standard
+                      OpenAPI V3 / JSON Schema format.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
+              parameters:
+                description: |-
+                  Parameters is the schema for Project.spec.parameters values supplied by
+                  Project authors. Validated against this schema.
+                properties:
+                  openAPIV3Schema:
+                    description: OpenAPIV3Schema defines the schema using standard
+                      OpenAPI V3 / JSON Schema format.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
+              resources:
+                description: |-
+                  Resources are templates that generate namespace-scoped Kubernetes
+                  manifests applied to the cell namespace owned by every
+                  ProjectReleaseBinding of this type. Each entry has a unique id;
+                  includeWhen and forEach control conditional and iterative rendering;
+                  CEL expressions in the template body are evaluated against
+                  ${parameters.*}, ${environmentConfigs.*}, and ${metadata.*}.
+                items:
+                  description: ResourceTemplate defines a template for generating
+                    Kubernetes resources
+                  properties:
+                    forEach:
+                      description: |-
+                        ForEach enables generating multiple resources from a list using CEL expression
+                        Example: "${spec.configurations}" to iterate over a list
+                      pattern: ^\$\{[\s\S]+\}\s*$
+                      type: string
+                    id:
+                      description: |-
+                        ID uniquely identifies this resource within the component type
+                        For the primary workload resource, this must match the workloadType
+                      minLength: 1
+                      type: string
+                    includeWhen:
+                      description: |-
+                        IncludeWhen is a CEL expression that determines if this resource should be created
+                        If not specified, the resource is always created
+                        Example: "${spec.autoscaling.enabled}"
+                      pattern: ^\$\{[\s\S]+\}\s*$
+                      type: string
+                    targetPlane:
+                      default: dataplane
+                      description: |-
+                        TargetPlane specifies which plane this resource should be deployed to
+                        Defaults to "dataplane" if not specified
+                      enum:
+                      - dataplane
+                      - observabilityplane
+                      type: string
+                    template:
+                      description: |-
+                        Template contains the Kubernetes resource with CEL expressions
+                        CEL expressions are enclosed in ${...} and will be evaluated at runtime
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    var:
+                      description: |-
+                        Var is the loop variable name when using forEach
+                        Example: "config" will make each item available as ${config} in templates
+                      pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+                      type: string
+                  required:
+                  - id
+                  - template
+                  type: object
+                  x-kubernetes-validations:
+                  - message: var is required when forEach is specified
+                    rule: '!has(self.forEach) || has(self.var)'
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
+              validations:
+                description: |-
+                  Validations are CEL-based rules evaluated during rendering.
+                  All rules must evaluate to true for rendering to proceed.
+                items:
+                  description: ValidationRule defines a CEL-based validation rule
+                    evaluated during rendering.
+                  properties:
+                    message:
+                      description: Message is the error message shown when the rule
+                        evaluates to false.
+                      minLength: 1
+                      type: string
+                    rule:
+                      description: |-
+                        Rule is a CEL expression wrapped in ${...} that must evaluate to true.
+                        Uses the same syntax as includeWhen and where fields.
+                      pattern: ^\$\{[\s\S]+\}\s*$
+                      type: string
+                  required:
+                  - message
+                  - rule
+                  type: object
+                type: array
+            required:
+            - resources
+            type: object
+          status:
+            description: ClusterProjectTypeStatus defines the observed state of ClusterProjectType.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
