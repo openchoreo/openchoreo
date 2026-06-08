@@ -41,6 +41,7 @@ resources:
   - bases/openchoreo.dev_clusterworkflows.yaml
   - bases/openchoreo.dev_projecttypes.yaml
   - bases/openchoreo.dev_clusterprojecttypes.yaml
+  - bases/openchoreo.dev_projectreleases.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patches:

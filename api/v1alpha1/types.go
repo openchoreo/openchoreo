@@ -355,6 +355,18 @@ type ComponentTypeRef struct {
 	Name string `json:"name"`
 }
 
+// ProjectTypeRefKind defines the kind of project type referenced by a ProjectTypeRef.
+// +kubebuilder:validation:Enum=ProjectType;ClusterProjectType
+type ProjectTypeRefKind string
+
+const (
+	// ProjectTypeRefKindProjectType references a namespace-scoped ProjectType.
+	ProjectTypeRefKindProjectType ProjectTypeRefKind = "ProjectType"
+
+	// ProjectTypeRefKindClusterProjectType references a cluster-scoped ClusterProjectType.
+	ProjectTypeRefKindClusterProjectType ProjectTypeRefKind = "ClusterProjectType"
+)
+
 // ResourceTypeRefKind defines the kind of resource type referenced by a ResourceTypeRef.
 // +kubebuilder:validation:Enum=ResourceType;ClusterResourceType
 type ResourceTypeRefKind string

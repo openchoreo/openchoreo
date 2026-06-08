@@ -52,4 +52,5 @@ resources:
   - openchoreo_v1alpha1_clusterresourcetype.yaml
   - v1alpha1_projecttype.yaml
   - v1alpha1_clusterprojecttype.yaml
+  - v1alpha1_projectrelease.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

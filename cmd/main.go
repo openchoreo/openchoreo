@@ -46,6 +46,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityalertsnotificationchannel"
 	"github.com/openchoreo/openchoreo/internal/controller/observabilityplane"
 	"github.com/openchoreo/openchoreo/internal/controller/project"
+	"github.com/openchoreo/openchoreo/internal/controller/projectrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/projecttype"
 	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
@@ -176,6 +177,7 @@ func setupControlPlaneControllers(
 		&project.Reconciler{Client: c, Scheme: s},
 		&clusterprojecttype.Reconciler{Client: c, Scheme: s},
 		&projecttype.Reconciler{Client: c, Scheme: s},
+		&projectrelease.Reconciler{Client: c, Scheme: s},
 		&component.Reconciler{Client: c, Scheme: s},
 		&componenttype.Reconciler{Client: c, Scheme: s},
 		&clustercomponenttype.Reconciler{Client: c, Scheme: s},

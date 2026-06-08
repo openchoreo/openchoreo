@@ -87,6 +87,7 @@ rules:
     - environments
     - observabilityalertsnotificationchannels
     - observabilityplanes
+    - projectreleases
     - projects
     - projecttypes
     - releasebindings
@@ -127,6 +128,7 @@ rules:
     - environments/finalizers
     - observabilityalertsnotificationchannels/finalizers
     - observabilityplanes/finalizers
+    - projectreleases/finalizers
     - projects/finalizers
     - projecttypes/finalizers
     - releasebindings/finalizers
@@ -162,6 +164,7 @@ rules:
     - environments/status
     - observabilityalertsnotificationchannels/status
     - observabilityplanes/status
+    - projectreleases/status
     - projects/status
     - projecttypes/status
     - releasebindings/status

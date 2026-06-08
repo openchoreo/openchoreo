@@ -1,0 +1,234 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: projectreleases.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: ProjectRelease
+    listKind: ProjectReleaseList
+    plural: projectreleases
+    singular: projectrelease
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.owner.projectName
+      name: Project
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          ProjectRelease is the Schema for the projectreleases API. An immutable
+          snapshot of a Project and its referenced (Cluster)ProjectType at a point in
+          time.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              ProjectReleaseSpec defines the desired state of ProjectRelease.
+              A ProjectRelease is an immutable snapshot of Project.spec and the referenced
+              ProjectType (or ClusterProjectType) spec at the time it was cut. Authored
+              externally (kubectl, GitOps, API server, or a future Project controller).
+            properties:
+              owner:
+                description: Owner identifies the project this ProjectRelease belongs
+                  to.
+                properties:
+                  projectName:
+                    description: ProjectName is the name of the project that owns
+                      this release.
+                    minLength: 1
+                    type: string
+                required:
+                - projectName
+                type: object
+              parameters:
+                description: |-
+                  Parameters holds the snapshot of parameter values from the Project spec at
+                  release time. The schema for these values is defined by the ProjectType's
+                  parameters schema.
+                x-kubernetes-preserve-unknown-fields: true
+              projectType:
+                description: |-
+                  ProjectType is a frozen snapshot of the ProjectType or ClusterProjectType
+                  resource at the time of the release. Records the kind and name of the
+                  original resource alongside its full spec so consumers can distinguish
+                  namespace-scoped ProjectTypes from cluster-scoped ClusterProjectTypes.
+                properties:
+                  kind:
+                    description: |-
+                      Kind identifies whether this is a namespace-scoped ProjectType or a
+                      cluster-scoped ClusterProjectType.
+                    enum:
+                    - ProjectType
+                    - ClusterProjectType
+                    type: string
+                  name:
+                    description: Name is the name of the ProjectType or ClusterProjectType
+                      resource.
+                    minLength: 1
+                    type: string
+                  spec:
+                    description: |-
+                      Spec is the frozen specification of the (Cluster)ProjectType at the time
+                      of this ProjectRelease. ClusterProjectTypeSpec currently mirrors
+                      ProjectTypeSpec so both kinds are stored under the namespaced type. If
+                      ClusterProjectTypeSpec gains cluster-only fields, snapshots from a
+                      ClusterProjectType source will lose them; revisit this field then. Mirrors
+                      the ResourceReleaseResourceType precedent.
+                    properties:
+                      environmentConfigs:
+                        description: |-
+                          EnvironmentConfigs defines the per-env schema.
+                          Validates ProjectReleaseBinding.spec.environmentConfigs.
+                        properties:
+                          openAPIV3Schema:
+                            description: OpenAPIV3Schema defines the schema using
+                              standard OpenAPI V3 / JSON Schema format.
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                      parameters:
+                        description: |-
+                          Parameters is the schema for Project.spec.parameters values supplied by
+                          Project authors. Validated against this schema.
+                        properties:
+                          openAPIV3Schema:
+                            description: OpenAPIV3Schema defines the schema using
+                              standard OpenAPI V3 / JSON Schema format.
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                      resources:
+                        description: |-
+                          Resources are templates that generate namespace-scoped Kubernetes
+                          manifests applied to the cell namespace owned by every
+                          ProjectReleaseBinding of this type. Each entry has a unique id;
+                          includeWhen and forEach control conditional and iterative rendering;
+                          CEL expressions in the template body are evaluated against
+                          ${parameters.*}, ${environmentConfigs.*}, and ${metadata.*}.
+                        items:
+                          description: ResourceTemplate defines a template for generating
+                            Kubernetes resources
+                          properties:
+                            forEach:
+                              description: |-
+                                ForEach enables generating multiple resources from a list using CEL expression
+                                Example: "${spec.configurations}" to iterate over a list
+                              pattern: ^\$\{[\s\S]+\}\s*$
+                              type: string
+                            id:
+                              description: |-
+                                ID uniquely identifies this resource within the component type
+                                For the primary workload resource, this must match the workloadType
+                              minLength: 1
+                              type: string
+                            includeWhen:
+                              description: |-
+                                IncludeWhen is a CEL expression that determines if this resource should be created
+                                If not specified, the resource is always created
+                                Example: "${spec.autoscaling.enabled}"
+                              pattern: ^\$\{[\s\S]+\}\s*$
+                              type: string
+                            targetPlane:
+                              default: dataplane
+                              description: |-
+                                TargetPlane specifies which plane this resource should be deployed to
+                                Defaults to "dataplane" if not specified
+                              enum:
+                              - dataplane
+                              - observabilityplane
+                              type: string
+                            template:
+                              description: |-
+                                Template contains the Kubernetes resource with CEL expressions
+                                CEL expressions are enclosed in ${...} and will be evaluated at runtime
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            var:
+                              description: |-
+                                Var is the loop variable name when using forEach
+                                Example: "config" will make each item available as ${config} in templates
+                              pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+                              type: string
+                          required:
+                          - id
+                          - template
+                          type: object
+                          x-kubernetes-validations:
+                          - message: var is required when forEach is specified
+                            rule: '!has(self.forEach) || has(self.var)'
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - id
+                        x-kubernetes-list-type: map
+                      validations:
+                        description: |-
+                          Validations are CEL-based rules evaluated during rendering.
+                          All rules must evaluate to true for rendering to proceed.
+                        items:
+                          description: ValidationRule defines a CEL-based validation
+                            rule evaluated during rendering.
+                          properties:
+                            message:
+                              description: Message is the error message shown when
+                                the rule evaluates to false.
+                              minLength: 1
+                              type: string
+                            rule:
+                              description: |-
+                                Rule is a CEL expression wrapped in ${...} that must evaluate to true.
+                                Uses the same syntax as includeWhen and where fields.
+                              pattern: ^\$\{[\s\S]+\}\s*$
+                              type: string
+                          required:
+                          - message
+                          - rule
+                          type: object
+                        type: array
+                    required:
+                    - resources
+                    type: object
+                required:
+                - kind
+                - name
+                - spec
+                type: object
+            required:
+            - owner
+            - projectType
+            type: object
+            x-kubernetes-validations:
+            - message: ProjectRelease spec is immutable
+              rule: self == oldSelf
+          status:
+            description: ProjectReleaseStatus defines the observed state of ProjectRelease.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
