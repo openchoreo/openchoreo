@@ -301,15 +301,33 @@ export class ComponentPO {
     }
   }
 
-  // The canvas's Promote affordance. The Deploy graph renders every
-  // environment node inside a single <article>, so per-environment scoping
-  // is not possible via roles — but it isn't needed: the Promote button only
-  // renders on an environment with a deployed binding, and once its target
-  // is promoted the button reads "Promoted" instead. At most one button
-  // named exactly "Promote" therefore exists at any time, and it always
-  // belongs to the most-recently-deployed pipeline stage.
+  // The canvas's Promote affordance. The Deploy page renders two "Promote"
+  // buttons: one on the graph canvas (the deployed stage's node) and one in
+  // the environment detail side-panel's Actions group, which opens when a
+  // node is selected — so a page-wide role match is ambiguous (strict-mode
+  // violation). Scope to the canvas: the region that holds the "Set up" start
+  // node and lacks the side-panel's "Close detail panel" control. The canvas
+  // and the panel are disjoint subtrees, and the Promote node button only
+  // renders on an environment with a deployed binding (it reads "Promoted"
+  // once its target is promoted), so at most one Promote exists on the canvas
+  // at any time, always the most-recently-deployed pipeline stage's.
   private promoteButton() {
-    return this.page.getByRole('button', { name: 'Promote', exact: true });
+    return this.canvas().getByRole('button', { name: 'Promote', exact: true });
+  }
+
+  // The Deploy graph canvas, scoped to exclude the environment detail
+  // side-panel. Matches every div wrapping the "Set up" start node that does
+  // not also contain the panel's "Close detail panel" button; the outermost
+  // such div is the canvas column (its ancestors contain the panel and are
+  // filtered out), so .first() pins it without relying on hashed classes.
+  private canvas() {
+    return this.page
+      .locator('div')
+      .filter({ has: this.page.getByRole('button', { name: 'Select setup' }) })
+      .filter({
+        hasNot: this.page.getByRole('button', { name: 'Close detail panel' }),
+      })
+      .first();
   }
 
   // Promote the deployed release to `targetEnvironment` (its single
