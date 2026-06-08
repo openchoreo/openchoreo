@@ -57,6 +57,8 @@ resources:
 # default, aiding admins in cluster management. Those roles are
 # not used by the Project itself. You can comment the following lines
 # if you do not want those helpers be installed with your Project.
+- projectreleasebinding_editor_role.yaml
+- projectreleasebinding_viewer_role.yaml
 - projectrelease_editor_role.yaml
 - projectrelease_viewer_role.yaml
 - clusterprojecttype_editor_role.yaml
