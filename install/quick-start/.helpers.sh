@@ -904,13 +904,36 @@ create_backstage_secret() {
     local namespace="$1"
     log_info "Creating backstage secret..."
 
-    local backend_secret
-    backend_secret=$(head -c 32 /dev/urandom | base64 | tr -d '\n')
+    local backend_secret client_secret
+
+    backend_secret=$(kubectl exec -n openbao openbao-0 -- sh -c "
+        export BAO_ADDR=http://127.0.0.1:8200
+        export BAO_TOKEN=root
+        bao kv get -field=value secret/backstage-backend-secret 2>/dev/null
+    " 2>/dev/null || true)
+
+    if [ -z "$backend_secret" ]; then
+        backend_secret=$(head -c 32 /dev/urandom | base64 | tr -d '\n')
+        kubectl exec -n openbao openbao-0 -- sh -c "
+            export BAO_ADDR=http://127.0.0.1:8200
+            export BAO_TOKEN=root
+            bao kv put secret/backstage-backend-secret value='${backend_secret}'
+        " >/dev/null 2>&1 || true
+    fi
+
+    client_secret=$(kubectl get secret openchoreo-initial-credentials \
+        -n thunder -o jsonpath='{.data.backstage-client-secret}' 2>/dev/null | base64 -d || true)
+
+    if [ -z "$client_secret" ]; then
+        log_error "openchoreo-initial-credentials secret not found in thunder namespace"
+        log_error "Run generate-thunder-secrets.sh first"
+        return 1
+    fi
 
     kubectl create secret generic backstage-secrets \
         --namespace "$namespace" \
         --from-literal=backend-secret="$backend_secret" \
-        --from-literal=client-secret="backstage-portal-secret" \
+        --from-literal=client-secret="$client_secret" \
         --from-literal=jenkins-api-key="placeholder-not-in-use" \
         -o yaml --dry-run=client | kubectl apply --server-side -f - >/dev/null 2>&1 || {
         log_error "Failed to create backstage secret in $namespace"

@@ -83,6 +83,7 @@ RUN cp /tmp/install/quick-start/.bash_profile ${USER_HOME}/.bash_profile && \
     mkdir -p ${USER_HOME}/install/k3d/common && \
     cp /tmp/install/k3d/common/values-thunder.yaml ${USER_HOME}/install/k3d/common/values-thunder.yaml && \
     cp /tmp/install/k3d/common/coredns-custom.yaml ${USER_HOME}/install/k3d/common/coredns-custom.yaml && \
+    cp /tmp/install/prerequisites/thunder/generate-thunder-secrets.sh ${USER_HOME}/generate-thunder-secrets.sh && \
     cp /tmp/install/k3d/common/gateway-tmp-volume-patch.json ${USER_HOME}/install/k3d/common/gateway-tmp-volume-patch.json && \
     cp -r /tmp/samples ${USER_HOME}/samples && \
     chown -R openchoreo:openchoreo ${USER_HOME} && \
