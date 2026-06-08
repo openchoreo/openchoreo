@@ -207,6 +207,11 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 			By("build pod exposes streamable logs")
 			assertWorkflowRunLogs(runName)
 
+			By("verifying the checkout-source task succeeded (private repo cloned with the PAT)")
+			Eventually(func(g Gomega) {
+				framework.AssertWorkflowTaskSucceeded(g, kubeContext, cpNs, runName, "checkout-source")
+			}, buildTimeout, 10*time.Second).Should(Succeed())
+
 			By("waiting for the private-repo WorkflowRun to succeed")
 			Eventually(func(g Gomega) {
 				framework.AssertWorkflowRunSucceeded(g, kubeContext, cpNs, runName)

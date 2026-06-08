@@ -29,6 +29,18 @@ func AssertWorkflowRunCompleted(g gomega.Gomega, kubeContext, namespace, name st
 		`{.status.conditions[?(@.type=="WorkflowCompleted")].status}`, "True")
 }
 
+// AssertWorkflowTaskSucceeded checks that a named task in the WorkflowRun's
+// status.tasks[] reached phase "Succeeded". taskName matches WorkflowTask.Name,
+// which the controller populates from the Argo node displayName (the step name
+// in the WorkflowTemplate, e.g. "checkout-source"). This reads OpenChoreo's own
+// WorkflowRun surface rather than the underlying Argo Workflow, so it asserts an
+// individual build stage without reaching into the workflow-plane namespace.
+// Designed for use inside Eventually(func(g Gomega) { ... }).
+func AssertWorkflowTaskSucceeded(g gomega.Gomega, kubeContext, namespace, workflowRunName, taskName string) {
+	AssertJsonpathEquals(g, kubeContext, namespace, "workflowrun", workflowRunName,
+		fmt.Sprintf(`{.status.tasks[?(@.name=="%s")].phase}`, taskName), "Succeeded")
+}
+
 // AssertComponentReleasePresent checks that at least one ComponentRelease in
 // the namespace has spec.owner.componentName == component. ComponentRelease
 // has no Ready status (and no labels), so existence is the meaningful signal
