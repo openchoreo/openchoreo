@@ -41,8 +41,26 @@ const (
 	componentBallerina       = "bal-svc"
 	componentNoWorkload      = "auto-wl"
 	componentExternalRefs    = "extref-svc"
+	componentPrivate         = "pvt-svc"
 
 	releaseBindingSuffix = "-" + envDev
+
+	// Private-repository build scenario. The repo is private, so the build
+	// clones it with a GitHub PAT supplied out-of-band (privateRepoPATEnv);
+	// the spec self-skips when that env var is empty.
+	privateRepoPATEnv     = "E2E_GITHUB_PAT"
+	privateRepoURL        = "https://github.com/chalindukodikara/sample-workloads-private"
+	privateRepoAppPath    = "/service-go-greeter"
+	privateRepoDockerfile = "/service-go-greeter/Dockerfile"
+	privateRepoSecretRef  = "pvt-git-pat-ref"
+	privateRepoGitUser    = "chalindukodikara"
+	// Key under the OpenBao KV v2 mount (`secret/`) that the rendered
+	// ExternalSecret reads the basic-auth username/password from.
+	privateRepoStoreKey = "github-private-repo-pat"
+
+	// OpenBao dev-mode server (install/k3d/common/values-openbao.yaml).
+	openBaoNamespace = "openbao"
+	openBaoSelector  = "app.kubernetes.io/name=openbao"
 
 	testerLabel     = "app=build-tester"
 	testerContainer = "tester"
@@ -222,6 +240,138 @@ func workflowRunYAML(componentName, runName, workflowName, gitURL, appPath, dock
 			Workflow: openchoreov1alpha1.WorkflowRunConfig{
 				Kind:       openchoreov1alpha1.WorkflowRefKindClusterWorkflow,
 				Name:       workflowName,
+				Parameters: &runtime.RawExtension{Raw: raw},
+			},
+		},
+	}
+	return mustYAMLDocs(wfr)
+}
+
+// seedGitPATIntoOpenBao writes the basic-auth credentials the private-repo
+// build needs into the OpenBao KV v2 store under `secret/<storeKey>`, which the
+// `default` ClusterSecretStore (e2e tier3) is backed by. The PAT is piped in
+// over stdin and read into a shell variable so it never appears in a logged
+// kubectl argument. username is non-secret (the repo owner) and stays an arg.
+func seedGitPATIntoOpenBao(storeKey, username, pat string) error {
+	script := fmt.Sprintf(
+		"set -e; read -r PAT; "+
+			"export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=root; "+
+			"bao kv put secret/%s username=%s password=\"$PAT\" >/dev/null",
+		storeKey, username,
+	)
+	_, err := framework.KubectlExecStdinByLabel(
+		kubeContext, openBaoNamespace, openBaoSelector, "", pat+"\n",
+		"sh", "-c", script,
+	)
+	return err
+}
+
+// privateRepoSecretReferenceYAML returns a SecretReference that resolves the
+// git basic-auth credentials from the secret store at storeKey. The resulting
+// Kubernetes Secret is typed kubernetes.io/basic-auth so the checkout-source
+// workflow template recognizes it (username/password keys) and clones the
+// private repo over HTTPS.
+func privateRepoSecretReferenceYAML(name, storeKey string) string {
+	sr := &openchoreov1alpha1.SecretReference{
+		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "SecretReference"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: cpNs,
+			Labels:    map[string]string{"openchoreo.dev/managed-by": "e2e-build"},
+		},
+		Spec: openchoreov1alpha1.SecretReferenceSpec{
+			Template: openchoreov1alpha1.SecretTemplate{Type: "kubernetes.io/basic-auth"},
+			Data: []openchoreov1alpha1.SecretDataSource{
+				{
+					SecretKey: "username",
+					RemoteRef: openchoreov1alpha1.RemoteReference{Key: storeKey, Property: "username"},
+				},
+				{
+					SecretKey: "password",
+					RemoteRef: openchoreov1alpha1.RemoteReference{Key: storeKey, Property: "password"},
+				},
+			},
+		},
+	}
+	return mustYAMLDocs(sr)
+}
+
+// privateRepoBuildParams builds the dockerfile-builder parameter map for a
+// private repository: same shape as buildComponentYAML's params plus the
+// repository.secretRef that points the build at the SecretReference.
+func privateRepoBuildParams(secretRef string) map[string]any {
+	return map[string]any{
+		"repository": map[string]any{
+			"url":       privateRepoURL,
+			"appPath":   privateRepoAppPath,
+			"secretRef": secretRef,
+			"revision":  map[string]any{"branch": "main"},
+		},
+		"docker": map[string]any{
+			"context":  privateRepoAppPath,
+			"filePath": privateRepoDockerfile,
+		},
+	}
+}
+
+// privateRepoComponentYAML returns the Component for the private-repo build.
+// autoDeploy is false because the scenario only validates the build (logs +
+// success), not the downstream deployment chain.
+func privateRepoComponentYAML(name, secretRef string) string {
+	raw, err := json.Marshal(privateRepoBuildParams(secretRef))
+	if err != nil {
+		panic(err)
+	}
+	comp := &openchoreov1alpha1.Component{
+		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "Component"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: cpNs,
+			Labels: map[string]string{
+				"openchoreo.dev/name":      name,
+				"openchoreo.dev/project":   projectName,
+				"openchoreo.dev/component": name,
+			},
+		},
+		Spec: openchoreov1alpha1.ComponentSpec{
+			Owner: openchoreov1alpha1.ComponentOwner{ProjectName: projectName},
+			ComponentType: openchoreov1alpha1.ComponentTypeRef{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindClusterComponentType,
+				Name: "deployment/service",
+			},
+			AutoDeploy: false,
+			Workflow: &openchoreov1alpha1.ComponentWorkflowConfig{
+				Kind:       openchoreov1alpha1.WorkflowRefKindClusterWorkflow,
+				Name:       "dockerfile-builder",
+				Parameters: &runtime.RawExtension{Raw: raw},
+			},
+		},
+	}
+	return mustYAMLDocs(comp)
+}
+
+// privateRepoWorkflowRunYAML returns the WorkflowRun that triggers the
+// private-repo build. The WorkflowRun parameters carry repository.secretRef,
+// which the rendered Argo Workflow resolves to render the git ExternalSecret.
+func privateRepoWorkflowRunYAML(componentName, runName, secretRef string) string {
+	raw, err := json.Marshal(privateRepoBuildParams(secretRef))
+	if err != nil {
+		panic(err)
+	}
+	wfr := &openchoreov1alpha1.WorkflowRun{
+		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "WorkflowRun"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      runName,
+			Namespace: cpNs,
+			Labels: map[string]string{
+				"openchoreo.dev/project":   projectName,
+				"openchoreo.dev/component": componentName,
+			},
+		},
+		Spec: openchoreov1alpha1.WorkflowRunSpec{
+			Workflow: openchoreov1alpha1.WorkflowRunConfig{
+				Kind:       openchoreov1alpha1.WorkflowRefKindClusterWorkflow,
+				Name:       "dockerfile-builder",
 				Parameters: &runtime.RawExtension{Raw: raw},
 			},
 		},

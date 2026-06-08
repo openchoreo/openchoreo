@@ -90,6 +90,32 @@ func KubectlExecByLabel(kubeContext, namespace, labelSelector, container string,
 	return KubectlExec(kubeContext, namespace, podName, container, command...)
 }
 
+// KubectlExecStdinByLabel finds a Running pod by label selector and execs a
+// command with stdinContent piped in (kubectl exec -i). The stdin payload is
+// never logged (only "(with stdin)" is), so it is safe for passing secrets
+// such as tokens into the pod without leaking them into the test output.
+func KubectlExecStdinByLabel(kubeContext, namespace, labelSelector, container, stdinContent string, command ...string) (string, error) {
+	podName, err := Kubectl(kubeContext,
+		"get", "pod", "-n", namespace,
+		"-l", labelSelector,
+		"--field-selector=status.phase=Running",
+		"-o", "jsonpath={.items[0].metadata.name}",
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to query running pod for selector %q in %s: %w", labelSelector, namespace, err)
+	}
+	if podName == "" {
+		return "", fmt.Errorf("no running pod found for selector %q in %s", labelSelector, namespace)
+	}
+	args := []string{"exec", "-i", podName, "-n", namespace}
+	if container != "" {
+		args = append(args, "-c", container)
+	}
+	args = append(args, "--")
+	args = append(args, command...)
+	return kubectlWithStdin(kubeContext, stdinContent, args...)
+}
+
 // kubectlWithStdin pipes stdinContent to kubectl with the given arguments.
 func kubectlWithStdin(kubeContext, stdinContent string, args ...string) (string, error) {
 	cmdArgs := append([]string{"--context", kubeContext}, args...)

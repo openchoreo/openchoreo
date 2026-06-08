@@ -79,6 +79,10 @@ on:
         required: false
         type: boolean
         default: true
+    secrets:
+      E2E_GITHUB_PAT:
+        description: "GitHub PAT with read access to the private build-test repo. When empty, the private-repo build spec self-skips."
+        required: false
 
 permissions:
   contents: read
@@ -282,6 +286,8 @@ jobs:
         run: echo '127.0.0.1 api.e2e-cp.local thunder.e2e-cp.local openchoreo.e2e-cp.local' | sudo tee -a /etc/hosts
 
       - name: Run e2e tests (tier 3)
+        env:
+          E2E_GITHUB_PAT: ${{ secrets.E2E_GITHUB_PAT }}
         run: |
           make e2e \
             E2E_HELM_SOURCE=oci \

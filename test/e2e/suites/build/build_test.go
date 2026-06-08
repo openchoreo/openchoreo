@@ -178,6 +178,41 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 			}, 2*time.Minute, 5*time.Second).Should(Succeed())
 		})
 
+		It("private-repo: clones a private GitHub repo with a PAT, builds, and the WorkflowRun succeeds", func() {
+			pat := os.Getenv(privateRepoPATEnv)
+			if pat == "" {
+				Skip(fmt.Sprintf("%s not set; skipping private repository build scenario", privateRepoPATEnv))
+			}
+
+			By("seeding the GitHub PAT into the OpenBao secret store")
+			Expect(seedGitPATIntoOpenBao(privateRepoStoreKey, privateRepoGitUser, pat)).To(Succeed(),
+				"failed to seed PAT into OpenBao")
+
+			By("creating the SecretReference for the private repo credentials")
+			output, err := framework.KubectlApplyLiteral(kubeContext,
+				privateRepoSecretReferenceYAML(privateRepoSecretRef, privateRepoStoreKey))
+			Expect(err).NotTo(HaveOccurred(), "failed to apply SecretReference: %s", output)
+
+			By("applying the Component bound to the dockerfile-builder workflow")
+			output, err = framework.KubectlApplyLiteral(kubeContext,
+				privateRepoComponentYAML(componentPrivate, privateRepoSecretRef))
+			Expect(err).NotTo(HaveOccurred(), "failed to apply component: %s", output)
+
+			runName := componentPrivate + "-run-01"
+			By(fmt.Sprintf("applying WorkflowRun %s to trigger the private build", runName))
+			output, err = framework.KubectlApplyLiteral(kubeContext,
+				privateRepoWorkflowRunYAML(componentPrivate, runName, privateRepoSecretRef))
+			Expect(err).NotTo(HaveOccurred(), "failed to apply workflow run: %s", output)
+
+			By("build pod exposes streamable logs")
+			assertWorkflowRunLogs(runName)
+
+			By("waiting for the private-repo WorkflowRun to succeed")
+			Eventually(func(g Gomega) {
+				framework.AssertWorkflowRunSucceeded(g, kubeContext, cpNs, runName)
+			}, buildTimeout, 10*time.Second).Should(Succeed())
+		})
+
 		It("externalrefs-in-cel: SecretReference spec surfaces in the rendered Argo Workflow", func() {
 			By("applying SecretReference + Workflow + WorkflowRun")
 			output, err := framework.KubectlApplyLiteral(kubeContext, externalRefsFixtureYAML())

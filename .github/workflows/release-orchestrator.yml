@@ -414,6 +414,8 @@ jobs:
     with:
       ref: ${{ needs.resolve-target.outputs.target }}
       helm_chart_version: ${{ needs.resolve-target.outputs.helm-chart-version }}
+    secrets:
+      E2E_GITHUB_PAT: ${{ secrets.E2E_GITHUB_PAT }}
 
   # ----------------------------------------------------------------
   # Tag: create and push the annotated release tag at the gated commit.

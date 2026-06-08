@@ -31,3 +31,5 @@ jobs:
       run_tier2: false
       run_tier3: true
       run_ui: false
+    secrets:
+      E2E_GITHUB_PAT: ${{ secrets.E2E_GITHUB_PAT }}
