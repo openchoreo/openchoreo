@@ -77,7 +77,7 @@ func (s *LogsService) QueryLogs(ctx context.Context, req *types.LogsQueryRequest
 		"limit", req.Limit)
 
 	// Convert request to internal representation with resolved UIDs
-	scope, err := s.resolveSearchScope(ctx, req.SearchScope)
+	scope, err := resolveSearchScope(ctx, s.resolver, req.SearchScope)
 	if err != nil {
 		s.logger.Error("Failed to resolve search scope", "error", err)
 		return nil, fmt.Errorf("%w: %w", ErrLogsResolveSearchScope, err)
@@ -235,8 +235,12 @@ func (s *LogsService) convertWorkflowLogsToResponse(
 	}
 }
 
-// resolveSearchScope converts search scope to internal representation with resolved UIDs
-func (s *LogsService) resolveSearchScope(ctx context.Context, searchScope *types.SearchScope) (*internalSearchScope, error) {
+// resolveSearchScope converts a search scope to its internal representation with resolved UIDs
+func resolveSearchScope(
+	ctx context.Context,
+	resolver *ResourceUIDResolver,
+	searchScope *types.SearchScope,
+) (*internalSearchScope, error) {
 	if searchScope == nil {
 		return nil, fmt.Errorf("search scope is required")
 	}
@@ -252,19 +256,19 @@ func (s *LogsService) resolveSearchScope(ctx context.Context, searchScope *types
 	}
 
 	if searchScope.Component != nil {
-		if s.resolver == nil {
+		if resolver == nil {
 			return nil, fmt.Errorf("resource UID resolver is not initialized")
 		}
 		scope := searchScope.Component
-		projectUID, err := s.resolver.GetProjectUID(ctx, scope.Namespace, scope.Project)
+		projectUID, err := resolver.GetProjectUID(ctx, scope.Namespace, scope.Project)
 		if err != nil {
 			return nil, err
 		}
-		componentUID, err := s.resolver.GetComponentUID(ctx, scope.Namespace, scope.Project, scope.Component)
+		componentUID, err := resolver.GetComponentUID(ctx, scope.Namespace, scope.Project, scope.Component)
 		if err != nil {
 			return nil, err
 		}
-		environmentUID, err := s.resolver.GetEnvironmentUID(ctx, scope.Namespace, scope.Environment)
+		environmentUID, err := resolver.GetEnvironmentUID(ctx, scope.Namespace, scope.Environment)
 		if err != nil {
 			return nil, err
 		}

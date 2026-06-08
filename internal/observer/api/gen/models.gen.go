@@ -123,6 +123,12 @@ const (
 	Unauthorized        ErrorResponseTitle = "unauthorized"
 )
 
+// Defines values for EventsQueryRequestSortOrder.
+const (
+	EventsQueryRequestSortOrderAsc  EventsQueryRequestSortOrder = "asc"
+	EventsQueryRequestSortOrderDesc EventsQueryRequestSortOrder = "desc"
+)
+
 // Defines values for IncidentPutRequestStatus.
 const (
 	IncidentPutRequestStatusAcknowledged IncidentPutRequestStatus = "acknowledged"
@@ -205,8 +211,8 @@ const (
 
 // Defines values for TracesQueryRequestSortOrder.
 const (
-	TracesQueryRequestSortOrderAsc  TracesQueryRequestSortOrder = "asc"
-	TracesQueryRequestSortOrderDesc TracesQueryRequestSortOrder = "desc"
+	Asc  TracesQueryRequestSortOrder = "asc"
+	Desc TracesQueryRequestSortOrder = "desc"
 )
 
 // AlertRuleRequest defines model for AlertRuleRequest.
@@ -553,6 +559,90 @@ type ErrorResponse struct {
 
 // ErrorResponseTitle The error message
 type ErrorResponseTitle string
+
+// EventEntry defines model for EventEntry.
+type EventEntry struct {
+	// Message The event message
+	Message *string `json:"message,omitempty"`
+
+	// Metadata The metadata of the event
+	Metadata *struct {
+		// ComponentName The OpenChoreo component name the event is associated with
+		ComponentName *string `json:"componentName,omitempty"`
+
+		// ComponentUid The OpenChoreo component UID the event is associated with
+		ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
+
+		// EnvironmentName The OpenChoreo environment name the event is associated with
+		EnvironmentName *string `json:"environmentName,omitempty"`
+
+		// EnvironmentUid The OpenChoreo environment UID the event is associated with
+		EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
+
+		// NamespaceName The OpenChoreo namespace name the event is associated with
+		NamespaceName *string `json:"namespaceName,omitempty"`
+
+		// ObjectKind The kind of the Kubernetes object the event involves (e.g. CronJob)
+		ObjectKind *string `json:"objectKind,omitempty"`
+
+		// ObjectName The name of the Kubernetes object the event involves
+		ObjectName *string `json:"objectName,omitempty"`
+
+		// ObjectNamespace The namespace of the Kubernetes object the event involves
+		ObjectNamespace *string `json:"objectNamespace,omitempty"`
+
+		// ProjectName The OpenChoreo project name the event is associated with
+		ProjectName *string `json:"projectName,omitempty"`
+
+		// ProjectUid The OpenChoreo project UID the event is associated with
+		ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+	} `json:"metadata,omitempty"`
+
+	// Reason The short, machine-readable reason for the event (e.g. SawCompletedJob)
+	Reason *string `json:"reason,omitempty"`
+
+	// Timestamp The timestamp of the event
+	Timestamp *time.Time `json:"timestamp,omitempty"`
+
+	// Type The event type (e.g. Normal, Warning)
+	Type *string `json:"type,omitempty"`
+}
+
+// EventsQueryRequest defines model for EventsQueryRequest.
+type EventsQueryRequest struct {
+	// EndTime The end time of the query
+	EndTime time.Time `json:"endTime"`
+
+	// Limit The maximum number of items to return
+	Limit       *int                           `json:"limit,omitempty"`
+	SearchScope EventsQueryRequest_SearchScope `json:"searchScope"`
+
+	// SortOrder The sort order of the query
+	SortOrder *EventsQueryRequestSortOrder `json:"sortOrder,omitempty"`
+
+	// StartTime The start time of the query
+	StartTime time.Time `json:"startTime"`
+}
+
+// EventsQueryRequest_SearchScope defines model for EventsQueryRequest.SearchScope.
+type EventsQueryRequest_SearchScope struct {
+	union json.RawMessage
+}
+
+// EventsQueryRequestSortOrder The sort order of the query
+type EventsQueryRequestSortOrder string
+
+// EventsQueryResponse defines model for EventsQueryResponse.
+type EventsQueryResponse struct {
+	// Events The events queried successfully
+	Events *[]EventEntry `json:"events,omitempty"`
+
+	// TookMs The time taken to query the events in milliseconds
+	TookMs *int `json:"tookMs,omitempty"`
+
+	// Total The total number of matching events, capped at 1000
+	Total *int `json:"total,omitempty"`
+}
 
 // HttpMetricsTimeSeries defines model for HttpMetricsTimeSeries.
 type HttpMetricsTimeSeries struct {
@@ -1141,6 +1231,9 @@ type WorkflowSearchScope struct {
 	WorkflowRunName *string `json:"workflowRunName,omitempty"`
 }
 
+// QueryEventsJSONRequestBody defines body for QueryEvents for application/json ContentType.
+type QueryEventsJSONRequestBody = EventsQueryRequest
+
 // QueryLogsJSONRequestBody defines body for QueryLogs for application/json ContentType.
 type QueryLogsJSONRequestBody = LogsQueryRequest
 
@@ -1173,6 +1266,68 @@ type QueryTracesJSONRequestBody = TracesQueryRequest
 
 // QuerySpansForTraceJSONRequestBody defines body for QuerySpansForTrace for application/json ContentType.
 type QuerySpansForTraceJSONRequestBody = TracesQueryRequest
+
+// AsComponentSearchScope returns the union data inside the EventsQueryRequest_SearchScope as a ComponentSearchScope
+func (t EventsQueryRequest_SearchScope) AsComponentSearchScope() (ComponentSearchScope, error) {
+	var body ComponentSearchScope
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromComponentSearchScope overwrites any union data inside the EventsQueryRequest_SearchScope as the provided ComponentSearchScope
+func (t *EventsQueryRequest_SearchScope) FromComponentSearchScope(v ComponentSearchScope) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeComponentSearchScope performs a merge with any union data inside the EventsQueryRequest_SearchScope, using the provided ComponentSearchScope
+func (t *EventsQueryRequest_SearchScope) MergeComponentSearchScope(v ComponentSearchScope) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowSearchScope returns the union data inside the EventsQueryRequest_SearchScope as a WorkflowSearchScope
+func (t EventsQueryRequest_SearchScope) AsWorkflowSearchScope() (WorkflowSearchScope, error) {
+	var body WorkflowSearchScope
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowSearchScope overwrites any union data inside the EventsQueryRequest_SearchScope as the provided WorkflowSearchScope
+func (t *EventsQueryRequest_SearchScope) FromWorkflowSearchScope(v WorkflowSearchScope) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowSearchScope performs a merge with any union data inside the EventsQueryRequest_SearchScope, using the provided WorkflowSearchScope
+func (t *EventsQueryRequest_SearchScope) MergeWorkflowSearchScope(v WorkflowSearchScope) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t EventsQueryRequest_SearchScope) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *EventsQueryRequest_SearchScope) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // AsComponentSearchScope returns the union data inside the LogsQueryRequest_SearchScope as a ComponentSearchScope
 func (t LogsQueryRequest_SearchScope) AsComponentSearchScope() (ComponentSearchScope, error) {

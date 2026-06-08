@@ -16,6 +16,7 @@ import (
 type MCPHandler struct {
 	healthService        *service.HealthService
 	logsService          service.LogsQuerier
+	eventsService        service.EventsQuerier
 	metricsService       service.MetricsQuerier
 	alertIncidentService service.AlertIncidentService
 	tracesService        service.TracesQuerier
@@ -25,6 +26,7 @@ type MCPHandler struct {
 func NewMCPHandler(
 	healthService *service.HealthService,
 	logsService service.LogsQuerier,
+	eventsService service.EventsQuerier,
 	metricsService service.MetricsQuerier,
 	alertIncidentService service.AlertIncidentService,
 	tracesService service.TracesQuerier,
@@ -35,6 +37,9 @@ func NewMCPHandler(
 	}
 	if logsService == nil {
 		return nil, fmt.Errorf("missing logsService")
+	}
+	if eventsService == nil {
+		return nil, fmt.Errorf("missing eventsService")
 	}
 	if metricsService == nil {
 		return nil, fmt.Errorf("missing metricsService")
@@ -51,6 +56,7 @@ func NewMCPHandler(
 	return &MCPHandler{
 		healthService:        healthService,
 		logsService:          logsService,
+		eventsService:        eventsService,
 		metricsService:       metricsService,
 		alertIncidentService: alertIncidentService,
 		tracesService:        tracesService,
@@ -99,6 +105,44 @@ func (h *MCPHandler) QueryWorkflowLogs(ctx context.Context, namespace, workflowR
 		SortOrder:    sortOrder,
 	}
 	return h.logsService.QueryLogs(ctx, req)
+}
+
+func (h *MCPHandler) QueryComponentEvents(ctx context.Context, namespace, project, component, environment,
+	startTime, endTime string, limit int, sortOrder string) (any, error) {
+	limit, sortOrder, _ = setDefaults(limit, sortOrder, nil)
+	req := &types.EventsQueryRequest{
+		SearchScope: &types.SearchScope{
+			Component: &types.ComponentSearchScope{
+				Namespace:   namespace,
+				Project:     project,
+				Component:   component,
+				Environment: environment,
+			},
+		},
+		StartTime: startTime,
+		EndTime:   endTime,
+		Limit:     limit,
+		SortOrder: sortOrder,
+	}
+	return h.eventsService.QueryEvents(ctx, req)
+}
+
+func (h *MCPHandler) QueryWorkflowEvents(ctx context.Context, namespace, workflowRunName,
+	startTime, endTime string, limit int, sortOrder string) (any, error) {
+	limit, sortOrder, _ = setDefaults(limit, sortOrder, nil)
+	req := &types.EventsQueryRequest{
+		SearchScope: &types.SearchScope{
+			Workflow: &types.WorkflowSearchScope{
+				Namespace:       namespace,
+				WorkflowRunName: workflowRunName,
+			},
+		},
+		StartTime: startTime,
+		EndTime:   endTime,
+		Limit:     limit,
+		SortOrder: sortOrder,
+	}
+	return h.eventsService.QueryEvents(ctx, req)
 }
 
 func (h *MCPHandler) QueryResourceMetrics(ctx context.Context, namespace, project, component, environment,

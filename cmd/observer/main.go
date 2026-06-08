@@ -121,6 +121,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize events service
+	eventsService, eventsServiceErr := service.NewEventsService(
+		concreteLogsAdapter, uidResolver, cfg, logger.With("component", "events-service"),
+	)
+	if eventsServiceErr != nil {
+		logger.Error("Failed to initialize events service", "error", eventsServiceErr)
+		os.Exit(1)
+	}
+
 	// Use the metrics adapter as the MetricsQuerier (forwards to external metrics-adapter service)
 	var metricsService service.MetricsQuerier = metricsAdapter
 
@@ -196,6 +205,8 @@ func main() {
 	// Both the API handler and MCP handler share the same authz-wrapped instances
 	// so authorization logic is enforced once, in the service layer.
 	authzLogsService := service.NewLogsServiceWithAuthz(logsService, authzClient, logger.With("component", "authz-logs"))
+	authzEventsService := service.NewEventsServiceWithAuthz(
+		eventsService, authzClient, logger.With("component", "authz-events"))
 	authzMetricsService := service.NewMetricsServiceWithAuthz(
 		metricsService, authzClient, logger.With("component", "authz-metrics"))
 	authzTracesService := service.NewTracesServiceWithAuthz(
@@ -207,6 +218,7 @@ func main() {
 	newAPIHandler := apihandler.NewHandler(
 		healthService,
 		authzLogsService,
+		authzEventsService,
 		authzMetricsService,
 		authzAlertIncidentService,
 		authzTracesService,
@@ -246,6 +258,7 @@ func main() {
 
 	// ===== New API Routes (v1) =====
 	api.HandleFunc("POST /api/v1/logs/query", newAPIHandler.QueryLogs)
+	api.HandleFunc("POST /api/v1/events/query", newAPIHandler.QueryEvents)
 	api.HandleFunc("POST /api/v1/metrics/query", newAPIHandler.QueryMetrics)
 
 	// ===== New API Routes (v1alpha1) Traces, Incidents & Runtime topology =====
@@ -261,6 +274,7 @@ func main() {
 	newMCPHandler, err := observermcp.NewMCPHandler(
 		healthService,
 		authzLogsService,
+		authzEventsService,
 		authzMetricsService,
 		authzAlertIncidentService,
 		authzTracesService,

@@ -7,6 +7,7 @@ type Action string
 
 const (
 	ActionViewLogs        Action = "logs:view"
+	ActionViewEvents      Action = "events:view"
 	ActionViewTraces      Action = "traces:view"
 	ActionViewMetrics     Action = "metrics:view"
 	ActionViewAlerts      Action = "alerts:view"

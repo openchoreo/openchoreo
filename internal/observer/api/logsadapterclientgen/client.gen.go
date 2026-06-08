@@ -292,8 +292,8 @@ type ErrorResponseTitle string
 
 // EventEntry defines model for EventEntry.
 type EventEntry struct {
-	// Body The event message
-	Body *string `json:"body,omitempty"`
+	// Message The event message
+	Message *string `json:"message,omitempty"`
 
 	// Metadata The metadata of the event
 	Metadata *struct {
@@ -333,6 +333,9 @@ type EventEntry struct {
 
 	// Timestamp The timestamp of the event
 	Timestamp *time.Time `json:"timestamp,omitempty"`
+
+	// Type The event type (e.g. Normal, Warning)
+	Type *string `json:"type,omitempty"`
 }
 
 // EventsQueryRequest defines model for EventsQueryRequest.
@@ -434,7 +437,10 @@ type WorkflowLogEntry struct {
 
 // WorkflowSearchScope defines model for WorkflowSearchScope.
 type WorkflowSearchScope struct {
-	Namespace       string  `json:"namespace"`
+	Namespace string `json:"namespace"`
+
+	// TaskName Filter events to a specific workflow task
+	TaskName        *string `json:"taskName,omitempty"`
 	WorkflowRunName *string `json:"workflowRunName,omitempty"`
 }
 
