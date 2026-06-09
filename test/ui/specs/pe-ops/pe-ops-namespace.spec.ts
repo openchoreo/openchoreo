@@ -96,7 +96,8 @@ test.describe('pe-ops: Namespace lifecycle through the Backstage UI', () => {
     // (kind=domain, displayed as "Namespace" in the Kind picker). Syncing is
     // eventually consistent — size the timeout to survive a full default
     // provider cycle (300s) on installs without the UI-test values overlay.
-    test.setTimeout(600_000);
+    // Budget covers two sequential reload-to-repoll waits (namespace + project).
+    test.setTimeout(900_000);
 
     // Create a project under the namespace so the "Has Projects" relation
     // list is non-empty and the listing can be verified.
@@ -126,10 +127,21 @@ test.describe('pe-ops: Namespace lifecycle through the Backstage UI', () => {
       page.getByRole('heading', { name: /has projects/i }).first(),
     ).toBeVisible({ timeout: 15_000 });
 
-    // Assert the created project is listed under "Has Projects".
-    await expect(
-      page.getByRole('link', { name: PROJECT_NAME }).first(),
-    ).toBeVisible({ timeout: 60_000 });
+    // Assert the created project is listed under "Has Projects". The relation
+    // table isn't auto-refetched, so reload to re-query until the project syncs.
+    await expect
+      .poll(
+        async () => {
+          const link = page.getByRole('link', { name: PROJECT_NAME }).first();
+          if (await link.isVisible({ timeout: 3_000 }).catch(() => false)) {
+            return true;
+          }
+          await page.reload({ waitUntil: 'domcontentloaded' });
+          return false;
+        },
+        { timeout: 360_000, intervals: [5_000] },
+      )
+      .toBe(true);
 
     // Assert the Create Project button exists on the entity page.
     await expect(
