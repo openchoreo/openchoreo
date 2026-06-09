@@ -4,7 +4,9 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -12,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2" //nolint:revive
 	. "github.com/onsi/gomega"    //nolint:revive
 
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/test/e2e/framework"
 )
 
@@ -245,6 +248,69 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 				g.Expect(out).To(Equal("7m42s"),
 					"expected label to equal SecretReference.spec.refreshInterval, got %q", out)
 			}, 3*time.Minute, 5*time.Second).Should(Succeed())
+		})
+
+		It("build-logs-api: OpenChoreo API serves live workflow-plane logs and reflects workflow deletion", func() {
+			// Reuse the dockerfile-service matrix build. The Describe is Ordered, so
+			// the builder-matrix Context has already built and asserted this run by
+			// the time the solo specs run; its Argo Workflow lingers (ttlAfterCompletion
+			// 1d) and no later spec reads it, so deleting it here to drive the
+			// live-logs lifecycle is safe.
+			runName := componentDockerfile + "-run-01"
+
+			By("obtaining an OpenChoreo API access token")
+			token, err := fetchToken()
+			Expect(err).NotTo(HaveOccurred(), "failed to fetch API token")
+			client, err := newAPIClient(token)
+			Expect(err).NotTo(HaveOccurred(), "failed to build API client")
+			ctx := context.Background()
+
+			By("status reports hasLiveObservability=true while the Argo Workflow exists")
+			Eventually(func(g Gomega) {
+				resp, err := client.GetWorkflowRunStatusWithResponse(ctx, cpNs, runName)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(resp.StatusCode()).To(Equal(http.StatusOK), "body: %s", string(resp.Body))
+				g.Expect(resp.JSON200).NotTo(BeNil())
+				g.Expect(resp.JSON200.HasLiveObservability).To(BeTrue(),
+					"expected live observability while the workflow is present")
+			}, 2*time.Minute, 5*time.Second).Should(Succeed())
+
+			By("logs endpoint serves live build logs from the workflow plane")
+			Eventually(func(g Gomega) {
+				resp, err := client.GetWorkflowRunLogsWithResponse(ctx, cpNs, runName, &gen.GetWorkflowRunLogsParams{})
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(resp.StatusCode()).To(Equal(http.StatusOK), "body: %s", string(resp.Body))
+				g.Expect(resp.JSON200).NotTo(BeNil())
+				g.Expect(*resp.JSON200).NotTo(BeEmpty(), "expected non-empty live build logs")
+			}, 2*time.Minute, 5*time.Second).Should(Succeed())
+
+			By("deleting the Argo Workflow from the workflow plane")
+			_, err = framework.Kubectl(kubeContext, "delete", "workflow.argoproj.io", runName,
+				"-n", "workflows-"+cpNs, "--ignore-not-found")
+			Expect(err).NotTo(HaveOccurred(), "failed to delete Argo Workflow")
+
+			By("status reports hasLiveObservability=false once the workflow is gone")
+			Eventually(func(g Gomega) {
+				resp, err := client.GetWorkflowRunStatusWithResponse(ctx, cpNs, runName)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(resp.StatusCode()).To(Equal(http.StatusOK), "body: %s", string(resp.Body))
+				g.Expect(resp.JSON200).NotTo(BeNil())
+				g.Expect(resp.JSON200.HasLiveObservability).To(BeFalse(),
+					"expected no live observability after the workflow is deleted")
+			}, 2*time.Minute, 5*time.Second).Should(Succeed())
+
+			By("logs endpoint no longer serves live logs (this endpoint has no archived fallback)")
+			// With the Argo Workflow gone the WorkflowRun CR still resolves, so the
+			// service reaches the workflow plane and surfaces the missing workflow as
+			// an error (currently HTTP 500) with no log body — clients fall back to the
+			// observability plane via hasLiveObservability, not this endpoint.
+			Eventually(func(g Gomega) {
+				resp, err := client.GetWorkflowRunLogsWithResponse(ctx, cpNs, runName, &gen.GetWorkflowRunLogsParams{})
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(resp.StatusCode()).To(BeNumerically(">=", http.StatusBadRequest),
+					"expected an error status once the workflow is gone; body: %s", string(resp.Body))
+				g.Expect(resp.JSON200).To(BeNil(), "expected no live logs after the workflow is deleted")
+			}, 2*time.Minute, 5*time.Second).Should(Succeed())
 		})
 
 	})
