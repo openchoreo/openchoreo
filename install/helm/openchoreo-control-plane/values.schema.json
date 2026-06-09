@@ -1228,7 +1228,8 @@
         },
         "replicas": {
           "default": 1,
-          "description": "Number of cluster gateway replicas",
+          "description": "Number of cluster gateway replicas. Must be 1 - the gateway holds cluster-agent WebSocket connections in process memory and cannot be horizontally scaled. Provide support in upcoming release.",
+          "maximum": 1,
           "minimum": 1,
           "title": "replicas",
           "type": "integer"

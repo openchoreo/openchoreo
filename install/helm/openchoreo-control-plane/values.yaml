@@ -3167,13 +3167,15 @@ clusterGateway:
   name: cluster-gateway
 
   # type: integer
-  # description: Number of cluster gateway replicas
+  # description: Number of cluster gateway replicas. Must be 1 - the gateway holds cluster-agent WebSocket connections in process memory and cannot be horizontally scaled. Provide support in upcoming release.
   # minimum: 1
+  # maximum: 1
   # default: 1
   # @schema
   # type: integer
-  # description: Number of cluster gateway replicas
+  # description: Number of cluster gateway replicas. Must be 1 - the gateway holds cluster-agent WebSocket connections in process memory and cannot be horizontally scaled. Provide support in upcoming release.
   # minimum: 1
+  # maximum: 1
   # default: 1
   # @schema
   replicas: 1

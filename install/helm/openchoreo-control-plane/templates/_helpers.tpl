@@ -162,6 +162,27 @@ Cluster Gateway resource name
 {{- end }}
 
 {{/*
+Cluster Gateway must run as a singleton.
+
+The gateway keeps every cluster agent's live WebSocket connection (and the
+authorization state derived from its client certificate) in process memory via
+the in-memory ConnectionManager. That state is not shared between pods, so
+running more than one replica would split agent connections across pods: a
+request routed to a pod that does not hold the target agent's connection
+fails. Until the gateway supports shared/sticky connection state it must be
+deployed with exactly one replica.
+
+Include this from any template that consumes clusterGateway.replicas to
+fail-fast (at `helm template`/`helm install` time) on an invalid value.
+*/}}
+{{- define "openchoreo-control-plane.clusterGateway.validateReplicas" -}}
+{{- $replicas := int .Values.clusterGateway.replicas -}}
+{{- if ne $replicas 1 -}}
+{{- fail (printf "\n\nINVALID VALUE: clusterGateway.replicas=%d\n\nThe cluster gateway must run as a singleton (clusterGateway.replicas=1).\nIt holds cluster-agent WebSocket connections in process memory, so multiple\nreplicas would split that connection state across pods and break agent\nconnectivity. Set clusterGateway.replicas=1 (the default).\n" $replicas) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Cluster Gateway service account name
 */}}
 {{- define "openchoreo-control-plane.clusterGateway.serviceAccountName" -}}
