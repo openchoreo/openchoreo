@@ -133,36 +133,65 @@ func (r *Reconciler) reconcile(ctx context.Context, binding *openchoreov1alpha1.
 		return ctrl.Result{}, nil
 	}
 
-	if _, err := r.renderAndEmit(ctx, binding, release, environment, dataPlane, project); err != nil {
+	rr, err := r.renderAndEmit(ctx, binding, release, environment, dataPlane, project)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
+	if rr == nil {
+		// renderAndEmit already marked Synced=False; the deferred aggregator
+		// handles Ready.
+		return ctrl.Result{}, nil
+	}
+
+	r.evaluateReadiness(binding, rr)
 	return ctrl.Result{}, nil
 }
 
-// markSyncedFalse marks Synced=False with the given reason and message.
-// Mirrors the resourcereleasebinding helper; broader sub-conditions
-// (NamespaceReady, ResourcesReady) will be unknown'd here once they exist.
+// markSyncedFalse marks Synced=False and forces NamespaceReady and
+// ResourcesReady to Unknown. Per-axis sub-conditions written by a previous
+// successful reconcile would otherwise stay True after upstream validation
+// breaks (snapshot deleted, environment removed, render now failing),
+// giving a misleading status. Unknown signals "cannot evaluate" until
+// Synced returns to True.
 func markSyncedFalse(binding *openchoreov1alpha1.ProjectReleaseBinding,
 	reason controller.ConditionReason, message string) {
 	controller.MarkFalseCondition(binding, ConditionSynced, reason, message)
+	controller.MarkUnknownCondition(binding, ConditionNamespaceReady, ReasonSyncedNotReady,
+		"NamespaceReady cannot be evaluated until Synced=True")
+	controller.MarkUnknownCondition(binding, ConditionResourcesReady, ReasonSyncedNotReady,
+		"ResourcesReady cannot be evaluated until Synced=True")
 }
 
-// setReadyCondition tracks Synced for now. Later phases will aggregate
-// NamespaceReady and ResourcesReady alongside Synced.
+// setReadyCondition aggregates Synced, NamespaceReady, and ResourcesReady
+// into the top-level Ready. Ready=True only when all three sub-conditions
+// are True; otherwise Ready=False inherits the failing sub-condition's
+// Reason and Message in iteration order.
 func (r *Reconciler) setReadyCondition(binding *openchoreov1alpha1.ProjectReleaseBinding) {
 	synced := meta.FindStatusCondition(binding.Status.Conditions, string(ConditionSynced))
-	if synced == nil {
-		controller.MarkFalseCondition(binding, ConditionReady, ReasonSyncedNotReady,
-			"Awaiting Synced evaluation")
-		return
-	}
-	if synced.Status == metav1.ConditionTrue {
+	nsReady := meta.FindStatusCondition(binding.Status.Conditions, string(ConditionNamespaceReady))
+	resReady := meta.FindStatusCondition(binding.Status.Conditions, string(ConditionResourcesReady))
+
+	if isTrue(synced) && isTrue(nsReady) && isTrue(resReady) {
 		controller.MarkTrueCondition(binding, ConditionReady, ReasonReady,
 			"ProjectReleaseBinding is ready")
 		return
 	}
-	controller.MarkFalseCondition(binding, ConditionReady,
-		controller.ConditionReason(synced.Reason), synced.Message)
+
+	for _, c := range []*metav1.Condition{synced, nsReady, resReady} {
+		if c == nil || c.Status == metav1.ConditionTrue {
+			continue
+		}
+		controller.MarkFalseCondition(binding, ConditionReady,
+			controller.ConditionReason(c.Reason), c.Message)
+		return
+	}
+
+	controller.MarkFalseCondition(binding, ConditionReady, ReasonSyncedNotReady,
+		"Awaiting sub-condition evaluation")
+}
+
+func isTrue(c *metav1.Condition) bool {
+	return c != nil && c.Status == metav1.ConditionTrue
 }
 
 // SetupWithManager sets up the controller with the Manager. The binding
