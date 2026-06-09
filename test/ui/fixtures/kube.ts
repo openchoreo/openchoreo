@@ -81,6 +81,47 @@ export function kNotFound(
   return r.stdout.trim() === '';
 }
 
+// kubectl get <kind> <name> -o json, with scope-aware namespace handling.
+// Pass namespace="" for cluster-scoped resources to omit the -n flag.
+export function kGetJSONScoped<T = unknown>(
+  kind: string,
+  name: string,
+  namespace = 'default',
+  opts: KubectlOptions = {},
+): T {
+  const args = ['get', kind, name, '-o', 'json'];
+  if (namespace) args.splice(3, 0, '-n', namespace);
+  const { stdout } = kubectl(args, opts);
+  return JSON.parse(stdout) as T;
+}
+
+// True when `kubectl get` returns NotFound. Scope-aware variant of kNotFound.
+// Pass namespace="" for cluster-scoped resources to omit the -n flag.
+export function kNotFoundScoped(
+  kind: string,
+  name: string,
+  namespace = 'default',
+): boolean {
+  const args = ['get', kind, name, '--ignore-not-found', '-o', 'name'];
+  if (namespace) args.splice(3, 0, '-n', namespace);
+  const r = kubectl(args, { check: false });
+  if (r.status !== 0) return /NotFound/i.test(r.stderr);
+  return r.stdout.trim() === '';
+}
+
+// True when `kubectl get` succeeds. Counterpart to kNotFoundScoped.
+// Pass namespace="" for cluster-scoped resources to omit the -n flag.
+export function kExists(
+  kind: string,
+  name: string,
+  namespace = 'default',
+): boolean {
+  const args = ['get', kind, name, '--ignore-not-found', '-o', 'name'];
+  if (namespace) args.splice(3, 0, '-n', namespace);
+  const r = kubectl(args, { check: false });
+  return r.status === 0 && r.stdout.trim() !== '';
+}
+
 // kubectl apply -f - with the supplied YAML body. Idempotent.
 export function kApplyYAML(yaml: string): KubectlResult {
   return kubectl(['apply', '-f', '-'], { input: yaml });

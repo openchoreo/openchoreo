@@ -19,6 +19,13 @@ const KIND_DISPLAY: Record<string, string> = {
   environment: 'Environment',
   deploymentpipeline: 'Deployment Pipeline',
   domain: 'Namespace',
+  workflow: 'Workflow',
+  componentworkflow: 'Component Workflow',
+  resourcetype: 'Resource Type',
+  clustercomponenttype: 'Cluster Component Type',
+  clustertraittype: 'Cluster Trait Type',
+  clusterworkflow: 'Cluster Workflow',
+  clusterresourcetype: 'Cluster Resource Type',
 };
 
 // The catalog route (App.tsx) mounts CustomCatalogPage with initialKind="system",

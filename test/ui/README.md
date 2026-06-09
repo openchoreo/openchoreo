@@ -40,7 +40,7 @@ For a fresh install the test identities (PE, Dev, ABAC-restricted) are seeded au
 | `lifecycle/` | Full UI-driven journey: create project + component → deploy → delete, verified against the cluster at each step |
 | `config/` | Component configuration edits through the UI: env vars, secret env vars, file mounts, and per-environment overrides, including form validation |
 | `dev-ops/` | Developer role: can create and view Components; platform-level actions (ComponentType create) are denied server-side |
-| `pe-ops/` | Platform-engineer role: CRUD of ComponentTypes and Traits via Scaffolder templates |
+| `pe-ops/` | Platform-engineer role: full CRUD (create, update, delete) of PE-managed CRDs via a representative subset — ComponentType and Trait (namespace-scoped) + ClusterComponentType and ClusterTrait (cluster-scoped) via the YAML editor scaffolder flow, and Environment + DeploymentPipeline via the FormWithYaml scaffolder flow. The remaining CRDs (Workflow, ResourceType, ClusterWorkflow, ClusterResourceType) follow the identical YAML editor UI path and are covered implicitly. Updates are tested via the Definition tab YAML editor; ComponentType and ClusterComponentType also test invalid-edit rejection. |
 | `abac-ui/` | Environment-conditioned access: deploy/promote allowed up to staging, the production Promote button renders permission-disabled, and the shape survives relogin |
 
 The `pkce-login` and `abac-ui` specs self-skip when their prerequisites are missing (host DNS entries for `occ`, the seeded ABAC identity), so the rest of the suite is unaffected.
@@ -140,7 +140,35 @@ Source: [`specs/dev-ops/dev-ops-component.spec.ts:36`](specs/dev-ops/dev-ops-com
 </details>
 
 <details>
-<summary><b>pe-ops</b> — sign in as PE → create ComponentType and Trait via Scaffolder → kubectl shape check → delete via catalog menu</summary>
+<summary><b>pe-ops (YAML editor)</b> — sign in as PE → create, update, and delete PE CRDs that use the YAML editor scaffolder flow</summary>
+
+Source: [`specs/pe-ops/pe-ops-yaml-editor-crud.spec.ts`](specs/pe-ops/pe-ops-yaml-editor-crud.spec.ts)
+
+For a representative subset — ComponentType and Trait (namespace-scoped), ClusterComponentType and ClusterTrait (cluster-scoped) — covering both scope variants and the invalid-edit branch:
+
+1. Open the Create page and fill the matching Scaffolder template (name + description), advance to the YAML editor step, then submit
+2. Poll kubectl until the CR exists and assert its description and kind round-tripped
+3. Wait (up to 6 min) for the catalog provider to ingest the entity, then open it from the catalog table
+4. Navigate to the Definition tab via the Edit icon, modify the description annotation in the YAML editor, save, and poll kubectl until the change is reflected
+5. Navigate back to the entity page and delete via the overflow menu; poll kubectl until the CR is not-found
+
+</details>
+
+<details>
+<summary><b>pe-ops (FormWithYaml)</b> — sign in as PE → create, update, and delete Environment and DeploymentPipeline via FormWithYaml scaffolder</summary>
+
+Source: [`specs/pe-ops/pe-ops-form-with-yaml-crud.spec.ts`](specs/pe-ops/pe-ops-form-with-yaml-crud.spec.ts)
+
+1. Create an Environment via the form (name, description, auto-selected namespace + dataplane), verify form→YAML→form round-trip preserves values, then submit
+2. Poll kubectl until the Environment CR exists; verify spec shape (isProduction, dataPlaneRef)
+3. Update the description via the Definition tab YAML editor; poll kubectl until reflected
+4. Delete via the overflow menu; poll kubectl until not-found
+5. Create a DeploymentPipeline via the form (name, description), submit, verify shape, update, and delete via the same flow
+
+</details>
+
+<details>
+<summary><b>pe-ops (legacy)</b> — sign in as PE → create ComponentType and Trait via Scaffolder → kubectl shape check → delete via catalog menu</summary>
 
 Source: [`specs/pe-ops/pe-ops-pipeline.spec.ts:59`](specs/pe-ops/pe-ops-pipeline.spec.ts#L59)
 
