@@ -29,3 +29,4 @@ jobs:
       run_tier2: true
       run_tier3: false
       run_ui: false
+      run_quick_start: false

@@ -7,6 +7,8 @@
 #   tier1, tier2 — control plane + data plane only
 #   tier3       — multi-cluster (4 separate k3d clusters, one per plane)
 #   ui          — full stack + Backstage portal (Playwright)
+#   quick-start — published quick-start container, the documented Quick Start
+#                 Guide journey (all four planes + sample deploy)
 #
 # Callers: the scheduled e2e workflows (test-e2e, test-e2e-extended,
 # test-ui-e2e) and the release-orchestrator e2e gate. Also manually
@@ -47,6 +49,11 @@ on:
         required: false
         type: boolean
         default: true
+      run_quick_start:
+        description: "Run the Quick Start smoke leg (published quick-start container, all four planes + sample deploy)"
+        required: false
+        type: boolean
+        default: true
   workflow_call:
     inputs:
       ref:
@@ -76,6 +83,11 @@ on:
         default: true
       run_ui:
         description: "Run the Playwright UI leg (full stack + Backstage)"
+        required: false
+        type: boolean
+        default: true
+      run_quick_start:
+        description: "Run the Quick Start smoke leg (published quick-start container, all four planes + sample deploy)"
         required: false
         type: boolean
         default: true
@@ -457,3 +469,12 @@ jobs:
       - name: Delete e2e cluster
         if: always()
         run: make e2e.down || true
+
+  quick-start:
+    name: E2E (Quick Start Smoke)
+    if: ${{ inputs.run_quick_start }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/test-quick-start.yml
+    with:
+      helm_chart_version: ${{ inputs.helm_chart_version }}
