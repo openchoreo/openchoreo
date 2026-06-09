@@ -10,9 +10,7 @@ spec:
   workflowPlaneRef:
     kind: ClusterWorkflowPlane
     name: default
-
   ttlAfterCompletion: "1d"
-
   parameters:
     openAPIV3Schema:
       type: object
@@ -151,13 +149,11 @@ spec:
             resources:
               requests:
                 storage: 2Gi
-
   externalRefs:
     - id: git-secret-reference
       apiVersion: openchoreo.dev/v1alpha1
       kind: SecretReference
       name: ${parameters.repository.secretRef}
-
   resources:
     - id: git-secret
       includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
@@ -185,7 +181,6 @@ spec:
                 "property": has(secret.remoteRef.property) && secret.remoteRef.property != "" ? secret.remoteRef.property : oc_omit()
               }
             })}
-
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1

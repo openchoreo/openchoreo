@@ -14,6 +14,7 @@ no need to expose Kubernetes APIs externally.
 > [!IMPORTANT]
 > Running all 4 clusters requires raising the inotify limit. Without this, k3s nodes
 > fail with "too many open files" errors.
+>
 > ```bash
 > # On Linux (persists until reboot)
 > sudo sysctl -w fs.inotify.max_user_instances=1024
@@ -93,7 +94,9 @@ kubectl --context k3d-openchoreo-cp create secret generic backstage-secrets \
   -n openchoreo-control-plane \
   --from-literal=backend-secret="$(head -c 32 /dev/urandom | base64)" \
   --from-literal=client-secret="backstage-portal-secret" \
-  --from-literal=jenkins-api-key="placeholder-not-in-use"
+  --from-literal=jenkins-api-key="placeholder-not-in-use" \
+  --from-literal=github-actions-token="placeholder-not-in-use" \
+  --from-literal=github-oauth-client-secret="placeholder-not-in-use"
 ```
 
 ### Install Control Plane
@@ -365,6 +368,30 @@ $(echo "$AGENT_CA" | sed 's/^/        /')
 EOF
 ```
 
+### Route Build Pulls Through Registry Cache (Optional)
+
+Speed up build-time image pulls (buildpacks, base images, tools) by routing them through a
+local registry cache. Start the cache, then patch the build pipeline:
+
+```bash
+# Start the registry cache (if not already running)
+docker compose -f install/k3d/registry-cache/compose.yaml up -d
+
+# Patch ClusterWorkflows on the control plane cluster
+install/k3d/registry-cache/patch-build-workflows.sh --context k3d-openchoreo-cp
+
+# Patch ClusterWorkflowTemplates on the workflow plane cluster
+install/k3d/registry-cache/patch-build-templates.sh --context k3d-openchoreo-wp
+```
+
+Optionally, warm the cache by pre-pulling common build images:
+
+```bash
+kubectl --context k3d-openchoreo-wp apply -f install/k3d/registry-cache/preload-build-images.yaml
+```
+
+See [registry-cache/README.md](../registry-cache/README.md) for details and how to revert.
+
 ## 5. Observability Plane (Optional)
 
 ```bash
@@ -463,14 +490,6 @@ spec:
   target:
     name: observer-secret
   data:
-  - secretKey: OPENSEARCH_USERNAME
-    remoteRef:
-      key: opensearch-username
-      property: value
-  - secretKey: OPENSEARCH_PASSWORD
-    remoteRef:
-      key: opensearch-password
-      property: value
   - secretKey: UID_RESOLVER_OAUTH_CLIENT_SECRET
     remoteRef:
       key: observer-oauth-client-secret
@@ -600,9 +619,10 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.11 \
+  --version 0.4.1 \
   --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
   --set openSearchCluster.credentialsSecretName="opensearch-admin-credentials" \
+  --set adapter.openSearchSecretName="opensearch-admin-credentials" \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=true
 ```
@@ -615,10 +635,11 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.11 \
+  --version 0.4.1 \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
+  --set adapter.enabled=false \
   --set fluent-bit.enabled=true \
   --set fluent-bit.openSearchHost=host.k3d.internal \
   --set fluent-bit.openSearchPort=11085 \
@@ -633,10 +654,11 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-wp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.11 \
+  --version 0.4.1 \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
+  --set adapter.enabled=false \
   --set fluent-bit.enabled=true \
   --set fluent-bit.openSearchHost=host.k3d.internal \
   --set fluent-bit.openSearchPort=11085 \
@@ -648,12 +670,12 @@ helm upgrade --install observability-logs-opensearch \
 Install the tracing receiver in the observability plane cluster. Since the logs module already installed OpenSearch, disable it here:
 
 ```bash
-helm upgrade --install observability-tracing-opensearch \
+helm upgrade --install observability-traces-opensearch \
   oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.10 \
+  --version 0.4.1 \
   --set global.installationMode="multiClusterReceiver" \
   --set openSearch.enabled=false \
   --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
@@ -668,11 +690,12 @@ helm upgrade --install observability-tracing-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.3.10 \
+  --version 0.4.1 \
   --set global.installationMode="multiClusterExporter" \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
+  --set adapter.enabled=false \
   --set-json opentelemetry-collector.extraEnvs='[]' \
   --set opentelemetryCollectorCustomizations.http.observabilityPlaneUrl="http://host.k3d.internal:11080" \
   --set opentelemetryCollectorCustomizations.http.observabilityPlaneVirtualHost="opentelemetry.observability.openchoreo.localhost"
@@ -680,13 +703,32 @@ helm upgrade --install observability-tracing-opensearch \
 
 ##### Metrics (observability-metrics-prometheus)
 
+Install the metrics receiver in the observability plane cluster:
+
 ```bash
 helm upgrade --install observability-metrics-prometheus \
   oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.2.5
+  --version 0.6.1 \
+  --set global.installationMode="multiClusterReceiver" \
+  --set-json 'prometheusCustomizations.http.hostnames=["prometheus.observability.openchoreo.localhost", "host.k3d.internal"]'
+```
+
+Install the metrics exporter in the data plane cluster:
+
+```bash
+helm upgrade --install observability-metrics-prometheus \
+  oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
+  --kube-context k3d-openchoreo-dp \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version 0.6.1 \
+  --set global.installationMode="multiClusterExporter" \
+  --set prometheusCustomizations.http.observabilityPlaneUrl=http://host.k3d.internal:11080/api/v1/write \
+  --set kube-prometheus-stack.prometheus.enabled=false \
+  --set kube-prometheus-stack.alertmanager.enabled=false
 ```
 
 ### Register Observability Plane
@@ -724,39 +766,39 @@ kubectl --context k3d-openchoreo-cp patch clusterworkflowplane default -n defaul
 ## Port Mappings
 
 | Plane               | Cluster           | Kube API | Port Range |
-|---------------------|-------------------|----------|------------|
+| ------------------- | ----------------- | -------- | ---------- |
 | Control Plane       | k3d-openchoreo-cp | 6550     | 8xxx       |
 | Data Plane          | k3d-openchoreo-dp | 6551     | 19xxx      |
-| Workflow Plane         | k3d-openchoreo-wp | 6552     | 10xxx      |
+| Workflow Plane      | k3d-openchoreo-wp | 6552     | 10xxx      |
 | Observability Plane | k3d-openchoreo-op | 6553     | 11xxx      |
 
 All ports are mapped 1:1 (host:container) unless noted.
 
-| Port  | Plane         | Service                |
-|-------|---------------|------------------------|
-| 8080  | Control       | Gateway HTTP           |
-| 8443  | Control       | Gateway HTTPS          |
-| 19080 | Data          | Gateway HTTP           |
-| 19443 | Data          | Gateway HTTPS          |
-| 10081 | Build         | Argo Workflows UI      |
-| 10082 | Build         | Container Registry     |
-| 11080 | Observability | Observer API (HTTP)    |
-| 11081 | Observability | OpenSearch Dashboards* |
-| 11082 | Observability | OpenSearch API*        |
-| 11084 | Observability | Prometheus*            |
-| 11086 | Observability | OpenTelemetry*         |
+| Port  | Plane         | Service                 |
+| ----- | ------------- | ----------------------- |
+| 8080  | Control       | Gateway HTTP            |
+| 8443  | Control       | Gateway HTTPS           |
+| 19080 | Data          | Gateway HTTP            |
+| 19443 | Data          | Gateway HTTPS           |
+| 10081 | Build         | Argo Workflows UI       |
+| 10082 | Build         | Container Registry      |
+| 11080 | Observability | Observer API (HTTP)     |
+| 11081 | Observability | OpenSearch Dashboards\* |
+| 11082 | Observability | OpenSearch API\*        |
+| 11084 | Observability | Prometheus\*            |
+| 11086 | Observability | OpenTelemetry\*         |
 
-*Not 1:1 mappings (11081:5601, 11082:9200, 11084:9091, 11086:4317).
+\*Not 1:1 mappings (11081:5601, 11082:9200, 11084:9091, 11086:4317).
 
 ## Access Services
 
-| Service              | URL                                           |
-|----------------------|-----------------------------------------------|
-| OpenChoreo Console   | http://openchoreo.localhost:8080               |
-| OpenChoreo API       | http://api.openchoreo.localhost:8080           |
-| Thunder Admin        | http://thunder.openchoreo.localhost:8080       |
-| Argo Workflows UI    | http://localhost:10081                         |
-| Observer API         | http://observer.openchoreo.localhost:11080     |
+| Service            | URL                                        |
+| ------------------ | ------------------------------------------ |
+| OpenChoreo Console | http://openchoreo.localhost:8080           |
+| OpenChoreo API     | http://api.openchoreo.localhost:8080       |
+| Thunder Admin      | http://thunder.openchoreo.localhost:8080   |
+| Argo Workflows UI  | http://localhost:10081                     |
+| Observer API       | http://observer.openchoreo.localhost:11080 |
 
 ## Verification
 
@@ -775,6 +817,20 @@ kubectl --context k3d-openchoreo-dp logs -n openchoreo-data-plane -l app.kuberne
 kubectl --context k3d-openchoreo-wp logs -n openchoreo-workflow-plane -l app.kubernetes.io/component=cluster-agent --tail=5
 kubectl --context k3d-openchoreo-op logs -n openchoreo-observability-plane -l app.kubernetes.io/component=cluster-agent --tail=5
 ```
+
+## Troubleshooting
+
+### Observer returns no logs
+
+If Fluent Bit is shipping and `container-logs-*` is filling but Observer returns empty results, the index was likely created before `openSearchSetup` applied its template — so it has dynamic mappings that don't match what the adapter queries. Delete the index and let Fluent Bit recreate it:
+
+```bash
+kubectl --context k3d-openchoreo-op exec -n openchoreo-observability-plane opensearch-master-0 \
+  -- curl -ksu admin:ThisIsTheOpenSearchPassword1 \
+  -X DELETE 'https://localhost:9200/container-logs-*'
+```
+
+Only logs written after the deletion will appear (Fluent Bit's tail cursor persists at `/var/lib/fluent-bit/db/tail-container-logs.db`). Generate fresh traffic, or remove that DB and restart the DaemonSet to backfill.
 
 ## Image Preloading
 

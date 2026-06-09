@@ -1,0 +1,16 @@
+# CoreDNS custom config for the OP cluster in the multi-cluster e2e setup.
+# The observer needs to reach Thunder (JWKS/token) and the CP API (authz/UID
+# resolver), both of which are exposed via the CP cluster's kgateway on
+# host.k3d.internal:38080. Rewriting *.e2e-mc-cp.local lets the observer use
+# fully qualified hostnames that match the CP kgateway HTTPRoutes.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  e2e-mc.override: |
+    rewrite stop {
+      name regex (.+\.)?e2e-mc-cp\.local host.k3d.internal
+      answer auto
+    }

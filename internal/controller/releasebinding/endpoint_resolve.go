@@ -19,12 +19,17 @@ const (
 	// clusterLocalSuffix is the default Kubernetes cluster domain suffix.
 	clusterLocalSuffix = "svc.cluster.local"
 
-	// URL scheme constants for endpoint types.
-	schemeHTTP = "http"
-	schemeWS   = "ws"
-	schemeGRPC = "grpc"
-	schemeTCP  = "tcp"
-	schemeUDP  = "udp"
+	// URL scheme constants for endpoint types. The TLS variants are used when the
+	// workload speaks the protocol over TLS (gateway-terminated or passthrough).
+	schemeHTTP  = "http"
+	schemeHTTPS = "https"
+	schemeWS    = "ws"
+	schemeWSS   = "wss"
+	schemeGRPC  = "grpc"
+	schemeGRPCS = "grpcs"
+	schemeTCP   = "tcp"
+	schemeTLS   = "tls"
+	schemeUDP   = "udp"
 )
 
 // serviceInfo holds the name, namespace, and ports extracted from a rendered K8s Service resource.
@@ -36,7 +41,7 @@ type serviceInfo struct {
 
 // extractAllServiceInfos finds all v1/Service resources among the rendered resources and
 // extracts their name, namespace, and spec.ports[].port values.
-func extractAllServiceInfos(resources []openchoreov1alpha1.Resource) []serviceInfo {
+func extractAllServiceInfos(resources []openchoreov1alpha1.RenderedManifest) []serviceInfo {
 	services := make([]serviceInfo, 0, len(resources))
 	for i := range resources {
 		res := &resources[i]
@@ -115,7 +120,7 @@ func bestMatchingService(services []serviceInfo, endpoints map[string]openchoreo
 // endpoints without gateway URLs get new entries.
 func resolveServiceURLs(
 	ctx context.Context,
-	resources []openchoreov1alpha1.Resource,
+	resources []openchoreov1alpha1.RenderedManifest,
 	endpoints map[string]openchoreov1alpha1.WorkloadEndpoint,
 	existing []openchoreov1alpha1.EndpointURLStatus,
 ) []openchoreov1alpha1.EndpointURLStatus {

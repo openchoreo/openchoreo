@@ -946,8 +946,265 @@ func TestValidateSourceType(t *testing.T) {
 	}
 }
 
+func TestValidateRuntimeTopologyRequest(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+	validStart := now.Add(-1 * time.Hour).Format(time.RFC3339)
+	validEnd := now.Format(time.RFC3339)
+
+	tests := []struct {
+		name        string
+		req         *types.RuntimeTopologyRequest
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:        "nil request",
+			req:         nil,
+			wantErr:     true,
+			errContains: "request must not be nil",
+		},
+		{
+			name: "missing namespace",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			wantErr:     true,
+			errContains: "searchScope.namespace is required",
+		},
+		{
+			name: "whitespace-only namespace",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "   ",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			wantErr:     true,
+			errContains: "searchScope.namespace is required",
+		},
+		{
+			name: "missing project",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			wantErr:     true,
+			errContains: "searchScope.project is required",
+		},
+		{
+			name: "missing environment",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace: "ns",
+					Project:   "proj",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			wantErr:     true,
+			errContains: "searchScope.environment is required",
+		},
+		{
+			name: "invalid time range",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validEnd,
+				EndTime:   validStart,
+			},
+			wantErr:     true,
+			errContains: "endTime must be after startTime",
+		},
+		{
+			name: "valid request",
+			req: &types.RuntimeTopologyRequest{
+				SearchScope: types.ComponentSearchScope{
+					Namespace:   "ns",
+					Project:     "proj",
+					Environment: "env",
+				},
+				StartTime: validStart,
+				EndTime:   validEnd,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateRuntimeTopologyRequest(tt.req)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errContains)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 // strPtr is a helper to get a pointer to a string literal. Used in validations tests.
 func strPtr(s string) *string { return &s }
 
 // intPtr is a helper to get a pointer to an int literal. Used in validations tests.
 func intPtr(i int) *int { return &i }
+
+func TestValidateEventsQueryRequest(t *testing.T) {
+	t.Parallel()
+
+	const (
+		start = "2026-06-05T02:58:31Z"
+		end   = "2026-06-05T03:08:31Z"
+	)
+
+	tests := []struct {
+		name        string
+		req         *types.EventsQueryRequest
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:        "nil request",
+			req:         nil,
+			wantErr:     true,
+			errContains: "request is required",
+		},
+		{
+			name:        "missing search scope",
+			req:         &types.EventsQueryRequest{StartTime: start, EndTime: end},
+			wantErr:     true,
+			errContains: "searchScope is required",
+		},
+		{
+			name: "both component and workflow scope",
+			req: &types.EventsQueryRequest{
+				SearchScope: &types.SearchScope{
+					Component: &types.ComponentSearchScope{Namespace: "default"},
+					Workflow:  &types.WorkflowSearchScope{Namespace: "default"},
+				},
+				StartTime: start,
+				EndTime:   end,
+			},
+			wantErr:     true,
+			errContains: "cannot be both",
+		},
+		{
+			name: "component without project but with component",
+			req: &types.EventsQueryRequest{
+				SearchScope: &types.SearchScope{
+					Component: &types.ComponentSearchScope{Namespace: "default", Component: "api"},
+				},
+				StartTime: start,
+				EndTime:   end,
+			},
+			wantErr:     true,
+			errContains: "project is required",
+		},
+		{
+			name: "component whitespace-only namespace",
+			req: &types.EventsQueryRequest{
+				SearchScope: &types.SearchScope{
+					Component: &types.ComponentSearchScope{Namespace: "   "},
+				},
+				StartTime: start,
+				EndTime:   end,
+			},
+			wantErr:     true,
+			errContains: "namespace is required",
+		},
+		{
+			name: "workflow whitespace-only namespace",
+			req: &types.EventsQueryRequest{
+				SearchScope: &types.SearchScope{
+					Workflow: &types.WorkflowSearchScope{Namespace: "   "},
+				},
+				StartTime: start,
+				EndTime:   end,
+			},
+			wantErr:     true,
+			errContains: "namespace is required",
+		},
+		{
+			name: "valid component scope",
+			req: &types.EventsQueryRequest{
+				SearchScope: &types.SearchScope{
+					Component: &types.ComponentSearchScope{
+						Namespace: "default", Project: "default", Component: "api", Environment: "development",
+					},
+				},
+				StartTime: start,
+				EndTime:   end,
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid workflow scope",
+			req: &types.EventsQueryRequest{
+				SearchScope: &types.SearchScope{
+					Workflow: &types.WorkflowSearchScope{Namespace: "default", WorkflowRunName: "run-1"},
+				},
+				StartTime: start,
+				EndTime:   end,
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid time range",
+			req: &types.EventsQueryRequest{
+				SearchScope: &types.SearchScope{
+					Component: &types.ComponentSearchScope{Namespace: "default"},
+				},
+				StartTime: end,
+				EndTime:   start,
+			},
+			wantErr:     true,
+			errContains: "endTime must be after startTime",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateEventsQueryRequest(tt.req)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errContains)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestValidateEventsQueryRequest_DefaultsApplied(t *testing.T) {
+	t.Parallel()
+
+	req := &types.EventsQueryRequest{
+		SearchScope: &types.SearchScope{
+			Component: &types.ComponentSearchScope{Namespace: "default"},
+		},
+		StartTime: "2026-06-05T02:58:31Z",
+		EndTime:   "2026-06-05T03:08:31Z",
+	}
+	require.NoError(t, ValidateEventsQueryRequest(req))
+	assert.Equal(t, defaultLimit, req.Limit)
+	assert.Equal(t, defaultSortOrder, req.SortOrder)
+}

@@ -20,30 +20,27 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	scaffold "github.com/openchoreo/openchoreo/internal/scaffold/component"
 )
 
-type Component struct{}
+type Component struct {
+	client client.Interface
+}
 
-func New() *Component {
-	return &Component{}
+func New(c client.Interface) *Component {
+	return &Component{client: c}
 }
 
 // List lists all components in a project
 func (cp *Component) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponent, params); err != nil {
+	if err := cmdutil.RequireFields("list", "component", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Component, string, error) {
 		p := &gen.ListComponentsParams{}
@@ -54,7 +51,7 @@ func (cp *Component) List(params ListParams) error {
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := c.ListComponents(ctx, params.Namespace, "", p)
+		result, err := cp.client.ListComponents(ctx, params.Namespace, "", p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -82,12 +79,7 @@ func (cp *Component) StartWorkflow(params StartWorkflowParams) error {
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	comp, err := c.GetComponent(ctx, params.Namespace, params.ComponentName)
+	comp, err := cp.client.GetComponent(ctx, params.Namespace, params.ComponentName)
 	if err != nil {
 		return err
 	}
@@ -95,6 +87,12 @@ func (cp *Component) StartWorkflow(params StartWorkflowParams) error {
 	if comp.Spec == nil || comp.Spec.Workflow == nil || comp.Spec.Workflow.Name == "" {
 		return fmt.Errorf("component %q has no workflow configured", params.ComponentName)
 	}
+
+	canonicalProject := comp.Spec.Owner.ProjectName
+	if params.Project != "" && params.Project != canonicalProject {
+		return fmt.Errorf("project %q does not match component %q owner project %q", params.Project, params.ComponentName, canonicalProject)
+	}
+	params.Project = canonicalProject
 
 	wfConfig := comp.Spec.Workflow
 	var baseParams map[string]interface{}
@@ -107,7 +105,7 @@ func (cp *Component) StartWorkflow(params StartWorkflowParams) error {
 		workflowKind = string(*wfConfig.Kind)
 	}
 
-	return workflow.New().StartRun(workflow.StartRunParams{
+	return workflow.New(cp.client).StartRun(workflow.StartRunParams{
 		Namespace:    params.Namespace,
 		WorkflowName: wfConfig.Name,
 		WorkflowKind: workflowKind,
@@ -130,7 +128,7 @@ func (cp *Component) ListWorkflowRuns(params ListWorkflowRunsParams) error {
 		return fmt.Errorf("component name is required")
 	}
 
-	items, err := workflowrun.FetchAll(params.Namespace, "")
+	items, err := workflowrun.New(cp.client).FetchAll(params.Namespace, "")
 	if err != nil {
 		return err
 	}
@@ -141,18 +139,13 @@ func (cp *Component) ListWorkflowRuns(params ListWorkflowRunsParams) error {
 
 // Get retrieves a single component and outputs it as YAML
 func (cp *Component) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceComponent, params); err != nil {
+	if err := cmdutil.RequireFields("get", "component", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	result, err := c.GetComponent(ctx, params.Namespace, params.ComponentName)
+	result, err := cp.client.GetComponent(ctx, params.Namespace, params.ComponentName)
 	if err != nil {
 		return err
 	}
@@ -168,18 +161,13 @@ func (cp *Component) Get(params GetParams) error {
 
 // Delete deletes a single component
 func (cp *Component) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceComponent, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "component", map[string]string{"namespace": params.Namespace, "name": params.ComponentName}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := c.DeleteComponent(ctx, params.Namespace, params.ComponentName); err != nil {
+	if err := cp.client.DeleteComponent(ctx, params.Namespace, params.ComponentName); err != nil {
 		return err
 	}
 
@@ -189,35 +177,31 @@ func (cp *Component) Delete(params DeleteParams) error {
 
 // Scaffold generates a scaffold YAML for a component based on its ComponentType and optional Traits and Workflow
 func (cp *Component) Scaffold(params ScaffoldParams) error {
-	return scaffoldComponent(params)
+	return cp.scaffoldComponent(params)
 }
 
 // Deploy deploys or promotes a component
 func (cp *Component) Deploy(params DeployParams) error {
 	// Validate required params
-	if err := validation.ValidateParams(validation.CmdDeploy, validation.ResourceComponent, params); err != nil {
+	if err := cmdutil.RequireFields("deploy", "component", map[string]string{"namespace": params.Namespace, "project": params.Project}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
+	var err error
 	var binding *gen.ReleaseBinding
 
 	// Check if this is a promotion or initial deployment
 	if params.To != "" {
 		// Promotion flow
-		binding, err = cp.promoteComponent(ctx, c, params)
+		binding, err = cp.promoteComponent(ctx, cp.client, params)
 		if err != nil {
 			return err
 		}
 	} else {
 		// Deploy to lowest environment in the pipeline
-		binding, err = cp.deployComponent(ctx, c, params)
+		binding, err = cp.deployComponent(ctx, cp.client, params)
 		if err != nil {
 			return err
 		}
@@ -237,7 +221,7 @@ func (cp *Component) Deploy(params DeployParams) error {
 }
 
 // deployComponent deploys a component to the lowest environment in the pipeline
-func (cp *Component) deployComponent(ctx context.Context, c *client.Client, params DeployParams) (*gen.ReleaseBinding, error) {
+func (cp *Component) deployComponent(ctx context.Context, c client.Interface, params DeployParams) (*gen.ReleaseBinding, error) {
 	releaseName := params.Release
 
 	// If no release specified, generate a new one
@@ -315,7 +299,7 @@ func (cp *Component) deployComponent(ctx context.Context, c *client.Client, para
 }
 
 // promoteComponent promotes a component to the target environment
-func (cp *Component) promoteComponent(ctx context.Context, c *client.Client, params DeployParams) (*gen.ReleaseBinding, error) {
+func (cp *Component) promoteComponent(ctx context.Context, c client.Interface, params DeployParams) (*gen.ReleaseBinding, error) {
 	pipeline, err := c.GetProjectDeploymentPipeline(ctx, params.Namespace, params.Project)
 	if err != nil {
 		return nil, err
@@ -327,7 +311,9 @@ func (cp *Component) promoteComponent(ctx context.Context, c *client.Client, par
 	}
 
 	// Get the source release binding to find the release name
-	sourceBindings, err := c.ListReleaseBindings(ctx, params.Namespace, "", params.ComponentName)
+	sourceBindings, err := c.ListReleaseBindings(ctx, params.Namespace, &gen.ListReleaseBindingsParams{
+		Component: &params.ComponentName,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -453,7 +439,7 @@ type scaffoldResolution struct {
 	useClusterWorkflow bool
 }
 
-func scaffoldComponent(params ScaffoldParams) error {
+func (cp *Component) scaffoldComponent(params ScaffoldParams) error {
 	if err := validateScaffoldParams(params); err != nil {
 		return err
 	}
@@ -463,15 +449,10 @@ func scaffoldComponent(params ScaffoldParams) error {
 		return err
 	}
 
-	apiClient, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	componentTypeSchema, traitSchemas, workflowSchema, err := fetchScaffoldSchemas(ctx, apiClient, params.Namespace, res)
+	componentTypeSchema, traitSchemas, workflowSchema, err := fetchScaffoldSchemas(ctx, cp.client, params.Namespace, res)
 	if err != nil {
 		return err
 	}
@@ -588,7 +569,7 @@ func resolveScaffoldScope(params ScaffoldParams) (*scaffoldResolution, error) {
 
 func fetchScaffoldSchemas(
 	ctx context.Context,
-	apiClient *client.Client,
+	apiClient client.Interface,
 	namespace string,
 	res *scaffoldResolution,
 ) (*extv1.JSONSchemaProps, map[string]*extv1.JSONSchemaProps, *extv1.JSONSchemaProps, error) {

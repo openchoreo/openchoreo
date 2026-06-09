@@ -58,6 +58,13 @@ spec:
         - "--config"
         - "app-config.csp.yaml"
         {{- end }}
+        {{- if .Values.backstage.appConfig }}
+        - "--config"
+        - "app-config.extra.yaml"
+        {{- end }}
+        {{- range .Values.backstage.extraArgs }}
+        - {{ . | quote }}
+        {{- end }}
         ports:
         - containerPort: 7007
           name: http
@@ -99,6 +106,16 @@ spec:
         - name: OPENCHOREO_AUTH_SCOPE
           value: {{ .Values.backstage.auth.scope | quote }}
         {{- end }}
+        # Service client credentials for background tasks (Catalog Provider)
+        # Independent from the user-facing sign-in client above.
+        # Defaults to the sign-in client values for backward compatibility.
+        - name: OPENCHOREO_SERVICE_CLIENT_ID
+          value: {{ .Values.backstage.auth.serviceClientId | default .Values.backstage.auth.clientId | quote }}
+        - name: OPENCHOREO_SERVICE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.backstage.secretName }}
+              key: {{ .Values.backstage.auth.serviceClientSecretKey | default "client-secret" }}
         # Feature flags for OpenChoreo functionality
         - name: OPENCHOREO_FEATURES_WORKFLOWS_ENABLED
           value: {{ .Values.backstage.features.workflows.enabled | quote }}
@@ -110,6 +127,29 @@ spec:
           value: {{ .Values.security.authz.enabled | quote }}
         - name: OPENCHOREO_FEATURES_AUTH_REDIRECT_FLOW_ENABLED
           value: {{ .Values.backstage.features.auth.redirectFlow.enabled | quote }}
+        - name: OPENCHOREO_FEATURES_ASSISTANT_ENABLED
+          value: {{ .Values.backstage.features.assistant.enabled | quote }}
+        # Upstream URL the Backstage forwarder plugin posts /chat and /warmup to.
+        # Only meaningful when the assistant flag above is true — the
+        # plugin still loads when the URL is unset, but every chat
+        # call will 502. When portalAssistantUrl is empty, fall back to the
+        # in-cluster portal-assistant Service in the release namespace.
+        - name: OPENCHOREO_PORTAL_ASSISTANT_URL
+          value: {{ .Values.backstage.features.assistant.portalAssistantUrl | default (printf "http://%s.%s.svc.cluster.local:%v" (include "openchoreo-control-plane.portalAssistant.name" .) .Release.Namespace .Values.portalAssistant.service.port) | quote }}
+        - name: OPENCHOREO_FEATURES_SECRET_MANAGEMENT_ENABLED
+          value: {{ .Values.features.secretManagement.enabled | quote }}
+        # Catalog sync — periodic full sync acts as a safety net behind
+        # the event-forwarder's real-time event-driven path. When the
+        # event-forwarder is disabled, this becomes the sole sync
+        # mechanism.
+        - name: OPENCHOREO_CATALOG_SYNC_FREQUENCY
+          value: {{ .Values.backstage.catalogSync.frequency | default 300 | quote }}
+        # Whether to wire the OpenChoreo events flow on the Backstage
+        # side. Mirrors `eventForwarder.enabled`: with the forwarder
+        # off, the event router and entity-provider subscriptions are
+        # skipped so the system runs in poll-only mode.
+        - name: OPENCHOREO_EVENTS_ENABLED
+          value: {{ .Values.eventForwarder.enabled | quote }}
         # External CI Platform Integrations
         # Jenkins: requires jenkins.io/job-full-name annotation on entity
         - name: JENKINS_BASE_URL
@@ -121,6 +161,38 @@ spec:
             secretKeyRef:
               name: {{ .Values.backstage.secretName }}
               key: jenkins-api-key
+        # GitHub Actions: requires github.com/project-slug annotation on entity.
+        # Only injected when the integration is enabled, so a disabled provider
+        # leaves no GitHub footprint in the Backstage config. GITHUB_TOKEN is
+        # optional so the pod still boots if the operator enabled the integration
+        # but has not yet populated the github-actions-token Secret key.
+        {{- if .Values.backstage.externalCI.githubActions.enabled }}
+        - name: GITHUB_HOST
+          value: {{ .Values.backstage.externalCI.githubActions.host | quote }}
+        - name: GITHUB_API_BASE_URL
+          value: {{ .Values.backstage.externalCI.githubActions.apiBaseUrl | quote }}
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.backstage.secretName }}
+              key: github-actions-token
+              optional: true
+        {{- end }}
+        # GitHub OAuth App for per-user sign-in (powers the GitHub Actions card's
+        # workflow_run fetch). Injected only when a client ID is configured, and kept
+        # independent of githubActions.enabled so the card can authenticate even when the
+        # backend integration/PAT is not used. The client secret is optional so the pod
+        # still boots if the github-oauth-client-secret Secret key has not been populated.
+        {{- if .Values.backstage.externalCI.githubActions.oauth.clientId }}
+        - name: AUTH_GITHUB_CLIENT_ID
+          value: {{ .Values.backstage.externalCI.githubActions.oauth.clientId | quote }}
+        - name: AUTH_GITHUB_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.backstage.secretName }}
+              key: github-oauth-client-secret
+              optional: true
+        {{- end }}
         # Database configuration
         {{- if eq .Values.backstage.database.type "sqlite" }}
         - name: DATABASE_CLIENT
@@ -193,6 +265,15 @@ spec:
           subPath: app-config.csp.yaml
           readOnly: true
         {{- end }}
+        {{- if .Values.backstage.appConfig }}
+        - name: extra-app-config
+          mountPath: /app/app-config.extra.yaml
+          subPath: app-config.extra.yaml
+          readOnly: true
+        {{- end }}
+        {{- with .Values.backstage.extraVolumeMounts }}
+        {{- toYaml . | nindent 12 }}
+        {{- end }}
       volumes:
       {{- if eq .Values.backstage.database.type "sqlite" }}
       - name: backstage-db
@@ -210,5 +291,13 @@ spec:
       - name: csp-config
         configMap:
           name: {{ include "openchoreo-control-plane.backstage.name" . }}-csp-config
+      {{- end }}
+      {{- if .Values.backstage.appConfig }}
+      - name: extra-app-config
+        configMap:
+          name: {{ include "openchoreo-control-plane.backstage.name" . }}-extra-config
+      {{- end }}
+      {{- with .Values.backstage.extraVolumes }}
+      {{- toYaml . | nindent 10 }}
       {{- end }}
 {{- end }}

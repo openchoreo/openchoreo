@@ -76,8 +76,8 @@ func (s *workloadService) CreateWorkload(ctx context.Context, namespaceName stri
 			s.logger.Warn("Workload already exists", "namespace", namespaceName, "workload", w.Name)
 			return nil, ErrWorkloadAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create workload CR", "error", err)
 		return nil, fmt.Errorf("failed to create workload: %w", err)
@@ -121,9 +121,9 @@ func (s *workloadService) UpdateWorkload(ctx context.Context, namespaceName stri
 	existing.Labels[labels.LabelKeyComponentName] = existing.Spec.Owner.ComponentName
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
+		if vErr := services.ExtractValidationError(err); vErr != nil {
 			s.logger.Error("Workload update rejected by validation", "error", err)
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update workload CR", "error", err)
 		return nil, fmt.Errorf("failed to update workload: %w", err)
@@ -292,11 +292,11 @@ func workloadSpecSchema() *extv1.JSONSchemaProps {
 		Properties: map[string]extv1.JSONSchemaProps{
 			"key": {
 				Type:        stringType,
-				Description: "The file key/name.",
+				Description: "The file key/name inside the mounted volume",
 			},
 			"mountPath": {
 				Type:        stringType,
-				Description: "The mount path where the file will be mounted.",
+				Description: "The mount path where the file will be mounted. File path = mountPath/key",
 			},
 			"value": {
 				Type:        stringType,

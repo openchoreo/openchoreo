@@ -8,28 +8,23 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/openchoreo/openchoreo/internal/occ"
-	configContext "github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	"github.com/openchoreo/openchoreo/pkg/cli/common/config"
-	"github.com/openchoreo/openchoreo/pkg/cli/core/root"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/root"
 )
 
 func main() {
-	cfg := config.DefaultConfig()
-	commandImpl := occ.NewCommandImplementation()
-
-	rootCmd := root.BuildRootCmd(cfg, commandImpl)
+	rootCmd := root.BuildRootCmd()
 	rootCmd.SilenceUsage = true
 
 	// Initialize occ execution environment
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		// Initialize default context if none exists
-		if err := configContext.EnsureContext(); err != nil {
+		if err := config.EnsureContext(); err != nil {
 			return err
 		}
 
 		// Apply context defaults to command flags
-		return configContext.ApplyContextDefaults(cmd)
+		return config.ApplyContextDefaults(cmd)
 	}
 
 	if err := rootCmd.Execute(); err != nil {

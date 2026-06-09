@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -24,8 +25,7 @@ func (h *Handler) ListClusterObservabilityPlanes(
 
 	result, err := h.services.ClusterObservabilityPlaneService.ListClusterObservabilityPlanes(ctx, opts)
 	if err != nil {
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListClusterObservabilityPlanes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list cluster observability planes", "error", err)
@@ -96,8 +96,10 @@ func (h *Handler) CreateClusterObservabilityPlane(
 		if errors.Is(err, clusterobservabilityplanesvc.ErrClusterObservabilityPlaneAlreadyExists) {
 			return gen.CreateClusterObservabilityPlane409JSONResponse{ConflictJSONResponse: conflict("ClusterObservabilityPlane already exists")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateClusterObservabilityPlane422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateClusterObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create cluster observability plane", "error", err)
@@ -141,8 +143,10 @@ func (h *Handler) UpdateClusterObservabilityPlane(
 		if errors.Is(err, clusterobservabilityplanesvc.ErrClusterObservabilityPlaneNotFound) {
 			return gen.UpdateClusterObservabilityPlane404JSONResponse{NotFoundJSONResponse: notFound("ClusterObservabilityPlane")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateClusterObservabilityPlane422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateClusterObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update cluster observability plane", "error", err)

@@ -17,7 +17,7 @@ func badRequest(message string) gen.BadRequestJSONResponse {
 func forbidden() gen.ForbiddenJSONResponse {
 	return gen.ForbiddenJSONResponse{
 		Code:  gen.FORBIDDEN,
-		Error: "You do not have permission to access this resource",
+		Error: "You do not have permission to perform this operation",
 	}
 }
 
@@ -35,9 +35,24 @@ func conflict(message string) gen.ConflictJSONResponse {
 	}
 }
 
+func unprocessableContent(message string) gen.UnprocessableContentJSONResponse {
+	return gen.UnprocessableContentJSONResponse{
+		Code:  gen.UNPROCESSABLECONTENT,
+		Error: message,
+	}
+}
+
 func internalError() gen.InternalErrorJSONResponse {
 	return gen.InternalErrorJSONResponse{
 		Code:  gen.INTERNALERROR,
 		Error: "Internal server error",
+	}
+}
+
+//nolint:unparam // shared helper; message is supplied by callers
+func notImplemented(message string) gen.NotImplementedJSONResponse {
+	return gen.NotImplementedJSONResponse{
+		Code:  gen.NOTIMPLEMENTED,
+		Error: message,
 	}
 }

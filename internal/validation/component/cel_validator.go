@@ -25,12 +25,11 @@ const (
 type CELValidator struct {
 	baseEnv      *cel.Env
 	typeProvider *apiservercel.DeclTypeProvider
-	resourceType ResourceType
 }
 
 // NewCELValidator creates a validator for the specified resource type.
 // The validator uses different environments for ComponentType vs Trait resources
-// to enforce proper variable access (e.g., traits can't access workload).
+// to enforce proper variable access (e.g., traits have access to trait context variable).
 // Provides schema-aware type checking when schemas are provided in opts.
 func NewCELValidator(resourceType ResourceType, opts SchemaOptions) (*CELValidator, error) {
 	var env *cel.Env
@@ -39,9 +38,9 @@ func NewCELValidator(resourceType ResourceType, opts SchemaOptions) (*CELValidat
 
 	switch resourceType {
 	case ComponentTypeResource:
-		env, provider, err = BuildComponentCELEnv(opts)
+		env, provider, err = buildComponentCELEnv(opts)
 	case TraitResource:
-		env, provider, err = BuildTraitCELEnv(opts)
+		env, provider, err = buildTraitCELEnv(opts)
 	default:
 		return nil, fmt.Errorf("unknown resource type: %v", resourceType)
 	}
@@ -53,7 +52,6 @@ func NewCELValidator(resourceType ResourceType, opts SchemaOptions) (*CELValidat
 	return &CELValidator{
 		baseEnv:      env,
 		typeProvider: provider,
-		resourceType: resourceType,
 	}, nil
 }
 

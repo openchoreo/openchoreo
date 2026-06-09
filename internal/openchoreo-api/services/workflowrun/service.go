@@ -37,10 +37,10 @@ import (
 
 // workflowRunService handles workflow run business logic without authorization checks.
 type workflowRunService struct {
-	k8sClient   client.Client
-	wpClientMgr *kubernetesClient.KubeMultiClientManager
-	gwClient    *gatewayClient.Client
-	logger      *slog.Logger
+	k8sClient           client.Client
+	planeClientProvider kubernetesClient.WorkflowPlaneClientProvider
+	gwClient            *gatewayClient.Client
+	logger              *slog.Logger
 }
 
 var _ Service = (*workflowRunService)(nil)
@@ -51,12 +51,12 @@ var workflowRunTypeMeta = metav1.TypeMeta{
 }
 
 // NewService creates a new workflow run service without authorization.
-func NewService(k8sClient client.Client, wpClientMgr *kubernetesClient.KubeMultiClientManager, gwClient *gatewayClient.Client, logger *slog.Logger) Service {
+func NewService(k8sClient client.Client, planeClientProvider kubernetesClient.WorkflowPlaneClientProvider, gwClient *gatewayClient.Client, logger *slog.Logger) Service {
 	return &workflowRunService{
-		k8sClient:   k8sClient,
-		wpClientMgr: wpClientMgr,
-		gwClient:    gwClient,
-		logger:      logger,
+		k8sClient:           k8sClient,
+		planeClientProvider: planeClientProvider,
+		gwClient:            gwClient,
+		logger:              logger,
 	}
 }
 
@@ -105,8 +105,8 @@ func (s *workflowRunService) CreateWorkflowRun(ctx context.Context, namespaceNam
 			s.logger.Warn("Workflow run already exists", "namespace", namespaceName, "name", wfRun.Name)
 			return nil, ErrWorkflowRunAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create workflow run", "error", err)
 		return nil, fmt.Errorf("failed to create workflow run: %w", err)
@@ -151,9 +151,9 @@ func (s *workflowRunService) UpdateWorkflowRun(ctx context.Context, namespaceNam
 			s.logger.Warn("Workflow run not found", "namespace", namespaceName, "name", wfRun.Name)
 			return nil, ErrWorkflowRunNotFound
 		}
-		if apierrors.IsInvalid(err) {
+		if vErr := services.ExtractValidationError(err); vErr != nil {
 			s.logger.Error("Workflow run update rejected by validation", "error", err)
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update workflow run", "error", err)
 		return nil, fmt.Errorf("failed to update workflow run: %w", err)
@@ -262,7 +262,7 @@ func (s *workflowRunService) DeleteWorkflowRun(ctx context.Context, namespaceNam
 }
 
 // GetWorkflowRunLogs retrieves logs from a workflow run.
-func (s *workflowRunService) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, taskName, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
+func (s *workflowRunService) GetWorkflowRunLogs(ctx context.Context, namespaceName, runName, taskName string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
 	logger := s.logger.With("namespace", namespaceName, "run", runName, "task", taskName, "sinceSeconds", sinceSeconds)
 	logger.Debug("Getting workflow run logs")
 
@@ -293,14 +293,13 @@ func (s *workflowRunService) GetWorkflowRunLogs(ctx context.Context, namespaceNa
 		return nil, fmt.Errorf("failed to resolve workflow plane ref: %w", err)
 	}
 
-	return s.getArgoWorkflowRunLogs(ctx, namespaceName, gatewayURL, workflowRun.Status.RunReference, workflowPlaneRef, taskName, sinceSeconds)
+	return s.getArgoWorkflowRunLogs(ctx, namespaceName, workflowRun.Status.RunReference, workflowPlaneRef, taskName, sinceSeconds)
 }
 
 // getArgoWorkflowRunLogs retrieves logs from an Argo Workflow run.
 func (s *workflowRunService) getArgoWorkflowRunLogs(
 	ctx context.Context,
 	namespaceName string,
-	gatewayURL string,
 	runReference *openchoreov1alpha1.ResourceReference,
 	workflowPlaneRef *openchoreov1alpha1.WorkflowPlaneRef,
 	taskName string,
@@ -310,7 +309,7 @@ func (s *workflowRunService) getArgoWorkflowRunLogs(
 	logger.Debug("Getting Argo workflow run logs")
 
 	// Get workflow plane client
-	wpClient, err := s.getWorkflowPlaneClient(ctx, namespaceName, gatewayURL, workflowPlaneRef)
+	wpClient, err := s.getWorkflowPlaneClient(ctx, namespaceName, workflowPlaneRef)
 	if err != nil {
 		logger.Error("Failed to get workflow plane client", "error", err)
 		return nil, fmt.Errorf("failed to get workflow plane client: %w", err)
@@ -392,7 +391,7 @@ func (s *workflowRunService) getArgoWorkflowRunLogs(
 
 // resolveWorkflowPlane resolves the workflow plane using the workflow's workflowPlaneRef.
 func (s *workflowRunService) resolveWorkflowPlane(ctx context.Context, namespaceName string, ref *openchoreov1alpha1.WorkflowPlaneRef) (*openchoreov1alpha1.WorkflowPlane, error) {
-	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, s.k8sClient, namespaceName, ref)
+	workflowPlaneResult, err := controller.GetWorkflowPlaneFromRef(ctx, s.k8sClient, namespaceName, ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve workflow plane: %w", err)
 	}
@@ -430,10 +429,10 @@ func (s *workflowRunService) resolveWorkflowPlaneRef(ctx context.Context, namesp
 }
 
 // getWorkflowPlaneClient creates and returns a Kubernetes client for the workflow plane cluster.
-func (s *workflowRunService) getWorkflowPlaneClient(ctx context.Context, namespaceName string, gatewayURL string, ref *openchoreov1alpha1.WorkflowPlaneRef) (client.Client, error) {
+func (s *workflowRunService) getWorkflowPlaneClient(ctx context.Context, namespaceName string, ref *openchoreov1alpha1.WorkflowPlaneRef) (client.Client, error) {
 	s.logger.Debug("Getting workflow plane client", "namespace", namespaceName)
 
-	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, s.k8sClient, namespaceName, ref)
+	workflowPlaneResult, err := controller.GetWorkflowPlaneFromRef(ctx, s.k8sClient, namespaceName, ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve workflow plane: %w", err)
 	}
@@ -441,7 +440,7 @@ func (s *workflowRunService) getWorkflowPlaneClient(ctx context.Context, namespa
 		return nil, fmt.Errorf("no workflow plane found for namespace: %s", namespaceName)
 	}
 
-	workflowPlaneClient, err := workflowPlaneResult.GetK8sClient(s.wpClientMgr, gatewayURL)
+	workflowPlaneClient, err := workflowPlaneResult.GetK8sClient(s.planeClientProvider)
 	if err != nil {
 		s.logger.Error("Failed to create workflow plane client", "error", err, "namespace", namespaceName)
 		return nil, fmt.Errorf("failed to create workflow plane client: %w", err)
@@ -555,7 +554,7 @@ func (s *workflowRunService) getArgoWorkflowPodLogs(ctx context.Context, workflo
 }
 
 // GetWorkflowRunEvents retrieves events from a workflow run.
-func (s *workflowRunService) GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, taskName, gatewayURL string) ([]models.WorkflowRunEventEntry, error) {
+func (s *workflowRunService) GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, taskName string) ([]models.WorkflowRunEventEntry, error) {
 	logger := s.logger.With("namespace", namespaceName, "run", runName, "task", taskName)
 	logger.Debug("Getting workflow run events")
 
@@ -586,14 +585,13 @@ func (s *workflowRunService) GetWorkflowRunEvents(ctx context.Context, namespace
 		return nil, fmt.Errorf("failed to resolve workflow plane ref: %w", err)
 	}
 
-	return s.getArgoWorkflowRunEvents(ctx, namespaceName, gatewayURL, workflowRun.Status.RunReference, workflowPlaneRef, taskName)
+	return s.getArgoWorkflowRunEvents(ctx, namespaceName, workflowRun.Status.RunReference, workflowPlaneRef, taskName)
 }
 
 // getArgoWorkflowRunEvents retrieves events from an Argo Workflow run.
 func (s *workflowRunService) getArgoWorkflowRunEvents(
 	ctx context.Context,
 	namespaceName string,
-	gatewayURL string,
 	runReference *openchoreov1alpha1.ResourceReference,
 	workflowPlaneRef *openchoreov1alpha1.WorkflowPlaneRef,
 	taskName string,
@@ -602,7 +600,7 @@ func (s *workflowRunService) getArgoWorkflowRunEvents(
 	logger.Debug("Getting Argo workflow run events")
 
 	// Get workflow plane client
-	wpClient, err := s.getWorkflowPlaneClient(ctx, namespaceName, gatewayURL, workflowPlaneRef)
+	wpClient, err := s.getWorkflowPlaneClient(ctx, namespaceName, workflowPlaneRef)
 	if err != nil {
 		logger.Error("Failed to get workflow plane client", "error", err)
 		return nil, fmt.Errorf("failed to get workflow plane client: %w", err)
@@ -713,7 +711,7 @@ const (
 )
 
 // GetWorkflowRunStatus retrieves the status and step information for a specific WorkflowRun.
-func (s *workflowRunService) GetWorkflowRunStatus(ctx context.Context, namespaceName, runName, gatewayURL string) (*models.WorkflowRunStatusResponse, error) {
+func (s *workflowRunService) GetWorkflowRunStatus(ctx context.Context, namespaceName, runName string) (*models.WorkflowRunStatusResponse, error) {
 	logger := s.logger.With("namespace", namespaceName, "run", runName)
 	logger.Debug("Getting workflow run status")
 
@@ -749,7 +747,7 @@ func (s *workflowRunService) GetWorkflowRunStatus(ctx context.Context, namespace
 		steps = append(steps, step)
 	}
 
-	hasLiveObservability := s.argoWorkflowExists(ctx, namespaceName, gatewayURL, wfRun)
+	hasLiveObservability := s.argoWorkflowExists(ctx, namespaceName, wfRun)
 
 	return &models.WorkflowRunStatusResponse{
 		Status:               overallStatus,
@@ -760,7 +758,7 @@ func (s *workflowRunService) GetWorkflowRunStatus(ctx context.Context, namespace
 
 // argoWorkflowExists checks whether the Argo Workflow referenced by the given WorkflowRun
 // still exists on the workflow plane. Returns true if it exists.
-func (s *workflowRunService) argoWorkflowExists(ctx context.Context, namespaceName, gatewayURL string, wfRun *openchoreov1alpha1.WorkflowRun) bool {
+func (s *workflowRunService) argoWorkflowExists(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) bool {
 	runReference := wfRun.Status.RunReference
 	if runReference == nil || runReference.Name == "" || runReference.Namespace == "" {
 		return false
@@ -772,7 +770,7 @@ func (s *workflowRunService) argoWorkflowExists(ctx context.Context, namespaceNa
 		return false
 	}
 
-	wpClient, err := s.getWorkflowPlaneClient(ctx, namespaceName, gatewayURL, workflowPlaneRef)
+	wpClient, err := s.getWorkflowPlaneClient(ctx, namespaceName, workflowPlaneRef)
 	if err != nil {
 		s.logger.Debug("Failed to get workflow plane client for workflow existence check", "error", err)
 		return false

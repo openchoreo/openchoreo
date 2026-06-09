@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -29,8 +30,7 @@ func (h *Handler) ListComponentReleases(
 
 	result, err := h.services.ComponentReleaseService.ListComponentReleases(ctx, request.NamespaceName, componentName, opts)
 	if err != nil {
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListComponentReleases400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list component releases", "error", err)
@@ -104,8 +104,10 @@ func (h *Handler) CreateComponentRelease(
 		if errors.Is(err, componentreleasesvc.ErrComponentReleaseAlreadyExists) {
 			return gen.CreateComponentRelease409JSONResponse{ConflictJSONResponse: conflict("ComponentRelease already exists")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateComponentRelease422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateComponentRelease400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create component release", "error", err)

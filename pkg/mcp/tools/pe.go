@@ -9,6 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -81,9 +82,11 @@ func buildSpec[T any](specInput map[string]interface{}) (*T, error) {
 // PE Toolset — Environment management
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterPEListEnvironments(s *mcp.Server) {
+func (t *Toolsets) RegisterPEListEnvironments(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_environments"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewEnvironment}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_environments",
+		Name: name,
 		Description: "List all environments in a namespace. Environments are deployment targets representing " +
 			"pipeline stages (dev, staging, production) or isolated tenants. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -100,9 +103,11 @@ func (t *Toolsets) RegisterPEListEnvironments(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_environment"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateEnvironment}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_environment",
+		Name: name,
 		Description: "Create a new environment in a namespace. Environments are deployment targets representing " +
 			"pipeline stages (dev, qa, prod) or isolated tenants.",
 		InputSchema: createSchema(map[string]any{
@@ -171,9 +176,11 @@ func (t *Toolsets) RegisterCreateEnvironment(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterUpdateEnvironment(s *mcp.Server) {
+func (t *Toolsets) RegisterUpdateEnvironment(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "update_environment"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateEnvironment}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_environment",
+		Name: name,
 		Description: "Update an existing environment in a namespace. Allows modifying display name, description, " +
 			"and production flag. Data plane reference is immutable after creation.",
 		InputSchema: createSchema(map[string]any{
@@ -215,20 +222,22 @@ func (t *Toolsets) RegisterUpdateEnvironment(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterDeleteEnvironment(s *mcp.Server) {
+func (t *Toolsets) RegisterDeleteEnvironment(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_environment"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteEnvironment}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "delete_environment",
+		Name: name,
 		Description: "Delete an environment from a namespace. " +
 			"This will remove the deployment target and any associated resources.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"env_name":       stringProperty("Name of the environment to delete. Use list_environments to discover valid names"),
-		}, []string{"namespace_name", "env_name"}),
+			"name":           stringProperty("Name of the environment to delete. Use list_environments to discover valid names"),
+		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		EnvName       string `json:"env_name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.DeleteEnvironment(ctx, args.NamespaceName, args.EnvName)
+		result, err := t.PEToolset.DeleteEnvironment(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
 	})
 }
@@ -264,9 +273,11 @@ func promotionPathsSchema(description string) map[string]any {
 }
 
 //nolint:dupl
-func (t *Toolsets) RegisterCreateDeploymentPipeline(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateDeploymentPipeline(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_deployment_pipeline"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateDeploymentPipeline}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_deployment_pipeline",
+		Name: name,
 		Description: "Create a new deployment pipeline in a namespace. Deployment pipelines define the promotion " +
 			"order between environments (e.g., dev → staging → production) with optional approval gates.",
 		InputSchema: createSchema(map[string]any{
@@ -308,9 +319,12 @@ func (t *Toolsets) RegisterCreateDeploymentPipeline(s *mcp.Server) {
 // PE Toolset — Component releases
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterPEListComponentReleases(s *mcp.Server) {
+//nolint:dupl // paginated list handlers share similar structure
+func (t *Toolsets) RegisterPEListComponentReleases(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_component_releases"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponentRelease}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_component_releases",
+		Name: name,
 		Description: "List all releases for a component. Releases are immutable snapshots of a component at a " +
 			"specific build, ready for deployment to environments. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -330,9 +344,11 @@ func (t *Toolsets) RegisterPEListComponentReleases(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPECreateComponentRelease(s *mcp.Server) {
+func (t *Toolsets) RegisterPECreateComponentRelease(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_component_release"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateComponentRelease}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_component_release",
+		Name: name,
 		Description: "Create a new release from the latest build of a component. Releases are immutable " +
 			"snapshots that can be deployed to environments through release bindings. The component " +
 			"must have at least one successful build or workload. If the source repository does not " +
@@ -354,9 +370,11 @@ func (t *Toolsets) RegisterPECreateComponentRelease(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetComponentRelease(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetComponentRelease(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_component_release"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponentRelease}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_release",
+		Name: name,
 		Description: "Get detailed information about a specific component release including build information, " +
 			"image tags, and deployment status.",
 		InputSchema: createSchema(map[string]any{
@@ -372,9 +390,11 @@ func (t *Toolsets) RegisterPEGetComponentRelease(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterPEGetComponentReleaseSchema(s *mcp.Server) {
+func (t *Toolsets) RegisterPEGetComponentReleaseSchema(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_component_release_schema"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewComponentRelease}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_release_schema",
+		Name: name,
 		Description: "Get the release schema for a component. Returns the JSON schema showing the configuration " +
 			"options available when creating or deploying releases for this component.",
 		InputSchema: createSchema(map[string]any{
@@ -394,382 +414,48 @@ func (t *Toolsets) RegisterPEGetComponentReleaseSchema(s *mcp.Server) {
 }
 
 // ---------------------------------------------------------------------------
-// PE Toolset — DataPlane read
-// ---------------------------------------------------------------------------
-
-func (t *Toolsets) RegisterListDataPlanes(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_dataplanes",
-		Description: "List all data planes in a namespace. Data planes are Kubernetes clusters or cluster " +
-			"regions where component workloads actually execute. Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{
-			"namespace_name": defaultStringProperty(),
-		}), []string{"namespace_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		Limit         int    `json:"limit,omitempty"`
-		Cursor        string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListDataPlanes(ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetDataPlane(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_dataplane",
-		Description: "Get detailed information about a data plane including cluster details, capacity, health " +
-			"status, associated environments, and network configuration.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"dp_name":        stringProperty("Use list_dataplanes to discover valid names"),
-		}, []string{"namespace_name", "dp_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		DpName        string `json:"dp_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetDataPlane(ctx, args.NamespaceName, args.DpName)
-		return handleToolResult(result, err)
-	})
-}
-
-// ---------------------------------------------------------------------------
-// PE Toolset — WorkflowPlane read
-// ---------------------------------------------------------------------------
-
-func (t *Toolsets) RegisterListWorkflowPlanes(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_workflowplanes",
-		Description: "List all workflow planes in a namespace. Workflow planes are infrastructure that handles " +
-			"continuous integration and container image building. Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{
-			"namespace_name": defaultStringProperty(),
-		}), []string{"namespace_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		Limit         int    `json:"limit,omitempty"`
-		Cursor        string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListWorkflowPlanes(
-			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetWorkflowPlane(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_workflowplane",
-		Description: "Get detailed information about a workflow plane including cluster details, health status, " +
-			"and agent connection state.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"wp_name":        stringProperty("Use list_workflowplanes to discover valid names"),
-		}, []string{"namespace_name", "wp_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		WpName        string `json:"wp_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetWorkflowPlane(ctx, args.NamespaceName, args.WpName)
-		return handleToolResult(result, err)
-	})
-}
-
-// ---------------------------------------------------------------------------
-// PE Toolset — ObservabilityPlane read
-// ---------------------------------------------------------------------------
-
-func (t *Toolsets) RegisterListObservabilityPlanes(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_observability_planes",
-		Description: "List all ObservabilityPlanes in a namespace. ObservabilityPlanes provide monitoring, " +
-			"logging, tracing, and metrics collection capabilities for deployed components. " +
-			"Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{
-			"namespace_name": defaultStringProperty(),
-		}), []string{"namespace_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		Limit         int    `json:"limit,omitempty"`
-		Cursor        string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListObservabilityPlanes(
-			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetObservabilityPlane(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_observability_plane",
-		Description: "Get detailed information about an observability plane including observer URL, " +
-			"health status, and agent connection state.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"op_name":        stringProperty("Use list_observability_planes to discover valid names"),
-		}, []string{"namespace_name", "op_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		OpName        string `json:"op_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetObservabilityPlane(ctx, args.NamespaceName, args.OpName)
-		return handleToolResult(result, err)
-	})
-}
-
-// ---------------------------------------------------------------------------
-// PE Toolset — Cluster-scoped plane read
-// ---------------------------------------------------------------------------
-
-func (t *Toolsets) RegisterListClusterDataPlanes(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_dataplanes",
-		Description: "List all cluster-scoped data planes. These are shared infrastructure managed by " +
-			"platform admins, not scoped to any namespace. Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Limit  int    `json:"limit,omitempty"`
-		Cursor string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListClusterDataPlanes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetClusterDataPlane(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_dataplane",
-		Description: "Get detailed information about a cluster-scoped data plane including cluster details, " +
-			"capacity, health status, and network configuration.",
-		InputSchema: createSchema(map[string]any{
-			"cdp_name": stringProperty("Use list_cluster_dataplanes to discover valid names"),
-		}, []string{"cdp_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CdpName string `json:"cdp_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetClusterDataPlane(ctx, args.CdpName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterListClusterWorkflowPlanes(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_workflowplanes",
-		Description: "List all cluster-scoped workflow planes. These are shared workflow infrastructure managed by " +
-			"platform admins, not scoped to any namespace. Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Limit  int    `json:"limit,omitempty"`
-		Cursor string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListClusterWorkflowPlanes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterListClusterObservabilityPlanes(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_observability_planes",
-		Description: "List all cluster-scoped observability planes. These are shared observability infrastructure " +
-			"managed by platform admins, not scoped to any namespace. Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Limit  int    `json:"limit,omitempty"`
-		Cursor string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListClusterObservabilityPlanes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-// ---------------------------------------------------------------------------
-// PE Toolset — Platform standards read (dual with Component toolset)
-// ---------------------------------------------------------------------------
-
-func (t *Toolsets) RegisterPEListComponentTypes(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_component_types",
-		Description: "List all available component types in a namespace. Component types define the " +
-			"structure and capabilities of components (e.g., WebApplication, Service, ScheduledTask). " +
-			"Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{
-			"namespace_name": defaultStringProperty(),
-		}), []string{"namespace_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		Limit         int    `json:"limit,omitempty"`
-		Cursor        string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListComponentTypes(
-			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEGetComponentTypeSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_type_schema",
-		Description: "Get the parameter schema for a component type. Returns the JSON schema showing " +
-			"the parameters developers can configure when using this component type.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"ct_name":        stringProperty("Component type name. Use list_component_types to discover valid names"),
-		}, []string{"namespace_name", "ct_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		CtName        string `json:"ct_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetComponentTypeSchema(ctx, args.NamespaceName, args.CtName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEGetComponentType(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_type",
-		Description: "Get the full definition of a component type including its complete spec. " +
-			"Use this before updating a component type to retrieve the current spec.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"ct_name":        stringProperty("Component type name. Use list_component_types to discover valid names"),
-		}, []string{"namespace_name", "ct_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		CtName        string `json:"ct_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetComponentType(ctx, args.NamespaceName, args.CtName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEListTraits(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_traits",
-		Description: "List all available traits in a namespace. Traits add capabilities to components " +
-			"(e.g., autoscaling, ingress, service mesh). Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{
-			"namespace_name": defaultStringProperty(),
-		}), []string{"namespace_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		Limit         int    `json:"limit,omitempty"`
-		Cursor        string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListTraits(
-			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEGetTraitSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_trait_schema",
-		Description: "Get the parameter schema for a trait. Returns the JSON schema showing the " +
-			"parameters developers can configure when using this trait.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"trait_name":     stringProperty("Trait name. Use list_traits to discover valid names"),
-		}, []string{"namespace_name", "trait_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		TraitName     string `json:"trait_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetTraitSchema(ctx, args.NamespaceName, args.TraitName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEGetTrait(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_trait",
-		Description: "Get the full definition of a trait including its complete spec. " +
-			"Use this before updating a trait to retrieve the current spec.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"trait_name":     stringProperty("Trait name. Use list_traits to discover valid names"),
-		}, []string{"namespace_name", "trait_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		TraitName     string `json:"trait_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetTrait(ctx, args.NamespaceName, args.TraitName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEListWorkflows(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_workflows",
-		Description: "List all workflows in a namespace. Workflows are reusable templates that define " +
-			"automated processes such as CI/CD pipelines executed on the workflow plane. " +
-			"Use this to discover available workflow names for use with create_component or create_workflow_run. " +
-			"Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{
-			"namespace_name": defaultStringProperty(),
-		}), []string{"namespace_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		Limit         int    `json:"limit,omitempty"`
-		Cursor        string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListWorkflows(
-			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEGetWorkflowSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_workflow_schema",
-		Description: "Get the parameter schema for a specific workflow. Use this to inspect what parameters " +
-			"a workflow accepts before configuring a component's workflow field or triggering a workflow run.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"workflow_name":  stringProperty("Name of the workflow. Use list_workflows to discover valid names"),
-		}, []string{"namespace_name", "workflow_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		WorkflowName  string `json:"workflow_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetWorkflowSchema(ctx, args.NamespaceName, args.WorkflowName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEGetWorkflow(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_workflow",
-		Description: "Get the full definition of a workflow including its complete spec. " +
-			"Use this before updating a workflow to retrieve the current spec.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"workflow_name":  stringProperty("Name of the workflow. Use list_workflows to discover valid names"),
-		}, []string{"namespace_name", "workflow_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		WorkflowName  string `json:"workflow_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetWorkflow(ctx, args.NamespaceName, args.WorkflowName)
-		return handleToolResult(result, err)
-	})
-}
-
-// ---------------------------------------------------------------------------
 // PE Toolset — Diagnostics
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterGetResourceEvents(s *mcp.Server) {
+func (t *Toolsets) RegisterGetResourceTree(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_resource_tree"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewReleaseBinding}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_resource_events",
-		Description: "Get Kubernetes events for a specific resource in a deployment. Useful for diagnosing " +
-			"deployment issues, scheduling problems, or container startup failures.",
+		Name: name,
+		Description: "List rendered Kubernetes resources (Deployment, Service, Pod, etc.) under a release binding, " +
+			"with their group/version/kind/name, parent refs, and health.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"release_binding_name": stringProperty(
 				"Name of the release binding (deployment). Use list_release_bindings to discover valid names"),
-			"group":         stringProperty("API group of the resource (e.g., 'apps', '' for core resources)"),
-			"version":       stringProperty("API version of the resource (e.g., 'v1')"),
-			"kind":          stringProperty("Kind of the resource (e.g., 'Deployment', 'Pod', 'Service')"),
-			"resource_name": stringProperty("Name of the specific Kubernetes resource"),
+		}, []string{"namespace_name", "release_binding_name"}),
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
+		NamespaceName      string `json:"namespace_name"`
+		ReleaseBindingName string `json:"release_binding_name"`
+	}) (*mcp.CallToolResult, any, error) {
+		result, err := t.PEToolset.GetResourceTree(ctx, args.NamespaceName, args.ReleaseBindingName)
+		return handleToolResult(result, err)
+	})
+}
+
+func (t *Toolsets) RegisterGetResourceEvents(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_resource_events"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewReleaseBinding}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: name,
+		Description: "Get Kubernetes events for a specific rendered resource in a deployment. " +
+			"Useful for diagnosing scheduling problems and container startup failures. " +
+			"Call get_resource_tree first to discover the exact group/version/kind/name.",
+		InputSchema: createSchema(map[string]any{
+			"namespace_name": defaultStringProperty(),
+			"release_binding_name": stringProperty(
+				"Name of the release binding (deployment). Use list_release_bindings to discover valid names"),
+			"group":   stringProperty("API group of the resource (e.g., 'apps', '' for core resources)"),
+			"version": stringProperty("API version of the resource (e.g., 'v1')"),
+			"kind":    stringProperty("Kind of the resource (e.g., 'Deployment', 'Pod', 'Service')"),
+			"resource_name": stringProperty(
+				"Rendered K8s resource name (usually differs from the component name). " +
+					"Use get_resource_tree to discover it."),
 		}, []string{"namespace_name", "release_binding_name", "group", "version", "kind", "resource_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName      string `json:"namespace_name"`
@@ -786,16 +472,18 @@ func (t *Toolsets) RegisterGetResourceEvents(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetResourceLogs(s *mcp.Server) {
+func (t *Toolsets) RegisterGetResourceLogs(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_resource_logs"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewLogs}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_resource_logs",
+		Name: name,
 		Description: "Get container logs from a specific pod in a deployment. Useful for debugging " +
 			"application errors, startup failures, and runtime issues.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"release_binding_name": stringProperty(
 				"Name of the release binding (deployment). Use list_release_bindings to discover valid names"),
-			"pod_name": stringProperty("Name of the pod. Use get_resource_events to discover pod names"),
+			"pod_name": stringProperty("Name of the pod. Use get_resource_tree to discover pod names under the binding"),
 			"since_seconds": map[string]any{
 				"type":        "integer",
 				"description": "Return logs from the last N seconds. Defaults to all available logs",
@@ -817,27 +505,31 @@ func (t *Toolsets) RegisterGetResourceLogs(s *mcp.Server) {
 // Deployment Toolset — Deployment pipelines (developer-facing read)
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterGetDeploymentPipeline(s *mcp.Server) {
+func (t *Toolsets) RegisterGetDeploymentPipeline(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_deployment_pipeline"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewDeploymentPipeline}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_deployment_pipeline",
+		Name: name,
 		Description: "Get detailed information about a deployment pipeline including its stages, promotion " +
 			"order, and associated environments.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"pipeline_name":  stringProperty("Use list_deployment_pipelines to discover valid names"),
-		}, []string{"namespace_name", "pipeline_name"}),
+			"name":           stringProperty("Use list_deployment_pipelines to discover valid names"),
+		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		PipelineName  string `json:"pipeline_name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.DeploymentToolset.GetDeploymentPipeline(ctx, args.NamespaceName, args.PipelineName)
+		result, err := t.DeploymentToolset.GetDeploymentPipeline(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
 	})
 }
 
-func (t *Toolsets) RegisterListDeploymentPipelines(s *mcp.Server) {
+func (t *Toolsets) RegisterListDeploymentPipelines(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_deployment_pipelines"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewDeploymentPipeline}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_deployment_pipelines",
+		Name: name,
 		Description: "List all deployment pipelines in a namespace. Deployment pipelines define the promotion " +
 			"order between environments (e.g., dev → staging → production). Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -858,9 +550,11 @@ func (t *Toolsets) RegisterListDeploymentPipelines(s *mcp.Server) {
 // Deployment Toolset — Environments (developer-facing read)
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterListEnvironments(s *mcp.Server) {
+func (t *Toolsets) RegisterListEnvironments(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_environments"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewEnvironment}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_environments",
+		Name: name,
 		Description: "List all environments in a namespace. Environments are deployment targets representing " +
 			"pipeline stages (dev, staging, production) or isolated tenants. Supports pagination via limit and cursor.",
 		InputSchema: createSchema(addPaginationProperties(map[string]any{
@@ -881,32 +575,36 @@ func (t *Toolsets) RegisterListEnvironments(s *mcp.Server) {
 // Build Toolset — WorkflowRun operations
 // ---------------------------------------------------------------------------
 
-func (t *Toolsets) RegisterCreateWorkflowRun(s *mcp.Server) {
+func (t *Toolsets) RegisterCreateWorkflowRun(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "create_workflow_run"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionCreateWorkflowRun}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_workflow_run",
+		Name: name,
 		Description: "Create a new workflow run by specifying a workflow name and optional parameters. " +
 			"Workflows define automated processes like CI/CD pipelines that execute on the workflow plane.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"workflow_name":  stringProperty("Name of the Workflow CR to execute"),
+			"name":           stringProperty("Name of the Workflow CR to execute"),
 			"parameters": map[string]any{
 				"type":        "object",
 				"description": "Optional: Parameters to pass to the workflow execution",
 			},
-		}, []string{"namespace_name", "workflow_name"}),
+		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string                 `json:"namespace_name"`
-		WorkflowName  string                 `json:"workflow_name"`
+		Name          string                 `json:"name"`
 		Parameters    map[string]interface{} `json:"parameters"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.BuildToolset.CreateWorkflowRun(ctx, args.NamespaceName, args.WorkflowName, args.Parameters)
+		result, err := t.BuildToolset.CreateWorkflowRun(ctx, args.NamespaceName, args.Name, args.Parameters)
 		return handleToolResult(result, err)
 	})
 }
 
-func (t *Toolsets) RegisterListWorkflowRuns(s *mcp.Server) {
+func (t *Toolsets) RegisterListWorkflowRuns(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "list_workflow_runs"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflowRun}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_workflow_runs",
+		Name: name,
 		Description: "List workflow runs in a namespace, optionally filtered by project and component. " +
 			"Shows execution history including status, timestamps, and workflow references. " +
 			"Supports pagination via limit and cursor.",
@@ -928,9 +626,11 @@ func (t *Toolsets) RegisterListWorkflowRuns(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterGetWorkflowRun(s *mcp.Server) {
+func (t *Toolsets) RegisterGetWorkflowRun(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_workflow_run"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflowRun}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_workflow_run",
+		Name: name,
 		Description: "Get detailed information about a specific workflow run including its status, tasks, " +
 			"timestamps, and referenced resources.",
 		InputSchema: createSchema(map[string]any{
@@ -946,372 +646,78 @@ func (t *Toolsets) RegisterGetWorkflowRun(s *mcp.Server) {
 	})
 }
 
-// ---------------------------------------------------------------------------
-// Build Toolset — Workflow read
-// ---------------------------------------------------------------------------
-
-func (t *Toolsets) RegisterListWorkflows(s *mcp.Server) {
+func (t *Toolsets) RegisterGetWorkflowRunStatus(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_workflow_run_status"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflowRun}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_workflows",
-		Description: "List all workflows in a namespace. Workflows are reusable templates that define " +
-			"automated processes such as CI/CD pipelines executed on the workflow plane. " +
-			"Use this to discover available workflow names for use with create_component or create_workflow_run. " +
-			"Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{
-			"namespace_name": defaultStringProperty(),
-		}), []string{"namespace_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		Limit         int    `json:"limit,omitempty"`
-		Cursor        string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.BuildToolset.ListWorkflows(
-			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetWorkflowSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_workflow_schema",
-		Description: "Get the parameter schema for a specific workflow. Use this to inspect what parameters " +
-			"a workflow accepts before configuring a component's workflow field or triggering a workflow run.",
+		Name: name,
+		Description: "Get the overall status and per-step status of a specific workflow run. " +
+			"Returns the run-level phase and a breakdown of each task with its phase and start/finish timestamps. " +
+			"Useful for monitoring CI/CD pipeline progress without fetching full logs.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"workflow_name":  stringProperty("Name of the workflow. Use list_workflows to discover valid names"),
-		}, []string{"namespace_name", "workflow_name"}),
+			"run_name":       stringProperty("Use list_workflow_runs to discover valid names"),
+		}, []string{"namespace_name", "run_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		WorkflowName  string `json:"workflow_name"`
+		RunName       string `json:"run_name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.BuildToolset.GetWorkflowSchema(ctx, args.NamespaceName, args.WorkflowName)
+		result, err := t.BuildToolset.GetWorkflowRunStatus(ctx, args.NamespaceName, args.RunName)
 		return handleToolResult(result, err)
 	})
 }
 
-// ---------------------------------------------------------------------------
-// Build Toolset — Cluster-scoped workflows
-// ---------------------------------------------------------------------------
-
-func (t *Toolsets) RegisterListClusterWorkflows(s *mcp.Server) {
+func (t *Toolsets) RegisterGetWorkflowRunLogs(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_workflow_run_logs"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflowRun}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_workflows",
-		Description: "List all cluster-scoped workflows. These are shared workflow definitions managed by platform " +
-			"admins that can be referenced by components across all namespaces via ClusterComponentType. " +
-			"Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Limit  int    `json:"limit,omitempty"`
-		Cursor string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.BuildToolset.ListClusterWorkflows(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetClusterWorkflow(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_workflow",
-		Description: "Get the full definition of a cluster-scoped workflow including its complete spec. " +
-			"Use this before updating a cluster workflow to retrieve the current spec.",
-		InputSchema: createSchema(map[string]any{
-			"cwf_name": stringProperty("Cluster workflow name. Use list_cluster_workflows to discover valid names"),
-		}, []string{"cwf_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CwfName string `json:"cwf_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.BuildToolset.GetClusterWorkflow(ctx, args.CwfName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetClusterWorkflowSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_workflow_schema",
-		Description: "Get the schema definition for a cluster-scoped workflow. Returns the JSON schema " +
-			"showing workflow configuration options and parameters.",
-		InputSchema: createSchema(map[string]any{
-			"cwf_name": stringProperty("Cluster workflow name. Use list_cluster_workflows to discover valid names"),
-		}, []string{"cwf_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CwfName string `json:"cwf_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.BuildToolset.GetClusterWorkflowSchema(ctx, args.CwfName)
-		return handleToolResult(result, err)
-	})
-}
-
-// ---------------------------------------------------------------------------
-// PE Toolset — Cluster-scoped platform standards
-// ---------------------------------------------------------------------------
-
-func (t *Toolsets) RegisterPEListClusterComponentTypes(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_component_types",
-		Description: "List all cluster-scoped component types. These are shared component type templates managed " +
-			"by platform admins that define the structure and capabilities of components across all namespaces. " +
-			"Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Limit  int    `json:"limit,omitempty"`
-		Cursor string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListClusterComponentTypes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEGetClusterComponentType(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_component_type",
-		Description: "Get the full definition of a cluster-scoped component type including its complete spec. " +
-			"Use this before updating a cluster component type to retrieve the current spec.",
-		InputSchema: createSchema(map[string]any{
-			"cct_name": stringProperty("Cluster component type name. Use list_cluster_component_types to discover valid names"),
-		}, []string{"cct_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CctName string `json:"cct_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetClusterComponentType(ctx, args.CctName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEGetClusterComponentTypeSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_component_type_schema",
-		Description: "Get the schema definition for a cluster-scoped component type. Returns the JSON schema " +
-			"showing required fields, optional fields, and their types.",
-		InputSchema: createSchema(map[string]any{
-			"cct_name": stringProperty("Cluster component type name. Use list_cluster_component_types to discover valid names"),
-		}, []string{"cct_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CctName string `json:"cct_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetClusterComponentTypeSchema(ctx, args.CctName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEListClusterTraits(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_traits",
-		Description: "List all cluster-scoped traits. These are shared trait definitions managed by platform " +
-			"admins that add capabilities to components across all namespaces (e.g., autoscaling, ingress). " +
-			"Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Limit  int    `json:"limit,omitempty"`
-		Cursor string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.ListClusterTraits(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEGetClusterTrait(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_trait",
-		Description: "Get the full definition of a cluster-scoped trait including its complete spec. " +
-			"Use this before updating a cluster trait to retrieve the current spec.",
-		InputSchema: createSchema(map[string]any{
-			"ct_name": stringProperty("Cluster trait name. Use list_cluster_traits to discover valid names"),
-		}, []string{"ct_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CtName string `json:"ct_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetClusterTrait(ctx, args.CtName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEGetClusterTraitSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_trait_schema",
-		Description: "Get the schema definition for a cluster-scoped trait. Returns the JSON schema " +
-			"showing trait configuration options and parameters.",
-		InputSchema: createSchema(map[string]any{
-			"ct_name": stringProperty("Cluster trait name. Use list_cluster_traits to discover valid names"),
-		}, []string{"ct_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CtName string `json:"ct_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetClusterTraitSchema(ctx, args.CtName)
-		return handleToolResult(result, err)
-	})
-}
-
-// ---------------------------------------------------------------------------
-// Component Toolset — Platform standards (read-only, developer-facing)
-// ---------------------------------------------------------------------------
-
-func (t *Toolsets) RegisterListComponentTypes(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_component_types",
-		Description: "List all available component types in a namespace. Component types define the " +
-			"structure and capabilities of components (e.g., WebApplication, Service, ScheduledTask). " +
-			"Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{
-			"namespace_name": defaultStringProperty(),
-		}), []string{"namespace_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		Limit         int    `json:"limit,omitempty"`
-		Cursor        string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.ListComponentTypes(
-			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetComponentTypeSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_type_schema",
-		Description: "Get the schema definition for a component type. Returns the JSON schema showing " +
-			"required fields, optional fields, and their types.",
+		Name: name,
+		Description: "Get live logs for a specific workflow run from the workflow plane. " +
+			"Useful for debugging CI/CD pipeline failures and inspecting task output. " +
+			"Logs are fetched live; no archived logs are returned for completed runs. " +
+			"Optionally filter by task name and limit to recent activity via since_seconds.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"ct_name":        stringProperty("Component type name. Use list_component_types to discover valid names"),
-		}, []string{"namespace_name", "ct_name"}),
+			"run_name":       stringProperty("Use list_workflow_runs to discover valid names"),
+			"task":           stringProperty("Optional: filter logs by task name within the workflow run"),
+			"since_seconds": map[string]any{
+				"type":        "integer",
+				"description": "Optional: return logs newer than a relative duration in seconds",
+				"minimum":     0,
+			},
+		}, []string{"namespace_name", "run_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		CtName        string `json:"ct_name"`
+		RunName       string `json:"run_name"`
+		Task          string `json:"task"`
+		SinceSeconds  *int64 `json:"since_seconds"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetComponentTypeSchema(ctx, args.NamespaceName, args.CtName)
+		result, err := t.BuildToolset.GetWorkflowRunLogs(
+			ctx, args.NamespaceName, args.RunName, args.Task, args.SinceSeconds)
 		return handleToolResult(result, err)
 	})
 }
 
-func (t *Toolsets) RegisterListTraits(s *mcp.Server) {
+func (t *Toolsets) RegisterGetWorkflowRunEvents(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "get_workflow_run_events"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewWorkflowRun}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_traits",
-		Description: "List all available traits in a namespace. Traits add capabilities to components " +
-			"(e.g., autoscaling, ingress, service mesh). Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{
-			"namespace_name": defaultStringProperty(),
-		}), []string{"namespace_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		Limit         int    `json:"limit,omitempty"`
-		Cursor        string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.ListTraits(
-			ctx, args.NamespaceName, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetTraitSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_trait_schema",
-		Description: "Get the schema definition for a trait. Returns the JSON schema showing trait " +
-			"configuration options and parameters.",
+		Name: name,
+		Description: "Get Kubernetes events for a specific workflow run. " +
+			"Useful for diagnosing scheduling problems, pod startup failures, and other workflow run issues. " +
+			"Optionally filter by task name within the run.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"trait_name":     stringProperty("Trait name. Use list_traits to discover valid names"),
-		}, []string{"namespace_name", "trait_name"}),
+			"run_name":       stringProperty("Use list_workflow_runs to discover valid names"),
+			"task":           stringProperty("Optional: filter events by task name within the workflow run"),
+		}, []string{"namespace_name", "run_name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		TraitName     string `json:"trait_name"`
+		RunName       string `json:"run_name"`
+		Task          string `json:"task"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetTraitSchema(ctx, args.NamespaceName, args.TraitName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterListClusterComponentTypes(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_component_types",
-		Description: "List all cluster-scoped component types. These are shared component type templates managed " +
-			"by platform admins that define the structure and capabilities of components across all namespaces. " +
-			"Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Limit  int    `json:"limit,omitempty"`
-		Cursor string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.ListClusterComponentTypes(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetClusterComponentType(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_component_type",
-		Description: "Get detailed information about a cluster-scoped component type including workload type, " +
-			"allowed workflows, allowed traits, and description.",
-		InputSchema: createSchema(map[string]any{
-			"cct_name": stringProperty("Cluster component type name. Use list_cluster_component_types to discover valid names"),
-		}, []string{"cct_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CctName string `json:"cct_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetClusterComponentType(ctx, args.CctName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetClusterComponentTypeSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_component_type_schema",
-		Description: "Get the schema definition for a cluster-scoped component type. Returns the JSON schema " +
-			"showing required fields, optional fields, and their types.",
-		InputSchema: createSchema(map[string]any{
-			"cct_name": stringProperty("Cluster component type name. Use list_cluster_component_types to discover valid names"),
-		}, []string{"cct_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CctName string `json:"cct_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetClusterComponentTypeSchema(ctx, args.CctName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterListClusterTraits(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "list_cluster_traits",
-		Description: "List all cluster-scoped traits. These are shared trait definitions managed by platform " +
-			"admins that add capabilities to components across all namespaces (e.g., autoscaling, ingress). " +
-			"Supports pagination via limit and cursor.",
-		InputSchema: createSchema(addPaginationProperties(map[string]any{}), nil),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Limit  int    `json:"limit,omitempty"`
-		Cursor string `json:"cursor,omitempty"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.ListClusterTraits(ctx, ListOpts{Limit: args.Limit, Cursor: args.Cursor})
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetClusterTrait(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_trait",
-		Description: "Get detailed information about a cluster-scoped trait including its name, " +
-			"display name, and description.",
-		InputSchema: createSchema(map[string]any{
-			"ct_name": stringProperty("Cluster trait name. Use list_cluster_traits to discover valid names"),
-		}, []string{"ct_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CtName string `json:"ct_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetClusterTrait(ctx, args.CtName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetClusterTraitSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_trait_schema",
-		Description: "Get the schema definition for a cluster-scoped trait. Returns the JSON schema " +
-			"showing trait configuration options and parameters.",
-		InputSchema: createSchema(map[string]any{
-			"ct_name": stringProperty("Cluster trait name. Use list_cluster_traits to discover valid names"),
-		}, []string{"ct_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CtName string `json:"ct_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.ComponentToolset.GetClusterTraitSchema(ctx, args.CtName)
+		result, err := t.BuildToolset.GetWorkflowRunEvents(
+			ctx, args.NamespaceName, args.RunName, args.Task)
 		return handleToolResult(result, err)
 	})
 }
@@ -1321,9 +727,11 @@ func (t *Toolsets) RegisterGetClusterTraitSchema(s *mcp.Server) {
 // ---------------------------------------------------------------------------
 
 //nolint:dupl
-func (t *Toolsets) RegisterUpdateDeploymentPipeline(s *mcp.Server) {
+func (t *Toolsets) RegisterUpdateDeploymentPipeline(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "update_deployment_pipeline"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionUpdateDeploymentPipeline}
 	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_deployment_pipeline",
+		Name: name,
 		Description: "Update an existing deployment pipeline in a namespace. Allows modifying promotion paths " +
 			"between environments and approval requirements. Use list_environments to discover valid environment names.",
 		InputSchema: createSchema(map[string]any{
@@ -1359,724 +767,22 @@ func (t *Toolsets) RegisterUpdateDeploymentPipeline(s *mcp.Server) {
 	})
 }
 
-func (t *Toolsets) RegisterDeleteDeploymentPipeline(s *mcp.Server) {
+func (t *Toolsets) RegisterDeleteDeploymentPipeline(s *mcp.Server, perms map[string]ToolPermission) {
+	const name = "delete_deployment_pipeline"
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionDeleteDeploymentPipeline}
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_deployment_pipeline",
+		Name:        name,
 		Description: "Delete a deployment pipeline from a namespace.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"pipeline_name": stringProperty(
+			"name": stringProperty(
 				"Name of the deployment pipeline to delete. Use list_deployment_pipelines to discover valid names"),
-		}, []string{"namespace_name", "pipeline_name"}),
+		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
-		PipelineName  string `json:"pipeline_name"`
+		Name          string `json:"name"`
 	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.DeleteDeploymentPipeline(ctx, args.NamespaceName, args.PipelineName)
-		return handleToolResult(result, err)
-	})
-}
-
-// ---------------------------------------------------------------------------
-// PE Toolset — Cluster-scoped plane read (Get additions)
-// ---------------------------------------------------------------------------
-
-func (t *Toolsets) RegisterGetClusterWorkflowPlane(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_workflowplane",
-		Description: "Get detailed information about a cluster-scoped workflow plane including cluster details, " +
-			"health status, and agent connection state.",
-		InputSchema: createSchema(map[string]any{
-			"cwp_name": stringProperty("Cluster workflow plane name. Use list_cluster_workflowplanes to discover valid names"),
-		}, []string{"cwp_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CwpName string `json:"cwp_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetClusterWorkflowPlane(ctx, args.CwpName)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetClusterObservabilityPlane(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_observability_plane",
-		Description: "Get detailed information about a cluster-scoped observability plane including " +
-			"observer URL, health status, and agent connection state.",
-		InputSchema: createSchema(map[string]any{
-			"cop_name": stringProperty(
-				"Cluster observability plane name. Use list_cluster_observability_planes to discover valid names"),
-		}, []string{"cop_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CopName string `json:"cop_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.GetClusterObservabilityPlane(ctx, args.CopName)
-		return handleToolResult(result, err)
-	})
-}
-
-// ---------------------------------------------------------------------------
-// PE Toolset — Component type creation schema tools
-// ---------------------------------------------------------------------------
-
-func (t *Toolsets) RegisterGetComponentTypeCreationSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_component_type_creation_schema",
-		Description: "Get the spec schema for creating a namespace-scoped component type. " +
-			"Returns the full JSON schema showing all required and optional fields, their types, " +
-			"and descriptions. Call this before create_component_type to understand the spec structure.",
-		InputSchema: createSchema(map[string]any{}, nil),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
-		schema, err := ComponentTypeCreationSchema()
-		return handleToolResult(schema, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetClusterComponentTypeCreationSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_cluster_component_type_creation_schema",
-		Description: "Get the spec schema for creating a cluster-scoped component type. " +
-			"Returns the full JSON schema showing all required and optional fields, their types, " +
-			"and descriptions. Call this before create_cluster_component_type to understand the spec structure.",
-		InputSchema: createSchema(map[string]any{}, nil),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
-		schema, err := ClusterComponentTypeCreationSchema()
-		return handleToolResult(schema, err)
-	})
-}
-
-func (t *Toolsets) RegisterGetTraitCreationSchema(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "get_trait_creation_schema",
-		Description: "Get the spec schema for creating a namespace-scoped trait. " +
-			"Returns the full JSON schema showing all required and optional fields, their types, " +
-			"and descriptions. Call this before create_trait to understand the spec structure.",
-		InputSchema: createSchema(map[string]any{}, nil),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, any, error) {
-		schema, err := TraitCreationSchema()
-		return handleToolResult(schema, err)
-	})
-}
-
-// ---------------------------------------------------------------------------
-// PE Toolset — Platform standards write (namespace-scoped)
-// ---------------------------------------------------------------------------
-
-//nolint:dupl // create/update component type handlers share similar structure
-func (t *Toolsets) RegisterCreateComponentType(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_component_type",
-		Description: "Create a new component type in a namespace. Component types define the structure, " +
-			"workload type, allowed traits, and allowed workflows for components.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
-			"display_name":   stringProperty("Human-readable display name"),
-			"description":    stringProperty("Human-readable description"),
-			"spec": map[string]any{
-				"type":        "object",
-				"description": "Use get_component_type_creation_schema to check the schema",
-			},
-		}, []string{"namespace_name", "name", "spec"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string                 `json:"namespace_name"`
-		Name          string                 `json:"name"`
-		DisplayName   string                 `json:"display_name"`
-		Description   string                 `json:"description"`
-		Spec          map[string]interface{} `json:"spec"`
-	}) (*mcp.CallToolResult, any, error) {
-		annotations := buildAnnotations(args.DisplayName, args.Description)
-		spec, err := buildSpec[gen.ComponentTypeSpec](args.Spec)
-		if err != nil {
-			return handleToolResult(nil, err)
-		}
-		ctReq := &gen.CreateComponentTypeJSONRequestBody{
-			Metadata: gen.ObjectMeta{
-				Name:        args.Name,
-				Annotations: &annotations,
-			},
-			Spec: spec,
-		}
-		result, err := t.PEToolset.CreateComponentType(ctx, args.NamespaceName, ctReq)
-		return handleToolResult(result, err)
-	})
-}
-
-//nolint:dupl // create/update component type handlers share similar structure
-func (t *Toolsets) RegisterUpdateComponentType(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "update_component_type",
-		Description: "Update an existing component type in a namespace (full replacement).",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"name": stringProperty(
-				"Name of the component type to update. Use list_component_types to discover valid names"),
-			"display_name": stringProperty("Updated human-readable display name"),
-			"description":  stringProperty("Updated human-readable description"),
-			"spec": map[string]any{
-				"type": "object",
-				"description": "Full component type spec to replace the existing one. " +
-					"Use get_component_type to retrieve the current spec first.",
-			},
-		}, []string{"namespace_name", "name", "spec"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string                 `json:"namespace_name"`
-		Name          string                 `json:"name"`
-		DisplayName   string                 `json:"display_name"`
-		Description   string                 `json:"description"`
-		Spec          map[string]interface{} `json:"spec"`
-	}) (*mcp.CallToolResult, any, error) {
-		annotations := buildAnnotations(args.DisplayName, args.Description)
-		spec, err := buildSpec[gen.ComponentTypeSpec](args.Spec)
-		if err != nil {
-			return handleToolResult(nil, err)
-		}
-		ctReq := &gen.UpdateComponentTypeJSONRequestBody{
-			Metadata: gen.ObjectMeta{
-				Name:        args.Name,
-				Annotations: &annotations,
-			},
-			Spec: spec,
-		}
-		result, err := t.PEToolset.UpdateComponentType(ctx, args.NamespaceName, ctReq)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterDeleteComponentType(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_component_type",
-		Description: "Delete a component type from a namespace.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"ct_name": stringProperty(
-				"Name of the component type to delete. Use list_component_types to discover valid names"),
-		}, []string{"namespace_name", "ct_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		CtName        string `json:"ct_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.DeleteComponentType(ctx, args.NamespaceName, args.CtName)
-		return handleToolResult(result, err)
-	})
-}
-
-//nolint:dupl // create/update trait handlers share similar structure
-func (t *Toolsets) RegisterCreateTrait(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_trait",
-		Description: "Create a new trait in a namespace. Traits add capabilities to components by creating " +
-			"additional Kubernetes resources or patching existing ones (e.g., autoscaling, ingress, service mesh).",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
-			"display_name":   stringProperty("Human-readable display name"),
-			"description":    stringProperty("Human-readable description"),
-			"spec": map[string]any{
-				"type":        "object",
-				"description": "Use get_trait_creation_schema to check the schema",
-			},
-		}, []string{"namespace_name", "name", "spec"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string                 `json:"namespace_name"`
-		Name          string                 `json:"name"`
-		DisplayName   string                 `json:"display_name"`
-		Description   string                 `json:"description"`
-		Spec          map[string]interface{} `json:"spec"`
-	}) (*mcp.CallToolResult, any, error) {
-		annotations := buildAnnotations(args.DisplayName, args.Description)
-		spec, err := buildSpec[gen.TraitSpec](args.Spec)
-		if err != nil {
-			return handleToolResult(nil, err)
-		}
-		traitReq := &gen.CreateTraitJSONRequestBody{
-			Metadata: gen.ObjectMeta{
-				Name:        args.Name,
-				Annotations: &annotations,
-			},
-			Spec: spec,
-		}
-		result, err := t.PEToolset.CreateTrait(ctx, args.NamespaceName, traitReq)
-		return handleToolResult(result, err)
-	})
-}
-
-//nolint:dupl // create/update trait handlers share similar structure
-func (t *Toolsets) RegisterUpdateTrait(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "update_trait",
-		Description: "Update an existing trait in a namespace (full replacement).",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"name":           stringProperty("Name of the trait to update. Use list_traits to discover valid names"),
-			"display_name":   stringProperty("Updated human-readable display name"),
-			"description":    stringProperty("Updated human-readable description"),
-			"spec": map[string]any{
-				"type": "object",
-				"description": "Full trait spec to replace the existing one. " +
-					"Use get_trait to retrieve the current spec first.",
-			},
-		}, []string{"namespace_name", "name", "spec"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string                 `json:"namespace_name"`
-		Name          string                 `json:"name"`
-		DisplayName   string                 `json:"display_name"`
-		Description   string                 `json:"description"`
-		Spec          map[string]interface{} `json:"spec"`
-	}) (*mcp.CallToolResult, any, error) {
-		annotations := buildAnnotations(args.DisplayName, args.Description)
-		spec, err := buildSpec[gen.TraitSpec](args.Spec)
-		if err != nil {
-			return handleToolResult(nil, err)
-		}
-		traitReq := &gen.UpdateTraitJSONRequestBody{
-			Metadata: gen.ObjectMeta{
-				Name:        args.Name,
-				Annotations: &annotations,
-			},
-			Spec: spec,
-		}
-		result, err := t.PEToolset.UpdateTrait(ctx, args.NamespaceName, traitReq)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterDeleteTrait(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_trait",
-		Description: "Delete a trait from a namespace.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"trait_name":     stringProperty("Name of the trait to delete. Use list_traits to discover valid names"),
-		}, []string{"namespace_name", "trait_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		TraitName     string `json:"trait_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.DeleteTrait(ctx, args.NamespaceName, args.TraitName)
-		return handleToolResult(result, err)
-	})
-}
-
-//nolint:dupl // create/update workflow handlers share similar structure
-func (t *Toolsets) RegisterPECreateWorkflow(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_workflow",
-		Description: "Create a new workflow in a namespace. Workflows are reusable CI/CD pipeline templates " +
-			"that execute on the workflow plane.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"name":           stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
-			"display_name":   stringProperty("Human-readable display name"),
-			"description":    stringProperty("Human-readable description"),
-			"spec": map[string]any{
-				"type": "object",
-				"description": "Workflow specification. Required field: runTemplate (Argo Workflow template definition). " +
-					"Use get_workflow_schema on an existing workflow to see the full structure.",
-			},
-		}, []string{"namespace_name", "name", "spec"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string                 `json:"namespace_name"`
-		Name          string                 `json:"name"`
-		DisplayName   string                 `json:"display_name"`
-		Description   string                 `json:"description"`
-		Spec          map[string]interface{} `json:"spec"`
-	}) (*mcp.CallToolResult, any, error) {
-		annotations := buildAnnotations(args.DisplayName, args.Description)
-		spec, err := buildSpec[gen.WorkflowSpec](args.Spec)
-		if err != nil {
-			return handleToolResult(nil, err)
-		}
-		wfReq := &gen.CreateWorkflowJSONRequestBody{
-			Metadata: gen.ObjectMeta{
-				Name:        args.Name,
-				Annotations: &annotations,
-			},
-			Spec: spec,
-		}
-		result, err := t.PEToolset.CreateWorkflow(ctx, args.NamespaceName, wfReq)
-		return handleToolResult(result, err)
-	})
-}
-
-//nolint:dupl // create/update workflow handlers share similar structure
-func (t *Toolsets) RegisterPEUpdateWorkflow(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "update_workflow",
-		Description: "Update an existing workflow in a namespace (full replacement).",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"name":           stringProperty("Name of the workflow to update. Use list_workflows to discover valid names"),
-			"display_name":   stringProperty("Updated human-readable display name"),
-			"description":    stringProperty("Updated human-readable description"),
-			"spec": map[string]any{
-				"type": "object",
-				"description": "Full workflow spec to replace the existing one. " +
-					"Use get_workflow to retrieve the current spec first.",
-			},
-		}, []string{"namespace_name", "name", "spec"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string                 `json:"namespace_name"`
-		Name          string                 `json:"name"`
-		DisplayName   string                 `json:"display_name"`
-		Description   string                 `json:"description"`
-		Spec          map[string]interface{} `json:"spec"`
-	}) (*mcp.CallToolResult, any, error) {
-		annotations := buildAnnotations(args.DisplayName, args.Description)
-		spec, err := buildSpec[gen.WorkflowSpec](args.Spec)
-		if err != nil {
-			return handleToolResult(nil, err)
-		}
-		wfReq := &gen.UpdateWorkflowJSONRequestBody{
-			Metadata: gen.ObjectMeta{
-				Name:        args.Name,
-				Annotations: &annotations,
-			},
-			Spec: spec,
-		}
-		result, err := t.PEToolset.UpdateWorkflow(ctx, args.NamespaceName, wfReq)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterPEDeleteWorkflow(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_workflow",
-		Description: "Delete a workflow from a namespace.",
-		InputSchema: createSchema(map[string]any{
-			"namespace_name": defaultStringProperty(),
-			"workflow_name":  stringProperty("Name of the workflow to delete. Use list_workflows to discover valid names"),
-		}, []string{"namespace_name", "workflow_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName string `json:"namespace_name"`
-		WorkflowName  string `json:"workflow_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.DeleteWorkflow(ctx, args.NamespaceName, args.WorkflowName)
-		return handleToolResult(result, err)
-	})
-}
-
-// ---------------------------------------------------------------------------
-// PE Toolset — Platform standards write (cluster-scoped)
-// ---------------------------------------------------------------------------
-
-//nolint:dupl // create/update cluster component type handlers share similar structure
-func (t *Toolsets) RegisterCreateClusterComponentType(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_cluster_component_type",
-		Description: "Create a new cluster-scoped component type. Cluster component types are the platform-wide " +
-			"golden path templates available to all namespaces.",
-		InputSchema: createSchema(map[string]any{
-			"name":         stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
-			"display_name": stringProperty("Human-readable display name"),
-			"description":  stringProperty("Human-readable description"),
-			"spec": map[string]any{
-				"type":        "object",
-				"description": "Use get_cluster_component_type_creation_schema to check the schema",
-			},
-		}, []string{"name", "spec"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Name        string                 `json:"name"`
-		DisplayName string                 `json:"display_name"`
-		Description string                 `json:"description"`
-		Spec        map[string]interface{} `json:"spec"`
-	}) (*mcp.CallToolResult, any, error) {
-		annotations := map[string]string{}
-		if args.DisplayName != "" {
-			annotations["openchoreo.dev/display-name"] = args.DisplayName
-		}
-		if args.Description != "" {
-			annotations["openchoreo.dev/description"] = args.Description
-		}
-		specJSON, err := json.Marshal(args.Spec)
-		if err != nil {
-			return handleToolResult(nil, err)
-		}
-		var spec gen.ClusterComponentTypeSpec
-		if err := json.Unmarshal(specJSON, &spec); err != nil {
-			return handleToolResult(nil, err)
-		}
-		cctReq := &gen.CreateClusterComponentTypeJSONRequestBody{
-			Metadata: gen.ObjectMeta{
-				Name:        args.Name,
-				Annotations: &annotations,
-			},
-			Spec: &spec,
-		}
-		result, err := t.PEToolset.CreateClusterComponentType(ctx, cctReq)
-		return handleToolResult(result, err)
-	})
-}
-
-//nolint:dupl // create/update cluster component type handlers share similar structure
-func (t *Toolsets) RegisterUpdateClusterComponentType(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "update_cluster_component_type",
-		Description: "Update an existing cluster-scoped component type (full replacement).",
-		InputSchema: createSchema(map[string]any{
-			"name": stringProperty(
-				"Name of the cluster component type to update. Use list_cluster_component_types to discover valid names"),
-			"display_name": stringProperty("Updated human-readable display name"),
-			"description":  stringProperty("Updated human-readable description"),
-			"spec": map[string]any{
-				"type": "object",
-				"description": "Full cluster component type spec to replace the existing one. " +
-					"Use get_cluster_component_type to retrieve the current spec first.",
-			},
-		}, []string{"name", "spec"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Name        string                 `json:"name"`
-		DisplayName string                 `json:"display_name"`
-		Description string                 `json:"description"`
-		Spec        map[string]interface{} `json:"spec"`
-	}) (*mcp.CallToolResult, any, error) {
-		annotations := map[string]string{}
-		if args.DisplayName != "" {
-			annotations["openchoreo.dev/display-name"] = args.DisplayName
-		}
-		if args.Description != "" {
-			annotations["openchoreo.dev/description"] = args.Description
-		}
-		specJSON, err := json.Marshal(args.Spec)
-		if err != nil {
-			return handleToolResult(nil, err)
-		}
-		var spec gen.ClusterComponentTypeSpec
-		if err := json.Unmarshal(specJSON, &spec); err != nil {
-			return handleToolResult(nil, err)
-		}
-		cctReq := &gen.UpdateClusterComponentTypeJSONRequestBody{
-			Metadata: gen.ObjectMeta{
-				Name:        args.Name,
-				Annotations: &annotations,
-			},
-			Spec: &spec,
-		}
-		result, err := t.PEToolset.UpdateClusterComponentType(ctx, cctReq)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterDeleteClusterComponentType(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_cluster_component_type",
-		Description: "Delete a cluster-scoped component type.",
-		InputSchema: createSchema(map[string]any{
-			"cct_name": stringProperty(
-				"Name of the cluster component type to delete. Use list_cluster_component_types to discover valid names"),
-		}, []string{"cct_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CctName string `json:"cct_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.DeleteClusterComponentType(ctx, args.CctName)
-		return handleToolResult(result, err)
-	})
-}
-
-//nolint:dupl // create/update cluster trait handlers share similar structure
-func (t *Toolsets) RegisterCreateClusterTrait(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_cluster_trait",
-		Description: "Create a new cluster-scoped trait. Cluster traits are platform-wide capability definitions " +
-			"available to all namespaces (e.g., autoscaling, ingress, service mesh).",
-		InputSchema: createSchema(map[string]any{
-			"name":         stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
-			"display_name": stringProperty("Human-readable display name"),
-			"description":  stringProperty("Human-readable description"),
-			"spec": map[string]any{
-				"type": "object",
-				"description": "Cluster trait specification defining what resources the trait creates or patches. " +
-					"Use get_cluster_trait_schema on an existing trait to see the full structure.",
-			},
-		}, []string{"name", "spec"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Name        string                 `json:"name"`
-		DisplayName string                 `json:"display_name"`
-		Description string                 `json:"description"`
-		Spec        map[string]interface{} `json:"spec"`
-	}) (*mcp.CallToolResult, any, error) {
-		annotations := map[string]string{}
-		if args.DisplayName != "" {
-			annotations["openchoreo.dev/display-name"] = args.DisplayName
-		}
-		if args.Description != "" {
-			annotations["openchoreo.dev/description"] = args.Description
-		}
-		specJSON, err := json.Marshal(args.Spec)
-		if err != nil {
-			return handleToolResult(nil, err)
-		}
-		var spec gen.ClusterTraitSpec
-		if err := json.Unmarshal(specJSON, &spec); err != nil {
-			return handleToolResult(nil, err)
-		}
-		ctReq := &gen.CreateClusterTraitJSONRequestBody{
-			Metadata: gen.ObjectMeta{
-				Name:        args.Name,
-				Annotations: &annotations,
-			},
-			Spec: &spec,
-		}
-		result, err := t.PEToolset.CreateClusterTrait(ctx, ctReq)
-		return handleToolResult(result, err)
-	})
-}
-
-//nolint:dupl // create/update cluster trait handlers share similar structure
-func (t *Toolsets) RegisterUpdateClusterTrait(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_cluster_trait",
-		Description: "Update an existing cluster-scoped trait (full replacement). " +
-			"Use get_cluster_trait to retrieve the current definition first.",
-		InputSchema: createSchema(map[string]any{
-			"name": stringProperty(
-				"Name of the cluster trait to update. Use list_cluster_traits to discover valid names"),
-			"display_name": stringProperty("Updated human-readable display name"),
-			"description":  stringProperty("Updated human-readable description"),
-			"spec": map[string]any{
-				"type": "object",
-				"description": "Full cluster trait spec to replace the existing one. " +
-					"Use get_cluster_trait to retrieve the current spec first.",
-			},
-		}, []string{"name", "spec"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Name        string                 `json:"name"`
-		DisplayName string                 `json:"display_name"`
-		Description string                 `json:"description"`
-		Spec        map[string]interface{} `json:"spec"`
-	}) (*mcp.CallToolResult, any, error) {
-		annotations := map[string]string{}
-		if args.DisplayName != "" {
-			annotations["openchoreo.dev/display-name"] = args.DisplayName
-		}
-		if args.Description != "" {
-			annotations["openchoreo.dev/description"] = args.Description
-		}
-		specJSON, err := json.Marshal(args.Spec)
-		if err != nil {
-			return handleToolResult(nil, err)
-		}
-		var spec gen.ClusterTraitSpec
-		if err := json.Unmarshal(specJSON, &spec); err != nil {
-			return handleToolResult(nil, err)
-		}
-		ctReq := &gen.UpdateClusterTraitJSONRequestBody{
-			Metadata: gen.ObjectMeta{
-				Name:        args.Name,
-				Annotations: &annotations,
-			},
-			Spec: &spec,
-		}
-		result, err := t.PEToolset.UpdateClusterTrait(ctx, ctReq)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterDeleteClusterTrait(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_cluster_trait",
-		Description: "Delete a cluster-scoped trait.",
-		InputSchema: createSchema(map[string]any{
-			"ct_name": stringProperty("Name of the cluster trait to delete. Use list_cluster_traits to discover valid names"),
-		}, []string{"ct_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CtName string `json:"ct_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.DeleteClusterTrait(ctx, args.CtName)
-		return handleToolResult(result, err)
-	})
-}
-
-//nolint:dupl // create/update cluster workflow handlers share similar structure
-func (t *Toolsets) RegisterCreateClusterWorkflow(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "create_cluster_workflow",
-		Description: "Create a new cluster-scoped workflow. Cluster workflows are platform-wide CI/CD pipeline " +
-			"templates available to all namespaces.",
-		InputSchema: createSchema(map[string]any{
-			"name":         stringProperty("DNS-compatible identifier (lowercase, alphanumeric, hyphens only, max 63 chars)"),
-			"display_name": stringProperty("Human-readable display name"),
-			"description":  stringProperty("Human-readable description"),
-			"spec": map[string]any{
-				"type": "object",
-				"description": "Cluster workflow specification. Required field: runTemplate (Argo Workflow template definition). " +
-					"Use get_cluster_workflow_schema on an existing workflow to see the full structure.",
-			},
-		}, []string{"name", "spec"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Name        string                 `json:"name"`
-		DisplayName string                 `json:"display_name"`
-		Description string                 `json:"description"`
-		Spec        map[string]interface{} `json:"spec"`
-	}) (*mcp.CallToolResult, any, error) {
-		annotations := buildAnnotations(args.DisplayName, args.Description)
-		spec, err := buildSpec[gen.ClusterWorkflowSpec](args.Spec)
-		if err != nil {
-			return handleToolResult(nil, err)
-		}
-		cwfReq := &gen.CreateClusterWorkflowJSONRequestBody{
-			Metadata: gen.ObjectMeta{
-				Name:        args.Name,
-				Annotations: &annotations,
-			},
-			Spec: spec,
-		}
-		result, err := t.PEToolset.CreateClusterWorkflow(ctx, cwfReq)
-		return handleToolResult(result, err)
-	})
-}
-
-//nolint:dupl // create/update cluster workflow handlers share similar structure
-func (t *Toolsets) RegisterUpdateClusterWorkflow(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name: "update_cluster_workflow",
-		Description: "Update an existing cluster-scoped workflow (full replacement). " +
-			"Use get_cluster_workflow to retrieve the current definition first.",
-		InputSchema: createSchema(map[string]any{
-			"name": stringProperty(
-				"Name of the cluster workflow to update. Use list_cluster_workflows to discover valid names"),
-			"display_name": stringProperty("Updated human-readable display name"),
-			"description":  stringProperty("Updated human-readable description"),
-			"spec": map[string]any{
-				"type": "object",
-				"description": "Full cluster workflow spec to replace the existing one. " +
-					"Use get_cluster_workflow to retrieve the current spec first.",
-			},
-		}, []string{"name", "spec"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		Name        string                 `json:"name"`
-		DisplayName string                 `json:"display_name"`
-		Description string                 `json:"description"`
-		Spec        map[string]interface{} `json:"spec"`
-	}) (*mcp.CallToolResult, any, error) {
-		annotations := buildAnnotations(args.DisplayName, args.Description)
-		spec, err := buildSpec[gen.ClusterWorkflowSpec](args.Spec)
-		if err != nil {
-			return handleToolResult(nil, err)
-		}
-		cwfReq := &gen.UpdateClusterWorkflowJSONRequestBody{
-			Metadata: gen.ObjectMeta{
-				Name:        args.Name,
-				Annotations: &annotations,
-			},
-			Spec: spec,
-		}
-		result, err := t.PEToolset.UpdateClusterWorkflow(ctx, cwfReq)
-		return handleToolResult(result, err)
-	})
-}
-
-func (t *Toolsets) RegisterDeleteClusterWorkflow(s *mcp.Server) {
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "delete_cluster_workflow",
-		Description: "Delete a cluster-scoped workflow.",
-		InputSchema: createSchema(map[string]any{
-			"cwf_name": stringProperty(
-				"Name of the cluster workflow to delete. Use list_cluster_workflows to discover valid names"),
-		}, []string{"cwf_name"}),
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		CwfName string `json:"cwf_name"`
-	}) (*mcp.CallToolResult, any, error) {
-		result, err := t.PEToolset.DeleteClusterWorkflow(ctx, args.CwfName)
+		result, err := t.PEToolset.DeleteDeploymentPipeline(ctx, args.NamespaceName, args.Name)
 		return handleToolResult(result, err)
 	})
 }

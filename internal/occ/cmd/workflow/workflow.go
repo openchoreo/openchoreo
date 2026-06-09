@@ -17,26 +17,28 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/setoverride"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 // Workflow implements workflow operations
-type Workflow struct{}
+type Workflow struct {
+	client client.Interface
+}
 
 // New creates a new workflow implementation
-func New() *Workflow {
-	return &Workflow{}
+func New(c client.Interface) *Workflow {
+	return &Workflow{client: c}
 }
 
 // List lists all workflows in a namespace.
 func (w *Workflow) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceWorkflow, params); err != nil {
+	if err := cmdutil.RequireFields("list", "workflow", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
-	items, err := fetchWorkflows(params.Namespace)
+	items, err := w.fetchWorkflows(params.Namespace)
 	if err != nil {
 		return err
 	}
@@ -46,13 +48,8 @@ func (w *Workflow) List(params ListParams) error {
 }
 
 // fetchWorkflows fetches all workflows from a namespace.
-func fetchWorkflows(namespace string) ([]gen.Workflow, error) {
+func (w *Workflow) fetchWorkflows(namespace string) ([]gen.Workflow, error) {
 	ctx := context.Background()
-
-	c, err := client.NewClient()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create API client: %w", err)
-	}
 
 	return pagination.FetchAll(func(limit int, cursor string) ([]gen.Workflow, string, error) {
 		p := &gen.ListWorkflowsParams{}
@@ -60,7 +57,7 @@ func fetchWorkflows(namespace string) ([]gen.Workflow, error) {
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		result, err := c.ListWorkflows(ctx, namespace, p)
+		result, err := w.client.ListWorkflows(ctx, namespace, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -82,12 +79,8 @@ func (w *Workflow) Get(params GetParams) error {
 	}
 
 	ctx := context.Background()
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
-	result, err := c.GetWorkflow(ctx, params.Namespace, params.WorkflowName)
+	result, err := w.client.GetWorkflow(ctx, params.Namespace, params.WorkflowName)
 	if err != nil {
 		return err
 	}
@@ -103,18 +96,13 @@ func (w *Workflow) Get(params GetParams) error {
 
 // Delete deletes a single workflow
 func (w *Workflow) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceWorkflow, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "workflow", map[string]string{"namespace": params.Namespace, "name": params.WorkflowName}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := c.DeleteWorkflow(ctx, params.Namespace, params.WorkflowName); err != nil {
+	if err := w.client.DeleteWorkflow(ctx, params.Namespace, params.WorkflowName); err != nil {
 		return err
 	}
 
@@ -174,12 +162,8 @@ func (w *Workflow) StartRun(params StartRunParams) error {
 	}
 
 	ctx := context.Background()
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
-	workflowRun, err := c.CreateWorkflowRun(ctx, params.Namespace, req)
+	workflowRun, err := w.client.CreateWorkflowRun(ctx, params.Namespace, req)
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,459 @@
+name: Release Orchestrator
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'full (branch+tag), branch, tag'
+        required: true
+        type: choice
+        options:
+          - full
+          - branch
+          - tag
+      major:
+        description: 'Major version'
+        required: true
+        type: number
+      minor:
+        description: 'Minor version'
+        required: true
+        type: number
+      patch:
+        description: 'Patch version'
+        required: true
+        type: number
+      pre_release_id:
+        description: 'Prerelease identifier (e.g. rc.1, beta.2)'
+        required: false
+        type: string
+      commit_sha:
+        description: 'Explicit commit SHA to tag (overrides automatic resolution)'
+        required: false
+        type: string
+      skip_e2e:
+        description: 'Skip the e2e gate (emergency releases only)'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-orchestrator-${{ github.event.inputs.major }}-${{ github.event.inputs.minor }}
+  cancel-in-progress: false
+
+jobs:
+  # ----------------------------------------------------------------
+  # Validate: resolve inputs, check preconditions, poll for images.
+  # Always runs; outputs computed values consumed by branch and tag.
+  # ----------------------------------------------------------------
+  validate:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      release-tag: ${{ steps.resolve-version.outputs.release-tag }}
+      release-version: ${{ steps.resolve-version.outputs.release-version }}
+      target-commit: ${{ steps.determine-commit.outputs.target-commit }}
+      checkout-sha: ${{ steps.resolve-version.outputs.checkout-sha }}
+      branch-exists: ${{ steps.check-branch.outputs.branch-exists }}
+      prerelease: ${{ steps.resolve-version.outputs.prerelease }}
+      release-branch: ${{ steps.resolve-version.outputs.release-branch }}
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.OC_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.OC_RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: resolve-version
+        env:
+          IN_MAJOR: ${{ github.event.inputs.major }}
+          IN_MINOR: ${{ github.event.inputs.minor }}
+          IN_PATCH: ${{ github.event.inputs.patch }}
+          IN_PRERELEASE: ${{ github.event.inputs.pre_release_id || '' }}
+        run: |
+          MAJOR="$IN_MAJOR"
+          MINOR="$IN_MINOR"
+          PATCH="$IN_PATCH"
+          PRERELEASE="$IN_PRERELEASE"
+
+          if [[ ! "$MAJOR" =~ ^[0-9]+$ ]] || [[ ! "$MINOR" =~ ^[0-9]+$ ]] || [[ ! "$PATCH" =~ ^[0-9]+$ ]]; then
+            echo "::error::major, minor, patch must be numbers"
+            exit 1
+          fi
+
+          VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          if [ -n "$PRERELEASE" ]; then
+            if [[ ! "$PRERELEASE" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+              echo "::error::Invalid prerelease identifier: ${PRERELEASE}"
+              exit 1
+            fi
+            VERSION="${VERSION}-${PRERELEASE}"
+            STABLE_BRANCH="release-v${MAJOR}.${MINOR}"
+            if git ls-remote --exit-code origin "refs/heads/${STABLE_BRANCH}" 2>/dev/null; then
+              RELEASE_BRANCH="${STABLE_BRANCH}"
+            else
+              RELEASE_BRANCH="release-v${VERSION}"
+            fi
+          else
+            RELEASE_BRANCH="release-v${MAJOR}.${MINOR}"
+          fi
+
+          TAG="v${VERSION}"
+          echo "MAJOR=${MAJOR}" >> $GITHUB_ENV
+          echo "MINOR=${MINOR}" >> $GITHUB_ENV
+          echo "PRERELEASE=${PRERELEASE}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "RELEASE_TAG=${TAG}" >> $GITHUB_ENV
+          echo "release-tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "release-version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "checkout-sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          echo "prerelease=${PRERELEASE}" >> $GITHUB_OUTPUT
+          echo "release-branch=${RELEASE_BRANCH}" >> $GITHUB_OUTPUT
+
+      - name: Check if release branch exists
+        id: check-branch
+        run: |
+          if git ls-remote --exit-code origin "refs/heads/${{ steps.resolve-version.outputs.release-branch }}" 2>/dev/null; then
+            echo "branch-exists=true" >> $GITHUB_OUTPUT
+            echo "BRANCH_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "branch-exists=false" >> $GITHUB_OUTPUT
+            echo "BRANCH_EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      - name: Fail if tag mode without release branch
+        if: ${{ github.event.inputs.action == 'tag' && github.event.inputs.commit_sha == '' && steps.check-branch.outputs.branch-exists == 'false' }}
+        run: |
+          echo "::error::action=tag requires an existing release branch (${{ steps.resolve-version.outputs.release-branch }}), but it does not exist."
+          exit 1
+
+      - name: Fail if full mode uses an explicit commit
+        if: ${{ github.event.inputs.action == 'full' && github.event.inputs.commit_sha != '' }}
+        run: |
+          echo "::error::commit_sha cannot be used with action=full because branch creation and tagging would resolve different histories. Use action=tag with commit_sha after preparing the release branch, or omit commit_sha for action=full."
+          exit 1
+
+      - name: Validate VERSION file
+        env:
+          ACTION: ${{ github.event.inputs.action }}
+          IN_COMMIT_SHA: ${{ github.event.inputs.commit_sha || '' }}
+          BRANCH_EXISTS: ${{ steps.check-branch.outputs.branch-exists }}
+          RELEASE_BRANCH: ${{ steps.resolve-version.outputs.release-branch }}
+        run: |
+          if [ "$ACTION" = "tag" ] && [ -n "$IN_COMMIT_SHA" ]; then
+            FILE_VERSION=$(git show "${IN_COMMIT_SHA}:VERSION" | tr -d '\n\r')
+          elif [ "$BRANCH_EXISTS" = "true" ]; then
+            FILE_VERSION=$(git show "origin/${RELEASE_BRANCH}:VERSION" | tr -d '\n\r')
+          else
+            FILE_VERSION=$(cat VERSION | tr -d '\n\r')
+          fi
+          if [ "${FILE_VERSION}" != "${{ env.VERSION }}" ]; then
+            echo "::error::VERSION file contains '${FILE_VERSION}', expected '${{ env.VERSION }}'"
+            exit 1
+          fi
+
+      - name: Check for existing tag
+        if: ${{ github.event.inputs.action == 'full' || github.event.inputs.action == 'tag' }}
+        run: |
+          TAG="${{ env.RELEASE_TAG }}"
+          if git ls-remote --exit-code origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::error::Tag ${TAG} already exists on remote. Remove it first if you want to retag."
+            exit 1
+          fi
+
+      - name: Determine commit to tag
+        id: determine-commit
+        env:
+          IN_COMMIT_SHA: ${{ github.event.inputs.commit_sha || '' }}
+          ACTION: ${{ github.event.inputs.action }}
+          CHECKOUT_SHA: ${{ steps.resolve-version.outputs.checkout-sha }}
+        run: |
+          COMMIT_SHA="$IN_COMMIT_SHA"
+
+          if [ -n "$COMMIT_SHA" ]; then
+            if ! git rev-parse --verify "${COMMIT_SHA}^{commit}" >/dev/null 2>&1; then
+              echo "::error::Provided commit_sha ${COMMIT_SHA} does not exist in the repository."
+              exit 1
+            fi
+            TARGET="${COMMIT_SHA}"
+            echo "Target: provided commit_sha (${TARGET})"
+
+          elif [[ "$ACTION" == "full" || "$ACTION" == "branch" ]] && [[ "$BRANCH_EXISTS" == "false" ]]; then
+            # Branch will be created from checkout-sha. Use it as the image pre-check target
+            # since images exist there. The tag job re-resolves the branch tip after creation
+            # and waits for its images (including any URL-update commit on stable releases).
+            TARGET="${CHECKOUT_SHA}"
+            echo "Target (pre-check): pre-branch-creation HEAD (${TARGET})"
+
+          elif [ "$BRANCH_EXISTS" = "true" ]; then
+            TARGET=$(git ls-remote origin "refs/heads/${{ steps.resolve-version.outputs.release-branch }}" | awk '{print $1}')
+            echo "Target: HEAD of ${{ steps.resolve-version.outputs.release-branch }} (${TARGET})"
+
+          else
+            TARGET="${CHECKOUT_SHA}"
+            echo "Target: current HEAD (${TARGET})"
+          fi
+
+          echo "target-commit=${TARGET}" >> $GITHUB_OUTPUT
+          echo "TARGET_COMMIT=${TARGET}" >> $GITHUB_ENV
+
+      - name: Wait for build-and-test at target commit
+        if: ${{ github.event.inputs.action == 'full' || github.event.inputs.action == 'tag' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET_SHA="${{ env.TARGET_COMMIT }}"
+          SHORT_SHA=$(git rev-parse --short=8 "${TARGET_SHA}")
+          echo "Waiting for build-and-test workflow for commit ${SHORT_SHA}..."
+          for i in $(seq 1 30); do
+            RUN_INFO=$(gh run list \
+              --repo "${{ github.repository }}" \
+              --workflow "build-and-test.yml" \
+              --event push \
+              --commit "${TARGET_SHA}" \
+              --limit 1 \
+              --json databaseId,status,conclusion \
+              --jq '.[0] | {id: .databaseId, status: .status, conclusion: .conclusion}')
+            if [ -n "$RUN_INFO" ] && [ "$RUN_INFO" != "null" ]; then
+              RUN_ID=$(echo "$RUN_INFO" | jq -r '.id // empty')
+              STATUS=$(echo "$RUN_INFO" | jq -r '.status // empty')
+              CONCLUSION=$(echo "$RUN_INFO" | jq -r '.conclusion // empty')
+              RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${RUN_ID}"
+              if [ "$STATUS" = "completed" ]; then
+                if [ "$CONCLUSION" = "success" ]; then
+                  echo "build-and-test succeeded for ${SHORT_SHA}: ${RUN_URL}"
+                  exit 0
+                fi
+                echo "::error::build-and-test for ${SHORT_SHA} completed but failed: ${CONCLUSION}"
+                echo "::error::See: ${RUN_URL}"
+                exit 1
+              fi
+              echo "Attempt ${i}/30 — run ${RUN_ID} status: ${STATUS}. Waiting 60s..."
+            else
+              echo "Attempt ${i}/30 — workflow run not found for ${SHORT_SHA}. Waiting 60s..."
+            fi
+            sleep 60
+          done
+          echo "::error::build-and-test for ${SHORT_SHA} not completed after 30 minutes."
+          exit 1
+
+  # ----------------------------------------------------------------
+  # Branch: create release-vX.Y or prerelease branch from checkout-sha.
+  # Only runs when validate finds no existing release branch.
+  # ----------------------------------------------------------------
+  branch:
+    needs: [validate]
+    if: ${{ needs.validate.outputs.branch-exists == 'false' && (github.event.inputs.action == 'full' || github.event.inputs.action == 'branch') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.OC_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.OC_RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          ref: ${{ needs.validate.outputs.checkout-sha }}
+          fetch-depth: 0
+
+      - name: Set git identity
+        run: |
+          git config user.name "${{ steps.app-token.outputs.app-slug }}[bot]"
+          git config user.email "${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
+
+      - name: Create release branch
+        run: |
+          BRANCH="${{ needs.validate.outputs.release-branch }}"
+
+          git checkout -b "${BRANCH}"
+
+          # Update sample URLs to point to the release branch instead of main.
+          # Exclude all.yaml because it is auto-generated; make samples-gen
+          # will regenerate it with the correct branch URL below.
+          find samples/ \( -name "*.md" -o -name "*.yaml" \) \
+            ! -path "samples/getting-started/all.yaml" \
+            -exec sed -i \
+              -e 's|/openchoreo/openchoreo/main/|/openchoreo/openchoreo/'"${BRANCH}"'/|g' \
+              -e 's|/refs/heads/main/|/refs/heads/'"${BRANCH}"'/|g' \
+              -e 's|/openchoreo/openchoreo/blob/main/|/openchoreo/openchoreo/blob/'"${BRANCH}"'/|g' {} +
+
+          # Regenerate all.yaml with the release branch URL. The Makefile
+          # detects the branch via git, which now points to ${BRANCH}.
+          make samples-gen
+
+          git add -u
+          if ! git diff --cached --quiet; then
+            git commit -s -m "chore: update sample URLs to ${BRANCH}"
+          fi
+
+          git push origin "${BRANCH}"
+          echo "Pushed branch: ${BRANCH}"
+
+  # ----------------------------------------------------------------
+  # Resolve target: pin the exact commit to gate and tag, then wait for
+  # build-and-test at that commit so the e2e gate can consume the
+  # sha-tagged images and Helm charts its publish job pushes.
+  # always() allows this to run even when branch is skipped (action=tag
+  # or branch already exists). !failure() prevents running after errors.
+  # ----------------------------------------------------------------
+  resolve-target:
+    needs: [validate, branch]
+    if: ${{ always() && !failure() && !cancelled() && (github.event.inputs.action == 'full' || github.event.inputs.action == 'tag') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      target: ${{ steps.resolve-target.outputs.target }}
+      helm-chart-version: ${{ steps.resolve-target.outputs.helm-chart-version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ needs.validate.outputs.checkout-sha }}
+          fetch-depth: 0
+
+      - name: Resolve release branch tip
+        id: resolve-target
+        env:
+          COMMIT_SHA_OVERRIDE: ${{ github.event.inputs.commit_sha || '' }}
+          RELEASE_BRANCH: ${{ needs.validate.outputs.release-branch }}
+          VALIDATE_TARGET: ${{ needs.validate.outputs.target-commit }}
+        run: |
+          if [ -n "$COMMIT_SHA_OVERRIDE" ]; then
+            # Explicit SHA provided; use it directly (already validated and polled in validate).
+            TARGET="$VALIDATE_TARGET"
+            echo "Target: explicit commit_sha (${TARGET})"
+          else
+            # Always resolve the release branch tip so the gate and tag point to the actual
+            # released state, including any URL-update commit added by the branch job.
+            if ! git fetch origin "refs/heads/${RELEASE_BRANCH}:refs/remotes/origin/${RELEASE_BRANCH}"; then
+              echo "::error::Failed to fetch release branch ${RELEASE_BRANCH}"
+              exit 1
+            fi
+            if ! BRANCH_TIP=$(git rev-parse --verify "origin/${RELEASE_BRANCH}^{commit}"); then
+              echo "::error::Failed to resolve release branch ${RELEASE_BRANCH}"
+              exit 1
+            fi
+            TARGET="$BRANCH_TIP"
+            echo "Target: HEAD of ${RELEASE_BRANCH} (${TARGET})"
+          fi
+          SHORT_SHA=$(git rev-parse --short=8 "${TARGET}")
+          echo "target=${TARGET}" >> $GITHUB_OUTPUT
+          echo "helm-chart-version=0.0.0-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Wait for build-and-test workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET_SHA="${{ steps.resolve-target.outputs.target }}"
+          SHORT_SHA=$(git rev-parse --short=8 "${TARGET_SHA}")
+          echo "Waiting for build-and-test workflow for commit ${SHORT_SHA}..."
+          for i in $(seq 1 30); do
+            RUN_INFO=$(gh run list \
+              --repo "${{ github.repository }}" \
+              --workflow "build-and-test.yml" \
+              --event push \
+              --commit "${TARGET_SHA}" \
+              --limit 1 \
+              --json databaseId,status,conclusion \
+              --jq '.[0] | {id: .databaseId, status: .status, conclusion: .conclusion}')
+            if [ -n "$RUN_INFO" ] && [ "$RUN_INFO" != "null" ]; then
+              RUN_ID=$(echo "$RUN_INFO" | jq -r '.id // empty')
+              STATUS=$(echo "$RUN_INFO" | jq -r '.status // empty')
+              CONCLUSION=$(echo "$RUN_INFO" | jq -r '.conclusion // empty')
+              RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${RUN_ID}"
+              if [ "$STATUS" = "completed" ]; then
+                if [ "$CONCLUSION" = "success" ]; then
+                  echo "build-and-test succeeded for ${SHORT_SHA}: ${RUN_URL}"
+                  exit 0
+                fi
+                echo "::error::build-and-test for ${SHORT_SHA} completed but failed: ${CONCLUSION}"
+                echo "::error::See: ${RUN_URL}"
+                exit 1
+              fi
+              echo "Attempt ${i}/30 — run ${RUN_ID} status: ${STATUS}. Waiting 60s..."
+            else
+              echo "Attempt ${i}/30 — workflow run not found for ${SHORT_SHA}. Waiting 60s..."
+            fi
+            sleep 60
+          done
+          echo "::error::build-and-test for ${SHORT_SHA} not completed after 30 minutes."
+          exit 1
+
+  # ----------------------------------------------------------------
+  # E2E gate: All e2e suits plus the Playwright UI suite must pass
+  # at the exact commit being released before the tag is created. Legs run
+  # in parallel, one k3d cluster each. skip_e2e bypasses the gate for
+  # declared emergencies only.
+  # ----------------------------------------------------------------
+  e2e:
+    needs: [validate, resolve-target]
+    if: ${{ always() && !failure() && !cancelled() && (github.event.inputs.action == 'full' || github.event.inputs.action == 'tag') && !inputs.skip_e2e }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/e2e-gate.yml
+    with:
+      ref: ${{ needs.resolve-target.outputs.target }}
+      helm_chart_version: ${{ needs.resolve-target.outputs.helm-chart-version }}
+
+  # ----------------------------------------------------------------
+  # Tag: create and push the annotated release tag at the gated commit.
+  # always() allows this to run even when branch is skipped (action=tag
+  # or branch already exists) or e2e is skipped (skip_e2e). !failure()
+  # prevents tagging after errors, including any failed e2e leg.
+  # ----------------------------------------------------------------
+  tag:
+    needs: [validate, branch, resolve-target, e2e]
+    if: ${{ always() && !failure() && !cancelled() && (github.event.inputs.action == 'full' || github.event.inputs.action == 'tag') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.OC_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.OC_RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.repository }}
+
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          ref: ${{ needs.validate.outputs.checkout-sha }}
+          fetch-depth: 0
+
+      - name: Set git identity
+        run: |
+          git config user.name "${{ steps.app-token.outputs.app-slug }}[bot]"
+          git config user.email "${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
+
+      - name: Create and push tag
+        run: |
+          TAG="${{ needs.validate.outputs.release-tag }}"
+          TARGET="${{ needs.resolve-target.outputs.target }}"
+          VERSION="${{ needs.validate.outputs.release-version }}"
+          git tag -a "${TAG}" -m "Release ${VERSION}" "${TARGET}"
+          git push origin "${TAG}"
+          echo "Tag pushed: ${TAG} (commit: ${TARGET})"

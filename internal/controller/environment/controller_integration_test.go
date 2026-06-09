@@ -20,7 +20,7 @@ import (
 )
 
 // newTestReconciler returns a Reconciler wired to the envtest API server.
-// K8sClientMgr is intentionally nil — it is only accessed when getDPClient
+// PlaneClientProvider is intentionally nil — it is only accessed when getDPClient
 // resolves a DataPlane or ClusterDataPlane; tests that don't exercise that
 // path (e.g., DataPlane not found) are safe with nil.
 func newTestReconciler() *Reconciler {
@@ -771,11 +771,11 @@ var _ = Describe("Environment Controller", func() {
 				_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 				Expect(err).NotTo(HaveOccurred())
 
-				By("second reconcile — ClusterDataPlane exists but K8sClientMgr is nil, returns error")
+				By("second reconcile — ClusterDataPlane exists but PlaneClientProvider is nil, returns error")
 				_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).NotTo(ContainSubstring("failed to make environment context"))
-				Expect(err.Error()).To(ContainSubstring("DP client"))
+				Expect(err.Error()).To(ContainSubstring("dataplane client"))
 			})
 		})
 

@@ -1,0 +1,11 @@
+# Helm values for OpenChoreo Data Plane in the multi-cluster e2e setup.
+# Agent connects to the CP cluster-gateway via host.k3d.internal:38443.
+
+clusterAgent:
+  serverUrl: "wss://host.k3d.internal:38443/ws"
+
+gateway:
+  httpPort: 19080
+  httpsPort: 19443
+  tls:
+    enabled: false

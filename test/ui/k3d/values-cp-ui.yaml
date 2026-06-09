@@ -1,0 +1,16 @@
+# Overlay that turns Backstage on for the UI test suite. Layered on top of
+# test/e2e/k3d/values-cp.yaml so the default e2e install stays Backstage-off.
+
+backstage:
+  enabled: true
+  secretName: backstage-secrets
+  baseUrl: "http://openchoreo.e2e-cp.local:28080"
+  http:
+    hostnames:
+      - openchoreo.e2e-cp.local
+  # The default 300s full-sync cycle makes catalog-dependent flows (the
+  # catalog-sync spec, the component form's project picker) ride a 5-minute
+  # wait for freshly-created resources. 60s keeps the suite snappy without
+  # meaningfully loading the test cluster.
+  catalogSync:
+    frequency: 60

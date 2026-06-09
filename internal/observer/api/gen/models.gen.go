@@ -27,12 +27,14 @@ const (
 
 // Defines values for AlertRuleRequestSourceMetric.
 const (
+	AlertRuleRequestSourceMetricBudget      AlertRuleRequestSourceMetric = "budget"
 	AlertRuleRequestSourceMetricCpuUsage    AlertRuleRequestSourceMetric = "cpu_usage"
 	AlertRuleRequestSourceMetricMemoryUsage AlertRuleRequestSourceMetric = "memory_usage"
 )
 
 // Defines values for AlertRuleRequestSourceType.
 const (
+	AlertRuleRequestSourceTypeBudget AlertRuleRequestSourceType = "budget"
 	AlertRuleRequestSourceTypeLog    AlertRuleRequestSourceType = "log"
 	AlertRuleRequestSourceTypeMetric AlertRuleRequestSourceType = "metric"
 )
@@ -49,20 +51,22 @@ const (
 
 // Defines values for AlertRuleResponseSourceMetric.
 const (
+	AlertRuleResponseSourceMetricBudget      AlertRuleResponseSourceMetric = "budget"
 	AlertRuleResponseSourceMetricCpuUsage    AlertRuleResponseSourceMetric = "cpu_usage"
 	AlertRuleResponseSourceMetricMemoryUsage AlertRuleResponseSourceMetric = "memory_usage"
 )
 
 // Defines values for AlertRuleResponseSourceType.
 const (
+	AlertRuleResponseSourceTypeBudget AlertRuleResponseSourceType = "budget"
 	AlertRuleResponseSourceTypeLog    AlertRuleResponseSourceType = "log"
 	AlertRuleResponseSourceTypeMetric AlertRuleResponseSourceType = "metric"
 )
 
 // Defines values for AlertWebhookResponseStatus.
 const (
-	Error   AlertWebhookResponseStatus = "error"
-	Success AlertWebhookResponseStatus = "success"
+	AlertWebhookResponseStatusError   AlertWebhookResponseStatus = "error"
+	AlertWebhookResponseStatusSuccess AlertWebhookResponseStatus = "success"
 )
 
 // Defines values for AlertingRuleSyncResponseAction.
@@ -104,6 +108,7 @@ const (
 
 // Defines values for AlertsQueryResponseAlertsMetadataAlertRuleSourceType.
 const (
+	Budget AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "budget"
 	Log    AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "log"
 	Metric AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "metric"
 )
@@ -116,6 +121,12 @@ const (
 	InternalServerError ErrorResponseTitle = "internalServerError"
 	NotFound            ErrorResponseTitle = "notFound"
 	Unauthorized        ErrorResponseTitle = "unauthorized"
+)
+
+// Defines values for EventsQueryRequestSortOrder.
+const (
+	EventsQueryRequestSortOrderAsc  EventsQueryRequestSortOrder = "asc"
+	EventsQueryRequestSortOrderDesc EventsQueryRequestSortOrder = "desc"
 )
 
 // Defines values for IncidentPutRequestStatus.
@@ -161,14 +172,47 @@ const (
 
 // Defines values for MetricsQueryRequestMetric.
 const (
-	Http     MetricsQueryRequestMetric = "http"
-	Resource MetricsQueryRequestMetric = "resource"
+	MetricsQueryRequestMetricHttp     MetricsQueryRequestMetric = "http"
+	MetricsQueryRequestMetricResource MetricsQueryRequestMetric = "resource"
+)
+
+// Defines values for RuntimeTopologyEdgeProtocol.
+const (
+	RuntimeTopologyEdgeProtocolHttp RuntimeTopologyEdgeProtocol = "http"
+)
+
+// Defines values for RuntimeTopologyNodeKind.
+const (
+	RuntimeTopologyNodeKindComponent RuntimeTopologyNodeKind = "component"
+	RuntimeTopologyNodeKindExternal  RuntimeTopologyNodeKind = "external"
+	RuntimeTopologyNodeKindGateway   RuntimeTopologyNodeKind = "gateway"
+)
+
+// Defines values for RuntimeTopologyNodeRefKind.
+const (
+	RuntimeTopologyNodeRefKindComponent RuntimeTopologyNodeRefKind = "component"
+	RuntimeTopologyNodeRefKindExternal  RuntimeTopologyNodeRefKind = "external"
+	RuntimeTopologyNodeRefKindGateway   RuntimeTopologyNodeRefKind = "gateway"
+)
+
+// Defines values for TraceSpanDetailsResponseStatus.
+const (
+	TraceSpanDetailsResponseStatusError TraceSpanDetailsResponseStatus = "error"
+	TraceSpanDetailsResponseStatusOk    TraceSpanDetailsResponseStatus = "ok"
+	TraceSpanDetailsResponseStatusUnset TraceSpanDetailsResponseStatus = "unset"
+)
+
+// Defines values for TraceSpansQueryResponseSpansStatus.
+const (
+	Error TraceSpansQueryResponseSpansStatus = "error"
+	Ok    TraceSpansQueryResponseSpansStatus = "ok"
+	Unset TraceSpansQueryResponseSpansStatus = "unset"
 )
 
 // Defines values for TracesQueryRequestSortOrder.
 const (
-	TracesQueryRequestSortOrderAsc  TracesQueryRequestSortOrder = "asc"
-	TracesQueryRequestSortOrderDesc TracesQueryRequestSortOrder = "desc"
+	Asc  TracesQueryRequestSortOrder = "asc"
+	Desc TracesQueryRequestSortOrder = "desc"
 )
 
 // AlertRuleRequest defines model for AlertRuleRequest.
@@ -516,6 +560,90 @@ type ErrorResponse struct {
 // ErrorResponseTitle The error message
 type ErrorResponseTitle string
 
+// EventEntry defines model for EventEntry.
+type EventEntry struct {
+	// Message The event message
+	Message *string `json:"message,omitempty"`
+
+	// Metadata The metadata of the event
+	Metadata *struct {
+		// ComponentName The OpenChoreo component name the event is associated with
+		ComponentName *string `json:"componentName,omitempty"`
+
+		// ComponentUid The OpenChoreo component UID the event is associated with
+		ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
+
+		// EnvironmentName The OpenChoreo environment name the event is associated with
+		EnvironmentName *string `json:"environmentName,omitempty"`
+
+		// EnvironmentUid The OpenChoreo environment UID the event is associated with
+		EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
+
+		// NamespaceName The OpenChoreo namespace name the event is associated with
+		NamespaceName *string `json:"namespaceName,omitempty"`
+
+		// ObjectKind The kind of the Kubernetes object the event involves (e.g. CronJob)
+		ObjectKind *string `json:"objectKind,omitempty"`
+
+		// ObjectName The name of the Kubernetes object the event involves
+		ObjectName *string `json:"objectName,omitempty"`
+
+		// ObjectNamespace The namespace of the Kubernetes object the event involves
+		ObjectNamespace *string `json:"objectNamespace,omitempty"`
+
+		// ProjectName The OpenChoreo project name the event is associated with
+		ProjectName *string `json:"projectName,omitempty"`
+
+		// ProjectUid The OpenChoreo project UID the event is associated with
+		ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+	} `json:"metadata,omitempty"`
+
+	// Reason The short, machine-readable reason for the event (e.g. SawCompletedJob)
+	Reason *string `json:"reason,omitempty"`
+
+	// Timestamp The timestamp of the event
+	Timestamp *time.Time `json:"timestamp,omitempty"`
+
+	// Type The event type (e.g. Normal, Warning)
+	Type *string `json:"type,omitempty"`
+}
+
+// EventsQueryRequest defines model for EventsQueryRequest.
+type EventsQueryRequest struct {
+	// EndTime The end time of the query
+	EndTime time.Time `json:"endTime"`
+
+	// Limit The maximum number of items to return
+	Limit       *int                           `json:"limit,omitempty"`
+	SearchScope EventsQueryRequest_SearchScope `json:"searchScope"`
+
+	// SortOrder The sort order of the query
+	SortOrder *EventsQueryRequestSortOrder `json:"sortOrder,omitempty"`
+
+	// StartTime The start time of the query
+	StartTime time.Time `json:"startTime"`
+}
+
+// EventsQueryRequest_SearchScope defines model for EventsQueryRequest.SearchScope.
+type EventsQueryRequest_SearchScope struct {
+	union json.RawMessage
+}
+
+// EventsQueryRequestSortOrder The sort order of the query
+type EventsQueryRequestSortOrder string
+
+// EventsQueryResponse defines model for EventsQueryResponse.
+type EventsQueryResponse struct {
+	// Events The events queried successfully
+	Events *[]EventEntry `json:"events,omitempty"`
+
+	// TookMs The time taken to query the events in milliseconds
+	TookMs *int `json:"tookMs,omitempty"`
+
+	// Total The total number of matching events, capped at 1000
+	Total *int `json:"total,omitempty"`
+}
+
 // HttpMetricsTimeSeries defines model for HttpMetricsTimeSeries.
 type HttpMetricsTimeSeries struct {
 	LatencyP50               *[]MetricsTimeSeriesItem `json:"latencyP50,omitempty"`
@@ -555,6 +683,9 @@ type IncidentPutResponse struct {
 
 	// IncidentId The ID of the incident
 	IncidentId *string `json:"incidentId,omitempty"`
+
+	// IncidentTriggerAiCostAnalysis Whether AI cost analysis was triggered for the incident
+	IncidentTriggerAiCostAnalysis *bool `json:"incidentTriggerAiCostAnalysis,omitempty"`
 
 	// IncidentTriggerAiRca Whether AI RCA was triggered for the incident
 	IncidentTriggerAiRca *bool `json:"incidentTriggerAiRca,omitempty"`
@@ -631,6 +762,9 @@ type IncidentsQueryResponse struct {
 
 		// IncidentId The ID of the incident
 		IncidentId *string `json:"incidentId,omitempty"`
+
+		// IncidentTriggerAiCostAnalysis Whether AI cost analysis was triggered for the incident
+		IncidentTriggerAiCostAnalysis *bool `json:"incidentTriggerAiCostAnalysis,omitempty"`
 
 		// IncidentTriggerAiRca Whether AI RCA was triggered for the incident
 		IncidentTriggerAiRca *bool `json:"incidentTriggerAiRca,omitempty"`
@@ -778,6 +912,168 @@ type ResourceMetricsTimeSeries struct {
 	MemoryUsage    *[]MetricsTimeSeriesItem `json:"memoryUsage,omitempty"`
 }
 
+// RuntimeTopologyEdge An observed traffic flow from a source node to a target node.
+type RuntimeTopologyEdge struct {
+	// Id Stable identifier for the edge. Convention:
+	// - component->component: `${srcComponent}:${srcService}->${dstComponent}:${dstService}`
+	// - gateway->component:   `gateway:${gatewayName}->${dstComponent}:${dstService}`
+	// - component->external:  `${srcComponent}:${srcService}->external:${host}`
+	Id string `json:"id"`
+
+	// Metrics Aggregate HTTP metrics over the requested time window.
+	// Latency values are in seconds (consistent with /api/v1/metrics/query).
+	Metrics *RuntimeTopologyMetrics `json:"metrics,omitempty"`
+
+	// Protocol Wire protocol of the observed traffic.
+	Protocol *RuntimeTopologyEdgeProtocol `json:"protocol,omitempty"`
+
+	// Source Reference to a node in the runtime topology. The shape depends on `kind`:
+	// - kind=component: `componentUid` is always populated when the data
+	//   comes from an HTTP-metrics backend; `component` (name) is filled
+	//   when the observer can resolve it.
+	// - kind=gateway:   `name` is required (e.g. "internet", "intranet").
+	// - kind=external:  at least one of `host` or `component`/`componentUid`
+	//   should be set; `project`/`projectUid` is included when the source
+	//   is in a different project.
+	Source RuntimeTopologyNodeRef `json:"source"`
+
+	// Target Reference to a node in the runtime topology. The shape depends on `kind`:
+	// - kind=component: `componentUid` is always populated when the data
+	//   comes from an HTTP-metrics backend; `component` (name) is filled
+	//   when the observer can resolve it.
+	// - kind=gateway:   `name` is required (e.g. "internet", "intranet").
+	// - kind=external:  at least one of `host` or `component`/`componentUid`
+	//   should be set; `project`/`projectUid` is included when the source
+	//   is in a different project.
+	Target RuntimeTopologyNodeRef `json:"target"`
+}
+
+// RuntimeTopologyEdgeProtocol Wire protocol of the observed traffic.
+type RuntimeTopologyEdgeProtocol string
+
+// RuntimeTopologyMetrics Aggregate HTTP metrics over the requested time window.
+// Latency values are in seconds (consistent with /api/v1/metrics/query).
+type RuntimeTopologyMetrics struct {
+	// LatencyP50 50th percentile request latency, in seconds.
+	LatencyP50 *float64 `json:"latencyP50,omitempty"`
+
+	// LatencyP90 90th percentile request latency, in seconds.
+	LatencyP90 *float64 `json:"latencyP90,omitempty"`
+
+	// LatencyP99 99th percentile request latency, in seconds.
+	LatencyP99 *float64 `json:"latencyP99,omitempty"`
+
+	// MeanLatency Mean request latency, in seconds.
+	MeanLatency *float64 `json:"meanLatency,omitempty"`
+
+	// RequestCount Total number of HTTP requests observed in the window.
+	RequestCount *float64 `json:"requestCount,omitempty"`
+
+	// UnsuccessfulRequestCount Number of unsuccessful (non-2xx) HTTP requests in the window.
+	UnsuccessfulRequestCount *float64 `json:"unsuccessfulRequestCount,omitempty"`
+}
+
+// RuntimeTopologyNode A node observed in the runtime topology, with its aggregated metrics.
+type RuntimeTopologyNode struct {
+	Component    *string                 `json:"component,omitempty"`
+	ComponentUid *openapi_types.UUID     `json:"componentUid,omitempty"`
+	Host         *string                 `json:"host,omitempty"`
+	Kind         RuntimeTopologyNodeKind `json:"kind"`
+
+	// Metrics Aggregate HTTP metrics over the requested time window.
+	// Latency values are in seconds (consistent with /api/v1/metrics/query).
+	Metrics    *RuntimeTopologyMetrics `json:"metrics,omitempty"`
+	Name       *string                 `json:"name,omitempty"`
+	Namespace  *string                 `json:"namespace,omitempty"`
+	Project    *string                 `json:"project,omitempty"`
+	ProjectUid *openapi_types.UUID     `json:"projectUid,omitempty"`
+	Service    *string                 `json:"service,omitempty"`
+}
+
+// RuntimeTopologyNodeKind defines model for RuntimeTopologyNode.Kind.
+type RuntimeTopologyNodeKind string
+
+// RuntimeTopologyNodeRef Reference to a node in the runtime topology. The shape depends on `kind`:
+//   - kind=component: `componentUid` is always populated when the data
+//     comes from an HTTP-metrics backend; `component` (name) is filled
+//     when the observer can resolve it.
+//   - kind=gateway:   `name` is required (e.g. "internet", "intranet").
+//   - kind=external:  at least one of `host` or `component`/`componentUid`
+//     should be set; `project`/`projectUid` is included when the source
+//     is in a different project.
+type RuntimeTopologyNodeRef struct {
+	// Component Component name (when kind=component, or for external cross-project sources).
+	Component *string `json:"component,omitempty"`
+
+	// ComponentUid OpenChoreo component UID. Populated from the metrics backend; useful
+	// for stable matching when the human-readable name is unavailable.
+	ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
+
+	// Host Host (when kind=external).
+	Host *string                    `json:"host,omitempty"`
+	Kind RuntimeTopologyNodeRefKind `json:"kind"`
+
+	// Name Gateway name (when kind=gateway).
+	Name *string `json:"name,omitempty"`
+
+	// Namespace Namespace the node lives in.
+	Namespace *string `json:"namespace,omitempty"`
+
+	// Project Project name (when kind=external and the source is in a different project).
+	Project *string `json:"project,omitempty"`
+
+	// ProjectUid OpenChoreo project UID.
+	ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+
+	// Service Workload endpoint name (when kind=component).
+	Service *string `json:"service,omitempty"`
+}
+
+// RuntimeTopologyNodeRefKind defines model for RuntimeTopologyNodeRef.Kind.
+type RuntimeTopologyNodeRefKind string
+
+// RuntimeTopologyRequest Request body for POST /api/v1alpha1/metrics/runtime-topology.
+// searchScope must include namespace, project, and environment — runtime
+// topology is project- and environment-scoped. The optional component
+// field, if set, restricts results to edges that touch that component.
+type RuntimeTopologyRequest struct {
+	// EndTime The end time of the query window
+	EndTime time.Time `json:"endTime"`
+
+	// IncludeExternal Whether to include edges to/from components outside the requested
+	// project (cross-project or off-platform). Defaults to true.
+	IncludeExternal *bool `json:"includeExternal,omitempty"`
+
+	// IncludeGateways Whether to include gateway -> component edges. Defaults to true.
+	IncludeGateways *bool                      `json:"includeGateways,omitempty"`
+	SearchScope     RuntimeTopologySearchScope `json:"searchScope"`
+
+	// StartTime The start time of the query window
+	StartTime time.Time `json:"startTime"`
+}
+
+// RuntimeTopologyResponse The runtime topology response. Nodes and edges contain only entities for
+// which traffic was observed during the requested time window. Static topology
+// (workload dependency graph) is NOT included in this response; it must be
+// fetched separately from the OpenChoreo API.
+type RuntimeTopologyResponse struct {
+	Edges *[]RuntimeTopologyEdge `json:"edges,omitempty"`
+	Nodes *[]RuntimeTopologyNode `json:"nodes,omitempty"`
+
+	// Summary Metadata describing the query window the response was computed for.
+	Summary RuntimeTopologySummary `json:"summary"`
+}
+
+// RuntimeTopologySearchScope defines model for RuntimeTopologySearchScope.
+type RuntimeTopologySearchScope = ComponentSearchScope
+
+// RuntimeTopologySummary Metadata describing the query window the response was computed for.
+type RuntimeTopologySummary struct {
+	EndTime     time.Time `json:"endTime"`
+	GeneratedAt time.Time `json:"generatedAt"`
+	StartTime   time.Time `json:"startTime"`
+}
+
 // TraceSpanDetailsResponse defines model for TraceSpanDetailsResponse.
 type TraceSpanDetailsResponse struct {
 	Attributes *[]struct {
@@ -800,17 +1096,29 @@ type TraceSpanDetailsResponse struct {
 	// SpanId The span ID
 	SpanId *string `json:"spanId,omitempty"`
 
+	// SpanKind The kind of the span
+	SpanKind *string `json:"spanKind,omitempty"`
+
 	// SpanName The name of the span
 	SpanName *string `json:"spanName,omitempty"`
 
 	// StartTime The start time of the span
 	StartTime *time.Time `json:"startTime,omitempty"`
+
+	// Status The execution status of the span. One of "ok", "error", or "unset".
+	Status *TraceSpanDetailsResponseStatus `json:"status,omitempty"`
 }
+
+// TraceSpanDetailsResponseStatus The execution status of the span. One of "ok", "error", or "unset".
+type TraceSpanDetailsResponseStatus string
 
 // TraceSpansQueryResponse defines model for TraceSpansQueryResponse.
 type TraceSpansQueryResponse struct {
 	// Spans The list of spans
 	Spans *[]struct {
+		// Attributes The span attributes
+		Attributes *map[string]interface{} `json:"attributes,omitempty"`
+
 		// DurationNs The duration of the span in nanoseconds
 		DurationNs *int64 `json:"durationNs,omitempty"`
 
@@ -819,6 +1127,9 @@ type TraceSpansQueryResponse struct {
 
 		// ParentSpanId The parent span ID
 		ParentSpanId *string `json:"parentSpanId,omitempty"`
+
+		// ResourceAttributes The resource attributes
+		ResourceAttributes *map[string]interface{} `json:"resourceAttributes,omitempty"`
 
 		// SpanId The span ID
 		SpanId *string `json:"spanId,omitempty"`
@@ -831,6 +1142,9 @@ type TraceSpansQueryResponse struct {
 
 		// StartTime The start time of the span
 		StartTime *time.Time `json:"startTime,omitempty"`
+
+		// Status The execution status of the span. One of "ok", "error", or "unset".
+		Status *TraceSpansQueryResponseSpansStatus `json:"status,omitempty"`
 	} `json:"spans,omitempty"`
 
 	// TookMs The time taken to query the spans in milliseconds
@@ -840,10 +1154,16 @@ type TraceSpansQueryResponse struct {
 	Total *int `json:"total,omitempty"`
 }
 
+// TraceSpansQueryResponseSpansStatus The execution status of the span. One of "ok", "error", or "unset".
+type TraceSpansQueryResponseSpansStatus string
+
 // TracesQueryRequest defines model for TracesQueryRequest.
 type TracesQueryRequest struct {
 	// EndTime The end time of the query
 	EndTime time.Time `json:"endTime"`
+
+	// IncludeAttributes Whether to include span attributes in the response. Defaults to false.
+	IncludeAttributes *bool `json:"includeAttributes,omitempty"`
 
 	// Limit The maximum number of items to return
 	Limit       *int                 `json:"limit,omitempty"`
@@ -873,10 +1193,13 @@ type TracesQueryResponse struct {
 		DurationNs *int64 `json:"durationNs,omitempty"`
 
 		// EndTime The end time of the trace
-		EndTime      *time.Time `json:"endTime,omitempty"`
-		RootSpanId   *string    `json:"rootSpanId,omitempty"`
-		RootSpanKind *string    `json:"rootSpanKind,omitempty"`
-		RootSpanName *string    `json:"rootSpanName,omitempty"`
+		EndTime *time.Time `json:"endTime,omitempty"`
+
+		// HasErrors Whether any span in the trace has an error status.
+		HasErrors    *bool   `json:"hasErrors,omitempty"`
+		RootSpanId   *string `json:"rootSpanId,omitempty"`
+		RootSpanKind *string `json:"rootSpanKind,omitempty"`
+		RootSpanName *string `json:"rootSpanName,omitempty"`
 
 		// SpanCount The number of spans in the trace
 		SpanCount *int `json:"spanCount,omitempty"`
@@ -908,6 +1231,9 @@ type WorkflowSearchScope struct {
 	WorkflowRunName *string `json:"workflowRunName,omitempty"`
 }
 
+// QueryEventsJSONRequestBody defines body for QueryEvents for application/json ContentType.
+type QueryEventsJSONRequestBody = EventsQueryRequest
+
 // QueryLogsJSONRequestBody defines body for QueryLogs for application/json ContentType.
 type QueryLogsJSONRequestBody = LogsQueryRequest
 
@@ -932,11 +1258,76 @@ type QueryIncidentsJSONRequestBody = IncidentsQueryRequest
 // UpdateIncidentJSONRequestBody defines body for UpdateIncident for application/json ContentType.
 type UpdateIncidentJSONRequestBody = IncidentPutRequest
 
+// QueryRuntimeTopologyJSONRequestBody defines body for QueryRuntimeTopology for application/json ContentType.
+type QueryRuntimeTopologyJSONRequestBody = RuntimeTopologyRequest
+
 // QueryTracesJSONRequestBody defines body for QueryTraces for application/json ContentType.
 type QueryTracesJSONRequestBody = TracesQueryRequest
 
 // QuerySpansForTraceJSONRequestBody defines body for QuerySpansForTrace for application/json ContentType.
 type QuerySpansForTraceJSONRequestBody = TracesQueryRequest
+
+// AsComponentSearchScope returns the union data inside the EventsQueryRequest_SearchScope as a ComponentSearchScope
+func (t EventsQueryRequest_SearchScope) AsComponentSearchScope() (ComponentSearchScope, error) {
+	var body ComponentSearchScope
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromComponentSearchScope overwrites any union data inside the EventsQueryRequest_SearchScope as the provided ComponentSearchScope
+func (t *EventsQueryRequest_SearchScope) FromComponentSearchScope(v ComponentSearchScope) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeComponentSearchScope performs a merge with any union data inside the EventsQueryRequest_SearchScope, using the provided ComponentSearchScope
+func (t *EventsQueryRequest_SearchScope) MergeComponentSearchScope(v ComponentSearchScope) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsWorkflowSearchScope returns the union data inside the EventsQueryRequest_SearchScope as a WorkflowSearchScope
+func (t EventsQueryRequest_SearchScope) AsWorkflowSearchScope() (WorkflowSearchScope, error) {
+	var body WorkflowSearchScope
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromWorkflowSearchScope overwrites any union data inside the EventsQueryRequest_SearchScope as the provided WorkflowSearchScope
+func (t *EventsQueryRequest_SearchScope) FromWorkflowSearchScope(v WorkflowSearchScope) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeWorkflowSearchScope performs a merge with any union data inside the EventsQueryRequest_SearchScope, using the provided WorkflowSearchScope
+func (t *EventsQueryRequest_SearchScope) MergeWorkflowSearchScope(v WorkflowSearchScope) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t EventsQueryRequest_SearchScope) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *EventsQueryRequest_SearchScope) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // AsComponentSearchScope returns the union data inside the LogsQueryRequest_SearchScope as a ComponentSearchScope
 func (t LogsQueryRequest_SearchScope) AsComponentSearchScope() (ComponentSearchScope, error) {

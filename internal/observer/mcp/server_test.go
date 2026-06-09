@@ -71,6 +71,39 @@ func (m *MockLogsQuerier) lastRequest() *types.LogsQueryRequest {
 
 func (m *MockLogsQuerier) reset() { m.requests = nil }
 
+type MockEventsQuerier struct {
+	requests []*types.EventsQueryRequest
+	response *types.EventsQueryResponse
+	err      error
+}
+
+func NewMockEventsQuerier() *MockEventsQuerier {
+	return &MockEventsQuerier{
+		response: &types.EventsQueryResponse{
+			Events: []types.EventEntry{{Timestamp: "2025-01-01T00:00:00Z", Message: "test event", Type: "Normal", Reason: "Scheduled"}},
+			Total:  1,
+			TookMs: 10,
+		},
+	}
+}
+
+func (m *MockEventsQuerier) QueryEvents(_ context.Context, req *types.EventsQueryRequest) (*types.EventsQueryResponse, error) {
+	m.requests = append(m.requests, req)
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.response, nil
+}
+
+func (m *MockEventsQuerier) lastRequest() *types.EventsQueryRequest {
+	if len(m.requests) == 0 {
+		return nil
+	}
+	return m.requests[len(m.requests)-1]
+}
+
+func (m *MockEventsQuerier) reset() { m.requests = nil }
+
 type MockMetricsQuerier struct {
 	requests []*types.MetricsQueryRequest
 	response any
@@ -92,6 +125,10 @@ func (m *MockMetricsQuerier) QueryMetrics(_ context.Context, req *types.MetricsQ
 		return nil, m.err
 	}
 	return m.response, nil
+}
+
+func (m *MockMetricsQuerier) QueryRuntimeTopology(_ context.Context, _ *types.RuntimeTopologyRequest) (*types.RuntimeTopologyResponse, error) {
+	return &types.RuntimeTopologyResponse{}, nil
 }
 
 func (m *MockMetricsQuerier) lastRequest() *types.MetricsQueryRequest {
@@ -247,6 +284,7 @@ func (m *MockAlertIncidentService) reset() {
 
 type testServices struct {
 	logs            *MockLogsQuerier
+	events          *MockEventsQuerier
 	metrics         *MockMetricsQuerier
 	traces          *MockTracesQuerier
 	alertsIncidents *MockAlertIncidentService
@@ -255,6 +293,7 @@ type testServices struct {
 func newTestServices() *testServices {
 	return &testServices{
 		logs:            NewMockLogsQuerier(),
+		events:          NewMockEventsQuerier(),
 		metrics:         NewMockMetricsQuerier(),
 		traces:          NewMockTracesQuerier(),
 		alertsIncidents: NewMockAlertIncidentService(),
@@ -263,6 +302,7 @@ func newTestServices() *testServices {
 
 func (s *testServices) resetAll() {
 	s.logs.reset()
+	s.events.reset()
 	s.metrics.reset()
 	s.traces.reset()
 	s.alertsIncidents.reset()
@@ -274,7 +314,7 @@ func buildMCPHandler(svcs *testServices) (*MCPHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewMCPHandler(healthSvc, svcs.logs, svcs.metrics, svcs.alertsIncidents, svcs.traces, logger)
+	return NewMCPHandler(healthSvc, svcs.logs, svcs.events, svcs.metrics, svcs.alertsIncidents, svcs.traces, logger)
 }
 
 func setupTestServer(t *testing.T) (*mcpsdk.ClientSession, *testServices) {
@@ -397,6 +437,66 @@ var allToolSpecs = []toolTestSpec{
 			if diff := cmp.Diff([]string{"ERROR"}, req.LogLevels); diff != "" {
 				t.Errorf("log_levels mismatch (-want +got):\n%s", diff)
 			}
+			assert.Equal(t, 75, req.Limit)
+			assert.Equal(t, sortOrderDesc, req.SortOrder)
+		},
+	},
+	{
+		name:                "query_component_events",
+		descriptionKeywords: []string{"component", "events"},
+		descriptionMinLen:   20,
+		requiredParams:      []string{"namespace", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component", "environment", "limit", "sort_order"},
+		testArgs: map[string]any{
+			"namespace":   testNamespace,
+			"project":     testProject,
+			"component":   testComponent,
+			"environment": testEnvironment,
+			"start_time":  testStartTime,
+			"end_time":    testEndTime,
+			"limit":       50,
+			"sort_order":  sortOrderAsc,
+		},
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.events.lastRequest()
+			require.NotNil(t, req, "Expected QueryEvents to be called")
+			require.NotNil(t, req.SearchScope)
+			require.NotNil(t, req.SearchScope.Component)
+			scope := req.SearchScope.Component
+			assert.Equal(t, testNamespace, scope.Namespace)
+			assert.Equal(t, testProject, scope.Project)
+			assert.Equal(t, testComponent, scope.Component)
+			assert.Equal(t, testEnvironment, scope.Environment)
+			assert.Equal(t, testStartTime, req.StartTime)
+			assert.Equal(t, testEndTime, req.EndTime)
+			assert.Equal(t, 50, req.Limit)
+			assert.Equal(t, sortOrderAsc, req.SortOrder)
+		},
+	},
+	{
+		name:                "query_workflow_events",
+		descriptionKeywords: []string{"workflow", "events"},
+		descriptionMinLen:   20,
+		requiredParams:      []string{"namespace", "start_time", "end_time"},
+		optionalParams:      []string{"workflow_run_name", "limit", "sort_order"},
+		testArgs: map[string]any{
+			"namespace":         testNamespace,
+			"workflow_run_name": "my-workflow-run",
+			"start_time":        testStartTime,
+			"end_time":          testEndTime,
+			"limit":             75,
+			"sort_order":        sortOrderDesc,
+		},
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.events.lastRequest()
+			require.NotNil(t, req, "Expected QueryEvents to be called")
+			require.NotNil(t, req.SearchScope)
+			require.NotNil(t, req.SearchScope.Workflow)
+			scope := req.SearchScope.Workflow
+			assert.Equal(t, testNamespace, scope.Namespace)
+			assert.Equal(t, "my-workflow-run", scope.WorkflowRunName)
 			assert.Equal(t, 75, req.Limit)
 			assert.Equal(t, sortOrderDesc, req.SortOrder)
 		},
@@ -620,6 +720,7 @@ func TestNewMCPHandlerValidation(t *testing.T) {
 	healthSvc, _ := service.NewHealthService(logger)
 	alertIncidentSvc := NewMockAlertIncidentService()
 	logs := NewMockLogsQuerier()
+	events := NewMockEventsQuerier()
 	metrics := NewMockMetricsQuerier()
 	traces := NewMockTracesQuerier()
 
@@ -627,22 +728,24 @@ func TestNewMCPHandlerValidation(t *testing.T) {
 		name                 string
 		health               *service.HealthService
 		logs                 service.LogsQuerier
+		events               service.EventsQuerier
 		metrics              service.MetricsQuerier
 		alertIncidentService service.AlertIncidentService
 		traces               service.TracesQuerier
 		log                  *slog.Logger
 	}{
-		{"nil healthService", nil, logs, metrics, alertIncidentSvc, traces, logger},
-		{"nil logsService", healthSvc, nil, metrics, alertIncidentSvc, traces, logger},
-		{"nil metricsService", healthSvc, logs, nil, alertIncidentSvc, traces, logger},
-		{"nil alertIncidentService", healthSvc, logs, metrics, nil, traces, logger},
-		{"nil tracesService", healthSvc, logs, metrics, alertIncidentSvc, nil, logger},
-		{"nil logger", healthSvc, logs, metrics, alertIncidentSvc, traces, nil},
+		{"nil healthService", nil, logs, events, metrics, alertIncidentSvc, traces, logger},
+		{"nil logsService", healthSvc, nil, events, metrics, alertIncidentSvc, traces, logger},
+		{"nil eventsService", healthSvc, logs, nil, metrics, alertIncidentSvc, traces, logger},
+		{"nil metricsService", healthSvc, logs, events, nil, alertIncidentSvc, traces, logger},
+		{"nil alertIncidentService", healthSvc, logs, events, metrics, nil, traces, logger},
+		{"nil tracesService", healthSvc, logs, events, metrics, alertIncidentSvc, nil, logger},
+		{"nil logger", healthSvc, logs, events, metrics, alertIncidentSvc, traces, nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewMCPHandler(tt.health, tt.logs, tt.metrics, tt.alertIncidentService, tt.traces, tt.log)
+			_, err := NewMCPHandler(tt.health, tt.logs, tt.events, tt.metrics, tt.alertIncidentService, tt.traces, tt.log)
 			require.Error(t, err, "Expected error for %s", tt.name)
 		})
 	}
@@ -922,6 +1025,24 @@ func TestMinimalParameterSets(t *testing.T) {
 			args: map[string]any{
 				"trace_id": testTraceID,
 				"span_id":  testSpanID,
+			},
+		},
+		{
+			name:     "query_component_events_minimal",
+			toolName: "query_component_events",
+			args: map[string]any{
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
+			},
+		},
+		{
+			name:     "query_workflow_events_minimal",
+			toolName: "query_workflow_events",
+			args: map[string]any{
+				"namespace":  testNamespace,
+				"start_time": testStartTime,
+				"end_time":   testEndTime,
 			},
 		},
 	}
@@ -1339,6 +1460,24 @@ func TestSchemaPropertyTypes(t *testing.T) {
 			"end_time":          "string",
 			"search_phrase":     "string",
 			"log_levels":        "array",
+			"limit":             "number",
+			"sort_order":        "string",
+		},
+		"query_component_events": {
+			"namespace":   "string",
+			"project":     "string",
+			"component":   "string",
+			"environment": "string",
+			"start_time":  "string",
+			"end_time":    "string",
+			"limit":       "number",
+			"sort_order":  "string",
+		},
+		"query_workflow_events": {
+			"namespace":         "string",
+			"workflow_run_name": "string",
+			"start_time":        "string",
+			"end_time":          "string",
 			"limit":             "number",
 			"sort_order":        "string",
 		},

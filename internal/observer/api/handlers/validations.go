@@ -24,6 +24,7 @@ const (
 
 	sourceTypeLog    = "log"
 	sourceTypeMetric = "metric"
+	sourceTypeBudget = "budget"
 )
 
 // ValidateLogsQueryRequest validates the LogsQueryRequest
@@ -82,9 +83,65 @@ func ValidateLogsQueryRequest(req *types.LogsQueryRequest) error {
 	return nil
 }
 
+// ValidateEventsQueryRequest validates the EventsQueryRequest.
+func ValidateEventsQueryRequest(req *types.EventsQueryRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+
+	// Validate search scope
+	if req.SearchScope == nil {
+		return fmt.Errorf("searchScope is required")
+	}
+
+	// Exactly one of component or workflow must be set
+	if req.SearchScope.Component == nil && req.SearchScope.Workflow == nil {
+		return fmt.Errorf("searchScope must be either a ComponentSearchScope (with namespace, and optionally project/component/environment) or WorkflowSearchScope (with namespace, and optionally workflowRunName)")
+	}
+	if req.SearchScope.Component != nil && req.SearchScope.Workflow != nil {
+		return fmt.Errorf("searchScope cannot be both ComponentSearchScope and WorkflowSearchScope")
+	}
+
+	// Validate component scope if present
+	if req.SearchScope.Component != nil {
+		if err := validateComponentScope(req.SearchScope.Component); err != nil {
+			return err
+		}
+	}
+
+	// Validate workflow scope if present
+	if req.SearchScope.Workflow != nil {
+		if err := validateWorkflowScope(req.SearchScope.Workflow); err != nil {
+			return err
+		}
+	}
+
+	// Validate time range
+	if err := ValidateTimeRange(req.StartTime, req.EndTime); err != nil {
+		return err
+	}
+
+	// Validate and set defaults for limit
+	if err := ValidateAndSetLimit(&req.Limit); err != nil {
+		return err
+	}
+
+	// Validate and set defaults for sort order
+	if err := ValidateAndSetSortOrder(&req.SortOrder); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // validateComponentScope validates the ComponentSearchScope
 // Per OpenAPI spec, only namespace is required
 func validateComponentScope(scope *types.ComponentSearchScope) error {
+	// Trim whitespace so whitespace-only identifiers are rejected early
+	scope.Namespace = strings.TrimSpace(scope.Namespace)
+	scope.Project = strings.TrimSpace(scope.Project)
+	scope.Component = strings.TrimSpace(scope.Component)
+	scope.Environment = strings.TrimSpace(scope.Environment)
 	if scope.Namespace == "" {
 		return fmt.Errorf("searchScope.namespace is required")
 	}
@@ -99,6 +156,9 @@ func validateComponentScope(scope *types.ComponentSearchScope) error {
 // validateWorkflowScope validates the WorkflowSearchScope
 // Per OpenAPI spec, only namespace is required
 func validateWorkflowScope(scope *types.WorkflowSearchScope) error {
+	// Trim whitespace so whitespace-only identifiers are rejected early
+	scope.Namespace = strings.TrimSpace(scope.Namespace)
+	scope.WorkflowRunName = strings.TrimSpace(scope.WorkflowRunName)
 	if scope.Namespace == "" {
 		return fmt.Errorf("searchScope.namespace is required")
 	}
@@ -204,6 +264,33 @@ func ValidateMetricsQueryRequest(req *types.MetricsQueryRequest) error {
 	return nil
 }
 
+// ValidateRuntimeTopologyRequest validates the request body for
+// POST /api/v1alpha1/metrics/runtime-topology. Runtime topology requires the
+// project + environment to be specified explicitly; namespace alone is not
+// enough to scope a cell diagram.
+func ValidateRuntimeTopologyRequest(req *types.RuntimeTopologyRequest) error {
+	if req == nil {
+		return fmt.Errorf("request must not be nil")
+	}
+
+	scope := req.SearchScope
+	if strings.TrimSpace(scope.Namespace) == "" {
+		return fmt.Errorf("searchScope.namespace is required")
+	}
+	if strings.TrimSpace(scope.Project) == "" {
+		return fmt.Errorf("searchScope.project is required")
+	}
+	if strings.TrimSpace(scope.Environment) == "" {
+		return fmt.Errorf("searchScope.environment is required")
+	}
+
+	if err := ValidateTimeRange(req.StartTime, req.EndTime); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ValidateLogLevels validates the log levels array
 func ValidateLogLevels(logLevels []string) error {
 	validLevels := map[string]bool{
@@ -244,8 +331,8 @@ func validateAlertRuleRequest(req gen.AlertRuleRequest) error {
 
 	// Source validations
 	sourceType := string(req.Source.Type)
-	if sourceType != sourceTypeLog && sourceType != sourceTypeMetric {
-		return fmt.Errorf("source.type must be 'log' or 'metric'")
+	if sourceType != sourceTypeLog && sourceType != sourceTypeMetric && sourceType != sourceTypeBudget {
+		return fmt.Errorf("source.type must be 'log', 'metric', or 'budget'")
 	}
 	if sourceType == sourceTypeLog {
 		if req.Source.Query == nil || strings.TrimSpace(*req.Source.Query) == "" {
@@ -257,8 +344,8 @@ func validateAlertRuleRequest(req gen.AlertRuleRequest) error {
 			return fmt.Errorf("source.metric is required for metric-based alert rules")
 		}
 		metric := string(*req.Source.Metric)
-		if metric != "cpu_usage" && metric != "memory_usage" {
-			return fmt.Errorf("source.metric must be 'cpu_usage' or 'memory_usage' for metric-based alert rules")
+		if metric != "cpu_usage" && metric != "memory_usage" && metric != "budget" {
+			return fmt.Errorf("source.metric must be 'cpu_usage', 'memory_usage' or 'budget' for metric-based alert rules")
 		}
 	}
 
@@ -298,10 +385,10 @@ func validateAlertRuleRequest(req gen.AlertRuleRequest) error {
 // Returns an error with a descriptive message for use in a 400 Bad Request response.
 func validateSourceType(sourceType string) error {
 	switch sourceType {
-	case sourceTypeLog, sourceTypeMetric:
+	case sourceTypeLog, sourceTypeMetric, sourceTypeBudget:
 		return nil
 	default:
-		return fmt.Errorf("sourceType %q is invalid: must be 'log' or 'metric'", sourceType)
+		return fmt.Errorf("sourceType %q is invalid: must be 'log', 'metric', or 'budget'", sourceType)
 	}
 }
 

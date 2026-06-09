@@ -14,66 +14,62 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/typed"
+	"github.com/openchoreo/openchoreo/internal/occ/resources"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/kinds"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	synth "github.com/openchoreo/openchoreo/internal/occ/resources/workload"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
-	"github.com/openchoreo/openchoreo/pkg/cli/flags"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
-// Client defines the client methods used by Workload operations.
-type Client interface {
-	ListWorkloads(ctx context.Context, namespaceName string, params *gen.ListWorkloadsParams) (*gen.WorkloadList, error)
-	GetWorkload(ctx context.Context, namespaceName string, workloadName string) (*gen.Workload, error)
-	DeleteWorkload(ctx context.Context, namespaceName string, workloadName string) error
-}
-
-// Workload implements workload operations
+// Workload implements workload operations.
 type Workload struct {
-	config constants.CRDConfig
-	client Client
+	config resources.CRDConfig
+	client client.Interface
 }
 
-// New creates a new Workload with the default config
-func New(client Client) *Workload {
+// New creates a new Workload with the default config.
+func New(c client.Interface) *Workload {
 	return &Workload{
-		config: constants.WorkloadV1Config,
-		client: client,
+		config: resources.WorkloadV1Config,
+		client: c,
 	}
 }
 
-// Create creates a workload from a descriptor or basic parameters
+// Create creates a workload from a descriptor or basic parameters.
 func (w *Workload) Create(params CreateParams) error {
-	apiParams := toAPIParams(params)
-
-	if err := validation.ValidateParams(validation.CmdCreate, validation.ResourceWorkload, apiParams); err != nil {
+	if err := cmdutil.RequireFields("create", "workload", map[string]string{
+		"namespace": params.NamespaceName,
+		"project":   params.ProjectName,
+		"component": params.ComponentName,
+		"image":     params.ImageURL,
+	}); err != nil {
 		return err
 	}
 
-	// Determine mode from params (default to api-server)
 	mode := params.Mode
 	if mode == "" {
 		mode = flags.ModeAPIServer
 	}
 
-	// Route to appropriate implementation based on mode
+	synthParams := toSynthParams(params)
+
 	switch mode {
 	case flags.ModeFileSystem:
-		return w.createFileSystemMode(params, apiParams)
+		return w.createFileSystemMode(params, synthParams)
 	case flags.ModeAPIServer:
-		return w.createAPIServerMode(apiParams)
+		return w.createAPIServerMode(synthParams)
 	default:
 		return fmt.Errorf("unsupported mode %q: must be %q or %q", mode, flags.ModeAPIServer, flags.ModeFileSystem)
 	}
 }
 
-// createAPIServerMode handles the existing API server mode logic
-func (w *Workload) createAPIServerMode(params api.CreateWorkloadParams) error {
+func (w *Workload) createAPIServerMode(params synth.CreateWorkloadParams) error {
 	workloadRes, err := kinds.NewWorkloadResource(w.config, params.NamespaceName)
 	if err != nil {
 		return fmt.Errorf("failed to create Workload resource: %w", err)
@@ -86,9 +82,7 @@ func (w *Workload) createAPIServerMode(params api.CreateWorkloadParams) error {
 	return nil
 }
 
-// createFileSystemMode handles file-system mode for GitOps repos
-func (w *Workload) createFileSystemMode(params CreateParams, apiParams api.CreateWorkloadParams) error {
-	// Determine repo path
+func (w *Workload) createFileSystemMode(params CreateParams, synthParams synth.CreateWorkloadParams) error {
 	repoPath := params.RootDir
 	if repoPath == "" {
 		var err error
@@ -98,20 +92,16 @@ func (w *Workload) createFileSystemMode(params CreateParams, apiParams api.Creat
 		}
 	}
 
-	// Load or build index
 	fmt.Println("Loading index...")
 	persistentIndex, err := cache.LoadOrBuild(repoPath)
 	if err != nil {
 		return fmt.Errorf("failed to build filesystem index: %w", err)
 	}
 
-	// Wrap generic index with OpenChoreo-specific functionality
 	idx := fsmode.WrapIndex(persistentIndex.Index)
 
 	var workloadCR *openchoreov1alpha1.Workload
 
-	// If no descriptor provided, check if a workload already exists for this component.
-	// If it does, update only the container image instead of replacing the entire workload.
 	if params.FilePath == "" {
 		if entry, ok := idx.GetWorkloadForComponent(params.ProjectName, params.ComponentName); ok {
 			typedWorkload, err := typed.NewWorkload(entry)
@@ -124,21 +114,18 @@ func (w *Workload) createFileSystemMode(params CreateParams, apiParams api.Creat
 		}
 	}
 
-	// If we don't have a workload CR yet (no existing workload or descriptor provided),
-	// generate one from scratch.
 	if workloadCR == nil {
 		workloadRes, err := kinds.NewWorkloadResource(w.config, params.NamespaceName)
 		if err != nil {
 			return fmt.Errorf("failed to create Workload resource: %w", err)
 		}
 
-		workloadCR, err = workloadRes.GenerateWorkloadCR(apiParams)
+		workloadCR, err = workloadRes.GenerateWorkloadCR(synthParams)
 		if err != nil {
 			return fmt.Errorf("failed to generate workload: %w", err)
 		}
 	}
 
-	// Create writer and write workload
 	writer := output.NewWorkloadWriter(idx)
 	writtenPath, err := writer.WriteWorkload(output.WorkloadWriteParams{
 		Namespace:     params.NamespaceName,
@@ -159,9 +146,11 @@ func (w *Workload) createFileSystemMode(params CreateParams, apiParams api.Creat
 	return nil
 }
 
-// List lists all workloads in a namespace
+// List lists all workloads in a namespace.
 func (w *Workload) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceWorkload, params); err != nil {
+	if err := cmdutil.RequireFields("list", "workload", map[string]string{
+		"namespace": params.Namespace,
+	}); err != nil {
 		return err
 	}
 
@@ -189,9 +178,11 @@ func (w *Workload) List(params ListParams) error {
 	return printWorkloadList(items)
 }
 
-// Get retrieves a single workload and outputs it as YAML
+// Get retrieves a single workload and outputs it as YAML.
 func (w *Workload) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceWorkload, params); err != nil {
+	if err := cmdutil.RequireFields("get", "workload", map[string]string{
+		"namespace": params.Namespace,
+	}); err != nil {
 		return err
 	}
 
@@ -210,9 +201,12 @@ func (w *Workload) Get(params GetParams) error {
 	return nil
 }
 
-// Delete deletes a single workload
+// Delete deletes a single workload.
 func (w *Workload) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceWorkload, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "workload", map[string]string{
+		"namespace": params.Namespace,
+		"name":      params.WorkloadName,
+	}); err != nil {
 		return err
 	}
 
@@ -225,9 +219,9 @@ func (w *Workload) Delete(params DeleteParams) error {
 	return nil
 }
 
-// toAPIParams converts CreateParams to api.CreateWorkloadParams for downstream callers
-func toAPIParams(p CreateParams) api.CreateWorkloadParams {
-	return api.CreateWorkloadParams{
+// toSynthParams converts CreateParams to synth.CreateWorkloadParams.
+func toSynthParams(p CreateParams) synth.CreateWorkloadParams {
+	return synth.CreateWorkloadParams{
 		FilePath:      p.FilePath,
 		NamespaceName: p.NamespaceName,
 		ProjectName:   p.ProjectName,
@@ -254,9 +248,7 @@ func printWorkloadList(items []gen.Workload) error {
 		if wl.Metadata.CreationTimestamp != nil {
 			age = utils.FormatAge(*wl.Metadata.CreationTimestamp)
 		}
-		fmt.Fprintf(tw, "%s\t%s\n",
-			wl.Metadata.Name,
-			age)
+		fmt.Fprintf(tw, "%s\t%s\n", wl.Metadata.Name, age)
 	}
 
 	return tw.Flush()

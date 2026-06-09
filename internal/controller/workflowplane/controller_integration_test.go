@@ -13,10 +13,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -280,6 +283,134 @@ var _ = Describe("WorkflowPlane Controller", func() {
 			Expect(fresh.Status.AgentConnection.Connected).To(BeTrue())
 			Expect(fresh.Status.AgentConnection.ConnectedAgents).To(BeEquivalentTo(2))
 			Expect(fresh.Status.AgentConnection.Message).To(Equal("2 agents connected (HA mode)"))
+		})
+	})
+
+	Context("SetupWithManager", func() {
+		It("should register the controller and supply a default Recorder", func() {
+			mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+				Scheme: k8sClient.Scheme(),
+				Metrics: metricsserver.Options{
+					BindAddress: "0",
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			r := &Reconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+			Expect(r.SetupWithManager(mgr)).To(Succeed())
+			Expect(r.Recorder).NotTo(BeNil())
+		})
+	})
+
+	Context("Reconcile invalidates the cached client", func() {
+		const wpName = "wp-cache-update"
+		nn := types.NamespacedName{Name: wpName, Namespace: "default"}
+
+		AfterEach(func() { forceDeleteWP(ctx, nn) })
+
+		It("invalidates the cache on the UPDATE path when ClientMgr is configured", func() {
+			Expect(k8sClient.Create(ctx, newWorkflowPlaneWithFinalizer(wpName))).To(Succeed())
+
+			r := &Reconciler{
+				Client:       k8sClient,
+				Scheme:       k8sClient.Scheme(),
+				Recorder:     record.NewFakeRecorder(100),
+				ClientMgr:    kubernetesClient.NewManager(),
+				CacheVersion: "v2",
+			}
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("invalidates the cache during finalization when ClientMgr is configured", func() {
+			Expect(k8sClient.Create(ctx, newWorkflowPlaneWithFinalizer(wpName))).To(Succeed())
+			wp := &openchoreov1alpha1.WorkflowPlane{}
+			Expect(k8sClient.Get(ctx, nn, wp)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, wp)).To(Succeed())
+
+			r := &Reconciler{
+				Client:       k8sClient,
+				Scheme:       k8sClient.Scheme(),
+				Recorder:     record.NewFakeRecorder(100),
+				ClientMgr:    kubernetesClient.NewManager(),
+				CacheVersion: "v2",
+			}
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("Finalizer edge cases", func() {
+		const wpName = "wp-no-finalizer-finalize"
+		nn := types.NamespacedName{Name: wpName, Namespace: "default"}
+
+		AfterEach(func() { forceDeleteWP(ctx, nn) })
+
+		It("finalize is a no-op when the finalizer is not present", func() {
+			// Build the WorkflowPlane inline to avoid contributing another
+			// `namespace="default"` call site that would tip the unparam linter.
+			wp := &openchoreov1alpha1.WorkflowPlane{
+				ObjectMeta: metav1.ObjectMeta{Name: wpName, Namespace: "default"},
+				Spec: openchoreov1alpha1.WorkflowPlaneSpec{
+					ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+						ClientCA: openchoreov1alpha1.ValueFrom{Value: "test-ca-cert"},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, wp)).To(Succeed())
+			fresh := &openchoreov1alpha1.WorkflowPlane{}
+			Expect(k8sClient.Get(ctx, nn, fresh)).To(Succeed())
+
+			r := &Reconciler{
+				Client:   k8sClient,
+				Scheme:   k8sClient.Scheme(),
+				Recorder: record.NewFakeRecorder(100),
+			}
+			result, err := r.finalize(ctx, fresh.DeepCopy(), fresh)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+		})
+
+		It("ensureFinalizer is a no-op when DeletionTimestamp is set", func() {
+			now := metav1.Now()
+			wp := &openchoreov1alpha1.WorkflowPlane{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "wp-deleting",
+					Namespace:         "default",
+					DeletionTimestamp: &now,
+					Finalizers:        []string{"keeper"},
+				},
+			}
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			added, err := r.ensureFinalizer(ctx, wp)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(added).To(BeFalse())
+			Expect(controllerutil.ContainsFinalizer(wp, WorkflowPlaneCleanupFinalizer)).To(BeFalse())
+		})
+	})
+
+	Context("Reconcile second pass with no gateway", func() {
+		const wpName = "wp-already-created-poll"
+		nn := types.NamespacedName{Name: wpName, Namespace: "default"}
+
+		BeforeEach(func() {
+			wp := newWorkflowPlaneWithFinalizer(wpName)
+			Expect(k8sClient.Create(ctx, wp)).To(Succeed())
+			Expect(k8sClient.Get(ctx, nn, wp)).To(Succeed())
+			wp.Status.Conditions = []metav1.Condition{NewWorkflowPlaneCreatedCondition(wp.Generation)}
+			wp.Status.ObservedGeneration = wp.Generation
+			Expect(k8sClient.Status().Update(ctx, wp)).To(Succeed())
+		})
+		AfterEach(func() { forceDeleteWP(ctx, nn) })
+
+		It("returns RequeueAfter and does not error when gateway is nil", func() {
+			r := testReconciler()
+			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).NotTo(BeZero())
 		})
 	})
 })

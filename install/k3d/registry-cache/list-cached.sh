@@ -11,8 +11,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${SCRIPT_DIR}/compose.yaml"
 REPO_BASE="/var/lib/registry/docker/registry/v2/repositories"
 
-SERVICES=("ghcr-cache" "dockerhub-cache" "quay-cache" "kgateway-cache")
-UPSTREAMS=("ghcr.io" "docker.io" "quay.io" "cr.kgateway.dev")
+SERVICES=("ghcr-cache" "dockerhub-cache" "quay-cache" "kgateway-cache" "gcr-cache")
+UPSTREAMS=("ghcr.io" "docker.io" "quay.io" "cr.kgateway.dev" "gcr.io")
 
 # Filter to a specific service if provided
 if [[ -n "$1" ]]; then
@@ -22,9 +22,10 @@ if [[ -n "$1" ]]; then
     dockerhub-cache) UPSTREAMS=("docker.io") ;;
     quay-cache)      UPSTREAMS=("quay.io") ;;
     kgateway-cache)  UPSTREAMS=("cr.kgateway.dev") ;;
+    gcr-cache)       UPSTREAMS=("gcr.io") ;;
     *)
       echo "Unknown service: $1"
-      echo "Available: ghcr-cache, dockerhub-cache, quay-cache, kgateway-cache"
+      echo "Available: ghcr-cache, dockerhub-cache, quay-cache, kgateway-cache, gcr-cache"
       exit 1
       ;;
   esac

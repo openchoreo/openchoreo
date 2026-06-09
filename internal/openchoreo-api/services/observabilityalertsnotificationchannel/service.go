@@ -63,8 +63,8 @@ func (s *observabilityAlertsNotificationChannelService) CreateObservabilityAlert
 			s.logger.Warn("Observability alerts notification channel already exists", "namespace", namespaceName, "channel", nc.Name)
 			return nil, ErrObservabilityAlertsNotificationChannelAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create observability alerts notification channel CR", "error", err)
 		return nil, fmt.Errorf("failed to create observability alerts notification channel: %w", err)
@@ -105,8 +105,8 @@ func (s *observabilityAlertsNotificationChannelService) UpdateObservabilityAlert
 	existing.Annotations = nc.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update observability alerts notification channel CR", "error", err)
 		return nil, fmt.Errorf("failed to update observability alerts notification channel: %w", err)

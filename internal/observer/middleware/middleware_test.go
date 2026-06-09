@@ -47,11 +47,12 @@ func TestCORS(t *testing.T) {
 			expectNext:     true,
 			expectStatus:   http.StatusOK,
 			expectHeaders: map[string]string{
-				"Access-Control-Allow-Origin":  "http://localhost:3000",
-				"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-				"Access-Control-Allow-Headers": "Content-Type, Authorization",
-				"Access-Control-Max-Age":       "3600",
-				"Vary":                         "Origin",
+				"Access-Control-Allow-Origin":      "http://localhost:3000",
+				"Access-Control-Allow-Methods":     "GET, POST, PUT, DELETE, OPTIONS",
+				"Access-Control-Allow-Headers":     "Content-Type, Authorization",
+				"Access-Control-Max-Age":           "3600",
+				"Access-Control-Allow-Credentials": "true",
+				"Vary":                             "Origin",
 			},
 		},
 		{
@@ -74,7 +75,8 @@ func TestCORS(t *testing.T) {
 			expectNext:   false,
 			expectStatus: http.StatusNoContent,
 			expectHeaders: map[string]string{
-				"Access-Control-Allow-Origin": "http://localhost:3000",
+				"Access-Control-Allow-Origin":      "http://localhost:3000",
+				"Access-Control-Allow-Credentials": "true",
 			},
 		},
 		{

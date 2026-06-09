@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,9 +25,9 @@ var componentlog = logf.Log.WithName("component-resource")
 
 // SetupComponentWebhookWithManager registers the webhook for Component in the manager.
 func SetupComponentWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.Component{}).
-		WithValidator(&Validator{Client: mgr.GetClient()}).
-		WithDefaulter(&Defaulter{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.Component{}).
+		WithCustomValidator(&Validator{Client: mgr.GetClient()}).
+		WithCustomDefaulter(&Defaulter{}).
 		Complete()
 }
 
@@ -85,7 +86,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	allErrs = append(allErrs, validateUniqueTraitInstanceNames(component)...)
 
 	if len(allErrs) > 0 {
-		return warnings, allErrs.ToAggregate()
+		return warnings, apierrors.NewInvalid(component.GroupVersionKind().GroupKind(), component.GetName(), allErrs)
 	}
 
 	return warnings, nil
@@ -115,7 +116,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	allErrs = append(allErrs, validateUniqueTraitInstanceNames(newComponent)...)
 
 	if len(allErrs) > 0 {
-		return warnings, allErrs.ToAggregate()
+		return warnings, apierrors.NewInvalid(newComponent.GroupVersionKind().GroupKind(), newComponent.GetName(), allErrs)
 	}
 
 	return warnings, nil

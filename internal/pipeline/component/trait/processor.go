@@ -42,9 +42,13 @@ func NewProcessor(templateEngine *template.Engine) *Processor {
 
 // ProcessTraits applies all traits to the base resources.
 //
-// For each trait:
+// For each trait, in order:
 //   - Apply creates (new resources with targetPlane)
 //   - Apply patches (modify existing resources, respecting targetPlane)
+//   - Apply removes (delete entire resources, respecting targetPlane)
+//
+// Removes runs last so a single trait can fully express a substitution: create a
+// replacement, optionally patch siblings, then drop the unwanted base resource.
 func (p *Processor) ProcessTraits(
 	resources []renderer.RenderedResource,
 	trait *v1alpha1.Trait,
@@ -59,6 +63,12 @@ func (p *Processor) ProcessTraits(
 
 	// Then apply patches
 	err = p.ApplyTraitPatches(resources, trait, traitContext)
+	if err != nil {
+		return nil, err
+	}
+
+	// Finally apply removes
+	resources, err = p.ApplyTraitRemoves(resources, trait, traitContext)
 	if err != nil {
 		return nil, err
 	}
@@ -450,6 +460,178 @@ func FindTargetResources(resources []renderer.RenderedResource, target TargetSpe
 		matches = append(matches, rr)
 	}
 	return matches
+}
+
+// ApplyTraitRemoves deletes resources matched by trait.spec.removes.
+//
+// For each remove entry, resources matching TargetPlane/Kind/Group/Version are
+// found, optionally filtered by a `where` CEL expression, and the matched
+// resources are removed entirely from the slice. Supports forEach iteration.
+//
+// Returns the (possibly shorter) resource slice with matched resources excluded.
+func (p *Processor) ApplyTraitRemoves(
+	resources []renderer.RenderedResource,
+	trait *v1alpha1.Trait,
+	traitContext map[string]any,
+) ([]renderer.RenderedResource, error) {
+	if len(trait.Spec.Removes) == 0 {
+		return resources, nil
+	}
+
+	// Use pointer-identity to mark resources for deletion. The slice may grow during
+	// processing only for creates/patches (already done), so addresses are stable here.
+	toRemove := make(map[*renderer.RenderedResource]struct{})
+
+	for i := range trait.Spec.Removes {
+		remove := trait.Spec.Removes[i]
+		if err := p.collectRemovalsForEntry(resources, trait.Name, i, remove, traitContext, toRemove); err != nil {
+			return nil, fmt.Errorf("failed to apply trait remove #%d for trait %s: %w", i, trait.Name, err)
+		}
+	}
+
+	if len(toRemove) == 0 {
+		return resources, nil
+	}
+
+	filtered := make([]renderer.RenderedResource, 0, len(resources)-len(toRemove))
+	for i := range resources {
+		if _, drop := toRemove[&resources[i]]; drop {
+			continue
+		}
+		filtered = append(filtered, resources[i])
+	}
+	return filtered, nil
+}
+
+// collectRemovalsForEntry evaluates one TraitRemove entry (handling forEach) and
+// records every matching resource into toRemove. Resources are tracked by their
+// address in the original slice so the caller can do one pass to rebuild.
+func (p *Processor) collectRemovalsForEntry(
+	resources []renderer.RenderedResource,
+	traitName string,
+	removeIndex int,
+	remove v1alpha1.TraitRemove,
+	baseContext map[string]any,
+	toRemove map[*renderer.RenderedResource]struct{},
+) error {
+	if remove.ForEach == "" {
+		return p.collectRemovalsOnce(resources, traitName, removeIndex, remove, baseContext, toRemove)
+	}
+
+	itemsRaw, err := p.templateEngine.Render(remove.ForEach, baseContext)
+	if err != nil {
+		return fmt.Errorf("failed to evaluate forEach expression '%s' for trait %s remove #%d: %w", remove.ForEach, traitName, removeIndex, err)
+	}
+
+	items, err := renderer.ToIterableItems(itemsRaw)
+	if err != nil {
+		return fmt.Errorf("invalid forEach result for trait %s remove #%d: %w", traitName, removeIndex, err)
+	}
+
+	varName := remove.Var
+	if varName == "" {
+		varName = "item"
+	}
+
+	for i, item := range items {
+		iterContext := maps.Clone(baseContext)
+		iterContext[varName] = item
+
+		if err := p.collectRemovalsOnce(resources, traitName, removeIndex, remove, iterContext, toRemove); err != nil {
+			return fmt.Errorf("forEach iteration %d failed: %w", i, err)
+		}
+	}
+
+	return nil
+}
+
+// collectRemovalsOnce finds resources matching the remove's target+where and
+// records them by pointer in toRemove.
+func (p *Processor) collectRemovalsOnce(
+	resources []renderer.RenderedResource,
+	traitName string,
+	removeIndex int,
+	remove v1alpha1.TraitRemove,
+	context map[string]any,
+	toRemove map[*renderer.RenderedResource]struct{},
+) error {
+	target := TargetSpec{
+		Kind:        remove.Target.Kind,
+		Group:       remove.Target.Group,
+		Version:     remove.Target.Version,
+		Where:       remove.Target.Where,
+		TargetPlane: remove.TargetPlane,
+	}
+
+	// Walk resources by index so we can record stable pointers into the original slice.
+	previous, had := context["resource"]
+	defer func() {
+		if had {
+			context["resource"] = previous
+		} else {
+			delete(context, "resource")
+		}
+	}()
+
+	for i := range resources {
+		rr := &resources[i]
+		if !matchesTarget(*rr, target) {
+			continue
+		}
+
+		if target.Where != "" {
+			context["resource"] = rr.Resource
+			result, err := p.templateEngine.Render(target.Where, context)
+			if err != nil {
+				return fmt.Errorf("failed to evaluate where clause '%s' for trait %s remove #%d: %w", target.Where, traitName, removeIndex, err)
+			}
+			boolResult, ok := result.(bool)
+			if !ok {
+				return fmt.Errorf("where clause '%s' must evaluate to boolean for trait %s remove #%d, got %T", target.Where, traitName, removeIndex, result)
+			}
+			if !boolResult {
+				continue
+			}
+		}
+
+		toRemove[rr] = struct{}{}
+	}
+
+	return nil
+}
+
+// matchesTarget reports whether rr matches the given TargetSpec on plane, kind,
+// group and version. The `where` clause is evaluated separately by the caller.
+//
+// This mirrors FindTargetResources, but operates on a single resource so callers
+// can keep stable pointer identity while iterating.
+func matchesTarget(rr renderer.RenderedResource, target TargetSpec) bool {
+	if target.TargetPlane != "" && rr.TargetPlane != target.TargetPlane {
+		return false
+	}
+
+	resource := rr.Resource
+
+	if target.Kind != "" {
+		kind, ok := resource["kind"].(string)
+		if !ok || kind != target.Kind {
+			return false
+		}
+	}
+
+	group := ""
+	version := ""
+	if gv, ok := resource["apiVersion"].(string); ok {
+		group, version = splitAPIVersion(gv)
+	}
+	if target.Group != "" && group != target.Group {
+		return false
+	}
+	if target.Version != "" && version != target.Version {
+		return false
+	}
+
+	return true
 }
 
 // splitAPIVersion separates a Kubernetes apiVersion into group and version parts.

@@ -13,30 +13,24 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by Trait operations.
-type Client interface {
-	ListTraits(ctx context.Context, namespaceName string, params *gen.ListTraitsParams) (*gen.TraitList, error)
-	GetTrait(ctx context.Context, namespaceName string, traitName string) (*gen.Trait, error)
-	DeleteTrait(ctx context.Context, namespaceName string, traitName string) error
-}
-
 // Trait implements trait operations
 type Trait struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new trait implementation
-func New(client Client) *Trait {
-	return &Trait{client: client}
+func New(c client.Interface) *Trait {
+	return &Trait{client: c}
 }
 
 // List lists all traits in a namespace
 func (t *Trait) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceTrait, params); err != nil {
+	if err := cmdutil.RequireFields("list", "trait", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -66,7 +60,7 @@ func (t *Trait) List(params ListParams) error {
 
 // Get retrieves a single trait and outputs it as YAML
 func (t *Trait) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceTrait, params); err != nil {
+	if err := cmdutil.RequireFields("get", "trait", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -88,7 +82,7 @@ func (t *Trait) Get(params GetParams) error {
 
 // Delete deletes a single trait
 func (t *Trait) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceTrait, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "trait", map[string]string{"namespace": params.Namespace, "name": params.TraitName}); err != nil {
 		return err
 	}
 

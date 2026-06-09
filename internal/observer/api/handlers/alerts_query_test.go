@@ -254,7 +254,7 @@ func TestQueryAlerts_GenericError(t *testing.T) {
 	t.Parallel()
 
 	svc := servicemocks.NewMockAlertIncidentService(t)
-	svc.On("QueryAlerts", mock.Anything, mock.Anything).Return(nil, errors.New("boom"))
+	svc.On("QueryAlerts", mock.Anything, mock.Anything).Return(nil, errors.New("internal server error"))
 
 	h := &Handler{
 		baseHandler:          baseHandler{logger: noopLogger()},

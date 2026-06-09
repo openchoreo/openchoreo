@@ -1,0 +1,20 @@
+# ResourceReleaseBinding for the NATS resource in the `development` env.
+# spec.resourceRelease is intentionally omitted — the binding stays pending
+# until promoted to a specific ResourceRelease. See the README's "Promote
+# resources" step.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ResourceReleaseBinding
+metadata:
+  name: doclet-nats-development
+  namespace: default
+spec:
+  owner:
+    projectName: doclet
+    resourceName: doclet-nats
+  environment: development
+  retainPolicy: Delete
+  resourceTypeEnvironmentConfigs:
+    # Demo only — exposes NATS's built-in /varz monitoring at the gateway.
+    # The endpoint is unauthenticated and read-only; safe for the demo but
+    # avoid enabling in production.
+    adminEnabled: true

@@ -13,8 +13,10 @@ import (
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
 	"k8s.io/apimachinery/pkg/runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/schemaextract"
 	"github.com/openchoreo/openchoreo/internal/schema"
 )
 
@@ -67,6 +69,9 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 	ctx.Environment = extractEnvironmentData(input.Environment, input.DataPlane, input.DefaultNotificationChannel)
 	ctx.Gateway = ctx.Environment.Gateway
 
+	prefix := input.Metadata.ComponentName + "-" + input.Metadata.EnvironmentName
+	ctx.Derived = BuildDerivedContext(ctx.Configurations, ctx.Workload, ctx.Dependencies, prefix, input.EndpointResources)
+
 	return ctx, nil
 }
 
@@ -75,7 +80,6 @@ func BuildComponentContext(input *ComponentContextInput) (*ComponentContext, err
 // Parameters come from Component.Spec.Parameters only.
 // EnvironmentConfigs come from ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs only.
 func processComponentParameters(input *ComponentContextInput) (map[string]any, map[string]any, error) {
-	// Build both schema bundles
 	parametersBundle, envConfigsBundle, err := BuildStructuralSchemas(&SchemaInput{
 		ParametersSchema:         input.ComponentType.Spec.Parameters,
 		EnvironmentConfigsSchema: input.ComponentType.Spec.EnvironmentConfigs,
@@ -84,51 +88,47 @@ func processComponentParameters(input *ComponentContextInput) (map[string]any, m
 		return nil, nil, fmt.Errorf("failed to build schemas: %w", err)
 	}
 
-	// Extract component parameters (for parameters section only)
 	componentParams, err := extractParameters(input.Component.Spec.Parameters)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to extract component parameters: %w", err)
 	}
 
-	// Process parameters: prune to parameters schema, apply defaults, validate
-	var parameters map[string]any
-	if parametersBundle != nil {
-		parameters = make(map[string]any, len(componentParams))
-		maps.Copy(parameters, componentParams)
-		pruning.Prune(parameters, parametersBundle.Structural, false)
-		parameters = schema.ApplyDefaults(parameters, parametersBundle.Structural)
-		if err := schema.ValidateWithJSONSchema(parameters, parametersBundle.JSONSchema); err != nil {
-			return nil, nil, fmt.Errorf("parameters validation failed: %w", err)
-		}
-	} else {
-		// No parameters schema defined - discard all parameters
-		parameters = make(map[string]any)
+	parameters, err := applySchemaSection(componentParams, parametersBundle, "parameters")
+	if err != nil {
+		return nil, nil, err
 	}
 
-	// Process environmentConfigs: ONLY from ReleaseBinding (no merging with Component)
-	var envConfigs map[string]any
+	var rawEnvConfigs map[string]any
 	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs != nil {
-		envConfigs, err = extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs)
+		rawEnvConfigs, err = extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to extract environment configs: %w", err)
 		}
-	} else {
-		envConfigs = make(map[string]any)
 	}
 
-	// Prune against schema, apply defaults, and validate
-	if envConfigsBundle != nil {
-		pruning.Prune(envConfigs, envConfigsBundle.Structural, false)
-		envConfigs = schema.ApplyDefaults(envConfigs, envConfigsBundle.Structural)
-		if err := schema.ValidateWithJSONSchema(envConfigs, envConfigsBundle.JSONSchema); err != nil {
-			return nil, nil, fmt.Errorf("environmentConfigs validation failed: %w", err)
-		}
-	} else {
-		// No environmentConfigs schema defined - discard all environmentConfigs
-		envConfigs = make(map[string]any)
+	envConfigs, err := applySchemaSection(rawEnvConfigs, envConfigsBundle, "environmentConfigs")
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return parameters, envConfigs, nil
+}
+
+// applySchemaSection prunes, applies defaults, and validates a raw map of values against a
+// schema bundle. Returns an empty map if bundle is nil (no schema defined).
+// Used by component and trait context builders to process both parameters and environmentConfigs.
+func applySchemaSection(raw map[string]any, bundle *SchemaBundle, section string) (map[string]any, error) {
+	if bundle == nil {
+		return make(map[string]any), nil
+	}
+	out := make(map[string]any, len(raw))
+	maps.Copy(out, raw)
+	pruning.Prune(out, bundle.Structural, false)
+	out = schema.ApplyDefaults(out, bundle.Structural)
+	if err := schema.ValidateWithJSONSchema(out, bundle.JSONSchema); err != nil {
+		return nil, fmt.Errorf("%s validation failed: %w", section, err)
+	}
+	return out, nil
 }
 
 // ToMap converts the ComponentContext to map[string]any for CEL evaluation.
@@ -370,6 +370,34 @@ func ExtractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
 	}
 
 	return data
+}
+
+// ExtractEndpointResources parses each endpoint's API schema (OpenAPI for HTTP,
+// protobuf for gRPC) and returns the extracted routes keyed by endpoint name.
+// Only endpoints with at least one extracted resource are included.
+//
+// This is computed lazily by the pipeline only when a template references the
+// workload.toEndpointResources() macro, so schema-less or unused endpoints incur
+// no parsing cost. Extraction is best effort: a missing or unparseable schema is
+// logged as a warning and simply omitted, letting templates fall back to
+// catch-all routing.
+func ExtractEndpointResources(workload *v1alpha1.Workload) EndpointResourceMap {
+	result := make(EndpointResourceMap)
+	if workload == nil {
+		return result
+	}
+	for name, endpoint := range workload.Spec.Endpoints {
+		resources, err := schemaextract.Extract(endpoint.Type, endpoint.Schema)
+		if err != nil {
+			logf.Log.WithName("schemaextract").Info(
+				"failed to extract endpoint API schema; falling back to catch-all routing",
+				"endpoint", name, "type", endpoint.Type, "error", err.Error())
+		}
+		if len(resources) > 0 {
+			result[name] = resources
+		}
+	}
+	return result
 }
 
 // structToMap converts typed Go structs to map[string]any for CEL evaluation.

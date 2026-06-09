@@ -12,9 +12,14 @@ A sample application that demonstrates OpenChoreo's **tracing**, **alerting**, a
 ## Deploy
 
 ```bash
-kubectl apply -f samples/from-image/url-shortener/alerting-demo/alert-notification-channels.yaml
-kubectl apply -f samples/from-image/url-shortener/project.yaml
-kubectl apply -f samples/from-image/url-shortener/components/
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/alerting-demo/alert-notification-channels.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/project.yaml
+kubectl apply \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/postgres.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/redis.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/api-service.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/analytics-service.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/frontend.yaml
 ```
 
 This deploys the notification channel first, then five components (snip-postgres, snip-redis, snip-api-service, snip-analytics-service, snip-frontend). The alert trait is already attached to the frontend component. Distributed tracing works out of the box once deployed.
@@ -30,7 +35,7 @@ A log-based alert rule on the frontend triggers when `status=500` appears more t
 Enable the alert and link it to the notification channel:
 
 ```bash
-kubectl apply -f samples/from-image/url-shortener/alerting-demo/enable-alert.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/alerting-demo/enable-alert.yaml
 ```
 
 ### Trigger the Alert
@@ -40,14 +45,13 @@ kubectl apply -f samples/from-image/url-shortener/alerting-demo/enable-alert.yam
 Start generating traffic (auto-detects the frontend URL from the ReleaseBinding):
 
 ```bash
-chmod +x samples/from-image/url-shortener/alerting-demo/trigger-alerts.sh
-./samples/from-image/url-shortener/alerting-demo/trigger-alerts.sh
+curl -sSL https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/alerting-demo/trigger-alerts.sh | bash
 ```
 
 Inject the misconfigured Postgres DSN:
 
 ```bash
-kubectl apply -f samples/from-image/url-shortener/alerting-demo/failure-scenario.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/alerting-demo/failure-scenario.yaml
 ```
 
 After the alert fires, revert by applying the fix from the UI if suggested, or manually via:
@@ -59,5 +63,5 @@ kubectl patch releasebinding snip-api-service-development --type=json -p '[{"op"
 ## Cleanup
 
 ```bash
-kubectl delete -f samples/from-image/url-shortener/project.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/project.yaml
 ```

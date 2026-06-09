@@ -11,11 +11,11 @@ set -euo pipefail
 #   install/k3d/k3d-observability-plane.sh
 
 # -- versions (update these on release branches) --
-OPENCHOREO_REF="main"
-OPENCHOREO_OP_VERSION="0.0.0-latest-dev"
-LOGS_OPENSEARCH_VERSION="0.3.11"
-TRACES_OPENSEARCH_VERSION="0.3.10"
-METRICS_PROMETHEUS_VERSION="0.2.5"
+OPENCHOREO_REF="${OPENCHOREO_REF:-main}"           # overridable via env; defaults to main
+OPENCHOREO_OP_VERSION="${OPENCHOREO_OP_VERSION:-0.0.0-latest-dev}"  # overridable via env
+LOGS_OPENSEARCH_VERSION="0.4.1"
+TRACES_OPENSEARCH_VERSION="0.4.1"
+METRICS_PROMETHEUS_VERSION="0.6.1"
 
 # -- derived constants --
 RAW_BASE="https://raw.githubusercontent.com/openchoreo/openchoreo/${OPENCHOREO_REF}"
@@ -39,7 +39,8 @@ helm upgrade --install observability-logs-opensearch \
   --create-namespace \
   --namespace "$OP_NS" \
   --version "$LOGS_OPENSEARCH_VERSION" \
-  --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials"
+  --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
+  --set adapter.openSearchSecretName="opensearch-admin-credentials"
 
 step "Installing OpenSearch-based traces module..."
 helm upgrade --install observability-traces-opensearch \

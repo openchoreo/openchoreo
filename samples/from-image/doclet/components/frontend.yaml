@@ -1,0 +1,45 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: doclet-frontend
+  namespace: default
+spec:
+  owner:
+    projectName: doclet
+
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/web-application
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: doclet-frontend
+  namespace: default
+spec:
+  owner:
+    componentName: doclet-frontend
+    projectName: doclet
+  endpoints:
+    http:
+      type: HTTP
+      port: 80
+      visibility: [external]
+  dependencies:
+    endpoints:
+      - project: doclet
+        component: doclet-document
+        name: http
+        visibility: project
+        envBindings:
+          address: DOC_SERVICE_URL
+      - project: doclet
+        component: doclet-collab
+        name: ws
+        visibility: project
+        envBindings:
+          address: COLLAB_SERVICE_URL
+  container:
+    image: ghcr.io/openchoreo/samples/doclet-frontend:latest

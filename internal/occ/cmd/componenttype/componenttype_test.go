@@ -4,10 +4,7 @@
 package componenttype
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -15,46 +12,20 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/componenttype/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// captureStdout captures stdout output from a function call.
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
-
 func TestPrint_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(nil))
 	})
 	assert.Contains(t, out, "No component types found")
 }
 
 func TestPrint_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList([]gen.ComponentType{}))
 	})
 	assert.Contains(t, out, "No component types found")
@@ -80,7 +51,7 @@ func TestPrint_WithItems(t *testing.T) {
 		},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -104,7 +75,7 @@ func TestPrint_NilSpec(t *testing.T) {
 		},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -114,24 +85,24 @@ func TestPrint_NilSpec(t *testing.T) {
 // --- Validation tests ---
 
 func TestList_ValidationError(t *testing.T) {
-	ct := New(mocks.NewMockClient(t))
+	ct := New(mocks.NewMockInterface(t))
 	assert.Error(t, ct.List(ListParams{Namespace: ""}))
 }
 
 func TestGet_ValidationError(t *testing.T) {
-	ct := New(mocks.NewMockClient(t))
+	ct := New(mocks.NewMockInterface(t))
 	assert.Error(t, ct.Get(GetParams{Namespace: ""}))
 }
 
 func TestDelete_ValidationError(t *testing.T) {
-	ct := New(mocks.NewMockClient(t))
+	ct := New(mocks.NewMockInterface(t))
 	assert.Error(t, ct.Delete(DeleteParams{Namespace: "my-org", ComponentTypeName: ""}))
 }
 
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentTypes(mock.Anything, "my-org", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	ct := New(mc)
@@ -139,14 +110,14 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentTypes(mock.Anything, "my-org", mock.Anything).Return(&gen.ComponentTypeList{
 		Items:      []gen.ComponentType{{Metadata: gen.ObjectMeta{Name: "web-app"}}},
 		Pagination: gen.Pagination{},
 	}, nil)
 
 	ct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, ct.List(ListParams{Namespace: "my-org"}))
 	})
 
@@ -156,7 +127,7 @@ func TestList_Success(t *testing.T) {
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
 	workloadType := gen.ComponentTypeSpecWorkloadTypeDeployment
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentTypes(mock.Anything, "my-org", mock.Anything).Return(&gen.ComponentTypeList{
 		Items: []gen.ComponentType{
 			{
@@ -171,7 +142,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	ct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, ct.List(ListParams{Namespace: "my-org"}))
 	})
 
@@ -180,14 +151,14 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListComponentTypes(mock.Anything, "my-org", mock.Anything).Return(&gen.ComponentTypeList{
 		Items:      []gen.ComponentType{},
 		Pagination: gen.Pagination{},
 	}, nil)
 
 	ct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, ct.List(ListParams{Namespace: "my-org"}))
 	})
 
@@ -197,7 +168,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponentType(mock.Anything, "my-org", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	ct := New(mc)
@@ -205,13 +176,13 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetComponentType(mock.Anything, "my-org", "web-app").Return(&gen.ComponentType{
 		Metadata: gen.ObjectMeta{Name: "web-app"},
 	}, nil)
 
 	ct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, ct.Get(GetParams{Namespace: "my-org", ComponentTypeName: "web-app"}))
 	})
 
@@ -221,7 +192,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteComponentType(mock.Anything, "my-org", "web-app").Return(fmt.Errorf("forbidden: web-app"))
 
 	ct := New(mc)
@@ -229,11 +200,11 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteComponentType(mock.Anything, "my-org", "web-app").Return(nil)
 
 	ct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, ct.Delete(DeleteParams{Namespace: "my-org", ComponentTypeName: "web-app"}))
 	})
 

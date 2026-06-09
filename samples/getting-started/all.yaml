@@ -197,8 +197,8 @@ spec:
                       memory: ${environmentConfigs.resources.limits.memory}
                   env: ${dependencies.toContainerEnvs()}
                   envFrom: ${configurations.toContainerEnvFrom()}
-                  volumeMounts: ${configurations.toContainerVolumeMounts()}
-              volumes: ${configurations.toVolumes()}
+                  volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
+              volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
 
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
@@ -381,8 +381,8 @@ spec:
                       memory: ${environmentConfigs.resources.limits.memory}
                   env: ${dependencies.toContainerEnvs()}
                   envFrom: ${configurations.toContainerEnvFrom()}
-                  volumeMounts: ${configurations.toContainerVolumeMounts()}
-              volumes: ${configurations.toVolumes()}
+                  volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
+              volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
 
     - id: service
       includeWhen: ${size(workload.endpoints) > 0}
@@ -630,8 +630,8 @@ spec:
                       memory: ${environmentConfigs.resources.limits.memory}
                   env: ${dependencies.toContainerEnvs()}
                   envFrom: ${configurations.toContainerEnvFrom()}
-                  volumeMounts: ${configurations.toContainerVolumeMounts()}
-              volumes: ${configurations.toVolumes()}
+                  volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
+              volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
 
     - id: service
       includeWhen: ${size(workload.endpoints) > 0}
@@ -807,6 +807,8 @@ spec:
         restartPolicy:
           type: string
           default: OnFailure
+        timeZone:
+          type: string
 
   environmentConfigs:
     openAPIV3Schema:
@@ -855,6 +857,8 @@ spec:
           labels: ${metadata.labels}
         spec:
           schedule: ${environmentConfigs.schedule}
+          timeZone: |
+            ${has(parameters.timeZone) ? parameters.timeZone : oc_omit()}
           successfulJobsHistoryLimit: ${parameters.successfulJobsHistoryLimit}
           failedJobsHistoryLimit: ${parameters.failedJobsHistoryLimit}
           concurrencyPolicy: ${parameters.concurrencyPolicy}
@@ -886,8 +890,8 @@ spec:
                           memory: ${environmentConfigs.resources.limits.memory}
                       env: ${dependencies.toContainerEnvs()}
                       envFrom: ${configurations.toContainerEnvFrom()}
-                      volumeMounts: ${configurations.toContainerVolumeMounts()}
-                  volumes: ${configurations.toVolumes()}
+                      volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
+                  volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
 
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}
@@ -963,6 +967,812 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterResourceType
+metadata:
+  name: postgres
+  annotations:
+    openchoreo.dev/description: >-
+      In-cluster PostgreSQL database backed by a single-replica StatefulSet.
+      Ephemeral storage (emptyDir); for demonstration purposes only.
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      properties:
+        database:
+          type: string
+          default: appdb
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        memory:
+          type: string
+          default: 256Mi
+        adminEnabled:
+          type: boolean
+          default: false
+
+  retainPolicy: Delete
+
+  outputs:
+    - name: host
+      value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"
+    - name: port
+      value: "5432"
+    - name: database
+      configMapKeyRef:
+        name: "${metadata.name}-config"
+        key: database
+    # The application user (limited grants), created at initdb by the bootstrap
+    # script. Applications consume this output via Workload envBindings.
+    - name: username
+      configMapKeyRef:
+        name: "${metadata.name}-config"
+        key: username
+    - name: password
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: password
+    # Convenience output: full Postgres connection URL with the application
+    # user's password embedded. Composed on the data plane by ESO's secret
+    # template; the password bytes never reach the control plane (same
+    # guarantee as the `password` output). sslmode=disable matches the
+    # CRT's plaintext StatefulSet config.
+    - name: url
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: url
+    # Adminer URL with driver=pgsql, server, username=demo (deliberately weak
+    # superuser created for the demo UI), db pre-filled via query params.
+    # Paste the value of adminPassword on the Adminer login form.
+    - name: adminURL
+      value: >-
+        ${environmentConfigs.adminEnabled
+          ? (has(gateway.ingress.external.https)
+              ? "https://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.https.host + ":" + string(gateway.ingress.external.https.port) + "/?pgsql=" + metadata.name + "&username=demo&db=" + parameters.database
+              : has(gateway.ingress.external.http)
+                  ? "http://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.http.host + ":" + string(gateway.ingress.external.http.port) + "/?pgsql=" + metadata.name + "&username=demo&db=" + parameters.database
+                  : "no-gateway-configured")
+          : "disabled"}
+    # DEMO ONLY: literal "demo" password for the demo superuser. Used to log
+    # into the admin UI. The postgres built-in superuser and the application
+    # user have ESO-generated random passwords that never appear in any output.
+    - name: adminPassword
+      value: >-
+        ${environmentConfigs.adminEnabled ? "demo" : "disabled"}
+
+  resources:
+    - id: config
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${metadata.name}-config
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        data:
+          database: ${parameters.database}
+          username: ${metadata.resourceName}-user
+
+    # Bootstrap scripts: 01 creates the application user, 02 creates a
+    # demo superuser used by the Adminer login. Both run once on initdb
+    # (when the data directory is empty) in alphabetical order. The
+    # superuser created by the image (postgres) is reserved for internal
+    # use; its password is ESO-generated and never surfaced.
+    - id: init-scripts
+      template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${metadata.name}-init
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        data:
+          01-create-app-user.sh: |
+            #!/bin/bash
+            set -e
+            psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<EOSQL
+              CREATE USER "$APPUSER" WITH PASSWORD '$APPUSER_PASSWORD';
+              GRANT ALL ON DATABASE "$POSTGRES_DB" TO "$APPUSER";
+              GRANT ALL ON SCHEMA public TO "$APPUSER";
+            EOSQL
+          02-create-demo-user.sh: |
+            #!/bin/bash
+            set -e
+            psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<EOSQL
+              CREATE USER demo WITH SUPERUSER PASSWORD 'demo';
+            EOSQL
+
+    # Postgres superuser password: generated on the data plane by ESO and
+    # never written to the control plane. Used by initdb and by the init
+    # scripts above; not surfaced to consumers.
+    - id: password-gen-postgres
+      template:
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
+        metadata:
+          name: ${metadata.name}-creds-postgres
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          length: 32
+          digits: 8
+          symbols: 0
+          noUpper: false
+          allowRepeat: true
+
+    - id: creds-postgres
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.name}-creds-postgres
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          # Sync once. The Password generator is stateless — every call
+          # returns a NEW random value, so a non-zero refreshInterval would
+          # rotate the password and break the postgres user (whose password
+          # is baked in at initdb).
+          refreshInterval: "0"
+          target:
+            name: ${metadata.name}-creds-postgres
+            creationPolicy: Owner
+          dataFrom:
+            - sourceRef:
+                generatorRef:
+                  apiVersion: generators.external-secrets.io/v1alpha1
+                  kind: Password
+                  name: ${metadata.name}-creds-postgres
+
+    # Application user password: generated on the data plane by ESO and
+    # never written to the control plane. Surfaced via the `password` output
+    # as a secretKeyRef.
+    - id: password-gen-app
+      template:
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          length: 32
+          digits: 8
+          symbols: 0
+          noUpper: false
+          allowRepeat: true
+
+    - id: creds
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          # Sync once — see note above the `creds-postgres` ExternalSecret.
+          refreshInterval: "0"
+          target:
+            name: ${metadata.name}-creds
+            creationPolicy: Owner
+            # ESO templates the Secret data DP-side using the fetched
+            # password. The control plane only stores the literal `{{ .password }}`
+            # placeholder, never the resolved bytes.
+            template:
+              type: Opaque
+              data:
+                password: "{{ .password }}"
+                url: "postgres://${metadata.resourceName}-user:{{ .password }}@${metadata.name}.${metadata.namespace}.svc.cluster.local:5432/${parameters.database}?sslmode=disable"
+          dataFrom:
+            - sourceRef:
+                generatorRef:
+                  apiVersion: generators.external-secrets.io/v1alpha1
+                  kind: Password
+                  name: ${metadata.name}-creds
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}
+          ports:
+            - name: postgres
+              port: 5432
+              targetPort: 5432
+
+    - id: statefulset
+      readyWhen: "${applied.statefulset.status.readyReplicas == applied.statefulset.status.replicas && applied.statefulset.status.replicas > 0}"
+      template:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          serviceName: ${metadata.name}
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${metadata.name}
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}
+            spec:
+              containers:
+                - name: postgres
+                  image: postgres:16-alpine
+                  resources:
+                    limits:
+                      memory: ${environmentConfigs.memory}
+                  env:
+                    - name: POSTGRES_USER
+                      value: postgres
+                    - name: POSTGRES_DB
+                      valueFrom:
+                        configMapKeyRef:
+                          name: ${metadata.name}-config
+                          key: database
+                    - name: POSTGRES_PASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${metadata.name}-creds-postgres
+                          key: password
+                    - name: APPUSER
+                      valueFrom:
+                        configMapKeyRef:
+                          name: ${metadata.name}-config
+                          key: username
+                    - name: APPUSER_PASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${metadata.name}-creds
+                          key: password
+                    - name: PGDATA
+                      value: /var/lib/postgresql/data/pgdata
+                  ports:
+                    - containerPort: 5432
+                      name: postgres
+                  volumeMounts:
+                    - name: data
+                      mountPath: /var/lib/postgresql/data
+                    - name: init-scripts
+                      mountPath: /docker-entrypoint-initdb.d
+              volumes:
+                - name: data
+                  emptyDir: {}
+                - name: init-scripts
+                  configMap:
+                    name: ${metadata.name}-init
+                    defaultMode: 0755
+
+    - id: admin-deployment
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${metadata.name}-admin
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}-admin
+            spec:
+              containers:
+                - name: adminer
+                  image: adminer:4.8.1-standalone
+                  env:
+                    - name: ADMINER_DEFAULT_SERVER
+                      value: ${metadata.name}
+                  ports:
+                    - containerPort: 8080
+                      name: http
+
+    - id: admin-service
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}-admin
+          ports:
+            - name: http
+              port: 8080
+              targetPort: 8080
+
+    - id: admin-route
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
+          hostnames: |
+            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + h)}
+          rules:
+            - backendRefs:
+                - name: ${metadata.name}-admin
+                  port: 8080
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterResourceType
+metadata:
+  name: valkey
+  annotations:
+    openchoreo.dev/description: >-
+      In-cluster Valkey cache (Redis-protocol-compatible) backed by a
+      single-replica StatefulSet. In-memory only; data is lost on pod restart.
+      For demonstration purposes only.
+spec:
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        memory:
+          type: string
+          default: 128Mi
+        adminEnabled:
+          type: boolean
+          default: false
+
+  retainPolicy: Delete
+
+  outputs:
+    - name: host
+      value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"
+    - name: port
+      value: "6379"
+    - name: password
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: password
+    # Standard Redis URI (IANA-registered `redis://` scheme). Consumed
+    # natively by go-redis, redis-py, Jedis URI mode, Lettuce, node-redis,
+    # `redis-cli -u`, and most other Redis clients. Composed DP-side by
+    # ESO's secret template; the password bytes never reach the control
+    # plane (same guarantee as the `password` output).
+    - name: url
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: url
+    # StackExchange.Redis configuration string ("host:port,password=xxx").
+    # This is the format expected by .NET Redis clients including
+    # Microsoft.Extensions.Caching.StackExchangeRedis (ASP.NET's
+    # IDistributedCache). Documented at
+    # https://stackexchange.github.io/StackExchange.Redis/Configuration —
+    # consumers can append further options inline (e.g.
+    # ",abortConnect=false,ssl=false"). Composed DP-side by ESO; password
+    # bytes never reach the control plane.
+    - name: connectionString
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: connectionString
+    # Admin URL points at a Redis Commander instance that auto-connects to
+    # Valkey using the same ESO-generated password (wired via env vars on the
+    # admin pod). The dev opens the URL and lands directly in the data
+    # browser — no login form, no password to paste.
+    - name: adminURL
+      value: >-
+        ${environmentConfigs.adminEnabled
+          ? (has(gateway.ingress.external.https)
+              ? "https://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.https.host + ":" + string(gateway.ingress.external.https.port) + "/"
+              : has(gateway.ingress.external.http)
+                  ? "http://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.http.host + ":" + string(gateway.ingress.external.http.port) + "/"
+                  : "no-gateway-configured")
+          : "disabled"}
+
+  resources:
+    # Valkey requirepass: generated on the data plane by ESO and never written
+    # to the control plane. Surfaced via the `password` output as a
+    # secretKeyRef.
+    - id: password-generator
+      template:
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          length: 32
+          digits: 8
+          symbols: 0
+          noUpper: false
+          allowRepeat: true
+
+    - id: creds
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          # Sync once. The Password generator is stateless — every call
+          # returns a NEW random value, so a non-zero refreshInterval would
+          # rotate the password periodically and desync running consumers
+          # whose env vars were resolved at pod-start.
+          refreshInterval: "0"
+          target:
+            name: ${metadata.name}-creds
+            creationPolicy: Owner
+            # ESO templates the Secret data DP-side using the fetched
+            # password. The control plane only stores the literal
+            # `{{ .password }}` placeholder, never the resolved bytes.
+            template:
+              type: Opaque
+              data:
+                password: "{{ .password }}"
+                url: "redis://:{{ .password }}@${metadata.name}.${metadata.namespace}.svc.cluster.local:6379"
+                connectionString: "${metadata.name}.${metadata.namespace}.svc.cluster.local:6379,password={{ .password }}"
+          dataFrom:
+            - sourceRef:
+                generatorRef:
+                  apiVersion: generators.external-secrets.io/v1alpha1
+                  kind: Password
+                  name: ${metadata.name}-creds
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}
+          ports:
+            - name: valkey
+              port: 6379
+              targetPort: 6379
+
+    - id: statefulset
+      readyWhen: "${applied.statefulset.status.readyReplicas == applied.statefulset.status.replicas && applied.statefulset.status.replicas > 0}"
+      template:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          serviceName: ${metadata.name}
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${metadata.name}
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}
+            spec:
+              containers:
+                - name: valkey
+                  image: valkey/valkey:8-alpine
+                  resources:
+                    limits:
+                      memory: ${environmentConfigs.memory}
+                  env:
+                    - name: VALKEY_PASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${metadata.name}-creds
+                          key: password
+                  args:
+                    - --requirepass
+                    - $(VALKEY_PASSWORD)
+                  ports:
+                    - containerPort: 6379
+                      name: valkey
+
+    - id: admin-deployment
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${metadata.name}-admin
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}-admin
+            spec:
+              containers:
+                # Redis Commander upstream does not publish semver tags; only
+                # :latest and branch-style tags. Production CRTs should pin a
+                # digest. Acceptable for getting-started demo.
+                - name: redis-commander
+                  image: rediscommander/redis-commander:latest
+                  env:
+                    # REDIS_PASSWORD must be defined before REDIS_HOSTS so
+                    # K8s's $(VAR) substitution can fold it into the
+                    # connection string at container start.
+                    - name: REDIS_PASSWORD
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${metadata.name}-creds
+                          key: password
+                    - name: REDIS_HOSTS
+                      value: "${metadata.resourceName}:${metadata.name}:6379:0:$(REDIS_PASSWORD)"
+                  ports:
+                    - containerPort: 8081
+                      name: http
+
+    - id: admin-service
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}-admin
+          ports:
+            - name: http
+              port: 8081
+              targetPort: 8081
+
+    - id: admin-route
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
+          hostnames: |
+            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + h)}
+          rules:
+            - backendRefs:
+                - name: ${metadata.name}-admin
+                  port: 8081
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterResourceType
+metadata:
+  name: nats
+  annotations:
+    openchoreo.dev/description: >-
+      In-cluster NATS Core pub/sub server (no JetStream) backed by a
+      single-replica Deployment. Stateless and in-memory; for demonstration
+      purposes only. Token-based auth on the client port; the monitoring
+      port serves read-only diagnostics.
+spec:
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        memory:
+          type: string
+          default: 64Mi
+        adminEnabled:
+          type: boolean
+          default: false
+
+  retainPolicy: Delete
+
+  outputs:
+    - name: host
+      value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"
+    - name: port
+      value: "4222"
+    - name: token
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: password
+    # Convenience output: full NATS client URL with the token embedded.
+    # Composed on the data plane by ESO's secret template; the token bytes
+    # never reach the control plane (same guarantee as the `token` output).
+    - name: url
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: url
+    # Admin URL points at NATS's built-in HTTP monitoring endpoint (port
+    # 8222), which serves JSON diagnostics like /varz, /connz, /subsz. The
+    # endpoint is unauthenticated and read-only; the dev opens the URL and
+    # navigates the JSON pages directly.
+    - name: adminURL
+      value: >-
+        ${environmentConfigs.adminEnabled
+          ? (has(gateway.ingress.external.https)
+              ? "https://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.https.host + ":" + string(gateway.ingress.external.https.port) + "/"
+              : has(gateway.ingress.external.http)
+                  ? "http://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.http.host + ":" + string(gateway.ingress.external.http.port) + "/"
+                  : "no-gateway-configured")
+          : "disabled"}
+
+  resources:
+    # NATS auth token: generated on the data plane by ESO and never written
+    # to the control plane. Surfaced via the `token` output as a
+    # secretKeyRef.
+    - id: password-generator
+      template:
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          length: 32
+          digits: 8
+          symbols: 0
+          noUpper: false
+          allowRepeat: true
+
+    - id: creds
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          # Sync once. The Password generator is stateless — every call
+          # returns a NEW random value, so a non-zero refreshInterval would
+          # rotate the password periodically and desync running consumers
+          # whose env vars were resolved at pod-start.
+          refreshInterval: "0"
+          target:
+            name: ${metadata.name}-creds
+            creationPolicy: Owner
+            # ESO templates the Secret data DP-side using the fetched
+            # password. The control plane only stores the literal `{{ .password }}`
+            # placeholder, never the resolved bytes.
+            template:
+              type: Opaque
+              data:
+                password: "{{ .password }}"
+                url: "nats://{{ .password }}@${metadata.name}.${metadata.namespace}.svc.cluster.local:4222"
+          dataFrom:
+            - sourceRef:
+                generatorRef:
+                  apiVersion: generators.external-secrets.io/v1alpha1
+                  kind: Password
+                  name: ${metadata.name}-creds
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}
+          ports:
+            - name: client
+              port: 4222
+              targetPort: 4222
+            - name: monitor
+              port: 8222
+              targetPort: 8222
+
+    - id: deployment
+      readyWhen: "${applied.deployment.status.readyReplicas == applied.deployment.status.replicas && applied.deployment.status.replicas > 0}"
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${metadata.name}
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}
+            spec:
+              containers:
+                - name: nats
+                  image: nats:2.10-alpine
+                  resources:
+                    limits:
+                      memory: ${environmentConfigs.memory}
+                  args:
+                    - --http_port
+                    - "8222"
+                    - --auth
+                    - $(NATS_TOKEN)
+                  env:
+                    - name: NATS_TOKEN
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${metadata.name}-creds
+                          key: password
+                  ports:
+                    - containerPort: 4222
+                      name: client
+                    - containerPort: 8222
+                      name: monitor
+
+    # NATS's monitoring port (8222) is exposed on the same Service that
+    # serves the client port. The HTTPRoute below just routes the gateway
+    # to that monitoring port — no separate admin pod is needed.
+    - id: admin-route
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
+          hostnames: |
+            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + h)}
+          rules:
+            - backendRefs:
+                - name: ${metadata.name}
+                  port: 8222
+
+---
+apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflow
 metadata:
   name: paketo-buildpacks-builder
@@ -974,9 +1784,7 @@ spec:
   workflowPlaneRef:
     kind: ClusterWorkflowPlane
     name: default
-
   ttlAfterCompletion: "1d"
-
   parameters:
     openAPIV3Schema:
       type: object
@@ -1115,13 +1923,11 @@ spec:
             resources:
               requests:
                 storage: 2Gi
-
   externalRefs:
     - id: git-secret-reference
       apiVersion: openchoreo.dev/v1alpha1
       kind: SecretReference
       name: ${parameters.repository.secretRef}
-
   resources:
     - id: git-secret
       includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
@@ -1149,7 +1955,6 @@ spec:
                 "property": has(secret.remoteRef.property) && secret.remoteRef.property != "" ? secret.remoteRef.property : oc_omit()
               }
             })}
-
     - id: registry-push-secret
       template:
         apiVersion: external-secrets.io/v1
@@ -1868,6 +2673,7 @@ spec:
               enum:
                 - log
                 - metric
+                - budget
               description: "The data source type for the alert rule."
             query:
               type: string
@@ -1936,6 +2742,10 @@ spec:
                   type: boolean
                   default: false
                   description: "Enables incident creation when this alert fires. When enabled, a corresponding incident will be created in the incident management system."
+                triggerAiCostAnalysis:
+                  type: boolean
+                  default: false
+                  description: "Enables AI-powered cost analysis when an incident is created for a budget alert. Provides automated cost breakdown and optimization recommendations. Requires incident.enabled to also be true and is only valid for budget source type."
                 triggerAiRca:
                   type: boolean
                   default: false
@@ -1946,6 +2756,10 @@ spec:
       message: "A notification channel is mandatory for alert rules (incident-only rules are not supported). Provide environmentConfigs.actions.notifications.channels or set environment.defaultNotificationChannel."
     - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiRca == false || environmentConfigs.actions.incident.enabled == true}"
       message: "incident.enabled must be true when triggerAiRca is true. AI-powered root cause analysis requires incident creation to be enabled."
+    - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiCostAnalysis == false || environmentConfigs.actions.incident.enabled == true}"
+      message: "incident.enabled must be true when triggerAiCostAnalysis is true. AI-powered cost analysis requires incident creation to be enabled."
+    - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiCostAnalysis == false || parameters.source.type == 'budget'}"
+      message: "triggerAiCostAnalysis can only be enabled for budget source type alerts."
 
   creates:
     - targetPlane: observabilityplane
@@ -1982,5 +2796,6 @@ spec:
                   ? environmentConfigs.actions.notifications.channels
                   : [environment.defaultNotificationChannel]}
             incident:
-              enabled: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && (environmentConfigs.actions.incident.enabled || environmentConfigs.actions.incident.triggerAiRca)}
+              enabled: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && (environmentConfigs.actions.incident.enabled || environmentConfigs.actions.incident.triggerAiRca || environmentConfigs.actions.incident.triggerAiCostAnalysis)}
+              triggerAiCostAnalysis: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiCostAnalysis}
               triggerAiRca: ${has(environmentConfigs.actions) && has(environmentConfigs.actions.incident) && environmentConfigs.actions.incident.enabled && environmentConfigs.actions.incident.triggerAiRca}

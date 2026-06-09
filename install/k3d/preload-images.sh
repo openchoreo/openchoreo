@@ -333,15 +333,17 @@ get_helm_chart_images() {
 #   k3d cluster create test --image rancher/k3s:vX.XX.X-k3sX
 #   kubectl get pods -A -o jsonpath='{range .items[*]}{.spec.containers[*].image}{"\n"}{end}' | sort -u
 #
-# Current versions are for k3s v1.32.9-k3s1 (as configured in install/k3d configs)
+# Current versions are for k3s v1.36.1-k3s1 (as configured in install/k3d configs)
 get_k3s_images() {
     cat <<EOF
-docker.io/rancher/mirrored-coredns-coredns:1.12.3
-docker.io/rancher/local-path-provisioner:v0.0.31
-docker.io/rancher/mirrored-library-traefik:3.3.6
-docker.io/rancher/klipper-helm:v0.9.8-build20250709
-docker.io/rancher/klipper-lb:v0.4.13
-docker.io/rancher/mirrored-metrics-server:v0.8.0
+docker.io/rancher/klipper-helm:v0.10.0-build20260513
+docker.io/rancher/klipper-lb:v0.4.17
+docker.io/rancher/local-path-provisioner:v0.0.36
+docker.io/rancher/mirrored-coredns-coredns:1.14.3
+docker.io/rancher/mirrored-library-busybox:1.37.0
+docker.io/rancher/mirrored-library-traefik:3.6.13
+docker.io/rancher/mirrored-metrics-server:v0.8.1
+docker.io/rancher/mirrored-pause:3.6
 EOF
 }
 

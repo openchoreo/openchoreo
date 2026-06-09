@@ -368,7 +368,7 @@ controllerManager:
 # @schema
 # type: object
 # additionalProperties: true
-# description: OpenChoreo Observer service configuration - REST API that abstracts OpenSearch for logging, metrics, and tracing
+# description: OpenChoreo Observer service configuration - REST API that abstracts observability backends for logging, metrics, and tracing via adapters
 # @schema
 observer:
   # @schema
@@ -390,12 +390,6 @@ observer:
   # description: Configurations for logs adapter connectivity
   # @schema
   logsAdapter:
-    # @schema
-    # type: boolean
-    # description: Enable logs adapter for fetching logs from an external adapter
-    # default: false
-    # @schema
-    enabled: false
     # @schema
     # type: string
     # description: URL of the logs adapter service
@@ -424,6 +418,12 @@ observer:
   # @schema
   alertStoreBackend: sqlite
 
+  # @schema
+  # type: string
+  # description: Duration within which duplicate alerts for the same alert rule are suppressed. Set to "0" to disable.
+  # default: 1h
+  # @schema
+  alertSuppressionWindow: 1h
 
   # @schema
   # type: string
@@ -494,12 +494,6 @@ observer:
   # @schema
   tracingAdapter:
     # @schema
-    # type: boolean
-    # description: Enable tracing adapter for fetching traces from an external adapter
-    # default: false
-    # @schema
-    enabled: false
-    # @schema
     # type: string
     # description: URL of the tracing adapter service
     # default: "http://tracing-adapter:9100"
@@ -520,7 +514,13 @@ observer:
   oauthClientId: "openchoreo-observer-resource-reader-client"
   # @schema
   # type: string
-  # description: Name of an existing Secret injected via envFrom into the Observer container. Required keys - OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD, UID_RESOLVER_OAUTH_CLIENT_SECRET. Optional keys - ALERT_STORE_DSN (when alertStoreBackend is postgresql).
+  # description: Optional OAuth2 scope to request in the client credentials token request
+  # default: ""
+  # @schema
+  oauthScope: ""
+  # @schema
+  # type: string
+  # description: Name of an existing Secret injected via envFrom into the Observer container. Required keys - UID_RESOLVER_OAUTH_CLIENT_SECRET; ALERT_STORE_DSN is also required when alertStoreBackend=postgresql (Observer fails to start otherwise) and ignored for sqlite (a default DSN is used).
   # default: ""
   # @schema
   secretName: ""
@@ -554,12 +554,6 @@ observer:
   extraEnvs:
   - name: OBSERVER_BASE_URL
     value: "http://observer.openchoreo.localhost:11080"
-  - name: OPENSEARCH_ADDRESS
-    value: "https://opensearch:9200"
-  - name: PROMETHEUS_ADDRESS
-    value: "http://openchoreo-observability-prometheus:9091"
-  - name: PROMETHEUS_TIMEOUT
-    value: "30s"
   - name: AUTHZ_TIMEOUT
     value: "30s"
 
@@ -630,24 +624,6 @@ observer:
 
   # @schema
   # type: object
-  # description: Prometheus connection configuration
-  # @schema
-  prometheus:
-    # @schema
-    # type: string
-    # description: Prometheus server address (auto-constructed from release name if empty)
-    # default: ""
-    # @schema
-    address: ""
-    # @schema
-    # type: string
-    # description: Timeout for Prometheus queries
-    # default: 30s
-    # @schema
-    timeout: 30s
-
-  # @schema
-  # type: object
   # description: Resource requests and limits for the Observer container
   # @schema
   resources:
@@ -685,13 +661,6 @@ observer:
       # default: 128Mi
       # @schema
       memory: 128Mi
-
-  # @schema
-  # type: string
-  # description: Name of an existing Secret with 'username' and 'password' keys for OpenSearch authentication. Required.
-  # default: ""
-  # @schema
-  openSearchSecretName: ""
 
   # @schema
   # type: object
@@ -1309,9 +1278,9 @@ rca:
   # @schema
   # type: string
   # description: Name of the RCA agent deployment
-  # default: ai-rca-agent
+  # default: sre-agent
   # @schema
-  name: ai-rca-agent
+  name: sre-agent
 
   # @schema
   # type: integer
@@ -1357,9 +1326,9 @@ rca:
     # @schema
     # type: string
     # description: Container image repository
-    # default: ghcr.io/openchoreo/ai-rca-agent
+    # default: ghcr.io/openchoreo/sre-agent
     # @schema
-    repository: ghcr.io/openchoreo/ai-rca-agent
+    repository: ghcr.io/openchoreo/sre-agent
     # @schema
     # type: string
     # description: Container image tag (defaults to Chart.AppVersion if empty)
@@ -1492,6 +1461,12 @@ rca:
     # default: openchoreo-rca-agent
     # @schema
     clientId: "openchoreo-rca-agent"
+    # @schema
+    # type: string
+    # description: Optional OAuth2 scope to request in the client credentials token request
+    # default: ""
+    # @schema
+    scope: ""
 
   # @schema
   # type: object
@@ -1527,6 +1502,271 @@ rca:
   # @schema
   # type: array
   # description: Extra environment variables for the RCA agent container
+  # items:
+  #   type: object
+  #   properties:
+  #     name:
+  #       type: string
+  #       description: Environment variable name
+  #     value:
+  #       type: string
+  #       description: Environment variable value
+  # @schema
+  extraEnvs: []
+
+# FinOps Agent Configuration
+finOpsAgent:
+  # @schema
+  # type: boolean
+  # description: Enable FinOps agent deployment
+  # default: false
+  # @schema
+  enabled: false
+
+  # @schema
+  # type: integer
+  # description: Number of FinOps agent replicas
+  # minimum: 0
+  # default: 1
+  # @schema
+  replicas: 1
+
+  # @schema
+  # type: string
+  # description: Log level for the FinOps agent
+  # default: INFO
+  # @schema
+  logLevel: "INFO"
+
+  # @schema
+  # type: boolean
+  # description: Skip TLS certificate verification for MCP server connections (use for self-signed certs)
+  # default: false
+  # @schema
+  tlsInsecureSkipVerify: false
+
+  # @schema
+  # type: object
+  # description: CORS configuration for the FinOps agent
+  # @schema
+  cors:
+    # @schema
+    # type: array
+    # description: List of allowed origins for CORS requests. Empty list disables CORS.
+    # items:
+    #   type: string
+    # @schema
+    allowedOrigins:
+    - "http://openchoreo.localhost:8080"
+
+  # @schema
+  # type: object
+  # description: Container image configuration
+  # @schema
+  image:
+    # @schema
+    # type: string
+    # description: Container image repository
+    # default: ghcr.io/openchoreo/finops-agent
+    # @schema
+    repository: ghcr.io/openchoreo/finops-agent
+    # @schema
+    # type: string
+    # description: Container image tag (defaults to Chart.AppVersion if empty)
+    # default: ""
+    # @schema
+    tag: ""
+    # @schema
+    # description: Image pull policy
+    # enum: [Always, IfNotPresent, Never]
+    # default: IfNotPresent
+    # @schema
+    pullPolicy: IfNotPresent
+
+  # @schema
+  # type: object
+  # description: Kubernetes service configuration
+  # @schema
+  service:
+    # @schema
+    # description: Service type
+    # enum: [ClusterIP, NodePort, LoadBalancer]
+    # default: ClusterIP
+    # @schema
+    type: ClusterIP
+    # @schema
+    # type: integer
+    # description: Service port
+    # minimum: 1
+    # maximum: 65535
+    # default: 8080
+    # @schema
+    port: 8080
+
+  # @schema
+  # type: object
+  # description: Resource requests and limits
+  # @schema
+  resources:
+    # @schema
+    # type: object
+    # description: Minimum resources guaranteed
+    # @schema
+    requests:
+      # @schema
+      # type: string
+      # description: CPU request
+      # default: 100m
+      # @schema
+      cpu: 100m
+      # @schema
+      # type: string
+      # description: Memory request
+      # default: 1024Mi
+      # @schema
+      memory: 1024Mi
+    # @schema
+    # type: object
+    # description: Maximum resources
+    # @schema
+    limits:
+      # @schema
+      # type: string
+      # description: CPU limit
+      # default: 250m
+      # @schema
+      cpu: 250m
+      # @schema
+      # type: string
+      # description: Memory limit
+      # default: 1536Mi
+      # @schema
+      memory: 1536Mi
+
+  # @schema
+  # type: string
+  # description: Observability MCP Server URL
+  # default: "http://observer:8080/mcp"
+  # @schema
+  observabilityMcpServerUrl: "http://observer:8080/mcp"
+
+  # @schema
+  # type: string
+  # description: OpenCost MCP Server URL
+  # default: "http://opencost.openchoreo-observability-plane.svc.cluster.local:8081"
+  # @schema
+  opencostMcpServerUrl: "http://opencost.openchoreo-observability-plane.svc.cluster.local:8081"
+
+  # @schema
+  # type: string
+  # description: Name of an existing Secret injected via envFrom into the FinOps agent container. Required keys - LLM_API_KEY, OAUTH_CLIENT_SECRET. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).
+  # default: finops-agent
+  # @schema
+  secretName: "finops-agent"
+
+  # @schema
+  # type: string
+  # description: LLM model name (e.g., gpt-5.2)
+  # default: ""
+  # @schema
+  llmName: ""
+
+  # @schema
+  # description: Report storage backend type
+  # enum: [sqlite, postgresql]
+  # default: sqlite
+  # @schema
+  reportBackend: "sqlite"
+
+  # @schema
+  # type: string
+  # description: PVC storage size for SQLite (only used when reportBackend is sqlite)
+  # default: 128Mi
+  # @schema
+  sqliteStorageSize: 128Mi
+
+  # @schema
+  # type: integer
+  # description: Maximum number of concurrent analyses
+  # minimum: 1
+  # default: 5
+  # @schema
+  maxConcurrentAnalyses: 5
+
+  # @schema
+  # type: integer
+  # description: Analysis timeout in seconds
+  # minimum: 1
+  # default: 600
+  # @schema
+  analysisTimeoutSeconds: 600
+
+  # @schema
+  # type: boolean
+  # description: Enable remediation capability (synthesizes a ResourceChange action from overprovisioning recommendations)
+  # default: false
+  # @schema
+  remediationEnabled: false
+
+  # @schema
+  # type: object
+  # description: OAuth2 client credentials configuration for FinOps agent authentication
+  # @schema
+  oauth:
+    # @schema
+    # type: string
+    # description: OAuth2 client ID registered with the IDP
+    # default: openchoreo-finops-agent
+    # @schema
+    clientId: "openchoreo-finops-agent"
+    # @schema
+    # type: string
+    # description: Optional OAuth2 scope to request in the client credentials token request
+    # default: ""
+    # @schema
+    scope: ""
+
+  # @schema
+  # type: string
+  # description: OpenChoreo API URL for authorization service
+  # default: "http://api.openchoreo.localhost:8080"
+  # @schema
+  openchoreoApiUrl: "http://api.openchoreo.localhost:8080"
+
+  # @schema
+  # type: object
+  # description: Authorization configuration for FinOps agent
+  # @schema
+  authz:
+    # @schema
+    # type: integer
+    # description: Authorization request timeout in seconds
+    # default: 30
+    # @schema
+    timeoutSeconds: 30
+
+  # @schema
+  # type: object
+  # description: HTTPRoute configuration for the FinOps agent
+  # @schema
+  http:
+    # @schema
+    # type: boolean
+    # description: Enable HTTPRoute
+    # default: true
+    # @schema
+    enabled: true
+    # @schema
+    # type: array
+    # description: HTTPRoute hostnames
+    # items:
+    #   type: string
+    # @schema
+    hostnames: []
+
+  # @schema
+  # type: array
+  # description: Extra environment variables for the FinOps agent container
   # items:
   #   type: object
   #   properties:

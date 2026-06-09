@@ -13,8 +13,8 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -26,20 +26,22 @@ const (
 )
 
 // WorkflowRun implements workflow run operations
-type WorkflowRun struct{}
+type WorkflowRun struct {
+	client client.Interface
+}
 
 // New creates a new workflow run implementation
-func New() *WorkflowRun {
-	return &WorkflowRun{}
+func New(c client.Interface) *WorkflowRun {
+	return &WorkflowRun{client: c}
 }
 
 // List lists workflow runs in a namespace (includes component workflow runs).
 func (w *WorkflowRun) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceWorkflowRun, params); err != nil {
+	if err := cmdutil.RequireFields("list", "workflowrun", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
-	items, err := FetchAll(params.Namespace, params.Workflow)
+	items, err := w.FetchAll(params.Namespace, params.Workflow)
 	if err != nil {
 		return err
 	}
@@ -49,13 +51,8 @@ func (w *WorkflowRun) List(params ListParams) error {
 
 // FetchAll fetches all workflow runs from a namespace.
 // If workflow is non-empty, results are filtered by that workflow name.
-func FetchAll(namespace, workflow string) ([]gen.WorkflowRun, error) {
+func (w *WorkflowRun) FetchAll(namespace, workflow string) ([]gen.WorkflowRun, error) {
 	ctx := context.Background()
-
-	c, err := client.NewClient()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create API client: %w", err)
-	}
 
 	return pagination.FetchAll(func(limit int, cursor string) ([]gen.WorkflowRun, string, error) {
 		p := &gen.ListWorkflowRunsParams{}
@@ -66,7 +63,7 @@ func FetchAll(namespace, workflow string) ([]gen.WorkflowRun, error) {
 		if workflow != "" {
 			p.Workflow = &workflow
 		}
-		result, err := c.ListWorkflowRuns(ctx, namespace, p)
+		result, err := w.client.ListWorkflowRuns(ctx, namespace, p)
 		if err != nil {
 			return nil, "", err
 		}
@@ -110,17 +107,13 @@ func getComponentLabel(run gen.WorkflowRun) string {
 
 // Get retrieves a single workflow run and outputs it as YAML
 func (w *WorkflowRun) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceWorkflowRun, params); err != nil {
+	if err := cmdutil.RequireFields("get", "workflowrun", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
-	result, err := c.GetWorkflowRun(ctx, params.Namespace, params.WorkflowRunName)
+	result, err := w.client.GetWorkflowRun(ctx, params.Namespace, params.WorkflowRunName)
 	if err != nil {
 		return err
 	}

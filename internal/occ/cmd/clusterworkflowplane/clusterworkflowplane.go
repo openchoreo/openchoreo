@@ -13,24 +13,18 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by ClusterWorkflowPlane operations.
-type Client interface {
-	ListClusterWorkflowPlanes(ctx context.Context, params *gen.ListClusterWorkflowPlanesParams) (*gen.ClusterWorkflowPlaneList, error)
-	GetClusterWorkflowPlane(ctx context.Context, clusterWorkflowPlaneName string) (*gen.ClusterWorkflowPlane, error)
-	DeleteClusterWorkflowPlane(ctx context.Context, clusterWorkflowPlaneName string) error
-}
-
 // ClusterWorkflowPlane implements cluster workflow plane operations
 type ClusterWorkflowPlane struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new cluster workflow plane implementation
-func New(client Client) *ClusterWorkflowPlane {
-	return &ClusterWorkflowPlane{client: client}
+func New(c client.Interface) *ClusterWorkflowPlane {
+	return &ClusterWorkflowPlane{client: c}
 }
 
 // List lists all cluster-scoped workflow planes

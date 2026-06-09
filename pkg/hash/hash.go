@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"hash/fnv"
 
-	"k8s.io/apimachinery/pkg/util/dump"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/utils/dump"
 )
 
 // ComputeHash is a generic hash function following Kubernetes patterns.

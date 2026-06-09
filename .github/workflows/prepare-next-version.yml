@@ -1,0 +1,112 @@
+name: Prepare Next Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      major:
+        description: 'Next major version'
+        required: true
+        type: number
+      minor:
+        description: 'Next minor version'
+        required: true
+        type: number
+      patch:
+        description: 'Next patch version'
+        required: true
+        type: number
+      pre_release_id:
+        description: 'Prerelease identifier (e.g. rc.1, beta.2)'
+        required: false
+        type: string
+
+concurrency:
+  group: prepare-next-version-${{ github.event.inputs.major }}-${{ github.event.inputs.minor }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.OC_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.OC_RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Set git identity
+        run: |
+          git config user.name "${{ steps.app-token.outputs.app-slug }}[bot]"
+          git config user.email "${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com"
+
+      - name: Resolve target branch and version
+        env:
+          IN_MAJOR: ${{ github.event.inputs.major }}
+          IN_MINOR: ${{ github.event.inputs.minor }}
+          IN_PATCH: ${{ github.event.inputs.patch }}
+          IN_PRERELEASE: ${{ github.event.inputs.pre_release_id || '' }}
+        run: |
+          MAJOR="$IN_MAJOR"
+          MINOR="$IN_MINOR"
+          PATCH="$IN_PATCH"
+          PRERELEASE="$IN_PRERELEASE"
+
+          if [[ ! "$MAJOR" =~ ^[0-9]+$ ]] || [[ ! "$MINOR" =~ ^[0-9]+$ ]] || [[ ! "$PATCH" =~ ^[0-9]+$ ]]; then
+            echo "::error::major, minor, and patch must be non-negative integers"
+            exit 1
+          fi
+          if [ -n "$PRERELEASE" ] && [[ ! "$PRERELEASE" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::invalid pre_release_id: ${PRERELEASE}"
+            exit 1
+          fi
+
+          VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          if [ -n "$PRERELEASE" ]; then
+            VERSION="${VERSION}-${PRERELEASE}"
+          fi
+
+          if git ls-remote --exit-code origin "refs/heads/release-v${MAJOR}.${MINOR}" 2>/dev/null; then
+            TARGET="release-v${MAJOR}.${MINOR}"
+          else
+            TARGET="main"
+          fi
+
+          echo "TARGET=${TARGET}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Create version bump branch and PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          BRANCH="release-next-v${{ env.VERSION }}"
+
+          git fetch origin "${{ env.TARGET }}"
+          git checkout -b "${BRANCH}" "origin/${{ env.TARGET }}"
+
+          echo "${{ env.VERSION }}" > VERSION
+          git add VERSION
+          git diff --staged --quiet || git commit -s -m "chore: bump version to ${{ env.VERSION }}"
+
+          git push --force-with-lease origin "${BRANCH}"
+          PR_TITLE="chore: bump version to ${{ env.VERSION }}"
+          EXISTING_PR=$(gh pr list --head "${BRANCH}" --base "${{ env.TARGET }}" --json number --jq '.[0].number' 2>/dev/null)
+          if [ -n "$EXISTING_PR" ]; then
+            echo "PR #${EXISTING_PR} already exists for ${BRANCH} → ${{ env.TARGET }}. Skipping creation."
+          else
+            gh pr create \
+              --base "${{ env.TARGET }}" \
+              --head "${BRANCH}" \
+              --title "${PR_TITLE}" \
+              --body "Bump to next development version ${{ env.VERSION }}. Before merging, add a \\\`${{ env.VERSION }}\\\` section header to \\\`CHANGELOG.md\\\` if this is a new release." \
+              --label "type/release"
+          fi

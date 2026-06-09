@@ -35,7 +35,6 @@ type DeployParams struct {
 	Release       string   // --release flag (optional release name)
 	To            string   // --to flag (target env for promotion)
 	Set           []string // --set values (type.path=value)
-	OutputFormat  string
 }
 
 func (p DeployParams) GetNamespace() string     { return p.Namespace }
@@ -101,3 +100,18 @@ type LogsParams struct {
 	Since       string // duration like "1h", "30m", "5m"
 	Tail        int    // number of lines to show from the end of logs (0 means no limit)
 }
+
+// ExecParams defines parameters for exec-ing into a component's running pod
+type ExecParams struct {
+	Namespace   string
+	Project     string
+	Component   string
+	Environment string
+	Container   string
+	Command     []string // command to run; defaults to ["/bin/sh"] when empty
+	TTY         bool
+	Stdin       bool
+}
+
+func (p ExecParams) GetNamespace() string     { return p.Namespace }
+func (p ExecParams) GetComponentName() string { return p.Component }

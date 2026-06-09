@@ -9,6 +9,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+const testSecretRefName = "ref-1"
+
 // namespaceToolSpecs returns test specs for namespace toolset
 func namespaceToolSpecs() []toolTestSpec {
 	return []toolTestSpec{
@@ -71,6 +73,23 @@ func namespaceToolSpecs() []toolTestSpec {
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
 					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
+				}
+			},
+		},
+		{
+			name:                "get_secret_reference",
+			toolset:             "namespace",
+			descriptionKeywords: []string{"secret", "reference"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "secret_reference_name"},
+			testArgs: map[string]any{
+				"namespace_name":        testNamespaceName,
+				"secret_reference_name": testSecretRefName,
+			},
+			expectedMethod: "GetSecretReference",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != testSecretRefName {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testSecretRefName, args[0], args[1])
 				}
 			},
 		},

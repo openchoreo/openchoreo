@@ -13,10 +13,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterworkflowplane"
 )
@@ -314,6 +317,91 @@ var _ = Describe("ClusterWorkflowPlane Controller", func() {
 			fresh := &openchoreov1alpha1.ClusterWorkflowPlane{}
 			Expect(k8sClient.Get(ctx, nn, fresh)).To(Succeed())
 			Expect(fresh.Status.ObservedGeneration).To(BeNumerically(">", 0))
+		})
+	})
+
+	Context("SetupWithManager", func() {
+		It("should register the controller and supply a default Recorder", func() {
+			mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+				Scheme: k8sClient.Scheme(),
+				Metrics: metricsserver.Options{
+					BindAddress: "0",
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			r := &clusterworkflowplane.Reconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+			Expect(r.SetupWithManager(mgr)).To(Succeed())
+			Expect(r.Recorder).NotTo(BeNil())
+		})
+	})
+
+	Context("Reconcile invalidates the cached client", func() {
+		const cwpName = "cwp-cache-update"
+		nn := types.NamespacedName{Name: cwpName}
+
+		AfterEach(func() { forceDeleteCWP(ctx, cwpName) })
+
+		It("invalidates the cache on the UPDATE path when ClientMgr is configured", func() {
+			Expect(k8sClient.Create(ctx, newClusterWorkflowPlaneWithFinalizer(cwpName))).To(Succeed())
+
+			r := &clusterworkflowplane.Reconciler{
+				Client:       k8sClient,
+				Scheme:       k8sClient.Scheme(),
+				Recorder:     record.NewFakeRecorder(100),
+				ClientMgr:    kubernetesClient.NewManager(),
+				CacheVersion: "v2",
+			}
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("invalidates the cache during finalization when ClientMgr is configured", func() {
+			Expect(k8sClient.Create(ctx, newClusterWorkflowPlaneWithFinalizer(cwpName))).To(Succeed())
+			cwp := &openchoreov1alpha1.ClusterWorkflowPlane{}
+			Expect(k8sClient.Get(ctx, nn, cwp)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, cwp)).To(Succeed())
+
+			r := &clusterworkflowplane.Reconciler{
+				Client:       k8sClient,
+				Scheme:       k8sClient.Scheme(),
+				Recorder:     record.NewFakeRecorder(100),
+				ClientMgr:    kubernetesClient.NewManager(),
+				CacheVersion: "v2",
+			}
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("Reconcile second pass with no gateway (Created condition already set)", func() {
+		const cwpName = "cwp-second-pass-no-gw"
+		nn := types.NamespacedName{Name: cwpName}
+
+		BeforeEach(func() {
+			cwp := newClusterWorkflowPlaneWithFinalizer(cwpName)
+			Expect(k8sClient.Create(ctx, cwp)).To(Succeed())
+			Expect(k8sClient.Get(ctx, nn, cwp)).To(Succeed())
+			cwp.Status.Conditions = []metav1.Condition{
+				clusterworkflowplane.NewClusterWorkflowPlaneCreatedCondition(cwp.Generation),
+			}
+			cwp.Status.ObservedGeneration = cwp.Generation
+			Expect(k8sClient.Status().Update(ctx, cwp)).To(Succeed())
+		})
+		AfterEach(func() { forceDeleteCWP(ctx, cwpName) })
+
+		It("returns RequeueAfter and does not error", func() {
+			r := &clusterworkflowplane.Reconciler{
+				Client:   k8sClient,
+				Scheme:   k8sClient.Scheme(),
+				Recorder: record.NewFakeRecorder(100),
+			}
+			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
 		})
 	})
 })

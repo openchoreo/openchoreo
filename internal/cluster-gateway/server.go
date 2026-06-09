@@ -29,22 +29,36 @@ import (
 )
 
 const (
-	planeTypeDataPlane          = "dataplane"
-	planeTypeWorkflowPlane      = "workflowplane"
-	planeTypeObservabilityPlane = "observabilityplane"
+	planeTypeDataPlane            = "dataplane"
+	planeTypeWorkflowPlane        = "workflowplane"
+	planeTypeObservabilityPlane   = "observabilityplane"
+	crNamespaceClusterPlaceholder = "_cluster" // Special placeholder for cluster-scoped CRs (no namespace)
 )
 
+// Connection abstracts a WebSocket connection for testability.
+// *websocket.Conn satisfies this interface.
+type Connection interface {
+	ReadMessage() (messageType int, p []byte, err error)
+	WriteMessage(messageType int, data []byte) error
+	WriteControl(messageType int, data []byte, deadline time.Time) error
+	SetReadDeadline(t time.Time) error
+	SetPongHandler(h func(appData string) error)
+	Close() error
+}
+
 type Server struct {
-	config              *Config
-	httpServer          *http.Server
-	healthServer        *http.Server
-	upgrader            websocket.Upgrader
-	connMgr             *ConnectionManager
-	pendingHTTPRequests map[string]chan *messaging.HTTPTunnelResponse
-	requestsMu          sync.Mutex
-	validator           *RequestValidator
-	logger              *slog.Logger
-	k8sClient           client.Client // Kubernetes client for querying DataPlane/WorkflowPlane CRs
+	config                *Config
+	httpServer            *http.Server
+	healthServer          *http.Server
+	upgrader              websocket.Upgrader
+	connMgr               *ConnectionManager
+	pendingHTTPRequests   map[string]chan *messaging.HTTPTunnelResponse
+	requestsMu            sync.Mutex
+	pendingStreamSessions map[string]*streamSession
+	streamSessionsMu      sync.RWMutex
+	validator             *RequestValidator
+	logger                *slog.Logger
+	k8sClient             client.Client // Kubernetes client for querying DataPlane/WorkflowPlane CRs
 }
 
 func New(config *Config, k8sClient client.Client, logger *slog.Logger) *Server {
@@ -55,11 +69,12 @@ func New(config *Config, k8sClient client.Client, logger *slog.Logger) *Server {
 				return true
 			},
 		},
-		connMgr:             NewConnectionManager(logger),
-		pendingHTTPRequests: make(map[string]chan *messaging.HTTPTunnelResponse),
-		validator:           NewRequestValidator(),
-		logger:              logger.With("component", "agent-server"),
-		k8sClient:           k8sClient,
+		connMgr:               NewConnectionManager(logger),
+		pendingHTTPRequests:   make(map[string]chan *messaging.HTTPTunnelResponse),
+		pendingStreamSessions: make(map[string]*streamSession),
+		validator:             NewRequestValidator(),
+		logger:                logger.With("component", "agent-server"),
+		k8sClient:             k8sClient,
 	}
 }
 
@@ -102,7 +117,9 @@ func (s *Server) Start() error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", s.handleWebSocket)
-	mux.HandleFunc("/api/proxy/", s.handleHTTPProxy) // HTTP proxy to data plane services
+	mux.HandleFunc("/api/proxy/", s.handleHTTPProxy)   // HTTP proxy to data plane services
+	mux.HandleFunc("/api/exec/", s.handleExec)         // WebSocket exec proxy to data plane pods
+	mux.HandleFunc("/api/wirelogs/", s.handleWirelogs) // WebSocket wirelogs (Cilium Hubble flow) stream
 
 	// Register plane lifecycle API (for controller notifications and status queries)
 	planeAPI := NewPlaneAPI(s.connMgr, s, s.logger)
@@ -281,7 +298,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	go s.handleConnection(planeIdentifier, connID, conn)
 }
 
-func (s *Server) handleConnection(planeName, connID string, conn *websocket.Conn) {
+func (s *Server) handleConnection(planeName, connID string, conn Connection) {
 	defer s.connMgr.Unregister(planeName, connID)
 
 	if err := conn.SetReadDeadline(time.Now().Add(s.config.HeartbeatTimeout)); err != nil {
@@ -320,6 +337,13 @@ func (s *Server) handleConnection(planeName, connID string, conn *websocket.Conn
 		}
 
 		s.connMgr.UpdateConnectionLastSeen(planeName, connID)
+
+		// Try to route as a stream chunk (has "data" field and no "statusCode" at top level)
+		var streamChunk messaging.HTTPTunnelStreamChunk
+		if err := json.Unmarshal(data, &streamChunk); err == nil && streamChunk.RequestID != "" && (streamChunk.Data != nil || streamChunk.IsClose) {
+			s.handleStreamChunk(&streamChunk)
+			continue
+		}
 
 		var httpResp messaging.HTTPTunnelResponse
 		if err := json.Unmarshal(data, &httpResp); err != nil {
@@ -420,9 +444,9 @@ func (s *Server) handleHTTPProxy(w http.ResponseWriter, r *http.Request) {
 
 	// Construct identifiers for CR-aware routing
 	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
-	// Handle cluster-scoped CR namespace placeholder: "_cluster" maps to empty namespace
+	// Handle cluster-scoped CR namespace placeholder: crNamespaceClusterPlaceholder maps to empty namespace
 	// to match the key format "/name" used by getAllPlaneClientCAs for cluster-scoped resources
-	if crNamespace == "_cluster" {
+	if crNamespace == crNamespaceClusterPlaceholder {
 		crNamespace = ""
 	}
 	crKey := fmt.Sprintf("%s/%s", crNamespace, crName)

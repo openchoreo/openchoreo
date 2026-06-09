@@ -18,6 +18,7 @@ type CheckRequest struct {
 	ResourceType string
 	ResourceID   string
 	Hierarchy    authz.ResourceHierarchy
+	Context      authz.Context
 }
 
 // AuthzChecker provides authorization checking for service authz wrappers.
@@ -44,7 +45,7 @@ func (c *AuthzChecker) Check(ctx context.Context, req CheckRequest) error {
 			ID:        req.ResourceID,
 			Hierarchy: req.Hierarchy,
 		},
-		Context: authz.Context{},
+		Context: req.Context,
 	}
 
 	decision, err := c.pdp.Evaluate(ctx, evalReq)
@@ -84,7 +85,7 @@ func (c *AuthzChecker) BatchCheck(ctx context.Context, requests []CheckRequest) 
 				ID:        r.ResourceID,
 				Hierarchy: r.Hierarchy,
 			},
-			Context: authz.Context{},
+			Context: r.Context,
 		}
 	}
 

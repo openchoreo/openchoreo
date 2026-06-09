@@ -102,6 +102,7 @@ func RefreshToken() (string, error) {
 		TokenEndpoint: oidcConfig.TokenEndpoint,
 		ClientID:      credential.ClientID,
 		ClientSecret:  credential.ClientSecret,
+		Scope:         credential.Scope,
 	}
 
 	tokenResp, err := authClient.GetToken()

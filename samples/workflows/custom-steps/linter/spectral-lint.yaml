@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: spectral-lint
+spec:
+  templates:
+    - name: lint
+      inputs:
+        parameters:
+          - name: git-revision
+          - name: api-spec-path
+          - name: ruleset-path
+      container:
+        image: node:20-alpine
+        command:
+          - sh
+          - -c
+        args:
+          - |-
+            set -e
+
+            WORKDIR="/mnt/vol/source"
+            API_SPEC_PATH="{{inputs.parameters.api-spec-path}}"
+            RULESET_PATH="{{inputs.parameters.ruleset-path}}"
+
+            echo ">> Installing Spectral and OWASP ruleset"
+            npm install -g @stoplight/spectral-cli @stoplight/spectral-owasp-ruleset
+            export NODE_PATH=$(npm root -g)
+
+            echo ">> Running Spectral lint"
+            echo ">> API spec: $API_SPEC_PATH"
+            echo ">> Ruleset: ${RULESET_PATH:-<default>}"
+
+            if [ ! -f "$WORKDIR/$API_SPEC_PATH" ]; then
+              echo ">> Error: API spec file not found at: '$API_SPEC_PATH'"
+              echo ">> Repository contents:"
+              ls -la "$WORKDIR/"
+              exit 1
+            fi
+
+            if [ -n "$RULESET_PATH" ] && [ -f "$WORKDIR/$RULESET_PATH" ]; then
+              RULESET_ARG="$WORKDIR/$RULESET_PATH"
+            else
+              echo ">> No ruleset provided, using built-in spectral:oas"
+              echo 'extends: ["spectral:oas"]' > /tmp/.spectral.yaml
+              RULESET_ARG="/tmp/.spectral.yaml"
+            fi
+
+            spectral lint "$WORKDIR/$API_SPEC_PATH" --ruleset "$RULESET_ARG"
+
+            echo ">> Spectral lint passed"
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace

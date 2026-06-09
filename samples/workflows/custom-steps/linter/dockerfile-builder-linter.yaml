@@ -1,0 +1,277 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterWorkflow
+metadata:
+  name: dockerfile-builder-linter
+  labels:
+    openchoreo.dev/workflow-type: "component"
+  annotations:
+    openchoreo.dev/description: "Lint API specs with Spectral, then build with a provided Dockerfile/Containerfile/Podmanfile"
+spec:
+  workflowPlaneRef:
+    kind: ClusterWorkflowPlane
+    name: default
+  ttlAfterCompletion: "1d"
+  parameters:
+    openAPIV3Schema:
+      type: object
+      required:
+        - repository
+      properties:
+        repository:
+          type: object
+          description: "Git repository configuration"
+          required:
+            - url
+          properties:
+            url:
+              type: string
+              description: "Git repository URL"
+              x-openchoreo-component-parameter-repository-url: true
+            secretRef:
+              type: string
+              default: ""
+              description: "Secret reference name for Git credentials"
+              x-openchoreo-component-parameter-repository-secret-ref: true
+            revision:
+              type: object
+              default: {}
+              properties:
+                branch:
+                  type: string
+                  default: main
+                  description: "Git branch to checkout"
+                  x-openchoreo-component-parameter-repository-branch: true
+                commit:
+                  type: string
+                  default: ""
+                  description: "Git commit SHA or reference (optional, defaults to latest)"
+                  x-openchoreo-component-parameter-repository-commit: true
+            appPath:
+              type: string
+              default: "."
+              description: "Path to the application directory within the repository"
+              x-openchoreo-component-parameter-repository-app-path: true
+        docker:
+          type: object
+          default: {}
+          description: "Docker build configuration"
+          properties:
+            context:
+              type: string
+              default: "."
+              description: "Docker build context path relative to the repository root"
+            filePath:
+              type: string
+              default: "./Dockerfile"
+              description: "Path to the Dockerfile relative to the repository root"
+        buildEnv:
+          type: array
+          default: []
+          description: "Environment variables available during the build (passed as --env to podman build). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#env-env-value"
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+                description: "Environment variable name"
+              value:
+                type: string
+                description: "Environment variable value"
+        buildArgs:
+          type: array
+          default: []
+          description: "Docker build arguments declared with ARG in the Dockerfile (passed as --build-arg). Reference: https://docs.podman.io/en/stable/markdown/podman-build.1.html#build-arg-arg-value"
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name:
+                type: string
+                description: "Build argument name"
+              value:
+                type: string
+                description: "Build argument value"
+        spectral:
+          type: object
+          default: {}
+          description: "Spectral API linting configuration"
+          properties:
+            apiSpecPath:
+              type: string
+              default: "./openapi.yaml"
+              description: "Path to the OpenAPI/AsyncAPI spec file relative to the repository root"
+              x-openchoreo-backstage-portal:
+                ui:widget: text
+            rulesetPath:
+              type: string
+              default: ""
+              description: "Path to a custom Spectral ruleset file relative to the repository root (optional, uses Spectral defaults if not provided)"
+              x-openchoreo-backstage-portal:
+                ui:widget: text
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: ${metadata.namespace}
+    spec:
+      arguments:
+        parameters:
+          - name: component-name
+            value: ${metadata.labels['openchoreo.dev/component']}
+          - name: project-name
+            value: ${metadata.labels['openchoreo.dev/project']}
+          - name: workflowrun-name
+            value: ${metadata.workflowRunName}
+          - name: namespace-name
+            value: ${metadata.namespaceName}
+          - name: git-repo
+            value: ${parameters.repository.url}
+          - name: branch
+            value: ${parameters.repository.revision.branch}
+          - name: commit
+            value: ${parameters.repository.revision.commit}
+          - name: app-path
+            value: ${parameters.repository.appPath}
+          - name: docker-context
+            value: ${parameters.docker.context}
+          - name: dockerfile-path
+            value: ${parameters.docker.filePath}
+          - name: build-env
+            value: ${parameters.buildEnv}
+          - name: build-args
+            value: ${parameters.buildArgs}
+          - name: image-name
+            value: ${metadata.namespaceName}-${metadata.labels['openchoreo.dev/project']}-${metadata.labels['openchoreo.dev/component']}
+          - name: image-tag
+            value: v1
+          - name: git-secret
+            value: ${metadata.workflowRunName}-git-secret
+          - name: registry-push-secret
+            value: ${metadata.workflowRunName}-registry-push-secret
+          - name: api-spec-path
+            value: ${parameters.spectral.apiSpecPath}
+          - name: ruleset-path
+            value: ${parameters.spectral.rulesetPath}
+      serviceAccountName: workflow-sa
+      entrypoint: build-workflow
+      templates:
+        - name: build-workflow
+          steps:
+            - - name: checkout-source
+                templateRef:
+                  name: checkout-source
+                  clusterScope: true
+                  template: checkout
+            - - name: spectral-lint
+                templateRef:
+                  name: spectral-lint
+                  clusterScope: true
+                  template: lint
+                arguments:
+                  parameters:
+                    - name: git-revision
+                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                    - name: api-spec-path
+                      value: '{{workflow.parameters.api-spec-path}}'
+                    - name: ruleset-path
+                      value: '{{workflow.parameters.ruleset-path}}'
+            - - name: build-image
+                templateRef:
+                  name: containerfile-build
+                  clusterScope: true
+                  template: build-image
+                arguments:
+                  parameters:
+                    - name: git-revision
+                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+                    - name: build-env
+                      value: '{{workflow.parameters.build-env}}'
+                    - name: build-args
+                      value: '{{workflow.parameters.build-args}}'
+            - - name: publish-image
+                templateRef:
+                  name: publish-image
+                  clusterScope: true
+                  template: publish-image
+                arguments:
+                  parameters:
+                    - name: git-revision
+                      value: '{{steps.checkout-source.outputs.parameters.git-revision}}'
+            - - name: generate-workload-cr
+                templateRef:
+                  name: generate-workload
+                  clusterScope: true
+                  template: generate-workload-cr
+                arguments:
+                  parameters:
+                    - name: image
+                      value: '{{steps.publish-image.outputs.parameters.image}}'
+                    - name: run-name
+                      value: '{{workflow.parameters.workflowrun-name}}'
+      volumeClaimTemplates:
+        - metadata:
+            name: workspace
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 2Gi
+  externalRefs:
+    - id: git-secret-reference
+      apiVersion: openchoreo.dev/v1alpha1
+      kind: SecretReference
+      name: ${parameters.repository.secretRef}
+  resources:
+    - id: git-secret
+      includeWhen: ${has(parameters.repository.secretRef) && parameters.repository.secretRef != ""}
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-git-secret
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            kind: ClusterSecretStore
+            name: ${workflowplane.secretStore}
+          target:
+            name: ${metadata.workflowRunName}-git-secret
+            creationPolicy: Owner
+            template:
+              type: ${externalRefs['git-secret-reference'].spec.template.type}
+          data: |
+            ${externalRefs['git-secret-reference'].spec.data.map(secret, {
+              "secretKey": secret.secretKey,
+              "remoteRef": {
+                "key": secret.remoteRef.key,
+                "property": has(secret.remoteRef.property) && secret.remoteRef.property != "" ? secret.remoteRef.property : oc_omit()
+              }
+            })}
+    - id: registry-push-secret
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.workflowRunName}-registry-push-secret
+          namespace: ${metadata.namespace}
+        spec:
+          refreshInterval: 15s
+          secretStoreRef:
+            name: ${workflowplane.secretStore}
+            kind: ClusterSecretStore
+          target:
+            name: ${metadata.workflowRunName}-registry-push-secret
+            creationPolicy: Owner
+            template:
+              type: kubernetes.io/dockerconfigjson
+              data:
+                .dockerconfigjson: "{{ .registrysecret | toString }}"
+          data:
+            - secretKey: registrysecret
+              remoteRef:
+                key: registry-push-secret
+                property: value

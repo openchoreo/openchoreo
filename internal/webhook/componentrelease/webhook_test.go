@@ -1058,7 +1058,7 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
 		})
 
-		It("should reject invalid JSON in ComponentType schema parameters", func() {
+		It("should reject truncated JSON in ComponentType schema parameters", func() {
 			obj = validComponentRelease()
 			obj.Spec.ComponentType.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
 
@@ -1101,4 +1101,91 @@ var _ = Describe("ComponentRelease Webhook", func() {
 			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
 		})
 	})
+
+	Context("Default webhook", func() {
+		It("should call Default without error (no-op)", func() {
+			obj = validComponentRelease()
+			err := defaulter.Default(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
+	Context("ValidateUpdate webhook", func() {
+		It("should admit valid ComponentRelease update", func() {
+			obj = validComponentRelease()
+			oldObj = validComponentRelease()
+			_, err := validator.ValidateUpdate(ctx, oldObj, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should return error when oldObj is wrong type on update", func() {
+			wrongObj := &openchoreodevv1alpha1.Component{}
+			_, err := validator.ValidateUpdate(ctx, wrongObj, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ComponentRelease object for the oldObj but got"))
+		})
+
+		It("should return error when newObj is wrong type on update", func() {
+			wrongObj := &openchoreodevv1alpha1.Component{}
+			_, err := validator.ValidateUpdate(ctx, oldObj, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ComponentRelease object for the newObj but got"))
+		})
+	})
+
+	Context("ValidateDelete webhook", func() {
+		It("should admit valid ComponentRelease deletion", func() {
+			obj = validComponentRelease()
+			_, err := validator.ValidateDelete(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should return error when obj is wrong type on delete", func() {
+			wrongObj := &openchoreodevv1alpha1.Component{}
+			_, err := validator.ValidateDelete(ctx, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ComponentRelease object but got"))
+		})
+	})
+
+	Context("Trait instance parameter validation edge cases", func() {
+		It("should return error when trait instance parameters contain invalid YAML", func() {
+			obj = validComponentRelease()
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						Parameters: &openchoreodevv1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{"type":"object","properties":{"mountPath":{"type":"string"}},"required":["mountPath"]}`),
+							},
+						},
+						Creates: []openchoreodevv1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": {"name": "test-pvc"}}`),
+								},
+							},
+						},
+					},
+				},
+			}
+			obj.Spec.ComponentProfile.Traits = []openchoreodevv1alpha1.ComponentProfileTrait{
+				{
+					Kind:         openchoreodevv1alpha1.TraitRefKindTrait,
+					Name:         "storage",
+					InstanceName: "data-storage",
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{: invalid yaml :`), // invalid YAML
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to parse parameters"))
+		})
+	})
+
 })

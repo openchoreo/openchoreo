@@ -11,6 +11,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +33,8 @@ const (
 	targetPlaneDataPlane          = "dataplane"
 	targetPlaneObservabilityPlane = "observabilityplane"
 
+	appsAPIGroup = "apps"
+
 	// ConditionResourcesApplied indicates whether resources were successfully applied to the target plane.
 	// When False, it contains the error message from the failed apply operation.
 	ConditionResourcesApplied = "ResourcesApplied"
@@ -45,9 +48,8 @@ const (
 // Reconciler reconciles a RenderedRelease object
 type Reconciler struct {
 	client.Client
-	K8sClientMgr *kubernetesClient.KubeMultiClientManager
-	Scheme       *runtime.Scheme
-	GatewayURL   string
+	PlaneClientProvider kubernetesClient.PlaneClientProvider
+	Scheme              *runtime.Scheme
 }
 
 // TODO: Optimize to apply resource only if spec has changed
@@ -161,7 +163,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// PHASE 2: Discover live resources that we manage in the target plane
 	// This queries both current resource types (from spec) and previous resource types (from status)
 	// to ensure we find all resources that might need cleanup, preventing resource leaks
-	gvks := findAllKnownGVKs(desiredResources, release.Status.Resources)
+	gvks := findAllKnownGVKs(desiredResources, release.Status.Resources, targetPlane)
 	liveResources, err := r.listLiveResourcesByGVKs(ctx, planeClient, release, gvks)
 	if err != nil {
 		logger.Error(err, "Failed to list live resources from target plane", "targetPlane", targetPlane)
@@ -207,19 +209,12 @@ func (r *Reconciler) getDPClient(ctx context.Context, namespaceName string, envi
 		return nil, fmt.Errorf("failed to get environment %s: %w", environmentName, err)
 	}
 
-	// Use the resolution function to get the DataPlane or ClusterDataPlane (with default fallback)
-	dataPlaneResult, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, r.Client, env)
+	dataPlaneResult, err := controller.GetDataPlaneFromRef(ctx, r.Client, env.Namespace, env.Spec.DataPlaneRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", environmentName, err)
 	}
 
-	// Get Kubernetes client - supports both agent mode (via HTTP proxy) and direct access mode
-	var dpClient client.Client
-	if dataPlaneResult.DataPlane != nil {
-		dpClient, err = kubernetesClient.GetK8sClientFromDataPlane(r.K8sClientMgr, dataPlaneResult.DataPlane, r.GatewayURL)
-	} else {
-		dpClient, err = kubernetesClient.GetK8sClientFromClusterDataPlane(r.K8sClientMgr, dataPlaneResult.ClusterDataPlane, r.GatewayURL)
-	}
+	dpClient, err := dataPlaneResult.GetK8sClient(r.PlaneClientProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create dataplane client for %s: %w", dataPlaneResult.GetName(), err)
 	}
@@ -235,25 +230,17 @@ func (r *Reconciler) getOPClient(ctx context.Context, namespaceName string, envi
 		return nil, fmt.Errorf("failed to get environment %s: %w", environmentName, err)
 	}
 
-	// Use the resolution function to get the DataPlane or ClusterDataPlane (with default fallback)
-	dataPlaneResult, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, r.Client, env)
+	dataPlaneResult, err := controller.GetDataPlaneFromRef(ctx, r.Client, env.Namespace, env.Spec.DataPlaneRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve dataplane for environment %s: %w", environmentName, err)
 	}
 
-	// Resolve the ObservabilityPlane (or ClusterObservabilityPlane) from the data plane
 	obsResult, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve observability plane for dataplane %s: %w", dataPlaneResult.GetName(), err)
 	}
 
-	// Get Kubernetes client - supports agent mode (via HTTP proxy) through cluster gateway
-	var opClient client.Client
-	if obsResult.ObservabilityPlane != nil {
-		opClient, err = kubernetesClient.GetK8sClientFromObservabilityPlane(r.K8sClientMgr, obsResult.ObservabilityPlane, r.GatewayURL)
-	} else {
-		opClient, err = kubernetesClient.GetK8sClientFromClusterObservabilityPlane(r.K8sClientMgr, obsResult.ClusterObservabilityPlane, r.GatewayURL)
-	}
+	opClient, err := obsResult.GetK8sClient(r.PlaneClientProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create observability plane client for %s: %w", obsResult.GetName(), err)
 	}
@@ -279,6 +266,8 @@ func (r *Reconciler) applyResources(ctx context.Context, planeClient client.Clie
 func (r *Reconciler) makeDesiredResources(release *openchoreov1alpha1.RenderedRelease) ([]*unstructured.Unstructured, error) {
 	desiredObjects := make([]*unstructured.Unstructured, 0, len(release.Spec.Resources))
 
+	restartedAt := release.Annotations[controller.AnnotationKeyRestartedAt]
+
 	for _, resource := range release.Spec.Resources {
 		// Convert RawExtension to Unstructured
 		obj := &unstructured.Unstructured{}
@@ -299,10 +288,40 @@ func (r *Reconciler) makeDesiredResources(release *openchoreov1alpha1.RenderedRe
 
 		obj.SetLabels(resourceLabels)
 
+		if restartedAt != "" {
+			if err := injectRestartedAt(obj, restartedAt); err != nil {
+				return nil, fmt.Errorf("failed to inject restartedAt on resource %s: %w", resource.ID, err)
+			}
+		}
+
 		desiredObjects = append(desiredObjects, obj)
 	}
 
 	return desiredObjects, nil
+}
+
+// injectRestartedAt sets openchoreo.dev/restartedAt on the pod template of an
+// apps/v1 Deployment so a change to the value causes the data plane to perform
+// a rolling restart. It is a no-op for any other kind. Returns an error if the
+// manifest is malformed (e.g. annotations is not a string map), so the caller
+// can surface it instead of silently dropping the restart trigger.
+func injectRestartedAt(obj *unstructured.Unstructured, value string) error {
+	gvk := obj.GroupVersionKind()
+	if gvk.Group != appsAPIGroup || gvk.Kind != "Deployment" {
+		return nil
+	}
+	annotations, _, err := unstructured.NestedStringMap(obj.Object, "spec", "template", "metadata", "annotations")
+	if err != nil {
+		return fmt.Errorf("read pod template annotations: %w", err)
+	}
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[controller.AnnotationKeyRestartedAt] = value
+	if err := unstructured.SetNestedStringMap(obj.Object, annotations, "spec", "template", "metadata", "annotations"); err != nil {
+		return fmt.Errorf("set pod template annotations: %w", err)
+	}
+	return nil
 }
 
 // makeDesiredNamespaces creates namespace objects from the desired resources with proper labels
@@ -416,6 +435,54 @@ func (r *Reconciler) deleteResources(ctx context.Context, planeClient client.Cli
 	return nil
 }
 
+// wellKnownDataPlaneGVKs is the safety-net list for data-plane rendered releases.
+// It covers common Kubernetes resource types that the data-plane agent has permission
+// to list, so orphaned resources are caught even when status update fails.
+var wellKnownDataPlaneGVKs = []schema.GroupVersionKind{
+	// Core Kubernetes Resources
+	{Group: "", Version: "v1", Kind: "Service"},
+	{Group: "", Version: "v1", Kind: "ConfigMap"},
+	{Group: "", Version: "v1", Kind: "Secret"},
+	{Group: "", Version: "v1", Kind: "ServiceAccount"},
+	{Group: "", Version: "v1", Kind: "Namespace"},
+	{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
+
+	// Apps
+	{Group: "apps", Version: "v1", Kind: "Deployment"},
+	{Group: "apps", Version: "v1", Kind: "StatefulSet"},
+
+	// Batch
+	{Group: "batch", Version: "v1", Kind: "Job"},
+	{Group: "batch", Version: "v1", Kind: "CronJob"},
+
+	// Autoscaling & Policy
+	{Group: "autoscaling", Version: "v2", Kind: "HorizontalPodAutoscaler"},
+	{Group: "policy", Version: "v1", Kind: "PodDisruptionBudget"},
+
+	// Networking
+	{Group: "networking.k8s.io", Version: "v1", Kind: "NetworkPolicy"},
+	{Group: "networking.k8s.io", Version: "v1", Kind: "Ingress"},
+
+	// RBAC
+	{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
+	{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
+	{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
+	{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
+
+	// Gateway API
+	{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute"},
+	{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "Gateway"},
+}
+
+// wellKnownObservabilityPlaneGVKs is the safety-net list for observability-plane rendered
+// releases. It is intentionally narrow: only the CRDs that the observability-plane agent
+// reconciles and has RBAC permission to list. Broad Kubernetes types (Services, Deployments,
+// etc.) and control-plane-only CRDs (e.g. ObservabilityAlertsNotificationChannel) are
+// excluded because the observability-plane agent's RBAC does not cover them.
+var wellKnownObservabilityPlaneGVKs = []schema.GroupVersionKind{
+	{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
+}
+
 // findAllKnownGVKs finds all GroupVersionKinds that we should query for cleanup.
 //
 // This function is critical for preventing resource leaks during cleanup. It combines resource types
@@ -429,18 +496,17 @@ func (r *Reconciler) deleteResources(ctx context.Context, planeClient client.Cli
 //   - Handles resource types that were removed from the spec
 //   - Prevents orphaned resources when user removes entire resource types
 //
-// 3. WELL-KNOWN TYPES: Common Kubernetes resource types we typically manage
+// 3. WELL-KNOWN TYPES: Plane-specific resource types we typically manage
 //   - Handles edge cases where resources exist but status update failed
 //   - Provides safety net for orphaned resources from failed reconciliations
+//   - Scoped per target plane so only types the plane's agent can list are queried
 //
 // Example scenario:
 //   - Previous reconciliation: Applied ConfigMap + Secret
 //   - Current reconciliation: User removed ConfigMap, kept Secret
 //   - Without status: Would only query Secret, miss orphaned ConfigMap
 //   - With status: Queries both Secret + ConfigMap, finds and deletes orphaned ConfigMap
-//
-// This approach automatically supports any CRDs (Gateway, Cilium, etc.) without hardcoded lists.
-func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedResources []openchoreov1alpha1.ResourceStatus) []schema.GroupVersionKind {
+func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedResources []openchoreov1alpha1.RenderedManifestStatus, targetPlane string) []schema.GroupVersionKind {
 	gvkSet := make(map[schema.GroupVersionKind]bool)
 
 	// Add GVKs from desired resources (current spec)
@@ -461,47 +527,12 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 		gvkSet[gvk] = true
 	}
 
-	// Add well-known GVKs that are commonly managed by controllers
-	// This provides a safety net for resources that might be orphaned due to failed status updates
-	wellKnownGVKs := []schema.GroupVersionKind{
-		// Core Kubernetes Resources
-		{Group: "", Version: "v1", Kind: "Service"},
-		{Group: "", Version: "v1", Kind: "ConfigMap"},
-		// Secret is excluded from well-known GVKs because the cluster gateway blocks
-		// cluster-wide secret listing (/api/v1/secrets) for security reasons.
-		// Secrets are tracked and cleaned up through external secrets.
-		// TODO: Switch listLiveResourcesByGVKs to namespace-scoped listing so secrets
-		// can be safely re-added here without hitting the cluster gateway block.
-		// {Group: "", Version: "v1", Kind: "Secret"},
-		{Group: "", Version: "v1", Kind: "ServiceAccount"},
-		{Group: "", Version: "v1", Kind: "Namespace"},
-		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
-
-		// Apps
-		{Group: "apps", Version: "v1", Kind: "Deployment"},
-		{Group: "apps", Version: "v1", Kind: "StatefulSet"},
-
-		// Batch
-		{Group: "batch", Version: "v1", Kind: "Job"},
-		{Group: "batch", Version: "v1", Kind: "CronJob"},
-
-		// Autoscaling & Policy
-		{Group: "autoscaling", Version: "v2", Kind: "HorizontalPodAutoscaler"},
-		{Group: "policy", Version: "v1", Kind: "PodDisruptionBudget"},
-
-		// Networking
-		{Group: "networking.k8s.io", Version: "v1", Kind: "NetworkPolicy"},
-		{Group: "networking.k8s.io", Version: "v1", Kind: "Ingress"},
-
-		// RBAC
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "Role"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "RoleBinding"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
-		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"},
-
-		// Gateway API
-		{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute"},
-		{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "Gateway"},
+	// Add plane-specific well-known GVKs as a safety net for orphaned resources.
+	// Using a plane-scoped list ensures we only probe types the plane agent can list,
+	// avoiding spurious RBAC errors from querying types the plane doesn't manage.
+	wellKnownGVKs := wellKnownDataPlaneGVKs
+	if targetPlane == targetPlaneObservabilityPlane {
+		wellKnownGVKs = wellKnownObservabilityPlaneGVKs
 	}
 	for _, gvk := range wellKnownGVKs {
 		gvkSet[gvk] = true
@@ -518,8 +549,6 @@ func findAllKnownGVKs(desiredResources []*unstructured.Unstructured, appliedReso
 
 // listLiveResourcesByGVKs queries specific resource types with label selector
 func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, planeClient client.Client, release *openchoreov1alpha1.RenderedRelease, gvks []schema.GroupVersionKind) ([]*unstructured.Unstructured, error) {
-	logger := log.FromContext(ctx)
-
 	var allLiveResources []*unstructured.Unstructured
 
 	// Query each GVK with our label selector
@@ -548,8 +577,11 @@ func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, planeClient cl
 		if err := planeClient.List(ctx, list, &client.ListOptions{
 			LabelSelector: selector,
 		}); err != nil {
-			logger.Error(err, "Failed to list resources", "gvk", gvk.String())
-			continue // Continue with other GVKs instead of failing
+			if apimeta.IsNoMatchError(err) {
+				// GVK is not registered in this cluster — silently skip
+				continue
+			}
+			return nil, fmt.Errorf("failed to list resources for %s: %w", gvk.String(), err)
 		}
 
 		// Add all items to result
@@ -609,10 +641,6 @@ func addJitter(base time.Duration, maxJitter time.Duration) time.Duration {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if r.K8sClientMgr == nil {
-		r.K8sClientMgr = kubernetesClient.NewManager()
-	}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.RenderedRelease{}).
 		Named("renderedrelease").

@@ -13,7 +13,7 @@ import (
 	"github.com/openchoreo/openchoreo/test/e2e/framework"
 )
 
-var _ = Describe("Platform Health", Ordered, func() {
+var _ = Describe("Platform Health", Ordered, Label("tier1"), func() {
 	const (
 		cpNamespace = "openchoreo-control-plane"
 		dpNamespace = "openchoreo-data-plane"

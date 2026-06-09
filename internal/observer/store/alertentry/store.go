@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 )
 
 const (
@@ -60,6 +61,7 @@ type AlertEntryStore interface {
 	Initialize(ctx context.Context) error
 	WriteAlertEntry(ctx context.Context, entry *AlertEntry) (id string, err error)
 	QueryAlertEntries(ctx context.Context, params QueryParams) ([]AlertEntry, int, error)
+	HasRecentAlert(ctx context.Context, alertRuleCRName, alertRuleCRNamespace, componentUID string, since time.Time) (bool, error)
 	Close() error
 }
 

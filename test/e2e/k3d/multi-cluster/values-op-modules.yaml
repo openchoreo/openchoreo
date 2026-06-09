@@ -1,0 +1,26 @@
+# Resource config for the observability module charts installed by _e2e.mc.install-op.
+# Passed via -f to observability-logs-opensearch and observability-metrics-prometheus.
+
+# ---- observability-logs-opensearch (OP cluster — standalone mode) ----
+# Caps standalone OpenSearch JVM heap and memory to fit the shared 10 GB Lima VM.
+openSearch:
+  extraEnvs:
+    - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+      value: ThisIsTheOpenSearchPassword1
+    - name: OPENSEARCH_JAVA_OPTS
+      value: "-Xms512m -Xmx768m"
+  resources:
+    requests:
+      memory: "1Gi"
+    limits:
+      memory: "1.5Gi"
+
+# ---- observability-metrics-prometheus ----
+kube-prometheus-stack:
+  prometheus:
+    prometheusSpec:
+      resources:
+        requests:
+          memory: "256Mi"
+        limits:
+          memory: "512Mi"

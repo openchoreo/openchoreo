@@ -35,6 +35,11 @@ resources:
   - component_viewer_role.yaml
   - componenttype_editor_role.yaml
   - componenttype_viewer_role.yaml
+  - resource_editor_role.yaml
+  - resource_viewer_role.yaml
+  - resourcetype_admin_role.yaml
+  - resourcetype_editor_role.yaml
+  - resourcetype_viewer_role.yaml
   - deploymentpipeline_editor_role.yaml
   - deploymentpipeline_viewer_role.yaml
   - dataplane_editor_role.yaml
@@ -56,6 +61,10 @@ resources:
   - releasebinding_viewer_role.yaml
   - componentrelease_editor_role.yaml
   - componentrelease_viewer_role.yaml
+  - resourcerelease_editor_role.yaml
+  - resourcerelease_viewer_role.yaml
+  - resourcereleasebinding_editor_role.yaml
+  - resourcereleasebinding_viewer_role.yaml
   - secretreference_editor_role.yaml
   - secretreference_viewer_role.yaml
   - renderedrelease_editor_role.yaml
@@ -72,6 +81,9 @@ resources:
   - clustercomponenttype_admin_role.yaml
   - clustercomponenttype_editor_role.yaml
   - clustercomponenttype_viewer_role.yaml
+  - clusterresourcetype_admin_role.yaml
+  - clusterresourcetype_editor_role.yaml
+  - clusterresourcetype_viewer_role.yaml
   - clusterauthzrolebinding_admin_role.yaml
   - clusterauthzrolebinding_editor_role.yaml
   - clusterauthzrolebinding_viewer_role.yaml

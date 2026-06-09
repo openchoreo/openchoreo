@@ -1,0 +1,70 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ResourceType
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: resourcetype-sample
+  namespace: default
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      properties:
+        image:
+          type: string
+          default: nginx:1.27-alpine
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        replicas:
+          type: integer
+          default: 1
+  retainPolicy: Delete
+  outputs:
+    - name: host
+      value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"
+    - name: port
+      value: "80"
+  resources:
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}
+          ports:
+            - name: http
+              port: 80
+              targetPort: 80
+    - id: deployment
+      readyWhen: "${applied.deployment.status.readyReplicas == applied.deployment.status.replicas && applied.deployment.status.replicas > 0}"
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: ${environmentConfigs.replicas}
+          selector:
+            matchLabels:
+              app: ${metadata.name}
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}
+            spec:
+              containers:
+                - name: app
+                  image: ${parameters.image}
+                  ports:
+                    - containerPort: 80
+                      name: http

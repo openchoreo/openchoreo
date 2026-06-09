@@ -37,8 +37,36 @@ import (
 
 const (
 	httpRouteKind   = "HTTPRoute"
+	grpcRouteKind   = "GRPCRoute"
+	tlsRouteKind    = "TLSRoute"
 	gatewayAPIGroup = "gateway.networking.k8s.io"
 )
+
+// routeKindCompat lists which workload endpoint types each Gateway API route kind
+// may expose. HTTPRoute/GRPCRoute attach to the http and https gateway listeners
+// (the gateway terminates TLS on https); TLSRoute attaches to the tls listener for
+// SNI-based passthrough where the application terminates TLS. A given endpoint
+// is exposed by at most one route kind per visibility — the TLS trait swaps an
+// HTTPRoute/GRPCRoute for a TLSRoute when application-level TLS termination is
+// required.
+var routeKindCompat = map[string]map[openchoreov1alpha1.EndpointType]bool{
+	httpRouteKind: {
+		openchoreov1alpha1.EndpointTypeHTTP:      true,
+		openchoreov1alpha1.EndpointTypeGraphQL:   true,
+		openchoreov1alpha1.EndpointTypeWebsocket: true,
+		openchoreov1alpha1.EndpointTypeGRPC:      true,
+	},
+	grpcRouteKind: {
+		openchoreov1alpha1.EndpointTypeGRPC: true,
+	},
+	tlsRouteKind: {
+		openchoreov1alpha1.EndpointTypeHTTP:      true,
+		openchoreov1alpha1.EndpointTypeGraphQL:   true,
+		openchoreov1alpha1.EndpointTypeWebsocket: true,
+		openchoreov1alpha1.EndpointTypeGRPC:      true,
+		openchoreov1alpha1.EndpointTypeTCP:       true,
+	},
+}
 
 // Reconciler reconciles a ReleaseBinding object
 type Reconciler struct {
@@ -48,6 +76,23 @@ type Reconciler struct {
 	// Pipeline is the component rendering pipeline, shared across all reconciliations.
 	// This enables CEL environment caching across different component types and reconciliations.
 	Pipeline *componentpipeline.Pipeline
+}
+
+// networkPolicyProviderFromDataPlane reads the "openchoreo.dev/networkpolicyprovider" annotation
+// from the DataPlane or ClusterDataPlane CR and returns the matching Provider.
+// Absent annotation or any value other than "cilium" defaults to ProviderKubernetes.
+func networkPolicyProviderFromDataPlane(dp *controller.DataPlaneResult) networkpolicy.Provider {
+	var annotations map[string]string
+	switch {
+	case dp.DataPlane != nil:
+		annotations = dp.DataPlane.Annotations
+	case dp.ClusterDataPlane != nil:
+		annotations = dp.ClusterDataPlane.Annotations
+	}
+	if annotations["openchoreo.dev/networkpolicyprovider"] == string(networkpolicy.ProviderCilium) {
+		return networkpolicy.ProviderCilium
+	}
+	return networkpolicy.ProviderKubernetes
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
@@ -161,7 +206,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	}
 
 	// Fetch DataPlane or ClusterDataPlane object using the resolution function
-	dataPlaneResult, err := controller.GetDataPlaneOrClusterDataPlaneOfEnv(ctx, r.Client, environment)
+	dataPlaneResult, err := controller.GetDataPlaneFromRef(ctx, r.Client, environment.Namespace, environment.Spec.DataPlaneRef)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("DataPlane not found for environment %q", environment.Name)
@@ -310,60 +355,86 @@ func (r *Reconciler) buildMetadataContext(
 }
 
 // collectSecretReferences collects all SecretReferences needed for rendering from workload and releaseBinding.
+// It also validates that the key requested by each SecretKeyRef exists in the corresponding SecretReference's
+// spec.data[].secretKey so that typos or missing keys surface as a clear rendering error instead of being
+// silently dropped during configuration extraction.
+// Both workload and releaseBinding always reside in the same control plane namespace, so all
+// SecretReference lookups use releaseBinding.Namespace.
 func (r *Reconciler) collectSecretReferences(ctx context.Context, workload *openchoreov1alpha1.Workload, releaseBinding *openchoreov1alpha1.ReleaseBinding) (map[string]*openchoreov1alpha1.SecretReference, error) {
 	secretRefs := make(map[string]*openchoreov1alpha1.SecretReference)
+	namespace := releaseBinding.Namespace
 
-	// Helper function to collect secret reference
-	collectSecretRef := func(refName string, namespace string) error {
-		if refName == "" {
+	collectAndValidate := func(ref *openchoreov1alpha1.SecretKeyRef) error {
+		if ref.Name == "" {
 			return nil
 		}
-		if _, exists := secretRefs[refName]; !exists {
-			secretRef := &openchoreov1alpha1.SecretReference{}
+		secretRef, exists := secretRefs[ref.Name]
+		if !exists {
+			secretRef = &openchoreov1alpha1.SecretReference{}
 			if err := r.Get(ctx, client.ObjectKey{
-				Name:      refName,
+				Name:      ref.Name,
 				Namespace: namespace,
 			}, secretRef); err != nil {
-				return fmt.Errorf("failed to get SecretReference %s: %w", refName, err)
+				return fmt.Errorf("failed to get SecretReference %q: %w", ref.Name, err)
 			}
-			secretRefs[refName] = secretRef
+			secretRefs[ref.Name] = secretRef
 		}
-		return nil
+		availableKeys := make([]string, 0, len(secretRef.Spec.Data))
+		for _, data := range secretRef.Spec.Data {
+			if data.SecretKey == ref.Key {
+				return nil
+			}
+			availableKeys = append(availableKeys, data.SecretKey)
+		}
+		return fmt.Errorf("key %q not found in SecretReference %q; available keys: %v",
+			ref.Key, ref.Name, availableKeys)
 	}
 
-	if workload != nil {
-		container := workload.Spec.Container
-		for _, env := range container.Env {
-			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
-				if err := collectSecretRef(env.ValueFrom.SecretKeyRef.Name, workload.Namespace); err != nil {
-					return nil, err
-				}
-			}
-		}
-
-		for _, file := range container.Files {
-			if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
-				if err := collectSecretRef(file.ValueFrom.SecretKeyRef.Name, workload.Namespace); err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-
-	// Collect from releaseBinding workload overrides if present
+	// Collect from releaseBinding overrides first, tracking which env/file keys are
+	// overridden so we can skip the corresponding workload entries.
+	overriddenEnvKeys := make(map[string]struct{})
+	overriddenFileKeys := make(map[string]struct{})
 	if releaseBinding.Spec.WorkloadOverrides != nil && releaseBinding.Spec.WorkloadOverrides.Container != nil {
 		container := releaseBinding.Spec.WorkloadOverrides.Container
 		for _, env := range container.Env {
+			overriddenEnvKeys[env.Key] = struct{}{}
 			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
-				if err := collectSecretRef(env.ValueFrom.SecretKeyRef.Name, releaseBinding.Namespace); err != nil {
+				if err := collectAndValidate(env.ValueFrom.SecretKeyRef); err != nil {
 					return nil, err
 				}
 			}
 		}
 
 		for _, file := range container.Files {
+			overriddenFileKeys[file.Key] = struct{}{}
 			if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
-				if err := collectSecretRef(file.ValueFrom.SecretKeyRef.Name, releaseBinding.Namespace); err != nil {
+				if err := collectAndValidate(file.ValueFrom.SecretKeyRef); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	// Collect from workload, skipping entries overridden by releaseBinding
+	if workload != nil {
+		container := workload.Spec.Container
+		for _, env := range container.Env {
+			if _, overridden := overriddenEnvKeys[env.Key]; overridden {
+				continue
+			}
+			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
+				if err := collectAndValidate(env.ValueFrom.SecretKeyRef); err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		for _, file := range container.Files {
+			if _, overridden := overriddenFileKeys[file.Key]; overridden {
+				continue
+			}
+			if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
+				if err := collectAndValidate(file.ValueFrom.SecretKeyRef); err != nil {
 					return nil, err
 				}
 			}
@@ -374,6 +445,9 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, workload *open
 }
 
 // reconcileRelease creates or updates the Release resource and sets appropriate status conditions.
+//
+// nolint:gocyclo // Long reconcile state machine; complexity is structural, not accidental.
+// Matches the same nolint directive on setResourcesReadyStatus and the workflowrun reconcile.
 func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	componentRelease *openchoreov1alpha1.ComponentRelease, environment *openchoreov1alpha1.Environment,
 	dataPlaneResult *controller.DataPlaneResult, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project) (ctrl.Result, error) {
@@ -439,6 +513,14 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Pre-compute connection items with per-item env vars from resolved connections
 	dependencyItems := buildConnectionItems(releaseBinding, snapshotWorkload.Spec.GetDependencyEndpoints())
 
+	// Resolve resource dependencies inline: build targets, resolve provider RRB outputs.
+	resourceDeps := snapshotWorkload.Spec.GetDependencyResources()
+	resourceDepItems, err := r.populateResourceDependencyStatus(ctx, releaseBinding, resourceDeps)
+	if err != nil {
+		logger.Error(err, "Failed to resolve resource dependencies")
+		return ctrl.Result{}, fmt.Errorf("failed to resolve resource dependencies: %w", err)
+	}
+
 	// Prepare RenderInput
 	renderInput := &componentpipeline.RenderInput{
 		ComponentType:              snapshotComponentType,
@@ -452,6 +534,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		Metadata:                   metadataContext,
 		DefaultNotificationChannel: defaultNotificationChannel,
 		DependencyItems:            dependencyItems,
+		ResourceDependencyItems:    resourceDepItems,
 	}
 
 	// Render resources using the shared pipeline instance
@@ -483,7 +566,8 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		}
 	}
 
-	// Inject per-component NetworkPolicies into dataplane resources
+	// Inject per-component network policies into dataplane resources.
+	// The provider is determined by the "openchoreo.dev/networkpolicyprovider" annotation on the DataPlane CR.
 	componentNetpols := networkpolicy.MakeComponentPolicies(networkpolicy.ComponentPolicyParams{
 		Namespace:     metadataContext.Namespace,
 		CPNamespace:   metadataContext.ComponentNamespace,
@@ -491,6 +575,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		ComponentName: metadataContext.ComponentName,
 		PodSelectors:  metadataContext.PodSelectors,
 		Endpoints:     snapshotWorkload.Spec.Endpoints,
+		Provider:      networkPolicyProviderFromDataPlane(dataPlaneResult),
 	})
 	dataPlaneResources = append(dataPlaneResources, componentNetpols...)
 
@@ -540,6 +625,15 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			labels.LabelKeyProjectName:     releaseBinding.Spec.Owner.ProjectName,
 			labels.LabelKeyComponentName:   releaseBinding.Spec.Owner.ComponentName,
 			labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
+		}
+
+		if v, ok := releaseBinding.Annotations[controller.AnnotationKeyRestartedAt]; ok {
+			if dataPlaneRelease.Annotations == nil {
+				dataPlaneRelease.Annotations = map[string]string{}
+			}
+			dataPlaneRelease.Annotations[controller.AnnotationKeyRestartedAt] = v
+		} else {
+			delete(dataPlaneRelease.Annotations, controller.AnnotationKeyRestartedAt)
 		}
 
 		dataPlaneRelease.Spec = openchoreov1alpha1.RenderedReleaseSpec{
@@ -610,6 +704,19 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		logger.Info("Connections not yet resolved, waiting for provider endpoint changes",
 			"pending", len(releaseBinding.Status.PendingConnections),
 			"resolved", len(releaseBinding.Status.ResolvedConnections))
+		return ctrl.Result{}, nil
+	}
+
+	// Resource dependency stability guard: same shape as the connections guard above.
+	// Block ReleaseSynced when any provider ResourceReleaseBinding is missing, not Ready,
+	// or has not yet populated a referenced output.
+	resourceDeps = snapshotWorkload.Spec.GetDependencyResources()
+	resourceDepsResolved := allResourceDependenciesResolved(releaseBinding, resourceDeps)
+	setResourceDependenciesCondition(releaseBinding, resourceDepsResolved)
+	if !resourceDepsResolved {
+		logger.Info("Resource dependencies not yet resolved, waiting for provider outputs",
+			"pending", len(releaseBinding.Status.PendingResourceDependencies),
+			"deps", len(resourceDeps))
 		return ctrl.Result{}, nil
 	}
 
@@ -739,6 +846,9 @@ type observabilityReleaseResult struct {
 	resourceCount     int
 	managed           bool
 	ownershipConflict bool
+	// skipReason explains why the observability Release was skipped when managed == false.
+	// Empty when managed == true.
+	skipReason string
 }
 
 // reconcileObservabilityRelease handles the creation, update, or cleanup of the observability plane Release.
@@ -748,18 +858,25 @@ func (r *Reconciler) reconcileObservabilityRelease(
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	componentRelease *openchoreov1alpha1.ComponentRelease,
 	dataPlaneResult *controller.DataPlaneResult,
-	observabilityPlaneReleaseResources []openchoreov1alpha1.Resource,
+	observabilityPlaneReleaseResources []openchoreov1alpha1.RenderedManifest,
 ) (observabilityReleaseResult, error) {
 	logger := log.FromContext(ctx)
 
 	// Determine if we should create/manage an observability Release:
-	// 1. ObservabilityPlane must exist (with default fallback)
-	// 2. There must be observability plane resources to deploy
+	// 1. There must be observability plane resources to deploy
+	// 2. ObservabilityPlane must resolve (with default fallback)
 	shouldManage := false
-	if len(observabilityPlaneReleaseResources) > 0 {
+	var skipReason string
+	if len(observabilityPlaneReleaseResources) == 0 {
+		skipReason = "no observability resources to deploy"
+	} else {
 		// Try to resolve the ObservabilityPlane - this will use "default" if not explicitly specified
-		_, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client)
-		shouldManage = (err == nil)
+		if _, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client); err != nil {
+			skipReason = fmt.Sprintf("failed to resolve ObservabilityPlane: %v", err)
+			logger.Info("Skipping observability Release reconciliation", "reason", skipReason)
+		} else {
+			shouldManage = true
+		}
 	}
 
 	releaseName := makeObservabilityReleaseName(componentRelease, releaseBinding)
@@ -768,6 +885,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 		releaseName:   releaseName,
 		resourceCount: len(observabilityPlaneReleaseResources),
 		managed:       shouldManage,
+		skipReason:    skipReason,
 	}
 
 	if shouldManage {
@@ -875,8 +993,8 @@ func (r *Reconciler) setReleaseSyncedCondition(
 				dpReleaseName, dpOp, dpResourceCount,
 				obsResult.releaseName, obsResult.operation, obsResult.resourceCount)
 		} else {
-			msg = fmt.Sprintf("Dataplane Release %q %s with %d resources (observability release skipped: no ObservabilityPlaneRef or no resources)",
-				dpReleaseName, dpOp, dpResourceCount)
+			msg = fmt.Sprintf("Dataplane Release %q %s with %d resources (observability release skipped: %s)",
+				dpReleaseName, dpOp, dpResourceCount, obsResult.skipReason)
 		}
 		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseCreated, msg)
 
@@ -886,8 +1004,8 @@ func (r *Reconciler) setReleaseSyncedCondition(
 			msg = fmt.Sprintf("Dataplane Release %q is up to date; observability Release %q is %s",
 				dpReleaseName, obsResult.releaseName, obsResult.operation)
 		} else {
-			msg = fmt.Sprintf("Dataplane Release %q is up to date (observability release skipped: no ObservabilityPlaneRef or no resources)",
-				dpReleaseName)
+			msg = fmt.Sprintf("Dataplane Release %q is up to date (observability release skipped: %s)",
+				dpReleaseName, obsResult.skipReason)
 		}
 		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseSynced, msg)
 	}
@@ -988,8 +1106,8 @@ func buildWorkloadFromRelease(componentRelease *openchoreov1alpha1.ComponentRele
 // convertToReleaseResources converts unstructured resources to Release.Resource format
 func (r *Reconciler) convertToReleaseResources(
 	resources []map[string]any,
-) ([]openchoreov1alpha1.Resource, error) {
-	releaseResources := make([]openchoreov1alpha1.Resource, 0, len(resources))
+) ([]openchoreov1alpha1.RenderedManifest, error) {
+	releaseResources := make([]openchoreov1alpha1.RenderedManifest, 0, len(resources))
 
 	for i, resource := range resources {
 		// Generate resource ID
@@ -1001,7 +1119,7 @@ func (r *Reconciler) convertToReleaseResources(
 			return nil, fmt.Errorf("failed to marshal resource to JSON (resourceID: %s): %w", id, err)
 		}
 
-		releaseResources = append(releaseResources, openchoreov1alpha1.Resource{
+		releaseResources = append(releaseResources, openchoreov1alpha1.RenderedManifest{
 			ID: id,
 			Object: &runtime.RawExtension{
 				Raw: rawJSON,
@@ -1037,22 +1155,35 @@ type endpointMeta struct {
 	visibility   []openchoreov1alpha1.EndpointVisibility
 }
 
-// endpointRoutes holds the indexed HTTPRoute objects for a single endpoint,
-// split into external and internal buckets.
-type endpointRoutes struct {
-	external *unstructured.Unstructured
-	internal *unstructured.Unstructured
+// indexedRoute is a Gateway API route resource paired with its kind so the URL
+// resolution pass can pick path-extraction and listener-targeting rules without
+// re-inspecting the unstructured object.
+type indexedRoute struct {
+	obj  *unstructured.Unstructured
+	kind string
 }
 
-// resolveEndpointURLStatuses matches each rendered HTTPRoute to a named workload endpoint
-// using the openchoreo.dev/endpoint-name and openchoreo.dev/endpoint-visibility labels,
-// then derives the invoke URL from the HTTPRoute hostname and optional path prefix.
-// The gateway port is selected based on the endpoint visibility: external visibility uses
-// the external ingress gateway; all other visibilities use the internal ingress gateway.
-// Environment-level gateway configuration takes precedence over dataplane-level configuration.
+// endpointRoutes holds the indexed Gateway API route for a single endpoint,
+// split into external and internal buckets. The TLS trait keeps route kinds
+// mutually exclusive per visibility, so a single pointer per bucket is enough.
+type endpointRoutes struct {
+	external *indexedRoute
+	internal *indexedRoute
+}
+
+// resolveEndpointURLStatuses matches each rendered Gateway API route (HTTPRoute,
+// GRPCRoute, or TLSRoute) to a named workload endpoint using the
+// openchoreo.dev/endpoint-name and openchoreo.dev/endpoint-visibility labels,
+// then derives the invoke URLs from the route hostname (and HTTPRoute path).
+// The gateway port is selected based on endpoint visibility: external visibility
+// uses the external ingress gateway; all other visibilities use the internal
+// ingress gateway. Environment-level gateway configuration takes precedence over
+// dataplane-level configuration. HTTPRoute and GRPCRoute populate the http/https
+// listener URLs; TLSRoute populates the tls listener URL. URL schemes are
+// derived from the endpoint type (e.g. ws/wss for Websocket, grpc/grpcs for gRPC).
 func resolveEndpointURLStatuses(
 	ctx context.Context,
-	resources []openchoreov1alpha1.Resource,
+	resources []openchoreov1alpha1.RenderedManifest,
 	endpoints map[string]openchoreov1alpha1.WorkloadEndpoint,
 	environment *openchoreov1alpha1.Environment,
 	dataPlane *openchoreov1alpha1.DataPlane,
@@ -1064,26 +1195,25 @@ func resolveEndpointURLStatuses(
 		return nil
 	}
 
-	// Build a map of endpoint name → endpointMeta for HTTP-compatible endpoint types.
-	// Only HTTP, GraphQL and Websocket endpoints are exposed via HTTPRoutes.
-	httpEndpoints := make(map[string]endpointMeta, len(endpoints))
+	// Build a map of endpoint name → endpointMeta for endpoint types that some
+	// route kind can expose. Routes targeting any other endpoint type are skipped
+	// during the indexing pass below.
+	routableEndpoints := make(map[string]endpointMeta, len(endpoints))
 	for name, ep := range endpoints {
-		switch ep.Type {
-		case openchoreov1alpha1.EndpointTypeHTTP,
-			openchoreov1alpha1.EndpointTypeGraphQL,
-			openchoreov1alpha1.EndpointTypeWebsocket:
-			httpEndpoints[name] = endpointMeta{
-				endpointType: ep.Type,
-				visibility:   ep.Visibility,
-			}
-			logger.Info("Registered HTTP-compatible endpoint", "name", name, "type", ep.Type)
-		default:
-			logger.Info("Skipping non-HTTP endpoint", "name", name, "type", ep.Type)
+		if !isRoutableEndpointType(ep.Type) {
+			logger.Info("Skipping endpoint type not exposed by any Gateway API route",
+				"name", name, "type", ep.Type)
+			continue
 		}
+		routableEndpoints[name] = endpointMeta{
+			endpointType: ep.Type,
+			visibility:   ep.Visibility,
+		}
+		logger.Info("Registered routable endpoint", "name", name, "type", ep.Type)
 	}
 
-	// First pass: index HTTPRoutes by endpoint name into external/internal buckets.
-	// No URL resolution happens here — just collect the objects.
+	// First pass: index Gateway API routes by endpoint name into external/internal
+	// buckets. No URL resolution happens here — just collect the objects.
 	routeIndex := make(map[string]*endpointRoutes)
 	for i := range resources {
 		res := &resources[i]
@@ -1097,25 +1227,34 @@ func resolveEndpointURLStatuses(
 			continue
 		}
 
-		if obj.GetKind() != httpRouteKind {
+		if obj.GetObjectKind().GroupVersionKind().Group != gatewayAPIGroup {
 			continue
 		}
-		if obj.GetObjectKind().GroupVersionKind().Group != gatewayAPIGroup {
+		kind := obj.GetKind()
+		compat, isRoute := routeKindCompat[kind]
+		if !isRoute {
 			continue
 		}
 
 		objLabels := obj.GetLabels()
 		endpointName := objLabels[labels.LabelKeyEndpointName]
 		if endpointName == "" {
-			logger.Info("HTTPRoute missing endpoint-name label, skipping", "httpRouteName", obj.GetName())
+			logger.Info("Route missing endpoint-name label, skipping",
+				"kind", kind, "routeName", obj.GetName())
 			continue
 		}
 
-		if _, ok := httpEndpoints[endpointName]; !ok {
-			logger.Info("HTTPRoute endpoint name not in supported HTTP endpoints, skipping",
-				"httpRouteName", obj.GetName(),
-				"endpointName", endpointName,
-			)
+		meta, ok := routableEndpoints[endpointName]
+		if !ok {
+			logger.Info("Route endpoint name not in routable endpoints, skipping",
+				"kind", kind, "routeName", obj.GetName(), "endpointName", endpointName)
+			continue
+		}
+
+		if !compat[meta.endpointType] {
+			logger.Info("Route kind incompatible with endpoint type, skipping",
+				"kind", kind, "routeName", obj.GetName(),
+				"endpointName", endpointName, "endpointType", meta.endpointType)
 			continue
 		}
 
@@ -1123,17 +1262,23 @@ func resolveEndpointURLStatuses(
 			routeIndex[endpointName] = &endpointRoutes{}
 		}
 
+		route := &indexedRoute{obj: obj, kind: kind}
 		visibility := openchoreov1alpha1.EndpointVisibility(objLabels[labels.LabelKeyEndpointVisibility])
+		bucket := &routeIndex[endpointName].internal
 		if visibility == openchoreov1alpha1.EndpointVisibilityExternal {
-			routeIndex[endpointName].external = obj
-		} else {
-			routeIndex[endpointName].internal = obj
+			bucket = &routeIndex[endpointName].external
 		}
+		if *bucket != nil {
+			logger.Info("Multiple routes target the same endpoint+visibility, overwriting",
+				"endpointName", endpointName, "visibility", visibility,
+				"existingKind", (*bucket).kind, "newKind", kind)
+		}
+		*bucket = route
 	}
 
 	// Second pass: iterate endpoints in sorted order and build one EndpointURLStatus per endpoint.
-	endpointNames := make([]string, 0, len(httpEndpoints))
-	for name := range httpEndpoints {
+	endpointNames := make([]string, 0, len(routableEndpoints))
+	for name := range routableEndpoints {
 		endpointNames = append(endpointNames, name)
 	}
 	sort.Strings(endpointNames)
@@ -1145,32 +1290,36 @@ func resolveEndpointURLStatuses(
 			continue
 		}
 
+		epType := routableEndpoints[name].endpointType
 		status := openchoreov1alpha1.EndpointURLStatus{
 			Name: name,
-			Type: httpEndpoints[name].endpointType,
+			Type: epType,
 		}
 
-		if routes.external != nil {
-			hostname := extractFirstHostname(routes.external)
+		if r := routes.external; r != nil {
+			hostname := extractFirstHostname(r.obj)
 			gwEndpoint := resolveGatewayEndpointByVisibility(openchoreov1alpha1.EndpointVisibilityExternal, environment, dataPlane)
 			if hostname == "" || gwEndpoint == nil {
 				logger.Info("No external gateway endpoint configured, skipping", "endpointName", name)
 			} else {
-				status.ExternalURLs = buildGatewayURLs(hostname, extractFirstPathValue(routes.external), gwEndpoint)
-				logger.Info("Resolved external endpoint URLs", "endpointName", name, "hostname", hostname)
+				status.ExternalURLs = buildRouteURLs(r.kind, epType, hostname, routePath(r), gwEndpoint)
+				logger.Info("Resolved external endpoint URLs",
+					"endpointName", name, "kind", r.kind, "hostname", hostname)
 			}
 		}
 
-		if routes.internal != nil {
-			hostname := extractFirstHostname(routes.internal)
-			visibilityStr := routes.internal.GetLabels()[labels.LabelKeyEndpointVisibility]
+		if r := routes.internal; r != nil {
+			hostname := extractFirstHostname(r.obj)
+			visibilityStr := r.obj.GetLabels()[labels.LabelKeyEndpointVisibility]
 			gwEndpoint := resolveGatewayEndpointByVisibility(openchoreov1alpha1.EndpointVisibility(visibilityStr), environment, dataPlane)
 			if hostname == "" || gwEndpoint == nil {
 				logger.Info("No internal gateway endpoint configured, skipping",
 					"endpointName", name, "visibility", visibilityStr)
 			} else {
-				status.InternalURLs = buildGatewayURLs(hostname, extractFirstPathValue(routes.internal), gwEndpoint)
-				logger.Info("Resolved internal endpoint URLs", "endpointName", name, "hostname", hostname, "visibility", visibilityStr)
+				status.InternalURLs = buildRouteURLs(r.kind, epType, hostname, routePath(r), gwEndpoint)
+				logger.Info("Resolved internal endpoint URLs",
+					"endpointName", name, "kind", r.kind,
+					"hostname", hostname, "visibility", visibilityStr)
 			}
 		}
 
@@ -1179,23 +1328,97 @@ func resolveEndpointURLStatuses(
 	return result
 }
 
-// buildGatewayURLs constructs an EndpointGatewayURLs from the configured listeners in the given
-// GatewayEndpointSpec. Each listener URL is only set when the corresponding listener is non-nil.
-func buildGatewayURLs(hostname, path string, ep *openchoreov1alpha1.GatewayEndpointSpec) *openchoreov1alpha1.EndpointGatewayURLs {
+// isRoutableEndpointType reports whether any route kind can expose this endpoint type.
+func isRoutableEndpointType(t openchoreov1alpha1.EndpointType) bool {
+	for _, compat := range routeKindCompat {
+		if compat[t] {
+			return true
+		}
+	}
+	return false
+}
+
+// routePath returns the URL base path that clients use to reach the endpoint via
+// the gateway. A route may advertise this explicitly through the
+// openchoreo.dev/endpoint-base-path annotation; this is required for routes that
+// render one match per API resource (e.g. an HTTPRoute with an Exact match per
+// OpenAPI path), where the first match is a specific operation rather than the
+// endpoint base. When the annotation is absent, fall back to the first HTTPRoute
+// match path — the prefix-routing convention where the single match value is the
+// exposed base. GRPCRoute (method-based) and TLSRoute (SNI-based) carry no path.
+func routePath(r *indexedRoute) string {
+	if base := r.obj.GetAnnotations()[labels.AnnotationKeyEndpointBasePath]; base != "" {
+		return base
+	}
+	if r.kind == httpRouteKind {
+		return extractFirstPathValue(r.obj)
+	}
+	return ""
+}
+
+// buildRouteURLs constructs an EndpointGatewayURLs by writing into the listener
+// fields that the given route kind targets. HTTPRoute and GRPCRoute populate
+// urls.HTTP (cleartext) and urls.HTTPS (gateway-terminated TLS); TLSRoute
+// populates urls.TLS (SNI passthrough, application terminates TLS). The URL
+// scheme inside each entry is derived from the workload endpoint type — the
+// field name reflects the gateway listener, not the scheme.
+func buildRouteURLs(
+	routeKind string,
+	epType openchoreov1alpha1.EndpointType,
+	hostname, path string,
+	ep *openchoreov1alpha1.GatewayEndpointSpec,
+) *openchoreov1alpha1.EndpointGatewayURLs {
 	if ep == nil {
 		return nil
 	}
 	urls := &openchoreov1alpha1.EndpointGatewayURLs{}
-	if ep.HTTP != nil {
-		urls.HTTP = buildInvokeURL("http", hostname, path, ep.HTTP.Port)
+	switch routeKind {
+	case httpRouteKind, grpcRouteKind:
+		if ep.HTTP != nil {
+			urls.HTTP = buildInvokeURL(schemeFor(epType, false), hostname, path, ep.HTTP.Port)
+		}
+		if ep.HTTPS != nil {
+			urls.HTTPS = buildInvokeURL(schemeFor(epType, true), hostname, path, ep.HTTPS.Port)
+		}
+	case tlsRouteKind:
+		if ep.TLS != nil {
+			urls.TLS = buildInvokeURL(schemeFor(epType, true), hostname, path, ep.TLS.Port)
+		}
 	}
-	if ep.HTTPS != nil {
-		urls.HTTPS = buildInvokeURL("https", hostname, path, ep.HTTPS.Port)
-	}
-	if ep.TLS != nil {
-		urls.TLS = buildInvokeURL("https", hostname, path, ep.TLS.Port)
+	if urls.HTTP == nil && urls.HTTPS == nil && urls.TLS == nil {
+		return nil
 	}
 	return urls
+}
+
+// schemeFor returns the URL scheme used by clients of the given endpoint type.
+// The tls flag selects between the cleartext form (over the http listener) and
+// the TLS form (over the https or tls listener). Returns "" for endpoint types
+// that don't have a meaningful URL scheme for the requested TLS variant
+// (e.g. TCP without TLS).
+func schemeFor(t openchoreov1alpha1.EndpointType, tls bool) string {
+	switch t {
+	case openchoreov1alpha1.EndpointTypeHTTP, openchoreov1alpha1.EndpointTypeGraphQL:
+		if tls {
+			return schemeHTTPS
+		}
+		return schemeHTTP
+	case openchoreov1alpha1.EndpointTypeWebsocket:
+		if tls {
+			return schemeWSS
+		}
+		return schemeWS
+	case openchoreov1alpha1.EndpointTypeGRPC:
+		if tls {
+			return schemeGRPCS
+		}
+		return schemeGRPC
+	case openchoreov1alpha1.EndpointTypeTCP:
+		if tls {
+			return schemeTLS
+		}
+	}
+	return ""
 }
 
 // buildInvokeURL constructs a single EndpointURL from the given components.
@@ -1306,6 +1529,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup connection targets index: %w", err)
 	}
 
+	// Setup field index for resource dependency targets (reads from status.resourceDependencyTargets)
+	if err := r.setupResourceDependencyTargetsIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup resource dependency targets index: %w", err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ReleaseBinding{}).
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
@@ -1319,6 +1547,17 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&openchoreov1alpha1.ReleaseBinding{},
 			handler.EnqueueRequestsFromMapFunc(r.findConsumerReleaseBindings),
 			builder.WithPredicates(endpointStatusChangedPredicate()),
+		).
+		// The two consumer-side watches do not form a cycle: the endpoint watch enqueues
+		// on Status.Endpoints changes, while the resource-dep watch enqueues on a
+		// ResourceReleaseBinding's Status.Outputs changes. A consumer reconcile may
+		// update its own Status.Endpoints (re-entering the endpoint watch) but never
+		// updates a ResourceReleaseBinding, so the resource-dep watch is fed only by the
+		// independent ResourceReleaseBinding controller.
+		Watches(
+			&openchoreov1alpha1.ResourceReleaseBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.findConsumerReleaseBindingsForResourceReleaseBinding),
+			builder.WithPredicates(resourceReleaseBindingOutputsChangedPredicate()),
 		).
 		Named("releasebinding").
 		Complete(r)

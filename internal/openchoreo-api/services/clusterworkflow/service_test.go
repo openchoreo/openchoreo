@@ -5,12 +5,19 @@ package clusterworkflow
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
@@ -51,6 +58,29 @@ func TestCreateClusterWorkflow(t *testing.T) {
 
 		_, err := svc.CreateClusterWorkflow(ctx, dup)
 		require.ErrorIs(t, err, ErrClusterWorkflowAlreadyExists)
+	})
+
+	t.Run("invalid wraps as ValidationError with 422 status", func(t *testing.T) {
+		scheme := runtime.NewScheme()
+		require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+		invalidErr := apierrors.NewInvalid(
+			schema.GroupKind{Group: "openchoreo.dev", Kind: "ClusterWorkflow"},
+			"bad-cwf",
+			field.ErrorList{field.Invalid(field.NewPath("spec", "runTemplate"), "x", "undeclared id")},
+		)
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.CreateOption) error {
+				return invalidErr
+			},
+		}).Build()
+		svc := NewService(fakeClient, testutil.TestLogger())
+
+		_, err := svc.CreateClusterWorkflow(ctx, testutil.NewClusterWorkflow("bad-cwf"))
+		require.Error(t, err)
+		var vErr *services.ValidationError
+		require.True(t, errors.As(err, &vErr), "expected *services.ValidationError, got %T", err)
+		assert.Equal(t, http.StatusUnprocessableEntity, vErr.StatusCode)
+		assert.Contains(t, vErr.Msg, "undeclared id")
 	})
 }
 

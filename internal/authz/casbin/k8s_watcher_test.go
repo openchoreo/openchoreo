@@ -4,13 +4,16 @@
 package casbin
 
 import (
+	"bytes"
 	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 
 	authzv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
@@ -31,7 +34,7 @@ func setupTestHandler(t *testing.T, crdType string) (*authzInformerHandler, casb
 
 	// Register custom functions used by the model
 	enforcer.AddFunction("resourceMatch", resourceMatchWrapper)
-	enforcer.AddFunction("ctxMatch", ctxMatchWrapper)
+	enforcer.AddFunction("condMatch", condMatchWrapper)
 
 	// Add custom role matcher for action wildcards
 	enforcer.Enforcer.AddNamedMatchingFunc("g", "", roleActionMatchWrapper)
@@ -1734,4 +1737,895 @@ func TestAuthzInformerHandler_HandleDeleteClusterBinding_Scoped(t *testing.T) {
 	if len(policies) != 0 {
 		t.Errorf("expected 0 policies after delete, got %d. All policies: %v", len(policies), policies)
 	}
+}
+
+// --- OnAdd/OnUpdate/OnDelete wrappers ---
+
+func TestAuthzInformerHandler_OnAdd_Role(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRole)
+	role := &authzv1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "on-add-role", Namespace: "acme"},
+		Spec:       authzv1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+	}
+	h.OnAdd(role, false) // should not panic
+}
+
+func TestAuthzInformerHandler_OnUpdate_Role(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRole)
+	old := &authzv1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "on-upd-role", Namespace: "acme", Generation: 1},
+		Spec:       authzv1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+	}
+	newR := &authzv1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "on-upd-role", Namespace: "acme", Generation: 2},
+		Spec:       authzv1alpha1.AuthzRoleSpec{Actions: []string{"component:create"}},
+	}
+	// Seed the old policy so the update handler can remove it
+	_, _ = h.enforcer.AddGroupingPolicy("on-upd-role", "component:view", "acme")
+	h.OnUpdate(old, newR)
+	// Verify the OnUpdate wrapper delegated correctly: old action removed, new action added
+	hasOld, _ := h.enforcer.HasGroupingPolicy("on-upd-role", "component:view", "acme")
+	require.False(t, hasOld, "old action component:view should be removed after OnUpdate")
+	hasNew, _ := h.enforcer.HasGroupingPolicy("on-upd-role", "component:create", "acme")
+	require.True(t, hasNew, "new action component:create should be added after OnUpdate")
+}
+
+func TestAuthzInformerHandler_OnDelete_Role(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRole)
+	role := &authzv1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "on-del-role", Namespace: "acme"},
+		Spec:       authzv1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+	}
+	h.OnDelete(role) // should not panic
+}
+
+func TestAuthzInformerHandler_OnDelete_WithTombstone(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRole)
+	role := &authzv1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "tombstone-role", Namespace: "acme"},
+		Spec:       authzv1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+	}
+	// Wrap in a DeletedFinalStateUnknown tombstone
+	tombstone := cache.DeletedFinalStateUnknown{
+		Key: "acme/tombstone-role",
+		Obj: role,
+	}
+	h.OnDelete(tombstone) // should not panic
+}
+
+// --- handleAdd dispatcher ---
+
+func TestAuthzInformerHandler_HandleAdd_UnknownCRDType(t *testing.T) {
+	h, _ := setupTestHandler(t, "UnknownType")
+	role := &authzv1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "r", Namespace: "acme"},
+		Spec:       authzv1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+	}
+	err := h.handleAdd(role)
+	require.NoError(t, err, "handleAdd with unknown crdType should return nil")
+}
+
+func TestAuthzInformerHandler_HandleAdd_ClusterRole(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRole)
+	cr := &authzv1alpha1.ClusterAuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "global-admin"},
+		Spec:       authzv1alpha1.ClusterAuthzRoleSpec{Actions: []string{"*"}},
+	}
+	require.NoError(t, h.handleAdd(cr), "handleAdd ClusterRole error")
+	// Verify the grouping policy was added: [roleName, action, "*"]
+	hasGP, _ := h.enforcer.HasGroupingPolicy("global-admin", "*", "*")
+	require.True(t, hasGP, "expected grouping policy [global-admin, *, *] to exist after handleAdd")
+}
+
+func TestAuthzInformerHandler_HandleAdd_Binding(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	binding := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "b1", Namespace: "acme"},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       authzv1alpha1.EffectAllow,
+		},
+	}
+	require.NoError(t, h.handleAdd(binding), "handleAdd Binding error")
+	// Verify policy tuple: [subject, resource, roleName, roleNamespace, effect, ctx, bindingRef]
+	hasP, _ := h.enforcer.HasPolicy("groups:devs", "ns/acme", "viewer", "acme", "allow", "{}", "b1")
+	require.True(t, hasP, "expected policy [groups:devs, ns/acme, viewer, acme, allow, {}, b1] after handleAdd")
+}
+
+func TestAuthzInformerHandler_HandleAdd_ClusterBinding(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	binding := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "cb1"},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "global-admin"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	require.NoError(t, h.handleAdd(binding), "handleAdd ClusterBinding error")
+	// Verify policy tuple: cluster bindings use resource "*" (empty scope) and roleNamespace "*"
+	hasP, _ := h.enforcer.HasPolicy("groups:admins", "*", "global-admin", "*", "allow", "{}", "cb1")
+	require.True(t, hasP, "expected policy [groups:admins, *, global-admin, *, allow, {}, cb1] after handleAdd")
+}
+
+// --- handleUpdate dispatcher ---
+
+func TestAuthzInformerHandler_HandleUpdate_UnknownCRDType(t *testing.T) {
+	h, _ := setupTestHandler(t, "UnknownType")
+	old := &authzv1alpha1.AuthzRole{ObjectMeta: metav1.ObjectMeta{Name: "r"}}
+	newR := &authzv1alpha1.AuthzRole{ObjectMeta: metav1.ObjectMeta{Name: "r"}}
+	err := h.handleUpdate(old, newR)
+	require.NoError(t, err, "handleUpdate with unknown crdType should return nil")
+}
+
+func TestAuthzInformerHandler_HandleUpdate_ClusterRole(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRole)
+	old := &authzv1alpha1.ClusterAuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "cr", Generation: 1},
+		Spec:       authzv1alpha1.ClusterAuthzRoleSpec{Actions: []string{"component:view"}},
+	}
+	newR := &authzv1alpha1.ClusterAuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "cr", Generation: 2},
+		Spec:       authzv1alpha1.ClusterAuthzRoleSpec{Actions: []string{"component:create"}},
+	}
+	_, _ = h.enforcer.AddGroupingPolicy("cr", "component:view", "*")
+	require.NoError(t, h.handleUpdate(old, newR), "handleUpdate ClusterRole error")
+	// Old action must be removed, new action must be added
+	hasOld, _ := h.enforcer.HasGroupingPolicy("cr", "component:view", "*")
+	require.False(t, hasOld, "old grouping policy [cr, component:view, *] should be removed after update")
+	hasNew, _ := h.enforcer.HasGroupingPolicy("cr", "component:create", "*")
+	require.True(t, hasNew, "new grouping policy [cr, component:create, *] should exist after update")
+}
+
+func TestAuthzInformerHandler_HandleUpdate_Binding(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	old := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "acme", Generation: 1},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       authzv1alpha1.EffectAllow,
+		},
+	}
+	newB := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "b", Namespace: "acme", Generation: 2},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "editor"}}},
+			Effect:       authzv1alpha1.EffectAllow,
+		},
+	}
+	// Seed the old policy
+	_, _ = h.enforcer.AddPoliciesEx([][]string{{"groups:devs", "ns/acme", "viewer", "acme", "allow", "{}", "b"}})
+	require.NoError(t, h.handleUpdate(old, newB), "handleUpdate Binding error")
+	// Old policy (viewer) must be removed, new policy (editor) must be added
+	hasOld, _ := h.enforcer.HasPolicy("groups:devs", "ns/acme", "viewer", "acme", "allow", "{}", "b")
+	require.False(t, hasOld, "old policy (viewer) should be removed after binding update")
+	hasNew, _ := h.enforcer.HasPolicy("groups:devs", "ns/acme", "editor", "acme", "allow", "{}", "b")
+	require.True(t, hasNew, "new policy (editor) should exist after binding update")
+}
+
+func TestAuthzInformerHandler_HandleUpdate_ClusterBinding(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	old := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "cb", Generation: 1},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "viewer"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	newB := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "cb", Generation: 2},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "editor"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	// Seed the old policy
+	_, _ = h.enforcer.AddPoliciesEx([][]string{{"groups:admins", "*", "viewer", "*", "allow", "{}", "cb"}})
+	require.NoError(t, h.handleUpdate(old, newB), "handleUpdate ClusterBinding error")
+	// Old policy (viewer) must be removed, new policy (editor) must be added
+	hasOld, _ := h.enforcer.HasPolicy("groups:admins", "*", "viewer", "*", "allow", "{}", "cb")
+	require.False(t, hasOld, "old policy (viewer) should be removed after cluster binding update")
+	hasNew, _ := h.enforcer.HasPolicy("groups:admins", "*", "editor", "*", "allow", "{}", "cb")
+	require.True(t, hasNew, "new policy (editor) should exist after cluster binding update")
+}
+
+// --- handleDelete dispatcher ---
+
+func TestAuthzInformerHandler_HandleDelete_UnknownCRDType(t *testing.T) {
+	h, _ := setupTestHandler(t, "UnknownType")
+	role := &authzv1alpha1.AuthzRole{ObjectMeta: metav1.ObjectMeta{Name: "r"}}
+	err := h.handleDelete(role)
+	require.NoError(t, err, "handleDelete with unknown crdType should return nil")
+}
+
+func TestAuthzInformerHandler_HandleDelete_ClusterRole(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRole)
+	cr := &authzv1alpha1.ClusterAuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "cr-del"},
+		Spec:       authzv1alpha1.ClusterAuthzRoleSpec{Actions: []string{"component:view"}},
+	}
+	// Seed the policy so deletion has something to remove
+	_, _ = h.enforcer.AddGroupingPoliciesEx([][]string{{"cr-del", "component:view", "*"}})
+	require.NoError(t, h.handleDelete(cr), "handleDelete ClusterRole error")
+	// Verify the grouping policy was removed
+	hasGP, _ := h.enforcer.HasGroupingPolicy("cr-del", "component:view", "*")
+	require.False(t, hasGP, "grouping policy should be removed after handleDelete ClusterRole")
+}
+
+func TestAuthzInformerHandler_HandleDelete_Binding(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	binding := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "b-del", Namespace: "acme"},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       authzv1alpha1.EffectAllow,
+		},
+	}
+	// Seed the policy so deletion has something to remove
+	_, _ = h.enforcer.AddPoliciesEx([][]string{{"groups:devs", "ns/acme", "viewer", "acme", "allow", "{}", "b-del"}})
+	require.NoError(t, h.handleDelete(binding), "handleDelete Binding error")
+	// Verify the policy was removed
+	hasP, _ := h.enforcer.HasPolicy("groups:devs", "ns/acme", "viewer", "acme", "allow", "{}", "b-del")
+	require.False(t, hasP, "policy should be removed after handleDelete Binding")
+}
+
+func TestAuthzInformerHandler_HandleDelete_ClusterBinding(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	binding := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "cb-del"},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "global-admin"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	// Seed the policy so deletion has something to remove
+	_, _ = h.enforcer.AddPoliciesEx([][]string{{"groups:admins", "*", "global-admin", "*", "allow", "{}", "cb-del"}})
+	require.NoError(t, h.handleDelete(binding), "handleDelete ClusterBinding error")
+	// Verify the policy was removed
+	hasP, _ := h.enforcer.HasPolicy("groups:admins", "*", "global-admin", "*", "allow", "{}", "cb-del")
+	require.False(t, hasP, "policy should be removed after handleDelete ClusterBinding")
+}
+
+// --- Wrong-type object paths ---
+
+func TestAuthzInformerHandler_HandleAddRole_WrongType(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRole)
+	err := h.handleAddRole("not-an-authz-role")
+	require.NoError(t, err, "handleAddRole with wrong type should return nil")
+}
+
+func TestAuthzInformerHandler_HandleAddClusterRole_WrongType(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRole)
+	err := h.handleAddClusterRole("not-a-cluster-role")
+	require.NoError(t, err, "handleAddClusterRole with wrong type should return nil")
+}
+
+func TestAuthzInformerHandler_HandleAddBinding_WrongType(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	err := h.handleAddBinding("not-a-binding")
+	require.NoError(t, err, "handleAddBinding with wrong type should return nil")
+}
+
+func TestAuthzInformerHandler_HandleAddBinding_EmptyEffect(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	binding := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "empty-effect", Namespace: "acme"},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       "", // empty effect
+		},
+	}
+	err := h.handleAddBinding(binding)
+	require.Error(t, err, "handleAddBinding with empty effect should return error")
+}
+
+func TestAuthzInformerHandler_HandleAddClusterBinding_WrongType(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	err := h.handleAddClusterBinding("not-a-cluster-binding")
+	require.NoError(t, err, "handleAddClusterBinding with wrong type should return nil")
+}
+
+func TestAuthzInformerHandler_HandleAddClusterBinding_EmptyEffect(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	binding := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "empty-effect-cb"},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "admin"},
+			}},
+			Effect: "", // empty effect
+		},
+	}
+	err := h.handleAddClusterBinding(binding)
+	require.Error(t, err, "handleAddClusterBinding with empty effect should return error")
+}
+
+// --- UpdateRole edge cases ---
+
+func TestAuthzInformerHandler_HandleUpdateRole_WrongType(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRole)
+	err := h.handleUpdateRole("not-a-role", "also-not-a-role")
+	require.NoError(t, err, "handleUpdateRole with wrong type should return nil")
+}
+
+func TestAuthzInformerHandler_HandleUpdateRole_SameGeneration(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRole)
+	role := &authzv1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "same-gen", Namespace: "acme", Generation: 5},
+		Spec:       authzv1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+	}
+	// same generation → should skip and return nil
+	err := h.handleUpdateRole(role, role)
+	require.NoError(t, err, "handleUpdateRole same generation should return nil")
+}
+
+// --- UpdateClusterRole edge cases ---
+
+func TestAuthzInformerHandler_HandleUpdateClusterRole_WrongType(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRole)
+	err := h.handleUpdateClusterRole("not-a-role", "also-not-a-role")
+	require.NoError(t, err, "handleUpdateClusterRole with wrong type should return nil")
+}
+
+func TestAuthzInformerHandler_HandleUpdateClusterRole_SameGeneration(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRole)
+	role := &authzv1alpha1.ClusterAuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "same-gen-cr", Generation: 3},
+		Spec:       authzv1alpha1.ClusterAuthzRoleSpec{Actions: []string{"*"}},
+	}
+	err := h.handleUpdateClusterRole(role, role)
+	require.NoError(t, err, "handleUpdateClusterRole same generation should return nil")
+}
+
+// --- UpdateBinding edge cases ---
+
+func TestAuthzInformerHandler_HandleUpdateBinding_WrongType(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	err := h.handleUpdateBinding("not-a-binding", "also-not-a-binding")
+	require.NoError(t, err, "handleUpdateBinding with wrong type should return nil")
+}
+
+func TestAuthzInformerHandler_HandleUpdateBinding_SameGeneration(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	binding := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "same-gen-b", Namespace: "acme", Generation: 7},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       authzv1alpha1.EffectAllow,
+		},
+	}
+	err := h.handleUpdateBinding(binding, binding)
+	require.NoError(t, err, "handleUpdateBinding same generation should return nil")
+}
+
+func TestAuthzInformerHandler_HandleUpdateBinding_EmptyOldEffect(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	old := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "b-empty-old", Namespace: "acme", Generation: 1},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       "", // empty
+		},
+	}
+	newB := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "b-empty-old", Namespace: "acme", Generation: 2},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       authzv1alpha1.EffectAllow,
+		},
+	}
+	err := h.handleUpdateBinding(old, newB)
+	require.Error(t, err, "handleUpdateBinding with empty old effect should return error")
+}
+
+func TestAuthzInformerHandler_HandleUpdateBinding_EmptyNewEffect(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	old := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "b-empty-new", Namespace: "acme", Generation: 1},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       authzv1alpha1.EffectAllow,
+		},
+	}
+	newB := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "b-empty-new", Namespace: "acme", Generation: 2},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       "", // empty
+		},
+	}
+	err := h.handleUpdateBinding(old, newB)
+	require.Error(t, err, "handleUpdateBinding with empty new effect should return error")
+}
+
+// --- UpdateClusterBinding edge cases ---
+
+func TestAuthzInformerHandler_HandleUpdateClusterBinding_WrongType(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	err := h.handleUpdateClusterBinding("not-a-binding", "also-not-a-binding")
+	require.NoError(t, err, "handleUpdateClusterBinding with wrong type should return nil")
+}
+
+func TestAuthzInformerHandler_HandleUpdateClusterBinding_SameGeneration(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	binding := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "same-gen-cb", Generation: 4},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "admin"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	err := h.handleUpdateClusterBinding(binding, binding)
+	require.NoError(t, err, "handleUpdateClusterBinding same generation should return nil")
+}
+
+func TestAuthzInformerHandler_HandleUpdateClusterBinding_EmptyOldEffect(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	old := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "cb-empty-old", Generation: 1},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "admin"},
+			}},
+			Effect: "", // empty
+		},
+	}
+	newB := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "cb-empty-old", Generation: 2},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "admin"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	err := h.handleUpdateClusterBinding(old, newB)
+	require.Error(t, err, "handleUpdateClusterBinding with empty old effect should return error")
+}
+
+func TestAuthzInformerHandler_HandleUpdateClusterBinding_EmptyNewEffect(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	old := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "cb-empty-new", Generation: 1},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "admin"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	newB := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "cb-empty-new", Generation: 2},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "admin"},
+			}},
+			Effect: "", // empty
+		},
+	}
+	err := h.handleUpdateClusterBinding(old, newB)
+	require.Error(t, err, "handleUpdateClusterBinding with empty new effect should return error")
+}
+
+// --- DeleteRole edge cases ---
+
+func TestAuthzInformerHandler_HandleDeleteRole_WrongType(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRole)
+	err := h.handleDeleteRole("not-a-role")
+	require.NoError(t, err, "handleDeleteRole with wrong type should return nil")
+}
+
+func TestAuthzInformerHandler_HandleDeleteClusterRole_WrongType(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRole)
+	err := h.handleDeleteClusterRole("not-a-cluster-role")
+	require.NoError(t, err, "handleDeleteClusterRole with wrong type should return nil")
+}
+
+func TestAuthzInformerHandler_HandleDeleteBinding_WrongType(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	err := h.handleDeleteBinding("not-a-binding")
+	require.NoError(t, err, "handleDeleteBinding with wrong type should return nil")
+}
+
+func TestAuthzInformerHandler_HandleDeleteBinding_EmptyEffect(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	binding := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "del-empty-effect", Namespace: "acme"},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       "", // empty
+		},
+	}
+	err := h.handleDeleteBinding(binding)
+	require.Error(t, err, "handleDeleteBinding with empty effect should return error")
+}
+
+func TestAuthzInformerHandler_HandleDeleteClusterBinding_WrongType(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	err := h.handleDeleteClusterBinding("not-a-cluster-binding")
+	require.NoError(t, err, "handleDeleteClusterBinding with wrong type should return nil")
+}
+
+func TestAuthzInformerHandler_HandleDeleteClusterBinding_EmptyEffect(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	binding := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "del-cb-empty-effect"},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "admin"},
+			}},
+			Effect: "", // empty
+		},
+	}
+	err := h.handleDeleteClusterBinding(binding)
+	require.Error(t, err, "handleDeleteClusterBinding with empty effect should return error")
+}
+
+// --- OnAdd/OnUpdate/OnDelete error-logging paths ---
+
+// OnAdd logs the error when the handler returns one (e.g. empty effect in binding).
+func TestAuthzInformerHandler_OnAdd_ErrorLogged(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	var logs bytes.Buffer
+	h.logger = slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	badBinding := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "on-add-err", Namespace: "acme"},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       "", // causes handleAddBinding to return an error
+		},
+	}
+	h.OnAdd(badBinding, false)
+	require.Contains(t, logs.String(), "Incremental add failed")
+	require.Contains(t, logs.String(), "level=ERROR")
+}
+
+// OnUpdate logs the error when the handler returns one.
+func TestAuthzInformerHandler_OnUpdate_ErrorLogged(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	var logs bytes.Buffer
+	h.logger = slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	// Old binding with empty effect → handleUpdateBinding errors immediately on old effect
+	old := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "on-upd-err", Namespace: "acme", Generation: 1},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       "", // empty → triggers error in handleUpdateBinding
+		},
+	}
+	newB := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "on-upd-err", Namespace: "acme", Generation: 2},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "editor"}}},
+			Effect:       authzv1alpha1.EffectAllow,
+		},
+	}
+	h.OnUpdate(old, newB)
+	require.Contains(t, logs.String(), "Incremental update failed")
+	require.Contains(t, logs.String(), "level=ERROR")
+}
+
+// OnDelete logs the error when the handler returns one.
+func TestAuthzInformerHandler_OnDelete_ErrorLogged(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	var logs bytes.Buffer
+	h.logger = slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	badBinding := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "on-del-err", Namespace: "acme"},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       "", // empty → triggers error in handleDeleteBinding
+		},
+	}
+	h.OnDelete(badBinding)
+	require.Contains(t, logs.String(), "Incremental delete failed")
+	require.Contains(t, logs.String(), "level=WARN")
+}
+
+// --- handleAddClusterBinding — formatSubject error (empty claim) ---
+
+func TestAuthzInformerHandler_HandleAddClusterBinding_EmptyClaim(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	binding := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "empty-claim-cb"},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "", Value: "admins"}, // empty claim
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "admin"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	err := h.handleAddClusterBinding(binding)
+	require.Error(t, err, "handleAddClusterBinding with empty claim should return error")
+}
+
+// --- handleDeleteBinding / handleDeleteClusterBinding — formatSubject errors ---
+
+func TestAuthzInformerHandler_HandleDeleteBinding_EmptyClaim(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	binding := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "del-empty-claim", Namespace: "acme"},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "", Value: "devs"}, // empty claim
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       authzv1alpha1.EffectAllow,
+		},
+	}
+	err := h.handleDeleteBinding(binding)
+	require.Error(t, err, "handleDeleteBinding with empty claim should return error")
+}
+
+func TestAuthzInformerHandler_HandleDeleteClusterBinding_EmptyClaim(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	binding := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "del-cb-empty-claim"},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "", Value: "admins"}, // empty claim
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "admin"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	err := h.handleDeleteClusterBinding(binding)
+	require.Error(t, err, "handleDeleteClusterBinding with empty claim should return error")
+}
+
+// --- handleUpdateRole / handleUpdateClusterRole — "not removed" and "not added" branches ---
+
+// When an action to be removed was never in the enforcer, RemoveGroupingPolicy
+// returns (false, nil) and the handler logs a debug message.
+func TestAuthzInformerHandler_HandleUpdateRole_ActionNotRemovedNotInEnforcer(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRole)
+
+	// Old role has "component:view", new role has "component:create".
+	// We do NOT pre-seed "component:view" in the enforcer, so removal returns false.
+	old := &authzv1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "update-not-removed", Namespace: "acme", Generation: 1},
+		Spec:       authzv1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+	}
+	newR := &authzv1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "update-not-removed", Namespace: "acme", Generation: 2},
+		Spec:       authzv1alpha1.AuthzRoleSpec{Actions: []string{"component:create"}},
+	}
+	require.NoError(t, h.handleUpdateRole(old, newR), "handleUpdateRole should succeed even when policy was not in enforcer")
+}
+
+// When an action to be added is already in the enforcer, AddGroupingPolicy
+// returns (false, nil) and the handler logs a debug message.
+func TestAuthzInformerHandler_HandleUpdateRole_ActionNotAddedAlreadyExists(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRole)
+
+	// Pre-seed "component:create" so it already exists.
+	_, _ = h.enforcer.AddGroupingPolicy("update-already-added", "component:create", "acme")
+	_, _ = h.enforcer.AddGroupingPolicy("update-already-added", "component:view", "acme")
+
+	old := &authzv1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "update-already-added", Namespace: "acme", Generation: 1},
+		Spec:       authzv1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+	}
+	newR := &authzv1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "update-already-added", Namespace: "acme", Generation: 2},
+		Spec:       authzv1alpha1.AuthzRoleSpec{Actions: []string{"component:create"}},
+	}
+	require.NoError(t, h.handleUpdateRole(old, newR), "handleUpdateRole should succeed even when new action already exists")
+}
+
+// handleUpdateClusterRole — "Old cluster grouping policy did not exist"
+func TestAuthzInformerHandler_HandleUpdateClusterRole_ActionNotRemovedNotInEnforcer(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRole)
+
+	old := &authzv1alpha1.ClusterAuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "cr-not-removed", Generation: 1},
+		Spec:       authzv1alpha1.ClusterAuthzRoleSpec{Actions: []string{"component:view"}},
+	}
+	newR := &authzv1alpha1.ClusterAuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "cr-not-removed", Generation: 2},
+		Spec:       authzv1alpha1.ClusterAuthzRoleSpec{Actions: []string{"component:create"}},
+	}
+	// Do NOT seed "component:view" — RemoveGroupingPolicy will return false.
+	require.NoError(t, h.handleUpdateClusterRole(old, newR), "handleUpdateClusterRole should succeed even when policy was not in enforcer")
+}
+
+// handleUpdateClusterRole — "New cluster grouping policy already exists"
+func TestAuthzInformerHandler_HandleUpdateClusterRole_ActionNotAddedAlreadyExists(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRole)
+
+	_, _ = h.enforcer.AddGroupingPolicy("cr-already-added", "component:create", "*")
+	_, _ = h.enforcer.AddGroupingPolicy("cr-already-added", "component:view", "*")
+
+	old := &authzv1alpha1.ClusterAuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "cr-already-added", Generation: 1},
+		Spec:       authzv1alpha1.ClusterAuthzRoleSpec{Actions: []string{"component:view"}},
+	}
+	newR := &authzv1alpha1.ClusterAuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "cr-already-added", Generation: 2},
+		Spec:       authzv1alpha1.ClusterAuthzRoleSpec{Actions: []string{"component:create"}},
+	}
+	require.NoError(t, h.handleUpdateClusterRole(old, newR), "handleUpdateClusterRole should succeed even when new action already exists")
+}
+
+// --- handleUpdateBinding — formatSubject errors for old and new binding ---
+
+func TestAuthzInformerHandler_HandleUpdateBinding_OldFormatSubjectError(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	old := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "upd-b-old-claim", Namespace: "acme", Generation: 1},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "", Value: "devs"}, // empty claim → formatSubject error
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       authzv1alpha1.EffectAllow,
+		},
+	}
+	newB := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "upd-b-old-claim", Namespace: "acme", Generation: 2},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "editor"}}},
+			Effect:       authzv1alpha1.EffectAllow,
+		},
+	}
+	err := h.handleUpdateBinding(old, newB)
+	require.Error(t, err, "handleUpdateBinding with empty old claim should return error")
+}
+
+func TestAuthzInformerHandler_HandleUpdateBinding_NewFormatSubjectError(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	old := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "upd-b-new-claim", Namespace: "acme", Generation: 1},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"}, // valid
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+			Effect:       authzv1alpha1.EffectAllow,
+		},
+	}
+	newB := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "upd-b-new-claim", Namespace: "acme", Generation: 2},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement:  authzv1alpha1.EntitlementClaim{Claim: "", Value: "devs"}, // empty claim → formatSubject error
+			RoleMappings: []authzv1alpha1.RoleMapping{{RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindAuthzRole, Name: "editor"}}},
+			Effect:       authzv1alpha1.EffectAllow,
+		},
+	}
+	err := h.handleUpdateBinding(old, newB)
+	require.Error(t, err, "handleUpdateBinding with empty new claim should return error")
+}
+
+// --- handleUpdateClusterBinding — formatSubject errors for old and new binding ---
+
+func TestAuthzInformerHandler_HandleUpdateClusterBinding_OldFormatSubjectError(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	old := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "upd-cb-old-claim", Generation: 1},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "", Value: "admins"}, // empty claim
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "admin"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	newB := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "upd-cb-old-claim", Generation: 2},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "editor"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	err := h.handleUpdateClusterBinding(old, newB)
+	require.Error(t, err, "handleUpdateClusterBinding with empty old claim should return error")
+}
+
+func TestAuthzInformerHandler_HandleUpdateClusterBinding_NewFormatSubjectError(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeClusterAuthzRoleBinding)
+	old := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "upd-cb-new-claim", Generation: 1},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"}, // valid
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "admin"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	newB := &authzv1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "upd-cb-new-claim", Generation: 2},
+		Spec: authzv1alpha1.ClusterAuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "", Value: "admins"}, // empty claim
+			RoleMappings: []authzv1alpha1.ClusterRoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, Name: "editor"},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	err := h.handleUpdateClusterBinding(old, newB)
+	require.Error(t, err, "handleUpdateClusterBinding with empty new claim should return error")
+}
+
+// --- handleAddBinding — ClusterAuthzRole reference (roleNamespace = "*" branch) ---
+
+func TestAuthzInformerHandler_HandleAddBinding_ClusterRoleRef(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	// A namespaced binding that references a ClusterAuthzRole triggers `roleNamespace = "*"`
+	binding := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "ns-binding-cluster-ref", Namespace: "acme"},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{
+					Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, // ← triggers roleNamespace = "*"
+					Name: "global-viewer",
+				},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	require.NoError(t, h.handleAddBinding(binding), "handleAddBinding with ClusterAuthzRole ref error")
+	// The policy tuple must use roleNamespace="*" (not "acme") because the RoleRef is ClusterAuthzRole
+	hasP, _ := h.enforcer.HasPolicy("groups:devs", "ns/acme", "global-viewer", "*", "allow", "{}", "ns-binding-cluster-ref")
+	require.True(t, hasP, "expected policy with roleNamespace=\"*\" when AuthzRoleBinding references a ClusterAuthzRole")
+}
+
+// --- handleDeleteBinding — ClusterAuthzRole reference (roleNamespace = "*" branch) ---
+
+func TestAuthzInformerHandler_HandleDeleteBinding_ClusterRoleRef(t *testing.T) {
+	h, _ := setupTestHandler(t, CRDTypeAuthzRoleBinding)
+	binding := &authzv1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "del-ns-binding-cluster-ref", Namespace: "acme"},
+		Spec: authzv1alpha1.AuthzRoleBindingSpec{
+			Entitlement: authzv1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+			RoleMappings: []authzv1alpha1.RoleMapping{{
+				RoleRef: authzv1alpha1.RoleRef{
+					Kind: authzv1alpha1.RoleRefKindClusterAuthzRole, // ← triggers roleNamespace = "*"
+					Name: "global-viewer",
+				},
+			}},
+			Effect: authzv1alpha1.EffectAllow,
+		},
+	}
+	// Seed the policy with roleNamespace="*" (as it would have been stored on add)
+	_, _ = h.enforcer.AddPoliciesEx([][]string{{"groups:devs", "ns/acme", "global-viewer", "*", "allow", "{}", "del-ns-binding-cluster-ref"}})
+	require.NoError(t, h.handleDeleteBinding(binding), "handleDeleteBinding with ClusterAuthzRole ref error")
+	// Verify the policy with roleNamespace="*" was removed
+	hasP, _ := h.enforcer.HasPolicy("groups:devs", "ns/acme", "global-viewer", "*", "allow", "{}", "del-ns-binding-cluster-ref")
+	require.False(t, hasP, "policy with roleNamespace=\"*\" should be removed after handleDeleteBinding with ClusterAuthzRole ref")
 }

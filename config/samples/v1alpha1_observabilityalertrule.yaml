@@ -28,3 +28,34 @@ spec:
     incident:
       enabled: true
       triggerAiRca: true
+---
+# Budget alert example
+apiVersion: openchoreo.dev/v1alpha1
+kind: ObservabilityAlertRule
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+    openchoreo.dev/component-uid: 60c42b86-37db-419b-864f-f2d41e54dac6
+    openchoreo.dev/environment-uid: 88df0197-709a-4deb-bb5e-64084992180d
+    openchoreo.dev/project-uid: d60c2b14-7312-4d07-9c48-f5b49180afa6
+  name: observabilityalertrule-budget-sample
+spec:
+  name: budget-alert
+  description: "Alert when component cost exceeds $5 per day"
+  severity: warning
+  enabled: true
+  source:
+    type: budget
+  condition:
+    window: 24h
+    interval: 1h
+    operator: gt
+    threshold: 5
+  actions:
+    notifications:
+      channels:
+        - ops-channel
+    incident:
+      enabled: true
+      triggerAiCostAnalysis: true

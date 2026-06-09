@@ -39,6 +39,11 @@ rules:
   - pods/status
   - events
   verbs: ["get", "list"]
+# Pod exec (required for occ component exec / interactive shell into pods)
+- apiGroups: [""]
+  resources:
+  - pods/exec
+  verbs: ["create", "get"]
 # Batch jobs
 - apiGroups: ["batch"]
   resources:
@@ -90,11 +95,18 @@ rules:
   - externalsecrets
   - secretstores
   - clustersecretstores
+  - pushsecrets
+  verbs: ["*"]
+# External Secrets Operator generators
+- apiGroups: ["generators.external-secrets.io"]
+  resources:
+  - passwords
   verbs: ["*"]
 # KGateway resources (if using KGateway)
 - apiGroups: ["gateway.kgateway.dev"]
   resources:
   - backends
   - gatewayparameters
+  - trafficpolicies
   verbs: ["*"]
 {{- end }}

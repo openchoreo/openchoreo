@@ -28,18 +28,11 @@ var _ = Describe("Project Webhook", func() {
 		obj = &openchoreov1alpha1.Project{}
 		oldObj = &openchoreov1alpha1.Project{}
 		validator = Validator{}
-		Expect(validator).NotTo(BeNil(), "Expected validator to be initialized")
 		defaulter = Defaulter{}
-		Expect(defaulter).NotTo(BeNil(), "Expected defaulter to be initialized")
-		Expect(oldObj).NotTo(BeNil(), "Expected oldObj to be initialized")
-		Expect(obj).NotTo(BeNil(), "Expected obj to be initialized")
-	})
-
-	AfterEach(func() {
 	})
 
 	createValidProject := func(name string, namespace string, pipelineName string) *openchoreov1alpha1.Project {
-		project := &openchoreov1alpha1.Project{
+		return &openchoreov1alpha1.Project{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
@@ -51,46 +44,76 @@ var _ = Describe("Project Webhook", func() {
 				},
 			},
 		}
-		return project
 	}
 
-	Context("When creating Project under Defaulting Webhook", func() {
-		It("Should apply defaults correctly", func() {
-			By("Creating a basic project")
+	Context("Defaulter webhook", func() {
+		It("should apply defaults and set DeploymentPipelineRef.Kind when it is empty", func() {
 			obj = createValidProject("test-project", testNamespace, testPipeline)
-
-			By("Calling the Default method")
+			obj.Spec.DeploymentPipelineRef.Kind = ""
 			err := defaulter.Default(ctx, obj)
-
-			By("Verifying defaulting runs without error")
 			Expect(err).NotTo(HaveOccurred())
+			Expect(obj.Spec.DeploymentPipelineRef.Kind).To(Equal(openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline))
 		})
-	})
 
-	Context("When validating Project creation", func() {
-		It("Should allow creation of a valid project", func() {
-			By("Creating a valid project")
+		It("should not overwrite DeploymentPipelineRef.Kind when it is already set", func() {
 			obj = createValidProject("test-project", testNamespace, testPipeline)
-
-			By("Validating the project creation")
-			_, err := validator.ValidateCreate(ctx, obj)
-
-			By("Verifying validation succeeds")
+			obj.Spec.DeploymentPipelineRef.Kind = openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline
+			err := defaulter.Default(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(obj.Spec.DeploymentPipelineRef.Kind).To(Equal(openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline))
+		})
+
+		It("should return an error when given a non-Project object", func() {
+			wrongObj := &openchoreov1alpha1.Component{}
+			err := defaulter.Default(ctx, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected"))
 		})
 	})
 
-	Context("When validating Project updates", func() {
-		It("Should validate project updates correctly", func() {
-			By("Creating old and new versions of the project")
+	Context("ValidateCreate", func() {
+		It("should allow creation of a valid project", func() {
+			obj = createValidProject("test-project", testNamespace, testPipeline)
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should return an error when given a non-Project object", func() {
+			wrongObj := &openchoreov1alpha1.Component{}
+			_, err := validator.ValidateCreate(ctx, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a Project object"))
+		})
+	})
+
+	Context("ValidateUpdate", func() {
+		It("should validate project updates correctly", func() {
 			oldObj = createValidProject("test-project", testNamespace, testPipeline)
 			obj = createValidProject("test-project", testNamespace, testPipeline)
-
-			By("Validating the project update")
 			_, err := validator.ValidateUpdate(ctx, oldObj, obj)
-
-			By("Verifying validation succeeds")
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should return an error when newObj is not a Project", func() {
+			wrongObj := &openchoreov1alpha1.Component{}
+			_, err := validator.ValidateUpdate(ctx, oldObj, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a Project object"))
+		})
+	})
+
+	Context("ValidateDelete", func() {
+		It("should allow deletion of a valid project", func() {
+			obj = createValidProject("test-project", testNamespace, testPipeline)
+			_, err := validator.ValidateDelete(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should return an error when given a non-Project object", func() {
+			wrongObj := &openchoreov1alpha1.Component{}
+			_, err := validator.ValidateDelete(ctx, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a Project object"))
 		})
 	})
 })

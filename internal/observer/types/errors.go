@@ -12,6 +12,13 @@ const (
 	ErrorCodeV1LogsResolverFailed  = "OBS-V1-L-04"
 	ErrorCodeV1LogsRetrievalFailed = "OBS-V1-L-05"
 
+	// Events API (v1) internal server error codes.
+	ErrorCodeV1EventsInternalGeneric = "OBS-V1-E-01"
+	ErrorCodeV1EventsAuthzInternal   = "OBS-V1-E-02"
+	ErrorCodeV1EventsServiceNotReady = "OBS-V1-E-03"
+	ErrorCodeV1EventsResolverFailed  = "OBS-V1-E-04"
+	ErrorCodeV1EventsRetrievalFailed = "OBS-V1-E-05"
+
 	// Metrics API (v1) internal server error codes.
 	ErrorCodeV1MetricsInternalGeneric = "OBS-V1-M-01"
 	ErrorCodeV1MetricsAuthzInternal   = "OBS-V1-M-02"
@@ -27,6 +34,13 @@ const (
 	ErrorCodeV1TracesRetrievalFailed = "OBS-V1-T-05"
 	ErrorCodeV1TracesInvalidRequest  = "OBS-V1-T-06"
 	ErrorCodeV1TracesSpanNotFound    = "OBS-V1-T-07"
+
+	// Runtime topology API (v1alpha1) internal server error codes.
+	ErrorCodeV1RuntimeTopologyInternalGeneric = "OBS-V1-RG-01"
+	ErrorCodeV1RuntimeTopologyAuthzInternal   = "OBS-V1-RG-02"
+	ErrorCodeV1RuntimeTopologyServiceNotReady = "OBS-V1-RG-03"
+	ErrorCodeV1RuntimeTopologyResolverFailed  = "OBS-V1-RG-04"
+	ErrorCodeV1RuntimeTopologyRetrievalFailed = "OBS-V1-RG-05"
 
 	// Scope resolution auth failure — shared across all APIs.
 	ErrorCodeV1ScopeAuthFailed = "OBS-V1-SCOPE-AUTH-FAILED"

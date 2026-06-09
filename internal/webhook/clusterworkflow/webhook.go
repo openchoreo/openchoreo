@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,9 +25,9 @@ var clusterworkflowlog = logf.Log.WithName("clusterworkflow-resource")
 
 // SetupClusterWorkflowWebhookWithManager registers the webhook for ClusterWorkflow in the manager.
 func SetupClusterWorkflowWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.ClusterWorkflow{}).
-		WithValidator(&Validator{}).
-		WithDefaulter(&Defaulter{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.ClusterWorkflow{}).
+		WithCustomValidator(&Validator{}).
+		WithCustomDefaulter(&Defaulter{}).
 		Complete()
 }
 
@@ -49,7 +50,7 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	allErrs := validateClusterWorkflow(cwf)
 
 	if len(allErrs) > 0 {
-		return nil, allErrs.ToAggregate()
+		return nil, apierrors.NewInvalid(cwf.GroupVersionKind().GroupKind(), cwf.GetName(), allErrs)
 	}
 
 	return nil, nil
@@ -66,20 +67,15 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	allErrs := validateClusterWorkflow(newCwf)
 
 	if len(allErrs) > 0 {
-		return nil, allErrs.ToAggregate()
+		return nil, apierrors.NewInvalid(newCwf.GroupVersionKind().GroupKind(), newCwf.GetName(), allErrs)
 	}
 
 	return nil, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type ClusterWorkflow.
-func (v *Validator) ValidateDelete(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	cwf, ok := obj.(*openchoreodevv1alpha1.ClusterWorkflow)
-	if !ok {
-		return nil, fmt.Errorf("expected a ClusterWorkflow object but got %T", obj)
-	}
-	clusterworkflowlog.Info("Validation for ClusterWorkflow upon deletion", "name", cwf.GetName())
-
+// Deletion webhooks are not used for ClusterWorkflow (verbs=create;update only).
+func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 

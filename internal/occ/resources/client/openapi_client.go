@@ -40,7 +40,7 @@ func apiError(statusCode int, body []byte) error {
 
 // Client wraps the generated OpenAPI client with token refresh functionality
 type Client struct {
-	client *gen.ClientWithResponses
+	client gen.ClientWithResponsesInterface
 	token  string
 }
 
@@ -90,7 +90,7 @@ func NewClient() (*Client, error) {
 
 // GetClient returns the underlying generated OpenAPI client.
 func (c *Client) GetClient() *gen.ClientWithResponses {
-	return c.client
+	return c.client.(*gen.ClientWithResponses)
 }
 
 // ListNamespaces retrieves all namespaces
@@ -442,10 +442,9 @@ func (c *Client) GenerateRelease(ctx context.Context, namespaceName, componentNa
 }
 
 // ListReleaseBindings retrieves all release bindings for a component
-func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName, projectName, componentName string) (*gen.ReleaseBindingList, error) {
-	params := &gen.ListReleaseBindingsParams{}
-	if componentName != "" {
-		params.Component = &componentName
+func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListReleaseBindingsParams) (*gen.ReleaseBindingList, error) {
+	if params == nil {
+		params = &gen.ListReleaseBindingsParams{}
 	}
 	resp, err := c.client.ListReleaseBindingsWithResponse(ctx, namespaceName, params)
 	if err != nil {
@@ -458,10 +457,9 @@ func (c *Client) ListReleaseBindings(ctx context.Context, namespaceName, project
 }
 
 // ListComponentReleases retrieves all component releases for a component
-func (c *Client) ListComponentReleases(ctx context.Context, namespaceName, projectName, componentName string) (*gen.ComponentReleaseList, error) {
-	params := &gen.ListComponentReleasesParams{}
-	if componentName != "" {
-		params.Component = &componentName
+func (c *Client) ListComponentReleases(ctx context.Context, namespaceName string, params *gen.ListComponentReleasesParams) (*gen.ComponentReleaseList, error) {
+	if params == nil {
+		params = &gen.ListComponentReleasesParams{}
 	}
 	resp, err := c.client.ListComponentReleasesWithResponse(ctx, namespaceName, params)
 	if err != nil {
@@ -828,6 +826,66 @@ func (c *Client) DeleteSecretReference(ctx context.Context, namespaceName, secre
 	resp, err := c.client.DeleteSecretReferenceWithResponse(ctx, namespaceName, secretReferenceName)
 	if err != nil {
 		return fmt.Errorf("failed to delete secret reference: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// ListSecrets lists secrets managed by the Secret API in a namespace.
+func (c *Client) ListSecrets(ctx context.Context, namespaceName string, params *gen.ListSecretsParams) (*gen.ListSecretsResponse, error) {
+	resp, err := c.client.ListSecretsWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list secrets: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetSecret retrieves a single secret managed by the Secret API.
+func (c *Client) GetSecret(ctx context.Context, namespaceName, secretName string) (*gen.Secret, error) {
+	resp, err := c.client.GetSecretWithResponse(ctx, namespaceName, secretName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get secret: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateSecret creates a secret on the target plane via the API server.
+func (c *Client) CreateSecret(ctx context.Context, namespaceName string, req gen.CreateSecretRequest) (*gen.Secret, error) {
+	resp, err := c.client.CreateSecretWithResponse(ctx, namespaceName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create secret: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateSecret replaces a secret's data with the supplied final state.
+func (c *Client) UpdateSecret(ctx context.Context, namespaceName, secretName string, req gen.UpdateSecretRequest) (*gen.Secret, error) {
+	resp, err := c.client.UpdateSecretWithResponse(ctx, namespaceName, secretName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update secret: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteSecret deletes a secret from the control plane and the target plane.
+func (c *Client) DeleteSecret(ctx context.Context, namespaceName, secretName string) error {
+	resp, err := c.client.DeleteSecretWithResponse(ctx, namespaceName, secretName)
+	if err != nil {
+		return fmt.Errorf("failed to delete secret: %w", err)
 	}
 	if resp.StatusCode() != http.StatusNoContent {
 		return apiError(resp.StatusCode(), resp.Body)
@@ -1376,6 +1434,339 @@ func (c *Client) GetClusterWorkflowSchema(ctx context.Context, clusterWorkflowNa
 		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 	return schemaResponseToRaw(resp.JSON200)
+}
+
+// ListResourceTypes retrieves all resource types for a namespace
+func (c *Client) ListResourceTypes(ctx context.Context, namespaceName string, params *gen.ListResourceTypesParams) (*gen.ResourceTypeList, error) {
+	if params == nil {
+		params = &gen.ListResourceTypesParams{}
+	}
+	resp, err := c.client.ListResourceTypesWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list resource types: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetResourceType retrieves a specific resource type
+func (c *Client) GetResourceType(ctx context.Context, namespaceName, rtName string) (*gen.ResourceType, error) {
+	resp, err := c.client.GetResourceTypeWithResponse(ctx, namespaceName, rtName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateResourceType creates a new resource type
+func (c *Client) CreateResourceType(ctx context.Context, namespaceName string, rt gen.ResourceType) (*gen.ResourceType, error) {
+	resp, err := c.client.CreateResourceTypeWithResponse(ctx, namespaceName, rt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource type: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateResourceType updates an existing resource type
+func (c *Client) UpdateResourceType(ctx context.Context, namespaceName, rtName string, rt gen.ResourceType) (*gen.ResourceType, error) {
+	resp, err := c.client.UpdateResourceTypeWithResponse(ctx, namespaceName, rtName, rt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update resource type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteResourceType deletes a resource type
+func (c *Client) DeleteResourceType(ctx context.Context, namespaceName, rtName string) error {
+	resp, err := c.client.DeleteResourceTypeWithResponse(ctx, namespaceName, rtName)
+	if err != nil {
+		return fmt.Errorf("failed to delete resource type: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// GetResourceTypeSchema retrieves the parameter schema for a resource type
+func (c *Client) GetResourceTypeSchema(ctx context.Context, namespaceName, rtName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetResourceTypeSchemaWithResponse(ctx, namespaceName, rtName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource type schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("resource type %q not found", rtName)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
+// ListClusterResourceTypes retrieves all cluster-scoped resource types
+func (c *Client) ListClusterResourceTypes(ctx context.Context, params *gen.ListClusterResourceTypesParams) (*gen.ClusterResourceTypeList, error) {
+	if params == nil {
+		params = &gen.ListClusterResourceTypesParams{}
+	}
+	resp, err := c.client.ListClusterResourceTypesWithResponse(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster resource types: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetClusterResourceType retrieves a specific cluster resource type
+func (c *Client) GetClusterResourceType(ctx context.Context, crtName string) (*gen.ClusterResourceType, error) {
+	resp, err := c.client.GetClusterResourceTypeWithResponse(ctx, crtName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster resource type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateClusterResourceType creates a new cluster resource type
+func (c *Client) CreateClusterResourceType(ctx context.Context, crt gen.ClusterResourceType) (*gen.ClusterResourceType, error) {
+	resp, err := c.client.CreateClusterResourceTypeWithResponse(ctx, crt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cluster resource type: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateClusterResourceType updates an existing cluster resource type
+func (c *Client) UpdateClusterResourceType(ctx context.Context, crtName string, crt gen.ClusterResourceType) (*gen.ClusterResourceType, error) {
+	resp, err := c.client.UpdateClusterResourceTypeWithResponse(ctx, crtName, crt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update cluster resource type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteClusterResourceType deletes a cluster resource type
+func (c *Client) DeleteClusterResourceType(ctx context.Context, crtName string) error {
+	resp, err := c.client.DeleteClusterResourceTypeWithResponse(ctx, crtName)
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster resource type: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// GetClusterResourceTypeSchema retrieves the parameter schema for a cluster-scoped resource type
+func (c *Client) GetClusterResourceTypeSchema(ctx context.Context, crtName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetClusterResourceTypeSchemaWithResponse(ctx, crtName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster resource type schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("cluster resource type %q not found", crtName)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
+// ListResources retrieves all resources for a namespace
+func (c *Client) ListResources(ctx context.Context, namespaceName string, params *gen.ListResourcesParams) (*gen.ResourceInstanceList, error) {
+	if params == nil {
+		params = &gen.ListResourcesParams{}
+	}
+	resp, err := c.client.ListResourcesWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list resources: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetResource retrieves a specific resource
+func (c *Client) GetResource(ctx context.Context, namespaceName, resourceName string) (*gen.ResourceInstance, error) {
+	resp, err := c.client.GetResourceWithResponse(ctx, namespaceName, resourceName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateResource creates a new resource
+func (c *Client) CreateResource(ctx context.Context, namespaceName string, r gen.ResourceInstance) (*gen.ResourceInstance, error) {
+	resp, err := c.client.CreateResourceWithResponse(ctx, namespaceName, r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateResource updates an existing resource
+func (c *Client) UpdateResource(ctx context.Context, namespaceName, resourceName string, r gen.ResourceInstance) (*gen.ResourceInstance, error) {
+	resp, err := c.client.UpdateResourceWithResponse(ctx, namespaceName, resourceName, r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update resource: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteResource deletes a resource
+func (c *Client) DeleteResource(ctx context.Context, namespaceName, resourceName string) error {
+	resp, err := c.client.DeleteResourceWithResponse(ctx, namespaceName, resourceName)
+	if err != nil {
+		return fmt.Errorf("failed to delete resource: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// ListResourceReleases retrieves all resource releases for a namespace
+func (c *Client) ListResourceReleases(ctx context.Context, namespaceName string, params *gen.ListResourceReleasesParams) (*gen.ResourceReleaseList, error) {
+	if params == nil {
+		params = &gen.ListResourceReleasesParams{}
+	}
+	resp, err := c.client.ListResourceReleasesWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list resource releases: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetResourceRelease retrieves a specific resource release
+func (c *Client) GetResourceRelease(ctx context.Context, namespaceName, resourceReleaseName string) (*gen.ResourceRelease, error) {
+	resp, err := c.client.GetResourceReleaseWithResponse(ctx, namespaceName, resourceReleaseName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource release: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateResourceRelease creates a new resource release
+func (c *Client) CreateResourceRelease(ctx context.Context, namespaceName string, rr gen.ResourceRelease) (*gen.ResourceRelease, error) {
+	resp, err := c.client.CreateResourceReleaseWithResponse(ctx, namespaceName, rr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource release: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// DeleteResourceRelease deletes a resource release
+func (c *Client) DeleteResourceRelease(ctx context.Context, namespaceName, resourceReleaseName string) error {
+	resp, err := c.client.DeleteResourceReleaseWithResponse(ctx, namespaceName, resourceReleaseName)
+	if err != nil {
+		return fmt.Errorf("failed to delete resource release: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// ListResourceReleaseBindings retrieves all resource release bindings for a namespace
+func (c *Client) ListResourceReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListResourceReleaseBindingsParams) (*gen.ResourceReleaseBindingList, error) {
+	if params == nil {
+		params = &gen.ListResourceReleaseBindingsParams{}
+	}
+	resp, err := c.client.ListResourceReleaseBindingsWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list resource release bindings: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetResourceReleaseBinding retrieves a specific resource release binding
+func (c *Client) GetResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string) (*gen.ResourceReleaseBinding, error) {
+	resp, err := c.client.GetResourceReleaseBindingWithResponse(ctx, namespaceName, bindingName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource release binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateResourceReleaseBinding creates a new resource release binding
+func (c *Client) CreateResourceReleaseBinding(ctx context.Context, namespaceName string, rrb gen.ResourceReleaseBinding) (*gen.ResourceReleaseBinding, error) {
+	resp, err := c.client.CreateResourceReleaseBindingWithResponse(ctx, namespaceName, rrb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource release binding: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateResourceReleaseBinding updates an existing resource release binding
+func (c *Client) UpdateResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string, rrb gen.ResourceReleaseBinding) (*gen.ResourceReleaseBinding, error) {
+	resp, err := c.client.UpdateResourceReleaseBindingWithResponse(ctx, namespaceName, bindingName, rrb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update resource release binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteResourceReleaseBinding deletes a resource release binding
+func (c *Client) DeleteResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string) error {
+	resp, err := c.client.DeleteResourceReleaseBindingWithResponse(ctx, namespaceName, bindingName)
+	if err != nil {
+		return fmt.Errorf("failed to delete resource release binding: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
 }
 
 func schemaResponseToRaw(schema *gen.SchemaResponse) (*json.RawMessage, error) {

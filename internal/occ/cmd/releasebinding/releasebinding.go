@@ -17,15 +17,15 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	occonfig "github.com/openchoreo/openchoreo/internal/occ/fsmode/config"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/pipeline"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
@@ -36,25 +36,22 @@ const (
 )
 
 // ReleaseBinding implements release binding operations
-type ReleaseBinding struct{}
+type ReleaseBinding struct {
+	client client.Interface
+}
 
 // New creates a new ReleaseBinding
-func New() *ReleaseBinding {
-	return &ReleaseBinding{}
+func New(c client.Interface) *ReleaseBinding {
+	return &ReleaseBinding{client: c}
 }
 
 // List lists all release bindings for a component
 func (r *ReleaseBinding) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceReleaseBinding, params); err != nil {
+	if err := cmdutil.RequireFields("list", "releasebinding", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ReleaseBinding, string, error) {
 		p := &gen.ListReleaseBindingsParams{}
@@ -65,18 +62,15 @@ func (r *ReleaseBinding) List(params ListParams) error {
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		resp, err := c.GetClient().ListReleaseBindingsWithResponse(ctx, params.Namespace, p)
+		result, err := r.client.ListReleaseBindings(ctx, params.Namespace, p)
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to list release bindings: %w", err)
-		}
-		if resp.JSON200 == nil {
-			return nil, "", fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+			return nil, "", err
 		}
 		next := ""
-		if resp.JSON200.Pagination.NextCursor != nil {
-			next = *resp.JSON200.Pagination.NextCursor
+		if result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
 		}
-		return resp.JSON200.Items, next, nil
+		return result.Items, next, nil
 	})
 	if err != nil {
 		return err
@@ -208,17 +202,13 @@ func (r *ReleaseBinding) Generate(params GenerateParams) error {
 
 // Get retrieves a single release binding and outputs it as YAML
 func (r *ReleaseBinding) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceReleaseBinding, params); err != nil {
+	if err := cmdutil.RequireFields("get", "releasebinding", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
-	result, err := c.GetReleaseBinding(ctx, params.Namespace, params.ReleaseBindingName)
+	result, err := r.client.GetReleaseBinding(ctx, params.Namespace, params.ReleaseBindingName)
 	if err != nil {
 		return err
 	}
@@ -234,17 +224,13 @@ func (r *ReleaseBinding) Get(params GetParams) error {
 
 // Delete deletes a single release binding
 func (r *ReleaseBinding) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceReleaseBinding, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "releasebinding", map[string]string{"namespace": params.Namespace, "name": params.ReleaseBindingName}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
-	if err := c.DeleteReleaseBinding(ctx, params.Namespace, params.ReleaseBindingName); err != nil {
+	if err := r.client.DeleteReleaseBinding(ctx, params.Namespace, params.ReleaseBindingName); err != nil {
 		return err
 	}
 

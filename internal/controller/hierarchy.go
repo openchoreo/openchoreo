@@ -88,7 +88,7 @@ func objWithName(obj client.Object, name string) client.Object {
 // GetDataPlaneByEnvironment retrieves the DataPlane object for the given Environment.
 // It uses the DataPlaneRef field in the Environment to find the DataPlane object.
 // Note: This function only returns DataPlane, not ClusterDataPlane. For environments
-// referencing ClusterDataPlane, use GetDataPlaneOrClusterDataPlaneOfEnv from reference.go.
+// referencing ClusterDataPlane, use GetDataPlaneFromRef from reference.go.
 func GetDataPlaneByEnvironment(ctx context.Context, c client.Client, env *openchoreov1alpha1.Environment) (*openchoreov1alpha1.DataPlane, error) {
 	ref := env.Spec.DataPlaneRef
 

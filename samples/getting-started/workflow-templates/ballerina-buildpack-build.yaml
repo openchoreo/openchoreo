@@ -5,12 +5,19 @@ metadata:
 spec:
   templates:
     - name: build-image
+      podSpecPatch: '{"hostUsers": false}'
       inputs:
         parameters:
           - name: git-revision
           - name: build-env
+      volumes:
+        - name: storage
+          emptyDir:
+            sizeLimit: 10Gi
+        - name: app-dir
+          emptyDir: {}
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.0
+        image: ghcr.io/openchoreo/podman-runner:v1.2
         command:
           - sh
           - -c
@@ -24,7 +31,6 @@ spec:
             APP_PATH="{{workflow.parameters.app-path}}"
             BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
 
-            # --- Parameter Validation ---
             echo ">> Image: $IMAGE"
             echo ">> App path: $APP_PATH"
 
@@ -36,33 +42,49 @@ spec:
               exit 1
             fi
 
-            mkdir -p /etc/containers
+            mkdir -p /storage/run /storage/graph
             cat > /etc/containers/storage.conf <<EOF
             [storage]
             driver = "overlay"
-            runroot = "/run/containers/storage"
-            graphroot = "/var/lib/containers/storage"
+            runroot = "/storage/run"
+            graphroot = "/storage/graph"
             [storage.options.overlay]
-            mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
+            cat > /etc/containers/containers.conf <<CEOF
+            [containers]
+            netns="host"
+            userns="host"
+            ipcns="host"
+            utsns="host"
+            cgroupns="host"
+            cgroups="disabled"
+            log_driver = "k8s-file"
+            [engine]
+            cgroup_manager = "cgroupfs"
+            events_logger="file"
+            runtime="crun"
+            CEOF
+
             echo ">> Initializing build environment"
-            podman system service --time=0 &
+            mkdir -p /run/podman
+            podman system service --time=0 unix:///run/podman/podman.sock &
             until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
+            export DOCKER_HOST=unix:///run/podman/podman.sock
 
             BUILDER="ghcr.io/openchoreo/buildpack/ballerina:18"
             RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina:18-run"
 
-            # Build --env flags from the buildEnv JSON array
+            # Build --env flags
             ENV_ARGS=""
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
               ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--env \(.name)=\(.value)"' | \
+                jq -r '.[] | "--env \(.name)=\(.value)"' | \
                 tr '\n' ' ')
             fi
 
             echo ">> Building image with Ballerina buildpack"
-            /usr/local/bin/pack build "$IMAGE" \
+            pack build "$IMAGE" \
               --builder "$BUILDER" \
               --run-image "$RUN_IMAGE" \
               --docker-host inherit \
@@ -72,10 +94,14 @@ spec:
               $ENV_ARGS
 
             echo ">> Image built successfully"
-            echo ">> Saving image"
+            until podman image exists "$IMAGE" 2>/dev/null; do sleep 1; done
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:
           privileged: true
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
+          - mountPath: /storage
+            name: storage
+          - mountPath: /app
+            name: app-dir

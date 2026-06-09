@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -25,8 +26,8 @@ var componenttypelog = logf.Log.WithName("componenttype-resource")
 
 // SetupComponentTypeWebhookWithManager registers the webhook for ComponentType in the manager.
 func SetupComponentTypeWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&openchoreodevv1alpha1.ComponentType{}).
-		WithValidator(&Validator{}).
+	return ctrl.NewWebhookManagedBy(mgr, &openchoreodevv1alpha1.ComponentType{}).
+		WithCustomValidator(&Validator{}).
 		Complete()
 }
 
@@ -49,7 +50,7 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	allErrs := validateComponentType(componenttype)
 
 	if len(allErrs) > 0 {
-		return nil, allErrs.ToAggregate()
+		return nil, apierrors.NewInvalid(componenttype.GroupVersionKind().GroupKind(), componenttype.GetName(), allErrs)
 	}
 
 	return nil, nil
@@ -73,7 +74,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	allErrs := validateComponentType(newComponentType)
 
 	if len(allErrs) > 0 {
-		return nil, allErrs.ToAggregate()
+		return nil, apierrors.NewInvalid(newComponentType.GroupVersionKind().GroupKind(), newComponentType.GetName(), allErrs)
 	}
 
 	return nil, nil
@@ -96,27 +97,15 @@ func validateComponentType(ct *openchoreodevv1alpha1.ComponentType) field.ErrorL
 	allErrs := field.ErrorList{}
 
 	// Extract and validate schemas, getting structural schemas for CEL validation
-	basePath := field.NewPath("spec")
-	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractStructuralSchemas(
-		ct.Spec.Parameters, ct.Spec.EnvironmentConfigs, basePath,
+	parametersSchema, envConfigsSchema, schemaErrs := schemautil.ExtractAndValidateSchemas(
+		ct.Spec.Parameters, ct.Spec.EnvironmentConfigs, field.NewPath("spec"),
 	)
 	allErrs = append(allErrs, schemaErrs...)
 
-	// Strict field validation: reject unknown fields in openAPIV3Schema
-	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
-		ct.Spec.Parameters, basePath.Child("parameters"),
-	)...)
-	allErrs = append(allErrs, schemautil.ValidateOpenAPIV3SchemaFields(
-		ct.Spec.EnvironmentConfigs, basePath.Child("environmentConfigs"),
-	)...)
-
 	// Validate CEL expressions with schema-aware type checking
-	celErrs := component.ValidateComponentTypeResourcesWithSchema(
-		ct,
-		parametersSchema,
-		envConfigsSchema,
-	)
-	allErrs = append(allErrs, celErrs...)
+	allErrs = append(allErrs, component.ValidateComponentTypeResourcesWithSchema(
+		ct, parametersSchema, envConfigsSchema,
+	)...)
 
 	// Validate resource IDs and workloadType
 	resourceErrs := validateResourceStructure(ct)

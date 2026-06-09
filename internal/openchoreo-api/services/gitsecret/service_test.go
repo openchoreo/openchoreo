@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	k8sMocks "github.com/openchoreo/openchoreo/internal/clients/kubernetes/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 )
 
@@ -428,8 +429,8 @@ func TestResolveWorkflowPlane_NamespacedWorkflowPlane(t *testing.T) {
 		logger:    newTestLogger(),
 	}
 
-	// Cannot fully test because GetK8sClientFromWorkflowPlane requires a real KubeMultiClientManager.
-	// But we can verify error paths.
+	// PlaneClientProvider is nil here — only error paths (not-found, no-secret-store) are exercised.
+	// For full plane-client tests, use newTestServiceWithWPClient which injects a mock provider.
 
 	// Test not found
 	_, err := svc.resolveWorkflowPlane(context.Background(), testNamespace, workflowPlaneKindWorkflowPlane, "nonexistent")
@@ -850,7 +851,8 @@ func TestNewService(t *testing.T) {
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 	logger := newTestLogger()
 
-	svc := NewService(k8sClient, nil, logger, "http://gateway:8080")
+	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
+	svc := NewService(k8sClient, mockProvider, logger)
 	if svc == nil {
 		t.Fatal("expected non-nil service")
 	}
@@ -1148,32 +1150,21 @@ func TestResolveWorkflowPlane_ClusterSecretStoreEmptyName(t *testing.T) {
 	}
 }
 
-// newTestServiceWithWPClient creates a gitSecretService with a pre-populated KubeMultiClientManager cache
-// so that resolveWorkflowPlane returns the given fake WP client.
-func newTestServiceWithWPClient(t *testing.T, cpObjects []client.Object, wpClient client.Client, wpKind, wpName, wpNamespace string) *gitSecretService {
+// newTestServiceWithWPClient creates a gitSecretService with a mock PlaneClientProvider
+// that returns the given fake WP client for any workflow plane.
+func newTestServiceWithWPClient(t *testing.T, cpObjects []client.Object, wpClient client.Client) *gitSecretService {
 	t.Helper()
 	scheme := newTestScheme(t)
 	cpClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cpObjects...).Build()
 
-	wpClientMgr := kubernetesClient.NewManager()
-	var cacheKey string
-	switch wpKind {
-	case workflowPlaneKindWorkflowPlane:
-		cacheKey = fmt.Sprintf("v2/workflowplane/%s/%s/%s", wpName, wpNamespace, wpName)
-	case workflowPlaneKindClusterWorkflowPlane:
-		cacheKey = fmt.Sprintf("v2/clusterworkflowplane/%s/%s", wpName, wpName)
-	}
-	if _, err := wpClientMgr.GetOrAddClient(cacheKey, func() (client.Client, error) {
-		return wpClient, nil
-	}); err != nil {
-		t.Fatalf("failed to seed wp client cache: %v", err)
-	}
+	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
+	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Maybe()
 
 	return &gitSecretService{
-		k8sClient:   cpClient,
-		wpClientMgr: wpClientMgr,
-		logger:      newTestLogger(),
-		gatewayURL:  "http://gateway:8080",
+		k8sClient:           cpClient,
+		planeClientProvider: mockProvider,
+		logger:              newTestLogger(),
 	}
 }
 
@@ -1194,7 +1185,7 @@ func TestResolveNamespacedWorkflowPlane_Success(t *testing.T) {
 		},
 	}
 	wpFakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
+	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient)
 
 	info, err := svc.resolveNamespacedWorkflowPlane(context.Background(), testNamespace, "wp-default")
 	if err != nil {
@@ -1223,7 +1214,7 @@ func TestResolveClusterWorkflowPlane_Success(t *testing.T) {
 		},
 	}
 	wpFakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := newTestServiceWithWPClient(t, []client.Object{cwp}, wpFakeClient, workflowPlaneKindClusterWorkflowPlane, "cwp-shared", "")
+	svc := newTestServiceWithWPClient(t, []client.Object{cwp}, wpFakeClient)
 
 	info, err := svc.resolveClusterWorkflowPlane(context.Background(), "cwp-shared")
 	if err != nil {
@@ -1266,7 +1257,7 @@ func TestCreateGitSecret_Success_BasicAuth(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
+	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient)
 
 	result, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
@@ -1317,7 +1308,7 @@ func TestCreateGitSecret_Success_SSHAuth(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{cwp}, wpFakeClient, workflowPlaneKindClusterWorkflowPlane, "cwp-shared", "")
+	svc := newTestServiceWithWPClient(t, []client.Object{cwp}, wpFakeClient)
 
 	result, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "ssh-secret",
@@ -1364,7 +1355,7 @@ func TestCreateGitSecret_WPSecretPatchError(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
+	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient)
 
 	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
@@ -1407,7 +1398,7 @@ func TestCreateGitSecret_PushSecretPatchError(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
+	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient)
 
 	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",
@@ -1456,19 +1447,14 @@ func TestCreateGitSecret_SecretRefCreateError(t *testing.T) {
 		}).
 		Build()
 
-	wpClientMgr := kubernetesClient.NewManager()
-	cacheKey := fmt.Sprintf("v2/workflowplane/%s/%s/%s", "wp-default", testNamespace, "wp-default")
-	if _, err := wpClientMgr.GetOrAddClient(cacheKey, func() (client.Client, error) {
-		return wpFakeClient, nil
-	}); err != nil {
-		t.Fatalf("failed to seed wp client cache: %v", err)
-	}
+	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
+	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(wpFakeClient, nil).Maybe()
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpFakeClient, nil).Maybe()
 
 	svc := &gitSecretService{
-		k8sClient:   cpClient,
-		wpClientMgr: wpClientMgr,
-		logger:      newTestLogger(),
-		gatewayURL:  "http://gateway:8080",
+		k8sClient:           cpClient,
+		planeClientProvider: mockProvider,
+		logger:              newTestLogger(),
 	}
 
 	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
@@ -1512,7 +1498,7 @@ func TestDeleteGitSecret_Success(t *testing.T) {
 	}
 
 	wpFakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	svc := newTestServiceWithWPClient(t, []client.Object{secretRef, wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
+	svc := newTestServiceWithWPClient(t, []client.Object{secretRef, wp}, wpFakeClient)
 
 	err := svc.DeleteGitSecret(context.Background(), testNamespace, "test-secret")
 	if err != nil {
@@ -1562,7 +1548,7 @@ func TestDeleteGitSecret_WPPushSecretDeleteError(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{secretRef, wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
+	svc := newTestServiceWithWPClient(t, []client.Object{secretRef, wp}, wpFakeClient)
 
 	err := svc.DeleteGitSecret(context.Background(), testNamespace, "test-secret")
 	if err == nil {
@@ -1635,12 +1621,13 @@ func TestResolveNamespacedWorkflowPlane_ClientError(t *testing.T) {
 	}
 
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(wp).Build()
-	// Empty gatewayURL triggers error in GetK8sClientFromWorkflowPlane
+	// Mock provider returns error to simulate client creation failure
+	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
+	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(nil, fmt.Errorf("client creation failed")).Maybe()
 	svc := &gitSecretService{
-		k8sClient:   k8sClient,
-		wpClientMgr: kubernetesClient.NewManager(),
-		logger:      newTestLogger(),
-		gatewayURL:  "",
+		k8sClient:           k8sClient,
+		planeClientProvider: mockProvider,
+		logger:              newTestLogger(),
 	}
 
 	_, err := svc.resolveNamespacedWorkflowPlane(context.Background(), testNamespace, "wp-default")
@@ -1665,11 +1652,13 @@ func TestResolveClusterWorkflowPlane_ClientError(t *testing.T) {
 	}
 
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cwp).Build()
+	// Mock provider returns error to simulate client creation failure
+	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(nil, fmt.Errorf("client creation failed")).Maybe()
 	svc := &gitSecretService{
-		k8sClient:   k8sClient,
-		wpClientMgr: kubernetesClient.NewManager(),
-		logger:      newTestLogger(),
-		gatewayURL:  "",
+		k8sClient:           k8sClient,
+		planeClientProvider: mockProvider,
+		logger:              newTestLogger(),
 	}
 
 	_, err := svc.resolveClusterWorkflowPlane(context.Background(), "cwp-shared")
@@ -1720,7 +1709,7 @@ func TestDeleteGitSecret_WPSecretDeleteError(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{secretRef, wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
+	svc := newTestServiceWithWPClient(t, []client.Object{secretRef, wp}, wpFakeClient)
 
 	err := svc.DeleteGitSecret(context.Background(), testNamespace, "test-secret")
 	if err == nil {
@@ -1767,19 +1756,14 @@ func TestDeleteGitSecret_CPSecretRefDeleteError(t *testing.T) {
 		}).
 		Build()
 
-	wpClientMgr := kubernetesClient.NewManager()
-	cacheKey := fmt.Sprintf("v2/workflowplane/%s/%s/%s", "wp-default", testNamespace, "wp-default")
-	if _, err := wpClientMgr.GetOrAddClient(cacheKey, func() (client.Client, error) {
-		return wpFakeClient, nil
-	}); err != nil {
-		t.Fatalf("failed to seed wp client cache: %v", err)
-	}
+	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
+	mockProvider.EXPECT().WorkflowPlaneClient(mock.Anything).Return(wpFakeClient, nil).Maybe()
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpFakeClient, nil).Maybe()
 
 	svc := &gitSecretService{
-		k8sClient:   cpClient,
-		wpClientMgr: wpClientMgr,
-		logger:      newTestLogger(),
-		gatewayURL:  "http://gateway:8080",
+		k8sClient:           cpClient,
+		planeClientProvider: mockProvider,
+		logger:              newTestLogger(),
 	}
 
 	err := svc.DeleteGitSecret(context.Background(), testNamespace, "test-secret")
@@ -1890,7 +1874,7 @@ func TestCreateGitSecret_EnsureNamespaceError(t *testing.T) {
 		}).
 		Build()
 
-	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient, workflowPlaneKindWorkflowPlane, "wp-default", testNamespace)
+	svc := newTestServiceWithWPClient(t, []client.Object{wp}, wpFakeClient)
 
 	_, err := svc.CreateGitSecret(context.Background(), testNamespace, &CreateGitSecretParams{
 		SecretName:        "new-secret",

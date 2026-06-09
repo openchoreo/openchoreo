@@ -8,6 +8,8 @@ resources:
   - bases/openchoreo.dev_deploymentpipelines.yaml
   - bases/openchoreo.dev_components.yaml
   - bases/openchoreo.dev_componenttypes.yaml
+  - bases/openchoreo.dev_resources.yaml
+  - bases/openchoreo.dev_resourcetypes.yaml
   - bases/openchoreo.dev_traits.yaml
 
 
@@ -20,7 +22,9 @@ resources:
   - bases/openchoreo.dev_workflowruns.yaml
   - bases/openchoreo.dev_secretreferences.yaml
   - bases/openchoreo.dev_componentreleases.yaml
+  - bases/openchoreo.dev_resourcereleases.yaml
   - bases/openchoreo.dev_releasebindings.yaml
+  - bases/openchoreo.dev_resourcereleasebindings.yaml
   - bases/openchoreo.dev_observabilityplanes.yaml
   - bases/openchoreo.dev_observabilityalertsnotificationchannels.yaml
   - bases/openchoreo.dev_observabilityalertrules.yaml
@@ -32,6 +36,7 @@ resources:
   - bases/openchoreo.dev_clusterdataplanes.yaml
   - bases/openchoreo.dev_clusterobservabilityplanes.yaml
   - bases/openchoreo.dev_clustercomponenttypes.yaml
+  - bases/openchoreo.dev_clusterresourcetypes.yaml
   - bases/openchoreo.dev_clustertraits.yaml
   - bases/openchoreo.dev_clusterworkflows.yaml
 # +kubebuilder:scaffold:crdkustomizeresource

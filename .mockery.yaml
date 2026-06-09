@@ -7,21 +7,17 @@ packages:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz:
     interfaces:
       Service:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/clustertrait:
+  github.com/openchoreo/openchoreo/internal/occ/resources/client:
     interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/clustercomponenttype:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/componenttype:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/trait:
-    interfaces:
-      Client:
+      Interface:
+        config:
+          dir: "internal/occ/resources/client/mocks"
+          outpkg: mocks
+          filename: "client.go"
   github.com/openchoreo/openchoreo/internal/authz/core:
     interfaces:
       PDP:
+      PAP:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype:
     interfaces:
       Service:
@@ -29,6 +25,9 @@ packages:
     interfaces:
       Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterobservabilityplane:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterresourcetype:
     interfaces:
       Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait:
@@ -41,6 +40,9 @@ packages:
     interfaces:
       Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componentrelease:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component:
     interfaces:
       Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype:
@@ -76,6 +78,21 @@ packages:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding:
     interfaces:
       Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resource:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcerelease:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcereleasebinding:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcetype:
+    interfaces:
+      Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secret:
+    interfaces:
+      Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference:
     interfaces:
       Service:
@@ -94,64 +111,23 @@ packages:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload:
     interfaces:
       Service:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/authzrole:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen:
     interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/authzrolebinding:
+      ClientWithResponsesInterface:
+        config:
+          dir: "internal/occ/resources/client/mocks"
+          outpkg: mocks
+  github.com/openchoreo/openchoreo/internal/clients/kubernetes:
     interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/clusterauthzrole:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/clusterauthzrolebinding:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/clusterdataplane:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/clusterobservabilityplane:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/clusterworkflow:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/clusterworkflowplane:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/dataplane:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/deploymentpipeline:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/environment:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/namespace:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/project:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityplane:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityalertsnotificationchannel:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/secretreference:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/workflowplane:
-    interfaces:
-      Client:
-  github.com/openchoreo/openchoreo/internal/occ/cmd/workload:
-    interfaces:
-      Client:
+      DataPlaneClientProvider:
+      ObservabilityPlaneClientProvider:
+      WorkflowPlaneClientProvider:
+      PlaneClientProvider:
   github.com/openchoreo/openchoreo/internal/observer/service:
     interfaces:
       HealthChecker:
       LogsQuerier:
+      EventsQuerier:
       MetricsQuerier:
       TracesQuerier:
       AlertsQuerier:

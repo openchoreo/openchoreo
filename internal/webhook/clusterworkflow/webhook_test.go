@@ -140,9 +140,44 @@ var _ = Describe("ClusterWorkflow Webhook", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("metadata.namespace"))
 		})
+
+		It("Should return an error when newObj is not a ClusterWorkflow", func() {
+			wrongObj := &openchoreodevv1alpha1.Workflow{}
+			_, err := validator.ValidateUpdate(ctx, obj, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ClusterWorkflow object for the newObj"))
+		})
+	})
+
+	Context("When validating ClusterWorkflow with wrong workflowPlaneRef kind", func() {
+		It("Should reject ClusterWorkflow referencing a namespace-scoped WorkflowPlane", func() {
+			obj.Spec.WorkflowPlaneRef = &openchoreodevv1alpha1.ClusterWorkflowPlaneRef{
+				Kind: "WorkflowPlane",
+				Name: "default",
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("ClusterWorkflow can only reference ClusterWorkflowPlane"))
+		})
+	})
+
+	Context("When creating ClusterWorkflow with wrong type", func() {
+		It("Should return an error when given a non-ClusterWorkflow object on create", func() {
+			wrongObj := &openchoreodevv1alpha1.Workflow{}
+			_, err := validator.ValidateCreate(ctx, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ClusterWorkflow object but got"))
+		})
 	})
 
 	Context("When defaulting ClusterWorkflow", func() {
+		It("Should return an error when given a non-ClusterWorkflow object on default", func() {
+			wrongObj := &openchoreodevv1alpha1.Workflow{}
+			err := defaulter.Default(ctx, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ClusterWorkflow object but got"))
+		})
+
 		It("Should inject serviceAccountName into runTemplate", func() {
 			obj.Spec.RunTemplate = &runtime.RawExtension{
 				Raw: []byte(`{"apiVersion":"argoproj.io/v1alpha1","kind":"Workflow","metadata":{"name":"test","namespace":"${metadata.namespace}"},"spec":{"entrypoint":"build"}}`),

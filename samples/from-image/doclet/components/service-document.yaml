@@ -1,0 +1,43 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: doclet-document
+  namespace: default
+spec:
+  owner:
+    projectName: doclet
+
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: doclet-document
+  namespace: default
+spec:
+  owner:
+    componentName: doclet-document
+    projectName: doclet
+  endpoints:
+    http:
+      type: HTTP
+      port: 8080
+      visibility: [project]
+  dependencies:
+    resources:
+      - ref: doclet-postgres
+        envBindings:
+          host: DB_HOST
+          port: DB_PORT
+          username: DB_USER
+          password: DB_PASSWORD
+          database: DB_NAME
+      - ref: doclet-nats
+        envBindings:
+          url: DOCLET_NATS_URL
+  container:
+    image: ghcr.io/openchoreo/samples/doclet-document:latest

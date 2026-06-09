@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.4
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: clustertraits.openchoreo.dev
 spec:
   group: openchoreo.dev
@@ -211,6 +211,75 @@ spec:
                       type: string
                   required:
                   - operations
+                  - target
+                  type: object
+                  x-kubernetes-validations:
+                  - message: var is required when forEach is specified
+                    rule: '!has(self.forEach) || has(self.var)'
+                type: array
+              removes:
+                description: |-
+                  Removes deletes whole resources previously produced by the ComponentType or earlier traits.
+                  Workload resources (e.g. Deployment, StatefulSet, CronJob) cannot be removed.
+                items:
+                  description: |-
+                    TraitRemove deletes whole resources previously produced by the ComponentType or earlier traits.
+                    Unlike TraitPatch, it removes the matched resources entirely instead of modifying them.
+                    Workload resource kinds (e.g. Deployment, StatefulSet, CronJob) are rejected by the webhook.
+                  properties:
+                    forEach:
+                      description: |-
+                        ForEach repeats this remove for every item in a CEL-evaluated list
+                        Requires 'var' to be set to name the binding used in the where clause
+                        Example: forEach: ${parameters.routesToDrop}
+                      pattern: ^\$\{[\s\S]+\}\s*$
+                      type: string
+                    target:
+                      description: Target specifies which resource to remove. Matching
+                        resources are deleted entirely.
+                      properties:
+                        group:
+                          description: |-
+                            Group is the API group of the resource (e.g., "apps", "batch")
+                            Must be explicitly set. Use empty string "" for core API resources (v1 Service, ConfigMap, etc.)
+                          type: string
+                        kind:
+                          description: Kind is the resource type to patch (e.g., "Deployment",
+                            "StatefulSet")
+                          minLength: 1
+                          type: string
+                        version:
+                          description: Version is the API version of the resource
+                            (e.g., "v1", "v1beta1")
+                          minLength: 1
+                          type: string
+                        where:
+                          description: |-
+                            Where is an optional CEL expression to filter which resources to patch
+                            Example: ${resource.metadata.name.endsWith("-secret-envs")}
+                          pattern: ^\$\{[\s\S]+\}\s*$
+                          type: string
+                      required:
+                      - group
+                      - kind
+                      - version
+                      type: object
+                    targetPlane:
+                      default: dataplane
+                      description: |-
+                        TargetPlane specifies which plane's resources this remove targets
+                        Defaults to "dataplane" if not specified
+                      enum:
+                      - dataplane
+                      - observabilityplane
+                      type: string
+                    var:
+                      description: |-
+                        Var names the binding for forEach iterations
+                        Required when forEach is specified
+                      pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+                      type: string
+                  required:
                   - target
                   type: object
                   x-kubernetes-validations:

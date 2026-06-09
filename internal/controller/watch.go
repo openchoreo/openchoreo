@@ -33,12 +33,30 @@ const (
 	// IndexKeyDeploymentPipelineEnvironmentRef indexes DeploymentPipeline by the environment names
 	// referenced in its promotionPaths (both source and target environments).
 	IndexKeyDeploymentPipelineEnvironmentRef = "deploymentpipeline.spec.promotionPaths.environmentRefs"
+
+	// IndexKeyResourceReleaseOwnerResourceName indexes ResourceRelease by owner resource name.
+	IndexKeyResourceReleaseOwnerResourceName = "resourcerelease.spec.owner.resourceName"
+
+	// IndexKeyResourceReleaseBindingOwnerResourceName indexes ResourceReleaseBinding by owner resource name.
+	IndexKeyResourceReleaseBindingOwnerResourceName = "resourcereleasebinding.spec.owner.resourceName"
+
+	// IndexKeyResourceReleaseBindingOwnerEnv indexes ResourceReleaseBinding by the composite key
+	// (projectName, resourceName, environment) so consumer ReleaseBindings can locate the
+	// matching provider for a (project, ref, env) tuple in O(1).
+	IndexKeyResourceReleaseBindingOwnerEnv = "resourcereleasebinding.spec.owner.projectName/resourceName/environment"
 )
 
 // MakeReleaseBindingOwnerEnvKey creates the composite index key for ReleaseBinding lookups
 // by (project, component, environment).
 func MakeReleaseBindingOwnerEnvKey(projectName, componentName, environment string) string {
 	return projectName + "/" + componentName + "/" + environment
+}
+
+// MakeResourceReleaseBindingOwnerEnvKey creates the composite index key for
+// ResourceReleaseBinding lookups by (project, resource, environment). Used by consumer
+// ReleaseBindings to locate the matching provider for a (project, ref, env) tuple.
+func MakeResourceReleaseBindingOwnerEnvKey(projectName, resourceName, environment string) string {
+	return projectName + "/" + resourceName + "/" + environment
 }
 
 // SetupSharedIndexes registers field indexes that are shared across multiple controllers.
@@ -115,7 +133,59 @@ func SetupSharedIndexes(ctx context.Context, mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup DeploymentPipeline environment ref index: %w", err)
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ResourceRelease{},
+		IndexKeyResourceReleaseOwnerResourceName, IndexResourceReleaseOwner); err != nil {
+		return fmt.Errorf("failed to setup ResourceRelease owner index: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ResourceReleaseBinding{},
+		IndexKeyResourceReleaseBindingOwnerResourceName, IndexResourceReleaseBindingOwner); err != nil {
+		return fmt.Errorf("failed to setup ResourceReleaseBinding owner index: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ResourceReleaseBinding{},
+		IndexKeyResourceReleaseBindingOwnerEnv, IndexResourceReleaseBindingOwnerEnv); err != nil {
+		return fmt.Errorf("failed to setup ResourceReleaseBinding owner+env index: %w", err)
+	}
+
 	return nil
+}
+
+// IndexResourceReleaseOwner extracts the owner resource name from a
+// ResourceRelease. Exported for fake-client tests so they can register the
+// same indexer the production setup uses.
+func IndexResourceReleaseOwner(obj client.Object) []string {
+	rr := obj.(*openchoreov1alpha1.ResourceRelease)
+	if rr.Spec.Owner.ResourceName == "" {
+		return nil
+	}
+	return []string{rr.Spec.Owner.ResourceName}
+}
+
+// IndexResourceReleaseBindingOwner extracts the owner resource name from a
+// ResourceReleaseBinding. Exported for fake-client tests so they can register
+// the same indexer the production setup uses.
+func IndexResourceReleaseBindingOwner(obj client.Object) []string {
+	rrb := obj.(*openchoreov1alpha1.ResourceReleaseBinding)
+	if rrb.Spec.Owner.ResourceName == "" {
+		return nil
+	}
+	return []string{rrb.Spec.Owner.ResourceName}
+}
+
+// IndexResourceReleaseBindingOwnerEnv extracts the composite (project, resource, environment)
+// index key from a ResourceReleaseBinding. Exported for fake-client tests so they can
+// register the same indexer the production setup uses.
+func IndexResourceReleaseBindingOwnerEnv(obj client.Object) []string {
+	rrb := obj.(*openchoreov1alpha1.ResourceReleaseBinding)
+	if rrb.Spec.Owner.ProjectName == "" || rrb.Spec.Owner.ResourceName == "" || rrb.Spec.Environment == "" {
+		return nil
+	}
+	return []string{MakeResourceReleaseBindingOwnerEnvKey(
+		rrb.Spec.Owner.ProjectName,
+		rrb.Spec.Owner.ResourceName,
+		rrb.Spec.Environment,
+	)}
 }
 
 // HierarchyWatchHandler is a function that creates a watch handler for a specific hierarchy.

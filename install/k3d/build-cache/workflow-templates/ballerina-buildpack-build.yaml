@@ -1,0 +1,167 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: ballerina-buildpack-build
+spec:
+  templates:
+    - name: build-image
+      podSpecPatch: '{"hostUsers": false}'
+      inputs:
+        parameters:
+          - name: git-revision
+          - name: build-env
+          - name: build-cache
+            default: "build-cache.openchoreo-workflow-plane.svc.cluster.local:5100"
+          - name: cache-layers-mode
+            default: "reuse"
+      volumes:
+        - name: storage
+          emptyDir:
+            sizeLimit: 10Gi
+        - name: app-dir
+          emptyDir: {}
+        - name: registries-conf
+          configMap:
+            name: "{{workflow.parameters.workflowrun-name}}-registries-conf"
+            optional: true
+      container:
+        image: ghcr.io/openchoreo/podman-runner:v1.2
+        command: [sh, -c]
+        args:
+          - |-
+            set -e
+
+            WORKDIR=/mnt/vol/source
+            GIT_REVISION="{{inputs.parameters.git-revision}}"
+            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-${GIT_REVISION}"
+            APP_PATH="{{workflow.parameters.app-path}}"
+            BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
+            CACHE_REGISTRY="{{inputs.parameters.build-cache}}"
+            CACHE_LAYERS_MODE="{{inputs.parameters.cache-layers-mode}}"
+
+            case "$CACHE_LAYERS_MODE" in disabled|reuse|rebuild) ;; *) echo ">> Error: invalid cache layers mode '$CACHE_LAYERS_MODE'"; exit 1 ;; esac
+
+            if [ ! -d "$WORKDIR/$APP_PATH" ]; then
+              echo ">> Error: The specified application path '$APP_PATH' does not exist in the repository"
+              ls -la "$WORKDIR/"
+              exit 1
+            fi
+
+            mkdir -p /storage/run /storage/graph
+            cat > /etc/containers/storage.conf <<STEOF
+            [storage]
+            driver = "overlay"
+            runroot = "/storage/run"
+            graphroot = "/storage/graph"
+            [storage.options.overlay]
+            STEOF
+
+            cat > /etc/containers/containers.conf <<CEOF
+            [containers]
+            netns="host"
+            userns="host"
+            ipcns="host"
+            utsns="host"
+            cgroupns="host"
+            cgroups="disabled"
+            log_driver = "k8s-file"
+            [engine]
+            cgroup_manager = "cgroupfs"
+            events_logger="file"
+            runtime="crun"
+            CEOF
+
+            mkdir -p /run/podman
+            podman system service --time=0 unix:///run/podman/podman.sock &
+            PODMAN_SVC_PID=$!
+            export DOCKER_HOST=unix:///run/podman/podman.sock
+            i=0
+            until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do
+              if ! kill -0 "$PODMAN_SVC_PID" 2>/dev/null; then
+                echo ">> Error: podman service exited before its socket became ready"
+                exit 1
+              fi
+              i=$((i + 1))
+              if [ "$i" -ge 30 ]; then
+                echo ">> Error: timed out waiting for the podman socket after 30s"
+                exit 1
+              fi
+              sleep 1
+            done
+
+            BUILDER="ghcr.io/openchoreo/buildpack/ballerina:18"
+            RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina:18-run"
+
+            ENV_ARGS=""
+            if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
+              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | jq -r '.[] | "--env \(.name)=\(.value)"' | tr '\n' ' ')
+            fi
+
+            CACHE_AVAILABLE="false"
+            PACK_REGISTRY_ARGS=""
+            if [ -n "$CACHE_REGISTRY" ] && [ "$CACHE_REGISTRY" != "none" ]; then
+              if curl -sf --max-time 3 -o /dev/null "http://${CACHE_REGISTRY}/v2/" 2>/dev/null; then
+                CACHE_AVAILABLE="true"
+                PACK_REGISTRY_ARGS="--insecure-registry ${CACHE_REGISTRY}"
+                mkdir -p /etc/containers/registries.conf.d
+                cat > /etc/containers/registries.conf.d/build-cache.conf <<REGEOF
+            [[registry]]
+            location = "${CACHE_REGISTRY}"
+            insecure = true
+            REGEOF
+              fi
+            fi
+
+            if [ -f /etc/containers/registries.conf.d/mirrors.conf ]; then
+              echo ">> Upstream image mirror: mounted via registries.conf"
+            fi
+
+            if [ "$CACHE_AVAILABLE" = "true" ] && [ "$CACHE_LAYERS_MODE" != "disabled" ]; then
+              CACHE_IMAGE="${CACHE_REGISTRY}/build-cache/cnb/{{workflow.parameters.image-name}}:cnb-cache"
+              PUBLISH_REF="${CACHE_REGISTRY}/build-tmp/cnb/{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-${GIT_REVISION}"
+              CLEAR_CACHE_ARG=""
+              if [ "$CACHE_LAYERS_MODE" = "rebuild" ]; then CLEAR_CACHE_ARG="--clear-cache"; fi
+
+              pack build "$PUBLISH_REF" \
+                --builder "$BUILDER" \
+                --run-image "$RUN_IMAGE" \
+                --path "$WORKDIR/$APP_PATH" \
+                --volume "/mnt/vol:/app/generated-artifacts:rw" \
+                --pull-policy always \
+                --publish \
+                $PACK_REGISTRY_ARGS \
+                --cache-image "$CACHE_IMAGE" \
+                $CLEAR_CACHE_ARG \
+                $ENV_ARGS
+
+              podman pull --tls-verify=false "$PUBLISH_REF"
+              podman tag "$PUBLISH_REF" "$IMAGE"
+              podman save -o /mnt/vol/app-image.tar "$IMAGE"
+              exit 0
+            fi
+
+            pack build "$IMAGE" \
+              --builder "$BUILDER" \
+              --run-image "$RUN_IMAGE" \
+              --docker-host inherit \
+              --path "$WORKDIR/$APP_PATH" \
+              --volume "/mnt/vol:/app/generated-artifacts:rw" \
+              --pull-policy always \
+              $PACK_REGISTRY_ARGS \
+              $ENV_ARGS
+
+            until podman image exists "$IMAGE" 2>/dev/null; do sleep 1; done
+            podman save -o /mnt/vol/app-image.tar "$IMAGE"
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - mountPath: /mnt/vol
+            name: workspace
+          - mountPath: /storage
+            name: storage
+          - mountPath: /app
+            name: app-dir
+          - mountPath: /etc/containers/registries.conf.d/mirrors.conf
+            subPath: mirrors.conf
+            name: registries-conf
+            readOnly: true

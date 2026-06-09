@@ -27,16 +27,11 @@ type AuthResult struct {
 	Err  error
 }
 
-// ListenForAuthCode starts a local HTTP server on the fixed callback port and waits for the auth callback
-func ListenForAuthCode(expectedState string, timeout time.Duration) (string, error) {
-	server := &http.Server{
-		Addr:              ":" + strconv.Itoa(CallbackPort),
-		ReadHeaderTimeout: 10 * time.Second,
-	}
-	authCodeChan := make(chan AuthResult, 1)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc(CallbackPath, func(w http.ResponseWriter, r *http.Request) {
+// callbackHandler returns an HTTP handler that validates the OAuth callback,
+// sends the authorization code (or an error) to authCodeChan, and writes the
+// appropriate HTML response to the browser.
+func callbackHandler(expectedState string, authCodeChan chan<- AuthResult) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		// Check for OAuth error response
 		if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 			authCodeChan <- AuthResult{Err: fmt.Errorf("authentication failed: %s", errMsg)}
@@ -64,7 +59,19 @@ func ListenForAuthCode(expectedState string, timeout time.Duration) (string, err
 
 		authCodeChan <- AuthResult{Code: authCode}
 		writeSuccessHTML(w)
-	})
+	}
+}
+
+// ListenForAuthCode starts a local HTTP server on the fixed callback port and waits for the auth callback
+func ListenForAuthCode(expectedState string, timeout time.Duration) (string, error) {
+	server := &http.Server{
+		Addr:              ":" + strconv.Itoa(CallbackPort),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	authCodeChan := make(chan AuthResult, 1)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(CallbackPath, callbackHandler(expectedState, authCodeChan))
 	server.Handler = mux
 
 	go func() {

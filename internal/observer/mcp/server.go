@@ -115,6 +115,67 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		return handleToolResult(result, err)
 	})
 
+	// Tool: query_component_events
+	mcpsdk.AddTool(s, &mcpsdk.Tool{
+		Name:        "query_component_events",
+		Description: "Query Kubernetes events for components (services, APIs, workers, scheduled tasks) deployed in OpenChoreo. Returns events such as scheduling, scaling, image pulls, and job completions. Supports filtering by project, component, environment, and time range.",
+		InputSchema: createSchema(map[string]any{
+			"namespace":   stringProperty("Organization namespace (required)"),
+			"project":     stringProperty("Project name to filter events"),
+			"component":   stringProperty("Component name to filter events"),
+			"environment": stringProperty("Environment name to filter events (e.g., 'development', 'production')"),
+			"start_time":  stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":    stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":       limitProperty(),
+			"sort_order":  sortOrderProperty(),
+		}, []string{"namespace", "start_time", "end_time"}),
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
+		Namespace   string `json:"namespace"`
+		Project     string `json:"project"`
+		Component   string `json:"component"`
+		Environment string `json:"environment"`
+		StartTime   string `json:"start_time"`
+		EndTime     string `json:"end_time"`
+		Limit       int    `json:"limit"`
+		SortOrder   string `json:"sort_order"`
+	}) (*mcpsdk.CallToolResult, any, error) {
+		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
+			return nil, nil, err
+		}
+		result, err := handler.QueryComponentEvents(ctx,
+			args.Namespace, args.Project, args.Component, args.Environment,
+			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
+		)
+		return handleToolResult(result, err)
+	})
+
+	// Tool: query_workflow_events
+	mcpsdk.AddTool(s, &mcpsdk.Tool{
+		Name:        "query_workflow_events",
+		Description: "Query Kubernetes events for CI/CD workflow runs in OpenChoreo. Captures events emitted during build, test, and deployment pipeline execution. Supports filtering by workflow run name and time range.",
+		InputSchema: createSchema(map[string]any{
+			"namespace":         stringProperty("Organization namespace (required)"),
+			"workflow_run_name": stringProperty("Workflow run name to filter events for a specific CI/CD run"),
+			"start_time":        stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":          stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"limit":             limitProperty(),
+			"sort_order":        sortOrderProperty(),
+		}, []string{"namespace", "start_time", "end_time"}),
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
+		Namespace       string `json:"namespace"`
+		WorkflowRunName string `json:"workflow_run_name"`
+		StartTime       string `json:"start_time"`
+		EndTime         string `json:"end_time"`
+		Limit           int    `json:"limit"`
+		SortOrder       string `json:"sort_order"`
+	}) (*mcpsdk.CallToolResult, any, error) {
+		result, err := handler.QueryWorkflowEvents(ctx,
+			args.Namespace, args.WorkflowRunName,
+			args.StartTime, args.EndTime, args.Limit, args.SortOrder,
+		)
+		return handleToolResult(result, err)
+	})
+
 	// Tool 3: query_resource_metrics
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name:        "query_resource_metrics",

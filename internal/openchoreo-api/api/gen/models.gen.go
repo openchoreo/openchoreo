@@ -21,6 +21,7 @@ const (
 	ActionInfoLowestScopeComponent ActionInfoLowestScope = "component"
 	ActionInfoLowestScopeNamespace ActionInfoLowestScope = "namespace"
 	ActionInfoLowestScopeProject   ActionInfoLowestScope = "project"
+	ActionInfoLowestScopeResource  ActionInfoLowestScope = "resource"
 )
 
 // Defines values for AuthzRoleBindingSpecEffect.
@@ -205,13 +206,15 @@ const (
 
 // Defines values for ErrorResponseCode.
 const (
-	BADREQUEST         ErrorResponseCode = "BAD_REQUEST"
-	CONFLICT           ErrorResponseCode = "CONFLICT"
-	FORBIDDEN          ErrorResponseCode = "FORBIDDEN"
-	INTERNALERROR      ErrorResponseCode = "INTERNAL_ERROR"
-	NOTFOUND           ErrorResponseCode = "NOT_FOUND"
-	UNAUTHORIZED       ErrorResponseCode = "UNAUTHORIZED"
-	UNKNOWNGITPROVIDER ErrorResponseCode = "UNKNOWN_GIT_PROVIDER"
+	BADREQUEST           ErrorResponseCode = "BAD_REQUEST"
+	CONFLICT             ErrorResponseCode = "CONFLICT"
+	FORBIDDEN            ErrorResponseCode = "FORBIDDEN"
+	INTERNALERROR        ErrorResponseCode = "INTERNAL_ERROR"
+	NOTFOUND             ErrorResponseCode = "NOT_FOUND"
+	NOTIMPLEMENTED       ErrorResponseCode = "NOT_IMPLEMENTED"
+	UNAUTHORIZED         ErrorResponseCode = "UNAUTHORIZED"
+	UNKNOWNGITPROVIDER   ErrorResponseCode = "UNKNOWN_GIT_PROVIDER"
+	UNPROCESSABLECONTENT ErrorResponseCode = "UNPROCESSABLE_CONTENT"
 )
 
 // Defines values for ExternalRefKind.
@@ -274,15 +277,56 @@ const (
 	RenderedReleaseStatusResourcesHealthStatusUnknown     RenderedReleaseStatusResourcesHealthStatus = "Unknown"
 )
 
+// Defines values for ResolvedConnectionVisibility.
+const (
+	ResolvedConnectionVisibilityExternal  ResolvedConnectionVisibility = "external"
+	ResolvedConnectionVisibilityInternal  ResolvedConnectionVisibility = "internal"
+	ResolvedConnectionVisibilityNamespace ResolvedConnectionVisibility = "namespace"
+	ResolvedConnectionVisibilityProject   ResolvedConnectionVisibility = "project"
+)
+
+// Defines values for ResourceReleaseBindingSpecRetainPolicy.
+const (
+	ResourceReleaseBindingSpecRetainPolicyDelete ResourceReleaseBindingSpecRetainPolicy = "Delete"
+	ResourceReleaseBindingSpecRetainPolicyRetain ResourceReleaseBindingSpecRetainPolicy = "Retain"
+)
+
+// Defines values for ResourceReleaseSpecResourceTypeKind.
+const (
+	ResourceReleaseSpecResourceTypeKindClusterResourceType ResourceReleaseSpecResourceTypeKind = "ClusterResourceType"
+	ResourceReleaseSpecResourceTypeKindResourceType        ResourceReleaseSpecResourceTypeKind = "ResourceType"
+)
+
+// Defines values for ResourceTypeRefKind.
+const (
+	ResourceTypeRefKindClusterResourceType ResourceTypeRefKind = "ClusterResourceType"
+	ResourceTypeRefKindResourceType        ResourceTypeRefKind = "ResourceType"
+)
+
+// Defines values for ResourceTypeSpecRetainPolicy.
+const (
+	ResourceTypeSpecRetainPolicyDelete ResourceTypeSpecRetainPolicy = "Delete"
+	ResourceTypeSpecRetainPolicyRetain ResourceTypeSpecRetainPolicy = "Retain"
+)
+
 // Defines values for SecretTemplateType.
 const (
-	BootstrapKubernetesIotoken   SecretTemplateType = "bootstrap.kubernetes.io/token"
-	KubernetesIobasicAuth        SecretTemplateType = "kubernetes.io/basic-auth"
-	KubernetesIodockercfg        SecretTemplateType = "kubernetes.io/dockercfg"
-	KubernetesIodockerconfigjson SecretTemplateType = "kubernetes.io/dockerconfigjson"
-	KubernetesIosshAuth          SecretTemplateType = "kubernetes.io/ssh-auth"
-	KubernetesIotls              SecretTemplateType = "kubernetes.io/tls"
-	Opaque                       SecretTemplateType = "Opaque"
+	SecretTemplateTypeBootstrapKubernetesIotoken   SecretTemplateType = "bootstrap.kubernetes.io/token"
+	SecretTemplateTypeKubernetesIobasicAuth        SecretTemplateType = "kubernetes.io/basic-auth"
+	SecretTemplateTypeKubernetesIodockercfg        SecretTemplateType = "kubernetes.io/dockercfg"
+	SecretTemplateTypeKubernetesIodockerconfigjson SecretTemplateType = "kubernetes.io/dockerconfigjson"
+	SecretTemplateTypeKubernetesIosshAuth          SecretTemplateType = "kubernetes.io/ssh-auth"
+	SecretTemplateTypeKubernetesIotls              SecretTemplateType = "kubernetes.io/tls"
+	SecretTemplateTypeOpaque                       SecretTemplateType = "Opaque"
+)
+
+// Defines values for SecretType.
+const (
+	SecretTypeKubernetesIobasicAuth        SecretType = "kubernetes.io/basic-auth"
+	SecretTypeKubernetesIodockerconfigjson SecretType = "kubernetes.io/dockerconfigjson"
+	SecretTypeKubernetesIosshAuth          SecretType = "kubernetes.io/ssh-auth"
+	SecretTypeKubernetesIotls              SecretType = "kubernetes.io/tls"
+	SecretTypeOpaque                       SecretType = "Opaque"
 )
 
 // Defines values for SubjectContextType.
@@ -294,6 +338,14 @@ const (
 // Defines values for TargetEnvironmentRefKind.
 const (
 	TargetEnvironmentRefKindEnvironment TargetEnvironmentRefKind = "Environment"
+)
+
+// Defines values for TargetPlaneRefKind.
+const (
+	TargetPlaneRefKindClusterDataPlane     TargetPlaneRefKind = "ClusterDataPlane"
+	TargetPlaneRefKindClusterWorkflowPlane TargetPlaneRefKind = "ClusterWorkflowPlane"
+	TargetPlaneRefKindDataPlane            TargetPlaneRefKind = "DataPlane"
+	TargetPlaneRefKindWorkflowPlane        TargetPlaneRefKind = "WorkflowPlane"
 )
 
 // Defines values for TraitSpecCreatesTargetPlane.
@@ -381,14 +433,17 @@ type ActionCapability struct {
 
 // ActionInfo An authorization action with its scope in the resource hierarchy.
 type ActionInfo struct {
-	// LowestScope The lowest resource hierarchy level at which this action is evaluated. One of cluster, namespace, project, or component.
+	// Conditions ABAC attributes available for CEL condition expressions on this action. Empty means no conditions are supported.
+	Conditions *[]ConditionAttribute `json:"conditions,omitempty"`
+
+	// LowestScope The lowest resource hierarchy level at which this action is evaluated. One of cluster, namespace, project, component, or resource.
 	LowestScope ActionInfoLowestScope `json:"lowestScope"`
 
 	// Name The action identifier (e.g. "component:create").
 	Name string `json:"name"`
 }
 
-// ActionInfoLowestScope The lowest resource hierarchy level at which this action is evaluated. One of cluster, namespace, project, or component.
+// ActionInfoLowestScope The lowest resource hierarchy level at which this action is evaluated. One of cluster, namespace, project, component, or resource.
 type ActionInfoLowestScope string
 
 // AgentConnectionStatus Status of cluster agent connections
@@ -433,8 +488,32 @@ type AuthzClusterScope struct {
 	Project *string `json:"project,omitempty"`
 }
 
+// AuthzCondition Action-scoped mapping condition attached to a role mapping inside a binding. It constrains only the actions listed in the "actions" property and does not enable or disable the entire mapping or binding; all other actions in the mapping remain unaffected by this condition.
+type AuthzCondition struct {
+	// Actions List of actions this condition applies to. Supports exact match (e.g. "releasebinding:create") and wildcards (e.g. "releasebinding:*").
+	Actions []string `json:"actions"`
+
+	// Expression CEL expression that must evaluate to true for the action to be permitted. Example: resource.environment in ["dev", "staging"]
+	Expression string `json:"expression"`
+}
+
 // AuthzContext Additional context for authorization
-type AuthzContext map[string]interface{}
+type AuthzContext struct {
+	// Resource Resource-level attributes for condition evaluation
+	Resource *struct {
+		// ComponentType ComponentType referenced by the Component as an authz identifier. Namespace-scoped ComponentTypes are namespace-prefixed (e.g. "acme/web-app"); cluster-scoped ClusterComponentTypes are unprefixed (e.g. "web-app").
+		ComponentType *string `json:"componentType,omitempty"`
+
+		// Environment Namespace-prefixed target deployment Environment name (e.g. "acme/dev").
+		Environment *string `json:"environment,omitempty"`
+
+		// ResourceType ResourceType referenced by the Resource as an authz identifier. Namespace-scoped ResourceTypes are namespace-prefixed (e.g. "acme/postgres"); cluster-scoped ClusterResourceTypes are unprefixed (e.g. "postgres").
+		ResourceType *string `json:"resourceType,omitempty"`
+
+		// Workflow Workflow referenced by the WorkflowRun as an authz identifier. Namespace-scoped Workflows are namespace-prefixed (e.g. "acme/build-go"); cluster-scoped ClusterWorkflows are unprefixed (e.g. "build-go").
+		Workflow *string `json:"workflow,omitempty"`
+	} `json:"resource,omitempty"`
+}
 
 // AuthzEntitlementClaim Entitlement claim-value pair for subject identification
 type AuthzEntitlementClaim struct {
@@ -514,6 +593,9 @@ type AuthzRoleList struct {
 
 // AuthzRoleMapping Pairs a role reference with an optional scope
 type AuthzRoleMapping struct {
+	// Conditions Per-role-mapping conditions that restrict specific actions within this role mapping in the binding. Each condition only affects the actions listed in its "actions" property and does not enable or disable the mapping or binding as a whole.
+	Conditions *[]AuthzCondition `json:"conditions,omitempty"`
+
 	// RoleRef Reference to an AuthzRole or ClusterAuthzRole
 	RoleRef AuthzRoleRef `json:"roleRef"`
 
@@ -551,10 +633,16 @@ type AuthzScope struct {
 	Project *string `json:"project,omitempty"`
 }
 
+// CapabilityConstraints CEL expressions constraining access for a given action and resource path. Multiple expressions are OR'd.
+type CapabilityConstraints struct {
+	// Expressions CEL expressions; access is granted if any one evaluates to true
+	Expressions *[]string `json:"expressions,omitempty"`
+}
+
 // CapabilityResource Resource with permission details
 type CapabilityResource struct {
-	// Constraints Additional instance-level restrictions
-	Constraints *map[string]interface{} `json:"constraints,omitempty"`
+	// Constraints CEL expressions constraining access for a given action and resource path. Multiple expressions are OR'd.
+	Constraints *CapabilityConstraints `json:"constraints,omitempty"`
 
 	// Path Full resource path
 	Path *string `json:"path,omitempty"`
@@ -635,7 +723,9 @@ type ClusterAuthzRoleList struct {
 
 // ClusterAuthzRoleMapping Pairs a role reference with an optional scope for cluster-scoped bindings
 type ClusterAuthzRoleMapping struct {
-	RoleRef struct {
+	// Conditions Per-role-mapping conditions that restrict specific actions within this role mapping in the binding. Each condition only affects the actions listed in its "actions" property and does not enable or disable the mapping or binding as a whole.
+	Conditions *[]AuthzCondition `json:"conditions,omitempty"`
+	RoleRef    struct {
 		Kind ClusterAuthzRoleMappingRoleRefKind `json:"kind"`
 
 		// Name Name of the role
@@ -877,6 +967,9 @@ type ClusterObservabilityPlaneSpec struct {
 	// ClusterAgent Configuration for cluster agent-based communication
 	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
 
+	// FinOpsAgentURL Base URL of the FinOps Agent API in the observability plane cluster
+	FinOpsAgentURL *string `json:"finOpsAgentURL,omitempty"`
+
 	// ObserverURL Base URL of the Observer API in the observability plane cluster
 	ObserverURL *string `json:"observerURL,omitempty"`
 
@@ -898,6 +991,35 @@ type ClusterObservabilityPlaneStatus struct {
 
 	// ObservedGeneration Generation of the most recently observed ClusterObservabilityPlane
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
+
+// ClusterResourceType ClusterResourceType resource.
+// Cluster-scoped sibling of ResourceType. Resources in any namespace can reference it.
+type ClusterResourceType struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a (Cluster)ResourceType.
+	Spec *ResourceTypeSpec `json:"spec,omitempty"`
+
+	// Status ClusterResourceType status (currently empty)
+	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// ClusterResourceTypeList Paginated list of cluster resource types
+type ClusterResourceTypeList struct {
+	Items []ClusterResourceType `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
 }
 
 // ClusterTrait ClusterTrait resource.
@@ -1476,6 +1598,15 @@ type Condition struct {
 // ConditionStatus Status of the condition
 type ConditionStatus string
 
+// ConditionAttribute An ABAC attribute available for CEL condition expressions on an action.
+type ConditionAttribute struct {
+	// Description Human-readable description of the attribute.
+	Description string `json:"description"`
+
+	// Key Full dotted path of the attribute (e.g. "resource.environment").
+	Key string `json:"key"`
+}
+
 // ConnectionEnvBindings Maps resolved connection address components to environment variable names
 type ConnectionEnvBindings struct {
 	// Address Env var name for the protocol-appropriate connection string.
@@ -1562,6 +1693,26 @@ type CreateGitSecretRequestSecretType string
 
 // CreateGitSecretRequestWorkflowPlaneKind Kind of the workflow plane resource
 type CreateGitSecretRequestWorkflowPlaneKind string
+
+// CreateSecretRequest Request body for creating a secret
+type CreateSecretRequest struct {
+	// Data Map of secret keys to plaintext values. Required keys depend on secretType.
+	Data map[string]string `json:"data"`
+
+	// Labels Labels applied as Kubernetes labels on the underlying
+	// SecretReference. Keys in the openchoreo.dev/ namespace are
+	// reserved and rejected.
+	Labels *map[string]string `json:"labels,omitempty"`
+
+	// SecretName Name of the secret
+	SecretName string `json:"secretName"`
+
+	// SecretType Kubernetes Secret type
+	SecretType SecretType `json:"secretType"`
+
+	// TargetPlane Reference to the plane that hosts the secret data.
+	TargetPlane TargetPlaneRef `json:"targetPlane"`
+}
 
 // CreateWorkflowRunRequest Request to create a new workflow run
 type CreateWorkflowRunRequest struct {
@@ -2001,6 +2152,16 @@ type K8sResourceTreeResponse struct {
 	RenderedReleases []ReleaseResourceTree `json:"renderedReleases"`
 }
 
+// ListSecretsResponse Paginated list of secrets.
+type ListSecretsResponse struct {
+	// Items Page of secrets.
+	Items []Secret `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
 // MessageResponse Simple message response
 type MessageResponse struct {
 	// Message Response message
@@ -2287,6 +2448,9 @@ type ObservabilityPlaneSpec struct {
 	// ClusterAgent Configuration for cluster agent-based communication
 	ClusterAgent *ClusterAgentConfig `json:"clusterAgent,omitempty"`
 
+	// FinOpsAgentURL Base URL of the FinOps Agent API in the observability plane cluster
+	FinOpsAgentURL *string `json:"finOpsAgentURL,omitempty"`
+
 	// ObserverURL Base URL of the Observer API in the observability plane cluster
 	ObserverURL *string `json:"observerURL,omitempty"`
 
@@ -2337,13 +2501,61 @@ type Pagination struct {
 	RemainingCount *int64 `json:"remainingCount,omitempty"`
 }
 
-// PatchComponentRequest Request to patch a component
+// PatchComponentRequest Request to patch a component. All fields are optional. Each field follows partial-update
+// semantics: a field that is omitted from the request leaves the corresponding component
+// attribute unchanged. A provided field is applied as described below.
 type PatchComponentRequest struct {
 	// AutoDeploy Controls auto-deployment to default environment
 	AutoDeploy *bool `json:"autoDeploy,omitempty"`
 
+	// Description Human-readable description. When provided, replaces the existing description.
+	// Empty string is treated as "no change" (omit the field instead).
+	Description *string `json:"description,omitempty"`
+
+	// DisplayName Human-readable display name. When provided, replaces the existing display name.
+	// Empty string is treated as "no change" (omit the field instead).
+	DisplayName *string `json:"displayName,omitempty"`
+
 	// Parameters ComponentType parameters
 	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// Traits Trait instances attached to the component. When provided, replaces the entire
+	// traits list (whole-list replace at the slice level). Pass an empty array to
+	// clear all traits.
+	Traits *[]ComponentTraitInput `json:"traits,omitempty"`
+
+	// Workflow Workflow configuration for component creation
+	Workflow *ComponentWorkflowInput `json:"workflow,omitempty"`
+}
+
+// PatchProjectRequest Request to patch a project
+type PatchProjectRequest struct {
+	// DeploymentPipeline Name of the deployment pipeline resource
+	DeploymentPipeline *string `json:"deploymentPipeline,omitempty"`
+
+	// Description Human-readable description
+	Description *string `json:"description,omitempty"`
+
+	// DisplayName Human-readable display name
+	DisplayName *string `json:"displayName,omitempty"`
+}
+
+// PendingConnection Represents a connection that could not be resolved
+type PendingConnection struct {
+	// Component Name of the target component
+	Component string `json:"component"`
+
+	// Endpoint Name of the endpoint on the target component
+	Endpoint string `json:"endpoint"`
+
+	// Namespace Control plane namespace of the target component
+	Namespace string `json:"namespace"`
+
+	// Project Name of the project that owns the target component
+	Project string `json:"project"`
+
+	// Reason Describes why the connection could not be resolved
+	Reason string `json:"reason"`
 }
 
 // PodLogEntry A single log entry from a pod
@@ -2498,6 +2710,12 @@ type ReleaseBindingStatus struct {
 
 	// ObservedGeneration Most recent generation observed by the controller
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+	// PendingConnections Connections that could not be resolved
+	PendingConnections *[]PendingConnection `json:"pendingConnections,omitempty"`
+
+	// ResolvedConnections Connections that have been successfully resolved
+	ResolvedConnections *[]ResolvedConnection `json:"resolvedConnections,omitempty"`
 }
 
 // ReleaseResourceTree Resource tree for a single release
@@ -2620,9 +2838,58 @@ type RenderedReleaseStatus struct {
 // RenderedReleaseStatusResourcesHealthStatus Health status of the resource
 type RenderedReleaseStatusResourcesHealthStatus string
 
+// ResolvedConnection Holds the resolved URL for a single connection
+type ResolvedConnection struct {
+	// Component Name of the target component
+	Component string `json:"component"`
+
+	// Endpoint Name of the endpoint on the target component
+	Endpoint string `json:"endpoint"`
+
+	// Namespace Control plane namespace of the target component
+	Namespace string `json:"namespace"`
+
+	// Project Name of the project that owns the target component
+	Project string `json:"project"`
+
+	// Url Structured URL with its components
+	Url EndpointURL `json:"url"`
+
+	// Visibility Visibility level at which the endpoint was resolved
+	Visibility ResolvedConnectionVisibility `json:"visibility"`
+}
+
+// ResolvedConnectionVisibility Visibility level at which the endpoint was resolved
+type ResolvedConnectionVisibility string
+
+// ResolvedResourceOutput Resolved output value populated by the binding controller after evaluating
+// the ResourceType output CEL against the applied DP-side objects. Exactly one
+// of value, secretKeyRef, or configMapKeyRef is set, matching the source
+// declaration on ResourceType.spec.outputs.
+type ResolvedResourceOutput struct {
+	// ConfigMapKeyRef Reference to a specific key in a Kubernetes ConfigMap on the data plane.
+	ConfigMapKeyRef *ResourceConfigMapKeyRef `json:"configMapKeyRef,omitempty"`
+
+	// Name Output name. Matches the declared output name on the referenced ResourceType.
+	Name string `json:"name"`
+
+	// SecretKeyRef Reference to a specific key in a Kubernetes Secret on the data plane.
+	SecretKeyRef *ResourceSecretKeyRef `json:"secretKeyRef,omitempty"`
+
+	// Value Resolved literal value when the source output is declared with `value:`.
+	Value *string `json:"value,omitempty"`
+}
+
 // Resource Resource for authorization evaluation
 type Resource struct {
-	// Hierarchy Resource hierarchy scope
+	// Hierarchy Resource hierarchy scope. Authoritative validation lives on the
+	// AuthzRoleBinding / ClusterAuthzRoleBinding CRD CEL rules; this schema
+	// documents the same invariants for clients:
+	// - `project` is required when `component` or `resource` is set
+	// - `component` and `resource` are mutually exclusive (siblings under `project`)
+	//
+	// Hierarchies that violate these invariants are treated as no-match by
+	// the authz engine rather than rejected on the wire.
 	Hierarchy ResourceHierarchy `json:"hierarchy"`
 
 	// Id Resource ID
@@ -2630,6 +2897,15 @@ type Resource struct {
 
 	// Type Resource type
 	Type string `json:"type"`
+}
+
+// ResourceConfigMapKeyRef Reference to a specific key in a Kubernetes ConfigMap on the data plane.
+type ResourceConfigMapKeyRef struct {
+	// Key Key within the ConfigMap
+	Key string `json:"key"`
+
+	// Name ConfigMap name (supports ${...} CEL templating in ResourceType outputs)
+	Name string `json:"name"`
 }
 
 // ResourceEvent A Kubernetes event associated with a resource
@@ -2662,7 +2938,14 @@ type ResourceEventsResponse struct {
 	Events []ResourceEvent `json:"events"`
 }
 
-// ResourceHierarchy Resource hierarchy scope
+// ResourceHierarchy Resource hierarchy scope. Authoritative validation lives on the
+// AuthzRoleBinding / ClusterAuthzRoleBinding CRD CEL rules; this schema
+// documents the same invariants for clients:
+// - `project` is required when `component` or `resource` is set
+// - `component` and `resource` are mutually exclusive (siblings under `project`)
+//
+// Hierarchies that violate these invariants are treated as no-match by
+// the authz engine rather than rejected on the wire.
 type ResourceHierarchy struct {
 	// Component Component name
 	Component *string `json:"component,omitempty"`
@@ -2672,6 +2955,70 @@ type ResourceHierarchy struct {
 
 	// Project Project name
 	Project *string `json:"project,omitempty"`
+
+	// Resource Resource name (sibling of component under project)
+	Resource *string `json:"resource,omitempty"`
+}
+
+// ResourceInstance Resource.
+// Developer-facing intent for a managed-infrastructure dependency (database,
+// queue, cache, object storage). References a ResourceType or ClusterResourceType template.
+type ResourceInstance struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource (always "Resource" on the wire; see schema name)
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a Resource. spec.owner and spec.type are immutable after creation.
+	Spec   *ResourceInstanceSpec   `json:"spec,omitempty"`
+	Status *ResourceInstanceStatus `json:"status,omitempty"`
+}
+
+// ResourceInstanceList Paginated list of resources
+type ResourceInstanceList struct {
+	Items []ResourceInstance `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ResourceInstanceSpec Desired state of a Resource. spec.owner and spec.type are immutable after creation.
+type ResourceInstanceSpec struct {
+	// Owner Identifies the project that owns this Resource.
+	Owner struct {
+		// ProjectName Parent project name
+		ProjectName string `json:"projectName"`
+	} `json:"owner"`
+
+	// Parameters Values for the parameter schema declared on the referenced (Cluster)ResourceType. Validated by the controller.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// Type Reference to a ResourceType or ClusterResourceType template.
+	Type ResourceTypeRef `json:"type"`
+}
+
+// ResourceInstanceStatus Observed state of a Resource.
+type ResourceInstanceStatus struct {
+	// Conditions Latest available observations of the Resource's state. Includes Ready and Finalizing.
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// LatestRelease Most recent ResourceRelease for this Resource. Used as the promote source for ResourceReleaseBinding pin advance.
+	LatestRelease *struct {
+		// Hash Content hash of Resource.spec + (Cluster)ResourceType.spec captured at release time
+		Hash string `json:"hash"`
+
+		// Name Name of the ResourceRelease resource
+		Name string `json:"name"`
+	} `json:"latestRelease,omitempty"`
+
+	// ObservedGeneration Most recent generation observed by the controller
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
 // ResourceNode A single resource in the resource tree
@@ -2745,6 +3092,241 @@ type ResourceReference struct {
 	Namespace  *string `json:"namespace,omitempty"`
 }
 
+// ResourceRelease ResourceRelease resource.
+// Immutable snapshot of Resource.spec and the referenced (Cluster)ResourceType.spec
+// at the time it was cut. Created by the Resource controller; spec is immutable.
+type ResourceRelease struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a ResourceRelease. Immutable after creation.
+	Spec *ResourceReleaseSpec `json:"spec,omitempty"`
+
+	// Status ResourceRelease status (currently empty, immutable after creation)
+	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// ResourceReleaseBinding ResourceReleaseBinding resource.
+// Pins a ResourceRelease to an Environment and carries per-env config overrides.
+// Authored externally; not managed by the Resource controller.
+type ResourceReleaseBinding struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a ResourceReleaseBinding. spec.owner and spec.environment
+	// are immutable after creation. spec.resourceRelease is the promote pin and is
+	// advanced manually via `occ resource promote` or kubectl edit.
+	Spec   *ResourceReleaseBindingSpec   `json:"spec,omitempty"`
+	Status *ResourceReleaseBindingStatus `json:"status,omitempty"`
+}
+
+// ResourceReleaseBindingList Paginated list of resource release bindings
+type ResourceReleaseBindingList struct {
+	Items []ResourceReleaseBinding `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ResourceReleaseBindingSpec Desired state of a ResourceReleaseBinding. spec.owner and spec.environment
+// are immutable after creation. spec.resourceRelease is the promote pin and is
+// advanced manually via `occ resource promote` or kubectl edit.
+type ResourceReleaseBindingSpec struct {
+	// Environment Target environment name. Immutable after creation.
+	Environment string `json:"environment"`
+
+	// Owner Identifies the resource and project this binding belongs to.
+	Owner struct {
+		// ProjectName Parent project name
+		ProjectName string `json:"projectName"`
+
+		// ResourceName Parent resource name
+		ResourceName string `json:"resourceName"`
+	} `json:"owner"`
+
+	// ResourceRelease Pinned ResourceRelease name. Advanced manually (e.g. via `occ resource promote`).
+	ResourceRelease *string `json:"resourceRelease,omitempty"`
+
+	// ResourceTypeEnvironmentConfigs Per-environment values for ResourceType.spec.environmentConfigs.
+	ResourceTypeEnvironmentConfigs *map[string]interface{} `json:"resourceTypeEnvironmentConfigs,omitempty"`
+
+	// RetainPolicy Per-env override for retention. Falls back to ResourceType.spec.retainPolicy when unset.
+	RetainPolicy *ResourceReleaseBindingSpecRetainPolicy `json:"retainPolicy,omitempty"`
+}
+
+// ResourceReleaseBindingSpecRetainPolicy Per-env override for retention. Falls back to ResourceType.spec.retainPolicy when unset.
+type ResourceReleaseBindingSpecRetainPolicy string
+
+// ResourceReleaseBindingStatus Observed state of a ResourceReleaseBinding.
+type ResourceReleaseBindingStatus struct {
+	// Conditions Latest available observations of the binding's state. Includes Synced, ResourcesReady, OutputsResolved, Ready (aggregate), and Finalizing.
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// Outputs Resolved outputs for this environment, populated from the underlying RenderedRelease.status by the binding controller.
+	Outputs *[]ResolvedResourceOutput `json:"outputs,omitempty"`
+}
+
+// ResourceReleaseList Paginated list of resource releases
+type ResourceReleaseList struct {
+	Items []ResourceRelease `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ResourceReleaseSpec Desired state of a ResourceRelease. Immutable after creation.
+type ResourceReleaseSpec struct {
+	// Owner Identifies the resource and project this ResourceRelease belongs to.
+	Owner struct {
+		// ProjectName Parent project name
+		ProjectName string `json:"projectName"`
+
+		// ResourceName Parent resource name
+		ResourceName string `json:"resourceName"`
+	} `json:"owner"`
+
+	// Parameters Snapshot of parameter values from Resource.spec at release time.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// ResourceType Frozen snapshot of the referenced (Cluster)ResourceType.
+	ResourceType struct {
+		// Kind Source kind (ResourceType or ClusterResourceType)
+		Kind ResourceReleaseSpecResourceTypeKind `json:"kind"`
+
+		// Name Source resource type name
+		Name string `json:"name"`
+
+		// Spec Desired state of a (Cluster)ResourceType.
+		Spec ResourceTypeSpec `json:"spec"`
+	} `json:"resourceType"`
+}
+
+// ResourceReleaseSpecResourceTypeKind Source kind (ResourceType or ClusterResourceType)
+type ResourceReleaseSpecResourceTypeKind string
+
+// ResourceSecretKeyRef Reference to a specific key in a Kubernetes Secret on the data plane.
+type ResourceSecretKeyRef struct {
+	// Key Key within the Secret
+	Key string `json:"key"`
+
+	// Name Secret name (supports ${...} CEL templating in ResourceType outputs)
+	Name string `json:"name"`
+}
+
+// ResourceType ResourceType resource.
+// PE-published template scoped to a namespace. Developers reference it from Resource.spec.type.
+type ResourceType struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a (Cluster)ResourceType.
+	Spec *ResourceTypeSpec `json:"spec,omitempty"`
+
+	// Status ResourceType status (currently empty)
+	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// ResourceTypeList Paginated list of resource types
+type ResourceTypeList struct {
+	Items []ResourceType `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ResourceTypeManifest Kubernetes resource template emitted by the (Cluster)ResourceType
+// provisioner on the data plane. The template body, includeWhen, and
+// readyWhen support ${...} CEL templating against metadata.*, parameters.*,
+// environmentConfigs.*, and dataplane.* (plus applied.<id>.* for readyWhen).
+type ResourceTypeManifest struct {
+	// Id Unique entry identifier within the (Cluster)ResourceType. Referenced by readyWhen and outputs CEL via applied.<id>.status.*.
+	Id string `json:"id"`
+
+	// IncludeWhen Optional ${...}-wrapped CEL expression. When false, the entry is skipped entirely.
+	IncludeWhen *string `json:"includeWhen,omitempty"`
+
+	// ReadyWhen Optional ${...}-wrapped CEL expression. When set, drives the entry's contribution to ResourceReleaseBinding.status.conditions[ResourcesReady]; otherwise per-Kind health inference is used.
+	ReadyWhen *string `json:"readyWhen,omitempty"`
+
+	// Template Kubernetes resource body with ${...} CEL substitutions.
+	Template map[string]interface{} `json:"template"`
+}
+
+// ResourceTypeOutput Single output declaration of a (Cluster)ResourceType. Exactly one of
+// value, secretKeyRef, or configMapKeyRef must be set. Output value, name,
+// and key fields support ${...} CEL templating evaluated against
+// metadata.*, parameters.*, environmentConfigs.*, and applied.<id>.status.*.
+type ResourceTypeOutput struct {
+	// ConfigMapKeyRef Reference to a specific key in a Kubernetes ConfigMap on the data plane.
+	ConfigMapKeyRef *ResourceConfigMapKeyRef `json:"configMapKeyRef,omitempty"`
+
+	// Name Unique output name. Referenced by Workload.spec.dependencies.resources[].envBindings and fileBindings keys.
+	Name string `json:"name"`
+
+	// SecretKeyRef Reference to a specific key in a Kubernetes Secret on the data plane.
+	SecretKeyRef *ResourceSecretKeyRef `json:"secretKeyRef,omitempty"`
+
+	// Value Literal or ${...} CEL expression. Use only for non-sensitive data; the resolved value transits to the control plane.
+	Value *string `json:"value,omitempty"`
+}
+
+// ResourceTypeRef Reference to a ResourceType or ClusterResourceType template.
+type ResourceTypeRef struct {
+	// Kind Resource type kind. Defaults to ResourceType (namespaced).
+	Kind *ResourceTypeRefKind `json:"kind,omitempty"`
+
+	// Name Template name.
+	Name string `json:"name"`
+}
+
+// ResourceTypeRefKind Resource type kind. Defaults to ResourceType (namespaced).
+type ResourceTypeRefKind string
+
+// ResourceTypeSpec Desired state of a (Cluster)ResourceType.
+type ResourceTypeSpec struct {
+	// EnvironmentConfigs Schema section using openAPIV3Schema format
+	EnvironmentConfigs *SchemaSection `json:"environmentConfigs,omitempty"`
+
+	// Outputs Outputs that workloads consume via dependencies.resources[].envBindings or fileBindings.
+	Outputs *[]ResourceTypeOutput `json:"outputs,omitempty"`
+
+	// Parameters Schema section using openAPIV3Schema format
+	Parameters *SchemaSection `json:"parameters,omitempty"`
+
+	// Resources Kubernetes manifests the (Cluster)ResourceType provisioner emits on the data plane.
+	Resources []ResourceTypeManifest `json:"resources"`
+
+	// RetainPolicy Default retention for ResourceReleaseBindings of this type. Per-env override available on the binding.
+	RetainPolicy *ResourceTypeSpecRetainPolicy `json:"retainPolicy,omitempty"`
+}
+
+// ResourceTypeSpecRetainPolicy Default retention for ResourceReleaseBindings of this type. Per-env override available on the binding.
+type ResourceTypeSpecRetainPolicy string
+
 // SchemaResponse JSON Schema response for component types, traits, or workflows
 type SchemaResponse map[string]interface{}
 
@@ -2752,6 +3334,27 @@ type SchemaResponse map[string]interface{}
 type SchemaSection struct {
 	// OpenAPIV3Schema Schema using standard OpenAPI V3 / JSON Schema format
 	OpenAPIV3Schema *map[string]interface{} `json:"openAPIV3Schema,omitempty"`
+}
+
+// Secret Kubernetes Secret. Wire shape matches `corev1.Secret`: `data` is a map
+// of keys to base64-encoded values.
+type Secret struct {
+	ApiVersion string `json:"apiVersion"`
+
+	// Data Map of secret keys to base64-encoded values. Matches the
+	// Kubernetes Secret `data` field semantics.
+	Data *map[string][]byte `json:"data,omitempty"`
+
+	// Immutable Whether the secret is immutable.
+	Immutable *bool  `json:"immutable,omitempty"`
+	Kind      string `json:"kind"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Type Kubernetes Secret type
+	Type SecretType `json:"type"`
 }
 
 // SecretDataSource Secret data source mapping
@@ -2810,6 +3413,12 @@ type SecretReferenceSpec struct {
 	// RefreshInterval How often to reconcile/refresh the secret
 	RefreshInterval *string `json:"refreshInterval,omitempty"`
 
+	// TargetPlane Identifies the plane to whose external secret store the secret
+	// value was pushed for this SecretReference. When unset, the secret
+	// value may live in any external secret store reachable through the
+	// references in spec.data.
+	TargetPlane *TargetPlaneRef `json:"targetPlane,omitempty"`
+
 	// Template Structure of the resulting Kubernetes Secret
 	Template SecretTemplate `json:"template"`
 }
@@ -2862,6 +3471,9 @@ type SecretTemplate struct {
 // SecretTemplateType Type of the Kubernetes Secret
 type SecretTemplateType string
 
+// SecretType Kubernetes Secret type
+type SecretType string
+
 // SubjectContext Authenticated subject context
 type SubjectContext struct {
 	// EntitlementClaim Entitlement claim name
@@ -2903,6 +3515,18 @@ type TargetEnvironmentRef struct {
 
 // TargetEnvironmentRefKind Kind of environment resource
 type TargetEnvironmentRefKind string
+
+// TargetPlaneRef Reference to the plane that hosts the secret data.
+type TargetPlaneRef struct {
+	// Kind Kind of the target plane resource
+	Kind TargetPlaneRefKind `json:"kind"`
+
+	// Name Name of the target plane resource
+	Name string `json:"name"`
+}
+
+// TargetPlaneRefKind Kind of the target plane resource
+type TargetPlaneRefKind string
 
 // Trait Trait resource.
 // Defines composable cross-cutting concerns that can be applied to components.
@@ -3011,6 +3635,19 @@ type TraitSpecPatchesTargetPlane string
 
 // TraitStatus Observed state of a Trait
 type TraitStatus = map[string]interface{}
+
+// UpdateSecretRequest Request body for replacing a secret's data. The data map is the final
+// state; keys present in the existing secret but absent here are pruned.
+type UpdateSecretRequest struct {
+	// Data Map of secret keys to plaintext values. Required keys depend on
+	// the secret's existing type.
+	Data map[string]string `json:"data"`
+
+	// Labels Labels applied as Kubernetes labels on the underlying
+	// SecretReference. The supplied map replaces all user-set labels;
+	// keys in the openchoreo.dev/ namespace are reserved and rejected.
+	Labels *map[string]string `json:"labels,omitempty"`
+}
 
 // UserCapabilitiesResponse User authorization profile response
 type UserCapabilitiesResponse struct {
@@ -3450,15 +4087,38 @@ type WorkloadOverrides struct {
 	Container *ContainerOverride `json:"container,omitempty"`
 }
 
+// WorkloadResourceDependency Dependency on a Resource. Output names declared on the referenced ResourceType are wired
+// into the consuming container as env vars (envBindings) and file mounts (fileBindings).
+// Outputs not listed in either map are ignored.
+type WorkloadResourceDependency struct {
+	// EnvBindings Maps a ResourceType output name to a container environment variable name. The
+	// output's source kind (value, secretKeyRef, configMapKeyRef) determines whether the
+	// resulting env var is a literal or a valueFrom reference.
+	EnvBindings *map[string]string `json:"envBindings,omitempty"`
+
+	// FileBindings Maps a ResourceType output name to a container mount path. The referenced output's
+	// source kind must be secretKeyRef or configMapKeyRef; value-kind outputs cannot be
+	// mounted as files because there is no DP-side object to mount.
+	FileBindings *map[string]string `json:"fileBindings,omitempty"`
+
+	// Ref Name of the Resource to consume.
+	Ref string `json:"ref"`
+}
+
 // WorkloadSpec Desired state of a Workload
 type WorkloadSpec struct {
 	// Container Container specification
 	Container *WorkloadContainer `json:"container,omitempty"`
 
-	// Dependencies Dependencies on other components' endpoints
+	// Dependencies Dependencies on other components' endpoints and on Resources
 	Dependencies *struct {
 		// Endpoints Endpoint connections to other components
 		Endpoints *[]WorkloadConnection `json:"endpoints,omitempty"`
+
+		// Resources Resource dependencies. Each entry references a Resource by name and wires named
+		// outputs of the resolved ResourceReleaseBinding into the container as env vars
+		// (envBindings) and file mounts (fileBindings).
+		Resources *[]WorkloadResourceDependency `json:"resources,omitempty"`
 	} `json:"dependencies,omitempty"`
 
 	// Endpoints Named endpoint specifications
@@ -3485,6 +4145,9 @@ type ClusterDataPlaneNameParam = string
 
 // ClusterObservabilityPlaneNameParam defines model for ClusterObservabilityPlaneNameParam.
 type ClusterObservabilityPlaneNameParam = string
+
+// ClusterResourceTypeNameParam defines model for ClusterResourceTypeNameParam.
+type ClusterResourceTypeNameParam = string
 
 // ClusterTraitNameParam defines model for ClusterTraitNameParam.
 type ClusterTraitNameParam = string
@@ -3549,8 +4212,26 @@ type ProjectQueryParam = string
 // ReleaseBindingNameParam defines model for ReleaseBindingNameParam.
 type ReleaseBindingNameParam = string
 
+// ResourceNameParam defines model for ResourceNameParam.
+type ResourceNameParam = string
+
+// ResourceQueryParam defines model for ResourceQueryParam.
+type ResourceQueryParam = string
+
+// ResourceReleaseBindingNameParam defines model for ResourceReleaseBindingNameParam.
+type ResourceReleaseBindingNameParam = string
+
+// ResourceReleaseNameParam defines model for ResourceReleaseNameParam.
+type ResourceReleaseNameParam = string
+
+// ResourceTypeNameParam defines model for ResourceTypeNameParam.
+type ResourceTypeNameParam = string
+
 // RoleNameParam defines model for RoleNameParam.
 type RoleNameParam = string
+
+// SecretNameParam defines model for SecretNameParam.
+type SecretNameParam = string
 
 // SecretReferenceNameParam defines model for SecretReferenceNameParam.
 type SecretReferenceNameParam = string
@@ -3588,8 +4269,14 @@ type InternalError = ErrorResponse
 // NotFound Standard error response format
 type NotFound = ErrorResponse
 
+// NotImplemented Standard error response format
+type NotImplemented = ErrorResponse
+
 // Unauthorized Standard error response format
 type Unauthorized = ErrorResponse
+
+// UnprocessableContent Standard error response format
+type UnprocessableContent = ErrorResponse
 
 // EvaluatesJSONBody defines parameters for Evaluates.
 type EvaluatesJSONBody = []EvaluateRequest
@@ -3604,6 +4291,9 @@ type GetSubjectProfileParams struct {
 
 	// Component Component scope
 	Component *string `form:"component,omitempty" json:"component,omitempty"`
+
+	// Resource Resource scope (sibling of component under project)
+	Resource *string `form:"resource,omitempty" json:"resource,omitempty"`
 }
 
 // ListClusterRoleBindingsParams defines parameters for ListClusterRoleBindings.
@@ -3676,6 +4366,23 @@ type ListClusterDataPlanesParams struct {
 
 // ListClusterObservabilityPlanesParams defines parameters for ListClusterObservabilityPlanes.
 type ListClusterObservabilityPlanesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListClusterResourceTypesParams defines parameters for ListClusterResourceTypes.
+type ListClusterResourceTypesParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
 	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
 	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
@@ -3996,6 +4703,83 @@ type GetReleaseBindingK8sResourceLogsParams struct {
 	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`
 }
 
+// ListResourceReleaseBindingsParams defines parameters for ListResourceReleaseBindings.
+type ListResourceReleaseBindingsParams struct {
+	// Resource Filter resources by resource name (matches spec.owner.resourceName)
+	Resource *ResourceQueryParam `form:"resource,omitempty" json:"resource,omitempty"`
+
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListResourceReleasesParams defines parameters for ListResourceReleases.
+type ListResourceReleasesParams struct {
+	// Resource Filter resources by resource name (matches spec.owner.resourceName)
+	Resource *ResourceQueryParam `form:"resource,omitempty" json:"resource,omitempty"`
+
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListResourcesParams defines parameters for ListResources.
+type ListResourcesParams struct {
+	// Project Filter resources by project name
+	Project *ProjectQueryParam `form:"project,omitempty" json:"project,omitempty"`
+
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListResourceTypesParams defines parameters for ListResourceTypes.
+type ListResourceTypesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListSecretReferencesParams defines parameters for ListSecretReferences.
 type ListSecretReferencesParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
@@ -4134,6 +4918,16 @@ type HandleAutoBuildParams struct {
 	XEventKey *string `json:"X-Event-Key,omitempty"`
 }
 
+// ListSecretsParams defines parameters for ListSecrets.
+type ListSecretsParams struct {
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // EvaluatesJSONRequestBody defines body for Evaluates for application/json ContentType.
 type EvaluatesJSONRequestBody = EvaluatesJSONBody
 
@@ -4166,6 +4960,12 @@ type CreateClusterObservabilityPlaneJSONRequestBody = ClusterObservabilityPlane
 
 // UpdateClusterObservabilityPlaneJSONRequestBody defines body for UpdateClusterObservabilityPlane for application/json ContentType.
 type UpdateClusterObservabilityPlaneJSONRequestBody = ClusterObservabilityPlane
+
+// CreateClusterResourceTypeJSONRequestBody defines body for CreateClusterResourceType for application/json ContentType.
+type CreateClusterResourceTypeJSONRequestBody = ClusterResourceType
+
+// UpdateClusterResourceTypeJSONRequestBody defines body for UpdateClusterResourceType for application/json ContentType.
+type UpdateClusterResourceTypeJSONRequestBody = ClusterResourceType
 
 // CreateClusterTraitJSONRequestBody defines body for CreateClusterTrait for application/json ContentType.
 type CreateClusterTraitJSONRequestBody = ClusterTrait
@@ -4263,6 +5063,27 @@ type CreateReleaseBindingJSONRequestBody = ReleaseBinding
 // UpdateReleaseBindingJSONRequestBody defines body for UpdateReleaseBinding for application/json ContentType.
 type UpdateReleaseBindingJSONRequestBody = ReleaseBinding
 
+// CreateResourceReleaseBindingJSONRequestBody defines body for CreateResourceReleaseBinding for application/json ContentType.
+type CreateResourceReleaseBindingJSONRequestBody = ResourceReleaseBinding
+
+// UpdateResourceReleaseBindingJSONRequestBody defines body for UpdateResourceReleaseBinding for application/json ContentType.
+type UpdateResourceReleaseBindingJSONRequestBody = ResourceReleaseBinding
+
+// CreateResourceReleaseJSONRequestBody defines body for CreateResourceRelease for application/json ContentType.
+type CreateResourceReleaseJSONRequestBody = ResourceRelease
+
+// CreateResourceJSONRequestBody defines body for CreateResource for application/json ContentType.
+type CreateResourceJSONRequestBody = ResourceInstance
+
+// UpdateResourceJSONRequestBody defines body for UpdateResource for application/json ContentType.
+type UpdateResourceJSONRequestBody = ResourceInstance
+
+// CreateResourceTypeJSONRequestBody defines body for CreateResourceType for application/json ContentType.
+type CreateResourceTypeJSONRequestBody = ResourceType
+
+// UpdateResourceTypeJSONRequestBody defines body for UpdateResourceType for application/json ContentType.
+type UpdateResourceTypeJSONRequestBody = ResourceType
+
 // CreateSecretReferenceJSONRequestBody defines body for CreateSecretReference for application/json ContentType.
 type CreateSecretReferenceJSONRequestBody = SecretReference
 
@@ -4304,6 +5125,12 @@ type HandleAutoBuildJSONRequestBody HandleAutoBuildJSONBody
 
 // CreateGitSecretJSONRequestBody defines body for CreateGitSecret for application/json ContentType.
 type CreateGitSecretJSONRequestBody = CreateGitSecretRequest
+
+// CreateSecretJSONRequestBody defines body for CreateSecret for application/json ContentType.
+type CreateSecretJSONRequestBody = CreateSecretRequest
+
+// UpdateSecretJSONRequestBody defines body for UpdateSecret for application/json ContentType.
+type UpdateSecretJSONRequestBody = UpdateSecretRequest
 
 // AsObservabilityAlertsNotificationChannelSpec0 returns the union data inside the ObservabilityAlertsNotificationChannelSpec as a ObservabilityAlertsNotificationChannelSpec0
 func (t ObservabilityAlertsNotificationChannelSpec) AsObservabilityAlertsNotificationChannelSpec0() (ObservabilityAlertsNotificationChannelSpec0, error) {

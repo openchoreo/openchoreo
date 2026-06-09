@@ -71,8 +71,9 @@ type AlertDetails struct {
 	NotificationChannels []string `json:"notificationChannels,omitempty"`
 
 	// Incident actions
-	IncidentEnabled bool `json:"incidentEnabled"`
-	TriggerAiRca    bool `json:"triggerAiRca"`
+	IncidentEnabled       bool `json:"incidentEnabled"`
+	TriggerAiRca          bool `json:"triggerAiRca"`
+	TriggerAiCostAnalysis bool `json:"triggerAiCostAnalysis"`
 }
 
 // ToMap converts AlertDetails to a map for CEL template rendering.

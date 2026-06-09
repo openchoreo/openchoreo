@@ -1487,4 +1487,59 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 			Expect(fetched.Status.ObservedGeneration).To(Equal(fetched.Generation))
 		})
 	})
+
+	// -----------------------------------------------------------------------
+	// CEL XValidation: AI cost analysis
+	// -----------------------------------------------------------------------
+	Context("CEL validation for AI cost analysis", func() {
+		AfterEach(func() {
+			forceDeleteAlertRule(types.NamespacedName{Name: "test-cel-cost-analysis-non-budget", Namespace: "default"})
+			forceDeleteAlertRule(types.NamespacedName{Name: "test-cel-cost-analysis-incident-disabled", Namespace: "default"})
+			forceDeleteAlertRule(types.NamespacedName{Name: "test-cel-cost-analysis-valid", Namespace: "default"})
+		})
+
+		It("should reject when TriggerAiCostAnalysis is true but Source.Type is not budget", func() {
+			enabled := true
+			triggerCostAnalysis := true
+			rule := newAlertRule("test-cel-cost-analysis-non-budget", defaultLabels())
+			rule.Spec.Source.Type = openchoreov1alpha1.ObservabilityAlertSourceTypeLog
+			rule.Spec.Actions.Incident = &openchoreov1alpha1.ObservabilityAlertIncident{
+				Enabled:               &enabled,
+				TriggerAiCostAnalysis: &triggerCostAnalysis,
+			}
+
+			err := k8sClient.Create(ctx, rule)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("AI cost analysis can only be triggered for budget alerts"))
+		})
+
+		It("should reject when TriggerAiCostAnalysis is true but incident is not enabled", func() {
+			disabled := false
+			triggerCostAnalysis := true
+			rule := newAlertRule("test-cel-cost-analysis-incident-disabled", defaultLabels())
+			rule.Spec.Source.Type = openchoreov1alpha1.ObservabilityAlertSourceTypeBudget
+			rule.Spec.Actions.Incident = &openchoreov1alpha1.ObservabilityAlertIncident{
+				Enabled:               &disabled,
+				TriggerAiCostAnalysis: &triggerCostAnalysis,
+			}
+
+			err := k8sClient.Create(ctx, rule)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Incident must be enabled to trigger AI cost analysis"))
+		})
+
+		It("should accept when TriggerAiCostAnalysis is true with Source.Type=budget and incident enabled", func() {
+			enabled := true
+			triggerCostAnalysis := true
+			rule := newAlertRule("test-cel-cost-analysis-valid", defaultLabels())
+			rule.Spec.Source.Type = openchoreov1alpha1.ObservabilityAlertSourceTypeBudget
+			rule.Spec.Actions.Incident = &openchoreov1alpha1.ObservabilityAlertIncident{
+				Enabled:               &enabled,
+				TriggerAiCostAnalysis: &triggerCostAnalysis,
+			}
+
+			err := k8sClient.Create(ctx, rule)
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
 })

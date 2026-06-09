@@ -1,0 +1,3 @@
+extends:
+  - "spectral:oas"
+  - "@stoplight/spectral-owasp-ruleset"

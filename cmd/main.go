@@ -9,6 +9,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
+	"time"
 
 	// +kubebuilder:scaffold:imports
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,6 +31,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterdataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterobservabilityplane"
+	"github.com/openchoreo/openchoreo/internal/controller/clusterresourcetype"
 	"github.com/openchoreo/openchoreo/internal/controller/clustertrait"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterworkflow"
 	"github.com/openchoreo/openchoreo/internal/controller/clusterworkflowplane"
@@ -44,6 +47,10 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/project"
 	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
+	"github.com/openchoreo/openchoreo/internal/controller/resource"
+	"github.com/openchoreo/openchoreo/internal/controller/resourcerelease"
+	"github.com/openchoreo/openchoreo/internal/controller/resourcereleasebinding"
+	"github.com/openchoreo/openchoreo/internal/controller/resourcetype"
 	"github.com/openchoreo/openchoreo/internal/controller/secretreference"
 	"github.com/openchoreo/openchoreo/internal/controller/trait"
 	"github.com/openchoreo/openchoreo/internal/controller/workflow"
@@ -57,7 +64,10 @@ import (
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
 	workflowpipeline "github.com/openchoreo/openchoreo/internal/pipeline/workflow"
 	"github.com/openchoreo/openchoreo/internal/version"
+	authzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/authzrolebinding"
+	clusterauthzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterauthzrolebinding"
 	clustercomponenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clustercomponenttype"
+	clusterresourcetypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterresourcetype"
 	clustertraitwebhook "github.com/openchoreo/openchoreo/internal/webhook/clustertrait"
 	clusterworkflowwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterworkflow"
 	componentwebhook "github.com/openchoreo/openchoreo/internal/webhook/component"
@@ -65,6 +75,8 @@ import (
 	componenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/componenttype"
 	projectwebhook "github.com/openchoreo/openchoreo/internal/webhook/project"
 	releasebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/releasebinding"
+	resourcereleasewebhook "github.com/openchoreo/openchoreo/internal/webhook/resourcerelease"
+	resourcetypewebhook "github.com/openchoreo/openchoreo/internal/webhook/resourcetype"
 	traitwebhook "github.com/openchoreo/openchoreo/internal/webhook/trait"
 	workflowwebhook "github.com/openchoreo/openchoreo/internal/webhook/workflow"
 )
@@ -90,211 +102,128 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
+// controllerSetup is satisfied by any reconciler that wires itself to a manager.
+// Lets setup* helpers register controllers from a slice with one error path.
+type controllerSetup interface {
+	SetupWithManager(mgr ctrl.Manager) error
+}
+
 // setupControlPlaneControllers sets up all control plane controllers with the manager
 func setupControlPlaneControllers(
 	mgr ctrl.Manager,
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager,
 	clusterGatewayURL string,
+	gwTLS gatewayClient.TLSConfig,
 ) error {
 	// Create gateway client for plane lifecycle notifications
 	var gwClient *gatewayClient.Client
 	if clusterGatewayURL != "" {
-		gwClient = gatewayClient.NewClient(clusterGatewayURL)
-		setupLog.Info("gateway client initialized", "url", clusterGatewayURL)
+		var err error
+		gwClient, err = gatewayClient.NewClientWithConfig(&gatewayClient.Config{
+			BaseURL: clusterGatewayURL,
+			TLS:     gwTLS,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create cluster gateway client: %w", err)
+		}
+		setupLog.Info("gateway client initialized",
+			"url", clusterGatewayURL,
+			"caCert", gwTLS.CAFile != "",
+			"clientCert", gwTLS.ClientCertFile != "",
+			"insecure", gwTLS.InsecureSkipVerify,
+		)
 	}
+
+	// Create plane client provider for controllers that need to talk to remote planes.
+	// This wraps KubeMultiClientManager + gatewayURL behind an interface, keeping
+	// infrastructure concerns out of controller code.
+	planeClientProvider := kubernetesClient.NewPlaneClientProvider(k8sClientMgr, clusterGatewayURL)
 
 	// Setup shared field indexes before controllers are initialized.
 	if err := controller.SetupSharedIndexes(context.Background(), mgr); err != nil {
 		return fmt.Errorf("failed to setup shared indexes: %w", err)
 	}
 
-	if err := (&deploymentpipeline.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
+	c, s := mgr.GetClient(), mgr.GetScheme()
+
+	reconcilers := []controllerSetup{
+		&deploymentpipeline.Reconciler{Client: c, Scheme: s},
+		&workload.Reconciler{Client: c, Scheme: s},
+		&environment.Reconciler{Client: c, PlaneClientProvider: planeClientProvider, Scheme: s},
+		&dataplane.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			ClientMgr:     k8sClientMgr,
+			GatewayClient: gwClient,
+			CacheVersion:  "v2",
+		},
+		&clusterdataplane.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			ClientMgr:     k8sClientMgr,
+			GatewayClient: gwClient,
+			CacheVersion:  "v2",
+		},
+		&clusterworkflowplane.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			ClientMgr:     k8sClientMgr,
+			GatewayClient: gwClient,
+			CacheVersion:  "v2",
+		},
+		&project.Reconciler{Client: c, Scheme: s},
+		&component.Reconciler{Client: c, Scheme: s},
+		&componenttype.Reconciler{Client: c, Scheme: s},
+		&clustercomponenttype.Reconciler{Client: c, Scheme: s},
+		&trait.Reconciler{Client: c, Scheme: s},
+		&clustertrait.Reconciler{Client: c, Scheme: s},
+		&componentrelease.Reconciler{Client: c, Scheme: s},
+		// Resource family — templates (cluster-scoped before namespaced),
+		// then consumer, immutable release snapshot, per-env binding.
+		&clusterresourcetype.Reconciler{Client: c, Scheme: s},
+		&resourcetype.Reconciler{Client: c, Scheme: s},
+		&resource.Reconciler{Client: c, Scheme: s},
+		&resourcerelease.Reconciler{Client: c, Scheme: s},
+		&resourcereleasebinding.Reconciler{Client: c, Scheme: s},
+		&releasebinding.Reconciler{Client: c, Scheme: s, Pipeline: componentpipeline.NewPipeline()},
+		&renderedrelease.Reconciler{Client: c, PlaneClientProvider: planeClientProvider, Scheme: s},
+		&workflow.Reconciler{Client: c, Scheme: s},
+		&clusterworkflow.Reconciler{Client: c, Scheme: s},
+		&workflowrun.Reconciler{
+			Client:              c,
+			Scheme:              s,
+			PlaneClientProvider: planeClientProvider,
+			Pipeline:            workflowpipeline.NewPipeline(),
+		},
+		&workflowplane.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			ClientMgr:     k8sClientMgr,
+			GatewayClient: gwClient,
+			CacheVersion:  "v2",
+		},
+		&secretreference.Reconciler{Client: c, Scheme: s},
+		&observabilityplane.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			ClientMgr:     k8sClientMgr,
+			GatewayClient: gwClient,
+			CacheVersion:  "v2",
+		},
+		&clusterobservabilityplane.Reconciler{
+			Client:        c,
+			Scheme:        s,
+			ClientMgr:     k8sClientMgr,
+			GatewayClient: gwClient,
+			CacheVersion:  "v2",
+		},
+		&observabilityalertsnotificationchannel.Reconciler{Client: c, PlaneClientProvider: planeClientProvider, Scheme: s},
 	}
 
-	if err := (&workload.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&environment.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&dataplane.Reconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ClientMgr:     k8sClientMgr,
-		GatewayClient: gwClient,
-		CacheVersion:  "v2",
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&clusterdataplane.Reconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ClientMgr:     k8sClientMgr,
-		GatewayClient: gwClient,
-		CacheVersion:  "v2",
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&clusterworkflowplane.Reconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ClientMgr:     k8sClientMgr,
-		GatewayClient: gwClient,
-		CacheVersion:  "v2",
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&project.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&component.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&componenttype.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&clustercomponenttype.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&trait.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&clustertrait.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&componentrelease.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&releasebinding.Reconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Pipeline: componentpipeline.NewPipeline(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&renderedrelease.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&workflow.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&clusterworkflow.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&workflowrun.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
-		Pipeline:     workflowpipeline.NewPipeline(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&workflowplane.Reconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ClientMgr:     k8sClientMgr,
-		GatewayClient: gwClient,
-		CacheVersion:  "v2",
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&secretreference.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&observabilityplane.Reconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ClientMgr:     k8sClientMgr,
-		GatewayClient: gwClient,
-		CacheVersion:  "v2",
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&clusterobservabilityplane.Reconciler{
-		Client:        mgr.GetClient(),
-		Scheme:        mgr.GetScheme(),
-		ClientMgr:     k8sClientMgr,
-		GatewayClient: gwClient,
-		CacheVersion:  "v2",
-	}).SetupWithManager(mgr); err != nil {
-		return err
-	}
-
-	if err := (&observabilityalertsnotificationchannel.Reconciler{
-		Client:       mgr.GetClient(),
-		K8sClientMgr: k8sClientMgr,
-		Scheme:       mgr.GetScheme(),
-		GatewayURL:   clusterGatewayURL,
-	}).SetupWithManager(mgr); err != nil {
-		return err
+	for _, r := range reconcilers {
+		if err := r.SetupWithManager(mgr); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -302,11 +231,16 @@ func setupControlPlaneControllers(
 
 // setupObservabilityPlaneControllers sets up all observability plane controllers with the manager
 func setupObservabilityPlaneControllers(mgr ctrl.Manager) error {
-	if err := (&observabilityalertrule.Reconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		return err
+	c, s := mgr.GetClient(), mgr.GetScheme()
+
+	reconcilers := []controllerSetup{
+		&observabilityalertrule.Reconciler{Client: c, Scheme: s},
+	}
+
+	for _, r := range reconcilers {
+		if err := r.SetupWithManager(mgr); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -314,6 +248,16 @@ func setupObservabilityPlaneControllers(mgr ctrl.Manager) error {
 
 // nolint:gocyclo
 func main() {
+	if len(os.Args) == 3 && os.Args[1] == "sleep" {
+		d, err := strconv.Atoi(os.Args[2])
+		if err != nil || d < 0 {
+			fmt.Fprintf(os.Stderr, "usage: manager sleep <seconds>\n")
+			os.Exit(1)
+		}
+		time.Sleep(time.Duration(d) * time.Second)
+		os.Exit(0)
+	}
+
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
@@ -323,6 +267,7 @@ func main() {
 	var clusterGatewayCACert string
 	var clusterGatewayClientCert string
 	var clusterGatewayClientKey string
+	var clusterGatewayInsecure bool
 	var deploymentPlane string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
@@ -334,11 +279,16 @@ func main() {
 			"Required for agent mode. Example: https://localhost:8443")
 	flag.StringVar(&clusterGatewayCACert, "cluster-gateway-ca-cert", getEnv("CLUSTER_GATEWAY_CA_CERT", ""),
 		"Path to CA certificate for verifying the cluster gateway's TLS certificate. "+
-			"If not specified, InsecureSkipVerify will be used (not recommended for production).")
+			"If --cluster-gateway-ca-cert is omitted, system root CAs are used and self-signed certificates will fail; "+
+			"use --cluster-gateway-insecure to allow insecure verification for self-signed setups.")
 	flag.StringVar(&clusterGatewayClientCert, "cluster-gateway-client-cert", getEnv("CLUSTER_GATEWAY_CLIENT_CERT", ""),
 		"Path to client certificate for mTLS authentication with the cluster gateway.")
 	flag.StringVar(&clusterGatewayClientKey, "cluster-gateway-client-key", getEnv("CLUSTER_GATEWAY_CLIENT_KEY", ""),
 		"Path to client private key for mTLS authentication with the cluster gateway.")
+	flag.BoolVar(&clusterGatewayInsecure, "cluster-gateway-insecure",
+		getEnvBool("CLUSTER_GATEWAY_INSECURE", false),
+		"Skip TLS verification when calling the cluster gateway. "+
+			"For local development only. Do not enable in production.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -433,25 +383,20 @@ func main() {
 	// -----------------------------------------------------------------------------
 	// The k8sClientMgr manages cached Kubernetes clients for accessing data planes and workflow planes.
 	// It supports both direct access mode and agent mode (via HTTP proxy through cluster gateway).
-	var k8sClientMgr *kubernetesClient.KubeMultiClientManager
-	if clusterGatewayCACert != "" || clusterGatewayClientCert != "" || clusterGatewayClientKey != "" {
-		// Create client manager with TLS configuration for HTTP proxy
-		k8sClientMgr = kubernetesClient.NewManagerWithProxyTLS(&kubernetesClient.ProxyTLSConfig{
-			CACertPath:     clusterGatewayCACert,
-			ClientCertPath: clusterGatewayClientCert,
-			ClientKeyPath:  clusterGatewayClientKey,
-		})
-		setupLog.Info("Kubernetes client manager created with proxy TLS configuration",
-			"caCert", clusterGatewayCACert != "",
-			"clientCert", clusterGatewayClientCert != "",
-			"clientKey", clusterGatewayClientKey != "")
-	} else {
-		// Create client manager without TLS configuration (insecure mode)
-		k8sClientMgr = kubernetesClient.NewManager()
-		if clusterGatewayURL != "" {
-			setupLog.Info("WARNING: Using insecure mode for cluster gateway connection. " +
-				"Please provide TLS certificates for production use.")
-		}
+	k8sClientMgr := kubernetesClient.NewManagerWithProxyTLS(&kubernetesClient.ProxyTLSConfig{
+		CACertPath:     clusterGatewayCACert,
+		ClientCertPath: clusterGatewayClientCert,
+		ClientKeyPath:  clusterGatewayClientKey,
+		Insecure:       clusterGatewayInsecure,
+	})
+	setupLog.Info("Kubernetes client manager created with proxy TLS configuration",
+		"caCert", clusterGatewayCACert != "",
+		"clientCert", clusterGatewayClientCert != "",
+		"clientKey", clusterGatewayClientKey != "",
+		"insecure", clusterGatewayInsecure)
+	if clusterGatewayURL != "" && clusterGatewayInsecure {
+		setupLog.Info("WARNING: Cluster gateway TLS verification is disabled (--cluster-gateway-insecure). " +
+			"Do not use this setting in production.")
 	}
 
 	// -----------------------------------------------------------------------------
@@ -461,7 +406,12 @@ func main() {
 	switch deploymentPlane {
 	// Control plane controllers
 	case deploymentPlaneControlPlane:
-		err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL)
+		err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL, gatewayClient.TLSConfig{
+			CAFile:             clusterGatewayCACert,
+			ClientCertFile:     clusterGatewayClientCert,
+			ClientKeyFile:      clusterGatewayClientKey,
+			InsecureSkipVerify: clusterGatewayInsecure,
+		})
 		if err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)
@@ -484,75 +434,32 @@ func main() {
 	// Setup webhooks with the controller manager
 	// -----------------------------------------------------------------------------
 
-	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = projectwebhook.SetupProjectWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Project")
-			os.Exit(1)
+		webhookSetups := []struct {
+			name  string
+			setup func(ctrl.Manager) error
+		}{
+			{"Project", projectwebhook.SetupProjectWebhookWithManager},
+			{"ComponentType", componenttypewebhook.SetupComponentTypeWebhookWithManager},
+			{"ClusterComponentType", clustercomponenttypewebhook.SetupClusterComponentTypeWebhookWithManager},
+			{"Component", componentwebhook.SetupComponentWebhookWithManager},
+			{"Trait", traitwebhook.SetupTraitWebhookWithManager},
+			{"ClusterTrait", clustertraitwebhook.SetupClusterTraitWebhookWithManager},
+			{"ComponentRelease", componentreleasewebhook.SetupComponentReleaseWebhookWithManager},
+			{"ReleaseBinding", releasebindingwebhook.SetupReleaseBindingWebhookWithManager},
+			{"ResourceType", resourcetypewebhook.SetupResourceTypeWebhookWithManager},
+			{"ClusterResourceType", clusterresourcetypewebhook.SetupClusterResourceTypeWebhookWithManager},
+			{"ResourceRelease", resourcereleasewebhook.SetupResourceReleaseWebhookWithManager},
+			{"Workflow", workflowwebhook.SetupWorkflowWebhookWithManager},
+			{"ClusterWorkflow", clusterworkflowwebhook.SetupClusterWorkflowWebhookWithManager},
+			{"AuthzRoleBinding", authzrolebindingwebhook.SetupAuthzRoleBindingWebhookWithManager},
+			{"ClusterAuthzRoleBinding", clusterauthzrolebindingwebhook.SetupClusterAuthzRoleBindingWebhookWithManager},
 		}
-	}
-
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := componenttypewebhook.SetupComponentTypeWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ComponentType")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := clustercomponenttypewebhook.SetupClusterComponentTypeWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ClusterComponentType")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := componentwebhook.SetupComponentWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Component")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := traitwebhook.SetupTraitWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Trait")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := clustertraitwebhook.SetupClusterTraitWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ClusterTrait")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := componentreleasewebhook.SetupComponentReleaseWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ComponentRelease")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := releasebindingwebhook.SetupReleaseBindingWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ReleaseBinding")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := workflowwebhook.SetupWorkflowWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Workflow")
-			os.Exit(1)
-		}
-	}
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := clusterworkflowwebhook.SetupClusterWorkflowWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "ClusterWorkflow")
-			os.Exit(1)
+		for _, w := range webhookSetups {
+			if err := w.setup(mgr); err != nil {
+				setupLog.Error(err, "unable to create webhook", "webhook", w.name)
+				os.Exit(1)
+			}
 		}
 	}
 
@@ -578,4 +485,18 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// getEnvBool retrieves a boolean environment variable, returning a default if
+// unset or unparseable.
+func getEnvBool(key string, defaultValue bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return defaultValue
+	}
+	return parsed
 }

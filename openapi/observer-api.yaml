@@ -20,6 +20,8 @@ info:
 tags:
   - name: Logs
     description: Log retrieval endpoints
+  - name: Events
+    description: Kubernetes event retrieval endpoints
   - name: Health
     description: Health check endpoints
 
@@ -122,6 +124,68 @@ paths:
                 errorCode: "OBS-V1-L-29"
                 message: ""
 
+  # Events query endpoint
+  /api/v1/events/query:
+    post:
+      tags:
+        - Events
+      summary: Query events
+      description: Query Kubernetes events from the observer service
+      operationId: queryEvents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventsQueryRequest"
+      responses:
+        "200":
+          description: Events queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventsQueryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "badRequest"
+                errorCode: ""
+                message: "Missing required fields 'startTime' and 'endTime'"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "unauthorized"
+                errorCode: ""
+                message: "Invalid or missing token"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "forbidden"
+                errorCode: ""
+                message: "Subject <xyz> has no permission to view events of Namespace foo, Project bar, Component baz in Environment development"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "internalServerError"
+                errorCode: "OBS-V1-E-01"
+                message: ""
+
   # Metrics query endpoint
   /api/v1/metrics/query:
     post:
@@ -143,6 +207,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MetricsQueryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # Runtime topology endpoint (for cell diagram with runtime observability)
+  /api/v1alpha1/metrics/runtime-topology:
+    post:
+      tags:
+        - RuntimeTopology
+      summary: Query runtime topology
+      description: |
+        Returns the live HTTP traffic topology for a project in a given environment:
+        a list of nodes (components, gateways, external endpoints) and a list of edges
+        (observed source -> target traffic flows), each with aggregated metrics
+        (request count, error count, latency percentiles) computed over the requested
+        time window.
+      operationId: queryRuntimeTopology
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuntimeTopologyRequest"
+      responses:
+        "200":
+          description: Runtime topology queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeTopologyResponse"
         "400":
           description: Invalid request
           content:
@@ -323,12 +438,13 @@ paths:
       - name: sourceType
         in: path
         required: true
-        description: The source type of the alert rule (log or metric)
+        description: The source type of the alert rule (log, metric, or budget)
         schema:
           type: string
           enum:
             - log
             - metric
+            - budget
     post:
       tags:
         - Alerts
@@ -372,12 +488,13 @@ paths:
       - name: sourceType
         in: path
         required: true
-        description: The source type of the alert rule (log or metric)
+        description: The source type of the alert rule (log, metric, or budget)
         schema:
           type: string
           enum:
             - log
             - metric
+            - budget
       - name: ruleName
         in: path
         required: true
@@ -809,6 +926,107 @@ components:
           type: integer
           description: The time taken to query the logs in milliseconds
 
+    # Request schema for events
+    EventsQueryRequest:
+      type: object
+      properties:
+        startTime:
+          type: string
+          description: The start time of the query
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the query
+          format: date-time
+        limit:
+          type: integer
+          default: 100
+          minimum: 1
+          maximum: 1000
+          description: The maximum number of items to return
+        sortOrder:
+          type: string
+          description: The sort order of the query
+          enum:
+            - asc
+            - desc
+          default: desc
+        searchScope:
+          oneOf:
+            - $ref: "#/components/schemas/ComponentSearchScope"
+            - $ref: "#/components/schemas/WorkflowSearchScope"
+      required: [startTime, endTime, searchScope]
+
+    # Response schemas for events
+    EventEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          description: The timestamp of the event
+          format: date-time
+        message:
+          type: string
+          description: The event message
+        type:
+          type: string
+          description: The event type (e.g. Normal, Warning)
+        reason:
+          type: string
+          description: The short, machine-readable reason for the event (e.g. SawCompletedJob)
+        metadata:
+          type: object
+          description: The metadata of the event
+          properties:
+            componentName:
+              type: string
+              description: The OpenChoreo component name the event is associated with
+            projectName:
+              type: string
+              description: The OpenChoreo project name the event is associated with
+            environmentName:
+              type: string
+              description: The OpenChoreo environment name the event is associated with
+            namespaceName:
+              type: string
+              description: The OpenChoreo namespace name the event is associated with
+            componentUid:
+              type: string
+              description: The OpenChoreo component UID the event is associated with
+              format: uuid
+            projectUid:
+              type: string
+              description: The OpenChoreo project UID the event is associated with
+              format: uuid
+            environmentUid:
+              type: string
+              description: The OpenChoreo environment UID the event is associated with
+              format: uuid
+            objectKind:
+              type: string
+              description: The kind of the Kubernetes object the event involves (e.g. CronJob)
+            objectName:
+              type: string
+              description: The name of the Kubernetes object the event involves
+            objectNamespace:
+              type: string
+              description: The namespace of the Kubernetes object the event involves
+
+    EventsQueryResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventEntry"
+          description: The events queried successfully
+        total:
+          type: integer
+          description: The total number of matching events, capped at 1000
+        tookMs:
+          type: integer
+          description: The time taken to query the events in milliseconds
+
     # Request schemas for metrics
     MetricsQueryRequest:
       type: object
@@ -912,6 +1130,205 @@ components:
         - $ref: "#/components/schemas/ResourceMetricsTimeSeries"
         - $ref: "#/components/schemas/HttpMetricsTimeSeries"
 
+    # Schemas for the runtime topology endpoint
+    RuntimeTopologySearchScope:
+      allOf:
+        - $ref: "#/components/schemas/ComponentSearchScope"
+      required: [namespace, project, environment]
+
+    RuntimeTopologyRequest:
+      type: object
+      description: |
+        Request body for POST /api/v1alpha1/metrics/runtime-topology.
+        searchScope must include namespace, project, and environment — runtime
+        topology is project- and environment-scoped. The optional component
+        field, if set, restricts results to edges that touch that component.
+      properties:
+        searchScope:
+          $ref: "#/components/schemas/RuntimeTopologySearchScope"
+        startTime:
+          type: string
+          description: The start time of the query window
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the query window
+          format: date-time
+        includeGateways:
+          type: boolean
+          description: Whether to include gateway -> component edges. Defaults to true.
+          default: true
+        includeExternal:
+          type: boolean
+          description: |
+            Whether to include edges to/from components outside the requested
+            project (cross-project or off-platform). Defaults to true.
+          default: true
+      required: [searchScope, startTime, endTime]
+
+    RuntimeTopologyMetrics:
+      type: object
+      description: |
+        Aggregate HTTP metrics over the requested time window.
+        Latency values are in seconds (consistent with /api/v1/metrics/query).
+      properties:
+        requestCount:
+          type: number
+          format: double
+          description: Total number of HTTP requests observed in the window.
+        unsuccessfulRequestCount:
+          type: number
+          format: double
+          description: Number of unsuccessful (non-2xx) HTTP requests in the window.
+        meanLatency:
+          type: number
+          format: double
+          description: Mean request latency, in seconds.
+        latencyP50:
+          type: number
+          format: double
+          description: 50th percentile request latency, in seconds.
+        latencyP90:
+          type: number
+          format: double
+          description: 90th percentile request latency, in seconds.
+        latencyP99:
+          type: number
+          format: double
+          description: 99th percentile request latency, in seconds.
+
+    RuntimeTopologyNodeRef:
+      type: object
+      description: |
+        Reference to a node in the runtime topology. The shape depends on `kind`:
+        - kind=component: `componentUid` is always populated when the data
+          comes from an HTTP-metrics backend; `component` (name) is filled
+          when the observer can resolve it.
+        - kind=gateway:   `name` is required (e.g. "internet", "intranet").
+        - kind=external:  at least one of `host` or `component`/`componentUid`
+          should be set; `project`/`projectUid` is included when the source
+          is in a different project.
+      properties:
+        kind:
+          type: string
+          enum: [component, gateway, external]
+        component:
+          type: string
+          description: Component name (when kind=component, or for external cross-project sources).
+        componentUid:
+          type: string
+          format: uuid
+          description: |
+            OpenChoreo component UID. Populated from the metrics backend; useful
+            for stable matching when the human-readable name is unavailable.
+        service:
+          type: string
+          description: Workload endpoint name (when kind=component).
+        name:
+          type: string
+          description: Gateway name (when kind=gateway).
+        host:
+          type: string
+          description: Host (when kind=external).
+        project:
+          type: string
+          description: Project name (when kind=external and the source is in a different project).
+        projectUid:
+          type: string
+          format: uuid
+          description: OpenChoreo project UID.
+        namespace:
+          type: string
+          description: Namespace the node lives in.
+      required: [kind]
+
+    RuntimeTopologyNode:
+      type: object
+      description: A node observed in the runtime topology, with its aggregated metrics.
+      properties:
+        kind:
+          type: string
+          enum: [component, gateway, external]
+        component:
+          type: string
+        componentUid:
+          type: string
+          format: uuid
+        service:
+          type: string
+        name:
+          type: string
+        host:
+          type: string
+        project:
+          type: string
+        projectUid:
+          type: string
+          format: uuid
+        namespace:
+          type: string
+        metrics:
+          $ref: "#/components/schemas/RuntimeTopologyMetrics"
+      required: [kind]
+
+    RuntimeTopologyEdge:
+      type: object
+      description: An observed traffic flow from a source node to a target node.
+      properties:
+        id:
+          type: string
+          description: |
+            Stable identifier for the edge. Convention:
+            - component->component: `${srcComponent}:${srcService}->${dstComponent}:${dstService}`
+            - gateway->component:   `gateway:${gatewayName}->${dstComponent}:${dstService}`
+            - component->external:  `${srcComponent}:${srcService}->external:${host}`
+        source:
+          $ref: "#/components/schemas/RuntimeTopologyNodeRef"
+        target:
+          $ref: "#/components/schemas/RuntimeTopologyNodeRef"
+        protocol:
+          type: string
+          description: Wire protocol of the observed traffic.
+          enum: [http]
+        metrics:
+          $ref: "#/components/schemas/RuntimeTopologyMetrics"
+      required: [id, source, target]
+
+    RuntimeTopologySummary:
+      type: object
+      description: Metadata describing the query window the response was computed for.
+      properties:
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        generatedAt:
+          type: string
+          format: date-time
+      required: [startTime, endTime, generatedAt]
+
+    RuntimeTopologyResponse:
+      type: object
+      description: |
+        The runtime topology response. Nodes and edges contain only entities for
+        which traffic was observed during the requested time window. Static topology
+        (workload dependency graph) is NOT included in this response; it must be
+        fetched separately from the OpenChoreo API.
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuntimeTopologyNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuntimeTopologyEdge"
+        summary:
+          $ref: "#/components/schemas/RuntimeTopologySummary"
+      required: [summary]
+
     # Request schemas for traces
     TracesQueryRequest:
       type: object
@@ -939,6 +1356,10 @@ components:
           default: desc
         searchScope:
           $ref: "#/components/schemas/ComponentSearchScope"
+        includeAttributes:
+          type: boolean
+          description: Whether to include span attributes in the response. Defaults to false.
+          default: false
       required: [startTime, endTime, searchScope]
 
     # Response schemas for traces
@@ -978,6 +1399,9 @@ components:
                 type: integer
                 format: int64
                 description: The duration of the trace in nanoseconds
+              hasErrors:
+                type: boolean
+                description: Whether any span in the trace has an error status.
         total:
           type: integer
           description: The total number of matching traces, capped at 1000
@@ -1018,6 +1442,21 @@ components:
               parentSpanId:
                 type: string
                 description: The parent span ID
+              status:
+                type: string
+                enum:
+                  - ok
+                  - error
+                  - unset
+                description: The execution status of the span. One of "ok", "error", or "unset".
+              attributes:
+                type: object
+                description: The span attributes
+                additionalProperties: true
+              resourceAttributes:
+                type: object
+                description: The resource attributes
+                additionalProperties: true
         total:
           type: integer
           description: The total number of matching spans, capped at 1000
@@ -1034,6 +1473,9 @@ components:
         spanName:
           type: string
           description: The name of the span
+        spanKind:
+          type: string
+          description: The kind of the span
         startTime:
           type: string
           description: The start time of the span
@@ -1049,6 +1491,13 @@ components:
         parentSpanId:
           type: string
           description: The parent span ID
+        status:
+          type: string
+          enum:
+            - ok
+            - error
+            - unset
+          description: The execution status of the span. One of "ok", "error", or "unset".
         attributes:
           type: array
           items:
@@ -1099,6 +1548,7 @@ components:
               enum:
                 - log
                 - metric
+                - budget
             query:
               type: string
               description: The query to execute for log based alerts
@@ -1108,6 +1558,7 @@ components:
               enum:
                 - cpu_usage
                 - memory_usage
+                - budget
         condition:
           type: object
           required: [enabled, window, interval, operator, threshold]
@@ -1169,6 +1620,7 @@ components:
               enum:
                 - log
                 - metric
+                - budget
             query:
               type: string
               description: The query to execute for log based alerts
@@ -1178,6 +1630,7 @@ components:
               enum:
                 - cpu_usage
                 - memory_usage
+                - budget
         condition:
           type: object
           properties:
@@ -1350,6 +1803,7 @@ components:
                             enum:
                               - log
                               - metric
+                              - budget
                           query:
                             type: string
                             description: The query used for log-based alerts
@@ -1465,6 +1919,9 @@ components:
               incidentTriggerAiRca:
                 type: boolean
                 description: Whether AI RCA was triggered for the incident
+              incidentTriggerAiCostAnalysis:
+                type: boolean
+                description: Whether AI cost analysis was triggered for the incident
               status:
                 type: string
                 description: The status of the incident
@@ -1581,6 +2038,9 @@ components:
         incidentTriggerAiRca:
           type: boolean
           description: Whether AI RCA was triggered for the incident
+        incidentTriggerAiCostAnalysis:
+          type: boolean
+          description: Whether AI cost analysis was triggered for the incident
         labels:
           type: object
           properties:

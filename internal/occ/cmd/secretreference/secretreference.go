@@ -13,30 +13,24 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by SecretReference operations.
-type Client interface {
-	ListSecretReferences(ctx context.Context, namespaceName string, params *gen.ListSecretReferencesParams) (*gen.SecretReferenceList, error)
-	GetSecretReference(ctx context.Context, namespaceName string, secretReferenceName string) (*gen.SecretReference, error)
-	DeleteSecretReference(ctx context.Context, namespaceName string, secretReferenceName string) error
-}
-
 // SecretReference implements secret reference operations
 type SecretReference struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new secret reference implementation
-func New(client Client) *SecretReference {
-	return &SecretReference{client: client}
+func New(c client.Interface) *SecretReference {
+	return &SecretReference{client: c}
 }
 
 // List lists all secret references in a namespace
 func (s *SecretReference) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceSecretReference, params); err != nil {
+	if err := cmdutil.RequireFields("list", "secretreference", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -66,7 +60,7 @@ func (s *SecretReference) List(params ListParams) error {
 
 // Get retrieves a single secret reference and outputs it as YAML
 func (s *SecretReference) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceSecretReference, params); err != nil {
+	if err := cmdutil.RequireFields("get", "secretreference", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -87,7 +81,7 @@ func (s *SecretReference) Get(params GetParams) error {
 
 // Delete deletes a single secret reference
 func (s *SecretReference) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceSecretReference, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "secretreference", map[string]string{"namespace": params.Namespace, "name": params.SecretReferenceName}); err != nil {
 		return err
 	}
 

@@ -115,6 +115,10 @@ backstage:
     hostnames:
     - openchoreo.localhost
 
+features:
+  secretManagement:
+    enabled: true
+
 security:
   oidc:
     issuer: "http://thunder.openchoreo.localhost:8080"

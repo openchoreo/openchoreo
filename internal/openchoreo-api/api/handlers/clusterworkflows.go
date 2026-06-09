@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -24,11 +25,7 @@ func (h *Handler) ListClusterWorkflows(
 
 	result, err := h.services.ClusterWorkflowService.ListClusterWorkflows(ctx, opts)
 	if err != nil {
-		if errors.Is(err, services.ErrForbidden) {
-			return gen.ListClusterWorkflows403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListClusterWorkflows400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list cluster workflows", "error", err)
@@ -71,6 +68,12 @@ func (h *Handler) CreateClusterWorkflow(
 		if errors.Is(err, clusterworkflowsvc.ErrClusterWorkflowAlreadyExists) {
 			return gen.CreateClusterWorkflow409JSONResponse{ConflictJSONResponse: conflict("Cluster workflow already exists")}, nil
 		}
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateClusterWorkflow422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
+			return gen.CreateClusterWorkflow400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
+		}
 		h.logger.Error("Failed to create cluster workflow", "error", err)
 		return gen.CreateClusterWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
@@ -111,6 +114,12 @@ func (h *Handler) UpdateClusterWorkflow(
 		}
 		if errors.Is(err, clusterworkflowsvc.ErrClusterWorkflowNotFound) {
 			return gen.UpdateClusterWorkflow404JSONResponse{NotFoundJSONResponse: notFound("ClusterWorkflow")}, nil
+		}
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateClusterWorkflow422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
+			return gen.UpdateClusterWorkflow400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update cluster workflow", "error", err)
 		return gen.UpdateClusterWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

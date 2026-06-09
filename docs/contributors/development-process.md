@@ -14,7 +14,7 @@ feature requirements, improvements and bugs. Features will be represented with t
 - [OpenChoreo Development](https://github.com/orgs/openchoreo/projects/7) - Development teams track 
 tasks that will deliver new product features, bug fixes, improvements to the product. Only type/task issues will be added to this board.
 
-# Issue Triage Process
+# Issue Triaging
 
 This document outlines the issue triage process for contributors. The goal in issue triaging is to go through newly logged issues and incorporate them into the development process appropriately. Issue triaging will help to keep the open issue count and backlog healthy.
 
@@ -62,18 +62,19 @@ Then for each issue type follow the below sections
 Type/Feature represents feature requests opened by the community. These requests should be first taken through the approval process according to this (./../proposals/README.md) document. If approval is not granted then the issue should be closed off with the reason. If approval is granted:
 * Open a Type/Epic issue representing the new feature
 * Add relevant details to the epic
-* Add the epic to the [OpenChoreo Release Management](https://github.com/orgs/openchoreo/projects/5) project board and assign the milestone(v1.0.0, v1.1.0), area and priority.
+* Add the epic to the [OpenChoreo Release Management](https://github.com/orgs/openchoreo/projects/5) project board and assign the milestone(v1.0.0, v1.1.0), area and priority
 * Close off the New Feature issue pointing to the epic
 
 ### Improvement triage process
 * Initiate a discussion within the issue to decide the validity of the requirement
-* If the improvement request is valid then assign the relevant milestone, area and priority.
+* If the improvement request is valid then assign the relevant milestone, area and priority
 * Add the improvement to the [OpenChoreo Release Management](https://github.com/orgs/openchoreo/projects/5) project board
 
 ### Bug Triage Process
 * Initiate a discussion within the issue to decide the validity of the bug
-* If the bug is valid then assign the relevant milestone, area and priority.
-* 
+* If the bug is valid then assign the relevant milestone, area and priority
+* If backporting is needed, add a label in the format `backport/release-vX.Y` where release-vX.Y is the release branch which fix needs to be backported and X,Y represent the major and minor versions. In the case of multiple backports please add multiple labels representing each branch
+  * This triggers the backport process, which is explained in [GitHub Workflow](github_workflow.md#backporting)
 * Add the bug to the [OpenChoreo Release Management](https://github.com/orgs/openchoreo/projects/5) project board
 
 

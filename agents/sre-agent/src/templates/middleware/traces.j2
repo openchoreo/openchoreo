@@ -1,0 +1,13 @@
+## Traces ({{ total }} total)
+
+{% if total > 50 -%}
+> **Warning**: {{ total }} traces returned. Narrow your time window closer to the alert timestamp to reduce noise.
+{% endif -%}
+
+Trace ID | Name | Spans | Duration | Start Time
+--- | --- | --- | --- | ---
+{% for trace in traces -%}
+{{ trace.traceId }} | {{ trace.traceName }} | {{ trace.spanCount }} | {{ "%.2f"|format(trace.durationNs / 1000000) }}ms | {{ trace.startTime }}
+{% endfor -%}
+
+> Call `query_trace_spans` with a traceId above to inspect the full span tree for latency bottlenecks, errors, or failing dependencies.

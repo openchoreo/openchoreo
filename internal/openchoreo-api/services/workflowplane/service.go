@@ -27,19 +27,19 @@ var workflowPlaneTypeMeta = metav1.TypeMeta{
 // workflowPlaneService handles workflow plane-related business logic without authorization checks.
 // Other services within this layer should use this directly to avoid double authz.
 type workflowPlaneService struct {
-	k8sClient   client.Client
-	wpClientMgr *kubernetesClient.KubeMultiClientManager
-	logger      *slog.Logger
+	k8sClient           client.Client
+	planeClientProvider kubernetesClient.WorkflowPlaneClientProvider
+	logger              *slog.Logger
 }
 
 var _ Service = (*workflowPlaneService)(nil)
 
 // NewService creates a new workflow plane service without authorization.
-func NewService(k8sClient client.Client, wpClientMgr *kubernetesClient.KubeMultiClientManager, logger *slog.Logger) Service {
+func NewService(k8sClient client.Client, planeClientProvider kubernetesClient.WorkflowPlaneClientProvider, logger *slog.Logger) Service {
 	return &workflowPlaneService{
-		k8sClient:   k8sClient,
-		wpClientMgr: wpClientMgr,
-		logger:      logger,
+		k8sClient:           k8sClient,
+		planeClientProvider: planeClientProvider,
+		logger:              logger,
 	}
 }
 
@@ -114,8 +114,8 @@ func (s *workflowPlaneService) CreateWorkflowPlane(ctx context.Context, namespac
 		if apierrors.IsAlreadyExists(err) {
 			return nil, ErrWorkflowPlaneAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create workflow plane CR", "error", err)
 		return nil, fmt.Errorf("failed to create workflow plane: %w", err)
@@ -152,8 +152,8 @@ func (s *workflowPlaneService) UpdateWorkflowPlane(ctx context.Context, namespac
 	existing.Annotations = wp.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update workflow plane CR", "error", err)
 		return nil, fmt.Errorf("failed to update workflow plane: %w", err)
@@ -204,7 +204,7 @@ func (s *workflowPlaneService) getFirstWorkflowPlane(ctx context.Context, namesp
 // GetWorkflowPlaneClient creates and returns a Kubernetes client for the workflow plane cluster.
 // This method is deprecated and will be removed in a future version.
 // Workflow plane operations should use the cluster gateway proxy instead.
-func (s *workflowPlaneService) GetWorkflowPlaneClient(ctx context.Context, namespaceName, gatewayURL string) (client.Client, error) {
+func (s *workflowPlaneService) GetWorkflowPlaneClient(ctx context.Context, namespaceName string) (client.Client, error) {
 	s.logger.Debug("Getting workflow plane client", "namespace", namespaceName)
 
 	workflowPlane, err := s.getFirstWorkflowPlane(ctx, namespaceName)
@@ -212,11 +212,7 @@ func (s *workflowPlaneService) GetWorkflowPlaneClient(ctx context.Context, names
 		return nil, fmt.Errorf("failed to get workflow plane: %w", err)
 	}
 
-	workflowPlaneClient, err := kubernetesClient.GetK8sClientFromWorkflowPlane(
-		s.wpClientMgr,
-		workflowPlane,
-		gatewayURL,
-	)
+	workflowPlaneClient, err := s.planeClientProvider.WorkflowPlaneClient(workflowPlane)
 	if err != nil {
 		s.logger.Error("Failed to create workflow plane client", "error", err, "namespace", namespaceName)
 		return nil, fmt.Errorf("failed to create workflow plane client: %w", err)
@@ -230,14 +226,14 @@ func (s *workflowPlaneService) GetWorkflowPlaneClient(ctx context.Context, names
 // given RunReference still exists on the workflow plane. Returns true if it exists.
 func (s *workflowPlaneService) ArgoWorkflowExists(
 	ctx context.Context,
-	namespaceName, gatewayURL string,
+	namespaceName string,
 	runReference *openchoreov1alpha1.ResourceReference,
 ) bool {
 	if runReference == nil || runReference.Name == "" || runReference.Namespace == "" {
 		return false
 	}
 
-	wpClient, err := s.GetWorkflowPlaneClient(ctx, namespaceName, gatewayURL)
+	wpClient, err := s.GetWorkflowPlaneClient(ctx, namespaceName)
 	if err != nil {
 		s.logger.Debug("Failed to get workflow plane client for workflow existence check", "error", err)
 		return false

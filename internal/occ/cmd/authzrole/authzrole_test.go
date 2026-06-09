@@ -4,10 +4,7 @@
 package authzrole
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -15,48 +12,22 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/authzrole/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
-
-// captureStdout captures stdout output from a function call.
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
 
 // --- printList tests ---
 
 func TestPrint_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(nil))
 	})
 	assert.Contains(t, out, "No authz roles found")
 }
 
 func TestPrint_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList([]gen.AuthzRole{}))
 	})
 	assert.Contains(t, out, "No authz roles found")
@@ -82,7 +53,7 @@ func TestPrint_WithItems(t *testing.T) {
 		},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -104,7 +75,7 @@ func TestPrint_NilTimestamp(t *testing.T) {
 		},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -114,7 +85,7 @@ func TestPrint_NilTimestamp(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaceRoles(mock.Anything, "default", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	r := New(mc)
@@ -123,14 +94,14 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaceRoles(mock.Anything, "default", mock.Anything).Return(&gen.AuthzRoleList{
 		Items:      []gen.AuthzRole{{Metadata: gen.ObjectMeta{Name: "admin-role"}}},
 		Pagination: gen.Pagination{},
 	}, nil)
 
 	r := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, r.List(ListParams{Namespace: "default"}))
 	})
 
@@ -139,7 +110,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaceRoles(mock.Anything, "default", mock.Anything).Return(&gen.AuthzRoleList{
 		Items: []gen.AuthzRole{
 			{Metadata: gen.ObjectMeta{Name: "admin-role", CreationTimestamp: &now}},
@@ -149,7 +120,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	r := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, r.List(ListParams{Namespace: "default"}))
 	})
 
@@ -160,14 +131,14 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaceRoles(mock.Anything, "default", mock.Anything).Return(&gen.AuthzRoleList{
 		Items:      []gen.AuthzRole{},
 		Pagination: gen.Pagination{},
 	}, nil)
 
 	r := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, r.List(ListParams{Namespace: "default"}))
 	})
 
@@ -175,7 +146,7 @@ func TestList_Empty(t *testing.T) {
 }
 
 func TestList_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 
 	r := New(mc)
 	err := r.List(ListParams{Namespace: ""})
@@ -185,7 +156,7 @@ func TestList_ValidationError(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetNamespaceRole(mock.Anything, "default", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	r := New(mc)
@@ -194,13 +165,13 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetNamespaceRole(mock.Anything, "default", "admin-role").Return(&gen.AuthzRole{
 		Metadata: gen.ObjectMeta{Name: "admin-role"},
 	}, nil)
 
 	r := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, r.Get(GetParams{Namespace: "default", Name: "admin-role"}))
 	})
 
@@ -208,7 +179,7 @@ func TestGet_Success(t *testing.T) {
 }
 
 func TestGet_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 
 	r := New(mc)
 	err := r.Get(GetParams{Namespace: "", Name: "admin-role"})
@@ -218,7 +189,7 @@ func TestGet_ValidationError(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteNamespaceRole(mock.Anything, "default", "admin-role").Return(fmt.Errorf("forbidden: admin-role"))
 
 	r := New(mc)
@@ -227,11 +198,11 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteNamespaceRole(mock.Anything, "default", "admin-role").Return(nil)
 
 	r := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, r.Delete(DeleteParams{Namespace: "default", Name: "admin-role"}))
 	})
 
@@ -239,7 +210,7 @@ func TestDelete_Success(t *testing.T) {
 }
 
 func TestDelete_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 
 	r := New(mc)
 	err := r.Delete(DeleteParams{Namespace: "", Name: "admin-role"})

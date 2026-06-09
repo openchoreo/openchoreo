@@ -7,11 +7,12 @@ import "time"
 
 // TracesQueryRequest represents the internal request for querying traces
 type TracesQueryRequest struct {
-	StartTime   time.Time
-	EndTime     time.Time
-	Limit       int
-	SortOrder   string
-	SearchScope ComponentSearchScope
+	StartTime         time.Time
+	EndTime           time.Time
+	Limit             int
+	SortOrder         string
+	IncludeAttributes bool
+	SearchScope       ComponentSearchScope
 }
 
 // TracesQueryResponse represents the internal response for trace queries
@@ -32,6 +33,7 @@ type TraceInfo struct {
 	StartTime    *time.Time `json:"startTime,omitempty"`
 	EndTime      *time.Time `json:"endTime,omitempty"`
 	DurationNs   int64      `json:"durationNs,omitempty"`
+	HasErrors    bool       `json:"hasErrors"`
 }
 
 // SpansQueryResponse represents the internal response for span queries
@@ -45,10 +47,12 @@ type SpansQueryResponse struct {
 type SpanInfo struct {
 	SpanID             string                 `json:"spanId"`
 	SpanName           string                 `json:"spanName"`
+	SpanKind           string                 `json:"spanKind,omitempty"`
 	ParentSpanID       string                 `json:"parentSpanId,omitempty"`
 	StartTime          *time.Time             `json:"startTime,omitempty"`
 	EndTime            *time.Time             `json:"endTime,omitempty"`
 	DurationNs         int64                  `json:"durationNs,omitempty"`
+	Status             string                 `json:"status,omitempty"`
 	Attributes         map[string]interface{} `json:"attributes,omitempty"`
 	ResourceAttributes map[string]interface{} `json:"resourceAttributes,omitempty"`
 }

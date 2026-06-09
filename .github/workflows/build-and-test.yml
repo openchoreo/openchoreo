@@ -9,6 +9,10 @@ on:
       - "main"
       - "release-v*"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -22,7 +26,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Clone the code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -35,7 +39,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Clone the code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -51,7 +55,7 @@ jobs:
       id-token: write # Required for Codecov OIDC
     steps:
       - name: Clone the code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -61,7 +65,7 @@ jobs:
           make test
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: ./cover.out
           fail_ci_if_error: ${{ github.event_name == 'push' }}
@@ -72,7 +76,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Clone the code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -87,37 +91,43 @@ jobs:
           fi
 
       - name: Upload occ binaries
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: occ
           path: bin/dist/**/occ
 
       - name: Upload manager binaries
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: manager
           path: bin/dist/**/manager
 
       - name: Upload openchoreo-api binaries
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: openchoreo-api
           path: bin/dist/**/openchoreo-api
 
       - name: Upload observer binaries
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: observer
           path: bin/dist/**/observer
 
+      - name: Upload event-forwarder binaries
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: event-forwarder
+          path: bin/dist/**/event-forwarder
+
       - name: Upload cluster-gateway binaries
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cluster-gateway
           path: bin/dist/**/cluster-gateway
 
       - name: Upload cluster-agent binaries
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cluster-agent
           path: bin/dist/**/cluster-agent
@@ -130,7 +140,7 @@ jobs:
       packages: write
     steps:
       - name: Clone the code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -159,6 +169,12 @@ jobs:
           name: observer
           path: bin/dist
 
+      - name: Download event-forwarder binaries
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: event-forwarder
+          path: bin/dist
+
       - name: Download cluster-gateway binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -177,45 +193,60 @@ jobs:
           
       - name: Login to GitHub container registry
         if: github.event_name == 'push'
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup docker multiarch
+        if: github.event_name == 'push'
         run: make docker.setup-multiarch
 
       - name: Set commit SHA
+        if: github.event_name == 'push'
         run: echo "GIT_SHA_SHORT=$(git rev-parse --short=8 HEAD)" >> $GITHUB_ENV
 
-      - name: ${{ github.event_name == 'push' && 'Build and push' || 'Build' }} multiarch commit images
+      - name: Check if commit images already exist
+        if: github.event_name == 'push'
+        id: check-images
         run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            echo "Building and pushing Docker images with tag ${{ env.GIT_SHA_SHORT }}..."
-            make docker.push-multiarch TAG=${{ env.GIT_SHA_SHORT }}
-          else
-            echo "Building Docker images for PR verification..."
-            make docker.build-multiarch TAG=pr-${{ github.event.pull_request.number }} IMAGE_TARGET_PLATFORMS="${{ env.IMAGE_PLATFORMS }}"
-          fi
-
-      - name: Build and push multiarch latest-dev images
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: make docker.push-multiarch
-
-      - name: ${{ github.event_name == 'push' && 'Package and push' || 'Package' }} helm charts
-        run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            # Push per-commit SHA version (main + release-v* branches)
-            echo "Packaging and pushing Helm charts with SHA ${{ env.GIT_SHA_SHORT }}..."
-            make helm-push TAG=${{ env.GIT_SHA_SHORT }} HELM_CHART_VERSION=0.0.0-${{ env.GIT_SHA_SHORT }}
-
-            # Also push latest-dev for main branch only
-            if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-              echo "Packaging and pushing Helm charts as latest-dev..."
-              make helm-push TAG=latest-dev HELM_CHART_VERSION=0.0.0-latest-dev
+          SHA=$(git rev-parse --short=8 HEAD)
+          ALL_EXIST=true
+          for IMG in controller quick-start openchoreo-api observer event-forwarder sre-agent finops-agent portal-assistant openchoreo-cli cluster-gateway cluster-agent; do
+            if docker buildx imagetools inspect "ghcr.io/openchoreo/${IMG}:${SHA}" >/dev/null 2>&1; then
+              echo "  ✅ ${IMG}:${SHA} exists"
+            else
+              echo "  ❌ ${IMG}:${SHA} not found"
+              ALL_EXIST=false
             fi
+          done
+          if [ "$ALL_EXIST" = "true" ]; then
+            echo "All ${SHA} images exist. Skipping build."
+            echo "skip=true" >> $GITHUB_OUTPUT
           else
-            echo "Packaging Helm charts for verification..."
-            make helm-package
+            echo "skip=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Build and push images and helm charts
+        if: github.event_name == 'push' && steps.check-images.outputs.skip != 'true'
+        run: |
+          echo "Building and pushing Docker images with tag ${{ env.GIT_SHA_SHORT }}..."
+          make docker.push-multiarch TAG=${{ env.GIT_SHA_SHORT }}
+
+          # Retag images as latest-dev for main branch only
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            make docker.retag-registry SOURCE_TAG=${{ env.GIT_SHA_SHORT }} NEW_TAG=latest-dev
+          fi
+
+          # Package and push Helm charts
+          echo "Packaging and pushing Helm charts with SHA ${{ env.GIT_SHA_SHORT }}..."
+          make helm-push TAG=${{ env.GIT_SHA_SHORT }} HELM_CHART_VERSION=0.0.0-${{ env.GIT_SHA_SHORT }}
+
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            make helm-push TAG=latest-dev HELM_CHART_VERSION=0.0.0-latest-dev
+          fi
+
+      - name: Package helm charts for PR verification
+        if: github.event_name != 'push'
+        run: make helm-package

@@ -53,6 +53,10 @@ func (s *clusterWorkflowService) CreateClusterWorkflow(ctx context.Context, cwf 
 			s.logger.Warn("Cluster workflow already exists", "clusterWorkflow", cwf.Name)
 			return nil, ErrClusterWorkflowAlreadyExists
 		}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			s.logger.Error("Cluster workflow create rejected by validation", "error", err)
+			return nil, vErr
+		}
 		s.logger.Error("Failed to create cluster workflow CR", "error", err)
 		return nil, fmt.Errorf("failed to create cluster workflow: %w", err)
 	}
@@ -86,9 +90,9 @@ func (s *clusterWorkflowService) UpdateClusterWorkflow(ctx context.Context, cwf 
 	existing.Annotations = cwf.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
+		if vErr := services.ExtractValidationError(err); vErr != nil {
 			s.logger.Error("Cluster workflow update rejected by validation", "error", err)
-			return nil, fmt.Errorf("cluster workflow validation failed: %s", services.ExtractValidationMessage(err))
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update cluster workflow CR", "error", err)
 		return nil, fmt.Errorf("failed to update cluster workflow: %w", err)

@@ -13,30 +13,24 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by ComponentType operations.
-type Client interface {
-	ListComponentTypes(ctx context.Context, namespaceName string, params *gen.ListComponentTypesParams) (*gen.ComponentTypeList, error)
-	GetComponentType(ctx context.Context, namespaceName string, ctName string) (*gen.ComponentType, error)
-	DeleteComponentType(ctx context.Context, namespaceName string, ctName string) error
-}
-
 // ComponentType implements component type operations
 type ComponentType struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new component type implementation
-func New(client Client) *ComponentType {
-	return &ComponentType{client: client}
+func New(c client.Interface) *ComponentType {
+	return &ComponentType{client: c}
 }
 
 // List lists all component types in a namespace
 func (ct *ComponentType) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponentType, params); err != nil {
+	if err := cmdutil.RequireFields("list", "componenttype", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -66,7 +60,7 @@ func (ct *ComponentType) List(params ListParams) error {
 
 // Get retrieves a single component type and outputs it as YAML
 func (ct *ComponentType) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceComponentType, params); err != nil {
+	if err := cmdutil.RequireFields("get", "componenttype", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -88,7 +82,7 @@ func (ct *ComponentType) Get(params GetParams) error {
 
 // Delete deletes a single component type
 func (ct *ComponentType) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceComponentType, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "componenttype", map[string]string{"namespace": params.Namespace, "name": params.ComponentTypeName}); err != nil {
 		return err
 	}
 

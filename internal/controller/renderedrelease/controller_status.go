@@ -54,7 +54,7 @@ func (r *Reconciler) updateStatus(ctx context.Context, old, release *openchoreov
 }
 
 // buildResourceStatus converts applied unstructured objects to ResourceStatus entries using live resources
-func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1alpha1.RenderedRelease, desiredResources, liveResources []*unstructured.Unstructured) []openchoreov1alpha1.ResourceStatus {
+func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1alpha1.RenderedRelease, desiredResources, liveResources []*unstructured.Unstructured) []openchoreov1alpha1.RenderedManifestStatus {
 	logger := log.FromContext(ctx)
 	// Build a map of live resources for quick lookup by resource ID
 	liveResourceMap := make(map[string]*unstructured.Unstructured)
@@ -65,12 +65,12 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1a
 	}
 
 	// Build a map of old resource statuses for quick lookup by resource ID
-	oldResourceMap := make(map[string]openchoreov1alpha1.ResourceStatus)
+	oldResourceMap := make(map[string]openchoreov1alpha1.RenderedManifestStatus)
 	for _, oldResource := range old.Status.Resources {
 		oldResourceMap[oldResource.ID] = oldResource
 	}
 
-	resourceStatuses := make([]openchoreov1alpha1.ResourceStatus, 0, len(desiredResources))
+	resourceStatuses := make([]openchoreov1alpha1.RenderedManifestStatus, 0, len(desiredResources))
 
 	for _, desiredObj := range desiredResources {
 		gvk := desiredObj.GroupVersionKind()
@@ -134,7 +134,7 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1a
 			}
 		}
 
-		status := openchoreov1alpha1.ResourceStatus{
+		status := openchoreov1alpha1.RenderedManifestStatus{
 			ID:               resourceID,
 			Group:            gvk.Group,
 			Version:          gvk.Version,
@@ -153,7 +153,7 @@ func (r *Reconciler) buildResourceStatus(ctx context.Context, old *openchoreov1a
 }
 
 // hasTransitioningResources checks if any resources are in a transitioning state
-func (r *Reconciler) hasTransitioningResources(resources []openchoreov1alpha1.ResourceStatus) bool {
+func (r *Reconciler) hasTransitioningResources(resources []openchoreov1alpha1.RenderedManifestStatus) bool {
 	for _, resource := range resources {
 		// Check health status to determine if resource is transitioning
 		// - Progressing: actively changing state (rolling update, scaling, etc.)

@@ -105,8 +105,8 @@ func (s *clusterWorkflowPlaneService) CreateClusterWorkflowPlane(ctx context.Con
 		if apierrors.IsAlreadyExists(err) {
 			return nil, ErrClusterWorkflowPlaneAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create cluster workflow plane CR", "error", err)
 		return nil, fmt.Errorf("failed to create cluster workflow plane: %w", err)
@@ -141,8 +141,8 @@ func (s *clusterWorkflowPlaneService) UpdateClusterWorkflowPlane(ctx context.Con
 	existing.Annotations = cwp.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update cluster workflow plane CR", "error", err)
 		return nil, fmt.Errorf("failed to update cluster workflow plane: %w", err)

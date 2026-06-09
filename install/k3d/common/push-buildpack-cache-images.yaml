@@ -23,7 +23,7 @@ spec:
       restartPolicy: OnFailure
       containers:
       - name: push-images
-        image: ghcr.io/openchoreo/podman-runner:v1.0
+        image: ghcr.io/openchoreo/podman-runner:v1.1
         imagePullPolicy: IfNotPresent
         securityContext:
           privileged: true

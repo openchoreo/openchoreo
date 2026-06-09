@@ -826,6 +826,312 @@
       "title": "controllerManager",
       "type": "object"
     },
+    "finOpsAgent": {
+      "additionalProperties": false,
+      "description": "FinOps Agent Configuration",
+      "properties": {
+        "analysisTimeoutSeconds": {
+          "default": 600,
+          "description": "Analysis timeout in seconds",
+          "minimum": 1,
+          "title": "analysisTimeoutSeconds",
+          "type": "integer"
+        },
+        "authz": {
+          "additionalProperties": false,
+          "description": "Authorization configuration for FinOps agent",
+          "properties": {
+            "timeoutSeconds": {
+              "default": 30,
+              "description": "Authorization request timeout in seconds",
+              "title": "timeoutSeconds",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "authz",
+          "type": "object"
+        },
+        "cors": {
+          "additionalProperties": false,
+          "description": "CORS configuration for the FinOps agent",
+          "properties": {
+            "allowedOrigins": {
+              "description": "List of allowed origins for CORS requests. Empty list disables CORS.",
+              "items": {
+                "type": "string"
+              },
+              "title": "allowedOrigins",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "cors",
+          "type": "object"
+        },
+        "enabled": {
+          "default": false,
+          "description": "Enable FinOps agent deployment",
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "extraEnvs": {
+          "description": "Extra environment variables for the FinOps agent container",
+          "items": {
+            "properties": {
+              "name": {
+                "description": "Environment variable name",
+                "type": "string"
+              },
+              "value": {
+                "description": "Environment variable value",
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "title": "extraEnvs",
+          "type": "array"
+        },
+        "http": {
+          "additionalProperties": false,
+          "description": "HTTPRoute configuration for the FinOps agent",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable HTTPRoute",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hostnames": {
+              "description": "HTTPRoute hostnames",
+              "items": {
+                "type": "string"
+              },
+              "title": "hostnames",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "http",
+          "type": "object"
+        },
+        "image": {
+          "additionalProperties": false,
+          "description": "Container image configuration",
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "Image pull policy",
+              "enum": [
+                "Always",
+                "IfNotPresent",
+                "Never"
+              ],
+              "required": [],
+              "title": "pullPolicy"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/finops-agent",
+              "description": "Container image repository",
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Container image tag (defaults to Chart.AppVersion if empty)",
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image",
+          "type": "object"
+        },
+        "llmName": {
+          "default": "",
+          "description": "LLM model name (e.g., gpt-5.2)",
+          "title": "llmName",
+          "type": "string"
+        },
+        "logLevel": {
+          "default": "INFO",
+          "description": "Log level for the FinOps agent",
+          "title": "logLevel",
+          "type": "string"
+        },
+        "maxConcurrentAnalyses": {
+          "default": 5,
+          "description": "Maximum number of concurrent analyses",
+          "minimum": 1,
+          "title": "maxConcurrentAnalyses",
+          "type": "integer"
+        },
+        "oauth": {
+          "additionalProperties": false,
+          "description": "OAuth2 client credentials configuration for FinOps agent authentication",
+          "properties": {
+            "clientId": {
+              "default": "openchoreo-finops-agent",
+              "description": "OAuth2 client ID registered with the IDP",
+              "title": "clientId",
+              "type": "string"
+            },
+            "scope": {
+              "default": "",
+              "description": "Optional OAuth2 scope to request in the client credentials token request",
+              "title": "scope",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "oauth",
+          "type": "object"
+        },
+        "observabilityMcpServerUrl": {
+          "default": "http://observer:8080/mcp",
+          "description": "Observability MCP Server URL",
+          "title": "observabilityMcpServerUrl",
+          "type": "string"
+        },
+        "openchoreoApiUrl": {
+          "default": "http://api.openchoreo.localhost:8080",
+          "description": "OpenChoreo API URL for authorization service",
+          "title": "openchoreoApiUrl",
+          "type": "string"
+        },
+        "opencostMcpServerUrl": {
+          "default": "http://opencost.openchoreo-observability-plane.svc.cluster.local:8081",
+          "description": "OpenCost MCP Server URL",
+          "title": "opencostMcpServerUrl",
+          "type": "string"
+        },
+        "remediationEnabled": {
+          "default": false,
+          "description": "Enable remediation capability (synthesizes a ResourceChange action from overprovisioning recommendations)",
+          "title": "remediationEnabled",
+          "type": "boolean"
+        },
+        "replicas": {
+          "default": 1,
+          "description": "Number of FinOps agent replicas",
+          "minimum": 0,
+          "title": "replicas",
+          "type": "integer"
+        },
+        "reportBackend": {
+          "default": "sqlite",
+          "description": "Report storage backend type",
+          "enum": [
+            "sqlite",
+            "postgresql"
+          ],
+          "required": [],
+          "title": "reportBackend"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "description": "Resource requests and limits",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "description": "Maximum resources",
+              "properties": {
+                "cpu": {
+                  "default": "250m",
+                  "description": "CPU limit",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "1536Mi",
+                  "description": "Memory limit",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "description": "Minimum resources guaranteed",
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "description": "CPU request",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "1024Mi",
+                  "description": "Memory request",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "resources",
+          "type": "object"
+        },
+        "secretName": {
+          "default": "finops-agent",
+          "description": "Name of an existing Secret injected via envFrom into the FinOps agent container. Required keys - LLM_API_KEY, OAUTH_CLIENT_SECRET. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).",
+          "title": "secretName",
+          "type": "string"
+        },
+        "service": {
+          "additionalProperties": false,
+          "description": "Kubernetes service configuration",
+          "properties": {
+            "port": {
+              "default": 8080,
+              "description": "Service port",
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "port",
+              "type": "integer"
+            },
+            "type": {
+              "default": "ClusterIP",
+              "description": "Service type",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ],
+              "required": [],
+              "title": "type"
+            }
+          },
+          "required": [],
+          "title": "service",
+          "type": "object"
+        },
+        "sqliteStorageSize": {
+          "default": "128Mi",
+          "description": "PVC storage size for SQLite (only used when reportBackend is sqlite)",
+          "title": "sqliteStorageSize",
+          "type": "string"
+        },
+        "tlsInsecureSkipVerify": {
+          "default": false,
+          "description": "Skip TLS certificate verification for MCP server connections (use for self-signed certs)",
+          "title": "tlsInsecureSkipVerify",
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "title": "finOpsAgent",
+      "type": "object"
+    },
     "gateway": {
       "additionalProperties": false,
       "description": "Gateway resource configuration for observability plane routing",
@@ -971,7 +1277,7 @@
     },
     "observer": {
       "additionalProperties": true,
-      "description": "OpenChoreo Observer service configuration - REST API that abstracts OpenSearch for logging, metrics, and tracing",
+      "description": "OpenChoreo Observer service configuration - REST API that abstracts observability backends for logging, metrics, and tracing via adapters",
       "properties": {
         "alertStoreBackend": {
           "default": "sqlite",
@@ -987,6 +1293,12 @@
           "default": "128Mi",
           "description": "PVC size for SQLite alert entry storage",
           "title": "alertStoreSqliteSize",
+          "type": "string"
+        },
+        "alertSuppressionWindow": {
+          "default": "1h",
+          "description": "Duration within which duplicate alerts for the same alert rule are suppressed. Set to \"0\" to disable.",
+          "title": "alertSuppressionWindow",
           "type": "string"
         },
         "authzTlsInsecureSkipVerify": {
@@ -1125,12 +1437,6 @@
           "additionalProperties": false,
           "description": "Configurations for logs adapter connectivity",
           "properties": {
-            "enabled": {
-              "default": false,
-              "description": "Enable logs adapter for fetching logs from an external adapter",
-              "title": "enabled",
-              "type": "boolean"
-            },
             "timeout": {
               "default": "30s",
               "description": "Timeout for logs adapter requests",
@@ -1154,32 +1460,11 @@
           "title": "oauthClientId",
           "type": "string"
         },
-        "openSearchSecretName": {
+        "oauthScope": {
           "default": "",
-          "description": "Name of an existing Secret with 'username' and 'password' keys for OpenSearch authentication. Required.",
-          "title": "openSearchSecretName",
+          "description": "Optional OAuth2 scope to request in the client credentials token request",
+          "title": "oauthScope",
           "type": "string"
-        },
-        "prometheus": {
-          "additionalProperties": false,
-          "description": "Prometheus connection configuration",
-          "properties": {
-            "address": {
-              "default": "",
-              "description": "Prometheus server address (auto-constructed from release name if empty)",
-              "title": "address",
-              "type": "string"
-            },
-            "timeout": {
-              "default": "30s",
-              "description": "Timeout for Prometheus queries",
-              "title": "timeout",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "prometheus",
-          "type": "object"
         },
         "replicas": {
           "default": 1,
@@ -1241,7 +1526,7 @@
         },
         "secretName": {
           "default": "",
-          "description": "Name of an existing Secret injected via envFrom into the Observer container. Required keys - OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD, UID_RESOLVER_OAUTH_CLIENT_SECRET. Optional keys - ALERT_STORE_DSN (when alertStoreBackend is postgresql).",
+          "description": "Name of an existing Secret injected via envFrom into the Observer container. Required keys - UID_RESOLVER_OAUTH_CLIENT_SECRET; ALERT_STORE_DSN is also required when alertStoreBackend=postgresql (Observer fails to start otherwise) and ignored for sqlite (a default DSN is used).",
           "title": "secretName",
           "type": "string"
         },
@@ -1336,12 +1621,6 @@
           "additionalProperties": false,
           "description": "Configurations for tracing adapter connectivity",
           "properties": {
-            "enabled": {
-              "default": false,
-              "description": "Enable tracing adapter for fetching traces from an external adapter",
-              "title": "enabled",
-              "type": "boolean"
-            },
             "timeout": {
               "default": "30s",
               "description": "Timeout for tracing adapter requests",
@@ -1464,7 +1743,7 @@
               "title": "pullPolicy"
             },
             "repository": {
-              "default": "ghcr.io/openchoreo/ai-rca-agent",
+              "default": "ghcr.io/openchoreo/sre-agent",
               "description": "Container image repository",
               "title": "repository",
               "type": "string"
@@ -1502,7 +1781,7 @@
           "type": "string"
         },
         "name": {
-          "default": "ai-rca-agent",
+          "default": "sre-agent",
           "description": "Name of the RCA agent deployment",
           "title": "name",
           "type": "string"
@@ -1515,6 +1794,12 @@
               "default": "openchoreo-rca-agent",
               "description": "OAuth2 client ID registered with the IDP",
               "title": "clientId",
+              "type": "string"
+            },
+            "scope": {
+              "default": "",
+              "description": "Optional OAuth2 scope to request in the client credentials token request",
+              "title": "scope",
               "type": "string"
             }
           },
@@ -1753,6 +2038,8 @@
       "type": "object"
     }
   },
-  "required": [],
+  "required": [
+    "finOpsAgent"
+  ],
   "type": "object"
 }

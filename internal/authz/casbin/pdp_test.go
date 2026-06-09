@@ -5,11 +5,14 @@ package casbin
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"os"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -896,6 +899,10 @@ func TestCasbinEnforcer_BatchEvaluate(t *testing.T) {
 }
 
 func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
+	condJSON := mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+		{Actions: []string{"component:view"}, Expression: `resource.environment == "prod"`},
+	})
+
 	enforcer := setupTestEnforcer(t)
 
 	syncGroupingPolicies(t, enforcer, [][]string{
@@ -908,6 +915,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 		{"group:group1", "ns/acme/project/p1", "viewer", "*", "deny", "{}", "group1-viewer-deny"},
 		{"group:group1", "ns/other-namespace", "viewer", "*", "allow", "{}", "group1-viewer-other"},
 		{"group:group1", "ns/acme", "editor", "acme", "allow", "{}", "group1-editor-acme"},
+		{"group:group1", "ns/acme/project/p2", "viewer", "*", "allow", condJSON, "group1-viewer-cond"},
 	})
 
 	tests := []struct {
@@ -915,6 +923,9 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 		subjectCtx      *authzcore.SubjectContext
 		scopePath       string
 		wantPolicyCount int
+		// conditionsForPath checks that the policyInfo for the given resource path carries the expected conditions string.
+		// Empty string means "don't check".
+		conditionsForPath map[string]string
 	}{
 		{
 			name: "filter policies within scope",
@@ -924,7 +935,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 				EntitlementValues: []string{"group1"},
 			},
 			scopePath:       "ns/acme",
-			wantPolicyCount: 3,
+			wantPolicyCount: 4,
 		},
 		{
 			name: "filter policies within project scope",
@@ -946,16 +957,39 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 			scopePath:       "ns/acme",
 			wantPolicyCount: 0,
 		},
+		{
+			name: "conditions field is propagated verbatim into policyInfo",
+			subjectCtx: &authzcore.SubjectContext{
+				Type:              user,
+				EntitlementClaim:  "group",
+				EntitlementValues: []string{"group1"},
+			},
+			scopePath:       "ns/acme/project/p2",
+			wantPolicyCount: 3,
+			conditionsForPath: map[string]string{
+				"ns/acme/project/p2": condJSON,
+				"ns/acme":            "{}",
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			policies, err := enforcer.filterPoliciesBySubjectAndScope(tt.subjectCtx, tt.scopePath)
-			if err != nil {
-				t.Fatalf("filterPoliciesBySubjectAndScope() error = %v", err)
-			}
-			if len(policies) != tt.wantPolicyCount {
-				t.Errorf("filterPoliciesBySubjectAndScope() returned %d policies, want %d", len(policies), tt.wantPolicyCount)
+			require.NoError(t, err)
+			require.Len(t, policies, tt.wantPolicyCount)
+
+			for path, wantConds := range tt.conditionsForPath {
+				var found bool
+				for _, p := range policies {
+					if p.resourcePath == path {
+						require.Equal(t, wantConds, p.conditions,
+							"policyInfo for path %q: conditions mismatch", path)
+						found = true
+						break
+					}
+				}
+				require.True(t, found, "no policyInfo found for path %q", path)
 			}
 		})
 	}
@@ -984,13 +1018,17 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 	}
 	actionIdx := indexActions(testActions)
 
+	// capExpectation describes what we expect for one action's capability.
+	type capExpectation struct {
+		allowedCount      int
+		deniedCount       int
+		constraintsByPath map[string][]string
+	}
+
 	tests := []struct {
 		name                 string
 		policies             []policyInfo
-		expectedCapabilities map[string]struct {
-			allowedCount int
-			deniedCount  int
-		}
+		expectedCapabilities map[string]capExpectation
 	}{
 		{
 			name: "multiple roles with different policies",
@@ -998,10 +1036,7 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 				{resourcePath: "ns/acme", roleName: "viewer", roleNamespace: "*", effect: "allow"},
 				{resourcePath: "ns/acme/project/p1", roleName: "editor", roleNamespace: "*", effect: "allow"},
 			},
-			expectedCapabilities: map[string]struct {
-				allowedCount int
-				deniedCount  int
-			}{
+			expectedCapabilities: map[string]capExpectation{
 				"component:view":   {allowedCount: 2, deniedCount: 0},
 				"component:create": {allowedCount: 1, deniedCount: 0},
 				"component:update": {allowedCount: 1, deniedCount: 0},
@@ -1015,10 +1050,7 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 				{resourcePath: "ns/acme", roleName: "editor", roleNamespace: "*", effect: "allow"},
 				{resourcePath: "ns/acme/project/secret", roleName: "editor", roleNamespace: "*", effect: "deny"},
 			},
-			expectedCapabilities: map[string]struct {
-				allowedCount int
-				deniedCount  int
-			}{
+			expectedCapabilities: map[string]capExpectation{
 				"component:view":   {allowedCount: 1, deniedCount: 1},
 				"component:create": {allowedCount: 1, deniedCount: 1},
 				"component:update": {allowedCount: 1, deniedCount: 1},
@@ -1030,10 +1062,7 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 			policies: []policyInfo{
 				{resourcePath: "ns/acme", roleName: "admin", roleNamespace: "*", effect: "allow"},
 			},
-			expectedCapabilities: map[string]struct {
-				allowedCount int
-				deniedCount  int
-			}{
+			expectedCapabilities: map[string]capExpectation{
 				"component:view":   {allowedCount: 1, deniedCount: 0},
 				"component:create": {allowedCount: 1, deniedCount: 0},
 				"component:update": {allowedCount: 1, deniedCount: 0},
@@ -1049,21 +1078,15 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 				{resourcePath: "ns/acme", roleName: "viewer", roleNamespace: "*", effect: "allow"},
 				{resourcePath: "ns/acme", roleName: "viewer", roleNamespace: "*", effect: "allow"},
 			},
-			expectedCapabilities: map[string]struct {
-				allowedCount int
-				deniedCount  int
-			}{
+			expectedCapabilities: map[string]capExpectation{
 				"component:view": {allowedCount: 1, deniedCount: 0},
 				"project:view":   {allowedCount: 1, deniedCount: 0},
 			},
 		},
 		{
-			name:     "empty policies returns empty capabilities",
-			policies: []policyInfo{},
-			expectedCapabilities: map[string]struct {
-				allowedCount int
-				deniedCount  int
-			}{},
+			name:                 "empty policies returns empty capabilities",
+			policies:             []policyInfo{},
+			expectedCapabilities: map[string]capExpectation{},
 		},
 		{
 			name: "namespace role isolation - same role name different namespaces",
@@ -1071,14 +1094,189 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 				{resourcePath: "ns/acme-v2", roleName: "editor", roleNamespace: "*", effect: "allow"},
 				{resourcePath: "ns/acme", roleName: "editor", roleNamespace: "acme", effect: "allow"},
 			},
-			expectedCapabilities: map[string]struct {
-				allowedCount int
-				deniedCount  int
-			}{
+			expectedCapabilities: map[string]capExpectation{
 				"component:view":   {allowedCount: 2, deniedCount: 0},
 				"component:create": {allowedCount: 1, deniedCount: 0},
 				"component:update": {allowedCount: 1, deniedCount: 0},
 				"component:delete": {allowedCount: 1, deniedCount: 0},
+			},
+		},
+		{
+			name: "condition on one action constrains it while other actions in the same role remain unconditional",
+			policies: []policyInfo{
+				{
+					resourcePath:  "ns/acme",
+					roleName:      "viewer",
+					roleNamespace: "*",
+					effect:        "allow",
+					conditions: mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+						{Actions: []string{"component:view"}, Expression: `resource.environment == "prod"`},
+					}),
+				},
+			},
+			expectedCapabilities: map[string]capExpectation{
+				"component:view": {
+					allowedCount: 1,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme": {`resource.environment == "prod"`},
+					},
+				},
+				"project:view": {
+					allowedCount: 1,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme": nil,
+					},
+				},
+			},
+		},
+		{
+			name: "conditional binding at project scope and unconditional binding at namespace scope are independent",
+			policies: []policyInfo{
+				{
+					resourcePath:  "ns/acme/project/p1",
+					roleName:      "viewer",
+					roleNamespace: "*",
+					effect:        "allow",
+					conditions: mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+						{Actions: []string{"component:view"}, Expression: `resource.environment == "prod"`},
+					}),
+				},
+				{
+					resourcePath:  "ns/acme",
+					roleName:      "viewer",
+					roleNamespace: "*",
+					effect:        "allow",
+					conditions:    "{}",
+				},
+			},
+			expectedCapabilities: map[string]capExpectation{
+				"component:view": {
+					allowedCount: 2,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme/project/p1": {`resource.environment == "prod"`},
+						"ns/acme":            nil,
+					},
+				},
+				"project:view": {
+					allowedCount: 2,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme/project/p1": nil,
+						"ns/acme":            nil,
+					},
+				},
+			},
+		},
+		{
+			name: "unconditional binding after conditional wins — conditional expressions discarded",
+			policies: []policyInfo{
+				{
+					resourcePath:  "ns/acme",
+					roleName:      "viewer",
+					roleNamespace: "*",
+					effect:        "allow",
+					conditions: mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+						{Actions: []string{"component:view"}, Expression: `resource.environment == "prod"`},
+					}),
+				},
+				// Second binding for same role/path is unconditional — should win.
+				{
+					resourcePath:  "ns/acme",
+					roleName:      "viewer",
+					roleNamespace: "*",
+					effect:        "allow",
+					conditions:    "{}",
+				},
+			},
+			expectedCapabilities: map[string]capExpectation{
+				"component:view": {
+					allowedCount: 1,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme": nil,
+					},
+				},
+				"project:view": {
+					allowedCount: 1,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme": nil,
+					},
+				},
+			},
+		},
+		{
+			name: "conditional binding after unconditional is ignored — unconditional wins",
+			policies: []policyInfo{
+				// Unconditional binding processed first.
+				{
+					resourcePath:  "ns/acme",
+					roleName:      "viewer",
+					roleNamespace: "*",
+					effect:        "allow",
+					conditions:    "{}",
+				},
+				// Conditional binding for same role/path arrives later — must be ignored.
+				{
+					resourcePath:  "ns/acme",
+					roleName:      "viewer",
+					roleNamespace: "*",
+					effect:        "allow",
+					conditions: mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+						{Actions: []string{"component:view"}, Expression: `resource.environment == "prod"`},
+					}),
+				},
+			},
+			expectedCapabilities: map[string]capExpectation{
+				"component:view": {
+					allowedCount: 1,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme": nil,
+					},
+				},
+				"project:view": {
+					allowedCount: 1,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme": nil,
+					},
+				},
+			},
+		},
+		{
+			name: "multiple conditions on same action are OR'd into expressions slice",
+			policies: []policyInfo{
+				{
+					resourcePath:  "ns/acme",
+					roleName:      "viewer",
+					roleNamespace: "*",
+					effect:        "allow",
+					conditions: mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+						{Actions: []string{"component:view"}, Expression: `resource.environment == "prod"`},
+						{Actions: []string{"component:view"}, Expression: `resource.environment == "staging"`},
+					}),
+				},
+			},
+			expectedCapabilities: map[string]capExpectation{
+				"component:view": {
+					allowedCount: 1,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme": {`resource.environment == "prod"`, `resource.environment == "staging"`},
+					},
+				},
+				// viewer also grants project:view with no condition — unconditional
+				"project:view": {
+					allowedCount: 1,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme": nil,
+					},
+				},
 			},
 		},
 	}
@@ -1086,30 +1284,33 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			capabilities, err := enforcer.buildCapabilitiesFromPolicies(tt.policies, actionIdx)
-			if err != nil {
-				t.Fatalf("buildCapabilitiesFromPolicies() unexpected error = %v", err)
-			}
-
-			if len(capabilities) != len(tt.expectedCapabilities) {
-				t.Errorf("buildCapabilitiesFromPolicies() returned %d capabilities, want %d",
-					len(capabilities), len(tt.expectedCapabilities))
-			}
+			require.NoError(t, err)
+			require.Len(t, capabilities, len(tt.expectedCapabilities))
 
 			for action, expected := range tt.expectedCapabilities {
 				cap, ok := capabilities[action]
-				if !ok {
-					t.Errorf("action %q not found in capabilities", action)
-					continue
-				}
+				require.True(t, ok, "action %q not found in capabilities", action)
 
-				if len(cap.Allowed) != expected.allowedCount {
-					t.Errorf("action %q: got %d allowed resources, want %d",
-						action, len(cap.Allowed), expected.allowedCount)
-				}
+				require.Len(t, cap.Allowed, expected.allowedCount,
+					"action %q: allowed count mismatch", action)
+				require.Len(t, cap.Denied, expected.deniedCount,
+					"action %q: denied count mismatch", action)
 
-				if len(cap.Denied) != expected.deniedCount {
-					t.Errorf("action %q: got %d denied resources, want %d",
-						action, len(cap.Denied), expected.deniedCount)
+				// Check constraints for specific resource paths when specified.
+				for _, res := range cap.Allowed {
+					wantExprs, specified := expected.constraintsByPath[res.Path]
+					if !specified {
+						continue
+					}
+					if wantExprs == nil {
+						require.Nil(t, res.Constraints,
+							"action %q path %q: expected nil Constraints", action, res.Path)
+					} else {
+						require.NotNil(t, res.Constraints,
+							"action %q path %q: expected non-nil Constraints", action, res.Path)
+						require.ElementsMatch(t, wantExprs, res.Constraints.Expressions,
+							"action %q path %q: expressions mismatch", action, res.Path)
+					}
 				}
 			}
 		})
@@ -1118,34 +1319,29 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 
 // TestCasbinEnforcer_GetSubjectProfile tests the GetSubjectProfile method
 func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
-	enforcer := setupTestEnforcer(t)
 	ctx := context.Background()
 
-	syncGroupingPolicies(t, enforcer, [][]string{
-		// Cluster-scoped roles
+	type expectedCapability struct {
+		action                  string
+		allowedCount            int
+		deniedCount             int
+		constraintsByPath       map[string][]string
+		deniedConstraintsByPath map[string][]string
+	}
+
+	baseGroupingPolicies := [][]string{
 		{"viewer", "component:view", "*"},
 		{"viewer", "project:view", "*"},
 		{"editor", "component:view", "*"},
 		{"editor", "component:create", "*"},
 		{"editor", "component:update", "*"},
-		// Namespace-scoped role
 		{"editor", "project:delete", "acme"},
-	})
-
-	syncPolicies(t, enforcer, [][]string{
-		{"groups:dev-group", "ns/acme", "editor", "*", "allow", "{}", "dev-editor-binding-1"},
-		{"groups:dev-group", "ns/acme/project/p1", "viewer", "*", "allow", "{}", "dev-viewer-p1"},
-		{"groups:dev-group", "ns/acme/project/secret", "editor", "*", "deny", "{}", "dev-editor-deny"},
-		{"groups:dev-group", "ns/acme", "editor", "acme", "allow", "{}", "dev-editor-binding-2"},
-	})
-	type expectedCapability struct {
-		action       string
-		allowedCount int
-		deniedCount  int
 	}
 
 	tests := []struct {
 		name                 string
+		groupingPolicies     [][]string
+		policies             [][]string
 		request              *authzcore.ProfileRequest
 		wantErr              bool
 		wantEmptyCapability  bool
@@ -1153,16 +1349,20 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 		expectedCapabilities []expectedCapability
 	}{
 		{
-			name: "get profile with namespace scope",
+			// Verifies capabilities are returned for a namespace-scoped request with both allow and deny bindings.
+			name:             "get profile with namespace scope",
+			groupingPolicies: baseGroupingPolicies,
+			policies: [][]string{
+				{"groups:dev-group", "ns/acme", "editor", "*", "allow", "{}", "dev-editor-allow"},
+				{"groups:dev-group", "ns/acme/project/secret", "editor", "*", "deny", "{}", "dev-editor-deny"},
+			},
 			request: &authzcore.ProfileRequest{
 				SubjectContext: &authzcore.SubjectContext{
 					Type:              user,
 					EntitlementClaim:  "groups",
 					EntitlementValues: []string{"dev-group"},
 				},
-				Scope: authzcore.ResourceHierarchy{
-					Namespace: "acme",
-				},
+				Scope: authzcore.ResourceHierarchy{Namespace: "acme"},
 			},
 			wantErr: false,
 			expectedUser: authzcore.SubjectContext{
@@ -1171,25 +1371,27 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 				EntitlementValues: []string{"dev-group"},
 			},
 			expectedCapabilities: []expectedCapability{
-				{action: "component:view", allowedCount: 2, deniedCount: 1},
-				{action: "project:view", allowedCount: 1, deniedCount: 0},
+				{action: "component:view", allowedCount: 1, deniedCount: 1},
 				{action: "component:create", allowedCount: 1, deniedCount: 1},
 				{action: "component:update", allowedCount: 1, deniedCount: 1},
-				{action: "project:delete", allowedCount: 1, deniedCount: 0},
 			},
 		},
 		{
-			name: "get profile for scope within a namespace - no deny policies",
+			// Verifies that deny bindings outside the requested project scope are excluded.
+			name:             "get profile scoped to project excludes deny outside scope",
+			groupingPolicies: baseGroupingPolicies,
+			policies: [][]string{
+				{"groups:dev-group", "ns/acme", "editor", "*", "allow", "{}", "dev-editor-allow"},
+				{"groups:dev-group", "ns/acme/project/p1", "viewer", "*", "allow", "{}", "dev-viewer-p1"},
+				{"groups:dev-group", "ns/acme/project/other", "editor", "*", "deny", "{}", "dev-editor-deny-other"},
+			},
 			request: &authzcore.ProfileRequest{
 				SubjectContext: &authzcore.SubjectContext{
 					Type:              user,
 					EntitlementClaim:  "groups",
 					EntitlementValues: []string{"dev-group"},
 				},
-				Scope: authzcore.ResourceHierarchy{
-					Namespace: "acme",
-					Project:   "p1",
-				},
+				Scope: authzcore.ResourceHierarchy{Namespace: "acme", Project: "p1"},
 			},
 			wantErr: false,
 			expectedUser: authzcore.SubjectContext{
@@ -1202,20 +1404,20 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 				{action: "project:view", allowedCount: 1, deniedCount: 0},
 				{action: "component:create", allowedCount: 1, deniedCount: 0},
 				{action: "component:update", allowedCount: 1, deniedCount: 0},
-				{action: "project:delete", allowedCount: 1, deniedCount: 0},
 			},
 		},
 		{
-			name: "get profile for user with no permissions",
+			// Verifies that a subject with no matching bindings returns empty capabilities.
+			name:             "get profile for user with no permissions",
+			groupingPolicies: baseGroupingPolicies,
+			policies:         [][]string{},
 			request: &authzcore.ProfileRequest{
 				SubjectContext: &authzcore.SubjectContext{
 					Type:              user,
 					EntitlementClaim:  "groups",
 					EntitlementValues: []string{"no-permissions-group"},
 				},
-				Scope: authzcore.ResourceHierarchy{
-					Namespace: "acme",
-				},
+				Scope: authzcore.ResourceHierarchy{Namespace: "acme"},
 			},
 			wantErr:             false,
 			wantEmptyCapability: true,
@@ -1225,10 +1427,100 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 				EntitlementValues: []string{"no-permissions-group"},
 			},
 		},
+		{
+			name:             "conditional allow produces Constraints on matching resource, unconditional on others",
+			groupingPolicies: baseGroupingPolicies,
+			policies: [][]string{
+				{"groups:dev-group", "ns/acme", "viewer", "*", "allow", "{}", "dev-viewer-allow"},
+				{"groups:dev-group", "ns/acme/project/p1", "viewer", "*", "allow",
+					mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+						{Actions: []string{"component:view"}, Expression: `resource.environment == "prod"`},
+					}), "dev-viewer-p1-cond"},
+			},
+			request: &authzcore.ProfileRequest{
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              user,
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"dev-group"},
+				},
+				Scope: authzcore.ResourceHierarchy{Namespace: "acme"},
+			},
+			wantErr: false,
+			expectedUser: authzcore.SubjectContext{
+				Type:              user,
+				EntitlementClaim:  "groups",
+				EntitlementValues: []string{"dev-group"},
+			},
+			expectedCapabilities: []expectedCapability{
+				{
+					action:       "component:view",
+					allowedCount: 2,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme":            nil,
+						"ns/acme/project/p1": {`resource.environment == "prod"`},
+					},
+				},
+				{
+					action:       "project:view",
+					allowedCount: 2,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme":            nil,
+						"ns/acme/project/p1": nil,
+					},
+				},
+			},
+		},
+		{
+			name:             "conditional deny produces Constraints on denied resource, unconditional deny has nil Constraints",
+			groupingPolicies: baseGroupingPolicies,
+			policies: [][]string{
+				{"groups:dev-group", "ns/acme", "editor", "*", "allow", "{}", "dev-editor-allow"},
+				{"groups:dev-group", "ns/acme/project/secret", "editor", "*", "deny", "{}", "dev-editor-deny"},
+				{"groups:dev-group", "ns/acme/project/restricted", "editor", "*", "deny",
+					mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+						{Actions: []string{"component:view"}, Expression: `resource.environment == "staging"`},
+					}), "dev-editor-cond-deny"},
+			},
+			request: &authzcore.ProfileRequest{
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              user,
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"dev-group"},
+				},
+				Scope: authzcore.ResourceHierarchy{Namespace: "acme"},
+			},
+			wantErr: false,
+			expectedUser: authzcore.SubjectContext{
+				Type:              user,
+				EntitlementClaim:  "groups",
+				EntitlementValues: []string{"dev-group"},
+			},
+			expectedCapabilities: []expectedCapability{
+				{
+					action:       "component:view",
+					allowedCount: 1,
+					deniedCount:  2,
+					constraintsByPath: map[string][]string{
+						"ns/acme": nil,
+					},
+					deniedConstraintsByPath: map[string][]string{
+						"ns/acme/project/secret":     nil,
+						"ns/acme/project/restricted": {`resource.environment == "staging"`},
+					},
+				},
+				{action: "component:create", allowedCount: 1, deniedCount: 2},
+				{action: "component:update", allowedCount: 1, deniedCount: 2},
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			enforcer := setupTestEnforcer(t)
+			syncGroupingPolicies(t, enforcer, tt.groupingPolicies)
+			syncPolicies(t, enforcer, tt.policies)
 			resp, err := enforcer.GetSubjectProfile(ctx, tt.request)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetSubjectProfile() error = %v, wantErr %v", err, tt.wantErr)
@@ -1287,6 +1579,48 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 
 				if len(cap.Denied) != exp.deniedCount {
 					t.Errorf("action %q: expected %d denied resources, got %d", exp.action, exp.deniedCount, len(cap.Denied))
+				}
+
+				// Check Constraints per resource path when specified.
+				if len(exp.constraintsByPath) > 0 {
+					byPath := make(map[string]*authzcore.CapabilityResource, len(cap.Allowed))
+					for _, r := range cap.Allowed {
+						byPath[r.Path] = r
+					}
+					for path, wantExprs := range exp.constraintsByPath {
+						res, found := byPath[path]
+						require.True(t, found, "action %q: expected allowed resource at path %q", exp.action, path)
+						if wantExprs == nil {
+							require.Nil(t, res.Constraints,
+								"action %q path %q: expected nil Constraints (unconditional)", exp.action, path)
+						} else {
+							require.NotNil(t, res.Constraints,
+								"action %q path %q: expected non-nil Constraints", exp.action, path)
+							require.ElementsMatch(t, wantExprs, res.Constraints.Expressions,
+								"action %q path %q: expressions mismatch", exp.action, path)
+						}
+					}
+				}
+
+				// Check Constraints per denied resource path when specified.
+				if len(exp.deniedConstraintsByPath) > 0 {
+					byPath := make(map[string]*authzcore.CapabilityResource, len(cap.Denied))
+					for _, r := range cap.Denied {
+						byPath[r.Path] = r
+					}
+					for path, wantExprs := range exp.deniedConstraintsByPath {
+						res, found := byPath[path]
+						require.True(t, found, "action %q: expected denied resource at path %q", exp.action, path)
+						if wantExprs == nil {
+							require.Nil(t, res.Constraints,
+								"action %q path %q: expected nil Constraints (unconditional deny)", exp.action, path)
+						} else {
+							require.NotNil(t, res.Constraints,
+								"action %q path %q: expected non-nil Constraints", exp.action, path)
+							require.ElementsMatch(t, wantExprs, res.Constraints.Expressions,
+								"action %q path %q: expressions mismatch", exp.action, path)
+						}
+					}
 				}
 			}
 		})
@@ -1397,4 +1731,240 @@ func TestCasbinEnforcer_Evaluate_ScopedClusterBinding(t *testing.T) {
 			}
 		})
 	}
+}
+
+// =============================================================================
+// enforcer.go coverage
+// =============================================================================
+
+func TestNewEnforcer_NilClient(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	_, err := NewEnforcer(context.Background(), CasbinConfig{K8sClient: nil}, logger)
+	require.Error(t, err, "NewEnforcer() with nil K8sClient should return error")
+}
+
+func TestNewEnforcer_WithCache(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ce := setupTestEnforcer(t) // reuse the fake client from the shared helper
+	enforcer, err := NewEnforcer(context.Background(), CasbinConfig{
+		K8sClient:    ce.k8sClient,
+		CacheEnabled: true,
+		CacheTTL:     time.Minute,
+	}, logger)
+	require.NoError(t, err, "NewEnforcer() with cache error")
+	require.True(t, enforcer.enableCache, "NewEnforcer() with CacheEnabled=true should set enableCache=true")
+	require.Equal(t, int(time.Minute), enforcer.cacheTTL, "NewEnforcer() cacheTTL mismatch")
+}
+
+func TestNewEnforcer_WithCacheDefaultTTL(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ce := setupTestEnforcer(t)
+	// CacheTTL=0 should use the default (5m)
+	enforcer, err := NewEnforcer(context.Background(), CasbinConfig{
+		K8sClient:    ce.k8sClient,
+		CacheEnabled: true,
+		CacheTTL:     0,
+	}, logger)
+	require.NoError(t, err, "NewEnforcer() with zero TTL error")
+	require.True(t, enforcer.enableCache, "NewEnforcer() with CacheEnabled=true should set enableCache=true")
+	require.Equal(t, int(5*time.Minute), enforcer.cacheTTL, "NewEnforcer() cacheTTL should use 5m default")
+}
+
+func TestCasbinEnforcer_GetEnforcer(t *testing.T) {
+	ce := setupTestEnforcer(t)
+	e := ce.GetEnforcer()
+	require.NotNil(t, e, "GetEnforcer() returned nil")
+}
+
+// =============================================================================
+// pdp.go coverage — validation errors, context cancellation, resource ID in reason
+// =============================================================================
+
+func TestCasbinEnforcer_Evaluate_NilRequest(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	_, err := enforcer.Evaluate(context.Background(), nil)
+	require.Error(t, err, "Evaluate(nil) should return error")
+}
+
+func TestCasbinEnforcer_BatchEvaluate_NilRequest(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	_, err := enforcer.BatchEvaluate(context.Background(), nil)
+	require.Error(t, err, "BatchEvaluate(nil) should return error")
+}
+
+func TestCasbinEnforcer_BatchEvaluate_ContextCancelled(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+
+	// Pre-seed a policy so the first request succeeds
+	syncGroupingPolicies(t, enforcer, [][]string{
+		{"viewer", "component:view", "*"},
+	})
+	syncPolicies(t, enforcer, [][]string{
+		{"groups:devs", "*", "viewer", "*", "allow", "{}", "binding-ctx"},
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	req := &authzcore.BatchEvaluateRequest{
+		Requests: []authzcore.EvaluateRequest{
+			{
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              "user",
+					EntitlementClaim:  "groups",
+					EntitlementValues: []string{"devs"},
+				},
+				Resource: authzcore.Resource{Type: "component"},
+				Action:   "component:view",
+			},
+		},
+	}
+
+	_, err := enforcer.BatchEvaluate(ctx, req)
+	require.Error(t, err, "BatchEvaluate with cancelled context should return error")
+}
+
+func TestCasbinEnforcer_GetSubjectProfile_MissingSubjectContext(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	// Pass a non-nil request with nil SubjectContext; validateProfileRequest will return an error.
+	_, err := enforcer.GetSubjectProfile(context.Background(), &authzcore.ProfileRequest{
+		SubjectContext: nil,
+	})
+	require.Error(t, err, "GetSubjectProfile with nil SubjectContext should return error")
+}
+
+func TestCasbinEnforcer_Check_NilSubjectContext(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	// Call check directly to exercise the nil subjectCtx guard
+	decision, err := enforcer.check(&authzcore.EvaluateRequest{
+		SubjectContext: nil,
+		Resource:       authzcore.Resource{Type: "component"},
+		Action:         "component:view",
+	})
+	require.Error(t, err, "check with nil SubjectContext should return error")
+	require.NotNil(t, decision, "check with nil SubjectContext should return a decision")
+	require.False(t, decision.Decision, "check with nil SubjectContext should return deny decision")
+}
+
+func TestCasbinEnforcer_FilterPolicies_MalformedPolicy(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+
+	subjectCtx := &authzcore.SubjectContext{
+		Type:              "user",
+		EntitlementClaim:  "groups",
+		EntitlementValues: []string{"devs"},
+	}
+
+	// Seed a valid 7-field policy and a malformed 3-field policy via the raw enforcer
+	_, _ = enforcer.enforcer.AddPolicy("groups:devs", "ns/acme", "viewer", "acme", "allow", "{}", "b1")
+	// Add a malformed policy (only 3 fields) — filterPoliciesBySubjectAndScope must skip it
+	_, _ = enforcer.enforcer.AddPolicy("groups:devs", "ns/acme", "bad")
+
+	profile, err := enforcer.GetSubjectProfile(context.Background(), &authzcore.ProfileRequest{
+		SubjectContext: subjectCtx,
+		Scope:          authzcore.ResourceHierarchy{Namespace: "acme"},
+	})
+	// The malformed policy must be skipped silently (logged as warning); no error expected
+	require.NoError(t, err, "GetSubjectProfile with malformed policy returned unexpected error")
+	require.NotNil(t, profile, "GetSubjectProfile returned nil profile")
+	// The malformed tuple has roleName "bad"; since it is skipped, no capability
+	// derived from "bad" should appear — capabilities may be empty or contain only
+	// entries from the valid policy (which itself has no grouping rules seeded here).
+	for action, cap := range profile.Capabilities {
+		for _, allowed := range cap.Allowed {
+			require.NotEqual(t, "bad", allowed.Path, "capability for action %s contains unexpected 'bad' path from malformed policy", action)
+		}
+	}
+}
+
+func TestCasbinEnforcer_Check_WithResourceID(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+
+	// Seed policies: viewer role grants component:view, bound to groups:devs on ns/acme
+	syncGroupingPolicies(t, enforcer, [][]string{
+		{"viewer", "component:view", "*"},
+	})
+	syncPolicies(t, enforcer, [][]string{
+		{"groups:devs", "ns/acme", "viewer", "*", "allow", "{}", "binding-rid"},
+	})
+
+	// Evaluate with a non-empty Resource.ID to exercise the resourceInfo branch
+	decision, err := enforcer.Evaluate(context.Background(), &authzcore.EvaluateRequest{
+		SubjectContext: &authzcore.SubjectContext{
+			Type:              "user",
+			EntitlementClaim:  "groups",
+			EntitlementValues: []string{"devs"},
+		},
+		Resource: authzcore.Resource{
+			Type: "component",
+			ID:   "comp-123", // non-empty ID
+			Hierarchy: authzcore.ResourceHierarchy{
+				Namespace: "acme",
+			},
+		},
+		Action: "component:view",
+	})
+	require.NoError(t, err, "Evaluate() error")
+	require.True(t, decision.Decision, "Evaluate() expected allow, got deny")
+	require.NotNil(t, decision.Context, "Evaluate() expected non-nil context")
+	require.NotEmpty(t, decision.Context.Reason, "Evaluate() expected non-empty reason")
+}
+
+func TestCasbinEnforcer_BatchEvaluate_CheckError(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	req := &authzcore.BatchEvaluateRequest{
+		Requests: []authzcore.EvaluateRequest{
+			{
+				SubjectContext: &authzcore.SubjectContext{
+					Type:              "user",
+					EntitlementClaim:  "", // empty claim → formatSubject error in check()
+					EntitlementValues: []string{"devs"},
+				},
+				Resource: authzcore.Resource{Type: "component"},
+				Action:   "component:view",
+			},
+		},
+	}
+	_, err := enforcer.BatchEvaluate(context.Background(), req)
+	require.Error(t, err, "BatchEvaluate with empty EntitlementClaim should return error")
+}
+
+func TestCasbinEnforcer_GetSubjectProfile_FormatSubjectError(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	// Empty EntitlementClaim causes formatSubject to error inside filterPoliciesBySubjectAndScope
+	_, err := enforcer.GetSubjectProfile(context.Background(), &authzcore.ProfileRequest{
+		SubjectContext: &authzcore.SubjectContext{
+			Type:              "user",
+			EntitlementClaim:  "", // empty claim
+			EntitlementValues: []string{"devs"},
+		},
+		Scope: authzcore.ResourceHierarchy{Namespace: "acme"},
+	})
+	require.Error(t, err, "GetSubjectProfile with empty EntitlementClaim should return error")
+}
+
+func TestCasbinEnforcer_GetSubjectProfile_OutOfScopePolicy(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+
+	// Seed a role and a policy for "ns/other" — unrelated to the queried scope "ns/acme"
+	syncGroupingPolicies(t, enforcer, [][]string{
+		{"viewer", "component:view", "*"},
+	})
+	syncPolicies(t, enforcer, [][]string{
+		// Policy for "ns/other" — completely outside scope "ns/acme"
+		{"groups:devs", "ns/other", "viewer", "*", "allow", "{}", "oos-binding"},
+	})
+
+	result, err := enforcer.GetSubjectProfile(context.Background(), &authzcore.ProfileRequest{
+		SubjectContext: &authzcore.SubjectContext{
+			Type:              "user",
+			EntitlementClaim:  "groups",
+			EntitlementValues: []string{"devs"},
+		},
+		Scope: authzcore.ResourceHierarchy{Namespace: "acme"}, // "ns/acme" — out-of-scope policy is skipped
+	})
+	require.NoError(t, err, "GetSubjectProfile out-of-scope error")
+	require.NotNil(t, result, "GetSubjectProfile returned nil result")
+	// The out-of-scope policy (ns/other) must not appear in capabilities for scope ns/acme
+	require.Empty(t, result.Capabilities, "expected no capabilities for out-of-scope policy")
 }

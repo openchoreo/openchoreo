@@ -29,6 +29,76 @@ func cwpReconcilerWithGateway(gwClient *gw.Client) *clusterworkflowplane.Reconci
 	}
 }
 
+var _ = Describe("ClusterWorkflowPlane Controller — gateway create/delete paths", func() {
+
+	Describe("Create reconcile path", func() {
+		const cwpName = "cwp-gw-create"
+		nn := types.NamespacedName{Name: cwpName}
+
+		BeforeEach(func() {
+			Expect(k8sClient.Create(ctx, newClusterWorkflowPlaneWithFinalizer(cwpName))).To(Succeed())
+		})
+		AfterEach(func() { forceDeleteCWP(ctx, cwpName) })
+
+		It("notifies gateway exactly once and skips status poll to avoid HA flapping", func() {
+			gwClient, calls, shutdown := testgateway.StartFakeGateway(http.StatusOK, &gw.PlaneConnectionStatus{
+				Connected: true, ConnectedAgents: 2,
+			})
+			defer shutdown()
+
+			result, err := cwpReconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(*calls).To(Equal(1))
+
+			// Status poll skipped to avoid HA flapping → AgentConnection should still be nil.
+			fresh := &openchoreov1alpha1.ClusterWorkflowPlane{}
+			Expect(k8sClient.Get(ctx, nn, fresh)).To(Succeed())
+			Expect(fresh.Status.AgentConnection).To(BeNil())
+		})
+
+		It("returns error on transient gateway failure (5xx)", func() {
+			gwClient, _, shutdown := testgateway.StartFakeGateway(http.StatusServiceUnavailable, nil)
+			defer shutdown()
+
+			_, err := cwpReconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("swallows permanent gateway failure (4xx) and returns RequeueAfter", func() {
+			gwClient, _, shutdown := testgateway.StartFakeGateway(http.StatusBadRequest, nil)
+			defer shutdown()
+
+			result, err := cwpReconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+		})
+	})
+
+	Describe("Finalization path", func() {
+		const cwpName = "cwp-gw-finalize"
+		nn := types.NamespacedName{Name: cwpName}
+
+		BeforeEach(func() {
+			Expect(k8sClient.Create(ctx, newClusterWorkflowPlaneWithFinalizer(cwpName))).To(Succeed())
+		})
+		AfterEach(func() { forceDeleteCWP(ctx, cwpName) })
+
+		It("notifies gateway on deletion", func() {
+			cwp := &openchoreov1alpha1.ClusterWorkflowPlane{}
+			Expect(k8sClient.Get(ctx, nn, cwp)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, cwp)).To(Succeed())
+
+			gwClient, calls, shutdown := testgateway.StartFakeGateway(http.StatusOK, nil)
+			defer shutdown()
+
+			_, err := cwpReconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(*calls).To(Equal(1))
+		})
+	})
+})
+
 var _ = Describe("ClusterWorkflowPlane Controller — gateway paths", func() {
 
 	// ClusterWorkflowPlane intentionally omits the specChanged re-notification that

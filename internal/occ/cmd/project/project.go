@@ -13,30 +13,24 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by Project operations.
-type Client interface {
-	ListProjects(ctx context.Context, namespaceName string, params *gen.ListProjectsParams) (*gen.ProjectList, error)
-	GetProject(ctx context.Context, namespaceName string, projectName string) (*gen.Project, error)
-	DeleteProject(ctx context.Context, namespaceName string, projectName string) error
-}
-
 // Project implements project operations
 type Project struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new project implementation
-func New(client Client) *Project {
-	return &Project{client: client}
+func New(c client.Interface) *Project {
+	return &Project{client: c}
 }
 
 // List lists all projects in a namespace
 func (l *Project) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceProject, params); err != nil {
+	if err := cmdutil.RequireFields("list", "project", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -67,7 +61,7 @@ func (l *Project) List(params ListParams) error {
 
 // Get retrieves a single project and outputs it as YAML
 func (l *Project) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceProject, params); err != nil {
+	if err := cmdutil.RequireFields("get", "project", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -89,7 +83,7 @@ func (l *Project) Get(params GetParams) error {
 
 // Delete deletes a single project
 func (l *Project) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceProject, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "project", map[string]string{"namespace": params.Namespace, "name": params.ProjectName}); err != nil {
 		return err
 	}
 

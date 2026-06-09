@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -142,6 +143,7 @@ var _ = Describe("ComponentType Webhook", func() {
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("failed to parse parameters schema"))
+			Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected NewInvalid wrap so kube returns 422")
 		})
 
 		It("should reject invalid JSON in spec.parameters.openAPIV3Schema", func() {
@@ -811,6 +813,52 @@ var _ = Describe("ComponentType Webhook", func() {
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
 		})
+
+		It("should reject a validation rule referencing a parameters field absent from the schema", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.unknownField > 0}", Message: "uses an undeclared field"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred(),
+				"schema-aware type checking should reject CEL referencing a field not in the parameters schema")
+		})
+
+		It("should reject a validation rule referencing environmentConfigs when no environmentConfigs schema is declared", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${environmentConfigs.maxReplicas >= parameters.replicas}", Message: "envConfigs ref without a schema"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred(),
+				"CEL referencing environmentConfigs should be rejected when no environmentConfigs schema is declared")
+		})
+
+		It("should reject the entire validation slice when any single rule is malformed", func() {
+			obj.Spec.Parameters = &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			obj.Spec.Validations = []openchoreodevv1alpha1.ValidationRule{
+				{Rule: "${parameters.replicas > 0}", Message: "valid rule"},
+				{Rule: "${parameters.replicas +}", Message: "malformed second rule"},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred(),
+				"a malformed rule anywhere in spec.validations should reject the whole object")
+		})
 	})
 
 	Context("OpenAPIV3Schema Support", func() {
@@ -1182,6 +1230,104 @@ var _ = Describe("ComponentType Webhook", func() {
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("allowedWorkflows validation", func() {
+		BeforeEach(func() {
+			obj.Spec.WorkloadType = workloadTypeDeployment
+			obj.Spec.Resources = []openchoreodevv1alpha1.ResourceTemplate{
+				{
+					ID: workloadTypeDeployment,
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"test"}}`),
+					},
+				},
+			}
+		})
+
+		It("should admit valid allowedWorkflows", func() {
+			obj.Spec.AllowedWorkflows = []openchoreodevv1alpha1.WorkflowRef{
+				{Kind: openchoreodevv1alpha1.WorkflowRefKindWorkflow, Name: "build"},
+				{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "deploy"},
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject empty workflow name in allowedWorkflows", func() {
+			obj.Spec.AllowedWorkflows = []openchoreodevv1alpha1.WorkflowRef{
+				{Kind: openchoreodevv1alpha1.WorkflowRefKindWorkflow, Name: ""},
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("must not be empty"))
+		})
+
+		It("should reject duplicate workflow by kind:name", func() {
+			obj.Spec.AllowedWorkflows = []openchoreodevv1alpha1.WorkflowRef{
+				{Kind: openchoreodevv1alpha1.WorkflowRefKindWorkflow, Name: "build"},
+				{Kind: openchoreodevv1alpha1.WorkflowRefKindWorkflow, Name: "build"},
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Duplicate"))
+		})
+
+		It("should allow same name with different kinds in allowedWorkflows", func() {
+			obj.Spec.AllowedWorkflows = []openchoreodevv1alpha1.WorkflowRef{
+				{Kind: openchoreodevv1alpha1.WorkflowRefKindWorkflow, Name: "build"},
+				{Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow, Name: "build"},
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should default empty Kind to Workflow when checking duplicates", func() {
+			obj.Spec.AllowedWorkflows = []openchoreodevv1alpha1.WorkflowRef{
+				{Name: "build"},
+				{Kind: openchoreodevv1alpha1.WorkflowRefKindWorkflow, Name: "build"},
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Duplicate"))
+		})
+	})
+
+	Context("ValidateDelete", func() {
+		It("should admit deletion of a valid ComponentType", func() {
+			_, err := validator.ValidateDelete(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should return an error when given a non-ComponentType object", func() {
+			wrongObj := &openchoreodevv1alpha1.ClusterComponentType{}
+			_, err := validator.ValidateDelete(ctx, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ComponentType object"))
+		})
+	})
+
+	Context("ValidateCreate and ValidateUpdate wrong type errors", func() {
+		It("should return an error when ValidateCreate receives a non-ComponentType object", func() {
+			wrongObj := &openchoreodevv1alpha1.ClusterComponentType{}
+			_, err := validator.ValidateCreate(ctx, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ComponentType object"))
+		})
+
+		It("should return an error when ValidateUpdate oldObj is not a ComponentType", func() {
+			wrongObj := &openchoreodevv1alpha1.ClusterComponentType{}
+			_, err := validator.ValidateUpdate(ctx, wrongObj, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ComponentType object for the oldObj"))
+		})
+
+		It("should return an error when ValidateUpdate newObj is not a ComponentType", func() {
+			wrongObj := &openchoreodevv1alpha1.ClusterComponentType{}
+			_, err := validator.ValidateUpdate(ctx, oldObj, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a ComponentType object for the newObj"))
 		})
 	})
 })

@@ -14,6 +14,14 @@
           "title": "affinity",
           "type": "object"
         },
+        "appConfig": {
+          "additionalProperties": true,
+          "default": {},
+          "description": "Arbitrary Backstage app-config YAML injected as an additional config overlay. When non-empty the chart renders a ConfigMap named \u003crelease\u003e-backstage-extra-config, mounts it at /app/app-config.extra.yaml, and appends --config app-config.extra.yaml to the startup args automatically. This is the preferred mechanism for operator-specific Backstage configuration (auth, integrations, etc.) without requiring a custom container image. WARNING: Do not store secrets here — this value is rendered into a ConfigMap (plaintext). Use Kubernetes Secrets or existing Secret refs (e.g. via extraEnv secretKeyRef) instead.\n",
+          "required": [],
+          "title": "appConfig",
+          "type": "object"
+        },
         "auth": {
           "additionalProperties": false,
           "description": "OAuth/OIDC authentication configuration",
@@ -43,6 +51,18 @@
               "default": "",
               "description": "Space-separated scopes for the OpenChoreo service token authenticator (e.g. 'openid' or 'api://client-id/.default openid')",
               "title": "scope",
+              "type": "string"
+            },
+            "serviceClientId": {
+              "default": "",
+              "description": "OAuth client ID for background service tasks (Catalog Provider). Uses a dedicated client independent from the user sign-in client. Defaults to auth.clientId for backward compatibility.",
+              "title": "serviceClientId",
+              "type": "string"
+            },
+            "serviceClientSecretKey": {
+              "default": "client-secret",
+              "description": "Key within backstage.secretName that holds the service client secret. Defaults to 'client-secret' (same key as the sign-in client) for backward compatibility. Set to a different key (e.g. 'service-client-secret') when using a dedicated service client credential stored separately in the Secret.",
+              "title": "serviceClientSecretKey",
               "type": "string"
             }
           },
@@ -168,6 +188,22 @@
           "description": "Backstage public base URL",
           "title": "baseUrl",
           "type": "string"
+        },
+        "catalogSync": {
+          "additionalProperties": false,
+          "description": "Catalog sync configuration — controls how often the OpenChoreo entity provider runs the periodic full sync as a safety net behind the event-driven path. Lower values converge faster after missed events but cost more CRUD calls; higher values are cheaper but slower to recover. The event-forwarder (when enabled via eventForwarder.enabled) handles real-time delta updates between syncs.",
+          "properties": {
+            "frequency": {
+              "default": 300,
+              "description": "Frequency in seconds between periodic full syncs of the OpenChoreo catalog provider. With the event-forwarder enabled, this acts as a safety net for any events missed; with it disabled, this is the only sync mechanism and you may want a much smaller value (e.g. 60).",
+              "minimum": 1,
+              "title": "frequency",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "catalogSync",
+          "type": "object"
         },
         "containerSecurityContext": {
           "additionalProperties": false,
@@ -360,8 +396,50 @@
         },
         "externalCI": {
           "additionalProperties": false,
-          "description": "External CI platform integrations (Jenkins). GitHub Actions and GitLab support coming soon.",
+          "description": "External CI platform integrations (Jenkins, GitHub Actions). GitLab support coming soon.",
           "properties": {
+            "githubActions": {
+              "additionalProperties": false,
+              "description": "GitHub Actions CI integration configuration. Requires Components to carry the `github.com/project-slug` annotation. The API token must be provided via the Secret referenced by `backstage.secretName` under key `github-actions-token` (a GitHub PAT or GitHub App installation token).",
+              "properties": {
+                "apiBaseUrl": {
+                  "default": "",
+                  "description": "GitHub API base URL. Leave empty for public GitHub (Backstage will derive `https://api.github.com` from the host). For GitHub Enterprise Server, set to `https://\u003chost\u003e/api/v3`.",
+                  "title": "apiBaseUrl",
+                  "type": "string"
+                },
+                "enabled": {
+                  "default": false,
+                  "description": "Enable GitHub Actions integration by injecting environment variables consumed by the Backstage GitHub integration",
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "host": {
+                  "default": "github.com",
+                  "description": "GitHub host. Use `github.com` for public GitHub or the hostname of your GitHub Enterprise Server (e.g., `ghe.example.com`).",
+                  "title": "host",
+                  "type": "string"
+                },
+                "oauth": {
+                  "additionalProperties": false,
+                  "description": "GitHub OAuth App that powers the per-user sign-in the Backstage GitHub Actions card uses to fetch workflow runs. Independent of the backend `github-actions-token` PAT.",
+                  "properties": {
+                    "clientId": {
+                      "default": "",
+                      "description": "GitHub OAuth App Client ID. When set, a `github` auth provider is registered so the GitHub Actions card can sign each user in via GitHub OAuth. The matching client secret must be provided via the Secret referenced by `backstage.secretName` under key `github-oauth-client-secret`. Leave empty to disable per-user GitHub sign-in.",
+                      "title": "clientId",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "title": "oauth",
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "title": "githubActions",
+              "type": "object"
+            },
             "jenkins": {
               "additionalProperties": false,
               "description": "Jenkins CI integration configuration",
@@ -394,6 +472,15 @@
           "title": "externalCI",
           "type": "object"
         },
+        "extraArgs": {
+          "default": [],
+          "description": "Extra arguments appended to the Backstage node startup command after the built-in --config flags. Typically used to add additional --config \u003cfile\u003e arguments for operator-provided app-config overlays.\n",
+          "items": {
+            "type": "string"
+          },
+          "title": "extraArgs",
+          "type": "array"
+        },
         "extraEnv": {
           "description": "Additional environment variables to merge with the default env array. Use this instead of overriding backstage.env to avoid sparse array issues with --set.",
           "items": {
@@ -413,10 +500,53 @@
           "title": "extraEnv",
           "type": "array"
         },
+        "extraVolumeMounts": {
+          "default": [],
+          "description": "Extra volume mounts to add to the Backstage container. Use in conjunction with extraVolumes.\n",
+          "items": {
+            "additionalProperties": true,
+            "required": [],
+            "type": "object"
+          },
+          "title": "extraVolumeMounts",
+          "type": "array"
+        },
+        "extraVolumes": {
+          "default": [],
+          "description": "Extra volumes to add to the Backstage Pod. Follows standard Kubernetes volume spec. Use in conjunction with extraVolumeMounts to mount them into the container.\n",
+          "items": {
+            "additionalProperties": true,
+            "required": [],
+            "type": "object"
+          },
+          "title": "extraVolumes",
+          "type": "array"
+        },
         "features": {
           "additionalProperties": false,
           "description": "Feature flags for enabling/disabling OpenChoreo features in Backstage",
           "properties": {
+            "assistant": {
+              "additionalProperties": false,
+              "description": "Portal Assistant chat assistant configuration. Defaults to off — enable to surface the \"Ask Portal Assistant\" affordance in Backstage and forward chat traffic to the portal-assistant service.",
+              "properties": {
+                "enabled": {
+                  "default": false,
+                  "description": "Enable the Portal Assistant chat drawer + Logs-tab \"Ask Portal Assistant\" affordance. Maps to OPENCHOREO_FEATURES_ASSISTANT_ENABLED in the Backstage container.",
+                  "title": "enabled",
+                  "type": "boolean"
+                },
+                "portalAssistantUrl": {
+                  "default": "",
+                  "description": "Upstream URL the Backstage forwarder posts /chat and /warmup to. Leave empty to default to the in-cluster portal-assistant Service in the release namespace — override when the portal-assistant runs in a different cluster or namespace. Maps to OPENCHOREO_PORTAL_ASSISTANT_URL.",
+                  "title": "portalAssistantUrl",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "assistant",
+              "type": "object"
+            },
             "auth": {
               "additionalProperties": false,
               "description": "Authentication feature flags",
@@ -848,7 +978,7 @@
         },
         "secretName": {
           "default": "",
-          "description": "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db.",
+          "description": "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. Optional keys: github-actions-token (required when externalCI.githubActions.enabled=true), service-client-secret (if backstage.auth.serviceClientSecretKey is set to a different key). When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db.",
           "title": "secretName",
           "type": "string"
         },
@@ -1565,6 +1695,12 @@
                   "description": "Name of the secret containing the CA certificate",
                   "title": "caSecret",
                   "type": "string"
+                },
+                "insecure": {
+                  "default": false,
+                  "description": "Skip TLS verification of the cluster gateway. For development only.",
+                  "title": "insecure",
+                  "type": "boolean"
                 }
               },
               "required": [],
@@ -1930,6 +2066,13 @@
           "title": "podSecurityContext",
           "type": "object"
         },
+        "preStopSleepSeconds": {
+          "default": 10,
+          "description": "Seconds to sleep before SIGTERM during pod shutdown, giving kube-apiserver time to de-register the webhook endpoint; set 0 to disable",
+          "minimum": 0,
+          "title": "preStopSleepSeconds",
+          "type": "integer"
+        },
         "priorityClass": {
           "additionalProperties": false,
           "description": "Priority class configuration for pod scheduling priority",
@@ -2076,6 +2219,46 @@
           "title": "serviceAccount",
           "type": "object"
         },
+        "strategy": {
+          "additionalProperties": false,
+          "description": "Rolling update strategy; maxUnavailable 0 ensures zero-downtime upgrades for the webhook server",
+          "properties": {
+            "rollingUpdate": {
+              "additionalProperties": false,
+              "properties": {
+                "maxSurge": {
+                  "default": 1,
+                  "description": "Maximum extra pods allowed during a rolling update",
+                  "minimum": 0,
+                  "title": "maxSurge",
+                  "type": "integer"
+                },
+                "maxUnavailable": {
+                  "default": 0,
+                  "description": "Maximum pods that can be unavailable during a rolling update",
+                  "minimum": 0,
+                  "title": "maxUnavailable",
+                  "type": "integer"
+                }
+              },
+              "required": [],
+              "title": "rollingUpdate",
+              "type": "object"
+            }
+          },
+          "required": [
+            "rollingUpdate"
+          ],
+          "title": "strategy",
+          "type": "object"
+        },
+        "terminationGracePeriodSeconds": {
+          "default": 30,
+          "description": "Seconds Kubernetes waits before force-killing the pod; must exceed preStopSleepSeconds plus webhook drain time",
+          "minimum": 10,
+          "title": "terminationGracePeriodSeconds",
+          "type": "integer"
+        },
         "tolerations": {
           "default": [],
           "description": "Tolerations for pod scheduling",
@@ -2151,6 +2334,298 @@
       },
       "required": [],
       "title": "controllerManager",
+      "type": "object"
+    },
+    "eventForwarder": {
+      "additionalProperties": false,
+      "description": "Event-forwarder configuration — watches OpenChoreo Kubernetes resources via informers and forwards change-notification webhooks to subscribers (typically Backstage's events plugin) for near-real-time catalog updates.",
+      "properties": {
+        "config": {
+          "additionalProperties": false,
+          "properties": {
+            "logging": {
+              "additionalProperties": false,
+              "properties": {
+                "level": {
+                  "default": "info",
+                  "title": "level",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "level"
+              ],
+              "title": "logging",
+              "type": "object"
+            },
+            "server": {
+              "additionalProperties": false,
+              "properties": {
+                "port": {
+                  "default": 8080,
+                  "title": "port",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "port"
+              ],
+              "title": "server",
+              "type": "object"
+            },
+            "webhooks": {
+              "additionalProperties": false,
+              "properties": {
+                "endpoints": {
+                  "description": "Webhook endpoints that receive resource change notifications.\nDefault targets the in-cluster Backstage Service (same namespace,\ndefault service name \"backstage\" on port 7007). Override for\nexternal consumers, a renamed Backstage Service, or to fan out\nto multiple subscribers.\n\nEach endpoint may define its own optional `retry` block:\n  - url: https://example.com/hook\n    retry:\n      maxAttempts: 3\n      backoffMs: 500\nWhen omitted (the default for the Backstage entry below), the\nforwarder makes a single attempt per event and gives up on\nfailure — Backstage's periodic full sync reconciles missed\nevents. Add `retry` only for endpoints that have no equivalent\nreconciliation mechanism of their own.",
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "retry": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "backoffMs": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "maxAttempts": {
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "maxAttempts",
+                          "backoffMs"
+                        ],
+                        "type": "object"
+                      },
+                      "url": {
+                        "format": "uri",
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "url"
+                    ],
+                    "type": "object"
+                  },
+                  "title": "endpoints",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "webhooks",
+              "type": "object"
+            }
+          },
+          "required": [
+            "server",
+            "webhooks",
+            "logging"
+          ],
+          "title": "config",
+          "type": "object"
+        },
+        "containerSecurityContext": {
+          "additionalProperties": false,
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "default": false,
+              "title": "allowPrivilegeEscalation",
+              "type": "boolean"
+            },
+            "readOnlyRootFilesystem": {
+              "default": true,
+              "title": "readOnlyRootFilesystem",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "readOnlyRootFilesystem",
+            "allowPrivilegeEscalation"
+          ],
+          "title": "containerSecurityContext",
+          "type": "object"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Enable the event-forwarder component. Disabling it stops the event-forwarder pod from being deployed and signals Backstage to skip its event subscriptions, falling back to poll-only catalog sync.",
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "image": {
+          "additionalProperties": false,
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "title": "pullPolicy",
+              "type": "string"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/event-forwarder",
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [
+            "repository",
+            "tag",
+            "pullPolicy"
+          ],
+          "title": "image",
+          "type": "object"
+        },
+        "name": {
+          "default": "event-forwarder",
+          "description": "Name of the event-forwarder Deployment / ServiceAccount / ClusterRole resources",
+          "title": "name",
+          "type": "string"
+        },
+        "podSecurityContext": {
+          "additionalProperties": false,
+          "properties": {
+            "runAsNonRoot": {
+              "default": true,
+              "title": "runAsNonRoot",
+              "type": "boolean"
+            },
+            "runAsUser": {
+              "default": 65532,
+              "title": "runAsUser",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "runAsNonRoot",
+            "runAsUser"
+          ],
+          "title": "podSecurityContext",
+          "type": "object"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "200m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "256Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cpu",
+                "memory"
+              ],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "50m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "64Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cpu",
+                "memory"
+              ],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [
+            "limits",
+            "requests"
+          ],
+          "title": "resources",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": false,
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Annotations to add to the service account",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            },
+            "create": {
+              "default": true,
+              "title": "create",
+              "type": "boolean"
+            },
+            "name": {
+              "default": "",
+              "title": "name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "create",
+            "name"
+          ],
+          "title": "serviceAccount",
+          "type": "object"
+        }
+      },
+      "required": [
+        "image",
+        "config",
+        "serviceAccount",
+        "resources",
+        "podSecurityContext",
+        "containerSecurityContext"
+      ],
+      "title": "eventForwarder",
+      "type": "object"
+    },
+    "features": {
+      "additionalProperties": false,
+      "description": "Feature flags shared across the control plane (API server and Backstage).",
+      "properties": {
+        "secretManagement": {
+          "additionalProperties": false,
+          "description": "Secret management feature. Controls the Secret management API on the API server and the corresponding UI in Backstage.",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable the Secret management API and Backstage UI for managing data-plane secrets.",
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "secretManagement",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "features",
       "type": "object"
     },
     "fullnameOverride": {
@@ -2434,6 +2909,54 @@
           },
           "required": [],
           "title": "autoscaling",
+          "type": "object"
+        },
+        "clusterGateway": {
+          "additionalProperties": false,
+          "description": "Cluster gateway connection settings for agent-based plane communication",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable cluster gateway client integration",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "tls": {
+              "additionalProperties": false,
+              "description": "TLS settings for the cluster gateway connection",
+              "properties": {
+                "caPath": {
+                  "default": "/etc/cluster-gateway/ca.crt",
+                  "description": "Path inside the pod where the cluster gateway CA certificate is mounted",
+                  "title": "caPath",
+                  "type": "string"
+                },
+                "caSecret": {
+                  "default": "cluster-gateway-ca",
+                  "description": "Name of the secret holding the cluster gateway CA certificate",
+                  "title": "caSecret",
+                  "type": "string"
+                },
+                "insecure": {
+                  "default": false,
+                  "description": "Skip TLS verification of the cluster gateway. For development only.",
+                  "title": "insecure",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "tls",
+              "type": "object"
+            },
+            "url": {
+              "default": "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443",
+              "description": "Cluster gateway service URL the API server connects to",
+              "title": "url",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "clusterGateway",
           "type": "object"
         },
         "config": {
@@ -3533,6 +4056,289 @@
       "title": "openchoreoApi",
       "type": "object"
     },
+    "portalAssistant": {
+      "additionalProperties": false,
+      "description": "Optional Portal Assistant chat agent. Disabled by default; enable to opt in.",
+      "properties": {
+        "authConfigConfigMap": {
+          "default": "",
+          "title": "authConfigConfigMap",
+          "type": "string"
+        },
+        "config": {
+          "additionalProperties": false,
+          "properties": {
+            "authzTimeoutSeconds": {
+              "default": 30,
+              "title": "authzTimeoutSeconds",
+              "type": "integer"
+            },
+            "logLevel": {
+              "default": "INFO",
+              "title": "logLevel",
+              "type": "string"
+            },
+            "maxConcurrentChats": {
+              "default": 20,
+              "title": "maxConcurrentChats",
+              "type": "integer"
+            },
+            "observerApiUrl": {
+              "default": "http://observer.openchoreo-observability-plane.svc.cluster.local:8080",
+              "title": "observerApiUrl",
+              "type": "string"
+            },
+            "openchoreoApiUrl": {
+              "default": "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080",
+              "title": "openchoreoApiUrl",
+              "type": "string"
+            },
+            "rcaAgentApiUrl": {
+              "default": "",
+              "title": "rcaAgentApiUrl",
+              "type": "string"
+            },
+            "reasoningEffort": {
+              "default": "low",
+              "description": "OpenAI gpt-5 / o-series reasoning effort. One of \"minimal\" / \"low\" /\n\"medium\" / \"high\"; empty string leaves the model on its default\n(medium for gpt-5-mini). N=5 A/B on 2026-05-15 showed \"low\" cuts\nbuild_failure chat latency from 28 s mean to 12 s mean with no\nquality regression on the env-var-pinpoint grade — same diagnosis\nshape, 2-4x tighter variance. Set empty to use the provider\ndefault; non-reasoning models ignore the value safely.\n",
+              "enum": [
+                "",
+                "minimal",
+                "low",
+                "medium",
+                "high"
+              ],
+              "required": [],
+              "title": "reasoningEffort"
+            },
+            "recursionLimit": {
+              "default": 15,
+              "description": "langgraph recursion_limit — bounds the worst-case per-turn supersteps\nbefore the framework aborts with GraphRecursionError and the\nrecover_with_fallback path returns a tool-less reply. 0 means \"use\nthe per-case defaults in builder.py\" (build_failure / runtime_debug\nboth set to 15 today). N=5 A/B on 2026-05-15 measured: build_failure\ntypically uses 8-9 supersteps with occasional 11+ outliers, so\nsetting this to 10 aborted 40 % of build chats; 15 has 5 supersteps\nof headroom without measurable regression. Set to a higher value\n(e.g. 25-30) only when a future chat shape genuinely needs the\nextra budget.\n",
+              "maximum": 100,
+              "minimum": 0,
+              "title": "recursionLimit",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "openchoreoApiUrl",
+            "observerApiUrl",
+            "rcaAgentApiUrl",
+            "maxConcurrentChats",
+            "authzTimeoutSeconds",
+            "logLevel"
+          ],
+          "title": "config",
+          "type": "object"
+        },
+        "cors": {
+          "additionalProperties": false,
+          "properties": {
+            "allowedOrigins": {
+              "default": [],
+              "description": "CORS allowed origins",
+              "items": {
+                "type": "string"
+              },
+              "title": "allowedOrigins",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "cors",
+          "type": "object"
+        },
+        "enabled": {
+          "default": false,
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "extraEnvs": {
+          "items": {
+            "required": []
+          },
+          "title": "extraEnvs",
+          "type": "array"
+        },
+        "http": {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "default": true,
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hostnames": {
+              "default": [],
+              "description": "HTTPRoute hostnames",
+              "items": {
+                "type": "string"
+              },
+              "title": "hostnames",
+              "type": "array"
+            }
+          },
+          "required": [
+            "enabled"
+          ],
+          "title": "http",
+          "type": "object"
+        },
+        "image": {
+          "additionalProperties": false,
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "title": "pullPolicy",
+              "type": "string"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/portal-assistant",
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [
+            "repository",
+            "tag",
+            "pullPolicy"
+          ],
+          "title": "image",
+          "type": "object"
+        },
+        "llm": {
+          "additionalProperties": false,
+          "properties": {
+            "modelName": {
+              "default": "",
+              "title": "modelName",
+              "type": "string"
+            },
+            "secretName": {
+              "default": "",
+              "title": "secretName",
+              "type": "string"
+            }
+          },
+          "required": [
+            "secretName",
+            "modelName"
+          ],
+          "title": "llm",
+          "type": "object"
+        },
+        "name": {
+          "default": "portal-assistant",
+          "title": "name",
+          "type": "string"
+        },
+        "replicas": {
+          "default": 1,
+          "title": "replicas",
+          "type": "integer"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "1000m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "1Gi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cpu",
+                "memory"
+              ],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "100m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "256Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cpu",
+                "memory"
+              ],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [
+            "limits",
+            "requests"
+          ],
+          "title": "resources",
+          "type": "object"
+        },
+        "service": {
+          "additionalProperties": false,
+          "properties": {
+            "port": {
+              "default": 8080,
+              "title": "port",
+              "type": "integer"
+            },
+            "type": {
+              "default": "ClusterIP",
+              "description": "Service type",
+              "enum": [
+                "ClusterIP",
+                "NodePort",
+                "LoadBalancer"
+              ],
+              "required": [],
+              "title": "type"
+            }
+          },
+          "required": [
+            "port"
+          ],
+          "title": "service",
+          "type": "object"
+        }
+      },
+      "required": [
+        "enabled",
+        "name",
+        "image",
+        "replicas",
+        "llm",
+        "config",
+        "cors",
+        "authConfigConfigMap",
+        "extraEnvs",
+        "service",
+        "http",
+        "resources"
+      ],
+      "title": "portalAssistant",
+      "type": "object"
+    },
     "security": {
       "additionalProperties": false,
       "description": "Common security configuration shared across all components",
@@ -3650,11 +4456,23 @@
               "title": "jwksUrl",
               "type": "string"
             },
+            "jwksUrlTlsInsecureSkipVerify": {
+              "default": false,
+              "description": "Skip TLS verification for JWKS URL",
+              "title": "jwksUrlTlsInsecureSkipVerify",
+              "type": "boolean"
+            },
             "tokenUrl": {
               "default": "http://thunder.openchoreo.invalid/oauth2/token",
               "description": "OIDC token endpoint URL",
               "title": "tokenUrl",
               "type": "string"
+            },
+            "uidResolverTlsInsecureSkipVerify": {
+              "default": false,
+              "description": "Skip TLS verification for the UID resolver OAuth token endpoint (for self-signed certs)",
+              "title": "uidResolverTlsInsecureSkipVerify",
+              "type": "boolean"
             },
             "wellKnownEndpoint": {
               "default": "",
@@ -3677,7 +4495,7 @@
       "description": "Wait job configuration for Helm hooks",
       "properties": {
         "image": {
-          "default": "bitnamilegacy/kubectl:1.32.4",
+          "default": "rancher/kubectl:v1.36.0",
           "description": "Container image for wait jobs",
           "title": "image",
           "type": "string"

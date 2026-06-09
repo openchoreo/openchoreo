@@ -19,7 +19,7 @@ func TestNewMCPConfig_Defaults(t *testing.T) {
 		t.Error("expected Enabled to be true by default")
 	}
 
-	expectedToolsets := []string{"namespace", "project", "component", "deployment", "build"}
+	expectedToolsets := []string{"namespace", "project", "component", "deployment", "build", "resource"}
 	if diff := cmp.Diff(expectedToolsets, cfg.Toolsets); diff != "" {
 		t.Errorf("default toolsets mismatch (-want +got):\n%s", diff)
 	}
@@ -43,7 +43,7 @@ func TestNewMCPConfig_ValidateToolsets(t *testing.T) {
 			name: "all valid toolsets",
 			cfg: MCPConfig{
 				Enabled:  true,
-				Toolsets: []string{"namespace", "project", "component", "deployment", "build", "pe"},
+				Toolsets: []string{"namespace", "project", "component", "deployment", "build", "pe", "resource"},
 			},
 			expectedErrors: nil,
 		},
@@ -54,7 +54,7 @@ func TestNewMCPConfig_ValidateToolsets(t *testing.T) {
 				Toolsets: []string{"invalid"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid toolsets: namespace, project, component, deployment, build, pe`},
+				{Field: "mcp.toolsets[0]", Message: `unknown toolset "invalid"; valid toolsets: build, component, deployment, namespace, pe, project, resource`},
 			},
 		},
 		{
@@ -64,7 +64,7 @@ func TestNewMCPConfig_ValidateToolsets(t *testing.T) {
 				Toolsets: []string{"namespace", "unknown", "component"},
 			},
 			expectedErrors: config.ValidationErrors{
-				{Field: "mcp.toolsets[1]", Message: `unknown toolset "unknown"; valid toolsets: namespace, project, component, deployment, build, pe`},
+				{Field: "mcp.toolsets[1]", Message: `unknown toolset "unknown"; valid toolsets: build, component, deployment, namespace, pe, project, resource`},
 			},
 		},
 	}

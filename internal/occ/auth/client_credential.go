@@ -26,6 +26,8 @@ type ClientCredentialsAuth struct {
 	TokenEndpoint string
 	ClientID      string
 	ClientSecret  string
+	// Scope is an optional OAuth2 scope to request in the token request.
+	Scope string
 }
 
 // GetToken exchanges client credentials for an access token
@@ -34,6 +36,9 @@ func (c *ClientCredentialsAuth) GetToken() (*TokenResponse, error) {
 	data.Set("grant_type", "client_credentials")
 	data.Set("client_id", c.ClientID)
 	data.Set("client_secret", c.ClientSecret)
+	if c.Scope != "" {
+		data.Set("scope", c.Scope)
+	}
 
 	req, err := http.NewRequest("POST", c.TokenEndpoint, strings.NewReader(data.Encode()))
 	if err != nil {

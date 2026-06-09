@@ -4,10 +4,7 @@
 package clustercomponenttype
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -15,46 +12,20 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/clustercomponenttype/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// captureStdout captures stdout output from a function call.
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
-
 func TestPrint_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(nil))
 	})
 	assert.Contains(t, out, "No cluster component types found")
 }
 
 func TestPrint_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList([]gen.ClusterComponentType{}))
 	})
 	assert.Contains(t, out, "No cluster component types found")
@@ -80,7 +51,7 @@ func TestPrint_WithItems(t *testing.T) {
 		},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -104,7 +75,7 @@ func TestPrint_NilSpec(t *testing.T) {
 		},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -114,7 +85,7 @@ func TestPrint_NilSpec(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	cct := New(mc)
@@ -122,14 +93,14 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(&gen.ClusterComponentTypeList{
 		Items:      []gen.ClusterComponentType{{Metadata: gen.ObjectMeta{Name: "web-app"}}},
 		Pagination: gen.Pagination{},
 	}, nil)
 
 	cct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cct.List())
 	})
 
@@ -139,7 +110,7 @@ func TestList_Success(t *testing.T) {
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
 	workloadType := gen.ClusterComponentTypeSpecWorkloadTypeDeployment
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(&gen.ClusterComponentTypeList{
 		Items: []gen.ClusterComponentType{
 			{
@@ -154,7 +125,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	cct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cct.List())
 	})
 
@@ -166,14 +137,14 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterComponentTypes(mock.Anything, mock.Anything).Return(&gen.ClusterComponentTypeList{
 		Items:      []gen.ClusterComponentType{},
 		Pagination: gen.Pagination{},
 	}, nil)
 
 	cct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cct.List())
 	})
 
@@ -183,7 +154,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterComponentType(mock.Anything, "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	cct := New(mc)
@@ -191,13 +162,13 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterComponentType(mock.Anything, "web-app").Return(&gen.ClusterComponentType{
 		Metadata: gen.ObjectMeta{Name: "web-app"},
 	}, nil)
 
 	cct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cct.Get(GetParams{ClusterComponentTypeName: "web-app"}))
 	})
 
@@ -207,7 +178,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterComponentType(mock.Anything, "web-app").Return(fmt.Errorf("forbidden: web-app"))
 
 	cct := New(mc)
@@ -215,11 +186,11 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterComponentType(mock.Anything, "web-app").Return(nil)
 
 	cct := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cct.Delete(DeleteParams{ClusterComponentTypeName: "web-app"}))
 	})
 

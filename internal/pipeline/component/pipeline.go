@@ -12,6 +12,8 @@
 package component
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -88,7 +90,29 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	workloadData := context.ExtractWorkloadData(workload)
 	configurations := context.ExtractConfigurationsFromWorkload(input.SecretReferences, workload)
 	dependenciesData := context.ConnectionsData{
-		Items: input.DependencyItems,
+		Items:     input.DependencyItems,
+		Resources: input.ResourceDependencyItems,
+	}
+
+	// Endpoint API schema parsing is opt-in: only extract resources when a template
+	// references the workload.toEndpointResources() macro. This keeps large schemas
+	// out of the render context (and skips parsing) for the common case.
+	var endpointResources context.EndpointResourceMap
+	if usesEndpointResources(input) {
+		endpointResources = context.ExtractEndpointResources(workload)
+	}
+
+	// Build the trait context base once and reuse it for every trait built in this render.
+	// Both regular and embedded trait inputs embed TraitContextBase.
+	traitBase := context.TraitContextBase{
+		Metadata:                   input.Metadata,
+		DataPlane:                  input.DataPlane,
+		Environment:                input.Environment,
+		WorkloadData:               workloadData,
+		EndpointResources:          endpointResources,
+		Configurations:             configurations,
+		Dependencies:               dependenciesData,
+		DefaultNotificationChannel: input.DefaultNotificationChannel,
 	}
 
 	// Build component context
@@ -99,6 +123,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		DataPlane:                  input.DataPlane,
 		Environment:                input.Environment,
 		WorkloadData:               workloadData,
+		EndpointResources:          endpointResources,
 		Configurations:             configurations,
 		Dependencies:               dependenciesData,
 		Metadata:                   input.Metadata,
@@ -108,11 +133,15 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		return nil, fmt.Errorf("failed to build component context: %w", err)
 	}
 
+	// Convert component context to map once and reuse for validation, base rendering,
+	// and embedded trait binding resolution.
+	componentContextMap := componentContext.ToMap()
+
 	// Evaluate ComponentType validation rules
 	if err := renderer.EvaluateValidationRules(
 		p.templateEngine,
 		input.ComponentType.Spec.Validations,
-		componentContext.ToMap(),
+		componentContextMap,
 	); err != nil {
 		return nil, fmt.Errorf("component type validation failed: %w", err)
 	}
@@ -123,7 +152,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	resourceRenderer := renderer.NewRenderer(p.templateEngine)
 	renderedResources, err := resourceRenderer.RenderResources(
 		input.ComponentType.Spec.Resources,
-		componentContext.ToMap(),
+		componentContextMap,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render base resources: %w", err)
@@ -162,7 +191,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		resolvedParams, resolvedEnvironmentConfigs, err := context.ResolveEmbeddedTraitBindings(
 			p.templateEngine,
 			embeddedTrait,
-			componentContext.ToMap(),
+			componentContextMap,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve embedded trait bindings for %s/%s: %w",
@@ -170,39 +199,27 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		}
 
 		// Build embedded trait context
-		traitContext, err := context.BuildEmbeddedTraitContext(&context.EmbeddedTraitContextInput{
+		traitContext, err := context.BuildTraitContext(&context.TraitContextInput{
+			TraitContextBase:           traitBase,
 			Trait:                      t,
 			InstanceName:               embeddedTrait.InstanceName,
 			ResolvedParameters:         resolvedParams,
 			ResolvedEnvironmentConfigs: resolvedEnvironmentConfigs,
-			Component:                  input.Component,
-			WorkloadData:               workloadData,
-			Configurations:             configurations,
-			Dependencies:               dependenciesData,
-			Metadata:                   input.Metadata,
 			SchemaCache:                schemaCache,
-			DataPlane:                  input.DataPlane,
-			Environment:                input.Environment,
-			DefaultNotificationChannel: input.DefaultNotificationChannel,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build embedded trait context for %s/%s: %w",
 				embeddedTrait.Name, embeddedTrait.InstanceName, err)
 		}
 
-		// Evaluate trait validation rules
-		if err := renderer.EvaluateValidationRules(
-			p.templateEngine,
-			t.Spec.Validations,
-			traitContext.ToMap(),
-		); err != nil {
+		traitContextMap := traitContext.ToMap()
+		if err := renderer.EvaluateValidationRules(p.templateEngine, t.Spec.Validations, traitContextMap); err != nil {
 			return nil, fmt.Errorf("trait %s/%s validation failed: %w",
 				embeddedTrait.Name, embeddedTrait.InstanceName, err)
 		}
 
-		// Process trait (creates + patches)
 		beforeCount := len(renderedResources)
-		renderedResources, err = traitProcessor.ProcessTraits(renderedResources, t, traitContext.ToMap())
+		renderedResources, err = traitProcessor.ProcessTraits(renderedResources, t, traitContextMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to process embedded trait %s/%s: %w",
 				embeddedTrait.Name, embeddedTrait.InstanceName, err)
@@ -223,39 +240,35 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			return nil, fmt.Errorf("trait %s referenced but not found in traits list", traitInstance.Name)
 		}
 
+		// Resolve the component-level trait's instance bindings (just JSON deserialization)
+		resolvedParams, resolvedEnvironmentConfigs, err := context.ExtractTraitInstanceBindings(traitInstance, input.ReleaseBinding)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract trait bindings for %s/%s: %w",
+				traitInstance.Name, traitInstance.InstanceName, err)
+		}
+
 		// Build trait context (BuildTraitContext will handle schema caching)
 		traitContext, err := context.BuildTraitContext(&context.TraitContextInput{
+			TraitContextBase:           traitBase,
 			Trait:                      t,
-			Instance:                   traitInstance,
-			Component:                  input.Component,
-			ReleaseBinding:             input.ReleaseBinding,
-			WorkloadData:               workloadData,
-			Configurations:             configurations,
-			Dependencies:               dependenciesData,
-			Metadata:                   input.Metadata,
+			InstanceName:               traitInstance.InstanceName,
+			ResolvedParameters:         resolvedParams,
+			ResolvedEnvironmentConfigs: resolvedEnvironmentConfigs,
 			SchemaCache:                schemaCache,
-			DataPlane:                  input.DataPlane,
-			Environment:                input.Environment,
-			DefaultNotificationChannel: input.DefaultNotificationChannel,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build trait context for %s/%s: %w",
 				traitInstance.Name, traitInstance.InstanceName, err)
 		}
 
-		// Evaluate trait validation rules
-		if err := renderer.EvaluateValidationRules(
-			p.templateEngine,
-			t.Spec.Validations,
-			traitContext.ToMap(),
-		); err != nil {
+		traitContextMap := traitContext.ToMap()
+		if err := renderer.EvaluateValidationRules(p.templateEngine, t.Spec.Validations, traitContextMap); err != nil {
 			return nil, fmt.Errorf("trait %s/%s validation failed: %w",
 				traitInstance.Name, traitInstance.InstanceName, err)
 		}
 
-		// Process trait (creates + patches)
 		beforeCount := len(renderedResources)
-		renderedResources, err = traitProcessor.ProcessTraits(renderedResources, t, traitContext.ToMap())
+		renderedResources, err = traitProcessor.ProcessTraits(renderedResources, t, traitContextMap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to process trait %s/%s: %w",
 				traitInstance.Name, traitInstance.InstanceName, err)
@@ -295,6 +308,38 @@ func (p *Pipeline) validateInput(input *RenderInput) error {
 	}
 
 	return nil
+}
+
+// endpointResourcesMacroToken is the literal that appears in a template's CEL
+// expressions when it opts into endpoint schema extraction via
+// workload.toEndpointResources().
+const endpointResourcesMacroToken = "toEndpointResources"
+
+// usesEndpointResources reports whether any ComponentType or trait template
+// uses the workload.toEndpointResources() macro.
+func usesEndpointResources(input *RenderInput) bool {
+	token := []byte(endpointResourcesMacroToken)
+	ct := input.ComponentType.Spec
+	if jsonContainsToken(token, ct.Resources, ct.Validations, ct.Traits) {
+		return true
+	}
+	for i := range input.Traits {
+		t := input.Traits[i].Spec
+		if jsonContainsToken(token, t.Validations, t.Creates, t.Patches, t.Removes) {
+			return true
+		}
+	}
+	return false
+}
+
+// jsonContainsToken reports whether the JSON encoding of any value contains token.
+func jsonContainsToken(token []byte, values ...any) bool {
+	for _, v := range values {
+		if b, err := json.Marshal(v); err == nil && bytes.Contains(b, token) {
+			return true
+		}
+	}
+	return false
 }
 
 // postProcessResources adds labels, annotations, and performs cleanup.

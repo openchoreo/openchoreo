@@ -1,0 +1,160 @@
+# Service must be named exactly "build-cache" so the ClusterWorkflowTemplate
+# registry address resolves. 
+fullnameOverride: build-cache
+
+image:
+  # Full multi-arch Zot image (sync extension is required for mirroring; do not
+  # use zot-minimal).
+  repository: ghcr.io/project-zot/zot
+  tag: v2.1.17
+  pullPolicy: IfNotPresent
+
+# httpGet.port sets the container port (named "zot", used as the Service
+# targetPort) AND the liveness/readiness/startup probe port. It must match the
+# http.port in config.json below.
+httpGet:
+  scheme: HTTP
+  port: 5100
+
+service:
+  type: ClusterIP
+  port: 5100
+
+# persistence: true renders a StatefulSet with a volumeClaimTemplate mounted at
+# /var/lib/registry (matches storage.rootDirectory below).
+persistence: true
+pvc:
+  create: true
+  accessModes: ["ReadWriteOnce"]
+  storage: 10Gi
+
+# mountConfig mounts the configFiles ConfigMap at /etc/zot; the image's default
+# entrypoint runs `serve /etc/zot/config.json`.
+mountConfig: true
+configFiles:
+  config.json: |-
+    {
+      "distSpecVersion": "1.1.0",
+      "storage": {
+        "rootDirectory": "/var/lib/registry",
+        "gc": true,
+        "gcDelay": "2h",
+        "gcInterval": "6h",
+        "retention": {
+          "policies": [
+            {
+              "repositories": ["build-cache/containerfile/**"],
+              "keepTags": {
+                "pushedWithin": "168h",
+                "pulledWithin": "168h",
+                "mostRecentlyPushedCount": 3,
+                "mostRecentlyPulledCount": 3
+              }
+            },
+            {
+              "repositories": ["build-cache/cnb/**"],
+              "keepTags": {
+                "pushedWithin": "168h",
+                "pulledWithin": "168h",
+                "mostRecentlyPushedCount": 3,
+                "mostRecentlyPulledCount": 3
+              }
+            },
+            {
+              "repositories": ["build-tmp/**"],
+              "keepTags": {
+                "pushedWithin": "1h",
+                "pulledWithin": "1h"
+              }
+            },
+            {
+              "repositories": ["mirror/**"],
+              "keepTags": {
+                "pushedWithin": "336h",
+                "pulledWithin": "336h",
+                "mostRecentlyPulledCount": 2
+              }
+            },
+            {
+              "repositories": ["**"],
+              "keepTags": {
+                "pushedWithin": "72h",
+                "pulledWithin": "72h",
+                "mostRecentlyPulledCount": 1
+              }
+            }
+          ]
+        }
+      },
+      "http": {
+        "address": "0.0.0.0",
+        "port": "5100",
+        "compat": ["docker2s2"]
+      },
+      "log": {
+        "level": "warn"
+      },
+      "extensions": {
+        "sync": {
+          "enable": true,
+          "registries": [
+            {
+              "urls": ["https://docker.io"],
+              "onDemand": true,
+              "tlsVerify": true,
+              "maxRetries": 3,
+              "retryDelay": "30s",
+              "content": [
+                {
+                  "prefix": "/**",
+                  "destination": "/mirror/docker.io",
+                  "stripPrefix": false
+                }
+              ]
+            },
+            {
+              "urls": ["https://gcr.io"],
+              "onDemand": true,
+              "tlsVerify": true,
+              "maxRetries": 3,
+              "retryDelay": "30s",
+              "content": [
+                {
+                  "prefix": "/**",
+                  "destination": "/mirror/gcr.io",
+                  "stripPrefix": false
+                }
+              ]
+            },
+            {
+              "urls": ["https://ghcr.io"],
+              "onDemand": true,
+              "tlsVerify": true,
+              "maxRetries": 3,
+              "retryDelay": "30s",
+              "content": [
+                {
+                  "prefix": "/**",
+                  "destination": "/mirror/ghcr.io",
+                  "stripPrefix": false
+                }
+              ]
+            },
+            {
+              "urls": ["https://quay.io"],
+              "onDemand": true,
+              "tlsVerify": true,
+              "maxRetries": 3,
+              "retryDelay": "30s",
+              "content": [
+                {
+                  "prefix": "/**",
+                  "destination": "/mirror/quay.io",
+                  "stripPrefix": false
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }

@@ -74,13 +74,17 @@ func TestPartialToolsetRegistration(t *testing.T) {
 		t.Fatalf("Failed to list tools: %v", err)
 	}
 
-	// Build expected and unexpected tools from allToolSpecs based on registered toolsets
+	// Build expected and unexpected tools from allToolSpecs based on registered toolsets.
+	// A tool registered by more than one toolset is expected if any of its toolsets is enabled.
 	expectedTools := make(map[string]bool)
-	unexpectedTools := make(map[string]bool)
 	for _, spec := range allToolSpecs {
 		if registeredToolsets[spec.toolset] {
 			expectedTools[spec.name] = true
-		} else {
+		}
+	}
+	unexpectedTools := make(map[string]bool)
+	for _, spec := range allToolSpecs {
+		if !expectedTools[spec.name] {
 			unexpectedTools[spec.name] = true
 		}
 	}

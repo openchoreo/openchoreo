@@ -83,7 +83,8 @@ func testComp() *openchoreov1alpha1.Component {
 	return &openchoreov1alpha1.Component{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-comp", Namespace: "ns-1"},
 		Spec: openchoreov1alpha1.ComponentSpec{
-			Owner: openchoreov1alpha1.ComponentOwner{ProjectName: "my-proj"},
+			Owner:         openchoreov1alpha1.ComponentOwner{ProjectName: "my-proj"},
+			ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "deployment/web-app"},
 		},
 	}
 }
@@ -108,6 +109,7 @@ func TestCreateComponent_AuthzCheck(t *testing.T) {
 		require.Equal(t, comp, result)
 		require.Len(t, pdp.Captured, 1)
 		testutil.RequireEvalRequest(t, pdp.Captured[0], "component:create", "component", "my-comp", compHierarchy)
+		require.Equal(t, "ns-1/web-app", pdp.Captured[0].Context.Resource.ComponentType)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -140,6 +142,7 @@ func TestUpdateComponent_AuthzCheck(t *testing.T) {
 		require.Equal(t, comp, result)
 		require.Len(t, pdp.Captured, 1)
 		testutil.RequireEvalRequest(t, pdp.Captured[0], "component:update", "component", "my-comp", compHierarchy)
+		require.Equal(t, "ns-1/web-app", pdp.Captured[0].Context.Resource.ComponentType)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -265,6 +268,7 @@ func TestDeleteComponent_AuthzCheck(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, pdp.Captured, 1)
 		testutil.RequireEvalRequest(t, pdp.Captured[0], "component:delete", "component", "my-comp", compHierarchy)
+		require.Equal(t, "ns-1/web-app", pdp.Captured[0].Context.Resource.ComponentType)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -440,4 +444,44 @@ func TestGetComponentReleaseSchema_AuthzCheck(t *testing.T) {
 		require.ErrorIs(t, err, fetchErr)
 		require.Empty(t, pdp.Captured, "authz should not be called when fetch fails")
 	})
+}
+
+func TestFormatComponentTypeAttr(t *testing.T) {
+	tests := []struct {
+		name      string
+		namespace string
+		ref       openchoreov1alpha1.ComponentTypeRef
+		want      string
+	}{
+		{
+			name:      "namespace-scoped ComponentType is prefixed with namespace and strips workloadType",
+			namespace: "ns-1",
+			ref:       openchoreov1alpha1.ComponentTypeRef{Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType, Name: "deployment/web-app"},
+			want:      "ns-1/web-app",
+		},
+		{
+			name:      "empty kind defaults to namespace-scoped (matches CRD default)",
+			namespace: "ns-1",
+			ref:       openchoreov1alpha1.ComponentTypeRef{Name: "deployment/web-app"},
+			want:      "ns-1/web-app",
+		},
+		{
+			name:      "ClusterComponentType is not namespace-prefixed and strips workloadType",
+			namespace: "ns-1",
+			ref:       openchoreov1alpha1.ComponentTypeRef{Kind: openchoreov1alpha1.ComponentTypeRefKindClusterComponentType, Name: "deployment/web-app"},
+			want:      "web-app",
+		},
+		{
+			name:      "name without workloadType prefix is used as-is (defensive)",
+			namespace: "ns-1",
+			ref:       openchoreov1alpha1.ComponentTypeRef{Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType, Name: "web-app"},
+			want:      "ns-1/web-app",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, formatComponentTypeAttr(tt.namespace, tt.ref))
+		})
+	}
 }

@@ -87,3 +87,76 @@ func (h *Handler) QueryMetrics(w http.ResponseWriter, r *http.Request) {
 
 	h.writeJSON(w, http.StatusOK, result)
 }
+
+// QueryRuntimeTopology handles POST /api/v1alpha1/metrics/runtime-topology.
+func (h *Handler) QueryRuntimeTopology(w http.ResponseWriter, r *http.Request) {
+	var req types.RuntimeTopologyRequest
+	if err := httputil.BindJSON(r, &req); err != nil {
+		h.logger.Error("Failed to bind runtime topology request", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", "Invalid request format")
+		return
+	}
+
+	if err := ValidateRuntimeTopologyRequest(&req); err != nil {
+		h.logger.Debug("Runtime topology validation failed", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", err.Error())
+		return
+	}
+
+	ctx := r.Context()
+	// Guard against misconfigured deployments.
+	if h.metricsService == nil {
+		h.logger.Error("Metrics service is not initialized")
+		h.writeErrorResponse(
+			w,
+			http.StatusInternalServerError,
+			gen.InternalServerError,
+			types.ErrorCodeV1MetricsServiceNotReady,
+			"Metrics service is not initialized",
+		)
+		return
+	}
+
+	result, err := h.metricsService.QueryRuntimeTopology(ctx, &req)
+	if err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
+			return
+		}
+		errorCode := types.ErrorCodeV1RuntimeTopologyInternalGeneric
+		switch {
+		case errors.Is(err, service.ErrScopeAuthFailed):
+			h.writeErrorResponse(
+				w,
+				http.StatusInternalServerError,
+				gen.InternalServerError,
+				types.ErrorCodeV1ScopeAuthFailed,
+				"",
+			)
+			return
+		case errors.Is(err, service.ErrRuntimeTopologyInvalidRequest):
+			h.logger.Debug("Invalid runtime topology request", "error", err)
+			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, errorCode, err.Error())
+			return
+		case errors.Is(err, service.ErrRuntimeTopologyResolveSearchScope):
+			errorCode = types.ErrorCodeV1RuntimeTopologyResolverFailed
+		case errors.Is(err, service.ErrRuntimeTopologyRetrieval):
+			errorCode = types.ErrorCodeV1RuntimeTopologyRetrievalFailed
+		}
+		h.logger.Error("Failed to query runtime topology", "error", err)
+		h.writeErrorResponse(
+			w,
+			http.StatusInternalServerError,
+			gen.InternalServerError,
+			errorCode,
+			"Failed to retrieve runtime topology",
+		)
+		return
+	}
+
+	h.writeJSON(w, http.StatusOK, result)
+}

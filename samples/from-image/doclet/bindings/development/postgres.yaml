@@ -1,0 +1,19 @@
+# ResourceReleaseBinding for the Postgres resource in the `development` env.
+# spec.resourceRelease is intentionally omitted — the binding stays pending
+# until promoted to a specific ResourceRelease. See the README's "Promote
+# resources" step.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ResourceReleaseBinding
+metadata:
+  name: doclet-postgres-development
+  namespace: default
+spec:
+  owner:
+    projectName: doclet
+    resourceName: doclet-postgres
+  environment: development
+  retainPolicy: Delete
+  resourceTypeEnvironmentConfigs:
+    # Demo only — exposes Adminer with a `demo`/`demo` superuser at the
+    # gateway. Do not enable in production environments.
+    adminEnabled: true

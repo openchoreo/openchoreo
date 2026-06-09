@@ -10,8 +10,6 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/occ/resources"
 	synth "github.com/openchoreo/openchoreo/internal/occ/resources/workload"
-	"github.com/openchoreo/openchoreo/pkg/cli/common/constants"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 // WorkloadResource provides operations for Workload CRs.
@@ -20,12 +18,11 @@ type WorkloadResource struct {
 }
 
 // NewWorkloadResource constructs a WorkloadResource with CRDConfig and optionally sets namespace.
-func NewWorkloadResource(cfg constants.CRDConfig, namespace string) (*WorkloadResource, error) {
+func NewWorkloadResource(cfg resources.CRDConfig, namespace string) (*WorkloadResource, error) {
 	options := []resources.ResourceBaseOption{
 		resources.WithResourceConfig(cfg),
 	}
 
-	// Add namespace namespace if provided
 	if namespace != "" {
 		options = append(options, resources.WithResourceNamespace(namespace))
 	}
@@ -36,8 +33,7 @@ func NewWorkloadResource(cfg constants.CRDConfig, namespace string) (*WorkloadRe
 }
 
 // CreateWorkload creates a Workload CR from a descriptor file or basic parameters.
-func (w *WorkloadResource) CreateWorkload(params api.CreateWorkloadParams) error {
-	// Validate required parameters
+func (w *WorkloadResource) CreateWorkload(params synth.CreateWorkloadParams) error {
 	if params.NamespaceName == "" {
 		return fmt.Errorf("namespace name is required (--namespace)")
 	}
@@ -54,45 +50,37 @@ func (w *WorkloadResource) CreateWorkload(params api.CreateWorkloadParams) error
 	var workloadCR *openchoreov1alpha1.Workload
 	var err error
 
-	// Check if a descriptor file is provided
 	if params.FilePath != "" {
-		// Create workload from descriptor file
 		workloadCR, err = synth.ConvertWorkloadDescriptorToWorkloadCR(params.FilePath, params)
 		if err != nil {
 			return fmt.Errorf("failed to convert workload descriptor: %w", err)
 		}
 	} else {
-		// Create basic workload from command line parameters
 		workloadCR, err = synth.CreateBasicWorkload(params)
 		if err != nil {
 			return fmt.Errorf("failed to create basic workload CR: %w", err)
 		}
 	}
 
-	// Convert to YAML
 	yamlBytes, err := synth.ConvertWorkloadCRToYAML(workloadCR)
 	if err != nil {
 		return fmt.Errorf("failed to convert Workload CR to YAML: %w", err)
 	}
 
-	// Output to file or stdout
 	if params.OutputPath != "" {
-		// Write to file
 		if err := os.WriteFile(params.OutputPath, yamlBytes, 0644); err != nil { //nolint:gosec // Generated YAML files are meant to be readable
 			return fmt.Errorf("failed to write output file %s: %w", params.OutputPath, err)
 		}
 		fmt.Printf("Workload CR written to %s\n", params.OutputPath)
 	} else {
-		// Write to stdout
 		fmt.Print(string(yamlBytes))
 	}
 
 	return nil
 }
 
-// GenerateWorkloadCR generates a Workload CR without writing it (used in file-system mode)
-func (w *WorkloadResource) GenerateWorkloadCR(params api.CreateWorkloadParams) (*openchoreov1alpha1.Workload, error) {
-	// Validate required parameters
+// GenerateWorkloadCR generates a Workload CR without writing it (used in file-system mode).
+func (w *WorkloadResource) GenerateWorkloadCR(params synth.CreateWorkloadParams) (*openchoreov1alpha1.Workload, error) {
 	if params.NamespaceName == "" {
 		return nil, fmt.Errorf("namespace name is required (--namespace)")
 	}
@@ -109,15 +97,12 @@ func (w *WorkloadResource) GenerateWorkloadCR(params api.CreateWorkloadParams) (
 	var workloadCR *openchoreov1alpha1.Workload
 	var err error
 
-	// Check if a descriptor file is provided
 	if params.FilePath != "" {
-		// Create workload from descriptor file
 		workloadCR, err = synth.ConvertWorkloadDescriptorToWorkloadCR(params.FilePath, params)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert workload descriptor: %w", err)
 		}
 	} else {
-		// Create basic workload from command line parameters
 		workloadCR, err = synth.CreateBasicWorkload(params)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create basic workload CR: %w", err)

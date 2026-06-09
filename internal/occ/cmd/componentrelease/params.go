@@ -6,6 +6,7 @@ package componentrelease
 // GenerateParams defines parameters for generating component releases
 type GenerateParams struct {
 	All           bool   // Generate for all components
+	Namespace     string // Optional: override namespace from context
 	ProjectName   string // Generate for all components in this project
 	ComponentName string // Generate for specific component
 	ReleaseName   string // Optional: custom release name (only valid with --component)

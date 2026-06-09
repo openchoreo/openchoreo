@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 func TestResolveExternalRefs(t *testing.T) {
@@ -296,4 +297,90 @@ func TestResolveExternalRefs(t *testing.T) {
 			t.Errorf("expected remote key 'secret/data/repo-creds', got %v", remoteRef["key"])
 		}
 	})
+}
+
+func TestEvaluateExternalRefName(t *testing.T) {
+	t.Run("returns string from literal", func(t *testing.T) {
+		result, err := evaluateExternalRefName(template.NewEngine(), "my-secret", map[string]any{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result != "my-secret" {
+			t.Errorf("expected my-secret, got %s", result)
+		}
+	})
+
+	t.Run("returns empty for empty string", func(t *testing.T) {
+		result, err := evaluateExternalRefName(template.NewEngine(), "", map[string]any{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result != "" {
+			t.Errorf("expected empty, got %s", result)
+		}
+	})
+
+	t.Run("evaluates CEL expression", func(t *testing.T) {
+		celCtx := map[string]any{
+			"parameters": map[string]any{
+				"secretName": "resolved-secret",
+			},
+		}
+		result, err := evaluateExternalRefName(template.NewEngine(), "${parameters.secretName}", celCtx)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if result != "resolved-secret" {
+			t.Errorf("expected resolved-secret, got %s", result)
+		}
+	})
+
+	t.Run("returns error for invalid CEL expression", func(t *testing.T) {
+		// Reference a non-existent variable to trigger a CEL evaluation error
+		_, err := evaluateExternalRefName(template.NewEngine(), "${nonexistent.field}", map[string]any{})
+		if err == nil {
+			t.Fatal("expected error for invalid CEL expression")
+		}
+	})
+
+	t.Run("returns error for CEL expression that evaluates to integer", func(t *testing.T) {
+		celCtx := map[string]any{
+			"parameters": map[string]any{
+				"count": 42,
+			},
+		}
+		_, err := evaluateExternalRefName(template.NewEngine(), "${parameters.count}", celCtx)
+		if err == nil {
+			t.Fatal("expected error for non-string CEL result")
+		}
+		if !strings.Contains(err.Error(), "must evaluate to a string") {
+			t.Errorf("expected 'must evaluate to a string' error, got: %v", err)
+		}
+	})
+}
+
+func TestResolveExternalRefsNameEvaluationError(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = openchoreodevv1alpha1.AddToScheme(scheme)
+
+	reconciler := &Reconciler{
+		Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
+	}
+
+	refs := []openchoreodevv1alpha1.ExternalRef{
+		{
+			ID:         "bad-ref",
+			APIVersion: "openchoreo.dev/v1alpha1",
+			Kind:       "SecretReference",
+			Name:       "${nonexistent.variable}",
+		},
+	}
+
+	_, err := reconciler.resolveExternalRefs(t.Context(), refs, map[string]any{}, "default")
+	if err == nil {
+		t.Fatal("expected error when CEL evaluation fails")
+	}
+	if !strings.Contains(err.Error(), "failed to evaluate name") {
+		t.Errorf("expected 'failed to evaluate name' error, got: %v", err)
+	}
 }

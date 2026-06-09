@@ -25,8 +25,3 @@ keywords:
 maintainers:
   - name: OpenChoreo Team
     url: https://github.com/openchoreo/openchoreo
-dependencies:
-  - name: kube-prometheus-stack
-    repository: https://prometheus-community.github.io/helm-charts
-    version: 81.6.3
-    condition: kube-prometheus-stack.enabled

@@ -1,0 +1,44 @@
+# k3d cluster config for the Data Plane in the multi-cluster e2e setup.
+# Port prefix 39xxx / kubeAPI 36551 avoids collision with:
+#   single-cluster e2e  (29xxx / 26550)
+#   dev multi-cluster   (19xxx / 6551)
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: openchoreo-e2e-mc-dp
+image: rancher/k3s:v1.36.1-k3s1
+servers: 1
+agents: 0
+kubeAPI:
+  hostPort: "36551"
+ports:
+  # HTTP — workload traffic via kgateway
+  - port: 39080:19080
+    nodeFilters:
+      - loadbalancer
+  # HTTPS — workload traffic via kgateway
+  - port: 39443:19443
+    nodeFilters:
+      - loadbalancer
+options:
+  k3s:
+    extraArgs:
+      - arg: "--tls-san=host.k3d.internal"
+        nodeFilters:
+          - server:*
+      - arg: "--kubelet-arg=eviction-hard=imagefs.available<1%,nodefs.available<1%"
+        nodeFilters:
+          - server:*
+      - arg: "--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%"
+        nodeFilters:
+          - server:*
+      - arg: "--disable=traefik"
+        nodeFilters:
+          - server:*
+# Kubelet pulls built images from the WP registry exposed on host port 30082
+registries:
+  config: |
+    mirrors:
+      "host.k3d.internal:30082":
+        endpoint:
+          - http://host.k3d.internal:30082

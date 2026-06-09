@@ -13,30 +13,24 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by AuthzRoleBinding operations.
-type Client interface {
-	ListNamespaceRoleBindings(ctx context.Context, namespaceName string, params *gen.ListNamespaceRoleBindingsParams) (*gen.AuthzRoleBindingList, error)
-	GetNamespaceRoleBinding(ctx context.Context, namespaceName, name string) (*gen.AuthzRoleBinding, error)
-	DeleteNamespaceRoleBinding(ctx context.Context, namespaceName, name string) error
-}
-
 // AuthzRoleBinding implements authz role binding operations
 type AuthzRoleBinding struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new authz role binding implementation
-func New(client Client) *AuthzRoleBinding {
-	return &AuthzRoleBinding{client: client}
+func New(c client.Interface) *AuthzRoleBinding {
+	return &AuthzRoleBinding{client: c}
 }
 
 // List lists all authz role bindings in a namespace
 func (r *AuthzRoleBinding) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceAuthzRoleBinding, params); err != nil {
+	if err := cmdutil.RequireFields("list", "authzrolebinding", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -66,7 +60,7 @@ func (r *AuthzRoleBinding) List(params ListParams) error {
 
 // Get retrieves a single authz role binding and outputs it as YAML
 func (r *AuthzRoleBinding) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceAuthzRoleBinding, params); err != nil {
+	if err := cmdutil.RequireFields("get", "authzrolebinding", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -88,7 +82,7 @@ func (r *AuthzRoleBinding) Get(params GetParams) error {
 
 // Delete deletes a single authz role binding
 func (r *AuthzRoleBinding) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceAuthzRoleBinding, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "authzrolebinding", map[string]string{"namespace": params.Namespace, "name": params.Name}); err != nil {
 		return err
 	}
 

@@ -4,10 +4,13 @@
 package handlers
 
 import (
+	"errors"
+	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -17,8 +20,10 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	workloadsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload"
+	workloadmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workload/mocks"
 )
 
 func newWorkloadService(t *testing.T, objects []client.Object, pdp authzcore.PDP) workloadsvc.Service {
@@ -144,9 +149,9 @@ func testComponentForWorkload() *openchoreov1alpha1.Component {
 	}
 }
 
-func newCreateWorkloadBody(name string) *gen.Workload {
+func newCreateWorkloadBody() *gen.Workload {
 	return &gen.Workload{
-		Metadata: gen.ObjectMeta{Name: name},
+		Metadata: gen.ObjectMeta{Name: "new-wl"},
 		Spec: &gen.WorkloadSpec{
 			Owner: &struct {
 				ComponentName string `json:"componentName"`
@@ -171,7 +176,7 @@ func TestCreateWorkloadHandler(t *testing.T) {
 
 		resp, err := h.CreateWorkload(ctx, gen.CreateWorkloadRequestObject{
 			NamespaceName: ns,
-			Body:          newCreateWorkloadBody("new-wl"),
+			Body:          newCreateWorkloadBody(),
 		})
 		require.NoError(t, err)
 		typed, ok := resp.(gen.CreateWorkload201JSONResponse)
@@ -202,7 +207,7 @@ func TestCreateWorkloadHandler(t *testing.T) {
 
 		resp, err := h.CreateWorkload(ctx, gen.CreateWorkloadRequestObject{
 			NamespaceName: ns,
-			Body:          newCreateWorkloadBody("new-wl"),
+			Body:          newCreateWorkloadBody(),
 		})
 		require.NoError(t, err)
 		assert.IsType(t, gen.CreateWorkload409JSONResponse{}, resp)
@@ -214,7 +219,7 @@ func TestCreateWorkloadHandler(t *testing.T) {
 
 		resp, err := h.CreateWorkload(ctx, gen.CreateWorkloadRequestObject{
 			NamespaceName: ns,
-			Body:          newCreateWorkloadBody("new-wl"),
+			Body:          newCreateWorkloadBody(),
 		})
 		require.NoError(t, err)
 		assert.IsType(t, gen.CreateWorkload403JSONResponse{}, resp)
@@ -329,4 +334,120 @@ func TestDeleteWorkloadHandler(t *testing.T) {
 		require.NoError(t, err)
 		assert.IsType(t, gen.DeleteWorkload403JSONResponse{}, resp)
 	})
+
+	t.Run("internal error returns 500", func(t *testing.T) {
+		svc := workloadmocks.NewMockService(t)
+		svc.EXPECT().DeleteWorkload(mock.Anything, ns, "wl-1").Return(errors.New("internal server error"))
+		h := &Handler{
+			services: &handlerservices.Services{WorkloadService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		resp, err := h.DeleteWorkload(ctx, gen.DeleteWorkloadRequestObject{NamespaceName: ns, WorkloadName: "wl-1"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteWorkload500JSONResponse{}, resp)
+	})
+}
+
+// --- Additional error mapping tests using mocks ---
+
+func TestListWorkloadsHandler_ErrorMapping(t *testing.T) {
+	ctx := testContext()
+	const ns = "test-ns"
+	t.Run("internal error returns 500", func(t *testing.T) {
+		svc := workloadmocks.NewMockService(t)
+		svc.EXPECT().ListWorkloads(mock.Anything, ns, "", mock.Anything).Return(nil, errors.New("internal server error"))
+		h := &Handler{
+			services: &handlerservices.Services{WorkloadService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		resp, err := h.ListWorkloads(ctx, gen.ListWorkloadsRequestObject{NamespaceName: ns})
+		require.NoError(t, err)
+		assert.IsType(t, gen.ListWorkloads500JSONResponse{}, resp)
+	})
+
+	t.Run("with component filter forwards componentName", func(t *testing.T) {
+		svc := workloadmocks.NewMockService(t)
+		svc.EXPECT().ListWorkloads(mock.Anything, ns, "comp-a", mock.Anything).Return(&svcpkg.ListResult[openchoreov1alpha1.Workload]{Items: nil}, nil)
+		h := &Handler{
+			services: &handlerservices.Services{WorkloadService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		comp := "comp-a"
+		resp, err := h.ListWorkloads(ctx, gen.ListWorkloadsRequestObject{
+			NamespaceName: ns,
+			Params:        gen.ListWorkloadsParams{Component: &comp},
+		})
+		require.NoError(t, err)
+		assert.IsType(t, gen.ListWorkloads200JSONResponse{}, resp)
+	})
+}
+
+func TestGetWorkloadHandler_InternalError(t *testing.T) {
+	ctx := testContext()
+	svc := workloadmocks.NewMockService(t)
+	svc.EXPECT().GetWorkload(mock.Anything, "test-ns", "wl-1").Return(nil, errors.New("internal server error"))
+	h := &Handler{
+		services: &handlerservices.Services{WorkloadService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.GetWorkload(ctx, gen.GetWorkloadRequestObject{NamespaceName: "test-ns", WorkloadName: "wl-1"})
+	require.NoError(t, err)
+	assert.IsType(t, gen.GetWorkload500JSONResponse{}, resp)
+}
+
+func TestCreateWorkloadHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	const ns = "test-ns"
+	body := newCreateWorkloadBody()
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"component not found -> 400", workloadsvc.ErrComponentNotFound, gen.CreateWorkload400JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.CreateWorkload400JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.CreateWorkload500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := workloadmocks.NewMockService(t)
+			svc.EXPECT().CreateWorkload(mock.Anything, ns, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{WorkloadService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.CreateWorkload(ctx, gen.CreateWorkloadRequestObject{NamespaceName: ns, Body: body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestUpdateWorkloadHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	const ns = "test-ns"
+	body := &gen.Workload{Metadata: gen.ObjectMeta{Name: "wl-1"}}
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.UpdateWorkload400JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.UpdateWorkload500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := workloadmocks.NewMockService(t)
+			svc.EXPECT().UpdateWorkload(mock.Anything, ns, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{WorkloadService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.UpdateWorkload(ctx, gen.UpdateWorkloadRequestObject{NamespaceName: ns, WorkloadName: "wl-1", Body: body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
 }

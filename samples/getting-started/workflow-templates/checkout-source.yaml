@@ -16,7 +16,7 @@ spec:
             secretName: '{{workflow.parameters.git-secret}}'
             optional: true
       container:
-        image: alpine/git
+        image: alpine/git:v2.52.0
         command:
           - sh
           - -c

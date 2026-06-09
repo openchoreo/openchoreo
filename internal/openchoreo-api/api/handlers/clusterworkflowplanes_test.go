@@ -4,10 +4,14 @@
 package handlers
 
 import (
+	"context"
+	"errors"
+	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,7 +20,9 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clusterworkflowplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterworkflowplane"
+	cwpmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterworkflowplane/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 )
 
@@ -264,4 +270,123 @@ func TestDeleteClusterWorkflowPlaneHandler(t *testing.T) {
 		require.NoError(t, err)
 		assert.IsType(t, gen.DeleteClusterWorkflowPlane403JSONResponse{}, resp)
 	})
+
+	t.Run("internal error returns 500", func(t *testing.T) {
+		svc := cwpmocks.NewMockService(t)
+		svc.EXPECT().DeleteClusterWorkflowPlane(mock.Anything, "cwp-1").Return(errors.New("internal server error"))
+		h := &Handler{
+			services: &handlerservices.Services{ClusterWorkflowPlaneService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		resp, err := h.DeleteClusterWorkflowPlane(ctx, gen.DeleteClusterWorkflowPlaneRequestObject{ClusterWorkflowPlaneName: "cwp-1"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterWorkflowPlane500JSONResponse{}, resp)
+	})
+}
+
+// --- Additional error mapping tests using mocks ---
+
+func TestListClusterWorkflowPlanesHandler_InternalError(t *testing.T) {
+	ctx := testContext()
+	svc := cwpmocks.NewMockService(t)
+	svc.EXPECT().ListClusterWorkflowPlanes(mock.Anything, mock.Anything).Return(nil, errors.New("internal server error"))
+	h := &Handler{
+		services: &handlerservices.Services{ClusterWorkflowPlaneService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.ListClusterWorkflowPlanes(ctx, gen.ListClusterWorkflowPlanesRequestObject{})
+	require.NoError(t, err)
+	assert.IsType(t, gen.ListClusterWorkflowPlanes500JSONResponse{}, resp)
+}
+
+func TestGetClusterWorkflowPlaneHandler_InternalError(t *testing.T) {
+	ctx := testContext()
+	svc := cwpmocks.NewMockService(t)
+	svc.EXPECT().GetClusterWorkflowPlane(mock.Anything, "cwp-1").Return(nil, errors.New("internal server error"))
+	h := &Handler{
+		services: &handlerservices.Services{ClusterWorkflowPlaneService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.GetClusterWorkflowPlane(ctx, gen.GetClusterWorkflowPlaneRequestObject{ClusterWorkflowPlaneName: "cwp-1"})
+	require.NoError(t, err)
+	assert.IsType(t, gen.GetClusterWorkflowPlane500JSONResponse{}, resp)
+}
+
+func TestCreateClusterWorkflowPlaneHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	body := &gen.ClusterWorkflowPlane{Metadata: gen.ObjectMeta{Name: "new-cwp"}}
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.CreateClusterWorkflowPlane400JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.CreateClusterWorkflowPlane500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := cwpmocks.NewMockService(t)
+			svc.EXPECT().CreateClusterWorkflowPlane(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{ClusterWorkflowPlaneService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.CreateClusterWorkflowPlane(ctx, gen.CreateClusterWorkflowPlaneRequestObject{Body: body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestUpdateClusterWorkflowPlaneHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	body := &gen.ClusterWorkflowPlane{Metadata: gen.ObjectMeta{Name: "cwp-1"}}
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.UpdateClusterWorkflowPlane400JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.UpdateClusterWorkflowPlane500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := cwpmocks.NewMockService(t)
+			svc.EXPECT().UpdateClusterWorkflowPlane(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{ClusterWorkflowPlaneService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.UpdateClusterWorkflowPlane(ctx, gen.UpdateClusterWorkflowPlaneRequestObject{
+				ClusterWorkflowPlaneName: "cwp-1",
+				Body:                     body,
+			})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestUpdateClusterWorkflowPlaneHandler_UsesPathName(t *testing.T) {
+	ctx := testContext()
+	svc := cwpmocks.NewMockService(t)
+	svc.EXPECT().UpdateClusterWorkflowPlane(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, cwp *openchoreov1alpha1.ClusterWorkflowPlane) (*openchoreov1alpha1.ClusterWorkflowPlane, error) {
+		assert.Equal(t, "from-path", cwp.Name)
+		return cwp, nil
+	})
+	h := &Handler{
+		services: &handlerservices.Services{ClusterWorkflowPlaneService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	body := gen.ClusterWorkflowPlane{Metadata: gen.ObjectMeta{Name: "from-body"}}
+	resp, err := h.UpdateClusterWorkflowPlane(ctx, gen.UpdateClusterWorkflowPlaneRequestObject{
+		ClusterWorkflowPlaneName: "from-path",
+		Body:                     &body,
+	})
+	require.NoError(t, err)
+	typed, ok := resp.(gen.UpdateClusterWorkflowPlane200JSONResponse)
+	require.True(t, ok, "expected 200 response, got %T", resp)
+	assert.Equal(t, "from-path", typed.Metadata.Name)
 }

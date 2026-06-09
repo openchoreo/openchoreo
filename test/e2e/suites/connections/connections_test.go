@@ -20,7 +20,7 @@ var (
 	dpNs string // data plane namespace for cpNs/proj1/development
 )
 
-var _ = Describe("Connection Resolution", Ordered, func() {
+var _ = Describe("Connection Resolution", Ordered, Label("tier1"), func() {
 	// assertRBConditionInNs checks a ReleaseBinding condition in a specific namespace.
 	assertRBConditionInNs := func(namespace, rbName, condType, expectedStatus, expectedReason string) {
 		Eventually(func(g Gomega) {

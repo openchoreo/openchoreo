@@ -4,10 +4,7 @@
 package namespace
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -15,47 +12,22 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/namespace/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
-
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
 
 // --- printList tests ---
 
 func TestPrintList_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(nil))
 	})
 	assert.Contains(t, out, "No namespaces found")
 }
 
 func TestPrintList_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList([]gen.Namespace{}))
 	})
 	assert.Contains(t, out, "No namespaces found")
@@ -67,7 +39,7 @@ func TestPrintList_WithItems(t *testing.T) {
 		{Metadata: gen.ObjectMeta{Name: "org-a", CreationTimestamp: &now}},
 		{Metadata: gen.ObjectMeta{Name: "org-b"}},
 	}
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 	assert.Contains(t, out, "NAME")
@@ -79,7 +51,7 @@ func TestPrintList_WithItems(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	n := New(mc)
@@ -87,14 +59,14 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
 		Items:      []gen.Namespace{{Metadata: gen.ObjectMeta{Name: "org-a"}}},
 		Pagination: gen.Pagination{},
 	}, nil)
 
 	n := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, n.List())
 	})
 	assert.Contains(t, out, "org-a")
@@ -102,7 +74,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
 		Items: []gen.Namespace{
 			{Metadata: gen.ObjectMeta{Name: "org-a", CreationTimestamp: &now}},
@@ -112,7 +84,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	n := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, n.List())
 	})
 	assert.Contains(t, out, "org-a")
@@ -120,14 +92,14 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListNamespaces(mock.Anything, mock.Anything).Return(&gen.NamespaceList{
 		Items:      []gen.Namespace{},
 		Pagination: gen.Pagination{},
 	}, nil)
 
 	n := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, n.List())
 	})
 	assert.Contains(t, out, "No namespaces found")
@@ -136,7 +108,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetNamespace(mock.Anything, "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	n := New(mc)
@@ -144,13 +116,13 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetNamespace(mock.Anything, "org-a").Return(&gen.Namespace{
 		Metadata: gen.ObjectMeta{Name: "org-a"},
 	}, nil)
 
 	n := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, n.Get("org-a"))
 	})
 	assert.Contains(t, out, "name: org-a")
@@ -159,7 +131,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteNamespace(mock.Anything, "org-a").Return(fmt.Errorf("forbidden"))
 
 	n := New(mc)
@@ -167,11 +139,11 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteNamespace(mock.Anything, "org-a").Return(nil)
 
 	n := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, n.Delete("org-a"))
 	})
 	assert.Contains(t, out, "Namespace 'org-a' deleted")

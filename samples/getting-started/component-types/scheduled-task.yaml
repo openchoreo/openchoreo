@@ -41,6 +41,8 @@ spec:
         restartPolicy:
           type: string
           default: OnFailure
+        timeZone:
+          type: string
 
   environmentConfigs:
     openAPIV3Schema:
@@ -89,6 +91,8 @@ spec:
           labels: ${metadata.labels}
         spec:
           schedule: ${environmentConfigs.schedule}
+          timeZone: |
+            ${has(parameters.timeZone) ? parameters.timeZone : oc_omit()}
           successfulJobsHistoryLimit: ${parameters.successfulJobsHistoryLimit}
           failedJobsHistoryLimit: ${parameters.failedJobsHistoryLimit}
           concurrencyPolicy: ${parameters.concurrencyPolicy}
@@ -120,8 +124,8 @@ spec:
                           memory: ${environmentConfigs.resources.limits.memory}
                       env: ${dependencies.toContainerEnvs()}
                       envFrom: ${configurations.toContainerEnvFrom()}
-                      volumeMounts: ${configurations.toContainerVolumeMounts()}
-                  volumes: ${configurations.toVolumes()}
+                      volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
+                  volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
 
     - id: env-config
       forEach: ${configurations.toConfigEnvsByContainer()}

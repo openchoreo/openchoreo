@@ -6,11 +6,16 @@ package releasebinding
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -624,7 +629,7 @@ func TestCategorizeResource(t *testing.T) {
 // ─── aggregateResourceStatus ─────────────────────────────────────────────────
 
 func TestAggregateResourceStatus(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 		{HealthStatus: openchoreov1alpha1.HealthStatusProgressing},
@@ -661,8 +666,8 @@ func TestAggregateResourceStatus(t *testing.T) {
 
 // ─── evaluateDeploymentStatus ────────────────────────────────────────────────
 
-func deploymentResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.ResourceStatus {
-	return openchoreov1alpha1.ResourceStatus{
+func deploymentResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
 		Group:        "apps",
 		Version:      "v1",
 		Kind:         "Deployment",
@@ -671,8 +676,8 @@ func deploymentResource(status openchoreov1alpha1.HealthStatus) openchoreov1alph
 	}
 }
 
-func serviceResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.ResourceStatus {
-	return openchoreov1alpha1.ResourceStatus{
+func serviceResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
 		Group:        "",
 		Version:      "v1",
 		Kind:         "Service",
@@ -681,8 +686,8 @@ func serviceResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.
 	}
 }
 
-func hpaResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.ResourceStatus {
-	return openchoreov1alpha1.ResourceStatus{
+func hpaResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
 		Group:        "autoscaling",
 		Version:      "v2",
 		Kind:         "HorizontalPodAutoscaler",
@@ -692,7 +697,7 @@ func hpaResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.Reso
 }
 
 func TestEvaluateDeploymentStatus_NoPrimaryWorkload(t *testing.T) {
-	ready, reason, _ := evaluateDeploymentStatus([]openchoreov1alpha1.ResourceStatus{}, WorkloadTypeDeployment)
+	ready, reason, _ := evaluateDeploymentStatus([]openchoreov1alpha1.RenderedManifestStatus{}, WorkloadTypeDeployment)
 	if ready {
 		t.Error("should not be ready when no primary workload")
 	}
@@ -703,7 +708,7 @@ func TestEvaluateDeploymentStatus_NoPrimaryWorkload(t *testing.T) {
 
 func TestEvaluateDeploymentStatus_PrimaryDegraded(t *testing.T) {
 	ready, reason, _ := evaluateDeploymentStatus(
-		[]openchoreov1alpha1.ResourceStatus{deploymentResource(openchoreov1alpha1.HealthStatusDegraded)},
+		[]openchoreov1alpha1.RenderedManifestStatus{deploymentResource(openchoreov1alpha1.HealthStatusDegraded)},
 		WorkloadTypeDeployment,
 	)
 	if ready {
@@ -716,7 +721,7 @@ func TestEvaluateDeploymentStatus_PrimaryDegraded(t *testing.T) {
 
 func TestEvaluateDeploymentStatus_PrimaryProgressing(t *testing.T) {
 	ready, reason, _ := evaluateDeploymentStatus(
-		[]openchoreov1alpha1.ResourceStatus{deploymentResource(openchoreov1alpha1.HealthStatusProgressing)},
+		[]openchoreov1alpha1.RenderedManifestStatus{deploymentResource(openchoreov1alpha1.HealthStatusProgressing)},
 		WorkloadTypeDeployment,
 	)
 	if ready {
@@ -729,7 +734,7 @@ func TestEvaluateDeploymentStatus_PrimaryProgressing(t *testing.T) {
 
 func TestEvaluateDeploymentStatus_PrimaryUnknown(t *testing.T) {
 	ready, reason, _ := evaluateDeploymentStatus(
-		[]openchoreov1alpha1.ResourceStatus{deploymentResource(openchoreov1alpha1.HealthStatusUnknown)},
+		[]openchoreov1alpha1.RenderedManifestStatus{deploymentResource(openchoreov1alpha1.HealthStatusUnknown)},
 		WorkloadTypeDeployment,
 	)
 	if ready {
@@ -742,7 +747,7 @@ func TestEvaluateDeploymentStatus_PrimaryUnknown(t *testing.T) {
 
 func TestEvaluateDeploymentStatus_PrimarySuspended(t *testing.T) {
 	ready, reason, _ := evaluateDeploymentStatus(
-		[]openchoreov1alpha1.ResourceStatus{deploymentResource(openchoreov1alpha1.HealthStatusSuspended)},
+		[]openchoreov1alpha1.RenderedManifestStatus{deploymentResource(openchoreov1alpha1.HealthStatusSuspended)},
 		WorkloadTypeDeployment,
 	)
 	if !ready {
@@ -754,7 +759,7 @@ func TestEvaluateDeploymentStatus_PrimarySuspended(t *testing.T) {
 }
 
 func TestEvaluateDeploymentStatus_PrimaryHealthy_AllHealthy(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		deploymentResource(openchoreov1alpha1.HealthStatusHealthy),
 		serviceResource(openchoreov1alpha1.HealthStatusHealthy),
 	}
@@ -768,7 +773,7 @@ func TestEvaluateDeploymentStatus_PrimaryHealthy_AllHealthy(t *testing.T) {
 }
 
 func TestEvaluateDeploymentStatus_PrimaryHealthy_SupportingDegraded(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		deploymentResource(openchoreov1alpha1.HealthStatusHealthy),
 		serviceResource(openchoreov1alpha1.HealthStatusDegraded),
 	}
@@ -782,7 +787,7 @@ func TestEvaluateDeploymentStatus_PrimaryHealthy_SupportingDegraded(t *testing.T
 }
 
 func TestEvaluateDeploymentStatus_PrimaryHealthy_OperationalDegraded(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		deploymentResource(openchoreov1alpha1.HealthStatusHealthy),
 		hpaResource(openchoreov1alpha1.HealthStatusDegraded),
 	}
@@ -797,8 +802,8 @@ func TestEvaluateDeploymentStatus_PrimaryHealthy_OperationalDegraded(t *testing.
 
 // ─── evaluateCronJobStatus ───────────────────────────────────────────────────
 
-func cronJobResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.ResourceStatus {
-	return openchoreov1alpha1.ResourceStatus{
+func cronJobResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
 		Group:        "batch",
 		Version:      "v1",
 		Kind:         "CronJob",
@@ -821,7 +826,7 @@ func TestEvaluateCronJobStatus_AllPathsAndNoPrimary(t *testing.T) {
 	}
 	for _, tc := range tests {
 		ready, reason, _ := evaluateCronJobStatus(
-			[]openchoreov1alpha1.ResourceStatus{cronJobResource(tc.status)},
+			[]openchoreov1alpha1.RenderedManifestStatus{cronJobResource(tc.status)},
 			WorkloadTypeCronJob,
 		)
 		if ready != tc.wantReady {
@@ -833,7 +838,7 @@ func TestEvaluateCronJobStatus_AllPathsAndNoPrimary(t *testing.T) {
 	}
 
 	// No primary CronJob
-	ready, reason, _ := evaluateCronJobStatus([]openchoreov1alpha1.ResourceStatus{}, WorkloadTypeCronJob)
+	ready, reason, _ := evaluateCronJobStatus([]openchoreov1alpha1.RenderedManifestStatus{}, WorkloadTypeCronJob)
 	if ready || reason != string(ReasonResourcesProgressing) {
 		t.Errorf("no primary: ready=%v reason=%q, want false/%q", ready, reason, ReasonResourcesProgressing)
 	}
@@ -841,8 +846,8 @@ func TestEvaluateCronJobStatus_AllPathsAndNoPrimary(t *testing.T) {
 
 // ─── evaluateJobStatus ────────────────────────────────────────────────────────
 
-func jobResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.ResourceStatus {
-	return openchoreov1alpha1.ResourceStatus{
+func jobResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
 		Group:        "batch",
 		Version:      "v1",
 		Kind:         "Job",
@@ -865,7 +870,7 @@ func TestEvaluateJobStatus_AllPathsAndNoPrimary(t *testing.T) {
 	}
 	for _, tc := range tests {
 		ready, reason, _ := evaluateJobStatus(
-			[]openchoreov1alpha1.ResourceStatus{jobResource(tc.status)},
+			[]openchoreov1alpha1.RenderedManifestStatus{jobResource(tc.status)},
 			WorkloadTypeJob,
 		)
 		if ready != tc.wantReady {
@@ -877,7 +882,7 @@ func TestEvaluateJobStatus_AllPathsAndNoPrimary(t *testing.T) {
 	}
 
 	// No primary Job
-	ready, reason, _ := evaluateJobStatus([]openchoreov1alpha1.ResourceStatus{}, WorkloadTypeJob)
+	ready, reason, _ := evaluateJobStatus([]openchoreov1alpha1.RenderedManifestStatus{}, WorkloadTypeJob)
 	if ready || reason != string(ReasonResourcesProgressing) {
 		t.Errorf("no primary: ready=%v reason=%q, want false/%q", ready, reason, ReasonResourcesProgressing)
 	}
@@ -893,7 +898,7 @@ func TestEvaluateGenericStatus(t *testing.T) {
 	}
 
 	// All healthy → ready
-	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.ResourceStatus{
+	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.RenderedManifestStatus{
 		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 		{HealthStatus: openchoreov1alpha1.HealthStatusSuspended},
 	})
@@ -902,7 +907,7 @@ func TestEvaluateGenericStatus(t *testing.T) {
 	}
 
 	// Any degraded → not ready
-	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.ResourceStatus{
+	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.RenderedManifestStatus{
 		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 		{HealthStatus: openchoreov1alpha1.HealthStatusDegraded},
 	})
@@ -911,7 +916,7 @@ func TestEvaluateGenericStatus(t *testing.T) {
 	}
 
 	// Any progressing → not ready
-	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.ResourceStatus{
+	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.RenderedManifestStatus{
 		{HealthStatus: openchoreov1alpha1.HealthStatusProgressing},
 	})
 	if ready || reason != string(ReasonResourcesProgressing) {
@@ -919,7 +924,7 @@ func TestEvaluateGenericStatus(t *testing.T) {
 	}
 
 	// Any unknown → not ready
-	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.ResourceStatus{
+	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.RenderedManifestStatus{
 		{HealthStatus: openchoreov1alpha1.HealthStatusUnknown},
 	})
 	if ready || reason != string(ReasonResourcesUnknown) {
@@ -1052,7 +1057,7 @@ func TestSetReleaseSyncedCondition_Created(t *testing.T) {
 	rb := makeReleaseBindingForConditions()
 
 	r.setReleaseSyncedCondition(rb, "my-release", controllerutil.OperationResultCreated, 3,
-		observabilityReleaseResult{managed: false})
+		observabilityReleaseResult{managed: false, skipReason: "no observability resources to deploy"})
 
 	cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
 	if cond == nil {
@@ -1064,6 +1069,9 @@ func TestSetReleaseSyncedCondition_Created(t *testing.T) {
 	if cond.Reason != string(ReasonReleaseCreated) {
 		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonReleaseCreated)
 	}
+	if !strings.Contains(cond.Message, "no observability resources to deploy") {
+		t.Errorf("Message = %q, want to contain skip reason", cond.Message)
+	}
 }
 
 func TestSetReleaseSyncedCondition_Updated(t *testing.T) {
@@ -1071,7 +1079,7 @@ func TestSetReleaseSyncedCondition_Updated(t *testing.T) {
 	rb := makeReleaseBindingForConditions()
 
 	r.setReleaseSyncedCondition(rb, "my-release", controllerutil.OperationResultUpdated, 5,
-		observabilityReleaseResult{managed: false})
+		observabilityReleaseResult{managed: false, skipReason: "no observability resources to deploy"})
 
 	cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
 	if cond == nil {
@@ -1090,7 +1098,7 @@ func TestSetReleaseSyncedCondition_None(t *testing.T) {
 	rb := makeReleaseBindingForConditions()
 
 	r.setReleaseSyncedCondition(rb, "my-release", controllerutil.OperationResultNone, 3,
-		observabilityReleaseResult{managed: false})
+		observabilityReleaseResult{managed: false, skipReason: "no observability resources to deploy"})
 
 	cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
 	if cond == nil {
@@ -1101,6 +1109,40 @@ func TestSetReleaseSyncedCondition_None(t *testing.T) {
 	}
 	if cond.Reason != string(ReasonReleaseSynced) {
 		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonReleaseSynced)
+	}
+}
+
+func TestSetReleaseSyncedCondition_SkippedDueToPlaneLookupFailure(t *testing.T) {
+	r := newTestReconciler()
+
+	cases := []struct {
+		name string
+		op   controllerutil.OperationResult
+	}{
+		{name: "created", op: controllerutil.OperationResultCreated},
+		{name: "none", op: controllerutil.OperationResultNone},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rb := makeReleaseBindingForConditions()
+			skipReason := `failed to resolve ObservabilityPlane: observabilityplanes.openchoreo.dev "default" not found`
+
+			r.setReleaseSyncedCondition(rb, "my-release", tc.op, 3,
+				observabilityReleaseResult{managed: false, skipReason: skipReason})
+
+			cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
+			if cond == nil {
+				t.Fatal("ReleaseSynced condition should be set")
+			}
+			if !strings.Contains(cond.Message, skipReason) {
+				t.Errorf("Message = %q, want to contain underlying skip reason %q", cond.Message, skipReason)
+			}
+			// Sanity check: the old generic boilerplate should no longer leak through.
+			if strings.Contains(cond.Message, "no ObservabilityPlaneRef or no resources") {
+				t.Errorf("Message = %q, must not contain the misleading boilerplate", cond.Message)
+			}
+		})
 	}
 }
 
@@ -1317,7 +1359,7 @@ func TestSetResourcesReadyStatus_DeploymentHealthy(t *testing.T) {
 	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
 		Status: openchoreov1alpha1.RenderedReleaseStatus{
-			Resources: []openchoreov1alpha1.ResourceStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
 		},
@@ -1351,7 +1393,7 @@ func TestSetResourcesReadyStatus_StatefulSetDegraded(t *testing.T) {
 	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
 		Status: openchoreov1alpha1.RenderedReleaseStatus{
-			Resources: []openchoreov1alpha1.ResourceStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{Group: "apps", Version: "v1", Kind: "StatefulSet", Name: "db", HealthStatus: openchoreov1alpha1.HealthStatusDegraded},
 			},
 		},
@@ -1385,7 +1427,7 @@ func TestSetResourcesReadyStatus_CronJobScheduled(t *testing.T) {
 	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
 		Status: openchoreov1alpha1.RenderedReleaseStatus{
-			Resources: []openchoreov1alpha1.ResourceStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{Group: "batch", Version: "v1", Kind: "CronJob", Name: "nightly", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
 		},
@@ -1419,7 +1461,7 @@ func TestSetResourcesReadyStatus_JobCompleted(t *testing.T) {
 	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
 		Status: openchoreov1alpha1.RenderedReleaseStatus{
-			Resources: []openchoreov1alpha1.ResourceStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{Group: "batch", Version: "v1", Kind: "Job", Name: "migration", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
 		},
@@ -1453,7 +1495,7 @@ func TestSetResourcesReadyStatus_ProxyGenericEvaluation(t *testing.T) {
 	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
 		Status: openchoreov1alpha1.RenderedReleaseStatus{
-			Resources: []openchoreov1alpha1.ResourceStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{Group: "", Version: "v1", Kind: "Service", Name: "proxy-svc", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
 		},
@@ -1484,7 +1526,7 @@ func TestSetResourcesReadyStatus_UnknownWorkloadType(t *testing.T) {
 	release := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
 		Status: openchoreov1alpha1.RenderedReleaseStatus{
-			Resources: []openchoreov1alpha1.ResourceStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 			},
 		},
@@ -1512,8 +1554,8 @@ func TestSetResourcesReadyStatus_UnknownWorkloadType(t *testing.T) {
 
 // ─── evaluateStatefulSetStatus ───────────────────────────────────────────────
 
-func statefulSetResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.ResourceStatus {
-	return openchoreov1alpha1.ResourceStatus{
+func statefulSetResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
 		Group:        "apps",
 		Version:      "v1",
 		Kind:         "StatefulSet",
@@ -1536,7 +1578,7 @@ func TestEvaluateStatefulSetStatus_AllPathsAndNoPrimary(t *testing.T) {
 	}
 	for _, tc := range tests {
 		ready, reason, _ := evaluateStatefulSetStatus(
-			[]openchoreov1alpha1.ResourceStatus{statefulSetResource(tc.status)},
+			[]openchoreov1alpha1.RenderedManifestStatus{statefulSetResource(tc.status)},
 			WorkloadTypeStatefulSet,
 		)
 		if ready != tc.wantReady {
@@ -1548,14 +1590,14 @@ func TestEvaluateStatefulSetStatus_AllPathsAndNoPrimary(t *testing.T) {
 	}
 
 	// No primary StatefulSet
-	ready, reason, _ := evaluateStatefulSetStatus([]openchoreov1alpha1.ResourceStatus{}, WorkloadTypeStatefulSet)
+	ready, reason, _ := evaluateStatefulSetStatus([]openchoreov1alpha1.RenderedManifestStatus{}, WorkloadTypeStatefulSet)
 	if ready || reason != string(ReasonResourcesProgressing) {
 		t.Errorf("no primary: ready=%v reason=%q, want false/%q", ready, reason, ReasonResourcesProgressing)
 	}
 }
 
 func TestEvaluateStatefulSetStatus_PrimaryHealthy_SupportingDegraded(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		statefulSetResource(openchoreov1alpha1.HealthStatusHealthy),
 		serviceResource(openchoreov1alpha1.HealthStatusDegraded),
 	}
@@ -1569,7 +1611,7 @@ func TestEvaluateStatefulSetStatus_PrimaryHealthy_SupportingDegraded(t *testing.
 }
 
 func TestEvaluateStatefulSetStatus_PrimaryHealthy_AllHealthy(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		statefulSetResource(openchoreov1alpha1.HealthStatusHealthy),
 		serviceResource(openchoreov1alpha1.HealthStatusHealthy),
 	}
@@ -1583,7 +1625,7 @@ func TestEvaluateStatefulSetStatus_PrimaryHealthy_AllHealthy(t *testing.T) {
 }
 
 func TestEvaluateStatefulSetStatus_PrimaryHealthy_OperationalDegraded(t *testing.T) {
-	resources := []openchoreov1alpha1.ResourceStatus{
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
 		statefulSetResource(openchoreov1alpha1.HealthStatusHealthy),
 		hpaResource(openchoreov1alpha1.HealthStatusDegraded),
 	}
@@ -1713,7 +1755,7 @@ func TestBuildConnectionTargets(t *testing.T) {
 
 	t.Run("builds targets with explicit project", func(t *testing.T) {
 		conns := []openchoreov1alpha1.WorkloadConnection{
-			{Project: "other-proj", Component: "svc-a", Name: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+			{Project: "other-proj", Component: "svc-a", Name: "api", Visibility: string(openchoreov1alpha1.EndpointVisibilityProject)},
 		}
 		targets := buildConnectionTargets(rb, conns)
 		if len(targets) != 1 {
@@ -1732,7 +1774,7 @@ func TestBuildConnectionTargets(t *testing.T) {
 
 	t.Run("defaults project to owner", func(t *testing.T) {
 		conns := []openchoreov1alpha1.WorkloadConnection{
-			{Component: "svc-a", Name: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+			{Component: "svc-a", Name: "api", Visibility: string(openchoreov1alpha1.EndpointVisibilityProject)},
 		}
 		targets := buildConnectionTargets(rb, conns)
 		if len(targets) != 1 {
@@ -1769,7 +1811,7 @@ func TestAllConnectionsResolved(t *testing.T) {
 				URL: openchoreov1alpha1.EndpointURL{Host: "svc-a.default.svc.cluster.local", Port: 8080}},
 		})
 		conns := []openchoreov1alpha1.WorkloadConnection{
-			{Component: "svc-a", Name: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+			{Component: "svc-a", Name: "api", Visibility: string(openchoreov1alpha1.EndpointVisibilityProject)},
 		}
 		if !allConnectionsResolved(rb, conns) {
 			t.Error("expected true when all resolved")
@@ -1779,7 +1821,7 @@ func TestAllConnectionsResolved(t *testing.T) {
 	t.Run("missing resolution", func(t *testing.T) {
 		rb := makeRB(nil)
 		conns := []openchoreov1alpha1.WorkloadConnection{
-			{Component: "svc-a", Name: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+			{Component: "svc-a", Name: "api", Visibility: string(openchoreov1alpha1.EndpointVisibilityProject)},
 		}
 		if allConnectionsResolved(rb, conns) {
 			t.Error("expected false when no resolutions")
@@ -1868,7 +1910,7 @@ func TestBuildConnectionItems(t *testing.T) {
 			{
 				Component:  "svc-a",
 				Name:       "api",
-				Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+				Visibility: string(openchoreov1alpha1.EndpointVisibilityProject),
 				EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
 					Address:  "SVC_A_ADDRESS",
 					Host:     "SVC_A_HOST",
@@ -1909,7 +1951,7 @@ func TestBuildConnectionItems(t *testing.T) {
 			{
 				Component:  "svc-a",
 				Name:       "api",
-				Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+				Visibility: string(openchoreov1alpha1.EndpointVisibilityProject),
 				EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
 					Address: "SVC_A_ADDRESS",
 				},
@@ -1933,7 +1975,7 @@ func TestBuildConnectionItems(t *testing.T) {
 			{
 				Component:  "svc-a",
 				Name:       "api",
-				Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+				Visibility: string(openchoreov1alpha1.EndpointVisibilityProject),
 				EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
 					Host: "SVC_A_HOST",
 					Port: "SVC_A_PORT",
@@ -1998,4 +2040,406 @@ func TestResolveURLForVisibility(t *testing.T) {
 			t.Errorf("expected nil, got %v", url)
 		}
 	})
+}
+
+// ---- collectSecretReferences tests ----
+
+func newSecretReferenceTestReconciler(t *testing.T, objs ...client.Object) *Reconciler {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+	builder := fake.NewClientBuilder().WithScheme(scheme)
+	if len(objs) > 0 {
+		builder = builder.WithObjects(objs...)
+	}
+	return &Reconciler{Client: builder.Build(), Scheme: scheme}
+}
+
+func makeSecretReference(name string, keys ...string) *openchoreov1alpha1.SecretReference {
+	data := make([]openchoreov1alpha1.SecretDataSource, 0, len(keys))
+	for _, k := range keys {
+		data = append(data, openchoreov1alpha1.SecretDataSource{
+			SecretKey: k,
+			RemoteRef: openchoreov1alpha1.RemoteReference{Key: "remote/" + k},
+		})
+	}
+	return &openchoreov1alpha1.SecretReference{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
+		Spec: openchoreov1alpha1.SecretReferenceSpec{
+			Data: data,
+		},
+	}
+}
+
+func makeWorkloadWithEnvSecret(envKey, refName, refKey string) *openchoreov1alpha1.Workload {
+	return &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: envKey,
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: refName, Key: refKey},
+						},
+					}},
+				},
+			},
+		},
+	}
+}
+
+func makeWorkloadWithFileSecret(fileKey, mountPath, refName, refKey string) *openchoreov1alpha1.Workload {
+	return &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Files: []openchoreov1alpha1.FileVar{{
+						Key:       fileKey,
+						MountPath: mountPath,
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: refName, Key: refKey},
+						},
+					}},
+				},
+			},
+		},
+	}
+}
+
+func TestCollectSecretReferences_NilWorkloadNoOverrides(t *testing.T) {
+	r := newSecretReferenceTestReconciler(t)
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+	}
+
+	refs, err := r.collectSecretReferences(context.Background(), nil, rb)
+	require.NoError(t, err)
+	assert.Empty(t, refs)
+}
+
+func TestCollectSecretReferences_WorkloadEnv_KeyFound(t *testing.T) {
+	sr := makeSecretReference("db-secret", "password", "username")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := makeWorkloadWithEnvSecret("DB_PASSWORD", "db-secret", "password")
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	require.Len(t, refs, 1)
+	assert.NotNil(t, refs["db-secret"])
+}
+
+func TestCollectSecretReferences_WorkloadEnv_KeyMissing(t *testing.T) {
+	sr := makeSecretReference("db-secret", "password")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := makeWorkloadWithEnvSecret("DB_USERNAME", "db-secret", "username")
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	_, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, `key "username"`)
+	assert.Contains(t, msg, `SecretReference "db-secret"`)
+	assert.Contains(t, msg, "password")
+}
+
+func TestCollectSecretReferences_WorkloadFile_KeyMissing(t *testing.T) {
+	sr := makeSecretReference("tls-secret", "tls.crt")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := makeWorkloadWithFileSecret("tls.key", "/etc/tls/key", "tls-secret", "tls.key")
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	_, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, `key "tls.key"`)
+	assert.Contains(t, msg, `SecretReference "tls-secret"`)
+	assert.Contains(t, msg, "tls.crt")
+}
+
+func TestCollectSecretReferences_ReleaseBindingOverrideEnv_KeyMissing(t *testing.T) {
+	sr := makeSecretReference("api-secret", "token")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: "API_KEY",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "api-secret", Key: "api-key"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	_, err := r.collectSecretReferences(context.Background(), nil, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, `key "api-key"`)
+	assert.Contains(t, msg, `SecretReference "api-secret"`)
+}
+
+func TestCollectSecretReferences_ReleaseBindingOverrideFile_KeyMissing(t *testing.T) {
+	sr := makeSecretReference("cfg-secret", "app.conf")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Files: []openchoreov1alpha1.FileVar{{
+						Key:       "secret.conf",
+						MountPath: "/etc/cfg/secret.conf",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "cfg-secret", Key: "secret.conf"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	_, err := r.collectSecretReferences(context.Background(), nil, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, `key "secret.conf"`)
+	assert.Contains(t, msg, `SecretReference "cfg-secret"`)
+}
+
+func TestCollectSecretReferences_SecretReferenceNotFound(t *testing.T) {
+	r := newSecretReferenceTestReconciler(t) // no objects
+
+	wl := makeWorkloadWithEnvSecret("TOKEN", "missing-secret", "token")
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	_, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, "failed to get SecretReference")
+	assert.Contains(t, msg, `"missing-secret"`)
+}
+
+func TestCollectSecretReferences_DuplicateRefsCachedAndValidated(t *testing.T) {
+	sr := makeSecretReference("shared-secret", "key-a", "key-b")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{
+						{
+							Key: "A",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "shared-secret", Key: "key-a"},
+							},
+						},
+						{
+							Key: "B",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "shared-secret", Key: "key-b"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	assert.Len(t, refs, 1)
+}
+
+func TestCollectSecretReferences_CachedRefStillValidatesKey(t *testing.T) {
+	sr := makeSecretReference("shared-secret", "key-a")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{
+						{
+							Key: "A",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "shared-secret", Key: "key-a"},
+							},
+						},
+						{
+							Key: "B",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								// Second ref to same SecretReference but requests a key that does not exist.
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "shared-secret", Key: "key-b"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	_, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `key "key-b"`)
+}
+
+func TestCollectSecretReferences_EmptyRefNameSkipped(t *testing.T) {
+	r := newSecretReferenceTestReconciler(t) // no objects, so any Get would fail
+
+	wl := &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: "X",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "", Key: "anything"},
+						},
+					}},
+				},
+			},
+		},
+	}
+	rb := &openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	assert.Empty(t, refs)
+}
+
+func TestCollectSecretReferences_OverriddenEnvSkipsWorkloadSecret(t *testing.T) {
+	// Workload references "wl-secret" for env key "DB_PASSWORD", but releaseBinding
+	// overrides the same env key with "rb-secret". The workload's "wl-secret" should
+	// NOT be fetched — only "rb-secret" from the override.
+	rbSecret := makeSecretReference("rb-secret", "password")
+	r := newSecretReferenceTestReconciler(t, rbSecret) // wl-secret intentionally absent
+
+	wl := makeWorkloadWithEnvSecret("DB_PASSWORD", "wl-secret", "password")
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: "DB_PASSWORD",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "rb-secret", Key: "password"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	require.Len(t, refs, 1)
+	assert.NotNil(t, refs["rb-secret"])
+	assert.Nil(t, refs["wl-secret"], "wl-secret should not have been fetched since it was overridden")
+}
+
+func TestCollectSecretReferences_OverriddenFileSkipsWorkloadSecret(t *testing.T) {
+	// Same override logic but for file entries.
+	rbSecret := makeSecretReference("rb-file-secret", "cert.pem")
+	r := newSecretReferenceTestReconciler(t, rbSecret) // wl-file-secret intentionally absent
+
+	wl := makeWorkloadWithFileSecret("tls-cert", "/etc/tls/cert.pem", "wl-file-secret", "cert.pem")
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Files: []openchoreov1alpha1.FileVar{{
+						Key:       "tls-cert",
+						MountPath: "/etc/tls/cert.pem",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "rb-file-secret", Key: "cert.pem"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	require.Len(t, refs, 1)
+	assert.NotNil(t, refs["rb-file-secret"])
+	assert.Nil(t, refs["wl-file-secret"], "wl-file-secret should not have been fetched since it was overridden")
+}
+
+func TestCollectSecretReferences_NonOverriddenWorkloadEntryStillCollected(t *testing.T) {
+	// Workload has two env vars: one overridden and one not.
+	// Only the non-overridden one should be fetched from the workload.
+	wlSecret := makeSecretReference("wl-secret", "user")
+	rbSecret := makeSecretReference("rb-secret", "pass")
+	r := newSecretReferenceTestReconciler(t, wlSecret, rbSecret)
+
+	wl := &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{
+						{
+							Key: "DB_USER",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "wl-secret", Key: "user"},
+							},
+						},
+						{
+							Key: "DB_PASS",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "wl-secret", Key: "pass"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	rb := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: "DB_PASS",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "rb-secret", Key: "pass"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	require.Len(t, refs, 2)
+	assert.NotNil(t, refs["wl-secret"], "expected wl-secret for non-overridden DB_USER")
+	assert.NotNil(t, refs["rb-secret"], "expected rb-secret for overridden DB_PASS")
 }

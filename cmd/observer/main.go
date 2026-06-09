@@ -10,6 +10,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"sync"
@@ -21,8 +22,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	observermcp "github.com/openchoreo/openchoreo/internal/observer/mcp"
 	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
-	"github.com/openchoreo/openchoreo/internal/observer/opensearch"
-	"github.com/openchoreo/openchoreo/internal/observer/prometheus"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
@@ -61,66 +60,47 @@ func main() {
 		// Continue without k8s client - notifications will be skipped
 	}
 
-	// Initialize OpenSearch client
-	osClient, err := opensearch.NewClient(&cfg.OpenSearch, logger)
+	// Initialize resource UID resolver for name-to-UID resolution
+	uidResolver := service.NewResourceUIDResolver(&cfg.UIDResolver, logger.With("component", "resource-resolver"))
+
+	// Initialize metrics adapter (always enabled, forwards metrics queries to external adapter)
+	metricsAdapter := service.NewMetricsAdapter(
+		cfg.Adapters.MetricsAdapterURL,
+		cfg.Adapters.MetricsAdapterTimeout,
+		uidResolver,
+		logger.With("component", "metrics-adapter"),
+	)
+	logger.Info("Metrics adapter initialized", "adapter_url", sanitizeURL(cfg.Adapters.MetricsAdapterURL))
+
+	// Initialize metrics adapter HTTP client for alert CRUD forwarding
+	metricsAdapterClient := &http.Client{
+		Timeout: cfg.Adapters.MetricsAdapterTimeout,
+	}
+
+	// Initialize logs adapter
+	logger.Info("Initializing logs adapter", "adapter_url", sanitizeURL(cfg.Adapters.LogsAdapterURL))
+	concreteLogsAdapter, err := service.NewLogsAdapter(service.LogsAdapterConfig{
+		BaseURL: cfg.Adapters.LogsAdapterURL,
+		Timeout: cfg.Adapters.LogsAdapterTimeout,
+	})
 	if err != nil {
-		log.Fatalf("Failed to initialize OpenSearch client: %v", err)
+		logger.Error("Failed to create logs adapter", "error", err)
+		os.Exit(1)
 	}
+	var logsAdapter observability.LogsAdapter = concreteLogsAdapter
+	logger.Info("Logs adapter initialized")
 
-	// Initialize Prometheus client
-	promClient, err := prometheus.NewClient(&cfg.Prometheus, logger)
+	// Initialize tracing adapter
+	logger.Info("Initializing tracing adapter", "adapter_url", sanitizeURL(cfg.Adapters.TracingAdapterURL))
+	tracingAdapter, err := service.NewTracingAdapter(service.TracingAdapterConfig{
+		BaseURL: cfg.Adapters.TracingAdapterURL,
+		Timeout: cfg.Adapters.TracingAdapterTimeout,
+	})
 	if err != nil {
-		log.Fatalf("Failed to initialize Prometheus client: %v", err)
+		logger.Error("Failed to create tracing adapter", "error", err)
+		os.Exit(1)
 	}
-
-	// Initialize Prometheus metrics service
-	// TODO: Remove this once the metrics adapter is implemented
-	promService := prometheus.NewMetricsService(promClient, logger)
-
-	// Initialize logs adapter (optional)
-	var logsAdapter observability.LogsAdapter
-	var concreteLogsAdapter *service.LogsAdapter
-	if cfg.Adapters.LogsAdapterEnabled {
-		logger.Info("Using logs adapter",
-			"adapter_url", cfg.Adapters.LogsAdapterURL)
-
-		// Initialize HTTP-based adapter (e.g., OpenObserve)
-		adapterConfig := service.LogsAdapterConfig{
-			BaseURL: cfg.Adapters.LogsAdapterURL,
-			Timeout: cfg.Adapters.LogsAdapterTimeout,
-		}
-		var adapterErr error
-		concreteLogsAdapter, adapterErr = service.NewLogsAdapter(adapterConfig)
-		if adapterErr != nil {
-			logger.Error("Failed to create logs adapter", "error", adapterErr)
-			os.Exit(1)
-		}
-		logsAdapter = concreteLogsAdapter
-		logger.Info("Logs adapter initialized")
-	} else {
-		logger.Info("Using OpenSearch for component logs")
-	}
-
-	// Initialize tracing adapter (optional)
-	var tracingAdapter observability.TracingAdapter
-	if cfg.Adapters.TracingAdapterEnabled {
-		logger.Info("Using tracing adapter",
-			"adapter_url", cfg.Adapters.TracingAdapterURL)
-
-		adapterConfig := service.TracingAdapterConfig{
-			BaseURL: cfg.Adapters.TracingAdapterURL,
-			Timeout: cfg.Adapters.TracingAdapterTimeout,
-		}
-		var adapterErr error
-		tracingAdapter, adapterErr = service.NewTracingAdapter(adapterConfig)
-		if adapterErr != nil {
-			logger.Error("Failed to create tracing adapter", "error", adapterErr)
-			os.Exit(1)
-		}
-		logger.Info("Tracing adapter initialized")
-	} else {
-		logger.Info("Using OpenSearch for traces")
-	}
+	logger.Info("Tracing adapter initialized")
 
 	// Initialize authz client
 	authzClient, err := observerAuthz.NewClient(&cfg.Authz, logger.With("component", "authz-client"))
@@ -132,9 +112,6 @@ func main() {
 	// Initialize HTTP server
 	mux := http.NewServeMux()
 
-	// Initialize resource UID resolver for name-to-UID resolution
-	uidResolver := service.NewResourceUIDResolver(&cfg.UIDResolver, logger.With("component", "resource-resolver"))
-
 	// Initialize logs service
 	logsService, logsServiceErr := service.NewLogsService(
 		logsAdapter, uidResolver, cfg, logger.With("component", "logs-service"),
@@ -144,14 +121,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize metrics service
-	metricsService, metricsServiceErr := service.NewMetricsService(
-		promService, uidResolver, logger.With("component", "metrics-service"),
+	// Initialize events service
+	eventsService, eventsServiceErr := service.NewEventsService(
+		concreteLogsAdapter, uidResolver, cfg, logger.With("component", "events-service"),
 	)
-	if metricsServiceErr != nil {
-		logger.Error("Failed to initialize metrics service", "error", metricsServiceErr)
+	if eventsServiceErr != nil {
+		logger.Error("Failed to initialize events service", "error", eventsServiceErr)
 		os.Exit(1)
 	}
+
+	// Use the metrics adapter as the MetricsQuerier (forwards to external metrics-adapter service)
+	var metricsService service.MetricsQuerier = metricsAdapter
 
 	// Initialize traces service
 	tracesService, tracesServiceErr := service.NewTracesService(
@@ -206,8 +186,6 @@ func main() {
 
 	// Initialize alert service for the internal v1alpha1 API
 	alertService := service.NewAlertService(
-		osClient,
-		opensearch.NewQueryBuilder(cfg.OpenSearch.IndexPrefix),
 		alertEntryStore,
 		incidentEntryStore,
 		k8sClient,
@@ -217,12 +195,18 @@ func main() {
 		cfg.Alerting.AIRCAEnabled,
 		uidResolver,
 		concreteLogsAdapter,
+		cfg.Adapters.MetricsAdapterURL,
+		metricsAdapterClient,
+		cfg.Alerting.FinOpsAgentURL,
+		cfg.Alerting.FinOpsAgentEnabled,
 	)
 
 	// Wrap services with authorization checks.
 	// Both the API handler and MCP handler share the same authz-wrapped instances
 	// so authorization logic is enforced once, in the service layer.
 	authzLogsService := service.NewLogsServiceWithAuthz(logsService, authzClient, logger.With("component", "authz-logs"))
+	authzEventsService := service.NewEventsServiceWithAuthz(
+		eventsService, authzClient, logger.With("component", "authz-events"))
 	authzMetricsService := service.NewMetricsServiceWithAuthz(
 		metricsService, authzClient, logger.With("component", "authz-metrics"))
 	authzTracesService := service.NewTracesServiceWithAuthz(
@@ -234,6 +218,7 @@ func main() {
 	newAPIHandler := apihandler.NewHandler(
 		healthService,
 		authzLogsService,
+		authzEventsService,
 		authzMetricsService,
 		authzAlertIncidentService,
 		authzTracesService,
@@ -273,9 +258,11 @@ func main() {
 
 	// ===== New API Routes (v1) =====
 	api.HandleFunc("POST /api/v1/logs/query", newAPIHandler.QueryLogs)
+	api.HandleFunc("POST /api/v1/events/query", newAPIHandler.QueryEvents)
 	api.HandleFunc("POST /api/v1/metrics/query", newAPIHandler.QueryMetrics)
 
-	// ===== New API Routes (v1alpha1) - Traces & Incidents =====
+	// ===== New API Routes (v1alpha1) Traces, Incidents & Runtime topology =====
+	api.HandleFunc("POST /api/v1alpha1/metrics/runtime-topology", newAPIHandler.QueryRuntimeTopology)
 	api.HandleFunc("POST /api/v1alpha1/traces/query", newAPIHandler.QueryTraces)
 	api.HandleFunc("POST /api/v1alpha1/traces/{traceId}/spans/query", newAPIHandler.QuerySpansForTrace)
 	api.HandleFunc("GET /api/v1alpha1/traces/{traceId}/spans/{spanId}", newAPIHandler.GetSpanDetailsForTrace)
@@ -287,6 +274,7 @@ func main() {
 	newMCPHandler, err := observermcp.NewMCPHandler(
 		healthService,
 		authzLogsService,
+		authzEventsService,
 		authzMetricsService,
 		authzAlertIncidentService,
 		authzTracesService,
@@ -382,6 +370,21 @@ func main() {
 
 	wg.Wait()
 	logger.Info("Server shutdown complete")
+}
+
+// sanitizeURL strips userinfo (user:password) from a URL so it can be safely logged.
+// On parse failure, returns "<invalid url>" rather than the raw string to avoid leaking
+// credentials embedded in a malformed URL.
+func sanitizeURL(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "<invalid url>"
+	}
+	u.User = nil
+	return u.String()
 }
 
 func initLogger(level string) *slog.Logger {

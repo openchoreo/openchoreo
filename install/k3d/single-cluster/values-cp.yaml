@@ -27,3 +27,7 @@ gateway:
   httpsPort: 8443
   tls:
     enabled: false
+
+features:
+  secretManagement:
+    enabled: true

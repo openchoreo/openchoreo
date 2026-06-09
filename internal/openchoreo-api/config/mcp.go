@@ -5,6 +5,8 @@ package config
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/openchoreo/openchoreo/internal/config"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
@@ -28,6 +30,7 @@ func MCPDefaults() MCPConfig {
 			string(tools.ToolsetComponent),
 			string(tools.ToolsetDeployment),
 			string(tools.ToolsetBuild),
+			string(tools.ToolsetResource),
 		},
 	}
 }
@@ -40,16 +43,24 @@ var validToolsets = map[string]bool{
 	string(tools.ToolsetDeployment): true,
 	string(tools.ToolsetBuild):      true,
 	string(tools.ToolsetPE):         true,
+	string(tools.ToolsetResource):   true,
 }
 
 // ValidateMCPConfig validates the MCP configuration.
 func (c *MCPConfig) ValidateMCPConfig(path *config.Path) config.ValidationErrors {
 	var errs config.ValidationErrors
 
+	valid := make([]string, 0, len(validToolsets))
+	for ts := range validToolsets {
+		valid = append(valid, ts)
+	}
+	sort.Strings(valid)
+	validList := strings.Join(valid, ", ")
+
 	for i, ts := range c.Toolsets {
 		if !validToolsets[ts] {
 			errs = append(errs, config.Invalid(path.Child("toolsets").Index(i),
-				fmt.Sprintf("unknown toolset %q; valid toolsets: namespace, project, component, deployment, build, pe", ts)))
+				fmt.Sprintf("unknown toolset %q; valid toolsets: %s", ts, validList)))
 		}
 	}
 

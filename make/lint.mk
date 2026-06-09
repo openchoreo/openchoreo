@@ -78,6 +78,20 @@ lint: golangci-lint-check license-check newline-check ## Run golangci-lint linte
 .PHONY: lint-fix
 lint-fix: golangci-lint-fix license-fix newline-fix ## Run golangci-lint linter, licenser, and newline fix to perform fixes
 
+# Branch reference baked into generated file headers (e.g. the kubectl apply URL
+# in samples/getting-started/all.yaml). Only "main" and "release-v*" branches are
+# considered publishable; everything else (feature branches, detached HEAD) falls
+# back to "main" so contributor-local generation never burns ephemeral branch
+# names into committed files. Override with SAMPLES_BRANCH=<name> for local testing.
+# Resolves from GITHUB_BASE_REF (PR target), GITHUB_REF_NAME (push), then git.
+SAMPLES_BRANCH ?= $(shell \
+  BRANCH=$${GITHUB_BASE_REF:-$${GITHUB_REF_NAME:-$$(git rev-parse --abbrev-ref HEAD 2>/dev/null)}}; \
+  if echo "$$BRANCH" | grep -qE '^(main|release-v.*)$$'; then \
+    echo "$$BRANCH"; \
+  else \
+    echo main; \
+  fi)
+
 # Individual getting-started sample files that compose all.yaml (order matters)
 GETTING_STARTED_DIR := samples/getting-started
 GETTING_STARTED_FILES := \
@@ -88,6 +102,9 @@ GETTING_STARTED_FILES := \
 	$(GETTING_STARTED_DIR)/component-types/service.yaml \
 	$(GETTING_STARTED_DIR)/component-types/webapp.yaml \
 	$(GETTING_STARTED_DIR)/component-types/scheduled-task.yaml \
+	$(GETTING_STARTED_DIR)/cluster-resource-types/postgres.yaml \
+	$(GETTING_STARTED_DIR)/cluster-resource-types/valkey.yaml \
+	$(GETTING_STARTED_DIR)/cluster-resource-types/nats.yaml \
 	$(GETTING_STARTED_DIR)/ci-workflows/paketo-buildpacks-builder.yaml \
 	$(GETTING_STARTED_DIR)/ci-workflows/gcp-buildpacks-builder.yaml \
 	$(GETTING_STARTED_DIR)/ci-workflows/ballerina-buildpack-builder.yaml \
@@ -107,7 +124,7 @@ samples-gen: ## Generate samples/getting-started/all.yaml from individual files
 	printf '# environments, pipeline, component types, workflows, and traits.\n'; \
 	printf '#\n'; \
 	printf '# Usage:\n'; \
-	printf '#   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/all.yaml\n'; \
+	printf '#   kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/$(SAMPLES_BRANCH)/samples/getting-started/all.yaml\n'; \
 	printf '#\n'; \
 	printf '# Or if you have cloned the repository:\n'; \
 	printf '#   kubectl apply -f samples/getting-started/all.yaml\n'; \

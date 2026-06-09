@@ -82,6 +82,65 @@ func (_c *MockMetricsQuerier_QueryMetrics_Call) RunAndReturn(run func(context.Co
 	return _c
 }
 
+// QueryRuntimeTopology provides a mock function with given fields: ctx, req
+func (_m *MockMetricsQuerier) QueryRuntimeTopology(ctx context.Context, req *types.RuntimeTopologyRequest) (*types.RuntimeTopologyResponse, error) {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for QueryRuntimeTopology")
+	}
+
+	var r0 *types.RuntimeTopologyResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *types.RuntimeTopologyRequest) (*types.RuntimeTopologyResponse, error)); ok {
+		return rf(ctx, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *types.RuntimeTopologyRequest) *types.RuntimeTopologyResponse); ok {
+		r0 = rf(ctx, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.RuntimeTopologyResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *types.RuntimeTopologyRequest) error); ok {
+		r1 = rf(ctx, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockMetricsQuerier_QueryRuntimeTopology_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'QueryRuntimeTopology'
+type MockMetricsQuerier_QueryRuntimeTopology_Call struct {
+	*mock.Call
+}
+
+// QueryRuntimeTopology is a helper method to define mock.On call
+//   - ctx context.Context
+//   - req *types.RuntimeTopologyRequest
+func (_e *MockMetricsQuerier_Expecter) QueryRuntimeTopology(ctx interface{}, req interface{}) *MockMetricsQuerier_QueryRuntimeTopology_Call {
+	return &MockMetricsQuerier_QueryRuntimeTopology_Call{Call: _e.mock.On("QueryRuntimeTopology", ctx, req)}
+}
+
+func (_c *MockMetricsQuerier_QueryRuntimeTopology_Call) Run(run func(ctx context.Context, req *types.RuntimeTopologyRequest)) *MockMetricsQuerier_QueryRuntimeTopology_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*types.RuntimeTopologyRequest))
+	})
+	return _c
+}
+
+func (_c *MockMetricsQuerier_QueryRuntimeTopology_Call) Return(_a0 *types.RuntimeTopologyResponse, _a1 error) *MockMetricsQuerier_QueryRuntimeTopology_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockMetricsQuerier_QueryRuntimeTopology_Call) RunAndReturn(run func(context.Context, *types.RuntimeTopologyRequest) (*types.RuntimeTopologyResponse, error)) *MockMetricsQuerier_QueryRuntimeTopology_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockMetricsQuerier creates a new instance of MockMetricsQuerier. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockMetricsQuerier(t interface {

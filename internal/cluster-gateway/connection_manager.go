@@ -23,7 +23,7 @@ import (
 // One agent per physical plane handles multiple CRs with the same planeID
 type AgentConnection struct {
 	ID              string // Unique connection identifier
-	Conn            *websocket.Conn
+	Conn            Connection
 	PlaneType       string // e.g., "dataplane", "workflowplane", "observabilityplane"
 	PlaneID         string // Logical plane identifier (shared across CRs with same physical plane)
 	PlaneIdentifier string // Simplified identifier: {planeType}/{planeID}
@@ -158,7 +158,7 @@ func NewConnectionManager(logger *slog.Logger) *ConnectionManager {
 // Returns the connection ID which should be used for unregistration
 func (cm *ConnectionManager) Register(
 	planeType, planeID string,
-	conn *websocket.Conn,
+	conn Connection,
 	validCRs []string,
 	clientCert *x509.Certificate,
 ) (string, error) {
@@ -423,6 +423,17 @@ func (ac *AgentConnection) SendHTTPTunnelRequest(req *messaging.HTTPTunnelReques
 		return fmt.Errorf("SendHTTPTunnelRequest: failed to send request: %w", err)
 	}
 
+	return nil
+}
+
+// SendRawMessage sends a pre-marshaled JSON message through this connection.
+func (ac *AgentConnection) SendRawMessage(data []byte) error {
+	ac.mu.Lock()
+	defer ac.mu.Unlock()
+
+	if err := ac.Conn.WriteMessage(websocket.TextMessage, data); err != nil {
+		return fmt.Errorf("SendRawMessage: failed to send message: %w", err)
+	}
 	return nil
 }
 

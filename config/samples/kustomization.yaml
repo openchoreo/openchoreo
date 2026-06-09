@@ -5,6 +5,8 @@ resources:
   - openchoreo_v1alpha1_apiclass.yaml
   - openchoreo_v1alpha1_component.yaml
   - openchoreo_v1alpha1_componenttype.yaml
+  - openchoreo_v1alpha1_resource.yaml
+  - openchoreo_v1alpha1_resourcetype.yaml
   - openchoreo_v1alpha1_trait.yaml
 
   - openchoreo_v1alpha1_dataplane.yaml
@@ -33,7 +35,9 @@ resources:
   - openchoreo_v1alpha1_workflowrun.yaml
   - openchoreo_v1alpha1_secretreference.yaml
   - openchoreo_v1alpha1_componentrelease.yaml
+  - openchoreo_v1alpha1_resourcerelease.yaml
   - openchoreo_v1alpha1_releasebinding.yaml
+  - openchoreo_v1alpha1_resourcereleasebinding.yaml
   - openchoreo_v1alpha1_observabilityplane.yaml
   - v1alpha1_observabilityalertsnotificationchannel.yaml
   - v1alpha1_observabilityalertrule.yaml
@@ -45,4 +49,5 @@ resources:
   - openchoreo_v1alpha1_clusterworkflowplane.yaml
   - openchoreo_v1alpha1_clusterobservabilityplane.yaml
   - openchoreo_v1alpha1_clustercomponenttype.yaml
+  - openchoreo_v1alpha1_clusterresourcetype.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

@@ -21,7 +21,7 @@ func TestBuildComponentCELEnv_WithParametersSchema(t *testing.T) {
 		},
 	}
 
-	env, _, err := BuildComponentCELEnv(SchemaOptions{
+	env, _, err := buildComponentCELEnv(SchemaOptions{
 		ParametersSchema: structural,
 	})
 	require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestBuildComponentCELEnv_WithEnvironmentConfigsSchema(t *testing.T) {
 		},
 	}
 
-	env, _, err := BuildComponentCELEnv(SchemaOptions{
+	env, _, err := buildComponentCELEnv(SchemaOptions{
 		EnvironmentConfigsSchema: structural,
 	})
 	require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestBuildComponentCELEnv_WithEnvironmentConfigsSchema(t *testing.T) {
 
 func TestBuildComponentCELEnv_WithoutSchema(t *testing.T) {
 	// Without schema, parameters and environmentConfigs should be empty objects
-	env, _, err := BuildComponentCELEnv(SchemaOptions{})
+	env, _, err := buildComponentCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
 
@@ -93,7 +93,7 @@ func TestBuildComponentCELEnv_WithoutSchema(t *testing.T) {
 
 func TestBuildComponentCELEnv_OtherVariables(t *testing.T) {
 	// Other variables (metadata, workload, etc.) should be accessible
-	env, _, err := BuildComponentCELEnv(SchemaOptions{})
+	env, _, err := buildComponentCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
 
@@ -117,7 +117,7 @@ func TestBuildComponentCELEnv_OtherVariables(t *testing.T) {
 
 func TestBuildComponentCELEnv_CustomFunctions(t *testing.T) {
 	// Verify custom functions are available
-	env, _, err := BuildComponentCELEnv(SchemaOptions{})
+	env, _, err := buildComponentCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
 
@@ -147,7 +147,7 @@ func TestBuildTraitCELEnv_WithParametersSchema(t *testing.T) {
 		},
 	}
 
-	env, _, err := BuildTraitCELEnv(SchemaOptions{
+	env, _, err := buildTraitCELEnv(SchemaOptions{
 		ParametersSchema: structural,
 	})
 	require.NoError(t, err)
@@ -166,7 +166,7 @@ func TestBuildTraitCELEnv_WithParametersSchema(t *testing.T) {
 
 func TestBuildTraitCELEnv_AllVariables(t *testing.T) {
 	// Traits should have access to all variables including workload and configurations
-	env, _, err := BuildTraitCELEnv(SchemaOptions{})
+	env, _, err := buildTraitCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
 
@@ -191,7 +191,7 @@ func TestBuildTraitCELEnv_AllVariables(t *testing.T) {
 
 func TestBuildTraitCELEnv_WithoutSchema(t *testing.T) {
 	// Without schema, parameters and environmentConfigs should be empty objects
-	env, _, err := BuildTraitCELEnv(SchemaOptions{})
+	env, _, err := buildTraitCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 	require.NotNil(t, env)
 
@@ -206,7 +206,7 @@ func TestBuildTraitCELEnv_WithoutSchema(t *testing.T) {
 }
 
 func TestBuildComponentCELEnv_ReflectionBasedTypes(t *testing.T) {
-	env, _, err := BuildComponentCELEnv(SchemaOptions{})
+	env, _, err := buildComponentCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -267,7 +267,7 @@ func TestBuildComponentCELEnv_ReflectionBasedTypes(t *testing.T) {
 }
 
 func TestBuildTraitCELEnv_ReflectionBasedTypes(t *testing.T) {
-	env, _, err := BuildTraitCELEnv(SchemaOptions{})
+	env, _, err := buildTraitCELEnv(SchemaOptions{})
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -316,6 +316,50 @@ func TestBuildTraitCELEnv_ReflectionBasedTypes(t *testing.T) {
 			} else {
 				assert.Nil(t, issues.Err(), "unexpected error for %s: %v", tt.expression, issues.Err())
 			}
+		})
+	}
+}
+
+// TestBuildComponentCELEnv_ConfigurationsDependenciesConcat locks in the property that
+// configurations.toX() and dependencies.toX() return the same CEL element type, so CCT
+// authors can concatenate them with the `+` operator without hitting a type-check error.
+//
+// Without alignment the validation env sees list(VolumeEntry) + list(corev1.Volume), which
+// has no '_+_' overload. CCTs end up unable to merge configurations-driven volumes/mounts
+// with the dependency-driven ones synthesized from resource fileBindings.
+func TestBuildComponentCELEnv_ConfigurationsDependenciesConcat(t *testing.T) {
+	env, _, err := buildComponentCELEnv(SchemaOptions{})
+	require.NoError(t, err)
+	require.NotNil(t, env)
+
+	tests := []struct {
+		name       string
+		expression string
+	}{
+		{
+			"toVolumes concat",
+			`configurations.toVolumes() + dependencies.toVolumes()`,
+		},
+		{
+			"toContainerVolumeMounts concat",
+			`configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()`,
+		},
+		{
+			// dependencies.toContainerEnvs() rewrites to dependencies.envVars (an
+			// EnvVarEntry-typed list). Locks that the type stays usable for `+`
+			// against itself — covers the forward-compat case where a CCT composes
+			// the dependency-derived env list with another list of the same shape
+			// (e.g. a future configurations.toContainerEnvs() helper).
+			"toContainerEnvs self concat",
+			`dependencies.toContainerEnvs() + dependencies.toContainerEnvs()`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, issues := env.Compile(tt.expression)
+			assert.Nil(t, issues.Err(),
+				"concat across configurations/dependencies should type-check: %v", issues.Err())
 		})
 	}
 }

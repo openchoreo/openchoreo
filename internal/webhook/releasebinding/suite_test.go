@@ -46,6 +46,18 @@ var _ = BeforeSuite(func() {
 
 	ctx, cancel = context.WithCancel(context.TODO())
 
+	// Skip envtest setup when binaries are not available and no envtest asset
+	// environment variables are set; unit tests calling webhook functions directly
+	// will still run.
+	binaryAssetsDir := getFirstFoundEnvTestBinaryDir()
+	if binaryAssetsDir == "" &&
+		os.Getenv("KUBEBUILDER_ASSETS") == "" &&
+		os.Getenv("TEST_ASSET_KUBE_APISERVER") == "" &&
+		os.Getenv("TEST_ASSET_ETCD") == "" &&
+		os.Getenv("TEST_ASSET_KUBECTL") == "" {
+		return
+	}
+
 	var err error
 	err = openchoreodevv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -59,8 +71,8 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
-	if getFirstFoundEnvTestBinaryDir() != "" {
-		testEnv.BinaryAssetsDirectory = getFirstFoundEnvTestBinaryDir()
+	if binaryAssetsDir != "" {
+		testEnv.BinaryAssetsDirectory = binaryAssetsDir
 	}
 
 	cfg, err = testEnv.Start()
@@ -106,8 +118,11 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	By("tearing down the test environment")
 	cancel()
+	if testEnv == nil {
+		return
+	}
+	By("tearing down the test environment")
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })

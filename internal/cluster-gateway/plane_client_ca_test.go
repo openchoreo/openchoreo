@@ -900,3 +900,278 @@ func TestCRKeyFormat(t *testing.T) {
 		})
 	}
 }
+
+// --- parseCACertificates tests ---
+
+func TestParseCACertificates_SingleCert(t *testing.T) {
+	caCert, _ := generateTestCA(t)
+	pemData := encodeCertToPEM(t, caCert)
+
+	certs, err := parseCACertificates(pemData)
+	require.NoError(t, err)
+	assert.Len(t, certs, 1)
+	assert.Equal(t, "Test CA", certs[0].Subject.CommonName)
+}
+
+func TestParseCACertificates_MultipleCerts(t *testing.T) {
+	ca1, _ := generateTestCA(t)
+	ca2, _ := generateTestCA(t)
+	pemData := append(encodeCertToPEM(t, ca1), encodeCertToPEM(t, ca2)...)
+
+	certs, err := parseCACertificates(pemData)
+	require.NoError(t, err)
+	assert.Len(t, certs, 2)
+}
+
+func TestParseCACertificates_InvalidPEM(t *testing.T) {
+	_, err := parseCACertificates([]byte("not valid pem data"))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no certificates found")
+}
+
+func TestParseCACertificates_InvalidCertDER(t *testing.T) {
+	// Valid PEM structure but invalid DER content
+	invalidPEM := []byte("-----BEGIN CERTIFICATE-----\nYWJj\n-----END CERTIFICATE-----\n")
+	_, err := parseCACertificates(invalidPEM)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse certificate")
+}
+
+// --- workflowPlaneInfo / obsPlaneInfo default planeID tests ---
+
+func TestWorkflowPlaneInfo_DefaultPlaneID(t *testing.T) {
+	obj := &openchoreov1alpha1.WorkflowPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-wp",
+			Namespace: "test-ns",
+		},
+		Spec: openchoreov1alpha1.WorkflowPlaneSpec{
+			PlaneID: "", // Empty - should default to name
+		},
+	}
+
+	info, ok := workflowPlaneInfo(obj)
+	assert.True(t, ok)
+	assert.Equal(t, "my-wp", info.planeID)
+}
+
+func TestObsPlaneInfo_DefaultPlaneID(t *testing.T) {
+	obj := &openchoreov1alpha1.ObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-obs",
+			Namespace: "test-ns",
+		},
+		Spec: openchoreov1alpha1.ObservabilityPlaneSpec{
+			PlaneID: "", // Empty - should default to name
+		},
+	}
+
+	info, ok := obsPlaneInfo(obj)
+	assert.True(t, ok)
+	assert.Equal(t, "my-obs", info.planeID)
+}
+
+// --- extractCAFromPlane tests ---
+
+func TestExtractCAFromPlane_NilAgent(t *testing.T) {
+	server := &Server{
+		k8sClient: fake.NewClientBuilder().WithScheme(testScheme()).Build(),
+		logger:    testLogger(),
+	}
+
+	data, err := server.extractCAFromPlane(nil, "test-ns")
+	assert.NoError(t, err)
+	assert.Nil(t, data)
+}
+
+// --- extractCADataWithNamespace tests ---
+
+func TestExtractCADataWithNamespace_NoValueNoSecret(t *testing.T) {
+	server := &Server{
+		k8sClient: fake.NewClientBuilder().WithScheme(testScheme()).Build(),
+		logger:    testLogger(),
+	}
+
+	valueFrom := &openchoreov1alpha1.ValueFrom{
+		// Neither Value nor SecretKeyRef set
+	}
+
+	_, err := server.extractCADataWithNamespace(valueFrom, "test-ns")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no valid CA data found")
+}
+
+// --- extractCAFromSecret edge case tests ---
+
+func TestExtractCAFromSecret_EmptyName(t *testing.T) {
+	server := &Server{
+		k8sClient: fake.NewClientBuilder().WithScheme(testScheme()).Build(),
+		logger:    testLogger(),
+	}
+
+	secretRef := &openchoreov1alpha1.SecretKeyReference{
+		Name: "",
+		Key:  "ca.crt",
+	}
+
+	_, err := server.extractCAFromSecret(secretRef, "test-ns")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "secret name is required")
+}
+
+func TestExtractCAFromSecret_EmptyKey(t *testing.T) {
+	server := &Server{
+		k8sClient: fake.NewClientBuilder().WithScheme(testScheme()).Build(),
+		logger:    testLogger(),
+	}
+
+	secretRef := &openchoreov1alpha1.SecretKeyReference{
+		Name: "my-secret",
+		Key:  "",
+	}
+
+	_, err := server.extractCAFromSecret(secretRef, "test-ns")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "secret key is required")
+}
+
+func TestExtractCAFromSecret_MissingKeyInSecret(t *testing.T) {
+	scheme := testScheme()
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-secret", Namespace: "test-ns"},
+		Data: map[string][]byte{
+			"other-key": []byte("some-data"),
+		},
+	}
+
+	server := &Server{
+		k8sClient: fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build(),
+		logger:    testLogger(),
+	}
+
+	secretRef := &openchoreov1alpha1.SecretKeyReference{
+		Name: "my-secret",
+		Key:  "ca.crt",
+	}
+
+	_, err := server.extractCAFromSecret(secretRef, "test-ns")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "key ca.crt not found")
+}
+
+func TestExtractCAFromSecret_EmptyCAData(t *testing.T) {
+	scheme := testScheme()
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-secret", Namespace: "test-ns"},
+		Data: map[string][]byte{
+			"ca.crt": {}, // Empty
+		},
+	}
+
+	server := &Server{
+		k8sClient: fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build(),
+		logger:    testLogger(),
+	}
+
+	secretRef := &openchoreov1alpha1.SecretKeyReference{
+		Name: "my-secret",
+		Key:  "ca.crt",
+	}
+
+	_, err := server.extractCAFromSecret(secretRef, "test-ns")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "CA data is empty")
+}
+
+// TestExtractPlaneClientCAs_CAExtractionError tests the continue branch
+// when extractCAFromPlane returns an error for a specific CR.
+func TestExtractPlaneClientCAs_CAExtractionError(t *testing.T) {
+	scheme := testScheme()
+
+	// DataPlane with a secret ref that doesn't exist → extractCAFromPlane will error
+	dp := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp-bad", Namespace: "ns"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "target-plane",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{
+						Name: "nonexistent-secret",
+						Key:  "ca.crt",
+					},
+				},
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp).Build()
+	server := &Server{k8sClient: fakeClient, logger: testLogger()}
+
+	ctx := context.Background()
+	result, err := server.extractPlaneClientCAs(ctx, planeTypeDataPlane, "target-plane",
+		&openchoreov1alpha1.DataPlaneList{}, dataPlaneInfo)
+
+	// Should not error — just skips the bad CR
+	require.NoError(t, err)
+	assert.Len(t, result, 0) // The CR with bad secret is skipped
+}
+
+// TestExtractPlaneClientCAs_MixedGoodAndBadCRs tests that good CRs are included
+// while CRs with CA extraction errors are skipped.
+func TestExtractPlaneClientCAs_MixedGoodAndBadCRs(t *testing.T) {
+	scheme := testScheme()
+
+	caSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "good-ca", Namespace: "ns"},
+		Data:       map[string][]byte{"ca.crt": []byte("good-ca-data")},
+	}
+
+	dpGood := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp-good", Namespace: "ns"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "shared",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{Name: "good-ca", Key: "ca.crt"},
+				},
+			},
+		},
+	}
+
+	dpBad := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp-bad", Namespace: "ns"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "shared",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyReference{Name: "missing", Key: "ca.crt"},
+				},
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(caSecret, dpGood, dpBad).Build()
+	server := &Server{k8sClient: fakeClient, logger: testLogger()}
+
+	ctx := context.Background()
+	result, err := server.extractPlaneClientCAs(ctx, planeTypeDataPlane, "shared",
+		&openchoreov1alpha1.DataPlaneList{}, dataPlaneInfo)
+
+	require.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Contains(t, result, "ns/dp-good")
+	assert.Equal(t, []byte("good-ca-data"), result["ns/dp-good"])
+}
+
+func TestGetAllPlaneClientCAs_EmptyResult(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	server := &Server{k8sClient: fakeClient, logger: testLogger()}
+
+	// No CRs exist for any plane type
+	for _, pt := range []string{planeTypeDataPlane, planeTypeWorkflowPlane, planeTypeObservabilityPlane} {
+		result, err := server.getAllPlaneClientCAs(pt, "nonexistent")
+		require.NoError(t, err)
+		assert.Len(t, result, 0)
+	}
+}

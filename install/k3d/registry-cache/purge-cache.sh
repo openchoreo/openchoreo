@@ -13,7 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${SCRIPT_DIR}/compose.yaml"
 REPO_BASE="/var/lib/registry/docker/registry/v2/repositories"
 
-ALL_SERVICES="ghcr-cache dockerhub-cache quay-cache kgateway-cache"
+ALL_SERVICES="ghcr-cache dockerhub-cache quay-cache kgateway-cache gcr-cache"
 
 compose_exec() {
   local service="$1"
@@ -24,6 +24,12 @@ compose_exec() {
 gc() {
   local service="$1"
   compose_exec "$service" registry garbage-collect /etc/docker/registry/config.yml --delete-untagged 2>/dev/null || true
+}
+
+restart_cache() {
+  local service="$1"
+  echo "Restarting ${service} to clear in-memory state..."
+  docker compose -f "$COMPOSE_FILE" restart "$service" 2>/dev/null || true
 }
 
 usage() {
@@ -60,6 +66,7 @@ if [[ "$1" == "--all" ]]; then
     echo "Purging all cached images from ${svc}..."
     compose_exec "$svc" sh -c "rm -rf ${REPO_BASE}/*" 2>/dev/null || true
     gc "$svc"
+    restart_cache "$svc"
   done
   echo "Done."
   exit 0
@@ -125,11 +132,12 @@ for ref in "$@"; do
   fi
 done
 
-# Run garbage collection on affected caches (deduplicated)
+# Run garbage collection and restart affected caches (deduplicated)
 for svc in $(echo "$gc_services" | tr ' ' '\n' | sort -u); do
   [[ -z "$svc" ]] && continue
   echo "Running garbage collection on ${svc}..."
   gc "$svc"
+  restart_cache "$svc"
 done
 
 echo "Done."

@@ -1,0 +1,16 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Resource
+metadata:
+  labels:
+    app.kubernetes.io/name: openchoreo
+    app.kubernetes.io/managed-by: kustomize
+  name: resource-sample
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  type:
+    kind: ClusterResourceType
+    name: clusterresourcetype-sample
+  parameters:
+    image: nginx:1.27-alpine

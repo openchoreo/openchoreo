@@ -44,6 +44,7 @@ type policyInfo struct {
 	roleName      string
 	roleNamespace string
 	effect        string
+	conditions    string // raw JSON from policy[5]; "" or "{}" means unconstrained
 }
 
 // NewEnforcer creates a new Casbin-based authorizer using Kubernetes CRD adapter
@@ -80,7 +81,7 @@ func NewEnforcer(ctx context.Context, config CasbinConfig, logger *slog.Logger) 
 
 	// Register custom functions for the matcher
 	enforcer.AddFunction("resourceMatch", resourceMatchWrapper)
-	enforcer.AddFunction("ctxMatch", ctxMatchWrapper)
+	enforcer.AddFunction("condMatch", condMatchWrapper)
 
 	// Add custom role matcher function to support action wildcards
 	var baseEnforcer *casbin.Enforcer

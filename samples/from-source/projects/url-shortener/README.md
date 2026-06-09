@@ -12,9 +12,14 @@ A sample application that demonstrates OpenChoreo's **tracing**, **alerting**, a
 ## Deploy
 
 ```bash
-kubectl apply -f samples/from-image/url-shortener/alerting-demo/alert-notification-channels.yaml
-kubectl apply -f samples/from-source/projects/url-shortener/project.yaml
-kubectl apply -f samples/from-source/projects/url-shortener/components/
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/alerting-demo/alert-notification-channels.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/url-shortener/project.yaml
+kubectl apply \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/url-shortener/components/postgres.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/url-shortener/components/redis.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/url-shortener/components/api-service.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/url-shortener/components/analytics-service.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/url-shortener/components/frontend.yaml
 ```
 
 This deploys the notification channel first, then five components (snip-postgres, snip-redis, snip-api-service, snip-analytics-service, snip-frontend). The alert trait is already attached to the frontend component. Distributed tracing works out of the box once deployed.
@@ -24,5 +29,5 @@ To set up alerting and the RCA agent, follow the steps in the [Alerting & RCA Ag
 ## Cleanup
 
 ```bash
-kubectl delete -f samples/from-source/projects/url-shortener/project.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/url-shortener/project.yaml
 ```

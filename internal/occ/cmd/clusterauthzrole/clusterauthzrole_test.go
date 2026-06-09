@@ -4,10 +4,7 @@
 package clusterauthzrole
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -15,48 +12,22 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterauthzrole/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
-
-// captureStdout captures stdout output from a function call.
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
 
 // --- printList tests ---
 
 func TestPrint_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(nil))
 	})
 	assert.Contains(t, out, "No authz cluster roles found")
 }
 
 func TestPrint_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList([]gen.ClusterAuthzRole{}))
 	})
 	assert.Contains(t, out, "No authz cluster roles found")
@@ -82,7 +53,7 @@ func TestPrint_WithItems(t *testing.T) {
 		},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -104,7 +75,7 @@ func TestPrint_NilTimestamp(t *testing.T) {
 		},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -114,7 +85,7 @@ func TestPrint_NilTimestamp(t *testing.T) {
 // --- List tests ---
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterRoles(mock.Anything, mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	cr := New(mc)
@@ -123,14 +94,14 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterRoles(mock.Anything, mock.Anything).Return(&gen.ClusterAuthzRoleList{
 		Items:      []gen.ClusterAuthzRole{{Metadata: gen.ObjectMeta{Name: "cluster-admin"}}},
 		Pagination: gen.Pagination{},
 	}, nil)
 
 	cr := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cr.List())
 	})
 
@@ -139,7 +110,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterRoles(mock.Anything, mock.Anything).Return(&gen.ClusterAuthzRoleList{
 		Items: []gen.ClusterAuthzRole{
 			{Metadata: gen.ObjectMeta{Name: "cluster-admin", CreationTimestamp: &now}},
@@ -149,7 +120,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	cr := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cr.List())
 	})
 
@@ -160,14 +131,14 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListClusterRoles(mock.Anything, mock.Anything).Return(&gen.ClusterAuthzRoleList{
 		Items:      []gen.ClusterAuthzRole{},
 		Pagination: gen.Pagination{},
 	}, nil)
 
 	cr := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cr.List())
 	})
 
@@ -177,7 +148,7 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterRole(mock.Anything, "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	cr := New(mc)
@@ -186,13 +157,13 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetClusterRole(mock.Anything, "cluster-admin").Return(&gen.ClusterAuthzRole{
 		Metadata: gen.ObjectMeta{Name: "cluster-admin"},
 	}, nil)
 
 	cr := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cr.Get(GetParams{Name: "cluster-admin"}))
 	})
 
@@ -202,7 +173,7 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterRole(mock.Anything, "cluster-admin").Return(fmt.Errorf("forbidden: cluster-admin"))
 
 	cr := New(mc)
@@ -211,11 +182,11 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteClusterRole(mock.Anything, "cluster-admin").Return(nil)
 
 	cr := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cr.Delete(DeleteParams{Name: "cluster-admin"}))
 	})
 

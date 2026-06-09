@@ -10,6 +10,7 @@ import (
 	"os"
 	"testing"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 )
 
@@ -129,7 +130,6 @@ func TestDisabledAuthorizer_GetSubjectProfile(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_ListActions verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_ListActions(t *testing.T) {
 	ctx := context.Background()
 
@@ -142,7 +142,6 @@ func TestDisabledAuthorizer_ListActions(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_DeleteClusterRole verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_DeleteClusterRole(t *testing.T) {
 	ctx := context.Background()
 
@@ -152,7 +151,6 @@ func TestDisabledAuthorizer_DeleteClusterRole(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_DeleteNamespacedRole verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_DeleteNamespacedRole(t *testing.T) {
 	ctx := context.Background()
 
@@ -162,7 +160,6 @@ func TestDisabledAuthorizer_DeleteNamespacedRole(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_DeleteClusterRoleBinding verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_DeleteClusterRoleBinding(t *testing.T) {
 	ctx := context.Background()
 
@@ -172,12 +169,203 @@ func TestDisabledAuthorizer_DeleteClusterRoleBinding(t *testing.T) {
 	}
 }
 
-// TestDisabledAuthorizer_DeleteNamespacedRoleBinding verifies PAP methods return ErrAuthzDisabled
 func TestDisabledAuthorizer_DeleteNamespacedRoleBinding(t *testing.T) {
 	ctx := context.Background()
 
 	err := disabledAuthorizer.DeleteNamespacedRoleBinding(ctx, "test-binding", "test-ns")
 	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
 		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+}
+
+func TestDisabledAuthorizer_CreateClusterRole(t *testing.T) {
+	ctx := context.Background()
+
+	role, err := disabledAuthorizer.CreateClusterRole(ctx, &openchoreov1alpha1.ClusterAuthzRole{})
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if role != nil {
+		t.Errorf("expected nil role, got %v", role)
+	}
+}
+
+func TestDisabledAuthorizer_GetClusterRole(t *testing.T) {
+	ctx := context.Background()
+
+	role, err := disabledAuthorizer.GetClusterRole(ctx, "test-role")
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if role != nil {
+		t.Errorf("expected nil role, got %v", role)
+	}
+}
+
+func TestDisabledAuthorizer_ListClusterRoles(t *testing.T) {
+	ctx := context.Background()
+
+	list, err := disabledAuthorizer.ListClusterRoles(ctx, 10, "")
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if list != nil {
+		t.Errorf("expected nil list, got %v", list)
+	}
+}
+
+func TestDisabledAuthorizer_UpdateClusterRole(t *testing.T) {
+	ctx := context.Background()
+
+	role, err := disabledAuthorizer.UpdateClusterRole(ctx, &openchoreov1alpha1.ClusterAuthzRole{})
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if role != nil {
+		t.Errorf("expected nil role, got %v", role)
+	}
+}
+
+func TestDisabledAuthorizer_CreateNamespacedRole(t *testing.T) {
+	ctx := context.Background()
+
+	role, err := disabledAuthorizer.CreateNamespacedRole(ctx, &openchoreov1alpha1.AuthzRole{})
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if role != nil {
+		t.Errorf("expected nil role, got %v", role)
+	}
+}
+
+func TestDisabledAuthorizer_GetNamespacedRole(t *testing.T) {
+	ctx := context.Background()
+
+	role, err := disabledAuthorizer.GetNamespacedRole(ctx, "test-role", "test-ns")
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if role != nil {
+		t.Errorf("expected nil role, got %v", role)
+	}
+}
+
+func TestDisabledAuthorizer_ListNamespacedRoles(t *testing.T) {
+	ctx := context.Background()
+
+	list, err := disabledAuthorizer.ListNamespacedRoles(ctx, "test-ns", 10, "")
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if list != nil {
+		t.Errorf("expected nil list, got %v", list)
+	}
+}
+
+func TestDisabledAuthorizer_UpdateNamespacedRole(t *testing.T) {
+	ctx := context.Background()
+
+	role, err := disabledAuthorizer.UpdateNamespacedRole(ctx, &openchoreov1alpha1.AuthzRole{})
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if role != nil {
+		t.Errorf("expected nil role, got %v", role)
+	}
+}
+
+func TestDisabledAuthorizer_CreateClusterRoleBinding(t *testing.T) {
+	ctx := context.Background()
+
+	binding, err := disabledAuthorizer.CreateClusterRoleBinding(ctx, &openchoreov1alpha1.ClusterAuthzRoleBinding{})
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if binding != nil {
+		t.Errorf("expected nil binding, got %v", binding)
+	}
+}
+
+func TestDisabledAuthorizer_GetClusterRoleBinding(t *testing.T) {
+	ctx := context.Background()
+
+	binding, err := disabledAuthorizer.GetClusterRoleBinding(ctx, "test-binding")
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if binding != nil {
+		t.Errorf("expected nil binding, got %v", binding)
+	}
+}
+
+func TestDisabledAuthorizer_ListClusterRoleBindings(t *testing.T) {
+	ctx := context.Background()
+
+	list, err := disabledAuthorizer.ListClusterRoleBindings(ctx, 10, "")
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if list != nil {
+		t.Errorf("expected nil list, got %v", list)
+	}
+}
+
+func TestDisabledAuthorizer_UpdateClusterRoleBinding(t *testing.T) {
+	ctx := context.Background()
+
+	binding, err := disabledAuthorizer.UpdateClusterRoleBinding(ctx, &openchoreov1alpha1.ClusterAuthzRoleBinding{})
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if binding != nil {
+		t.Errorf("expected nil binding, got %v", binding)
+	}
+}
+
+func TestDisabledAuthorizer_CreateNamespacedRoleBinding(t *testing.T) {
+	ctx := context.Background()
+
+	binding, err := disabledAuthorizer.CreateNamespacedRoleBinding(ctx, &openchoreov1alpha1.AuthzRoleBinding{})
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if binding != nil {
+		t.Errorf("expected nil binding, got %v", binding)
+	}
+}
+
+func TestDisabledAuthorizer_GetNamespacedRoleBinding(t *testing.T) {
+	ctx := context.Background()
+
+	binding, err := disabledAuthorizer.GetNamespacedRoleBinding(ctx, "test-binding", "test-ns")
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if binding != nil {
+		t.Errorf("expected nil binding, got %v", binding)
+	}
+}
+
+func TestDisabledAuthorizer_ListNamespacedRoleBindings(t *testing.T) {
+	ctx := context.Background()
+
+	list, err := disabledAuthorizer.ListNamespacedRoleBindings(ctx, "test-ns", 10, "")
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if list != nil {
+		t.Errorf("expected nil list, got %v", list)
+	}
+}
+
+func TestDisabledAuthorizer_UpdateNamespacedRoleBinding(t *testing.T) {
+	ctx := context.Background()
+
+	binding, err := disabledAuthorizer.UpdateNamespacedRoleBinding(ctx, &openchoreov1alpha1.AuthzRoleBinding{})
+	if !errors.Is(err, authzcore.ErrAuthzDisabled) {
+		t.Errorf("expected ErrAuthzDisabled, got %v", err)
+	}
+	if binding != nil {
+		t.Errorf("expected nil binding, got %v", binding)
 	}
 }

@@ -22,10 +22,12 @@ type TracingAdapter interface {
 type SpanDetail struct {
 	SpanID             string                 `json:"spanId"`
 	SpanName           string                 `json:"spanName"`
+	SpanKind           string                 `json:"spanKind,omitempty"`
 	ParentSpanID       string                 `json:"parentSpanId,omitempty"`
 	StartTime          time.Time              `json:"startTime"`
 	EndTime            time.Time              `json:"endTime"`
 	DurationNs         int64                  `json:"durationNs"`
+	Status             string                 `json:"status,omitempty"`
 	Attributes         map[string]interface{} `json:"attributes,omitempty"`
 	ResourceAttributes map[string]interface{} `json:"resourceAttributes,omitempty"`
 }
@@ -50,9 +52,10 @@ type TracesQueryParams struct {
 	EnvironmentID string `json:"environmentId,omitempty"`
 
 	// Query options
-	TraceID   string `json:"traceId,omitempty"`
-	Limit     int    `json:"limit"`
-	SortOrder string `json:"sortOrder"`
+	TraceID           string `json:"traceId,omitempty"`
+	Limit             int    `json:"limit"`
+	SortOrder         string `json:"sortOrder"`
+	IncludeAttributes bool   `json:"includeAttributes,omitempty"`
 }
 
 // TracesQueryResult defines the result structure for trace queries
@@ -73,6 +76,7 @@ type Trace struct {
 	StartTime    time.Time   `json:"startTime"`
 	EndTime      time.Time   `json:"endTime"`
 	DurationNs   int64       `json:"durationNs"`
+	HasErrors    bool        `json:"hasErrors"`
 	Spans        []TraceSpan `json:"spans,omitempty"`
 }
 
@@ -80,10 +84,12 @@ type Trace struct {
 type TraceSpan struct {
 	SpanID             string                 `json:"spanId"`
 	Name               string                 `json:"name"`
+	SpanKind           string                 `json:"spanKind,omitempty"`
 	ParentSpanID       string                 `json:"parentSpanId,omitempty"`
 	StartTime          time.Time              `json:"startTime"`
 	EndTime            time.Time              `json:"endTime"`
 	DurationNs         int64                  `json:"durationNs"`
+	Status             string                 `json:"status,omitempty"`
 	Attributes         map[string]interface{} `json:"attributes,omitempty"`
 	ResourceAttributes map[string]interface{} `json:"resourceAttributes,omitempty"`
 }

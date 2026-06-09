@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -92,8 +93,10 @@ func (h *Handler) CreateWorkflowPlane(
 		if errors.Is(err, workflowplanesvc.ErrWorkflowPlaneAlreadyExists) {
 			return gen.CreateWorkflowPlane409JSONResponse{ConflictJSONResponse: conflict("WorkflowPlane already exists")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateWorkflowPlane422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateWorkflowPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create workflow plane", "error", err)
@@ -137,8 +140,10 @@ func (h *Handler) UpdateWorkflowPlane(
 		if errors.Is(err, workflowplanesvc.ErrWorkflowPlaneNotFound) {
 			return gen.UpdateWorkflowPlane404JSONResponse{NotFoundJSONResponse: notFound("WorkflowPlane")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateWorkflowPlane422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateWorkflowPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update workflow plane", "error", err)

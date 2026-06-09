@@ -70,6 +70,58 @@ func (s *sqlStore) Initialize(ctx context.Context) error {
 	if _, err := s.db.ExecContext(initCtx, createProjectEnvTimestampIndexQuery); err != nil {
 		return fmt.Errorf("failed to create incident_entries index: %w", err)
 	}
+
+	// Run schema migrations
+	if err := s.runSchemaMigrations(initCtx); err != nil {
+		return fmt.Errorf("failed to run schema migrations: %w", err)
+	}
+
+	return nil
+}
+
+// runSchemaMigrations applies schema changes to existing tables
+func (s *sqlStore) runSchemaMigrations(ctx context.Context) error {
+	// Migration: Add trigger_ai_cost_analysis column if it doesn't exist
+	// This column was added later to support AI cost analysis for budget alerts,
+	// mirroring the existing trigger_ai_rca functionality for RCA reports.
+	// For existing databases, this migration adds the column on first restart.
+	var columnExists bool
+	var checkColumnQuery string
+
+	if s.backend == BackendPostgreSQL {
+		checkColumnQuery = `
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'incident_entries'
+				AND column_name = 'trigger_ai_cost_analysis'
+			);`
+	} else {
+		// SQLite
+		checkColumnQuery = `
+			SELECT COUNT(*) > 0
+			FROM pragma_table_info('incident_entries')
+			WHERE name = 'trigger_ai_cost_analysis';`
+	}
+
+	if err := s.db.QueryRowContext(ctx, checkColumnQuery).Scan(&columnExists); err != nil {
+		return fmt.Errorf("failed to check for trigger_ai_cost_analysis column: %w", err)
+	}
+
+	if !columnExists {
+		s.logger.Info("Adding trigger_ai_cost_analysis column to incident_entries table")
+		var alterQuery string
+		if s.backend == BackendPostgreSQL {
+			// PostgreSQL supports IF NOT EXISTS for idempotent column addition (handles race between multiple instances)
+			alterQuery = `ALTER TABLE incident_entries ADD COLUMN IF NOT EXISTS trigger_ai_cost_analysis BOOLEAN NOT NULL DEFAULT FALSE;`
+		} else {
+			alterQuery = `ALTER TABLE incident_entries ADD COLUMN trigger_ai_cost_analysis BOOLEAN NOT NULL DEFAULT FALSE;`
+		}
+		if _, err := s.db.ExecContext(ctx, alterQuery); err != nil {
+			return fmt.Errorf("failed to add trigger_ai_cost_analysis column: %w", err)
+		}
+		s.logger.Info("Successfully added trigger_ai_cost_analysis column")
+	}
+
 	return nil
 }
 
@@ -170,6 +222,7 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 			timestampNS,
 			status,
 			entry.TriggerAiRca,
+			entry.TriggerAiCostAnalysis,
 			triggeredAtNS,
 			acknowledgedAtNS,
 			resolvedAtNS,
@@ -191,6 +244,7 @@ func (s *sqlStore) WriteIncidentEntry(ctx context.Context, entry *IncidentEntry)
 			timestampNS,
 			status,
 			entry.TriggerAiRca,
+			entry.TriggerAiCostAnalysis,
 			triggeredAtNS,
 			acknowledgedAtNS,
 			resolvedAtNS,
@@ -304,7 +358,7 @@ func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams)
 	args = append(args, limit)
 	// #nosec G202 -- whereClause uses parameterized placeholders; orderClause is validated switch; limitPh is placeholder
 	query := `SELECT
-		id, alert_id, timestamp_ns, status, trigger_ai_rca,
+		id, alert_id, timestamp_ns, status, trigger_ai_rca, trigger_ai_cost_analysis,
 		triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
 		notes, description,
 		namespace_name, component_name, environment_name, project_name,
@@ -332,6 +386,7 @@ func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams)
 			&tsNS,
 			&entry.Status,
 			&entry.TriggerAiRca,
+			&entry.TriggerAiCostAnalysis,
 			&triggeredNS,
 			&acknowledgedNS,
 			&resolvedNS,
@@ -447,7 +502,7 @@ func (s *sqlStore) loadAndPrepareIncidentEntryForUpdate(
 	// #nosec G202 -- id value is always passed as a parameter via placeholder; query text concatenation is limited to backend-specific placeholder.
 	if s.backend == BackendPostgreSQL {
 		selectQuery = `SELECT
-		id, alert_id, timestamp_ns, status, trigger_ai_rca,
+		id, alert_id, timestamp_ns, status, trigger_ai_rca, trigger_ai_cost_analysis,
 		triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
 		notes, description,
 		namespace_name, component_name, environment_name, project_name,
@@ -455,7 +510,7 @@ func (s *sqlStore) loadAndPrepareIncidentEntryForUpdate(
 	FROM incident_entries WHERE id = ` + placeholder + ` FOR UPDATE`
 	} else {
 		selectQuery = `SELECT
-		id, alert_id, timestamp_ns, status, trigger_ai_rca,
+		id, alert_id, timestamp_ns, status, trigger_ai_rca, trigger_ai_cost_analysis,
 		triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
 		notes, description,
 		namespace_name, component_name, environment_name, project_name,
@@ -479,6 +534,7 @@ func (s *sqlStore) loadAndPrepareIncidentEntryForUpdate(
 		&tsNS,
 		&entry.Status,
 		&entry.TriggerAiRca,
+		&entry.TriggerAiCostAnalysis,
 		&triggeredNS,
 		&acknowledgedNS,
 		&resolvedNS,
@@ -675,6 +731,7 @@ CREATE TABLE IF NOT EXISTS incident_entries (
 	timestamp_ns BIGINT NOT NULL,
 	status TEXT NOT NULL,
 	trigger_ai_rca BOOLEAN NOT NULL,
+	trigger_ai_cost_analysis BOOLEAN NOT NULL,
 	triggered_at_ns BIGINT NOT NULL,
 	acknowledged_at_ns BIGINT,
 	resolved_at_ns BIGINT,
@@ -695,18 +752,18 @@ ON incident_entries(project_id, environment_id, timestamp_ns);`
 
 const insertIncidentEntrySQLiteQuery = `
 INSERT INTO incident_entries (
-	id, alert_id, timestamp_ns, status, trigger_ai_rca,
+	id, alert_id, timestamp_ns, status, trigger_ai_rca, trigger_ai_cost_analysis,
 	triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
 	notes, description,
 	namespace_name, component_name, environment_name, project_name,
 	component_id, environment_id, project_id
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
 
 const insertIncidentEntryPostgresQuery = `
 INSERT INTO incident_entries (
-	id, alert_id, timestamp_ns, status, trigger_ai_rca,
+	id, alert_id, timestamp_ns, status, trigger_ai_rca, trigger_ai_cost_analysis,
 	triggered_at_ns, acknowledged_at_ns, resolved_at_ns,
 	notes, description,
 	namespace_name, component_name, environment_name, project_name,
 	component_id, environment_id, project_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17);`
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18);`

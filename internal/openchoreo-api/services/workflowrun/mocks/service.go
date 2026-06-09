@@ -194,9 +194,9 @@ func (_c *MockService_GetWorkflowRun_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
-// GetWorkflowRunEvents provides a mock function with given fields: ctx, namespaceName, runName, taskName, gatewayURL
-func (_m *MockService) GetWorkflowRunEvents(ctx context.Context, namespaceName string, runName string, taskName string, gatewayURL string) ([]models.WorkflowRunEventEntry, error) {
-	ret := _m.Called(ctx, namespaceName, runName, taskName, gatewayURL)
+// GetWorkflowRunEvents provides a mock function with given fields: ctx, namespaceName, runName, taskName
+func (_m *MockService) GetWorkflowRunEvents(ctx context.Context, namespaceName string, runName string, taskName string) ([]models.WorkflowRunEventEntry, error) {
+	ret := _m.Called(ctx, namespaceName, runName, taskName)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetWorkflowRunEvents")
@@ -204,19 +204,19 @@ func (_m *MockService) GetWorkflowRunEvents(ctx context.Context, namespaceName s
 
 	var r0 []models.WorkflowRunEventEntry
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) ([]models.WorkflowRunEventEntry, error)); ok {
-		return rf(ctx, namespaceName, runName, taskName, gatewayURL)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) ([]models.WorkflowRunEventEntry, error)); ok {
+		return rf(ctx, namespaceName, runName, taskName)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) []models.WorkflowRunEventEntry); ok {
-		r0 = rf(ctx, namespaceName, runName, taskName, gatewayURL)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) []models.WorkflowRunEventEntry); ok {
+		r0 = rf(ctx, namespaceName, runName, taskName)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]models.WorkflowRunEventEntry)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string) error); ok {
-		r1 = rf(ctx, namespaceName, runName, taskName, gatewayURL)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, runName, taskName)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -234,14 +234,13 @@ type MockService_GetWorkflowRunEvents_Call struct {
 //   - namespaceName string
 //   - runName string
 //   - taskName string
-//   - gatewayURL string
-func (_e *MockService_Expecter) GetWorkflowRunEvents(ctx interface{}, namespaceName interface{}, runName interface{}, taskName interface{}, gatewayURL interface{}) *MockService_GetWorkflowRunEvents_Call {
-	return &MockService_GetWorkflowRunEvents_Call{Call: _e.mock.On("GetWorkflowRunEvents", ctx, namespaceName, runName, taskName, gatewayURL)}
+func (_e *MockService_Expecter) GetWorkflowRunEvents(ctx interface{}, namespaceName interface{}, runName interface{}, taskName interface{}) *MockService_GetWorkflowRunEvents_Call {
+	return &MockService_GetWorkflowRunEvents_Call{Call: _e.mock.On("GetWorkflowRunEvents", ctx, namespaceName, runName, taskName)}
 }
 
-func (_c *MockService_GetWorkflowRunEvents_Call) Run(run func(ctx context.Context, namespaceName string, runName string, taskName string, gatewayURL string)) *MockService_GetWorkflowRunEvents_Call {
+func (_c *MockService_GetWorkflowRunEvents_Call) Run(run func(ctx context.Context, namespaceName string, runName string, taskName string)) *MockService_GetWorkflowRunEvents_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
 	})
 	return _c
 }
@@ -251,14 +250,14 @@ func (_c *MockService_GetWorkflowRunEvents_Call) Return(_a0 []models.WorkflowRun
 	return _c
 }
 
-func (_c *MockService_GetWorkflowRunEvents_Call) RunAndReturn(run func(context.Context, string, string, string, string) ([]models.WorkflowRunEventEntry, error)) *MockService_GetWorkflowRunEvents_Call {
+func (_c *MockService_GetWorkflowRunEvents_Call) RunAndReturn(run func(context.Context, string, string, string) ([]models.WorkflowRunEventEntry, error)) *MockService_GetWorkflowRunEvents_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetWorkflowRunLogs provides a mock function with given fields: ctx, namespaceName, runName, taskName, gatewayURL, sinceSeconds
-func (_m *MockService) GetWorkflowRunLogs(ctx context.Context, namespaceName string, runName string, taskName string, gatewayURL string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
-	ret := _m.Called(ctx, namespaceName, runName, taskName, gatewayURL, sinceSeconds)
+// GetWorkflowRunLogs provides a mock function with given fields: ctx, namespaceName, runName, taskName, sinceSeconds
+func (_m *MockService) GetWorkflowRunLogs(ctx context.Context, namespaceName string, runName string, taskName string, sinceSeconds *int64) ([]models.WorkflowRunLogEntry, error) {
+	ret := _m.Called(ctx, namespaceName, runName, taskName, sinceSeconds)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetWorkflowRunLogs")
@@ -266,19 +265,19 @@ func (_m *MockService) GetWorkflowRunLogs(ctx context.Context, namespaceName str
 
 	var r0 []models.WorkflowRunLogEntry
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, *int64) ([]models.WorkflowRunLogEntry, error)); ok {
-		return rf(ctx, namespaceName, runName, taskName, gatewayURL, sinceSeconds)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, *int64) ([]models.WorkflowRunLogEntry, error)); ok {
+		return rf(ctx, namespaceName, runName, taskName, sinceSeconds)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, *int64) []models.WorkflowRunLogEntry); ok {
-		r0 = rf(ctx, namespaceName, runName, taskName, gatewayURL, sinceSeconds)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, *int64) []models.WorkflowRunLogEntry); ok {
+		r0 = rf(ctx, namespaceName, runName, taskName, sinceSeconds)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]models.WorkflowRunLogEntry)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string, *int64) error); ok {
-		r1 = rf(ctx, namespaceName, runName, taskName, gatewayURL, sinceSeconds)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, *int64) error); ok {
+		r1 = rf(ctx, namespaceName, runName, taskName, sinceSeconds)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -296,15 +295,14 @@ type MockService_GetWorkflowRunLogs_Call struct {
 //   - namespaceName string
 //   - runName string
 //   - taskName string
-//   - gatewayURL string
 //   - sinceSeconds *int64
-func (_e *MockService_Expecter) GetWorkflowRunLogs(ctx interface{}, namespaceName interface{}, runName interface{}, taskName interface{}, gatewayURL interface{}, sinceSeconds interface{}) *MockService_GetWorkflowRunLogs_Call {
-	return &MockService_GetWorkflowRunLogs_Call{Call: _e.mock.On("GetWorkflowRunLogs", ctx, namespaceName, runName, taskName, gatewayURL, sinceSeconds)}
+func (_e *MockService_Expecter) GetWorkflowRunLogs(ctx interface{}, namespaceName interface{}, runName interface{}, taskName interface{}, sinceSeconds interface{}) *MockService_GetWorkflowRunLogs_Call {
+	return &MockService_GetWorkflowRunLogs_Call{Call: _e.mock.On("GetWorkflowRunLogs", ctx, namespaceName, runName, taskName, sinceSeconds)}
 }
 
-func (_c *MockService_GetWorkflowRunLogs_Call) Run(run func(ctx context.Context, namespaceName string, runName string, taskName string, gatewayURL string, sinceSeconds *int64)) *MockService_GetWorkflowRunLogs_Call {
+func (_c *MockService_GetWorkflowRunLogs_Call) Run(run func(ctx context.Context, namespaceName string, runName string, taskName string, sinceSeconds *int64)) *MockService_GetWorkflowRunLogs_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(string), args[5].(*int64))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(*int64))
 	})
 	return _c
 }
@@ -314,14 +312,14 @@ func (_c *MockService_GetWorkflowRunLogs_Call) Return(_a0 []models.WorkflowRunLo
 	return _c
 }
 
-func (_c *MockService_GetWorkflowRunLogs_Call) RunAndReturn(run func(context.Context, string, string, string, string, *int64) ([]models.WorkflowRunLogEntry, error)) *MockService_GetWorkflowRunLogs_Call {
+func (_c *MockService_GetWorkflowRunLogs_Call) RunAndReturn(run func(context.Context, string, string, string, *int64) ([]models.WorkflowRunLogEntry, error)) *MockService_GetWorkflowRunLogs_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetWorkflowRunStatus provides a mock function with given fields: ctx, namespaceName, runName, gatewayURL
-func (_m *MockService) GetWorkflowRunStatus(ctx context.Context, namespaceName string, runName string, gatewayURL string) (*models.WorkflowRunStatusResponse, error) {
-	ret := _m.Called(ctx, namespaceName, runName, gatewayURL)
+// GetWorkflowRunStatus provides a mock function with given fields: ctx, namespaceName, runName
+func (_m *MockService) GetWorkflowRunStatus(ctx context.Context, namespaceName string, runName string) (*models.WorkflowRunStatusResponse, error) {
+	ret := _m.Called(ctx, namespaceName, runName)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetWorkflowRunStatus")
@@ -329,19 +327,19 @@ func (_m *MockService) GetWorkflowRunStatus(ctx context.Context, namespaceName s
 
 	var r0 *models.WorkflowRunStatusResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*models.WorkflowRunStatusResponse, error)); ok {
-		return rf(ctx, namespaceName, runName, gatewayURL)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*models.WorkflowRunStatusResponse, error)); ok {
+		return rf(ctx, namespaceName, runName)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *models.WorkflowRunStatusResponse); ok {
-		r0 = rf(ctx, namespaceName, runName, gatewayURL)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *models.WorkflowRunStatusResponse); ok {
+		r0 = rf(ctx, namespaceName, runName)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*models.WorkflowRunStatusResponse)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
-		r1 = rf(ctx, namespaceName, runName, gatewayURL)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, runName)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -358,14 +356,13 @@ type MockService_GetWorkflowRunStatus_Call struct {
 //   - ctx context.Context
 //   - namespaceName string
 //   - runName string
-//   - gatewayURL string
-func (_e *MockService_Expecter) GetWorkflowRunStatus(ctx interface{}, namespaceName interface{}, runName interface{}, gatewayURL interface{}) *MockService_GetWorkflowRunStatus_Call {
-	return &MockService_GetWorkflowRunStatus_Call{Call: _e.mock.On("GetWorkflowRunStatus", ctx, namespaceName, runName, gatewayURL)}
+func (_e *MockService_Expecter) GetWorkflowRunStatus(ctx interface{}, namespaceName interface{}, runName interface{}) *MockService_GetWorkflowRunStatus_Call {
+	return &MockService_GetWorkflowRunStatus_Call{Call: _e.mock.On("GetWorkflowRunStatus", ctx, namespaceName, runName)}
 }
 
-func (_c *MockService_GetWorkflowRunStatus_Call) Run(run func(ctx context.Context, namespaceName string, runName string, gatewayURL string)) *MockService_GetWorkflowRunStatus_Call {
+func (_c *MockService_GetWorkflowRunStatus_Call) Run(run func(ctx context.Context, namespaceName string, runName string)) *MockService_GetWorkflowRunStatus_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
 	})
 	return _c
 }
@@ -375,7 +372,7 @@ func (_c *MockService_GetWorkflowRunStatus_Call) Return(_a0 *models.WorkflowRunS
 	return _c
 }
 
-func (_c *MockService_GetWorkflowRunStatus_Call) RunAndReturn(run func(context.Context, string, string, string) (*models.WorkflowRunStatusResponse, error)) *MockService_GetWorkflowRunStatus_Call {
+func (_c *MockService_GetWorkflowRunStatus_Call) RunAndReturn(run func(context.Context, string, string) (*models.WorkflowRunStatusResponse, error)) *MockService_GetWorkflowRunStatus_Call {
 	_c.Call.Return(run)
 	return _c
 }

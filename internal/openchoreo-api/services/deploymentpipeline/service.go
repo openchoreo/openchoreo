@@ -63,8 +63,8 @@ func (s *deploymentPipelineService) CreateDeploymentPipeline(ctx context.Context
 			s.logger.Warn("Deployment pipeline already exists", "namespace", namespaceName, "deploymentPipeline", dp.Name)
 			return nil, ErrDeploymentPipelineAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create deployment pipeline CR", "error", err)
 		return nil, fmt.Errorf("failed to create deployment pipeline: %w", err)
@@ -101,8 +101,8 @@ func (s *deploymentPipelineService) UpdateDeploymentPipeline(ctx context.Context
 	existing.Annotations = dp.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update deployment pipeline CR", "error", err)
 		return nil, fmt.Errorf("failed to update deployment pipeline: %w", err)

@@ -1,0 +1,72 @@
+# In-cluster webhook receiver used by the alerts e2e suite.
+# mendhak/http-https-echo echoes every incoming HTTP request — method, path,
+# headers, and body — to stdout as a single-line JSON blob. The alerts suite
+# reads back received notifications by `kubectl logs` on this pod.
+#
+# We pin to the multi-arch digest for tag 31 so e2e runs stay deterministic.
+# The image is ~25MB and starts in <1s on the k3d node.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-receiver
+  namespace: __NAMESPACE__
+  labels:
+    app: webhook-receiver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook-receiver
+  template:
+    metadata:
+      labels:
+        app: webhook-receiver
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: receiver
+          image: mendhak/http-https-echo@sha256:0fefe04350131d7bb28355e3bf037062643e45f4a8a32f23679529e1b09d8ce4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            runAsUser: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: HTTP_PORT
+              value: "8080"
+            - name: DISABLE_REQUEST_LOGS
+              value: "false"
+            - name: LOG_IGNORE_PATH
+              value: "/health"
+            - name: ECHO_INCLUDE_ENV_VARS
+              value: "false"
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-receiver
+  namespace: __NAMESPACE__
+spec:
+  selector:
+    app: webhook-receiver
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

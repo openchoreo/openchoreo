@@ -1,0 +1,21 @@
+{{- if .Values.eventForwarder.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openchoreo-control-plane.event-forwarder.name" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: event-forwarder
+data:
+  config.yaml: |
+    server:
+      port: {{ .Values.eventForwarder.config.server.port }}
+
+    webhooks:
+      endpoints:
+        {{- toYaml .Values.eventForwarder.config.webhooks.endpoints | nindent 8 }}
+
+    logging:
+      level: {{ .Values.eventForwarder.config.logging.level | quote }}
+{{- end }}

@@ -16,11 +16,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
 )
 
+// Backend types supported by the router.
+const (
+	backendKubernetes = "kubernetes"
+	backendHTTP       = "http"
+)
+
 // RouteConfig represents the configuration for a backend route
 type RouteConfig struct {
-	Name     string
-	Endpoint string
-	Auth     AuthConfig
+	Name               string
+	Endpoint           string
+	Auth               AuthConfig
+	InsecureSkipVerify bool // Skip TLS certificate verification (development/internal services only)
 }
 
 // AuthConfig represents authentication configuration for a route
@@ -121,6 +128,14 @@ func (r *Router) Route(req *messaging.HTTPTunnelRequest) *messaging.HTTPTunnelRe
 
 	httpReq.Header = req.Headers
 
+	// Strip any client-supplied Authorization header for k8s requests. The
+	// transport returned by rest.TransportFor only injects the agent's
+	// ServiceAccount token when no Authorization header is already set, so
+	// leaving a client token here would defeat the intended auth model.
+	if route.Backend == backendKubernetes {
+		httpReq.Header.Del("Authorization")
+	}
+
 	route.applyAuth(httpReq)
 
 	resp, err := route.Transport.RoundTrip(httpReq)
@@ -170,7 +185,7 @@ func createK8sRoute(config *rest.Config) (*Route, error) {
 
 	return &Route{
 		Name:      "k8s",
-		Backend:   "kubernetes",
+		Backend:   backendKubernetes,
 		Endpoint:  config.Host,
 		Transport: transport,
 	}, nil
@@ -178,22 +193,15 @@ func createK8sRoute(config *rest.Config) (*Route, error) {
 
 // createRoute creates a route from configuration
 func createRoute(cfg RouteConfig) *Route {
-	// Create HTTP transport
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: false, //nolint:gosec // Can be configured per route if needed
+			InsecureSkipVerify: cfg.InsecureSkipVerify, //nolint:gosec // Controlled by explicit config flag
 		},
-	}
-
-	// For HTTPS endpoints with self-signed certs, we might need to skip verification
-	// This should be configurable per route in the future
-	if cfg.Auth.Type == "none" {
-		transport.TLSClientConfig.InsecureSkipVerify = true //nolint:gosec // Intentional for internal services
 	}
 
 	return &Route{
 		Name:      cfg.Name,
-		Backend:   "http",
+		Backend:   backendHTTP,
 		Endpoint:  cfg.Endpoint,
 		Auth:      cfg.Auth,
 		Transport: transport,

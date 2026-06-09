@@ -263,8 +263,8 @@ spec:
         targetCPUUtilizationPercentage: 75
       # Wire environment-specific overrides (only for replica counts)
       environmentConfigs:
-        minReplicas: ${environmentConfigs.autoscaling.minReplicas}
-        maxReplicas: ${environmentConfigs.autoscaling.maxReplicas}
+        minReplicas: "${has(environmentConfigs.autoscaling) ? environmentConfigs.autoscaling.minReplicas : parameters.autoscaling.minReplicas}"
+        maxReplicas: "${has(environmentConfigs.autoscaling) ? environmentConfigs.autoscaling.maxReplicas : parameters.autoscaling.maxReplicas}"
 
   resources:
     - id: deployment
@@ -299,8 +299,8 @@ spec:
                       cpu: ${environmentConfigs.resources.limits.cpu}
                       memory: ${environmentConfigs.resources.limits.memory}
                   envFrom: ${configurations.toContainerEnvFrom()}
-                  volumeMounts: ${configurations.toContainerVolumeMounts()}
-              volumes: ${configurations.toVolumes()}
+                  volumeMounts: ${configurations.toContainerVolumeMounts() + dependencies.toContainerVolumeMounts()}
+              volumes: ${configurations.toVolumes() + dependencies.toVolumes()}
 
     - id: service
       includeWhen: ${size(workload.endpoints) > 0}

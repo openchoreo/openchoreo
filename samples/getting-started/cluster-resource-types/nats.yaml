@@ -1,0 +1,190 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterResourceType
+metadata:
+  name: nats
+  annotations:
+    openchoreo.dev/description: >-
+      In-cluster NATS Core pub/sub server (no JetStream) backed by a
+      single-replica Deployment. Stateless and in-memory; for demonstration
+      purposes only. Token-based auth on the client port; the monitoring
+      port serves read-only diagnostics.
+spec:
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        memory:
+          type: string
+          default: 64Mi
+        adminEnabled:
+          type: boolean
+          default: false
+
+  retainPolicy: Delete
+
+  outputs:
+    - name: host
+      value: "${metadata.name}.${metadata.namespace}.svc.cluster.local"
+    - name: port
+      value: "4222"
+    - name: token
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: password
+    # Convenience output: full NATS client URL with the token embedded.
+    # Composed on the data plane by ESO's secret template; the token bytes
+    # never reach the control plane (same guarantee as the `token` output).
+    - name: url
+      secretKeyRef:
+        name: "${metadata.name}-creds"
+        key: url
+    # Admin URL points at NATS's built-in HTTP monitoring endpoint (port
+    # 8222), which serves JSON diagnostics like /varz, /connz, /subsz. The
+    # endpoint is unauthenticated and read-only; the dev opens the URL and
+    # navigates the JSON pages directly.
+    - name: adminURL
+      value: >-
+        ${environmentConfigs.adminEnabled
+          ? (has(gateway.ingress.external.https)
+              ? "https://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.https.host + ":" + string(gateway.ingress.external.https.port) + "/"
+              : has(gateway.ingress.external.http)
+                  ? "http://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.http.host + ":" + string(gateway.ingress.external.http.port) + "/"
+                  : "no-gateway-configured")
+          : "disabled"}
+
+  resources:
+    # NATS auth token: generated on the data plane by ESO and never written
+    # to the control plane. Surfaced via the `token` output as a
+    # secretKeyRef.
+    - id: password-generator
+      template:
+        apiVersion: generators.external-secrets.io/v1alpha1
+        kind: Password
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          length: 32
+          digits: 8
+          symbols: 0
+          noUpper: false
+          allowRepeat: true
+
+    - id: creds
+      template:
+        apiVersion: external-secrets.io/v1
+        kind: ExternalSecret
+        metadata:
+          name: ${metadata.name}-creds
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          # Sync once. The Password generator is stateless — every call
+          # returns a NEW random value, so a non-zero refreshInterval would
+          # rotate the password periodically and desync running consumers
+          # whose env vars were resolved at pod-start.
+          refreshInterval: "0"
+          target:
+            name: ${metadata.name}-creds
+            creationPolicy: Owner
+            # ESO templates the Secret data DP-side using the fetched
+            # password. The control plane only stores the literal `{{ .password }}`
+            # placeholder, never the resolved bytes.
+            template:
+              type: Opaque
+              data:
+                password: "{{ .password }}"
+                url: "nats://{{ .password }}@${metadata.name}.${metadata.namespace}.svc.cluster.local:4222"
+          dataFrom:
+            - sourceRef:
+                generatorRef:
+                  apiVersion: generators.external-secrets.io/v1alpha1
+                  kind: Password
+                  name: ${metadata.name}-creds
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          selector:
+            app: ${metadata.name}
+          ports:
+            - name: client
+              port: 4222
+              targetPort: 4222
+            - name: monitor
+              port: 8222
+              targetPort: 8222
+
+    - id: deployment
+      readyWhen: "${applied.deployment.status.readyReplicas == applied.deployment.status.replicas && applied.deployment.status.replicas > 0}"
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: ${metadata.name}
+          template:
+            metadata:
+              labels:
+                app: ${metadata.name}
+            spec:
+              containers:
+                - name: nats
+                  image: nats:2.10-alpine
+                  resources:
+                    limits:
+                      memory: ${environmentConfigs.memory}
+                  args:
+                    - --http_port
+                    - "8222"
+                    - --auth
+                    - $(NATS_TOKEN)
+                  env:
+                    - name: NATS_TOKEN
+                      valueFrom:
+                        secretKeyRef:
+                          name: ${metadata.name}-creds
+                          key: password
+                  ports:
+                    - containerPort: 4222
+                      name: client
+                    - containerPort: 8222
+                      name: monitor
+
+    # NATS's monitoring port (8222) is exposed on the same Service that
+    # serves the client port. The HTTPRoute below just routes the gateway
+    # to that monitoring port — no separate admin pod is needed.
+    - id: admin-route
+      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${metadata.name}-admin
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
+          hostnames: |
+            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + h)}
+          rules:
+            - backendRefs:
+                - name: ${metadata.name}
+                  port: 8222

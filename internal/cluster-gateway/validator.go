@@ -39,7 +39,6 @@ func NewRequestValidator() *RequestValidator {
 		},
 		blockedPaths: []string{
 			"/api/v1/namespaces/kube-system/secrets",
-			"/api/v1/secrets",          // Without namespace - cluster-wide
 			"/apis/v1/serviceaccounts", // Cluster-wide service accounts
 		},
 		allowedTargets: map[string]bool{

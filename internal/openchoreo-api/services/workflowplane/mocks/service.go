@@ -27,17 +27,17 @@ func (_m *MockService) EXPECT() *MockService_Expecter {
 	return &MockService_Expecter{mock: &_m.Mock}
 }
 
-// ArgoWorkflowExists provides a mock function with given fields: ctx, namespaceName, gatewayURL, runReference
-func (_m *MockService) ArgoWorkflowExists(ctx context.Context, namespaceName string, gatewayURL string, runReference *v1alpha1.ResourceReference) bool {
-	ret := _m.Called(ctx, namespaceName, gatewayURL, runReference)
+// ArgoWorkflowExists provides a mock function with given fields: ctx, namespaceName, runReference
+func (_m *MockService) ArgoWorkflowExists(ctx context.Context, namespaceName string, runReference *v1alpha1.ResourceReference) bool {
+	ret := _m.Called(ctx, namespaceName, runReference)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ArgoWorkflowExists")
 	}
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, *v1alpha1.ResourceReference) bool); ok {
-		r0 = rf(ctx, namespaceName, gatewayURL, runReference)
+	if rf, ok := ret.Get(0).(func(context.Context, string, *v1alpha1.ResourceReference) bool); ok {
+		r0 = rf(ctx, namespaceName, runReference)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
@@ -53,15 +53,14 @@ type MockService_ArgoWorkflowExists_Call struct {
 // ArgoWorkflowExists is a helper method to define mock.On call
 //   - ctx context.Context
 //   - namespaceName string
-//   - gatewayURL string
 //   - runReference *v1alpha1.ResourceReference
-func (_e *MockService_Expecter) ArgoWorkflowExists(ctx interface{}, namespaceName interface{}, gatewayURL interface{}, runReference interface{}) *MockService_ArgoWorkflowExists_Call {
-	return &MockService_ArgoWorkflowExists_Call{Call: _e.mock.On("ArgoWorkflowExists", ctx, namespaceName, gatewayURL, runReference)}
+func (_e *MockService_Expecter) ArgoWorkflowExists(ctx interface{}, namespaceName interface{}, runReference interface{}) *MockService_ArgoWorkflowExists_Call {
+	return &MockService_ArgoWorkflowExists_Call{Call: _e.mock.On("ArgoWorkflowExists", ctx, namespaceName, runReference)}
 }
 
-func (_c *MockService_ArgoWorkflowExists_Call) Run(run func(ctx context.Context, namespaceName string, gatewayURL string, runReference *v1alpha1.ResourceReference)) *MockService_ArgoWorkflowExists_Call {
+func (_c *MockService_ArgoWorkflowExists_Call) Run(run func(ctx context.Context, namespaceName string, runReference *v1alpha1.ResourceReference)) *MockService_ArgoWorkflowExists_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(*v1alpha1.ResourceReference))
+		run(args[0].(context.Context), args[1].(string), args[2].(*v1alpha1.ResourceReference))
 	})
 	return _c
 }
@@ -71,7 +70,7 @@ func (_c *MockService_ArgoWorkflowExists_Call) Return(_a0 bool) *MockService_Arg
 	return _c
 }
 
-func (_c *MockService_ArgoWorkflowExists_Call) RunAndReturn(run func(context.Context, string, string, *v1alpha1.ResourceReference) bool) *MockService_ArgoWorkflowExists_Call {
+func (_c *MockService_ArgoWorkflowExists_Call) RunAndReturn(run func(context.Context, string, *v1alpha1.ResourceReference) bool) *MockService_ArgoWorkflowExists_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -244,9 +243,9 @@ func (_c *MockService_GetWorkflowPlane_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
-// GetWorkflowPlaneClient provides a mock function with given fields: ctx, namespaceName, gatewayURL
-func (_m *MockService) GetWorkflowPlaneClient(ctx context.Context, namespaceName string, gatewayURL string) (client.Client, error) {
-	ret := _m.Called(ctx, namespaceName, gatewayURL)
+// GetWorkflowPlaneClient provides a mock function with given fields: ctx, namespaceName
+func (_m *MockService) GetWorkflowPlaneClient(ctx context.Context, namespaceName string) (client.Client, error) {
+	ret := _m.Called(ctx, namespaceName)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetWorkflowPlaneClient")
@@ -254,19 +253,19 @@ func (_m *MockService) GetWorkflowPlaneClient(ctx context.Context, namespaceName
 
 	var r0 client.Client
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (client.Client, error)); ok {
-		return rf(ctx, namespaceName, gatewayURL)
+	if rf, ok := ret.Get(0).(func(context.Context, string) (client.Client, error)); ok {
+		return rf(ctx, namespaceName)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) client.Client); ok {
-		r0 = rf(ctx, namespaceName, gatewayURL)
+	if rf, ok := ret.Get(0).(func(context.Context, string) client.Client); ok {
+		r0 = rf(ctx, namespaceName)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(client.Client)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
-		r1 = rf(ctx, namespaceName, gatewayURL)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, namespaceName)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -282,14 +281,13 @@ type MockService_GetWorkflowPlaneClient_Call struct {
 // GetWorkflowPlaneClient is a helper method to define mock.On call
 //   - ctx context.Context
 //   - namespaceName string
-//   - gatewayURL string
-func (_e *MockService_Expecter) GetWorkflowPlaneClient(ctx interface{}, namespaceName interface{}, gatewayURL interface{}) *MockService_GetWorkflowPlaneClient_Call {
-	return &MockService_GetWorkflowPlaneClient_Call{Call: _e.mock.On("GetWorkflowPlaneClient", ctx, namespaceName, gatewayURL)}
+func (_e *MockService_Expecter) GetWorkflowPlaneClient(ctx interface{}, namespaceName interface{}) *MockService_GetWorkflowPlaneClient_Call {
+	return &MockService_GetWorkflowPlaneClient_Call{Call: _e.mock.On("GetWorkflowPlaneClient", ctx, namespaceName)}
 }
 
-func (_c *MockService_GetWorkflowPlaneClient_Call) Run(run func(ctx context.Context, namespaceName string, gatewayURL string)) *MockService_GetWorkflowPlaneClient_Call {
+func (_c *MockService_GetWorkflowPlaneClient_Call) Run(run func(ctx context.Context, namespaceName string)) *MockService_GetWorkflowPlaneClient_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string))
+		run(args[0].(context.Context), args[1].(string))
 	})
 	return _c
 }
@@ -299,7 +297,7 @@ func (_c *MockService_GetWorkflowPlaneClient_Call) Return(_a0 client.Client, _a1
 	return _c
 }
 
-func (_c *MockService_GetWorkflowPlaneClient_Call) RunAndReturn(run func(context.Context, string, string) (client.Client, error)) *MockService_GetWorkflowPlaneClient_Call {
+func (_c *MockService_GetWorkflowPlaneClient_Call) RunAndReturn(run func(context.Context, string) (client.Client, error)) *MockService_GetWorkflowPlaneClient_Call {
 	_c.Call.Return(run)
 	return _c
 }

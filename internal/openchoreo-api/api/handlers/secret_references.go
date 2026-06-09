@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -24,8 +25,7 @@ func (h *Handler) ListSecretReferences(
 
 	result, err := h.services.SecretReferenceService.ListSecretReferences(ctx, request.NamespaceName, opts)
 	if err != nil {
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListSecretReferences400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list secret references", "error", err)
@@ -69,8 +69,10 @@ func (h *Handler) CreateSecretReference(
 		if errors.Is(err, secretreferencesvc.ErrSecretReferenceAlreadyExists) {
 			return gen.CreateSecretReference409JSONResponse{ConflictJSONResponse: conflict("Secret reference already exists")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateSecretReference422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateSecretReference400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create secret reference", "error", err)
@@ -143,8 +145,10 @@ func (h *Handler) UpdateSecretReference(
 		if errors.Is(err, secretreferencesvc.ErrSecretReferenceNotFound) {
 			return gen.UpdateSecretReference404JSONResponse{NotFoundJSONResponse: notFound("SecretReference")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateSecretReference422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateSecretReference400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update secret reference", "error", err)

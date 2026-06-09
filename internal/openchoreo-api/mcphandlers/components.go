@@ -17,7 +17,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller"
 	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
@@ -113,9 +112,9 @@ func (h *MCPHandler) GetComponent(
 }
 
 func (h *MCPHandler) ListWorkloads(
-	ctx context.Context, namespaceName, componentName string,
+	ctx context.Context, namespaceName, componentName string, opts tools.ListOpts,
 ) (any, error) {
-	result, err := h.services.WorkloadService.ListWorkloads(ctx, namespaceName, componentName, services.ListOptions{})
+	result, err := h.services.WorkloadService.ListWorkloads(ctx, namespaceName, componentName, toServiceListOptions(opts))
 	if err != nil {
 		return nil, err
 	}
@@ -255,6 +254,9 @@ func (h *MCPHandler) UpdateReleaseBinding(
 	if req.ReleaseName != nil && *req.ReleaseName != "" {
 		rb.Spec.ReleaseName = *req.ReleaseName
 	}
+	if req.State != nil {
+		rb.Spec.State = openchoreov1alpha1.ReleaseState(*req.State)
+	}
 	if req.Environment != "" && req.Environment != rb.Spec.Environment {
 		return nil, fmt.Errorf("release binding environment is immutable")
 	}
@@ -293,6 +295,50 @@ func (h *MCPHandler) UpdateReleaseBinding(
 		return nil, err
 	}
 	return mutationResult(updated, "patched"), nil
+}
+
+func (h *MCPHandler) DeleteReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error) {
+	if err := h.services.ReleaseBindingService.DeleteReleaseBinding(ctx, namespaceName, bindingName); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"name":      bindingName,
+		"namespace": namespaceName,
+		"action":    "deleted",
+	}, nil
+}
+
+func (h *MCPHandler) DeleteComponent(ctx context.Context, namespaceName, componentName string) (any, error) {
+	if err := h.services.ComponentService.DeleteComponent(ctx, namespaceName, componentName); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"name":      componentName,
+		"namespace": namespaceName,
+		"action":    "deleted",
+	}, nil
+}
+
+func (h *MCPHandler) DeleteWorkload(ctx context.Context, namespaceName, workloadName string) (any, error) {
+	if err := h.services.WorkloadService.DeleteWorkload(ctx, namespaceName, workloadName); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"name":      workloadName,
+		"namespace": namespaceName,
+		"action":    "deleted",
+	}, nil
+}
+
+func (h *MCPHandler) DeleteComponentRelease(ctx context.Context, namespaceName, componentReleaseName string) (any, error) {
+	if err := h.services.ComponentReleaseService.DeleteComponentRelease(ctx, namespaceName, componentReleaseName); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"name":      componentReleaseName,
+		"namespace": namespaceName,
+		"action":    "deleted",
+	}, nil
 }
 
 func (h *MCPHandler) CreateWorkload(
@@ -385,6 +431,18 @@ func (h *MCPHandler) PatchComponent(
 		return nil, err
 	}
 
+	if req.DisplayName != nil && *req.DisplayName != "" {
+		if component.Annotations == nil {
+			component.Annotations = map[string]string{}
+		}
+		component.Annotations[controller.AnnotationKeyDisplayName] = *req.DisplayName
+	}
+	if req.Description != nil && *req.Description != "" {
+		if component.Annotations == nil {
+			component.Annotations = map[string]string{}
+		}
+		component.Annotations[controller.AnnotationKeyDescription] = *req.Description
+	}
 	if req.AutoDeploy != nil {
 		component.Spec.AutoDeploy = *req.AutoDeploy
 	}
@@ -395,33 +453,51 @@ func (h *MCPHandler) PatchComponent(
 		}
 		component.Spec.Parameters = &runtime.RawExtension{Raw: paramsBytes}
 	}
+	if req.Traits != nil {
+		traits := make([]openchoreov1alpha1.ComponentTrait, 0, len(*req.Traits))
+		for _, ti := range *req.Traits {
+			ct := openchoreov1alpha1.ComponentTrait{
+				Name:         ti.Name,
+				InstanceName: ti.InstanceName,
+			}
+			if ti.Kind != nil {
+				ct.Kind = openchoreov1alpha1.TraitRefKind(*ti.Kind)
+			}
+			if ti.Parameters != nil {
+				paramsBytes, err := json.Marshal(*ti.Parameters)
+				if err != nil {
+					return nil, err
+				}
+				ct.Parameters = &runtime.RawExtension{Raw: paramsBytes}
+			}
+			traits = append(traits, ct)
+		}
+		component.Spec.Traits = traits
+	}
+	if req.Workflow != nil {
+		var workflowParams *runtime.RawExtension
+		if req.Workflow.Parameters != nil {
+			paramsBytes, err := json.Marshal(*req.Workflow.Parameters)
+			if err != nil {
+				return nil, err
+			}
+			workflowParams = &runtime.RawExtension{Raw: paramsBytes}
+		}
+		workflowConfig := &openchoreov1alpha1.ComponentWorkflowConfig{
+			Name:       req.Workflow.Name,
+			Parameters: workflowParams,
+		}
+		if req.Workflow.Kind != nil {
+			workflowConfig.Kind = openchoreov1alpha1.WorkflowRefKind(*req.Workflow.Kind)
+		}
+		component.Spec.Workflow = workflowConfig
+	}
 
 	updated, err := h.services.ComponentService.UpdateComponent(ctx, namespaceName, component)
 	if err != nil {
 		return nil, err
 	}
 	return mutationResult(updated, "patched"), nil
-}
-
-func (h *MCPHandler) UpdateReleaseBindingState(
-	ctx context.Context, namespaceName, bindingName string, state *gen.ReleaseBindingSpecState,
-) (any, error) {
-	rb, err := h.services.ReleaseBindingService.GetReleaseBinding(ctx, namespaceName, bindingName)
-	if err != nil {
-		return nil, err
-	}
-
-	if state != nil {
-		rb.Spec.State = openchoreov1alpha1.ReleaseState(*state)
-	}
-
-	updated, err := h.services.ReleaseBindingService.UpdateReleaseBinding(ctx, namespaceName, rb)
-	if err != nil {
-		return nil, err
-	}
-	return mutationResult(updated, "updated", map[string]any{
-		"state": string(updated.Spec.State),
-	}), nil
 }
 
 func (h *MCPHandler) GetComponentReleaseSchema(
@@ -514,6 +590,32 @@ func (h *MCPHandler) GetWorkflowRun(ctx context.Context, namespaceName, runName 
 		return nil, err
 	}
 	return workflowRunDetail(wr), nil
+}
+
+func (h *MCPHandler) GetWorkflowRunStatus(ctx context.Context, namespaceName, runName string) (any, error) {
+	status, err := h.services.WorkflowRunService.GetWorkflowRunStatus(ctx, namespaceName, runName)
+	if err != nil {
+		return nil, err
+	}
+	return status, nil
+}
+
+func (h *MCPHandler) GetWorkflowRunLogs(
+	ctx context.Context, namespaceName, runName, taskName string, sinceSeconds *int64,
+) (any, error) {
+	logs, err := h.services.WorkflowRunService.GetWorkflowRunLogs(ctx, namespaceName, runName, taskName, sinceSeconds)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"logs": logs}, nil
+}
+
+func (h *MCPHandler) GetWorkflowRunEvents(ctx context.Context, namespaceName, runName, taskName string) (any, error) {
+	events, err := h.services.WorkflowRunService.GetWorkflowRunEvents(ctx, namespaceName, runName, taskName)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"events": events}, nil
 }
 
 // ClusterComponentType operations
@@ -663,18 +765,26 @@ func (h *MCPHandler) TriggerWorkflowRun(
 	}), nil
 }
 
+// parseComponentTypeFormat splits a "{workloadType}/{name}" component type string.
+func parseComponentTypeFormat(componentType string) (workloadType, name string, err error) {
+	parts := strings.SplitN(componentType, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", fmt.Errorf("invalid componentType format %q: expected {workloadType}/{name}", componentType)
+	}
+	return parts[0], parts[1], nil
+}
+
 // resolveComponentTypeKind resolves the kind of a component type reference by looking up
 // both namespace-scoped ComponentType and cluster-scoped ClusterComponentType.
 // The componentType string is in {workloadType}/{componentTypeName} format.
 // Namespace-scoped ComponentType takes precedence; ClusterComponentType is the fallback.
 func (h *MCPHandler) resolveComponentTypeKind(ctx context.Context, namespaceName, componentType string) (openchoreov1alpha1.ComponentTypeRefKind, error) {
-	parts := strings.SplitN(componentType, "/", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", fmt.Errorf("invalid componentType format %q: expected {workloadType}/{name}", componentType)
+	_, typeName, err := parseComponentTypeFormat(componentType)
+	if err != nil {
+		return "", err
 	}
-	typeName := parts[1]
 
-	_, err := h.services.ComponentTypeService.GetComponentType(ctx, namespaceName, typeName)
+	_, err = h.services.ComponentTypeService.GetComponentType(ctx, namespaceName, typeName)
 	if err == nil {
 		return openchoreov1alpha1.ComponentTypeRefKindComponentType, nil
 	}

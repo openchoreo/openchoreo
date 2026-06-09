@@ -1,0 +1,13 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Project
+metadata:
+  annotations:
+    openchoreo.dev/description: Latency Lab — multi-service notes app (frontend, api, auth, analytics, postgres, redis) with conditional latency / fault injection for observability and alerting demos
+    openchoreo.dev/display-name: Latency Lab
+  labels:
+    openchoreo.dev/name: latency-lab
+  name: latency-lab
+  namespace: default
+spec:
+  deploymentPipelineRef:
+    name: default

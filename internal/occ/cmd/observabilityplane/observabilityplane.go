@@ -13,30 +13,24 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by ObservabilityPlane operations.
-type Client interface {
-	ListObservabilityPlanes(ctx context.Context, namespaceName string, params *gen.ListObservabilityPlanesParams) (*gen.ObservabilityPlaneList, error)
-	GetObservabilityPlane(ctx context.Context, namespaceName string, observabilityPlaneName string) (*gen.ObservabilityPlane, error)
-	DeleteObservabilityPlane(ctx context.Context, namespaceName string, observabilityPlaneName string) error
-}
-
 // ObservabilityPlane implements observability plane operations
 type ObservabilityPlane struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new observability plane implementation
-func New(client Client) *ObservabilityPlane {
-	return &ObservabilityPlane{client: client}
+func New(c client.Interface) *ObservabilityPlane {
+	return &ObservabilityPlane{client: c}
 }
 
 // List lists all observability planes in a namespace
 func (o *ObservabilityPlane) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceObservabilityPlane, params); err != nil {
+	if err := cmdutil.RequireFields("list", "observabilityplane", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -66,7 +60,7 @@ func (o *ObservabilityPlane) List(params ListParams) error {
 
 // Get retrieves a single observability plane and outputs it as YAML
 func (o *ObservabilityPlane) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceObservabilityPlane, params); err != nil {
+	if err := cmdutil.RequireFields("get", "observabilityplane", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -88,7 +82,7 @@ func (o *ObservabilityPlane) Get(params GetParams) error {
 
 // Delete deletes a single observability plane
 func (o *ObservabilityPlane) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceObservabilityPlane, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "observabilityplane", map[string]string{"namespace": params.Namespace, "name": params.ObservabilityPlaneName}); err != nil {
 		return err
 	}
 

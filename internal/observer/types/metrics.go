@@ -56,3 +56,110 @@ type HTTPMetricsQueryResponse struct {
 	LatencyP90               []MetricsTimeSeriesItem `json:"latencyP90,omitempty"`
 	LatencyP99               []MetricsTimeSeriesItem `json:"latencyP99,omitempty"`
 }
+
+// RuntimeTopologyRequest is the request body for POST /api/v1alpha1/metrics/runtime-topology.
+// Matches the OpenAPI RuntimeTopologyRequest schema.
+type RuntimeTopologyRequest struct {
+	// SearchScope identifies the project and environment to query. namespace,
+	// project, and environment are all required for this endpoint.
+	SearchScope ComponentSearchScope `json:"searchScope"`
+
+	// Time range for the query window (RFC3339, required).
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"endTime"`
+
+	// IncludeGateways toggles inclusion of gateway -> component edges. Defaults
+	// to true when omitted.
+	IncludeGateways *bool `json:"includeGateways,omitempty"`
+
+	// IncludeExternal toggles inclusion of cross-project / off-platform edges.
+	// Defaults to true when omitted.
+	IncludeExternal *bool `json:"includeExternal,omitempty"`
+}
+
+// RuntimeTopologyNodeKind identifies the kind of node referenced in the topology.
+type RuntimeTopologyNodeKind string
+
+const (
+	RuntimeTopologyNodeKindComponent RuntimeTopologyNodeKind = "component"
+	RuntimeTopologyNodeKindGateway   RuntimeTopologyNodeKind = "gateway"
+	RuntimeTopologyNodeKindExternal  RuntimeTopologyNodeKind = "external"
+)
+
+// RuntimeTopologyProtocol is the wire protocol of an observed edge.
+type RuntimeTopologyProtocol string
+
+const (
+	RuntimeTopologyProtocolHTTP RuntimeTopologyProtocol = "http"
+)
+
+// RuntimeTopologyMetrics carries aggregate HTTP metrics for a node or edge.
+// Latency values are in seconds. Counts are totals over the requested window.
+type RuntimeTopologyMetrics struct {
+	RequestCount             float64 `json:"requestCount"`
+	UnsuccessfulRequestCount float64 `json:"unsuccessfulRequestCount"`
+	MeanLatency              float64 `json:"meanLatency"`
+	LatencyP50               float64 `json:"latencyP50"`
+	LatencyP90               float64 `json:"latencyP90"`
+	LatencyP99               float64 `json:"latencyP99"`
+}
+
+// RuntimeTopologyNodeRef identifies a node in the topology. The shape depends
+// on Kind:
+//   - Kind == "component": Component (name) + ComponentUID and Project (name) + ProjectUID
+//     are populated from the metrics backend using pod label data.
+//   - Kind == "gateway":   Name is required (e.g. "internet", "intranet").
+//   - Kind == "external":  at least one of Host or Component should be set.
+type RuntimeTopologyNodeRef struct {
+	Kind RuntimeTopologyNodeKind `json:"kind"`
+
+	// Component-kind fields — both name and UID from pod labels.
+	Component    string `json:"component,omitempty"`
+	ComponentUID string `json:"componentUid,omitempty"`
+	Service      string `json:"service,omitempty"`
+
+	// Gateway-kind fields.
+	Name string `json:"name,omitempty"`
+
+	// External-kind fields.
+	Host       string `json:"host,omitempty"`
+	Project    string `json:"project,omitempty"`
+	ProjectUID string `json:"projectUid,omitempty"`
+
+	// Common identifier — namespace the node lives in.
+	Namespace string `json:"namespace,omitempty"`
+}
+
+// RuntimeTopologyNode is a topology node with its observed aggregate metrics.
+// Embeds RuntimeTopologyNodeRef for the identifying fields.
+type RuntimeTopologyNode struct {
+	RuntimeTopologyNodeRef
+	Metrics *RuntimeTopologyMetrics `json:"metrics,omitempty"`
+}
+
+// RuntimeTopologyEdge represents an observed traffic flow between two nodes.
+type RuntimeTopologyEdge struct {
+	// ID is a stable identifier for the edge. See the OpenAPI schema for the
+	// convention used by the server when constructing it.
+	ID       string                  `json:"id"`
+	Source   RuntimeTopologyNodeRef  `json:"source"`
+	Target   RuntimeTopologyNodeRef  `json:"target"`
+	Protocol RuntimeTopologyProtocol `json:"protocol,omitempty"`
+	Metrics  *RuntimeTopologyMetrics `json:"metrics,omitempty"`
+}
+
+// RuntimeTopologySummary describes the query window the response covers.
+type RuntimeTopologySummary struct {
+	StartTime   time.Time `json:"startTime"`
+	EndTime     time.Time `json:"endTime"`
+	GeneratedAt time.Time `json:"generatedAt"`
+}
+
+// RuntimeTopologyResponse is the response body for the runtime topology
+// endpoint. Nodes and edges only include entities for which traffic was
+// observed in the window — static topology must come from a separate source.
+type RuntimeTopologyResponse struct {
+	Nodes   []RuntimeTopologyNode  `json:"nodes,omitempty"`
+	Edges   []RuntimeTopologyEdge  `json:"edges,omitempty"`
+	Summary RuntimeTopologySummary `json:"summary"`
+}

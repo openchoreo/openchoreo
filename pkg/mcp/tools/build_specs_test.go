@@ -7,7 +7,7 @@ import "testing"
 
 // buildToolSpecs returns test specs for build toolset
 func buildToolSpecs() []toolTestSpec {
-	specs := make([]toolTestSpec, 0, 9)
+	specs := make([]toolTestSpec, 0, 12)
 	specs = append(specs, buildWorkflowRunSpecs()...)
 	specs = append(specs, buildWorkflowSpecs()...)
 	specs = append(specs, buildClusterWorkflowSpecs()...)
@@ -43,11 +43,11 @@ func buildWorkflowRunSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"create", "workflow", "run"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "workflow_name"},
+			requiredParams:      []string{"namespace_name", "name"},
 			optionalParams:      []string{"parameters"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"workflow_name":  "build-workflow",
+				"name":           "build-workflow",
 			},
 			expectedMethod: "CreateWorkflowRun",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -81,12 +81,65 @@ func buildWorkflowRunSpecs() []toolTestSpec {
 			requiredParams:      []string{"namespace_name", "run_name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"run_name":       "workflow-run-1",
+				"run_name":       testWorkflowRunName,
 			},
 			expectedMethod: "GetWorkflowRun",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "workflow-run-1" {
-					t.Errorf("Expected (%s, workflow-run-1), got (%v, %v)", testNamespaceName, args[0], args[1])
+				if args[0] != testNamespaceName || args[1] != testWorkflowRunName {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testWorkflowRunName, args[0], args[1])
+				}
+			},
+		},
+		{
+			name:                "get_workflow_run_status",
+			toolset:             "build",
+			descriptionKeywords: []string{"workflow", "run", "status"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "run_name"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"run_name":       testWorkflowRunName,
+			},
+			expectedMethod: "GetWorkflowRunStatus",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != testWorkflowRunName {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testWorkflowRunName, args[0], args[1])
+				}
+			},
+		},
+		{
+			name:                "get_workflow_run_logs",
+			toolset:             "build",
+			descriptionKeywords: []string{"workflow", "run", "logs"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "run_name"},
+			optionalParams:      []string{"task", "since_seconds"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"run_name":       testWorkflowRunName,
+			},
+			expectedMethod: "GetWorkflowRunLogs",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != testWorkflowRunName {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testWorkflowRunName, args[0], args[1])
+				}
+			},
+		},
+		{
+			name:                "get_workflow_run_events",
+			toolset:             "build",
+			descriptionKeywords: []string{"workflow", "run", "events"},
+			descriptionMinLen:   10,
+			requiredParams:      []string{"namespace_name", "run_name"},
+			optionalParams:      []string{"task"},
+			testArgs: map[string]any{
+				"namespace_name": testNamespaceName,
+				"run_name":       testWorkflowRunName,
+			},
+			expectedMethod: "GetWorkflowRunEvents",
+			validateCall: func(t *testing.T, args []interface{}) {
+				if args[0] != testNamespaceName || args[1] != testWorkflowRunName {
+					t.Errorf("Expected (%s, %s), got (%v, %v)", testNamespaceName, testWorkflowRunName, args[0], args[1])
 				}
 			},
 		},
@@ -100,8 +153,8 @@ func buildWorkflowSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"list", "workflow"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name"},
-			optionalParams:      []string{"limit", "cursor"},
+			requiredParams:      []string{},
+			optionalParams:      []string{"scope", "namespace_name", "limit", "cursor"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 			},
@@ -117,10 +170,11 @@ func buildWorkflowSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"workflow", "schema"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"namespace_name", "workflow_name"},
+			optionalParams:      []string{"scope", "namespace_name"},
+			requiredParams:      []string{"name"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
-				"workflow_name":  "build-workflow",
+				"name":           "build-workflow",
 			},
 			expectedMethod: "GetWorkflowSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
@@ -151,14 +205,14 @@ func buildClusterWorkflowSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"cluster", "workflow"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"cwf_name"},
+			requiredParams:      []string{"name"},
 			testArgs: map[string]any{
-				"cwf_name": "build-go",
+				"name": "build-go",
 			},
 			expectedMethod: "GetClusterWorkflow",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != "build-go" {
-					t.Errorf("Expected cwf_name %q, got %v", "build-go", args[0])
+					t.Errorf("Expected name %q, got %v", "build-go", args[0])
 				}
 			},
 		},
@@ -167,14 +221,14 @@ func buildClusterWorkflowSpecs() []toolTestSpec {
 			toolset:             "build",
 			descriptionKeywords: []string{"cluster", "workflow", "schema"},
 			descriptionMinLen:   10,
-			requiredParams:      []string{"cwf_name"},
+			requiredParams:      []string{"name"},
 			testArgs: map[string]any{
-				"cwf_name": "build-go",
+				"name": "build-go",
 			},
 			expectedMethod: "GetClusterWorkflowSchema",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != "build-go" {
-					t.Errorf("Expected cwf_name %q, got %v", "build-go", args[0])
+					t.Errorf("Expected name %q, got %v", "build-go", args[0])
 				}
 			},
 		},

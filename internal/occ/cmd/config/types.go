@@ -22,6 +22,7 @@ type Credential struct {
 	Name         string `yaml:"name"`
 	ClientID     string `yaml:"clientId,omitempty"`
 	ClientSecret string `yaml:"clientSecret,omitempty"`
+	Scope        string `yaml:"scope,omitempty"`
 	Token        string `yaml:"token,omitempty"`
 	RefreshToken string `yaml:"refreshToken,omitempty"`
 	AuthMethod   string `yaml:"authMethod,omitempty"` // "pkce" or "client_credentials"

@@ -47,6 +47,7 @@ func (s *alertIncidentServiceWithAuthz) QueryAlerts(ctx context.Context, req gen
 		ctx, s.logger, s.pdp,
 		observerAuthz.ActionViewAlerts,
 		resourceType, resourceName, hierarchy,
+		authzcore.Context{},
 	); err != nil {
 		return nil, err
 	}
@@ -70,6 +71,7 @@ func (s *alertIncidentServiceWithAuthz) QueryIncidents(ctx context.Context, req 
 		ctx, s.logger, s.pdp,
 		observerAuthz.ActionViewIncidents,
 		resourceType, resourceName, hierarchy,
+		authzcore.Context{},
 	); err != nil {
 		return nil, err
 	}
@@ -83,6 +85,7 @@ func (s *alertIncidentServiceWithAuthz) UpdateIncident(ctx context.Context, inci
 		ctx, s.logger, s.pdp,
 		observerAuthz.ActionUpdateIncidents,
 		observerAuthz.ResourceTypeNamespace, "", authzcore.ResourceHierarchy{},
+		authzcore.Context{},
 	); err != nil {
 		return nil, err
 	}

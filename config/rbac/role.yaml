@@ -71,6 +71,7 @@ rules:
   - clustercomponenttypes
   - clusterdataplanes
   - clusterobservabilityplanes
+  - clusterresourcetypes
   - clustertraits
   - clusterworkflowplanes
   - clusterworkflows
@@ -85,6 +86,10 @@ rules:
   - observabilityplanes
   - projects
   - releasebindings
+  - resourcereleasebindings
+  - resourcereleases
+  - resources
+  - resourcetypes
   - secretreferences
   - traits
   - workflowplanes
@@ -105,6 +110,7 @@ rules:
   - clustercomponenttypes/finalizers
   - clusterdataplanes/finalizers
   - clusterobservabilityplanes/finalizers
+  - clusterresourcetypes/finalizers
   - clustertraits/finalizers
   - clusterworkflowplanes/finalizers
   - clusterworkflows/finalizers
@@ -120,6 +126,10 @@ rules:
   - projects/finalizers
   - releasebindings/finalizers
   - renderedreleases/finalizers
+  - resourcereleasebindings/finalizers
+  - resourcereleases/finalizers
+  - resources/finalizers
+  - resourcetypes/finalizers
   - secretreferences/finalizers
   - traits/finalizers
   - workflowplanes/finalizers
@@ -134,6 +144,7 @@ rules:
   - clustercomponenttypes/status
   - clusterdataplanes/status
   - clusterobservabilityplanes/status
+  - clusterresourcetypes/status
   - clustertraits/status
   - clusterworkflowplanes/status
   - clusterworkflows/status
@@ -149,6 +160,10 @@ rules:
   - projects/status
   - releasebindings/status
   - renderedreleases/status
+  - resourcereleasebindings/status
+  - resourcereleases/status
+  - resources/status
+  - resourcetypes/status
   - secretreferences/status
   - traits/status
   - workflowplanes/status

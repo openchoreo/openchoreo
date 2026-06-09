@@ -138,11 +138,13 @@ func (r *Reconciler) setResourcesReadyStatus(
 	return nil
 }
 
-// setReadyCondition sets the top-level Ready condition based on
-// ReleaseSynced, ResourcesReady, and ConnectionsResolved conditions.
+// setReadyCondition sets the top-level Ready condition based on ReleaseSynced,
+// ResourcesReady, ConnectionsResolved, and ResourceDependenciesReady conditions.
+// ConnectionsResolved and ResourceDependenciesReady are optional — workloads without
+// the corresponding dependency type don't carry the condition and shouldn't be blocked.
 func (r *Reconciler) setReadyCondition(releaseBinding *openchoreov1alpha1.ReleaseBinding) {
 	// Find all relevant conditions
-	var releaseSynced, resourcesReady, connectionsResolved *metav1.Condition
+	var releaseSynced, resourcesReady, connectionsResolved, resourceDependenciesReady *metav1.Condition
 	for i := range releaseBinding.Status.Conditions {
 		switch releaseBinding.Status.Conditions[i].Type {
 		case string(ConditionReleaseSynced):
@@ -151,14 +153,17 @@ func (r *Reconciler) setReadyCondition(releaseBinding *openchoreov1alpha1.Releas
 			resourcesReady = &releaseBinding.Status.Conditions[i]
 		case string(ConditionConnectionsResolved):
 			connectionsResolved = &releaseBinding.Status.Conditions[i]
+		case string(ConditionResourceDependenciesReady):
+			resourceDependenciesReady = &releaseBinding.Status.Conditions[i]
 		}
 	}
 
 	// All present conditions must be True for Ready to be True.
-	// ConnectionsResolved is optional - if absent, it doesn't block readiness.
+	// ConnectionsResolved and ResourceDependenciesReady are optional — absent = pass.
 	allTrue := releaseSynced != nil && releaseSynced.Status == metav1.ConditionTrue &&
 		resourcesReady != nil && resourcesReady.Status == metav1.ConditionTrue &&
-		(connectionsResolved == nil || connectionsResolved.Status == metav1.ConditionTrue)
+		(connectionsResolved == nil || connectionsResolved.Status == metav1.ConditionTrue) &&
+		(resourceDependenciesReady == nil || resourceDependenciesReady.Status == metav1.ConditionTrue)
 
 	if allTrue {
 		controller.MarkTrueCondition(releaseBinding, ConditionReady,
@@ -178,10 +183,19 @@ func (r *Reconciler) setReadyCondition(releaseBinding *openchoreov1alpha1.Releas
 		return
 	}
 
-	// If ConnectionsResolved is False, use its reason
+	// Priority order when multiple sub-conditions are False is a UX choice, locked by
+	// tests below: ConnectionsResolved is reported above ResourceDependenciesReady, which
+	// is reported above ResourcesReady.
 	if connectionsResolved != nil && connectionsResolved.Status != metav1.ConditionTrue {
 		controller.MarkFalseCondition(releaseBinding, ConditionReady,
 			controller.ConditionReason(connectionsResolved.Reason), connectionsResolved.Message)
+		return
+	}
+
+	// If ResourceDependenciesReady is False, use its reason
+	if resourceDependenciesReady != nil && resourceDependenciesReady.Status != metav1.ConditionTrue {
+		controller.MarkFalseCondition(releaseBinding, ConditionReady,
+			controller.ConditionReason(resourceDependenciesReady.Reason), resourceDependenciesReady.Message)
 		return
 	}
 
@@ -264,7 +278,7 @@ func isPrimaryWorkload(gvk schema.GroupVersionKind, workloadType WorkloadType) b
 }
 
 // aggregateResourceStatus counts resources by their health status.
-func aggregateResourceStatus(resources []openchoreov1alpha1.ResourceStatus) ResourceStatusSummary {
+func aggregateResourceStatus(resources []openchoreov1alpha1.RenderedManifestStatus) ResourceStatusSummary {
 	summary := ResourceStatusSummary{
 		Total: len(resources),
 	}
@@ -289,11 +303,11 @@ func aggregateResourceStatus(resources []openchoreov1alpha1.ResourceStatus) Reso
 
 // evaluateDeploymentStatus evaluates status for Deployment workload type.
 // Focuses on the primary Deployment resource and only fails if critical resources are degraded.
-func evaluateDeploymentStatus(resources []openchoreov1alpha1.ResourceStatus, workloadType WorkloadType) (ready bool, reason, message string) {
+func evaluateDeploymentStatus(resources []openchoreov1alpha1.RenderedManifestStatus, workloadType WorkloadType) (ready bool, reason, message string) {
 	// Separate resources by category
-	var primaryWorkload *openchoreov1alpha1.ResourceStatus
-	var supportingResources []openchoreov1alpha1.ResourceStatus
-	var operationalResources []openchoreov1alpha1.ResourceStatus
+	var primaryWorkload *openchoreov1alpha1.RenderedManifestStatus
+	var supportingResources []openchoreov1alpha1.RenderedManifestStatus
+	var operationalResources []openchoreov1alpha1.RenderedManifestStatus
 
 	for i := range resources {
 		res := &resources[i]
@@ -370,7 +384,7 @@ func evaluateDeploymentStatus(resources []openchoreov1alpha1.ResourceStatus, wor
 
 // evaluateStatefulSetStatus evaluates status for StatefulSet workload type.
 // Similar to Deployment - all replicas must be ready in order.
-func evaluateStatefulSetStatus(resources []openchoreov1alpha1.ResourceStatus, workloadType WorkloadType) (ready bool, reason, message string) {
+func evaluateStatefulSetStatus(resources []openchoreov1alpha1.RenderedManifestStatus, workloadType WorkloadType) (ready bool, reason, message string) {
 	// StatefulSet status logic is similar to Deployment
 	// All replicas must be ready and in order
 	return evaluateDeploymentStatus(resources, workloadType)
@@ -378,9 +392,9 @@ func evaluateStatefulSetStatus(resources []openchoreov1alpha1.ResourceStatus, wo
 
 // evaluateCronJobStatus evaluates status for CronJob workload type.
 // CronJobs have different ready criteria - Suspended and Progressing are valid states.
-func evaluateCronJobStatus(resources []openchoreov1alpha1.ResourceStatus, workloadType WorkloadType) (ready bool, reason, message string) {
+func evaluateCronJobStatus(resources []openchoreov1alpha1.RenderedManifestStatus, workloadType WorkloadType) (ready bool, reason, message string) {
 	// Find primary CronJob
-	var primaryWorkload *openchoreov1alpha1.ResourceStatus
+	var primaryWorkload *openchoreov1alpha1.RenderedManifestStatus
 
 	for i := range resources {
 		res := &resources[i]
@@ -431,9 +445,9 @@ func evaluateCronJobStatus(resources []openchoreov1alpha1.ResourceStatus, worklo
 
 // evaluateJobStatus evaluates status for Job workload type.
 // Jobs must complete (Healthy) to be considered ready. Progressing is expected until completion.
-func evaluateJobStatus(resources []openchoreov1alpha1.ResourceStatus, workloadType WorkloadType) (ready bool, reason, message string) {
+func evaluateJobStatus(resources []openchoreov1alpha1.RenderedManifestStatus, workloadType WorkloadType) (ready bool, reason, message string) {
 	// Find primary Job
-	var primaryWorkload *openchoreov1alpha1.ResourceStatus
+	var primaryWorkload *openchoreov1alpha1.RenderedManifestStatus
 
 	for i := range resources {
 		res := &resources[i]
@@ -484,7 +498,7 @@ func evaluateJobStatus(resources []openchoreov1alpha1.ResourceStatus, workloadTy
 
 // evaluateGenericStatus evaluates status for unknown/generic workload types.
 // Uses simple status check - ready if all resources are healthy or suspended.
-func evaluateGenericStatus(resources []openchoreov1alpha1.ResourceStatus) (ready bool, reason, message string) {
+func evaluateGenericStatus(resources []openchoreov1alpha1.RenderedManifestStatus) (ready bool, reason, message string) {
 	summary := aggregateResourceStatus(resources)
 
 	if summary.Total == 0 {

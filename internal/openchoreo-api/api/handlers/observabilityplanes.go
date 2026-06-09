@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -27,8 +28,7 @@ func (h *Handler) ListObservabilityPlanes(
 		if errors.Is(err, services.ErrForbidden) {
 			return gen.ListObservabilityPlanes403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			return gen.ListObservabilityPlanes400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to list observability planes", "error", err)
@@ -99,8 +99,10 @@ func (h *Handler) CreateObservabilityPlane(
 		if errors.Is(err, observabilityplanesvc.ErrObservabilityPlaneAlreadyExists) {
 			return gen.CreateObservabilityPlane409JSONResponse{ConflictJSONResponse: conflict("ObservabilityPlane already exists")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.CreateObservabilityPlane422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.CreateObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to create observability plane", "error", err)
@@ -144,8 +146,10 @@ func (h *Handler) UpdateObservabilityPlane(
 		if errors.Is(err, observabilityplanesvc.ErrObservabilityPlaneNotFound) {
 			return gen.UpdateObservabilityPlane404JSONResponse{NotFoundJSONResponse: notFound("ObservabilityPlane")}, nil
 		}
-		var validationErr *services.ValidationError
-		if errors.As(err, &validationErr) {
+		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			if validationErr.StatusCode == http.StatusUnprocessableEntity {
+				return gen.UpdateObservabilityPlane422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil
+			}
 			return gen.UpdateObservabilityPlane400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil
 		}
 		h.logger.Error("Failed to update observability plane", "error", err)

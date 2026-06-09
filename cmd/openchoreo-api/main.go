@@ -32,6 +32,7 @@ import (
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
+	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	autobuildsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/autobuild"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
@@ -111,25 +112,20 @@ func main() {
 	}
 
 	// Initialize workflow plane client manager
-	var planeK8sClientMgr *kubernetesClient.KubeMultiClientManager
-	if cfg.ClusterGateway.TLS.CACertPath != "" ||
-		cfg.ClusterGateway.TLS.ClientCertPath != "" ||
-		cfg.ClusterGateway.TLS.ClientKeyPath != "" {
-		planeK8sClientMgr = kubernetesClient.NewManagerWithProxyTLS(&kubernetesClient.ProxyTLSConfig{
-			CACertPath:     cfg.ClusterGateway.TLS.CACertPath,
-			ClientCertPath: cfg.ClusterGateway.TLS.ClientCertPath,
-			ClientKeyPath:  cfg.ClusterGateway.TLS.ClientKeyPath,
-		})
-		logger.Info("Workflow plane client manager created with proxy TLS configuration",
-			"caCert", cfg.ClusterGateway.TLS.CACertPath != "",
-			"clientCert", cfg.ClusterGateway.TLS.ClientCertPath != "",
-			"clientKey", cfg.ClusterGateway.TLS.ClientKeyPath != "")
-	} else {
-		planeK8sClientMgr = kubernetesClient.NewManager()
-		if cfg.ClusterGateway.URL != "" {
-			logger.Warn("Using insecure mode for cluster gateway connection. " +
-				"Consider configuring TLS certificates for production deployments.")
-		}
+	planeK8sClientMgr := kubernetesClient.NewManagerWithProxyTLS(&kubernetesClient.ProxyTLSConfig{
+		CACertPath:     cfg.ClusterGateway.TLS.CACertPath,
+		ClientCertPath: cfg.ClusterGateway.TLS.ClientCertPath,
+		ClientKeyPath:  cfg.ClusterGateway.TLS.ClientKeyPath,
+		Insecure:       cfg.ClusterGateway.TLS.Insecure,
+	})
+	logger.Info("Workflow plane client manager created with proxy TLS configuration",
+		"caCert", cfg.ClusterGateway.TLS.CACertPath != "",
+		"clientCert", cfg.ClusterGateway.TLS.ClientCertPath != "",
+		"clientKey", cfg.ClusterGateway.TLS.ClientKeyPath != "",
+		"insecure", cfg.ClusterGateway.TLS.Insecure)
+	if cfg.ClusterGateway.URL != "" && cfg.ClusterGateway.TLS.Insecure {
+		logger.Warn("Cluster gateway TLS verification is disabled (cluster_gateway.tls.insecure). " +
+			"Do not use this setting in production.")
 	}
 
 	// Determine cluster gateway URL
@@ -145,9 +141,26 @@ func main() {
 			logger.Error("No cluster gateway URL provided", "clusterGateway", cfg.ClusterGateway)
 			os.Exit(1)
 		}
-		gwClient = gatewayClient.NewClient(gatewayURL)
+		var err error
+		gwClient, err = gatewayClient.NewClientWithConfig(&gatewayClient.Config{
+			BaseURL: gatewayURL,
+			TLS: gatewayClient.TLSConfig{
+				CAFile:             cfg.ClusterGateway.TLS.CACertPath,
+				ClientCertFile:     cfg.ClusterGateway.TLS.ClientCertPath,
+				ClientKeyFile:      cfg.ClusterGateway.TLS.ClientKeyPath,
+				InsecureSkipVerify: cfg.ClusterGateway.TLS.Insecure,
+			},
+		})
+		if err != nil {
+			logger.Error("Failed to create cluster gateway client", slog.Any("error", err))
+			os.Exit(1)
+		}
+		logger.Info("gateway client initialized",
+			"url", gatewayURL,
+			"caCert", cfg.ClusterGateway.TLS.CACertPath != "",
+			"clientCert", cfg.ClusterGateway.TLS.ClientCertPath != "",
+			"insecure", cfg.ClusterGateway.TLS.Insecure)
 	}
-	logger.Info("gateway client initialized", "url", gatewayURL)
 
 	// Start background processes (manager + cache sync when authz enabled)
 	if err := runtime.start(ctx); err != nil {
@@ -155,10 +168,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create plane client provider for services that need to talk to remote planes.
+	planeClientProvider := kubernetesClient.NewPlaneClientProvider(planeK8sClientMgr, gatewayURL)
+
 	// Create the internal (unauthz) workflow run service used by the webhook processor.
 	// Webhook requests are authenticated via HMAC signature validation instead of user-level auth.
 	baseWfRunSvc := workflowrunsvc.NewService(
-		k8sClient, planeK8sClientMgr, gwClient, logger.With("service", "workflowrun"),
+		k8sClient, planeClientProvider, gwClient, logger.With("service", "workflowrun"),
 	)
 
 	// Create the webhook processor that finds affected components and triggers workflow runs.
@@ -166,7 +182,7 @@ func main() {
 
 	// Initialize all handler services
 	services := handlerservices.NewServices(
-		k8sClient, runtime.pap, runtime.pdp, planeK8sClientMgr, gatewayURL, logger, gwClient, webhookProcessor,
+		k8sClient, runtime.pap, runtime.pdp, planeClientProvider, logger, gwClient, webhookProcessor,
 	)
 
 	// Initialize OpenAPI handlers
@@ -196,7 +212,7 @@ func main() {
 		mcpLoggerMw := apilogger.LoggerMiddleware(mcpLogger)
 		resourceMetadataURL := cfg.Server.PublicURL + "/.well-known/oauth-protected-resource"
 		mcpAuth401Mw := mcpmiddleware.Auth401Interceptor(resourceMetadataURL)
-		mcpHandler := middleware.Chain(mcpLoggerMw, mcpAuth401Mw, jwtMiddleware)(mcp.NewHTTPServer(toolsets))
+		mcpHandler := middleware.Chain(mcpLoggerMw, mcpAuth401Mw, jwtMiddleware)(mcp.NewHTTPServer(toolsets, runtime.pdp))
 
 		baseMux.Handle("/mcp", mcpHandler)
 	}
@@ -213,8 +229,47 @@ func main() {
 		Middlewares: []gen.MiddlewareFunc{openapihandlers.WebhookRawBodyMiddleware, authMiddleware, loggerMiddleware},
 	})
 
+	// Exec WebSocket endpoint is registered on a top-level mux that wraps the
+	// OpenAPI handler. This keeps exec outside the OpenAPI middleware chain whose
+	// ResponseWriter wrappers break http.Hijacker (required for WebSocket upgrade).
+	// The JWT middleware is applied directly to the exec handler for authentication.
+	// Authorization is enforced inside the handler via AuthzChecker (component:exec).
+	var topHandler http.Handler = handler
+	if cfg.ClusterGateway.Enabled && gatewayURL != "" {
+		execAuthzChecker := svcpkg.NewAuthzChecker(runtime.pdp, logger.With("component", "exec-authz"))
+		gwTLSConf, err := gatewayClient.BuildTLSConfig(&gatewayClient.TLSConfig{
+			CAFile:             cfg.ClusterGateway.TLS.CACertPath,
+			ClientCertFile:     cfg.ClusterGateway.TLS.ClientCertPath,
+			ClientKeyFile:      cfg.ClusterGateway.TLS.ClientKeyPath,
+			InsecureSkipVerify: cfg.ClusterGateway.TLS.Insecure,
+		})
+		if err != nil {
+			logger.Error("Failed to build gateway TLS config for exec", slog.Any("error", err))
+			os.Exit(1)
+		}
+		execHandler := openapihandlers.NewExecHandler(k8sClient, gwClient, gatewayURL, gwTLSConf, execAuthzChecker, logger)
+		authedExecHandler := jwtMiddleware(execHandler)
+
+		// Wirelogs handler shares the same gateway TLS config and authz checker
+		// (authz reuses logs:view at the component scope).
+		wirelogsAuthzChecker := svcpkg.NewAuthzChecker(runtime.pdp, logger.With("component", "wirelogs-authz"))
+		wirelogsHandler := openapihandlers.NewWirelogsHandler(
+			k8sClient, gwClient, gatewayURL, gwTLSConf, wirelogsAuthzChecker, logger,
+		)
+		authedWirelogsHandler := jwtMiddleware(wirelogsHandler)
+
+		topMux := http.NewServeMux()
+		topMux.Handle("/exec/", authedExecHandler)
+		topMux.Handle("GET /api/v1/namespaces/{namespace}/environments/{environment}/wirelogs", authedWirelogsHandler)
+		topMux.Handle("/", handler)
+		topHandler = topMux
+		logger.Info("Exec endpoint registered", "path", "/exec/namespaces/{ns}/components/{name}")
+		logger.Info("Wirelogs endpoint registered",
+			"path", "/api/v1/namespaces/{namespace}/environments/{environment}/wirelogs")
+	}
+
 	// Create server from configuration
-	srv := server.New(cfg.Server.ToServerConfig(), handler, logger)
+	srv := server.New(cfg.Server.ToServerConfig(), topHandler, logger)
 
 	// Start server
 	if err := srv.Run(ctx); err != nil {
@@ -286,6 +341,9 @@ func buildMCPToolsets(cfg *config.Config, svc *handlerservices.Services, logger 
 		case tools.ToolsetPE:
 			toolsets.PEToolset = handler
 			logger.Debug("Enabled MCP toolset", slog.String("toolset", "pe"))
+		case tools.ToolsetResource:
+			toolsets.ResourceToolset = handler
+			logger.Debug("Enabled MCP toolset", slog.String("toolset", "resource"))
 		default:
 			logger.Warn("Unknown toolset type", slog.String("toolset", string(toolsetType)))
 		}

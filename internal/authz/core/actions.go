@@ -20,6 +20,9 @@ const (
 	ScopeProject ActionScope = "project"
 	// ScopeComponent indicates the action is evaluated at the component level.
 	ScopeComponent ActionScope = "component"
+	// ScopeResource indicates the action is evaluated at the resource level.
+	// Resource is a sibling sub-scope under Project, parallel to Component.
+	ScopeResource ActionScope = "resource"
 )
 
 // Action name constants for use in authorization checks.
@@ -41,11 +44,23 @@ const (
 	ActionViewComponent   = "component:view"
 	ActionUpdateComponent = "component:update"
 	ActionDeleteComponent = "component:delete"
+	ActionExecComponent   = "component:exec"
+
+	// Resource actions
+	ActionCreateResource = "resource:create"
+	ActionViewResource   = "resource:view"
+	ActionUpdateResource = "resource:update"
+	ActionDeleteResource = "resource:delete"
 
 	// ComponentRelease actions
 	ActionCreateComponentRelease = "componentrelease:create"
 	ActionViewComponentRelease   = "componentrelease:view"
 	ActionDeleteComponentRelease = "componentrelease:delete"
+
+	// ResourceRelease actions
+	ActionCreateResourceRelease = "resourcerelease:create"
+	ActionViewResourceRelease   = "resourcerelease:view"
+	ActionDeleteResourceRelease = "resourcerelease:delete"
 
 	// ReleaseBinding actions
 	ActionCreateReleaseBinding = "releasebinding:create"
@@ -53,11 +68,23 @@ const (
 	ActionUpdateReleaseBinding = "releasebinding:update"
 	ActionDeleteReleaseBinding = "releasebinding:delete"
 
+	// ResourceReleaseBinding actions
+	ActionCreateResourceReleaseBinding = "resourcereleasebinding:create"
+	ActionViewResourceReleaseBinding   = "resourcereleasebinding:view"
+	ActionUpdateResourceReleaseBinding = "resourcereleasebinding:update"
+	ActionDeleteResourceReleaseBinding = "resourcereleasebinding:delete"
+
 	// ComponentType actions
 	ActionCreateComponentType = "componenttype:create"
 	ActionViewComponentType   = "componenttype:view"
 	ActionUpdateComponentType = "componenttype:update"
 	ActionDeleteComponentType = "componenttype:delete"
+
+	// ResourceType actions
+	ActionCreateResourceType = "resourcetype:create"
+	ActionViewResourceType   = "resourcetype:view"
+	ActionUpdateResourceType = "resourcetype:update"
+	ActionDeleteResourceType = "resourcetype:delete"
 
 	// Workflow actions
 	ActionCreateWorkflow = "workflow:create"
@@ -107,6 +134,12 @@ const (
 	ActionUpdateClusterComponentType = "clustercomponenttype:update"
 	ActionDeleteClusterComponentType = "clustercomponenttype:delete"
 
+	// ClusterResourceType actions
+	ActionCreateClusterResourceType = "clusterresourcetype:create"
+	ActionViewClusterResourceType   = "clusterresourcetype:view"
+	ActionUpdateClusterResourceType = "clusterresourcetype:update"
+	ActionDeleteClusterResourceType = "clusterresourcetype:delete"
+
 	// ClusterTrait actions
 	ActionCreateClusterTrait = "clustertrait:create"
 	ActionViewClusterTrait   = "clustertrait:view"
@@ -155,6 +188,12 @@ const (
 	ActionUpdateSecretReference = "secretreference:update"
 	ActionDeleteSecretReference = "secretreference:delete"
 
+	// Secret actions
+	ActionCreateSecret = "secret:create"
+	ActionViewSecret   = "secret:view"
+	ActionUpdateSecret = "secret:update"
+	ActionDeleteSecret = "secret:delete"
+
 	// Workload actions
 	ActionCreateWorkload = "workload:create"
 	ActionViewWorkload   = "workload:view"
@@ -188,6 +227,12 @@ const (
 	// Logs actions
 	ActionViewLogs = "logs:view"
 
+	// Events actions
+	ActionViewEvents = "events:view"
+
+	// Wirelogs actions
+	ActionViewWirelogs = "wirelogs:view"
+
 	// Metrics actions
 	ActionViewMetrics = "metrics:view"
 
@@ -204,6 +249,10 @@ const (
 	// RCA Report actions
 	ActionViewRCAReport   = "rcareport:view"
 	ActionUpdateRCAReport = "rcareport:update"
+
+	// FinOps Report actions
+	ActionViewFinOpsReport   = "finopsreport:view"
+	ActionUpdateFinOpsReport = "finopsreport:update"
 )
 
 // Action represents a system action with metadata
@@ -213,6 +262,8 @@ type Action struct {
 	LowestScope ActionScope
 	// IsInternal indicates if the action is internal (not publicly visible)
 	IsInternal bool
+	// Conditions holds the ABAC attributes available for CEL condition expressions on this action
+	Conditions []AttributeSpec
 }
 
 // systemActions defines all available actions in the system
@@ -234,11 +285,23 @@ var systemActions = []Action{
 	{Name: ActionViewComponent, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionUpdateComponent, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionDeleteComponent, LowestScope: ScopeComponent, IsInternal: false},
+	{Name: ActionExecComponent, LowestScope: ScopeComponent, IsInternal: false},
+
+	// Resource
+	{Name: ActionCreateResource, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionViewResource, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionUpdateResource, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionDeleteResource, LowestScope: ScopeResource, IsInternal: false},
 
 	// ComponentRelease
 	{Name: ActionViewComponentRelease, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionCreateComponentRelease, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionDeleteComponentRelease, LowestScope: ScopeComponent, IsInternal: false},
+
+	// ResourceRelease
+	{Name: ActionViewResourceRelease, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionCreateResourceRelease, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionDeleteResourceRelease, LowestScope: ScopeResource, IsInternal: false},
 
 	// ReleaseBinding
 	{Name: ActionViewReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
@@ -246,11 +309,23 @@ var systemActions = []Action{
 	{Name: ActionUpdateReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionDeleteReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
 
+	// ResourceReleaseBinding
+	{Name: ActionViewResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionCreateResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionUpdateResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionDeleteResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
+
 	// ComponentType
 	{Name: ActionViewComponentType, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionCreateComponentType, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionUpdateComponentType, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionDeleteComponentType, LowestScope: ScopeNamespace, IsInternal: false},
+
+	// ResourceType
+	{Name: ActionViewResourceType, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionCreateResourceType, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionUpdateResourceType, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionDeleteResourceType, LowestScope: ScopeNamespace, IsInternal: false},
 
 	// Workflow
 	{Name: ActionViewWorkflow, LowestScope: ScopeNamespace, IsInternal: false},
@@ -300,6 +375,12 @@ var systemActions = []Action{
 	{Name: ActionUpdateClusterComponentType, LowestScope: ScopeCluster, IsInternal: false},
 	{Name: ActionDeleteClusterComponentType, LowestScope: ScopeCluster, IsInternal: false},
 
+	// ClusterResourceType
+	{Name: ActionViewClusterResourceType, LowestScope: ScopeCluster, IsInternal: false},
+	{Name: ActionCreateClusterResourceType, LowestScope: ScopeCluster, IsInternal: false},
+	{Name: ActionUpdateClusterResourceType, LowestScope: ScopeCluster, IsInternal: false},
+	{Name: ActionDeleteClusterResourceType, LowestScope: ScopeCluster, IsInternal: false},
+
 	// ClusterTrait
 	{Name: ActionViewClusterTrait, LowestScope: ScopeCluster, IsInternal: false},
 	{Name: ActionCreateClusterTrait, LowestScope: ScopeCluster, IsInternal: false},
@@ -348,6 +429,12 @@ var systemActions = []Action{
 	{Name: ActionUpdateSecretReference, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionDeleteSecretReference, LowestScope: ScopeNamespace, IsInternal: false},
 
+	// Secret
+	{Name: ActionViewSecret, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionCreateSecret, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionUpdateSecret, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionDeleteSecret, LowestScope: ScopeNamespace, IsInternal: false},
+
 	// Workload
 	{Name: ActionViewWorkload, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionCreateWorkload, LowestScope: ScopeComponent, IsInternal: false},
@@ -381,6 +468,12 @@ var systemActions = []Action{
 	// logs (dynamic scope: namespace or component depending on query)
 	{Name: ActionViewLogs, LowestScope: ScopeComponent, IsInternal: false},
 
+	// events (dynamic scope: namespace, project, component depending on query)
+	{Name: ActionViewEvents, LowestScope: ScopeComponent, IsInternal: false},
+
+	// wirelogs (dynamic scope: environment, project, or component depending on query)
+	{Name: ActionViewWirelogs, LowestScope: ScopeComponent, IsInternal: false},
+
 	// metrics (dynamic scope: namespace or component depending on query)
 	{Name: ActionViewMetrics, LowestScope: ScopeComponent, IsInternal: false},
 
@@ -397,6 +490,10 @@ var systemActions = []Action{
 	// RCA Report
 	{Name: ActionViewRCAReport, LowestScope: ScopeProject, IsInternal: false},
 	{Name: ActionUpdateRCAReport, LowestScope: ScopeProject, IsInternal: false},
+
+	// FinOps Report
+	{Name: ActionViewFinOpsReport, LowestScope: ScopeProject, IsInternal: false},
+	{Name: ActionUpdateFinOpsReport, LowestScope: ScopeProject, IsInternal: false},
 }
 
 // AllActions returns all system-defined actions
@@ -404,11 +501,12 @@ func AllActions() []Action {
 	return systemActions
 }
 
-// PublicActions returns all public (non-internal) actions, sorted by name
+// PublicActions returns all public (non-internal) actions, sorted by name, with conditions populated.
 func PublicActions() []Action {
 	actions := make([]Action, 0)
 	for _, action := range systemActions {
 		if !action.IsInternal {
+			action.Conditions = LookupConditions(action.Name)
 			actions = append(actions, action)
 		}
 	}
@@ -421,20 +519,67 @@ func PublicActions() []Action {
 	return actions
 }
 
-// ConcretePublicActions returns only concrete (non-wildcarded) public actions, sorted by name
-func ConcretePublicActions() []Action {
-	actions := make([]Action, 0)
-	for _, action := range systemActions {
-		// exclude wildcarded actions (containing *) and internal actions
-		if !action.IsInternal && !strings.Contains(action.Name, "*") {
-			actions = append(actions, action)
+// concretePublicActions returns all concrete (non-wildcarded), public actions, sorted by name
+func concretePublicActions() []Action {
+	out := make([]Action, 0, len(systemActions))
+	for _, a := range systemActions {
+		if a.IsInternal || strings.Contains(a.Name, "*") {
+			continue
 		}
+		out = append(out, a)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Name < out[j].Name
+	})
+	return out
+}
+
+// ConcretePublicActions returns only concrete (non-wildcarded) public actions,
+// sorted by name, with Conditions populated.
+func ConcretePublicActions() []Action {
+	actions := concretePublicActions()
+	for i := range actions {
+		actions[i].Conditions = LookupConditions(actions[i].Name)
+	}
+	return actions
+}
+
+// ExpandActionPattern expands one (possibly wildcarded) action pattern to the
+// concrete public action names it matches.
+//
+//   - "*"             -> every concrete public action
+//   - "<resource>:*"  -> every concrete public action with that resource prefix
+//   - "resource:op"   -> [resource:op] if it is a known concrete public action, else nil
+func ExpandActionPattern(pattern string) []string {
+	if pattern == "" {
+		return nil
 	}
 
-	// Sort by action name
-	sort.Slice(actions, func(i, j int) bool {
-		return actions[i].Name < actions[j].Name
-	})
+	actions := concretePublicActions()
 
-	return actions
+	if pattern == "*" {
+		out := make([]string, 0, len(actions))
+		for _, a := range actions {
+			out = append(out, a.Name)
+		}
+		return out
+	}
+
+	if strings.HasSuffix(pattern, ":*") {
+		prefix := pattern[:len(pattern)-1] // keep the trailing ':'
+		var out []string
+		for _, a := range actions {
+			if strings.HasPrefix(a.Name, prefix) {
+				out = append(out, a.Name)
+			}
+		}
+		return out
+	}
+
+	for _, a := range actions {
+		if a.Name == pattern {
+			return []string{pattern}
+		}
+	}
+	return nil
 }

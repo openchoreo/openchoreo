@@ -155,19 +155,40 @@ func TestResolveBindingOutputPath(t *testing.T) {
 
 	t.Run("priority 0: existing path for update-in-place", func(t *testing.T) {
 		opts := BulkBindingWriteOptions{
-			ExistingPaths: map[string]string{"svc-dev": "/existing/path/svc-dev.yaml"},
+			ExistingPaths: map[string]string{"svc-dev": "/repo/existing/path/svc-dev.yaml"},
 		}
-		path := w.resolveBindingOutputPath(binding, "proj", "svc", opts)
-		assert.Equal(t, "/existing/path/svc-dev.yaml", path)
+		path, err := w.resolveBindingOutputPath(binding, "proj", "svc", opts)
+		require.NoError(t, err)
+		assert.Equal(t, "/repo/existing/path/svc-dev.yaml", path)
+	})
+
+	t.Run("priority 0: existing path escaping base dir is rejected", func(t *testing.T) {
+		opts := BulkBindingWriteOptions{
+			ExistingPaths: map[string]string{"svc-dev": "/repo/../etc/svc-dev.yaml"},
+		}
+		_, err := w.resolveBindingOutputPath(binding, "proj", "svc", opts)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "escapes base directory")
+	})
+
+	t.Run("priority 0: existing path outside base dir is rejected", func(t *testing.T) {
+		opts := BulkBindingWriteOptions{
+			ExistingPaths: map[string]string{"svc-dev": "/outside/path/svc-dev.yaml"},
+		}
+		_, err := w.resolveBindingOutputPath(binding, "proj", "svc", opts)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "escapes base directory")
 	})
 
 	t.Run("priority 1: output dir flag", func(t *testing.T) {
-		path := w.resolveBindingOutputPath(binding, "proj", "svc", BulkBindingWriteOptions{OutputDir: "/out"})
+		path, err := w.resolveBindingOutputPath(binding, "proj", "svc", BulkBindingWriteOptions{OutputDir: "/out"})
+		require.NoError(t, err)
 		assert.Equal(t, "/out/svc-dev.yaml", path)
 	})
 
 	t.Run("priority 1: relative output dir resolved against baseDir", func(t *testing.T) {
-		path := w.resolveBindingOutputPath(binding, "proj", "svc", BulkBindingWriteOptions{OutputDir: "out"})
+		path, err := w.resolveBindingOutputPath(binding, "proj", "svc", BulkBindingWriteOptions{OutputDir: "out"})
+		require.NoError(t, err)
 		assert.Equal(t, "/repo/out/svc-dev.yaml", path)
 	})
 
@@ -175,12 +196,14 @@ func TestResolveBindingOutputPath(t *testing.T) {
 		resolver := func(project, component string) string {
 			return "/resolved/" + project + "/" + component
 		}
-		path := w.resolveBindingOutputPath(binding, "proj", "svc", BulkBindingWriteOptions{Resolver: resolver})
+		path, err := w.resolveBindingOutputPath(binding, "proj", "svc", BulkBindingWriteOptions{Resolver: resolver})
+		require.NoError(t, err)
 		assert.Equal(t, "/resolved/proj/svc/svc-dev.yaml", path)
 	})
 
 	t.Run("priority 4: default path", func(t *testing.T) {
-		path := w.resolveBindingOutputPath(binding, "proj", "svc", BulkBindingWriteOptions{})
+		path, err := w.resolveBindingOutputPath(binding, "proj", "svc", BulkBindingWriteOptions{})
+		require.NoError(t, err)
 		assert.Equal(t, "/repo/projects/proj/components/svc/release-bindings/svc-dev.yaml", path)
 	})
 }
@@ -215,6 +238,42 @@ func TestWriteRelease(t *testing.T) {
 	})
 }
 
+func TestWriteRelease_SkipIfUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	w := NewWriter(dir)
+
+	// Create a release and write it
+	release := makeReleaseObj("my-comp-20250315-1", "proj", "my-comp")
+	path, skipped, err := w.WriteRelease(release, WriteOptions{OutputDir: dir})
+	require.NoError(t, err)
+	assert.False(t, skipped)
+	assert.FileExists(t, path)
+
+	// Try writing the same release again with SkipIfUnchanged
+	_, skipped, err = w.WriteRelease(release, WriteOptions{OutputDir: dir, SkipIfUnchanged: true})
+	require.NoError(t, err)
+	assert.True(t, skipped, "should skip writing identical release")
+}
+
+func TestWriteRelease_AutoIncrementVersion(t *testing.T) {
+	dir := t.TempDir()
+	w := NewWriter(dir)
+
+	// Write first release
+	release1 := makeReleaseObj("my-comp-20250315-0", "proj", "my-comp")
+	path1, _, err := w.WriteRelease(release1, WriteOptions{OutputDir: dir})
+	require.NoError(t, err)
+	assert.Contains(t, path1, "my-comp-20250315-0.yaml")
+
+	// Write a different release with the same name - should auto-increment
+	release2 := makeReleaseObj("my-comp-20250315-0", "proj", "my-comp")
+	// Add a different field to make it not identical
+	_ = unstructured.SetNestedField(release2.Object, "new-value", "spec", "extraField")
+	path2, _, err := w.WriteRelease(release2, WriteOptions{OutputDir: dir})
+	require.NoError(t, err)
+	assert.Contains(t, path2, "my-comp-20250315-1.yaml")
+}
+
 func TestWriteBinding(t *testing.T) {
 	t.Run("dry run writes to stdout buffer", func(t *testing.T) {
 		w := NewWriter("/repo")
@@ -240,5 +299,158 @@ func TestWriteBinding(t *testing.T) {
 		data, err := os.ReadFile(path)
 		require.NoError(t, err)
 		assert.Contains(t, string(data), "my-comp-dev")
+	})
+}
+
+func TestWriteResource(t *testing.T) {
+	t.Run("writes to disk", func(t *testing.T) {
+		dir := t.TempDir()
+		w := NewWriter(dir)
+		resource := makeReleaseObj("test-resource", "proj", "comp")
+		outputPath := filepath.Join(dir, "subdir", "test-resource.yaml")
+
+		err := w.WriteResource(resource, outputPath, false)
+		require.NoError(t, err)
+
+		data, err := os.ReadFile(outputPath)
+		require.NoError(t, err)
+		assert.Contains(t, string(data), "test-resource")
+	})
+
+	t.Run("dry run does not write file", func(t *testing.T) {
+		dir := t.TempDir()
+		w := NewWriter(dir)
+		resource := makeReleaseObj("test-resource", "proj", "comp")
+		outputPath := filepath.Join(dir, "test-resource.yaml")
+
+		err := w.WriteResource(resource, outputPath, true)
+		require.NoError(t, err)
+
+		// File should not exist
+		_, err = os.Stat(outputPath)
+		assert.True(t, os.IsNotExist(err))
+	})
+}
+
+func TestWriteBulkReleases(t *testing.T) {
+	t.Run("dry run writes all to stdout", func(t *testing.T) {
+		w := NewWriter("/repo")
+		releases := []*unstructured.Unstructured{
+			makeReleaseObj("comp-a-20250315-0", "proj", "comp-a"),
+			makeReleaseObj("comp-b-20250315-0", "proj", "comp-b"),
+		}
+		var buf bytes.Buffer
+
+		result, err := w.WriteBulkReleases(releases, BulkWriteOptions{DryRun: true, Stdout: &buf})
+		require.NoError(t, err)
+		assert.Empty(t, result.OutputPaths)
+		assert.Empty(t, result.Errors)
+		assert.Contains(t, buf.String(), "comp-a-20250315-0")
+		assert.Contains(t, buf.String(), "comp-b-20250315-0")
+	})
+
+	t.Run("writes files to disk", func(t *testing.T) {
+		dir := t.TempDir()
+		w := NewWriter(dir)
+		releases := []*unstructured.Unstructured{
+			makeReleaseObj("comp-a-20250315-0", "proj", "comp-a"),
+			makeReleaseObj("comp-b-20250315-0", "proj", "comp-b"),
+		}
+
+		result, err := w.WriteBulkReleases(releases, BulkWriteOptions{OutputDir: dir})
+		require.NoError(t, err)
+		assert.Len(t, result.OutputPaths, 2)
+		assert.Empty(t, result.Errors)
+
+		for _, p := range result.OutputPaths {
+			assert.FileExists(t, p)
+		}
+	})
+
+	t.Run("skip if unchanged", func(t *testing.T) {
+		dir := t.TempDir()
+		w := NewWriter(dir)
+		release := makeReleaseObj("comp-a-20250315-0", "proj", "comp-a")
+
+		// Write first time
+		_, err := w.WriteBulkReleases([]*unstructured.Unstructured{release}, BulkWriteOptions{OutputDir: dir})
+		require.NoError(t, err)
+
+		// Write again with SkipIfUnchanged
+		result, err := w.WriteBulkReleases([]*unstructured.Unstructured{release}, BulkWriteOptions{
+			OutputDir:       dir,
+			SkipIfUnchanged: true,
+		})
+		require.NoError(t, err)
+		assert.Len(t, result.Skipped, 1)
+		assert.Equal(t, "comp-a-20250315-0", result.Skipped[0])
+	})
+}
+
+func TestWriteBulkBindings(t *testing.T) {
+	t.Run("dry run writes all to stdout", func(t *testing.T) {
+		w := NewWriter("/repo")
+		bindings := []*unstructured.Unstructured{
+			makeBindingObj("comp-a-dev", "proj", "comp-a"),
+			makeBindingObj("comp-b-dev", "proj", "comp-b"),
+		}
+		var buf bytes.Buffer
+
+		result, err := w.WriteBulkBindings(bindings, BulkBindingWriteOptions{DryRun: true, Stdout: &buf})
+		require.NoError(t, err)
+		assert.Empty(t, result.OutputPaths)
+		assert.Empty(t, result.Errors)
+		assert.Contains(t, buf.String(), "comp-a-dev")
+		assert.Contains(t, buf.String(), "comp-b-dev")
+	})
+
+	t.Run("writes files to disk", func(t *testing.T) {
+		dir := t.TempDir()
+		w := NewWriter(dir)
+		bindings := []*unstructured.Unstructured{
+			makeBindingObj("comp-a-dev", "proj", "comp-a"),
+			makeBindingObj("comp-b-dev", "proj", "comp-b"),
+		}
+
+		result, err := w.WriteBulkBindings(bindings, BulkBindingWriteOptions{OutputDir: dir})
+		require.NoError(t, err)
+		assert.Len(t, result.OutputPaths, 2)
+		assert.Empty(t, result.Errors)
+
+		for _, p := range result.OutputPaths {
+			assert.FileExists(t, p)
+		}
+	})
+
+	t.Run("with existing paths for update-in-place", func(t *testing.T) {
+		dir := t.TempDir()
+		w := NewWriter(dir)
+		binding := makeBindingObj("comp-a-dev", "proj", "comp-a")
+
+		existingPath := filepath.Join(dir, "existing", "comp-a-dev.yaml")
+
+		result, err := w.WriteBulkBindings([]*unstructured.Unstructured{binding}, BulkBindingWriteOptions{
+			ExistingPaths: map[string]string{"comp-a-dev": existingPath},
+		})
+		require.NoError(t, err)
+		assert.Len(t, result.OutputPaths, 1)
+		assert.Equal(t, existingPath, result.OutputPaths[0])
+		assert.FileExists(t, existingPath)
+	})
+
+	t.Run("with existing paths escaping base dir are rejected", func(t *testing.T) {
+		dir := t.TempDir()
+		w := NewWriter(dir)
+		binding := makeBindingObj("comp-a-dev", "proj", "comp-a")
+
+		escapedPath := filepath.Join(dir, "..", "escaped", "comp-a-dev.yaml")
+
+		result, err := w.WriteBulkBindings([]*unstructured.Unstructured{binding}, BulkBindingWriteOptions{
+			ExistingPaths: map[string]string{"comp-a-dev": escapedPath},
+		})
+		require.NoError(t, err) // WriteBulkBindings itself doesn't return error, it collects them
+		assert.Empty(t, result.OutputPaths)
+		assert.Len(t, result.Errors, 1)
+		assert.Contains(t, result.Errors[0].Error(), "escapes base directory")
 	})
 }

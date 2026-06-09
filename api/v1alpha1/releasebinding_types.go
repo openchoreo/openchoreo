@@ -87,6 +87,54 @@ type PendingConnection struct {
 	Reason string `json:"reason"`
 }
 
+// ResourceDependencyTarget identifies a project-bound Resource the workload depends on.
+// Used as a field-index source for the reverse-watch from ResourceReleaseBinding to
+// ReleaseBinding: when a provider's status.outputs change, every consumer ReleaseBinding
+// whose targets include the matching (project, resourceName, environment) tuple is enqueued.
+type ResourceDependencyTarget struct {
+	// Namespace is the control plane namespace of the consuming ReleaseBinding.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Namespace string `json:"namespace"`
+
+	// Project is the name of the project that owns the target Resource.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Project string `json:"project"`
+
+	// ResourceName is the name of the target Resource.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	ResourceName string `json:"resourceName"`
+
+	// Environment is the consumer's environment, used to select the correct
+	// ResourceReleaseBinding from the targets in this project.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Environment string `json:"environment"`
+}
+
+// PendingResourceDependency represents a resource dependency that could not be resolved.
+// Surfaces the failure on kubectl describe so users can diagnose missing bindings, missing
+// outputs, or unready providers without inspecting controller logs.
+type PendingResourceDependency struct {
+	// Namespace is the control plane namespace of the consuming ReleaseBinding.
+	// +kubebuilder:validation:MinLength=1
+	Namespace string `json:"namespace"`
+
+	// Project is the name of the project that owns the target Resource.
+	// +kubebuilder:validation:MinLength=1
+	Project string `json:"project"`
+
+	// ResourceName is the name of the target Resource.
+	// +kubebuilder:validation:MinLength=1
+	ResourceName string `json:"resourceName"`
+
+	// Reason describes why the dependency could not be resolved (binding not found,
+	// output missing, provider not ready, etc.).
+	Reason string `json:"reason"`
+}
+
 // ContainerOverride represents a single container in the workload.
 type ContainerOverride struct {
 	// Explicit environment variables.
@@ -164,7 +212,7 @@ type ReleaseBindingOwner struct {
 
 // EndpointURL represents a structured URL with its components.
 type EndpointURL struct {
-	// Scheme is the URL scheme (e.g., http, https, tcp, udp, ws, wss, tls).
+	// Scheme is the URL scheme (e.g., http, https, tcp, udp, ws, wss, grpc, grpcs, tls).
 	// +optional
 	Scheme string `json:"scheme,omitempty"`
 
@@ -182,17 +230,26 @@ type EndpointURL struct {
 	Path string `json:"path,omitempty"`
 }
 
-// EndpointGatewayURLs holds resolved gateway URLs for an endpoint.
+// EndpointGatewayURLs holds resolved gateway URLs for an endpoint, grouped by
+// the gateway listener that serves the route. The field name identifies the
+// listener (http / https / tls); the scheme inside the EndpointURL reflects the
+// workload endpoint type (for example, http, https, ws, wss, grpc, grpcs, tls).
 type EndpointGatewayURLs struct {
-	// HTTP is the HTTP gateway URL.
+	// HTTP is the URL served via the cleartext http listener. Populated when the
+	// endpoint is exposed by an HTTPRoute or GRPCRoute and the gateway has an
+	// http listener configured.
 	// +optional
 	HTTP *EndpointURL `json:"http,omitempty"`
 
-	// HTTPS is the HTTPS gateway URL.
+	// HTTPS is the URL served via the https listener (TLS terminated at the
+	// gateway). Populated when the endpoint is exposed by an HTTPRoute or
+	// GRPCRoute and the gateway has an https listener configured.
 	// +optional
 	HTTPS *EndpointURL `json:"https,omitempty"`
 
-	// TLS is the TLS gateway URL.
+	// TLS is the URL served via the tls listener (TLS passthrough; the
+	// application terminates TLS). Populated when a TLSRoute exposes the
+	// endpoint and the gateway has a tls listener configured.
 	// +optional
 	TLS *EndpointURL `json:"tls,omitempty"`
 }
@@ -257,6 +314,16 @@ type ReleaseBindingStatus struct {
 	// PendingConnections contains the connections that could not be resolved.
 	// +optional
 	PendingConnections []PendingConnection `json:"pendingConnections,omitempty"`
+
+	// ResourceDependencyTargets lists the resource dependency targets derived from the
+	// workload's dependencies.resources[]. Used as an index source for finding consumer
+	// ReleaseBindings when a provider ResourceReleaseBinding's status.outputs change.
+	// +optional
+	ResourceDependencyTargets []ResourceDependencyTarget `json:"resourceDependencyTargets,omitempty"`
+
+	// PendingResourceDependencies contains the resource dependencies that could not be resolved.
+	// +optional
+	PendingResourceDependencies []PendingResourceDependency `json:"pendingResourceDependencies,omitempty"`
 
 	// SecretReferenceNames lists the names of SecretReferences used by this ReleaseBinding's workload.
 	// Used as an index source for finding affected ReleaseBindings when a SecretReference changes.

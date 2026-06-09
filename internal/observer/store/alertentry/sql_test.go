@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -139,4 +140,88 @@ func TestQueryAlertEntries(t *testing.T) {
 	require.Equal(t, 1, total)
 	require.Len(t, got, 1)
 	assert.Equal(t, "rule-b", got[0].AlertRuleName)
+}
+
+func TestHasRecentAlert(t *testing.T) {
+	t.Parallel()
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	store, err := New(BackendSQLite, dsn, slog.Default())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, store.Close()) })
+
+	ctx := context.Background()
+	require.NoError(t, store.Initialize(ctx))
+
+	now := time.Now().UTC()
+
+	_, err = store.WriteAlertEntry(ctx, &AlertEntry{
+		Timestamp:            now.Add(-30 * time.Minute).Format(time.RFC3339Nano),
+		AlertRuleName:        "high-error-rate",
+		AlertRuleCRName:      "rule-cr-1",
+		AlertRuleCRNamespace: "obs-plane",
+		AlertValue:           "42",
+		NamespaceName:        "ns-1",
+		ComponentName:        "payments",
+		ComponentID:          "comp-uid-1",
+	})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name         string
+		crName       string
+		crNamespace  string
+		componentUID string
+		since        time.Time
+		want         bool
+	}{
+		{
+			name:         "match within window",
+			crName:       "rule-cr-1",
+			crNamespace:  "obs-plane",
+			componentUID: "comp-uid-1",
+			since:        now.Add(-1 * time.Hour),
+			want:         true,
+		},
+		{
+			name:         "no match - outside window",
+			crName:       "rule-cr-1",
+			crNamespace:  "obs-plane",
+			componentUID: "comp-uid-1",
+			since:        now.Add(-10 * time.Minute),
+			want:         false,
+		},
+		{
+			name:         "no match - different cr name",
+			crName:       "rule-cr-other",
+			crNamespace:  "obs-plane",
+			componentUID: "comp-uid-1",
+			since:        now.Add(-1 * time.Hour),
+			want:         false,
+		},
+		{
+			name:         "no match - different namespace",
+			crName:       "rule-cr-1",
+			crNamespace:  "other-ns",
+			componentUID: "comp-uid-1",
+			since:        now.Add(-1 * time.Hour),
+			want:         false,
+		},
+		{
+			name:         "no match - different component UID (recreated component)",
+			crName:       "rule-cr-1",
+			crNamespace:  "obs-plane",
+			componentUID: "comp-uid-new",
+			since:        now.Add(-1 * time.Hour),
+			want:         false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := store.HasRecentAlert(ctx, tt.crName, tt.crNamespace, tt.componentUID, tt.since)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

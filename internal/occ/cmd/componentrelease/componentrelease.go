@@ -16,39 +16,36 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/flags"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
 	occonfig "github.com/openchoreo/openchoreo/internal/occ/fsmode/config"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/generator"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
-	"github.com/openchoreo/openchoreo/pkg/cli/flags"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/cache"
 )
 
 const releaseConfigFileName = "release-config.yaml"
 
 // ComponentRelease implements component release operations
-type ComponentRelease struct{}
+type ComponentRelease struct {
+	client client.Interface
+}
 
 // New creates a new ComponentRelease
-func New() *ComponentRelease {
-	return &ComponentRelease{}
+func New(c client.Interface) *ComponentRelease {
+	return &ComponentRelease{client: c}
 }
 
 // List lists all component releases for a component
 func (cr *ComponentRelease) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceComponentRelease, params); err != nil {
+	if err := cmdutil.RequireFields("list", "componentrelease", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.ComponentRelease, string, error) {
 		p := &gen.ListComponentReleasesParams{}
@@ -59,18 +56,15 @@ func (cr *ComponentRelease) List(params ListParams) error {
 		if cursor != "" {
 			p.Cursor = &cursor
 		}
-		resp, err := c.GetClient().ListComponentReleasesWithResponse(ctx, params.Namespace, p)
+		result, err := cr.client.ListComponentReleases(ctx, params.Namespace, p)
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to list component releases: %w", err)
-		}
-		if resp.JSON200 == nil {
-			return nil, "", fmt.Errorf("unexpected response status: %d", resp.StatusCode())
+			return nil, "", err
 		}
 		next := ""
-		if resp.JSON200.Pagination.NextCursor != nil {
-			next = *resp.JSON200.Pagination.NextCursor
+		if result.Pagination.NextCursor != nil {
+			next = *result.Pagination.NextCursor
 		}
-		return resp.JSON200.Items, next, nil
+		return result.Items, next, nil
 	})
 	if err != nil {
 		return err
@@ -91,28 +85,38 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 		return fmt.Errorf("componentrelease generate only supports file-system mode; use --mode file-system (got %q)", mode)
 	}
 
-	// 2. Load context for other defaults (namespace, etc.)
-	cfg, err := config.LoadStoredConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
-
-	if cfg.CurrentContext == "" {
-		return fmt.Errorf("no current context set")
-	}
-
-	// Find current context
-	var ctx *config.Context
-	for _, c := range cfg.Contexts {
-		if c.Name == cfg.CurrentContext {
-			ctxCopy := c
-			ctx = &ctxCopy
-			break
+	// 2. Resolve namespace: prefer --namespace flag, fall back to current context.
+	//    Skip the context lookup entirely when --namespace is set, so the flag
+	//    can be used without a configured context.
+	namespace := params.Namespace
+	if namespace == "" {
+		cfg, err := config.LoadStoredConfig()
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w", err)
 		}
+
+		if cfg.CurrentContext == "" {
+			return fmt.Errorf("no current context set")
+		}
+
+		var ctx *config.Context
+		for _, c := range cfg.Contexts {
+			if c.Name == cfg.CurrentContext {
+				ctxCopy := c
+				ctx = &ctxCopy
+				break
+			}
+		}
+
+		if ctx == nil {
+			return fmt.Errorf("current context %q not found in config", cfg.CurrentContext)
+		}
+
+		namespace = ctx.Namespace
 	}
 
-	if ctx == nil {
-		return fmt.Errorf("current context %q not found in config", cfg.CurrentContext)
+	if namespace == "" {
+		return fmt.Errorf("namespace is required (set via --namespace or current context)")
 	}
 
 	repoPath := params.RootDir
@@ -149,13 +153,7 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 	baseDir := repoPath
 	customOutputPath := params.OutputPath
 
-	// 6. Get namespace from context (same as namespace)
-	namespace := ctx.Namespace
-	if namespace == "" {
-		return fmt.Errorf("namespace is required in context")
-	}
-
-	// 7. Build output directory resolver for when no release-config.yaml exists
+	// 6. Build output directory resolver for when no release-config.yaml exists
 	resolver := buildOutputDirResolver(ocIndex, namespace)
 
 	// 8. Generate releases based on scope
@@ -181,18 +179,13 @@ func (cr *ComponentRelease) Generate(params GenerateParams) error {
 
 // Delete deletes a single component release
 func (cr *ComponentRelease) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceComponentRelease, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "componentrelease", map[string]string{"namespace": params.Namespace, "name": params.ComponentReleaseName}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
 
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
-
-	if err := c.DeleteComponentRelease(ctx, params.Namespace, params.ComponentReleaseName); err != nil {
+	if err := cr.client.DeleteComponentRelease(ctx, params.Namespace, params.ComponentReleaseName); err != nil {
 		return err
 	}
 
@@ -202,17 +195,13 @@ func (cr *ComponentRelease) Delete(params DeleteParams) error {
 
 // Get retrieves a single component release and outputs it as YAML
 func (cr *ComponentRelease) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceComponentRelease, params); err != nil {
+	if err := cmdutil.RequireFields("get", "componentrelease", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
-	c, err := client.NewClient()
-	if err != nil {
-		return fmt.Errorf("failed to create API client: %w", err)
-	}
 
-	result, err := c.GetComponentRelease(ctx, params.Namespace, params.ComponentReleaseName)
+	result, err := cr.client.GetComponentRelease(ctx, params.Namespace, params.ComponentReleaseName)
 	if err != nil {
 		return err
 	}

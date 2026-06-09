@@ -105,8 +105,8 @@ func (s *observabilityPlaneService) CreateObservabilityPlane(ctx context.Context
 		if apierrors.IsAlreadyExists(err) {
 			return nil, ErrObservabilityPlaneAlreadyExists
 		}
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to create observability plane CR", "error", err)
 		return nil, fmt.Errorf("failed to create observability plane: %w", err)
@@ -142,8 +142,8 @@ func (s *observabilityPlaneService) UpdateObservabilityPlane(ctx context.Context
 	existing.Annotations = op.Annotations
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
-		if apierrors.IsInvalid(err) {
-			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
+		if vErr := services.ExtractValidationError(err); vErr != nil {
+			return nil, vErr
 		}
 		s.logger.Error("Failed to update observability plane CR", "error", err)
 		return nil, fmt.Errorf("failed to update observability plane: %w", err)

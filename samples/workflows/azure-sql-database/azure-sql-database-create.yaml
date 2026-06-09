@@ -1,0 +1,521 @@
+# ============================================================
+# ClusterWorkflowTemplate — Argo Workflows execution template
+# Deploy this to the Workflow Plane cluster
+# ============================================================
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: azure-sql-database-create
+spec:
+  entrypoint: pipeline
+  templates:
+    - name: pipeline
+      steps:
+        - - name: clone
+            template: clone-step
+        - - name: setup
+            template: setup-step
+        - - name: init
+            template: init-step
+        - - name: plan
+            template: plan-step
+        - - name: apply
+            template: apply-step
+        - - name: report
+            template: report-step
+
+    # Step 1: Clone the Terraform repo to get the Terraform files
+    - name: clone-step
+      container:
+        image: alpine/git:2.45.2
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            echo "Cloning repository ${GIT_REPO_URL} (branch: ${GIT_BRANCH}) ..."
+            git clone --depth 1 --branch "${GIT_BRANCH}" \
+              "${GIT_REPO_URL}" \
+              /mnt/data/repo
+            echo "Clone complete."
+        env:
+          - name: GIT_REPO_URL
+            value: "{{workflow.parameters.git-repo-url}}"
+          - name: GIT_BRANCH
+            value: "{{workflow.parameters.git-branch}}"
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+    # Step 2: Create the Azure Storage Account and container for Terraform state if they do not exist yet
+    - name: setup-step
+      container:
+        image: mcr.microsoft.com/azure-cli:2.67.0
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            echo "Logging in to Azure ..."
+            az login --service-principal \
+              -u "$ARM_CLIENT_ID" \
+              -p "$ARM_CLIENT_SECRET" \
+              --tenant "$ARM_TENANT_ID" \
+              --output none
+
+            echo "Ensuring resource group ${TFSTATE_RESOURCE_GROUP} exists ..."
+            az group create \
+              --name "$TFSTATE_RESOURCE_GROUP" \
+              --location "$AZURE_LOCATION" \
+              --output none 2>/dev/null || true
+
+            echo "Checking storage account ${TFSTATE_STORAGE_ACCOUNT} ..."
+            if az storage account show --name "$TFSTATE_STORAGE_ACCOUNT" --resource-group "$TFSTATE_RESOURCE_GROUP" --output none 2>/dev/null; then
+              echo "Storage account already exists — skipping creation."
+            else
+              echo "Creating storage account ${TFSTATE_STORAGE_ACCOUNT} ..."
+              az storage account create \
+                --name "$TFSTATE_STORAGE_ACCOUNT" \
+                --resource-group "$TFSTATE_RESOURCE_GROUP" \
+                --location "$AZURE_LOCATION" \
+                --sku Standard_LRS \
+                --output none
+              echo "Storage account created."
+            fi
+
+            echo "Ensuring blob container 'tfstate' exists ..."
+            az storage container create \
+              --name tfstate \
+              --account-name "$TFSTATE_STORAGE_ACCOUNT" \
+              --auth-mode login \
+              --output none 2>/dev/null || true
+            echo "Setup complete."
+        env:
+          - name: ARM_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientId
+          - name: ARM_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientSecret
+          - name: ARM_TENANT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: tenantId
+          - name: ARM_SUBSCRIPTION_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: subscriptionId
+          - name: AZURE_LOCATION
+            value: "{{workflow.parameters.azure-location}}"
+          - name: TFSTATE_RESOURCE_GROUP
+            value: "{{workflow.parameters.tfstate-resource-group}}"
+          - name: TFSTATE_STORAGE_ACCOUNT
+            value: "{{workflow.parameters.tfstate-storage-account}}"
+
+    # Step 3: terraform init — configure azurerm backend at runtime
+    - name: init-step
+      container:
+        image: hashicorp/terraform:1.9
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            ulimit -n 65535
+            TF_DIR="/mnt/data/repo/${GIT_TF_PATH}"
+            cd "$TF_DIR"
+
+            echo "Running terraform init ..."
+            terraform init \
+              -backend-config="storage_account_name=${TFSTATE_STORAGE_ACCOUNT}" \
+              -backend-config="container_name=tfstate" \
+              -backend-config="key=azuresql/${SERVER_NAME}/terraform.tfstate" \
+              -backend-config="resource_group_name=${TFSTATE_RESOURCE_GROUP}" \
+              -input=false
+        env:
+          - name: ARM_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientId
+          - name: ARM_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientSecret
+          - name: ARM_TENANT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: tenantId
+          - name: ARM_SUBSCRIPTION_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: subscriptionId
+          - name: TFSTATE_STORAGE_ACCOUNT
+            value: "{{workflow.parameters.tfstate-storage-account}}"
+          - name: TFSTATE_RESOURCE_GROUP
+            value: "{{workflow.parameters.tfstate-resource-group}}"
+          - name: SERVER_NAME
+            value: "{{workflow.parameters.server-name}}"
+          - name: GIT_TF_PATH
+            value: "{{workflow.parameters.git-tf-path}}"
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+    # Step 4: terraform plan — dry run for visibility in logs
+    - name: plan-step
+      container:
+        image: hashicorp/terraform:1.9
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            ulimit -n 65535
+            TF_DIR="/mnt/data/repo/${GIT_TF_PATH}"
+            cd "$TF_DIR"
+
+            echo "Running terraform plan ..."
+            terraform plan \
+              -var="resource_group_name=${RESOURCE_GROUP_NAME}" \
+              -var="server_name=${SERVER_NAME}" \
+              -var="db_name=${DB_NAME}" \
+              -var="admin_username=${ADMIN_USERNAME}" \
+              -var="admin_password=${ADMIN_PASSWORD}" \
+              -var="db_sku=${DB_SKU}" \
+              -input=false
+        env:
+          - name: ARM_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientId
+          - name: ARM_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientSecret
+          - name: ARM_TENANT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: tenantId
+          - name: ARM_SUBSCRIPTION_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: subscriptionId
+          - name: RESOURCE_GROUP_NAME
+            value: "{{workflow.parameters.resource-group-name}}"
+          - name: SERVER_NAME
+            value: "{{workflow.parameters.server-name}}"
+          - name: DB_NAME
+            value: "{{workflow.parameters.db-name}}"
+          - name: ADMIN_USERNAME
+            value: "{{workflow.parameters.admin-username}}"
+          - name: ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: adminPassword
+          - name: DB_SKU
+            value: "{{workflow.parameters.db-sku}}"
+          - name: GIT_TF_PATH
+            value: "{{workflow.parameters.git-tf-path}}"
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+    # Step 5: terraform apply — provision the Azure SQL Database and save outputs
+    - name: apply-step
+      container:
+        image: hashicorp/terraform:1.9
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            ulimit -n 65535
+            TF_DIR="/mnt/data/repo/${GIT_TF_PATH}"
+            cd "$TF_DIR"
+
+            echo "Running terraform apply ..."
+            terraform apply \
+              -auto-approve \
+              -var="resource_group_name=${RESOURCE_GROUP_NAME}" \
+              -var="server_name=${SERVER_NAME}" \
+              -var="db_name=${DB_NAME}" \
+              -var="admin_username=${ADMIN_USERNAME}" \
+              -var="admin_password=${ADMIN_PASSWORD}" \
+              -var="db_sku=${DB_SKU}" \
+              -input=false
+
+            echo "Saving terraform outputs ..."
+            terraform output -json > /mnt/data/tf-outputs.json
+            echo "Apply complete."
+        env:
+          - name: ARM_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientId
+          - name: ARM_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientSecret
+          - name: ARM_TENANT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: tenantId
+          - name: ARM_SUBSCRIPTION_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: subscriptionId
+          - name: RESOURCE_GROUP_NAME
+            value: "{{workflow.parameters.resource-group-name}}"
+          - name: SERVER_NAME
+            value: "{{workflow.parameters.server-name}}"
+          - name: DB_NAME
+            value: "{{workflow.parameters.db-name}}"
+          - name: ADMIN_USERNAME
+            value: "{{workflow.parameters.admin-username}}"
+          - name: ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: adminPassword
+          - name: DB_SKU
+            value: "{{workflow.parameters.db-sku}}"
+          - name: GIT_TF_PATH
+            value: "{{workflow.parameters.git-tf-path}}"
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+    # Step 6: Parse terraform outputs and print the connection summary
+    - name: report-step
+      container:
+        image: alpine:3
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            apk add --no-cache jq -q
+
+            if ! jq -e '.server_fqdn.value' /mnt/data/tf-outputs.json > /dev/null 2>&1; then
+              echo "ERROR: terraform outputs not found. Apply step may have failed."
+              cat /mnt/data/tf-outputs.json
+              exit 1
+            fi
+
+            FQDN=$(jq -r '.server_fqdn.value' /mnt/data/tf-outputs.json)
+            DB_NAME_OUT=$(jq -r '.db_name.value' /mnt/data/tf-outputs.json)
+            ADMIN_USER=$(jq -r '.admin_username.value' /mnt/data/tf-outputs.json)
+            SERVER_ID=$(jq -r '.server_id.value' /mnt/data/tf-outputs.json)
+            DB_ID=$(jq -r '.db_id.value' /mnt/data/tf-outputs.json)
+            CONN_STRING="Server=tcp:${FQDN},1433;Initial Catalog=${DB_NAME_OUT};User ID=${ADMIN_USER};Password=<password>;Encrypt=True;TrustServerCertificate=False;"
+
+            echo "================================================="
+            echo "  Azure SQL Database Created                     "
+            echo "================================================="
+            echo "Server FQDN:       ${FQDN}"
+            echo "Port:              1433"
+            echo "Database:          ${DB_NAME_OUT}"
+            echo "Admin Username:    ${ADMIN_USER}"
+            echo "Server Resource ID: ${SERVER_ID}"
+            echo "DB Resource ID:    ${DB_ID}"
+            echo "-------------------------------------------------"
+            echo "Connection String (template):"
+            echo "  ${CONN_STRING}"
+            echo ""
+            echo "NOTE: Password is stored in the '{{workflow.parameters.credentials-secret}}'"
+            echo "      Kubernetes Secret under the 'adminPassword' key."
+            echo "      Retrieve it with:"
+            echo "      kubectl get secret {{workflow.parameters.credentials-secret}} \\"
+            echo "        -o jsonpath='{.data.adminPassword}' | base64 -d"
+            echo "================================================="
+            echo ""
+            echo "NOTE: The server firewall allows connections from all IP addresses."
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 128Mi
+
+---
+# ============================================================
+# Workflow — OpenChoreo CR defining the parameter schema
+# Deploy this to the Control Plane cluster
+# ============================================================
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workflow
+metadata:
+  name: azure-sql-database-create
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Provision an Azure SQL Database using Terraform with state stored in Azure Blob Storage"
+spec:
+  # Template Variable Reference (processed by controller):
+  # ${metadata.workflowRunName}  - WorkflowRun CR name
+  # ${metadata.namespaceName}    - Namespace name
+  # ${parameters.*}              - Values from the schema below
+
+  ttlAfterCompletion: "1d"
+
+  parameters:
+    openAPIV3Schema:
+      type: object
+      properties:
+        git:
+          type: object
+          default: {}
+          description: "Source repository that contains the Terraform files"
+          properties:
+            repoUrl:
+              type: string
+              default: "https://github.com/openchoreo/openchoreo.git"
+              description: "Git repository URL to clone at runtime (HTTPS). Override this to point to your own repo."
+            branch:
+              type: string
+              default: "main"
+              description: "Branch or tag to check out"
+            tfPath:
+              type: string
+              default: "samples/workflows/azure-sql-database/terraform"
+              description: "Relative path inside the cloned repo that contains the Terraform files"
+        azure:
+          type: object
+          default: {}
+          properties:
+            location:
+              type: string
+              default: "eastus"
+              description: "Azure region where the resources will be created"
+            credentialsSecret:
+              type: string
+              default: "azure-sql-credentials"
+              description: "Name of the Kubernetes Secret containing Azure AD App Registration credentials ('clientId', 'clientSecret', 'tenantId', 'subscriptionId') and 'adminPassword'"
+        tfState:
+          type: object
+          default: {}
+          properties:
+            resourceGroup:
+              type: string
+              default: "openchoreo-tfstate-rg"
+              description: "Azure Resource Group for the Terraform state storage account. Created automatically on first run if it does not exist."
+            storageAccount:
+              type: string
+              default: "ocstfstate"
+              description: "Azure Storage Account name for Terraform state (must be globally unique, 3-24 lowercase letters/numbers). Created automatically on first run if it does not exist."
+        server:
+          type: object
+          default: {}
+          properties:
+            name:
+              type: string
+              default: "my-app-sqlserver"
+              description: "Globally unique name for the Azure SQL Server (e.g. my-app-sqlserver)"
+            resourceGroupName:
+              type: string
+              default: "my-app-rg"
+              description: "Azure Resource Group for the SQL Server and database"
+        db:
+          type: object
+          default: {}
+          properties:
+            name:
+              type: string
+              default: "myappdb"
+              description: "Name of the SQL Database to create on the server"
+            adminUsername:
+              type: string
+              default: "sqladmin"
+              description: "Administrator login for the SQL Server"
+            sku:
+              type: string
+              default: "Basic"
+              description: "SKU name for the database (e.g. 'Basic', 'S0', 'GP_S_Gen5_1')"
+
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: ${metadata.namespace}
+    spec:
+      arguments:
+        parameters:
+          - name: git-repo-url
+            value: ${parameters.git.repoUrl}
+          - name: git-branch
+            value: ${parameters.git.branch}
+          - name: git-tf-path
+            value: ${parameters.git.tfPath}
+          - name: azure-location
+            value: ${parameters.azure.location}
+          - name: credentials-secret
+            value: ${parameters.azure.credentialsSecret}
+          - name: tfstate-resource-group
+            value: ${parameters.tfState.resourceGroup}
+          - name: tfstate-storage-account
+            value: ${parameters.tfState.storageAccount}
+          - name: server-name
+            value: ${parameters.server.name}
+          - name: resource-group-name
+            value: ${parameters.server.resourceGroupName}
+          - name: db-name
+            value: ${parameters.db.name}
+          - name: admin-username
+            value: ${parameters.db.adminUsername}
+          - name: db-sku
+            value: ${parameters.db.sku}
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: azure-sql-database-create
+
+---
+# ============================================================
+# WorkflowRun — triggers a single execution
+# Edit the parameters below and apply to run the workflow
+# ============================================================
+apiVersion: openchoreo.dev/v1alpha1
+kind: WorkflowRun
+metadata:
+  name: azure-sql-database-create-run
+spec:
+  workflow:
+    name: azure-sql-database-create
+    parameters:
+      git:
+        repoUrl: "https://github.com/openchoreo/openchoreo.git"
+        branch: "main"
+        tfPath: "samples/workflows/azure-sql-database/terraform"
+      azure:
+        location: "eastus"
+        credentialsSecret: "azure-sql-credentials"
+      tfState:
+        resourceGroup: "openchoreo-tfstate-rg"
+        storageAccount: "ocstfstate"
+      server:
+        name: "my-app-sqlserver"
+        resourceGroupName: "my-app-rg"
+      db:
+        name: "myappdb"
+        adminUsername: "sqladmin"
+        sku: "Basic"

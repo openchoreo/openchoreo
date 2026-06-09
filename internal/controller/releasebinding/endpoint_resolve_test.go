@@ -26,7 +26,7 @@ func urlToString(u *openchoreov1alpha1.EndpointURL) string {
 	url := u.Scheme + "://" + u.Host
 
 	// Add port if it's not the default port for the scheme
-	if u.Port != 0 && !((u.Scheme == "http" && u.Port == 80) || (u.Scheme == "https" && u.Port == 443)) {
+	if u.Port != 0 && !((u.Scheme == schemeHTTP && u.Port == 80) || (u.Scheme == schemeHTTPS && u.Port == 443)) {
 		url += fmt.Sprintf(":%d", u.Port)
 	}
 
@@ -92,11 +92,80 @@ func makeHTTPRouteJSON(opts httpRouteOpts) []byte {
 	return b
 }
 
-func makeResource(raw []byte) openchoreov1alpha1.Resource {
-	return openchoreov1alpha1.Resource{
+func makeResource(raw []byte) openchoreov1alpha1.RenderedManifest {
+	return openchoreov1alpha1.RenderedManifest{
 		ID:     "test-resource",
 		Object: &runtime.RawExtension{Raw: raw},
 	}
+}
+
+// grpcRouteOpts configures the GRPCRoute JSON built by makeGRPCRouteJSON.
+// GRPCRoutes do not carry a URL path — gRPC dispatches by method, not by path.
+type grpcRouteOpts struct {
+	name      string
+	labels    map[string]interface{}
+	hostnames []interface{}
+}
+
+// makeGRPCRouteJSON builds an unstructured GRPCRoute JSON blob for testing.
+func makeGRPCRouteJSON(opts grpcRouteOpts) []byte {
+	metadata := map[string]interface{}{
+		"name":      opts.name,
+		"namespace": "default",
+	}
+	if len(opts.labels) > 0 {
+		metadata["labels"] = opts.labels
+	}
+
+	route := map[string]interface{}{
+		"apiVersion": "gateway.networking.k8s.io/v1",
+		"kind":       "GRPCRoute",
+		"metadata":   metadata,
+	}
+
+	spec := map[string]interface{}{}
+	if len(opts.hostnames) > 0 {
+		spec["hostnames"] = opts.hostnames
+	}
+	route["spec"] = spec
+
+	b, _ := json.Marshal(route)
+	return b
+}
+
+// tlsRouteOpts configures the TLSRoute JSON built by makeTLSRouteJSON.
+// TLSRoutes route by SNI, so they only carry hostnames — no path, no rules to
+// inspect for URL derivation.
+type tlsRouteOpts struct {
+	name      string
+	labels    map[string]interface{}
+	hostnames []interface{}
+}
+
+// makeTLSRouteJSON builds an unstructured TLSRoute JSON blob for testing.
+func makeTLSRouteJSON(opts tlsRouteOpts) []byte {
+	metadata := map[string]interface{}{
+		"name":      opts.name,
+		"namespace": "default",
+	}
+	if len(opts.labels) > 0 {
+		metadata["labels"] = opts.labels
+	}
+
+	route := map[string]interface{}{
+		"apiVersion": "gateway.networking.k8s.io/v1alpha2",
+		"kind":       "TLSRoute",
+		"metadata":   metadata,
+	}
+
+	spec := map[string]interface{}{}
+	if len(opts.hostnames) > 0 {
+		spec["hostnames"] = opts.hostnames
+	}
+	route["spec"] = spec
+
+	b, _ := json.Marshal(route)
+	return b
 }
 
 // endpointEntry configures an entry passed to makeEndpoints.
@@ -158,7 +227,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 		It("should return nil", func() {
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{},
+				[]openchoreov1alpha1.RenderedManifest{},
 				nil,
 				nil,
 				makeDataPlane(openchoreov1alpha1.GatewaySpec{}),
@@ -191,7 +260,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				nil,
 				makeDataPlane(openchoreov1alpha1.GatewaySpec{}),
@@ -210,7 +279,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				makeDataPlane(openchoreov1alpha1.GatewaySpec{}),
@@ -232,7 +301,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				makeDataPlane(openchoreov1alpha1.GatewaySpec{}),
@@ -255,7 +324,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				makeDataPlane(openchoreov1alpha1.GatewaySpec{}),
@@ -281,7 +350,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -311,7 +380,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -341,7 +410,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -370,7 +439,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -400,7 +469,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -413,7 +482,9 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 	})
 
 	Context("with HTTP, HTTPS and TLS external gateway", func() {
-		It("should produce HTTP, HTTPS and TLS invoke URLs", func() {
+		It("should populate only the HTTP and HTTPS URLs for an HTTPRoute", func() {
+			// The TLS listener is reserved for TLSRoutes (SNI passthrough). An
+			// HTTPRoute must never produce a URL on the tls listener.
 			raw := makeHTTPRouteJSON(httpRouteOpts{
 				name:      "route",
 				labels:    extLabels("greeter"),
@@ -432,7 +503,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -440,7 +511,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			Expect(result).To(HaveLen(1))
 			Expect(urlToString(result[0].ExternalURLs.HTTP)).To(Equal("http://app.example.com:30080"))
 			Expect(urlToString(result[0].ExternalURLs.HTTPS)).To(Equal("https://app.example.com:30443"))
-			Expect(urlToString(result[0].ExternalURLs.TLS)).To(Equal("https://app.example.com:30444"))
+			Expect(result[0].ExternalURLs.TLS).To(BeNil())
 		})
 	})
 
@@ -464,7 +535,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -493,7 +564,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -524,7 +595,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				nil,
 				dp,
@@ -561,7 +632,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(raw)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
 				endpoints,
 				env,
 				dp,
@@ -602,7 +673,7 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{
+				[]openchoreov1alpha1.RenderedManifest{
 					makeResource(route1),
 					makeResource(route2),
 				},
@@ -623,12 +694,304 @@ var _ = Describe("resolveEndpointURLStatuses", func() {
 			endpoints := makeEndpoints(endpointEntry{name: "greeter", port: 8080})
 			result := resolveEndpointURLStatuses(
 				ctx,
-				[]openchoreov1alpha1.Resource{{ID: "empty", Object: nil}},
+				[]openchoreov1alpha1.RenderedManifest{{ID: "empty", Object: nil}},
 				endpoints,
 				nil,
 				makeDataPlane(openchoreov1alpha1.GatewaySpec{}),
 			)
 			Expect(result).To(BeEmpty())
+		})
+	})
+
+	// The scheme is endpoint-type-driven: an HTTPRoute fronting a gRPC endpoint
+	// must emit grpc:// / grpcs:// URLs (not http:// / https://), and likewise
+	// ws:// / wss:// for Websocket endpoints.
+	Context("with HTTPRoute for a gRPC endpoint", func() {
+		It("should emit grpc and grpcs schemes on the http and https listeners", func() {
+			raw := makeHTTPRouteJSON(httpRouteOpts{
+				name:      "route",
+				labels:    extLabels("grpc-svc"),
+				hostnames: []interface{}{"grpc.example.com"},
+				pathValue: "/foo",
+			})
+			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						HTTP:  &openchoreov1alpha1.GatewayListenerSpec{Port: 30080},
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{Port: 30443},
+					},
+				},
+			})
+			endpoints := makeEndpoints(endpointEntry{
+				name:   "grpc-svc",
+				port:   9000,
+				epType: openchoreov1alpha1.EndpointTypeGRPC,
+			})
+
+			result := resolveEndpointURLStatuses(
+				ctx,
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
+				endpoints,
+				nil,
+				dp,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(urlToString(result[0].ExternalURLs.HTTP)).To(Equal("grpc://grpc.example.com:30080/foo"))
+			Expect(urlToString(result[0].ExternalURLs.HTTPS)).To(Equal("grpcs://grpc.example.com:30443/foo"))
+			Expect(result[0].ExternalURLs.TLS).To(BeNil())
+		})
+	})
+
+	Context("with HTTPRoute for a Websocket endpoint", func() {
+		It("should emit ws and wss schemes on the http and https listeners", func() {
+			raw := makeHTTPRouteJSON(httpRouteOpts{
+				name:      "route",
+				labels:    extLabels("ws-svc"),
+				hostnames: []interface{}{"ws.example.com"},
+			})
+			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						HTTP:  &openchoreov1alpha1.GatewayListenerSpec{Port: 30080},
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{Port: 30443},
+					},
+				},
+			})
+			endpoints := makeEndpoints(endpointEntry{
+				name:   "ws-svc",
+				port:   8080,
+				epType: openchoreov1alpha1.EndpointTypeWebsocket,
+			})
+
+			result := resolveEndpointURLStatuses(
+				ctx,
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
+				endpoints,
+				nil,
+				dp,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(urlToString(result[0].ExternalURLs.HTTP)).To(Equal("ws://ws.example.com:30080"))
+			Expect(urlToString(result[0].ExternalURLs.HTTPS)).To(Equal("wss://ws.example.com:30443"))
+		})
+	})
+
+	Context("with GRPCRoute for a gRPC endpoint", func() {
+		It("should emit grpc on http listener with no path", func() {
+			raw := makeGRPCRouteJSON(grpcRouteOpts{
+				name:      "route",
+				labels:    extLabels("grpc-svc"),
+				hostnames: []interface{}{"grpc.example.com"},
+			})
+			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						HTTP: &openchoreov1alpha1.GatewayListenerSpec{Port: 30080},
+					},
+				},
+			})
+			endpoints := makeEndpoints(endpointEntry{
+				name:   "grpc-svc",
+				port:   9000,
+				epType: openchoreov1alpha1.EndpointTypeGRPC,
+			})
+
+			result := resolveEndpointURLStatuses(
+				ctx,
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
+				endpoints,
+				nil,
+				dp,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(urlToString(result[0].ExternalURLs.HTTP)).To(Equal("grpc://grpc.example.com:30080"))
+			Expect(result[0].ExternalURLs.HTTPS).To(BeNil())
+			Expect(result[0].ExternalURLs.TLS).To(BeNil())
+		})
+
+		It("should emit both grpc and grpcs when both listeners exist", func() {
+			raw := makeGRPCRouteJSON(grpcRouteOpts{
+				name:      "route",
+				labels:    extLabels("grpc-svc"),
+				hostnames: []interface{}{"grpc.example.com"},
+			})
+			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						HTTP:  &openchoreov1alpha1.GatewayListenerSpec{Port: 30080},
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{Port: 30443},
+					},
+				},
+			})
+			endpoints := makeEndpoints(endpointEntry{
+				name:   "grpc-svc",
+				port:   9000,
+				epType: openchoreov1alpha1.EndpointTypeGRPC,
+			})
+
+			result := resolveEndpointURLStatuses(
+				ctx,
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
+				endpoints,
+				nil,
+				dp,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(urlToString(result[0].ExternalURLs.HTTP)).To(Equal("grpc://grpc.example.com:30080"))
+			Expect(urlToString(result[0].ExternalURLs.HTTPS)).To(Equal("grpcs://grpc.example.com:30443"))
+		})
+	})
+
+	Context("with GRPCRoute for a non-gRPC endpoint", func() {
+		It("should skip the GRPCRoute", func() {
+			raw := makeGRPCRouteJSON(grpcRouteOpts{
+				name:      "route",
+				labels:    extLabels("http-svc"),
+				hostnames: []interface{}{"app.example.com"},
+			})
+			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						HTTP: &openchoreov1alpha1.GatewayListenerSpec{Port: 30080},
+					},
+				},
+			})
+			endpoints := makeEndpoints(endpointEntry{name: "http-svc", port: 8080})
+			result := resolveEndpointURLStatuses(
+				ctx,
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
+				endpoints,
+				nil,
+				dp,
+			)
+			Expect(result).To(BeEmpty())
+		})
+	})
+
+	Context("with TLSRoute for a gRPC endpoint", func() {
+		It("should emit grpcs on the tls listener", func() {
+			raw := makeTLSRouteJSON(tlsRouteOpts{
+				name:      "route",
+				labels:    extLabels("grpc-svc"),
+				hostnames: []interface{}{"grpc.example.com"},
+			})
+			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						TLS: &openchoreov1alpha1.GatewayListenerSpec{Port: 30444},
+					},
+				},
+			})
+			endpoints := makeEndpoints(endpointEntry{
+				name:   "grpc-svc",
+				port:   9000,
+				epType: openchoreov1alpha1.EndpointTypeGRPC,
+			})
+
+			result := resolveEndpointURLStatuses(
+				ctx,
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
+				endpoints,
+				nil,
+				dp,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(urlToString(result[0].ExternalURLs.TLS)).To(Equal("grpcs://grpc.example.com:30444"))
+			Expect(result[0].ExternalURLs.HTTP).To(BeNil())
+			Expect(result[0].ExternalURLs.HTTPS).To(BeNil())
+		})
+	})
+
+	Context("with TLSRoute for a TCP endpoint", func() {
+		It("should emit tls scheme on the tls listener", func() {
+			raw := makeTLSRouteJSON(tlsRouteOpts{
+				name:      "route",
+				labels:    extLabels("tcp-svc"),
+				hostnames: []interface{}{"tcp.example.com"},
+			})
+			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						TLS: &openchoreov1alpha1.GatewayListenerSpec{Port: 30444},
+					},
+				},
+			})
+			endpoints := makeEndpoints(endpointEntry{
+				name:   "tcp-svc",
+				port:   9000,
+				epType: openchoreov1alpha1.EndpointTypeTCP,
+			})
+
+			result := resolveEndpointURLStatuses(
+				ctx,
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
+				endpoints,
+				nil,
+				dp,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(urlToString(result[0].ExternalURLs.TLS)).To(Equal("tls://tcp.example.com:30444"))
+		})
+	})
+
+	Context("with TLSRoute for an HTTP endpoint", func() {
+		It("should emit https scheme on the tls listener", func() {
+			raw := makeTLSRouteJSON(tlsRouteOpts{
+				name:      "route",
+				labels:    extLabels("http-svc"),
+				hostnames: []interface{}{"app.example.com"},
+			})
+			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						TLS: &openchoreov1alpha1.GatewayListenerSpec{Port: 30444},
+					},
+				},
+			})
+			endpoints := makeEndpoints(endpointEntry{name: "http-svc", port: 8080})
+
+			result := resolveEndpointURLStatuses(
+				ctx,
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
+				endpoints,
+				nil,
+				dp,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(urlToString(result[0].ExternalURLs.TLS)).To(Equal("https://app.example.com:30444"))
+		})
+	})
+
+	Context("with TLSRoute but no TLS listener", func() {
+		It("should leave all URLs nil", func() {
+			raw := makeTLSRouteJSON(tlsRouteOpts{
+				name:      "route",
+				labels:    extLabels("grpc-svc"),
+				hostnames: []interface{}{"grpc.example.com"},
+			})
+			dp := makeDataPlane(openchoreov1alpha1.GatewaySpec{
+				Ingress: &openchoreov1alpha1.GatewayNetworkSpec{
+					External: &openchoreov1alpha1.GatewayEndpointSpec{
+						HTTP:  &openchoreov1alpha1.GatewayListenerSpec{Port: 30080},
+						HTTPS: &openchoreov1alpha1.GatewayListenerSpec{Port: 30443},
+					},
+				},
+			})
+			endpoints := makeEndpoints(endpointEntry{
+				name:   "grpc-svc",
+				port:   9000,
+				epType: openchoreov1alpha1.EndpointTypeGRPC,
+			})
+
+			result := resolveEndpointURLStatuses(
+				ctx,
+				[]openchoreov1alpha1.RenderedManifest{makeResource(raw)},
+				endpoints,
+				nil,
+				dp,
+			)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].ExternalURLs).To(BeNil())
 		})
 	})
 })
@@ -664,6 +1027,40 @@ var _ = Describe("extractFirstPathValue", func() {
 		raw := makeHTTPRouteJSON(httpRouteOpts{name: "route"})
 		obj := unmarshalHTTPRoute(raw)
 		Expect(extractFirstPathValue(obj)).To(BeEmpty())
+	})
+})
+
+var _ = Describe("routePath", func() {
+	It("prefers the endpoint-base-path annotation when present", func() {
+		obj := unmarshalHTTPRoute(makeHTTPRouteJSON(httpRouteOpts{
+			name:      "route",
+			pathValue: "/demo-endpoint/books", // a specific operation match
+		}))
+		obj.SetAnnotations(map[string]string{
+			labels.AnnotationKeyEndpointBasePath: "/demo-endpoint",
+		})
+		Expect(routePath(&indexedRoute{obj: obj, kind: httpRouteKind})).To(Equal("/demo-endpoint"))
+	})
+
+	It("falls back to the first HTTPRoute match path when the annotation is absent", func() {
+		obj := unmarshalHTTPRoute(makeHTTPRouteJSON(httpRouteOpts{
+			name:      "route",
+			pathValue: "/demo-endpoint",
+		}))
+		Expect(routePath(&indexedRoute{obj: obj, kind: httpRouteKind})).To(Equal("/demo-endpoint"))
+	})
+
+	It("uses the annotation even for non-HTTPRoute kinds", func() {
+		obj := unmarshalHTTPRoute(makeHTTPRouteJSON(httpRouteOpts{name: "route"}))
+		obj.SetAnnotations(map[string]string{
+			labels.AnnotationKeyEndpointBasePath: "/grpc-base",
+		})
+		Expect(routePath(&indexedRoute{obj: obj, kind: grpcRouteKind})).To(Equal("/grpc-base"))
+	})
+
+	It("returns empty for a GRPCRoute without the annotation", func() {
+		obj := unmarshalHTTPRoute(makeHTTPRouteJSON(httpRouteOpts{name: "route", pathValue: "/ignored"}))
+		Expect(routePath(&indexedRoute{obj: obj, kind: grpcRouteKind})).To(BeEmpty())
 	})
 })
 
@@ -782,13 +1179,13 @@ func makeServiceJSON(name, namespace string, ports []int32) []byte {
 var _ = Describe("extractAllServiceInfos", func() {
 	It("should return empty when no Service is present", func() {
 		raw := makeHTTPRouteJSON(httpRouteOpts{name: "route"})
-		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{makeResource(raw)})
+		result := extractAllServiceInfos([]openchoreov1alpha1.RenderedManifest{makeResource(raw)})
 		Expect(result).To(BeEmpty())
 	})
 
 	It("should extract name, namespace, and ports from a Service", func() {
 		raw := makeServiceJSON("my-component", "dp-ns-proj-dev-abc123", []int32{8080, 9090})
-		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{makeResource(raw)})
+		result := extractAllServiceInfos([]openchoreov1alpha1.RenderedManifest{makeResource(raw)})
 		Expect(result).To(HaveLen(1))
 		Expect(result[0].name).To(Equal("my-component"))
 		Expect(result[0].namespace).To(Equal("dp-ns-proj-dev-abc123"))
@@ -798,7 +1195,7 @@ var _ = Describe("extractAllServiceInfos", func() {
 	It("should return all Services when multiple are present", func() {
 		svc1 := makeServiceJSON("first-svc", "ns1", []int32{8080})
 		svc2 := makeServiceJSON("second-svc", "ns2", []int32{9090})
-		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{
+		result := extractAllServiceInfos([]openchoreov1alpha1.RenderedManifest{
 			makeResource(svc1),
 			makeResource(svc2),
 		})
@@ -809,14 +1206,14 @@ var _ = Describe("extractAllServiceInfos", func() {
 
 	It("should handle Service with no ports", func() {
 		raw := makeServiceJSON("my-component", "dp-ns", nil)
-		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{makeResource(raw)})
+		result := extractAllServiceInfos([]openchoreov1alpha1.RenderedManifest{makeResource(raw)})
 		Expect(result).To(HaveLen(1))
 		Expect(result[0].name).To(Equal("my-component"))
 		Expect(result[0].ports).To(BeEmpty())
 	})
 
 	It("should skip resources with nil Object", func() {
-		result := extractAllServiceInfos([]openchoreov1alpha1.Resource{
+		result := extractAllServiceInfos([]openchoreov1alpha1.RenderedManifest{
 			{ID: "empty", Object: nil},
 		})
 		Expect(result).To(BeEmpty())
@@ -898,7 +1295,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(routeJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(routeJSON)},
 				endpoints,
 				existing,
 			)
@@ -916,13 +1313,13 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].ServiceURL).NotTo(BeNil())
-			Expect(result[0].ServiceURL.Scheme).To(Equal("http"))
+			Expect(result[0].ServiceURL.Scheme).To(Equal(schemeHTTP))
 			Expect(result[0].ServiceURL.Host).To(Equal(
 				fmt.Sprintf("%s.%s.svc.cluster.local", svcName, svcNS)))
 			Expect(result[0].ServiceURL.Port).To(Equal(int32(8080)))
@@ -944,7 +1341,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)
@@ -963,7 +1360,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)
@@ -982,7 +1379,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)
@@ -1001,7 +1398,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			})
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				nil,
 			)
@@ -1021,7 +1418,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			})
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				nil,
 			)
@@ -1042,7 +1439,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			})
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				nil,
 			)
@@ -1064,7 +1461,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)
@@ -1085,7 +1482,7 @@ var _ = Describe("resolveServiceURLs", func() {
 					Name: "greeter",
 					ExternalURLs: &openchoreov1alpha1.EndpointGatewayURLs{
 						HTTPS: &openchoreov1alpha1.EndpointURL{
-							Scheme: "https",
+							Scheme: schemeHTTPS,
 							Host:   "app.example.com",
 							Port:   443,
 						},
@@ -1094,7 +1491,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)
@@ -1119,7 +1516,7 @@ var _ = Describe("resolveServiceURLs", func() {
 			}
 			result := resolveServiceURLs(
 				ctx,
-				[]openchoreov1alpha1.Resource{makeResource(svcJSON)},
+				[]openchoreov1alpha1.RenderedManifest{makeResource(svcJSON)},
 				endpoints,
 				existing,
 			)
@@ -1138,11 +1535,11 @@ var _ = Describe("schemeForEndpointType", func() {
 		func(epType openchoreov1alpha1.EndpointType, expected string) {
 			Expect(schemeForEndpointType(epType)).To(Equal(expected))
 		},
-		Entry("HTTP", openchoreov1alpha1.EndpointTypeHTTP, "http"),
-		Entry("GraphQL", openchoreov1alpha1.EndpointTypeGraphQL, "http"),
-		Entry("Websocket", openchoreov1alpha1.EndpointTypeWebsocket, "ws"),
-		Entry("gRPC", openchoreov1alpha1.EndpointTypeGRPC, "grpc"),
-		Entry("TCP", openchoreov1alpha1.EndpointTypeTCP, "tcp"),
-		Entry("UDP", openchoreov1alpha1.EndpointTypeUDP, "udp"),
+		Entry("HTTP", openchoreov1alpha1.EndpointTypeHTTP, schemeHTTP),
+		Entry("GraphQL", openchoreov1alpha1.EndpointTypeGraphQL, schemeHTTP),
+		Entry("Websocket", openchoreov1alpha1.EndpointTypeWebsocket, schemeWS),
+		Entry("gRPC", openchoreov1alpha1.EndpointTypeGRPC, schemeGRPC),
+		Entry("TCP", openchoreov1alpha1.EndpointTypeTCP, schemeTCP),
+		Entry("UDP", openchoreov1alpha1.EndpointTypeUDP, schemeUDP),
 	)
 })

@@ -23,11 +23,15 @@ type SubjectContext struct {
 	EntitlementValues []string `json:"entitlement_values"`
 }
 
-// ResourceHierarchy represents a single item in a resource hierarchy
+// ResourceHierarchy represents a single item in a resource hierarchy.
+// Component and Resource are sibling sub-scopes under Project; a hierarchy
+// must not set both. The sibling invariant is enforced at the CRD layer
+// via kubebuilder XValidation on TargetScope / ClusterTargetScope.
 type ResourceHierarchy struct {
 	Namespace string `json:"namespace,omitempty"`
 	Project   string `json:"project,omitempty"`
 	Component string `json:"component,omitempty"`
+	Resource  string `json:"resource,omitempty"`
 }
 
 // Resource represents a resource in the authorization request
@@ -37,10 +41,24 @@ type Resource struct {
 	Hierarchy ResourceHierarchy `json:"hierarchy"`
 }
 
-// Context additional resource instance level context
+// Context carries root-namespaced ABAC attributes available to CEL condition expressions.
+// Each root corresponds to a CEL variable (e.g. resource.environment) and maps to a Go field here.
+// Adding new roots (principal, request) is a non-breaking additive change.
 type Context struct {
-	// This field is used for storing arbitrary key-value pairs that can be used for policy evaluation
-	// TODO: Define specific context fields as needed
+	// Resource holds attributes of the target resource instance.
+	Resource ResourceAttribute `json:"resource,omitempty"`
+}
+
+// ResourceAttribute holds target-resource attributes exposed to CEL under the "resource" root.
+type ResourceAttribute struct {
+	// Environment is the target environment (e.g. "dev", "staging", "prod").
+	Environment string `json:"environment,omitempty"`
+	// ComponentType is the ComponentType (or ClusterComponentType) name referenced by the Component being acted upon.
+	ComponentType string `json:"componentType,omitempty"`
+	// ResourceType is the ResourceType (or ClusterResourceType) name referenced by the Resource being acted upon.
+	ResourceType string `json:"resourceType,omitempty"`
+	// Workflow is the Workflow (or ClusterWorkflow) name referenced by the WorkflowRun being acted upon.
+	Workflow string `json:"workflow,omitempty"`
 }
 
 // Decision represents the authorization decision response
@@ -107,11 +125,16 @@ type ActionCapability struct {
 	Denied  []*CapabilityResource `json:"denied"`
 }
 
-// CapabilityResource represents a resource with permission details (SIMPLIFIED)
-type CapabilityResource struct {
-	Path        string       `json:"path"`        // Full resource path: "namespace/acme/project/payment"
-	Constraints *interface{} `json:"constraints"` // represents additional instance level restrictions
+// Constraints holds the CEL expressions that restrict access for a given action+path.
+// Multiple expressions are OR'd — access is granted if any one of them evaluates to true.
+type Constraints struct {
+	Expressions []string `json:"expressions"`
+}
 
+// CapabilityResource represents a resource with permission details
+type CapabilityResource struct {
+	Path        string       `json:"path"`                  // Full resource path: "namespace/acme/project/payment"
+	Constraints *Constraints `json:"constraints,omitempty"` // nil means unconditionally granted
 }
 
 // UserCapabilitiesResponse represents the complete capabilities response

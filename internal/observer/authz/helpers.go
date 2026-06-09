@@ -13,6 +13,19 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
+// FormatDualScopedResourceName returns the authz-engine identifier for a dual-scoped resource.
+// Namespace-scoped resources use "{namespace}/{name}"; cluster-scoped resources use plain "{name}".
+// An empty name returns "" so callers can omit the attribute when the scope is not provided.
+func FormatDualScopedResourceName(namespace, name string, isClusterScoped bool) string {
+	if name == "" {
+		return ""
+	}
+	if isClusterScoped || namespace == "" {
+		return name
+	}
+	return namespace + "/" + name
+}
+
 // ComponentScopeAuthz determines the authorization resource type, name, and hierarchy
 // from a component search scope (namespace/project/component). The most specific
 // non-empty field determines the resource type.
@@ -38,33 +51,48 @@ func ComponentScopeAuthz(namespace, project, component string) (ResourceType, st
 	}
 }
 
+// searchScopeAuthz determines the authorization resource type, name, and hierarchy
+// from a component/workflow search scope union, shared by logs and events queries.
+func searchScopeAuthz(scope *types.SearchScope) (ResourceType, string, authzcore.ResourceHierarchy, error) {
+	if scope == nil {
+		return "", "", authzcore.ResourceHierarchy{}, fmt.Errorf("search scope is required")
+	}
+	if scope.Component != nil {
+		c := scope.Component
+		rt, rn, h := ComponentScopeAuthz(c.Namespace, c.Project, c.Component)
+		return rt, rn, h, nil
+	}
+	if scope.Workflow != nil {
+		w := scope.Workflow
+		if w.WorkflowRunName != "" {
+			return ResourceTypeWorkflowRun, w.WorkflowRunName,
+				authzcore.ResourceHierarchy{Namespace: w.Namespace}, nil
+		}
+		return ResourceTypeNamespace, w.Namespace,
+			authzcore.ResourceHierarchy{Namespace: w.Namespace}, nil
+	}
+	return "", "", authzcore.ResourceHierarchy{}, fmt.Errorf("invalid search scope")
+}
+
 // LogsScopeAuthz determines the authorization resource type, name, and hierarchy
 // from a logs query request's search scope.
 func LogsScopeAuthz(req *types.LogsQueryRequest) (ResourceType, string, authzcore.ResourceHierarchy, error) {
 	if req == nil {
 		return "", "", authzcore.ResourceHierarchy{}, fmt.Errorf("request is required")
 	}
-	if req.SearchScope == nil {
-		return "", "", authzcore.ResourceHierarchy{}, fmt.Errorf("search scope is required")
-	}
-	if req.SearchScope.Component != nil {
-		scope := req.SearchScope.Component
-		rt, rn, h := ComponentScopeAuthz(scope.Namespace, scope.Project, scope.Component)
-		return rt, rn, h, nil
-	}
-	if req.SearchScope.Workflow != nil {
-		scope := req.SearchScope.Workflow
-		if scope.WorkflowRunName != "" {
-			return ResourceTypeWorkflowRun, scope.WorkflowRunName,
-				authzcore.ResourceHierarchy{Namespace: scope.Namespace}, nil
-		}
-		return ResourceTypeNamespace, scope.Namespace,
-			authzcore.ResourceHierarchy{Namespace: scope.Namespace}, nil
-	}
-	return "", "", authzcore.ResourceHierarchy{}, fmt.Errorf("invalid search scope")
+	return searchScopeAuthz(req.SearchScope)
 }
 
-// CheckAuthorization performs a complete authorization check for observer operations
+// EventsScopeAuthz determines the authorization resource type, name, and hierarchy
+// from an events query request's search scope.
+func EventsScopeAuthz(req *types.EventsQueryRequest) (ResourceType, string, authzcore.ResourceHierarchy, error) {
+	if req == nil {
+		return "", "", authzcore.ResourceHierarchy{}, fmt.Errorf("request is required")
+	}
+	return searchScopeAuthz(req.SearchScope)
+}
+
+// CheckAuthorization performs a complete authorization check for observer operations.
 func CheckAuthorization(
 	ctx context.Context,
 	logger *slog.Logger,
@@ -73,6 +101,7 @@ func CheckAuthorization(
 	resourceType ResourceType,
 	resourceID string,
 	hierarchy authzcore.ResourceHierarchy,
+	authzCtx authzcore.Context,
 ) error {
 	if pdp == nil {
 		logger.Debug("Authorization disabled, skipping check")
@@ -100,7 +129,7 @@ func CheckAuthorization(
 			ID:        resourceID,
 			Hierarchy: hierarchy,
 		},
-		Context: authzcore.Context{},
+		Context: authzCtx,
 	}
 
 	decision, err := pdp.Evaluate(ctx, authzReq)

@@ -1,0 +1,20 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# ClusterObservabilityPlane CR for e2e testing.
+# Cluster-scoped ObservabilityPlane that can be referenced from any control
+# plane namespace — required so the linker step (`_e2e.link-observability`)
+# can patch `clusterdataplane.spec.observabilityPlaneRef` to point at it.
+# The clusterAgent.clientCA.value is replaced at apply time by the Makefile.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterObservabilityPlane
+metadata:
+  name: default
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: ""
+  # In-cluster URL of the observer Service. Same service the e2e suites'
+  # framework helpers target via observer.openchoreo-observability-plane.svc.
+  observerURL: http://observer.openchoreo-observability-plane.svc.cluster.local:8080

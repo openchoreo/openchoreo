@@ -1358,6 +1358,15 @@ const singleDeploymentResourceYAML = `
     name: app
 `
 
+// singleConfigMapAResourceYAML is a minimal single-ConfigMap fixture reused by
+// the trait-removes error-path tests.
+const singleConfigMapAResourceYAML = `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: a
+`
+
 func TestApplyTraitCreates_ForEach(t *testing.T) {
 	engine := template.NewEngine()
 	processor := NewProcessor(engine)
@@ -2146,6 +2155,582 @@ spec:
 	_, err := processor.ProcessTraits(resources, &trait, ctx)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "path")
+}
+
+func TestApplyTraitRemoves(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: app-route
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: app-svc
+- apiVersion: gateway.networking.k8s.io/v1alpha2
+  kind: TLSRoute
+  metadata:
+    name: app-tls-route
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: passthrough
+spec:
+  removes:
+    - target:
+        kind: HTTPRoute
+        version: v1
+        group: gateway.networking.k8s.io
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	got, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
+	require.NoError(t, err)
+
+	gotResources := extractResources(got)
+	wantYAML := `
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: app-svc
+- apiVersion: gateway.networking.k8s.io/v1alpha2
+  kind: TLSRoute
+  metadata:
+    name: app-tls-route
+`
+	var wantResources []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(wantYAML), &wantResources))
+	if diff := cmp.Diff(wantResources, gotResources); diff != "" {
+		t.Errorf("ApplyTraitRemoves() mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestApplyTraitRemoves_WhereClause(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: app-route
+    labels:
+      mode: terminate
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: passthrough-route
+    labels:
+      mode: passthrough
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: drop-passthrough
+spec:
+  removes:
+    - target:
+        kind: HTTPRoute
+        version: v1
+        group: gateway.networking.k8s.io
+        where: ${resource.metadata.labels.mode == "passthrough"}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	got, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
+	require.NoError(t, err)
+
+	require.Len(t, got, 1)
+	gotMeta := got[0].Resource["metadata"].(map[string]any)
+	assert.Equal(t, "app-route", gotMeta["name"])
+}
+
+func TestApplyTraitRemoves_NoMatch(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: app-svc
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	// Snapshot the resource before the call to verify it is truly unmodified
+	before := deepCopy(resources[0].Resource)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: nothing-to-remove
+spec:
+  removes:
+    - target:
+        kind: HTTPRoute
+        version: v1
+        group: gateway.networking.k8s.io
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	got, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
+	require.NoError(t, err)
+	require.Len(t, got, 1, "no-match must be a silent no-op")
+	if diff := cmp.Diff(before, got[0].Resource); diff != "" {
+		t.Errorf("resource was modified despite no matching remove target (-before +after):\n%s", diff)
+	}
+}
+
+func TestApplyTraitRemoves_ForEach(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: a
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: b
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: c
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: prune
+spec:
+  removes:
+    - forEach: ${parameters.names}
+      var: name
+      target:
+        kind: ConfigMap
+        version: v1
+        group: ""
+        where: ${resource.metadata.name == name}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{
+		"parameters": map[string]any{
+			"names": []any{"a", "c"},
+		},
+	}
+
+	got, err := processor.ApplyTraitRemoves(resources, &trait, ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	gotMeta := got[0].Resource["metadata"].(map[string]any)
+	assert.Equal(t, "b", gotMeta["name"])
+}
+
+func TestApplyTraitRemoves_TargetPlane(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: dp-config
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: obs-config
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+
+	resources := []renderer.RenderedResource{
+		{Resource: deepCopy(resourceMaps[0]), TargetPlane: v1alpha1.TargetPlaneDataPlane},
+		{Resource: deepCopy(resourceMaps[1]), TargetPlane: v1alpha1.TargetPlaneObservabilityPlane},
+	}
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: dp-only
+spec:
+  removes:
+    - target:
+        kind: ConfigMap
+        version: v1
+        group: ""
+      targetPlane: dataplane
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	got, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	gotMeta := got[0].Resource["metadata"].(map[string]any)
+	assert.Equal(t, "obs-config", gotMeta["name"], "observability resource must survive a dataplane-scoped remove")
+}
+
+func TestApplyTraitRemoves_WhereClauseNonBoolean(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: foo
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: bad-where
+spec:
+  removes:
+    - target:
+        kind: ConfigMap
+        version: v1
+        group: ""
+        where: ${resource.metadata.name}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	_, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must evaluate to boolean")
+}
+
+func TestApplyTraitRemoves_ForEachRenderError(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resources := toRenderedResources([]map[string]any{})
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: bad-foreach
+spec:
+  removes:
+    - forEach: ${nonexistent.deeply.nested}
+      var: x
+      target:
+        kind: ConfigMap
+        version: v1
+        group: ""
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	_, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "forEach")
+}
+
+func TestApplyTraitRemoves_ForEachNonIterable(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resources := toRenderedResources([]map[string]any{})
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: not-iterable
+spec:
+  removes:
+    - forEach: ${parameters.scalar}
+      var: x
+      target:
+        kind: ConfigMap
+        version: v1
+        group: ""
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{"parameters": map[string]any{"scalar": 42}}
+
+	_, err := processor.ApplyTraitRemoves(resources, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "forEach")
+}
+
+func TestApplyTraitRemoves_ForEachDefaultItemVar(t *testing.T) {
+	// Verifies that when `var` is omitted, the loop binding defaults to "item".
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: a
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: b
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: default-item-var
+spec:
+  removes:
+    - forEach: ${parameters.names}
+      target:
+        kind: ConfigMap
+        version: v1
+        group: ""
+        where: ${resource.metadata.name == item}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{"parameters": map[string]any{"names": []any{"a"}}}
+
+	got, err := processor.ApplyTraitRemoves(resources, &trait, ctx)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	gotMeta := got[0].Resource["metadata"].(map[string]any)
+	assert.Equal(t, "b", gotMeta["name"])
+}
+
+func TestApplyTraitRemoves_ForEachInnerError(t *testing.T) {
+	// A bad where clause inside a forEach iteration must propagate as a
+	// "forEach iteration N failed" error.
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(singleConfigMapAResourceYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: bad-inner-where
+spec:
+  removes:
+    - forEach: ${parameters.names}
+      var: name
+      target:
+        kind: ConfigMap
+        version: v1
+        group: ""
+        where: ${nonexistent.deeply.nested}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	ctx := map[string]any{"parameters": map[string]any{"names": []any{"a"}}}
+
+	_, err := processor.ApplyTraitRemoves(resources, &trait, ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "forEach iteration")
+}
+
+func TestApplyTraitRemoves_WhereClauseError(t *testing.T) {
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(singleConfigMapAResourceYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: bad-where-eval
+spec:
+  removes:
+    - target:
+        kind: ConfigMap
+        version: v1
+        group: ""
+        where: ${nonexistent.deeply.nested}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	_, err := processor.ApplyTraitRemoves(resources, &trait, map[string]any{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "where clause")
+}
+
+func TestApplyTraitRemoves_PreservesResourceBinding(t *testing.T) {
+	// When the caller already has a "resource" binding in its context, the
+	// removes step must restore it on exit (rather than leaving the last-iterated
+	// target in scope).
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(singleConfigMapAResourceYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: preserves-binding
+spec:
+  removes:
+    - target:
+        kind: ConfigMap
+        version: v1
+        group: ""
+        where: ${resource.metadata.name == "a"}
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	sentinel := map[string]any{"name": "caller-sentinel"}
+	ctx := map[string]any{"resource": sentinel}
+
+	_, err := processor.ApplyTraitRemoves(resources, &trait, ctx)
+	require.NoError(t, err)
+	got, ok := ctx["resource"].(map[string]any)
+	require.True(t, ok, "caller's resource binding must remain a map")
+	assert.Equal(t, "caller-sentinel", got["name"], "caller's resource binding must be restored")
+}
+
+func TestMatchesTarget_GroupVersionMismatch(t *testing.T) {
+	// Direct unit test for matchesTarget exercising both the group-mismatch and
+	// version-mismatch early returns, which the higher-level integration tests
+	// don't otherwise touch.
+	rr := renderer.RenderedResource{
+		Resource: map[string]any{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+		},
+		TargetPlane: v1alpha1.TargetPlaneDataPlane,
+	}
+
+	assert.False(t, matchesTarget(rr, TargetSpec{Group: "batch", Version: "v1", Kind: "Deployment"}),
+		"group mismatch must not match")
+	assert.False(t, matchesTarget(rr, TargetSpec{Group: "apps", Version: "v2", Kind: "Deployment"}),
+		"version mismatch must not match")
+	assert.True(t, matchesTarget(rr, TargetSpec{Group: "apps", Version: "v1", Kind: "Deployment"}),
+		"full match must match")
+}
+
+func TestProcessTraits_CreatesPatchesRemovesOrder(t *testing.T) {
+	// Verifies the documented Creates -> Patches -> Removes ordering: a single trait
+	// can create a replacement, patch an unrelated sibling, and then drop the
+	// originally-rendered HTTPRoute, all in one pass.
+	engine := template.NewEngine()
+	processor := NewProcessor(engine)
+
+	resourcesYAML := `
+- apiVersion: gateway.networking.k8s.io/v1
+  kind: HTTPRoute
+  metadata:
+    name: app-route
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: app-svc
+`
+	var resourceMaps []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(resourcesYAML), &resourceMaps))
+	resources := toRenderedResources(resourceMaps)
+
+	traitYAML := `
+apiVersion: choreo.dev/v1alpha1
+kind: Trait
+metadata:
+  name: passthrough
+spec:
+  creates:
+    - template:
+        apiVersion: gateway.networking.k8s.io/v1alpha2
+        kind: TLSRoute
+        metadata:
+          name: app-tls-route
+  patches:
+    - target:
+        kind: Service
+        version: v1
+        group: ""
+      operations:
+        - op: add
+          path: /metadata/labels
+          value:
+            tls-mode: passthrough
+  removes:
+    - target:
+        kind: HTTPRoute
+        version: v1
+        group: gateway.networking.k8s.io
+`
+	var trait v1alpha1.Trait
+	require.NoError(t, yaml.Unmarshal([]byte(traitYAML), &trait))
+
+	got, err := processor.ProcessTraits(resources, &trait, map[string]any{})
+	require.NoError(t, err)
+
+	gotResources := extractResources(got)
+	wantYAML := `
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: app-svc
+    labels:
+      tls-mode: passthrough
+- apiVersion: gateway.networking.k8s.io/v1alpha2
+  kind: TLSRoute
+  metadata:
+    name: app-tls-route
+`
+	var wantResources []map[string]any
+	require.NoError(t, yaml.Unmarshal([]byte(wantYAML), &wantResources))
+	if diff := cmp.Diff(wantResources, gotResources); diff != "" {
+		t.Errorf("ProcessTraits() mismatch (-want +got):\n%s", diff)
+	}
 }
 
 // Helper functions

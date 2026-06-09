@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.4
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: componentreleases.openchoreo.dev
 spec:
   group: openchoreo.dev
@@ -575,6 +575,75 @@ spec:
                             - message: var is required when forEach is specified
                               rule: '!has(self.forEach) || has(self.var)'
                           type: array
+                        removes:
+                          description: |-
+                            Removes deletes whole resources previously produced by the ComponentType or earlier traits.
+                            Workload resources (e.g. Deployment, StatefulSet, CronJob) cannot be removed.
+                          items:
+                            description: |-
+                              TraitRemove deletes whole resources previously produced by the ComponentType or earlier traits.
+                              Unlike TraitPatch, it removes the matched resources entirely instead of modifying them.
+                              Workload resource kinds (e.g. Deployment, StatefulSet, CronJob) are rejected by the webhook.
+                            properties:
+                              forEach:
+                                description: |-
+                                  ForEach repeats this remove for every item in a CEL-evaluated list
+                                  Requires 'var' to be set to name the binding used in the where clause
+                                  Example: forEach: ${parameters.routesToDrop}
+                                pattern: ^\$\{[\s\S]+\}\s*$
+                                type: string
+                              target:
+                                description: Target specifies which resource to remove.
+                                  Matching resources are deleted entirely.
+                                properties:
+                                  group:
+                                    description: |-
+                                      Group is the API group of the resource (e.g., "apps", "batch")
+                                      Must be explicitly set. Use empty string "" for core API resources (v1 Service, ConfigMap, etc.)
+                                    type: string
+                                  kind:
+                                    description: Kind is the resource type to patch
+                                      (e.g., "Deployment", "StatefulSet")
+                                    minLength: 1
+                                    type: string
+                                  version:
+                                    description: Version is the API version of the
+                                      resource (e.g., "v1", "v1beta1")
+                                    minLength: 1
+                                    type: string
+                                  where:
+                                    description: |-
+                                      Where is an optional CEL expression to filter which resources to patch
+                                      Example: ${resource.metadata.name.endsWith("-secret-envs")}
+                                    pattern: ^\$\{[\s\S]+\}\s*$
+                                    type: string
+                                required:
+                                - group
+                                - kind
+                                - version
+                                type: object
+                              targetPlane:
+                                default: dataplane
+                                description: |-
+                                  TargetPlane specifies which plane's resources this remove targets
+                                  Defaults to "dataplane" if not specified
+                                enum:
+                                - dataplane
+                                - observabilityplane
+                                type: string
+                              var:
+                                description: |-
+                                  Var names the binding for forEach iterations
+                                  Required when forEach is specified
+                                pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+                                type: string
+                            required:
+                            - target
+                            type: object
+                            x-kubernetes-validations:
+                            - message: var is required when forEach is specified
+                              rule: '!has(self.forEach) || has(self.var)'
+                          type: array
                         validations:
                           description: |-
                             Validations are CEL-based rules evaluated during rendering.
@@ -650,8 +719,10 @@ spec:
                                   description: Reference to a secret resource.
                                   properties:
                                     key:
+                                      minLength: 1
                                       type: string
                                     name:
+                                      minLength: 1
                                       type: string
                                   required:
                                   - key
@@ -662,8 +733,8 @@ spec:
                           - key
                           type: object
                           x-kubernetes-validations:
-                          - message: exactly one of value or valueFrom must be set
-                            rule: has(self.value) != has(self.valueFrom)
+                          - message: value and valueFrom are mutually exclusive
+                            rule: '!(has(self.value) && has(self.valueFrom))'
                         type: array
                       files:
                         description: File configurations.
@@ -691,8 +762,10 @@ spec:
                                   description: Reference to a secret resource.
                                   properties:
                                     key:
+                                      minLength: 1
                                       type: string
                                     name:
+                                      minLength: 1
                                       type: string
                                   required:
                                   - key
@@ -704,8 +777,8 @@ spec:
                           - mountPath
                           type: object
                           x-kubernetes-validations:
-                          - message: exactly one of value or valueFrom must be set
-                            rule: has(self.value) != has(self.valueFrom)
+                          - message: value and valueFrom are mutually exclusive
+                            rule: '!(has(self.value) && has(self.valueFrom))'
                         type: array
                       image:
                         description: OCI image to run (digest or tag).
@@ -764,17 +837,11 @@ spec:
                                 Required when namespace is specified.
                               type: string
                             visibility:
-                              allOf:
-                              - enum:
-                                - project
-                                - namespace
-                                - internal
-                                - external
-                              - enum:
-                                - project
-                                - namespace
                               description: Visibility is the visibility level at which
                                 this connection consumes the endpoint.
+                              enum:
+                              - project
+                              - namespace
                               type: string
                           required:
                           - component
@@ -784,6 +851,59 @@ spec:
                           type: object
                         maxItems: 50
                         type: array
+                      resources:
+                        description: |-
+                          Resources define how this workload consumes outputs from project-bound Resources.
+                          Each entry references a Resource by name and binds named outputs of the resolved
+                          ResourceReleaseBinding to container env vars (envBindings) and file mounts (fileBindings).
+                        items:
+                          description: |-
+                            WorkloadResourceDependency represents a dependency on a project-bound Resource. Output names
+                            declared on the referenced ResourceType are wired into the consuming container as env vars
+                            (envBindings) and file mounts (fileBindings). Outputs not listed in either map are ignored.
+                          properties:
+                            envBindings:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                EnvBindings maps a ResourceType output name to a container environment variable name.
+                                The output's source kind (value, secretKeyRef, configMapKeyRef) determines whether the
+                                resulting env var is a literal or a valueFrom reference.
+                              maxProperties: 50
+                              type: object
+                              x-kubernetes-validations:
+                              - message: envBindings keys (output names) and values
+                                  (env var names) cannot be empty
+                                rule: self.all(k, k.size() > 0 && self[k].size() >
+                                  0)
+                            fileBindings:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                FileBindings maps a ResourceType output name to a container mount path. The referenced
+                                output's source kind must be secretKeyRef or configMapKeyRef; value-kind outputs cannot
+                                be mounted as files because there is no DP-side object to mount.
+                              maxProperties: 50
+                              type: object
+                              x-kubernetes-validations:
+                              - message: fileBindings keys (output names) and values
+                                  (mount paths) cannot be empty
+                                rule: self.all(k, k.size() > 0 && self[k].size() >
+                                  0)
+                            ref:
+                              description: |-
+                                Ref is the name of the Resource to consume. The Resource must live in the same project as
+                                the consuming Component (cross-project consumption is deferred to a later release).
+                              minLength: 1
+                              type: string
+                          required:
+                          - ref
+                          type: object
+                        maxItems: 50
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - ref
+                        x-kubernetes-list-type: map
                     type: object
                   endpoints:
                     additionalProperties:

@@ -41,19 +41,17 @@ func getWorkflowNamespace(namespaceName string) string {
 }
 
 type gitSecretService struct {
-	k8sClient   client.Client
-	wpClientMgr *kubernetesClient.KubeMultiClientManager
-	logger      *slog.Logger
-	gatewayURL  string
+	k8sClient           client.Client
+	planeClientProvider kubernetesClient.WorkflowPlaneClientProvider
+	logger              *slog.Logger
 }
 
 // NewService creates a new git secret service without authorization.
-func NewService(k8sClient client.Client, wpClientMgr *kubernetesClient.KubeMultiClientManager, logger *slog.Logger, gatewayURL string) Service {
+func NewService(k8sClient client.Client, planeClientProvider kubernetesClient.WorkflowPlaneClientProvider, logger *slog.Logger) Service {
 	return &gitSecretService{
-		k8sClient:   k8sClient,
-		wpClientMgr: wpClientMgr,
-		logger:      logger,
-		gatewayURL:  gatewayURL,
+		k8sClient:           k8sClient,
+		planeClientProvider: planeClientProvider,
+		logger:              logger,
 	}
 }
 
@@ -251,7 +249,7 @@ func (s *gitSecretService) resolveNamespacedWorkflowPlane(ctx context.Context, n
 		return nil, ErrSecretStoreNotConfigured
 	}
 
-	wpClient, err := kubernetesClient.GetK8sClientFromWorkflowPlane(s.wpClientMgr, wp, s.gatewayURL)
+	wpClient, err := s.planeClientProvider.WorkflowPlaneClient(wp)
 	if err != nil {
 		s.logger.Error("Failed to get workflow plane client", "error", err, "namespace", namespaceName, "name", name)
 		return nil, fmt.Errorf("failed to get workflow plane client: %w", err)
@@ -280,7 +278,7 @@ func (s *gitSecretService) resolveClusterWorkflowPlane(ctx context.Context, name
 		return nil, ErrSecretStoreNotConfigured
 	}
 
-	wpClient, err := kubernetesClient.GetK8sClientFromClusterWorkflowPlane(s.wpClientMgr, cwp, s.gatewayURL)
+	wpClient, err := s.planeClientProvider.ClusterWorkflowPlaneClient(cwp)
 	if err != nil {
 		s.logger.Error("Failed to get cluster workflow plane client", "error", err, "name", name)
 		return nil, fmt.Errorf("failed to get cluster workflow plane client: %w", err)

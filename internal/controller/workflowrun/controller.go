@@ -32,13 +32,12 @@ import (
 // Reconciler reconciles a WorkflowRun object
 type Reconciler struct {
 	client.Client
-	Scheme       *runtime.Scheme
-	K8sClientMgr *kubernetesClient.KubeMultiClientManager
+	Scheme              *runtime.Scheme
+	PlaneClientProvider kubernetesClient.WorkflowPlaneClientProvider
 
 	// Pipeline is the workflow rendering pipeline, shared across all reconciliations.
 	// This enables CEL environment caching across different workflow runs and reconciliations.
-	Pipeline   *workflowpipeline.Pipeline
-	GatewayURL string
+	Pipeline *workflowpipeline.Pipeline
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns,verbs=get;list;watch;create;update;patch;delete
@@ -149,7 +148,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		Spec: workflowSpec,
 	}
 
-	workflowPlaneResult, err := controller.ResolveWorkflowPlane(ctx, r.Client, workflowRun.Namespace, workflow.Spec.WorkflowPlaneRef)
+	workflowPlaneResult, err := controller.GetWorkflowPlaneFromRef(ctx, r.Client, workflowRun.Namespace, workflow.Spec.WorkflowPlaneRef)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("No workflow plane found for workflow",
@@ -163,12 +162,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			"namespace", workflowRun.Namespace)
 		setWorkflowPlaneResolutionFailedCondition(workflowRun, err)
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-	if workflowPlaneResult == nil {
-		logger.Info("No workflow plane found for workflow",
-			"workflowrun", workflowRun.Name)
-		setWorkflowPlaneNotFoundCondition(workflowRun)
-		return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
 	}
 
 	wpClient, err := r.getWorkflowPlaneClient(workflowPlaneResult)
@@ -460,7 +453,7 @@ func (r *Reconciler) applyRenderedResources(
 }
 
 func (r *Reconciler) getWorkflowPlaneClient(workflowPlaneResult *controller.WorkflowPlaneResult) (client.Client, error) {
-	wpClient, err := workflowPlaneResult.GetK8sClient(r.K8sClientMgr, r.GatewayURL)
+	wpClient, err := workflowPlaneResult.GetK8sClient(r.PlaneClientProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow plane client: %w", err)
 	}
@@ -469,10 +462,6 @@ func (r *Reconciler) getWorkflowPlaneClient(workflowPlaneResult *controller.Work
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if r.K8sClientMgr == nil {
-		r.K8sClientMgr = kubernetesClient.NewManager()
-	}
-
 	if r.Pipeline == nil {
 		r.Pipeline = workflowpipeline.NewPipeline()
 	}

@@ -39,11 +39,6 @@ type UseContextParams struct {
 	Name string
 }
 
-// DescribeContextParams defines parameters for describing a context
-type DescribeContextParams struct {
-	Name string
-}
-
 // AddControlPlaneParams defines parameters for adding a control plane configuration
 type AddControlPlaneParams struct {
 	Name string

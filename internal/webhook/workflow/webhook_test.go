@@ -42,6 +42,13 @@ var _ = Describe("Workflow Webhook", func() {
 	})
 
 	Context("When creating Workflow under Validating Webhook", func() {
+		It("Should return an error when given a non-Workflow object on create", func() {
+			wrongObj := &openchoreodevv1alpha1.ClusterWorkflow{}
+			_, err := validator.ValidateCreate(ctx, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a Workflow object but got"))
+		})
+
 		It("Should admit a valid workflow with correct runTemplate", func() {
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
@@ -237,6 +244,13 @@ var _ = Describe("Workflow Webhook", func() {
 	})
 
 	Context("When updating Workflow under Validating Webhook", func() {
+		It("Should return an error when given a non-Workflow newObj on update", func() {
+			wrongObj := &openchoreodevv1alpha1.ClusterWorkflow{}
+			_, err := validator.ValidateUpdate(ctx, obj, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a Workflow object for the newObj but got"))
+		})
+
 		It("Should validate the new object on update", func() {
 			newObj := obj.DeepCopy()
 			newObj.Spec.RunTemplate = &runtime.RawExtension{
@@ -249,6 +263,31 @@ var _ = Describe("Workflow Webhook", func() {
 	})
 
 	Context("When defaulting Workflow", func() {
+		It("Should return an error when given a non-Workflow object on default", func() {
+			wrongObj := &openchoreodevv1alpha1.ClusterWorkflow{}
+			err := defaulter.Default(ctx, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a Workflow object but got"))
+		})
+
+		It("Should return error when runTemplate has invalid JSON", func() {
+			obj.Spec.RunTemplate = &runtime.RawExtension{
+				Raw: []byte(`{bad json}`),
+			}
+			err := defaulter.Default(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to unmarshal runTemplate"))
+		})
+
+		It("Should return error when runTemplate spec is not an object", func() {
+			obj.Spec.RunTemplate = &runtime.RawExtension{
+				Raw: []byte(`{"spec": "not-an-object"}`),
+			}
+			err := defaulter.Default(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("spec is"))
+		})
+
 		It("Should inject serviceAccountName into runTemplate", func() {
 			obj.Spec.RunTemplate = &runtime.RawExtension{
 				Raw: []byte(`{"apiVersion":"argoproj.io/v1alpha1","kind":"Workflow","metadata":{"name":"test","namespace":"${metadata.namespace}"},"spec":{"entrypoint":"build"}}`),
@@ -301,6 +340,30 @@ var _ = Describe("Workflow Webhook", func() {
 			obj.Spec.RunTemplate = nil
 			err := defaulter.Default(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("When deleting Workflow under Validating Webhook", func() {
+		It("Should admit deletion of a valid Workflow", func() {
+			_, err := validator.ValidateDelete(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("Should return an error when given a non-Workflow object on delete", func() {
+			wrongObj := &openchoreodevv1alpha1.ClusterWorkflow{}
+			_, err := validator.ValidateDelete(ctx, wrongObj)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("expected a Workflow object but got"))
+		})
+	})
+
+	Context("When runTemplate has malformed JSON", func() {
+		It("Should reject workflow with malformed runTemplate JSON", func() {
+			obj.Spec.RunTemplate = &runtime.RawExtension{
+				Raw: []byte(`{bad json}`),
+			}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

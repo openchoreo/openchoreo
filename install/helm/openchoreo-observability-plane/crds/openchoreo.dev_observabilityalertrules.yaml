@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.4
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: observabilityalertrules.openchoreo.dev
 spec:
   group: openchoreo.dev
@@ -66,6 +66,12 @@ spec:
                         description: Enabled toggles whether an incident should be
                           triggered when the alert rule is triggered.
                         type: boolean
+                      triggerAiCostAnalysis:
+                        default: false
+                        description: |-
+                          TriggerAiCostAnalysis toggles whether an AI cost analysis should be triggered when an incident is created.
+                          To set this to true, Enabled must also be set to true.
+                        type: boolean
                       triggerAiRca:
                         default: false
                         description: |-
@@ -76,6 +82,9 @@ spec:
                     x-kubernetes-validations:
                     - message: Incident must be enabled to trigger AI RCA
                       rule: 'self.triggerAiRca == true ? self.enabled == true : true'
+                    - message: Incident must be enabled to trigger AI cost analysis
+                      rule: 'self.triggerAiCostAnalysis == true ? self.enabled ==
+                        true : true'
                   notifications:
                     description: Notifications defines the notifications to send when
                       the alert rule is triggered.
@@ -161,6 +170,7 @@ spec:
                     enum:
                     - log
                     - metric
+                    - budget
                     type: string
                 required:
                 - type
@@ -171,6 +181,10 @@ spec:
             - name
             - source
             type: object
+            x-kubernetes-validations:
+            - message: AI cost analysis can only be triggered for budget alerts
+              rule: 'has(self.actions.incident) && self.actions.incident.triggerAiCostAnalysis
+                == true ? self.source.type == ''budget'' : true'
           status:
             description: ObservabilityAlertRuleStatus defines the observed state of
               ObservabilityAlertRule.

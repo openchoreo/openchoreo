@@ -24,6 +24,13 @@ const (
 	LabelKeyComponentUID   = "openchoreo.dev/component-uid"
 	LabelKeyEnvironmentUID = "openchoreo.dev/environment-uid"
 
+	// LabelKeyResourceName identifies the Resource (managed-infrastructure
+	// abstraction) that owns a rendered DP-side object.
+	LabelKeyResourceName = "openchoreo.dev/resource"
+	// LabelKeyResourceUID carries the owning Resource CR's UID for stable
+	// identification across name reuse.
+	LabelKeyResourceUID = "openchoreo.dev/resource-uid"
+
 	// LabelKeyCreatedBy identifies which controller initially created a resource (audit trail).
 	// Example: A namespace created by renderedrelease-controller would have created-by=renderedrelease-controller.
 	// Note: For shared resources like namespaces, the creator and lifecycle manager may differ.
@@ -71,6 +78,13 @@ const (
 	// AnnotationKeyDPResourceHash contains a hash of all dataplane resources (excluding the main workload)
 	// to trigger pod rollout when dependent ConfigMaps, Secrets, etc. change.
 	AnnotationKeyDPResourceHash = "openchoreo.dev/dp-resource-hash"
+
+	// AnnotationKeyEndpointBasePath records the gateway-exposed base path of a rendered route
+	// (e.g. HTTPRoute). The ReleaseBinding controller uses it to construct the endpoint invoke URL.
+	// It is required for routes that render per-resource matches (e.g. one match per OpenAPI path),
+	// where the first route match is a specific operation rather than the endpoint base. When absent,
+	// the controller falls back to the first route match path (the prefix-routing convention).
+	AnnotationKeyEndpointBasePath = "openchoreo.dev/endpoint-base-path"
 
 	LabelValueManagedBy = "openchoreo-control-plane"
 	// LabelValueTrue is the standard "true" value for boolean labels

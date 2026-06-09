@@ -5,16 +5,27 @@ package kubernetes
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"io"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
@@ -47,6 +58,18 @@ func fakeResponse(statusCode int, body string) *http.Response {
 
 func boolPtr(b bool) *bool { return &b }
 
+type unknownRuntimeObject struct {
+	metav1.TypeMeta
+}
+
+func (o *unknownRuntimeObject) DeepCopyObject() runtime.Object {
+	if o == nil {
+		return nil
+	}
+	copy := *o
+	return &copy
+}
+
 const (
 	testPodName      = "nginx"
 	testPodNamespace = "default"
@@ -56,6 +79,71 @@ const (
 )
 
 // ───────────────────────── Pure-logic helper tests ─────────────────────────
+
+func TestNewProxyClientValidation(t *testing.T) {
+	tests := []struct {
+		name            string
+		gatewayURL      string
+		planeIdentifier string
+		crNamespace     string
+		crName          string
+		tlsConfig       *ProxyTLSConfig
+		wantErr         string
+	}{
+		{
+			name:            "empty gateway URL",
+			gatewayURL:      "",
+			planeIdentifier: "dataplane/test-plane",
+			crNamespace:     "test-ns",
+			crName:          "test-cr",
+			wantErr:         "gatewayURL is required",
+		},
+		{
+			name:            "empty plane identifier",
+			gatewayURL:      "https://gateway.example.com",
+			planeIdentifier: "",
+			crNamespace:     "test-ns",
+			crName:          "test-cr",
+			wantErr:         "planeIdentifier is required",
+		},
+		{
+			name:            "empty CR name",
+			gatewayURL:      "https://gateway.example.com",
+			planeIdentifier: "dataplane/test-plane",
+			crNamespace:     "test-ns",
+			crName:          "",
+			wantErr:         "crName is required",
+		},
+		{
+			name:            "invalid plane identifier format",
+			gatewayURL:      "https://gateway.example.com",
+			planeIdentifier: "dataplane-only",
+			crNamespace:     "test-ns",
+			crName:          "test-cr",
+			wantErr:         "invalid planeIdentifier format",
+		},
+		{
+			name:            "tls config build failure",
+			gatewayURL:      "https://gateway.example.com",
+			planeIdentifier: "dataplane/test-plane",
+			crNamespace:     "test-ns",
+			crName:          "test-cr",
+			tlsConfig: &ProxyTLSConfig{
+				CACertPath: "/path/does/not/exist/ca.crt",
+			},
+			wantErr: "failed to build TLS config",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewProxyClient(tt.gatewayURL, tt.planeIdentifier, tt.crNamespace, tt.crName, tt.tlsConfig)
+			require.Error(t, err)
+			assert.Nil(t, got)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
 
 func TestPluralizeKind(t *testing.T) {
 	tests := []struct {
@@ -144,6 +232,135 @@ func TestGetGVK(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "ConfigMap", gvk.Kind)
 	assert.Equal(t, "v1", gvk.Version)
+
+	// Unknown type should fail scheme lookup
+	_, err = getGVK(&unknownRuntimeObject{}, k8sscheme.Scheme)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get GVK")
+}
+
+func TestBuildProxyTLSConfig(t *testing.T) {
+	t.Run("nil config uses default verification", func(t *testing.T) {
+		cfg, err := buildProxyTLSConfig(nil)
+		require.NoError(t, err)
+		assert.False(t, cfg.InsecureSkipVerify)
+		assert.Equal(t, uint16(tls.VersionTLS12), cfg.MinVersion)
+	})
+
+	t.Run("empty config without CA uses default verification", func(t *testing.T) {
+		cfg, err := buildProxyTLSConfig(&ProxyTLSConfig{})
+		require.NoError(t, err)
+		assert.False(t, cfg.InsecureSkipVerify)
+		assert.Nil(t, cfg.RootCAs)
+	})
+
+	t.Run("Insecure=true opts into skipping verification", func(t *testing.T) {
+		cfg, err := buildProxyTLSConfig(&ProxyTLSConfig{Insecure: true})
+		require.NoError(t, err)
+		assert.True(t, cfg.InsecureSkipVerify)
+	})
+
+	t.Run("Insecure=true short-circuits before reading CA", func(t *testing.T) {
+		// Confirms that a misconfigured CA path is ignored when the caller has
+		// explicitly opted into insecure mode — no surprise read errors.
+		cfg, err := buildProxyTLSConfig(&ProxyTLSConfig{
+			Insecure:   true,
+			CACertPath: "/path/does/not/exist/ca.crt",
+		})
+		require.NoError(t, err)
+		assert.True(t, cfg.InsecureSkipVerify)
+		assert.Nil(t, cfg.RootCAs)
+	})
+
+	t.Run("Insecure=true still loads client cert for mTLS", func(t *testing.T) {
+		certPEM, keyPEM := mustCreateSelfSignedCertAndKeyPEM(t)
+		dir := t.TempDir()
+		certFile := dir + "/client.crt"
+		keyFile := dir + "/client.key"
+		require.NoError(t, os.WriteFile(certFile, certPEM, 0o600))
+		require.NoError(t, os.WriteFile(keyFile, keyPEM, 0o600))
+
+		cfg, err := buildProxyTLSConfig(&ProxyTLSConfig{
+			Insecure:       true,
+			ClientCertPath: certFile,
+			ClientKeyPath:  keyFile,
+		})
+		require.NoError(t, err)
+		assert.True(t, cfg.InsecureSkipVerify)
+		assert.Len(t, cfg.Certificates, 1)
+	})
+
+	t.Run("only ClientCertPath set returns asymmetric-config error", func(t *testing.T) {
+		_, err := buildProxyTLSConfig(&ProxyTLSConfig{ClientCertPath: "/tmp/client.crt"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "both ClientCertPath and ClientKeyPath must be set")
+	})
+
+	t.Run("only ClientKeyPath set returns asymmetric-config error", func(t *testing.T) {
+		_, err := buildProxyTLSConfig(&ProxyTLSConfig{ClientKeyPath: "/tmp/client.key"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "both ClientCertPath and ClientKeyPath must be set")
+	})
+
+	t.Run("invalid CA path returns error", func(t *testing.T) {
+		_, err := buildProxyTLSConfig(&ProxyTLSConfig{CACertPath: "/path/does/not/exist/ca.crt"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read CA certificate")
+	})
+
+	t.Run("invalid CA pem returns parse error", func(t *testing.T) {
+		badCAFile := t.TempDir() + "/bad-ca.crt"
+		err := os.WriteFile(badCAFile, []byte("not-a-cert"), 0o600)
+		require.NoError(t, err)
+
+		_, err = buildProxyTLSConfig(&ProxyTLSConfig{CACertPath: badCAFile})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse CA certificate")
+	})
+
+	t.Run("valid CA and invalid mTLS pair returns keypair error", func(t *testing.T) {
+		caCertPEM := mustCreateSelfSignedCertPEM(t)
+		caFile := t.TempDir() + "/ca.crt"
+		err := os.WriteFile(caFile, caCertPEM, 0o600)
+		require.NoError(t, err)
+
+		_, err = buildProxyTLSConfig(&ProxyTLSConfig{
+			CACertPath:     caFile,
+			ClientCertPath: "/missing/client.crt",
+			ClientKeyPath:  "/missing/client.key",
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to load client certificate and key")
+	})
+}
+
+func mustCreateSelfSignedCertPEM(t *testing.T) []byte {
+	certPEM, _ := mustCreateSelfSignedCertAndKeyPEM(t)
+	return certPEM
+}
+
+func mustCreateSelfSignedCertAndKeyPEM(t *testing.T) ([]byte, []byte) {
+	t.Helper()
+
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "test-ca"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	require.NoError(t, err)
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	return certPEM, keyPEM
 }
 
 func TestGetGVKForList(t *testing.T) {

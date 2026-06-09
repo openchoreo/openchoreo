@@ -10,18 +10,15 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/browser"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
-	"github.com/openchoreo/openchoreo/pkg/cli/types/api"
 )
 
 type AuthImpl struct{}
-
-var _ api.LoginAPI = &AuthImpl{}
 
 func NewAuthImpl() *AuthImpl {
 	return &AuthImpl{}
 }
 
-func (i *AuthImpl) Login(params api.LoginParams) error {
+func (i *AuthImpl) Login(params LoginParams) error {
 	if params.ClientCredentials {
 		return i.loginWithClientCredentials(params)
 	}
@@ -29,7 +26,7 @@ func (i *AuthImpl) Login(params api.LoginParams) error {
 	return i.loginWithPKCE(params)
 }
 
-func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
+func (i *AuthImpl) loginWithClientCredentials(params LoginParams) error {
 	// Get client ID/secret from params or environment variables
 	clientID := params.ClientID
 	if clientID == "" {
@@ -84,6 +81,7 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 		TokenEndpoint: oidcConfig.TokenEndpoint,
 		ClientID:      clientID,
 		ClientSecret:  clientSecret,
+		Scope:         params.Scope,
 	}
 
 	tokenResp, err := authClient.GetToken()
@@ -97,6 +95,7 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 		if cfg.Credentials[idx].Name == credentialName {
 			cfg.Credentials[idx].ClientID = clientID
 			cfg.Credentials[idx].ClientSecret = clientSecret
+			cfg.Credentials[idx].Scope = params.Scope
 			cfg.Credentials[idx].Token = tokenResp.AccessToken
 			cfg.Credentials[idx].AuthMethod = "client_credentials"
 			credentialExists = true
@@ -109,6 +108,7 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 			Name:         credentialName,
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
+			Scope:        params.Scope,
 			Token:        tokenResp.AccessToken,
 			AuthMethod:   "client_credentials",
 		})
@@ -126,7 +126,7 @@ func (i *AuthImpl) loginWithClientCredentials(params api.LoginParams) error {
 	return nil
 }
 
-func (i *AuthImpl) loginWithPKCE(params api.LoginParams) error {
+func (i *AuthImpl) loginWithPKCE(params LoginParams) error {
 	currentContext, err := config.GetCurrentContext()
 	if err != nil {
 		return fmt.Errorf("failed to get current context: %w", err)

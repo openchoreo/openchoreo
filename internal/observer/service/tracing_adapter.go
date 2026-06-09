@@ -108,6 +108,9 @@ func (t *TracingAdapter) GetSpans(ctx context.Context, traceID string, params ob
 	if params.EnvironmentID != "" {
 		reqBody.SearchScope.Environment = &params.EnvironmentID
 	}
+	if params.IncludeAttributes {
+		reqBody.IncludeAttributes = &params.IncludeAttributes
+	}
 
 	resp, err := t.client.QuerySpansForTraceWithResponse(ctx, traceID, reqBody)
 	if err != nil {
@@ -167,6 +170,12 @@ func convertSpanDetailResponse(resp *gen.TraceSpanDetailsResponse) *observabilit
 	if resp.DurationNs != nil {
 		detail.DurationNs = *resp.DurationNs
 	}
+	if resp.SpanKind != nil {
+		detail.SpanKind = *resp.SpanKind
+	}
+	if resp.Status != nil {
+		detail.Status = string(*resp.Status)
+	}
 
 	if resp.Attributes != nil {
 		detail.Attributes = make(map[string]interface{}, len(*resp.Attributes))
@@ -210,6 +219,18 @@ func convertSpansAdapterResponse(resp *gen.TraceSpansQueryResponse) *observabili
 			}
 			if s.DurationNs != nil {
 				span.DurationNs = *s.DurationNs
+			}
+			if s.SpanKind != nil {
+				span.SpanKind = *s.SpanKind
+			}
+			if s.Status != nil {
+				span.Status = string(*s.Status)
+			}
+			if s.Attributes != nil {
+				span.Attributes = *s.Attributes
+			}
+			if s.ResourceAttributes != nil {
+				span.ResourceAttributes = *s.ResourceAttributes
 			}
 			result.Spans = append(result.Spans, span)
 		}
@@ -257,6 +278,9 @@ func convertTracesResponse(resp *gen.TracesQueryResponse) *observability.TracesQ
 			}
 			if t.DurationNs != nil {
 				trace.DurationNs = *t.DurationNs
+			}
+			if t.HasErrors != nil {
+				trace.HasErrors = *t.HasErrors
 			}
 			result.Traces = append(result.Traces, trace)
 		}

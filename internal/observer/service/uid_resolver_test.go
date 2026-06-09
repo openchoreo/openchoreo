@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -276,6 +277,74 @@ func TestFetchResourceUID_BadClientCredentials(t *testing.T) {
 	_, err := resolver.GetNamespaceUID(context.Background(), "my-ns")
 	if !errors.Is(err, ErrScopeAuthFailed) {
 		t.Fatalf("expected ErrScopeAuthFailed for bad client credentials, got %v", err)
+	}
+}
+
+// TestFetchAccessToken_IncludesScope verifies that when OAuthScope is configured,
+// the scope parameter is included in the token request body.
+func TestFetchAccessToken_IncludesScope(t *testing.T) {
+	t.Parallel()
+
+	var capturedScope string
+
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		params, _ := url.ParseQuery(string(body))
+		capturedScope = params.Get("scope")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":3600}`))
+	}))
+	defer tokenSrv.Close()
+
+	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(uidResponse("uid-1")))
+	}))
+	defer apiSrv.Close()
+
+	cfg := &config.UIDResolverConfig{OAuthScope: "api:read", MaxAuthRetry: 0}
+	resolver := newTestResolver(t, apiSrv, tokenSrv, cfg)
+
+	_, err := resolver.GetNamespaceUID(context.Background(), "ns")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedScope != "api:read" {
+		t.Errorf("expected scope %q in token request, got %q", "api:read", capturedScope)
+	}
+}
+
+// TestFetchAccessToken_OmitsScopeWhenEmpty verifies that when OAuthScope is empty,
+// the scope parameter is not included in the token request body.
+func TestFetchAccessToken_OmitsScopeWhenEmpty(t *testing.T) {
+	t.Parallel()
+
+	var capturedScope string
+
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		params, _ := url.ParseQuery(string(body))
+		capturedScope = params.Get("scope")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":3600}`))
+	}))
+	defer tokenSrv.Close()
+
+	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(uidResponse("uid-1")))
+	}))
+	defer apiSrv.Close()
+
+	cfg := &config.UIDResolverConfig{OAuthScope: "", MaxAuthRetry: 0}
+	resolver := newTestResolver(t, apiSrv, tokenSrv, cfg)
+
+	_, err := resolver.GetNamespaceUID(context.Background(), "ns")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedScope != "" {
+		t.Errorf("expected no scope in token request, got %q", capturedScope)
 	}
 }
 

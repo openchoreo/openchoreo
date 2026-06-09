@@ -4,70 +4,148 @@
 package releasebinding
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 var _ = Describe("ReleaseBinding Webhook", func() {
 	var (
-		obj       *openchoreodevv1alpha1.ReleaseBinding
-		oldObj    *openchoreodevv1alpha1.ReleaseBinding
 		validator Validator
 		defaulter Defaulter
 	)
 
 	BeforeEach(func() {
-		obj = &openchoreodevv1alpha1.ReleaseBinding{}
-		oldObj = &openchoreodevv1alpha1.ReleaseBinding{}
+		err := openchoreodevv1alpha1.AddToScheme(scheme.Scheme)
+		Expect(err).NotTo(HaveOccurred())
 		validator = Validator{}
-		Expect(validator).NotTo(BeNil(), "Expected validator to be initialized")
-		defaulter = Defaulter{}
-		Expect(defaulter).NotTo(BeNil(), "Expected defaulter to be initialized")
-		Expect(oldObj).NotTo(BeNil(), "Expected oldObj to be initialized")
-		Expect(obj).NotTo(BeNil(), "Expected obj to be initialized")
-		// TODO (user): Add any setup logic common to all tests
+		defaulter = Defaulter{decoder: admission.NewDecoder(scheme.Scheme)}
 	})
 
-	AfterEach(func() {
-		// TODO (user): Add any teardown logic common to all tests
+	buildRequest := func(op admissionv1.Operation, obj *openchoreodevv1alpha1.ReleaseBinding, oldObj *openchoreodevv1alpha1.ReleaseBinding) admission.Request {
+		raw, err := json.Marshal(obj)
+		Expect(err).NotTo(HaveOccurred())
+		req := admission.Request{
+			AdmissionRequest: admissionv1.AdmissionRequest{
+				Operation: op,
+				Object:    runtime.RawExtension{Raw: raw},
+			},
+		}
+		if oldObj != nil {
+			oldRaw, err := json.Marshal(oldObj)
+			Expect(err).NotTo(HaveOccurred())
+			req.OldObject = runtime.RawExtension{Raw: oldRaw}
+		}
+		return req
+	}
+
+	Context("Defaulter webhook (Handle)", func() {
+		It("should pass through a CREATE request unchanged when releaseName is already set", func() {
+			obj := &openchoreodevv1alpha1.ReleaseBinding{}
+			obj.Spec.ReleaseName = "v1"
+			req := buildRequest(admissionv1.Create, obj, nil)
+			resp := defaulter.Handle(ctx, req)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
+		It("should pass through a CREATE request with empty releaseName", func() {
+			obj := &openchoreodevv1alpha1.ReleaseBinding{}
+			req := buildRequest(admissionv1.Create, obj, nil)
+			resp := defaulter.Handle(ctx, req)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
+		It("should preserve releaseName from old object on UPDATE when new object has empty releaseName", func() {
+			oldObj := &openchoreodevv1alpha1.ReleaseBinding{}
+			oldObj.Spec.ReleaseName = "auto-release-abc"
+			newObj := &openchoreodevv1alpha1.ReleaseBinding{}
+			newObj.Spec.ReleaseName = ""
+			req := buildRequest(admissionv1.Update, newObj, oldObj)
+			resp := defaulter.Handle(ctx, req)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Patches).NotTo(BeEmpty())
+		})
+
+		It("should not override releaseName on UPDATE when new object already has one", func() {
+			oldObj := &openchoreodevv1alpha1.ReleaseBinding{}
+			oldObj.Spec.ReleaseName = "old-release"
+			newObj := &openchoreodevv1alpha1.ReleaseBinding{}
+			newObj.Spec.ReleaseName = "new-release"
+			req := buildRequest(admissionv1.Update, newObj, oldObj)
+			resp := defaulter.Handle(ctx, req)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Patches).To(BeEmpty())
+		})
+
+		It("should return an error response when the request object cannot be decoded", func() {
+			req := admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					Operation: admissionv1.Create,
+					Object:    runtime.RawExtension{Raw: []byte(`{invalid-json}`)},
+				},
+			}
+			resp := defaulter.Handle(ctx, req)
+			Expect(resp.Allowed).To(BeFalse())
+		})
+
+		It("should return an error response when the old object cannot be decoded on UPDATE", func() {
+			newObj := &openchoreodevv1alpha1.ReleaseBinding{}
+			newObj.Spec.ReleaseName = ""
+			raw, err := json.Marshal(newObj)
+			Expect(err).NotTo(HaveOccurred())
+			req := admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					Operation: admissionv1.Update,
+					Object:    runtime.RawExtension{Raw: raw},
+					OldObject: runtime.RawExtension{Raw: []byte(`{invalid-json}`)},
+				},
+			}
+			resp := defaulter.Handle(ctx, req)
+			Expect(resp.Allowed).To(BeFalse())
+		})
+
+		It("should handle UPDATE with empty OldObject without error", func() {
+			newObj := &openchoreodevv1alpha1.ReleaseBinding{}
+			newObj.Spec.ReleaseName = "v2"
+			raw, err := json.Marshal(newObj)
+			Expect(err).NotTo(HaveOccurred())
+			req := admission.Request{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					Operation: admissionv1.Update,
+					Object:    runtime.RawExtension{Raw: raw},
+					// OldObject.Raw is empty — should not attempt to copy releaseName
+				},
+			}
+			resp := defaulter.Handle(ctx, req)
+			Expect(resp.Allowed).To(BeTrue())
+		})
 	})
 
-	Context("When creating ReleaseBinding under Defaulting Webhook", func() {
-		// TODO (user): Add logic for defaulting webhooks
-		// Example:
-		// It("Should apply defaults when a required field is empty", func() {
-		//     By("simulating a scenario where defaults should be applied")
-		//     obj.SomeFieldWithDefault = ""
-		//     By("calling the Default method to apply defaults")
-		//     defaulter.Default(ctx, obj)
-		//     By("checking that the default values are set")
-		//     Expect(obj.SomeFieldWithDefault).To(Equal("default_value"))
-		// })
-	})
+	Context("Validator webhook", func() {
+		It("should admit ReleaseBinding creation (no-op validator)", func() {
+			obj := &openchoreodevv1alpha1.ReleaseBinding{}
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
 
-	Context("When creating or updating ReleaseBinding under Validating Webhook", func() {
-		// TODO (user): Add logic for validating webhooks
-		// Example:
-		// It("Should deny creation if a required field is missing", func() {
-		//     By("simulating an invalid creation scenario")
-		//     obj.SomeRequiredField = ""
-		//     Expect(validator.ValidateCreate(ctx, obj)).Error().To(HaveOccurred())
-		// })
-		//
-		// It("Should admit creation if all required fields are present", func() {
-		//     By("simulating an invalid creation scenario")
-		//     obj.SomeRequiredField = "valid_value"
-		//     Expect(validator.ValidateCreate(ctx, obj)).To(BeNil())
-		// })
-		//
-		// It("Should validate updates correctly", func() {
-		//     By("simulating a valid update scenario")
-		//     oldObj.SomeRequiredField = "updated_value"
-		//     obj.SomeRequiredField = "updated_value"
-		//     Expect(validator.ValidateUpdate(ctx, oldObj, obj)).To(BeNil())
-		// })
-	})
+		It("should admit ReleaseBinding update (no-op validator)", func() {
+			oldObj := &openchoreodevv1alpha1.ReleaseBinding{}
+			newObj := &openchoreodevv1alpha1.ReleaseBinding{}
+			_, err := validator.ValidateUpdate(ctx, oldObj, newObj)
+			Expect(err).NotTo(HaveOccurred())
+		})
 
+		It("should admit ReleaseBinding deletion (no-op validator)", func() {
+			obj := &openchoreodevv1alpha1.ReleaseBinding{}
+			_, err := validator.ValidateDelete(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
 })

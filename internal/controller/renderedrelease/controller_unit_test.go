@@ -4,6 +4,8 @@
 package renderedrelease
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -15,6 +17,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -213,7 +217,8 @@ func TestFindStaleResources(t *testing.T) {
 // ─────────────────────────────────────────────────────────────
 
 func TestFindAllKnownGVKs(t *testing.T) {
-	const wellKnownCount = 19 // number of well-known GVKs defined in the function (Secret excluded)
+	const dpWellKnownCount = 20 // number of well-known GVKs for the data plane
+	const opWellKnownCount = 1  // number of well-known GVKs for the observability plane
 
 	containsGVK := func(gvks []schema.GroupVersionKind, group, kind string) bool {
 		for _, gvk := range gvks {
@@ -224,15 +229,15 @@ func TestFindAllKnownGVKs(t *testing.T) {
 		return false
 	}
 
-	t.Run("empty inputs returns all well-known types", func(t *testing.T) {
-		gvks := findAllKnownGVKs(nil, nil)
-		if len(gvks) != wellKnownCount {
-			t.Errorf("expected %d well-known GVKs, got %d", wellKnownCount, len(gvks))
+	t.Run("empty inputs returns all data-plane well-known types", func(t *testing.T) {
+		gvks := findAllKnownGVKs(nil, nil, targetPlaneDataPlane)
+		if len(gvks) != dpWellKnownCount {
+			t.Errorf("expected %d well-known GVKs, got %d", dpWellKnownCount, len(gvks))
 		}
 	})
 
-	t.Run("well-known types include common Kubernetes resources", func(t *testing.T) {
-		gvks := findAllKnownGVKs(nil, nil)
+	t.Run("data-plane well-known types include common Kubernetes resources", func(t *testing.T) {
+		gvks := findAllKnownGVKs(nil, nil, targetPlaneDataPlane)
 		for _, check := range []struct{ group, kind string }{
 			{"apps", "Deployment"},
 			{"apps", "StatefulSet"},
@@ -247,12 +252,29 @@ func TestFindAllKnownGVKs(t *testing.T) {
 		}
 	})
 
+	t.Run("observability-plane well-known types contain only obs-plane CRDs", func(t *testing.T) {
+		gvks := findAllKnownGVKs(nil, nil, targetPlaneObservabilityPlane)
+		if len(gvks) != opWellKnownCount {
+			t.Errorf("expected %d well-known GVKs for obs plane, got %d", opWellKnownCount, len(gvks))
+		}
+		if !containsGVK(gvks, "openchoreo.dev", "ObservabilityAlertRule") {
+			t.Error("expected obs-plane well-known GVK openchoreo.dev/ObservabilityAlertRule to be present")
+		}
+		// Control-plane-only and data-plane types must NOT appear in the obs-plane list
+		if containsGVK(gvks, "openchoreo.dev", "ObservabilityAlertsNotificationChannel") {
+			t.Error("ObservabilityAlertsNotificationChannel is a control-plane CRD and must not appear in obs-plane list")
+		}
+		if containsGVK(gvks, "apps", "Deployment") || containsGVK(gvks, "", "Service") {
+			t.Error("data-plane GVKs must not appear in the observability-plane well-known list")
+		}
+	})
+
 	t.Run("custom desired resource GVK is included alongside well-known", func(t *testing.T) {
 		obj := &unstructured.Unstructured{}
 		obj.SetGroupVersionKind(schema.GroupVersionKind{Group: "custom.io", Version: "v1", Kind: "Widget"})
-		gvks := findAllKnownGVKs([]*unstructured.Unstructured{obj}, nil)
-		if len(gvks) != wellKnownCount+1 {
-			t.Errorf("expected %d, got %d", wellKnownCount+1, len(gvks))
+		gvks := findAllKnownGVKs([]*unstructured.Unstructured{obj}, nil, targetPlaneDataPlane)
+		if len(gvks) != dpWellKnownCount+1 {
+			t.Errorf("expected %d, got %d", dpWellKnownCount+1, len(gvks))
 		}
 		if !containsGVK(gvks, "custom.io", "Widget") {
 			t.Error("custom GVK not found in result")
@@ -262,19 +284,19 @@ func TestFindAllKnownGVKs(t *testing.T) {
 	t.Run("desired resource matching a well-known GVK is not duplicated", func(t *testing.T) {
 		obj := &unstructured.Unstructured{}
 		obj.SetGroupVersionKind(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"})
-		gvks := findAllKnownGVKs([]*unstructured.Unstructured{obj}, nil)
-		if len(gvks) != wellKnownCount {
-			t.Errorf("expected %d (no duplication), got %d", wellKnownCount, len(gvks))
+		gvks := findAllKnownGVKs([]*unstructured.Unstructured{obj}, nil, targetPlaneDataPlane)
+		if len(gvks) != dpWellKnownCount {
+			t.Errorf("expected %d (no duplication), got %d", dpWellKnownCount, len(gvks))
 		}
 	})
 
 	t.Run("applied resource status GVK is included alongside well-known", func(t *testing.T) {
-		applied := []openchoreov1alpha1.ResourceStatus{
+		applied := []openchoreov1alpha1.RenderedManifestStatus{
 			{Group: "legacy.io", Version: "v1", Kind: "OldThing"},
 		}
-		gvks := findAllKnownGVKs(nil, applied)
-		if len(gvks) != wellKnownCount+1 {
-			t.Errorf("expected %d, got %d", wellKnownCount+1, len(gvks))
+		gvks := findAllKnownGVKs(nil, applied, targetPlaneDataPlane)
+		if len(gvks) != dpWellKnownCount+1 {
+			t.Errorf("expected %d, got %d", dpWellKnownCount+1, len(gvks))
 		}
 		if !containsGVK(gvks, "legacy.io", "OldThing") {
 			t.Error("applied resource GVK not found in result")
@@ -284,13 +306,13 @@ func TestFindAllKnownGVKs(t *testing.T) {
 	t.Run("desired and applied GVKs are deduplicated against each other", func(t *testing.T) {
 		desiredObj := &unstructured.Unstructured{}
 		desiredObj.SetGroupVersionKind(schema.GroupVersionKind{Group: "a.io", Version: "v1", Kind: "A"})
-		applied := []openchoreov1alpha1.ResourceStatus{
+		applied := []openchoreov1alpha1.RenderedManifestStatus{
 			{Group: "a.io", Version: "v1", Kind: "A"}, // duplicate of desired
 			{Group: "b.io", Version: "v1", Kind: "B"},
 		}
-		gvks := findAllKnownGVKs([]*unstructured.Unstructured{desiredObj}, applied)
-		if len(gvks) != wellKnownCount+2 {
-			t.Errorf("expected %d, got %d", wellKnownCount+2, len(gvks))
+		gvks := findAllKnownGVKs([]*unstructured.Unstructured{desiredObj}, applied, targetPlaneDataPlane)
+		if len(gvks) != dpWellKnownCount+2 {
+			t.Errorf("expected %d, got %d", dpWellKnownCount+2, len(gvks))
 		}
 	})
 }
@@ -304,7 +326,7 @@ func TestHasTransitioningResources(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		resources []openchoreov1alpha1.ResourceStatus
+		resources []openchoreov1alpha1.RenderedManifestStatus
 		want      bool
 	}{
 		{
@@ -314,32 +336,32 @@ func TestHasTransitioningResources(t *testing.T) {
 		},
 		{
 			name:      "healthy resource returns false",
-			resources: []openchoreov1alpha1.ResourceStatus{{HealthStatus: openchoreov1alpha1.HealthStatusHealthy}},
+			resources: []openchoreov1alpha1.RenderedManifestStatus{{HealthStatus: openchoreov1alpha1.HealthStatusHealthy}},
 			want:      false,
 		},
 		{
 			name:      "suspended resource returns false",
-			resources: []openchoreov1alpha1.ResourceStatus{{HealthStatus: openchoreov1alpha1.HealthStatusSuspended}},
+			resources: []openchoreov1alpha1.RenderedManifestStatus{{HealthStatus: openchoreov1alpha1.HealthStatusSuspended}},
 			want:      false,
 		},
 		{
 			name:      "progressing resource returns true",
-			resources: []openchoreov1alpha1.ResourceStatus{{HealthStatus: openchoreov1alpha1.HealthStatusProgressing}},
+			resources: []openchoreov1alpha1.RenderedManifestStatus{{HealthStatus: openchoreov1alpha1.HealthStatusProgressing}},
 			want:      true,
 		},
 		{
 			name:      "unknown resource returns true",
-			resources: []openchoreov1alpha1.ResourceStatus{{HealthStatus: openchoreov1alpha1.HealthStatusUnknown}},
+			resources: []openchoreov1alpha1.RenderedManifestStatus{{HealthStatus: openchoreov1alpha1.HealthStatusUnknown}},
 			want:      true,
 		},
 		{
 			name:      "degraded resource returns true",
-			resources: []openchoreov1alpha1.ResourceStatus{{HealthStatus: openchoreov1alpha1.HealthStatusDegraded}},
+			resources: []openchoreov1alpha1.RenderedManifestStatus{{HealthStatus: openchoreov1alpha1.HealthStatusDegraded}},
 			want:      true,
 		},
 		{
 			name: "mix of healthy and progressing returns true",
-			resources: []openchoreov1alpha1.ResourceStatus{
+			resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 				{HealthStatus: openchoreov1alpha1.HealthStatusProgressing},
 			},
@@ -347,7 +369,7 @@ func TestHasTransitioningResources(t *testing.T) {
 		},
 		{
 			name: "all healthy returns false",
-			resources: []openchoreov1alpha1.ResourceStatus{
+			resources: []openchoreov1alpha1.RenderedManifestStatus{
 				{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
 				{HealthStatus: openchoreov1alpha1.HealthStatusSuspended},
 			},
@@ -968,7 +990,7 @@ func TestMakeDesiredResources(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{Name: "my-release", Namespace: "cp-ns", UID: "release-uid-abc"},
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{
-				Resources: []openchoreov1alpha1.Resource{
+				Resources: []openchoreov1alpha1.RenderedManifest{
 					{
 						ID:     "res-configmap",
 						Object: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm1","namespace":"dp-ns"}}`)},
@@ -1003,7 +1025,7 @@ func TestMakeDesiredResources(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{Name: "r2", Namespace: "ns", UID: "uid-2"},
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{
-				Resources: []openchoreov1alpha1.Resource{
+				Resources: []openchoreov1alpha1.RenderedManifest{
 					{
 						ID:     "res-x",
 						Object: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"cm","labels":{"app":"myapp"}}}`)},
@@ -1026,7 +1048,7 @@ func TestMakeDesiredResources(t *testing.T) {
 	t.Run("resource with invalid JSON returns error", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{
-				Resources: []openchoreov1alpha1.Resource{
+				Resources: []openchoreov1alpha1.RenderedManifest{
 					{
 						ID:     "bad",
 						Object: &runtime.RawExtension{Raw: []byte(`not json`)},
@@ -1044,7 +1066,7 @@ func TestMakeDesiredResources(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			ObjectMeta: metav1.ObjectMeta{Name: "r3", Namespace: "ns3", UID: "uid-3"},
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{
-				Resources: []openchoreov1alpha1.Resource{
+				Resources: []openchoreov1alpha1.RenderedManifest{
 					{ID: "a", Object: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"a"}}`)}},
 					{ID: "b", Object: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"b"}}`)}},
 				},
@@ -1185,4 +1207,510 @@ func TestNewRenderedReleaseCleanupFailedCondition(t *testing.T) {
 	if cond.ObservedGeneration != 7 {
 		t.Errorf("expected generation 7, got %d", cond.ObservedGeneration)
 	}
+}
+
+// ─────────────────────────────────────────────────────────────
+// buildResourceStatus
+// ─────────────────────────────────────────────────────────────
+
+// buildResourcesDesired returns a minimal desired ConfigMap unstructured object with a tracking resource ID label.
+func buildResourcesDesired(resourceID, name string) *unstructured.Unstructured {
+	obj := &unstructured.Unstructured{}
+	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"})
+	obj.SetName(name)
+	obj.SetNamespace("default")
+	obj.SetLabels(map[string]string{
+		labels.LabelKeyRenderedReleaseResourceID: resourceID,
+	})
+	return obj
+}
+
+// buildResourcesLive returns a live ConfigMap with the same identity labels plus an optional status field.
+func buildResourcesLive(resourceID, name string, statusField map[string]interface{}) *unstructured.Unstructured {
+	obj := buildResourcesDesired(resourceID, name)
+	if statusField != nil {
+		obj.Object["status"] = statusField
+	}
+	return obj
+}
+
+func TestBuildResourceStatus(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	emptyRelease := &openchoreov1alpha1.RenderedRelease{}
+
+	t.Run("empty desired and live resources returns empty", func(t *testing.T) {
+		result := r.buildResourceStatus(ctx, emptyRelease, nil, nil)
+		if len(result) != 0 {
+			t.Errorf("expected empty slice, got %d items", len(result))
+		}
+	})
+
+	t.Run("desired resource without matching live resource gets Unknown health and nil status", func(t *testing.T) {
+		desired := buildResourcesDesired("res-1", "my-cm")
+		result := r.buildResourceStatus(ctx, emptyRelease, []*unstructured.Unstructured{desired}, nil)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		rs := result[0]
+		if rs.ID != "res-1" {
+			t.Errorf("expected ID res-1, got %s", rs.ID)
+		}
+		if rs.HealthStatus != openchoreov1alpha1.HealthStatusUnknown {
+			t.Errorf("expected HealthStatusUnknown, got %s", rs.HealthStatus)
+		}
+		if rs.Status != nil {
+			t.Errorf("expected nil Status, got %v", rs.Status)
+		}
+		if rs.LastObservedTime != nil {
+			t.Errorf("expected nil LastObservedTime, got %v", rs.LastObservedTime)
+		}
+	})
+
+	t.Run("desired resource with matching live resource extracts Healthy status and sets timestamp", func(t *testing.T) {
+		desired := buildResourcesDesired("res-1", "my-cm")
+		// ConfigMap uses getUnknownResourceHealth → always Healthy
+		live := buildResourcesLive("res-1", "my-cm", map[string]interface{}{"phase": "Active"})
+		result := r.buildResourceStatus(ctx, emptyRelease, []*unstructured.Unstructured{desired}, []*unstructured.Unstructured{live})
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		rs := result[0]
+		if rs.HealthStatus != openchoreov1alpha1.HealthStatusHealthy {
+			t.Errorf("expected HealthStatusHealthy, got %s", rs.HealthStatus)
+		}
+		if rs.Status == nil {
+			t.Error("expected non-nil Status")
+		}
+		if rs.LastObservedTime == nil {
+			t.Error("expected non-nil LastObservedTime")
+		}
+	})
+}
+
+func TestBuildResourceStatusStatusMarshaling(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	emptyRelease := &openchoreov1alpha1.RenderedRelease{}
+
+	statusData := map[string]interface{}{"replicas": float64(3), "readyReplicas": float64(3)}
+	desired := buildResourcesDesired("res-1", "my-cm")
+	live := buildResourcesLive("res-1", "my-cm", statusData)
+	result := r.buildResourceStatus(ctx, emptyRelease, []*unstructured.Unstructured{desired}, []*unstructured.Unstructured{live})
+	if len(result) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(result))
+	}
+	rs := result[0]
+	if rs.Status == nil {
+		t.Fatal("expected non-nil Status")
+	}
+	var got map[string]interface{}
+	if err := json.Unmarshal(rs.Status.Raw, &got); err != nil {
+		t.Fatalf("failed to unmarshal status: %v", err)
+	}
+	if got["replicas"] != float64(3) {
+		t.Errorf("expected replicas=3, got %v", got["replicas"])
+	}
+	if got["readyReplicas"] != float64(3) {
+		t.Errorf("expected readyReplicas=3, got %v", got["readyReplicas"])
+	}
+}
+
+func TestBuildResourceStatusTimestamps(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	emptyRelease := &openchoreov1alpha1.RenderedRelease{}
+	fixedTime := metav1.NewTime(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC))
+
+	t.Run("timestamp preserved when status and health are unchanged", func(t *testing.T) {
+		statusData := map[string]interface{}{"phase": "Active"}
+		statusBytes, _ := json.Marshal(statusData)
+		old := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
+					{
+						ID:               "res-1",
+						HealthStatus:     openchoreov1alpha1.HealthStatusHealthy, // matches ConfigMap's getUnknownResourceHealth
+						Status:           &runtime.RawExtension{Raw: statusBytes},
+						LastObservedTime: &fixedTime,
+					},
+				},
+			},
+		}
+		result := r.buildResourceStatus(ctx, old,
+			[]*unstructured.Unstructured{buildResourcesDesired("res-1", "my-cm")},
+			[]*unstructured.Unstructured{buildResourcesLive("res-1", "my-cm", statusData)},
+		)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		if result[0].LastObservedTime == nil {
+			t.Fatal("expected non-nil LastObservedTime")
+		}
+		if !result[0].LastObservedTime.Equal(&fixedTime) {
+			t.Errorf("expected timestamp to be preserved: got %v, want %v", result[0].LastObservedTime, fixedTime)
+		}
+	})
+
+	t.Run("timestamp updated when health changes", func(t *testing.T) {
+		// Old has Progressing; new live ConfigMap will produce Healthy → health changed
+		old := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
+					{
+						ID:               "res-1",
+						HealthStatus:     openchoreov1alpha1.HealthStatusProgressing,
+						LastObservedTime: &fixedTime,
+					},
+				},
+			},
+		}
+		result := r.buildResourceStatus(ctx, old,
+			[]*unstructured.Unstructured{buildResourcesDesired("res-1", "my-cm")},
+			[]*unstructured.Unstructured{buildResourcesLive("res-1", "my-cm", nil)},
+		)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		if result[0].LastObservedTime == nil {
+			t.Fatal("expected non-nil LastObservedTime")
+		}
+		if result[0].LastObservedTime.Equal(&fixedTime) {
+			t.Error("expected timestamp to be updated, but it was preserved from old")
+		}
+	})
+
+	t.Run("timestamp updated for new resource not in old status", func(t *testing.T) {
+		result := r.buildResourceStatus(ctx, emptyRelease,
+			[]*unstructured.Unstructured{buildResourcesDesired("res-new", "new-cm")},
+			[]*unstructured.Unstructured{buildResourcesLive("res-new", "new-cm", nil)},
+		)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(result))
+		}
+		if result[0].LastObservedTime == nil {
+			t.Error("expected non-nil LastObservedTime for new resource")
+		}
+	})
+}
+
+func TestBuildResourceStatusMixedResources(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	emptyRelease := &openchoreov1alpha1.RenderedRelease{}
+
+	// res-2 has no live resource; res-1 and res-3 do
+	result := r.buildResourceStatus(ctx, emptyRelease,
+		[]*unstructured.Unstructured{
+			buildResourcesDesired("res-1", "cm-1"),
+			buildResourcesDesired("res-2", "cm-2"),
+			buildResourcesDesired("res-3", "cm-3"),
+		},
+		[]*unstructured.Unstructured{
+			buildResourcesLive("res-1", "cm-1", nil),
+			buildResourcesLive("res-3", "cm-3", nil),
+		},
+	)
+	if len(result) != 3 {
+		t.Fatalf("expected 3 results, got %d", len(result))
+	}
+
+	byID := make(map[string]openchoreov1alpha1.RenderedManifestStatus)
+	for _, rs := range result {
+		byID[rs.ID] = rs
+	}
+
+	if byID["res-1"].HealthStatus != openchoreov1alpha1.HealthStatusHealthy {
+		t.Errorf("res-1: expected Healthy, got %s", byID["res-1"].HealthStatus)
+	}
+	if byID["res-3"].HealthStatus != openchoreov1alpha1.HealthStatusHealthy {
+		t.Errorf("res-3: expected Healthy, got %s", byID["res-3"].HealthStatus)
+	}
+	if byID["res-2"].HealthStatus != openchoreov1alpha1.HealthStatusUnknown {
+		t.Errorf("res-2: expected Unknown, got %s", byID["res-2"].HealthStatus)
+	}
+	if byID["res-2"].LastObservedTime != nil {
+		t.Error("res-2: expected nil LastObservedTime when no live resource")
+	}
+}
+
+// ─────────────────────────────────────────────────────────────
+// extractDeploymentConditions
+// ─────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+// ensureFinalizer
+// ─────────────────────────────────────────────────────────────
+
+func TestEnsureFinalizer(t *testing.T) {
+	s := runtime.NewScheme()
+	if err := openchoreov1alpha1.AddToScheme(s); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+
+	makeRelease := func(targetPlane string, finalizers ...string) *openchoreov1alpha1.RenderedRelease {
+		return &openchoreov1alpha1.RenderedRelease{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "test-release",
+				Namespace:  "default",
+				Finalizers: finalizers,
+			},
+			Spec: openchoreov1alpha1.RenderedReleaseSpec{TargetPlane: targetPlane},
+		}
+	}
+
+	t.Run("obs-plane release gets ObsPlaneCleanupFinalizer", func(t *testing.T) {
+		release := makeRelease(targetPlaneObservabilityPlane)
+		fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(release).Build()
+		r := &Reconciler{Client: fakeClient}
+
+		added, err := r.ensureFinalizer(context.Background(), release)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !added {
+			t.Error("expected finalizer to be added")
+		}
+		if !controllerutil.ContainsFinalizer(release, ObsPlaneCleanupFinalizer) {
+			t.Errorf("expected %q on obs-plane release", ObsPlaneCleanupFinalizer)
+		}
+		if controllerutil.ContainsFinalizer(release, DataPlaneCleanupFinalizer) {
+			t.Errorf("unexpected %q on obs-plane release", DataPlaneCleanupFinalizer)
+		}
+	})
+
+	t.Run("empty targetPlane gets DataPlaneCleanupFinalizer", func(t *testing.T) {
+		release := makeRelease("")
+		fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(release).Build()
+		r := &Reconciler{Client: fakeClient}
+
+		added, err := r.ensureFinalizer(context.Background(), release)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !added {
+			t.Error("expected finalizer to be added")
+		}
+		if !controllerutil.ContainsFinalizer(release, DataPlaneCleanupFinalizer) {
+			t.Errorf("expected %q on data-plane release", DataPlaneCleanupFinalizer)
+		}
+	})
+
+	t.Run("does not add finalizer when release is being deleted", func(t *testing.T) {
+		now := metav1.Now()
+		// DeletionTimestamp can only be set server-side; simulate by pre-setting a finalizer
+		// so the fake client accepts it, then set the timestamp manually on the in-memory object.
+		release := makeRelease(targetPlaneObservabilityPlane, "existing-finalizer")
+		release.DeletionTimestamp = &now
+		fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(release).Build()
+		r := &Reconciler{Client: fakeClient}
+
+		added, err := r.ensureFinalizer(context.Background(), release)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if added {
+			t.Error("expected no finalizer added when release is being deleted")
+		}
+	})
+
+	t.Run("no-op when correct finalizer already present", func(t *testing.T) {
+		release := makeRelease(targetPlaneObservabilityPlane, ObsPlaneCleanupFinalizer)
+		fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(release).Build()
+		r := &Reconciler{Client: fakeClient}
+
+		added, err := r.ensureFinalizer(context.Background(), release)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if added {
+			t.Error("expected no-op when finalizer already present")
+		}
+	})
+}
+
+// ─────────────────────────────────────────────────────────────
+// finalizeObsPlane — no-finalizer fast path
+// ─────────────────────────────────────────────────────────────
+
+func TestFinalizeObsPlane_NoFinalizersIsNoOp(t *testing.T) {
+	s := runtime.NewScheme()
+	if err := openchoreov1alpha1.AddToScheme(s); err != nil {
+		t.Fatalf("AddToScheme: %v", err)
+	}
+	release := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-release", Namespace: "default"},
+		Spec:       openchoreov1alpha1.RenderedReleaseSpec{TargetPlane: targetPlaneObservabilityPlane},
+		// No Finalizers
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(release).Build()
+	r := &Reconciler{Client: fakeClient}
+
+	result, err := r.finalizeObsPlane(context.Background(), release, release)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Requeue || result.RequeueAfter != 0 {
+		t.Errorf("expected empty Result for no-op path, got Requeue=%v RequeueAfter=%v", result.Requeue, result.RequeueAfter)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────
+// intersectObsPlaneGVKs
+// ─────────────────────────────────────────────────────────────
+
+func TestIntersectObsPlaneGVKs(t *testing.T) {
+	r := &Reconciler{}
+	ctx := context.Background()
+
+	t.Run("empty status resources returns empty", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{}
+		result := r.intersectObsPlaneGVKs(ctx, release)
+		if len(result) != 0 {
+			t.Errorf("expected 0 GVKs, got %d", len(result))
+		}
+	})
+
+	t.Run("status resource in allowlist is included", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
+					{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
+				},
+			},
+		}
+		result := r.intersectObsPlaneGVKs(ctx, release)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 GVK, got %d", len(result))
+		}
+		if result[0].Kind != "ObservabilityAlertRule" {
+			t.Errorf("expected ObservabilityAlertRule, got %s", result[0].Kind)
+		}
+	})
+
+	t.Run("status resource not in allowlist is excluded", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
+					{Group: "other.io", Version: "v1", Kind: "SomeOtherType"},
+				},
+			},
+		}
+		result := r.intersectObsPlaneGVKs(ctx, release)
+		if len(result) != 0 {
+			t.Errorf("expected 0 GVKs (non-allowlisted excluded), got %d", len(result))
+		}
+	})
+
+	t.Run("duplicate GVKs in status are deduplicated", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
+					{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
+					{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
+				},
+			},
+		}
+		result := r.intersectObsPlaneGVKs(ctx, release)
+		if len(result) != 1 {
+			t.Errorf("expected 1 deduplicated GVK, got %d", len(result))
+		}
+	})
+
+	t.Run("mixed: allowlisted and non-allowlisted GVKs", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
+					{Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule"},
+					{Group: "other.io", Version: "v1", Kind: "NotAllowlisted"},
+				},
+			},
+		}
+		result := r.intersectObsPlaneGVKs(ctx, release)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 GVK, got %d", len(result))
+		}
+		if result[0].Kind != "ObservabilityAlertRule" {
+			t.Errorf("expected ObservabilityAlertRule, got %s", result[0].Kind)
+		}
+	})
+}
+
+func TestExtractDeploymentConditions(t *testing.T) {
+	makeCondition := func(condType appsv1.DeploymentConditionType, status corev1.ConditionStatus, reason string) appsv1.DeploymentCondition {
+		return appsv1.DeploymentCondition{Type: condType, Status: status, Reason: reason}
+	}
+
+	t.Run("empty conditions returns nil for all", func(t *testing.T) {
+		avail, prog, replicaFail := extractDeploymentConditions(nil)
+		if avail != nil || prog != nil || replicaFail != nil {
+			t.Error("expected all nil for empty conditions")
+		}
+	})
+
+	t.Run("all three condition types present returns correct pointers", func(t *testing.T) {
+		conditions := []appsv1.DeploymentCondition{
+			makeCondition(appsv1.DeploymentAvailable, corev1.ConditionTrue, "MinimumReplicasAvailable"),
+			makeCondition(appsv1.DeploymentProgressing, corev1.ConditionTrue, "NewReplicaSetAvailable"),
+			makeCondition(appsv1.DeploymentReplicaFailure, corev1.ConditionFalse, ""),
+		}
+		avail, prog, replicaFail := extractDeploymentConditions(conditions)
+		if avail == nil {
+			t.Fatal("expected non-nil Available")
+		}
+		if avail.Reason != "MinimumReplicasAvailable" {
+			t.Errorf("wrong Available reason: %s", avail.Reason)
+		}
+		if prog == nil {
+			t.Fatal("expected non-nil Progressing")
+		}
+		if prog.Reason != "NewReplicaSetAvailable" {
+			t.Errorf("wrong Progressing reason: %s", prog.Reason)
+		}
+		if replicaFail == nil {
+			t.Error("expected non-nil ReplicaFailure")
+		}
+	})
+
+	t.Run("only Available condition present", func(t *testing.T) {
+		conditions := []appsv1.DeploymentCondition{
+			makeCondition(appsv1.DeploymentAvailable, corev1.ConditionTrue, "MinimumReplicasAvailable"),
+		}
+		avail, prog, replicaFail := extractDeploymentConditions(conditions)
+		if avail == nil {
+			t.Error("expected non-nil Available")
+		}
+		if prog != nil {
+			t.Error("expected nil Progressing")
+		}
+		if replicaFail != nil {
+			t.Error("expected nil ReplicaFailure")
+		}
+	})
+
+	t.Run("only Progressing condition present", func(t *testing.T) {
+		conditions := []appsv1.DeploymentCondition{
+			makeCondition(appsv1.DeploymentProgressing, corev1.ConditionTrue, "ReplicaSetUpdated"),
+		}
+		avail, prog, replicaFail := extractDeploymentConditions(conditions)
+		if avail != nil {
+			t.Error("expected nil Available")
+		}
+		if prog == nil {
+			t.Error("expected non-nil Progressing")
+		}
+		if replicaFail != nil {
+			t.Error("expected nil ReplicaFailure")
+		}
+	})
+
+	t.Run("unknown condition types are ignored", func(t *testing.T) {
+		conditions := []appsv1.DeploymentCondition{
+			{Type: "SomeUnknownCondition", Status: corev1.ConditionTrue},
+		}
+		avail, prog, replicaFail := extractDeploymentConditions(conditions)
+		if avail != nil || prog != nil || replicaFail != nil {
+			t.Error("expected all nil for unknown condition types")
+		}
+	})
 }

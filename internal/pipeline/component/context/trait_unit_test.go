@@ -20,24 +20,22 @@ func validTraitContextInput() *TraitContextInput {
 	trait.Name = "my-trait"
 
 	return &TraitContextInput{
-		Trait: trait,
-		Instance: v1alpha1.ComponentTrait{
-			Name:         "my-trait",
-			InstanceName: "my-trait-instance",
-		},
-		Component:      &v1alpha1.Component{},
-		WorkloadData:   ExtractWorkloadData(nil),
-		Configurations: ExtractConfigurationsFromWorkload(nil, nil),
-		Metadata:       validMetadata(),
-		DataPlane:      &v1alpha1.DataPlane{},
-		Environment: &v1alpha1.Environment{
-			Spec: v1alpha1.EnvironmentSpec{
-				DataPlaneRef: &v1alpha1.DataPlaneRef{
-					Kind: v1alpha1.DataPlaneRefKindDataPlane,
-					Name: "test-dp",
+		TraitContextBase: TraitContextBase{
+			Metadata:  validMetadata(),
+			DataPlane: &v1alpha1.DataPlane{},
+			Environment: &v1alpha1.Environment{
+				Spec: v1alpha1.EnvironmentSpec{
+					DataPlaneRef: &v1alpha1.DataPlaneRef{
+						Kind: v1alpha1.DataPlaneRefKindDataPlane,
+						Name: "test-dp",
+					},
 				},
 			},
+			WorkloadData:   ExtractWorkloadData(nil),
+			Configurations: ExtractConfigurationsFromWorkload(nil, nil),
 		},
+		Trait:        trait,
+		InstanceName: "my-trait-instance",
 	}
 }
 
@@ -51,14 +49,6 @@ func TestBuildTraitContext_ValidationErrors(t *testing.T) {
 			input: func() *TraitContextInput {
 				in := validTraitContextInput()
 				in.Trait = nil
-				return in
-			}(),
-		},
-		{
-			name: "nil Component",
-			input: func() *TraitContextInput {
-				in := validTraitContextInput()
-				in.Component = nil
 				return in
 			}(),
 		},
@@ -92,12 +82,13 @@ func TestBuildTraitContext_ValidationErrors(t *testing.T) {
 
 func TestBuildTraitContext_EmptyInstanceName(t *testing.T) {
 	input := validTraitContextInput()
-	input.Instance.InstanceName = ""
+	input.InstanceName = ""
 
 	ctx, err := BuildTraitContext(input)
 	require.Error(t, err)
 	assert.Nil(t, ctx)
-	assert.Contains(t, err.Error(), "trait instance name is required")
+	// The required-field check is now enforced by the struct validator.
+	assert.Contains(t, err.Error(), "validation failed")
 }
 
 func TestBuildTraitContext_NilMetadataMaps(t *testing.T) {
@@ -150,10 +141,8 @@ func TestProcessTraitParameters_ValidationFailure(t *testing.T) {
 		"count": integerPropSchema(),
 	}))
 	// Provide a string where integer is expected
-	input.Instance.Parameters = &runtime.RawExtension{
-		Raw: toJSON(t, map[string]any{
-			"count": "not-a-number",
-		}),
+	input.ResolvedParameters = map[string]any{
+		"count": "not-a-number",
 	}
 
 	ctx, err := BuildTraitContext(input)
@@ -162,11 +151,12 @@ func TestProcessTraitParameters_ValidationFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "parameters validation failed")
 }
 
-func TestProcessTraitParameters_NoReleaseBinding(t *testing.T) {
+func TestProcessTraitParameters_NilEnvConfigsAppliesDefaults(t *testing.T) {
 	input := validTraitContextInput()
-	input.ReleaseBinding = nil
+	// nil resolved envConfigs (e.g., no override from the resolver)
+	input.ResolvedEnvironmentConfigs = nil
 
-	// Set up a trait with environmentConfigs schema so we can verify envConfigs is empty
+	// Trait has environmentConfigs schema with a default
 	input.Trait.Spec.EnvironmentConfigs = openAPIV3Schema(objectSchema(map[string]any{
 		"replicas": integerPropSchema(1),
 	}))
@@ -174,14 +164,194 @@ func TestProcessTraitParameters_NoReleaseBinding(t *testing.T) {
 	ctx, err := BuildTraitContext(input)
 	require.NoError(t, err)
 	require.NotNil(t, ctx)
-	// With nil ReleaseBinding, envConfigs should get schema defaults applied.
+	// Schema defaults should be applied even when resolved envConfigs is nil.
 	// Schema defaults produce int64 values for integer types.
 	assert.Equal(t, map[string]any{"replicas": int64(1)}, ctx.EnvironmentConfigs)
 }
 
-func TestProcessTraitParameters_EnvConfigsMissing(t *testing.T) {
+func TestBuildTraitContext_EmptyResolvedParamsAppliesDefaults(t *testing.T) {
+	// Distinguish empty-map from nil: an explicit empty map should still trigger
+	// schema default application, just like nil does.
 	input := validTraitContextInput()
-	input.ReleaseBinding = &v1alpha1.ReleaseBinding{
+	input.Trait.Spec.Parameters = openAPIV3Schema(objectSchema(map[string]any{
+		"timeout": stringPropSchema("30s"),
+		"retries": integerPropSchema(3),
+	}))
+	input.ResolvedParameters = map[string]any{} // empty, not nil
+
+	ctx, err := BuildTraitContext(input)
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+	assert.Equal(t, "30s", ctx.Parameters["timeout"])
+	assert.Equal(t, int64(3), ctx.Parameters["retries"])
+}
+
+func TestBuildTraitContext_PrunesAndDefaults(t *testing.T) {
+	input := validTraitContextInput()
+	input.Trait.Spec.Parameters = openAPIV3Schema(objectSchema(map[string]any{
+		"name":    stringPropSchema(),
+		"timeout": stringPropSchema("30s"),
+	}))
+	input.Trait.Spec.EnvironmentConfigs = openAPIV3Schema(objectSchema(map[string]any{
+		"replicas": integerPropSchema(1),
+	}))
+
+	// One valid key, one extra key to be pruned, timeout omitted so defaults apply
+	input.ResolvedParameters = map[string]any{
+		"name":     "my-app",
+		"extraKey": "should-be-pruned",
+	}
+	// Empty so defaults are applied
+	input.ResolvedEnvironmentConfigs = map[string]any{}
+
+	ctx, err := BuildTraitContext(input)
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+
+	_, hasExtra := ctx.Parameters["extraKey"]
+	assert.False(t, hasExtra, "extraKey should have been pruned")
+	assert.Equal(t, "my-app", ctx.Parameters["name"])
+	assert.Equal(t, "30s", ctx.Parameters["timeout"])
+	assert.Equal(t, int64(1), ctx.EnvironmentConfigs["replicas"])
+}
+
+func TestBuildTraitContext_GatewaySet(t *testing.T) {
+	input := validTraitContextInput()
+	input.DataPlane.Spec.Gateway = v1alpha1.GatewaySpec{
+		Ingress: &v1alpha1.GatewayNetworkSpec{
+			External: &v1alpha1.GatewayEndpointSpec{
+				Name:      "ext-gw",
+				Namespace: "gw-ns",
+				HTTPS: &v1alpha1.GatewayListenerSpec{
+					ListenerName: "https",
+					Port:         443,
+					Host:         "api.example.com",
+				},
+			},
+		},
+	}
+
+	ctx, err := BuildTraitContext(input)
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+
+	// Gateway should be derived from Environment (which merges with DataPlane)
+	require.NotNil(t, ctx.Gateway, "ctx.Gateway should not be nil when DataPlane has gateway config")
+	assert.Equal(t, ctx.Environment.Gateway, ctx.Gateway,
+		"ctx.Gateway should equal ctx.Environment.Gateway")
+
+	require.NotNil(t, ctx.Gateway.Ingress)
+	require.NotNil(t, ctx.Gateway.Ingress.External)
+	assert.Equal(t, "ext-gw", ctx.Gateway.Ingress.External.Name)
+	require.NotNil(t, ctx.Gateway.Ingress.External.HTTPS)
+	assert.Equal(t, "api.example.com", ctx.Gateway.Ingress.External.HTTPS.Host)
+	assert.Equal(t, int32(443), ctx.Gateway.Ingress.External.HTTPS.Port)
+}
+
+func TestBuildTraitContext_NoEnvConfigsSchemaDiscardsOverride(t *testing.T) {
+	// When the trait defines no EnvironmentConfigs schema, any provided envConfigs
+	// should be discarded rather than propagated to the context.
+	input := validTraitContextInput()
+	input.ResolvedEnvironmentConfigs = map[string]any{
+		"something": "value",
+	}
+
+	ctx, err := BuildTraitContext(input)
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+	assert.Empty(t, ctx.EnvironmentConfigs, "envConfigs should be discarded when no schema is defined")
+}
+
+func TestBuildTraitContext_EnvConfigsValidationFailure(t *testing.T) {
+	input := validTraitContextInput()
+	input.Trait.Spec.EnvironmentConfigs = openAPIV3Schema(objectSchema(map[string]any{
+		"count": integerPropSchema(),
+	}))
+	// Provide a string where integer is expected
+	input.ResolvedEnvironmentConfigs = map[string]any{
+		"count": "not-a-number",
+	}
+
+	ctx, err := BuildTraitContext(input)
+	require.Error(t, err)
+	assert.Nil(t, ctx)
+	assert.Contains(t, err.Error(), "environmentConfigs validation failed")
+}
+
+func TestExtractTraitInstanceBindings_Success(t *testing.T) {
+	instance := v1alpha1.ComponentTrait{
+		Name:         "storage",
+		InstanceName: "app-storage",
+		Parameters: &runtime.RawExtension{
+			Raw: toJSON(t, map[string]any{
+				"mountPath": "/var/data",
+				"size":      "10Gi",
+			}),
+		},
+	}
+	rb := &v1alpha1.ReleaseBinding{
+		Spec: v1alpha1.ReleaseBindingSpec{
+			TraitEnvironmentConfigs: map[string]runtime.RawExtension{
+				"app-storage": {
+					Raw: toJSON(t, map[string]any{
+						"replicas": float64(5),
+					}),
+				},
+			},
+		},
+	}
+
+	params, envConfigs, err := ExtractTraitInstanceBindings(instance, rb)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]any{
+		"mountPath": "/var/data",
+		"size":      "10Gi",
+	}, params)
+	assert.Equal(t, map[string]any{
+		"replicas": float64(5),
+	}, envConfigs)
+}
+
+func TestExtractTraitInstanceBindings_InstanceParamsInvalidJSON(t *testing.T) {
+	instance := v1alpha1.ComponentTrait{
+		Name:         "my-trait",
+		InstanceName: "my-trait-instance",
+		Parameters: &runtime.RawExtension{
+			Raw: []byte(`{invalid json}`),
+		},
+	}
+
+	_, _, err := ExtractTraitInstanceBindings(instance, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to extract trait instance parameters")
+}
+
+func TestExtractTraitInstanceBindings_ReleaseBindingEnvConfigsInvalidJSON(t *testing.T) {
+	instance := v1alpha1.ComponentTrait{
+		Name:         "my-trait",
+		InstanceName: "my-trait-instance",
+	}
+	rb := &v1alpha1.ReleaseBinding{
+		Spec: v1alpha1.ReleaseBindingSpec{
+			TraitEnvironmentConfigs: map[string]runtime.RawExtension{
+				instance.InstanceName: {
+					Raw: []byte(`{invalid`),
+				},
+			},
+		},
+	}
+
+	_, _, err := ExtractTraitInstanceBindings(instance, rb)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to extract trait environment configs")
+}
+
+func TestExtractTraitInstanceBindings_EnvConfigsMissingForInstance(t *testing.T) {
+	instance := v1alpha1.ComponentTrait{
+		Name:         "my-trait",
+		InstanceName: "my-trait-instance",
+	}
+	rb := &v1alpha1.ReleaseBinding{
 		Spec: v1alpha1.ReleaseBindingSpec{
 			TraitEnvironmentConfigs: map[string]runtime.RawExtension{
 				"other-instance": {
@@ -191,17 +361,22 @@ func TestProcessTraitParameters_EnvConfigsMissing(t *testing.T) {
 		},
 	}
 
-	// Trait has environmentConfigs schema
-	input.Trait.Spec.EnvironmentConfigs = openAPIV3Schema(objectSchema(map[string]any{
-		"size": stringPropSchema("small"),
-	}))
-
-	ctx, err := BuildTraitContext(input)
+	_, envConfigs, err := ExtractTraitInstanceBindings(instance, rb)
 	require.NoError(t, err)
-	require.NotNil(t, ctx)
-	// The instanceName is "my-trait-instance" but ReleaseBinding only has "other-instance",
-	// so envConfigs should be empty map with defaults applied from schema
-	assert.Equal(t, map[string]any{"size": "small"}, ctx.EnvironmentConfigs)
+	// Instance is not in the override map, so envConfigs should be empty.
+	assert.Empty(t, envConfigs)
+}
+
+func TestExtractTraitInstanceBindings_NilReleaseBinding(t *testing.T) {
+	instance := v1alpha1.ComponentTrait{
+		Name:         "my-trait",
+		InstanceName: "my-trait-instance",
+	}
+
+	params, envConfigs, err := ExtractTraitInstanceBindings(instance, nil)
+	require.NoError(t, err)
+	assert.Empty(t, params)
+	assert.Empty(t, envConfigs)
 }
 
 func TestProcessTraitParameters_SchemaCache(t *testing.T) {

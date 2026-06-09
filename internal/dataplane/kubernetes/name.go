@@ -41,6 +41,18 @@ func GenerateK8sName(names ...string) string {
 // This is useful when the name must be within a specific length limit, that is different from the default limit.
 // Example: CronJob names must be within 52 characters.
 func GenerateK8sNameWithLengthLimit(limit int, names ...string) string {
+	return generateK8sName(limit, "", names)
+}
+
+// GenerateK8sNameWithExtraHashInput generates a Kubernetes-compliant name like
+// GenerateK8sNameWithLengthLimit, but includes extraHashInput in the SHA-256
+// hash computation without adding it to the visible base name. Use this when
+// a value must influence uniqueness but should not appear in the resource name.
+func GenerateK8sNameWithExtraHashInput(limit int, extraHashInput string, names ...string) string {
+	return generateK8sName(limit, extraHashInput, names)
+}
+
+func generateK8sName(limit int, extraHashInput string, names []string) string {
 	// Clean and sanitize each name part
 	cleanedNames := make([]string, 0, len(names))
 	for _, name := range names {
@@ -49,8 +61,11 @@ func GenerateK8sNameWithLengthLimit(limit int, names ...string) string {
 	}
 
 	// Generate a hash from the full original concatenated names for uniqueness
-	fullName := strings.Join(names, separator)
-	hashBytes := sha256.Sum256([]byte(fullName))
+	hashInput := strings.Join(names, separator)
+	if extraHashInput != "" {
+		hashInput += separator + extraHashInput
+	}
+	hashBytes := sha256.Sum256([]byte(hashInput))
 	hashString := hex.EncodeToString(hashBytes[:])[:hashLength]
 
 	// Calculate the maximum allowed length for the base name

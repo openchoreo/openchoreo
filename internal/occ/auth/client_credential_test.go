@@ -78,4 +78,48 @@ func TestClientCredentialsGetToken(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to parse token response")
 	})
+
+	t.Run("includes scope in request when Scope is set", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			params, err := url.ParseQuery(string(body))
+			require.NoError(t, err)
+
+			assert.Equal(t, "openid profile", params.Get("scope"))
+
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(TokenResponse{AccessToken: "tok", TokenType: "Bearer", ExpiresIn: 3600})
+		}))
+		defer server.Close()
+
+		c := &ClientCredentialsAuth{
+			TokenEndpoint: server.URL,
+			ClientID:      "c",
+			ClientSecret:  "s",
+			Scope:         "openid profile",
+		}
+		resp, err := c.GetToken()
+		require.NoError(t, err)
+		assert.Equal(t, "tok", resp.AccessToken)
+	})
+
+	t.Run("omits scope from request when Scope is empty", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			params, err := url.ParseQuery(string(body))
+			require.NoError(t, err)
+
+			assert.Equal(t, "", params.Get("scope"))
+
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(TokenResponse{AccessToken: "tok", TokenType: "Bearer", ExpiresIn: 3600})
+		}))
+		defer server.Close()
+
+		c := &ClientCredentialsAuth{TokenEndpoint: server.URL, ClientID: "c", ClientSecret: "s"}
+		_, err := c.GetToken()
+		require.NoError(t, err)
+	})
 }

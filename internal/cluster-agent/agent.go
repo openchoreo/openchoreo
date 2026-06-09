@@ -22,16 +22,33 @@ import (
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
 )
 
+// Connection abstracts a WebSocket connection for testability.
+// *websocket.Conn satisfies this interface.
+type Connection interface {
+	ReadMessage() (messageType int, p []byte, err error)
+	WriteMessage(messageType int, data []byte) error
+	WriteControl(messageType int, data []byte, deadline time.Time) error
+	SetPingHandler(h func(appData string) error)
+	Close() error
+}
+
 type Agent struct {
 	config     *Config
 	clientCert tls.Certificate
 	serverCA   *x509.CertPool
-	conn       *websocket.Conn
+	conn       Connection
 	k8sClient  client.Client
+	k8sConfig  *rest.Config
 	router     *Router
 	mu         sync.Mutex
 	logger     *slog.Logger
 	stopChan   chan struct{}
+	// activeStreams tracks active exec streaming sessions indexed by requestID
+	activeStreams   map[string]*execSession
+	activeStreamsMu sync.Mutex
+	// hubbleStreams tracks active hubble flow streaming sessions indexed by requestID
+	hubbleStreams   map[string]*hubbleSession
+	hubbleStreamsMu sync.Mutex
 }
 
 func New(cfg *Config, k8sClient client.Client, k8sConfig *rest.Config, logger *slog.Logger) (*Agent, error) {
@@ -76,13 +93,16 @@ func New(cfg *Config, k8sClient client.Client, k8sConfig *rest.Config, logger *s
 	}
 
 	return &Agent{
-		config:     cfg,
-		clientCert: cert,
-		serverCA:   serverCertPool,
-		k8sClient:  k8sClient,
-		router:     router,
-		logger:     logger.With("component", "agent", "planeID", cfg.PlaneID),
-		stopChan:   make(chan struct{}),
+		config:        cfg,
+		clientCert:    cert,
+		serverCA:      serverCertPool,
+		k8sClient:     k8sClient,
+		k8sConfig:     k8sConfig,
+		router:        router,
+		logger:        logger.With("component", "agent", "planeID", cfg.PlaneID),
+		stopChan:      make(chan struct{}),
+		activeStreams: make(map[string]*execSession),
+		hubbleStreams: make(map[string]*hubbleSession),
 	}, nil
 }
 
@@ -221,7 +241,29 @@ func (a *Agent) handleConnection(ctx context.Context) {
 			return
 		}
 
-		// Parse as HTTPTunnelRequest
+		// Try to parse as stream init (exec / hubble requests)
+		var streamInit messaging.HTTPTunnelStreamInit
+		if err := json.Unmarshal(message, &streamInit); err == nil && streamInit.IsUpgrade && streamInit.RequestID != "" {
+			switch streamInit.Target {
+			case "hubble":
+				go a.handleHubbleStreamInit(ctx, &streamInit)
+			default:
+				go a.handleHTTPTunnelStreamInit(&streamInit)
+			}
+			continue
+		}
+
+		// Try to parse as stream chunk (stdin data for active exec sessions, or
+		// the close signal for exec/hubble sessions).
+		var streamChunk messaging.HTTPTunnelStreamChunk
+		if err := json.Unmarshal(message, &streamChunk); err == nil && streamChunk.RequestID != "" && (streamChunk.Data != nil || streamChunk.IsClose) {
+			if !a.routeHubbleChunk(&streamChunk) {
+				a.routeStreamChunk(&streamChunk)
+			}
+			continue
+		}
+
+		// Parse as regular HTTPTunnelRequest
 		var httpReq messaging.HTTPTunnelRequest
 		if err := json.Unmarshal(message, &httpReq); err != nil {
 			a.logger.Warn("failed to parse HTTP tunnel request", "error", err)

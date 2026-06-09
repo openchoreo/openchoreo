@@ -160,6 +160,14 @@ func (h *MCPHandler) GetWorkflowPlane(ctx context.Context, namespaceName, workfl
 	return workflowPlaneDetail(wp), nil
 }
 
+func (h *MCPHandler) GetResourceTree(ctx context.Context, namespaceName, releaseBindingName string) (any, error) {
+	result, err := h.services.K8sResourcesService.GetResourceTree(ctx, namespaceName, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	return resourceTreeDetail(result), nil
+}
+
 func (h *MCPHandler) GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName, group, version, kind, name string) (any, error) {
 	result, err := h.services.K8sResourcesService.GetResourceEvents(ctx, namespaceName, releaseBindingName, group, version, kind, name)
 	if err != nil {

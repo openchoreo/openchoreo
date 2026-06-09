@@ -21,3 +21,229 @@ configuration:
   passkey:
     allowedOrigins:
       - "http://openchoreo.e2e-cp.local:28080"
+
+bootstrap:
+  scripts:
+    # Add the openchoreo.e2e-cp.local:28080 redirect URI alongside the
+    # single-cluster default so Thunder accepts the OIDC redirect-back from
+    # Backstage on this cluster. PUT path is idempotent.
+    51-backstage-app.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      log_info "Checking if application 'Backstage' already exists..."
+      # Fail on HTTP errors and retry: a transient Thunder error here would
+      # otherwise silently yield an empty app_id and divert into the create
+      # path instead of the idempotent PUT update.
+      existing_apps=""
+      for attempt in 1 2 3; do
+        if existing_apps=$(curl -s --fail --max-time 10 "${THUNDER_URL}/applications"); then
+          break
+        fi
+        existing_apps=""
+        log_info "Listing applications failed (attempt ${attempt}/3), retrying in 5s..."
+        sleep 5
+      done
+      if [ -z "$existing_apps" ]; then
+        log_error "Failed to list applications from ${THUNDER_URL} after 3 attempts"
+        exit 1
+      fi
+
+      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"name":"Backstage"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"name":"Backstage"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+      APP_PAYLOAD='{
+        "name": "Backstage",
+        "description": "OpenChoreo Backstage Portal",
+        "logo_url": "https://cdn.statically.io/gh/openchoreo/openchoreo.github.io@main/static/img/openchoreo-logo.png",
+        "allowed_user_types": ["openchoreo-user"],
+        "assertion": {
+          "validity_period": 3600
+        },
+        "inbound_auth_config": [
+          {
+            "type": "oauth2",
+            "config": {
+              "client_id": "openchoreo-backstage-client",
+              "client_secret": "backstage-portal-secret",
+              "redirect_uris": [
+                "http://openchoreo.localhost:8080/api/auth/openchoreo-auth/handler/frame",
+                "http://openchoreo.e2e-cp.local:28080/api/auth/openchoreo-auth/handler/frame"
+              ],
+              "grant_types": [
+                "authorization_code",
+                "client_credentials",
+                "refresh_token"
+              ],
+              "response_types": [
+                "code"
+              ],
+              "token_endpoint_auth_method": "client_secret_post",
+              "pkce_required": false,
+              "public_client": false,
+              "token": {
+                "access_token": {
+                  "validity_period": 86400,
+                  "user_attributes": [
+                    "given_name",
+                    "family_name",
+                    "username",
+                    "groups"
+                  ]
+                },
+                "id_token": {
+                  "validity_period": 86400,
+                  "user_attributes": [
+                    "given_name",
+                    "family_name",
+                    "username",
+                    "groups"
+                  ]
+                }
+              },
+              "scope_claims": {
+                "email": [
+                  "email"
+                ],
+                "groups": [
+                  "groups"
+                ],
+                "profile": [
+                  "username",
+                  "given_name",
+                  "family_name",
+                  "picture"
+                ]
+              }
+            }
+          }
+        ]
+      }'
+
+      if [ -n "$app_id" ]; then
+        log_info "Application 'Backstage' already exists (id: $app_id), updating..."
+        curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Application updated successfully"
+      else
+        log_info "Application does not exist, creating default application..."
+        curl --location "${THUNDER_URL}/applications" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+
+        log_info "Default application created successfully"
+      fi
+
+    # Provision the ABAC-restricted identity the abac-ui Playwright suite
+    # signs in as. Thunder's admin API rejects all requests (401) once the
+    # server is up — even from loopback — so users can only be seeded from
+    # inside the setup Job, where these bootstrap scripts run. Runs after the
+    # stock 50-user-schema-and-users.sh (which creates the org unit, the
+    # openchoreo-user schema, and the PE/Dev identities) and reuses the same
+    # idempotent ensure-user / ensure-group shape.
+    52-abac-user.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      ORG_UNIT_ID=$(curl -s --max-time 10 "${THUNDER_URL}/organization-units/tree/default" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      if [ -z "$ORG_UNIT_ID" ]; then
+        log_error "Failed to resolve default organization unit ID from ${THUNDER_URL}"
+        exit 1
+      fi
+      log_info "Using organization unit ID: $ORG_UNIT_ID"
+
+      ABAC_USERNAME="abac-dev@openchoreo.dev"
+      ABAC_GROUP="abac-developers"
+
+      # Fail on HTTP errors and retry: a transient Thunder error here would
+      # otherwise yield an empty list and divert into the create path
+      # (which then fails on the already-existing user). Mirrors the retry
+      # in 51-backstage-app.sh.
+      existing_users=""
+      for attempt in 1 2 3; do
+        if existing_users=$(curl -s --fail --max-time 10 "${THUNDER_URL}/users"); then
+          break
+        fi
+        existing_users=""
+        log_info "Listing users failed (attempt ${attempt}/3), retrying in 5s..."
+        sleep 5
+      done
+      if [ -z "$existing_users" ]; then
+        log_error "Failed to list users from ${THUNDER_URL} after 3 attempts"
+        exit 1
+      fi
+      if echo "$existing_users" | grep -q "\"username\" *: *\"${ABAC_USERNAME}\""; then
+        log_info "User '${ABAC_USERNAME}' already exists, getting ID..."
+        abac_user_id=$(echo "$existing_users" | tr '\n' ' ' | sed 's/" *: *"/":"/g' \
+          | grep -o "\"username\":\"${ABAC_USERNAME}\"[^}]*\"id\":\"[^\"]*\"\|\"id\":\"[^\"]*\"[^}]*\"username\":\"${ABAC_USERNAME}\"" \
+          | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      else
+        log_info "Creating user '${ABAC_USERNAME}'..."
+        response=$(curl --location "${THUNDER_URL}/users" \
+          --header 'accept: application/json' \
+          --header 'Content-Type: application/json' \
+          --data "{
+            \"type\": \"openchoreo-user\",
+            \"organizationUnit\": \"$ORG_UNIT_ID\",
+            \"attributes\": {
+              \"username\": \"${ABAC_USERNAME}\",
+              \"email\": \"${ABAC_USERNAME}\",
+              \"password\": \"Abac@123\",
+              \"given_name\": \"ABAC\",
+              \"family_name\": \"Developer\"
+            }
+          }" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5)
+        log_info "User '${ABAC_USERNAME}' created successfully"
+        abac_user_id=$(echo "$response" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+      fi
+
+      # Same fail-and-retry rationale as the user listing above.
+      existing_groups=""
+      for attempt in 1 2 3; do
+        if existing_groups=$(curl -s --fail --max-time 10 "${THUNDER_URL}/groups"); then
+          break
+        fi
+        existing_groups=""
+        log_info "Listing groups failed (attempt ${attempt}/3), retrying in 5s..."
+        sleep 5
+      done
+      if [ -z "$existing_groups" ]; then
+        log_error "Failed to list groups from ${THUNDER_URL} after 3 attempts"
+        exit 1
+      fi
+      if echo "$existing_groups" | grep -q "\"name\" *: *\"${ABAC_GROUP}\""; then
+        log_info "Group '${ABAC_GROUP}' already exists, skipping creation"
+      else
+        log_info "Creating group '${ABAC_GROUP}'..."
+        curl --location "${THUNDER_URL}/groups" \
+          --header 'accept: application/json' \
+          --header 'Content-Type: application/json' \
+          --data "{
+            \"name\": \"${ABAC_GROUP}\",
+            \"organizationUnitId\": \"$ORG_UNIT_ID\",
+            \"description\": \"ABAC-restricted developers (environment-scoped access, used by the abac-ui Playwright suite)\",
+            \"members\": [{\"type\":\"user\",\"id\":\"${abac_user_id}\"}]
+          }" \
+          --fail-with-body \
+          --max-time 30 \
+          --retry 3 \
+          --retry-delay 5
+        log_info "Group '${ABAC_GROUP}' created successfully"
+      fi

@@ -13,24 +13,18 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by Namespace operations.
-type Client interface {
-	ListNamespaces(ctx context.Context, params *gen.ListNamespacesParams) (*gen.NamespaceList, error)
-	GetNamespace(ctx context.Context, namespaceName string) (*gen.Namespace, error)
-	DeleteNamespace(ctx context.Context, namespaceName string) error
-}
-
 // Namespace implements namespace operations
 type Namespace struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new namespace implementation
-func New(client Client) *Namespace {
-	return &Namespace{client: client}
+func New(c client.Interface) *Namespace {
+	return &Namespace{client: c}
 }
 
 // List lists all namespaces

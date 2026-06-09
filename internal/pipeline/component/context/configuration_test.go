@@ -390,6 +390,92 @@ func TestExtractConfigurationsFromWorkload(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:             "workload with empty env value is preserved",
+			secretReferences: map[string]*v1alpha1.SecretReference{},
+			workload: &v1alpha1.Workload{
+				Spec: v1alpha1.WorkloadSpec{
+					WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
+						Container: v1alpha1.Container{
+							Image: "test:latest",
+							Env: []v1alpha1.EnvVar{
+								{Key: "EMPTY_VAR", Value: ""},
+								{Key: "REAL_VAR", Value: "set"},
+							},
+						},
+					},
+				},
+			},
+			want: ContainerConfigurations{
+				Configs: ConfigurationItems{
+					Envs: []EnvConfiguration{
+						{Name: "EMPTY_VAR", Value: ""},
+						{Name: "REAL_VAR", Value: "set"},
+					},
+					Files: []FileConfiguration{},
+				},
+				Secrets: ConfigurationItems{
+					Envs:  []EnvConfiguration{},
+					Files: []FileConfiguration{},
+				},
+			},
+		},
+		{
+			name:             "workload with env having neither value nor valueFrom is treated as empty",
+			secretReferences: map[string]*v1alpha1.SecretReference{},
+			workload: &v1alpha1.Workload{
+				Spec: v1alpha1.WorkloadSpec{
+					WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
+						Container: v1alpha1.Container{
+							Image: "test:latest",
+							Env: []v1alpha1.EnvVar{
+								{Key: "BARE"},
+							},
+						},
+					},
+				},
+			},
+			want: ContainerConfigurations{
+				Configs: ConfigurationItems{
+					Envs: []EnvConfiguration{
+						{Name: "BARE", Value: ""},
+					},
+					Files: []FileConfiguration{},
+				},
+				Secrets: ConfigurationItems{
+					Envs:  []EnvConfiguration{},
+					Files: []FileConfiguration{},
+				},
+			},
+		},
+		{
+			name:             "workload with empty file value is preserved",
+			secretReferences: map[string]*v1alpha1.SecretReference{},
+			workload: &v1alpha1.Workload{
+				Spec: v1alpha1.WorkloadSpec{
+					WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
+						Container: v1alpha1.Container{
+							Image: "test:latest",
+							Files: []v1alpha1.FileVar{
+								{Key: "empty-file", MountPath: "/etc/empty", Value: ""},
+							},
+						},
+					},
+				},
+			},
+			want: ContainerConfigurations{
+				Configs: ConfigurationItems{
+					Envs: []EnvConfiguration{},
+					Files: []FileConfiguration{
+						{Name: "empty-file", MountPath: "/etc/empty", Value: ""},
+					},
+				},
+				Secrets: ConfigurationItems{
+					Envs:  []EnvConfiguration{},
+					Files: []FileConfiguration{},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {

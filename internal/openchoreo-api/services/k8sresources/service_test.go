@@ -431,7 +431,7 @@ func TestIsChildResourceKind(t *testing.T) {
 
 func TestHasParentResourceInRelease(t *testing.T) {
 	t.Run("Pod with Deployment parent in resources", func(t *testing.T) {
-		resources := []openchoreov1alpha1.ResourceStatus{
+		resources := []openchoreov1alpha1.RenderedManifestStatus{
 			{Kind: "Service", Name: "svc1"},
 			{Kind: "Deployment", Name: "dep1"},
 		}
@@ -439,7 +439,7 @@ func TestHasParentResourceInRelease(t *testing.T) {
 	})
 
 	t.Run("Pod with no parent kinds in resources", func(t *testing.T) {
-		resources := []openchoreov1alpha1.ResourceStatus{
+		resources := []openchoreov1alpha1.RenderedManifestStatus{
 			{Kind: "Service", Name: "svc1"},
 			{Kind: "ConfigMap", Name: "cm1"},
 		}
@@ -447,14 +447,14 @@ func TestHasParentResourceInRelease(t *testing.T) {
 	})
 
 	t.Run("Job with CronJob parent in resources", func(t *testing.T) {
-		resources := []openchoreov1alpha1.ResourceStatus{
+		resources := []openchoreov1alpha1.RenderedManifestStatus{
 			{Kind: "CronJob", Name: "cj1"},
 		}
 		assert.True(t, hasParentResourceInRelease("Job", resources))
 	})
 
 	t.Run("ReplicaSet with Deployment parent in resources", func(t *testing.T) {
-		resources := []openchoreov1alpha1.ResourceStatus{
+		resources := []openchoreov1alpha1.RenderedManifestStatus{
 			{Kind: "Deployment", Name: "dep1"},
 		}
 		assert.True(t, hasParentResourceInRelease("ReplicaSet", resources))
@@ -465,7 +465,7 @@ func TestDeriveNamespace(t *testing.T) {
 	t.Run("with resources", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
 			Status: openchoreov1alpha1.RenderedReleaseStatus{
-				Resources: []openchoreov1alpha1.ResourceStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
 					{Namespace: "data-ns", Kind: "Deployment", Name: "dep1"},
 					{Namespace: "data-ns", Kind: "Service", Name: "svc1"},
 				},
@@ -584,7 +584,7 @@ func TestFindResourceRelease(t *testing.T) {
 		release: &openchoreov1alpha1.RenderedRelease{
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{TargetPlane: planeTypeDataPlane},
 			Status: openchoreov1alpha1.RenderedReleaseStatus{
-				Resources: []openchoreov1alpha1.ResourceStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
 					{Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "app-ns"},
 					{Group: "", Version: "v1", Kind: "Service", Name: "web-svc", Namespace: "app-ns"},
 				},
@@ -597,7 +597,7 @@ func TestFindResourceRelease(t *testing.T) {
 		release: &openchoreov1alpha1.RenderedRelease{
 			Spec: openchoreov1alpha1.RenderedReleaseSpec{TargetPlane: planeTypeObservabilityPlane},
 			Status: openchoreov1alpha1.RenderedReleaseStatus{
-				Resources: []openchoreov1alpha1.ResourceStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{
 					{Group: "", Version: "v1", Kind: "ConfigMap", Name: "obs-cfg", Namespace: "obs-ns"},
 				},
 			},
@@ -641,7 +641,7 @@ func TestFindResourceRelease(t *testing.T) {
 		cronJobCtx := releaseContext{
 			release: &openchoreov1alpha1.RenderedRelease{
 				Status: openchoreov1alpha1.RenderedReleaseStatus{
-					Resources: []openchoreov1alpha1.ResourceStatus{
+					Resources: []openchoreov1alpha1.RenderedManifestStatus{
 						{Group: "batch", Version: "v1", Kind: "CronJob", Name: "cj1", Namespace: "batch-ns"},
 					},
 				},
@@ -658,7 +658,7 @@ func TestFindResourceRelease(t *testing.T) {
 		mixedCtx := releaseContext{
 			release: &openchoreov1alpha1.RenderedRelease{
 				Status: openchoreov1alpha1.RenderedReleaseStatus{
-					Resources: []openchoreov1alpha1.ResourceStatus{
+					Resources: []openchoreov1alpha1.RenderedManifestStatus{
 						{Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "app-ns"},
 						{Group: "", Version: "v1", Kind: "Pod", Name: "special-pod", Namespace: "pod-ns"},
 					},

@@ -1,0 +1,15 @@
+{{- if and .Values.finOpsAgent.enabled (eq .Values.finOpsAgent.reportBackend "sqlite") }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: finops-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-observability-plane.componentLabels" (dict "context" . "component" "finops-agent") | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.finOpsAgent.sqliteStorageSize }}
+{{- end }}

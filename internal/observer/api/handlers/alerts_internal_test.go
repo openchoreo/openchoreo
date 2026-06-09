@@ -561,3 +561,66 @@ func TestHandleAlertWebhook_Success(t *testing.T) {
 	require.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, rr.Body.String(), "processed")
 }
+
+// Budget source type tests --------------------------------------------------
+
+func TestCreateAlertRule_Budget_Success(t *testing.T) {
+	t.Parallel()
+
+	action := gen.AlertingRuleSyncResponseAction("created")
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("CreateAlertRule", mock.Anything, mock.Anything).Return(&gen.AlertingRuleSyncResponse{Action: &action}, nil)
+
+	h := newInternalHandler(svc)
+
+	// Budget alert: no query or metric needed, just threshold and window
+	uid := "00000000-0000-0000-0000-000000000001"
+	raw := map[string]any{
+		"metadata": map[string]any{
+			"name":           testRuleName,
+			"componentUid":   uid,
+			"projectUid":     uid,
+			"environmentUid": uid,
+			"namespace":      testNS,
+		},
+		"source": map[string]any{
+			"type": sourceTypeBudget,
+		},
+		"condition": map[string]any{
+			"window":    "24h",
+			"interval":  "1h",
+			"operator":  "gt",
+			"threshold": 5.0,
+			"enabled":   true,
+		},
+	}
+	b, err := json.Marshal(raw)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/sources/budget/rules",
+		bytes.NewReader(b))
+	req.SetPathValue("sourceType", sourceTypeBudget)
+	rr := httptest.NewRecorder()
+
+	h.CreateAlertRule(rr, req)
+
+	require.Equal(t, http.StatusCreated, rr.Code)
+	assert.Contains(t, rr.Body.String(), "created")
+}
+
+func TestGetAlertRule_Budget_Success(t *testing.T) {
+	t.Parallel()
+
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&gen.AlertRuleResponse{}, nil)
+
+	h := newInternalHandler(svc)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/alerts/sources/budget/rules/r1", nil)
+	req.SetPathValue("sourceType", sourceTypeBudget)
+	req.SetPathValue("ruleName", "r1")
+	rr := httptest.NewRecorder()
+
+	h.GetAlertRule(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+}

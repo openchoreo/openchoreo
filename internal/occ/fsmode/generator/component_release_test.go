@@ -116,8 +116,11 @@ func addTrait(t *testing.T, idx *index.Index, name string, spec map[string]any, 
 }
 
 // addComponentWithTraits adds a Component with trait references to the index.
-func addComponentWithTraits(t *testing.T, idx *index.Index, namespace, name, project, componentTypeName string, traits []map[string]any, filePath string) {
+func addComponentWithTraits(t *testing.T, idx *index.Index, namespace string, traits []map[string]any, filePath string) {
 	t.Helper()
+	const name = "my-svc"
+	const project = "myproj"
+	const componentTypeName = "deployment/service"
 	spec := map[string]any{
 		"owner": map[string]any{
 			"projectName": project,
@@ -157,7 +160,7 @@ func TestGenerateRelease_ManifestShape(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	addComponentWithTraits(t, idx, namespace, componentName, projectName, "deployment/service",
+	addComponentWithTraits(t, idx, namespace,
 		[]map[string]any{
 			{"kind": "Trait", "name": "ingress", "instanceName": "ingress-1"},
 			{"name": "logging", "instanceName": "logging-1"},
@@ -368,7 +371,7 @@ func TestGenerateRelease_ClusterTrait(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	addComponentWithTraits(t, idx, namespace, componentName, projectName, "deployment/service",
+	addComponentWithTraits(t, idx, namespace,
 		[]map[string]any{
 			{"kind": "ClusterTrait", "name": "global-ingress", "instanceName": "gi-1"},
 		},
@@ -430,7 +433,7 @@ func TestGenerateRelease_MissingClusterTraitErrors(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	addComponentWithTraits(t, idx, namespace, componentName, projectName, "deployment/service",
+	addComponentWithTraits(t, idx, namespace,
 		[]map[string]any{
 			{"kind": "ClusterTrait", "name": "global-ingress", "instanceName": "gi-1"},
 		},
@@ -676,6 +679,142 @@ func TestGenerateRelease_WorkloadConnectionsIncluded(t *testing.T) {
 
 	second := connSlice[1].(map[string]interface{})
 	assert.Equal(t, "nats", second["component"])
+}
+
+func TestGenerateRelease_ProjectNameMismatch(t *testing.T) {
+	idx := index.New("/repo")
+
+	addComponent(t, idx, "my-svc", "actual-project", "deployment/service",
+		"/repo/projects/actual-project/components/my-svc/component.yaml")
+	addComponentType(t, idx, "service", "deployment",
+		"/repo/platform/component-types/service.yaml")
+	addWorkload(t, idx, "default", "my-svc-workload", "actual-project", "my-svc",
+		map[string]any{"container": map[string]any{"image": "img:v1"}},
+		"/repo/projects/actual-project/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	_, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: "my-svc",
+		ProjectName:   "wrong-project",
+		Namespace:     "default",
+		ReleaseName:   "test-release",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "belongs to project")
+}
+
+func TestGenerateRelease_UnsupportedTraitKindErrors(t *testing.T) {
+	idx := index.New("/repo")
+
+	addComponentWithTraits(t, idx, "default",
+		[]map[string]any{
+			{"kind": "UnknownTraitKind", "name": "my-trait", "instanceName": "t-1"},
+		},
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	addComponentType(t, idx, "service", "deployment",
+		"/repo/platform/component-types/service.yaml")
+
+	addWorkload(t, idx, "default", "my-svc-workload", "myproj", "my-svc",
+		map[string]any{"container": map[string]any{"image": "img:v1"}},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	_, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: "my-svc",
+		ProjectName:   "myproj",
+		Namespace:     "default",
+		ReleaseName:   "test-release",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported trait kind")
+}
+
+func TestGenerateRelease_WithComponentParameters(t *testing.T) {
+	idx := index.New("/repo")
+
+	// Add component with parameters
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "Component",
+				"metadata":   map[string]any{"name": "my-svc", "namespace": "default"},
+				"spec": map[string]any{
+					"owner":         map[string]any{"projectName": "myproj"},
+					"componentType": map[string]any{"name": "deployment/service", "kind": "ComponentType"},
+					"parameters":    map[string]any{"port": float64(8080), "replicas": float64(3)},
+				},
+			},
+		},
+		FilePath: "/repo/comp.yaml",
+	}
+	require.NoError(t, idx.Add(entry))
+
+	addComponentType(t, idx, "service", "deployment",
+		"/repo/platform/component-types/service.yaml")
+	addWorkload(t, idx, "default", "my-svc-workload", "myproj", "my-svc",
+		map[string]any{"container": map[string]any{"image": "img:v1"}},
+		"/repo/wl.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: "my-svc",
+		ProjectName:   "myproj",
+		Namespace:     "default",
+		ReleaseName:   "test-release",
+	})
+	require.NoError(t, err)
+
+	// Verify componentProfile.parameters is present
+	params, ok, _ := unstructured.NestedMap(release.Object, "spec", "componentProfile", "parameters")
+	require.True(t, ok, "expected spec.componentProfile.parameters")
+	assert.Equal(t, float64(8080), params["port"])
+	assert.Equal(t, float64(3), params["replicas"])
+}
+
+func TestGenerateRelease_DuplicateTraitsDeduped(t *testing.T) {
+	idx := index.New("/repo")
+
+	// Component references the same trait twice with different instance names
+	addComponentWithTraits(t, idx, "default",
+		[]map[string]any{
+			{"kind": "Trait", "name": "ingress", "instanceName": "ingress-a"},
+			{"kind": "Trait", "name": "ingress", "instanceName": "ingress-b"},
+		},
+		"/repo/comp.yaml")
+
+	addComponentType(t, idx, "service", "deployment", "/repo/ct.yaml")
+	addTrait(t, idx, "ingress", map[string]any{}, "/repo/traits/ingress.yaml")
+	addWorkload(t, idx, "default", "my-svc-workload", "myproj", "my-svc",
+		map[string]any{"container": map[string]any{"image": "img:v1"}}, "/repo/wl.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: "my-svc",
+		ProjectName:   "myproj",
+		Namespace:     "default",
+		ReleaseName:   "test-release",
+	})
+	require.NoError(t, err)
+
+	// spec.traits should be deduped to 1 entry
+	traitsSlice, ok, _ := unstructured.NestedSlice(release.Object, "spec", "traits")
+	require.True(t, ok)
+	assert.Len(t, traitsSlice, 1)
+
+	// spec.componentProfile.traits should have both instances
+	profileTraits, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentProfile", "traits")
+	require.True(t, ok)
+	assert.Len(t, profileTraits, 2)
 }
 
 func TestGenerateRelease_WorkloadWithoutEndpoints(t *testing.T) {

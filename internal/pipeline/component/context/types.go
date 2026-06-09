@@ -5,6 +5,7 @@ package context
 
 import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/pipeline/component/schemaextract"
 )
 
 // MetadataContext provides structured metadata for resource generation.
@@ -98,6 +99,11 @@ type ComponentContextInput struct {
 	// Should be computed once by the caller using ExtractWorkloadData and shared.
 	WorkloadData WorkloadData
 
+	// EndpointResources holds routes extracted from endpoint API schemas, keyed by
+	// endpoint name. Optional and typically nil: the pipeline only computes it when
+	// a template references the workload.toEndpointResources() macro.
+	EndpointResources EndpointResourceMap
+
 	// Configurations is the pre-computed configurations from workload.
 	// Should be computed once by the caller using ExtractConfigurationsFromWorkload
 	// and shared across ComponentContext and all TraitContexts.
@@ -116,43 +122,14 @@ type ComponentContextInput struct {
 	DefaultNotificationChannel string
 }
 
-// TraitContextInput contains all inputs needed to build a trait rendering context.
-type TraitContextInput struct {
-	// Trait is the trait definition.
-	Trait *v1alpha1.Trait `validate:"required"`
-
-	// Instance contains the specific instance configuration.
-	Instance v1alpha1.ComponentTrait `validate:"required"`
-
-	// Component is the component this trait is being applied to.
-	Component *v1alpha1.Component `validate:"required"`
-
-	// ReleaseBinding contains release reference and environment-specific overrides.
-	// Can be nil if no overrides are needed.
-	ReleaseBinding *v1alpha1.ReleaseBinding
-
-	// WorkloadData is the pre-computed workload data (containers, endpoints).
-	// Should be computed once by the caller using ExtractWorkloadData and shared.
-	WorkloadData WorkloadData
-
-	// Configurations is the pre-computed configurations from workload.
-	// Should be computed once by the caller using ExtractConfigurationsFromWorkload
-	// and shared across ComponentContext and all TraitContexts.
-	Configurations ContainerConfigurations
-
+// TraitContextBase contains the inputs common to building both regular and embedded trait
+// contexts (metadata, dataplane, environment, workload data, configurations, dependencies,
+// notification channel). Pipeline callers typically build this once at the start of a render
+// and embed it in each TraitContextInput / EmbeddedTraitContextInput inside the trait loops.
+type TraitContextBase struct {
 	// Metadata provides structured naming and labeling information.
 	// Required - controller must provide this.
 	Metadata MetadataContext `validate:"required"`
-
-	// Dependencies contains pre-computed dependency environment variables.
-	// Optional - if not provided, dependencies context will be empty.
-	Dependencies ConnectionsData
-
-	// SchemaCache is an optional cache for schema bundles, keyed by trait kind+name with suffix.
-	// Used to avoid rebuilding schemas for the same trait used multiple times.
-	// BuildTraitContext will check this cache before building and populate it after.
-	// Cache keys use format "{kind}:{traitName}:parameters" and "{kind}:{traitName}:environmentConfigs".
-	SchemaCache map[string]*SchemaBundle
 
 	// DataPlane contains the data plane configuration.
 	// Required - controller must provide this.
@@ -162,9 +139,66 @@ type TraitContextInput struct {
 	// Required - controller must provide this.
 	Environment *v1alpha1.Environment `validate:"required"`
 
+	// WorkloadData is the pre-computed workload data (containers, endpoints).
+	// Should be computed once by the caller using ExtractWorkloadData and shared.
+	WorkloadData WorkloadData
+
+	// EndpointResources holds routes extracted from endpoint API schemas, keyed by
+	// endpoint name. Optional and typically nil: the pipeline only computes it when
+	// a template references the workload.toEndpointResources() macro.
+	EndpointResources EndpointResourceMap
+
+	// Configurations is the pre-computed configurations from workload.
+	// Should be computed once by the caller using ExtractConfigurationsFromWorkload
+	// and shared across ComponentContext and all TraitContexts.
+	Configurations ContainerConfigurations
+
+	// Dependencies contains pre-computed dependency environment variables.
+	// Optional - if not provided, dependencies context will be empty.
+	Dependencies ConnectionsData
+
 	// DefaultNotificationChannel is the default notification channel name for the environment.
 	// Optional - if not provided, the defaultNotificationChannel field in EnvironmentData will be empty.
 	DefaultNotificationChannel string
+}
+
+// TraitContextInput contains all inputs needed to build a trait rendering context.
+//
+// Both component-level and embedded traits use this input. The only difference is how
+// callers obtain the resolved parameter and environmentConfigs maps:
+//   - Component-level traits: use ExtractTraitInstanceBindings to deserialize the
+//     ComponentTrait instance and ReleaseBinding override.
+//   - Embedded traits: use ResolveEmbeddedTraitBindings to evaluate CEL expressions
+//     against the component context.
+//
+// By the time the input reaches BuildTraitContext both flows look identical.
+type TraitContextInput struct {
+	// TraitContextBase contains the fields shared across every trait built in a render
+	// (metadata, dataplane, environment, workload data, configurations, dependencies,
+	// notification channel). Pipeline callers typically build it once and embed it here.
+	TraitContextBase
+
+	// Trait is the trait definition.
+	Trait *v1alpha1.Trait `validate:"required"`
+
+	// InstanceName is the unique instance name for this trait within the component.
+	InstanceName string `validate:"required"`
+
+	// ResolvedParameters contains the parameter map after resolution. For component-level
+	// traits this is JSON-deserialized from the ComponentTrait instance. For embedded
+	// traits this is the result of CEL evaluation against the component context.
+	ResolvedParameters map[string]any
+
+	// ResolvedEnvironmentConfigs contains the environmentConfigs map after resolution.
+	// For component-level traits it comes from ReleaseBinding.Spec.TraitEnvironmentConfigs;
+	// for embedded traits it comes from CEL-evaluated bindings.
+	ResolvedEnvironmentConfigs map[string]any
+
+	// SchemaCache is an optional cache for schema bundles, keyed by trait kind+name with suffix.
+	// Used to avoid rebuilding schemas for the same trait used multiple times.
+	// BuildTraitContext will check this cache before building and populate it after.
+	// Cache keys use format "{kind}:{traitName}:parameters" and "{kind}:{traitName}:environmentConfigs".
+	SchemaCache map[string]*SchemaBundle
 }
 
 // SchemaInput contains schema information for building structural and JSON schemas.
@@ -217,6 +251,9 @@ type ComponentContext struct {
 	// Dependencies contains dependency metadata and merged env vars for templates.
 	// Accessed via ${dependencies.items} and ${dependencies.envVars}.
 	Dependencies ConnectionsContextData `json:"dependencies"`
+
+	// Derived holds precomputed views that CEL macros resolve to via field selects.
+	Derived DerivedContext `json:"derived"`
 }
 
 // DataPlaneData provides data plane configuration in templates.
@@ -290,6 +327,13 @@ type EndpointData struct {
 	Visibility  []string `json:"visibility"`
 }
 
+// EndpointResourceMap maps an endpoint name to the routes extracted from its API
+// schema. It is computed only when a template opts in via the
+// workload.toEndpointResources() macro, so schema-less or unused endpoints incur
+// no parsing or context cost. Only endpoints with at least one extracted resource
+// appear as keys.
+type EndpointResourceMap = map[string][]schemaextract.EndpointResource
+
 // ContainerConfigurations contains configs and secrets for a container.
 type ContainerConfigurations struct {
 	Configs ConfigurationItems `json:"configs"`
@@ -303,9 +347,11 @@ type ConfigurationItems struct {
 }
 
 // EnvConfiguration represents an environment variable configuration.
+// Value is always emitted (no omitempty) so that empty-string literals survive
+// the JSON round-trip into the CEL evaluation context.
 type EnvConfiguration struct {
 	Name      string         `json:"name"`
-	Value     string         `json:"value,omitempty"`
+	Value     string         `json:"value"`
 	RemoteRef *RemoteRefData `json:"remoteRef,omitempty"`
 }
 
@@ -313,7 +359,7 @@ type EnvConfiguration struct {
 type FileConfiguration struct {
 	Name      string         `json:"name"`
 	MountPath string         `json:"mountPath"`
-	Value     string         `json:"value,omitempty"`
+	Value     string         `json:"value"`
 	RemoteRef *RemoteRefData `json:"remoteRef,omitempty"`
 }
 
@@ -324,52 +370,81 @@ type RemoteRefData struct {
 	Version  string `json:"version,omitempty"`
 }
 
-// ConnectionEnvVar is a pre-computed env var name/value pair for a resolved connection.
-type ConnectionEnvVar struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
 // ConnectionItem represents a single connection with its target metadata and resolved env vars.
 type ConnectionItem struct {
-	Namespace  string             `json:"namespace"`
-	Project    string             `json:"project"`
-	Component  string             `json:"component"`
-	Endpoint   string             `json:"endpoint"`
-	Visibility string             `json:"visibility"`
-	EnvVars    []ConnectionEnvVar `json:"envVars"`
+	Namespace  string        `json:"namespace"`
+	Project    string        `json:"project"`
+	Component  string        `json:"component"`
+	Endpoint   string        `json:"endpoint"`
+	Visibility string        `json:"visibility"`
+	EnvVars    []EnvVarEntry `json:"envVars"`
 }
 
-// ConnectionsData contains the list of connections with their metadata and per-item env vars.
-// This is the input type used in RenderInput and context inputs.
+// ConnectionsData contains the per-item dependency views (endpoint connections and resource
+// dependencies) that the controller resolves before invoking the pipeline. This is the input
+// type used in RenderInput and context inputs.
 type ConnectionsData struct {
-	Items []ConnectionItem `json:"items"`
+	Items     []ConnectionItem         `json:"items"`
+	Resources []ResourceDependencyItem `json:"resources"`
 }
 
-// ConnectionsContextData is the template context representation of connections.
-// It contains both the per-item details and a merged flat list of all env vars.
-// Accessed via ${connections.items} and ${connections.envVars}.
+// ConnectionsContextData is the template context representation of dependencies. It exposes
+// per-item views (Items, Resources) plus merged flat lists (EnvVars, VolumeMounts, Volumes)
+// for templates that want a single combined surface.
+//
+//	${dependencies.items}        — endpoint per-item view
+//	${dependencies.resources}    — resource per-item view
+//	${dependencies.envVars}      — merged across endpoints + resources
+//	${dependencies.volumeMounts} — merged across resources
+//	${dependencies.volumes}      — merged across resources
 type ConnectionsContextData struct {
-	Items   []ConnectionItem   `json:"items"`
-	EnvVars []ConnectionEnvVar `json:"envVars"`
+	Items        []ConnectionItem         `json:"items"`
+	Resources    []ResourceDependencyItem `json:"resources"`
+	EnvVars      []EnvVarEntry            `json:"envVars"`
+	VolumeMounts []VolumeMountEntry       `json:"volumeMounts"`
+	Volumes      []VolumeEntry            `json:"volumes"`
 }
 
 // newDependenciesContextData creates a ConnectionsContextData from ConnectionsData,
-// merging all per-item env vars into the top-level EnvVars field.
+// merging all per-item env vars, volume mounts, and volumes into the top-level merged fields.
 // Ensures no nil slices so CEL templates always see empty lists instead of null.
 func newDependenciesContextData(data ConnectionsData) ConnectionsContextData {
 	items := make([]ConnectionItem, len(data.Items))
-	merged := make([]ConnectionEnvVar, 0, len(data.Items))
+	resources := make([]ResourceDependencyItem, len(data.Resources))
+	mergedEnvVars := make([]EnvVarEntry, 0, len(data.Items)+len(data.Resources))
+	mergedVolumeMounts := make([]VolumeMountEntry, 0, len(data.Resources))
+	mergedVolumes := make([]VolumeEntry, 0, len(data.Resources))
+
 	for i, item := range data.Items {
 		if item.EnvVars == nil {
-			item.EnvVars = []ConnectionEnvVar{}
+			item.EnvVars = []EnvVarEntry{}
 		}
 		items[i] = item
-		merged = append(merged, item.EnvVars...)
+		mergedEnvVars = append(mergedEnvVars, item.EnvVars...)
 	}
+
+	for i, item := range data.Resources {
+		if item.EnvVars == nil {
+			item.EnvVars = []EnvVarEntry{}
+		}
+		if item.VolumeMounts == nil {
+			item.VolumeMounts = []VolumeMountEntry{}
+		}
+		if item.Volumes == nil {
+			item.Volumes = []VolumeEntry{}
+		}
+		resources[i] = item
+		mergedEnvVars = append(mergedEnvVars, item.EnvVars...)
+		mergedVolumeMounts = append(mergedVolumeMounts, item.VolumeMounts...)
+		mergedVolumes = append(mergedVolumes, item.Volumes...)
+	}
+
 	return ConnectionsContextData{
-		Items:   items,
-		EnvVars: merged,
+		Items:        items,
+		Resources:    resources,
+		EnvVars:      mergedEnvVars,
+		VolumeMounts: mergedVolumeMounts,
+		Volumes:      mergedVolumes,
 	}
 }
 
@@ -418,6 +493,9 @@ type TraitContext struct {
 	// Dependencies contains dependency metadata and merged env vars for templates.
 	// Accessed via ${dependencies.items} and ${dependencies.envVars}.
 	Dependencies ConnectionsContextData `json:"dependencies"`
+
+	// Derived holds precomputed views that CEL macros resolve to via field selects.
+	Derived DerivedContext `json:"derived"`
 }
 
 // TraitMetadata contains trait-specific metadata.

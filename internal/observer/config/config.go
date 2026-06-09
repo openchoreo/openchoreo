@@ -6,7 +6,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -18,15 +17,12 @@ import (
 )
 
 // MaxLimit is the maximum number of results that can be returned by any query endpoint.
-// This matches the OpenAPI spec's maximum for the limit field and is used to cap
-// the total count reported by OpenSearch (whose hits.total.value caps at 10000).
+// This matches the OpenAPI spec's maximum for the limit field.
 const MaxLimit = 1000
 
 // Config holds all configuration for the logging service
 type Config struct {
 	Server      ServerConfig      `koanf:"server"`
-	OpenSearch  OpenSearchConfig  `koanf:"opensearch"`
-	Prometheus  PrometheusConfig  `koanf:"prometheus"`
 	Auth        AuthConfig        `koanf:"auth"`
 	Authz       AuthzConfig       `koanf:"authz"`
 	Logging     LoggingConfig     `koanf:"logging"`
@@ -39,13 +35,14 @@ type Config struct {
 
 // AdaptersConfig holds adapter configuration
 type AdaptersConfig struct {
-	LogsAdapterEnabled bool          `koanf:"logs.adapter.enabled"`
 	LogsAdapterURL     string        `koanf:"logs.adapter.url"`
 	LogsAdapterTimeout time.Duration `koanf:"logs.adapter.timeout"`
 
-	TracingAdapterEnabled bool          `koanf:"tracing.adapter.enabled"`
 	TracingAdapterURL     string        `koanf:"tracing.adapter.url"`
 	TracingAdapterTimeout time.Duration `koanf:"tracing.adapter.timeout"`
+
+	MetricsAdapterURL     string        `koanf:"metrics.adapter.url"`
+	MetricsAdapterTimeout time.Duration `koanf:"metrics.adapter.timeout"`
 }
 
 // ServerConfig holds HTTP server configuration
@@ -60,24 +57,6 @@ type ServerConfig struct {
 // CORSConfig holds CORS configuration
 type CORSConfig struct {
 	AllowedOrigins []string `koanf:"allowed.origins"`
-}
-
-// OpenSearchConfig holds OpenSearch connection configuration
-type OpenSearchConfig struct {
-	Address       string        `koanf:"address"`
-	Username      string        `koanf:"username"`
-	Password      string        `koanf:"password"`
-	Timeout       time.Duration `koanf:"timeout"`
-	MaxRetries    int           `koanf:"max.retries"`
-	IndexPrefix   string        `koanf:"index.prefix"`
-	IndexPattern  string        `koanf:"index.pattern"`
-	LegacyPattern string        `koanf:"legacy.pattern"`
-}
-
-// PrometheusConfig holds Prometheus connection configuration
-type PrometheusConfig struct {
-	Address string        `koanf:"address"`
-	Timeout time.Duration `koanf:"timeout"`
 }
 
 // AuthConfig holds authentication configuration
@@ -118,6 +97,14 @@ type AlertingConfig struct {
 	AlertStoreBackend string `koanf:"alert.store.backend"`
 	// AlertStoreDSN is the SQL connection string for alert entry storage.
 	AlertStoreDSN string `koanf:"alert.store.dsn"`
+	// AlertSuppressionWindow is the duration within which duplicate alerts
+	// for the same alert rule are suppressed. Set to 0 to disable suppression.
+	AlertSuppressionWindow time.Duration `koanf:"alert.suppression.window"`
+	// FinOpsAgentURL is the base URL for the FinOps agent service.
+	// Used for triggering AI cost analysis for budget alerts.
+	FinOpsAgentURL string `koanf:"finops.agent.url"`
+	// FinOpsAgentEnabled controls whether FinOps agent integration is enabled.
+	FinOpsAgentEnabled bool `koanf:"finops.agent.enabled"`
 }
 
 // UIDResolverConfig holds configuration for the resource UID resolver
@@ -131,6 +118,8 @@ type UIDResolverConfig struct {
 	OAuthClientID string `koanf:"oauth.client.id"`
 	// OAuthClientSecret is the OAuth2 client secret for authentication
 	OAuthClientSecret string `koanf:"oauth.client.secret"`
+	// OAuthScope is the optional OAuth2 scope to request in the token request
+	OAuthScope string `koanf:"oauth.scope"`
 	// TLSInsecureSkipVerify skips TLS certificate verification (for development)
 	TLSInsecureSkipVerify bool `koanf:"tls.insecure.skip.verify"`
 	// Timeout is the HTTP client timeout for API calls
@@ -180,16 +169,6 @@ func Load() (*Config, error) {
 		"SERVER_READ_TIMEOUT":                   "server.read.timeout",
 		"SERVER_WRITE_TIMEOUT":                  "server.write.timeout",
 		"SERVER_SHUTDOWN_TIMEOUT":               "server.shutdown.timeout",
-		"OPENSEARCH_ADDRESS":                    "opensearch.address",
-		"OPENSEARCH_USERNAME":                   "opensearch.username",
-		"OPENSEARCH_PASSWORD":                   "opensearch.password",
-		"OPENSEARCH_TIMEOUT":                    "opensearch.timeout",
-		"OPENSEARCH_MAX_RETRIES":                "opensearch.max.retries",
-		"OPENSEARCH_INDEX_PREFIX":               "opensearch.index.prefix",
-		"OPENSEARCH_INDEX_PATTERN":              "opensearch.index.pattern",
-		"OPENSEARCH_LEGACY_PATTERN":             "opensearch.legacy.pattern",
-		"PROMETHEUS_ADDRESS":                    "prometheus.address",
-		"PROMETHEUS_TIMEOUT":                    "prometheus.timeout",
 		"AUTH_JWT_SECRET":                       "auth.jwt.secret",
 		"AUTH_ENABLE_AUTH":                      "auth.enable.auth",
 		"AUTH_REQUIRED_ROLE":                    "auth.required.role",
@@ -205,45 +184,35 @@ func Load() (*Config, error) {
 		"OBSERVABILITY_NAMESPACE":               "alerting.observability.namespace",
 		"ALERT_STORE_BACKEND":                   "alerting.alert.store.backend",
 		"ALERT_STORE_DSN":                       "alerting.alert.store.dsn",
+		"ALERT_SUPPRESSION_WINDOW":              "alerting.alert.suppression.window",
+		"FINOPS_AGENT_URL":                      "alerting.finops.agent.url",
+		"FINOPS_AGENT_ENABLED":                  "alerting.finops.agent.enabled",
 		"LOG_LEVEL":                             "loglevel",
 		"PORT":                                  "server.port",           // Common alias
 		"INTERNAL_PORT":                         "server.internal.port",  // Common alias
 		"JWT_SECRET":                            "auth.jwt.secret",       // Common alias
 		"ENABLE_AUTH":                           "auth.enable.auth",      // Common alias
 		"MAX_LOG_LIMIT":                         "logging.max.log.limit", // Common alias
-		"LOGS_ADAPTER_ENABLED":                  "adapters.logs.adapter.enabled",
 		"LOGS_ADAPTER_URL":                      "adapters.logs.adapter.url",
 		"LOGS_ADAPTER_TIMEOUT":                  "adapters.logs.adapter.timeout",
-		"TRACING_ADAPTER_ENABLED":               "adapters.tracing.adapter.enabled",
 		"TRACING_ADAPTER_URL":                   "adapters.tracing.adapter.url",
 		"TRACING_ADAPTER_TIMEOUT":               "adapters.tracing.adapter.timeout",
+		"METRICS_ADAPTER_URL":                   "adapters.metrics.adapter.url",
+		"METRICS_ADAPTER_TIMEOUT":               "adapters.metrics.adapter.timeout",
 		"UID_RESOLVER_OPENCHOREO_API_URL":       "uid_resolver.openchoreo.api.url",
 		"UID_RESOLVER_OAUTH_TOKEN_URL":          "uid_resolver.oauth.token.url",
 		"UID_RESOLVER_OAUTH_CLIENT_ID":          "uid_resolver.oauth.client.id",
 		"UID_RESOLVER_OAUTH_CLIENT_SECRET":      "uid_resolver.oauth.client.secret",
+		"UID_RESOLVER_OAUTH_SCOPE":              "uid_resolver.oauth.scope",
 		"UID_RESOLVER_TLS_INSECURE_SKIP_VERIFY": "uid_resolver.tls.insecure.skip.verify",
 		"UID_RESOLVER_TIMEOUT":                  "uid_resolver.timeout",
 		"UID_RESOLVER_MAX_AUTH_RETRY":           "uid_resolver.max.auth.retry",
 	}
 
-	// Environment variables that require string-to-boolean conversion
-	boolEnvKeys := map[string]bool{
-		"LOGS_ADAPTER_ENABLED":    true,
-		"TRACING_ADAPTER_ENABLED": true,
-	}
-
 	// Check for environment variables and map them to nested structure
 	for envKey, configKey := range envMappings {
 		if value := os.Getenv(envKey); value != "" {
-			// Convert string value to the appropriate type
 			var parsedValue interface{} = value
-			if boolEnvKeys[envKey] {
-				b, err := strconv.ParseBool(value)
-				if err != nil {
-					return nil, fmt.Errorf("invalid boolean value for env %s: %q: %w", envKey, value, err)
-				}
-				parsedValue = b
-			}
 
 			// Split the config key and create nested structure
 			parts := strings.Split(configKey, ".")
@@ -321,20 +290,6 @@ func getDefaults() map[string]interface{} {
 			"write.timeout":    "30s",
 			"shutdown.timeout": "10s",
 		},
-		"opensearch": map[string]interface{}{
-			"address":        "http://localhost:9200",
-			"username":       "admin",
-			"password":       "admin",
-			"timeout":        "180s",
-			"max.retries":    3,
-			"index.prefix":   "container-logs-",
-			"index.pattern":  "container-logs-*",
-			"legacy.pattern": "choreo*",
-		},
-		"prometheus": map[string]interface{}{
-			"address": "http://localhost:9090",
-			"timeout": "30s",
-		},
 		"auth": map[string]interface{}{
 			"enable.auth":   false,
 			"jwt.secret":    "default-secret",
@@ -352,19 +307,22 @@ func getDefaults() map[string]interface{} {
 			"max.log.lines.per.file":  600000,
 		},
 		"alerting": map[string]interface{}{
-			"rca.service.url":         "http://ai-rca-agent:8080",
-			"ai.rca.enabled":          false,
-			"observability.namespace": "openchoreo-observability-plane",
-			"alert.store.backend":     "sqlite",
-			"alert.store.dsn":         "file:/data/alerts.db?_journal=WAL",
+			"rca.service.url":          "http://sre-agent:8080",
+			"ai.rca.enabled":           false,
+			"observability.namespace":  "openchoreo-observability-plane",
+			"alert.store.backend":      "sqlite",
+			"alert.store.dsn":          "file:/data/alerts.db?_journal=WAL",
+			"alert.suppression.window": "1h",
+			"finops.agent.url":         "http://finops-agent:8080",
+			"finops.agent.enabled":     false,
 		},
 		"adapters": map[string]interface{}{
-			"logs.adapter.enabled":    false,
 			"logs.adapter.url":        "http://logs-adapter:9098",
 			"logs.adapter.timeout":    "30s",
-			"tracing.adapter.enabled": false,
 			"tracing.adapter.url":     "http://tracing-adapter:9100",
 			"tracing.adapter.timeout": "30s",
+			"metrics.adapter.url":     "http://metrics-adapter:9099",
+			"metrics.adapter.timeout": "30s",
 		},
 		"uid_resolver": map[string]interface{}{
 			"openchoreo.api.url":       "http://api.openchoreo.localhost:9099",
@@ -390,22 +348,6 @@ func (c *Config) validate() error {
 
 	if c.Server.InternalPort == c.Server.Port {
 		return fmt.Errorf("server internal port must differ from server port: %d", c.Server.Port)
-	}
-
-	if c.OpenSearch.Address == "" {
-		return fmt.Errorf("opensearch address is required")
-	}
-
-	if c.OpenSearch.Timeout <= 0 {
-		return fmt.Errorf("opensearch timeout must be positive")
-	}
-
-	if c.Prometheus.Address == "" {
-		return fmt.Errorf("prometheus address is required")
-	}
-
-	if c.Prometheus.Timeout <= 0 {
-		return fmt.Errorf("prometheus timeout must be positive")
 	}
 
 	if c.Logging.MaxLogLimit <= 0 {
@@ -451,6 +393,17 @@ func (c *Config) validate() error {
 		}
 	default:
 		return fmt.Errorf("alert.store.backend must be 'sqlite' or 'postgresql'")
+	}
+
+	// Validate and normalize MetricsAdapter configuration
+	if c.Adapters.MetricsAdapterURL == "" {
+		return fmt.Errorf("metrics adapter URL is required")
+	}
+	// Strip trailing slash to prevent double slashes in client paths
+	c.Adapters.MetricsAdapterURL = strings.TrimRight(c.Adapters.MetricsAdapterURL, "/")
+
+	if c.Adapters.MetricsAdapterTimeout <= 0 {
+		return fmt.Errorf("metrics adapter timeout must be positive")
 	}
 
 	return nil

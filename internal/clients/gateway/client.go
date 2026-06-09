@@ -35,6 +35,10 @@ type TLSConfig struct {
 	CAFile             string
 	CAData             []byte
 	ServerName         string
+	// ClientCertFile and ClientKeyFile enable mTLS to the cluster gateway.
+	// Both must be set together.
+	ClientCertFile string
+	ClientKeyFile  string
 }
 
 type Client struct {
@@ -181,14 +185,16 @@ func NewClient(baseURL string) *Client {
 	}
 }
 
-// NewClientWithConfig creates a new gateway client with the provided configuration
-// This should be used for production deployments with proper TLS verification
+// NewClientWithConfig creates a new gateway client with the provided configuration.
+// The server certificate is verified against the system root CA pool by default;
+// set TLSConfig.CAFile or TLSConfig.CAData to pin a custom CA. For development
+// against self-signed gateways, callers may set TLSConfig.InsecureSkipVerify.
 func NewClientWithConfig(config *Config) (*Client, error) {
 	if config.BaseURL == "" {
 		return nil, fmt.Errorf("baseURL is required")
 	}
 
-	tlsConfig, err := buildTLSConfig(&config.TLS)
+	tlsConfig, err := BuildTLSConfig(&config.TLS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build TLS config: %w", err)
 	}
@@ -217,7 +223,7 @@ func NewClientWithConfig(config *Config) (*Client, error) {
 	}, nil
 }
 
-func buildTLSConfig(config *TLSConfig) (*tls.Config, error) {
+func BuildTLSConfig(config *TLSConfig) (*tls.Config, error) {
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12, // Enforce minimum TLS 1.2
 	}
@@ -229,10 +235,7 @@ func buildTLSConfig(config *TLSConfig) (*tls.Config, error) {
 	if config.InsecureSkipVerify {
 		// #nosec G402 -- InsecureSkipVerify is configurable and should only be used in development
 		tlsConfig.InsecureSkipVerify = true
-		return tlsConfig, nil
-	}
-
-	if config.CAFile != "" || len(config.CAData) > 0 {
+	} else if config.CAFile != "" || len(config.CAData) > 0 {
 		caCertPool := x509.NewCertPool()
 
 		var caData []byte
@@ -252,6 +255,17 @@ func buildTLSConfig(config *TLSConfig) (*tls.Config, error) {
 		}
 
 		tlsConfig.RootCAs = caCertPool
+	}
+
+	if config.ClientCertFile != "" || config.ClientKeyFile != "" {
+		if config.ClientCertFile == "" || config.ClientKeyFile == "" {
+			return nil, fmt.Errorf("both ClientCertFile and ClientKeyFile must be set for mTLS")
+		}
+		cert, err := tls.LoadX509KeyPair(config.ClientCertFile, config.ClientKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client key pair: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
 	}
 
 	return tlsConfig, nil

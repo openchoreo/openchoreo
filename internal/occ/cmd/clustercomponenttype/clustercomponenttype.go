@@ -13,24 +13,18 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by ClusterComponentType operations.
-type Client interface {
-	ListClusterComponentTypes(ctx context.Context, params *gen.ListClusterComponentTypesParams) (*gen.ClusterComponentTypeList, error)
-	GetClusterComponentType(ctx context.Context, cctName string) (*gen.ClusterComponentType, error)
-	DeleteClusterComponentType(ctx context.Context, cctName string) error
-}
-
 // ClusterComponentType implements cluster component type operations
 type ClusterComponentType struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new cluster component type implementation
-func New(client Client) *ClusterComponentType {
-	return &ClusterComponentType{client: client}
+func New(c client.Interface) *ClusterComponentType {
+	return &ClusterComponentType{client: c}
 }
 
 // List lists all cluster-scoped component types

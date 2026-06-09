@@ -5,6 +5,7 @@ metadata:
 spec:
   templates:
     - name: publish-image
+      podSpecPatch: '{"hostUsers": false}'
       inputs:
         parameters:
           - name: git-revision
@@ -18,8 +19,11 @@ spec:
           secret:
             optional: true
             secretName: '{{workflow.parameters.registry-push-secret}}'
+        - name: storage
+          emptyDir:
+            sizeLimit: 10Gi
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.0
+        image: ghcr.io/openchoreo/podman-runner:v1.2
         command:
           - sh
           - -c
@@ -35,7 +39,6 @@ spec:
             REGISTRY_ENDPOINT="host.k3d.internal:10082"
             AUTH_FILE="/etc/secrets/registry-push-secret/.dockerconfigjson"
 
-            # --- Parameter Validation ---
             echo ">> Source image: $SRC_IMAGE"
             echo ">> Registry: $REGISTRY_ENDPOINT"
             echo ">> Authentication: $([ -f "$AUTH_FILE" ] && echo "registry secret found" || echo "no registry secret (anonymous push)")"
@@ -46,14 +49,13 @@ spec:
               exit 1
             fi
 
-            mkdir -p /etc/containers
-            cat <<EOF > /etc/containers/storage.conf
+            mkdir -p /storage/run /storage/graph
+            cat > /etc/containers/storage.conf <<EOF
             [storage]
             driver = "overlay"
-            runroot = "/run/containers/storage"
-            graphroot = "/var/lib/containers/storage"
+            runroot = "/storage/run"
+            graphroot = "/storage/graph"
             [storage.options.overlay]
-            mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
             podman load -i /mnt/vol/app-image.tar
@@ -74,6 +76,8 @@ spec:
         volumeMounts:
           - mountPath: /mnt/vol
             name: workspace
+          - mountPath: /storage
+            name: storage
           - mountPath: /etc/secrets/registry-push-secret
             name: registry-push-secret
             readOnly: true

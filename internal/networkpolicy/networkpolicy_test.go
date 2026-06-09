@@ -376,6 +376,294 @@ spec:
 `)
 }
 
+// --- Cilium CNP tests ---
+
+func TestMakeComponentPolicies_Cilium_NoEndpoints(t *testing.T) {
+	policies := MakeComponentPolicies(ComponentPolicyParams{
+		Namespace:     "dp-ns",
+		CPNamespace:   "cp-ns",
+		Environment:   "development",
+		ComponentName: "my-comp",
+		PodSelectors:  map[string]string{"app": "test"},
+		Endpoints:     nil,
+		Provider:      ProviderCilium,
+	})
+	if len(policies) != 1 {
+		t.Fatalf("expected 1 policy, got %d", len(policies))
+	}
+
+	assertYAMLEqual(t, "cilium-no-endpoints", policies[0], `
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: openchoreo-my-comp
+  namespace: dp-ns
+spec:
+  endpointSelector:
+    matchLabels:
+      app: test
+  ingress: []
+`)
+}
+
+func TestMakeComponentPolicies_Cilium_HTTPEndpoint(t *testing.T) {
+	policies := MakeComponentPolicies(ComponentPolicyParams{
+		Namespace:     "dp-ns",
+		CPNamespace:   "cp-ns",
+		Environment:   "development",
+		ComponentName: "web-app",
+		PodSelectors: map[string]string{
+			labels.LabelKeyComponentName: "web-app",
+			labels.LabelKeyProjectName:   "my-project",
+		},
+		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
+			"http": {Type: openchoreov1alpha1.EndpointTypeHTTP, Port: 8080},
+		},
+		Provider: ProviderCilium,
+	})
+	if len(policies) != 1 {
+		t.Fatalf("expected 1 policy, got %d", len(policies))
+	}
+
+	assertYAMLEqual(t, "cilium-http-endpoint", policies[0], `
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: openchoreo-web-app
+  namespace: dp-ns
+spec:
+  endpointSelector:
+    matchLabels:
+      openchoreo.dev/component: web-app
+      openchoreo.dev/project: my-project
+  ingress:
+  - fromEndpoints:
+    - {}
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - {}
+`)
+}
+
+func TestMakeComponentPolicies_Cilium_TCPEndpoint(t *testing.T) {
+	policies := MakeComponentPolicies(ComponentPolicyParams{
+		Namespace:     "dp-ns",
+		CPNamespace:   "cp-ns",
+		Environment:   "development",
+		ComponentName: "db",
+		PodSelectors:  map[string]string{"app": "db"},
+		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
+			"tcp": {Type: openchoreov1alpha1.EndpointTypeTCP, Port: 5432},
+		},
+		Provider: ProviderCilium,
+	})
+	if len(policies) != 1 {
+		t.Fatalf("expected 1 policy, got %d", len(policies))
+	}
+
+	assertYAMLEqual(t, "cilium-tcp-endpoint", policies[0], `
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: openchoreo-db
+  namespace: dp-ns
+spec:
+  endpointSelector:
+    matchLabels:
+      app: db
+  ingress:
+  - fromEndpoints:
+    - {}
+    toPorts:
+    - ports:
+      - port: "5432"
+        protocol: TCP
+`)
+}
+
+func TestMakeComponentPolicies_Cilium_MixedL7L4Endpoints(t *testing.T) {
+	policies := MakeComponentPolicies(ComponentPolicyParams{
+		Namespace:     "dp-ns",
+		CPNamespace:   "cp-ns",
+		Environment:   "development",
+		ComponentName: "mixed-svc",
+		PodSelectors:  map[string]string{"app": "mixed-svc"},
+		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
+			"http": {Type: openchoreov1alpha1.EndpointTypeHTTP, Port: 8080},
+			"tcp":  {Type: openchoreov1alpha1.EndpointTypeTCP, Port: 5432},
+		},
+		Provider: ProviderCilium,
+	})
+	if len(policies) != 1 {
+		t.Fatalf("expected 1 policy, got %d", len(policies))
+	}
+
+	assertYAMLEqual(t, "cilium-mixed-l7-l4", policies[0], `
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: openchoreo-mixed-svc
+  namespace: dp-ns
+spec:
+  endpointSelector:
+    matchLabels:
+      app: mixed-svc
+  ingress:
+  - fromEndpoints:
+    - {}
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - {}
+    - ports:
+      - port: "5432"
+        protocol: TCP
+`)
+}
+
+func TestMakeComponentPolicies_Cilium_ExternalVisibility(t *testing.T) {
+	policies := MakeComponentPolicies(ComponentPolicyParams{
+		Namespace:     "dp-ns",
+		CPNamespace:   "cp-ns",
+		Environment:   "development",
+		ComponentName: "public-api",
+		PodSelectors:  map[string]string{"app": "public-api"},
+		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
+			"http": {
+				Type:       openchoreov1alpha1.EndpointTypeHTTP,
+				Port:       8080,
+				Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityExternal},
+			},
+		},
+		Provider: ProviderCilium,
+	})
+	if len(policies) != 1 {
+		t.Fatalf("expected 1 policy, got %d", len(policies))
+	}
+
+	assertYAMLEqual(t, "cilium-external-visibility", policies[0], `
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: openchoreo-public-api
+  namespace: dp-ns
+spec:
+  endpointSelector:
+    matchLabels:
+      app: public-api
+  ingress:
+  - fromEndpoints:
+    - {}
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - {}
+  - fromEndpoints:
+    - matchExpressions:
+      - key: openchoreo.dev/system-component
+        operator: Exists
+      - key: k8s:io.kubernetes.pod.namespace
+        operator: Exists
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - {}
+`)
+}
+
+func TestMakeComponentPolicies_Cilium_NamespaceVisibility(t *testing.T) {
+	policies := MakeComponentPolicies(ComponentPolicyParams{
+		Namespace:     "dp-ns",
+		CPNamespace:   "cp-ns",
+		Environment:   "development",
+		ComponentName: "grpc-svc",
+		PodSelectors:  map[string]string{"app": "grpc-svc"},
+		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
+			"grpc": {
+				Type:       openchoreov1alpha1.EndpointTypeGRPC,
+				Port:       9090,
+				Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityNamespace},
+			},
+		},
+		Provider: ProviderCilium,
+	})
+	if len(policies) != 1 {
+		t.Fatalf("expected 1 policy, got %d", len(policies))
+	}
+
+	assertYAMLEqual(t, "cilium-namespace-visibility", policies[0], `
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: openchoreo-grpc-svc
+  namespace: dp-ns
+spec:
+  endpointSelector:
+    matchLabels:
+      app: grpc-svc
+  ingress:
+  - fromEndpoints:
+    - {}
+    toPorts:
+    - ports:
+      - port: "9090"
+        protocol: TCP
+      rules:
+        http:
+        - {}
+  - fromEndpoints:
+    - matchExpressions:
+      - key: k8s:io.kubernetes.pod.namespace
+        operator: Exists
+      matchLabels:
+        openchoreo.dev/namespace: cp-ns
+        openchoreo.dev/environment: development
+    toPorts:
+    - ports:
+      - port: "9090"
+        protocol: TCP
+      rules:
+        http:
+        - {}
+`)
+}
+
+func TestMakeComponentPolicies_Cilium_NameTruncation(t *testing.T) {
+	longName := strings.Repeat("a", 250)
+	policies := MakeComponentPolicies(ComponentPolicyParams{
+		Namespace:     "dp-ns",
+		CPNamespace:   "cp-ns",
+		Environment:   "development",
+		ComponentName: longName,
+		PodSelectors:  map[string]string{"app": "test"},
+		Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
+			"http": {Type: openchoreov1alpha1.EndpointTypeHTTP, Port: 8080},
+		},
+		Provider: ProviderCilium,
+	})
+	if len(policies) != 1 {
+		t.Fatalf("expected 1 policy, got %d", len(policies))
+	}
+	meta := policies[0]["metadata"].(map[string]any)
+	name := meta["name"].(string)
+	if len(name) > 253 {
+		t.Errorf("policy name exceeds 253 chars: %d", len(name))
+	}
+}
+
 func TestMakeComponentPolicies_NameTruncation(t *testing.T) {
 	longName := strings.Repeat("a", 250)
 	policies := MakeComponentPolicies(ComponentPolicyParams{

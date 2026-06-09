@@ -13,30 +13,24 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by AuthzRole operations.
-type Client interface {
-	ListNamespaceRoles(ctx context.Context, namespaceName string, params *gen.ListNamespaceRolesParams) (*gen.AuthzRoleList, error)
-	GetNamespaceRole(ctx context.Context, namespaceName, name string) (*gen.AuthzRole, error)
-	DeleteNamespaceRole(ctx context.Context, namespaceName, name string) error
-}
-
 // AuthzRole implements authz role operations
 type AuthzRole struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new authz role implementation
-func New(client Client) *AuthzRole {
-	return &AuthzRole{client: client}
+func New(c client.Interface) *AuthzRole {
+	return &AuthzRole{client: c}
 }
 
 // List lists all authz roles in a namespace
 func (r *AuthzRole) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceAuthzRole, params); err != nil {
+	if err := cmdutil.RequireFields("list", "authzrole", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -66,7 +60,7 @@ func (r *AuthzRole) List(params ListParams) error {
 
 // Get retrieves a single authz role and outputs it as YAML
 func (r *AuthzRole) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceAuthzRole, params); err != nil {
+	if err := cmdutil.RequireFields("get", "authzrole", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -88,7 +82,7 @@ func (r *AuthzRole) Get(params GetParams) error {
 
 // Delete deletes a single authz role
 func (r *AuthzRole) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceAuthzRole, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "authzrole", map[string]string{"namespace": params.Namespace, "name": params.Name}); err != nil {
 		return err
 	}
 

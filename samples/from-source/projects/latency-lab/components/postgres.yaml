@@ -1,0 +1,50 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: lab-postgres
+  namespace: default
+spec:
+  owner:
+    projectName: latency-lab
+
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+
+  autoDeploy: true
+
+  workflow:
+    kind: ClusterWorkflow
+    name: dockerfile-builder
+    parameters:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+        appPath: "/project-latency-lab/db"
+      docker:
+        context: "/project-latency-lab/db"
+        filePath: "/project-latency-lab/db/Dockerfile"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: WorkflowRun
+metadata:
+  name: lab-postgres-build-01
+  namespace: default
+  labels:
+    openchoreo.dev/project: "latency-lab"
+    openchoreo.dev/component: "lab-postgres"
+spec:
+  workflow:
+    kind: ClusterWorkflow
+    name: dockerfile-builder
+    parameters:
+      repository:
+        url: "https://github.com/openchoreo/sample-workloads"
+        revision:
+          branch: "main"
+        appPath: "/project-latency-lab/db"
+      docker:
+        context: "/project-latency-lab/db"
+        filePath: "/project-latency-lab/db/Dockerfile"

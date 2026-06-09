@@ -106,7 +106,22 @@ kubectl create secret generic backstage-secrets \
   -n openchoreo-control-plane \
   --from-literal=backend-secret="$(head -c 32 /dev/urandom | base64)" \
   --from-literal=client-secret="backstage-portal-secret" \
-  --from-literal=jenkins-api-key="placeholder-not-in-use"
+  --from-literal=jenkins-api-key="placeholder-not-in-use" \
+  --from-literal=github-actions-token="placeholder-not-in-use" \
+  --from-literal=github-oauth-client-secret="placeholder-not-in-use"
+```
+
+To use the GitHub Actions integration, seed the real values instead of the placeholders
+(a GitHub PAT for backend ingestion, and/or the OAuth App client secret for the Actions
+card). For an OpenBao-backed install, seed them into the key vault and let the
+ExternalSecret sync them:
+
+```bash
+kubectl exec -n openbao openbao-0 -- sh -c '
+  export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=root
+  bao kv put secret/backstage-github-actions-token value="<your-github-pat>"
+  bao kv put secret/backstage-github-oauth-client-secret value="<your-oauth-client-secret>"
+'
 ```
 
 ### Install Control Plane
@@ -299,6 +314,30 @@ $(echo "$AGENT_CA" | sed 's/^/        /')
 EOF
 ```
 
+### Route Build Pulls Through Registry Cache (Optional)
+
+Speed up build-time image pulls (buildpacks, base images, tools) by routing them through a
+local registry cache. Start the cache, then patch the build pipeline:
+
+```bash
+# Start the registry cache (if not already running)
+docker compose -f install/k3d/registry-cache/compose.yaml up -d
+
+# Patch ClusterWorkflows to inject registries-conf ConfigMap per WorkflowRun
+install/k3d/registry-cache/patch-build-workflows.sh
+
+# Patch ClusterWorkflowTemplates to mount registries-conf into build containers
+install/k3d/registry-cache/patch-build-templates.sh
+```
+
+Optionally, warm the cache by pre-pulling common build images:
+
+```bash
+kubectl apply -f install/k3d/registry-cache/preload-build-images.yaml
+```
+
+See [registry-cache/README.md](../registry-cache/README.md) for details and how to revert.
+
 ## 7. Setup Observability Plane (Optional)
 
 ### Namespace and Certificates
@@ -333,14 +372,6 @@ spec:
   target:
     name: observer-secret
   data:
-  - secretKey: OPENSEARCH_USERNAME
-    remoteRef:
-      key: opensearch-username
-      property: value
-  - secretKey: OPENSEARCH_PASSWORD
-    remoteRef:
-      key: opensearch-password
-      property: value
   - secretKey: UID_RESOLVER_OAUTH_CLIENT_SECRET
     remoteRef:
       key: observer-oauth-client-secret

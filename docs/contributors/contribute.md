@@ -33,7 +33,7 @@ For testing and development, we recommend using k3d (Kubernetes in Docker). The 
 Before starting, ensure you have:
 - Docker 20.10+
 - k3d 5.8+
-- kubectl 1.32+
+- kubectl 1.36+
 - Helm 3.12+
 
 #### Quick Start Development Workflow

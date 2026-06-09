@@ -4,10 +4,13 @@
 package handlers
 
 import (
+	"errors"
+	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -17,8 +20,10 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	workflowplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowplane"
+	workflowplanemocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowplane/mocks"
 )
 
 func newWorkflowPlaneService(t *testing.T, objects []client.Object, pdp authzcore.PDP) workflowplanesvc.Service {
@@ -315,4 +320,101 @@ func TestDeleteWorkflowPlaneHandler(t *testing.T) {
 		require.NoError(t, err)
 		assert.IsType(t, gen.DeleteWorkflowPlane403JSONResponse{}, resp)
 	})
+
+	t.Run("internal error returns 500", func(t *testing.T) {
+		svc := workflowplanemocks.NewMockService(t)
+		svc.EXPECT().DeleteWorkflowPlane(mock.Anything, ns, "wp-1").Return(errors.New("internal server error"))
+		h := &Handler{
+			services: &handlerservices.Services{WorkflowPlaneService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		resp, err := h.DeleteWorkflowPlane(ctx, gen.DeleteWorkflowPlaneRequestObject{NamespaceName: ns, WorkflowPlaneName: "wp-1"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteWorkflowPlane500JSONResponse{}, resp)
+	})
+}
+
+// --- Additional error mapping tests using mocks ---
+
+func TestListWorkflowPlanesHandler_InternalError(t *testing.T) {
+	ctx := testContext()
+	const ns = "test-ns"
+	svc := workflowplanemocks.NewMockService(t)
+	svc.EXPECT().ListWorkflowPlanes(mock.Anything, ns, mock.Anything).Return(nil, errors.New("internal server error"))
+	h := &Handler{
+		services: &handlerservices.Services{WorkflowPlaneService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.ListWorkflowPlanes(ctx, gen.ListWorkflowPlanesRequestObject{NamespaceName: ns})
+	require.NoError(t, err)
+	assert.IsType(t, gen.ListWorkflowPlanes500JSONResponse{}, resp)
+}
+
+func TestGetWorkflowPlaneHandler_InternalError(t *testing.T) {
+	ctx := testContext()
+	svc := workflowplanemocks.NewMockService(t)
+	svc.EXPECT().GetWorkflowPlane(mock.Anything, "test-ns", "wp-1").Return(nil, errors.New("internal server error"))
+	h := &Handler{
+		services: &handlerservices.Services{WorkflowPlaneService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.GetWorkflowPlane(ctx, gen.GetWorkflowPlaneRequestObject{NamespaceName: "test-ns", WorkflowPlaneName: "wp-1"})
+	require.NoError(t, err)
+	assert.IsType(t, gen.GetWorkflowPlane500JSONResponse{}, resp)
+}
+
+func TestCreateWorkflowPlaneHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	const ns = "test-ns"
+	body := &gen.WorkflowPlane{Metadata: gen.ObjectMeta{Name: "new-wp"}}
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.CreateWorkflowPlane400JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.CreateWorkflowPlane500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := workflowplanemocks.NewMockService(t)
+			svc.EXPECT().CreateWorkflowPlane(mock.Anything, ns, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{WorkflowPlaneService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.CreateWorkflowPlane(ctx, gen.CreateWorkflowPlaneRequestObject{NamespaceName: ns, Body: body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestUpdateWorkflowPlaneHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	const ns = "test-ns"
+	body := &gen.WorkflowPlane{Metadata: gen.ObjectMeta{Name: "wp-1"}}
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.UpdateWorkflowPlane400JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.UpdateWorkflowPlane500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := workflowplanemocks.NewMockService(t)
+			svc.EXPECT().UpdateWorkflowPlane(mock.Anything, ns, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{WorkflowPlaneService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.UpdateWorkflowPlane(ctx, gen.UpdateWorkflowPlaneRequestObject{NamespaceName: ns, WorkflowPlaneName: "wp-1", Body: body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
 }

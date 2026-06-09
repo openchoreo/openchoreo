@@ -28,10 +28,12 @@ BUILDX_TARGET_PLATFORMS := $(subst $(space),$(comma),$(IMAGE_TARGET_PLATFORMS))
 DOCKER_BUILD_IMAGES := \
 	controller:$(PROJECT_DIR)/Dockerfile:$(PROJECT_DIR) \
 	quick-start:$(PROJECT_DIR)/install/quick-start/Dockerfile:$(PROJECT_DIR) \
-	init-observability-opensearch:$(PROJECT_DIR)/install/init/observability/opensearch/Dockerfile:$(PROJECT_DIR) \
 	openchoreo-api:$(PROJECT_DIR)/cmd/openchoreo-api/Dockerfile:$(PROJECT_DIR) \
 	observer:$(PROJECT_DIR)/cmd/observer/Dockerfile:$(PROJECT_DIR) \
-	ai-rca-agent:$(PROJECT_DIR)/rca-agent/Dockerfile:$(PROJECT_DIR)/rca-agent \
+	event-forwarder:$(PROJECT_DIR)/cmd/event-forwarder/Dockerfile:$(PROJECT_DIR) \
+	sre-agent:$(PROJECT_DIR)/agents/sre-agent/Dockerfile:$(PROJECT_DIR)/agents/sre-agent \
+	finops-agent:$(PROJECT_DIR)/agents/finops-agent/Dockerfile:$(PROJECT_DIR)/agents/finops-agent \
+	portal-assistant:$(PROJECT_DIR)/agents/portal-assistant/Dockerfile:$(PROJECT_DIR)/agents/portal-assistant \
 	openchoreo-cli:$(PROJECT_DIR)/cmd/occ/Dockerfile:$(PROJECT_DIR) \
 	cluster-gateway:$(PROJECT_DIR)/cmd/cluster-gateway/Dockerfile:$(PROJECT_DIR) \
 	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent/Dockerfile:$(PROJECT_DIR)
@@ -75,7 +77,10 @@ docker.build.controller: go.build-multiarch.manager
 docker.build.quick-start: go.build-multiarch.occ
 docker.build.openchoreo-api: go.build-multiarch.openchoreo-api
 docker.build.observer: go.build-multiarch.observer
-docker.build.ai-rca-agent:  # Python project - no Go build dependency
+docker.build.event-forwarder: go.build-multiarch.event-forwarder
+docker.build.sre-agent:  # Python project - no Go build dependency
+docker.build.finops-agent:  # Python project - no Go build dependency
+docker.build.portal-assistant:  # Python project - no Go build dependency
 docker.build.cluster-gateway: go.build-multiarch.cluster-gateway
 docker.build.cluster-agent: go.build-multiarch.cluster-agent
 

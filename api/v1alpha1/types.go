@@ -355,6 +355,33 @@ type ComponentTypeRef struct {
 	Name string `json:"name"`
 }
 
+// ResourceTypeRefKind defines the kind of resource type referenced by a ResourceTypeRef.
+// +kubebuilder:validation:Enum=ResourceType;ClusterResourceType
+type ResourceTypeRefKind string
+
+const (
+	// ResourceTypeRefKindResourceType references a namespace-scoped ResourceType.
+	ResourceTypeRefKindResourceType ResourceTypeRefKind = "ResourceType"
+
+	// ResourceTypeRefKindClusterResourceType references a cluster-scoped ClusterResourceType.
+	ResourceTypeRefKindClusterResourceType ResourceTypeRefKind = "ClusterResourceType"
+)
+
+// ResourceTypeRef represents a reference to a ResourceType or ClusterResourceType.
+type ResourceTypeRef struct {
+	// Kind is the kind of resource type (ResourceType or ClusterResourceType).
+	// +optional
+	// +kubebuilder:default=ResourceType
+	Kind ResourceTypeRefKind `json:"kind,omitempty"`
+
+	// Name is the name of the ResourceType or ClusterResourceType to reference.
+	// Must be a valid DNS-1123 label since it identifies a Kubernetes object.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+}
+
 // DeploymentPipelineRefKind defines the kind of deployment pipeline referenced by a DeploymentPipelineRef
 // +kubebuilder:validation:Enum=DeploymentPipeline
 type DeploymentPipelineRefKind string
@@ -428,4 +455,52 @@ type EffectType string
 const (
 	EffectAllow EffectType = "allow"
 	EffectDeny  EffectType = "deny"
+)
+
+// AuthzCondition represents the conditions under which an action is allowed or denied in an authorization role.
+type AuthzCondition struct {
+	// Actions is the list of actions this condition applies to.
+	// Supports exact match ("releasebinding:create") and wildcards ("releasebinding:*").
+	// +required
+	// +kubebuilder:validation:MinItems=1
+	Actions []string `json:"actions"`
+
+	// Expression is a CEL expression that must evaluate to true for the action to be permitted.
+	// Examples:
+	//   resource.environment in ["dev", "staging"]
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Expression string `json:"expression"`
+}
+
+// SecretKeyRef references a specific key in a Kubernetes Secret.
+type SecretKeyRef struct {
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Key string `json:"key"`
+}
+
+// ConfigMapKeyRef references a specific key in a Kubernetes ConfigMap.
+type ConfigMapKeyRef struct {
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	Key string `json:"key"`
+}
+
+// ResourceRetainPolicy controls what happens to provisioned data on the data plane
+// when its owning Resource or ResourceBinding is deleted.
+// +kubebuilder:validation:Enum=Delete;Retain
+type ResourceRetainPolicy string
+
+const (
+	// ResourceRetainPolicyDelete cascades deletion of the underlying provisioned data.
+	ResourceRetainPolicyDelete ResourceRetainPolicy = "Delete"
+	// ResourceRetainPolicyRetain keeps the underlying provisioned data after deletion.
+	ResourceRetainPolicyRetain ResourceRetainPolicy = "Retain"
 )

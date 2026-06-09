@@ -34,7 +34,7 @@ type connectivityScenario struct {
 	expectAllow bool
 }
 
-var _ = Describe("NetworkPolicy Enforcement", Ordered, func() {
+var _ = Describe("NetworkPolicy Enforcement", Ordered, Label("tier1"), func() {
 	containsAny := func(text string, patterns ...string) bool {
 		for _, pattern := range patterns {
 			if strings.Contains(text, pattern) {

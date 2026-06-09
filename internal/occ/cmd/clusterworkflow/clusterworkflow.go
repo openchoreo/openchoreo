@@ -15,24 +15,18 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflow"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/workflowrun"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by ClusterWorkflow operations.
-type Client interface {
-	ListClusterWorkflows(ctx context.Context, params *gen.ListClusterWorkflowsParams) (*gen.ClusterWorkflowList, error)
-	GetClusterWorkflow(ctx context.Context, clusterWorkflowName string) (*gen.ClusterWorkflow, error)
-	DeleteClusterWorkflow(ctx context.Context, clusterWorkflowName string) error
-}
-
 // ClusterWorkflow implements cluster workflow operations
 type ClusterWorkflow struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new cluster workflow implementation
-func New(client Client) *ClusterWorkflow {
-	return &ClusterWorkflow{client: client}
+func New(c client.Interface) *ClusterWorkflow {
+	return &ClusterWorkflow{client: c}
 }
 
 // List lists all cluster-scoped workflows
@@ -100,7 +94,7 @@ func (c *ClusterWorkflow) StartRun(params StartRunParams) error {
 		return fmt.Errorf("cluster workflow name is required")
 	}
 
-	return workflow.New().StartRun(workflow.StartRunParams{
+	return workflow.New(c.client).StartRun(workflow.StartRunParams{
 		Namespace:    params.Namespace,
 		WorkflowName: params.WorkflowName,
 		WorkflowKind: "ClusterWorkflow",
@@ -120,13 +114,13 @@ func (c *ClusterWorkflow) Logs(params LogsParams) error {
 	runName := params.RunName
 	if runName == "" {
 		var err error
-		runName, err = workflow.ResolveLatestRun(params.Namespace, params.WorkflowName, nil)
+		runName, err = workflow.New(c.client).ResolveLatestRun(params.Namespace, params.WorkflowName, nil)
 		if err != nil {
 			return err
 		}
 	}
 
-	return workflowrun.New().Logs(workflowrun.LogsParams{
+	return workflowrun.New(c.client).Logs(workflowrun.LogsParams{
 		Namespace:       params.Namespace,
 		WorkflowRunName: runName,
 		Follow:          params.Follow,

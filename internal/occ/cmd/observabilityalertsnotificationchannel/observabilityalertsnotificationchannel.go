@@ -13,30 +13,24 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
-	"github.com/openchoreo/openchoreo/internal/occ/validation"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-// Client defines the client methods used by ObservabilityAlertsNotificationChannel operations.
-type Client interface {
-	ListObservabilityAlertsNotificationChannels(ctx context.Context, namespaceName string, params *gen.ListObservabilityAlertsNotificationChannelsParams) (*gen.ObservabilityAlertsNotificationChannelList, error)
-	GetObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName string, channelName string) (*gen.ObservabilityAlertsNotificationChannel, error)
-	DeleteObservabilityAlertsNotificationChannel(ctx context.Context, namespaceName string, channelName string) error
-}
-
 // ObservabilityAlertsNotificationChannel implements observability alerts notification channel operations
 type ObservabilityAlertsNotificationChannel struct {
-	client Client
+	client client.Interface
 }
 
 // New creates a new observability alerts notification channel implementation
-func New(client Client) *ObservabilityAlertsNotificationChannel {
-	return &ObservabilityAlertsNotificationChannel{client: client}
+func New(c client.Interface) *ObservabilityAlertsNotificationChannel {
+	return &ObservabilityAlertsNotificationChannel{client: c}
 }
 
 // List lists all observability alerts notification channels in a namespace
 func (o *ObservabilityAlertsNotificationChannel) List(params ListParams) error {
-	if err := validation.ValidateParams(validation.CmdList, validation.ResourceObservabilityAlertsNotificationChannel, params); err != nil {
+	if err := cmdutil.RequireFields("list", "observabilityalertsnotificationchannel", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -65,7 +59,7 @@ func (o *ObservabilityAlertsNotificationChannel) List(params ListParams) error {
 
 // Get retrieves a single observability alerts notification channel and outputs it as YAML
 func (o *ObservabilityAlertsNotificationChannel) Get(params GetParams) error {
-	if err := validation.ValidateParams(validation.CmdGet, validation.ResourceObservabilityAlertsNotificationChannel, params); err != nil {
+	if err := cmdutil.RequireFields("get", "observabilityalertsnotificationchannel", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
@@ -86,7 +80,7 @@ func (o *ObservabilityAlertsNotificationChannel) Get(params GetParams) error {
 
 // Delete deletes a single observability alerts notification channel
 func (o *ObservabilityAlertsNotificationChannel) Delete(params DeleteParams) error {
-	if err := validation.ValidateParams(validation.CmdDelete, validation.ResourceObservabilityAlertsNotificationChannel, params); err != nil {
+	if err := cmdutil.RequireFields("delete", "observabilityalertsnotificationchannel", map[string]string{"namespace": params.Namespace, "name": params.ChannelName}); err != nil {
 		return err
 	}
 

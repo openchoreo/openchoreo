@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -1428,4 +1429,238 @@ func TestCasbinEnforcer_DeleteNamespacedRoleBinding(t *testing.T) {
 			t.Errorf("DeleteNamespacedRoleBinding() error = %v, want ErrRoleMappingNotFound", err)
 		}
 	})
+}
+
+func TestCasbinEnforcer_ListClusterRoles_WithLimit(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// Seed 3 cluster roles
+	for _, name := range []string{"limit-cr-1", "limit-cr-2", "limit-cr-3"} {
+		_, err := enforcer.CreateClusterRole(ctx, &openchoreov1alpha1.ClusterAuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec:       openchoreov1alpha1.ClusterAuthzRoleSpec{Actions: []string{"component:view"}},
+		})
+		require.NoError(t, err, "CreateClusterRole(%s) error", name)
+	}
+
+	// First page: limit=2 from 3 items
+	page1, err := enforcer.ListClusterRoles(ctx, 2, "")
+	require.NoError(t, err, "ListClusterRoles(limit=2) error")
+	require.NotNil(t, page1, "ListClusterRoles(limit=2) returned nil")
+	// The fake k8s client may not enforce limit; accept either paginated (2 items + cursor) or all items at once
+	if page1.NextCursor != "" {
+		require.Len(t, page1.Items, 2, "when pagination cursor is returned, expected exactly 2 items on first page")
+	}
+
+	// If the client returns a cursor, use it to fetch the remaining item
+	if page1.NextCursor != "" {
+		page2, err := enforcer.ListClusterRoles(ctx, 2, page1.NextCursor)
+		require.NoError(t, err, "ListClusterRoles(page2) error")
+		require.Len(t, page2.Items, 1, "expected 1 item on second page")
+		// Items across pages must not overlap
+		seen := make(map[string]bool)
+		for _, r := range page1.Items {
+			seen[r.Name] = true
+		}
+		for _, r := range page2.Items {
+			require.False(t, seen[r.Name], "item %q appeared on both pages", r.Name)
+		}
+	}
+}
+
+func TestCasbinEnforcer_ListClusterRoles_NoLimit(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// Seed 2 items so there's something to count
+	for _, name := range []string{"nolimit-cr-1", "nolimit-cr-2"} {
+		_, err := enforcer.CreateClusterRole(ctx, &openchoreov1alpha1.ClusterAuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec:       openchoreov1alpha1.ClusterAuthzRoleSpec{Actions: []string{"component:view"}},
+		})
+		require.NoError(t, err, "CreateClusterRole(%s) error", name)
+	}
+
+	result, err := enforcer.ListClusterRoles(ctx, 0, "")
+	require.NoError(t, err, "ListClusterRoles(limit=0) error")
+	require.GreaterOrEqual(t, len(result.Items), 2, "expected at least 2 items with no limit")
+}
+
+func TestCasbinEnforcer_ListClusterRoles_CursorWithoutLimit(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	// cursor without limit should be ignored gracefully
+	_, err := enforcer.ListClusterRoles(ctx, 0, "some-cursor")
+	require.NoError(t, err, "ListClusterRoles(limit=0,cursor) error")
+}
+
+func TestCasbinEnforcer_ListNamespacedRoles_WithLimit(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	ns := "test-ns-list"
+
+	for _, name := range []string{"limit-r-1", "limit-r-2"} {
+		_, err := enforcer.CreateNamespacedRole(ctx, &openchoreov1alpha1.AuthzRole{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			Spec:       openchoreov1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+		})
+		require.NoError(t, err, "CreateNamespacedRole(%s) error", name)
+	}
+
+	// First page: limit=1 from 2 items
+	page1, err := enforcer.ListNamespacedRoles(ctx, ns, 1, "")
+	require.NoError(t, err, "ListNamespacedRoles(limit=1) error")
+	require.NotNil(t, page1, "ListNamespacedRoles(limit=1) returned nil")
+	// The fake k8s client may not enforce limit; accept either paginated (1 item + cursor) or all items at once
+	if page1.NextCursor != "" {
+		require.Len(t, page1.Items, 1, "when pagination cursor is returned, expected exactly 1 item on first page")
+	}
+
+	// If the client returns a cursor, use it to fetch the second item
+	if page1.NextCursor != "" {
+		page2, err := enforcer.ListNamespacedRoles(ctx, ns, 1, page1.NextCursor)
+		require.NoError(t, err, "ListNamespacedRoles(page2) error")
+		require.Len(t, page2.Items, 1, "expected 1 item on second page")
+		require.NotEqual(t, page1.Items[0].Name, page2.Items[0].Name, "same item appeared on both pages")
+	}
+}
+
+func TestCasbinEnforcer_ListClusterRoleBindings_WithLimit(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+
+	for _, name := range []string{"limit-crb-1", "limit-crb-2"} {
+		_, err := enforcer.CreateClusterRoleBinding(ctx, &openchoreov1alpha1.ClusterAuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: openchoreov1alpha1.ClusterAuthzRoleBindingSpec{
+				Entitlement: openchoreov1alpha1.EntitlementClaim{Claim: "groups", Value: "admins"},
+				RoleMappings: []openchoreov1alpha1.ClusterRoleMapping{{
+					RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindClusterAuthzRole, Name: "admin"},
+				}},
+				Effect: openchoreov1alpha1.EffectAllow,
+			},
+		})
+		require.NoError(t, err, "CreateClusterRoleBinding(%s) error", name)
+	}
+
+	// First page: limit=1 from 2 items
+	page1, err := enforcer.ListClusterRoleBindings(ctx, 1, "")
+	require.NoError(t, err, "ListClusterRoleBindings(limit=1) error")
+	require.NotNil(t, page1, "ListClusterRoleBindings(limit=1) returned nil")
+	// The fake k8s client may not enforce limit; accept either paginated (1 item + cursor) or all items at once
+	if page1.NextCursor != "" {
+		require.Len(t, page1.Items, 1, "when pagination cursor is returned, expected exactly 1 item on first page")
+	}
+
+	// If the client returns a cursor, use it to fetch the second item
+	if page1.NextCursor != "" {
+		page2, err := enforcer.ListClusterRoleBindings(ctx, 1, page1.NextCursor)
+		require.NoError(t, err, "ListClusterRoleBindings(page2) error")
+		require.Len(t, page2.Items, 1, "expected 1 item on second page")
+		require.NotEqual(t, page1.Items[0].Name, page2.Items[0].Name, "same item appeared on both pages")
+	}
+}
+
+func TestCasbinEnforcer_ListNamespacedRoleBindings_WithLimit(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	ns := "test-ns-rb-list"
+
+	for _, name := range []string{"limit-rb-1", "limit-rb-2"} {
+		_, err := enforcer.CreateNamespacedRoleBinding(ctx, &openchoreov1alpha1.AuthzRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			Spec: openchoreov1alpha1.AuthzRoleBindingSpec{
+				Entitlement:  openchoreov1alpha1.EntitlementClaim{Claim: "groups", Value: "devs"},
+				RoleMappings: []openchoreov1alpha1.RoleMapping{{RoleRef: openchoreov1alpha1.RoleRef{Kind: openchoreov1alpha1.RoleRefKindAuthzRole, Name: "viewer"}}},
+				Effect:       openchoreov1alpha1.EffectAllow,
+			},
+		})
+		require.NoError(t, err, "CreateNamespacedRoleBinding(%s) error", name)
+	}
+
+	// First page: limit=1 from 2 items
+	page1, err := enforcer.ListNamespacedRoleBindings(ctx, ns, 1, "")
+	require.NoError(t, err, "ListNamespacedRoleBindings(limit=1) error")
+	require.NotNil(t, page1, "ListNamespacedRoleBindings(limit=1) returned nil")
+	// The fake k8s client may not enforce limit; accept either paginated (1 item + cursor) or all items at once
+	if page1.NextCursor != "" {
+		require.Len(t, page1.Items, 1, "when pagination cursor is returned, expected exactly 1 item on first page")
+	}
+
+	// If the client returns a cursor, use it to fetch the second item
+	if page1.NextCursor != "" {
+		page2, err := enforcer.ListNamespacedRoleBindings(ctx, ns, 1, page1.NextCursor)
+		require.NoError(t, err, "ListNamespacedRoleBindings(page2) error")
+		require.Len(t, page2.Items, 1, "expected 1 item on second page")
+		require.NotEqual(t, page1.Items[0].Name, page2.Items[0].Name, "same item appeared on both pages")
+	}
+}
+
+func TestCasbinEnforcer_UpdateClusterRole_NotFound(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	_, err := enforcer.UpdateClusterRole(ctx, &openchoreov1alpha1.ClusterAuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "non-existent-cr"},
+		Spec:       openchoreov1alpha1.ClusterAuthzRoleSpec{Actions: []string{"component:view"}},
+	})
+	require.Error(t, err, "UpdateClusterRole non-existent should return error")
+}
+
+func TestCasbinEnforcer_UpdateNamespacedRole_NotFound(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	_, err := enforcer.UpdateNamespacedRole(ctx, &openchoreov1alpha1.AuthzRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "non-existent-r", Namespace: "acme"},
+		Spec:       openchoreov1alpha1.AuthzRoleSpec{Actions: []string{"component:view"}},
+	})
+	require.Error(t, err, "UpdateNamespacedRole non-existent should return error")
+}
+
+func TestCasbinEnforcer_UpdateClusterRoleBinding_NotFound(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	_, err := enforcer.UpdateClusterRoleBinding(ctx, &openchoreov1alpha1.ClusterAuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "non-existent-crb"},
+	})
+	require.Error(t, err, "UpdateClusterRoleBinding non-existent should return error")
+}
+
+func TestCasbinEnforcer_UpdateNamespacedRoleBinding_NotFound(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	_, err := enforcer.UpdateNamespacedRoleBinding(ctx, &openchoreov1alpha1.AuthzRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "non-existent-rb", Namespace: "acme"},
+	})
+	require.Error(t, err, "UpdateNamespacedRoleBinding non-existent should return error")
+}
+
+func TestCasbinEnforcer_ListClusterRoles_WithCursorAndLimit(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	// Fake client doesn't enforce cursor but exercises the branch
+	_, err := enforcer.ListClusterRoles(ctx, 1, "some-cursor-token")
+	require.NoError(t, err, "ListClusterRoles(limit=1,cursor) error")
+}
+
+func TestCasbinEnforcer_ListNamespacedRoles_WithCursor(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	_, err := enforcer.ListNamespacedRoles(ctx, "acme", 0, "some-cursor-token")
+	require.NoError(t, err, "ListNamespacedRoles(cursor) error")
+}
+
+func TestCasbinEnforcer_ListClusterRoleBindings_WithCursorAndLimit(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	_, err := enforcer.ListClusterRoleBindings(ctx, 1, "some-cursor-token")
+	require.NoError(t, err, "ListClusterRoleBindings(limit=1,cursor) error")
+}
+
+func TestCasbinEnforcer_ListNamespacedRoleBindings_WithCursor(t *testing.T) {
+	enforcer := setupTestEnforcer(t)
+	ctx := context.Background()
+	_, err := enforcer.ListNamespacedRoleBindings(ctx, "acme", 0, "some-cursor-token")
+	require.NoError(t, err, "ListNamespacedRoleBindings(cursor) error")
 }

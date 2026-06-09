@@ -1,0 +1,17 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# ObservabilityPlane CR for the multi-cluster e2e setup.
+# Applied to the CP cluster. The clusterAgent.clientCA.value is injected at
+# apply time by e2e_register_plane_cross_cluster in make/e2e.mk.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ObservabilityPlane
+metadata:
+  name: default
+  namespace: default
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: ""
+  observerURL: http://observer.e2e-mc-op.local:31080

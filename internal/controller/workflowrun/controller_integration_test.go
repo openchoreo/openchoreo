@@ -927,4 +927,382 @@ var _ = Describe("WorkflowRun Controller Integration", func() {
 			}, "5s", "250ms").Should(BeTrue())
 		})
 	})
+
+	// ---------------------------------------------------------------------------
+	// Completed workflow returns early without further processing
+	// ---------------------------------------------------------------------------
+
+	Context("Completed workflow returns early", func() {
+		const resourceName = "int-test-completed-early-exit"
+		nn := types.NamespacedName{Name: resourceName, Namespace: "default"}
+
+		AfterEach(func() { forceDelete(ctx, nn) })
+
+		It("should set CompletedAt and return without requeue", func() {
+			By("Creating a WorkflowRun with succeeded condition (simulating completed workflow)")
+			wfr := &openchoreodevv1alpha1.WorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       resourceName,
+					Namespace:  "default",
+					Finalizers: []string{WorkflowRunCleanupFinalizer},
+				},
+				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "test-workflow"},
+				},
+			}
+			Expect(k8sClient.Create(ctx, wfr)).To(Succeed())
+
+			By("Setting WorkflowCompleted=True via status update")
+			resource := &openchoreodevv1alpha1.WorkflowRun{}
+			Expect(k8sClient.Get(ctx, nn, resource)).To(Succeed())
+			meta.SetStatusCondition(&resource.Status.Conditions, metav1.Condition{
+				Type:               string(ConditionWorkflowCompleted),
+				Status:             metav1.ConditionTrue,
+				Reason:             string(ReasonWorkflowSucceeded),
+				Message:            "Workflow has completed successfully",
+				ObservedGeneration: resource.Generation,
+			})
+			Expect(k8sClient.Status().Update(ctx, resource)).To(Succeed())
+
+			By("Reconciling — should set CompletedAt and return")
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
+
+			By("Verifying CompletedAt was set")
+			Expect(k8sClient.Get(ctx, nn, resource)).To(Succeed())
+			Expect(resource.Status.CompletedAt).NotTo(BeNil())
+		})
+	})
+
+	// ---------------------------------------------------------------------------
+	// Multi-cycle reconciliation: from creation to pending to workflow-not-found
+	// ---------------------------------------------------------------------------
+
+	Context("Multi-cycle reconciliation lifecycle", func() {
+		const resourceName = "int-test-multi-cycle"
+		nn := types.NamespacedName{Name: resourceName, Namespace: "default"}
+
+		AfterEach(func() { forceDelete(ctx, nn) })
+
+		It("should progress through states across reconcile cycles", func() {
+			By("Creating a WorkflowRun without finalizer")
+			wfr := &openchoreodevv1alpha1.WorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{Name: resourceName, Namespace: "default"},
+				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "nonexistent-workflow"},
+				},
+			}
+			Expect(k8sClient.Create(ctx, wfr)).To(Succeed())
+
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+
+			By("Cycle 1: adds finalizer")
+			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal(reconcile.Result{}))
+
+			resource := &openchoreodevv1alpha1.WorkflowRun{}
+			Expect(k8sClient.Get(ctx, nn, resource)).To(Succeed())
+			Expect(resource.Finalizers).To(ContainElement(WorkflowRunCleanupFinalizer))
+			Expect(resource.Status.Conditions).To(BeEmpty())
+
+			By("Cycle 2: sets pending condition and StartedAt")
+			result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeTrue())
+
+			Expect(k8sClient.Get(ctx, nn, resource)).To(Succeed())
+			Expect(resource.Status.StartedAt).NotTo(BeNil())
+			cond := meta.FindStatusCondition(resource.Status.Conditions, string(ConditionWorkflowCompleted))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonWorkflowPending)))
+
+			By("Cycle 3: workflow not found — sets completed condition")
+			result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			Expect(k8sClient.Get(ctx, nn, resource)).To(Succeed())
+			cond = meta.FindStatusCondition(resource.Status.Conditions, string(ConditionWorkflowCompleted))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(string(ReasonWorkflowFailed)))
+
+			By("Cycle 4: completed workflow sets CompletedAt and returns early")
+			result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			Expect(k8sClient.Get(ctx, nn, resource)).To(Succeed())
+			Expect(resource.Status.CompletedAt).NotTo(BeNil())
+		})
+	})
+
+	// ---------------------------------------------------------------------------
+	// Namespace-scoped Workflow resolution followed by workflow-plane-not-found
+	// ---------------------------------------------------------------------------
+
+	Context("Workflow resolution with namespace-scoped Workflow kind and workflow-plane-not-found", func() {
+		const (
+			resourceName = "int-test-ns-workflow"
+			workflowName = "int-ns-wf"
+		)
+		nn := types.NamespacedName{Name: resourceName, Namespace: "default"}
+
+		BeforeEach(func() {
+			By("Creating a namespace-scoped Workflow")
+			runTemplate := map[string]any{
+				"apiVersion": "argoproj.io/v1alpha1",
+				"kind":       "Workflow",
+				"metadata":   map[string]any{"name": "test", "namespace": "default"},
+				"spec":       map[string]any{"entrypoint": "main"},
+			}
+			runTemplateJSON, err := json.Marshal(runTemplate)
+			Expect(err).NotTo(HaveOccurred())
+
+			workflow := &openchoreodevv1alpha1.Workflow{
+				ObjectMeta: metav1.ObjectMeta{Name: workflowName, Namespace: "default"},
+				Spec: openchoreodevv1alpha1.WorkflowSpec{
+					RunTemplate: &runtime.RawExtension{Raw: runTemplateJSON},
+				},
+			}
+			Expect(k8sClient.Create(ctx, workflow)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			wf := &openchoreodevv1alpha1.Workflow{}
+			if err := k8sClient.Get(ctx, types.NamespacedName{Name: workflowName, Namespace: "default"}, wf); err == nil {
+				_ = k8sClient.Delete(ctx, wf)
+			}
+		})
+
+		It("should resolve namespace-scoped Workflow and proceed to workflow plane check", func() {
+			wfr := &openchoreodevv1alpha1.WorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       resourceName,
+					Namespace:  "default",
+					Finalizers: []string{WorkflowRunCleanupFinalizer},
+				},
+				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{
+						Kind: openchoreodevv1alpha1.WorkflowRefKindWorkflow,
+						Name: workflowName,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, wfr)).To(Succeed())
+
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+
+			By("First reconcile: sets pending")
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Second reconcile: resolves Workflow, then no WorkflowPlane → WorkflowPlaneNotFound")
+			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.RequeueAfter).To(Equal(time.Minute))
+
+			resource := &openchoreodevv1alpha1.WorkflowRun{}
+			Expect(k8sClient.Get(ctx, nn, resource)).To(Succeed())
+			cond := meta.FindStatusCondition(resource.Status.Conditions, string(ConditionWorkflowCompleted))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Reason).To(Equal(string(ReasonWorkflowPlaneNotFound)))
+		})
+	})
+
+	// ---------------------------------------------------------------------------
+	// Conditions persist across status updates
+	// ---------------------------------------------------------------------------
+
+	Context("Status conditions persist across reconciles", func() {
+		const resourceName = "int-test-conditions-persist"
+		nn := types.NamespacedName{Name: resourceName, Namespace: "default"}
+
+		AfterEach(func() { forceDelete(ctx, nn) })
+
+		It("should persist conditions set by the reconciler", func() {
+			wfr := &openchoreodevv1alpha1.WorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       resourceName,
+					Namespace:  "default",
+					Finalizers: []string{WorkflowRunCleanupFinalizer},
+				},
+				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "test-workflow"},
+				},
+			}
+			Expect(k8sClient.Create(ctx, wfr)).To(Succeed())
+
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+
+			By("Setting pending condition")
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Re-fetching and verifying condition survives")
+			resource := &openchoreodevv1alpha1.WorkflowRun{}
+			Expect(k8sClient.Get(ctx, nn, resource)).To(Succeed())
+			cond := meta.FindStatusCondition(resource.Status.Conditions, string(ConditionWorkflowCompleted))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonWorkflowPending)))
+
+			By("Reconciling again to progress past pending — workflow not found")
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying the condition was updated (not duplicated)")
+			Expect(k8sClient.Get(ctx, nn, resource)).To(Succeed())
+			completedConditions := 0
+			for _, c := range resource.Status.Conditions {
+				if c.Type == string(ConditionWorkflowCompleted) {
+					completedConditions++
+				}
+			}
+			Expect(completedConditions).To(Equal(1), "expected exactly one WorkflowCompleted condition")
+		})
+	})
+
+	// ---------------------------------------------------------------------------
+	// Component validation with ClusterComponentType
+	// ---------------------------------------------------------------------------
+
+	Context("Component validation with ClusterComponentType", func() {
+		const (
+			resourceName = "int-test-cct-validation"
+			cctName      = "int-val-cct"
+			compName     = "int-val-cct-comp"
+			workflowName = "int-val-cct-wf"
+		)
+		nn := types.NamespacedName{Name: resourceName, Namespace: "default"}
+
+		BeforeEach(func() {
+			By("Creating a ClusterComponentType with allowedWorkflows")
+			cct := &openchoreodevv1alpha1.ClusterComponentType{
+				ObjectMeta: metav1.ObjectMeta{Name: cctName},
+				Spec: openchoreodevv1alpha1.ClusterComponentTypeSpec{
+					WorkloadType: "deployment",
+					AllowedWorkflows: []openchoreodevv1alpha1.ClusterWorkflowRef{
+						{Kind: openchoreodevv1alpha1.ClusterWorkflowRefKindClusterWorkflow, Name: workflowName},
+					},
+					Resources: []openchoreodevv1alpha1.ResourceTemplate{
+						{ID: "deployment", Template: &runtime.RawExtension{Raw: []byte("{}")}},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cct)).To(Succeed())
+
+			By("Creating Component referencing ClusterComponentType")
+			comp := &openchoreodevv1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Name: compName, Namespace: "default"},
+				Spec: openchoreodevv1alpha1.ComponentSpec{
+					Owner: openchoreodevv1alpha1.ComponentOwner{ProjectName: "my-proj"},
+					ComponentType: openchoreodevv1alpha1.ComponentTypeRef{
+						Kind: openchoreodevv1alpha1.ComponentTypeRefKindClusterComponentType,
+						Name: "deployment/" + cctName,
+					},
+					Workflow: &openchoreodevv1alpha1.ComponentWorkflowConfig{
+						Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow,
+						Name: workflowName,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, comp)).To(Succeed())
+		})
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			_ = k8sClient.Delete(ctx, &openchoreodevv1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Name: compName, Namespace: "default"},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreodevv1alpha1.ClusterComponentType{
+				ObjectMeta: metav1.ObjectMeta{Name: cctName},
+			})
+		})
+
+		It("should pass validation for ClusterComponentType and proceed to workflow resolution", func() {
+			wfr := &openchoreodevv1alpha1.WorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       resourceName,
+					Namespace:  "default",
+					Finalizers: []string{WorkflowRunCleanupFinalizer},
+					Labels: map[string]string{
+						"openchoreo.dev/project":   "my-proj",
+						"openchoreo.dev/component": compName,
+					},
+				},
+				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{
+						Kind: openchoreodevv1alpha1.WorkflowRefKindClusterWorkflow,
+						Name: workflowName,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, wfr)).To(Succeed())
+
+			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
+
+			By("First reconcile: sets pending")
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Second reconcile: validates against ClusterComponentType — should pass and fail on workflow resolution")
+			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Requeue).To(BeFalse())
+
+			resource := &openchoreodevv1alpha1.WorkflowRun{}
+			Expect(k8sClient.Get(ctx, nn, resource)).To(Succeed())
+			cond := meta.FindStatusCondition(resource.Status.Conditions, string(ConditionWorkflowCompleted))
+			Expect(cond).NotTo(BeNil())
+			// Should be WorkflowFailed (not found) — NOT ComponentValidationFailed
+			Expect(cond.Reason).To(Equal(string(ReasonWorkflowFailed)))
+		})
+	})
+
+	// ---------------------------------------------------------------------------
+	// Status Tasks field persistence
+	// ---------------------------------------------------------------------------
+
+	Context("Status Tasks field persistence", func() {
+		const resourceName = "int-test-tasks-persist"
+		nn := types.NamespacedName{Name: resourceName, Namespace: "default"}
+
+		AfterEach(func() { forceDelete(ctx, nn) })
+
+		It("should persist Tasks in status subresource", func() {
+			wfr := &openchoreodevv1alpha1.WorkflowRun{
+				ObjectMeta: metav1.ObjectMeta{Name: resourceName, Namespace: "default"},
+				Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+					Workflow: openchoreodevv1alpha1.WorkflowRunConfig{Name: "test-workflow"},
+				},
+			}
+			Expect(k8sClient.Create(ctx, wfr)).To(Succeed())
+
+			By("Updating status with Tasks")
+			resource := &openchoreodevv1alpha1.WorkflowRun{}
+			Expect(k8sClient.Get(ctx, nn, resource)).To(Succeed())
+
+			now := metav1.Now()
+			resource.Status.Tasks = []openchoreodevv1alpha1.WorkflowTask{
+				{Name: "build", Phase: "Succeeded", StartedAt: &now, CompletedAt: &now},
+				{Name: "deploy", Phase: "Running", StartedAt: &now},
+			}
+			Expect(k8sClient.Status().Update(ctx, resource)).To(Succeed())
+
+			By("Verifying Tasks were persisted")
+			Expect(k8sClient.Get(ctx, nn, resource)).To(Succeed())
+			Expect(resource.Status.Tasks).To(HaveLen(2))
+			Expect(resource.Status.Tasks[0].Name).To(Equal("build"))
+			Expect(resource.Status.Tasks[0].Phase).To(Equal("Succeeded"))
+			Expect(resource.Status.Tasks[1].Name).To(Equal("deploy"))
+			Expect(resource.Status.Tasks[1].Phase).To(Equal("Running"))
+		})
+	})
 })

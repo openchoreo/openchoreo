@@ -1,0 +1,402 @@
+# ============================================================
+# ClusterWorkflowTemplate — Argo Workflows execution template
+# Deploy this to the Workflow Plane cluster
+# ============================================================
+apiVersion: argoproj.io/v1alpha1
+kind: ClusterWorkflowTemplate
+metadata:
+  name: azure-sql-database-delete
+spec:
+  entrypoint: pipeline
+  templates:
+    - name: pipeline
+      steps:
+        - - name: clone
+            template: clone-step
+        - - name: init
+            template: init-step
+        - - name: plan-destroy
+            template: plan-destroy-step
+        - - name: destroy
+            template: destroy-step
+
+    # Step 1: Clone the Terraform repo to get the Terraform files
+    - name: clone-step
+      container:
+        image: alpine/git:2.45.2
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            echo "Cloning repository ${GIT_REPO_URL} (branch: ${GIT_BRANCH}) ..."
+            git clone --depth 1 --branch "${GIT_BRANCH}" \
+              "${GIT_REPO_URL}" \
+              /mnt/data/repo
+            echo "Clone complete."
+        env:
+          - name: GIT_REPO_URL
+            value: "{{workflow.parameters.git-repo-url}}"
+          - name: GIT_BRANCH
+            value: "{{workflow.parameters.git-branch}}"
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+    # Step 2: terraform init — connect to the existing azurerm state
+    - name: init-step
+      container:
+        image: hashicorp/terraform:1.9
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            ulimit -n 65535
+            TF_DIR="/mnt/data/repo/${GIT_TF_PATH}"
+            cd "$TF_DIR"
+
+            echo "Running terraform init ..."
+            terraform init \
+              -backend-config="storage_account_name=${TFSTATE_STORAGE_ACCOUNT}" \
+              -backend-config="container_name=tfstate" \
+              -backend-config="key=azuresql/${SERVER_NAME}/terraform.tfstate" \
+              -backend-config="resource_group_name=${TFSTATE_RESOURCE_GROUP}" \
+              -input=false
+        env:
+          - name: ARM_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientId
+          - name: ARM_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientSecret
+          - name: ARM_TENANT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: tenantId
+          - name: ARM_SUBSCRIPTION_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: subscriptionId
+          - name: TFSTATE_STORAGE_ACCOUNT
+            value: "{{workflow.parameters.tfstate-storage-account}}"
+          - name: TFSTATE_RESOURCE_GROUP
+            value: "{{workflow.parameters.tfstate-resource-group}}"
+          - name: SERVER_NAME
+            value: "{{workflow.parameters.server-name}}"
+          - name: GIT_TF_PATH
+            value: "{{workflow.parameters.git-tf-path}}"
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+    # Step 3: terraform plan -destroy — dry run showing what will be deleted
+    - name: plan-destroy-step
+      container:
+        image: hashicorp/terraform:1.9
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            ulimit -n 65535
+            TF_DIR="/mnt/data/repo/${GIT_TF_PATH}"
+            cd "$TF_DIR"
+
+            echo "Running terraform plan -destroy ..."
+            terraform plan \
+              -destroy \
+              -var="resource_group_name=${RESOURCE_GROUP_NAME}" \
+              -var="server_name=${SERVER_NAME}" \
+              -var="db_name=${DB_NAME}" \
+              -var="admin_username=${ADMIN_USERNAME}" \
+              -var="admin_password=${ADMIN_PASSWORD}" \
+              -var="db_sku=${DB_SKU}" \
+              -input=false
+        env:
+          - name: ARM_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientId
+          - name: ARM_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientSecret
+          - name: ARM_TENANT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: tenantId
+          - name: ARM_SUBSCRIPTION_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: subscriptionId
+          - name: RESOURCE_GROUP_NAME
+            value: "{{workflow.parameters.resource-group-name}}"
+          - name: SERVER_NAME
+            value: "{{workflow.parameters.server-name}}"
+          - name: DB_NAME
+            value: "{{workflow.parameters.db-name}}"
+          - name: ADMIN_USERNAME
+            value: "{{workflow.parameters.admin-username}}"
+          - name: ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: adminPassword
+          - name: DB_SKU
+            value: "{{workflow.parameters.db-sku}}"
+          - name: GIT_TF_PATH
+            value: "{{workflow.parameters.git-tf-path}}"
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+    # Step 4: terraform destroy — delete the Azure SQL Database and all associated resources
+    - name: destroy-step
+      container:
+        image: hashicorp/terraform:1.9
+        command: [sh, -c]
+        args:
+          - |
+            set -e
+            ulimit -n 65535
+            TF_DIR="/mnt/data/repo/${GIT_TF_PATH}"
+            cd "$TF_DIR"
+
+            echo "Running terraform destroy ..."
+            terraform destroy \
+              -auto-approve \
+              -var="resource_group_name=${RESOURCE_GROUP_NAME}" \
+              -var="server_name=${SERVER_NAME}" \
+              -var="db_name=${DB_NAME}" \
+              -var="admin_username=${ADMIN_USERNAME}" \
+              -var="admin_password=${ADMIN_PASSWORD}" \
+              -var="db_sku=${DB_SKU}" \
+              -input=false
+
+            echo "================================================="
+            echo "  Azure SQL Database Deleted                     "
+            echo "================================================="
+            echo "Server:         ${SERVER_NAME}"
+            echo "Resource Group: ${RESOURCE_GROUP_NAME}"
+            echo "The SQL Server, database, and firewall rules have"
+            echo "been removed from Azure. The resource group was"
+            echo "not deleted as it is assumed to be pre-existing."
+            echo "================================================="
+        env:
+          - name: ARM_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientId
+          - name: ARM_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: clientSecret
+          - name: ARM_TENANT_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: tenantId
+          - name: ARM_SUBSCRIPTION_ID
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: subscriptionId
+          - name: RESOURCE_GROUP_NAME
+            value: "{{workflow.parameters.resource-group-name}}"
+          - name: SERVER_NAME
+            value: "{{workflow.parameters.server-name}}"
+          - name: DB_NAME
+            value: "{{workflow.parameters.db-name}}"
+          - name: ADMIN_USERNAME
+            value: "{{workflow.parameters.admin-username}}"
+          - name: ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: "{{workflow.parameters.credentials-secret}}"
+                key: adminPassword
+          - name: DB_SKU
+            value: "{{workflow.parameters.db-sku}}"
+          - name: GIT_TF_PATH
+            value: "{{workflow.parameters.git-tf-path}}"
+        volumeMounts:
+          - name: data
+            mountPath: /mnt/data
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 128Mi
+
+---
+# ============================================================
+# Workflow — OpenChoreo CR defining the parameter schema
+# Deploy this to the Control Plane cluster
+# ============================================================
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workflow
+metadata:
+  name: azure-sql-database-delete
+  namespace: default
+  annotations:
+    openchoreo.dev/description: "Destroy an Azure SQL Database provisioned by azure-sql-database-create"
+spec:
+
+  ttlAfterCompletion: "1d"
+
+  parameters:
+    openAPIV3Schema:
+      type: object
+      properties:
+        git:
+          type: object
+          default: {}
+          description: "Source repository that contains the Terraform files (must match the values used when creating the instance)"
+          properties:
+            repoUrl:
+              type: string
+              default: "https://github.com/openchoreo/openchoreo.git"
+              description: "Git repository URL to clone at runtime (HTTPS)"
+            branch:
+              type: string
+              default: "main"
+              description: "Branch or tag to check out"
+            tfPath:
+              type: string
+              default: "samples/workflows/azure-sql-database/terraform"
+              description: "Relative path inside the cloned repo that contains the Terraform files"
+        azure:
+          type: object
+          default: {}
+          properties:
+            location:
+              type: string
+              default: "eastus"
+              description: "Azure region where the resources were created"
+            credentialsSecret:
+              type: string
+              default: "azure-sql-credentials"
+              description: "Name of the Kubernetes Secret containing Azure AD App Registration credentials ('clientId', 'clientSecret', 'tenantId', 'subscriptionId') and 'adminPassword'"
+        tfState:
+          type: object
+          default: {}
+          properties:
+            resourceGroup:
+              type: string
+              default: "openchoreo-tfstate-rg"
+              description: "Azure Resource Group for the Terraform state storage account (must match the value used when creating the instance)"
+            storageAccount:
+              type: string
+              default: "ocstfstate"
+              description: "Azure Storage Account name for Terraform state (must match the value used when creating the instance)"
+        server:
+          type: object
+          default: {}
+          properties:
+            name:
+              type: string
+              default: "my-app-sqlserver"
+              description: "Name of the Azure SQL Server to delete — must exactly match the name used when creating the instance"
+            resourceGroupName:
+              type: string
+              default: "my-app-rg"
+              description: "Azure Resource Group containing the SQL Server"
+        db:
+          type: object
+          default: {}
+          properties:
+            name:
+              type: string
+              default: "myappdb"
+              description: "Database name used when creating the instance"
+            adminUsername:
+              type: string
+              default: "sqladmin"
+              description: "Administrator login used when creating the instance"
+            sku:
+              type: string
+              default: "Basic"
+              description: "SKU name used when creating the instance"
+
+  runTemplate:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Workflow
+    metadata:
+      name: ${metadata.workflowRunName}
+      namespace: ${metadata.namespace}
+    spec:
+      arguments:
+        parameters:
+          - name: git-repo-url
+            value: ${parameters.git.repoUrl}
+          - name: git-branch
+            value: ${parameters.git.branch}
+          - name: git-tf-path
+            value: ${parameters.git.tfPath}
+          - name: azure-location
+            value: ${parameters.azure.location}
+          - name: credentials-secret
+            value: ${parameters.azure.credentialsSecret}
+          - name: tfstate-resource-group
+            value: ${parameters.tfState.resourceGroup}
+          - name: tfstate-storage-account
+            value: ${parameters.tfState.storageAccount}
+          - name: server-name
+            value: ${parameters.server.name}
+          - name: resource-group-name
+            value: ${parameters.server.resourceGroupName}
+          - name: db-name
+            value: ${parameters.db.name}
+          - name: admin-username
+            value: ${parameters.db.adminUsername}
+          - name: db-sku
+            value: ${parameters.db.sku}
+      serviceAccountName: workflow-sa
+      workflowTemplateRef:
+        clusterScope: true
+        name: azure-sql-database-delete
+
+---
+# ============================================================
+# WorkflowRun — triggers a single deletion
+# Use the same parameter values that were used to create the instance
+# ============================================================
+apiVersion: openchoreo.dev/v1alpha1
+kind: WorkflowRun
+metadata:
+  name: azure-sql-database-delete-run
+spec:
+  workflow:
+    name: azure-sql-database-delete
+    parameters:
+      git:
+        repoUrl: "https://github.com/openchoreo/openchoreo.git"
+        branch: "main"
+        tfPath: "samples/workflows/azure-sql-database/terraform"
+      azure:
+        location: "eastus"
+        credentialsSecret: "azure-sql-credentials"
+      tfState:
+        resourceGroup: "openchoreo-tfstate-rg"
+        storageAccount: "ocstfstate"
+      server:
+        name: "my-app-sqlserver"
+        resourceGroupName: "my-app-rg"
+      db:
+        name: "myappdb"
+        adminUsername: "sqladmin"
+        sku: "Basic"

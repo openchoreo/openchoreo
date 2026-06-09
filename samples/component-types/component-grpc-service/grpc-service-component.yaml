@@ -1,0 +1,219 @@
+# Sample: gRPC Service Component using the deployment/grpc-service ComponentType
+#
+# This sample demonstrates:
+# - Defining a custom ClusterComponentType that emits a Gateway API GRPCRoute
+# - A Workload with a gRPC endpoint
+# - Environment-specific overrides via ReleaseBinding
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterComponentType
+metadata:
+  name: grpc-service
+  annotations:
+    openchoreo.dev/description: "A long-running gRPC service exposed via Gateway API GRPCRoute"
+spec:
+  workloadType: deployment
+
+  validations:
+    - rule: "${size(workload.endpoints) > 0}"
+      message: "grpc-service components must have at least one endpoint."
+    - rule: >-
+        ${workload.endpoints.all(name, ep, ep.type == "gRPC")}
+      message: "grpc-service only supports endpoints of type gRPC."
+    - rule: >-
+        ${workload.endpoints.exists(name, ep, "external" in ep.visibility)
+          ? has(gateway.ingress) && has(gateway.ingress.external)
+          : true}
+      message: "Endpoints with 'external' visibility require gateway.ingress.external to be configured."
+    - rule: >-
+        ${workload.endpoints.exists(name, ep, "internal" in ep.visibility)
+          ? has(gateway.ingress) && has(gateway.ingress.internal)
+          : true}
+      message: "Endpoints with 'internal' visibility require gateway.ingress.internal to be configured."
+
+  environmentConfigs:
+    openAPIV3Schema:
+      type: object
+      properties:
+        replicas:
+          type: integer
+          default: 1
+          minimum: 0
+        imagePullPolicy:
+          type: string
+          default: IfNotPresent
+          enum: [Always, IfNotPresent, Never]
+
+  resources:
+    - id: deployment
+      template:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: ${metadata.name}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          replicas: ${environmentConfigs.replicas}
+          selector:
+            matchLabels: ${metadata.podSelectors}
+          template:
+            metadata:
+              labels: ${metadata.podSelectors}
+            spec:
+              containers:
+                - name: main
+                  image: ${workload.container.image}
+                  imagePullPolicy: ${environmentConfigs.imagePullPolicy}
+                  command: |
+                    ${has(workload.container.command) ? workload.container.command : oc_omit()}
+                  args: |
+                    ${has(workload.container.args) ? workload.container.args : oc_omit()}
+                  env: ${dependencies.toContainerEnvs()}
+
+    - id: service
+      template:
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: ${metadata.componentName}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          type: ClusterIP
+          selector: ${metadata.podSelectors}
+          ports: ${workload.toServicePorts()}
+
+    - id: grpcroute-external
+      forEach: '${workload.endpoints.transformMap(name, ep, "external" in ep.visibility && ep.type == "gRPC", ep)}'
+      var: endpoint
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: GRPCRoute
+        metadata:
+          name: ${oc_generate_name(metadata.componentName, endpoint.key)}
+          namespace: ${metadata.namespace}
+          labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "external"})}'
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
+          # Unlike HTTP (which disambiguates components by path prefix), gRPC has no
+          # base path — the request path IS /<package>.<Service>/<Method>. So routing
+          # is by hostname + service/method, and multi-tenant isolation requires a
+          # UNIQUE hostname per component endpoint. oc_dns_label() builds a DNS-safe
+          # (<=63 char) subdomain from component/endpoint/environment/namespace.
+          hostnames: |
+            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, oc_dns_label(metadata.componentName, endpoint.key, metadata.environmentName, metadata.componentNamespace) + "." + h)}
+          rules:
+            # Render one match per (service, method) extracted from the endpoint's
+            # proto schema. workload.toEndpointResources(<endpointName>) is an opt-in macro: the
+            # controller only parses endpoint schemas when a template calls it.
+            # Falls back to a catch-all rule (no matches) when the endpoint has no
+            # parseable schema.
+            - matches: >-
+                ${workload.toEndpointResources(endpoint.key).hasValue()
+                  ? workload.toEndpointResources(endpoint.key).value().map(r,
+                      {"method": {"type": "Exact", "service": r.service, "method": r.method}})
+                  : oc_omit()}
+              backendRefs:
+                - name: ${metadata.componentName}
+                  port: ${endpoint.value.port}
+
+    - id: grpcroute-internal
+      forEach: '${workload.endpoints.transformMap(name, ep, "internal" in ep.visibility && ep.type == "gRPC", ep)}'
+      var: endpoint
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: GRPCRoute
+        metadata:
+          name: '${oc_generate_name(metadata.componentName, endpoint.key, "internal")}'
+          namespace: ${metadata.namespace}
+          labels: '${oc_merge(metadata.labels, {"openchoreo.dev/endpoint-name": endpoint.key, "openchoreo.dev/endpoint-visibility": "internal"})}'
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.internal.name}
+              namespace: ${gateway.ingress.internal.namespace}
+          hostnames: |
+            ${[gateway.ingress.internal.?http, gateway.ingress.internal.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, oc_dns_label(metadata.componentName, endpoint.key, metadata.environmentName, metadata.componentNamespace) + "." + h)}
+          rules:
+            # Render one match per (service, method) extracted from the endpoint's
+            # proto schema. workload.toEndpointResources(<endpointName>) is an opt-in macro: the
+            # controller only parses endpoint schemas when a template calls it.
+            # Falls back to a catch-all rule (no matches) when the endpoint has no
+            # parseable schema.
+            - matches: >-
+                ${workload.toEndpointResources(endpoint.key).hasValue()
+                  ? workload.toEndpointResources(endpoint.key).value().map(r,
+                      {"method": {"type": "Exact", "service": r.service, "method": r.method}})
+                  : oc_omit()}
+              backendRefs:
+                - name: ${metadata.componentName}
+                  port: ${endpoint.value.port}
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: demo-app-grpc-service
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/grpc-service
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: demo-app-grpc-service-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-app-grpc-service
+
+  endpoints:
+    grpc:
+      type: gRPC
+      port: 9090
+      visibility: [external]
+      # The proto schema is parsed at render time; each rpc becomes an explicit
+      # (service, method) match in the generated GRPCRoute.
+      schema:
+        type: proto
+        content: |
+          syntax = "proto3";
+          package greeter;
+          service Greeter {
+            rpc SayHello (HelloRequest) returns (HelloReply);
+          }
+          message HelloRequest { string name = 1; }
+          message HelloReply  { string message = 1; }
+
+  container:
+    image: "ghcr.io/openchoreo/samples/hello-world-grpc:latest"
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ReleaseBinding
+metadata:
+  name: demo-app-grpc-service-development
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: demo-app-grpc-service
+
+  environment: development
+
+  componentTypeEnvironmentConfigs:
+    replicas: 1

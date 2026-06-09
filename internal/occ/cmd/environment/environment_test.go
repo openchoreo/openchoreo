@@ -4,10 +4,7 @@
 package environment
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"testing"
 	"time"
 
@@ -15,45 +12,20 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/environment/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-func captureStdout(t *testing.T, fn func()) string {
-	t.Helper()
-
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	origStdout := os.Stdout
-	os.Stdout = w
-	defer func() {
-		os.Stdout = origStdout
-		w.Close()
-		r.Close()
-	}()
-
-	fn()
-
-	os.Stdout = origStdout
-	w.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, r)
-	require.NoError(t, err)
-
-	return buf.String()
-}
-
 func TestPrint_Nil(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(nil))
 	})
 	assert.Contains(t, out, "No environments found")
 }
 
 func TestPrint_Empty(t *testing.T) {
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList([]gen.Environment{}))
 	})
 	assert.Contains(t, out, "No environments found")
@@ -78,7 +50,7 @@ func TestPrint_WithItems(t *testing.T) {
 		},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -96,7 +68,7 @@ func TestPrint_NilTimestamp(t *testing.T) {
 		{Metadata: gen.ObjectMeta{Name: "no-timestamp", CreationTimestamp: nil}},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -108,7 +80,7 @@ func TestPrint_NilSpec(t *testing.T) {
 		{Metadata: gen.ObjectMeta{Name: "no-spec"}, Spec: nil},
 	}
 
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, printList(items))
 	})
 
@@ -119,14 +91,14 @@ func TestPrint_NilSpec(t *testing.T) {
 // --- List tests ---
 
 func TestList_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	e := New(mc)
 	err := e.List(ListParams{Namespace: ""})
 	assert.Error(t, err)
 }
 
 func TestList_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListEnvironments(mock.Anything, "my-org", mock.Anything).Return(nil, fmt.Errorf("server error"))
 
 	e := New(mc)
@@ -134,14 +106,14 @@ func TestList_APIError(t *testing.T) {
 }
 
 func TestList_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListEnvironments(mock.Anything, "my-org", mock.Anything).Return(&gen.EnvironmentList{
 		Items:      []gen.Environment{{Metadata: gen.ObjectMeta{Name: "prod"}}},
 		Pagination: gen.Pagination{},
 	}, nil)
 
 	e := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, e.List(ListParams{Namespace: "my-org"}))
 	})
 	assert.Contains(t, out, "prod")
@@ -149,7 +121,7 @@ func TestList_Success(t *testing.T) {
 
 func TestList_MultipleItems(t *testing.T) {
 	now := time.Now()
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListEnvironments(mock.Anything, "my-org", mock.Anything).Return(&gen.EnvironmentList{
 		Items: []gen.Environment{
 			{Metadata: gen.ObjectMeta{Name: "prod", CreationTimestamp: &now}},
@@ -159,7 +131,7 @@ func TestList_MultipleItems(t *testing.T) {
 	}, nil)
 
 	e := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, e.List(ListParams{Namespace: "my-org"}))
 	})
 	assert.Contains(t, out, "prod")
@@ -167,14 +139,14 @@ func TestList_MultipleItems(t *testing.T) {
 }
 
 func TestList_Empty(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().ListEnvironments(mock.Anything, "my-org", mock.Anything).Return(&gen.EnvironmentList{
 		Items:      []gen.Environment{},
 		Pagination: gen.Pagination{},
 	}, nil)
 
 	e := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, e.List(ListParams{Namespace: "my-org"}))
 	})
 	assert.Contains(t, out, "No environments found")
@@ -183,14 +155,14 @@ func TestList_Empty(t *testing.T) {
 // --- Get tests ---
 
 func TestGet_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	e := New(mc)
 	err := e.Get(GetParams{Namespace: "", EnvironmentName: "prod"})
 	assert.Error(t, err)
 }
 
 func TestGet_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEnvironment(mock.Anything, "my-org", "missing").Return(nil, fmt.Errorf("not found: missing"))
 
 	e := New(mc)
@@ -198,13 +170,13 @@ func TestGet_APIError(t *testing.T) {
 }
 
 func TestGet_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEnvironment(mock.Anything, "my-org", "prod").Return(&gen.Environment{
 		Metadata: gen.ObjectMeta{Name: "prod"},
 	}, nil)
 
 	e := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, e.Get(GetParams{Namespace: "my-org", EnvironmentName: "prod"}))
 	})
 	assert.Contains(t, out, "name: prod")
@@ -213,14 +185,14 @@ func TestGet_Success(t *testing.T) {
 // --- Delete tests ---
 
 func TestDelete_ValidationError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	e := New(mc)
 	err := e.Delete(DeleteParams{Namespace: "", EnvironmentName: "prod"})
 	assert.Error(t, err)
 }
 
 func TestDelete_APIError(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteEnvironment(mock.Anything, "my-org", "prod").Return(fmt.Errorf("forbidden"))
 
 	e := New(mc)
@@ -228,11 +200,11 @@ func TestDelete_APIError(t *testing.T) {
 }
 
 func TestDelete_Success(t *testing.T) {
-	mc := mocks.NewMockClient(t)
+	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().DeleteEnvironment(mock.Anything, "my-org", "prod").Return(nil)
 
 	e := New(mc)
-	out := captureStdout(t, func() {
+	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, e.Delete(DeleteParams{Namespace: "my-org", EnvironmentName: "prod"}))
 	})
 	assert.Contains(t, out, "Environment 'prod' deleted")

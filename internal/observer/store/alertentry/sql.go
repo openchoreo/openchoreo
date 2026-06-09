@@ -71,6 +71,9 @@ func (s *sqlStore) Initialize(ctx context.Context) error {
 	if _, err := s.db.ExecContext(initCtx, createNamespaceTimestampIndexQuery); err != nil {
 		return fmt.Errorf("failed to create alert_entries index: %w", err)
 	}
+	if _, err := s.db.ExecContext(initCtx, createAlertRuleCRTimestampIndexQuery); err != nil {
+		return fmt.Errorf("failed to create alert_entries cr index: %w", err)
+	}
 	return nil
 }
 
@@ -314,6 +317,21 @@ func (s *sqlStore) QueryAlertEntries(ctx context.Context, params QueryParams) ([
 	return entries, total, nil
 }
 
+func (s *sqlStore) HasRecentAlert(ctx context.Context, alertRuleCRName, alertRuleCRNamespace, componentUID string, since time.Time) (bool, error) {
+	sinceNS := since.UnixNano()
+	var query string
+	if s.backend == BackendPostgreSQL {
+		query = hasRecentAlertPostgresQuery
+	} else {
+		query = hasRecentAlertSQLiteQuery
+	}
+	var exists bool
+	if err := s.db.QueryRowContext(ctx, query, alertRuleCRName, alertRuleCRNamespace, componentUID, sinceNS).Scan(&exists); err != nil {
+		return false, fmt.Errorf("failed to check recent alert: %w", err)
+	}
+	return exists, nil
+}
+
 func normalizeTimestamp(value string) (string, error) {
 	parsed, err := time.Parse(time.RFC3339Nano, value)
 	if err == nil {
@@ -393,6 +411,20 @@ INSERT INTO alert_entries (
 	source_type, source_query, source_metric,
 	condition_operator, condition_threshold, condition_window, condition_interval
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`
+
+const createAlertRuleCRTimestampIndexQuery = `
+CREATE INDEX IF NOT EXISTS idx_alert_entries_cr_ts
+ON alert_entries(alert_rule_cr_name, alert_rule_cr_namespace, component_id, timestamp_ns);`
+
+const hasRecentAlertSQLiteQuery = `
+SELECT EXISTS(SELECT 1 FROM alert_entries
+WHERE alert_rule_cr_name = ? AND alert_rule_cr_namespace = ? AND component_id = ? AND timestamp_ns >= ?
+LIMIT 1);`
+
+const hasRecentAlertPostgresQuery = `
+SELECT EXISTS(SELECT 1 FROM alert_entries
+WHERE alert_rule_cr_name = $1 AND alert_rule_cr_namespace = $2 AND component_id = $3 AND timestamp_ns >= $4
+LIMIT 1);`
 
 const insertAlertEntryPostgresQuery = `
 INSERT INTO alert_entries (
