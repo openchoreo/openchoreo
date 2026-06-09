@@ -20,18 +20,29 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	projectpipeline "github.com/openchoreo/openchoreo/internal/pipeline/project"
 )
 
 // Reconciler reconciles a ProjectReleaseBinding object.
 type Reconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	// Pipeline renders the inlined (Cluster)ProjectType resources for a
+	// single ProjectReleaseBinding. The instance holds CEL env and program
+	// caches; reuse it across reconciles to keep them warm.
+	Pipeline *projectpipeline.Pipeline
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projectreleasebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projectreleasebindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projectreleasebindings/finalizers,verbs=update
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projectreleases,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=renderedreleases,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop.
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -55,9 +66,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return r.reconcile(ctx, binding)
 }
 
-// reconcile validates that the pinned ProjectRelease exists, agrees on
-// ownership, and that its inlined (Cluster)ProjectType satisfies the
-// cell-namespace mandate. Rendering and resource readiness land in later
+// reconcile validates the pinned ProjectRelease (existence, owner agreement,
+// cell-namespace mandate), resolves the binding's environment / dataplane /
+// project, renders the inlined (Cluster)ProjectType resources via the
+// project pipeline, and emits a RenderedRelease owned by this binding.
+// Resource readiness aggregation and finalizer handling land in later
 // Phase 4 commits.
 func (r *Reconciler) reconcile(ctx context.Context, binding *openchoreov1alpha1.ProjectReleaseBinding) (result ctrl.Result, rErr error) {
 	logger := log.FromContext(ctx)
@@ -110,8 +123,19 @@ func (r *Reconciler) reconcile(ctx context.Context, binding *openchoreov1alpha1.
 		return ctrl.Result{}, nil
 	}
 
-	controller.MarkTrueCondition(binding, ConditionSynced, ReasonSyncedReady,
-		"ProjectRelease resolved; cell-namespace mandate satisfied")
+	environment, dataPlane, project, err := r.fetchSupportingResources(ctx, binding)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if environment == nil {
+		// fetchSupportingResources already marked Synced=False; the deferred
+		// aggregator handles Ready.
+		return ctrl.Result{}, nil
+	}
+
+	if _, err := r.renderAndEmit(ctx, binding, release, environment, dataPlane, project); err != nil {
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -141,10 +165,16 @@ func (r *Reconciler) setReadyCondition(binding *openchoreov1alpha1.ProjectReleas
 		controller.ConditionReason(synced.Reason), synced.Message)
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager sets up the controller with the Manager. The binding
+// owns its emitted RenderedRelease so DP-side status updates re-enqueue the
+// binding for readiness aggregation.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.Pipeline == nil {
+		r.Pipeline = projectpipeline.NewPipeline()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ProjectReleaseBinding{}).
+		Owns(&openchoreov1alpha1.RenderedRelease{}).
 		Named("projectreleasebinding").
 		Complete(r)
 }
