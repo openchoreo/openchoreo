@@ -57,7 +57,7 @@ func (s *EventsService) QueryEvents(ctx context.Context, req *types.EventsQueryR
 	if req == nil {
 		return nil, fmt.Errorf("request is required")
 	}
-	s.logger.Info("QueryEvents called",
+	s.logger.Debug("QueryEvents called",
 		"startTime", req.StartTime,
 		"endTime", req.EndTime,
 		"limit", req.Limit)
