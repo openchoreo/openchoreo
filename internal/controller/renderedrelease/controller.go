@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,13 +124,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	desiredResources, err := r.makeDesiredResources(release)
 	if err != nil {
 		logger.Error(err, "Failed to make desired resources")
-		return ctrl.Result{}, err
-	}
-
-	// Ensure namespaces exist before applying resources
-	desiredNamespaces := r.makeDesiredNamespaces(release, desiredResources)
-	if err := r.ensureNamespaces(ctx, planeClient, desiredNamespaces); err != nil {
-		logger.Error(err, "Failed to ensure namespaces")
 		return ctrl.Result{}, err
 	}
 
@@ -321,77 +313,6 @@ func injectRestartedAt(obj *unstructured.Unstructured, value string) error {
 	if err := unstructured.SetNestedStringMap(obj.Object, annotations, "spec", "template", "metadata", "annotations"); err != nil {
 		return fmt.Errorf("set pod template annotations: %w", err)
 	}
-	return nil
-}
-
-// makeDesiredNamespaces creates namespace objects from the desired resources with proper labels
-func (r *Reconciler) makeDesiredNamespaces(release *openchoreov1alpha1.RenderedRelease, resources []*unstructured.Unstructured) []*corev1.Namespace {
-	namespaceMap := make(map[string]*corev1.Namespace)
-
-	for _, obj := range resources {
-		namespaceName := obj.GetNamespace()
-		if namespaceName != "" {
-			if _, exists := namespaceMap[namespaceName]; !exists {
-				namespaceMap[namespaceName] = &corev1.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: namespaceName,
-						Labels: map[string]string{
-							// Audit labels - track which release created this namespace
-							labels.LabelKeyCreatedBy:                ControllerName,
-							labels.LabelKeyRenderedReleaseName:      release.Name,
-							labels.LabelKeyRenderedReleaseNamespace: release.Namespace,
-							labels.LabelKeyRenderedReleaseUID:       string(release.UID),
-
-							// Identification labels - track where this namespace belongs
-							labels.LabelKeyNamespaceName:   release.Namespace,
-							labels.LabelKeyEnvironmentName: release.Spec.EnvironmentName,
-							labels.LabelKeyProjectName:     release.Spec.Owner.ProjectName,
-						},
-					},
-				}
-			}
-		}
-	}
-
-	// Convert the map to a slice
-	namespaces := make([]*corev1.Namespace, 0, len(namespaceMap))
-	for _, ns := range namespaceMap {
-		namespaces = append(namespaces, ns)
-	}
-
-	return namespaces
-}
-
-// ensureNamespaces ensures all required namespaces exist in the target plane
-func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Client, namespaces []*corev1.Namespace) error {
-	for _, namespace := range namespaces {
-		existingNs := &corev1.Namespace{}
-		err := planeClient.Get(ctx, client.ObjectKey{Name: namespace.Name}, existingNs)
-
-		// Namespace already exists, skip to next
-		if err == nil {
-			continue
-		}
-
-		// Error other than NotFound
-		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to check namespace %s: %w", namespace.Name, err)
-		}
-
-		// Namespace doesn't exist, create it
-		if err := planeClient.Create(ctx, namespace); err != nil {
-			if apierrors.IsAlreadyExists(err) {
-				// Another controller/release created it concurrently - that's fine
-				continue
-			}
-			return fmt.Errorf("failed to create namespace %s: %w", namespace.Name, err)
-		}
-
-		// TODO: Emit a Kubernetes event when namespace is created
-		// Example: r.Recorder.Event(release, corev1.EventTypeNormal, "NamespaceCreated",
-		//          fmt.Sprintf("Created namespace %s in target plane", namespace.Name))
-	}
-
 	return nil
 }
 
