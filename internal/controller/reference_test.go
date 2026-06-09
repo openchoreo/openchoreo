@@ -760,8 +760,9 @@ func TestDataPlaneResult_ToDataPlane_WithDataPlane(t *testing.T) {
 func TestDataPlaneResult_ToDataPlane_WithClusterDataPlane(t *testing.T) {
 	cdp := &openchoreov1alpha1.ClusterDataPlane{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cluster-dp",
-			UID:  "cdp-uid-456",
+			Name:        "cluster-dp",
+			UID:         "cdp-uid-456",
+			Annotations: map[string]string{"example.com/team": "platform"},
 		},
 		Spec: openchoreov1alpha1.ClusterDataPlaneSpec{
 			PlaneID: "shared-plane",
@@ -800,6 +801,10 @@ func TestDataPlaneResult_ToDataPlane_WithClusterDataPlane(t *testing.T) {
 	require.NotNil(t, got.Spec.ObservabilityPlaneRef)
 	assert.Equal(t, openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane, got.Spec.ObservabilityPlaneRef.Kind)
 	assert.Equal(t, "shared-obs", got.Spec.ObservabilityPlaneRef.Name)
+
+	// Annotations must carry onto the facade so they reach the render context
+	// (dataplane.annotations) for ClusterDataPlane-backed environments too.
+	assert.Equal(t, "platform", got.Annotations["example.com/team"])
 }
 
 func TestDataPlaneResult_ToDataPlane_WithClusterDataPlane_NoObsRef(t *testing.T) {

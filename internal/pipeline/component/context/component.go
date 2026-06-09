@@ -169,6 +169,7 @@ func extractParameters(raw *runtime.RawExtension) (map[string]any, error) {
 // extractDataPlaneData extracts DataPlaneData from a DataPlane resource.
 func extractDataPlaneData(dp *v1alpha1.DataPlane) DataPlaneData {
 	data := DataPlaneData{}
+	data.Annotations = dp.GetAnnotations()
 	if dp.Spec.SecretStoreRef != nil {
 		data.SecretStore = dp.Spec.SecretStoreRef.Name
 	}

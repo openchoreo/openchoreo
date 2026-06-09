@@ -67,6 +67,10 @@ func (r *DataPlaneResult) ToDataPlane() *openchoreov1alpha1.DataPlane {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: r.ClusterDataPlane.Name,
 				UID:  r.ClusterDataPlane.UID,
+				// Carry annotations so they reach the render context (dataplane.annotations)
+				// the same way whether the environment references a namespaced DataPlane or a
+				// cluster-scoped ClusterDataPlane.
+				Annotations: r.ClusterDataPlane.Annotations,
 			},
 			Spec: openchoreov1alpha1.DataPlaneSpec{
 				PlaneID:               r.ClusterDataPlane.Spec.PlaneID,

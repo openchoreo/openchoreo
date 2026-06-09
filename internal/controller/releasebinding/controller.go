@@ -1559,6 +1559,19 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.findConsumerReleaseBindingsForResourceReleaseBinding),
 			builder.WithPredicates(resourceReleaseBindingOutputsChangedPredicate()),
 		).
+		// A DataPlane's annotations and spec feed the render context (annotations are exposed
+		// to CEL as dataplane.annotations), so re-render the bindings that use it when it
+		// changes instead of waiting for the periodic resync.
+		Watches(
+			&openchoreov1alpha1.DataPlane{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForDataPlane),
+			builder.WithPredicates(dataPlaneRenderInputsChangedPredicate()),
+		).
+		Watches(
+			&openchoreov1alpha1.ClusterDataPlane{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForClusterDataPlane),
+			builder.WithPredicates(dataPlaneRenderInputsChangedPredicate()),
+		).
 		Named("releasebinding").
 		Complete(r)
 }
