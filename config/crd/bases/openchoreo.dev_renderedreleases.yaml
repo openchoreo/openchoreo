@@ -49,12 +49,20 @@ spec:
                 pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
                 type: string
               owner:
-                description: RenderedReleaseOwner defines the owner of a RenderedRelease.
+                description: |-
+                  RenderedReleaseOwner identifies the owner of a RenderedRelease. ProjectName
+                  is always required. The optional name fields disambiguate the binding kind:
+                    - ComponentName set: produced by a ReleaseBinding (component)
+                    - ResourceName set:  produced by a ResourceReleaseBinding
+                    - Both unset:        produced by a ProjectReleaseBinding (project-level
+                      infra including the cell namespace)
+
+                  At most one of ComponentName or ResourceName may be set.
                 properties:
                   componentName:
                     description: |-
-                      ComponentName is set when the RenderedRelease is owned by a Component.
-                      Mutually exclusive with ResourceName.
+                      ComponentName is set when the RenderedRelease is owned by a Component
+                      (via ReleaseBinding). Mutually exclusive with ResourceName.
                     type: string
                   projectName:
                     description: ProjectName is the name of the Project the owner
@@ -63,8 +71,8 @@ spec:
                     type: string
                   resourceName:
                     description: |-
-                      ResourceName is set when the RenderedRelease is owned by a Resource.
-                      Mutually exclusive with ComponentName.
+                      ResourceName is set when the RenderedRelease is owned by a Resource
+                      (via ResourceReleaseBinding). Mutually exclusive with ComponentName.
                     type: string
                 required:
                 - projectName
@@ -72,8 +80,8 @@ spec:
                 x-kubernetes-validations:
                 - message: spec.owner is immutable
                   rule: self == oldSelf
-                - message: exactly one of componentName or resourceName must be set
-                  rule: has(self.componentName) != has(self.resourceName)
+                - message: componentName and resourceName both cannot be set
+                  rule: '!(has(self.componentName) && has(self.resourceName))'
               progressingInterval:
                 description: |-
                   ProgressingInterval watch interval for the release resources when transitioning.
