@@ -76,46 +76,68 @@ async def stream_chat(
             )
             parser = ChatResponseParser()
 
-            structured_response: Any = None
-            async for event in _yield_chunks(agent, messages, parser):
-                if event[0] == "structured":
-                    structured_response = event[1]
-                else:
-                    yield event[1]
+            async for ev in _yield_chunks(agent, messages, parser):
+                yield ev
 
-            # If the message wasn't recovered from streamed tool args,
-            # fall back to the parsed structured_response that landed
-            # on agent state. May also replace a placeholder the
-            # streaming pass surfaced with the model's final longer
-            # diagnosis — the drawer clears its streaming buffer on
-            # the terminal ``done`` event, so the final message in
-            # the timeline reflects parser.message after this call.
-            async for recovery_event in _recover_from_structured_response(
-                parser, structured_response,
-            ):
-                yield recovery_event
-
-            # Final delta flush — idempotent across both code paths:
-            #   - Some models (e.g. gpt-4o-mini with structured_output)
-            #     never emit incremental ChatResponse args; the message
-            #     only materialises in the agent's structured_response
-            #     after _yield_chunks exits, then ``set_message`` puts
-            #     it on the parser. The streaming pass yielded zero
-            #     ``message_chunk`` events — this one final chunk gives
-            #     the drawer something to paint before ``done``.
-            #   - Models that DID stream args incrementally have
-            #     ``_emitted_len`` already aligned with ``len(message)``
-            #     so ``pop_delta`` returns "" — no double-emit.
-            #   - ``set_message`` (recovery path) resets ``_emitted_len``
-            #     to 0, so a recovery message is treated as "start
-            #     over" and the consumer re-renders cleanly.
+            # Final delta flush — when the model emits the structured
+            # response as a single text block (some tool-using turns), the
+            # parser's ``pop_delta`` inside ``_yield_chunks`` already
+            # fired; this trailing call is idempotent and returns ""
+            # in that case. Kept as a safety net so a never-fired-mid-
+            # stream model still gets one ``message_chunk`` before
+            # ``done`` lands.
             trailing = parser.pop_delta()
             if trailing:
                 yield _emit_event(
                     {"type": "message_chunk", "content": trailing},
                 )
 
-            yield _emit_event({"type": "done", "message": parser.message})
+            # fix_prompt is a sibling field on the same ChatResponse JSON
+            # the parser was reading; no second source of truth needed.
+            # Cap at the wire-side backstop so a misbehaving model can't
+            # ship an N-megabyte payload to the frontend.
+            fix_prompt = (parser.fix_prompt or "").strip()
+            if len(fix_prompt) > _FIX_PROMPT_MAX_CHARS:
+                logger.warning(
+                    "fix_prompt exceeded %d chars (got %d); truncating",
+                    _FIX_PROMPT_MAX_CHARS, len(fix_prompt),
+                )
+                fix_prompt = fix_prompt[:_FIX_PROMPT_MAX_CHARS]
+
+            # Post-stream recovery: ProviderStrategy is expected to fill
+            # ``parser.message`` from streamed text (or, on rare fallback,
+            # from ChatResponse tool-call args we also fed in above). If
+            # both paths produced nothing, the model finished without an
+            # answer — emit an explicit ``error`` event rather than a
+            # ``done`` with empty ``message``. The drawer drops empty
+            # done.message silently, which would leave the user staring
+            # at a cleared streaming buffer with no signal at all.
+            if not parser.message:
+                logger.warning(
+                    "[%s] parser.message empty after stream — likely the model "
+                    "produced no ChatResponse via either text or tool-call args; "
+                    "emitting error so the drawer surfaces a failure",
+                    request_id_context.get(),
+                )
+                yield _emit_event(
+                    {
+                        "type": "error",
+                        "message": (
+                            "The assistant didn't produce a response "
+                            f"(request_id: {request_id_context.get()}). "
+                            "Please try again."
+                        ),
+                    },
+                )
+                return
+
+            done_payload: dict[str, Any] = {
+                "type": "done",
+                "message": parser.message,
+            }
+            if fix_prompt:
+                done_payload["fix_prompt"] = fix_prompt
+            yield _emit_event(done_payload)
 
         except Exception as e:
             async for err_event in _handle_stream_error(e, messages, scope):
@@ -129,33 +151,23 @@ async def _yield_chunks(
     agent: Runnable,
     messages: list[dict[str, str]],
     parser: ChatResponseParser,
-) -> AsyncIterator[tuple[str, Any]]:
+) -> AsyncIterator[str]:
     """Stream LangChain agent chunks and emit per-chunk NDJSON events.
 
-    Yields one of two tuple shapes:
-        ("event",      <ndjson string>)        — to forward to the client
-        ("structured", <structured_response>)  — final state snapshot
+    Uses ``stream_mode="messages"`` (single mode) — same as rca-agent.
+    In single-mode, LangGraph routes the structured-output JSON through
+    the messages channel as TEXT blocks that stream token-by-token. The
+    dual ``["messages", "values"]`` form (previously used here) routes
+    the structured response into the ``values`` channel as one final
+    snapshot, which collapsed the final answer into a single dump on
+    the wire. We pay for the simpler streaming by losing the agent's
+    final ``structured_response`` snapshot — fine because the parser
+    extracts both ``message`` and ``fix_prompt`` from the streamed
+    JSON itself.
 
-    Wrapping every yield in a tuple keeps the streaming function's
-    contract one-call/one-event, while still letting the caller pick up
-    the agent's terminal ``structured_response`` value (which arrives
-    on the ``values`` stream mode, not on a single chunk).
-
-    **Mid-stream message_chunk emission.** Each ``push`` to the parser
-    is followed by a ``pop_delta`` call so the drawer paints text as
-    it arrives instead of waiting ~25 s for the buffered final flush.
-    The drawer's existing ``done`` handler swaps the streamed buffer
-    for ``done.message`` — so on the rare case where the model emits
-    a placeholder ChatResponse alongside the first tool call, the
-    placeholder briefly appears and is then replaced by the model's
-    final diagnosis when ``_recover_from_structured_response`` rewrites
-    ``parser.message``. The user perceives this as "early progress
-    plus a quick correction at the end", which is strictly better than
-    the prior 25 s of silence.
+    Each text-block push is followed by a ``pop_delta`` call so the
+    drawer paints text as it arrives.
     """
-    # Track active ChatResponse tool calls per stream index. Subsequent
-    # tool_call_chunks (which only carry args) inherit the routing.
-    chat_response_indices: set[int] = set()
 
     def _flush_delta() -> str | None:
         delta = parser.pop_delta()
@@ -163,109 +175,92 @@ async def _yield_chunks(
             return None
         return _emit_event({"type": "message_chunk", "content": delta})
 
+    # ChatResponse tool-call indices seen so far. The model emits the
+    # ``name`` once at the start of a tool call; subsequent chunks for
+    # the same index carry only ``args``. Persisting this set across
+    # chunks lets the parser keep reassembling JSON after the first
+    # chunk reveals the name.
+    chat_response_indices: set[int] = set()
+
     try:
-        async for mode, payload in agent.astream(
+        async for chunk, _ in agent.astream(
             {"messages": list(messages)},
-            stream_mode=["messages", "values"],
+            stream_mode="messages",
         ):
-            if mode == "values":
-                sr = payload.get("structured_response") if isinstance(payload, dict) else None
-                if sr is not None:
-                    yield ("structured", sr)
+            # Drop ToolMessage chunks. They also carry ``content_blocks``
+            # with ``type: "text"`` blocks (the tool's result text), and
+            # if we let those reach ``parser.push`` they pollute the JSON
+            # buffer — partial-JSON parsing breaks for the rest of the
+            # turn and the final message_chunk events never fire.
+            # ``ToolMessage.type == "tool"``; AIMessageChunk's class
+            # attribute is "AIMessageChunk", not "ai" (don't filter on
+            # equality with "ai" — older RCA pattern relied on a
+            # ``content: str`` check that no longer holds in current
+            # langchain-core, where AI chunks also have list content).
+            if getattr(chunk, "type", None) == "tool":
                 continue
 
-            chunk, _ = payload
+            # ChatResponse can land via either path depending on what
+            # LangChain decides per turn — ProviderStrategy normally
+            # streams the JSON as ``text`` blocks, but a model/runtime
+            # quirk can still emit it as a final ``ChatResponse``
+            # tool-call whose args carry the same JSON shape. We feed
+            # both channels into the parser so the post-stream guard
+            # below has something to read even on the rare fallback.
+            for tc in getattr(chunk, "tool_call_chunks", None) or []:
+                idx = tc.get("index")
+                name = tc.get("name")
+                if name == "ChatResponse" and idx is not None:
+                    chat_response_indices.add(idx)
 
             for block in getattr(chunk, "content_blocks", None) or []:
                 block_type = block.get("type")
                 if block_type == "tool_call_chunk":
                     tool_name = block.get("name")
-                    if tool_name:
-                        yield (
-                            "event",
-                            _emit_event(
-                                {
-                                    "type": "tool_call",
-                                    "tool": tool_name,
-                                    "activeForm": _active_form(tool_name),
-                                    "args": block.get("args", ""),
-                                }
-                            ),
+                    if tool_name and tool_name != "ChatResponse":
+                        # Don't surface the structured-output tool as a
+                        # tool_call event — it isn't a real read tool the
+                        # user should see in the working indicator.
+                        yield _emit_event(
+                            {
+                                "type": "tool_call",
+                                "tool": tool_name,
+                                "activeForm": _active_form(tool_name),
+                                "args": block.get("args", ""),
+                            }
                         )
                 elif block_type == "text":
                     text = block.get("text", "")
                     if text:
                         parser.push(text)
 
-            # Feed ChatResponse args into the parser so the final
-            # message lands in parser.message. After each push we
-            # consult ``pop_delta`` to forward only the new bytes as
-            # an ndjson ``message_chunk`` event.
-            for tc in getattr(chunk, "tool_call_chunks", []) or []:
+            # If THIS chunk carries ChatResponse tool-call args, push
+            # the partial JSON into the same parser so the message /
+            # fix_prompt fields surface either way.
+            for tc in getattr(chunk, "tool_call_chunks", None) or []:
                 idx = tc.get("index")
-                name = tc.get("name")
                 args_str = tc.get("args") or ""
-                if name == "ChatResponse" and idx is not None:
-                    chat_response_indices.add(idx)
-                elif name and idx is not None:
-                    chat_response_indices.discard(idx)
                 if idx in chat_response_indices and args_str:
                     parser.push(args_str)
 
-            # Drain any new content the parser surfaced this chunk —
-            # could be from either the text-block push above or one of
-            # the ChatResponse arg pushes. One flush per outer chunk
-            # keeps the event rate proportional to the model's token
-            # rate without firing on every micro-update.
+            # One flush per outer chunk — keeps the event rate proportional
+            # to the model's token rate without firing on every micro-update.
             delta_event = _flush_delta()
             if delta_event is not None:
-                yield ("event", delta_event)
+                yield delta_event
     except StructuredOutputValidationError:
         logger.warning(
             "Structured output validation failed; using streamed content",
         )
 
 
-async def _recover_from_structured_response(
-    parser: ChatResponseParser,
-    structured_response: Any,
-) -> AsyncIterator[str]:
-    """Pull the final message off the agent's final-state snapshot.
-
-    Two cases this handles:
-
-    1. The streaming pass surfaced no message at all (rare — usually
-       when the LLM emits a terminal ChatResponse without prose).
-       Adopt the final message verbatim.
-    2. The streaming pass already surfaced a *placeholder* message
-       (e.g. a parallel ChatResponse the model emitted alongside a
-       tool call before reading the tool result), and the agent's
-       final state has the real, longer diagnosis. Replace the
-       placeholder with the final answer.
-
-    The "longer is better" heuristic is intentionally simple: if the
-    final structured_response message is meaningfully longer (≥2× the
-    streamed message AND at least 80 chars longer) it's the model's
-    completed thought, not a status echo.
-    """
-    if structured_response is None:
-        return
-    final_msg = getattr(structured_response, "message", None)
-    if final_msg is None and isinstance(structured_response, dict):
-        final_msg = structured_response.get("message")
-
-    streamed_msg = parser.message or ""
-    if final_msg and isinstance(final_msg, str):
-        should_replace = not streamed_msg or (
-            len(final_msg) >= 2 * len(streamed_msg)
-            and len(final_msg) - len(streamed_msg) >= 80
-        )
-        if should_replace:
-            parser.set_message(final_msg)
-    # ``yield`` keeps the function an async generator so callers can
-    # still ``async for`` over it; we have nothing to surface here.
-    return
-    yield  # pragma: no cover — unreachable, makes this an async gen
+# Hard cap on the fix_prompt payload. The system-prompt instruction asks
+# the model to keep it ≤ 2000 chars (see perch_prompt.j2's BUILD-FAILURE
+# block); this is the wire-side backstop that mirrors that contract in
+# case the model overshoots. A pasted prompt at this size already
+# stretches the CodeRabbit/Cursor input boxes — anything bigger is
+# almost always log noise that dilutes the actionable excerpt.
+_FIX_PROMPT_MAX_CHARS = 2_000
 
 
 async def _handle_stream_error(
