@@ -5,11 +5,13 @@ package project
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,6 +32,8 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=projecttypes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterprojecttypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
@@ -87,6 +91,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		NewProjectCreatedCondition(project.Generation),
 	)
 
+	// Surface project release lifecycle health on the Ready condition.
+	// Projects with no spec.type stay in the legacy mode (Ready=Unknown);
+	// Projects with spec.type set go through the resolveType path which
+	// reports ProjectTypeNotFound on a missing reference and Reconciled
+	// once the (Cluster)ProjectType snapshot is in hand. Release creation
+	// itself lands in a follow-up commit.
+	if err := r.evaluateProjectTypeReady(ctx, project); err != nil {
+		// Status-write below still happens; return the transient error so
+		// the controller-runtime requeues us.
+		if statusErr := controller.UpdateStatusConditions(ctx, r.Client, old, project); statusErr != nil {
+			logger.Error(statusErr, "Failed to update Project status after resolveType error")
+		}
+		return ctrl.Result{}, err
+	}
+
 	// Update status if needed
 	if err := controller.UpdateStatusConditions(ctx, r.Client, old, project); err != nil {
 		return ctrl.Result{}, err
@@ -97,6 +116,81 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// evaluateProjectTypeReady is the soft-Type-aware entry into the project
+// release lifecycle reconcile. When spec.type is unset the Project stays in
+// the legacy mode (Ready=Unknown / NoProjectType). When spec.type is set
+// the controller fetches the referenced (Cluster)ProjectType and surfaces
+// either ProjectTypeNotFound (False) or Reconciled (True) on Ready. Release
+// creation against the resolved snapshot lands in a follow-up commit.
+func (r *Reconciler) evaluateProjectTypeReady(ctx context.Context, project *openchoreov1alpha1.Project) error {
+	if project.Spec.Type == nil {
+		controller.MarkUnknownCondition(project, ConditionReady, ReasonNoProjectType,
+			"spec.type is unset; set spec.type to enable automatic ProjectRelease creation")
+		return nil
+	}
+
+	if _, err := r.resolveType(ctx, project); err != nil {
+		if apierrors.IsNotFound(err) {
+			controller.MarkFalseCondition(project, ConditionReady, ReasonProjectTypeNotFound,
+				fmt.Sprintf("%s %q not found", projectTypeKind(project.Spec.Type.Kind), project.Spec.Type.Name))
+			return nil
+		}
+		return err
+	}
+
+	controller.MarkTrueCondition(project, ConditionReady, ReasonReconciled,
+		fmt.Sprintf("%s %q resolved", projectTypeKind(project.Spec.Type.Kind), project.Spec.Type.Name))
+	return nil
+}
+
+// resolveType fetches the (Cluster)ProjectType referenced by project.Spec.Type
+// and returns the snapshot to embed in a ProjectRelease. Returns an
+// apierrors.IsNotFound error when the referenced template is missing.
+// Mirrors internal/controller/resource/controller.go:resolveType.
+func (r *Reconciler) resolveType(ctx context.Context, project *openchoreov1alpha1.Project) (
+	openchoreov1alpha1.ProjectReleaseProjectType, error,
+) {
+	kind := projectTypeKind(project.Spec.Type.Kind)
+	name := project.Spec.Type.Name
+
+	switch kind {
+	case openchoreov1alpha1.ProjectTypeRefKindClusterProjectType:
+		cpt := &openchoreov1alpha1.ClusterProjectType{}
+		if err := r.Get(ctx, types.NamespacedName{Name: name}, cpt); err != nil {
+			return openchoreov1alpha1.ProjectReleaseProjectType{}, err
+		}
+		// ClusterProjectTypeSpec is structurally identical to ProjectTypeSpec
+		// today; if it ever diverges, this cast breaks at compile time and
+		// ProjectReleaseProjectType.Spec needs a kind discriminator. Mirrors
+		// the (Cluster)ResourceType precedent.
+		return openchoreov1alpha1.ProjectReleaseProjectType{
+			Kind: kind,
+			Name: name,
+			Spec: openchoreov1alpha1.ProjectTypeSpec(cpt.Spec),
+		}, nil
+	default:
+		pt := &openchoreov1alpha1.ProjectType{}
+		if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: project.Namespace}, pt); err != nil {
+			return openchoreov1alpha1.ProjectReleaseProjectType{}, err
+		}
+		return openchoreov1alpha1.ProjectReleaseProjectType{
+			Kind: kind,
+			Name: name,
+			Spec: pt.Spec,
+		}, nil
+	}
+}
+
+// projectTypeKind returns the Kind to use for type resolution, defaulting an
+// empty Kind to ProjectType (namespaced) per the Project CRD's stated
+// default on spec.type.kind.
+func projectTypeKind(k openchoreov1alpha1.ProjectTypeRefKind) openchoreov1alpha1.ProjectTypeRefKind {
+	if k == "" {
+		return openchoreov1alpha1.ProjectTypeRefKindProjectType
+	}
+	return k
 }
 
 // SetupWithManager sets up the controller with the Manager.
