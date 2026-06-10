@@ -172,6 +172,142 @@ export class WorkloadConfigPO {
       .click();
   }
 
+  // ── Component tab: trait operations ────────────────────────────────
+
+  async openComponentTab(): Promise<void> {
+    await this.page.getByRole('tab', { name: 'Component' }).click();
+    await this.page
+      .getByRole('button', { name: 'Add Trait' })
+      .waitFor({ state: 'visible', timeout: 10_000 });
+  }
+
+  // Opens the "Add Trait" dialog, selects the given trait by display name
+  // (e.g. "observability-alert-rule (Cluster)"), optionally overrides the
+  // instance name, then switches to FORM mode and fills required parameters.
+  // Does NOT click Continue — call saveAndCreateRelease() afterwards.
+  //
+  // The default YAML editor uses an imperatively-set aria-label on a
+  // CodeMirror contenteditable, which Playwright cannot reliably locate via
+  // scoped locators. FORM mode uses RJSF which generates proper
+  // <label for="id"> associations, so fields are addressable by label text.
+  //
+  // `options.description` fills the RJSF Description field (defaults to
+  // 'e2e test alert'). `options.sourceType` selects the source.type enum
+  // option (defaults to 'metric'). Pass explicit values to test variants.
+  async addTrait(
+    traitDisplayName: string,
+    instanceName?: string,
+    options?: { description?: string; sourceType?: string },
+  ): Promise<void> {
+    const cancelBtn = this.page.getByRole('button', {
+      name: 'Cancel',
+      exact: true,
+    });
+
+    // Close any lingering dialog before opening a fresh one.
+    if (await cancelBtn.isVisible({ timeout: 500 }).catch(() => false)) {
+      const listboxOpen = await this.page
+        .locator('[role="listbox"]')
+        .isVisible({ timeout: 300 })
+        .catch(() => false);
+      if (listboxOpen) {
+        await this.page
+          .locator('[role="button"][aria-haspopup="listbox"]')
+          .last()
+          .click();
+        await this.page
+          .locator('[role="listbox"]')
+          .waitFor({ state: 'hidden', timeout: 3_000 })
+          .catch(() => undefined);
+      }
+      await cancelBtn.click();
+      await cancelBtn.waitFor({ state: 'hidden', timeout: 5_000 });
+    }
+
+    await this.page
+      .getByRole('button', { name: 'Add Trait' })
+      .first()
+      .click();
+    await cancelBtn.waitFor({ state: 'visible', timeout: 5_000 });
+
+    // Open the Select dropdown and choose the trait.
+    await this.page
+      .locator('[role="button"][aria-haspopup="listbox"]')
+      .last()
+      .click();
+    await this.page
+      .getByRole('option', { name: traitDisplayName })
+      .waitFor({ state: 'visible', timeout: 5_000 });
+    await this.page.getByRole('option', { name: traitDisplayName }).click();
+
+    // Wait for schema to load. The helper text appears only after the schema
+    // fetch completes and the Instance Name + parameters section is rendered.
+    await this.page
+      .getByText('A unique name to identify this trait instance')
+      .waitFor({ state: 'visible', timeout: 15_000 });
+
+    // Override the default instance name if provided.
+    if (instanceName) {
+      // MUI v4 TextField without an id prop has no htmlFor association, so
+      // getByLabel() does not work. Use the helper text as a stable anchor
+      // to reach the ancestor FormControl and then the input inside it.
+      const instanceInput = this.page
+        .getByText('A unique name to identify this trait instance', {
+          exact: true,
+        })
+        .locator('xpath=ancestor::div[contains(@class,"MuiFormControl")][1]')
+        .locator('input');
+      await instanceInput.clear();
+      await instanceInput.fill(instanceName);
+    }
+
+    // Switch to FORM mode (FormYamlToggle button text is exactly "Form").
+    await this.page.getByRole('button', { name: 'Form', exact: true }).click();
+
+    // Fill required Description field (RJSF label: sanitizeLabel('description') = 'Description').
+    const description = options?.description ?? 'e2e test alert';
+    const descField = this.page.getByLabel('Description');
+    await descField.waitFor({ state: 'visible', timeout: 10_000 });
+    await descField.fill(description);
+
+    // Fill required source.type field. RJSF with the MUI theme renders enum
+    // fields as a MUI v4 Select (div[role="button"][aria-haspopup="listbox"]).
+    // Click to open the dropdown, then pick the desired option.
+    const sourceType = options?.sourceType ?? 'metric';
+    const typeField = this.page.getByLabel('Type');
+    await typeField.waitFor({ state: 'visible', timeout: 5_000 });
+    await typeField.click();
+    await this.page
+      .getByRole('option', { name: sourceType, exact: true })
+      .waitFor({ state: 'visible', timeout: 5_000 });
+    await this.page.getByRole('option', { name: sourceType, exact: true }).click();
+
+    // The dialog portal is appended to <body> after the main page content,
+    // so .last() resolves to the dialog's confirm button rather than the
+    // "Add Trait" button that originally opened the dialog.
+    const confirmBtn = this.page
+      .getByRole('button', { name: 'Add Trait', exact: true })
+      .last();
+    await expect(confirmBtn).toBeEnabled({ timeout: 15_000 });
+    await confirmBtn.click();
+    await cancelBtn.waitFor({ state: 'hidden', timeout: 10_000 });
+  }
+
+  // Remove an attached trait by instance name.
+  // The TraitAccordion renders a trash icon with title="Delete trait".
+  // Waits for the accordion row to disappear to avoid racing the next step.
+  async removeTrait(instanceName: string): Promise<void> {
+    const row = this.page
+      .getByText(instanceName, { exact: true })
+      .locator('xpath=ancestor::div[.//button]')
+      .filter({ has: this.page.getByRole('button', { name: 'Delete trait' }) })
+      .last();
+    await row.getByRole('button', { name: 'Delete trait' }).click();
+    await this.page
+      .getByText(instanceName, { exact: true })
+      .waitFor({ state: 'hidden', timeout: 5_000 });
+  }
+
   // ── Save flow ───────────────────────────────────────────────────────
 
   async saveAndCreateRelease(): Promise<void> {
