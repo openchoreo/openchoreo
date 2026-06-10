@@ -81,6 +81,7 @@ lint-fix: golangci-lint-fix license-fix newline-fix ## Run golangci-lint linter,
 # Individual getting-started sample files that compose all.yaml (order matters)
 GETTING_STARTED_DIR := samples/getting-started
 GETTING_STARTED_FILES := \
+	$(GETTING_STARTED_DIR)/cluster-project-types/default.yaml \
 	$(GETTING_STARTED_DIR)/project.yaml \
 	$(GETTING_STARTED_DIR)/deployment-pipeline.yaml \
 	$(GETTING_STARTED_DIR)/environments.yaml \

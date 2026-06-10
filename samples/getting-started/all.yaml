@@ -11,6 +11,30 @@
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterProjectType
+metadata:
+  name: default
+  annotations:
+    openchoreo.dev/display-name: Default Project Type
+    openchoreo.dev/description: >-
+      Minimal project type that provisions only the cell namespace per
+      environment. Use as the starting template when no additional
+      shared infrastructure (NetworkPolicies, ResourceQuotas, baseline
+      RBAC) is needed.
+  labels:
+    openchoreo.dev/name: default
+spec:
+  resources:
+    - id: cell-namespace
+      template:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: ${metadata.cellNamespace}
+          labels: ${metadata.labels}
+
+---
+apiVersion: openchoreo.dev/v1alpha1
 kind: Project
 metadata:
   name: default
@@ -22,6 +46,9 @@ metadata:
     openchoreo.dev/name: default
 spec:
   deploymentPipelineRef:
+    name: default
+  type:
+    kind: ClusterProjectType
     name: default
 
 ---
