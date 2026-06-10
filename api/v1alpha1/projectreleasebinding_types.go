@@ -28,9 +28,11 @@ type ProjectReleaseBindingSpec struct {
 	Environment string `json:"environment"`
 
 	// ProjectRelease is the name of the ProjectRelease pinned by this binding.
-	// Advanced manually (e.g. via `occ project promote` or `kubectl edit`).
-	// Unset before the first ProjectRelease is cut; the controller leaves the
-	// binding pending until set.
+	// For Project-owned bindings the Project controller seeds this on initial
+	// creation with the latest ProjectRelease, then never touches it again —
+	// advancing the pin is left to whoever drives promotion (occ, GitOps,
+	// manual kubectl edit). Unset before the first ProjectRelease is cut; the
+	// binding controller leaves the binding pending until set.
 	// +optional
 	ProjectRelease string `json:"projectRelease,omitempty"`
 
