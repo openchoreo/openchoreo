@@ -140,6 +140,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	// Convert to a unified Workflow object for downstream compatibility
 	workflowSpec := workflowResult.GetWorkflowSpec()
+
+	// Populate status.source once from the run parameters marked with repository schema extensions.
+	// The deferred status update persists it.
+	if workflowRun.Status.Source == nil {
+		workflowRun.Status.Source = extractWorkflowRunSource(workflowSpec.Parameters, workflowRun.Spec.Workflow.Parameters)
+	}
+
 	workflow := &openchoreodevv1alpha1.Workflow{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      workflowResult.GetName(),
@@ -750,6 +757,42 @@ func (r *Reconciler) checkTTLExpiration(
 	}
 
 	return false, ctrl.Result{}, nil
+}
+
+// extractWorkflowRunSource builds the source reference (repository, branch, commit) for a workflow run
+// by reading the parameter values at the paths marked with x-openchoreo-component-parameter-repository-*
+// extensions in the workflow's parameter schema. Extraction is best-effort: it returns nil when the
+// schema carries no repository markers or none of the marked parameter values are set.
+func extractWorkflowRunSource(
+	schema *openchoreodevv1alpha1.SchemaSection,
+	params *runtime.RawExtension,
+) *openchoreodevv1alpha1.WorkflowRunSource {
+	paths, err := controller.ExtractComponentRepositoryPaths(schema.GetRaw())
+	if err != nil || len(paths) == 0 {
+		return nil
+	}
+
+	source := &openchoreodevv1alpha1.WorkflowRunSource{}
+	if path, ok := paths["url"]; ok {
+		if value, err := controller.GetNestedStringInParams(params, path); err == nil {
+			source.Repository = value
+		}
+	}
+	if path, ok := paths["branch"]; ok {
+		if value, err := controller.GetNestedStringInParams(params, path); err == nil {
+			source.Branch = value
+		}
+	}
+	if path, ok := paths["commit"]; ok {
+		if value, err := controller.GetNestedStringInParams(params, path); err == nil {
+			source.Commit = value
+		}
+	}
+
+	if *source == (openchoreodevv1alpha1.WorkflowRunSource{}) {
+		return nil
+	}
+	return source
 }
 
 // setStartedAtIfNeeded sets StartedAt when the controller starts processing the workflow run, if it hasn't been set already.

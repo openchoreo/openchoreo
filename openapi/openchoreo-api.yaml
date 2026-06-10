@@ -8638,6 +8638,23 @@ components:
         message:
           type: string
 
+    WorkflowRunSource:
+      type: object
+      description: Source code reference (repository, branch, commit) a workflow run was executed from
+      properties:
+        repository:
+          type: string
+          description: Source repository URL
+          example: https://github.com/openchoreo/sample-workspace
+        branch:
+          type: string
+          description: Source branch
+          example: main
+        commit:
+          type: string
+          description: Source commit SHA. Empty when the run was triggered without an explicit commit.
+          example: 9be21eb1421e23cd1cb02d877f8d62a06fab7a76
+
     WorkflowRunStatus:
       type: object
       description: Observed state of a WorkflowRun
@@ -8653,6 +8670,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ResourceReference'
+        source:
+          $ref: '#/components/schemas/WorkflowRunSource'
         tasks:
           type: array
           items:

@@ -20,7 +20,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -878,7 +877,7 @@ func (s *workflowRunService) TriggerWorkflow(ctx context.Context, namespaceName,
 
 	// Validate that repoUrl is configured in the component parameters.
 	if repoURLPath, ok := paramMap["url"]; ok {
-		repoURL, err := getNestedStringInParams(component.Spec.Workflow.Parameters, repoURLPath)
+		repoURL, err := controller.GetNestedStringInParams(component.Spec.Workflow.Parameters, repoURLPath)
 		if err != nil {
 			s.logger.Error("Failed to read repository URL from component parameters", "error", err, "path", repoURLPath, "component", componentName)
 			return nil, fmt.Errorf("failed to read repository URL for component %s at path %s: %w", componentName, repoURLPath, err)
@@ -903,7 +902,7 @@ func (s *workflowRunService) TriggerWorkflow(ctx context.Context, namespaceName,
 	// Inject commit SHA into parameters at the mapped path if a commit mapping exists
 	if commit != "" {
 		if commitPath, ok := paramMap["commit"]; ok {
-			updatedParams, err := setNestedStringInParams(parameters, commitPath, commit)
+			updatedParams, err := controller.SetNestedStringInParams(parameters, commitPath, commit)
 			if err != nil {
 				return nil, fmt.Errorf("failed to inject commit into workflow parameters: %w", err)
 			}
@@ -988,79 +987,4 @@ func generateWorkflowRunName(baseName string) (string, error) {
 	}
 
 	return runName, nil
-}
-
-// getNestedStringInParams navigates a runtime.RawExtension JSON blob using a dotted path
-// and returns the string value. The leading "parameters." prefix is stripped if present.
-func getNestedStringInParams(raw *runtime.RawExtension, dottedPath string) (string, error) {
-	if raw == nil || raw.Raw == nil {
-		return "", fmt.Errorf("parameters is nil")
-	}
-
-	path := strings.TrimPrefix(dottedPath, "parameters.")
-
-	var data map[string]interface{}
-	if err := json.Unmarshal(raw.Raw, &data); err != nil {
-		return "", fmt.Errorf("failed to unmarshal parameters: %w", err)
-	}
-
-	parts := strings.Split(path, ".")
-	current := interface{}(data)
-	for _, part := range parts {
-		m, ok := current.(map[string]interface{})
-		if !ok {
-			return "", fmt.Errorf("path %s: expected object at %s", dottedPath, part)
-		}
-		current, ok = m[part]
-		if !ok {
-			return "", fmt.Errorf("path %s: key %s not found", dottedPath, part)
-		}
-	}
-
-	str, ok := current.(string)
-	if !ok {
-		return "", fmt.Errorf("path %s: value is not a string", dottedPath)
-	}
-	return str, nil
-}
-
-// setNestedStringInParams sets a string value at the given dotted path in a runtime.RawExtension.
-// The leading "parameters." prefix is stripped if present.
-func setNestedStringInParams(raw *runtime.RawExtension, dottedPath, value string) (*runtime.RawExtension, error) {
-	if raw == nil || raw.Raw == nil {
-		return nil, fmt.Errorf("parameters is nil")
-	}
-
-	path := strings.TrimPrefix(dottedPath, "parameters.")
-
-	var data map[string]interface{}
-	if err := json.Unmarshal(raw.Raw, &data); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal parameters: %w", err)
-	}
-
-	parts := strings.Split(path, ".")
-	current := data
-	for _, part := range parts[:len(parts)-1] {
-		next, ok := current[part]
-		if !ok {
-			newObj := make(map[string]interface{})
-			current[part] = newObj
-			current = newObj
-			continue
-		}
-		m, ok := next.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("path %s: expected object at %s", dottedPath, part)
-		}
-		current = m
-	}
-
-	current[parts[len(parts)-1]] = value
-
-	rawBytes, err := json.Marshal(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal parameters: %w", err)
-	}
-
-	return &runtime.RawExtension{Raw: rawBytes}, nil
 }

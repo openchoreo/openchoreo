@@ -3888,6 +3888,18 @@ type WorkflowRunLogEntry struct {
 	Timestamp *time.Time `json:"timestamp,omitempty"`
 }
 
+// WorkflowRunSource Source code reference (repository, branch, commit) a workflow run was executed from
+type WorkflowRunSource struct {
+	// Branch Source branch
+	Branch *string `json:"branch,omitempty"`
+
+	// Commit Source commit SHA. Empty when the run was triggered without an explicit commit.
+	Commit *string `json:"commit,omitempty"`
+
+	// Repository Source repository URL
+	Repository *string `json:"repository,omitempty"`
+}
+
 // WorkflowRunSpec Desired state of a WorkflowRun
 type WorkflowRunSpec struct {
 	// TtlAfterCompletion Time-to-live for this workflow run after completion (duration string like 10d1h30m).
@@ -3907,8 +3919,11 @@ type WorkflowRunStatus struct {
 
 	// RunReference Reference to a Kubernetes resource applied during a workflow run
 	RunReference *ResourceReference `json:"runReference,omitempty"`
-	StartedAt    *time.Time         `json:"startedAt,omitempty"`
-	Tasks        *[]WorkflowTask    `json:"tasks,omitempty"`
+
+	// Source Source code reference (repository, branch, commit) a workflow run was executed from
+	Source    *WorkflowRunSource `json:"source,omitempty"`
+	StartedAt *time.Time         `json:"startedAt,omitempty"`
+	Tasks     *[]WorkflowTask    `json:"tasks,omitempty"`
 }
 
 // WorkflowRunStatusResponse Status of a workflow run including per-step details

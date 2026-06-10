@@ -3580,3 +3580,208 @@ func TestConvertParameterListToStrings(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// extractWorkflowRunSource
+// ---------------------------------------------------------------------------
+
+const (
+	testSourceRepoURL = "https://github.com/openchoreo/sample"
+	testSourceBranch  = "main"
+)
+
+func TestExtractWorkflowRunSource(t *testing.T) {
+	// buildSourceSchema returns a parameter schema marking repository url/branch/commit
+	// fields with x-openchoreo-component-parameter-repository-* extensions.
+	buildSourceSchema := func() *openchoreodevv1alpha1.SchemaSection {
+		return &openchoreodevv1alpha1.SchemaSection{
+			OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{
+				"type": "object",
+				"properties": {
+					"repository": {
+						"type": "object",
+						"properties": {
+							"url": {"type": "string", "x-openchoreo-component-parameter-repository-url": true},
+							"revision": {
+								"type": "object",
+								"properties": {
+									"branch": {"type": "string", "x-openchoreo-component-parameter-repository-branch": true},
+									"commit": {"type": "string", "x-openchoreo-component-parameter-repository-commit": true}
+								}
+							}
+						}
+					}
+				}
+			}`)},
+		}
+	}
+
+	t.Run("extracts repository, branch and commit", func(t *testing.T) {
+		params := &runtime.RawExtension{Raw: []byte(`{
+			"repository": {
+				"url": "https://github.com/openchoreo/sample",
+				"revision": {"branch": "main", "commit": "abc1234"}
+			}
+		}`)}
+
+		source := extractWorkflowRunSource(buildSourceSchema(), params)
+		if source == nil {
+			t.Fatal("expected source to be extracted")
+		}
+		if source.Repository != testSourceRepoURL {
+			t.Errorf("expected repository URL, got %q", source.Repository)
+		}
+		if source.Branch != testSourceBranch {
+			t.Errorf("expected branch main, got %q", source.Branch)
+		}
+		if source.Commit != "abc1234" {
+			t.Errorf("expected commit abc1234, got %q", source.Commit)
+		}
+	})
+
+	t.Run("extracts partial source when commit is absent", func(t *testing.T) {
+		params := &runtime.RawExtension{Raw: []byte(`{
+			"repository": {
+				"url": "https://github.com/openchoreo/sample",
+				"revision": {"branch": "main"}
+			}
+		}`)}
+
+		source := extractWorkflowRunSource(buildSourceSchema(), params)
+		if source == nil {
+			t.Fatal("expected source to be extracted")
+		}
+		if source.Repository != testSourceRepoURL {
+			t.Errorf("expected repository URL, got %q", source.Repository)
+		}
+		if source.Branch != testSourceBranch {
+			t.Errorf("expected branch main, got %q", source.Branch)
+		}
+		if source.Commit != "" {
+			t.Errorf("expected empty commit, got %q", source.Commit)
+		}
+	})
+
+	t.Run("returns nil when schema has no repository extensions", func(t *testing.T) {
+		schema := &openchoreodevv1alpha1.SchemaSection{
+			OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{
+				"type": "object",
+				"properties": {"replicas": {"type": "integer"}}
+			}`)},
+		}
+		params := &runtime.RawExtension{Raw: []byte(`{"replicas": 3}`)}
+
+		if source := extractWorkflowRunSource(schema, params); source != nil {
+			t.Errorf("expected nil source, got %+v", source)
+		}
+	})
+
+	t.Run("returns nil when schema is nil", func(t *testing.T) {
+		params := &runtime.RawExtension{Raw: []byte(`{}`)}
+		if source := extractWorkflowRunSource(nil, params); source != nil {
+			t.Errorf("expected nil source, got %+v", source)
+		}
+	})
+
+	t.Run("returns nil when no marked parameter values are set", func(t *testing.T) {
+		params := &runtime.RawExtension{Raw: []byte(`{"repository": {}}`)}
+		if source := extractWorkflowRunSource(buildSourceSchema(), params); source != nil {
+			t.Errorf("expected nil source, got %+v", source)
+		}
+	})
+
+	t.Run("returns nil when params are nil", func(t *testing.T) {
+		if source := extractWorkflowRunSource(buildSourceSchema(), nil); source != nil {
+			t.Errorf("expected nil source, got %+v", source)
+		}
+	})
+}
+
+func TestReconcilePopulatesSourceInStatus(t *testing.T) {
+	s := newTestScheme()
+
+	cwf := &openchoreodevv1alpha1.ClusterWorkflow{
+		ObjectMeta: metav1.ObjectMeta{Name: "build-wf"},
+		Spec: openchoreodevv1alpha1.ClusterWorkflowSpec{
+			Parameters: &openchoreodevv1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{Raw: []byte(`{
+					"type": "object",
+					"properties": {
+						"repoUrl": {"type": "string", "x-openchoreo-component-parameter-repository-url": true},
+						"branch": {"type": "string", "x-openchoreo-component-parameter-repository-branch": true},
+						"commit": {"type": "string", "x-openchoreo-component-parameter-repository-commit": true}
+					}
+				}`)},
+			},
+			RunTemplate: &runtime.RawExtension{Raw: []byte(`{
+				"apiVersion":"argoproj.io/v1alpha1","kind":"Workflow",
+				"metadata":{"name":"${metadata.workflowRunName}","namespace":"${metadata.namespace}"},
+				"spec":{"entrypoint":"main","serviceAccountName":"wf-sa",
+					"templates":[{"name":"main","container":{"image":"alpine","command":["echo","hello"]}}]}
+			}`)},
+		},
+	}
+
+	wfr := &openchoreodevv1alpha1.WorkflowRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "source-wfr",
+			Namespace:  "default",
+			Finalizers: []string{WorkflowRunCleanupFinalizer},
+			Generation: 1,
+			UID:        "test-uid",
+		},
+		Spec: openchoreodevv1alpha1.WorkflowRunSpec{
+			Workflow: openchoreodevv1alpha1.WorkflowRunConfig{
+				Name: "build-wf",
+				Parameters: &runtime.RawExtension{Raw: []byte(`{
+					"repoUrl": "https://github.com/openchoreo/sample",
+					"branch": "main",
+					"commit": "9be21eb"
+				}`)},
+			},
+		},
+	}
+	setWorkflowPendingCondition(wfr)
+
+	cwp := &openchoreodevv1alpha1.ClusterWorkflowPlane{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
+
+	cpClient := fake.NewClientBuilder().WithScheme(s).
+		WithObjects(cwf, wfr, cwp).
+		WithStatusSubresource(wfr).
+		Build()
+
+	wpClient := fake.NewClientBuilder().WithScheme(s).Build()
+
+	mockProvider := &k8sMocks.MockWorkflowPlaneClientProvider{}
+	mockProvider.EXPECT().ClusterWorkflowPlaneClient(mock.Anything).Return(wpClient, nil).Once()
+
+	r := &Reconciler{
+		Client:              cpClient,
+		Scheme:              s,
+		PlaneClientProvider: mockProvider,
+		Pipeline:            workflowpipeline.NewPipeline(),
+	}
+
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: "source-wfr", Namespace: "default"},
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got := &openchoreodevv1alpha1.WorkflowRun{}
+	if err := cpClient.Get(context.Background(), types.NamespacedName{Name: "source-wfr", Namespace: "default"}, got); err != nil {
+		t.Fatalf("failed to get WorkflowRun: %v", err)
+	}
+	if got.Status.Source == nil {
+		t.Fatal("expected status.source to be populated")
+	}
+	if got.Status.Source.Repository != testSourceRepoURL {
+		t.Errorf("expected repository URL, got %q", got.Status.Source.Repository)
+	}
+	if got.Status.Source.Branch != testSourceBranch {
+		t.Errorf("expected branch main, got %q", got.Status.Source.Branch)
+	}
+	if got.Status.Source.Commit != "9be21eb" {
+		t.Errorf("expected commit 9be21eb, got %q", got.Status.Source.Commit)
+	}
+}

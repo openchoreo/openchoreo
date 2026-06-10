@@ -108,6 +108,24 @@ type WorkflowTask struct {
 	Message string `json:"message,omitempty"`
 }
 
+// WorkflowRunSource captures the source code reference this workflow run was executed from.
+// It is populated by the controller from the workflow parameters that are marked with
+// x-openchoreo-component-parameter-repository-* schema extensions in the referenced Workflow.
+type WorkflowRunSource struct {
+	// Repository is the source repository URL this run was executed from.
+	// +optional
+	Repository string `json:"repository,omitempty"`
+
+	// Branch is the source branch this run was executed from.
+	// +optional
+	Branch string `json:"branch,omitempty"`
+
+	// Commit is the source commit SHA this run was executed from.
+	// Empty when the run was triggered without an explicit commit (e.g., building the branch head).
+	// +optional
+	Commit string `json:"commit,omitempty"`
+}
+
 // WorkflowRunStatus defines the observed state of WorkflowRun.
 type WorkflowRunStatus struct {
 	// Conditions represent the current state of the WorkflowRun resource.
@@ -125,6 +143,12 @@ type WorkflowRunStatus struct {
 	// These are tracked for cleanup when the WorkflowRun is deleted.
 	// +optional
 	Resources *[]ResourceReference `json:"resources,omitempty"`
+
+	// Source captures the source code reference (repository, branch, commit) this run
+	// was executed from. Only populated for workflows whose parameter schema marks
+	// repository fields with x-openchoreo-component-parameter-repository-* extensions.
+	// +optional
+	Source *WorkflowRunSource `json:"source,omitempty"`
 
 	// Tasks contains the list of workflow tasks with their execution status.
 	// This provides a vendor-neutral view of the workflow steps regardless of the underlying

@@ -221,6 +221,26 @@ spec:
                 - kind
                 - name
                 type: object
+              source:
+                description: |-
+                  Source captures the source code reference (repository, branch, commit) this run
+                  was executed from. Only populated for workflows whose parameter schema marks
+                  repository fields with x-openchoreo-component-parameter-repository-* extensions.
+                properties:
+                  branch:
+                    description: Branch is the source branch this run was executed
+                      from.
+                    type: string
+                  commit:
+                    description: |-
+                      Commit is the source commit SHA this run was executed from.
+                      Empty when the run was triggered without an explicit commit (e.g., building the branch head).
+                    type: string
+                  repository:
+                    description: Repository is the source repository URL this run
+                      was executed from.
+                    type: string
+                type: object
               startedAt:
                 description: StartedAt is the timestamp when this workflow run started
                   execution.
