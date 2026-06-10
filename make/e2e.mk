@@ -17,6 +17,13 @@ E2E_WITH_UI            ?= false
 E2E_TEST_TIMEOUT       ?= 20m
 # Go duration for each individual helm install and kubectl wait (not the overall setup timeout)
 E2E_SETUP_TIMEOUT      ?= 5m
+# Settle gate between CPU-heavy multi-cluster OP installs (see e2e_mc_op_settle):
+# poll the OP API server up to ATTEMPTS times, INTERVAL seconds apart, with a
+# PROBE_TIMEOUT per probe, requiring STABLE_HITS consecutive successes.
+E2E_SETTLE_ATTEMPTS      ?= 60
+E2E_SETTLE_INTERVAL      ?= 4
+E2E_SETTLE_PROBE_TIMEOUT ?= 5s
+E2E_SETTLE_STABLE_HITS   ?= 3
 # Ginkgo label-filter expression to select which specs run. Empty = run everything.
 # Suites are labeled `tier1`, `tier2`, … on their top-level Describe; see proposal #3509.
 # Examples: `tier1`, `tier1 || tier2`, `tier1 && !tier2`.
@@ -213,6 +220,34 @@ define e2e_register_plane_cross_cluster
 		-n $(2) -o jsonpath='{.data.ca\.crt}' | base64 -d) && \
 	yq '.spec.clusterAgent.clientCA.value = strenv(AGENT_CA)' $(4) | \
 	kubectl --context $(3) apply -f -
+endef
+
+# ---------------------------------------------------------------------------
+# Helper (multi-cluster): let the OP cluster settle between CPU-heavy installs.
+# The OP cluster packs OpenSearch (JVM), the OpenSearch/Prometheus operators,
+# and Prometheus onto a single k3d node that shares the runner's 4 vCPUs.
+# `helm --wait` returns at first pod-Ready, but OpenSearch keeps churning CPU
+# (JVM warmup, shard init) well past Ready, so stacking the next heavy install
+# starves the k3s API server — observed in CI as `net/http: TLS handshake
+# timeout` mid-install. This gate waits for the OP API server to answer /readyz
+# promptly a few times in a row before the next install proceeds, flattening the
+# CPU burst. Bounded, so a genuinely overcommitted node fails fast with a clear
+# message instead of a cryptic helm timeout.
+# Usage: $(call e2e_mc_op_settle,<next-phase-description>)
+# ---------------------------------------------------------------------------
+define e2e_mc_op_settle
+	@$(call log_info, Waiting for OP cluster to settle before $(1))
+	@ok=0; \
+	for i in $$(seq 1 $(E2E_SETTLE_ATTEMPTS)); do \
+		if $(E2E_MC_OP_KUBECTL) get --raw='/readyz' --request-timeout=$(E2E_SETTLE_PROBE_TIMEOUT) >/dev/null 2>&1; then \
+			ok=$$((ok + 1)); \
+			[ $$ok -ge $(E2E_SETTLE_STABLE_HITS) ] && break; \
+		else \
+			ok=0; \
+		fi; \
+		if [ $$i -eq $(E2E_SETTLE_ATTEMPTS) ]; then echo "OP API server did not stabilize before $(1) (likely CPU/memory overcommit on the runner)"; exit 1; fi; \
+		sleep $(E2E_SETTLE_INTERVAL); \
+	done
 endef
 
 ##@ E2E Testing
@@ -945,6 +980,7 @@ _e2e.mc.install-op:
 		--set adapter.openSearchSecretName="opensearch-admin-credentials" \
 		--set fluent-bit.enabled=true \
 		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
+	$(call e2e_mc_op_settle,tracing module install)
 	@# Multi-cluster receiver mode — per observability-tracing-opensearch README
 	$(E2E_MC_OP_HELM) upgrade --install observability-traces-opensearch \
 		oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
@@ -955,6 +991,7 @@ _e2e.mc.install-op:
 		--set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
 		--set-json 'opentelemetryCollectorCustomizations.http.hostnames=["host.k3d.internal"]' \
 		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
+	$(call e2e_mc_op_settle,metrics module install)
 	@# Multi-cluster receiver mode — per observability-metrics-prometheus README
 	$(E2E_MC_OP_HELM) upgrade --install observability-metrics-prometheus \
 		oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
@@ -1183,12 +1220,19 @@ e2e.multi.diagnostics: ## Collect logs, events, and resource dumps from all four
 		ns=$$(echo $$plane_ctx | cut -d: -f3); \
 		kubectl --context $$ctx get pods -n $$ns -o wide > $(E2E_MC_DIAGNOSTICS_DIR)/$$prefix-pods.txt 2>&1 || true; \
 		kubectl --context $$ctx get events -n $$ns --sort-by=.lastTimestamp > $(E2E_MC_DIAGNOSTICS_DIR)/$$prefix-events.txt 2>&1 || true; \
+		kubectl --context $$ctx describe nodes > $(E2E_MC_DIAGNOSTICS_DIR)/$$prefix-nodes.txt 2>&1 || true; \
+		kubectl --context $$ctx top nodes > $(E2E_MC_DIAGNOSTICS_DIR)/$$prefix-top-nodes.txt 2>&1 || true; \
 		for pod in $$(kubectl --context $$ctx get pods -n $$ns -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do \
 			kubectl --context $$ctx logs $$pod -n $$ns --all-containers --tail=200 > $(E2E_MC_DIAGNOSTICS_DIR)/$$prefix-logs-$$pod.txt 2>&1 || true; \
 		done; \
 	done
 	@$(E2E_MC_CP_KUBECTL) get clusterdataplane,clusterworkflowplane,clusterobservabilityplane -o yaml > $(E2E_MC_DIAGNOSTICS_DIR)/plane-resources.yaml 2>&1 || true
 	@$(E2E_MC_CP_KUBECTL) get component,componentrelease,releasebinding,renderedrelease -A -o yaml > $(E2E_MC_DIAGNOSTICS_DIR)/release-chain.yaml 2>&1 || true
+	@# Host-level resource usage of the k3d node containers. Captured from the
+	@# runner (not via kubectl) so it works even when a cluster's API server is
+	@# unresponsive — the CPU/memory-overcommit failure mode we most need to see.
+	@docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}' > $(E2E_MC_DIAGNOSTICS_DIR)/host-docker-stats.txt 2>&1 || true
+	@{ free -m; echo; uptime; } > $(E2E_MC_DIAGNOSTICS_DIR)/host-memory.txt 2>&1 || true
 	@$(call log_success, Diagnostics collected to $(E2E_MC_DIAGNOSTICS_DIR))
 
 .PHONY: e2e.multi.down
