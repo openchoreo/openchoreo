@@ -4215,6 +4215,12 @@
         "llm": {
           "additionalProperties": false,
           "properties": {
+            "baseUrl": {
+              "default": "",
+              "description": "Optional OpenAI-compatible base URL. Set to route LLM calls through the\nai-gateway-agentgateway module (e.g. http://agentgateway-proxy.openchoreo-data-plane)\ninstead of the provider directly; the provider key is then managed at the\ngateway and the secret's PORTAL_ASSISTANT_LLM_API_KEY may be a placeholder.",
+              "title": "baseUrl",
+              "type": "string"
+            },
             "modelName": {
               "default": "",
               "title": "modelName",
@@ -4228,7 +4234,8 @@
           },
           "required": [
             "secretName",
-            "modelName"
+            "modelName",
+            "baseUrl"
           ],
           "title": "llm",
           "type": "object"
