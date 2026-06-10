@@ -5,6 +5,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // ProjectSpec defines the desired state of Project.
@@ -12,6 +13,24 @@ type ProjectSpec struct {
 	// DeploymentPipelineRef references the DeploymentPipeline that defines the environments
 	// and deployment progression for components in this project.
 	DeploymentPipelineRef DeploymentPipelineRef `json:"deploymentPipelineRef"`
+
+	// Type references the (Cluster)ProjectType that defines the
+	// infrastructure template materialized in each environment's cell
+	// namespace. When set, the Project controller automatically cuts a new
+	// ProjectRelease whenever the inlined ProjectType snapshot or
+	// Parameters change. When unset, the Project keeps its legacy mode
+	// (no automatic release creation); set spec.type to opt into the
+	// project release lifecycle.
+	// +optional
+	Type *ProjectTypeRef `json:"type,omitempty"`
+
+	// Parameters are the project-level inputs validated against the
+	// referenced (Cluster)ProjectType's parameters schema and inlined into
+	// each ProjectRelease snapshot. Ignored when spec.type is unset.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
 }
 
 // ProjectStatus defines the observed state of Project.
@@ -21,6 +40,26 @@ type ProjectStatus struct {
 
 	// Conditions represent the current state of the Project resource.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// LatestRelease is the most recent ProjectRelease cut for this Project.
+	// The Project controller maintains this; ProjectReleaseBindings pin
+	// spec.projectRelease to a value here (or to an older release for
+	// rollback). Unset for Projects in the legacy no-Type mode.
+	// +optional
+	LatestRelease *LatestProjectRelease `json:"latestRelease,omitempty"`
+}
+
+// LatestProjectRelease identifies the most recent ProjectRelease for a Project.
+type LatestProjectRelease struct {
+	// Name is the name of the ProjectRelease.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// Hash is the spec hash that produced the release. The Project
+	// controller cuts a new ProjectRelease when this drifts from the
+	// recomputed hash on a reconcile.
+	// +kubebuilder:validation:MinLength=1
+	Hash string `json:"hash"`
 }
 
 // +kubebuilder:object:root=true

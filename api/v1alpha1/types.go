@@ -367,6 +367,21 @@ const (
 	ProjectTypeRefKindClusterProjectType ProjectTypeRefKind = "ClusterProjectType"
 )
 
+// ProjectTypeRef represents a reference to a ProjectType or ClusterProjectType.
+type ProjectTypeRef struct {
+	// Kind is the kind of project type (ProjectType or ClusterProjectType).
+	// +optional
+	// +kubebuilder:default=ProjectType
+	Kind ProjectTypeRefKind `json:"kind,omitempty"`
+
+	// Name is the name of the ProjectType or ClusterProjectType to reference.
+	// Must be a valid DNS-1123 label since it identifies a Kubernetes object.
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+}
+
 // ResourceTypeRefKind defines the kind of resource type referenced by a ResourceTypeRef.
 // +kubebuilder:validation:Enum=ResourceType;ClusterResourceType
 type ResourceTypeRefKind string
