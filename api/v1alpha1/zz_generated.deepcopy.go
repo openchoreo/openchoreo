@@ -3751,11 +3751,7 @@ func (in *ProjectReleaseStatus) DeepCopy() *ProjectReleaseStatus {
 func (in *ProjectSpec) DeepCopyInto(out *ProjectSpec) {
 	*out = *in
 	out.DeploymentPipelineRef = in.DeploymentPipelineRef
-	if in.Type != nil {
-		in, out := &in.Type, &out.Type
-		*out = new(ProjectTypeRef)
-		**out = **in
-	}
+	out.Type = in.Type
 	if in.Parameters != nil {
 		in, out := &in.Parameters, &out.Parameters
 		*out = new(runtime.RawExtension)

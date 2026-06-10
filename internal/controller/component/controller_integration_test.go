@@ -112,6 +112,7 @@ func minimalProject(name, pipelineRef string) *openchoreov1alpha1.Project {
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: itNamespace},
 		Spec: openchoreov1alpha1.ProjectSpec{
 			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: pipelineRef},
+			Type:                  openchoreov1alpha1.ProjectTypeRef{Name: "standard"},
 		},
 	}
 }

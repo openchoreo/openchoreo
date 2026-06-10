@@ -160,6 +160,7 @@ func projectFixture(name string) *openchoreov1alpha1.Project {
 			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
 				Name: "default",
 			},
+			Type: openchoreov1alpha1.ProjectTypeRef{Name: "standard"},
 		},
 	}
 }

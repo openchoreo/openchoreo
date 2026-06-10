@@ -16,10 +16,8 @@ const (
 	ConditionFinalizing controller.ConditionType = "Finalizing"
 
 	// ConditionReady reflects the project release lifecycle health: True
-	// when spec.type is set and the inlined ProjectType snapshot resolves
-	// (later commits also gate on the latest ProjectRelease being in
-	// place). For Projects with no spec.type, Ready stays Unknown to
-	// signal the legacy / opt-out mode.
+	// when the inlined (Cluster)ProjectType snapshot resolves and the
+	// latest ProjectRelease is in place.
 	ConditionReady controller.ConditionType = "Ready"
 )
 
@@ -29,11 +27,6 @@ const (
 
 	// ReasonProjectFinalizing is the reason used when a projects's dependents are being deleted'
 	ReasonProjectFinalizing controller.ConditionReason = "ProjectFinalizing"
-
-	// ReasonNoProjectType indicates the Project has no spec.type set; the
-	// release-management reconcile path is skipped. Set spec.type on the
-	// Project to opt into automatic ProjectRelease creation.
-	ReasonNoProjectType controller.ConditionReason = "NoProjectType"
 
 	// ReasonProjectTypeNotFound indicates the referenced ProjectType or
 	// ClusterProjectType does not exist in the cluster yet.

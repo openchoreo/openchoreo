@@ -129,21 +129,13 @@ func (r *Reconciler) reconcile(ctx context.Context, old, project *openchoreov1al
 	return ctrl.Result{}, nil
 }
 
-// reconcileProjectRelease is the soft-Type-aware entry into the project
-// release lifecycle reconcile. When spec.type is unset the Project stays in
-// the legacy mode (Ready=Unknown / NoProjectType). When spec.type is set
-// the controller fetches the referenced (Cluster)ProjectType, computes a
-// hash over the inlined snapshot + parameters, and cuts a new
+// reconcileProjectRelease drives the project release lifecycle. The
+// controller fetches the (Cluster)ProjectType referenced by spec.type,
+// computes a hash over the inlined snapshot + parameters, and cuts a new
 // ProjectRelease whenever the hash drifts from status.latestRelease.Hash.
 // Surfaces ProjectTypeNotFound on a missing reference and Reconciled when
 // the latest release is in place.
 func (r *Reconciler) reconcileProjectRelease(ctx context.Context, project *openchoreov1alpha1.Project) error {
-	if project.Spec.Type == nil {
-		controller.MarkUnknownCondition(project, ConditionReady, ReasonNoProjectType,
-			"spec.type is unset; set spec.type to enable automatic ProjectRelease creation")
-		return nil
-	}
-
 	snapshot, err := r.resolveType(ctx, project)
 	if err != nil {
 		if apierrors.IsNotFound(err) {

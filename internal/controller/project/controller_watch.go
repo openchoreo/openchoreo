@@ -36,14 +36,10 @@ func (r *Reconciler) findProjectForComponent(ctx context.Context, obj client.Obj
 }
 
 // indexProjectTypeRef extracts the (Cluster)ProjectType reference key from a
-// Project. Projects with spec.type unset return no key (no watch dispatch).
-// Exposed as a package-level value so tests can pass it to
+// Project. Exposed as a package-level value so tests can pass it to
 // fake.NewClientBuilder().WithIndex.
 func indexProjectTypeRef(obj client.Object) []string {
 	project := obj.(*openchoreov1alpha1.Project)
-	if project.Spec.Type == nil {
-		return nil
-	}
 	kind := projectTypeKind(project.Spec.Type.Kind)
 	return []string{string(kind) + ":" + project.Spec.Type.Name}
 }
