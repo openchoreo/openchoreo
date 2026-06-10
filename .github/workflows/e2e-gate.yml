@@ -1,8 +1,8 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-# Reusable e2e workflow that shards the suite into independent legs, one
-# runner + k3d cluster each, so callers pay the wall-clock of the slowest
+# The e2e workflow that shards the suite into independent legs, one
+# runner + k3d cluster each, so a run pays the wall-clock of the slowest
 # leg instead of the serial sum:
 #   tier1, tier2 — control plane + data plane only
 #   tier3       — multi-cluster (4 separate k3d clusters, one per plane)
@@ -10,13 +10,19 @@
 #   quick-start — published quick-start container, the documented Quick Start
 #                 Guide journey (all four planes + sample deploy)
 #
-# Callers: the scheduled e2e workflows (test-e2e, test-e2e-extended,
-# test-ui-e2e) and the release-orchestrator e2e gate. Also manually
-# dispatchable to pre-flight a branch (e.g. before starting a release).
+# Triggers:
+#   schedule        — nightly at 01:00 UTC; runs EVERY leg. This is the single
+#                     consolidated nightly e2e run — there are no per-suite
+#                     scheduled wrapper workflows.
+#   workflow_dispatch — manual pre-flight of a branch, with per-leg run_*
+#                     toggles (e.g. before starting a release).
+#   workflow_call   — the release-orchestrator e2e gate, at the release ref.
 
 name: E2E Gate
 
 on:
+  schedule:
+    - cron: "0 1 * * *" # nightly at 01:00 UTC (06:30 IST); runs every leg
   workflow_dispatch:
     inputs:
       ref:
@@ -96,7 +102,9 @@ permissions:
   contents: read
 
 env:
-  HELM_CHART_VERSION: ${{ inputs.helm_chart_version }}
+  # `inputs` is empty on the nightly `schedule` trigger, so fall back to the
+  # rolling latest-dev chart; the dispatch/call paths already default to it too.
+  HELM_CHART_VERSION: ${{ inputs.helm_chart_version || '0.0.0-latest-dev' }}
   K3D_VERSION: v5.8.3
   K3D_SHA256: dbaa79a76ace7f4ca230a1ff41dc7d8a5036a8ad0309e9c54f9bf3836dbe853e
   YQ_VERSION: v4.45.4
@@ -105,7 +113,8 @@ env:
 jobs:
   tier1:
     name: E2E (Tier 1)
-    if: ${{ inputs.run_tier1 }}
+    # On `schedule` inputs is empty (the nightly runs every leg); dispatch/call honor the toggle.
+    if: ${{ github.event_name == 'schedule' || inputs.run_tier1 }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -174,7 +183,7 @@ jobs:
 
   tier2:
     name: E2E (Tier 2)
-    if: ${{ inputs.run_tier2 }}
+    if: ${{ github.event_name == 'schedule' || inputs.run_tier2 }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -243,7 +252,7 @@ jobs:
 
   tier3:
     name: E2E (Tier 3 — Multi-cluster)
-    if: ${{ inputs.run_tier3 }}
+    if: ${{ github.event_name == 'schedule' || inputs.run_tier3 }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -315,7 +324,7 @@ jobs:
 
   ui:
     name: E2E (UI / Playwright)
-    if: ${{ inputs.run_ui }}
+    if: ${{ github.event_name == 'schedule' || inputs.run_ui }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
@@ -472,9 +481,12 @@ jobs:
 
   quick-start:
     name: E2E (Quick Start Smoke)
-    if: ${{ inputs.run_quick_start }}
+    if: ${{ github.event_name == 'schedule' || inputs.run_quick_start }}
     permissions:
       contents: read
     uses: ./.github/workflows/test-quick-start.yml
     with:
-      helm_chart_version: ${{ inputs.helm_chart_version }}
+      # Concrete version on the input-less schedule trigger too (dispatch/call
+      # already default it), so the nested quick-start workflow always receives
+      # a real chart version.
+      helm_chart_version: ${{ inputs.helm_chart_version || '0.0.0-latest-dev' }}

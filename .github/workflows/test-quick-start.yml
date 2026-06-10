@@ -12,8 +12,9 @@
 # or container. This workflow catches regressions a user would actually hit.
 #
 # Two modes, picked by trigger:
-#   schedule / workflow_dispatch -> pull the PUBLISHED quick-start image and run
-#       it as-is (true "what a user gets" smoke test of the latest-dev artifacts).
+#   workflow_dispatch / workflow_call (the nightly e2e gate) -> pull the PUBLISHED
+#       quick-start image and run it as-is (true "what a user gets" smoke test of
+#       the latest-dev artifacts).
 #   pull_request (quick-start changes) -> the published image has stale scripts
 #       baked in, so build ONLY the quick-start image from the branch (just `occ`
 #       + the script layer, not the component-image matrix) and run it against
@@ -37,8 +38,6 @@ on:
         required: false
         type: string
         default: "0.0.0-latest-dev"
-  schedule:
-    - cron: "0 2 * * *" # nightly at 02:00 UTC (07:30 IST)
   pull_request:
     paths:
       - "install/quick-start/**"
