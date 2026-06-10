@@ -26,7 +26,8 @@ func dataPlaneObj(generation int64, annotations map[string]string) *openchoreov1
 }
 
 // TestDataPlaneRenderInputsChangedPredicate locks the contract that a data plane re-renders
-// dependent bindings on an annotation or spec change, but not on status-only churn.
+// dependent bindings on a spec change or an openchoreo.dev/-prefixed annotation change, but
+// not on status-only churn or third-party annotations (GitOps stamps, kubectl metadata).
 func TestDataPlaneRenderInputsChangedPredicate(t *testing.T) {
 	p := dataPlaneRenderInputsChangedPredicate()
 
@@ -34,16 +35,20 @@ func TestDataPlaneRenderInputsChangedPredicate(t *testing.T) {
 	assert.False(t, p.Delete(event.DeleteEvent{Object: dataPlaneObj(1, nil)}), "delete should be ignored")
 	assert.False(t, p.Generic(event.GenericEvent{Object: dataPlaneObj(1, nil)}), "generic should be ignored")
 
+	const oc = "openchoreo.dev/scaling"
 	cases := []struct {
 		name         string
 		oldDP, newDP *openchoreov1alpha1.DataPlane
 		want         bool
 	}{
-		{"annotation_added", dataPlaneObj(1, nil), dataPlaneObj(1, map[string]string{"k": "v"}), true},
-		{"annotation_value_changed", dataPlaneObj(1, map[string]string{"k": "v1"}), dataPlaneObj(1, map[string]string{"k": "v2"}), true},
-		{"annotation_removed", dataPlaneObj(1, map[string]string{"k": "v"}), dataPlaneObj(1, nil), true},
-		{"spec_generation_changed", dataPlaneObj(1, map[string]string{"k": "v"}), dataPlaneObj(2, map[string]string{"k": "v"}), true},
-		{"no_op_same_gen_and_annotations", dataPlaneObj(1, map[string]string{"k": "v"}), dataPlaneObj(1, map[string]string{"k": "v"}), false},
+		{"openchoreo_annotation_added", dataPlaneObj(1, nil), dataPlaneObj(1, map[string]string{oc: "knative"}), true},
+		{"openchoreo_annotation_value_changed", dataPlaneObj(1, map[string]string{oc: "knative"}), dataPlaneObj(1, map[string]string{oc: "keda"}), true},
+		{"openchoreo_annotation_removed", dataPlaneObj(1, map[string]string{oc: "knative"}), dataPlaneObj(1, nil), true},
+		{"spec_generation_changed", dataPlaneObj(1, map[string]string{oc: "knative"}), dataPlaneObj(2, map[string]string{oc: "knative"}), true},
+		{"third_party_annotation_added", dataPlaneObj(1, nil), dataPlaneObj(1, map[string]string{"fluxcd.io/sync": "ts"}), false},
+		{"last_applied_config_added", dataPlaneObj(1, nil), dataPlaneObj(1, map[string]string{"kubectl.kubernetes.io/last-applied-configuration": "{}"}), false},
+		{"third_party_changes_openchoreo_stable", dataPlaneObj(1, map[string]string{oc: "knative", "fluxcd.io/sync": "a"}), dataPlaneObj(1, map[string]string{oc: "knative", "fluxcd.io/sync": "b"}), false},
+		{"no_op_same_gen_and_annotations", dataPlaneObj(1, map[string]string{oc: "knative"}), dataPlaneObj(1, map[string]string{oc: "knative"}), false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -5,6 +5,7 @@ package releasebinding
 
 import (
 	"context"
+	"strings"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
@@ -346,10 +347,18 @@ func (r *Reconciler) findReleaseBindingsForComponent(ctx context.Context, obj cl
 	return requests
 }
 
-// dataPlaneRenderInputsChangedPredicate passes when a (Cluster)DataPlane's annotations or
-// spec change. Render reads inputs from both: the spec (gateway, secretStore) and the
-// annotations (surfaced to CEL as dataplane.annotations). A change to either must re-render
-// the bindings that use this data plane rather than waiting for the periodic resync.
+// dataPlaneRenderInputsChangedPredicate passes when a (Cluster)DataPlane's spec or its
+// openchoreo.dev/-prefixed annotations change. Render reads inputs from both: the spec
+// (gateway, secretStore) and the annotations (surfaced to CEL as dataplane.annotations).
+// A change to either must re-render the bindings that use this data plane rather than
+// waiting for the periodic resync.
+//
+// Only platform-owned (openchoreo.dev/) annotations trigger a re-render. Render still
+// exposes every annotation to CEL, but matching on the whole map would fan out a wasted
+// re-render to every dependent binding on any third-party churn (GitOps sync stamps,
+// kubectl.kubernetes.io/last-applied-configuration). A non-prefixed annotation that a
+// template happens to read is still picked up by the periodic resync.
+//
 // Status-only updates are ignored to avoid needless reconciles.
 func dataPlaneRenderInputsChangedPredicate() predicate.Predicate {
 	return predicate.Funcs{
@@ -363,9 +372,27 @@ func dataPlaneRenderInputsChangedPredicate() predicate.Predicate {
 			if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
 				return true // spec changed
 			}
-			return !apiequality.Semantic.DeepEqual(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations())
+			return openchoreoAnnotationsChanged(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations())
 		},
 	}
+}
+
+// openchoreoAnnotationPrefix scopes the annotation-change trigger to platform-owned keys.
+const openchoreoAnnotationPrefix = "openchoreo.dev/"
+
+// openchoreoAnnotationsChanged reports whether the openchoreo.dev/-prefixed subset of two
+// annotation maps differs, ignoring annotations set by other tooling.
+func openchoreoAnnotationsChanged(oldAnn, newAnn map[string]string) bool {
+	pick := func(m map[string]string) map[string]string {
+		out := make(map[string]string, len(m))
+		for k, v := range m {
+			if strings.HasPrefix(k, openchoreoAnnotationPrefix) {
+				out[k] = v
+			}
+		}
+		return out
+	}
+	return !apiequality.Semantic.DeepEqual(pick(oldAnn), pick(newAnn))
 }
 
 // findReleaseBindingsForDataPlane enqueues every ReleaseBinding whose target Environment
