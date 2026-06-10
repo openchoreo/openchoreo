@@ -1,7 +1,12 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
+
+// Copy shown by the Definition tab's success Snackbar after a valid save.
+// Referenced both to assert success and to exclude that Snackbar when
+// locating an error alert (see saveErrorAlert).
+const SAVE_SUCCESS_MESSAGE = 'Resource saved successfully';
 
 // Drives the ResourceDefinitionTab for updating PE resource CRDs. Every PE
 // entity page has a "Definition" tab that renders a YAML editor (CodeMirror 6)
@@ -38,25 +43,35 @@ export class DefinitionTabPO {
 
   async expectSaveSuccess(timeoutMs = 30_000): Promise<void> {
     await expect(
-      this.page.getByText('Resource saved successfully'),
+      this.page.getByText(SAVE_SUCCESS_MESSAGE),
     ).toBeVisible({ timeout: timeoutMs });
+  }
+
+  // The save error alert, scoped to exclude the success Snackbar. After a
+  // valid save the success Snackbar ("Resource saved successfully") auto-hides
+  // on a timer, so it can still be mounted as role="alert" when a subsequent
+  // save surfaces a validation error. Matching every non-empty alert would
+  // then resolve to two elements and trip Playwright's strict-mode check, so
+  // we target the error alert as "an alert that is not the success message".
+  private saveErrorAlert(): Locator {
+    return this.page
+      .getByRole('alert')
+      .filter({ hasText: /\S/ })
+      .filter({ hasNotText: SAVE_SUCCESS_MESSAGE });
   }
 
   async expectSaveError(timeoutMs = 30_000): Promise<void> {
-    await expect(
-      this.page.getByRole('alert').filter({ hasText: /./}),
-    ).toBeVisible({ timeout: timeoutMs });
+    await expect(this.saveErrorAlert()).toBeVisible({ timeout: timeoutMs });
   }
 
   async getSaveErrorText(timeoutMs = 30_000): Promise<string> {
-    const alert = this.page.getByRole('alert').filter({ hasText: /./ });
+    const alert = this.saveErrorAlert();
     await expect(alert).toBeVisible({ timeout: timeoutMs });
     return (await alert.textContent()) ?? '';
   }
 
   async dismissError(): Promise<void> {
-    await this.page
-      .getByRole('alert')
+    await this.saveErrorAlert()
       .getByRole('button', { name: 'Close' })
       .click();
   }
