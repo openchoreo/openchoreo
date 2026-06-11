@@ -55,6 +55,12 @@ const (
 	// (e.g. at render time when two manifests collide on metadata.name).
 	ReasonCellNamespaceMissing controller.ConditionReason = "CellNamespaceMissing"
 
+	// ReasonCellNamespaceMandateInvalid indicates a matching v1/Namespace
+	// entry was found but its template definition breaks the "exactly one
+	// cell namespace per binding" guarantee (e.g. carries includeWhen or
+	// forEach).
+	ReasonCellNamespaceMandateInvalid controller.ConditionReason = "CellNamespaceMandateInvalid"
+
 	// ReasonEnvironmentNotFound indicates the referenced Environment does not
 	// exist.
 	ReasonEnvironmentNotFound controller.ConditionReason = "EnvironmentNotFound"

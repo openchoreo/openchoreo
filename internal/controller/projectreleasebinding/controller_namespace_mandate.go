@@ -49,9 +49,26 @@ func validateCellNamespaceMandate(spec openchoreov1alpha1.ProjectTypeSpec) (cont
 		if err := json.Unmarshal(entry.Template.Raw, &hdr); err != nil {
 			continue
 		}
-		if hdr.APIVersion == "v1" && hdr.Kind == "Namespace" && hdr.Metadata.Name == cellNamespacePlaceholder {
-			return "", ""
+		if !(hdr.APIVersion == "v1" && hdr.Kind == "Namespace" && hdr.Metadata.Name == cellNamespacePlaceholder) {
+			continue
 		}
+		// includeWhen / forEach on the cell namespace entry break the
+		// "exactly one cell namespace per binding" guarantee — includeWhen
+		// can suppress it entirely; forEach renders N namespaces that
+		// collide on the same resolved metadata.name. Reject so the
+		// misconfiguration is surfaced on Synced instead of materializing
+		// as downstream apply failures.
+		if entry.IncludeWhen != "" {
+			return ReasonCellNamespaceMandateInvalid, fmt.Sprintf(
+				"cell namespace entry %q must not set includeWhen; the cell namespace must be rendered unconditionally",
+				entry.ID)
+		}
+		if entry.ForEach != "" {
+			return ReasonCellNamespaceMandateInvalid, fmt.Sprintf(
+				"cell namespace entry %q must not set forEach; exactly one cell namespace must be rendered per binding",
+				entry.ID)
+		}
+		return "", ""
 	}
 	return ReasonCellNamespaceMissing,
 		fmt.Sprintf("ProjectType.spec.resources must contain a v1/Namespace entry with metadata.name=%q", cellNamespacePlaceholder)
