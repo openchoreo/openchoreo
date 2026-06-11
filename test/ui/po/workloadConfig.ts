@@ -248,16 +248,12 @@ export class WorkloadConfigPO {
 
     // Override the default instance name if provided.
     if (instanceName) {
-      // MUI v4 TextField without an id prop has no htmlFor association, so
-      // getByLabel() does not work. Use the helper text as a stable anchor
-      // to reach the ancestor FormControl and then the input inside it.
       const instanceInput = this.page
         .getByText('A unique name to identify this trait instance', {
           exact: true,
         })
         .locator('xpath=ancestor::div[contains(@class,"MuiFormControl")][1]')
         .locator('input');
-      await instanceInput.clear();
       await instanceInput.fill(instanceName);
     }
 
@@ -298,14 +294,12 @@ export class WorkloadConfigPO {
   // Waits for the accordion row to disappear to avoid racing the next step.
   async removeTrait(instanceName: string): Promise<void> {
     const row = this.page
-      .getByText(instanceName, { exact: true })
-      .locator('xpath=ancestor::div[.//button]')
-      .filter({ has: this.page.getByRole('button', { name: 'Delete trait' }) })
-      .last();
-    await row.getByRole('button', { name: 'Delete trait' }).click();
-    await this.page
-      .getByText(instanceName, { exact: true })
-      .waitFor({ state: 'hidden', timeout: 5_000 });
+      .getByRole('button')
+      .filter({ has: this.page.getByText(instanceName) })
+      .filter({ has: this.page.getByRole('button', { name: 'Delete trait' }) });
+    const deleteBtn = row.getByRole('button', { name: 'Delete trait' });
+    await deleteBtn.click();
+    await deleteBtn.waitFor({ state: 'hidden', timeout: 5_000 });
   }
 
   // ── Save flow ───────────────────────────────────────────────────────
