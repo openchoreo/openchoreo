@@ -7,13 +7,13 @@ import (
 	"context"
 	"fmt"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	controllerpkg "github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -55,28 +55,27 @@ func (r *Reconciler) reconcileBindings(ctx context.Context, project *openchoreov
 	return nil
 }
 
-// ensureProjectReleaseBinding creates a ProjectReleaseBinding named
-// "<project>-<env>" if no binding exists at that name; otherwise leaves
-// the existing binding untouched. The controller never advances
-// spec.projectRelease on an existing binding — promotions are driven
-// externally.
+// ensureProjectReleaseBinding creates a ProjectReleaseBinding for the
+// (project, env) tuple if none exists. Existence is determined by spec
+// identity (owner.projectName + environment) via the shared
+// IndexKeyProjectReleaseBindingOwnerEnv field index. The controller never
+// updates an existing binding.
 func (r *Reconciler) ensureProjectReleaseBinding(
 	ctx context.Context,
 	project *openchoreov1alpha1.Project,
 	envName, releaseName string,
 ) error {
-	name := projectReleaseBindingName(project.Name, envName)
-
-	binding := &openchoreov1alpha1.ProjectReleaseBinding{}
-	err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: project.Namespace}, binding)
-	if err == nil {
-		// Binding already exists at the target name — do nothing.
+	key := controllerpkg.MakeProjectReleaseBindingOwnerEnvKey(project.Name, envName)
+	bindings := &openchoreov1alpha1.ProjectReleaseBindingList{}
+	if err := r.List(ctx, bindings,
+		client.InNamespace(project.Namespace),
+		client.MatchingFields{controllerpkg.IndexKeyProjectReleaseBindingOwnerEnv: key}); err != nil {
+		return fmt.Errorf("list ProjectReleaseBindings for (project=%q, env=%q): %w", project.Name, envName, err)
+	}
+	if len(bindings.Items) > 0 {
 		return nil
 	}
-	if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("get ProjectReleaseBinding %q: %w", name, err)
-	}
-	return r.createProjectReleaseBinding(ctx, project, name, envName, releaseName)
+	return r.createProjectReleaseBinding(ctx, project, projectReleaseBindingName(project.Name, envName), envName, releaseName)
 }
 
 // createProjectReleaseBinding creates a fresh Project-owned binding with
