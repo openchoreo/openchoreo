@@ -16,7 +16,10 @@ class Settings(BaseSettings):
     )
 
     rca_model_name: str = ""
+    rca_model_provider: str = ""
     rca_llm_api_key: str = ""
+    google_cloud_project: str = ""
+    google_cloud_location: str = ""
 
     observer_api_url: str = "http://observer:8080"
     openchoreo_api_url: str = "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"

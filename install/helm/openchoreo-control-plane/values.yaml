@@ -3884,8 +3884,42 @@ portalAssistant:
   replicas: 1
 
   llm:
+    # @schema
+    # type: string
+    # description: Name of the secret containing LLM API keys
+    # default: ""
+    # required: true
+    # @schema
     secretName: ""
+
+    # @schema
+    # type: string
+    # description: Google Cloud project for google_vertexai
+    # default: ""
+    # @schema
+    googleCloudProject: ""
+
+    # @schema
+    # type: string
+    # description: Google Cloud location for google_vertexai
+    # default: ""
+    # @schema
+    googleCloudLocation: ""
+    # @schema
+    # type: string
+    # description: LLM model name (e.g., gpt-5.2)
+    # default: ""
+    # required: true
+    # @schema
     modelName: ""
+    # @schema
+    # type: string
+    # description: LLM model provider (e.g., google_genai, google_vertexai, openai, anthropic). If empty, inferred from model name.
+    # default: ""
+    # required: false
+    # @schema
+    modelProvider: ""
+
 
   config:
     openchoreoApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"

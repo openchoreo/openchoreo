@@ -18,7 +18,7 @@ _HEADERS = {"X-Use-OpenAPI": "true"}
 
 async def get(
     path: str,
-    auth: httpx.Auth,
+    auth: httpx.Auth | None,
     params: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     async with httpx.AsyncClient(

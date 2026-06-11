@@ -26,7 +26,7 @@ def _httpx_client_factory(
 
 
 class MCPClient:
-    def __init__(self, auth: httpx.Auth) -> None:
+    def __init__(self, auth: httpx.Auth | None = None) -> None:
         obs_connection: StreamableHttpConnection = {
             "transport": "streamable_http",
             "url": settings.observer_mcp_url,

@@ -6,11 +6,11 @@ import pytest
 from pydantic import ValidationError
 
 from src.api.agent_routes import (
+    _TOTAL_CONTENT_LIMIT,
     ChatMessage,
     ChatRequest,
     ChatScope,
     PrefetchedLogEntry,
-    _TOTAL_CONTENT_LIMIT,
 )
 
 
@@ -36,8 +36,8 @@ def test_total_content_cap_rejects_overage():
 
 def test_total_content_cap_at_boundary():
     # Right at the limit must pass.
-    msg = ChatMessage(role="user", content="x" * _TOTAL_CONTENT_LIMIT)
-    req = ChatRequest(messages=[msg])
+    msgs = [ChatMessage(role="user", content="x" * 10_000) for _ in range(6)]
+    req = ChatRequest(messages=msgs)
     assert sum(len(m.content) for m in req.messages) == _TOTAL_CONTENT_LIMIT
 
 

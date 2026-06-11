@@ -4215,13 +4215,33 @@
         "llm": {
           "additionalProperties": false,
           "properties": {
+            "googleCloudLocation": {
+              "default": "",
+              "description": "Google Cloud location for google_vertexai",
+              "title": "googleCloudLocation",
+              "type": "string"
+            },
+            "googleCloudProject": {
+              "default": "",
+              "description": "Google Cloud project for google_vertexai",
+              "title": "googleCloudProject",
+              "type": "string"
+            },
             "modelName": {
               "default": "",
+              "description": "LLM model name (e.g., gpt-5.2)",
               "title": "modelName",
+              "type": "string"
+            },
+            "modelProvider": {
+              "default": "",
+              "description": "LLM model provider (e.g., google_genai, google_vertexai, openai, anthropic). If empty, inferred from model name.",
+              "title": "modelProvider",
               "type": "string"
             },
             "secretName": {
               "default": "",
+              "description": "Name of the secret containing LLM API keys",
               "title": "secretName",
               "type": "string"
             }
