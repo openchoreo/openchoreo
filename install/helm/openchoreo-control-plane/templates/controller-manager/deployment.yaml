@@ -6,7 +6,14 @@ metadata:
   labels:
     {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 4 }}
 spec:
+  {{- if not .Values.controllerManager.autoscaling.enabled }}
   replicas: {{ .Values.controllerManager.replicas }}
+  {{- end }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: {{ .Values.controllerManager.strategy.rollingUpdate.maxUnavailable }}
+      maxSurge: {{ .Values.controllerManager.strategy.rollingUpdate.maxSurge }}
   selector:
     matchLabels:
       {{- include "openchoreo-control-plane.componentSelectorLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 6 }}
@@ -41,7 +48,7 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      terminationGracePeriodSeconds: 10
+      terminationGracePeriodSeconds: {{ .Values.controllerManager.terminationGracePeriodSeconds }}
       {{- /* No init container needed - Secret is created directly by cert-manager */}}
       containers:
       - name: manager
@@ -91,6 +98,12 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 10
         resources: {{- toYaml .Values.controllerManager.resources | nindent 10 }}
+        {{- if and (eq (toString .Values.controllerManager.manager.env.enableWebhooks) "true") (gt (int .Values.controllerManager.preStopSleepSeconds) 0) }}
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/manager", "sleep", "{{ .Values.controllerManager.preStopSleepSeconds }}"]
+        {{- end }}
         {{- with .Values.controllerManager.containerSecurityContext }}
         securityContext:
           {{- toYaml . | nindent 10 }}

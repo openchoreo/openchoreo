@@ -1,0 +1,54 @@
+# Helm values for OpenChoreo Control Plane in the multi-cluster e2e setup.
+# Domains use *.e2e-mc-cp.local; port 38080 (HTTP) / 38443 (HTTPS).
+# Backstage UI is disabled — e2e tests use kubectl/Go client only.
+
+openchoreoApi:
+  http:
+    hostnames:
+    - api.e2e-mc-cp.local
+  config:
+    server:
+      publicUrl: "http://api.e2e-mc-cp.local:38080"
+
+backstage:
+  enabled: false
+  baseUrl: "http://openchoreo.e2e-mc-cp.local:38080"
+  http:
+    hostnames:
+      - openchoreo.e2e-mc-cp.local
+
+security:
+  oidc:
+    issuer: "http://thunder.e2e-mc-cp.local:38080"
+    jwksUrl: "http://thunder.e2e-mc-cp.local:38080/oauth2/jwks"
+    authorizationUrl: "http://thunder.e2e-mc-cp.local:38080/oauth2/authorize"
+    tokenUrl: "http://thunder.e2e-mc-cp.local:38080/oauth2/token"
+
+# Expose cluster-gateway via TLS route on port 38443 so DP/WP/OP agents can
+# connect cross-cluster. Agents use wss://host.k3d.internal:38443/ws; the SNI
+# matches the TLSRoute host below and the certificate SAN includes host.k3d.internal.
+clusterGateway:
+  tlsRoute:
+    enabled: true
+    hosts:
+      - host: host.k3d.internal
+        paths:
+          - path: /
+            pathType: Prefix
+  tls:
+    issuerRef:
+      name: cluster-gateway-server-issuer
+    dnsNames:
+      - cluster-gateway.openchoreo-control-plane.svc
+      - cluster-gateway.openchoreo-control-plane.svc.cluster.local
+      - host.k3d.internal
+
+gateway:
+  httpPort: 8080
+  httpsPort: 8443
+  tls:
+    enabled: false
+
+features:
+  secretManagement:
+    enabled: true

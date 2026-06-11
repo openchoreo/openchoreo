@@ -14,11 +14,29 @@ import (
 	"github.com/openchoreo/openchoreo/test/e2e/framework"
 )
 
-var kubeContext string
+var (
+	kubeContext   string
+	dpKubeContext string
+	wpKubeContext string
+	opKubeContext string
+)
 
 func init() {
 	flag.StringVar(&kubeContext, "e2e.kubecontext", "",
-		"Kubernetes context for e2e tests (required)")
+		"Kubernetes context for the control plane cluster (required)")
+	flag.StringVar(&dpKubeContext, "e2e.dp-kubecontext", "",
+		"Kubernetes context for the data plane cluster (multi-cluster only)")
+	flag.StringVar(&wpKubeContext, "e2e.wp-kubecontext", "",
+		"Kubernetes context for the workflow plane cluster (multi-cluster only)")
+	flag.StringVar(&opKubeContext, "e2e.op-kubecontext", "",
+		"Kubernetes context for the observability plane cluster (multi-cluster only)")
+}
+
+func dpCtx() string {
+	if dpKubeContext != "" {
+		return dpKubeContext
+	}
+	return kubeContext
 }
 
 func TestE2EGitOps(t *testing.T) {

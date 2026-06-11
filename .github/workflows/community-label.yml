@@ -1,0 +1,110 @@
+name: Label Community Issues and PRs
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  label-new:
+    name: Label New Issue or PR
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          sparse-checkout: MAINTAINERS.md
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Add reportedBy/community label if not a maintainer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.actor }}
+          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+          IS_PR: ${{ github.event_name == 'pull_request_target' }}
+        run: |
+          maintainers=$(grep -oP '(?<=\[@)[^\]]+' MAINTAINERS.md | tr '[:upper:]' '[:lower:]')
+          actor_lower=$(echo "$ACTOR" | tr '[:upper:]' '[:lower:]')
+
+          if [[ "$actor_lower" == *"[bot]" ]]; then
+            echo "$ACTOR is a bot — skipping"
+            exit 0
+          fi
+
+          if echo "$maintainers" | grep -qxF "$actor_lower"; then
+            echo "$ACTOR is a maintainer — skipping"
+            exit 0
+          fi
+
+          echo "$ACTOR is not a maintainer — applying label"
+
+          if [[ "$IS_PR" == "true" ]]; then
+            gh pr edit "$NUMBER" --add-label "reportedBy/community" --repo "$GITHUB_REPOSITORY"
+          else
+            gh issue edit "$NUMBER" --add-label "reportedBy/community" --repo "$GITHUB_REPOSITORY"
+          fi
+
+  backfill:
+    name: Backfill Community Label
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          sparse-checkout: MAINTAINERS.md
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Backfill reportedBy/community on all open issues and PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          maintainers=$(grep -oP '(?<=\[@)[^\]]+' MAINTAINERS.md | tr '[:upper:]' '[:lower:]')
+
+          label_if_community() {
+            local type=$1
+            local number=$2
+            local author=$3
+            local author_lower
+            author_lower=$(echo "$author" | tr '[:upper:]' '[:lower:]')
+
+            if echo "$maintainers" | grep -qxF "$author_lower"; then
+              return
+            fi
+
+            echo "Labeling $type #$number (author: $author)"
+            if [[ "$type" == "pr" ]]; then
+              gh pr edit "$number" --add-label "reportedBy/community" --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+            else
+              gh issue edit "$number" --add-label "reportedBy/community" --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+            fi
+          }
+
+          echo "==> Open issues"
+          issues=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues?state=all&per_page=100" \
+            --jq '.[] | select(.pull_request == null and .user.type != "Bot") | "\(.number) \(.user.login)"')
+          echo "Found $(echo "$issues" | grep -c . || true) issues from non-bot authors"
+          echo "$issues" | while IFS=' ' read -r number author; do
+            label_if_community "issue" "$number" "$author"
+          done
+
+          echo "==> Open PRs"
+          prs=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls?state=all&per_page=100" \
+            --jq '.[] | select(.user.type != "Bot") | "\(.number) \(.user.login)"')
+          echo "Found $(echo "$prs" | grep -c . || true) PRs from non-bot authors"
+          echo "$prs" | while IFS=' ' read -r number author; do
+            label_if_community "pr" "$number" "$author"
+          done

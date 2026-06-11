@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	// +kubebuilder:scaffold:imports
 	"k8s.io/apimachinery/pkg/runtime"
@@ -247,6 +248,16 @@ func setupObservabilityPlaneControllers(mgr ctrl.Manager) error {
 
 // nolint:gocyclo
 func main() {
+	if len(os.Args) == 3 && os.Args[1] == "sleep" {
+		d, err := strconv.Atoi(os.Args[2])
+		if err != nil || d < 0 {
+			fmt.Fprintf(os.Stderr, "usage: manager sleep <seconds>\n")
+			os.Exit(1)
+		}
+		time.Sleep(time.Duration(d) * time.Second)
+		os.Exit(0)
+	}
+
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string

@@ -86,8 +86,10 @@ spec:
               sleep 1
             done
 
-            BUILDER="docker.io/paketobuildpacks/builder-jammy-full:0.3.603"
-            RUN_IMG="docker.io/paketobuildpacks/run-jammy-full:0.1.130"
+            # docker.io/paketobuildpacks/builder-jammy-full:0.3.603
+            BUILDER="docker.io/paketobuildpacks/builder-jammy-full@sha256:9824e8d6e79f0b01f422dfd4062347a451956a1439cfe7874c42ca88418901dc"
+            # docker.io/paketobuildpacks/run-jammy-full:0.1.130
+            RUN_IMG="docker.io/paketobuildpacks/run-jammy-full@sha256:84a29ab400de17994da1270742de91718658dfbe4713cae9b765f0c9e1062eac"
 
             ENV_ARGS=""
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then

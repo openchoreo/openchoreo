@@ -16,6 +16,7 @@ import (
 // handlerTestDeps holds dependencies for building an MCPHandler in unit tests.
 type handlerTestDeps struct {
 	logs    service.LogsQuerier
+	events  service.EventsQuerier
 	metrics service.MetricsQuerier
 	alerts  service.AlertIncidentService
 	traces  service.TracesQuerier
@@ -27,6 +28,7 @@ func newTestMCPHandler(t *testing.T, opts ...func(*handlerTestDeps)) *MCPHandler
 
 	d := handlerTestDeps{
 		logs:    servicemocks.NewMockLogsQuerier(t),
+		events:  servicemocks.NewMockEventsQuerier(t),
 		metrics: servicemocks.NewMockMetricsQuerier(t),
 		alerts:  servicemocks.NewMockAlertIncidentService(t),
 		traces:  servicemocks.NewMockTracesQuerier(t),
@@ -39,13 +41,17 @@ func newTestMCPHandler(t *testing.T, opts ...func(*handlerTestDeps)) *MCPHandler
 	healthSvc, err := service.NewHealthService(logger)
 	require.NoError(t, err)
 
-	h, err := NewMCPHandler(healthSvc, d.logs, d.metrics, d.alerts, d.traces, logger)
+	h, err := NewMCPHandler(healthSvc, d.logs, d.events, d.metrics, d.alerts, d.traces, logger)
 	require.NoError(t, err)
 	return h
 }
 
 func withLogsService(s service.LogsQuerier) func(*handlerTestDeps) {
 	return func(d *handlerTestDeps) { d.logs = s }
+}
+
+func withEventsService(s service.EventsQuerier) func(*handlerTestDeps) {
+	return func(d *handlerTestDeps) { d.events = s }
 }
 
 func withMetricsService(s service.MetricsQuerier) func(*handlerTestDeps) {

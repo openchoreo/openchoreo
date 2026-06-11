@@ -1,0 +1,23 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Internal Gateway for the Data Plane cluster in the multi-cluster e2e setup.
+# Applied to the DP cluster (E2E_MC_DP_KUBECTL). Provides an internal ingress
+# gateway for internal-visibility endpoints running in the DP cluster.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-internal
+  namespace: openchoreo-data-plane
+spec:
+  gatewayClassName: kgateway
+  infrastructure:
+    labels:
+      openchoreo.dev/system-component: gateway
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 18080
+      allowedRoutes:
+        namespaces:
+          from: All

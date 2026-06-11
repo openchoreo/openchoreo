@@ -7,6 +7,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source helper functions
 source "${SCRIPT_DIR}/.helpers.sh"
 
+# Optional planes are validated only when enabled. install.sh exports these
+# flags; when running this script standalone (e.g. via docker exec), pass them
+# explicitly, e.g.:
+#   ENABLE_WORKFLOW_PLANE=true ENABLE_OBSERVABILITY=true ./validate-installation.sh
+ENABLE_WORKFLOW_PLANE="${ENABLE_WORKFLOW_PLANE:-false}"
+ENABLE_OBSERVABILITY="${ENABLE_OBSERVABILITY:-false}"
+
 # Validation functions
 validate_cluster() {
     log_info "Validating k3d cluster..."
@@ -31,9 +38,24 @@ validate_helm_releases() {
     local expected_releases=(
         "openchoreo-data-plane:$DATA_PLANE_NS"
         "openchoreo-control-plane:$CONTROL_PLANE_NS"
-
     )
-    
+
+    if [[ "$ENABLE_WORKFLOW_PLANE" == "true" ]]; then
+        expected_releases+=(
+            "openchoreo-workflow-plane:$WORKFLOW_PLANE_NS"
+            "registry:$WORKFLOW_PLANE_NS"
+        )
+    fi
+
+    if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+        expected_releases+=(
+            "openchoreo-observability-plane:$OBSERVABILITY_NS"
+            "observability-logs-opensearch:$OBSERVABILITY_NS"
+            "observability-traces-opensearch:$OBSERVABILITY_NS"
+            "observability-metrics-prometheus:$OBSERVABILITY_NS"
+        )
+    fi
+
     local failed_releases=()
     
     for release_info in "${expected_releases[@]}"; do
@@ -60,7 +82,15 @@ validate_namespaces() {
         "$CONTROL_PLANE_NS"
         "$DATA_PLANE_NS"
     )
-    
+
+    if [[ "$ENABLE_WORKFLOW_PLANE" == "true" ]]; then
+        expected_namespaces+=("$WORKFLOW_PLANE_NS")
+    fi
+
+    if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+        expected_namespaces+=("$OBSERVABILITY_NS")
+    fi
+
     local missing_namespaces=()
     
     for ns in "${expected_namespaces[@]}"; do
@@ -84,7 +114,15 @@ validate_pods() {
         "$CONTROL_PLANE_NS"
         "$DATA_PLANE_NS"
     )
-    
+
+    if [[ "$ENABLE_WORKFLOW_PLANE" == "true" ]]; then
+        namespaces+=("$WORKFLOW_PLANE_NS")
+    fi
+
+    if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
+        namespaces+=("$OBSERVABILITY_NS")
+    fi
+
     local failed_namespaces=()
     
     for ns in "${namespaces[@]}"; do

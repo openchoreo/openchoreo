@@ -1,0 +1,198 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# Exercises the real Quick Start Guide user journey
+# (https://openchoreo.dev/docs/next/getting-started/quick-start-guide/) end to
+# end: run the `quick-start` container exactly as a user does, install the full
+# platform with `./install.sh --with-build --with-observability`, assert all
+# four planes are healthy, then deploy a sample web app.
+#
+# This is intentionally separate from the `make e2e` suite: that harness installs
+# via OCI Helm charts with bespoke values and never runs the quick-start scripts
+# or container. This workflow catches regressions a user would actually hit.
+#
+# Two modes, picked by trigger:
+#   workflow_dispatch / workflow_call (the nightly e2e gate) -> pull the PUBLISHED
+#       quick-start image and run it as-is (true "what a user gets" smoke test of
+#       the latest-dev artifacts).
+#   pull_request (quick-start changes) -> the published image has stale scripts
+#       baked in, so build ONLY the quick-start image from the branch (just `occ`
+#       + the script layer, not the component-image matrix) and run it against
+#       published latest-dev component images and Helm charts. This exercises the
+#       PR's script/Dockerfile diff.
+
+name: Quick Start Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "OpenChoreo version / quick-start image tag to test"
+        required: false
+        type: string
+        default: "latest-dev"
+  workflow_call:
+    inputs:
+      helm_chart_version:
+        description: "Helm chart version (e.g., 0.0.0-latest-dev or 0.0.0-<sha>); the quick-start image tag is the bare suffix"
+        required: false
+        type: string
+        default: "0.0.0-latest-dev"
+  pull_request:
+    paths:
+      - "install/quick-start/**"
+      - "install/k3d/**"
+      - "samples/from-image/react-starter-web-app/**"
+      - ".github/workflows/test-quick-start.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quick-start-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QS_IMAGE: ghcr.io/openchoreo/quick-start
+  QS_CONTAINER: openchoreo-quick-start
+
+jobs:
+  quick-start:
+    name: Quick Start (build + observability)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Validate Helm chart version
+        if: ${{ inputs.helm_chart_version != '' }}
+        env:
+          HELM_CHART_VERSION: ${{ inputs.helm_chart_version }}
+        run: |
+          if [ -z "${HELM_CHART_VERSION}" ]; then
+            echo "::error::HELM_CHART_VERSION is required"
+            exit 1
+          fi
+          case "${HELM_CHART_VERSION}" in
+            *[!A-Za-z0-9._-]*)
+              echo "::error::HELM_CHART_VERSION contains unsupported characters"
+              exit 1
+              ;;
+          esac
+
+      - name: Resolve test mode
+        id: mode
+        # Inputs are read via env, never expanded directly into the shell body,
+        # so a crafted version string cannot inject commands.
+        env:
+          HELM_CHART_VERSION: ${{ inputs.helm_chart_version }}
+          DISPATCH_VERSION: ${{ github.event.inputs.version || 'latest-dev' }}
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # Build the quick-start image from the branch; component images and
+            # Helm charts still come from published latest-dev.
+            echo "build_from_branch=true" >> "$GITHUB_OUTPUT"
+            echo "version=latest-dev" >> "$GITHUB_OUTPUT"
+          elif [[ -n "${HELM_CHART_VERSION}" ]]; then
+            # Invoked by the e2e gate: it passes a Helm chart version
+            # (0.0.0-latest-dev, 0.0.0-<sha>), validated above. build-and-test
+            # publishes the quick-start image under the bare suffix, so strip
+            # the prefix.
+            echo "build_from_branch=false" >> "$GITHUB_OUTPUT"
+            echo "version=${HELM_CHART_VERSION#0.0.0-}" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_from_branch=false" >> "$GITHUB_OUTPUT"
+            echo "version=${DISPATCH_VERSION}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Go
+        if: steps.mode.outputs.build_from_branch == 'true'
+        uses: ./.github/actions/setup-go
+
+      - name: Build quick-start image from branch
+        if: steps.mode.outputs.build_from_branch == 'true'
+        # Tags the image ghcr.io/openchoreo/quick-start:latest-dev locally so the
+        # run step below finds it without pulling.
+        run: make docker.build.quick-start TAG=latest-dev
+
+      - name: Pull published quick-start image
+        if: steps.mode.outputs.build_from_branch != 'true'
+        run: docker pull "${QS_IMAGE}:${{ steps.mode.outputs.version }}"
+
+      - name: Start quick-start container
+        # Mirrors the documented `docker run` invocation (host network + docker
+        # socket), detached with a TTY (-dit) so the image's own entrypoint runs:
+        # it configures docker-socket group access for the non-root `openchoreo`
+        # user and drops into a login shell that stays alive. The install/validate/
+        # deploy steps then drive it via `docker exec -u openchoreo`, exactly as a
+        # user typing commands inside the container would. OPENCHOREO_VERSION is
+        # surfaced to those login shells via the entrypoint.
+        run: |
+          docker run -dit \
+            --name "${QS_CONTAINER}" \
+            --network=host \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -e OPENCHOREO_VERSION="${{ steps.mode.outputs.version }}" \
+            "${QS_IMAGE}:${{ steps.mode.outputs.version }}"
+
+      - name: Wait for docker socket access
+        # Give the entrypoint a moment to wire up the openchoreo user's docker
+        # group before the install relies on it (k3d talks to the host daemon).
+        run: |
+          for _ in $(seq 1 15); do
+            if docker exec -u openchoreo "${QS_CONTAINER}" docker version >/dev/null 2>&1; then
+              echo "openchoreo user can reach the docker daemon"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::openchoreo user could not reach the docker daemon"
+          docker logs "${QS_CONTAINER}" || true
+          exit 1
+
+      - name: Install OpenChoreo (build + observability)
+        run: |
+          docker exec -u openchoreo "${QS_CONTAINER}" \
+            bash -lc './install.sh --with-build --with-observability --version "$OPENCHOREO_VERSION"'
+
+      - name: Validate all planes are healthy
+        # install.sh exports these flags in its own process; a fresh `docker exec`
+        # is a new shell, so pass them explicitly to validate the workflow +
+        # observability planes (not just control + data).
+        run: |
+          docker exec -u openchoreo \
+            -e ENABLE_WORKFLOW_PLANE=true \
+            -e ENABLE_OBSERVABILITY=true \
+            "${QS_CONTAINER}" bash -lc './validate-installation.sh'
+
+      - name: Deploy sample web application
+        # The script waits for ReleaseBinding sync -> Deployment available ->
+        # HTTPRoute accepted and exits non-zero on timeout.
+        run: docker exec -u openchoreo "${QS_CONTAINER}" bash -lc './deploy-react-starter.sh'
+
+      - name: Collect diagnostics
+        if: failure()
+        run: |
+          mkdir -p _diagnostics
+          docker exec -u openchoreo "${QS_CONTAINER}" bash -lc './check-status.sh' > _diagnostics/component-status.txt 2>&1 || true
+          docker exec -u openchoreo "${QS_CONTAINER}" bash -lc 'kubectl get pods -A -o wide' > _diagnostics/pods.txt 2>&1 || true
+          docker exec -u openchoreo "${QS_CONTAINER}" bash -lc 'kubectl get events -A --sort-by=.lastTimestamp' > _diagnostics/events.txt 2>&1 || true
+          for ns in openchoreo-control-plane openchoreo-data-plane openchoreo-workflow-plane openchoreo-observability-plane; do
+            docker exec -u openchoreo "${QS_CONTAINER}" bash -lc "kubectl describe pods -n ${ns}" > "_diagnostics/describe-${ns}.txt" 2>&1 || true
+          done
+          docker logs "${QS_CONTAINER}" > _diagnostics/container.log 2>&1 || true
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: quick-start-diagnostics
+          path: _diagnostics/
+          retention-days: 7
+
+      - name: Tear down quick-start container
+        if: always()
+        run: docker rm -f "${QS_CONTAINER}" 2>/dev/null || true

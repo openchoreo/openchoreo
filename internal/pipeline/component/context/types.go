@@ -261,6 +261,12 @@ type DataPlaneData struct {
 	SecretStore           string                     `json:"secretStore,omitempty"`
 	Gateway               *GatewayData               `json:"gateway,omitempty"`
 	ObservabilityPlaneRef *ObservabilityPlaneRefData `json:"observabilityPlaneRef,omitempty"`
+
+	// Annotations are the DataPlane's metadata.annotations, surfaced verbatim so templates
+	// can read platform-set hints from the data plane. Read defensively, e.g.
+	// has(dataplane.annotations) && "key" in dataplane.annotations, since the map is absent
+	// when the DataPlane has no annotations.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // GatewayData provides gateway configuration in templates.

@@ -5,6 +5,7 @@ package releasebinding
 
 import (
 	"context"
+	"strings"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
@@ -341,6 +342,132 @@ func (r *Reconciler) findReleaseBindingsForComponent(ctx context.Context, obj cl
 				Name:      binding.Name,
 				Namespace: binding.Namespace,
 			},
+		}
+	}
+	return requests
+}
+
+// dataPlaneRenderInputsChangedPredicate passes when a (Cluster)DataPlane's spec or its
+// openchoreo.dev/-prefixed annotations change. Render reads inputs from both: the spec
+// (gateway, secretStore) and the annotations (surfaced to CEL as dataplane.annotations).
+// A change to either must re-render the bindings that use this data plane rather than
+// waiting for the periodic resync.
+//
+// Only platform-owned (openchoreo.dev/) annotations trigger a re-render. Render still
+// exposes every annotation to CEL, but matching on the whole map would fan out a wasted
+// re-render to every dependent binding on any third-party churn (GitOps sync stamps,
+// kubectl.kubernetes.io/last-applied-configuration). A non-prefixed annotation that a
+// template happens to read is still picked up by the periodic resync.
+//
+// Status-only updates are ignored to avoid needless reconciles.
+func dataPlaneRenderInputsChangedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc:  func(_ event.CreateEvent) bool { return true },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return false },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectOld == nil || e.ObjectNew == nil {
+				return false
+			}
+			if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+				return true // spec changed
+			}
+			return openchoreoAnnotationsChanged(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations())
+		},
+	}
+}
+
+// openchoreoAnnotationPrefix scopes the annotation-change trigger to platform-owned keys.
+const openchoreoAnnotationPrefix = "openchoreo.dev/"
+
+// openchoreoAnnotationsChanged reports whether the openchoreo.dev/-prefixed subset of two
+// annotation maps differs, ignoring annotations set by other tooling.
+func openchoreoAnnotationsChanged(oldAnn, newAnn map[string]string) bool {
+	pick := func(m map[string]string) map[string]string {
+		out := make(map[string]string, len(m))
+		for k, v := range m {
+			if strings.HasPrefix(k, openchoreoAnnotationPrefix) {
+				out[k] = v
+			}
+		}
+		return out
+	}
+	return !apiequality.Semantic.DeepEqual(pick(oldAnn), pick(newAnn))
+}
+
+// findReleaseBindingsForDataPlane enqueues every ReleaseBinding whose target Environment
+// references the changed namespace-scoped DataPlane.
+func (r *Reconciler) findReleaseBindingsForDataPlane(ctx context.Context, obj client.Object) []reconcile.Request {
+	dp, ok := obj.(*openchoreov1alpha1.DataPlane)
+	if !ok {
+		return nil
+	}
+	return r.releaseBindingsForDataPlaneRef(ctx, dp.Namespace, openchoreov1alpha1.DataPlaneRefKindDataPlane, dp.Name)
+}
+
+// findReleaseBindingsForClusterDataPlane enqueues every ReleaseBinding whose target
+// Environment references the changed cluster-scoped ClusterDataPlane. ClusterDataPlanes can be
+// referenced from any namespace, so the scan is cluster-wide.
+func (r *Reconciler) findReleaseBindingsForClusterDataPlane(ctx context.Context, obj client.Object) []reconcile.Request {
+	cdp, ok := obj.(*openchoreov1alpha1.ClusterDataPlane)
+	if !ok {
+		return nil
+	}
+	return r.releaseBindingsForDataPlaneRef(ctx, "", openchoreov1alpha1.DataPlaneRefKindClusterDataPlane, cdp.Name)
+}
+
+// releaseBindingsForDataPlaneRef returns reconcile requests for the ReleaseBindings whose target
+// Environment references the given data plane (kind+name). When namespace is empty the
+// Environment scan is cluster-wide (used for ClusterDataPlane). Environments that resolve to a
+// data plane only via the ClusterDataPlane "default" fallback are not matched here; the periodic
+// resync remains the backstop for that edge.
+func (r *Reconciler) releaseBindingsForDataPlaneRef(
+	ctx context.Context, namespace string, kind openchoreov1alpha1.DataPlaneRefKind, name string,
+) []reconcile.Request {
+	logger := log.FromContext(ctx)
+
+	var envs openchoreov1alpha1.EnvironmentList
+	var listOpts []client.ListOption
+	if namespace != "" {
+		listOpts = append(listOpts, client.InNamespace(namespace))
+	}
+	if err := r.List(ctx, &envs, listOpts...); err != nil {
+		logger.Error(err, "Failed to list Environments for data plane change", "kind", kind, "dataPlane", name)
+		return nil
+	}
+
+	// Group the matching environment names by namespace so each namespace is listed once.
+	envsByNamespace := make(map[string]map[string]struct{})
+	for i := range envs.Items {
+		env := &envs.Items[i]
+		ref := env.Spec.DataPlaneRef
+		if ref == nil || ref.Kind != kind || ref.Name != name {
+			continue
+		}
+		if envsByNamespace[env.Namespace] == nil {
+			envsByNamespace[env.Namespace] = make(map[string]struct{})
+		}
+		envsByNamespace[env.Namespace][env.Name] = struct{}{}
+	}
+	if len(envsByNamespace) == 0 {
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for ns, envNames := range envsByNamespace {
+		var bindings openchoreov1alpha1.ReleaseBindingList
+		if err := r.List(ctx, &bindings, client.InNamespace(ns)); err != nil {
+			logger.Error(err, "Failed to list ReleaseBindings for data plane change", "namespace", ns, "dataPlane", name)
+			continue
+		}
+		for i := range bindings.Items {
+			rb := &bindings.Items[i]
+			if _, match := envNames[rb.Spec.Environment]; !match {
+				continue
+			}
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: rb.Name, Namespace: rb.Namespace},
+			})
 		}
 	}
 	return requests

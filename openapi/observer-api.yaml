@@ -20,6 +20,8 @@ info:
 tags:
   - name: Logs
     description: Log retrieval endpoints
+  - name: Events
+    description: Kubernetes event retrieval endpoints
   - name: Health
     description: Health check endpoints
 
@@ -120,6 +122,68 @@ paths:
               example:
                 title: "internalServerError"
                 errorCode: "OBS-V1-L-29"
+                message: ""
+
+  # Events query endpoint
+  /api/v1/events/query:
+    post:
+      tags:
+        - Events
+      summary: Query events
+      description: Query Kubernetes events from the observer service
+      operationId: queryEvents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventsQueryRequest"
+      responses:
+        "200":
+          description: Events queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventsQueryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "badRequest"
+                errorCode: ""
+                message: "Missing required fields 'startTime' and 'endTime'"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "unauthorized"
+                errorCode: ""
+                message: "Invalid or missing token"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "forbidden"
+                errorCode: ""
+                message: "Subject <xyz> has no permission to view events of Namespace foo, Project bar, Component baz in Environment development"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "internalServerError"
+                errorCode: "OBS-V1-E-01"
                 message: ""
 
   # Metrics query endpoint
@@ -861,6 +925,107 @@ components:
         tookMs:
           type: integer
           description: The time taken to query the logs in milliseconds
+
+    # Request schema for events
+    EventsQueryRequest:
+      type: object
+      properties:
+        startTime:
+          type: string
+          description: The start time of the query
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the query
+          format: date-time
+        limit:
+          type: integer
+          default: 100
+          minimum: 1
+          maximum: 1000
+          description: The maximum number of items to return
+        sortOrder:
+          type: string
+          description: The sort order of the query
+          enum:
+            - asc
+            - desc
+          default: desc
+        searchScope:
+          oneOf:
+            - $ref: "#/components/schemas/ComponentSearchScope"
+            - $ref: "#/components/schemas/WorkflowSearchScope"
+      required: [startTime, endTime, searchScope]
+
+    # Response schemas for events
+    EventEntry:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          description: The timestamp of the event
+          format: date-time
+        message:
+          type: string
+          description: The event message
+        type:
+          type: string
+          description: The event type (e.g. Normal, Warning)
+        reason:
+          type: string
+          description: The short, machine-readable reason for the event (e.g. SawCompletedJob)
+        metadata:
+          type: object
+          description: The metadata of the event
+          properties:
+            componentName:
+              type: string
+              description: The OpenChoreo component name the event is associated with
+            projectName:
+              type: string
+              description: The OpenChoreo project name the event is associated with
+            environmentName:
+              type: string
+              description: The OpenChoreo environment name the event is associated with
+            namespaceName:
+              type: string
+              description: The OpenChoreo namespace name the event is associated with
+            componentUid:
+              type: string
+              description: The OpenChoreo component UID the event is associated with
+              format: uuid
+            projectUid:
+              type: string
+              description: The OpenChoreo project UID the event is associated with
+              format: uuid
+            environmentUid:
+              type: string
+              description: The OpenChoreo environment UID the event is associated with
+              format: uuid
+            objectKind:
+              type: string
+              description: The kind of the Kubernetes object the event involves (e.g. CronJob)
+            objectName:
+              type: string
+              description: The name of the Kubernetes object the event involves
+            objectNamespace:
+              type: string
+              description: The namespace of the Kubernetes object the event involves
+
+    EventsQueryResponse:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventEntry"
+          description: The events queried successfully
+        total:
+          type: integer
+          description: The total number of matching events, capped at 1000
+        tookMs:
+          type: integer
+          description: The time taken to query the events in milliseconds
 
     # Request schemas for metrics
     MetricsQueryRequest:

@@ -1,0 +1,34 @@
+# k3d cluster config for the Control Plane in the multi-cluster e2e setup.
+# Port prefix 38xxx / kubeAPI 36550 avoids collision with:
+#   single-cluster e2e  (28xxx / 26550)
+#   dev multi-cluster   (8xxx  / 6550)
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: openchoreo-e2e-mc-cp
+image: rancher/k3s:v1.36.1-k3s1
+servers: 1
+agents: 0
+kubeAPI:
+  hostPort: "36550"
+ports:
+  # HTTP — OpenChoreo API + Thunder via kgateway
+  - port: 38080:8080
+    nodeFilters:
+      - loadbalancer
+  # HTTPS — kgateway HTTPS + cluster-gateway TLS (SNI-routed)
+  - port: 38443:8443
+    nodeFilters:
+      - loadbalancer
+options:
+  k3s:
+    extraArgs:
+      - arg: "--kubelet-arg=eviction-hard=imagefs.available<1%,nodefs.available<1%"
+        nodeFilters:
+          - server:*
+      - arg: "--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%"
+        nodeFilters:
+          - server:*
+      - arg: "--disable=traefik"
+        nodeFilters:
+          - server:*

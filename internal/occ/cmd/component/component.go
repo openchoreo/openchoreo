@@ -88,6 +88,12 @@ func (cp *Component) StartWorkflow(params StartWorkflowParams) error {
 		return fmt.Errorf("component %q has no workflow configured", params.ComponentName)
 	}
 
+	canonicalProject := comp.Spec.Owner.ProjectName
+	if params.Project != "" && params.Project != canonicalProject {
+		return fmt.Errorf("project %q does not match component %q owner project %q", params.Project, params.ComponentName, canonicalProject)
+	}
+	params.Project = canonicalProject
+
 	wfConfig := comp.Spec.Workflow
 	var baseParams map[string]interface{}
 	if wfConfig.Parameters != nil {

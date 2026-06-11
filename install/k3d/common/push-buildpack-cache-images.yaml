@@ -97,10 +97,13 @@ spec:
             echo ""
           }
 
-          push_image "docker.io/buildpacksio/lifecycle:0.20.5" "buildpacks-cache/lifecycle:0.20.5"
+          # docker.io/buildpacksio/lifecycle:0.20.5
+          push_image "docker.io/buildpacksio/lifecycle@sha256:3274fe28594f484240fc3f17e46b7b45e304830e544dcdd82ce19472d159ef71" "buildpacks-cache/lifecycle:0.20.5"
           push_image "gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1" "buildpacks-cache/google-builder:latest"
-          push_image "gcr.io/buildpacks/google-22/run:latest" "buildpacks-cache/google-run:latest"
-          push_image "ghcr.io/openchoreo/buildpack/ballerina:18" "buildpacks-cache/ballerina-builder:18"
-          push_image "ghcr.io/openchoreo/buildpack/ballerina:18-run" "buildpacks-cache/ballerina-run:18"
+          push_image "gcr.io/buildpacks/google-22/run@sha256:a8ccb6641b4d98b0adf6397f954e7194611d1ae61310f0561f1c00fdf7f9ba96" "buildpacks-cache/google-run:latest"
+          # ghcr.io/openchoreo/buildpack/ballerina:18
+          push_image "ghcr.io/openchoreo/buildpack/ballerina@sha256:bd85ed5b6573ba27294f456e22478a5b4d1c36a540526c35e822234aa69ee1bd" "buildpacks-cache/ballerina-builder:18"
+          # ghcr.io/openchoreo/buildpack/ballerina:18-run
+          push_image "ghcr.io/openchoreo/buildpack/ballerina@sha256:cae91b6892095e0215f22208799f432646d74ad0b05f9a764a532dbeccb9f94c" "buildpacks-cache/ballerina-run:18"
 
           echo "All buildpack images cached successfully"

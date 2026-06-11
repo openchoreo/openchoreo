@@ -11,6 +11,9 @@ observer:
   http:
     hostnames:
     - observer.e2e-op.local
+  cors:
+    allowedOrigins:
+    - "http://openchoreo.e2e-cp.local:28080"
   # In-cluster URL of the openchoreo-api service. Used by the observer's authz
   # client (`/api/v1/authz/evaluates`) and by the UID resolver. The chart
   # default (`http://api.openchoreo.localhost:8080`) is a single-cluster /etc/hosts

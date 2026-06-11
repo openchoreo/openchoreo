@@ -1,0 +1,36 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+#
+# ClusterDataPlane CR for the multi-cluster e2e setup.
+# Cluster-scoped; referenced by all per-suite Environment fixtures via
+# `clusterDataPlane: e2e-shared`. Applied to the CP cluster. The
+# clusterAgent.clientCA.value is injected at apply time by
+# e2e_register_plane_cross_cluster in make/e2e.mk.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterDataPlane
+metadata:
+  name: e2e-shared
+spec:
+  planeID: default
+  clusterAgent:
+    clientCA:
+      value: ""
+  secretStoreRef:
+    name: default
+  gateway:
+    ingress:
+      external:
+        name: gateway-default
+        namespace: openchoreo-data-plane
+        http:
+          port: 39080
+          host: e2e-mc-dp.local
+        https:
+          port: 39443
+          host: e2e-mc-dp.local
+      internal:
+        name: gateway-internal
+        namespace: openchoreo-data-plane
+        http:
+          port: 18080
+          host: e2e-mc-dp-internal.local

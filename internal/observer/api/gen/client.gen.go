@@ -89,6 +89,11 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// QueryEventsWithBody request with any body
+	QueryEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	QueryEvents(ctx context.Context, body QueryEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// QueryLogsWithBody request with any body
 	QueryLogsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -155,6 +160,30 @@ type ClientInterface interface {
 
 	// Health request
 	Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) QueryEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryEventsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryEvents(ctx context.Context, body QueryEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryEventsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) QueryLogsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -467,6 +496,46 @@ func (c *Client) Health(ctx context.Context, reqEditors ...RequestEditorFn) (*ht
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewQueryEventsRequest calls the generic QueryEvents builder with application/json body
+func NewQueryEventsRequest(server string, body QueryEventsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryEventsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewQueryEventsRequestWithBody generates requests for QueryEvents with any type of body
+func NewQueryEventsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/events/query")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
 }
 
 // NewQueryLogsRequest calls the generic QueryLogs builder with application/json body
@@ -1137,6 +1206,11 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// QueryEventsWithBodyWithResponse request with any body
+	QueryEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryEventsResp, error)
+
+	QueryEventsWithResponse(ctx context.Context, body QueryEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryEventsResp, error)
+
 	// QueryLogsWithBodyWithResponse request with any body
 	QueryLogsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryLogsResp, error)
 
@@ -1203,6 +1277,32 @@ type ClientWithResponsesInterface interface {
 
 	// HealthWithResponse request
 	HealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthResp, error)
+}
+
+type QueryEventsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EventsQueryResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryEventsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryEventsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type QueryLogsResp struct {
@@ -1591,6 +1691,23 @@ func (r HealthResp) StatusCode() int {
 	return 0
 }
 
+// QueryEventsWithBodyWithResponse request with arbitrary body returning *QueryEventsResp
+func (c *ClientWithResponses) QueryEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryEventsResp, error) {
+	rsp, err := c.QueryEventsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryEventsResp(rsp)
+}
+
+func (c *ClientWithResponses) QueryEventsWithResponse(ctx context.Context, body QueryEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryEventsResp, error) {
+	rsp, err := c.QueryEvents(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryEventsResp(rsp)
+}
+
 // QueryLogsWithBodyWithResponse request with arbitrary body returning *QueryLogsResp
 func (c *ClientWithResponses) QueryLogsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryLogsResp, error) {
 	rsp, err := c.QueryLogsWithBody(ctx, contentType, body, reqEditors...)
@@ -1812,6 +1929,60 @@ func (c *ClientWithResponses) HealthWithResponse(ctx context.Context, reqEditors
 		return nil, err
 	}
 	return ParseHealthResp(rsp)
+}
+
+// ParseQueryEventsResp parses an HTTP response from a QueryEventsWithResponse call
+func ParseQueryEventsResp(rsp *http.Response) (*QueryEventsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryEventsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EventsQueryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseQueryLogsResp parses an HTTP response from a QueryLogsWithResponse call

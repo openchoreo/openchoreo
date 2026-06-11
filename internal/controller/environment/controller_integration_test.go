@@ -569,9 +569,18 @@ var _ = Describe("Environment Controller", func() {
 				Expect(result.RequeueAfter).To(Equal(5 * time.Second))
 
 				By("verifying the release binding is being deleted")
+				// Eventually rather than a single Get+expect: on slow CI
+				// runners the envtest apiserver can race the test, returning
+				// the rb's pre-delete state in the ~ms after r.Delete()
+				// resolved. Matches the polling pattern used at the bottom
+				// of this Context (waiting for the rb to be gone).
 				rb := &openchoreov1alpha1.ReleaseBinding{}
-				Expect(k8sClient.Get(ctx, rbNN, rb)).To(Succeed())
-				Expect(rb.DeletionTimestamp).NotTo(BeNil())
+				Eventually(func() *metav1.Time {
+					if err := k8sClient.Get(ctx, rbNN, rb); err != nil {
+						return nil
+					}
+					return rb.DeletionTimestamp
+				}, "5s", "100ms").ShouldNot(BeNil())
 
 				By("verifying the ReleaseBindingsPending condition is set")
 				env := &openchoreov1alpha1.Environment{}
@@ -595,9 +604,18 @@ var _ = Describe("Environment Controller", func() {
 				Expect(result.RequeueAfter).To(Equal(5 * time.Second))
 
 				By("simulating ReleaseBinding controller: removing finalizer so deletion completes")
+				// Same race as the prior test in this Context — the
+				// controller's Delete just returned, but the apiserver may
+				// not have surfaced the DeletionTimestamp on a follow-up
+				// Get yet. Poll until it does, then proceed to strip the
+				// finalizer.
 				rb := &openchoreov1alpha1.ReleaseBinding{}
-				Expect(k8sClient.Get(ctx, rbNN, rb)).To(Succeed())
-				Expect(rb.DeletionTimestamp).NotTo(BeNil())
+				Eventually(func() *metav1.Time {
+					if err := k8sClient.Get(ctx, rbNN, rb); err != nil {
+						return nil
+					}
+					return rb.DeletionTimestamp
+				}, "5s", "100ms").ShouldNot(BeNil())
 				controllerutil.RemoveFinalizer(rb, "openchoreo.dev/releasebinding-cleanup")
 				Expect(k8sClient.Update(ctx, rb)).To(Succeed())
 				Eventually(func() bool {

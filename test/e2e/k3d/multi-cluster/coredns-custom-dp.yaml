@@ -1,0 +1,22 @@
+# CoreDNS custom config for the DP cluster in the multi-cluster e2e setup.
+# DP cluster pods (e.g., the obs-tester curl pod used for observer queries)
+# need to reach services in other clusters:
+#   - Thunder (CP cluster) to acquire observer bearer tokens
+#   - Observer API (OP cluster) to query logs/metrics/traces
+# Both are rewritten to host.k3d.internal so pods reach the correct
+# k3d load-balancer ports (38080 for CP, 31080 for OP).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+data:
+  e2e-mc.override: |
+    rewrite stop {
+      name regex (.+\.)?e2e-mc-cp\.local host.k3d.internal
+      answer auto
+    }
+    rewrite stop {
+      name regex (.+\.)?e2e-mc-op\.local host.k3d.internal
+      answer auto
+    }

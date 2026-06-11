@@ -556,15 +556,22 @@ func TestStartWorkflow_NoWorkflowConfigured(t *testing.T) {
 	assert.EqualError(t, err, `component "my-comp" has no workflow configured`)
 }
 
+func newComponentWithProject(name, project, wfName string) *gen.Component {
+	return &gen.Component{
+		Metadata: gen.ObjectMeta{Name: name},
+		Spec: &gen.ComponentSpec{
+			Owner: struct {
+				ProjectName string `json:"projectName"`
+			}{ProjectName: project},
+			Workflow: &gen.ComponentWorkflowConfig{Name: wfName},
+		},
+	}
+}
+
 func TestStartWorkflow_Success(t *testing.T) {
 	wfName := "my-workflow"
 	mc := mocks.NewMockInterface(t)
-	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(&gen.Component{
-		Metadata: gen.ObjectMeta{Name: "my-comp"},
-		Spec: &gen.ComponentSpec{
-			Workflow: &gen.ComponentWorkflowConfig{Name: wfName},
-		},
-	}, nil)
+	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(newComponentWithProject("my-comp", "my-project", wfName), nil)
 	mc.EXPECT().CreateWorkflowRun(mock.Anything, "ns", mock.Anything).Return(&gen.WorkflowRun{
 		Metadata: gen.ObjectMeta{Name: "run-1"},
 	}, nil)
@@ -578,6 +585,33 @@ func TestStartWorkflow_Success(t *testing.T) {
 		}))
 	})
 	assert.Contains(t, out, "run-1")
+}
+
+func TestStartWorkflow_ProjectMismatch(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(newComponentWithProject("my-comp", "real-project", "my-workflow"), nil)
+
+	cp := New(mc)
+	err := cp.StartWorkflow(StartWorkflowParams{Namespace: "ns", ComponentName: "my-comp", Project: "wrong-project"})
+	assert.EqualError(t, err, `project "wrong-project" does not match component "my-comp" owner project "real-project"`)
+}
+
+func TestStartWorkflow_ProjectDerivedFromComponent(t *testing.T) {
+	wfName := "my-workflow"
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetComponent(mock.Anything, "ns", "my-comp").Return(newComponentWithProject("my-comp", "real-project", wfName), nil)
+	mc.EXPECT().CreateWorkflowRun(mock.Anything, "ns", mock.MatchedBy(func(req gen.WorkflowRun) bool {
+		return req.Metadata.Labels != nil && (*req.Metadata.Labels)["openchoreo.dev/project"] == "real-project"
+	})).Return(&gen.WorkflowRun{Metadata: gen.ObjectMeta{Name: "run-2"}}, nil)
+
+	cp := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cp.StartWorkflow(StartWorkflowParams{
+			Namespace:     "ns",
+			ComponentName: "my-comp",
+		}))
+	})
+	assert.Contains(t, out, "run-2")
 }
 
 // --- ListWorkflowRuns tests ---

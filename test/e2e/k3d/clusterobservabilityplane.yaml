@@ -15,6 +15,7 @@ spec:
   clusterAgent:
     clientCA:
       value: ""
-  # In-cluster URL of the observer Service. Same service the e2e suites'
-  # framework helpers target via observer.openchoreo-observability-plane.svc.
-  observerURL: http://observer.openchoreo-observability-plane.svc.cluster.local:8080
+  # External URL of the observer Service — must be browser-accessible because
+  # Backstage returns this URL to the browser for direct observability calls.
+  # The Go e2e framework helpers bypass this CR and use in-cluster DNS directly.
+  observerURL: http://observer.e2e-op.local:21080

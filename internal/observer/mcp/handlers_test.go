@@ -309,3 +309,79 @@ func TestQueryIncidents(t *testing.T) {
 		assert.Contains(t, err.Error(), "invalid start_time")
 	})
 }
+
+func TestQueryComponentEvents(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("builds component scope and forwards to events service", func(t *testing.T) {
+		eventsSvc := mocks.NewMockEventsQuerier(t)
+		eventsSvc.EXPECT().
+			QueryEvents(mock.Anything, mock.MatchedBy(func(req *types.EventsQueryRequest) bool {
+				if req.SearchScope == nil || req.SearchScope.Component == nil {
+					return false
+				}
+				c := req.SearchScope.Component
+				return c.Namespace == testNamespace &&
+					c.Project == testProject &&
+					c.Component == testComponent &&
+					c.Environment == testEnvironment &&
+					req.StartTime == testStartTime &&
+					req.EndTime == testEndTime &&
+					req.Limit == 50 &&
+					req.SortOrder == sortOrderAsc
+			})).
+			Return(&types.EventsQueryResponse{}, nil)
+
+		h := newTestMCPHandler(t, withEventsService(eventsSvc))
+		_, err := h.QueryComponentEvents(ctx, testNamespace, testProject, testComponent, testEnvironment,
+			testStartTime, testEndTime, 50, sortOrderAsc)
+		require.NoError(t, err)
+	})
+
+	t.Run("zero limit and empty sort use defaults", func(t *testing.T) {
+		eventsSvc := mocks.NewMockEventsQuerier(t)
+		eventsSvc.EXPECT().
+			QueryEvents(mock.Anything, mock.MatchedBy(func(req *types.EventsQueryRequest) bool {
+				return req.Limit == 100 && req.SortOrder == sortOrderDesc
+			})).
+			Return(&types.EventsQueryResponse{}, nil)
+
+		h := newTestMCPHandler(t, withEventsService(eventsSvc))
+		_, err := h.QueryComponentEvents(ctx, testNamespace, "", "", "", testStartTime, testEndTime, 0, "")
+		require.NoError(t, err)
+	})
+
+	t.Run("events service error propagated", func(t *testing.T) {
+		eventsSvc := mocks.NewMockEventsQuerier(t)
+		eventsSvc.EXPECT().QueryEvents(mock.Anything, mock.Anything).Return(nil, errors.New("backend down"))
+
+		h := newTestMCPHandler(t, withEventsService(eventsSvc))
+		_, err := h.QueryComponentEvents(ctx, testNamespace, testProject, testComponent, testEnvironment,
+			testStartTime, testEndTime, 10, sortOrderDesc)
+		require.Error(t, err)
+	})
+}
+
+func TestQueryWorkflowEvents(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("builds workflow scope and forwards to events service", func(t *testing.T) {
+		eventsSvc := mocks.NewMockEventsQuerier(t)
+		eventsSvc.EXPECT().
+			QueryEvents(mock.Anything, mock.MatchedBy(func(req *types.EventsQueryRequest) bool {
+				if req.SearchScope == nil || req.SearchScope.Workflow == nil {
+					return false
+				}
+				w := req.SearchScope.Workflow
+				return w.Namespace == testNamespace &&
+					w.WorkflowRunName == "my-run" &&
+					req.Limit == 75 &&
+					req.SortOrder == sortOrderDesc
+			})).
+			Return(&types.EventsQueryResponse{}, nil)
+
+		h := newTestMCPHandler(t, withEventsService(eventsSvc))
+		_, err := h.QueryWorkflowEvents(ctx, testNamespace, "my-run", testStartTime, testEndTime, 75, sortOrderDesc)
+		require.NoError(t, err)
+	})
+}

@@ -60,7 +60,7 @@ var _ = Describe("GitOps with Flux", Ordered, Label("tier3"), func() {
 		_, _ = framework.Kubectl(kubeContext, "delete", "namespace", cpNs,
 			"--ignore-not-found", "--wait=false")
 		if dpNs != "" {
-			_, _ = framework.Kubectl(kubeContext, "delete", "namespace", dpNs,
+			_, _ = framework.Kubectl(dpCtx(), "delete", "namespace", dpNs,
 				"--ignore-not-found", "--wait=false")
 		}
 		_, _ = framework.Kubectl(kubeContext, "delete", "namespace", giteaNamespace,
@@ -94,13 +94,13 @@ var _ = Describe("GitOps with Flux", Ordered, Label("tier3"), func() {
 			By("discovering the data plane namespace")
 			Eventually(func() error {
 				var err error
-				dpNs, err = framework.GetDPNamespace(kubeContext, cpNs, projectName, envDev)
+				dpNs, err = framework.GetDPNamespace(dpCtx(), cpNs, projectName, envDev)
 				return err
 			}, 3*time.Minute, 5*time.Second).Should(Succeed())
 
 			By("pod is Running with the initial image")
 			Eventually(func(g Gomega) {
-				framework.AssertPodsRunning(g, kubeContext, dpNs,
+				framework.AssertPodsRunning(g, dpCtx(), dpNs,
 					"openchoreo.dev/component="+componentSingle)
 			}, 3*time.Minute, 5*time.Second).Should(Succeed())
 		})
@@ -117,7 +117,7 @@ var _ = Describe("GitOps with Flux", Ordered, Label("tier3"), func() {
 
 			By("rendered Deployment image updates to the new tag")
 			Eventually(func(g Gomega) {
-				out, err := framework.Kubectl(kubeContext,
+				out, err := framework.Kubectl(dpCtx(),
 					"get", "deployment",
 					"-n", dpNs,
 					"-l", "openchoreo.dev/component="+componentSingle,
@@ -130,7 +130,7 @@ var _ = Describe("GitOps with Flux", Ordered, Label("tier3"), func() {
 
 			By("pod is Running on the new image")
 			Eventually(func(g Gomega) {
-				framework.AssertPodsRunning(g, kubeContext, dpNs,
+				framework.AssertPodsRunning(g, dpCtx(), dpNs,
 					"openchoreo.dev/component="+componentSingle)
 			}, 3*time.Minute, 5*time.Second).Should(Succeed())
 		})
@@ -165,7 +165,7 @@ var _ = Describe("GitOps with Flux", Ordered, Label("tier3"), func() {
 			By("all 3 component pods are Running")
 			for _, c := range components {
 				Eventually(func(g Gomega) {
-					framework.AssertPodsRunning(g, kubeContext, dpNs,
+					framework.AssertPodsRunning(g, dpCtx(), dpNs,
 						"openchoreo.dev/component="+c)
 				}, 5*time.Minute, 5*time.Second).Should(Succeed(),
 					"pods for component %s never reached Running", c)

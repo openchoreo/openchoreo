@@ -94,7 +94,7 @@ get_component_config() {
         # Observability Plane
         "obs_controller_manager") echo "$OBSERVABILITY_NS:app.kubernetes.io/name=openchoreo-observability-plane,app.kubernetes.io/component=controller-manager" ;;
         "cluster_agent_op") echo "$OBSERVABILITY_NS:app.kubernetes.io/name=openchoreo-observability-plane,app.kubernetes.io/component=cluster-agent" ;;
-        "opensearch") echo "$OBSERVABILITY_NS:opster.io/opensearch-cluster=opensearch" ;;
+        "opensearch") echo "$OBSERVABILITY_NS:app.kubernetes.io/name=opensearch" ;;
         "observer") echo "$OBSERVABILITY_NS:app.kubernetes.io/name=openchoreo-observability-plane,app.kubernetes.io/component=observer" ;;
         *) echo "unknown:unknown" ;;
     esac

@@ -127,6 +127,7 @@ packages:
     interfaces:
       HealthChecker:
       LogsQuerier:
+      EventsQuerier:
       MetricsQuerier:
       TracesQuerier:
       AlertsQuerier:

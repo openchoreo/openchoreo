@@ -42,16 +42,32 @@ const (
 )
 
 // ObserverQueryFrom resolves a Running pod that has curl available and runs
-// observer queries through it. The pod must live in the cluster so it can
-// reach `observer.openchoreo-observability-plane.svc:8080` and acquire a
-// token from `thunder-service.thunder.svc:8090`. The Gitea pod used by the
-// build/gitops suites is a natural fit (it ships curl); suites that don't
-// install Gitea should call `framework.DeployCurlPod` to get one.
+// observer queries through it. The Gitea pod used by the build/gitops suites
+// is a natural fit (it ships curl); suites that don't install Gitea should
+// call `framework.DeployCurlPod` to get one.
+//
+// In a single-cluster setup the pod reaches Thunder and the observer via
+// in-cluster DNS. In a multi-cluster setup set ThunderTokenURL and ObserverURL
+// to the externally reachable URLs so the pod can cross cluster boundaries.
 type ObserverQueryFrom struct {
 	KubeContext string
 	Namespace   string
 	PodLabel    string // selector, e.g. "app=gitea"
 	Container   string // container name; "" picks the first
+
+	// ThunderTokenURL overrides the in-cluster Thunder token endpoint.
+	// Set this when the exec pod cannot reach thunder-service.thunder.svc
+	// via cluster DNS (e.g. multi-cluster e2e where Thunder is in a different
+	// k3d cluster). Empty falls back to the default in-cluster URL.
+	ThunderTokenURL string
+
+	// ObserverURL overrides the in-cluster observer service base URL.
+	// Set this when the exec pod cannot reach
+	// observer.openchoreo-observability-plane.svc via cluster DNS (e.g.
+	// multi-cluster e2e where the observer is in a different k3d cluster).
+	// Must not include a trailing slash. Empty falls back to the default
+	// in-cluster URL.
+	ObserverURL string
 }
 
 // LogsQueryRequest mirrors the observer's OpenAPI request body for
@@ -129,6 +145,10 @@ type MetricsQueryResponse map[string]any
 // each hammer the IdP. Tokens have a 1h validity in the e2e bootstrap, which
 // dwarfs a Ginkgo It-block.
 func AcquireObserverToken(q ObserverQueryFrom) (string, error) {
+	tokenURL := thunderTokenURLInCluster
+	if q.ThunderTokenURL != "" {
+		tokenURL = q.ThunderTokenURL
+	}
 	// service_mcp_client uses token_endpoint_auth_method=client_secret_basic
 	// so credentials go in the Authorization header, not the form body.
 	out, err := KubectlExecByLabel(q.KubeContext, q.Namespace, q.PodLabel, q.Container,
@@ -138,7 +158,7 @@ func AcquireObserverToken(q ObserverQueryFrom) (string, error) {
 		"-H", "Content-Type: application/x-www-form-urlencoded",
 		"-X", "POST",
 		"--data", "grant_type=client_credentials",
-		thunderTokenURLInCluster,
+		tokenURL,
 	)
 	if err != nil {
 		return "", fmt.Errorf("thunder token request failed: %w (body: %s)", err, out)
@@ -208,8 +228,12 @@ func observerPost(q ObserverQueryFrom, token, path string, payload any) (string,
 	if err != nil {
 		return "", fmt.Errorf("marshal payload: %w", err)
 	}
-	url := fmt.Sprintf("http://%s.%s.svc.cluster.local:%d%s",
-		ObserverService, ObserverNamespace, ObserverPort, path)
+	baseURL := fmt.Sprintf("http://%s.%s.svc.cluster.local:%d",
+		ObserverService, ObserverNamespace, ObserverPort)
+	if q.ObserverURL != "" {
+		baseURL = q.ObserverURL
+	}
+	url := baseURL + path
 	args := []string{
 		"-sS", "--fail-with-body",
 		"-m", fmt.Sprintf("%d", observerQueryHTTPTimeoutSc),

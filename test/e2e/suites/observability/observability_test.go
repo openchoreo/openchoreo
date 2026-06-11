@@ -61,18 +61,18 @@ var _ = Describe("Observability Signals", Ordered, Label("tier3"), func() {
 		By("discovering data plane namespace")
 		Eventually(func() error {
 			var derr error
-			dpNs, derr = framework.GetDPNamespace(kubeContext, cpNs, projectName, envDev)
+			dpNs, derr = framework.GetDPNamespace(dpCtx(), cpNs, projectName, envDev)
 			return derr
 		}, 3*time.Minute, 5*time.Second).Should(Succeed())
 		fmt.Fprintf(GinkgoWriter, "discovered dp namespace: %s\n", dpNs)
 
 		By("deploying tester pod")
-		out, err = framework.KubectlApplyLiteral(kubeContext, curlPodYAML(dpNs))
+		out, err = framework.KubectlApplyLiteral(dpCtx(), curlPodYAML(dpNs))
 		Expect(err).NotTo(HaveOccurred(), "create tester pod: %s", out)
 
 		By("waiting for tester pod to be Running")
 		Eventually(func(g Gomega) {
-			framework.AssertPodsRunning(g, kubeContext, dpNs, curlPodLabel)
+			framework.AssertPodsRunning(g, dpCtx(), dpNs, curlPodLabel)
 		}, 4*time.Minute, 3*time.Second).Should(Succeed())
 
 		By("waiting for greeter ReleaseBinding Ready")
@@ -83,7 +83,7 @@ var _ = Describe("Observability Signals", Ordered, Label("tier3"), func() {
 
 		By("waiting for greeter pod Running")
 		Eventually(func(g Gomega) {
-			framework.AssertPodsRunning(g, kubeContext, dpNs,
+			framework.AssertPodsRunning(g, dpCtx(), dpNs,
 				"openchoreo.dev/component="+componentGreeter)
 		}, 3*time.Minute, 3*time.Second).Should(Succeed())
 
@@ -94,14 +94,17 @@ var _ = Describe("Observability Signals", Ordered, Label("tier3"), func() {
 		}, 3*time.Minute, 3*time.Second).Should(Succeed())
 		fmt.Fprintf(GinkgoWriter, "greeter resolved at %s:%s\n", greeterHost, greeterPort)
 
-		// Pin the observer query helper to the tester pod. AcquireObserverToken
-		// runs inside this pod so the curl already has the right egress path
-		// to the in-cluster Thunder service.
+		// In multi-cluster mode the tester pod sits in the DP cluster and needs
+		// to reach Thunder (CP) and the observer (OP) via external hostnames
+		// resolved through the DP cluster's CoreDNS rewrites. In single-cluster
+		// mode the empty fields fall back to the in-cluster defaults.
 		observerQ = framework.ObserverQueryFrom{
-			KubeContext: kubeContext,
-			Namespace:   dpNs,
-			PodLabel:    curlPodLabel,
-			Container:   curlContainer,
+			KubeContext:     dpCtx(),
+			Namespace:       dpNs,
+			PodLabel:        curlPodLabel,
+			Container:       curlContainer,
+			ThunderTokenURL: mcThunderURL(),
+			ObserverURL:     mcObserverURL(),
 		}
 	})
 
@@ -114,7 +117,7 @@ var _ = Describe("Observability Signals", Ordered, Label("tier3"), func() {
 		_, _ = framework.Kubectl(kubeContext, "delete", "namespace", cpNs,
 			"--ignore-not-found", "--wait=false")
 		if dpNs != "" {
-			_, _ = framework.Kubectl(kubeContext, "delete", "namespace", dpNs,
+			_, _ = framework.Kubectl(dpCtx(), "delete", "namespace", dpNs,
 				"--ignore-not-found", "--wait=false")
 		}
 	})
@@ -246,12 +249,30 @@ var _ = Describe("Observability Signals", Ordered, Label("tier3"), func() {
 // tester pod into the greeter's project-visibility ClusterIP, so the
 // observability pipeline has something to ingest. The marker is folded
 // into the request URL's query string so it's searchable in logs.
+// mcThunderURL returns the external Thunder token URL for multi-cluster mode,
+// or empty string to fall back to the in-cluster default.
+func mcThunderURL() string {
+	if opKubeContext != "" {
+		return "http://thunder.e2e-mc-cp.local:38080/oauth2/token"
+	}
+	return ""
+}
+
+// mcObserverURL returns the external observer base URL for multi-cluster mode,
+// or empty string to fall back to the in-cluster default.
+func mcObserverURL() string {
+	if opKubeContext != "" {
+		return "http://observer.e2e-mc-op.local:31080"
+	}
+	return ""
+}
+
 func generateTrafficAndQuery(marker string) {
 	url := fmt.Sprintf("http://%s:%s/greeter/greet?marker=%s",
 		greeterHost, greeterPort, marker)
 	By(fmt.Sprintf("generating %ds of traffic at %d rps against %s", trafficDuration, trafficRPS, url))
 	out, err := framework.GenerateHTTPTraffic(
-		kubeContext, dpNs, curlPodLabel, curlContainer,
+		dpCtx(), dpNs, curlPodLabel, curlContainer,
 		url, marker, trafficRPS, trafficDuration,
 	)
 	if err != nil {

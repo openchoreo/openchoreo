@@ -259,6 +259,72 @@ func TestLogsScopeAuthz(t *testing.T) {
 	}
 }
 
+// ─────────────────────── EventsScopeAuthz ───────────────────────
+
+func TestEventsScopeAuthz(t *testing.T) {
+	tests := []struct {
+		name             string
+		req              *types.EventsQueryRequest
+		wantResourceType ResourceType
+		wantResourceName string
+		wantHierarchy    authzcore.ResourceHierarchy
+		wantErr          bool
+		wantErrMsg       string
+	}{
+		{
+			name:       "nil request returns error",
+			req:        nil,
+			wantErr:    true,
+			wantErrMsg: "request is required",
+		},
+		{
+			name:       "nil search scope returns error",
+			req:        &types.EventsQueryRequest{SearchScope: nil},
+			wantErr:    true,
+			wantErrMsg: "search scope is required",
+		},
+		{
+			name: "component scope with all fields returns component type",
+			req: &types.EventsQueryRequest{
+				SearchScope: &types.SearchScope{
+					Component: &types.ComponentSearchScope{
+						Namespace: "acme", Project: "payments", Component: "api",
+					},
+				},
+			},
+			wantResourceType: ResourceTypeComponent,
+			wantResourceName: "api",
+			wantHierarchy:    authzcore.ResourceHierarchy{Namespace: "acme", Project: "payments", Component: "api"},
+		},
+		{
+			name: "workflow scope with workflowRunName returns workflowRun type",
+			req: &types.EventsQueryRequest{
+				SearchScope: &types.SearchScope{
+					Workflow: &types.WorkflowSearchScope{Namespace: "acme", WorkflowRunName: "run-7"},
+				},
+			},
+			wantResourceType: ResourceTypeWorkflowRun,
+			wantResourceName: "run-7",
+			wantHierarchy:    authzcore.ResourceHierarchy{Namespace: "acme"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotType, gotName, gotHierarchy, err := EventsScopeAuthz(tt.req)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErrMsg)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantResourceType, gotType)
+			assert.Equal(t, tt.wantResourceName, gotName)
+			assert.Equal(t, tt.wantHierarchy, gotHierarchy)
+		})
+	}
+}
+
 // ─────────────────────── CheckAuthorization ───────────────────────
 
 func newSubjectContext() *auth.SubjectContext {

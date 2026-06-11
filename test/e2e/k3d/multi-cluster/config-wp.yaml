@@ -1,0 +1,30 @@
+# k3d cluster config for the Workflow Plane in the multi-cluster e2e setup.
+# Port prefix 30xxx / kubeAPI 36552 avoids collision with:
+#   single-cluster e2e  (20xxx / 26550)
+#   dev multi-cluster   (10xxx / 6552)
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: openchoreo-e2e-mc-wp
+image: rancher/k3s:v1.36.1-k3s1
+servers: 1
+agents: 0
+kubeAPI:
+  hostPort: "36552"
+ports:
+  # Container registry for storing built images
+  - port: 30082:10082
+    nodeFilters:
+      - loadbalancer
+options:
+  k3s:
+    extraArgs:
+      - arg: "--kubelet-arg=eviction-hard=imagefs.available<1%,nodefs.available<1%"
+        nodeFilters:
+          - server:*
+      - arg: "--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%"
+        nodeFilters:
+          - server:*
+      - arg: "--disable=traefik"
+        nodeFilters:
+          - server:*

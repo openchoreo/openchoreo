@@ -1,0 +1,50 @@
+# k3d cluster config for the Observability Plane in the multi-cluster e2e setup.
+# Port prefix 31xxx / kubeAPI 36553 avoids collision with:
+#   single-cluster e2e  (21xxx / 26550)
+#   dev multi-cluster   (11xxx / 6553)
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: openchoreo-e2e-mc-op
+image: rancher/k3s:v1.36.1-k3s1
+servers: 1
+agents: 0
+kubeAPI:
+  hostPort: "36553"
+ports:
+  # Observer API via kgateway HTTP
+  - port: 31080:11080
+    nodeFilters:
+      - loadbalancer
+  # kgateway HTTPS / OpenSearch TLS passthrough
+  - port: 31085:11085
+    nodeFilters:
+      - loadbalancer
+  # OpenSearch Dashboard
+  - port: 31081:5601
+    nodeFilters:
+      - loadbalancer
+  # OpenSearch API (Fluent Bit data ingestion from DP/WP)
+  - port: 31082:9200
+    nodeFilters:
+      - loadbalancer
+  # Prometheus remote-write from DP/WP
+  - port: 31084:9091
+    nodeFilters:
+      - loadbalancer
+  # OpenTelemetry Collector for traces from DP/WP
+  - port: 31086:4317
+    nodeFilters:
+      - loadbalancer
+options:
+  k3s:
+    extraArgs:
+      - arg: "--kubelet-arg=eviction-hard=imagefs.available<1%,nodefs.available<1%"
+        nodeFilters:
+          - server:*
+      - arg: "--kubelet-arg=eviction-minimum-reclaim=imagefs.available=1%,nodefs.available=1%"
+        nodeFilters:
+          - server:*
+      - arg: "--disable=traefik"
+        nodeFilters:
+          - server:*
