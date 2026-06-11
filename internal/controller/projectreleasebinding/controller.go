@@ -16,6 +16,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -196,7 +197,10 @@ func isTrue(c *metav1.Condition) bool {
 
 // SetupWithManager sets up the controller with the Manager. The binding
 // owns its emitted RenderedRelease so DP-side status updates re-enqueue the
-// binding for readiness aggregation.
+// binding for readiness aggregation. Watches on DataPlane / ClusterDataPlane
+// / Environment / Project recover the bootstrap-ordering case where a
+// binding settles into a "*NotFound" Synced=False state because one of
+// those upstream resources lands after the binding is created.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.Pipeline == nil {
 		r.Pipeline = projectpipeline.NewPipeline()
@@ -204,6 +208,14 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ProjectReleaseBinding{}).
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
+		Watches(&openchoreov1alpha1.DataPlane{},
+			handler.EnqueueRequestsFromMapFunc(r.listBindingsForDataPlane)).
+		Watches(&openchoreov1alpha1.ClusterDataPlane{},
+			handler.EnqueueRequestsFromMapFunc(r.listBindingsForClusterDataPlane)).
+		Watches(&openchoreov1alpha1.Environment{},
+			handler.EnqueueRequestsFromMapFunc(r.listBindingsForEnvironment)).
+		Watches(&openchoreov1alpha1.Project{},
+			handler.EnqueueRequestsFromMapFunc(r.listBindingsForProject)).
 		Named("projectreleasebinding").
 		Complete(r)
 }
