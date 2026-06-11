@@ -619,7 +619,7 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-op \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.4.1 \
+  --version 0.5.1 \
   --set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
   --set openSearchCluster.credentialsSecretName="opensearch-admin-credentials" \
   --set adapter.openSearchSecretName="opensearch-admin-credentials" \
@@ -635,7 +635,7 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-dp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.4.1 \
+  --version 0.5.1 \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
@@ -654,7 +654,7 @@ helm upgrade --install observability-logs-opensearch \
   --kube-context k3d-openchoreo-wp \
   --create-namespace \
   --namespace openchoreo-observability-plane \
-  --version 0.4.1 \
+  --version 0.5.1 \
   --set openSearch.enabled=false \
   --set openSearchCluster.enabled=false \
   --set openSearchSetup.enabled=false \
@@ -663,6 +663,94 @@ helm upgrade --install observability-logs-opensearch \
   --set fluent-bit.openSearchHost=host.k3d.internal \
   --set fluent-bit.openSearchPort=11085 \
   --set fluent-bit.openSearchVHost=opensearch.observability.openchoreo.localhost
+```
+
+Enable Kubernetes events collector in the data plane cluster:
+
+```bash
+helm upgrade --install observability-events-otel-collector \
+  oci://ghcr.io/openchoreo/helm-charts/observability-events-otel-collector \
+  --kube-context k3d-openchoreo-dp \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version 0.1.1 \
+  -f - <<'EOF'
+collector:
+  extraEnv:
+    - name: OPENSEARCH_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: opensearch-admin-credentials
+          key: username
+    - name: OPENSEARCH_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: opensearch-admin-credentials
+          key: password
+extraExtensions:
+  basicauth/opensearch:
+    client_auth:
+      username: ${env:OPENSEARCH_USERNAME}
+      password: ${env:OPENSEARCH_PASSWORD}
+exporters:
+  opensearch:
+    logs_index: "k8s-events"
+    logs_index_time_format: "yyyy-MM-dd"
+    http:
+      endpoint: "https://host.k3d.internal:11085"
+      tls:
+        insecure_skip_verify: true
+      headers:
+        Host: "opensearch.observability.openchoreo.localhost"
+      auth:
+        authenticator: basicauth/opensearch
+pipelineExporters:
+  - opensearch
+EOF
+```
+
+If the workflow plane is installed, enable events collector there too:
+
+```bash
+helm upgrade --install observability-events-otel-collector \
+  oci://ghcr.io/openchoreo/helm-charts/observability-events-otel-collector \
+  --kube-context k3d-openchoreo-wp \
+  --create-namespace \
+  --namespace openchoreo-observability-plane \
+  --version 0.1.1 \
+  -f - <<'EOF'
+collector:
+  extraEnv:
+    - name: OPENSEARCH_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: opensearch-admin-credentials
+          key: username
+    - name: OPENSEARCH_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: opensearch-admin-credentials
+          key: password
+extraExtensions:
+  basicauth/opensearch:
+    client_auth:
+      username: ${env:OPENSEARCH_USERNAME}
+      password: ${env:OPENSEARCH_PASSWORD}
+exporters:
+  opensearch:
+    logs_index: "k8s-events"
+    logs_index_time_format: "yyyy-MM-dd"
+    http:
+      endpoint: "https://host.k3d.internal:11085"
+      tls:
+        insecure_skip_verify: true
+      headers:
+        Host: "opensearch.observability.openchoreo.localhost"
+      auth:
+        authenticator: basicauth/opensearch
+pipelineExporters:
+  - opensearch
+EOF
 ```
 
 ##### Tracing (observability-tracing-opensearch)
