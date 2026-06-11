@@ -32,7 +32,7 @@ func (p *BitbucketProvider) GetBranchHead(ctx context.Context, repoURL, branch s
 		return "", err
 	}
 	if len(segments) < 2 {
-		return "", fmt.Errorf("repository URL %q does not contain workspace and repository name", repoURL)
+		return "", fmt.Errorf("repository URL %q does not contain workspace and repository name", SanitizeRepoURL(repoURL))
 	}
 
 	requestURL := fmt.Sprintf("%s/2.0/repositories/%s/%s/refs/branches/%s",
@@ -44,10 +44,10 @@ func (p *BitbucketProvider) GetBranchHead(ctx context.Context, repoURL, branch s
 		} `json:"target"`
 	}
 	if err := getJSON(ctx, p.httpClient, requestURL, &result); err != nil {
-		return "", fmt.Errorf("failed to get branch %q of %s from Bitbucket: %w", branch, repoURL, err)
+		return "", fmt.Errorf("failed to get branch %q of %s from Bitbucket: %w", branch, SanitizeRepoURL(repoURL), err)
 	}
 	if result.Target.Hash == "" {
-		return "", fmt.Errorf("bitbucket response for branch %q of %s has no commit SHA", branch, repoURL)
+		return "", fmt.Errorf("bitbucket response for branch %q of %s has no commit SHA", branch, SanitizeRepoURL(repoURL))
 	}
 	return result.Target.Hash, nil
 }

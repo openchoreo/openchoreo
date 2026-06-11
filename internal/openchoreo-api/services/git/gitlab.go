@@ -33,7 +33,7 @@ func (p *GitLabProvider) GetBranchHead(ctx context.Context, repoURL, branch stri
 		return "", err
 	}
 	if len(segments) < 2 {
-		return "", fmt.Errorf("repository URL %q does not contain a project path", repoURL)
+		return "", fmt.Errorf("repository URL %q does not contain a project path", SanitizeRepoURL(repoURL))
 	}
 
 	// GitLab identifies projects by their full URL-encoded path (supports nested groups).
@@ -47,10 +47,10 @@ func (p *GitLabProvider) GetBranchHead(ctx context.Context, repoURL, branch stri
 		} `json:"commit"`
 	}
 	if err := getJSON(ctx, p.httpClient, requestURL, &result); err != nil {
-		return "", fmt.Errorf("failed to get branch %q of %s from GitLab: %w", branch, repoURL, err)
+		return "", fmt.Errorf("failed to get branch %q of %s from GitLab: %w", branch, SanitizeRepoURL(repoURL), err)
 	}
 	if result.Commit.ID == "" {
-		return "", fmt.Errorf("GitLab response for branch %q of %s has no commit SHA", branch, repoURL)
+		return "", fmt.Errorf("GitLab response for branch %q of %s has no commit SHA", branch, SanitizeRepoURL(repoURL))
 	}
 	return result.Commit.ID, nil
 }

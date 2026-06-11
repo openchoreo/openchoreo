@@ -60,6 +60,21 @@ func ResolveBranchHead(ctx context.Context, repoURL, branch string) (string, err
 	return provider.GetBranchHead(ctx, repoURL, branch)
 }
 
+// SanitizeRepoURL strips any userinfo (credentials) from a repository URL so it is
+// safe to include in logs and error messages.
+func SanitizeRepoURL(repoURL string) string {
+	u, err := url.Parse(strings.TrimSpace(repoURL))
+	if err != nil || u.Host == "" {
+		// Not a parseable absolute URL (e.g. SSH form); strip anything before '@' defensively.
+		if i := strings.LastIndex(repoURL, "@"); i >= 0 {
+			return repoURL[i+1:]
+		}
+		return repoURL
+	}
+	u.User = nil
+	return u.String()
+}
+
 // parseRepoPath canonicalizes a repository URL (SSH form to HTTPS, trailing ".git"
 // removed, case preserved) and splits it into its host and non-empty path segments.
 func parseRepoPath(repoURL string) (string, []string, error) {

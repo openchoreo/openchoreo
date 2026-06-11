@@ -255,6 +255,48 @@ func TestBitbucketGetBranchHead(t *testing.T) {
 	})
 }
 
+func TestSanitizeRepoURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		repoURL string
+		want    string
+	}{
+		{
+			name:    "https without credentials unchanged",
+			repoURL: "https://github.com/owner/repo.git",
+			want:    "https://github.com/owner/repo.git",
+		},
+		{
+			name:    "strips userinfo token",
+			repoURL: "https://user:secret-token@github.com/owner/repo.git",
+			want:    "https://github.com/owner/repo.git",
+		},
+		{
+			name:    "strips bare username",
+			repoURL: "https://token@gitlab.com/group/repo",
+			want:    "https://gitlab.com/group/repo",
+		},
+		{
+			name:    "ssh form strips user",
+			repoURL: "git@github.com:owner/repo.git",
+			want:    "github.com:owner/repo.git",
+		},
+		{
+			name:    "plain string unchanged",
+			repoURL: "not-a-url",
+			want:    "not-a-url",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SanitizeRepoURL(tt.repoURL)
+			assert.Equal(t, tt.want, got)
+			assert.NotContains(t, got, "secret-token")
+		})
+	}
+}
+
 func TestResolveBranchHeadUnknownProvider(t *testing.T) {
 	_, err := ResolveBranchHead(context.Background(), "https://git.example.com/owner/repo", "main")
 	require.Error(t, err)

@@ -1006,20 +1006,21 @@ func (s *workflowRunService) resolveBranchHeadCommit(ctx context.Context, paramM
 		return ""
 	}
 
+	sanitizedRepo := git.SanitizeRepoURL(repoURL)
 	sha, err := s.resolveBranchHead(ctx, repoURL, branch)
 	if err != nil {
 		s.logger.Warn("Failed to resolve branch head commit; proceeding without commit pinning",
-			"component", componentName, "repository", repoURL, "branch", branch, "error", err)
+			"component", componentName, "repository", sanitizedRepo, "branch", branch, "error", err)
 		return ""
 	}
 	if !commitSHAPattern.MatchString(sha) {
 		s.logger.Warn("Resolved branch head commit has unexpected format; proceeding without commit pinning",
-			"component", componentName, "repository", repoURL, "branch", branch, "commit", sha)
+			"component", componentName, "repository", sanitizedRepo, "branch", branch, "commit", sha)
 		return ""
 	}
 
 	s.logger.Debug("Resolved branch head commit",
-		"component", componentName, "repository", repoURL, "branch", branch, "commit", sha)
+		"component", componentName, "repository", sanitizedRepo, "branch", branch, "commit", sha)
 	return sha
 }
 
