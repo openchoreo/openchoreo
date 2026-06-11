@@ -461,7 +461,7 @@ wheels = [
 
 [[package]]
 name = "langchain-core"
-version = "1.4.0"
+version = "1.4.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jsonpatch" },
@@ -474,9 +474,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "uuid-utils" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/59/de/679a53472c25860837e32c0442c962fa86e95317a36460e2c9d5c91b17c2/langchain_core-1.4.0.tar.gz", hash = "sha256:1dc341eed802ed9c117c0df3923c991e5e9e226571e5725c194eeb5bd93d1a7f", size = 920260, upload-time = "2026-05-11T18:42:35.919Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ed/46/3e5247fd68fcb68d7ad4f93133e1507ea47b918cdd5da26cc75513e4530c/langchain_core-1.4.5.tar.gz", hash = "sha256:1354ffa79988f0d90211236abf8d1403d3d8fc199774b82a0e4b7e400881cb38", size = 938856, upload-time = "2026-06-11T02:57:51.838Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0f/1a/86c38c27b81913a1c6c12448cab55defb5a1097c7dc9a4cea83f55477a2d/langchain_core-1.4.0-py3-none-any.whl", hash = "sha256:23cbbdb46e38ddd1dd5247e6167e96013eae74bea4c5949c550809970a9e565c", size = 548120, upload-time = "2026-05-11T18:42:33.992Z" },
+    { url = "https://files.pythonhosted.org/packages/10/44/8ada10e7af0002da860dcdfb26fae76de857e3a70a08b07f657cf2f2547e/langchain_core-1.4.5-py3-none-any.whl", hash = "sha256:c5a54efb4176d3c7550d331ed2cdf64355e880f94f564e0d06c8bcd9d0dda763", size = 552205, upload-time = "2026-06-11T02:57:50.384Z" },
 ]
 
 [[package]]
@@ -495,16 +495,16 @@ wheels = [
 
 [[package]]
 name = "langchain-openai"
-version = "1.2.2"
+version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "langchain-core" },
     { name = "openai" },
     { name = "tiktoken" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f7/1b/c506c7f41156d3a6b4582b4c487f480001b8741deecc6e2d4931fdf4cf2c/langchain_openai-1.2.2.tar.gz", hash = "sha256:8698ffcee9a086e91ab6d207f0026181a03effcbf86bf9aee1808ee35af69dcc", size = 1147539, upload-time = "2026-05-21T22:08:31.123Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/91/27d6d95c27518f53620b6b746240729d509c0ca7f35d1e40303f992f38bd/langchain_openai-1.3.0.tar.gz", hash = "sha256:a6aa48dc5a00249eb75a7bc15d3cb342ba2494e9c397faec0586e73cf090ecf2", size = 1159484, upload-time = "2026-06-09T20:40:26.293Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a6/8e/7406c99afacafc8c2ce0fa4152f9f8b9598c93ceb291959821abd053b982/langchain_openai-1.2.2-py3-none-any.whl", hash = "sha256:7da39a3c70cbafa93853456199e39a264dc70651be79b12ac49b4f6a448bce2d", size = 99631, upload-time = "2026-05-21T22:08:29.527Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/cd/8777c59b36861bbaa110c93032834e33fa7be527ac29f701bfedbe2e9633/langchain_openai-1.3.0-py3-none-any.whl", hash = "sha256:1d32326aea9b780c65698568ad253a82c4318b434112d05fb578aa20102c26e6", size = 99614, upload-time = "2026-06-09T20:40:25.084Z" },
 ]
 
 [[package]]
@@ -918,7 +918,7 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "langchain", specifier = ">=1.3.4" },
     { name = "langchain-mcp-adapters", specifier = ">=0.3.0" },
-    { name = "langchain-openai", specifier = ">=1.2.2" },
+    { name = "langchain-openai", specifier = ">=1.3.0" },
     { name = "mcp", specifier = ">=1.27.2" },
     { name = "numpy", specifier = ">=2.4.1" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.13.0" },
