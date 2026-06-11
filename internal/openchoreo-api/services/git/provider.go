@@ -4,6 +4,7 @@
 package git
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -14,6 +15,9 @@ type Provider interface {
 
 	// ParseWebhookPayload parses the webhook payload and extracts relevant information
 	ParseWebhookPayload(payload []byte) (*WebhookEvent, error)
+
+	// GetBranchHead returns the head commit SHA of the given branch via the provider API
+	GetBranchHead(ctx context.Context, repoURL, branch string) (string, error)
 }
 
 // WebhookEvent represents a normalized webhook event

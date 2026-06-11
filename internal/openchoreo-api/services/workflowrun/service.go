@@ -33,6 +33,7 @@ import (
 	ocLabels "github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 )
 
 // workflowRunService handles workflow run business logic without authorization checks.
@@ -41,6 +42,9 @@ type workflowRunService struct {
 	planeClientProvider kubernetesClient.WorkflowPlaneClientProvider
 	gwClient            *gatewayClient.Client
 	logger              *slog.Logger
+	// resolveBranchHead resolves the head commit SHA of a branch via the git
+	// provider API. Injectable for testing.
+	resolveBranchHead func(ctx context.Context, repoURL, branch string) (string, error)
 }
 
 var _ Service = (*workflowRunService)(nil)
@@ -50,6 +54,9 @@ var workflowRunTypeMeta = metav1.TypeMeta{
 	Kind:       "WorkflowRun",
 }
 
+// commitSHAPattern matches a full or abbreviated git commit SHA.
+var commitSHAPattern = regexp.MustCompile(`^[0-9a-fA-F]{7,40}$`)
+
 // NewService creates a new workflow run service without authorization.
 func NewService(k8sClient client.Client, planeClientProvider kubernetesClient.WorkflowPlaneClientProvider, gwClient *gatewayClient.Client, logger *slog.Logger) Service {
 	return &workflowRunService{
@@ -57,6 +64,7 @@ func NewService(k8sClient client.Client, planeClientProvider kubernetesClient.Wo
 		planeClientProvider: planeClientProvider,
 		gwClient:            gwClient,
 		logger:              logger,
+		resolveBranchHead:   git.ResolveBranchHead,
 	}
 }
 
@@ -891,9 +899,17 @@ func (s *workflowRunService) TriggerWorkflow(ctx context.Context, namespaceName,
 
 	// Validate commit SHA format if provided
 	if commit != "" {
-		commitPattern := regexp.MustCompile(`^[0-9a-fA-F]{7,40}$`)
-		if !commitPattern.MatchString(commit) {
+		if !commitSHAPattern.MatchString(commit) {
 			return nil, ErrInvalidCommitSHA
+		}
+	}
+
+	// When no explicit commit is given, resolve the current branch-head SHA so the
+	// run is pinned to the exact revision that will be built. Best-effort: if
+	// resolution fails, the run proceeds against the branch head as before.
+	if commit == "" {
+		if _, ok := paramMap["commit"]; ok {
+			commit = s.resolveBranchHeadCommit(ctx, paramMap, component.Spec.Workflow.Parameters, componentName)
 		}
 	}
 
@@ -965,6 +981,46 @@ func (s *workflowRunService) TriggerWorkflow(ctx context.Context, namespaceName,
 		Status:        workflowRunStatusPending,
 		CreatedAt:     workflowRun.CreationTimestamp.Time,
 	}, nil
+}
+
+// resolveBranchHeadCommit resolves the head commit SHA of the component's configured
+// branch via the git provider API. It returns an empty string when the repository
+// URL or branch is not mapped/configured or when resolution fails; failures are
+// logged but never block the trigger.
+func (s *workflowRunService) resolveBranchHeadCommit(ctx context.Context, paramMap map[string]string, params *runtime.RawExtension, componentName string) string {
+	urlPath, ok := paramMap["url"]
+	if !ok {
+		return ""
+	}
+	branchPath, ok := paramMap["branch"]
+	if !ok {
+		return ""
+	}
+
+	repoURL, err := getNestedStringInParams(params, urlPath)
+	if err != nil || repoURL == "" {
+		return ""
+	}
+	branch, err := getNestedStringInParams(params, branchPath)
+	if err != nil || branch == "" {
+		return ""
+	}
+
+	sha, err := s.resolveBranchHead(ctx, repoURL, branch)
+	if err != nil {
+		s.logger.Warn("Failed to resolve branch head commit; proceeding without commit pinning",
+			"component", componentName, "repository", repoURL, "branch", branch, "error", err)
+		return ""
+	}
+	if !commitSHAPattern.MatchString(sha) {
+		s.logger.Warn("Resolved branch head commit has unexpected format; proceeding without commit pinning",
+			"component", componentName, "repository", repoURL, "branch", branch, "commit", sha)
+		return ""
+	}
+
+	s.logger.Debug("Resolved branch head commit",
+		"component", componentName, "repository", repoURL, "branch", branch, "commit", sha)
+	return sha
 }
 
 // generateWorkflowRunName generates a unique name for the workflow run.

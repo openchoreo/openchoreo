@@ -4,17 +4,52 @@
 package git
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 )
 
 // BitbucketProvider implements the Provider interface for Bitbucket
 type BitbucketProvider struct {
+	apiBaseURL string
+	httpClient *http.Client
 }
 
 // NewBitbucketProvider creates a new Bitbucket provider
 func NewBitbucketProvider() *BitbucketProvider {
-	return &BitbucketProvider{}
+	return &BitbucketProvider{
+		apiBaseURL: bitbucketAPIBaseURL,
+		httpClient: newDefaultHTTPClient(),
+	}
+}
+
+// GetBranchHead returns the head commit SHA of the given branch via the Bitbucket API.
+func (p *BitbucketProvider) GetBranchHead(ctx context.Context, repoURL, branch string) (string, error) {
+	_, segments, err := parseRepoPath(repoURL)
+	if err != nil {
+		return "", err
+	}
+	if len(segments) < 2 {
+		return "", fmt.Errorf("repository URL %q does not contain workspace and repository name", repoURL)
+	}
+
+	requestURL := fmt.Sprintf("%s/2.0/repositories/%s/%s/refs/branches/%s",
+		p.apiBaseURL, segments[0], segments[1], url.PathEscape(branch))
+
+	var result struct {
+		Target struct {
+			Hash string `json:"hash"`
+		} `json:"target"`
+	}
+	if err := getJSON(ctx, p.httpClient, requestURL, &result); err != nil {
+		return "", fmt.Errorf("failed to get branch %q of %s from Bitbucket: %w", branch, repoURL, err)
+	}
+	if result.Target.Hash == "" {
+		return "", fmt.Errorf("bitbucket response for branch %q of %s has no commit SHA", branch, repoURL)
+	}
+	return result.Target.Hash, nil
 }
 
 // ValidateWebhookPayload validates the Bitbucket webhook.

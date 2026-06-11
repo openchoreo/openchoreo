@@ -4,18 +4,55 @@
 package git
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 )
 
 // GitLabProvider implements the Provider interface for GitLab
 type GitLabProvider struct {
+	apiBaseURL string
+	httpClient *http.Client
 }
 
 // NewGitLabProvider creates a new GitLab provider
 func NewGitLabProvider() *GitLabProvider {
-	return &GitLabProvider{}
+	return &GitLabProvider{
+		apiBaseURL: gitlabAPIBaseURL,
+		httpClient: newDefaultHTTPClient(),
+	}
+}
+
+// GetBranchHead returns the head commit SHA of the given branch via the GitLab API.
+func (p *GitLabProvider) GetBranchHead(ctx context.Context, repoURL, branch string) (string, error) {
+	_, segments, err := parseRepoPath(repoURL)
+	if err != nil {
+		return "", err
+	}
+	if len(segments) < 2 {
+		return "", fmt.Errorf("repository URL %q does not contain a project path", repoURL)
+	}
+
+	// GitLab identifies projects by their full URL-encoded path (supports nested groups).
+	projectPath := url.PathEscape(strings.Join(segments, "/"))
+	requestURL := fmt.Sprintf("%s/api/v4/projects/%s/repository/branches/%s",
+		p.apiBaseURL, projectPath, url.PathEscape(branch))
+
+	var result struct {
+		Commit struct {
+			ID string `json:"id"`
+		} `json:"commit"`
+	}
+	if err := getJSON(ctx, p.httpClient, requestURL, &result); err != nil {
+		return "", fmt.Errorf("failed to get branch %q of %s from GitLab: %w", branch, repoURL, err)
+	}
+	if result.Commit.ID == "" {
+		return "", fmt.Errorf("GitLab response for branch %q of %s has no commit SHA", branch, repoURL)
+	}
+	return result.Commit.ID, nil
 }
 
 // ValidateWebhookPayload validates the GitLab webhook token

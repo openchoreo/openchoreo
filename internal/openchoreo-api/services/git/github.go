@@ -4,21 +4,56 @@
 package git
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 )
 
 // GitHubProvider implements the Provider interface for GitHub
 type GitHubProvider struct {
+	apiBaseURL string
+	httpClient *http.Client
 }
 
 // NewGitHubProvider creates a new GitHub provider
 func NewGitHubProvider() *GitHubProvider {
-	return &GitHubProvider{}
+	return &GitHubProvider{
+		apiBaseURL: githubAPIBaseURL,
+		httpClient: newDefaultHTTPClient(),
+	}
+}
+
+// GetBranchHead returns the head commit SHA of the given branch via the GitHub API.
+func (p *GitHubProvider) GetBranchHead(ctx context.Context, repoURL, branch string) (string, error) {
+	_, segments, err := parseRepoPath(repoURL)
+	if err != nil {
+		return "", err
+	}
+	if len(segments) < 2 {
+		return "", fmt.Errorf("repository URL %q does not contain owner and repository name", repoURL)
+	}
+
+	requestURL := fmt.Sprintf("%s/repos/%s/%s/branches/%s",
+		p.apiBaseURL, segments[0], segments[1], url.PathEscape(branch))
+
+	var result struct {
+		Commit struct {
+			SHA string `json:"sha"`
+		} `json:"commit"`
+	}
+	if err := getJSON(ctx, p.httpClient, requestURL, &result); err != nil {
+		return "", fmt.Errorf("failed to get branch %q of %s from GitHub: %w", branch, repoURL, err)
+	}
+	if result.Commit.SHA == "" {
+		return "", fmt.Errorf("GitHub response for branch %q of %s has no commit SHA", branch, repoURL)
+	}
+	return result.Commit.SHA, nil
 }
 
 // ValidateWebhookPayload validates the GitHub webhook signature

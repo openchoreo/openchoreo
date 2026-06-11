@@ -1289,3 +1289,162 @@ func TestDeleteWorkflowRunVerifiesRemoval(t *testing.T) {
 		require.ErrorIs(t, err, ErrWorkflowRunNotFound)
 	})
 }
+
+func TestTriggerWorkflowBranchHeadResolution(t *testing.T) {
+	ctx := context.Background()
+
+	const (
+		testRepoURL     = "https://github.com/example/repo"
+		testBranch      = "main"
+		testResolvedSHA = "9be21eb1421e23cd1cb02d877f8d62a06fab7a76"
+	)
+
+	// buildSchema returns a workflow schema with url, branch and commit repository markers.
+	buildSchema := func() *runtime.RawExtension {
+		schema := map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"repoUrl": map[string]any{
+					"type": "string",
+					"x-openchoreo-component-parameter-repository-url": true,
+				},
+				"branch": map[string]any{
+					"type": "string",
+					"x-openchoreo-component-parameter-repository-branch": true,
+				},
+				"commit": map[string]any{
+					"type": "string",
+					"x-openchoreo-component-parameter-repository-commit": true,
+				},
+			},
+		}
+		b, _ := json.Marshal(schema)
+		return &runtime.RawExtension{Raw: b}
+	}
+
+	buildComponent := func() *openchoreov1alpha1.Component {
+		params, _ := json.Marshal(map[string]any{
+			"repoUrl": testRepoURL,
+			"branch":  testBranch,
+			"commit":  "",
+		})
+		comp := testutil.NewComponent(testNamespace, "proj", "my-comp")
+		comp.Spec.Workflow = &openchoreov1alpha1.ComponentWorkflowConfig{
+			Kind:       openchoreov1alpha1.WorkflowRefKindWorkflow,
+			Name:       testWorkflowName,
+			Parameters: &runtime.RawExtension{Raw: params},
+		}
+		return comp
+	}
+
+	newServiceWithResolver := func(t *testing.T, resolver func(ctx context.Context, repoURL, branch string) (string, error), objs ...client.Object) (*workflowRunService, client.Client) {
+		t.Helper()
+		fakeClient := testutil.NewFakeClient(objs...)
+		svc := NewService(fakeClient, nil, nil, testutil.TestLogger()).(*workflowRunService)
+		svc.resolveBranchHead = resolver
+		return svc, fakeClient
+	}
+
+	getCreatedRunCommit := func(t *testing.T, fakeClient client.Client) string {
+		t.Helper()
+		runs := &openchoreov1alpha1.WorkflowRunList{}
+		require.NoError(t, fakeClient.List(ctx, runs, client.InNamespace(testNamespace)))
+		require.Len(t, runs.Items, 1)
+		commit, err := getNestedStringInParams(runs.Items[0].Spec.Workflow.Parameters, "commit")
+		require.NoError(t, err)
+		return commit
+	}
+
+	t.Run("resolves branch head when commit is empty", func(t *testing.T) {
+		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
+		wf.Spec.Parameters = &openchoreov1alpha1.SchemaSection{OpenAPIV3Schema: buildSchema()}
+
+		var gotRepoURL, gotBranch string
+		svc, fakeClient := newServiceWithResolver(t, func(ctx context.Context, repoURL, branch string) (string, error) {
+			gotRepoURL, gotBranch = repoURL, branch
+			return testResolvedSHA, nil
+		}, wf, buildComponent())
+
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "")
+		require.NoError(t, err)
+		assert.Equal(t, testRepoURL, gotRepoURL)
+		assert.Equal(t, testBranch, gotBranch)
+		assert.Equal(t, testResolvedSHA, result.Commit)
+		assert.Equal(t, testResolvedSHA, getCreatedRunCommit(t, fakeClient))
+	})
+
+	t.Run("resolution failure does not block the trigger", func(t *testing.T) {
+		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
+		wf.Spec.Parameters = &openchoreov1alpha1.SchemaSection{OpenAPIV3Schema: buildSchema()}
+
+		svc, fakeClient := newServiceWithResolver(t, func(ctx context.Context, repoURL, branch string) (string, error) {
+			return "", assert.AnError
+		}, wf, buildComponent())
+
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "")
+		require.NoError(t, err)
+		assert.Empty(t, result.Commit)
+		assert.Empty(t, getCreatedRunCommit(t, fakeClient))
+	})
+
+	t.Run("explicit commit skips resolution", func(t *testing.T) {
+		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
+		wf.Spec.Parameters = &openchoreov1alpha1.SchemaSection{OpenAPIV3Schema: buildSchema()}
+
+		resolverCalled := false
+		svc, fakeClient := newServiceWithResolver(t, func(ctx context.Context, repoURL, branch string) (string, error) {
+			resolverCalled = true
+			return testResolvedSHA, nil
+		}, wf, buildComponent())
+
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "abc1234f")
+		require.NoError(t, err)
+		assert.False(t, resolverCalled)
+		assert.Equal(t, "abc1234f", result.Commit)
+		assert.Equal(t, "abc1234f", getCreatedRunCommit(t, fakeClient))
+	})
+
+	t.Run("missing branch marker skips resolution", func(t *testing.T) {
+		schema := map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"repoUrl": map[string]any{
+					"type": "string",
+					"x-openchoreo-component-parameter-repository-url": true,
+				},
+				"commit": map[string]any{
+					"type": "string",
+					"x-openchoreo-component-parameter-repository-commit": true,
+				},
+			},
+		}
+		b, _ := json.Marshal(schema)
+		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
+		wf.Spec.Parameters = &openchoreov1alpha1.SchemaSection{OpenAPIV3Schema: &runtime.RawExtension{Raw: b}}
+
+		resolverCalled := false
+		svc, _ := newServiceWithResolver(t, func(ctx context.Context, repoURL, branch string) (string, error) {
+			resolverCalled = true
+			return testResolvedSHA, nil
+		}, wf, buildComponent())
+
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "")
+		require.NoError(t, err)
+		assert.False(t, resolverCalled)
+		assert.Empty(t, result.Commit)
+	})
+
+	t.Run("resolved SHA with unexpected format is ignored", func(t *testing.T) {
+		wf := testutil.NewWorkflow(testNamespace, testWorkflowName)
+		wf.Spec.Parameters = &openchoreov1alpha1.SchemaSection{OpenAPIV3Schema: buildSchema()}
+
+		svc, fakeClient := newServiceWithResolver(t, func(ctx context.Context, repoURL, branch string) (string, error) {
+			return "not-a-sha!", nil
+		}, wf, buildComponent())
+
+		result, err := svc.TriggerWorkflow(ctx, testNamespace, "proj", "my-comp", "")
+		require.NoError(t, err)
+		assert.Empty(t, result.Commit)
+		assert.Empty(t, getCreatedRunCommit(t, fakeClient))
+	})
+}
