@@ -24,10 +24,10 @@ import (
 const DefaultMaxPodLogBytes = 10 * 1024 * 1024 // 10MB
 
 type Config struct {
-	BaseURL         string
-	TLS             TLSConfig
-	Timeout         time.Duration
-	MaxPodLogBytes  int64
+	BaseURL        string
+	TLS            TLSConfig
+	Timeout        time.Duration
+	MaxPodLogBytes int64
 }
 
 type TLSConfig struct {
@@ -160,29 +160,6 @@ func HandleGatewayError(logger interface{ Error(error, string, ...any) }, err er
 
 	logger.Error(err, fmt.Sprintf("Failed to notify gateway of %s", operation))
 	return false, ctrl.Result{}, nil
-}
-
-// NewClient creates a new gateway client with insecure TLS (for local development only)
-// For production use, use NewClientWithConfig with proper TLS configuration
-func NewClient(baseURL string) *Client {
-	// Skip TLS verification for local development
-	// In production, use NewClientWithConfig with proper CA certificates
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			// #nosec G402 -- InsecureSkipVerify is intentional for local development
-			// In production deployments, use NewClientWithConfig with proper CA certificates
-			InsecureSkipVerify: true,
-		},
-	}
-
-	return &Client{
-		baseURL: baseURL,
-		httpClient: &http.Client{
-			Timeout:   10 * time.Second,
-			Transport: transport,
-		},
-		maxPodLogBytes: DefaultMaxPodLogBytes,
-	}
 }
 
 // NewClientWithConfig creates a new gateway client with the provided configuration.
