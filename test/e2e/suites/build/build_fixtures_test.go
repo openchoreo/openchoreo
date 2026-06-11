@@ -49,11 +49,11 @@ const (
 	// clones it with a GitHub PAT supplied out-of-band (privateRepoPATEnv);
 	// the spec self-skips when that env var is empty.
 	privateRepoPATEnv     = "E2E_GITHUB_PAT"
-	privateRepoURL        = "https://github.com/chalindukodikara/sample-workloads-private"
+	privateRepoURL        = "https://github.com/openchoreo/sample-workloads-private-repo"
 	privateRepoAppPath    = "/service-go-greeter"
 	privateRepoDockerfile = "/service-go-greeter/Dockerfile"
 	privateRepoSecretRef  = "pvt-git-pat-ref"
-	privateRepoGitUser    = "chalindukodikara"
+	privateRepoGitUser    = "openchoreo"
 	// Key under the OpenBao KV v2 mount (`secret/`) that the rendered
 	// ExternalSecret reads the basic-auth username/password from.
 	privateRepoStoreKey = "github-private-repo-pat"
