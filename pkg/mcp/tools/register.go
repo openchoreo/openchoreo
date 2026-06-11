@@ -13,12 +13,13 @@ import (
 // with scope="cluster" (see scoped.go) and returns a deprecation warning.
 //
 // Visibility lifecycle:
-//   - v1.1 (current): listed in tools/list by default with a "[DEPRECATED ...]"
-//     description banner and a structured _meta marker so existing clients see a
-//     migration signal before the surface changes. Clients can opt out and
-//     preview the v1.2 surface with ?includeDeprecatedTools=false.
-//   - v1.2: hidden from the default tools/list response. Still callable; the
-//     description banner / _meta and the runtime deprecation_warning remain.
+//   - v1.1: listed in tools/list by default with a "[DEPRECATED ...]" description
+//     banner and a structured _meta marker so existing clients see a migration
+//     signal before the surface changes.
+//   - v1.2 (current): hidden from the default tools/list response. Still callable;
+//     the description banner / _meta and the runtime deprecation_warning remain.
+//     Clients that have not yet migrated can opt back in with
+//     ?includeDeprecatedTools=true to keep listing the aliases.
 //   - v1.3: removed entirely.
 var deprecatedToolNames = map[string]bool{
 	"list_cluster_component_types":               true,

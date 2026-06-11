@@ -29,11 +29,12 @@ const (
 	QueryParamFilterByAuthz = "filterByAuthz"
 	// QueryParamIncludeDeprecatedTools controls whether tools/list includes the
 	// deprecated cluster-prefixed compatibility-alias tools (e.g.
-	// ?includeDeprecatedTools=false). Defaults to true in v1.1: the aliases are
-	// listed with a description-level deprecation banner and a structured _meta
-	// marker so existing clients see a migration signal before they disappear.
-	// Set this to false to preview the v1.2 surface, where the aliases are
-	// hidden from tools/list but remain callable; in v1.3 they are removed.
+	// ?includeDeprecatedTools=true). Defaults to false as of v1.2: the aliases
+	// are hidden from tools/list but remain callable and still return a runtime
+	// deprecation warning. Clients that have not yet migrated can set this to
+	// true to keep listing the aliases — each carrying a description-level
+	// deprecation banner and a structured _meta marker — until they are removed
+	// in v1.3.
 	QueryParamIncludeDeprecatedTools = "includeDeprecatedTools"
 )
 
@@ -43,9 +44,8 @@ const (
 // happens via query parameters parsed from the initialize request:
 //   - ?toolsets=ns1,ns2              — only show tools from those toolsets in tools/list
 //   - ?filterByAuthz=false           — disable MCP-layer authz filtering for the session
-//   - ?includeDeprecatedTools=false  — hide the deprecated cluster-prefixed alias tools
-//     (they are listed by default in v1.1 with a deprecation banner, hidden in v1.2,
-//     and removed in v1.3)
+//   - ?includeDeprecatedTools=true   — list the deprecated cluster-prefixed alias tools
+//     (hidden by default as of v1.2; they remain callable and are removed in v1.3)
 //
 // When pdp is non-nil the server installs a receiving middleware that filters
 // tools/list results and guards tools/call invocations based on the
