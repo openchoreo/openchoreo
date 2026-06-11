@@ -1,0 +1,19 @@
+{{- if and .Values.backstage.enabled .Values.backstage.http.enabled .Values.gateway.enabled .Values.backstage.http.hostnames -}}
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: TrafficPolicy
+metadata:
+  name: {{ include "openchoreo-control-plane.backstage.name" . }}-wirelogs-timeout
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backstage
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ include "openchoreo-control-plane.backstage.name" . }}
+      sectionName: wirelogs
+  timeouts:
+    request: "0s"
+    streamIdle: "24h"
+{{- end }}
