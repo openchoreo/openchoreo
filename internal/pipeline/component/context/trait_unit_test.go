@@ -186,7 +186,7 @@ func TestBuildTraitContext_EmptyResolvedParamsAppliesDefaults(t *testing.T) {
 	assert.Equal(t, int64(3), ctx.Parameters["retries"])
 }
 
-func TestBuildTraitContext_PrunesAndDefaults(t *testing.T) {
+func TestBuildTraitContext_DefaultsAndExtra(t *testing.T) {
 	input := validTraitContextInput()
 	input.Trait.Spec.Parameters = openAPIV3Schema(objectSchema(map[string]any{
 		"name":    stringPropSchema(),
@@ -196,10 +196,11 @@ func TestBuildTraitContext_PrunesAndDefaults(t *testing.T) {
 		"replicas": integerPropSchema(1),
 	}))
 
-	// One valid key, one extra key to be pruned, timeout omitted so defaults apply
+	// One valid key, one extra key; timeout omitted so defaults apply. The schema allows
+	// additional properties, so the extra key flows through inertly (no longer pruned).
 	input.ResolvedParameters = map[string]any{
 		"name":     "my-app",
-		"extraKey": "should-be-pruned",
+		"extraKey": "kept-not-pruned",
 	}
 	// Empty so defaults are applied
 	input.ResolvedEnvironmentConfigs = map[string]any{}
@@ -208,8 +209,8 @@ func TestBuildTraitContext_PrunesAndDefaults(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ctx)
 
-	_, hasExtra := ctx.Parameters["extraKey"]
-	assert.False(t, hasExtra, "extraKey should have been pruned")
+	assert.Equal(t, "kept-not-pruned", ctx.Parameters["extraKey"],
+		"extra key is no longer pruned; it flows through since the schema allows additional properties")
 	assert.Equal(t, "my-app", ctx.Parameters["name"])
 	assert.Equal(t, "30s", ctx.Parameters["timeout"])
 	assert.Equal(t, int64(1), ctx.EnvironmentConfigs["replicas"])
