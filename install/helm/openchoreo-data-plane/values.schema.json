@@ -796,6 +796,35 @@
           "required": [],
           "title": "tls",
           "type": "object"
+        },
+        "tlsPassthrough": {
+          "additionalProperties": false,
+          "description": "TLS passthrough (SNI) configuration. Adds a Gateway listener (protocol TLS, mode Passthrough)\nthat routes encrypted traffic by SNI without terminating TLS; the workload terminates TLS itself.\nRequired by TLSRoute-based ComponentTypes such as the component-tls-service sample.",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable the TLS passthrough listener. When false, no passthrough listener is created.",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "hostname": {
+              "default": "*.openchoreoapis.invalid",
+              "description": "Hostname pattern for the TLS passthrough listener (SNI matching). When empty, the listener\nmatches all SNIs. Must encompass the TLSRoute hostnames (e.g. \"*.openchoreoapis.invalid\").\n",
+              "title": "hostname",
+              "type": "string"
+            },
+            "port": {
+              "default": 8443,
+              "description": "Port for the TLS passthrough listener. Must differ from httpsPort when the HTTPS (Terminate) listener is also enabled.",
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "port",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "tlsPassthrough",
+          "type": "object"
         }
       },
       "required": [],

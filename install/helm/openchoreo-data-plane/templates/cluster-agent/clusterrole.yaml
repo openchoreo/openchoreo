@@ -87,6 +87,7 @@ rules:
   - httproutes
   - tcproutes
   - grpcroutes
+  - tlsroutes
   - referencegrants
   verbs: ["*"]
 # External Secrets Operator

@@ -44,4 +44,17 @@ spec:
             {{- end }}
           {{- end }}
 {{- end }}
+{{- if .Values.gateway.tlsPassthrough.enabled }}
+    - name: tls-passthrough
+      protocol: TLS
+      port: {{ .Values.gateway.tlsPassthrough.port | default 8443 }}
+      {{- if .Values.gateway.tlsPassthrough.hostname }}
+      hostname: {{ .Values.gateway.tlsPassthrough.hostname | quote }}
+      {{- end }}
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Passthrough
+{{- end }}
 {{- end }}

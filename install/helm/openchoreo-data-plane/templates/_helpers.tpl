@@ -150,5 +150,11 @@ Validate that placeholder .invalid hostnames have been replaced with real domain
     {{- fail "gateway.tls.hostname contains placeholder domain (.invalid). Set a real domain." -}}
   {{- end -}}
 {{- end -}}
+{{- if .Values.gateway.tlsPassthrough.enabled -}}
+  {{- $tpHostname := .Values.gateway.tlsPassthrough.hostname | default "" -}}
+  {{- if contains ".invalid" $tpHostname -}}
+    {{- fail "gateway.tlsPassthrough.hostname contains placeholder domain (.invalid). Set a real domain." -}}
+  {{- end -}}
+{{- end -}}
 {{- end -}}
 
