@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -316,6 +318,154 @@ func TestProcessComponentParameters_PruneAndDefault(t *testing.T) {
 	// omitted fields should get schema defaults
 	assert.Equal(t, int64(1), ctx.Parameters["replicas"])
 	assert.Equal(t, "TCP", ctx.Parameters["protocol"])
+}
+
+// TestProcessComponentParameters_OneOfObjectVariantPreserved is a FAILING regression
+// test that reproduces a bug: values whose shape is declared only inside a
+// oneOf/anyOf/allOf branch are stripped by structural-schema pruning before rendering.
+//
+// The rendering pipeline runs prune -> default -> validate. Kubernetes structural-schema
+// pruning never descends into oneOf/anyOf/allOf, so for a CORS allowed-origin that is
+// either a plain string OR an object {regex: ...}, the object branch's "regex" is pruned.
+// The now-empty {} then fails validation against the still-intact oneOf, so the build is
+// rejected.
+//
+// Admission-side expression validation was already fixed in PR #3496; only the rendering
+// path still prunes. This test asserts the EXPECTED behavior (the object variant survives
+// with its regex) and therefore currently FAILS, demonstrating the bug.
+func TestProcessComponentParameters_OneOfObjectVariantPreserved(t *testing.T) {
+	// corsAllowedOrigins items are oneOf: a plain string, or an object with a "regex" field.
+	paramsSchema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"corsAllowedOrigins": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"oneOf": []any{
+						map[string]any{"type": "string"},
+						map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"regex": map[string]any{"type": "string"},
+							},
+							"required": []any{"regex"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	input := &ComponentContextInput{
+		Component: &v1alpha1.Component{
+			Spec: v1alpha1.ComponentSpec{
+				Parameters: rawParams(map[string]any{
+					"corsAllowedOrigins": []any{
+						"https://example.com",
+						map[string]any{"regex": ".*\\.example\\.com"},
+					},
+				}),
+			},
+		},
+		ComponentType: &v1alpha1.ComponentType{
+			Spec: v1alpha1.ComponentTypeSpec{
+				Parameters: openAPIV3Schema(paramsSchema),
+			},
+		},
+		DataPlane:   minimalDataPlane(),
+		Environment: minimalEnvironment(),
+		Metadata:    validMetadata(),
+	}
+
+	ctx, err := BuildComponentContext(input)
+
+	// EXPECTED: the user-supplied {regex: ...} entry is valid under the oneOf, so it must
+	// survive untouched and reach the template. This currently FAILS, demonstrating the
+	// bug: pruning strips "regex" before validation, leaving an empty {} that matches
+	// neither oneOf branch, and the build is rejected.
+	require.NoError(t, err, "valid oneOf object input must not be pruned/rejected before rendering")
+
+	origins, ok := ctx.Parameters["corsAllowedOrigins"].([]any)
+	require.True(t, ok, "corsAllowedOrigins should survive as an array")
+	require.Len(t, origins, 2)
+
+	// The string (scalar) variant is unaffected.
+	assert.Equal(t, "https://example.com", origins[0])
+
+	// The object variant's "regex" must be preserved.
+	objVariant, ok := origins[1].(map[string]any)
+	require.True(t, ok, "object variant should remain a map")
+	assert.Equal(t, ".*\\.example\\.com", objVariant["regex"],
+		"oneOf object-variant field 'regex' must be preserved through rendering")
+}
+
+// TestPrune_OneOfObjectVariantStripped isolates the structural-schema pruning step
+// (the same pruning.Prune call the rendering pipeline runs before defaulting and
+// validation) and pins down EXACTLY what it does to a oneOf value: the scalar
+// string variant survives untouched, while the object variant's inner "regex"
+// field — declared only inside the oneOf branch, never as a top-level property —
+// is stripped, leaving an empty {}.
+//
+// This is the root cause of TestProcessComponentParameters_OneOfObjectVariantPreserved:
+// because the pipeline validates AFTER this pruning, the empty {} then matches
+// neither oneOf branch and the build is rejected. Unlike that end-to-end test, this
+// one PASSES — it asserts the (buggy) current pruning behavior so the mechanism is
+// documented and the assumption is regression-protected.
+func TestPrune_OneOfObjectVariantStripped(t *testing.T) {
+	// Same schema as the end-to-end test: corsAllowedOrigins items are
+	// oneOf: a plain string, or an object with a "regex" field.
+	paramsSchema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"corsAllowedOrigins": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"oneOf": []any{
+						map[string]any{"type": "string"},
+						map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"regex": map[string]any{"type": "string"},
+							},
+							"required": []any{"regex"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	paramBundle, _, err := BuildStructuralSchemas(&SchemaInput{
+		ParametersSchema: openAPIV3Schema(paramsSchema),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, paramBundle)
+	require.NotNil(t, paramBundle.Structural)
+
+	// The user-supplied value: a string variant and an object variant.
+	out := map[string]any{
+		"corsAllowedOrigins": []any{
+			"https://example.com",
+			map[string]any{"regex": ".*\\.example\\.com"},
+		},
+	}
+
+	// Run the exact pruning step the rendering pipeline runs.
+	pruning.Prune(out, paramBundle.Structural, false)
+
+	// The scalar string variant survives untouched (no properties to prune), while
+	// the object variant's "regex" — declared only inside the oneOf branch, which
+	// structural-schema pruning never descends into — is stripped, leaving {}.
+	// That empty object is the corruption the pipeline later rejects.
+	want := map[string]any{
+		"corsAllowedOrigins": []any{
+			"https://example.com",
+			map[string]any{}, // regex pruned away
+		},
+	}
+	if diff := cmp.Diff(want, out); diff != "" {
+		t.Errorf("pruned value mismatch (-want +got):\n%s", diff)
+	}
 }
 
 // --- extractDataPlaneData tests ---
