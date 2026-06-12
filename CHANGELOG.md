@@ -2,6 +2,58 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.2.0-m.1
+
+Changes since [v1.1.1](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.1).
+
+### Features
+
+- **(Portal Assistant)** Build and runtime log issues now include a copy-paste fix prompt for a local coding agent to investigate and resolve the problem, alongside the diagnosis. ([#3763](https://github.com/openchoreo/openchoreo/pull/3763))
+- **(Observability)** Kubernetes events querying support in the Observer API (service, endpoint, client, authz, and permissions). ([#3738](https://github.com/openchoreo/openchoreo/pull/3738))
+- **(Observability)** Kubernetes events collection in the observability plane via an OpenTelemetry collector exporting to OpenSearch. ([#3781](https://github.com/openchoreo/openchoreo/pull/3781))
+- **(Backstage UI)** Component events view and observability hooks for querying Kubernetes events. ([#617](https://github.com/openchoreo/backstage-plugins/pull/617))
+- **(Backstage UI)** Workflow run events for past runs sourced from the Observer API. ([#626](https://github.com/openchoreo/backstage-plugins/pull/626))
+- **(Backstage UI)** Wirelogs view for Cilium Hubble L7/L3-4 network flow logs, with a dedicated permission and route. ([#604](https://github.com/openchoreo/backstage-plugins/pull/604))
+- **(Build)** Build layer/mirror cache to reuse intermediate layers across build runs. ([#3675](https://github.com/openchoreo/openchoreo/pull/3675))
+- **(Modules)** GitHub Actions external CI integration for Backstage (Helm wiring and docs). ([#3641](https://github.com/openchoreo/openchoreo/pull/3641))
+- **(Authz)** `resource.componentType`, `resource.resourceType`, and `resource.workflow` ABAC condition attributes added to role bindings. ([#3569](https://github.com/openchoreo/openchoreo/issues/3569))
+- **(Backstage UI)** `resource.componentType` ABAC condition enforced in component create and update UIs. ([#603](https://github.com/openchoreo/backstage-plugins/pull/603), [#607](https://github.com/openchoreo/backstage-plugins/pull/607))
+- **(Backstage UI)** `resource.resourceType` ABAC condition enforced in resource create and update UIs. ([#609](https://github.com/openchoreo/backstage-plugins/pull/609), [#613](https://github.com/openchoreo/backstage-plugins/pull/613))
+- **(CRD)** `workload.toEndpointResources()` CEL macro to parse endpoint schemas (OpenAPI, gRPC, AsyncAPI, GraphQL) and expose extracted resources to ComponentType templates for exact-match routes. ([#3671](https://github.com/openchoreo/openchoreo/pull/3671))
+- **(Backstage UI)** Streaming support for the Portal Assistant responses. ([#576](https://github.com/openchoreo/backstage-plugins/pull/576))
+
+### Enhancements
+
+- **(Authz)** Secret CRUD permission added to the default Platform Engineer role. ([#3741](https://github.com/openchoreo/openchoreo/pull/3741))
+- **(Controller)** Data plane annotations exposed to the render context. ([#3754](https://github.com/openchoreo/openchoreo/pull/3754))
+- **(Build)** Builder, run, and lifecycle images pinned by digest, with digests added to build and registry caches. ([#3771](https://github.com/openchoreo/openchoreo/pull/3771), [#3774](https://github.com/openchoreo/openchoreo/pull/3774))
+- **(API)** Pod logs maximum size is now configurable (previously hardcoded to 10MB). ([#3078](https://github.com/openchoreo/openchoreo/pull/3078))
+- **(Helm)** Timeout policy added to the Backstage wirelogs streaming route for long-lived connections. ([#3800](https://github.com/openchoreo/openchoreo/pull/3800))
+- **(Backstage UI)** Reworked setup-card auto-deploy UX with a searchable release dropdown and Release Browser pivot. ([#591](https://github.com/openchoreo/backstage-plugins/pull/591))
+- **(Backstage UI)** Deploy graph auto-selects a sensible default card on load. ([#611](https://github.com/openchoreo/backstage-plugins/pull/611))
+- **(Backstage UI)** Backstage portal upgraded to v1.51.0. ([#614](https://github.com/openchoreo/backstage-plugins/pull/614))
+- **(Samples)** GCP microservices demo Redis migrated from a Component to a managed Resource. ([#3623](https://github.com/openchoreo/openchoreo/pull/3623))
+
+### Bug Fixes
+
+- **(Helm)** Webhook race condition on first install resolved. ([#3606](https://github.com/openchoreo/openchoreo/pull/3606))
+- **(Helm)** Webhook downtime during controller-manager rolling upgrades prevented. ([#3743](https://github.com/openchoreo/openchoreo/pull/3743))
+- **(Helm)** Control-plane PDB selectors aligned with pod labels. ([#3449](https://github.com/openchoreo/openchoreo/pull/3449))
+- **(Helm)** PDB, NetworkPolicy, and ServiceMonitor selectors aligned with workload pod labels. ([#3385](https://github.com/openchoreo/openchoreo/pull/3385))
+- **(Helm)** `Deployment.spec.replicas` no longer rendered when HPA is enabled. ([#3281](https://github.com/openchoreo/openchoreo/pull/3281))
+- **(Helm)** Cluster-gateway replica count restricted to 1 until multi-replica HA is supported. ([#3761](https://github.com/openchoreo/openchoreo/pull/3761))
+- **(Cluster Agent)** `Authorization` header sanitized before routing to the Kubernetes API. ([#3703](https://github.com/openchoreo/openchoreo/pull/3703))
+- **(CLI)** `--project` validated against the component owner in workflow run. ([#3740](https://github.com/openchoreo/openchoreo/pull/3740))
+- **(Scripts)** OpenSearch pod selector corrected in `check-status.sh`. ([#3745](https://github.com/openchoreo/openchoreo/pull/3745))
+- **(Backstage UI)** Workflow and workflow-run listings now fetch all pages instead of capping at the first page. ([#623](https://github.com/openchoreo/backstage-plugins/pull/623), [#624](https://github.com/openchoreo/backstage-plugins/pull/624))
+- **(Backstage UI)** Scaffolder `component:create` input fields declared for the Backstage v4 schema, with stale Build & Deploy data cleared on source switch. ([#618](https://github.com/openchoreo/backstage-plugins/pull/618), [#619](https://github.com/openchoreo/backstage-plugins/pull/619), [#628](https://github.com/openchoreo/backstage-plugins/pull/628))
+- **(Backstage UI)** Token acquisition failures surfaced in direct mode instead of a silent 401. ([#627](https://github.com/openchoreo/backstage-plugins/pull/627))
+- **(Backstage UI)** Condition action selector filtered to compatible actions only. ([#615](https://github.com/openchoreo/backstage-plugins/pull/615))
+
+### Deprecation Notice
+
+- Deprecated cluster-prefixed MCP tools are now hidden by default (`includeDeprecatedTools=false`); they remain callable and are scheduled for removal in v1.3. ([#3804](https://github.com/openchoreo/openchoreo/pull/3804))
+
 ## v1.1.0
 
 Changes since [v1.1.0-alpha-1](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.0-alpha-1).
