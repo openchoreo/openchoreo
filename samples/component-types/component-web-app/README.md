@@ -59,7 +59,7 @@ The controller reads these resources and generates the Kubernetes resources (Dep
 Apply the sample:
 
 ```bash
-kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-web-app/webapp-component.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/release-v1.2.0-m.1/samples/component-types/component-web-app/webapp-component.yaml
 ```
 
 ## Check the ReleaseBinding status
@@ -82,7 +82,7 @@ Open your web browser and go to http://http-demo-app-web--development-default-ee
 Remove all resources:
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-web-app/webapp-component.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/release-v1.2.0-m.1/samples/component-types/component-web-app/webapp-component.yaml
 ```
 
 ## Troubleshooting

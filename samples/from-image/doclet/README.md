@@ -65,18 +65,18 @@ EOF
 ## Step 2: Deploy
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/doclet/project.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-image/doclet/project.yaml
 
 kubectl apply \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/doclet/resources/postgres.yaml \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/doclet/resources/nats.yaml \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/doclet/components/service-document.yaml \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/doclet/components/service-collab.yaml \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/doclet/components/frontend.yaml
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-image/doclet/resources/postgres.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-image/doclet/resources/nats.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-image/doclet/components/service-document.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-image/doclet/components/service-collab.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-image/doclet/components/frontend.yaml
 
 kubectl apply \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/doclet/bindings/development/postgres.yaml \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/doclet/bindings/development/nats.yaml
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-image/doclet/bindings/development/postgres.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-image/doclet/bindings/development/nats.yaml
 ```
 
 Components have `autoDeploy: true` and create their `ReleaseBinding`s automatically. The `ResourceReleaseBinding`s under `bindings/development/` are applied with `spec.resourceRelease` intentionally unset — they will stay pending until promoted in the next step.
@@ -162,7 +162,7 @@ The Postgres outputs are atomic (one env var per output). The NATS `url` is a co
 ## Cleanup
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/doclet/project.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-image/doclet/project.yaml
 ```
 
 Deleting the Project cascades through Components, Resources, and bindings. Postgres and NATS use `retainPolicy: Delete` (the CRT default), so DP-side state is removed along with the bindings.

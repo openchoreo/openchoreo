@@ -34,22 +34,22 @@ notification channel to satisfy its CEL validation. Apply both before the
 components:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/component-alerts/alert-rule-trait.yaml
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/component-alerts/alert-notification-channels.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/component-alerts/alert-rule-trait.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/component-alerts/alert-notification-channels.yaml
 ```
 
 Then apply the project and components directly from GitHub (no checkout
 required):
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/latency-lab/project.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-source/projects/latency-lab/project.yaml
 kubectl apply \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/latency-lab/components/postgres.yaml \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/latency-lab/components/redis.yaml \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/latency-lab/components/auth-service.yaml \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/latency-lab/components/api-service.yaml \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/latency-lab/components/analytics-service.yaml \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/latency-lab/components/frontend.yaml
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-source/projects/latency-lab/components/postgres.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-source/projects/latency-lab/components/redis.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-source/projects/latency-lab/components/auth-service.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-source/projects/latency-lab/components/api-service.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-source/projects/latency-lab/components/analytics-service.yaml \
+  -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-source/projects/latency-lab/components/frontend.yaml
 ```
 
 > `api-service-broken.yaml` is intentionally left out of the initial apply — it
@@ -69,12 +69,12 @@ fails at `go build`. Apply it on its own to demo how OpenChoreo surfaces
 build failures:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/latency-lab/components/api-service-broken.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-source/projects/latency-lab/components/api-service-broken.yaml
 kubectl get workflowrun lab-api-service-broken-build-01 -o yaml
 ```
 
 ## Cleanup
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/projects/latency-lab/project.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-m.1/samples/from-source/projects/latency-lab/project.yaml
 ```

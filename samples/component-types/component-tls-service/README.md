@@ -42,7 +42,7 @@ The OpenChoreo controller manager renders the templates into a `Deployment`, `Se
 ## Deploy the sample
 
 ```bash
-kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-tls-service/tls-service-component.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/release-v1.2.0-m.1/samples/component-types/component-tls-service/tls-service-component.yaml
 ```
 
 ## Check the ReleaseBinding status
@@ -130,7 +130,7 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
 ## Cleanup
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-tls-service/tls-service-component.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/release-v1.2.0-m.1/samples/component-types/component-tls-service/tls-service-component.yaml
 ```
 
 ## Troubleshooting
