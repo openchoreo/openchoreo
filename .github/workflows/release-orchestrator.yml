@@ -311,19 +311,22 @@ jobs:
   # Resolve target: pin the exact commit to gate and tag, then wait for
   # build-and-test at that commit so the e2e gate can consume the
   # sha-tagged images and Helm charts its publish job pushes.
+  # Runs for branch too, so creating a release branch gates the new tip.
   # always() allows this to run even when branch is skipped (action=tag
   # or branch already exists). !failure() prevents running after errors.
   # ----------------------------------------------------------------
   resolve-target:
     needs: [validate, branch]
-    if: ${{ always() && !failure() && !cancelled() && (github.event.inputs.action == 'full' || github.event.inputs.action == 'tag') }}
+    if: ${{ always() && !failure() && !cancelled() && (github.event.inputs.action == 'full' || github.event.inputs.action == 'tag' || github.event.inputs.action == 'branch') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       actions: read
+      statuses: read
     outputs:
       target: ${{ steps.resolve-target.outputs.target }}
       helm-chart-version: ${{ steps.resolve-target.outputs.helm-chart-version }}
+      e2e-already-passed: ${{ steps.e2e-status.outputs.e2e-already-passed }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -399,15 +402,43 @@ jobs:
           echo "::error::build-and-test for ${SHORT_SHA} not completed after 30 minutes."
           exit 1
 
+      - name: Check for a prior passing e2e gate at target
+        id: e2e-status
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET="${{ steps.resolve-target.outputs.target }}"
+          # The tag run reuses a green gate when the commit is unchanged since
+          # branching: record-e2e stamps the gated commit with a
+          # release-e2e-gate commit status, which we look up here. The combined
+          # status endpoint returns the latest status per context, so this is
+          # deterministic regardless of how many other statuses the commit has.
+          # Fall back to "none" on any gh api error so a transient lookup
+          # failure runs the gate (safe default) instead of aborting the release.
+          if ! STATE=$(gh api "repos/${{ github.repository }}/commits/${TARGET}/status" \
+            --jq '.statuses | map(select(.context == "release-e2e-gate"))[0].state // "none"'); then
+            echo "::warning::Failed to query commit status for ${TARGET}; assuming no prior e2e gate."
+            STATE="none"
+          fi
+          if [ "$STATE" = "success" ]; then
+            echo "e2e gate already passed at ${TARGET}; it will be reused."
+            echo "e2e-already-passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "No passing e2e gate at ${TARGET} (state: ${STATE}); the gate will run."
+            echo "e2e-already-passed=false" >> $GITHUB_OUTPUT
+          fi
+
   # ----------------------------------------------------------------
   # E2E gate: All e2e suits plus the Playwright UI suite must pass
-  # at the exact commit being released before the tag is created. Legs run
-  # in parallel, one k3d cluster each. skip_e2e bypasses the gate for
-  # declared emergencies only.
+  # at the exact commit being released before the tag is created. Also
+  # runs on branch creation so the new release tip is gated up front.
+  # Legs run in parallel, one k3d cluster each. Skipped when the target
+  # commit already has a passing gate (reused via record-e2e), and
+  # skip_e2e bypasses the gate for declared emergencies only.
   # ----------------------------------------------------------------
   e2e:
     needs: [validate, resolve-target]
-    if: ${{ always() && !failure() && !cancelled() && (github.event.inputs.action == 'full' || github.event.inputs.action == 'tag') && !inputs.skip_e2e }}
+    if: ${{ always() && !failure() && !cancelled() && (github.event.inputs.action == 'full' || github.event.inputs.action == 'tag' || github.event.inputs.action == 'branch') && !inputs.skip_e2e && needs.resolve-target.outputs.e2e-already-passed != 'true' }}
     permissions:
       contents: read
     uses: ./.github/workflows/e2e-gate.yml
@@ -416,10 +447,47 @@ jobs:
       helm_chart_version: ${{ needs.resolve-target.outputs.helm-chart-version }}
 
   # ----------------------------------------------------------------
+  # Record e2e pass: stamp the gated commit with a release-e2e-gate
+  # commit status so a later tag run at the same commit reuses the green
+  # gate (see resolve-target) instead of re-running the full suite.
+  # Side-effect only — tag does not depend on it, so a recording hiccup
+  # never blocks a release whose e2e already passed.
+  # ----------------------------------------------------------------
+  record-e2e:
+    needs: [validate, resolve-target, e2e]
+    if: ${{ needs.e2e.result == 'success' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      statuses: write
+    steps:
+      - name: Record passing e2e gate on target commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET="${{ needs.resolve-target.outputs.target }}"
+          # Recording is a side-effect for future reuse; a failure must not fail
+          # the release. Retry a few times, then warn and succeed if it never lands.
+          for attempt in 1 2 3; do
+            if gh api --method POST "repos/${{ github.repository }}/statuses/${TARGET}" \
+              -f state=success \
+              -f context=release-e2e-gate \
+              -f description="Release e2e gate passed" >/dev/null; then
+              echo "Recorded release-e2e-gate=success on ${TARGET}"
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Attempt ${attempt}/3 to record the e2e gate status failed; retrying in $((attempt * 5))s..."
+              sleep $((attempt * 5))
+            fi
+          done
+          echo "::warning::Could not record release-e2e-gate status on ${TARGET} after 3 attempts; a later tag run at this commit will re-run the gate instead of reusing it."
+
+  # ----------------------------------------------------------------
   # Tag: create and push the annotated release tag at the gated commit.
   # always() allows this to run even when branch is skipped (action=tag
-  # or branch already exists) or e2e is skipped (skip_e2e). !failure()
-  # prevents tagging after errors, including any failed e2e leg.
+  # or branch already exists) or e2e is skipped (skip_e2e, or a gate
+  # reused from branch creation at the same commit). !failure() prevents
+  # tagging after errors, including any failed e2e leg.
   # ----------------------------------------------------------------
   tag:
     needs: [validate, branch, resolve-target, e2e]

@@ -19,25 +19,39 @@ Every release — a minor release cut from `main` or a patch release cut from a
 `release-vX.Y` branch (e.g. after merging backported fixes) — is gated on the
 full e2e suite. The `Release Orchestrator` workflow runs the reusable
 [`e2e-gate.yml`](../../.github/workflows/e2e-gate.yml) workflow against the
-exact commit being tagged, after `build-and-test` has published the
+exact commit being released, after `build-and-test` has published the
 sha-tagged images and Helm charts for that commit. The release tag is only
 created when every leg passes.
 
-The gate shards the suite into four parallel legs, each on its own runner
+The gate runs at two points, both keyed to the exact commit:
+
+- **Branch creation** (`action=branch` or `full`) — the gate runs against the
+  new `release-vX.Y` tip as soon as the branch is cut.
+- **Tagging** (`action=tag` or `full`) — the gate runs against the commit being
+  tagged, unless that commit already passed (e.g. it is still the tip cut at
+  branch creation), in which case the earlier green gate is reused instead of
+  re-run.
+
+Reuse is tracked by a `release-e2e-gate` commit status, so it applies only when
+the tag points at the identical commit. Any new commit on the branch — a fix or
+a backported patch — is gated afresh, and only passing gates are recorded, so a
+failed gate is never reused.
+
+The gate shards the suite into five parallel legs, each on its own runner
 and k3d cluster:
 
-| Leg   | Scope                                   | Typical | Timeout |
-|-------|-----------------------------------------|---------|---------|
-| tier1 | Core platform (CP + DP)                 | ~10 min | 45 min  |
-| tier2 | API, CLI, authz, gateway (CP + DP)      | ~10 min | 45 min  |
-| tier3 | Build + observability (all planes)      | ~25 min | 90 min  |
-| ui    | Playwright Backstage suite (all planes) | ~15 min | 90 min  |
+| Leg         | Scope                                     | Typical | Timeout |
+|-------------|-------------------------------------------|---------|---------|
+| tier1       | Core platform (CP + DP)                   | ~10 min | 45 min  |
+| tier2       | API, CLI, authz, gateway (CP + DP)        | ~10 min | 45 min  |
+| tier3       | Multi-cluster (4 clusters, one per plane) | ~25 min | 90 min  |
+| ui          | Playwright Backstage suite (all planes)   | ~15 min | 90 min  |
+| quick-start | Quick Start journey (all planes + sample) | ~20 min | 75 min  |
 
 Because the legs run in parallel, the gate costs the wall-clock of the
-slowest leg (~25 minutes), not the sum. Expect the orchestrator run to take
-roughly 45–60 minutes end to end: ~15–30 minutes waiting for
-`build-and-test` at the release commit, then the slowest e2e leg, then
-tagging.
+slowest leg plus overhead — ~30 minutes, not the sum. The full orchestrator
+run is longer: it first waits ~15–30 minutes for `build-and-test` at the
+release commit before the gate, then tags once every leg passes.
 
 If a leg fails:
 
@@ -48,7 +62,9 @@ If a leg fails:
    workflow run.
 2. Fix (or backport the fix to the release branch), wait for
    `build-and-test` on the new commit, and re-run the `Release Orchestrator`
-   workflow.
+   workflow. Pushing the fix only re-triggers `build-and-test`, not the gate —
+   the orchestrator re-dispatch runs the gate against the new commit, which is
+   gated afresh (the failed gate is never reused).
 
 The orchestrator exposes a `skip_e2e` input that bypasses the gate. It is
 reserved for declared emergencies (e.g. a critical security hotfix where the
