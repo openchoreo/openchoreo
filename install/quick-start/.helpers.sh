@@ -567,7 +567,7 @@ install_eso() {
 install_gateway_crds() {
     log_info "Installing Gateway API CRDs..."
     kubectl apply --server-side \
-        -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml >/dev/null
+        -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/experimental-install.yaml >/dev/null
     log_success "Gateway API CRDs installed"
 }
 

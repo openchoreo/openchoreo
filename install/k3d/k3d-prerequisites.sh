@@ -13,10 +13,10 @@ set -euo pipefail
 
 # -- versions (update these on release branches) --
 OPENCHOREO_REF="${OPENCHOREO_REF:-main}"   # overridable via env; defaults to main
-GATEWAY_API_VERSION="v1.4.1"
+GATEWAY_API_VERSION="v1.5.1"
 CERT_MANAGER_VERSION="v1.19.4"
 ESO_VERSION="2.0.1"
-KGATEWAY_VERSION="v2.2.1"
+KGATEWAY_VERSION="v2.3.1"
 OPENBAO_CHART_VERSION="0.25.6"
 
 # -- derived constants --
