@@ -514,6 +514,81 @@ backendRefs:
 - Endpoints are processed in alphabetical order for deterministic output
 - Use with `includeWhen: ${size(workload.endpoints) > 0}` to conditionally create Services only when endpoints exist
 
+#### workload.toEndpointResources(endpointName)
+
+Opt-in helper that parses an endpoint's API schema (the OpenAPI document for HTTP endpoints, the protobuf definition
+for gRPC endpoints) and returns the flat list of routes it declares. This lets a ComponentType render **exact**
+per-route gateway matches (one match per OpenAPI path/method, or per gRPC service/method) instead of a single
+catch-all rule.
+
+The macro is **opt-in**: endpoint schemas are only parsed when a template actually calls
+`workload.toEndpointResources(...)`, so templates that don't use it pay no parsing cost.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `endpointName` | string | The endpoint map key (e.g. `"http"`, `"grpc"`) — the same key used under `workload.endpoints` |
+
+**Returns:** a CEL **optional** wrapping a list of route objects. Consume it with `.orValue([])`, or guard with
+`.hasValue()` / `.value()`. Each route object contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `kind` | string | Protocol of the route: `"HTTP"` or `"gRPC"` |
+| `service` | string | Fully-qualified gRPC service name (e.g. `greeter.Greeter`). Empty for HTTP routes |
+| `method` | string | HTTP verb (`GET`/`POST`/...) for HTTP routes, or the gRPC method name (e.g. `SayHello`) |
+| `path` | string | HTTP path template (e.g. `/v1/pets/{id}`). Empty for gRPC routes |
+
+Routes are returned in a deterministic (sorted) order so rendered output is stable.
+
+**Extraction is best-effort.** A missing, empty, or unparseable schema (or an endpoint protocol with no extractor,
+such as TCP/UDP) yields an empty list — never a render failure. Schema format is inferred from the endpoint type
+(`HTTP` → OpenAPI, `gRPC` → protobuf) unless `workload.endpoints.<name>.schema.type` overrides it.
+
+**Example — gRPC, one GRPCRoute match per (service, method):**
+
+```yaml
+rules:
+  # Render one match per (service, method) from the proto schema; fall back to a
+  # catch-all rule (no matches) when the endpoint has no parseable schema.
+  - matches: >-
+      ${workload.toEndpointResources(endpoint.key).hasValue()
+        ? workload.toEndpointResources(endpoint.key).value().map(r,
+            {"method": {"type": "Exact", "service": r.service, "method": r.method}})
+        : oc_omit()}
+    backendRefs:
+      - name: ${metadata.componentName}
+        port: ${endpoint.value.port}
+```
+
+**Example — HTTP, one HTTPRoute rule per (path, method) from OpenAPI:**
+
+```yaml
+# Parameterized paths (/books/{id}) become a RegularExpression match ({param} -> [^/]+);
+# static paths use an Exact match.
+rules: >-
+  ${workload.toEndpointResources(endpoint.key).orValue([]).map(r, {
+      "matches": [{
+        "path": {
+          "type": r.path.contains("{") ? "RegularExpression" : "Exact",
+          "value": r.path.contains("{")
+            ? r.path.split("/").map(s, s.startsWith("{") ? "[^/]+" : s).join("/")
+            : r.path
+        },
+        "method": r.method
+      }],
+      "backendRefs": [{"name": metadata.componentName, "port": endpoint.value.port}]
+    })}
+```
+
+**Notes:**
+- Returns a CEL optional, not a plain list — always unwrap with `.orValue([])` or `.hasValue()`/`.value()`.
+- Only OpenAPI (HTTP) and protobuf (gRPC) extractors are registered today; GraphQL and AsyncAPI are reserved and
+  currently degrade to an empty list.
+- Full, runnable examples ship in `samples/component-types/component-grpc-service/` and
+  `samples/component-types/component-http-openapi-service/`.
+
 ## See Also
 
 - [Context Reference](./context.md) - Main context documentation
