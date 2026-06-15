@@ -30,7 +30,7 @@ func NewGitLabProvider() *GitLabProvider {
 func (p *GitLabProvider) GetBranchHead(ctx context.Context, repoURL, branch string) (string, error) {
 	_, segments, err := parseRepoPath(repoURL)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to parse GitLab repository URL: %w", err)
 	}
 	if len(segments) < 2 {
 		return "", fmt.Errorf("repository URL %q does not contain a project path", SanitizeRepoURL(repoURL))

@@ -33,7 +33,7 @@ func NewGitHubProvider() *GitHubProvider {
 func (p *GitHubProvider) GetBranchHead(ctx context.Context, repoURL, branch string) (string, error) {
 	_, segments, err := parseRepoPath(repoURL)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to parse GitHub repository URL: %w", err)
 	}
 	if len(segments) < 2 {
 		return "", fmt.Errorf("repository URL %q does not contain owner and repository name", SanitizeRepoURL(repoURL))

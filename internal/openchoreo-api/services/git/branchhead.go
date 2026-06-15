@@ -32,7 +32,7 @@ func newDefaultHTTPClient() *http.Client {
 func DetectProviderTypeFromURL(repoURL string) (ProviderType, error) {
 	host, _, err := parseRepoPath(repoURL)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("cannot detect git provider from repository URL: %w", err)
 	}
 	switch strings.TrimPrefix(strings.ToLower(host), "www.") {
 	case "github.com":
@@ -51,11 +51,11 @@ func DetectProviderTypeFromURL(repoURL string) (ProviderType, error) {
 func ResolveBranchHead(ctx context.Context, repoURL, branch string) (string, error) {
 	providerType, err := DetectProviderTypeFromURL(repoURL)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to resolve head of branch %q: %w", branch, err)
 	}
 	provider, err := GetProvider(providerType)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to resolve head of branch %q for provider %q: %w", branch, providerType, err)
 	}
 	return provider.GetBranchHead(ctx, repoURL, branch)
 }
@@ -87,10 +87,10 @@ func parseRepoPath(repoURL string) (string, []string, error) {
 
 	u, err := url.Parse(canonical)
 	if err != nil {
-		return "", nil, fmt.Errorf("invalid repository URL %q: %w", repoURL, err)
+		return "", nil, fmt.Errorf("invalid repository URL %q: %w", SanitizeRepoURL(repoURL), err)
 	}
 	if u.Host == "" {
-		return "", nil, fmt.Errorf("repository URL %q has no host", repoURL)
+		return "", nil, fmt.Errorf("repository URL %q has no host", SanitizeRepoURL(repoURL))
 	}
 
 	segments := make([]string, 0, 2)
