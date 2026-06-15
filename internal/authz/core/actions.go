@@ -54,6 +54,7 @@ var systemActions = []Action{
 	// ComponentRelease
 	{Name: "componentrelease:view", LowestScope: ScopeComponent, IsInternal: false},
 	{Name: "componentrelease:create", LowestScope: ScopeComponent, IsInternal: false},
+	{Name: "componentrelease:delete", LowestScope: ScopeComponent, IsInternal: false},
 
 	// ReleaseBinding
 	{Name: "releasebinding:view", LowestScope: ScopeComponent, IsInternal: false},
