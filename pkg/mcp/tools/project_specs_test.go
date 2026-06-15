@@ -33,18 +33,43 @@ func projectToolSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"create", "project"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "name"},
-			optionalParams:      []string{"description", "deployment_pipeline"},
+			optionalParams:      []string{"description", "deployment_pipeline", "type_name", "type_kind", "parameters"},
 			testArgs: map[string]any{
-				"namespace_name": testNamespaceName,
-				"name":           "new-project",
-				"description":    "test project",
+				"namespace_name":      testNamespaceName,
+				"name":                "new-project",
+				"description":         "test project",
+				"deployment_pipeline": "custom-pipeline",
+				"type_name":           "standard-project",
+				"type_kind":           "ProjectType",
+				"parameters":          map[string]any{"tier": "premium"},
 			},
 			expectedMethod: "CreateProject",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
 					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
 				}
-				// args[1] is *gen.CreateProjectJSONRequestBody
+				req, ok := args[1].(*gen.CreateProjectJSONRequestBody)
+				if !ok {
+					t.Fatalf("Expected args[1] to be *gen.CreateProjectJSONRequestBody, got %T", args[1])
+				}
+				if req.Metadata.Name != "new-project" {
+					t.Errorf("Expected name %q, got %q", "new-project", req.Metadata.Name)
+				}
+				if req.Spec == nil {
+					t.Fatal("Expected spec to be populated from optional args")
+				}
+				if req.Spec.DeploymentPipelineRef == nil || req.Spec.DeploymentPipelineRef.Name != "custom-pipeline" {
+					t.Errorf("Expected deploymentPipelineRef name %q, got %v", "custom-pipeline", req.Spec.DeploymentPipelineRef)
+				}
+				if req.Spec.Type == nil || req.Spec.Type.Name != "standard-project" {
+					t.Errorf("Expected type name %q, got %v", "standard-project", req.Spec.Type)
+				}
+				if req.Spec.Type == nil || req.Spec.Type.Kind == nil || *req.Spec.Type.Kind != gen.ProjectType {
+					t.Errorf("Expected type kind %q, got %v", gen.ProjectType, req.Spec.Type)
+				}
+				if req.Spec.Parameters == nil || (*req.Spec.Parameters)["tier"] != "premium" {
+					t.Errorf("Expected parameters tier=premium, got %v", req.Spec.Parameters)
+				}
 			},
 		},
 		{

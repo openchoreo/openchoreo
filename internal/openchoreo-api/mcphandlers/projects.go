@@ -5,9 +5,11 @@ package mcphandlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
@@ -50,6 +52,23 @@ func (h *MCPHandler) CreateProject(ctx context.Context, namespaceName string, re
 		Spec: openchoreov1alpha1.ProjectSpec{
 			DeploymentPipelineRef: deploymentPipelineRef,
 		},
+	}
+
+	if req.Spec != nil && req.Spec.Type != nil {
+		project.Spec.Type = openchoreov1alpha1.ProjectTypeRef{
+			Name: req.Spec.Type.Name,
+		}
+		if req.Spec.Type.Kind != nil {
+			project.Spec.Type.Kind = openchoreov1alpha1.ProjectTypeRefKind(*req.Spec.Type.Kind)
+		}
+	}
+
+	if req.Spec != nil && req.Spec.Parameters != nil {
+		paramsBytes, err := json.Marshal(*req.Spec.Parameters)
+		if err != nil {
+			return nil, fmt.Errorf("marshal parameters: %w", err)
+		}
+		project.Spec.Parameters = &runtime.RawExtension{Raw: paramsBytes}
 	}
 
 	if displayName, ok := project.Annotations[controller.AnnotationKeyDisplayName]; ok && displayName == "" {

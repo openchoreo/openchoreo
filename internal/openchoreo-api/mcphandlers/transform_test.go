@@ -187,11 +187,16 @@ func TestProjectSummary(t *testing.T) {
 			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
 				Name: "default-pipeline",
 			},
+			Type: openchoreov1alpha1.ProjectTypeRef{
+				Kind: openchoreov1alpha1.ProjectTypeRefKindClusterProjectType,
+				Name: "standard-project",
+			},
 		},
 		Status: openchoreov1alpha1.ProjectStatus{
 			Conditions: []metav1.Condition{
 				{Type: "Ready", Status: metav1.ConditionTrue},
 			},
+			LatestRelease: &openchoreov1alpha1.LatestProjectRelease{Name: "my-project-abc123", Hash: "abc123"},
 		},
 	}
 
@@ -199,6 +204,8 @@ func TestProjectSummary(t *testing.T) {
 	assert.Equal(t, "my-project", m["name"])
 	assert.Equal(t, "default-pipeline", m["deploymentPipelineRef"])
 	assert.Equal(t, "Ready", m["status"])
+	assert.Equal(t, map[string]any{"kind": "ClusterProjectType", "name": "standard-project"}, m["type"])
+	assert.Equal(t, "my-project-abc123", m["latestRelease"])
 }
 
 func TestComponentSummary(t *testing.T) {

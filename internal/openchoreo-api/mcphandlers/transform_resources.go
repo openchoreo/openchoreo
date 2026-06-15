@@ -28,7 +28,16 @@ func namespaceSummary(ns corev1.Namespace) map[string]any {
 func projectSummary(p openchoreov1alpha1.Project) map[string]any {
 	m := extractCommonMeta(&p)
 	setIfNotEmpty(m, "deploymentPipelineRef", p.Spec.DeploymentPipelineRef.Name)
+	if p.Spec.Type.Name != "" {
+		m["type"] = map[string]any{
+			"kind": string(p.Spec.Type.Kind),
+			"name": p.Spec.Type.Name,
+		}
+	}
 	setIfNotEmpty(m, "status", readyStatus(p.Status.Conditions))
+	if p.Status.LatestRelease != nil {
+		m["latestRelease"] = p.Status.LatestRelease.Name
+	}
 	return m
 }
 
