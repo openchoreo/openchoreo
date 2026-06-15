@@ -101,6 +101,37 @@ func TestCreateProject(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "custom-pipeline", result.Spec.DeploymentPipelineRef.Name)
 	})
+
+	t.Run("default project type when empty", func(t *testing.T) {
+		svc := newService(t)
+		proj := &openchoreov1alpha1.Project{
+			ObjectMeta: metav1.ObjectMeta{Name: "proj-no-type"},
+			Spec:       openchoreov1alpha1.ProjectSpec{},
+		}
+
+		result, err := svc.CreateProject(ctx, testNamespace, proj)
+		require.NoError(t, err)
+		assert.Equal(t, defaultProjectType, result.Spec.Type.Name)
+		assert.Equal(t, openchoreov1alpha1.ProjectTypeRefKindClusterProjectType, result.Spec.Type.Kind)
+	})
+
+	t.Run("explicit project type preserved", func(t *testing.T) {
+		svc := newService(t)
+		proj := &openchoreov1alpha1.Project{
+			ObjectMeta: metav1.ObjectMeta{Name: "proj-explicit-type"},
+			Spec: openchoreov1alpha1.ProjectSpec{
+				Type: openchoreov1alpha1.ProjectTypeRef{
+					Kind: openchoreov1alpha1.ProjectTypeRefKindProjectType,
+					Name: "custom-type",
+				},
+			},
+		}
+
+		result, err := svc.CreateProject(ctx, testNamespace, proj)
+		require.NoError(t, err)
+		assert.Equal(t, "custom-type", result.Spec.Type.Name)
+		assert.Equal(t, openchoreov1alpha1.ProjectTypeRefKindProjectType, result.Spec.Type.Kind)
+	})
 }
 
 func TestUpdateProject(t *testing.T) {

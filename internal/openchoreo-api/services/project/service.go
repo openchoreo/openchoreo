@@ -23,6 +23,11 @@ var projectTypeMeta = metav1.TypeMeta{
 
 const (
 	defaultPipeline = "default"
+
+	// defaultProjectType is the cluster-scoped ProjectType applied when a
+	// Project is created without spec.type. Matches the default
+	// ClusterProjectType shipped in the getting-started samples.
+	defaultProjectType = "default"
 )
 
 // projectService handles project-related business logic without authorization checks.
@@ -65,6 +70,12 @@ func (s *projectService) CreateProject(ctx context.Context, namespaceName string
 		project.Spec.DeploymentPipelineRef = openchoreov1alpha1.DeploymentPipelineRef{
 			Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
 			Name: defaultPipeline,
+		}
+	}
+	if project.Spec.Type.Name == "" {
+		project.Spec.Type = openchoreov1alpha1.ProjectTypeRef{
+			Kind: openchoreov1alpha1.ProjectTypeRefKindClusterProjectType,
+			Name: defaultProjectType,
 		}
 	}
 

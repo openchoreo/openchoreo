@@ -6556,6 +6556,36 @@ components:
               example: default
           required:
             - name
+        type:
+          $ref: '#/components/schemas/ProjectTypeRef'
+        parameters:
+          type: object
+          description: |
+            Values for the parameter schema declared on the referenced
+            (Cluster)ProjectType. Validated by the controller and inlined into
+            each ProjectRelease snapshot.
+          additionalProperties: true
+
+    ProjectTypeRef:
+      type: object
+      description: |
+        Reference to a ProjectType or ClusterProjectType template. Immutable
+        after the Project is created. When omitted on create, the API defaults
+        to the cluster-scoped `default` ClusterProjectType.
+      required:
+        - name
+      properties:
+        kind:
+          type: string
+          description: Project type kind. Defaults to ProjectType (namespaced).
+          enum: [ProjectType, ClusterProjectType]
+          default: ProjectType
+        name:
+          type: string
+          description: Template name.
+          minLength: 1
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          example: default
 
     ProjectStatus:
       type: object
@@ -6570,6 +6600,21 @@ components:
           description: Current state conditions of the Project
           items:
             $ref: '#/components/schemas/Condition'
+        latestRelease:
+          type: object
+          description: Most recent ProjectRelease cut for this Project. ProjectReleaseBindings pin spec.projectRelease to a value here (or an older release for rollback).
+          required:
+            - name
+            - hash
+          properties:
+            name:
+              type: string
+              description: Name of the ProjectRelease resource
+              example: my-app-abc123
+            hash:
+              type: string
+              description: Content hash of Project.spec + (Cluster)ProjectType.spec captured at release time
+              example: abc123
 
     Project:
       type: object

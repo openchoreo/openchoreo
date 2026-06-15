@@ -49,8 +49,8 @@ func newProjectBundle(t *testing.T, objects []client.Object, pdp authzcore.PDP) 
 }
 
 // seedProject is a convenience constructor for an openchoreov1alpha1.Project object.
-// A DeploymentPipelineRef is set to satisfy the OpenAPI schema's minLength constraint
-// on spec.deploymentPipelineRef.name.
+// DeploymentPipelineRef and Type are set to satisfy the OpenAPI schema's minLength
+// constraints on spec.deploymentPipelineRef.name and spec.type.name.
 func seedProject(name string) *openchoreov1alpha1.Project {
 	return &openchoreov1alpha1.Project{
 		ObjectMeta: metav1.ObjectMeta{
@@ -60,6 +60,10 @@ func seedProject(name string) *openchoreov1alpha1.Project {
 		Spec: openchoreov1alpha1.ProjectSpec{
 			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
 				Kind: openchoreov1alpha1.DeploymentPipelineRefKindDeploymentPipeline,
+				Name: "default",
+			},
+			Type: openchoreov1alpha1.ProjectTypeRef{
+				Kind: openchoreov1alpha1.ProjectTypeRefKindClusterProjectType,
 				Name: "default",
 			},
 		},
@@ -179,9 +183,44 @@ func TestProjectHTTPCreate(t *testing.T) {
 	assert.Equal(t, "new-proj", k8sObj.Name)
 	assert.Equal(t, "default", k8sObj.Spec.DeploymentPipelineRef.Name,
 		"deployment pipeline ref name must be persisted to K8s")
+	// spec.type omitted in the request body defaults to the cluster-scoped default ProjectType.
+	assert.Equal(t, openchoreov1alpha1.ProjectTypeRefKindClusterProjectType, k8sObj.Spec.Type.Kind)
+	assert.Equal(t, "default", k8sObj.Spec.Type.Name)
 
 	// Concern 2: validate against OpenAPI contract.
 	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, bodyBytes)
+}
+
+func TestProjectHTTPCreateWithType(t *testing.T) {
+	bundle := newProjectBundle(t, nil, &allowAllPDP{})
+
+	typeKind := gen.ProjectType
+	body, _ := json.Marshal(gen.Project{
+		Metadata: gen.ObjectMeta{Name: "typed-proj"},
+		Spec: &gen.ProjectSpec{
+			Type: &gen.ProjectTypeRef{
+				Kind: &typeKind,
+				Name: "standard-project",
+			},
+			Parameters: &map[string]any{"tier": "premium"},
+		},
+	})
+	req, rec := doRequest(t, bundle.handler, http.MethodPost,
+		"/api/v1/namespaces/"+testNS+"/projects", body)
+
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	// spec.type and spec.parameters must round-trip into the K8s store.
+	var k8sObj openchoreov1alpha1.Project
+	err := bundle.fakeClient.Get(context.Background(),
+		types.NamespacedName{Name: "typed-proj", Namespace: testNS}, &k8sObj)
+	require.NoError(t, err, "project must be persisted to K8s after creation")
+	assert.Equal(t, openchoreov1alpha1.ProjectTypeRefKindProjectType, k8sObj.Spec.Type.Kind)
+	assert.Equal(t, "standard-project", k8sObj.Spec.Type.Name)
+	require.NotNil(t, k8sObj.Spec.Parameters, "spec.parameters must be persisted")
+	assert.JSONEq(t, `{"tier":"premium"}`, string(k8sObj.Spec.Parameters.Raw))
+
+	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, rec.Body.Bytes())
 }
 
 func TestProjectHTTPCreateAlreadyExists(t *testing.T) {
@@ -215,6 +254,7 @@ func TestProjectHTTPUpdate(t *testing.T) {
 
 	// Include a label so we can assert the updated value is persisted.
 	kind := gen.ProjectSpecDeploymentPipelineRefKindDeploymentPipeline
+	typeKind := gen.ClusterProjectType
 	body, _ := json.Marshal(gen.Project{
 		Metadata: gen.ObjectMeta{
 			Name:   "my-proj",
@@ -225,6 +265,7 @@ func TestProjectHTTPUpdate(t *testing.T) {
 				Kind *gen.ProjectSpecDeploymentPipelineRefKind `json:"kind,omitempty"`
 				Name string                                    `json:"name"`
 			}{Kind: &kind, Name: "default"},
+			Type: &gen.ProjectTypeRef{Kind: &typeKind, Name: "default"},
 		},
 	})
 
