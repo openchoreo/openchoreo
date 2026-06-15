@@ -300,9 +300,12 @@ jobs:
           esac
 
       - name: Add e2e multi-cluster host entries
-        # CP cluster external domains only — DP/WP/OP clusters are reached
-        # via host.k3d.internal from within k3d nodes, not the CI runner.
-        run: echo '127.0.0.1 api.e2e-mc-cp.local thunder.e2e-mc-cp.local openchoreo.e2e-mc-cp.local cluster-gateway.e2e-mc-cp.local' | sudo tee -a /etc/hosts
+        # CP cluster external domains plus the OP observer hostname. The observer
+        # is reachable from the runner via the OP cluster's loadbalancer port
+        # mapping (31080:11080), so the observer MCP specs drive host-side MCP
+        # sessions against observer.e2e-mc-op.local. Other DP/WP/OP services are
+        # still reached only via host.k3d.internal from within k3d nodes.
+        run: echo '127.0.0.1 api.e2e-mc-cp.local thunder.e2e-mc-cp.local openchoreo.e2e-mc-cp.local cluster-gateway.e2e-mc-cp.local observer.e2e-mc-op.local' | sudo tee -a /etc/hosts
 
       - name: Run multi-cluster e2e tests (tier 3)
         run: |

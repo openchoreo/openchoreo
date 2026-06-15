@@ -5,7 +5,6 @@ package e2e
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -46,80 +45,11 @@ var _ = Describe("Observability Signals", Ordered, Label("tier3"), func() {
 	SetDefaultEventuallyPollingInterval(framework.DefaultPolling)
 
 	BeforeAll(func() {
-		By("creating control plane namespace")
-		out, err := framework.KubectlApplyLiteral(kubeContext, cpNamespaceYAML())
-		Expect(err).NotTo(HaveOccurred(), "create cp namespace: %s", out)
-
-		By("applying platform resources (pipeline, environments, project)")
-		out, err = framework.KubectlApplyLiteral(kubeContext, platformResourcesYAML())
-		Expect(err).NotTo(HaveOccurred(), "apply platform resources: %s", out)
-
-		By("deploying greeter component")
-		out, err = framework.KubectlApplyLiteral(kubeContext, greeterComponentYAML())
-		Expect(err).NotTo(HaveOccurred(), "create greeter: %s", out)
-
-		By("discovering data plane namespace")
-		Eventually(func() error {
-			var derr error
-			dpNs, derr = framework.GetDPNamespace(dpCtx(), cpNs, projectName, envDev)
-			return derr
-		}, 3*time.Minute, 5*time.Second).Should(Succeed())
-		fmt.Fprintf(GinkgoWriter, "discovered dp namespace: %s\n", dpNs)
-
-		By("deploying tester pod")
-		out, err = framework.KubectlApplyLiteral(dpCtx(), curlPodYAML(dpNs))
-		Expect(err).NotTo(HaveOccurred(), "create tester pod: %s", out)
-
-		By("waiting for tester pod to be Running")
-		Eventually(func(g Gomega) {
-			framework.AssertPodsRunning(g, dpCtx(), dpNs, curlPodLabel)
-		}, 4*time.Minute, 3*time.Second).Should(Succeed())
-
-		By("waiting for greeter ReleaseBinding Ready")
-		Eventually(func(g Gomega) {
-			framework.AssertReleaseBindingReady(g, kubeContext, cpNs,
-				componentGreeter+releaseBindingSuffix)
-		}, 5*time.Minute, 5*time.Second).Should(Succeed())
-
-		By("waiting for greeter pod Running")
-		Eventually(func(g Gomega) {
-			framework.AssertPodsRunning(g, dpCtx(), dpNs,
-				"openchoreo.dev/component="+componentGreeter)
-		}, 3*time.Minute, 3*time.Second).Should(Succeed())
-
-		By("resolving greeter Service host:port")
-		Eventually(func(g Gomega) {
-			h, p := serviceURLHostPort(g, componentGreeter+releaseBindingSuffix)
-			greeterHost, greeterPort = h, p
-		}, 3*time.Minute, 3*time.Second).Should(Succeed())
-		fmt.Fprintf(GinkgoWriter, "greeter resolved at %s:%s\n", greeterHost, greeterPort)
-
-		// In multi-cluster mode the tester pod sits in the DP cluster and needs
-		// to reach Thunder (CP) and the observer (OP) via external hostnames
-		// resolved through the DP cluster's CoreDNS rewrites. In single-cluster
-		// mode the empty fields fall back to the in-cluster defaults.
-		observerQ = framework.ObserverQueryFrom{
-			KubeContext:     dpCtx(),
-			Namespace:       dpNs,
-			PodLabel:        curlPodLabel,
-			Container:       curlContainer,
-			ThunderTokenURL: mcThunderURL(),
-			ObserverURL:     mcObserverURL(),
-		}
-	})
-
-	AfterAll(func() {
-		if os.Getenv("E2E_KEEP_RESOURCES") == "true" {
-			By("E2E_KEEP_RESOURCES=true — skipping cleanup")
-			return
-		}
-		By("deleting control plane namespace (cascades to DP)")
-		_, _ = framework.Kubectl(kubeContext, "delete", "namespace", cpNs,
-			"--ignore-not-found", "--wait=false")
-		if dpNs != "" {
-			_, _ = framework.Kubectl(dpCtx(), "delete", "namespace", dpNs,
-				"--ignore-not-found", "--wait=false")
-		}
+		// Shared with the Observer MCP Describe; provisioned once. Cleanup is in
+		// the suite-level AfterSuite (suite_test.go) so neither Describe tears
+		// down the namespace the other still needs under Ginkgo's randomized
+		// top-level container ordering.
+		ensureObservabilityFixtures()
 	})
 
 	It("logs-queryable: POST /api/v1/logs/query returns greeter log lines", func() {
