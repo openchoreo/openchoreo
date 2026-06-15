@@ -1,0 +1,429 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+openapi: 3.0.3
+info:
+  title: OpenChoreo Observability Tracing Adapter API
+  description: |
+    This API specification defines the contract that a tracing adapter must implement
+    to integrate with the OpenChoreo Observer.
+  version: 1.0.0
+  contact:
+    name: OpenChoreo Team
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+
+tags:
+  - name: Traces
+    description: Trace retrieval endpoints
+  - name: Health
+    description: Health check endpoints
+
+
+security:
+  - BearerAuth: []
+
+
+paths:
+  /healthz:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check the health status of the tracing adapter service
+      operationId: health
+      security: []
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+        "503":
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: unhealthy
+                  error:
+                    type: string
+                    example: "tracing backend: connection failed"
+
+
+  /api/v1alpha1/traces/query:
+    post:
+      tags:
+        - Traces
+      summary: Query traces
+      description: Query traces from the observer service
+      operationId: queryTraces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TracesQueryRequest"
+      responses:
+        "200":
+          description: Traces queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TracesListResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+
+  /api/v1alpha1/traces/{traceId}/spans/query:
+    post:
+      tags:
+        - Traces
+      summary: Query spans for a trace
+      description: Query spans for a trace from the observer service
+      operationId: querySpansForTrace
+      parameters:
+        - name: traceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TracesQueryRequest"
+      responses:
+        "200":
+          description: Spans queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraceSpansListResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+
+  /api/v1alpha1/traces/{traceId}/spans/{spanId}:
+    get:
+      tags:
+        - Traces
+      summary: Get details of a span for a trace
+      description: Get details of a span for a trace
+      operationId: getSpanDetailsForTrace
+      parameters:
+        - name: traceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: spanId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Span details queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TraceSpanDetailsResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        title:
+          type: string
+          description: The error message
+          enum:
+            - badRequest
+            - unauthorized
+            - forbidden
+            - internalServerError
+        errorCode:
+          type: string
+          description: The error code from observer service
+          example: OBS-L-22
+        detail:
+          type: string
+          description: The error message
+          example: "Missing required fields 'startTime' and 'endTime'"
+
+
+    ComponentSearchScope:
+      type: object
+      properties:
+        namespace:
+          type: string
+        project:
+          type: string
+        component:
+          type: string
+        environment:
+          type: string
+      required: [namespace]
+
+
+    TracesQueryRequest:
+      type: object
+      properties:
+        startTime:
+          type: string
+          description: The start time of the query
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the query
+          format: date-time
+        limit:
+          type: integer
+          default: 100
+          minimum: 1
+          maximum: 1000
+          description: The maximum number of items to return
+        sort:
+          type: string
+          description: The sort order of the query
+          enum:
+            - asc
+            - desc
+          default: desc
+        searchScope:
+          $ref: "#/components/schemas/ComponentSearchScope"
+      required: [startTime, endTime, searchScope]
+
+
+    TracesQueryResponse:
+      type: object
+      oneOf:
+        - $ref: "#/components/schemas/TracesListResponse"
+        - $ref: "#/components/schemas/TraceSpansListResponse"
+        - $ref: "#/components/schemas/TraceSpanDetailsResponse"
+
+
+    TracesListResponse:
+      type: object
+      properties:
+        traces:
+          type: array
+          description: The list of traces
+          items:
+            type: object
+            properties:
+              traceId:
+                type: string
+                description: The trace ID
+              traceName:
+                type: string
+                description: The name of the trace
+              spanCount:
+                type: integer
+                description: The number of spans in the trace
+              rootSpanId:
+                type: string
+              rootSpanName:
+                type: string
+              rootSpanKind:
+                type: string
+              startTime:
+                type: string
+                description: The start time of the trace
+                format: date-time
+              endTime:
+                type: string
+                description: The end time of the trace
+                format: date-time
+              durationNs:
+                type: integer
+                format: int64
+                description: The duration of the trace in nanoseconds
+        total:
+          type: integer
+          description: The total number of traces
+        tookMs:
+          type: integer
+          description: The time taken to query the traces in milliseconds
+
+
+    TraceSpansListResponse:
+      type: object
+      properties:
+        spans:
+          type: array
+          description: The list of spans
+          items:
+            type: object
+            properties:
+              spanId:
+                type: string
+                description: The span ID
+              spanName:
+                type: string
+                description: The name of the span
+              spanKind:
+                type: string
+                description: The name of the span
+              startTime:
+                type: string
+                description: The start time of the span
+                format: date-time
+              endTime:
+                type: string
+                description: The end time of the span
+                format: date-time
+              durationNs:
+                type: integer
+                format: int64
+                description: The duration of the span in nanoseconds
+              parentSpanId:
+                type: string
+                description: The parent span ID
+        total:
+          type: integer
+          description: The total number of spans
+        tookMs:
+          type: integer
+          description: The time taken to query the spans in milliseconds
+
+
+    TraceSpanDetailsResponse:
+      type: object
+      properties:
+        spanId:
+          type: string
+          description: The span ID
+        spanName:
+          type: string
+          description: The name of the span
+        spanKind:
+          type: string
+          description: The kind of the span
+        startTime:
+          type: string
+          description: The start time of the span
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the span
+          format: date-time
+        durationNs:
+          type: integer
+          format: int64
+          description: The duration of the span in nanoseconds
+        parentSpanId:
+          type: string
+          description: The parent span ID
+        attributes:
+          type: array
+          items:
+            type: object
+            description: The attributes of the span
+            properties:
+              key:
+                type: string
+                description: The key of the attribute
+              value:
+                type: string
+                description: The value of the attribute
+        resourceAttributes:
+          type: array
+          items:
+            type: object
+            description: The attributes of the span related to the resource
+            properties:
+              key:
+                type: string
+                description: The key of the attribute
+              value:
+                type: string
+                description: The value of the attribute
