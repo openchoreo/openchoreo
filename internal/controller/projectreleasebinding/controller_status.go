@@ -52,47 +52,47 @@ func rrApplyFailed(rr *openchoreov1alpha1.RenderedRelease) (bool, string) {
 	return true, cond.Message
 }
 
-// evaluateNamespaceReady locates the cell namespace entry in
+// evaluateNamespaceReady locates the project's data-plane namespace entry in
 // rr.Status.Resources[] by Group="" + Kind="Namespace" + Name matching
-// binding.Status.CellNamespace, then maps its HealthStatus to a
-// NamespaceReady condition. Other Namespace objects the PE chose to render
-// are not considered here — those flow through ResourcesReady.
+// binding.Status.Namespace, then maps its HealthStatus to a NamespaceReady
+// condition. Other Namespace objects the PE chose to render are not
+// considered here — those flow through ResourcesReady.
 func evaluateNamespaceReady(
 	binding *openchoreov1alpha1.ProjectReleaseBinding,
 	rr *openchoreov1alpha1.RenderedRelease,
 ) {
-	entry := findCellNamespaceEntry(rr.Status.Resources, binding.Status.CellNamespace)
+	entry := findNamespaceEntry(rr.Status.Resources, binding.Status.Namespace)
 	if entry == nil {
 		controller.MarkFalseCondition(binding, ConditionNamespaceReady, ReasonNamespaceProgressing,
-			fmt.Sprintf("Cell namespace %q has no observed status yet", binding.Status.CellNamespace))
+			fmt.Sprintf("Namespace %q has no observed status yet", binding.Status.Namespace))
 		return
 	}
 	switch entry.HealthStatus {
 	case openchoreov1alpha1.HealthStatusHealthy, openchoreov1alpha1.HealthStatusSuspended:
 		controller.MarkTrueCondition(binding, ConditionNamespaceReady, ReasonNamespaceReady,
-			fmt.Sprintf("Cell namespace %q is ready", binding.Status.CellNamespace))
+			fmt.Sprintf("Namespace %q is ready", binding.Status.Namespace))
 	case openchoreov1alpha1.HealthStatusDegraded:
 		controller.MarkFalseCondition(binding, ConditionNamespaceReady, ReasonNamespaceDegraded,
-			fmt.Sprintf("Cell namespace %q is degraded", binding.Status.CellNamespace))
+			fmt.Sprintf("Namespace %q is degraded", binding.Status.Namespace))
 	default:
 		controller.MarkFalseCondition(binding, ConditionNamespaceReady, ReasonNamespaceProgressing,
-			fmt.Sprintf("Cell namespace %q is %s", binding.Status.CellNamespace, entry.HealthStatus))
+			fmt.Sprintf("Namespace %q is %s", binding.Status.Namespace, entry.HealthStatus))
 	}
 }
 
 // evaluateResourcesReady aggregates HealthStatus over every entry in
-// rr.Status.Resources[] except the cell namespace. Any Degraded entry flips
-// the condition to False with Reason=ResourcesDegraded; any non-Healthy
+// rr.Status.Resources[] except the project namespace. Any Degraded entry
+// flips the condition to False with Reason=ResourcesDegraded; any non-Healthy
 // non-Degraded entry flips it to Progressing.
 func evaluateResourcesReady(
 	binding *openchoreov1alpha1.ProjectReleaseBinding,
 	rr *openchoreov1alpha1.RenderedRelease,
 ) {
-	cellNS := binding.Status.CellNamespace
+	ns := binding.Status.Namespace
 	considered := 0
 	for i := range rr.Status.Resources {
 		st := &rr.Status.Resources[i]
-		if isCellNamespaceEntry(st, cellNS) {
+		if isNamespaceEntry(st, ns) {
 			continue
 		}
 		considered++
@@ -113,24 +113,24 @@ func evaluateResourcesReady(
 		fmt.Sprintf("All %d resource(s) ready", considered))
 }
 
-// findCellNamespaceEntry returns the rendered status entry that corresponds
-// to the cell namespace, or nil if not yet observed. Matched by
-// Group="" + Kind="Namespace" + Name == cellNS.
-func findCellNamespaceEntry(
+// findNamespaceEntry returns the rendered status entry that corresponds to
+// the project's data-plane namespace, or nil if not yet observed. Matched by
+// Group="" + Kind="Namespace" + Name == ns.
+func findNamespaceEntry(
 	statuses []openchoreov1alpha1.RenderedManifestStatus,
-	cellNS string,
+	ns string,
 ) *openchoreov1alpha1.RenderedManifestStatus {
 	for i := range statuses {
-		if isCellNamespaceEntry(&statuses[i], cellNS) {
+		if isNamespaceEntry(&statuses[i], ns) {
 			return &statuses[i]
 		}
 	}
 	return nil
 }
 
-// isCellNamespaceEntry reports whether the given status entry is the
-// mandated cell namespace. cellNS is the resolved
-// dp-{ns}-{project}-{env}-{hash} name (binding.Status.CellNamespace).
-func isCellNamespaceEntry(st *openchoreov1alpha1.RenderedManifestStatus, cellNS string) bool {
-	return st.Group == "" && st.Kind == "Namespace" && st.Name == cellNS
+// isNamespaceEntry reports whether the given status entry is the mandated
+// project namespace. ns is the resolved dp-{ns}-{project}-{env}-{hash} name
+// (binding.Status.Namespace).
+func isNamespaceEntry(st *openchoreov1alpha1.RenderedManifestStatus, ns string) bool {
+	return st.Group == "" && st.Kind == "Namespace" && st.Name == ns
 }

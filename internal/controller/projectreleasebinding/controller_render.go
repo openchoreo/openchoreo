@@ -29,7 +29,7 @@ const ownershipConflictMarker = "RenderedRelease exists but is not owned by this
 // the resulting RenderedRelease. Returns the live RenderedRelease on success
 // (Created, Updated, or already in sync) or nil when no further evaluation
 // should run (render error, ownership conflict). Transient API errors are
-// returned to the caller for requeue. Also populates status.cellNamespace.
+// returned to the caller for requeue. Also populates status.namespace.
 func (r *Reconciler) renderAndEmit(
 	ctx context.Context,
 	binding *openchoreov1alpha1.ProjectReleaseBinding,
@@ -41,7 +41,7 @@ func (r *Reconciler) renderAndEmit(
 	logger := log.FromContext(ctx)
 
 	metadataCtx := buildMetadataContext(binding, environment, dataPlane, project)
-	binding.Status.CellNamespace = metadataCtx.CellNamespace
+	binding.Status.Namespace = metadataCtx.Namespace
 
 	input := &projectpipeline.RenderInput{
 		ProjectTypeSpec:    &release.Spec.ProjectType.Spec,
@@ -55,6 +55,11 @@ func (r *Reconciler) renderAndEmit(
 		markSyncedFalse(binding, ReasonRenderingFailed,
 			fmt.Sprintf("Failed to render manifests: %v", err))
 		logger.Info("Pipeline render failed", "error", err)
+		return nil, nil
+	}
+
+	if reason, msg := validateRenderedResources(output.Entries, metadataCtx.Namespace); reason != "" {
+		markSyncedFalse(binding, reason, msg)
 		return nil, nil
 	}
 
@@ -156,9 +161,9 @@ func convertEntriesToManifests(entries []projectpipeline.RenderedEntry) ([]openc
 }
 
 // buildMetadataContext computes the platform-injected metadata surface
-// exposed to CEL templates. CellNamespace follows the platform naming
-// scheme dp-{ns}-{project}-{env}-{hash}; the remaining fields are populated
-// from the binding, environment, dataplane, and owning project.
+// exposed to CEL templates. Namespace follows the platform naming scheme
+// dp-{ns}-{project}-{env}-{hash}; the remaining fields are populated from
+// the binding, environment, dataplane, and owning project.
 func buildMetadataContext(
 	binding *openchoreov1alpha1.ProjectReleaseBinding,
 	environment *openchoreov1alpha1.Environment,
@@ -169,7 +174,7 @@ func buildMetadataContext(
 	envName := binding.Spec.Environment
 	bindingNamespace := binding.Namespace
 
-	cellNamespace := dpkubernetes.GenerateK8sNameWithLengthLimit(
+	namespace := dpkubernetes.GenerateK8sNameWithLengthLimit(
 		dpkubernetes.MaxNamespaceNameLength,
 		"dp", bindingNamespace, projectName, envName,
 	)
@@ -183,7 +188,7 @@ func buildMetadataContext(
 	}
 
 	return projectpipeline.MetadataContext{
-		CellNamespace:    cellNamespace,
+		Namespace:        namespace,
 		ProjectNamespace: bindingNamespace,
 		ProjectName:      projectName,
 		ProjectUID:       string(project.UID),

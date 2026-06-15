@@ -16,10 +16,10 @@ const (
 	// the inlined resources.
 	ConditionSynced controller.ConditionType = "Synced"
 
-	// ConditionNamespaceReady indicates the cell namespace
-	// (status.cellNamespace) has been observed as healthy on the owned
+	// ConditionNamespaceReady indicates the project's data-plane namespace
+	// (status.namespace) has been observed as healthy on the owned
 	// RenderedRelease. Located by Group="" + Kind="Namespace" + Name
-	// matching binding.Status.CellNamespace; additional Namespace objects
+	// matching binding.Status.Namespace; additional Namespace objects
 	// the PE chooses to render flow through ResourcesReady instead.
 	ConditionNamespaceReady controller.ConditionType = "NamespaceReady"
 
@@ -48,18 +48,12 @@ const (
 	// disagrees with the binding's owner.
 	ReasonInvalidReleaseConfiguration controller.ConditionReason = "InvalidReleaseConfiguration"
 
-	// ReasonCellNamespaceMissing indicates the inlined
-	// (Cluster)ProjectType.spec.resources has no v1/Namespace entry whose
-	// metadata.name is the cell-namespace placeholder. Duplicate-resource
-	// detection is out of scope for this check and is surfaced separately
-	// (e.g. at render time when two manifests collide on metadata.name).
-	ReasonCellNamespaceMissing controller.ConditionReason = "CellNamespaceMissing"
-
-	// ReasonCellNamespaceMandateInvalid indicates a matching v1/Namespace
-	// entry was found but its template definition breaks the "exactly one
-	// cell namespace per binding" guarantee (e.g. carries includeWhen or
-	// forEach).
-	ReasonCellNamespaceMandateInvalid controller.ConditionReason = "CellNamespaceMandateInvalid"
+	// ReasonNamespaceMissing indicates the rendered
+	// (Cluster)ProjectType resources contain no v1/Namespace whose
+	// metadata.name resolves to the project's data-plane namespace
+	// (${metadata.namespace}). Checked on the rendered output, so an
+	// includeWhen that suppresses the namespace entry also surfaces here.
+	ReasonNamespaceMissing controller.ConditionReason = "NamespaceMissing"
 
 	// ReasonEnvironmentNotFound indicates the referenced Environment does not
 	// exist.

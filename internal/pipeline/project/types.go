@@ -42,8 +42,8 @@ type RenderInput struct {
 	EnvironmentConfigs *runtime.RawExtension
 
 	// Metadata is the controller-computed metadata surface exposed to CEL as
-	// ${metadata.*}. Must include CellNamespace; the mandated Namespace
-	// template renders against it as metadata.name = ${metadata.cellNamespace}.
+	// ${metadata.*}. Must include Namespace; the mandated Namespace template
+	// renders against it as metadata.name = ${metadata.namespace}.
 	Metadata MetadataContext
 }
 
@@ -77,11 +77,11 @@ type RenderedEntry struct {
 // calling the pipeline. JSON tags determine the CEL-facing field names when
 // the context is marshaled via structToMap.
 type MetadataContext struct {
-	// CellNamespace is the platform-computed dp-{ns}-{project}-{env}-{hash}
-	// name. The mandated Namespace template references it as
-	// metadata.name = ${metadata.cellNamespace}; other templates set
-	// metadata.namespace from it.
-	CellNamespace string `json:"cellNamespace"`
+	// Namespace is the platform-computed dp-{ns}-{project}-{env}-{hash}
+	// data-plane namespace for this (project, environment). The mandated
+	// Namespace template references it as metadata.name = ${metadata.namespace};
+	// other templates set their own metadata.namespace from it.
+	Namespace string `json:"namespace"`
 
 	// ProjectNamespace is the control-plane namespace where the
 	// ProjectReleaseBinding lives.

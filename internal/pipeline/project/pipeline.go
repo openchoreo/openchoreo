@@ -12,7 +12,7 @@
 //   - Render walks ProjectTypeSpec.Resources[] and returns the rendered
 //     entries. ForEach templates contribute one entry per iteration with
 //     ID suffixed by the iteration index. CEL context exposes ${metadata.*}
-//     (including cellNamespace), ${parameters.*}, and ${environmentConfigs.*}.
+//     (including namespace), ${parameters.*}, and ${environmentConfigs.*}.
 package projectpipeline
 
 import (
@@ -41,7 +41,7 @@ func NewPipeline() *Pipeline {
 // one entry per iteration with the ID suffixed by index.
 //
 // The CEL context built once per call exposes:
-//   - ${metadata.*} (cellNamespace, projectName/UID, environmentName/UID, ...)
+//   - ${metadata.*} (namespace, projectName/UID, environmentName/UID, ...)
 //   - ${parameters.*} (Project.spec.parameters with schema defaults applied)
 //   - ${environmentConfigs.*} (binding overrides with schema defaults applied)
 //
@@ -175,8 +175,8 @@ func validateInput(input *RenderInput) error {
 	if input.ProjectTypeSpec == nil {
 		return fmt.Errorf("input.ProjectTypeSpec is nil")
 	}
-	if input.Metadata.CellNamespace == "" {
-		return fmt.Errorf("input.Metadata.CellNamespace is empty")
+	if input.Metadata.Namespace == "" {
+		return fmt.Errorf("input.Metadata.Namespace is empty")
 	}
 	return nil
 }

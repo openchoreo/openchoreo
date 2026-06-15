@@ -30,7 +30,7 @@ spec:
         apiVersion: v1
         kind: Namespace
         metadata:
-          name: ${metadata.cellNamespace}
+          name: ${metadata.namespace}
           labels: ${metadata.labels}
 
 ---

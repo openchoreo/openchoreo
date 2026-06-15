@@ -26,7 +26,7 @@ func rawExt(t *testing.T, v any) *runtime.RawExtension {
 // default for tests that don't care about specific field values.
 func fixtureMetadata() MetadataContext {
 	return MetadataContext{
-		CellNamespace:    "dp-org-myapp-dev-a1b2c3d",
+		Namespace:        "dp-org-myapp-dev-a1b2c3d",
 		ProjectNamespace: "org",
 		ProjectName:      "myapp",
 		ProjectUID:       "00000000-0000-0000-0000-000000000001",
@@ -47,7 +47,7 @@ func nsTemplate(t *testing.T) v1alpha1.ResourceTemplate {
 			"apiVersion": "v1",
 			"kind":       "Namespace",
 			"metadata": map[string]any{
-				"name": "${metadata.cellNamespace}",
+				"name": "${metadata.namespace}",
 			},
 		}),
 	}
@@ -67,7 +67,7 @@ func TestRender_HappyPath(t *testing.T) {
 						"kind":       "NetworkPolicy",
 						"metadata": map[string]any{
 							"name":      "default-deny-egress",
-							"namespace": "${metadata.cellNamespace}",
+							"namespace": "${metadata.namespace}",
 						},
 						"spec": map[string]any{
 							"podSelector": map[string]any{},
@@ -182,17 +182,17 @@ func TestRender_ValidationFailureAborts(t *testing.T) {
 	assert.Contains(t, err.Error(), "tier must be premium")
 }
 
-func TestRender_MissingCellNamespaceRejected(t *testing.T) {
+func TestRender_MissingNamespaceRejected(t *testing.T) {
 	p := NewPipeline()
 
 	input := &RenderInput{
 		ProjectTypeSpec: &v1alpha1.ProjectTypeSpec{
 			Resources: []v1alpha1.ResourceTemplate{nsTemplate(t)},
 		},
-		Metadata: MetadataContext{}, // CellNamespace empty
+		Metadata: MetadataContext{}, // Namespace empty
 	}
 
 	_, err := p.Render(input)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "CellNamespace is empty")
+	assert.Contains(t, err.Error(), "Namespace is empty")
 }

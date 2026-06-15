@@ -67,12 +67,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return r.reconcile(ctx, binding)
 }
 
-// reconcile validates the pinned ProjectRelease (existence, owner agreement,
-// cell-namespace mandate), resolves the binding's environment / dataplane /
-// project, renders the inlined (Cluster)ProjectType resources via the
-// project pipeline, and emits a RenderedRelease owned by this binding.
-// Resource readiness aggregation and finalizer handling land in later
-// Phase 4 commits.
+// reconcile validates the pinned ProjectRelease (existence, owner agreement),
+// resolves the binding's environment / dataplane / project, renders the
+// inlined (Cluster)ProjectType resources via the project pipeline, validates
+// the rendered output (mandatory project namespace present, no duplicate
+// resources), and emits a RenderedRelease owned by this binding. Resource
+// readiness aggregation and finalizer handling land in later Phase 4 commits.
 func (r *Reconciler) reconcile(ctx context.Context, binding *openchoreov1alpha1.ProjectReleaseBinding) (result ctrl.Result, rErr error) {
 	logger := log.FromContext(ctx)
 
@@ -116,11 +116,6 @@ func (r *Reconciler) reconcile(ctx context.Context, binding *openchoreov1alpha1.
 		markSyncedFalse(binding, ReasonInvalidReleaseConfiguration,
 			fmt.Sprintf("binding owner (project: %q) does not match ProjectRelease owner (project: %q)",
 				binding.Spec.Owner.ProjectName, release.Spec.Owner.ProjectName))
-		return ctrl.Result{}, nil
-	}
-
-	if reason, msg := validateCellNamespaceMandate(release.Spec.ProjectType.Spec); reason != "" {
-		markSyncedFalse(binding, reason, msg)
 		return ctrl.Result{}, nil
 	}
 

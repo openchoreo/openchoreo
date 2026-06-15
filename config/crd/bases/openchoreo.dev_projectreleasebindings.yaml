@@ -117,12 +117,6 @@ spec:
             description: ProjectReleaseBindingStatus defines the observed state of
               ProjectReleaseBinding.
             properties:
-              cellNamespace:
-                description: |-
-                  CellNamespace is the actual cell namespace owned by this binding
-                  (dp-{ns}-{project}-{env}-{hash}). Surfaced here for kubectl describe and
-                  debugging.
-                type: string
               conditions:
                 description: |-
                   Conditions represent the latest available observations of the binding's state.
@@ -186,6 +180,12 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              namespace:
+                description: |-
+                  Namespace is the actual data-plane namespace owned by this binding
+                  (dp-{ns}-{project}-{env}-{hash}). Surfaced here for kubectl describe and
+                  debugging.
+                type: string
               observedGeneration:
                 description: ObservedGeneration is the most recent generation observed
                   by the controller.

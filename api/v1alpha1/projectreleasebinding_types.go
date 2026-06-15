@@ -68,11 +68,11 @@ type ProjectReleaseBindingStatus struct {
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// CellNamespace is the actual cell namespace owned by this binding
+	// Namespace is the actual data-plane namespace owned by this binding
 	// (dp-{ns}-{project}-{env}-{hash}). Surfaced here for kubectl describe and
 	// debugging.
 	// +optional
-	CellNamespace string `json:"cellNamespace,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // +kubebuilder:object:root=true
