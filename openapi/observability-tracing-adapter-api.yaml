@@ -220,7 +220,7 @@ components:
         errorCode:
           type: string
           description: The error code from observer service
-          example: OBS-L-22
+          example: OBS-T-22
         detail:
           type: string
           description: The error message
@@ -346,7 +346,7 @@ components:
                 description: The name of the span
               spanKind:
                 type: string
-                description: The name of the span
+                description: The kind of the span
               startTime:
                 type: string
                 description: The start time of the span
@@ -368,11 +368,18 @@ components:
                 description: The execution status of the span. One of "ok", "error", or "unset".
               attributes:
                 type: object
-                description: The span attributes
+                description: >-
+                  The span attributes as a key/value map. The list endpoint
+                  returns attributes in this compact map form; the span-details
+                  endpoint (GET /traces/{traceId}/spans/{spanId}) returns the
+                  same data as an array of {key, value} objects.
                 additionalProperties: true
               resourceAttributes:
                 type: object
-                description: The resource attributes
+                description: >-
+                  The resource attributes as a key/value map. As with
+                  `attributes`, the span-details endpoint returns these as an
+                  array of {key, value} objects.
                 additionalProperties: true
         total:
           type: integer
@@ -415,6 +422,11 @@ components:
           description: The execution status of the span. One of "ok", "error", or "unset".
         attributes:
           type: array
+          description: >-
+            The span attributes as an array of {key, value} objects. The
+            span-details endpoint returns attributes in this expanded form; the
+            spans-list endpoint (POST /traces/{traceId}/spans/query) returns the
+            same data as a key/value map.
           items:
             type: object
             description: The attributes of the span
@@ -427,6 +439,10 @@ components:
                 description: The value of the attribute
         resourceAttributes:
           type: array
+          description: >-
+            The resource attributes as an array of {key, value} objects. As with
+            `attributes`, the spans-list endpoint returns these as a key/value
+            map.
           items:
             type: object
             description: The attributes of the span related to the resource

@@ -473,6 +473,12 @@ components:
             $ref: "#/components/schemas/MetricsTimeSeriesItem"
 
     MetricsQueryResponse:
+      description: >-
+        Response for POST /api/v1/metrics/query. The variant is determined by
+        the request's `metric` field: `resource` yields a
+        ResourceMetricsTimeSeries and `http` yields an HttpMetricsTimeSeries.
+        The two variants have disjoint property sets, so the response carries no
+        separate discriminator field.
       oneOf:
         - $ref: "#/components/schemas/ResourceMetricsTimeSeries"
         - $ref: "#/components/schemas/HttpMetricsTimeSeries"
@@ -482,13 +488,25 @@ components:
       type: object
       description: |
         Request body for POST /api/v1alpha1/metrics/runtime-topology.
-        searchScope must include namespace, projectUid, and environmentUid —
-        runtime topology is project- and environment-scoped. The optional
+        Runtime topology is project- and environment-scoped, so searchScope
+        requires namespace, projectUid, and environmentUid. The optional
         componentUid, if set, restricts results to edges that touch that
         component.
       properties:
         searchScope:
-          $ref: "#/components/schemas/ComponentSearchScope"
+          type: object
+          description: Project- and environment-scoped search scope.
+          properties:
+            namespace:
+              type: string
+            projectUid:
+              type: string
+            environmentUid:
+              type: string
+            componentUid:
+              type: string
+              description: If set, restricts results to edges that touch this component.
+          required: [namespace, projectUid, environmentUid]
         startTime:
           type: string
           description: The start time of the query window
