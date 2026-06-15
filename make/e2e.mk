@@ -13,6 +13,13 @@ E2E_WITH_OBSERVABILITY ?= false
 # (see test/ui/). Off by default so the existing e2e workflow keeps the lighter
 # Backstage-disabled install.
 E2E_WITH_UI            ?= false
+# Optional Backstage (openchoreo-ui) image tag for the UI install. The
+# openchoreo-ui image is built by the separate backstage-plugins repo and tagged
+# with that repo's commit short SHA, so the chart's AppVersion default (the
+# openchoreo commit SHA) has no matching image during the release e2e gate. The
+# release orchestrator resolves the backstage-plugins release-branch tip and
+# passes its short SHA here. Empty keeps the chart's AppVersion default.
+E2E_BACKSTAGE_IMAGE_TAG ?=
 # Go duration for the test suite (go test -timeout)
 E2E_TEST_TIMEOUT       ?= 20m
 # Go duration for each individual helm install and kubectl wait (not the overall setup timeout)
@@ -49,9 +56,14 @@ UI_DIR                 := $(PROJECT_DIR)/test/ui
 UI_K3D_DIR             := $(UI_DIR)/k3d
 
 # When the UI suite is enabled, layer the cp-ui overlay on top of the default
-# control-plane values so Backstage gets switched on.
+# control-plane values so Backstage gets switched on. When a Backstage image tag
+# is supplied, pin it so the install does not fall back to the chart AppVersion
+# (the openchoreo SHA), which has no matching openchoreo-ui image.
 ifeq ($(E2E_WITH_UI),true)
   E2E_CP_EXTRA_VALUES := --values $(UI_K3D_DIR)/values-cp-ui.yaml
+  ifneq ($(strip $(E2E_BACKSTAGE_IMAGE_TAG)),)
+    E2E_CP_EXTRA_VALUES += --set-string backstage.image.tag=$(E2E_BACKSTAGE_IMAGE_TAG)
+  endif
 else
   E2E_CP_EXTRA_VALUES :=
 endif

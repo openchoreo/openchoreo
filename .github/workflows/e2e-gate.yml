@@ -35,6 +35,11 @@ on:
         required: false
         type: string
         default: "0.0.0-latest-dev"
+      backstage_image_tag:
+        description: "Backstage (openchoreo-ui) image tag for the UI leg; empty uses the chart's AppVersion default"
+        required: false
+        type: string
+        default: ""
       run_tier1:
         description: "Run the tier1 leg"
         required: false
@@ -72,6 +77,11 @@ on:
         required: false
         type: string
         default: "0.0.0-latest-dev"
+      backstage_image_tag:
+        description: "Backstage (openchoreo-ui) image tag for the UI leg; empty uses the chart's AppVersion default"
+        required: false
+        type: string
+        default: ""
       run_tier1:
         description: "Run the tier1 leg"
         required: false
@@ -334,6 +344,12 @@ jobs:
       E2E_WITH_BUILD: "true"
       E2E_WITH_OBSERVABILITY: "true"
       E2E_WITH_UI: "true"
+      # Backstage image tag for the UI install. openchoreo-ui is built by the
+      # backstage-plugins repo (tagged with its commit short SHA), so the chart's
+      # AppVersion default has no matching image at the release ref; the caller
+      # passes the backstage-plugins release-branch tip SHA here. Empty on the
+      # schedule/dispatch paths, where the latest-dev chart's AppVersion resolves.
+      E2E_BACKSTAGE_IMAGE_TAG: ${{ inputs.backstage_image_tag }}
       E2E_KUBECONTEXT: k3d-openchoreo-e2e
       UI_BASE_URL: http://openchoreo.e2e-cp.local:28080
       # OpenChoreo API URL the pkce-login spec points occ at (NOT the Backstage
@@ -440,6 +456,7 @@ jobs:
             E2E_WITH_BUILD="${E2E_WITH_BUILD}" \
             E2E_WITH_OBSERVABILITY="${E2E_WITH_OBSERVABILITY}" \
             E2E_WITH_UI="${E2E_WITH_UI}" \
+            E2E_BACKSTAGE_IMAGE_TAG="${E2E_BACKSTAGE_IMAGE_TAG}" \
             E2E_SETUP_TIMEOUT=10m
 
       - name: Run UI e2e tests

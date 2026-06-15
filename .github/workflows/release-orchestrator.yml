@@ -319,6 +319,7 @@ jobs:
     outputs:
       target: ${{ steps.resolve-target.outputs.target }}
       helm-chart-version: ${{ steps.resolve-target.outputs.helm-chart-version }}
+      backstage-image-tag: ${{ steps.backstage-tag.outputs.backstage-image-tag }}
       e2e-already-passed: ${{ steps.e2e-status.outputs.e2e-already-passed }}
     steps:
       - name: Checkout
@@ -355,6 +356,32 @@ jobs:
           SHORT_SHA=$(git rev-parse --short=8 "${TARGET}")
           echo "target=${TARGET}" >> $GITHUB_OUTPUT
           echo "helm-chart-version=0.0.0-${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Resolve backstage-plugins image tag
+        id: backstage-tag
+        env:
+          RELEASE_BRANCH: ${{ needs.validate.outputs.release-branch }}
+        run: |
+          # openchoreo-ui (Backstage) images are tagged with the backstage-plugins
+          # commit short SHA. Resolve the backstage-plugins branch that mirrors the
+          # openchoreo release branch; fall back to latest-dev when absent
+          # (e.g. prereleases, which cut no mirror branch).
+          BS_REPO="https://github.com/${{ github.repository_owner }}/backstage-plugins.git"
+          # Run git ls-remote without a pipe so its exit status isn't masked by
+          # awk's: a transient failure must error, not fall back to latest-dev.
+          if ! LS_OUTPUT=$(git ls-remote "$BS_REPO" "refs/heads/${RELEASE_BRANCH}"); then
+            echo "::error::git ls-remote failed for backstage-plugins branch ${RELEASE_BRANCH} (transient lookup failure); refusing to fall back to latest-dev."
+            exit 1
+          fi
+          TIP=$(printf '%s\n' "$LS_OUTPUT" | awk 'NR==1{print $1}')
+          if [ -n "$TIP" ]; then
+            TAG=$(printf '%s' "$TIP" | cut -c1-8)
+            echo "Backstage image tag: ${TAG} (backstage-plugins ${RELEASE_BRANCH} @ ${TIP})"
+          else
+            TAG="latest-dev"
+            echo "::warning::backstage-plugins branch ${RELEASE_BRANCH} not found; falling back to ${TAG}"
+          fi
+          echo "backstage-image-tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Wait for build-and-test workflow
         env:
@@ -438,6 +465,7 @@ jobs:
     with:
       ref: ${{ needs.resolve-target.outputs.target }}
       helm_chart_version: ${{ needs.resolve-target.outputs.helm-chart-version }}
+      backstage_image_tag: ${{ needs.resolve-target.outputs.backstage-image-tag }}
 
   # ----------------------------------------------------------------
   # Record e2e pass: stamp the gated commit with a release-e2e-gate
