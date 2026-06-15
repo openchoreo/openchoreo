@@ -144,6 +144,16 @@ Cluster Agent service account name
 Validate that placeholder .invalid hostnames have been replaced with real domains.
 */}}
 {{- define "openchoreo-data-plane.validateHostnames" -}}
+{{- $ports := list (int .Values.gateway.httpPort) -}}
+{{- if .Values.gateway.tls.enabled -}}
+  {{- $ports = append $ports (int .Values.gateway.httpsPort) -}}
+{{- end -}}
+{{- if .Values.gateway.tlsPassthrough.enabled -}}
+  {{- $ports = append $ports (int .Values.gateway.tlsPassthrough.port) -}}
+{{- end -}}
+{{- if ne (len $ports) (len (uniq $ports)) -}}
+  {{- fail "gateway listener ports (httpPort, httpsPort, tlsPassthrough.port) must be unique across all enabled listeners." -}}
+{{- end -}}
 {{- if .Values.gateway.tls.enabled -}}
   {{- $hostname := .Values.gateway.tls.hostname | default "" -}}
   {{- if contains ".invalid" $hostname -}}
