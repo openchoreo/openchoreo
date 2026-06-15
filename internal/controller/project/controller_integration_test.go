@@ -185,7 +185,7 @@ var _ = Describe("Project Controller", func() {
 						Name: pipName,
 					},
 					Type: openchoreov1alpha1.ProjectTypeRef{
-						Name: "standard",
+						Name: "default",
 					},
 				},
 			}
@@ -234,7 +234,7 @@ var _ = Describe("Project Controller", func() {
 						Name: pipName,
 					},
 					Type: openchoreov1alpha1.ProjectTypeRef{
-						Name: "standard",
+						Name: "default",
 					},
 				},
 			}
@@ -273,7 +273,7 @@ var _ = Describe("Project Controller", func() {
 						Name: pipName,
 					},
 					Type: openchoreov1alpha1.ProjectTypeRef{
-						Name: "standard",
+						Name: "default",
 					},
 				},
 			}
@@ -329,7 +329,7 @@ var _ = Describe("Project Controller", func() {
 						Name: pipName,
 					},
 					Type: openchoreov1alpha1.ProjectTypeRef{
-						Name: "standard",
+						Name: "default",
 					},
 				},
 			}
@@ -387,7 +387,7 @@ var _ = Describe("Project Controller", func() {
 						Name: pipName,
 					},
 					Type: openchoreov1alpha1.ProjectTypeRef{
-						Name: "standard",
+						Name: "default",
 					},
 				},
 			}
@@ -469,7 +469,7 @@ var _ = Describe("Project Controller", func() {
 						Name: "some-pipeline",
 					},
 					Type: openchoreov1alpha1.ProjectTypeRef{
-						Name: "standard",
+						Name: "default",
 					},
 				},
 			}
@@ -515,7 +515,7 @@ var _ = Describe("Project Controller", func() {
 						Name: pipName,
 					},
 					Type: openchoreov1alpha1.ProjectTypeRef{
-						Name: "standard",
+						Name: "default",
 					},
 				},
 			}
@@ -574,7 +574,7 @@ var _ = Describe("Project Controller", func() {
 						Name: pipName,
 					},
 					Type: openchoreov1alpha1.ProjectTypeRef{
-						Name: "standard",
+						Name: "default",
 					},
 				},
 			}
@@ -659,7 +659,7 @@ var _ = Describe("Project Controller", func() {
 						Name: pipName,
 					},
 					Type: openchoreov1alpha1.ProjectTypeRef{
-						Name: "standard",
+						Name: "default",
 					},
 				},
 			}

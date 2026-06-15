@@ -80,7 +80,7 @@ var _ = BeforeSuite(func() {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-project", Namespace: "default"},
 		Spec: openchoreov1alpha1.ProjectSpec{
 			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "default"},
-			Type:                  openchoreov1alpha1.ProjectTypeRef{Name: "standard"},
+			Type:                  openchoreov1alpha1.ProjectTypeRef{Name: "default"},
 		},
 	}
 	Expect(k8sClient.Create(ctx, project)).To(Succeed())

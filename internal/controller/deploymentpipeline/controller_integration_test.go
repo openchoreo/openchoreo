@@ -209,7 +209,7 @@ var _ = Describe("DeploymentPipeline Controller", func() {
 				},
 				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: pipelineName},
-					Type:                  openchoreov1alpha1.ProjectTypeRef{Name: "standard"},
+					Type:                  openchoreov1alpha1.ProjectTypeRef{Name: "default"},
 				},
 			}
 			Expect(k8sClient.Create(ctx, project)).To(Succeed())
