@@ -227,7 +227,8 @@ plugin reads, so any existing Backstage docs that reference it apply unchanged.
 helm upgrade --install openchoreo-control-plane install/helm/openchoreo-control-plane \
   --namespace openchoreo-control-plane \
   --set backstage.externalCI.githubActions.enabled=true \
-  --set backstage.externalCI.githubActions.oauth.clientId="<your-oauth-client-id>"
+  --set backstage.externalCI.githubActions.oauth.clientId="<your-oauth-client-id>" \
+  --reset-then-reuse-values
 ```
 
 The defaults (`host: github.com`, empty `apiBaseUrl`) are sufficient.
@@ -240,7 +241,8 @@ helm upgrade --install openchoreo-control-plane install/helm/openchoreo-control-
   --set backstage.externalCI.githubActions.enabled=true \
   --set backstage.externalCI.githubActions.host=ghe.example.com \
   --set backstage.externalCI.githubActions.apiBaseUrl=https://ghe.example.com/api/v3 \
-  --set backstage.externalCI.githubActions.oauth.clientId="<your-oauth-client-id>"
+  --set backstage.externalCI.githubActions.oauth.clientId="<your-oauth-client-id>" \
+  --reset-then-reuse-values
 ```
 
 ## 4. (Optional) Provision a GitHub token — backend features only

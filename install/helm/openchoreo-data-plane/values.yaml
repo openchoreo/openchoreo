@@ -132,6 +132,39 @@ gateway:
 
   # @schema
   # type: object
+  # description: |
+  #   TLS passthrough (SNI) configuration. Adds a Gateway listener (protocol TLS, mode Passthrough)
+  #   that routes encrypted traffic by SNI without terminating TLS; the workload terminates TLS itself.
+  #   Required by TLSRoute-based ComponentTypes such as the component-tls-service sample.
+  # @schema
+  tlsPassthrough:
+    # @schema
+    # type: boolean
+    # description: Enable the TLS passthrough listener. When false, no passthrough listener is created.
+    # default: false
+    # @schema
+    enabled: false
+
+    # @schema
+    # type: string
+    # description: |
+    #   Hostname pattern for the TLS passthrough listener (SNI matching). When empty, the listener
+    #   matches all SNIs. Must encompass the TLSRoute hostnames (e.g. "*.openchoreoapis.invalid").
+    # default: "*.openchoreoapis.invalid"
+    # @schema
+    hostname: "*.openchoreoapis.invalid"
+
+    # @schema
+    # type: integer
+    # description: Port for the TLS passthrough listener. Must differ from httpsPort when the HTTPS (Terminate) listener is also enabled.
+    # default: 8443
+    # minimum: 1
+    # maximum: 65535
+    # @schema
+    port: 8443
+
+  # @schema
+  # type: object
   # additionalProperties: true
   # description: KGateway controller configuration for managing Gateway API resources
   # @schema

@@ -2,6 +2,10 @@
 
 observer:
   secretName: observer-secret
+  controlPlaneApiUrl: "http://api.openchoreo.localhost:8080"
+  cors:
+    allowedOrigins:
+    - "http://openchoreo.localhost:8080"
   extraEnvs:
   - name: OBSERVER_BASE_URL
     value: "http://observer.openchoreo.localhost:11080"
@@ -39,6 +43,10 @@ tls:
     - "*.observability.openchoreo.localhost"
 
 rca:
+  openchoreoApiUrl: "http://api.openchoreo.localhost:8080"
+  cors:
+    allowedOrigins:
+    - "http://openchoreo.localhost:8080"
   http:
     hostnames:
     - host.k3d.internal

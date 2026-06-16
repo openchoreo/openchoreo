@@ -14,6 +14,11 @@ const (
 	ConditionCreated controller.ConditionType = "Created"
 	// ConditionFinalizing represents whether the project is being finalized
 	ConditionFinalizing controller.ConditionType = "Finalizing"
+
+	// ConditionReady reflects the project release lifecycle health: True
+	// when the inlined (Cluster)ProjectType snapshot resolves and the
+	// latest ProjectRelease is in place.
+	ConditionReady controller.ConditionType = "Ready"
 )
 
 const (
@@ -22,6 +27,15 @@ const (
 
 	// ReasonProjectFinalizing is the reason used when a projects's dependents are being deleted'
 	ReasonProjectFinalizing controller.ConditionReason = "ProjectFinalizing"
+
+	// ReasonProjectTypeNotFound indicates the referenced ProjectType or
+	// ClusterProjectType does not exist in the cluster yet.
+	ReasonProjectTypeNotFound controller.ConditionReason = "ProjectTypeNotFound"
+
+	// ReasonReconciled indicates the Project has been validated against
+	// its referenced (Cluster)ProjectType. Later commits also gate on
+	// status.latestRelease pointing at a current ProjectRelease.
+	ReasonReconciled controller.ConditionReason = "Reconciled"
 )
 
 // NewProjectCreatedCondition creates a condition to indicate the project is created/ready

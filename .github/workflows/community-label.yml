@@ -1,23 +1,26 @@
-name: Label Community Issues and PRs
+name: Label Community Issues, PRs, and Discussions
 
 on:
   issues:
     types: [opened]
   pull_request_target:
     types: [opened]
+  discussion:
+    types: [created]
   workflow_dispatch:
 
 permissions: {}
 
 jobs:
   label-new:
-    name: Label New Issue or PR
+    name: Label New Issue, PR, or Discussion
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: write
       pull-requests: write
+      discussions: write
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -25,12 +28,20 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
+      # TODO: remove once ubuntu-latest runners ship with gh v2.94.0+
+      - name: Upgrade gh CLI to v2.94.0
+        run: |
+          curl -sSL https://github.com/cli/cli/releases/download/v2.94.0/gh_2.94.0_linux_amd64.tar.gz -o /tmp/gh.tar.gz
+          echo "a757f1ba6db18f4de8cbadb244843a5f89bc75b5e7c6fc127d2bd77fbd12ed62  /tmp/gh.tar.gz" | sha256sum -c
+          sudo tar -xz -C /usr/local/bin --strip-components=2 -f /tmp/gh.tar.gz gh_2.94.0_linux_amd64/bin/gh
+          rm /tmp/gh.tar.gz
+
       - name: Add reportedBy/community label if not a maintainer
         env:
           GH_TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
-          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
-          IS_PR: ${{ github.event_name == 'pull_request_target' }}
+          NUMBER: ${{ github.event.issue.number || github.event.pull_request.number || github.event.discussion.number }}
+          EVENT: ${{ github.event_name }}
         run: |
           maintainers=$(grep -oP '(?<=\[@)[^\]]+' MAINTAINERS.md | tr '[:upper:]' '[:lower:]')
           actor_lower=$(echo "$ACTOR" | tr '[:upper:]' '[:lower:]')
@@ -47,8 +58,10 @@ jobs:
 
           echo "$ACTOR is not a maintainer — applying label"
 
-          if [[ "$IS_PR" == "true" ]]; then
+          if [[ "$EVENT" == "pull_request_target" ]]; then
             gh pr edit "$NUMBER" --add-label "reportedBy/community" --repo "$GITHUB_REPOSITORY"
+          elif [[ "$EVENT" == "discussion" ]]; then
+            gh discussion edit "$NUMBER" --add-label "reportedBy/community" --repo "$GITHUB_REPOSITORY"
           else
             gh issue edit "$NUMBER" --add-label "reportedBy/community" --repo "$GITHUB_REPOSITORY"
           fi
@@ -61,6 +74,7 @@ jobs:
       contents: read
       issues: write
       pull-requests: write
+      discussions: write
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -68,7 +82,15 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
-      - name: Backfill reportedBy/community on all open issues and PRs
+      # TODO: remove once ubuntu-latest runners ship with gh v2.94.0+
+      - name: Upgrade gh CLI to v2.94.0
+        run: |
+          curl -sSL https://github.com/cli/cli/releases/download/v2.94.0/gh_2.94.0_linux_amd64.tar.gz -o /tmp/gh.tar.gz
+          echo "a757f1ba6db18f4de8cbadb244843a5f89bc75b5e7c6fc127d2bd77fbd12ed62  /tmp/gh.tar.gz" | sha256sum -c
+          sudo tar -xz -C /usr/local/bin --strip-components=2 -f /tmp/gh.tar.gz gh_2.94.0_linux_amd64/bin/gh
+          rm /tmp/gh.tar.gz
+
+      - name: Backfill reportedBy/community on all issues, PRs, and discussions
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -88,6 +110,8 @@ jobs:
             echo "Labeling $type #$number (author: $author)"
             if [[ "$type" == "pr" ]]; then
               gh pr edit "$number" --add-label "reportedBy/community" --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+            elif [[ "$type" == "discussion" ]]; then
+              gh discussion edit "$number" --add-label "reportedBy/community" --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
             else
               gh issue edit "$number" --add-label "reportedBy/community" --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
             fi
@@ -107,4 +131,12 @@ jobs:
           echo "Found $(echo "$prs" | grep -c . || true) PRs from non-bot authors"
           echo "$prs" | while IFS=' ' read -r number author; do
             label_if_community "pr" "$number" "$author"
+          done
+
+          echo "==> Discussions"
+          discussions=$(gh api --paginate "repos/$GITHUB_REPOSITORY/discussions?per_page=100" \
+            --jq '.[] | select(.user.type != "Bot") | "\(.number) \(.user.login)"')
+          echo "Found $(echo "$discussions" | grep -c . || true) discussions from non-bot authors"
+          echo "$discussions" | while IFS=' ' read -r number author; do
+            label_if_community "discussion" "$number" "$author"
           done

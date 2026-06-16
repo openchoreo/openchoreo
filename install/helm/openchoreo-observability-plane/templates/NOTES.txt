@@ -1,0 +1,21 @@
+{{- include "openchoreo-observability-plane.validateHostnames" . -}}
+OpenChoreo Observability Plane installed.
+
+Cross-cluster URLs default to placeholder ".invalid" domains and must be set per
+deployment (the observability plane typically runs on a separate cluster from the
+control plane):
+
+  - observer.controlPlaneApiUrl
+  - observer.extraEnvs (OBSERVER_BASE_URL)
+{{- if .Values.rca.enabled }}
+  - rca.openchoreoApiUrl
+{{- end }}
+{{- if .Values.finOpsAgent.enabled }}
+  - finOpsAgent.openchoreoApiUrl
+{{- end }}
+
+Browser-facing CORS origins default to [] (CORS disabled); set
+observer.cors.allowedOrigins (and rca/finOpsAgent equivalents) for browser clients.
+
+For local k3d, the single-cluster and multi-cluster overlays under install/k3d
+supply working values.

@@ -950,3 +950,55 @@ bootstrap:
 
         log_info "FinOps Agent application created successfully"
       fi
+
+    61-mcp-e2e-subject-app.sh: |
+      #!/bin/bash
+      set -e
+
+      THUNDER_URL="http://localhost:8090"
+
+      log_info "Checking if application 'MCP E2E Subject' already exists..."
+      existing_apps=$(curl -s --max-time 10 "${THUNDER_URL}/applications")
+
+      app_id=$(echo "$existing_apps" | tr '\n' ' ' | sed 's/" *: *"/":"/g' | grep -o '"client_id":"mcp-e2e-subject-client"[^}]*"id":"[^"]*"\|"id":"[^"]*"[^}]*"client_id":"mcp-e2e-subject-client"' | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+      APP_PAYLOAD='{
+        "name": "MCP E2E Subject",
+        "description": "Permission-less client_credentials subject for MCP e2e authorization tests. Intentionally has NO ClusterAuthzRoleBinding.",
+        "inbound_auth_config": [
+          {
+            "type": "oauth2",
+            "config": {
+              "client_id": "mcp-e2e-subject-client",
+              "client_secret": "mcp-e2e-subject-secret",
+              "grant_types": [
+                "client_credentials"
+              ],
+              "token_endpoint_auth_method": "client_secret_post",
+              "pkce_required": false,
+              "public_client": false,
+              "token": {
+                "access_token": {
+                  "validity_period": 3600
+                }
+              }
+            }
+          }
+        ]
+      }'
+
+      if [ -n "$app_id" ]; then
+        log_info "Application 'MCP E2E Subject' already exists (id: $app_id), updating..."
+        curl --location -X PUT "${THUNDER_URL}/applications/$app_id" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body --max-time 30 --retry 3 --retry-delay 5
+        log_info "Application updated successfully"
+      else
+        log_info "Application 'MCP E2E Subject' does not exist, creating..."
+        curl --location "${THUNDER_URL}/applications" \
+          --header 'Content-Type: application/json' \
+          --data "$APP_PAYLOAD" \
+          --fail-with-body --max-time 30 --retry 3 --retry-delay 5
+        log_info "Application created successfully"
+      fi

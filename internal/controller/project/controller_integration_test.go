@@ -184,6 +184,9 @@ var _ = Describe("Project Controller", func() {
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
 					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: "default",
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, project)).To(Succeed())
@@ -230,6 +233,9 @@ var _ = Describe("Project Controller", func() {
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
 					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: "default",
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, project)).To(Succeed())
@@ -265,6 +271,9 @@ var _ = Describe("Project Controller", func() {
 				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
+					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: "default",
 					},
 				},
 			}
@@ -318,6 +327,9 @@ var _ = Describe("Project Controller", func() {
 				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
+					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: "default",
 					},
 				},
 			}
@@ -373,6 +385,9 @@ var _ = Describe("Project Controller", func() {
 				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
+					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: "default",
 					},
 				},
 			}
@@ -453,6 +468,9 @@ var _ = Describe("Project Controller", func() {
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
 						Name: "some-pipeline",
 					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: "default",
+					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, project)).To(Succeed())
@@ -495,6 +513,9 @@ var _ = Describe("Project Controller", func() {
 				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
+					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: "default",
 					},
 				},
 			}
@@ -551,6 +572,9 @@ var _ = Describe("Project Controller", func() {
 				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
+					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: "default",
 					},
 				},
 			}
@@ -633,6 +657,9 @@ var _ = Describe("Project Controller", func() {
 				Spec: openchoreov1alpha1.ProjectSpec{
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
+					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: "default",
 					},
 				},
 			}

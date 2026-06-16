@@ -99,6 +99,66 @@ func TestCreateProject(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("type and parameters mapped into CR", func(t *testing.T) {
+		projSvc := projectmocks.NewMockService(t)
+		projSvc.EXPECT().
+			CreateProject(mock.Anything, testNS, mock.MatchedBy(func(p *openchoreov1alpha1.Project) bool {
+				return p.Spec.Type.Kind == openchoreov1alpha1.ProjectTypeRefKindProjectType &&
+					p.Spec.Type.Name == "standard-project" &&
+					p.Spec.Parameters != nil &&
+					string(p.Spec.Parameters.Raw) == `{"tier":"premium"}`
+			})).
+			Return(makeCreated(), nil)
+
+		typeKind := gen.ProjectType
+		req := &gen.CreateProjectJSONRequestBody{
+			Metadata: gen.ObjectMeta{Name: "my-proj"},
+			Spec: &gen.ProjectSpec{
+				Type:       &gen.ProjectTypeRef{Kind: &typeKind, Name: "standard-project"},
+				Parameters: &map[string]any{"tier": "premium"},
+			},
+		}
+		h := newTestHandler(withProjectService(projSvc))
+		_, err := h.CreateProject(ctx, testNS, req)
+		require.NoError(t, err)
+	})
+
+	t.Run("type without kind leaves kind unset for CRD default", func(t *testing.T) {
+		projSvc := projectmocks.NewMockService(t)
+		projSvc.EXPECT().
+			CreateProject(mock.Anything, testNS, mock.MatchedBy(func(p *openchoreov1alpha1.Project) bool {
+				return p.Spec.Type.Name == "standard-project" && p.Spec.Type.Kind == ""
+			})).
+			Return(makeCreated(), nil)
+
+		req := &gen.CreateProjectJSONRequestBody{
+			Metadata: gen.ObjectMeta{Name: "my-proj"},
+			Spec: &gen.ProjectSpec{
+				Type: &gen.ProjectTypeRef{Name: "standard-project"}, // no Kind — CRD default applies server-side
+			},
+		}
+		h := newTestHandler(withProjectService(projSvc))
+		_, err := h.CreateProject(ctx, testNS, req)
+		require.NoError(t, err)
+	})
+
+	t.Run("unmarshalable parameters return error", func(t *testing.T) {
+		// CreateProject must not be called when parameters fail to marshal.
+		projSvc := projectmocks.NewMockService(t)
+
+		req := &gen.CreateProjectJSONRequestBody{
+			Metadata: gen.ObjectMeta{Name: "my-proj"},
+			Spec: &gen.ProjectSpec{
+				// A channel value cannot be JSON-marshaled.
+				Parameters: &map[string]any{"bad": make(chan int)},
+			},
+		}
+		h := newTestHandler(withProjectService(projSvc))
+		_, err := h.CreateProject(ctx, testNS, req)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "marshal parameters")
+	})
+
 	t.Run("empty annotation values cleaned", func(t *testing.T) {
 		projSvc := projectmocks.NewMockService(t)
 		annotations := map[string]string{

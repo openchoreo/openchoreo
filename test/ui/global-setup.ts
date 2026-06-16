@@ -15,6 +15,10 @@ import { hostResolverRules } from './fixtures/hosts';
 // Idempotent: if the file already exists from a previous run, we skip
 // re-signing in. Delete .auth/ to force a fresh run.
 export default async function globalSetup(config: FullConfig): Promise<void> {
+  // In ext-idp mode Thunder is replaced by Dex. No Thunder role storage
+  // states are needed — the ext-idp spec drives sign-in directly.
+  if (process.env.E2E_WITH_EXT_IDP === 'true') return;
+
   const baseURL =
     config.projects[0]?.use.baseURL ??
     process.env.UI_BASE_URL ??

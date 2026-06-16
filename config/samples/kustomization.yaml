@@ -50,4 +50,8 @@ resources:
   - openchoreo_v1alpha1_clusterobservabilityplane.yaml
   - openchoreo_v1alpha1_clustercomponenttype.yaml
   - openchoreo_v1alpha1_clusterresourcetype.yaml
+  - v1alpha1_projecttype.yaml
+  - v1alpha1_clusterprojecttype.yaml
+  - v1alpha1_projectrelease.yaml
+  - v1alpha1_projectreleasebinding.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

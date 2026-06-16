@@ -10,6 +10,9 @@ Traits can modify existing resources using patches, which are JSON Patch operati
 - CEL-based resource targeting
 - forEach iteration support
 
+A Trait can also **delete** whole resources produced by the ComponentType or earlier traits using the `spec.removes`
+section. See [Removing Resources](#removing-resources).
+
 ## Basic Patch Structure
 
 Patches are defined in the Trait's `spec.patches` section:
@@ -381,6 +384,97 @@ patches:
         value:
           containerPort: ${port.number}
           name: ${port.name}
+```
+
+## Removing Resources
+
+Patches modify resources in place. When a Trait needs to **delete** a whole resource produced by the ComponentType
+or by an earlier trait, use the `spec.removes` section instead. Each entry matches resources by GVK (and optional
+`where` filter) and removes the matched resources entirely from the rendered output.
+
+```yaml
+apiVersion: v1alpha1
+kind: Trait
+metadata:
+  name: drop-default-route
+spec:
+  removes:
+    - target:
+        kind: HTTPRoute
+        group: gateway.networking.k8s.io
+        version: v1
+      targetPlane: dataplane
+```
+
+### Remove Structure
+
+A remove entry uses the same `target` shape as a patch, but has no `operations` — the whole matched resource is
+deleted:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `target.kind` | Yes | Resource kind to remove (e.g. `HTTPRoute`, `ConfigMap`) |
+| `target.group` | Yes | API group; use `""` for core API resources |
+| `target.version` | Yes | API version (e.g. `v1`) |
+| `target.where` | No | CEL expression to filter which matching resources are removed (e.g. `${resource.metadata.name.endsWith("-default")}`) |
+| `targetPlane` | No | Plane whose resources are targeted; defaults to `"dataplane"` |
+| `forEach` / `var` | No | Iterate over a CEL list, binding each item to `var` for use in `where` |
+
+### Execution Order
+
+Within a single trait, removes run **after** its `creates` and `patches`. This lets one trait fully express a
+substitution — create a replacement resource and then remove the original:
+
+```yaml
+spec:
+  creates:
+    - template:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: ${metadata.name}-tuned-config
+        data:
+          mode: optimized
+  removes:
+    # Drop the ConfigMap the ComponentType emitted, now that the tuned one exists
+    - target:
+        kind: ConfigMap
+        group: ""
+        version: v1
+        where: ${resource.metadata.name == metadata.name + "-default-config"}
+```
+
+### Workload Resources Cannot Be Removed
+
+The primary workload is defined by the ComponentType, so traits **must not** delete it. The admission webhook
+rejects removes that target a built-in workload GVK — kinds `Deployment`, `StatefulSet`, `DaemonSet`, `CronJob`, or
+`Job` in the `apps` or `batch` groups:
+
+```yaml
+# REJECTED by the webhook - cannot remove the workload
+removes:
+  - target:
+      kind: Deployment
+      group: apps
+      version: v1
+```
+
+The match is on the full GVK, so a custom CRD that merely shares one of these kind names in a different group
+(e.g. `group: example.com`, `kind: Deployment`) is **not** rejected.
+
+### ForEach Removal
+
+Like patches, removes support `forEach` to delete a set of resources derived from a CEL list:
+
+```yaml
+removes:
+  - target:
+      kind: HTTPRoute
+      group: gateway.networking.k8s.io
+      version: v1
+      where: ${resource.metadata.labels["openchoreo.dev/endpoint-name"] == route}
+    forEach: ${parameters.routesToDrop}
+    var: route
 ```
 
 ## RFC 6901 Escaping

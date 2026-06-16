@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -280,15 +281,17 @@ func TestProcessComponentParameters_NoSchema(t *testing.T) {
 	assert.Empty(t, ctx.EnvironmentConfigs)
 }
 
-func TestProcessComponentParameters_PruneAndDefault(t *testing.T) {
+func TestProcessComponentParameters_DefaultAndExtra(t *testing.T) {
 	// Schema defines "replicas" (integer, default=1), "image" (string), and "protocol" (string, default="TCP").
 	// Component provides "image" and "extra" but omits "replicas" and "protocol" — those should get defaults.
+	// The schema does not forbid additional properties, so the "extra" key flows through inertly
+	// (rendering no longer prunes unknown developer-supplied values).
 	input := &ComponentContextInput{
 		Component: &v1alpha1.Component{
 			Spec: v1alpha1.ComponentSpec{
 				Parameters: rawParams(map[string]any{
 					"image": "myapp:v1",
-					"extra": "should-be-pruned",
+					"extra": "kept-not-pruned",
 				}),
 			},
 		},
@@ -308,14 +311,76 @@ func TestProcessComponentParameters_PruneAndDefault(t *testing.T) {
 
 	ctx, err := BuildComponentContext(input)
 	require.NoError(t, err)
-	// extra key should be pruned
-	_, hasExtra := ctx.Parameters["extra"]
-	assert.False(t, hasExtra, "extra key should be pruned")
+	// extra key is no longer pruned; it flows through since the schema allows additional properties
+	assert.Equal(t, "kept-not-pruned", ctx.Parameters["extra"])
 	// provided values should remain
 	assert.Equal(t, "myapp:v1", ctx.Parameters["image"])
 	// omitted fields should get schema defaults
 	assert.Equal(t, int64(1), ctx.Parameters["replicas"])
 	assert.Equal(t, "TCP", ctx.Parameters["protocol"])
+}
+
+// TestProcessComponentParameters_OneOfObjectVariantPreserved is a regression test for the
+// pruning bug where a field whose shape is declared only inside a oneOf/anyOf/allOf branch
+// (e.g. a CORS allowed-origin that is either a plain string OR an object {regex: ...}) was
+// stripped to {} by structural-schema pruning and then rejected by JSON-schema validation.
+// Structural-schema pruning never descends into oneOf/anyOf/allOf branches, so the object
+// variant's inner fields must survive untouched once pruning is removed from the pipeline.
+func TestProcessComponentParameters_OneOfObjectVariantPreserved(t *testing.T) {
+	oneOfItemSchema := objectSchema(map[string]any{
+		"corsAllowedOrigins": map[string]any{
+			"type": "array",
+			"items": map[string]any{
+				"oneOf": []any{
+					map[string]any{"type": "string"},
+					map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"regex": map[string]any{"type": "string"},
+						},
+						"required": []any{"regex"},
+					},
+				},
+			},
+		},
+	})
+
+	input := &ComponentContextInput{
+		Component: &v1alpha1.Component{
+			Spec: v1alpha1.ComponentSpec{
+				Parameters: rawParams(map[string]any{
+					"corsAllowedOrigins": []any{
+						"https://example.com",                       // string variant -> survives
+						map[string]any{"regex": `.*\.example\.com`}, // object variant -> must be preserved
+					},
+				}),
+			},
+		},
+		ComponentType: &v1alpha1.ComponentType{
+			Spec: v1alpha1.ComponentTypeSpec{
+				Parameters: openAPIV3Schema(oneOfItemSchema),
+			},
+		},
+		DataPlane:   minimalDataPlane(),
+		Environment: minimalEnvironment(),
+		Metadata:    validMetadata(),
+	}
+
+	ctx, err := BuildComponentContext(input)
+	require.NoError(t, err)
+
+	// The schema has no defaults, so the parameters must pass through untouched: the string
+	// variant survives and the object variant's regex (declared only inside the oneOf branch)
+	// is preserved rather than pruned to {}.
+	want := map[string]any{
+		"corsAllowedOrigins": []any{
+			"https://example.com",
+			map[string]any{"regex": `.*\.example\.com`},
+		},
+	}
+	if diff := cmp.Diff(want, ctx.Parameters); diff != "" {
+		t.Errorf("parameters mismatch (-want +got):\n%s", diff)
+	}
 }
 
 // --- extractDataPlaneData tests ---

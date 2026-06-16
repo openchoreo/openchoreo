@@ -567,7 +567,7 @@ install_eso() {
 install_gateway_crds() {
     log_info "Installing Gateway API CRDs..."
     kubectl apply --server-side \
-        -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml >/dev/null
+        -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/experimental-install.yaml >/dev/null
     log_success "Gateway API CRDs installed"
 }
 
@@ -1108,6 +1108,46 @@ install_observability_plane() {
         "--version" "$LOGS_OPENSEARCH_VERSION" \
         "--reuse-values" \
         "--set" "fluent-bit.enabled=true"
+
+    # Enable Kubernetes events collection
+    log_info "Enabling Kubernetes events collection..."
+    local events_values_file
+    events_values_file=$(mktemp)
+    cat > "$events_values_file" <<'EOF'
+collector:
+  extraEnv:
+    - name: OPENSEARCH_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: opensearch-admin-credentials
+          key: username
+    - name: OPENSEARCH_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: opensearch-admin-credentials
+          key: password
+extraExtensions:
+  basicauth/opensearch:
+    client_auth:
+      username: ${env:OPENSEARCH_USERNAME}
+      password: ${env:OPENSEARCH_PASSWORD}
+exporters:
+  opensearch:
+    logs_index: "k8s-events"
+    logs_index_time_format: "yyyy-MM-dd"
+    http:
+      endpoint: "https://opensearch:9200"
+      tls:
+        insecure_skip_verify: true
+      auth:
+        authenticator: basicauth/opensearch
+pipelineExporters:
+  - opensearch
+EOF
+    install_helm_chart "observability-events-kubernetes" "$modules_repo/observability-events-otel-collector" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
+        "--version" "$EVENTS_OTEL_COLLECTOR_VERSION" \
+        "-f" "$events_values_file"
+    rm -f "$events_values_file"
 }
 
 # Apply ClusterWorkflowTemplates required by the workflow plane

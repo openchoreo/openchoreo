@@ -996,7 +996,7 @@
           "type": "string"
         },
         "openchoreoApiUrl": {
-          "default": "http://api.openchoreo.localhost:8080",
+          "default": "http://api.openchoreo.invalid:8080",
           "description": "OpenChoreo API URL for authorization service",
           "title": "openchoreoApiUrl",
           "type": "string"
@@ -1308,7 +1308,7 @@
           "type": "boolean"
         },
         "controlPlaneApiUrl": {
-          "default": "http://api.openchoreo.localhost:8080",
+          "default": "http://api.openchoreo.invalid:8080",
           "description": "Control plane API base URL used by observer",
           "title": "controlPlaneApiUrl",
           "type": "string"
@@ -1814,7 +1814,7 @@
           "type": "string"
         },
         "openchoreoApiUrl": {
-          "default": "http://api.openchoreo.localhost:8080",
+          "default": "http://api.openchoreo.invalid:8080",
           "description": "OpenChoreo API base URL used by rca-agent",
           "title": "openchoreoApiUrl",
           "type": "string"

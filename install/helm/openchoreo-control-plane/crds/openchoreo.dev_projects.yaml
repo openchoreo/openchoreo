@@ -60,8 +60,45 @@ spec:
                 required:
                 - name
                 type: object
+              parameters:
+                description: |-
+                  Parameters are the project-level inputs validated against the
+                  referenced (Cluster)ProjectType's parameters schema and inlined into
+                  each ProjectRelease snapshot.
+                x-kubernetes-preserve-unknown-fields: true
+              type:
+                description: |-
+                  Type references the (Cluster)ProjectType that defines the
+                  infrastructure template materialized in each environment's cell
+                  namespace. Immutable: changing the type after creation is rejected
+                  by webhook-level CEL. The Project controller automatically cuts a
+                  new ProjectRelease whenever the inlined (Cluster)ProjectType
+                  snapshot or Parameters change.
+                properties:
+                  kind:
+                    default: ProjectType
+                    description: Kind is the kind of project type (ProjectType or
+                      ClusterProjectType).
+                    enum:
+                    - ProjectType
+                    - ClusterProjectType
+                    type: string
+                  name:
+                    description: |-
+                      Name is the name of the ProjectType or ClusterProjectType to reference.
+                      Must be a valid DNS-1123 label since it identifies a Kubernetes object.
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-validations:
+                - message: spec.type cannot be changed after creation
+                  rule: self == oldSelf
             required:
             - deploymentPipelineRef
+            - type
             type: object
           status:
             description: ProjectStatus defines the observed state of Project.
@@ -124,6 +161,28 @@ spec:
                   - type
                   type: object
                 type: array
+              latestRelease:
+                description: |-
+                  LatestRelease is the most recent ProjectRelease cut for this Project.
+                  The Project controller maintains this; ProjectReleaseBindings pin
+                  spec.projectRelease to a value here (or to an older release for
+                  rollback).
+                properties:
+                  hash:
+                    description: |-
+                      Hash is the spec hash that produced the release. The Project
+                      controller cuts a new ProjectRelease when this drifts from the
+                      recomputed hash on a reconcile.
+                    minLength: 1
+                    type: string
+                  name:
+                    description: Name is the name of the ProjectRelease.
+                    minLength: 1
+                    type: string
+                required:
+                - hash
+                - name
+                type: object
               observedGeneration:
                 description: ObservedGeneration reflects the generation of the most
                   recently observed Project.

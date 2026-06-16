@@ -139,3 +139,32 @@ Cluster Agent service account name
 {{- default "default" .Values.clusterAgent.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Validate that placeholder .invalid hostnames have been replaced with real domains.
+The chart ships .invalid defaults for cross-cluster URLs (the observability plane
+typically runs on a separate cluster from the control plane), so they must be set
+explicitly per deployment. k3d overlays supply real values.
+*/}}
+{{- define "openchoreo-observability-plane.validateHostnames" -}}
+{{- $errors := list -}}
+{{- if contains ".invalid" .Values.observer.controlPlaneApiUrl -}}
+  {{- $errors = append $errors "observer.controlPlaneApiUrl contains placeholder domain (.invalid)" -}}
+{{- end -}}
+{{- if contains ".invalid" (toYaml .Values.observer.extraEnvs) -}}
+  {{- $errors = append $errors "observer.extraEnvs contains placeholder domain (.invalid) (e.g. OBSERVER_BASE_URL)" -}}
+{{- end -}}
+{{- if .Values.rca.enabled -}}
+  {{- if contains ".invalid" .Values.rca.openchoreoApiUrl -}}
+    {{- $errors = append $errors "rca.openchoreoApiUrl contains placeholder domain (.invalid)" -}}
+  {{- end -}}
+{{- end -}}
+{{- if .Values.finOpsAgent.enabled -}}
+  {{- if contains ".invalid" .Values.finOpsAgent.openchoreoApiUrl -}}
+    {{- $errors = append $errors "finOpsAgent.openchoreoApiUrl contains placeholder domain (.invalid)" -}}
+  {{- end -}}
+{{- end -}}
+{{- if gt (len $errors) 0 -}}
+  {{- fail (printf "Placeholder domains found. Set real URLs for:\n  - %s" (join "\n  - " $errors)) -}}
+{{- end -}}
+{{- end -}}

@@ -374,9 +374,9 @@ observer:
   # @schema
   # type: string
   # description: Control plane API base URL used by observer
-  # default: "http://api.openchoreo.localhost:8080"
+  # default: "http://api.openchoreo.invalid:8080"
   # @schema
-  controlPlaneApiUrl: "http://api.openchoreo.localhost:8080"
+  controlPlaneApiUrl: "http://api.openchoreo.invalid:8080"
 
   # @schema
   # type: boolean
@@ -535,8 +535,7 @@ observer:
     # items:
     #   type: string
     # @schema
-    allowedOrigins:
-    - "http://openchoreo.localhost:8080"
+    allowedOrigins: []
 
   # @schema
   # type: array
@@ -553,7 +552,7 @@ observer:
   # @schema
   extraEnvs:
   - name: OBSERVER_BASE_URL
-    value: "http://observer.openchoreo.localhost:11080"
+    value: "http://observer.openchoreo.invalid:11080"
   - name: AUTHZ_TIMEOUT
     value: "30s"
 
@@ -1315,8 +1314,7 @@ rca:
     # items:
     #   type: string
     # @schema
-    allowedOrigins:
-    - "http://openchoreo.localhost:8080"
+    allowedOrigins: []
 
   # @schema
   # type: object
@@ -1412,9 +1410,9 @@ rca:
   # @schema
   # type: string
   # description: OpenChoreo API base URL used by rca-agent
-  # default: "http://api.openchoreo.localhost:8080"
+  # default: "http://api.openchoreo.invalid:8080"
   # @schema
-  openchoreoApiUrl: "http://api.openchoreo.localhost:8080"
+  openchoreoApiUrl: "http://api.openchoreo.invalid:8080"
 
   # @schema
   # type: string
@@ -1556,8 +1554,7 @@ finOpsAgent:
     # items:
     #   type: string
     # @schema
-    allowedOrigins:
-    - "http://openchoreo.localhost:8080"
+    allowedOrigins: []
 
   # @schema
   # type: object
@@ -1729,9 +1726,9 @@ finOpsAgent:
   # @schema
   # type: string
   # description: OpenChoreo API URL for authorization service
-  # default: "http://api.openchoreo.localhost:8080"
+  # default: "http://api.openchoreo.invalid:8080"
   # @schema
-  openchoreoApiUrl: "http://api.openchoreo.localhost:8080"
+  openchoreoApiUrl: "http://api.openchoreo.invalid:8080"
 
   # @schema
   # type: object

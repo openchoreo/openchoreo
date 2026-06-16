@@ -80,18 +80,25 @@ type RenderedReleaseList struct {
 	Items           []RenderedRelease `json:"items"`
 }
 
-// RenderedReleaseOwner defines the owner of a RenderedRelease.
-// +kubebuilder:validation:XValidation:rule="has(self.componentName) != has(self.resourceName)",message="exactly one of componentName or resourceName must be set"
+// RenderedReleaseOwner identifies the owner of a RenderedRelease. ProjectName
+// is always required. The optional name fields disambiguate the binding kind:
+//   - ComponentName set: produced by a ReleaseBinding (component)
+//   - ResourceName set:  produced by a ResourceReleaseBinding
+//   - Both unset:        produced by a ProjectReleaseBinding (project-level
+//     infra including the cell namespace)
+//
+// At most one of ComponentName or ResourceName may be set.
+// +kubebuilder:validation:XValidation:rule="!(has(self.componentName) && has(self.resourceName))",message="componentName and resourceName both cannot be set"
 type RenderedReleaseOwner struct {
 	// ProjectName is the name of the Project the owner belongs to.
 	// +kubebuilder:validation:MinLength=1
 	ProjectName string `json:"projectName"`
-	// ComponentName is set when the RenderedRelease is owned by a Component.
-	// Mutually exclusive with ResourceName.
+	// ComponentName is set when the RenderedRelease is owned by a Component
+	// (via ReleaseBinding). Mutually exclusive with ResourceName.
 	// +optional
 	ComponentName string `json:"componentName,omitempty"`
-	// ResourceName is set when the RenderedRelease is owned by a Resource.
-	// Mutually exclusive with ComponentName.
+	// ResourceName is set when the RenderedRelease is owned by a Resource
+	// (via ResourceReleaseBinding). Mutually exclusive with ComponentName.
 	// +optional
 	ResourceName string `json:"resourceName,omitempty"`
 }

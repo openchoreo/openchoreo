@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/onsi/gomega"
 )
 
 const mcpCallTimeout = 30 * time.Second
@@ -143,6 +144,41 @@ func CallMCPToolJSON(session *mcp.ClientSession, toolName string, args map[strin
 		}
 	}
 	return nil
+}
+
+// CallMCPToolExpectDenied calls the tool and asserts the call fails with an
+// error containing wantSubstring. It returns the error for further inspection.
+// Covers both denial surfaces: the JSON-RPC method error from the CP tool-filter
+// middleware (pkg/mcp/tools/filter.go:174), and the IsError tool result when the
+// service layer denies — CallMCPTool surfaces both as a non-nil error whose
+// message contains the denial text.
+func CallMCPToolExpectDenied(session *mcp.ClientSession, toolName string, args map[string]any, wantSubstring string) error {
+	_, err := CallMCPTool(session, toolName, args)
+	// Offset(1) so a failure is reported at the calling spec, not in this helper.
+	gomega.ExpectWithOffset(1, err).To(gomega.HaveOccurred(),
+		"expected tool %s to be denied, but the call succeeded", toolName)
+	gomega.ExpectWithOffset(1, err.Error()).To(gomega.ContainSubstring(wantSubstring),
+		"tool %s denial error %q does not contain %q", toolName, err.Error(), wantSubstring)
+	return err
+}
+
+// DeniedProbe builds a probe for DeleteClusterAuthzRoleBindingAndWaitForRevocation: it calls
+// toolName and returns true once the resulting error contains wantSubstring (i.e. the subject is
+// denied again). If the call unexpectedly succeeds (still authorized), it runs onUnexpectedSuccess
+// — pass nil for read-only tools that create nothing — and returns false to keep waiting.
+// Centralizing the cleanup-on-success branch keeps a stray probe resource from colliding on the
+// next poll.
+func DeniedProbe(session *mcp.ClientSession, toolName string, args map[string]any, wantSubstring string, onUnexpectedSuccess func()) func() bool {
+	return func() bool {
+		_, err := CallMCPTool(session, toolName, args)
+		if err == nil {
+			if onUnexpectedSuccess != nil {
+				onUnexpectedSuccess()
+			}
+			return false
+		}
+		return strings.Contains(err.Error(), wantSubstring)
+	}
 }
 
 func extractTextContent(result *mcp.CallToolResult) string {

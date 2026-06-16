@@ -158,6 +158,10 @@ spec:
 			want: map[string]any{
 				"parameters": map[string]any{
 					"cpu": "100m", // From Component.Spec.Parameters
+					// "replicas" is not declared in the parameters schema (it belongs to
+					// environmentConfigs), but rendering no longer prunes unknown values, so the
+					// extra parameter flows through inertly.
+					"replicas": float64(3),
 				},
 				"environmentConfigs": map[string]any{
 					"replicas": float64(5), // From ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs
@@ -551,6 +555,10 @@ spec:
 			want: map[string]any{
 				"parameters": map[string]any{
 					"database": "mydb",
+					// "size" is not declared in the parameters schema (it belongs to
+					// environmentConfigs), but rendering no longer prunes unknown values, so the
+					// extra parameter flows through inertly.
+					"size": "small",
 				},
 				"environmentConfigs": map[string]any{
 					"size": "large", // From ReleaseBinding.Spec.TraitEnvironmentConfigs

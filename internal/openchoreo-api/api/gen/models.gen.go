@@ -245,6 +245,12 @@ const (
 	ProjectSpecDeploymentPipelineRefKindDeploymentPipeline ProjectSpecDeploymentPipelineRefKind = "DeploymentPipeline"
 )
 
+// Defines values for ProjectTypeRefKind.
+const (
+	ClusterProjectType ProjectTypeRefKind = "ClusterProjectType"
+	ProjectType        ProjectTypeRefKind = "ProjectType"
+)
+
 // Defines values for PromotionPathSourceEnvironmentRefKind.
 const (
 	PromotionPathSourceEnvironmentRefKindEnvironment PromotionPathSourceEnvironmentRefKind = "Environment"
@@ -2605,6 +2611,16 @@ type ProjectSpec struct {
 		// Name Name of the deployment pipeline resource
 		Name string `json:"name"`
 	} `json:"deploymentPipelineRef,omitempty"`
+
+	// Parameters Values for the parameter schema declared on the referenced
+	// (Cluster)ProjectType. Validated by the controller and inlined into
+	// each ProjectRelease snapshot.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// Type Reference to a ProjectType or ClusterProjectType template. Immutable
+	// after the Project is created. When omitted on create, the API defaults
+	// to the cluster-scoped `default` ClusterProjectType.
+	Type *ProjectTypeRef `json:"type,omitempty"`
 }
 
 // ProjectSpecDeploymentPipelineRefKind Kind of deployment pipeline resource
@@ -2615,9 +2631,32 @@ type ProjectStatus struct {
 	// Conditions Current state conditions of the Project
 	Conditions *[]Condition `json:"conditions,omitempty"`
 
+	// LatestRelease Most recent ProjectRelease cut for this Project. ProjectReleaseBindings pin spec.projectRelease to a value here (or an older release for rollback).
+	LatestRelease *struct {
+		// Hash Content hash of Project.spec + (Cluster)ProjectType.spec captured at release time
+		Hash string `json:"hash"`
+
+		// Name Name of the ProjectRelease resource
+		Name string `json:"name"`
+	} `json:"latestRelease,omitempty"`
+
 	// ObservedGeneration Generation of the most recently observed Project
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
+
+// ProjectTypeRef Reference to a ProjectType or ClusterProjectType template. Immutable
+// after the Project is created. When omitted on create, the API defaults
+// to the cluster-scoped `default` ClusterProjectType.
+type ProjectTypeRef struct {
+	// Kind Project type kind. Defaults to ProjectType (namespaced).
+	Kind *ProjectTypeRefKind `json:"kind,omitempty"`
+
+	// Name Template name.
+	Name string `json:"name"`
+}
+
+// ProjectTypeRefKind Project type kind. Defaults to ProjectType (namespaced).
+type ProjectTypeRefKind string
 
 // PromotionPath Promotion path between environments
 type PromotionPath struct {

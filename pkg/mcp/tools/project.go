@@ -12,6 +12,15 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+// ensureProjectSpec returns the given spec, allocating a new one if nil, so
+// callers can set individual fields without repeating the nil guard.
+func ensureProjectSpec(spec *gen.ProjectSpec) *gen.ProjectSpec {
+	if spec == nil {
+		return &gen.ProjectSpec{}
+	}
+	return spec
+}
+
 func (t *Toolsets) RegisterListProjects(s *mcp.Server, perms map[string]ToolPermission) {
 	const name = "list_projects"
 	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewProject}
@@ -39,7 +48,9 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server, perms map[string]ToolPer
 	mcp.AddTool(s, &mcp.Tool{
 		Name: name,
 		Description: "Create a new project in an namespace. Project names must be DNS-compatible " +
-			"(lowercase, alphanumeric, hyphens only, max 63 chars).",
+			"(lowercase, alphanumeric, hyphens only, max 63 chars). The project references a " +
+			"ProjectType (namespace-scoped) or ClusterProjectType (cluster-scoped) template; when " +
+			"omitted it defaults to the cluster-scoped \"default\" ClusterProjectType.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name": stringProperty(
@@ -47,12 +58,24 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server, perms map[string]ToolPer
 			"description": stringProperty("Human-readable description"),
 			"deployment_pipeline": stringProperty(
 				"Name of the DeploymentPipeline to use. Defaults to \"default\" if not specified."),
+			"type_name": stringProperty(
+				"Optional: name of the (Cluster)ProjectType to reference. Defaults to \"default\". " +
+					"Use list_project_types to discover names."),
+			"type_kind": stringProperty(
+				"Optional: \"ProjectType\" (namespace-scoped, default) or \"ClusterProjectType\" (cluster-scoped)."),
+			"parameters": map[string]any{
+				"type":        "object",
+				"description": "Optional: parameter values for the referenced (Cluster)ProjectType schema.",
+			},
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
-		NamespaceName      string `json:"namespace_name"`
-		Name               string `json:"name"`
-		Description        string `json:"description"`
-		DeploymentPipeline string `json:"deployment_pipeline"`
+		NamespaceName      string         `json:"namespace_name"`
+		Name               string         `json:"name"`
+		Description        string         `json:"description"`
+		DeploymentPipeline string         `json:"deployment_pipeline"`
+		TypeName           string         `json:"type_name"`
+		TypeKind           string         `json:"type_kind"`
+		Parameters         map[string]any `json:"parameters"`
 	}) (*mcp.CallToolResult, any, error) {
 		annotations := map[string]string{}
 		if args.Description != "" {
@@ -66,14 +89,26 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server, perms map[string]ToolPer
 			},
 		}
 		if args.DeploymentPipeline != "" {
-			projectReq.Spec = &gen.ProjectSpec{
-				DeploymentPipelineRef: &struct {
-					Kind *gen.ProjectSpecDeploymentPipelineRefKind `json:"kind,omitempty"`
-					Name string                                    `json:"name"`
-				}{
-					Name: args.DeploymentPipeline,
-				},
+			projectReq.Spec = ensureProjectSpec(projectReq.Spec)
+			projectReq.Spec.DeploymentPipelineRef = &struct {
+				Kind *gen.ProjectSpecDeploymentPipelineRefKind `json:"kind,omitempty"`
+				Name string                                    `json:"name"`
+			}{
+				Name: args.DeploymentPipeline,
 			}
+		}
+		if args.TypeName != "" {
+			projectReq.Spec = ensureProjectSpec(projectReq.Spec)
+			typeRef := gen.ProjectTypeRef{Name: args.TypeName}
+			if args.TypeKind != "" {
+				kind := gen.ProjectTypeRefKind(args.TypeKind)
+				typeRef.Kind = &kind
+			}
+			projectReq.Spec.Type = &typeRef
+		}
+		if args.Parameters != nil {
+			projectReq.Spec = ensureProjectSpec(projectReq.Spec)
+			projectReq.Spec.Parameters = &args.Parameters
 		}
 		result, err := t.ProjectToolset.CreateProject(ctx, args.NamespaceName, projectReq)
 		return handleToolResult(result, err)

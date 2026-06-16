@@ -30,6 +30,19 @@ func mustYAMLDocs(objects ...any) string {
 	return strings.Join(docs, "\n---\n")
 }
 
+// cpNamespaceYAML renders a control-plane namespace (labelled so the
+// openchoreo-api recognises it as a CP namespace). Used by the authorization
+// cases that need additional namespaces beyond the suite's primary mcpNs.
+func cpNamespaceYAML(ns string) string {
+	return fmt.Sprintf(`apiVersion: v1
+kind: Namespace
+metadata:
+  name: %s
+  labels:
+    openchoreo.dev/control-plane: "true"
+`, ns)
+}
+
 func platformResourcesYAML(cpNamespace string, environments []string, projects []string) string {
 	promotionPaths := make([]openchoreov1alpha1.PromotionPath, 0)
 
@@ -102,7 +115,10 @@ func platformResourcesYAML(cpNamespace string, environments []string, projects [
 					"openchoreo.dev/name": proj,
 				},
 			},
-			Spec: openchoreov1alpha1.ProjectSpec{DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "default"}},
+			Spec: openchoreov1alpha1.ProjectSpec{
+				DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "default"},
+				Type:                  openchoreov1alpha1.ProjectTypeRef{Kind: openchoreov1alpha1.ProjectTypeRefKindClusterProjectType, Name: "default"},
+			},
 		})
 	}
 

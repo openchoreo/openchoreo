@@ -127,24 +127,33 @@ test.describe('pkce-login: occ login drives PKCE through the Backstage browser',
 
     const child = spawn(occ, ['login', '--credential', 'ui-pkce'], { env });
 
+    // Capture occ's output so a non-zero exit surfaces the cause (the token
+    // exchange is host-side and never appears in the browser trace).
+    let loginStdout = '';
+    let loginStderr = '';
+    child.stdout.on('data', (chunk: Buffer) => {
+      loginStdout += chunk.toString('utf8');
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      loginStderr += chunk.toString('utf8');
+    });
+
     const authURL = await new Promise<string>((resolve, reject) => {
-      let stdout = '';
-      let stderr = '';
       const timer = setTimeout(
-        () => reject(new Error(`timed out waiting for auth URL on stdout\n--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}`)),
+        () => reject(new Error(`timed out waiting for auth URL on stdout\n--- stdout ---\n${loginStdout}\n--- stderr ---\n${loginStderr}`)),
         30_000,
       );
-      child.stdout.on('data', (chunk: Buffer) => {
-        stdout += chunk.toString('utf8');
-        const m = stdout.match(/https?:\/\/[^\s]+\/oauth2\/authorize\S*/);
+      const onData = () => {
+        const m = loginStdout.match(/https?:\/\/[^\s]+\/oauth2\/authorize\S*/);
         if (m) {
           clearTimeout(timer);
+          child.stdout.off('data', onData);
           resolve(m[0]);
         }
-      });
-      child.stderr.on('data', (chunk: Buffer) => {
-        stderr += chunk.toString('utf8');
-      });
+      };
+      child.stdout.on('data', onData);
+      // The URL may have been buffered before this listener attached.
+      onData();
       child.on('error', err => {
         clearTimeout(timer);
         reject(err);
@@ -153,7 +162,7 @@ test.describe('pkce-login: occ login drives PKCE through the Backstage browser',
         clearTimeout(timer);
         reject(
           new Error(
-            `occ login exited ${code} before printing auth URL\n--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}`,
+            `occ login exited ${code} before printing auth URL\n--- stdout ---\n${loginStdout}\n--- stderr ---\n${loginStderr}`,
           ),
         );
       });
@@ -183,7 +192,10 @@ test.describe('pkce-login: occ login drives PKCE through the Backstage browser',
     // success page rendered by occ's local server; the CLI process should
     // then exit 0.
     const exitCode = await exitPromise;
-    expect(exitCode).toBe(0);
+    expect(
+      exitCode,
+      `occ login exited ${exitCode}\n--- stdout ---\n${loginStdout}\n--- stderr ---\n${loginStderr}`,
+    ).toBe(0);
 
     // Verify a token round-trip via a follow-on occ call (occ has no
     // kubectl-style `get` verb — listing is noun-first and project-scoped;

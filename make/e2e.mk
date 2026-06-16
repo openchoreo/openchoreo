@@ -13,6 +13,17 @@ E2E_WITH_OBSERVABILITY ?= false
 # (see test/ui/). Off by default so the existing e2e workflow keeps the lighter
 # Backstage-disabled install.
 E2E_WITH_UI            ?= false
+# Optional Backstage (openchoreo-ui) image tag for the UI install. The
+# openchoreo-ui image is built by the separate backstage-plugins repo and tagged
+# with that repo's commit short SHA, so the chart's AppVersion default (the
+# openchoreo commit SHA) has no matching image during the release e2e gate. The
+# release orchestrator resolves the backstage-plugins release-branch tip and
+# passes its short SHA here. Empty keeps the chart's AppVersion default.
+E2E_BACKSTAGE_IMAGE_TAG ?=
+# Set to "true" to replace Thunder with Dex as the OIDC provider and run the
+# external-IdP Playwright suite (test/ui/specs/external-idp/).
+# Implies Backstage — no need to also set E2E_WITH_UI=true.
+E2E_WITH_EXT_IDP       ?= false
 # Go duration for the test suite (go test -timeout)
 E2E_TEST_TIMEOUT       ?= 20m
 # Go duration for each individual helm install and kubectl wait (not the overall setup timeout)
@@ -49,11 +60,25 @@ UI_DIR                 := $(PROJECT_DIR)/test/ui
 UI_K3D_DIR             := $(UI_DIR)/k3d
 
 # When the UI suite is enabled, layer the cp-ui overlay on top of the default
-# control-plane values so Backstage gets switched on.
+# control-plane values so Backstage gets switched on. When a Backstage image tag
+# is supplied, pin it so the install does not fall back to the chart AppVersion
+# (the openchoreo SHA), which has no matching openchoreo-ui image.
 ifeq ($(E2E_WITH_UI),true)
   E2E_CP_EXTRA_VALUES := --values $(UI_K3D_DIR)/values-cp-ui.yaml
+  ifneq ($(strip $(E2E_BACKSTAGE_IMAGE_TAG)),)
+    E2E_CP_EXTRA_VALUES += --set-string backstage.image.tag=$(E2E_BACKSTAGE_IMAGE_TAG)
+  endif
 else
   E2E_CP_EXTRA_VALUES :=
+endif
+
+# External-IdP mode: enable Backstage AND swap Thunder for Dex as the OIDC provider.
+# The ext-idp overlay overrides security.oidc.* and adds the groups scope.
+ifeq ($(E2E_WITH_EXT_IDP),true)
+  E2E_CP_EXTRA_VALUES := --values $(UI_K3D_DIR)/values-cp-ui.yaml --values $(UI_K3D_DIR)/values-cp-ext-idp.yaml
+  ifneq ($(strip $(E2E_BACKSTAGE_IMAGE_TAG)),)
+    E2E_CP_EXTRA_VALUES += --set-string backstage.image.tag=$(E2E_BACKSTAGE_IMAGE_TAG)
+  endif
 endif
 
 # Namespaces
@@ -69,7 +94,8 @@ ESO_VERSION            ?= 2.0.1
 KGATEWAY_VERSION       ?= v2.2.1
 OPENBAO_CHART_VERSION  ?= 0.25.6
 THUNDER_VERSION        ?= 0.28.0
-OBSERVABILITY_LOGS_OPENSEARCH_VERSION     ?= 0.4.1
+DEX_VERSION            ?= 0.24.1
+OBSERVABILITY_LOGS_OPENSEARCH_VERSION     ?= 0.5.1
 OBSERVABILITY_TRACES_OPENSEARCH_VERSION   ?= 0.4.1
 OBSERVABILITY_METRICS_PROMETHEUS_VERSION  ?= 0.6.1
 
@@ -282,7 +308,7 @@ e2e.setup: ## All setup: cluster + prerequisites + install + configure (+ UI whe
 	@$(MAKE) e2e.setup-prerequisites
 	@$(MAKE) e2e.setup-install
 	@$(MAKE) e2e.setup-configure
-	@if [ "$(E2E_WITH_UI)" = "true" ]; then $(MAKE) e2e.setup-ui; fi
+	@if [ "$(E2E_WITH_UI)" = "true" ] || [ "$(E2E_WITH_EXT_IDP)" = "true" ]; then $(MAKE) e2e.setup-ui; fi
 	@$(call log_success, E2E setup complete)
 
 .PHONY: e2e.setup-tier-fixtures
@@ -364,7 +390,11 @@ e2e.setup-prerequisites: ## Install Gateway API, cert-manager, ESO, kgateway
 
 .PHONY: e2e.setup-install
 e2e.setup-install: ## Install all planes via Helm
-	@$(MAKE) _e2e.install-thunder
+	@if [ "$(E2E_WITH_EXT_IDP)" = "true" ]; then \
+		$(MAKE) _e2e.install-dex; \
+	else \
+		$(MAKE) _e2e.install-thunder; \
+	fi
 	@$(MAKE) _e2e.install-cp
 	@$(MAKE) _e2e.install-dp
 	@if [ "$(E2E_WITH_BUILD)" = "true" ]; then $(MAKE) _e2e.install-openbao; fi
@@ -400,10 +430,23 @@ _e2e.install-thunder:
 		--values $(E2E_K3D_DIR)/values-thunder.yaml \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 
+.PHONY: _e2e.install-dex
+_e2e.install-dex:
+	@$(call log_info, Installing Dex $(DEX_VERSION))
+	$(E2E_HELM) repo add dex https://charts.dexidp.io 2>/dev/null || true
+	$(E2E_HELM) repo update dex
+	$(E2E_HELM) upgrade --install dex dex/dex \
+		--namespace dex --create-namespace \
+		--version $(DEX_VERSION) \
+		--values $(E2E_K3D_DIR)/values-dex.yaml \
+		--wait --timeout $(E2E_SETUP_TIMEOUT)
+	@$(call log_info, Applying Dex HTTPRoute)
+	$(E2E_KUBECTL) apply -f $(E2E_K3D_DIR)/dex-httproute.yaml
+
 .PHONY: _e2e.install-cp
 _e2e.install-cp:
 	@$(call log_info, Installing Control Plane)
-	@if [ "$(E2E_WITH_UI)" = "true" ]; then $(MAKE) _e2e.prepare-backstage-secret; fi
+	@if [ "$(E2E_WITH_UI)" = "true" ] || [ "$(E2E_WITH_EXT_IDP)" = "true" ]; then $(MAKE) _e2e.prepare-backstage-secret; fi
 	$(E2E_HELM) upgrade --install openchoreo-control-plane $(E2E_CP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
 		--namespace $(E2E_CP_NS) --create-namespace \

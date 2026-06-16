@@ -26,12 +26,13 @@ ESO_VERSION="v2.0.1"
 ESO_REPO="oci://ghcr.io/external-secrets/charts"
 
 # kgateway configuration
-KGATEWAY_VERSION="v2.2.1"
+KGATEWAY_VERSION="v2.3.1"
 
 # Thunder configuration
 THUNDER_VERSION="0.28.0"
 
 # Observability module versions (community-modules)
-LOGS_OPENSEARCH_VERSION="0.4.1"
+LOGS_OPENSEARCH_VERSION="0.5.1"
 TRACES_OPENSEARCH_VERSION="0.4.1"
 METRICS_PROMETHEUS_VERSION="0.6.1"
+EVENTS_OTEL_COLLECTOR_VERSION="0.1.1"

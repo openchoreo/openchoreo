@@ -7,6 +7,7 @@
 #   tier1, tier2 — control plane + data plane only
 #   tier3       — multi-cluster (4 separate k3d clusters, one per plane)
 #   ui          — full stack + Backstage portal (Playwright)
+#   ext-idp     — full stack + Backstage portal with Dex as external OIDC provider (Playwright)
 #   quick-start — published quick-start container, the documented Quick Start
 #                 Guide journey (all four planes + sample deploy)
 #
@@ -35,6 +36,11 @@ on:
         required: false
         type: string
         default: "0.0.0-latest-dev"
+      backstage_image_tag:
+        description: "Backstage (openchoreo-ui) image tag for the UI leg; empty uses the chart's AppVersion default"
+        required: false
+        type: string
+        default: ""
       run_tier1:
         description: "Run the tier1 leg"
         required: false
@@ -57,6 +63,11 @@ on:
         default: true
       run_quick_start:
         description: "Run the Quick Start smoke leg (published quick-start container, all four planes + sample deploy)"
+        required: false
+        type: boolean
+        default: true
+      run_ext_idp:
+        description: "Run the external IdP leg (Dex as OIDC provider, Playwright)"
         required: false
         type: boolean
         default: true
@@ -72,6 +83,11 @@ on:
         required: false
         type: string
         default: "0.0.0-latest-dev"
+      backstage_image_tag:
+        description: "Backstage (openchoreo-ui) image tag for the UI leg; empty uses the chart's AppVersion default"
+        required: false
+        type: string
+        default: ""
       run_tier1:
         description: "Run the tier1 leg"
         required: false
@@ -97,10 +113,16 @@ on:
         required: false
         type: boolean
         default: true
+      run_ext_idp:
+        description: "Run the external IdP leg (Dex as OIDC provider, Playwright)"
+        required: false
+        type: boolean
+        default: true
     secrets:
       E2E_GITHUB_PAT:
         description: "GitHub PAT with read access to the private build-test repo. When empty, the private-repo build spec self-skips."
         required: false
+
 
 permissions:
   contents: read
@@ -304,9 +326,12 @@ jobs:
           esac
 
       - name: Add e2e multi-cluster host entries
-        # CP cluster external domains only — DP/WP/OP clusters are reached
-        # via host.k3d.internal from within k3d nodes, not the CI runner.
-        run: echo '127.0.0.1 api.e2e-mc-cp.local thunder.e2e-mc-cp.local openchoreo.e2e-mc-cp.local cluster-gateway.e2e-mc-cp.local' | sudo tee -a /etc/hosts
+        # CP cluster external domains plus the OP observer hostname. The observer
+        # is reachable from the runner via the OP cluster's loadbalancer port
+        # mapping (31080:11080), so the observer MCP specs drive host-side MCP
+        # sessions against observer.e2e-mc-op.local. Other DP/WP/OP services are
+        # still reached only via host.k3d.internal from within k3d nodes.
+        run: echo '127.0.0.1 api.e2e-mc-cp.local thunder.e2e-mc-cp.local openchoreo.e2e-mc-cp.local cluster-gateway.e2e-mc-cp.local observer.e2e-mc-op.local' | sudo tee -a /etc/hosts
 
       - name: Run multi-cluster e2e tests (tier 3)
         env:
@@ -337,6 +362,12 @@ jobs:
       E2E_WITH_BUILD: "true"
       E2E_WITH_OBSERVABILITY: "true"
       E2E_WITH_UI: "true"
+      # Backstage image tag for the UI install. openchoreo-ui is built by the
+      # backstage-plugins repo (tagged with its commit short SHA), so the chart's
+      # AppVersion default has no matching image at the release ref; the caller
+      # passes the backstage-plugins release-branch tip SHA here. Empty on the
+      # schedule/dispatch paths, where the latest-dev chart's AppVersion resolves.
+      E2E_BACKSTAGE_IMAGE_TAG: ${{ inputs.backstage_image_tag }}
       E2E_KUBECONTEXT: k3d-openchoreo-e2e
       UI_BASE_URL: http://openchoreo.e2e-cp.local:28080
       # OpenChoreo API URL the pkce-login spec points occ at (NOT the Backstage
@@ -443,6 +474,7 @@ jobs:
             E2E_WITH_BUILD="${E2E_WITH_BUILD}" \
             E2E_WITH_OBSERVABILITY="${E2E_WITH_OBSERVABILITY}" \
             E2E_WITH_UI="${E2E_WITH_UI}" \
+            E2E_BACKSTAGE_IMAGE_TAG="${E2E_BACKSTAGE_IMAGE_TAG}" \
             E2E_SETUP_TIMEOUT=10m
 
       - name: Run UI e2e tests
@@ -477,6 +509,150 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ui-e2e-test-results
+          path: test/ui/_test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Delete e2e cluster
+        if: always()
+        run: make e2e.down || true
+
+  ext-idp:
+    name: E2E (External IdP / Dex)
+    if: ${{ github.event_name == 'schedule' || inputs.run_ext_idp }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      E2E_WITH_EXT_IDP: "true"
+      E2E_KUBECONTEXT: k3d-openchoreo-e2e
+      UI_BASE_URL: http://openchoreo.e2e-cp.local:28080
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Check UI suite presence
+        # Older release branches predate the Playwright suite; skip the leg
+        # gracefully instead of failing the gate for refs without test/ui.
+        id: ui-suite
+        run: |
+          if [ -f test/ui/package-lock.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::test/ui is not present at this ref; skipping the ext-idp e2e leg"
+          fi
+
+      - name: Clone workflow actions
+        if: steps.ui-suite.outputs.present == 'true'
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: _workflow
+          persist-credentials: false
+
+      - name: Setup Go
+        if: steps.ui-suite.outputs.present == 'true'
+        uses: ./_workflow/.github/actions/setup-go
+
+      - name: Setup Node
+        if: steps.ui-suite.outputs.present == 'true'
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: test/ui/package-lock.json
+
+      - name: Install k3d
+        if: steps.ui-suite.outputs.present == 'true'
+        run: |
+          curl -fsSL -o /tmp/k3d https://github.com/k3d-io/k3d/releases/download/${{ env.K3D_VERSION }}/k3d-linux-amd64
+          echo "${{ env.K3D_SHA256 }}  /tmp/k3d" | sha256sum -c -
+          sudo install /tmp/k3d /usr/local/bin/k3d
+          k3d version
+
+      - name: Install yq
+        if: steps.ui-suite.outputs.present == 'true'
+        run: |
+          curl -fsSL -o /tmp/yq https://github.com/mikefarah/yq/releases/download/${{ env.YQ_VERSION }}/yq_linux_amd64
+          echo "${{ env.YQ_SHA256 }}  /tmp/yq" | sha256sum -c -
+          sudo install /tmp/yq /usr/local/bin/yq
+
+      - name: Validate Helm chart version
+        if: steps.ui-suite.outputs.present == 'true'
+        run: |
+          if [ -z "${HELM_CHART_VERSION}" ]; then
+            echo "::error::HELM_CHART_VERSION is required"
+            exit 1
+          fi
+          case "${HELM_CHART_VERSION}" in
+            *[!A-Za-z0-9._-]*)
+              echo "::error::HELM_CHART_VERSION contains unsupported characters"
+              exit 1
+              ;;
+          esac
+
+      - name: Map e2e hostnames for host processes
+        # Browsers use --host-resolver-rules; this entry covers any host process
+        # (e.g. occ) that resolves via the OS resolver.
+        if: steps.ui-suite.outputs.present == 'true'
+        run: |
+          echo "127.0.0.1 openchoreo.e2e-cp.local api.e2e-cp.local dex.e2e-cp.local" | sudo tee -a /etc/hosts
+
+      - name: Install UI test dependencies
+        if: steps.ui-suite.outputs.present == 'true'
+        working-directory: test/ui
+        run: npm ci
+
+      - name: Install Playwright browsers
+        if: steps.ui-suite.outputs.present == 'true'
+        working-directory: test/ui
+        run: npx playwright install --with-deps chromium
+
+      - name: Install OpenChoreo e2e cluster with Dex
+        if: steps.ui-suite.outputs.present == 'true'
+        run: |
+          make e2e.setup \
+            E2E_HELM_SOURCE=oci \
+            HELM_CHART_VERSION="${HELM_CHART_VERSION}" \
+            E2E_WITH_EXT_IDP="${E2E_WITH_EXT_IDP}" \
+            E2E_SETUP_TIMEOUT=10m
+
+      - name: Run ext-idp Playwright tests
+        if: steps.ui-suite.outputs.present == 'true'
+        working-directory: test/ui
+        run: npm test
+
+      - name: Collect e2e diagnostics
+        if: failure()
+        run: make e2e.diagnostics || true
+
+      - name: Upload e2e diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ext-idp-e2e-diagnostics
+          path: test/e2e/_diagnostics/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ext-idp-e2e-playwright-report
+          path: test/ui/_report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload Playwright test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ext-idp-e2e-test-results
           path: test/ui/_test-results/
           retention-days: 7
           if-no-files-found: ignore

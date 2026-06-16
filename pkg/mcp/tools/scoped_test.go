@@ -162,13 +162,35 @@ func TestScopedToolInvalidScope(t *testing.T) {
 	}
 }
 
-func TestDeprecatedAliasVisibleByDefault(t *testing.T) {
-	// Default session in v1.1: every deprecated alias appears in tools/list with
-	// a "[DEPRECATED ...]" description banner and the structured _meta marker,
-	// so existing pinned-name callers see a migration signal before the surface
-	// changes in v1.2/v1.3.
+func TestDeprecatedAliasHiddenByDefault(t *testing.T) {
+	// Default session as of v1.2: deprecated cluster-prefixed aliases are hidden
+	// from tools/list. They remain callable (see TestDeprecatedAliasRoutesAndWarns)
+	// and can be listed again with ?includeDeprecatedTools=true.
 	cs, _ := setupScopedTestServer(t, context.Background(), nil)
 	result, err := cs.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	names := toolNameSet(result.Tools)
+	for alias := range deprecatedToolNames {
+		if names[alias] {
+			t.Errorf("deprecated alias %q should be hidden from the default tools/list", alias)
+		}
+	}
+	if !names["get_component_type"] || !names["list_component_types"] {
+		t.Errorf("expected canonical scope-collapsed tools to be present in tools/list")
+	}
+}
+
+func TestDeprecatedAliasVisibleWhenIncluded(t *testing.T) {
+	// includeDeprecatedTools=true keeps the deprecated aliases in tools/list for
+	// clients that have not yet migrated: every alias appears with a
+	// "[DEPRECATED ...]" description banner and the structured _meta marker, so
+	// pinned-name callers see a migration signal before the aliases are removed
+	// in v1.3.
+	ctx := WithIncludeDeprecatedTools(context.Background(), true)
+	cs, _ := setupScopedTestServer(t, ctx, nil)
+	result, err := cs.ListTools(ctx, nil)
 	if err != nil {
 		t.Fatalf("ListTools: %v", err)
 	}
@@ -179,7 +201,7 @@ func TestDeprecatedAliasVisibleByDefault(t *testing.T) {
 	}
 	for alias := range deprecatedToolNames {
 		if !names[alias] {
-			t.Errorf("deprecated alias %q should be visible in the default tools/list", alias)
+			t.Errorf("deprecated alias %q should be listed when includeDeprecatedTools=true", alias)
 			continue
 		}
 		tool := byName[alias]
@@ -212,8 +234,8 @@ func TestDeprecatedAliasVisibleByDefault(t *testing.T) {
 }
 
 func TestDeprecatedAliasHiddenWhenExcluded(t *testing.T) {
-	// includeDeprecatedTools=false previews the v1.2 surface: aliases drop out of
-	// tools/list, while canonical scope-collapsed tools remain.
+	// Explicitly setting includeDeprecatedTools=false matches the v1.2 default:
+	// aliases drop out of tools/list, while canonical scope-collapsed tools remain.
 	ctx := WithIncludeDeprecatedTools(context.Background(), false)
 	cs, _ := setupScopedTestServer(t, ctx, nil)
 	result, err := cs.ListTools(ctx, nil)

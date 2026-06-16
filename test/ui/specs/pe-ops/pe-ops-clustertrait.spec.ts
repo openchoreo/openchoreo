@@ -86,7 +86,9 @@ test.describe('pe-ops: ClusterTrait lifecycle via scaffolder', () => {
     // The scaffolder action registers ClusterTraits as kind=ClusterTraitType in
     // the "openchoreo-cluster" namespace (entityRef format:
     // clustertraittype:openchoreo-cluster/{name}).
-    // Poll until the catalog provider syncs the new entity.
+    // Poll until the catalog provider syncs the entity: reload, then waitFor
+    // (auto-waiting) the heading — a one-shot isVisible() right after goto fires
+    // before the SPA paints the <h1>.
     await expect
       .poll(
         async () => {
@@ -96,10 +98,11 @@ test.describe('pe-ops: ClusterTrait lifecycle via scaffolder', () => {
           return page
             .getByRole('heading', { name: CLUSTER_TRAIT_NAME })
             .first()
-            .isVisible({ timeout: 5_000 })
+            .waitFor({ state: 'visible', timeout: 10_000 })
+            .then(() => true)
             .catch(() => false);
         },
-        { timeout: 120_000, intervals: [5_000] },
+        { timeout: 120_000, intervals: [2_000] },
       )
       .toBe(true);
   });

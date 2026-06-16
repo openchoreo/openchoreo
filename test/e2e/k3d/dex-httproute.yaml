@@ -1,0 +1,22 @@
+# HTTPRoute exposing Dex at dex.e2e-cp.local via the kgateway in openchoreo-control-plane.
+# Lives in the "dex" namespace so it can reference the dex Service directly.
+# The gateway listener has allowedRoutes.namespaces.from: All so no ReferenceGrant is needed.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: dex
+  namespace: dex
+spec:
+  parentRefs:
+    - name: gateway-default
+      namespace: openchoreo-control-plane
+  hostnames:
+    - dex.e2e-cp.local
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: dex
+          port: 5556

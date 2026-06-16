@@ -6,6 +6,7 @@ package e2e
 import (
 	"flag"
 	"fmt"
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2" //nolint:revive
@@ -73,4 +74,21 @@ var _ = BeforeSuite(func() {
 		"get", "svc", framework.ObserverService, "-n", framework.ObserverNamespace)
 	Expect(err).NotTo(HaveOccurred(),
 		"observability plane is not installed; run make e2e.setup with E2E_WITH_OBSERVABILITY=true or make e2e.multi")
+})
+
+var _ = AfterSuite(func() {
+	if kubeContext == "" {
+		return
+	}
+	if os.Getenv("E2E_KEEP_RESOURCES") == "true" {
+		By("E2E_KEEP_RESOURCES=true — skipping cleanup")
+		return
+	}
+	By("deleting control plane namespace (cascades to DP)")
+	_, _ = framework.Kubectl(kubeContext, "delete", "namespace", cpNs,
+		"--ignore-not-found", "--wait=false")
+	if dpNs != "" {
+		_, _ = framework.Kubectl(dpCtx(), "delete", "namespace", dpNs,
+			"--ignore-not-found", "--wait=false")
+	}
 })

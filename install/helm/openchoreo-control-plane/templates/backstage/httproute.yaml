@@ -35,6 +35,16 @@ spec:
       backendRefs:
         - name: {{ include "openchoreo-control-plane.backstage.name" $ }}
           port: {{ .Values.backstage.service.port }}
+    - name: wirelogs
+      matches:
+        - path:
+            type: PathPrefix
+            value: /api/openchoreo/wirelogs/stream
+      timeouts:
+        backendRequest: "0s"
+      backendRefs:
+        - name: {{ include "openchoreo-control-plane.backstage.name" $ }}
+          port: {{ .Values.backstage.service.port }}
     - matches:
         - path:
             type: PathPrefix

@@ -426,13 +426,18 @@ ports: |
   })}
 ```
 
-**Workload Endpoint Helper Method:**
+**Workload Endpoint Helper Methods:**
 
-The `workload` object provides a helper method to simplify Service port generation:
+The `workload` object provides helper methods for endpoint-driven resource generation:
 
-| Helper Method               | Description                                                                                     |
-|-----------------------------|-------------------------------------------------------------------------------------------------|
-| `workload.toServicePorts()` | Converts endpoints map to Service ports list with proper protocol mapping and name sanitization |
+| Helper Method                                | Description                                                                                                                                          |
+|----------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
+| `workload.toServicePorts()`                  | Converts endpoints map to Service ports list with proper protocol mapping and name sanitization                                                     |
+| `workload.toEndpointResources(endpointName)` | Opt-in: parses the named endpoint's API schema (`schema` field) into a list of routes for rendering exact per-route gateway matches. Returns a CEL optional |
+
+`toEndpointResources` reads `workload.endpoints.<name>.schema` (OpenAPI for HTTP, protobuf for gRPC) and returns a CEL
+optional wrapping a list of `{kind, service, method, path}` route objects — consume it with `.orValue([])` or
+`.hasValue()`/`.value()`. Schemas are only parsed when a template calls this macro.
 
 For detailed documentation and examples,
 see [Configuration Helpers - Workload Endpoint Helpers](./configuration_helpers.md#workload-endpoint-helpers).

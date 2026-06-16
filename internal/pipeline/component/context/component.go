@@ -11,7 +11,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
 	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -25,8 +24,8 @@ var validate = validator.New(validator.WithRequiredStructEnabled())
 // BuildComponentContext builds a CEL evaluation context for rendering component resources.
 //
 // The context includes:
-//   - parameters: From Component.Spec.Parameters (pruned to schema.parameters) - access via ${parameters.*}
-//   - environmentConfigs: From ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs (pruned to schema.environmentConfigs) - access via ${environmentConfigs.*}
+//   - parameters: From Component.Spec.Parameters (validated against schema.parameters) - access via ${parameters.*}
+//   - environmentConfigs: From ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs (validated against schema.environmentConfigs) - access via ${environmentConfigs.*}
 //   - workload: Workload specification (image, resources, etc.) - access via ${workload.*}
 //   - metadata: Structured naming and labeling information - access via ${metadata.*}
 //   - dataplane: Data plane configuration - access via ${dataplane.*}
@@ -114,16 +113,19 @@ func processComponentParameters(input *ComponentContextInput) (map[string]any, m
 	return parameters, envConfigs, nil
 }
 
-// applySchemaSection prunes, applies defaults, and validates a raw map of values against a
+// applySchemaSection applies defaults to and validates a raw map of values against a
 // schema bundle. Returns an empty map if bundle is nil (no schema defined).
 // Used by component and trait context builders to process both parameters and environmentConfigs.
+//
+// Note: values are intentionally not pruned. Structural-schema pruning does not descend into
+// oneOf/anyOf/allOf branches, so it corrupts values whose shape is declared only inside such a
+// branch; JSON-schema validation stays authoritative for developer-supplied values instead.
 func applySchemaSection(raw map[string]any, bundle *SchemaBundle, section string) (map[string]any, error) {
 	if bundle == nil {
 		return make(map[string]any), nil
 	}
 	out := make(map[string]any, len(raw))
 	maps.Copy(out, raw)
-	pruning.Prune(out, bundle.Structural, false)
 	out = schema.ApplyDefaults(out, bundle.Structural)
 	if err := schema.ValidateWithJSONSchema(out, bundle.JSONSchema); err != nil {
 		return nil, fmt.Errorf("%s validation failed: %w", section, err)
@@ -418,7 +420,7 @@ func structToMap(v any) (map[string]any, error) {
 }
 
 // SchemaBundle holds both structural and JSON schemas for validation workflows.
-// The structural schema is used for pruning and defaulting, while the JSON schema
+// The structural schema is used for defaulting, while the JSON schema
 // is used for validation.
 type SchemaBundle struct {
 	Structural *apiextschema.Structural
