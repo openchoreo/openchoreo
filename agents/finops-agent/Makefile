@@ -1,4 +1,4 @@
-.PHONY: clean fix check format
+.PHONY: clean fix check format test
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
@@ -19,3 +19,6 @@ check:
 
 format:
 	uvx ruff format .
+
+test:
+	uv run --group dev pytest
