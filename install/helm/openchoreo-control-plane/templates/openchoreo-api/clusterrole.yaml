@@ -41,6 +41,7 @@ rules:
   - observabilityplanes
   - projects
   - projecttypes
+  - projectreleases
   - releasebindings
   - renderedreleases
   - resources
@@ -109,6 +110,7 @@ rules:
   - observabilityplanes/status
   - projects/status
   - projecttypes/status
+  - projectreleases/status
   - releasebindings/status
   - renderedreleases/status
   - resources/status

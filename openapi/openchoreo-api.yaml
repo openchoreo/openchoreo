@@ -4907,6 +4907,112 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # ProjectRelease Endpoints
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/projectreleases:
+    get:
+      operationId: listProjectReleases
+      summary: List project releases
+      description: Returns a paginated list of project releases within a namespace, optionally filtered by project.
+      tags: [ProjectReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectQueryParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of project releases
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReleaseList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createProjectRelease
+      summary: Create project release
+      description: Creates a new project release within a namespace. Normally cut by the Project controller; exposed here for offline emit parity.
+      tags: [ProjectReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectRelease'
+      responses:
+        '201':
+          description: Project release created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectRelease'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/projectreleases/{projectReleaseName}:
+    get:
+      operationId: getProjectRelease
+      summary: Get project release
+      description: Returns details of a specific project release.
+      tags: [ProjectReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectReleaseNameParam'
+      responses:
+        '200':
+          description: Project release details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectRelease'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: deleteProjectRelease
+      summary: Delete project release
+      description: Deletes a project release by name.
+      tags: [ProjectReleases]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectReleaseNameParam'
+      responses:
+        '204':
+          description: Project release deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # ResourceType Endpoints
   # =============================================================================
 
@@ -6277,6 +6383,15 @@ components:
       schema:
         type: string
         example: standard-project
+
+    ProjectReleaseNameParam:
+      name: projectReleaseName
+      in: path
+      required: true
+      description: Project release name
+      schema:
+        type: string
+        example: my-app-abc123
 
     ResourceTypeNameParam:
       name: rtName
@@ -9943,6 +10058,91 @@ components:
           readOnly: true
           type: object
           description: ProjectType status (currently empty)
+
+    ProjectReleaseList:
+      type: object
+      description: Paginated list of project releases
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectRelease'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ProjectRelease:
+      type: object
+      description: |
+        ProjectRelease resource.
+        Immutable snapshot of Project.spec and the referenced (Cluster)ProjectType.spec
+        at the time it was cut. Normally cut by the Project controller; the create
+        endpoint is exposed only for offline-emit parity. Spec is immutable.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ProjectRelease
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ProjectReleaseSpec'
+        status:
+          readOnly: true
+          type: object
+          description: ProjectRelease status (currently empty, immutable after creation)
+
+    ProjectReleaseSpec:
+      type: object
+      description: Desired state of a ProjectRelease. Immutable after creation.
+      required:
+        - owner
+        - projectType
+      properties:
+        owner:
+          type: object
+          description: Identifies the project this ProjectRelease belongs to.
+          required:
+            - projectName
+          properties:
+            projectName:
+              type: string
+              description: Parent project name
+              minLength: 1
+              example: my-app
+        projectType:
+          type: object
+          description: Frozen snapshot of the referenced (Cluster)ProjectType.
+          required:
+            - kind
+            - name
+            - spec
+          properties:
+            kind:
+              type: string
+              description: Source kind (ProjectType or ClusterProjectType)
+              enum: [ProjectType, ClusterProjectType]
+            name:
+              type: string
+              description: Source project type name
+              minLength: 1
+              example: standard-project
+            spec:
+              $ref: '#/components/schemas/ProjectTypeSpec'
+        parameters:
+          type: object
+          description: Snapshot of parameter values from Project.spec at release time.
+          additionalProperties: true
 
     # -------------------------------------------------------------------------
     # ResourceTypes

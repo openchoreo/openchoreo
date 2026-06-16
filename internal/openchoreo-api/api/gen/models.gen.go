@@ -240,6 +240,12 @@ const (
 	ObservabilityPlaneRefKindObservabilityPlane        ObservabilityPlaneRefKind = "ObservabilityPlane"
 )
 
+// Defines values for ProjectReleaseSpecProjectTypeKind.
+const (
+	ProjectReleaseSpecProjectTypeKindClusterProjectType ProjectReleaseSpecProjectTypeKind = "ClusterProjectType"
+	ProjectReleaseSpecProjectTypeKindProjectType        ProjectReleaseSpecProjectTypeKind = "ProjectType"
+)
+
 // Defines values for ProjectSpecDeploymentPipelineRefKind.
 const (
 	ProjectSpecDeploymentPipelineRefKindDeploymentPipeline ProjectSpecDeploymentPipelineRefKind = "DeploymentPipeline"
@@ -2635,6 +2641,64 @@ type ProjectList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
+// ProjectRelease ProjectRelease resource.
+// Immutable snapshot of Project.spec and the referenced (Cluster)ProjectType.spec
+// at the time it was cut. Normally cut by the Project controller; the create
+// endpoint is exposed only for offline-emit parity. Spec is immutable.
+type ProjectRelease struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a ProjectRelease. Immutable after creation.
+	Spec *ProjectReleaseSpec `json:"spec,omitempty"`
+
+	// Status ProjectRelease status (currently empty, immutable after creation)
+	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// ProjectReleaseList Paginated list of project releases
+type ProjectReleaseList struct {
+	Items []ProjectRelease `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ProjectReleaseSpec Desired state of a ProjectRelease. Immutable after creation.
+type ProjectReleaseSpec struct {
+	// Owner Identifies the project this ProjectRelease belongs to.
+	Owner struct {
+		// ProjectName Parent project name
+		ProjectName string `json:"projectName"`
+	} `json:"owner"`
+
+	// Parameters Snapshot of parameter values from Project.spec at release time.
+	Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+	// ProjectType Frozen snapshot of the referenced (Cluster)ProjectType.
+	ProjectType struct {
+		// Kind Source kind (ProjectType or ClusterProjectType)
+		Kind ProjectReleaseSpecProjectTypeKind `json:"kind"`
+
+		// Name Source project type name
+		Name string `json:"name"`
+
+		// Spec Desired state of a (Cluster)ProjectType.
+		Spec ProjectTypeSpec `json:"spec"`
+	} `json:"projectType"`
+}
+
+// ProjectReleaseSpecProjectTypeKind Source kind (ProjectType or ClusterProjectType)
+type ProjectReleaseSpecProjectTypeKind string
+
 // ProjectSpec Desired state of a Project
 type ProjectSpec struct {
 	// DeploymentPipelineRef Reference to the DeploymentPipeline that defines the environments
@@ -4351,6 +4415,9 @@ type ProjectNameParam = string
 // ProjectQueryParam defines model for ProjectQueryParam.
 type ProjectQueryParam = string
 
+// ProjectReleaseNameParam defines model for ProjectReleaseNameParam.
+type ProjectReleaseNameParam = string
+
 // ProjectTypeNameParam defines model for ProjectTypeNameParam.
 type ProjectTypeNameParam = string
 
@@ -4804,6 +4871,26 @@ type ListObservabilityPlanesParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// ListProjectReleasesParams defines parameters for ListProjectReleases.
+type ListProjectReleasesParams struct {
+	// Project Filter resources by project name
+	Project *ProjectQueryParam `form:"project,omitempty" json:"project,omitempty"`
+
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListProjectsParams defines parameters for ListProjects.
 type ListProjectsParams struct {
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
@@ -5235,6 +5322,9 @@ type CreateObservabilityPlaneJSONRequestBody = ObservabilityPlane
 
 // UpdateObservabilityPlaneJSONRequestBody defines body for UpdateObservabilityPlane for application/json ContentType.
 type UpdateObservabilityPlaneJSONRequestBody = ObservabilityPlane
+
+// CreateProjectReleaseJSONRequestBody defines body for CreateProjectRelease for application/json ContentType.
+type CreateProjectReleaseJSONRequestBody = ProjectRelease
 
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = Project

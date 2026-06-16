@@ -343,6 +343,42 @@ func NewResourceRelease(namespace, projectName, resourceName, name string) *open
 	}
 }
 
+// NewProjectRelease creates a ProjectRelease test fixture.
+func NewProjectRelease(namespace, projectName, name string) *openchoreov1alpha1.ProjectRelease {
+	return &openchoreov1alpha1.ProjectRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: openchoreov1alpha1.ProjectReleaseSpec{
+			Owner: openchoreov1alpha1.ProjectReleaseOwner{
+				ProjectName: projectName,
+			},
+			ProjectType: openchoreov1alpha1.ProjectReleaseProjectType{
+				Kind: openchoreov1alpha1.ProjectTypeRefKindClusterProjectType,
+				Name: "default",
+				Spec: defaultProjectTypeSpec(),
+			},
+		},
+	}
+}
+
+// NewProjectReleaseBinding creates a ProjectReleaseBinding test fixture.
+func NewProjectReleaseBinding(namespace, projectName, environment, name string) *openchoreov1alpha1.ProjectReleaseBinding {
+	return &openchoreov1alpha1.ProjectReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: openchoreov1alpha1.ProjectReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ProjectReleaseBindingOwner{
+				ProjectName: projectName,
+			},
+			Environment: environment,
+		},
+	}
+}
+
 // NewResourceReleaseBinding creates a ResourceReleaseBinding test fixture.
 func NewResourceReleaseBinding(namespace, projectName, resourceName, environment, name string) *openchoreov1alpha1.ResourceReleaseBinding {
 	return &openchoreov1alpha1.ResourceReleaseBinding{
