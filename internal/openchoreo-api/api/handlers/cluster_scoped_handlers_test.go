@@ -26,6 +26,8 @@ import (
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	cctsvcmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype/mocks"
+	clusterprojecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterprojecttype"
+	cptsvcmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterprojecttype/mocks"
 	clusterresourcetypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterresourcetype"
 	crtsvcmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterresourcetype/mocks"
 	clustertraitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait"
@@ -139,6 +141,22 @@ func newClusterResourceTypeService(t *testing.T, objects []client.Object, pdp au
 func newHandlerWithClusterResourceTypeService(crtSvc clusterresourcetypesvc.Service) *Handler {
 	return &Handler{
 		services: &handlerservices.Services{ClusterResourceTypeService: crtSvc},
+		logger:   slog.Default(),
+	}
+}
+
+func newClusterProjectTypeService(t *testing.T, objects []client.Object, pdp authzcore.PDP) clusterprojecttypesvc.Service {
+	t.Helper()
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(newTestScheme(t)).
+		WithObjects(objects...).
+		Build()
+	return clusterprojecttypesvc.NewServiceWithAuthz(fakeClient, pdp, slog.Default())
+}
+
+func newHandlerWithClusterProjectTypeService(cptSvc clusterprojecttypesvc.Service) *Handler {
+	return &Handler{
+		services: &handlerservices.Services{ClusterProjectTypeService: cptSvc},
 		logger:   slog.Default(),
 	}
 }
@@ -1363,5 +1381,315 @@ func TestDeleteClusterResourceTypeHandler(t *testing.T) {
 		resp, err := h.DeleteClusterResourceType(ctx, gen.DeleteClusterResourceTypeRequestObject{CrtName: "mysql"})
 		require.NoError(t, err)
 		assert.IsType(t, gen.DeleteClusterResourceType500JSONResponse{}, resp)
+	})
+}
+
+// =============================================================================
+// ClusterProjectType handler tests
+// =============================================================================
+
+func newCPTFixture() *openchoreov1alpha1.ClusterProjectType {
+	return &openchoreov1alpha1.ClusterProjectType{
+		ObjectMeta: metav1.ObjectMeta{Name: "default"},
+		Spec: openchoreov1alpha1.ClusterProjectTypeSpec{
+			Resources: []openchoreov1alpha1.ResourceTemplate{{
+				ID:       "namespace",
+				Template: &runtime.RawExtension{Raw: []byte(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"x"}}`)},
+			}},
+		},
+	}
+}
+
+func TestListClusterProjectTypesHandler(t *testing.T) {
+	ctx := testContext()
+	cpt := newCPTFixture()
+
+	t.Run("returns items when authorized", func(t *testing.T) {
+		svc := newClusterProjectTypeService(t, []client.Object{cpt}, &allowAllPDP{})
+		h := newHandlerWithClusterProjectTypeService(svc)
+
+		resp, err := h.ListClusterProjectTypes(ctx, gen.ListClusterProjectTypesRequestObject{})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.ListClusterProjectTypes200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Len(t, typed.Items, 1)
+	})
+
+	t.Run("filters unauthorized items", func(t *testing.T) {
+		svc := newClusterProjectTypeService(t, []client.Object{cpt}, &denyAllPDP{})
+		h := newHandlerWithClusterProjectTypeService(svc)
+
+		resp, err := h.ListClusterProjectTypes(ctx, gen.ListClusterProjectTypesRequestObject{})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.ListClusterProjectTypes200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Empty(t, typed.Items)
+	})
+}
+
+func TestListClusterProjectTypesHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.ListClusterProjectTypes400JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.ListClusterProjectTypes500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := cptsvcmocks.NewMockService(t)
+			svc.EXPECT().ListClusterProjectTypes(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{ClusterProjectTypeService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.ListClusterProjectTypes(ctx, gen.ListClusterProjectTypesRequestObject{})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestGetClusterProjectTypeHandler(t *testing.T) {
+	ctx := testContext()
+	cpt := newCPTFixture()
+
+	t.Run("success", func(t *testing.T) {
+		svc := newClusterProjectTypeService(t, []client.Object{cpt}, &allowAllPDP{})
+		h := newHandlerWithClusterProjectTypeService(svc)
+		resp, err := h.GetClusterProjectType(ctx, gen.GetClusterProjectTypeRequestObject{CptName: "default"})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.GetClusterProjectType200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.Equal(t, "default", typed.Metadata.Name)
+	})
+
+	t.Run("not found returns 404", func(t *testing.T) {
+		svc := newClusterProjectTypeService(t, nil, &allowAllPDP{})
+		h := newHandlerWithClusterProjectTypeService(svc)
+		resp, err := h.GetClusterProjectType(ctx, gen.GetClusterProjectTypeRequestObject{CptName: "missing"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterProjectType404JSONResponse{}, resp)
+	})
+
+	t.Run("forbidden returns 403", func(t *testing.T) {
+		svc := newClusterProjectTypeService(t, []client.Object{cpt}, &denyAllPDP{})
+		h := newHandlerWithClusterProjectTypeService(svc)
+		resp, err := h.GetClusterProjectType(ctx, gen.GetClusterProjectTypeRequestObject{CptName: "default"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterProjectType403JSONResponse{}, resp)
+	})
+
+	t.Run("internal error returns 500", func(t *testing.T) {
+		svc := cptsvcmocks.NewMockService(t)
+		svc.EXPECT().GetClusterProjectType(mock.Anything, "default").Return(nil, errors.New("internal server error"))
+		h := &Handler{
+			services: &handlerservices.Services{ClusterProjectTypeService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		resp, err := h.GetClusterProjectType(ctx, gen.GetClusterProjectTypeRequestObject{CptName: "default"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterProjectType500JSONResponse{}, resp)
+	})
+}
+
+func TestGetClusterProjectTypeSchemaHandler(t *testing.T) {
+	ctx := testContext()
+	paramsRaw, _ := json.Marshal(map[string]any{"tier": "string"})
+	cpt := newCPTFixture()
+	cpt.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
+		OpenAPIV3Schema: &runtime.RawExtension{Raw: paramsRaw},
+	}
+
+	t.Run("returns schema when authorized", func(t *testing.T) {
+		svc := newClusterProjectTypeService(t, []client.Object{cpt}, &allowAllPDP{})
+		h := newHandlerWithClusterProjectTypeService(svc)
+		resp, err := h.GetClusterProjectTypeSchema(ctx, gen.GetClusterProjectTypeSchemaRequestObject{CptName: "default"})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.GetClusterProjectTypeSchema200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		assert.NotEmpty(t, typed)
+	})
+
+	t.Run("returns 404 when not found", func(t *testing.T) {
+		svc := newClusterProjectTypeService(t, nil, &allowAllPDP{})
+		h := newHandlerWithClusterProjectTypeService(svc)
+		resp, err := h.GetClusterProjectTypeSchema(ctx, gen.GetClusterProjectTypeSchemaRequestObject{CptName: "missing"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterProjectTypeSchema404JSONResponse{}, resp)
+	})
+
+	t.Run("returns 403 when forbidden", func(t *testing.T) {
+		svc := newClusterProjectTypeService(t, []client.Object{cpt}, &denyAllPDP{})
+		h := newHandlerWithClusterProjectTypeService(svc)
+		resp, err := h.GetClusterProjectTypeSchema(ctx, gen.GetClusterProjectTypeSchemaRequestObject{CptName: "default"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.GetClusterProjectTypeSchema403JSONResponse{}, resp)
+	})
+}
+
+func TestCreateClusterProjectTypeHandler_NilBody(t *testing.T) {
+	ctx := testContext()
+	h := &Handler{
+		services: &handlerservices.Services{ClusterProjectTypeService: cptsvcmocks.NewMockService(t)},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.CreateClusterProjectType(ctx, gen.CreateClusterProjectTypeRequestObject{Body: nil})
+	require.NoError(t, err)
+	assert.IsType(t, gen.CreateClusterProjectType400JSONResponse{}, resp)
+}
+
+func TestCreateClusterProjectTypeHandler_Success(t *testing.T) {
+	ctx := testContext()
+	svc := cptsvcmocks.NewMockService(t)
+	svc.EXPECT().CreateClusterProjectType(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, cpt *openchoreov1alpha1.ClusterProjectType) (*openchoreov1alpha1.ClusterProjectType, error) {
+		return cpt, nil
+	})
+	h := &Handler{
+		services: &handlerservices.Services{ClusterProjectTypeService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	body := gen.ClusterProjectType{Metadata: gen.ObjectMeta{Name: "cpt"}}
+	resp, err := h.CreateClusterProjectType(ctx, gen.CreateClusterProjectTypeRequestObject{Body: &body})
+	require.NoError(t, err)
+	typed, ok := resp.(gen.CreateClusterProjectType201JSONResponse)
+	require.True(t, ok, "expected 201 response, got %T", resp)
+	assert.Equal(t, "cpt", typed.Metadata.Name)
+}
+
+func TestCreateClusterProjectTypeHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.CreateClusterProjectType403JSONResponse{}},
+		{"already exists -> 409", clusterprojecttypesvc.ErrClusterProjectTypeAlreadyExists, gen.CreateClusterProjectType409JSONResponse{}},
+		{"validation error -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.CreateClusterProjectType400JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.CreateClusterProjectType500JSONResponse{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := cptsvcmocks.NewMockService(t)
+			svc.EXPECT().CreateClusterProjectType(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{ClusterProjectTypeService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			body := gen.ClusterProjectType{Metadata: gen.ObjectMeta{Name: "cpt"}}
+			resp, err := h.CreateClusterProjectType(ctx, gen.CreateClusterProjectTypeRequestObject{Body: &body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestUpdateClusterProjectTypeHandler_UsesPathName(t *testing.T) {
+	ctx := testContext()
+	svc := cptsvcmocks.NewMockService(t)
+	svc.EXPECT().UpdateClusterProjectType(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, cpt *openchoreov1alpha1.ClusterProjectType) (*openchoreov1alpha1.ClusterProjectType, error) {
+		assert.Equal(t, "from-path", cpt.Name)
+		return cpt, nil
+	})
+	h := &Handler{
+		services: &handlerservices.Services{ClusterProjectTypeService: svc},
+		logger:   slog.Default(),
+	}
+
+	body := gen.ClusterProjectType{Metadata: gen.ObjectMeta{Name: "from-body"}}
+	resp, err := h.UpdateClusterProjectType(ctx, gen.UpdateClusterProjectTypeRequestObject{
+		CptName: "from-path",
+		Body:    &body,
+	})
+	require.NoError(t, err)
+	typed, ok := resp.(gen.UpdateClusterProjectType200JSONResponse)
+	require.True(t, ok, "expected 200 response, got %T", resp)
+	assert.Equal(t, "from-path", typed.Metadata.Name)
+}
+
+func TestUpdateClusterProjectTypeHandler_NilBody(t *testing.T) {
+	ctx := testContext()
+	h := &Handler{
+		services: &handlerservices.Services{ClusterProjectTypeService: cptsvcmocks.NewMockService(t)},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	resp, err := h.UpdateClusterProjectType(ctx, gen.UpdateClusterProjectTypeRequestObject{CptName: "cpt", Body: nil})
+	require.NoError(t, err)
+	assert.IsType(t, gen.UpdateClusterProjectType400JSONResponse{}, resp)
+}
+
+func TestUpdateClusterProjectTypeHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateClusterProjectType403JSONResponse{}},
+		{"not found -> 404", clusterprojecttypesvc.ErrClusterProjectTypeNotFound, gen.UpdateClusterProjectType404JSONResponse{}},
+		{"validation error -> 400", &svcpkg.ValidationError{Msg: "invalid spec"}, gen.UpdateClusterProjectType400JSONResponse{}},
+		{"internal -> 500", errors.New("internal server error"), gen.UpdateClusterProjectType500JSONResponse{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := cptsvcmocks.NewMockService(t)
+			svc.EXPECT().UpdateClusterProjectType(mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{ClusterProjectTypeService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			body := gen.ClusterProjectType{Metadata: gen.ObjectMeta{Name: "cpt"}}
+			resp, err := h.UpdateClusterProjectType(ctx, gen.UpdateClusterProjectTypeRequestObject{CptName: "cpt", Body: &body})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestDeleteClusterProjectTypeHandler(t *testing.T) {
+	ctx := testContext()
+	cpt := newCPTFixture()
+
+	t.Run("success", func(t *testing.T) {
+		svc := newClusterProjectTypeService(t, []client.Object{cpt}, &allowAllPDP{})
+		h := newHandlerWithClusterProjectTypeService(svc)
+		resp, err := h.DeleteClusterProjectType(ctx, gen.DeleteClusterProjectTypeRequestObject{CptName: "default"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterProjectType204Response{}, resp)
+	})
+
+	t.Run("not found returns 404", func(t *testing.T) {
+		svc := newClusterProjectTypeService(t, nil, &allowAllPDP{})
+		h := newHandlerWithClusterProjectTypeService(svc)
+		resp, err := h.DeleteClusterProjectType(ctx, gen.DeleteClusterProjectTypeRequestObject{CptName: "missing"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterProjectType404JSONResponse{}, resp)
+	})
+
+	t.Run("forbidden returns 403", func(t *testing.T) {
+		svc := newClusterProjectTypeService(t, []client.Object{cpt}, &denyAllPDP{})
+		h := newHandlerWithClusterProjectTypeService(svc)
+		resp, err := h.DeleteClusterProjectType(ctx, gen.DeleteClusterProjectTypeRequestObject{CptName: "default"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterProjectType403JSONResponse{}, resp)
+	})
+
+	t.Run("internal error returns 500", func(t *testing.T) {
+		svc := cptsvcmocks.NewMockService(t)
+		svc.EXPECT().DeleteClusterProjectType(mock.Anything, "default").Return(errors.New("internal server error"))
+		h := &Handler{
+			services: &handlerservices.Services{ClusterProjectTypeService: svc},
+			logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+		resp, err := h.DeleteClusterProjectType(ctx, gen.DeleteClusterProjectTypeRequestObject{CptName: "default"})
+		require.NoError(t, err)
+		assert.IsType(t, gen.DeleteClusterProjectType500JSONResponse{}, resp)
 	})
 }

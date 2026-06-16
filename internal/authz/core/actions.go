@@ -140,6 +140,12 @@ const (
 	ActionUpdateClusterResourceType = "clusterresourcetype:update"
 	ActionDeleteClusterResourceType = "clusterresourcetype:delete"
 
+	// ClusterProjectType actions
+	ActionCreateClusterProjectType = "clusterprojecttype:create"
+	ActionViewClusterProjectType   = "clusterprojecttype:view"
+	ActionUpdateClusterProjectType = "clusterprojecttype:update"
+	ActionDeleteClusterProjectType = "clusterprojecttype:delete"
+
 	// ClusterTrait actions
 	ActionCreateClusterTrait = "clustertrait:create"
 	ActionViewClusterTrait   = "clustertrait:view"
@@ -380,6 +386,12 @@ var systemActions = []Action{
 	{Name: ActionCreateClusterResourceType, LowestScope: ScopeCluster, IsInternal: false},
 	{Name: ActionUpdateClusterResourceType, LowestScope: ScopeCluster, IsInternal: false},
 	{Name: ActionDeleteClusterResourceType, LowestScope: ScopeCluster, IsInternal: false},
+
+	// ClusterProjectType
+	{Name: ActionViewClusterProjectType, LowestScope: ScopeCluster, IsInternal: false},
+	{Name: ActionCreateClusterProjectType, LowestScope: ScopeCluster, IsInternal: false},
+	{Name: ActionUpdateClusterProjectType, LowestScope: ScopeCluster, IsInternal: false},
+	{Name: ActionDeleteClusterProjectType, LowestScope: ScopeCluster, IsInternal: false},
 
 	// ClusterTrait
 	{Name: ActionViewClusterTrait, LowestScope: ScopeCluster, IsInternal: false},

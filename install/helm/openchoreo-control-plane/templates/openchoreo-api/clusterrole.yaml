@@ -21,6 +21,7 @@ rules:
   - clusterworkflowplanes
   - clustercomponenttypes
   - clusterdataplanes
+  - clusterprojecttypes
   - clusterresourcetypes
   - clustertraits
   - clusterobservabilityplanes

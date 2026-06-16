@@ -27,6 +27,9 @@ packages:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterobservabilityplane:
     interfaces:
       Service:
+  github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterprojecttype:
+    interfaces:
+      Service:
   github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterresourcetype:
     interfaces:
       Service:

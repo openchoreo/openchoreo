@@ -167,6 +167,16 @@ func NewClusterResourceType(name string) *openchoreov1alpha1.ClusterResourceType
 	}
 }
 
+// NewClusterProjectType creates a ClusterProjectType test fixture.
+func NewClusterProjectType(name string) *openchoreov1alpha1.ClusterProjectType {
+	return &openchoreov1alpha1.ClusterProjectType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: defaultClusterProjectTypeSpec(),
+	}
+}
+
 // NewClusterDataPlane creates a ClusterDataPlane test fixture.
 func NewClusterDataPlane(name string) *openchoreov1alpha1.ClusterDataPlane {
 	return &openchoreov1alpha1.ClusterDataPlane{
@@ -540,6 +550,14 @@ func defaultClusterComponentTypeSpec() openchoreov1alpha1.ClusterComponentTypeSp
 		WorkloadType: "deployment",
 		Resources: []openchoreov1alpha1.ResourceTemplate{
 			testResourceTemplate("deployment"),
+		},
+	}
+}
+
+func defaultClusterProjectTypeSpec() openchoreov1alpha1.ClusterProjectTypeSpec {
+	return openchoreov1alpha1.ClusterProjectTypeSpec{
+		Resources: []openchoreov1alpha1.ResourceTemplate{
+			testResourceTemplate("namespace"),
 		},
 	}
 }

@@ -194,7 +194,7 @@ func TestProjectHTTPCreate(t *testing.T) {
 func TestProjectHTTPCreateWithType(t *testing.T) {
 	bundle := newProjectBundle(t, nil, &allowAllPDP{})
 
-	typeKind := gen.ProjectType
+	typeKind := gen.ProjectTypeRefKindProjectType
 	body, _ := json.Marshal(gen.Project{
 		Metadata: gen.ObjectMeta{Name: "typed-proj"},
 		Spec: &gen.ProjectSpec{
@@ -254,7 +254,7 @@ func TestProjectHTTPUpdate(t *testing.T) {
 
 	// Include a label so we can assert the updated value is persisted.
 	kind := gen.ProjectSpecDeploymentPipelineRefKindDeploymentPipeline
-	typeKind := gen.ClusterProjectType
+	typeKind := gen.ProjectTypeRefKindClusterProjectType
 	body, _ := json.Marshal(gen.Project{
 		Metadata: gen.ObjectMeta{
 			Name:   "my-proj",

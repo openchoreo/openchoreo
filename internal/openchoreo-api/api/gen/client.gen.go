@@ -204,6 +204,28 @@ type ClientInterface interface {
 
 	UpdateClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName ClusterObservabilityPlaneNameParam, body UpdateClusterObservabilityPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListClusterProjectTypes request
+	ListClusterProjectTypes(ctx context.Context, params *ListClusterProjectTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateClusterProjectTypeWithBody request with any body
+	CreateClusterProjectTypeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateClusterProjectType(ctx context.Context, body CreateClusterProjectTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteClusterProjectType request
+	DeleteClusterProjectType(ctx context.Context, cptName ClusterProjectTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetClusterProjectType request
+	GetClusterProjectType(ctx context.Context, cptName ClusterProjectTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateClusterProjectTypeWithBody request with any body
+	UpdateClusterProjectTypeWithBody(ctx context.Context, cptName ClusterProjectTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateClusterProjectType(ctx context.Context, cptName ClusterProjectTypeNameParam, body UpdateClusterProjectTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetClusterProjectTypeSchema request
+	GetClusterProjectTypeSchema(ctx context.Context, cptName ClusterProjectTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListClusterResourceTypes request
 	ListClusterResourceTypes(ctx context.Context, params *ListClusterResourceTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1296,6 +1318,102 @@ func (c *Client) UpdateClusterObservabilityPlaneWithBody(ctx context.Context, cl
 
 func (c *Client) UpdateClusterObservabilityPlane(ctx context.Context, clusterObservabilityPlaneName ClusterObservabilityPlaneNameParam, body UpdateClusterObservabilityPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateClusterObservabilityPlaneRequest(c.Server, clusterObservabilityPlaneName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListClusterProjectTypes(ctx context.Context, params *ListClusterProjectTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListClusterProjectTypesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateClusterProjectTypeWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterProjectTypeRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateClusterProjectType(ctx context.Context, body CreateClusterProjectTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateClusterProjectTypeRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteClusterProjectType(ctx context.Context, cptName ClusterProjectTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteClusterProjectTypeRequest(c.Server, cptName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetClusterProjectType(ctx context.Context, cptName ClusterProjectTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetClusterProjectTypeRequest(c.Server, cptName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterProjectTypeWithBody(ctx context.Context, cptName ClusterProjectTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterProjectTypeRequestWithBody(c.Server, cptName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateClusterProjectType(ctx context.Context, cptName ClusterProjectTypeNameParam, body UpdateClusterProjectTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateClusterProjectTypeRequest(c.Server, cptName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetClusterProjectTypeSchema(ctx context.Context, cptName ClusterProjectTypeNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetClusterProjectTypeSchemaRequest(c.Server, cptName)
 	if err != nil {
 		return nil, err
 	}
@@ -5350,6 +5468,276 @@ func NewUpdateClusterObservabilityPlaneRequestWithBody(server string, clusterObs
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListClusterProjectTypesRequest generates requests for ListClusterProjectTypes
+func NewListClusterProjectTypesRequest(server string, params *ListClusterProjectTypesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterprojecttypes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.LabelSelector != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "labelSelector", runtime.ParamLocationQuery, *params.LabelSelector); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "cursor", runtime.ParamLocationQuery, *params.Cursor); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateClusterProjectTypeRequest calls the generic CreateClusterProjectType builder with application/json body
+func NewCreateClusterProjectTypeRequest(server string, body CreateClusterProjectTypeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateClusterProjectTypeRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateClusterProjectTypeRequestWithBody generates requests for CreateClusterProjectType with any type of body
+func NewCreateClusterProjectTypeRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterprojecttypes")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteClusterProjectTypeRequest generates requests for DeleteClusterProjectType
+func NewDeleteClusterProjectTypeRequest(server string, cptName ClusterProjectTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cptName", runtime.ParamLocationPath, cptName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterprojecttypes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetClusterProjectTypeRequest generates requests for GetClusterProjectType
+func NewGetClusterProjectTypeRequest(server string, cptName ClusterProjectTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cptName", runtime.ParamLocationPath, cptName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterprojecttypes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateClusterProjectTypeRequest calls the generic UpdateClusterProjectType builder with application/json body
+func NewUpdateClusterProjectTypeRequest(server string, cptName ClusterProjectTypeNameParam, body UpdateClusterProjectTypeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateClusterProjectTypeRequestWithBody(server, cptName, "application/json", bodyReader)
+}
+
+// NewUpdateClusterProjectTypeRequestWithBody generates requests for UpdateClusterProjectType with any type of body
+func NewUpdateClusterProjectTypeRequestWithBody(server string, cptName ClusterProjectTypeNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cptName", runtime.ParamLocationPath, cptName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterprojecttypes/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetClusterProjectTypeSchemaRequest generates requests for GetClusterProjectTypeSchema
+func NewGetClusterProjectTypeSchemaRequest(server string, cptName ClusterProjectTypeNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "cptName", runtime.ParamLocationPath, cptName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/clusterprojecttypes/%s/schema", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -13995,6 +14383,28 @@ type ClientWithResponsesInterface interface {
 
 	UpdateClusterObservabilityPlaneWithResponse(ctx context.Context, clusterObservabilityPlaneName ClusterObservabilityPlaneNameParam, body UpdateClusterObservabilityPlaneJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterObservabilityPlaneResp, error)
 
+	// ListClusterProjectTypesWithResponse request
+	ListClusterProjectTypesWithResponse(ctx context.Context, params *ListClusterProjectTypesParams, reqEditors ...RequestEditorFn) (*ListClusterProjectTypesResp, error)
+
+	// CreateClusterProjectTypeWithBodyWithResponse request with any body
+	CreateClusterProjectTypeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterProjectTypeResp, error)
+
+	CreateClusterProjectTypeWithResponse(ctx context.Context, body CreateClusterProjectTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterProjectTypeResp, error)
+
+	// DeleteClusterProjectTypeWithResponse request
+	DeleteClusterProjectTypeWithResponse(ctx context.Context, cptName ClusterProjectTypeNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterProjectTypeResp, error)
+
+	// GetClusterProjectTypeWithResponse request
+	GetClusterProjectTypeWithResponse(ctx context.Context, cptName ClusterProjectTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterProjectTypeResp, error)
+
+	// UpdateClusterProjectTypeWithBodyWithResponse request with any body
+	UpdateClusterProjectTypeWithBodyWithResponse(ctx context.Context, cptName ClusterProjectTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterProjectTypeResp, error)
+
+	UpdateClusterProjectTypeWithResponse(ctx context.Context, cptName ClusterProjectTypeNameParam, body UpdateClusterProjectTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterProjectTypeResp, error)
+
+	// GetClusterProjectTypeSchemaWithResponse request
+	GetClusterProjectTypeSchemaWithResponse(ctx context.Context, cptName ClusterProjectTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterProjectTypeSchemaResp, error)
+
 	// ListClusterResourceTypesWithResponse request
 	ListClusterResourceTypesWithResponse(ctx context.Context, params *ListClusterResourceTypesParams, reqEditors ...RequestEditorFn) (*ListClusterResourceTypesResp, error)
 
@@ -15406,6 +15816,164 @@ func (r UpdateClusterObservabilityPlaneResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateClusterObservabilityPlaneResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListClusterProjectTypesResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterProjectTypeList
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListClusterProjectTypesResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListClusterProjectTypesResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateClusterProjectTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ClusterProjectType
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateClusterProjectTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateClusterProjectTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteClusterProjectTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteClusterProjectTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteClusterProjectTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetClusterProjectTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterProjectType
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetClusterProjectTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetClusterProjectTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateClusterProjectTypeResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterProjectType
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateClusterProjectTypeResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateClusterProjectTypeResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetClusterProjectTypeSchemaResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SchemaResponse
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetClusterProjectTypeSchemaResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetClusterProjectTypeSchemaResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -20055,6 +20623,76 @@ func (c *ClientWithResponses) UpdateClusterObservabilityPlaneWithResponse(ctx co
 	return ParseUpdateClusterObservabilityPlaneResp(rsp)
 }
 
+// ListClusterProjectTypesWithResponse request returning *ListClusterProjectTypesResp
+func (c *ClientWithResponses) ListClusterProjectTypesWithResponse(ctx context.Context, params *ListClusterProjectTypesParams, reqEditors ...RequestEditorFn) (*ListClusterProjectTypesResp, error) {
+	rsp, err := c.ListClusterProjectTypes(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListClusterProjectTypesResp(rsp)
+}
+
+// CreateClusterProjectTypeWithBodyWithResponse request with arbitrary body returning *CreateClusterProjectTypeResp
+func (c *ClientWithResponses) CreateClusterProjectTypeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateClusterProjectTypeResp, error) {
+	rsp, err := c.CreateClusterProjectTypeWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterProjectTypeResp(rsp)
+}
+
+func (c *ClientWithResponses) CreateClusterProjectTypeWithResponse(ctx context.Context, body CreateClusterProjectTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateClusterProjectTypeResp, error) {
+	rsp, err := c.CreateClusterProjectType(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateClusterProjectTypeResp(rsp)
+}
+
+// DeleteClusterProjectTypeWithResponse request returning *DeleteClusterProjectTypeResp
+func (c *ClientWithResponses) DeleteClusterProjectTypeWithResponse(ctx context.Context, cptName ClusterProjectTypeNameParam, reqEditors ...RequestEditorFn) (*DeleteClusterProjectTypeResp, error) {
+	rsp, err := c.DeleteClusterProjectType(ctx, cptName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteClusterProjectTypeResp(rsp)
+}
+
+// GetClusterProjectTypeWithResponse request returning *GetClusterProjectTypeResp
+func (c *ClientWithResponses) GetClusterProjectTypeWithResponse(ctx context.Context, cptName ClusterProjectTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterProjectTypeResp, error) {
+	rsp, err := c.GetClusterProjectType(ctx, cptName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetClusterProjectTypeResp(rsp)
+}
+
+// UpdateClusterProjectTypeWithBodyWithResponse request with arbitrary body returning *UpdateClusterProjectTypeResp
+func (c *ClientWithResponses) UpdateClusterProjectTypeWithBodyWithResponse(ctx context.Context, cptName ClusterProjectTypeNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateClusterProjectTypeResp, error) {
+	rsp, err := c.UpdateClusterProjectTypeWithBody(ctx, cptName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterProjectTypeResp(rsp)
+}
+
+func (c *ClientWithResponses) UpdateClusterProjectTypeWithResponse(ctx context.Context, cptName ClusterProjectTypeNameParam, body UpdateClusterProjectTypeJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateClusterProjectTypeResp, error) {
+	rsp, err := c.UpdateClusterProjectType(ctx, cptName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateClusterProjectTypeResp(rsp)
+}
+
+// GetClusterProjectTypeSchemaWithResponse request returning *GetClusterProjectTypeSchemaResp
+func (c *ClientWithResponses) GetClusterProjectTypeSchemaWithResponse(ctx context.Context, cptName ClusterProjectTypeNameParam, reqEditors ...RequestEditorFn) (*GetClusterProjectTypeSchemaResp, error) {
+	rsp, err := c.GetClusterProjectTypeSchema(ctx, cptName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetClusterProjectTypeSchemaResp(rsp)
+}
+
 // ListClusterResourceTypesWithResponse request returning *ListClusterResourceTypesResp
 func (c *ClientWithResponses) ListClusterResourceTypesWithResponse(ctx context.Context, params *ListClusterResourceTypesParams, reqEditors ...RequestEditorFn) (*ListClusterResourceTypesResp, error) {
 	rsp, err := c.ListClusterResourceTypes(ctx, params, reqEditors...)
@@ -23712,6 +24350,344 @@ func ParseUpdateClusterObservabilityPlaneResp(rsp *http.Response) (*UpdateCluste
 			return nil, err
 		}
 		response.JSON422 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListClusterProjectTypesResp parses an HTTP response from a ListClusterProjectTypesWithResponse call
+func ParseListClusterProjectTypesResp(rsp *http.Response) (*ListClusterProjectTypesResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListClusterProjectTypesResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterProjectTypeList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateClusterProjectTypeResp parses an HTTP response from a CreateClusterProjectTypeWithResponse call
+func ParseCreateClusterProjectTypeResp(rsp *http.Response) (*CreateClusterProjectTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateClusterProjectTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ClusterProjectType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteClusterProjectTypeResp parses an HTTP response from a DeleteClusterProjectTypeWithResponse call
+func ParseDeleteClusterProjectTypeResp(rsp *http.Response) (*DeleteClusterProjectTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteClusterProjectTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetClusterProjectTypeResp parses an HTTP response from a GetClusterProjectTypeWithResponse call
+func ParseGetClusterProjectTypeResp(rsp *http.Response) (*GetClusterProjectTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetClusterProjectTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterProjectType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateClusterProjectTypeResp parses an HTTP response from a UpdateClusterProjectTypeWithResponse call
+func ParseUpdateClusterProjectTypeResp(rsp *http.Response) (*UpdateClusterProjectTypeResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateClusterProjectTypeResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterProjectType
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetClusterProjectTypeSchemaResp parses an HTTP response from a GetClusterProjectTypeSchemaWithResponse call
+func ParseGetClusterProjectTypeSchemaResp(rsp *http.Response) (*GetClusterProjectTypeSchemaResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetClusterProjectTypeSchemaResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SchemaResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

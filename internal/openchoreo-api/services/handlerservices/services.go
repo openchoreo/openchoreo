@@ -16,6 +16,7 @@ import (
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
 	clusterdataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterdataplane"
 	clusterobservabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterobservabilityplane"
+	clusterprojecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterprojecttype"
 	clusterresourcetypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterresourcetype"
 	clustertraitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait"
 	clusterworkflowsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterworkflow"
@@ -56,6 +57,7 @@ type Services struct {
 	ClusterComponentTypeService                   clustercomponenttypesvc.Service
 	ClusterDataPlaneService                       clusterdataplanesvc.Service
 	ClusterObservabilityPlaneService              clusterobservabilityplanesvc.Service
+	ClusterProjectTypeService                     clusterprojecttypesvc.Service
 	ClusterResourceTypeService                    clusterresourcetypesvc.Service
 	ClusterTraitService                           clustertraitsvc.Service
 	ClusterWorkflowService                        clusterworkflowsvc.Service
@@ -94,6 +96,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		ClusterComponentTypeService:                   clustercomponenttypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clustercomponenttype-service")),
 		ClusterDataPlaneService:                       clusterdataplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterdataplane-service")),
 		ClusterObservabilityPlaneService:              clusterobservabilityplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterobservabilityplane-service")),
+		ClusterProjectTypeService:                     clusterprojecttypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterprojecttype-service")),
 		ClusterResourceTypeService:                    clusterresourcetypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterresourcetype-service")),
 		ClusterTraitService:                           clustertraitsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clustertrait-service")),
 		ClusterWorkflowService:                        clusterworkflowsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterworkflow-service")),

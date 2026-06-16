@@ -4582,6 +4582,165 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # ClusterProjectType Endpoints
+  # =============================================================================
+
+  /api/v1/clusterprojecttypes:
+    get:
+      operationId: listClusterProjectTypes
+      summary: List cluster project types
+      description: Returns a list of cluster-scoped project types.
+      tags: [ClusterProjectTypes]
+      parameters:
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of cluster project types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterProjectTypeList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createClusterProjectType
+      summary: Create cluster project type
+      description: Creates a new cluster-scoped project type.
+      tags: [ClusterProjectTypes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterProjectType'
+      responses:
+        '201':
+          description: Cluster project type created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterProjectType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterprojecttypes/{cptName}:
+    get:
+      operationId: getClusterProjectType
+      summary: Get a cluster project type
+      description: Returns details of a specific cluster-scoped project type.
+      tags: [ClusterProjectTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterProjectTypeNameParam'
+      responses:
+        '200':
+          description: Cluster project type details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterProjectType'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateClusterProjectType
+      summary: Update cluster project type
+      description: Replaces an existing cluster-scoped project type (full update).
+      tags: [ClusterProjectTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterProjectTypeNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClusterProjectType'
+      responses:
+        '200':
+          description: Cluster project type updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClusterProjectType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteClusterProjectType
+      summary: Delete cluster project type
+      description: Deletes a cluster-scoped project type by name.
+      tags: [ClusterProjectTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterProjectTypeNameParam'
+      responses:
+        '204':
+          description: ClusterProjectType deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/clusterprojecttypes/{cptName}/schema:
+    get:
+      operationId: getClusterProjectTypeSchema
+      summary: Get cluster project type schema
+      description: Returns the parameter schema for a specific cluster-scoped project type.
+      tags: [ClusterProjectTypes]
+      parameters:
+        - $ref: '#/components/parameters/ClusterProjectTypeNameParam'
+      responses:
+        '200':
+          description: Cluster project type schema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # ResourceType Endpoints
   # =============================================================================
 
@@ -5934,6 +6093,15 @@ components:
       schema:
         type: string
         example: mysql
+
+    ClusterProjectTypeNameParam:
+      name: cptName
+      in: path
+      required: true
+      description: ClusterProjectType name
+      schema:
+        type: string
+        example: default
 
     ResourceTypeNameParam:
       name: rtName
@@ -9466,6 +9634,99 @@ components:
           readOnly: true
           type: object
           description: ClusterResourceType status (currently empty)
+
+    # -------------------------------------------------------------------------
+    # ProjectTypes / ClusterProjectTypes
+    # -------------------------------------------------------------------------
+    ProjectTypeSpec:
+      type: object
+      description: Desired state of a (Cluster)ProjectType.
+      required:
+        - resources
+      properties:
+        parameters:
+          $ref: '#/components/schemas/SchemaSection'
+        environmentConfigs:
+          $ref: '#/components/schemas/SchemaSection'
+        validations:
+          type: array
+          description: CEL-based validation rules evaluated during rendering.
+          items:
+            $ref: '#/components/schemas/ValidationRule'
+        resources:
+          type: array
+          description: Templates that generate namespace-scoped Kubernetes manifests applied to the namespace owned by every ProjectReleaseBinding of this type.
+          minItems: 1
+          items:
+            type: object
+            required:
+              - id
+              - template
+            properties:
+              id:
+                type: string
+                description: Unique identifier for this resource within the project type.
+              targetPlane:
+                type: string
+                description: Target plane for deployment.
+                enum: [dataplane, observabilityplane]
+                default: dataplane
+              includeWhen:
+                type: string
+                description: "CEL expression determining if this resource should be created."
+                pattern: '^\$\{[\s\S]+\}\s*$'
+              forEach:
+                type: string
+                description: "CEL expression for generating multiple resources from a list."
+                pattern: '^\$\{[\s\S]+\}\s*$'
+              var:
+                type: string
+                description: Loop variable name when using forEach.
+              template:
+                type: object
+                description: Kubernetes resource template with CEL expressions.
+                additionalProperties: true
+
+    ClusterProjectTypeList:
+      type: object
+      description: Paginated list of cluster project types
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClusterProjectType'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ClusterProjectType:
+      type: object
+      description: |
+        ClusterProjectType resource.
+        Cluster-scoped sibling of ProjectType. Projects in any namespace can reference it.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ClusterProjectType
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ProjectTypeSpec'
+        status:
+          readOnly: true
+          type: object
+          description: ClusterProjectType status (currently empty)
 
     # -------------------------------------------------------------------------
     # ResourceTypes
