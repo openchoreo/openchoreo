@@ -77,6 +77,7 @@ _DEFAULT_RECURSION_LIMIT = 30
 _RECURSION_LIMIT_FOR_CASE: dict[str, int] = {
     "build_failure": 15,
     "runtime_debug": 15,
+    "dependency_pending": 15,
 }
 
 
@@ -139,6 +140,21 @@ _TOOLS_FOR_CASE: dict[str, set[str]] = {
         "list_rca_reports",
         "get_rca_report",
         "analyze_runtime_state",
+    },
+    "dependency_pending": {
+        # Topology — locate the dependent binding and the down dependency.
+        # The dependent's pendingConnections name the target component; the
+        # binding/component getters explain whether the target is
+        # undeployed, not-ready, or missing an endpoint.
+        "list_components",
+        "get_component",
+        "list_release_bindings",
+        "get_release_binding",
+        # Why is the dependency down? — when the target IS deployed but not
+        # ready (crashlooping, erroring), its logs / active incidents carry
+        # the root cause behind the unresolved connection.
+        "query_component_logs",
+        "query_incidents",
     },
 }
 
