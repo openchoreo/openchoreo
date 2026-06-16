@@ -118,6 +118,53 @@ async def test_list_filters_by_scope_status_and_time(backend):
 
 
 @pytest.mark.asyncio
+async def test_list_respects_limit_but_total_count_is_unbounded(backend):
+    for day in range(1, 6):
+        await backend.upsert_report(
+            report_id=f"r{day}", timestamp=_ts(day), namespace="ns", project="proj"
+        )
+
+    result = await backend.list_reports(namespace="ns", project="proj", limit=2)
+
+    assert len(result["reports"]) == 2
+    # totalCount counts all matches, independent of the page limit.
+    assert result["totalCount"] == 5
+
+
+@pytest.mark.asyncio
+async def test_list_end_time_filter_is_inclusive_upper_bound(backend):
+    await backend.upsert_report(report_id="a", timestamp=_ts(1), namespace="ns", project="proj")
+    await backend.upsert_report(report_id="b", timestamp=_ts(3), namespace="ns", project="proj")
+    await backend.upsert_report(report_id="c", timestamp=_ts(5), namespace="ns", project="proj")
+
+    result = await backend.list_reports(namespace="ns", project="proj", end_time=_ts(3).isoformat())
+
+    assert {r["reportId"] for r in result["reports"]} == {"a", "b"}
+
+
+@pytest.mark.asyncio
+async def test_completed_upsert_preserves_original_timestamp(backend):
+    # Pending row carries an explicit timestamp; the later "completed" upsert
+    # supplies none, so the update path (which omits timestamp) must keep the
+    # original rather than overwriting it with "now".
+    await backend.upsert_report(
+        report_id="r1", status="pending", timestamp=_ts(1), namespace="ns", project="proj"
+    )
+
+    await backend.upsert_report(
+        report_id="r1",
+        status="completed",
+        report={"summary": "done"},
+        namespace="ns",
+        project="proj",
+    )
+
+    stored = await backend.get_report("r1")
+    assert stored["status"] == "completed"
+    assert stored["@timestamp"] == _ts(1).isoformat()
+
+
+@pytest.mark.asyncio
 async def test_list_sort_order(backend):
     await backend.upsert_report(report_id="a", timestamp=_ts(1), namespace="ns", project="proj")
     await backend.upsert_report(report_id="b", timestamp=_ts(2), namespace="ns", project="proj")

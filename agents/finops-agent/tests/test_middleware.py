@@ -9,7 +9,11 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from langchain_core.messages import ToolMessage
 
-from src.agent.middleware import LoggingMiddleware, ToolResultTruncationMiddleware
+from src.agent.middleware import (
+    LoggingMiddleware,
+    ToolErrorHandlerMiddleware,
+    ToolResultTruncationMiddleware,
+)
 
 
 def _tool_request(name: str = "query_resource_metrics"):
@@ -63,3 +67,60 @@ def test_logging_tool_call_summary_serializes_calls():
     summary = mw.tool_call_summary()
     assert summary is not None
     assert "get_cloud_costs" in summary
+
+
+# ------------------------------------------------------- tool error handler
+
+
+def _error_tool_request(name: str = "get_cloud_costs", call_id: str = "call-123"):
+    # The error handler reads request.tool_call.get("name") and .get("id", "").
+    return SimpleNamespace(tool_call={"name": name, "id": call_id})
+
+
+@pytest.mark.asyncio
+async def test_tool_error_handler_returns_error_tool_message_when_handler_raises():
+    mw = ToolErrorHandlerMiddleware()
+    handler = AsyncMock(side_effect=RuntimeError("boom"))
+
+    result = await mw.awrap_tool_call(_error_tool_request(), handler)
+
+    assert isinstance(result, ToolMessage)
+    assert result.status == "error"
+
+
+@pytest.mark.asyncio
+async def test_tool_error_handler_preserves_tool_name_and_call_id():
+    mw = ToolErrorHandlerMiddleware()
+    handler = AsyncMock(side_effect=ValueError("boom"))
+
+    result = await mw.awrap_tool_call(
+        _error_tool_request(name="query_resource_metrics", call_id="abc-789"),
+        handler,
+    )
+
+    assert result.name == "query_resource_metrics"
+    assert result.tool_call_id == "abc-789"
+
+
+@pytest.mark.asyncio
+async def test_tool_error_handler_does_not_leak_exception_message():
+    mw = ToolErrorHandlerMiddleware()
+    secret = "postgres://user:s3cr3t@db:5432/finops"
+    handler = AsyncMock(side_effect=RuntimeError(secret))
+
+    result = await mw.awrap_tool_call(_error_tool_request(), handler)
+
+    # The generic message is surfaced; the raw exception text is never echoed back.
+    assert secret not in result.content
+    assert "error occurred" in result.content.lower()
+
+
+@pytest.mark.asyncio
+async def test_tool_error_handler_passes_through_successful_result():
+    mw = ToolErrorHandlerMiddleware()
+    msg = ToolMessage(content="ok", tool_call_id="call-123", status="success")
+    handler = AsyncMock(return_value=msg)
+
+    result = await mw.awrap_tool_call(_error_tool_request(), handler)
+
+    assert result is msg

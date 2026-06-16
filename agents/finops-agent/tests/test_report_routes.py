@@ -188,3 +188,35 @@ def test_update_missing_report_is_404(app):
         resp = TestClient(app).put("/api/v1alpha1/reports/r1", json={"appliedIndices": [0]})
 
     assert resp.status_code == 404
+
+
+def test_update_ignores_already_applied_action(app):
+    # Only "revised" actions transition; an already-applied one is left untouched.
+    backend = _backend_invoking_mutate([{"status": "applied", "description": "x"}])
+
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        resp = TestClient(app).put("/api/v1alpha1/reports/r1", json={"appliedIndices": [0]})
+
+    assert resp.status_code == 200
+    assert backend._state["actions"][0]["status"] == "applied"
+
+
+def test_update_cannot_dismiss_already_applied_action(app):
+    # A dismiss request must not flip an action that has already been applied.
+    backend = _backend_invoking_mutate([{"status": "applied", "description": "x"}])
+
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        resp = TestClient(app).put("/api/v1alpha1/reports/r1", json={"dismissedIndices": [0]})
+
+    assert resp.status_code == 200
+    assert backend._state["actions"][0]["status"] == "applied"
+
+
+def test_update_ignores_already_dismissed_action(app):
+    backend = _backend_invoking_mutate([{"status": "dismissed", "description": "x"}])
+
+    with patch("src.api.report_routes.get_report_backend", return_value=backend):
+        resp = TestClient(app).put("/api/v1alpha1/reports/r1", json={"appliedIndices": [0]})
+
+    assert resp.status_code == 200
+    assert backend._state["actions"][0]["status"] == "dismissed"
