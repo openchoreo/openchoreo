@@ -4741,6 +4741,172 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # ProjectType Endpoints
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/projecttypes:
+    get:
+      operationId: listProjectTypes
+      summary: List project types
+      description: Returns a paginated list of project types within a namespace.
+      tags: [ProjectTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of project types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectTypeList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createProjectType
+      summary: Create project type
+      description: Creates a new project type within a namespace.
+      tags: [ProjectTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectType'
+      responses:
+        '201':
+          description: Project type created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/projecttypes/{ptName}:
+    get:
+      operationId: getProjectType
+      summary: Get a project type
+      description: Returns details of a specific project type.
+      tags: [ProjectTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectTypeNameParam'
+      responses:
+        '200':
+          description: Project type details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectType'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateProjectType
+      summary: Update project type
+      description: Replaces an existing project type (full update).
+      tags: [ProjectTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectTypeNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectType'
+      responses:
+        '200':
+          description: Project type updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteProjectType
+      summary: Delete project type
+      description: Deletes a project type by name.
+      tags: [ProjectTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectTypeNameParam'
+      responses:
+        '204':
+          description: ProjectType deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/projecttypes/{ptName}/schema:
+    get:
+      operationId: getProjectTypeSchema
+      summary: Get project type schema
+      description: Returns the parameter schema for a specific project type.
+      tags: [ProjectTypes]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectTypeNameParam'
+      responses:
+        '200':
+          description: Project type schema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # ResourceType Endpoints
   # =============================================================================
 
@@ -6102,6 +6268,15 @@ components:
       schema:
         type: string
         example: default
+
+    ProjectTypeNameParam:
+      name: ptName
+      in: path
+      required: true
+      description: ProjectType name
+      schema:
+        type: string
+        example: standard-project
 
     ResourceTypeNameParam:
       name: rtName
@@ -9727,6 +9902,47 @@ components:
           readOnly: true
           type: object
           description: ClusterProjectType status (currently empty)
+
+    ProjectTypeList:
+      type: object
+      description: Paginated list of project types
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectType'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ProjectType:
+      type: object
+      description: |
+        ProjectType resource.
+        PE-published template scoped to a namespace. Developers reference it from Project.spec.type.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ProjectType
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ProjectTypeSpec'
+        status:
+          readOnly: true
+          type: object
+          description: ProjectType status (currently empty)
 
     # -------------------------------------------------------------------------
     # ResourceTypes

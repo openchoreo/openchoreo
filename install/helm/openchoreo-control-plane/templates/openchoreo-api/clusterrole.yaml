@@ -40,6 +40,7 @@ rules:
   - observabilityalertsnotificationchannels
   - observabilityplanes
   - projects
+  - projecttypes
   - releasebindings
   - renderedreleases
   - resources
@@ -107,6 +108,7 @@ rules:
   - observabilityalertsnotificationchannels/status
   - observabilityplanes/status
   - projects/status
+  - projecttypes/status
   - releasebindings/status
   - renderedreleases/status
   - resources/status

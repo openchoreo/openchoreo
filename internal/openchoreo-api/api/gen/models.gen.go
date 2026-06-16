@@ -2679,6 +2679,35 @@ type ProjectStatus struct {
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 }
 
+// ProjectType ProjectType resource.
+// PE-published template scoped to a namespace. Developers reference it from Project.spec.type.
+type ProjectType struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a (Cluster)ProjectType.
+	Spec *ProjectTypeSpec `json:"spec,omitempty"`
+
+	// Status ProjectType status (currently empty)
+	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// ProjectTypeList Paginated list of project types
+type ProjectTypeList struct {
+	Items []ProjectType `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
 // ProjectTypeRef Reference to a ProjectType or ClusterProjectType template. Immutable
 // after the Project is created. When omitted on create, the API defaults
 // to the cluster-scoped `default` ClusterProjectType.
@@ -4322,6 +4351,9 @@ type ProjectNameParam = string
 // ProjectQueryParam defines model for ProjectQueryParam.
 type ProjectQueryParam = string
 
+// ProjectTypeNameParam defines model for ProjectTypeNameParam.
+type ProjectTypeNameParam = string
+
 // ReleaseBindingNameParam defines model for ReleaseBindingNameParam.
 type ReleaseBindingNameParam = string
 
@@ -4789,6 +4821,23 @@ type ListProjectsParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// ListProjectTypesParams defines parameters for ListProjectTypes.
+type ListProjectTypesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
 // ListReleaseBindingsParams defines parameters for ListReleaseBindings.
 type ListReleaseBindingsParams struct {
 	// Component Filter resources by component name
@@ -5192,6 +5241,12 @@ type CreateProjectJSONRequestBody = Project
 
 // UpdateProjectJSONRequestBody defines body for UpdateProject for application/json ContentType.
 type UpdateProjectJSONRequestBody = Project
+
+// CreateProjectTypeJSONRequestBody defines body for CreateProjectType for application/json ContentType.
+type CreateProjectTypeJSONRequestBody = ProjectType
+
+// UpdateProjectTypeJSONRequestBody defines body for UpdateProjectType for application/json ContentType.
+type UpdateProjectTypeJSONRequestBody = ProjectType
 
 // CreateReleaseBindingJSONRequestBody defines body for CreateReleaseBinding for application/json ContentType.
 type CreateReleaseBindingJSONRequestBody = ReleaseBinding

@@ -292,6 +292,17 @@ func NewResourceType(namespace, name string) *openchoreov1alpha1.ResourceType {
 	}
 }
 
+// NewProjectType creates a ProjectType test fixture.
+func NewProjectType(namespace, name string) *openchoreov1alpha1.ProjectType {
+	return &openchoreov1alpha1.ProjectType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: defaultProjectTypeSpec(),
+	}
+}
+
 // NewResource creates a Resource test fixture.
 func NewResource(namespace, projectName, name string) *openchoreov1alpha1.Resource {
 	return &openchoreov1alpha1.Resource{
@@ -556,6 +567,14 @@ func defaultClusterComponentTypeSpec() openchoreov1alpha1.ClusterComponentTypeSp
 
 func defaultClusterProjectTypeSpec() openchoreov1alpha1.ClusterProjectTypeSpec {
 	return openchoreov1alpha1.ClusterProjectTypeSpec{
+		Resources: []openchoreov1alpha1.ResourceTemplate{
+			testResourceTemplate("namespace"),
+		},
+	}
+}
+
+func defaultProjectTypeSpec() openchoreov1alpha1.ProjectTypeSpec {
+	return openchoreov1alpha1.ProjectTypeSpec{
 		Resources: []openchoreov1alpha1.ResourceTemplate{
 			testResourceTemplate("namespace"),
 		},

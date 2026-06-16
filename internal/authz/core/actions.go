@@ -86,6 +86,12 @@ const (
 	ActionUpdateResourceType = "resourcetype:update"
 	ActionDeleteResourceType = "resourcetype:delete"
 
+	// ProjectType actions
+	ActionCreateProjectType = "projecttype:create"
+	ActionViewProjectType   = "projecttype:view"
+	ActionUpdateProjectType = "projecttype:update"
+	ActionDeleteProjectType = "projecttype:delete"
+
 	// Workflow actions
 	ActionCreateWorkflow = "workflow:create"
 	ActionViewWorkflow   = "workflow:view"
@@ -332,6 +338,12 @@ var systemActions = []Action{
 	{Name: ActionCreateResourceType, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionUpdateResourceType, LowestScope: ScopeNamespace, IsInternal: false},
 	{Name: ActionDeleteResourceType, LowestScope: ScopeNamespace, IsInternal: false},
+
+	// ProjectType
+	{Name: ActionViewProjectType, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionCreateProjectType, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionUpdateProjectType, LowestScope: ScopeNamespace, IsInternal: false},
+	{Name: ActionDeleteProjectType, LowestScope: ScopeNamespace, IsInternal: false},
 
 	// Workflow
 	{Name: ActionViewWorkflow, LowestScope: ScopeNamespace, IsInternal: false},
