@@ -599,6 +599,9 @@ metadata:
 spec:
   deploymentPipelineRef:
     name: default
+  type:
+    kind: ClusterProjectType
+    name: default
 `, projA, nsA, projA)
 			output, err := framework.KubectlApplyLiteral(kubeContext, projAYAML)
 			Expect(err).NotTo(HaveOccurred(), "create project A: %s", output)
@@ -612,6 +615,9 @@ metadata:
     openchoreo.dev/name: %s
 spec:
   deploymentPipelineRef:
+    name: default
+  type:
+    kind: ClusterProjectType
     name: default
 `, projB, nsB, projB)
 			output, err = framework.KubectlApplyLiteral(kubeContext, projBYAML)

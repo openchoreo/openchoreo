@@ -118,6 +118,7 @@ func platformResourcesYAML() string {
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{
 			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "default"},
+			Type:                  openchoreov1alpha1.ProjectTypeRef{Kind: openchoreov1alpha1.ProjectTypeRefKindClusterProjectType, Name: "default"},
 		},
 	}
 	docs := []any{pipeline}
