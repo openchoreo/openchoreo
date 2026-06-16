@@ -91,6 +91,8 @@ tags:
     description: Resource release management
   - name: ResourceReleaseBindings
     description: Resource release binding management
+  - name: ProjectReleaseBindings
+    description: Project release binding management
 
 paths:
   # =============================================================================
@@ -5013,6 +5015,146 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   # =============================================================================
+  # ProjectReleaseBinding Endpoints
+  # =============================================================================
+
+  /api/v1/namespaces/{namespaceName}/projectreleasebindings:
+    get:
+      operationId: listProjectReleaseBindings
+      summary: List project release bindings
+      description: Returns a paginated list of project release bindings within a namespace, optionally filtered by project.
+      tags: [ProjectReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectQueryParam'
+        - $ref: '#/components/parameters/LabelSelectorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: List of project release bindings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReleaseBindingList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    post:
+      operationId: createProjectReleaseBinding
+      summary: Create project release binding
+      description: Creates a new project release binding within a namespace.
+      tags: [ProjectReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectReleaseBinding'
+      responses:
+        '201':
+          description: Project release binding created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReleaseBinding'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/projectreleasebindings/{projectReleaseBindingName}:
+    get:
+      operationId: getProjectReleaseBinding
+      summary: Get project release binding
+      description: Returns details of a specific project release binding.
+      tags: [ProjectReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectReleaseBindingNameParam'
+      responses:
+        '200':
+          description: Project release binding details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReleaseBinding'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      operationId: updateProjectReleaseBinding
+      summary: Update project release binding
+      description: Replaces an existing project release binding (full update). Used to advance `spec.projectRelease` (the promote flow) or change `spec.environmentConfigs`. `spec.owner` and `spec.environment` are immutable.
+      tags: [ProjectReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectReleaseBindingNameParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectReleaseBinding'
+      responses:
+        '200':
+          description: Project release binding updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReleaseBinding'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      operationId: deleteProjectReleaseBinding
+      summary: Delete project release binding
+      description: Deletes a project release binding by name.
+      tags: [ProjectReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ProjectReleaseBindingNameParam'
+      responses:
+        '204':
+          description: Project release binding deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # =============================================================================
   # ResourceType Endpoints
   # =============================================================================
 
@@ -6392,6 +6534,15 @@ components:
       schema:
         type: string
         example: my-app-abc123
+
+    ProjectReleaseBindingNameParam:
+      name: projectReleaseBindingName
+      in: path
+      required: true
+      description: Project release binding name
+      schema:
+        type: string
+        example: my-app-dev
 
     ResourceTypeNameParam:
       name: rtName
@@ -10143,6 +10294,102 @@ components:
           type: object
           description: Snapshot of parameter values from Project.spec at release time.
           additionalProperties: true
+
+    ProjectReleaseBindingList:
+      type: object
+      description: Paginated list of project release bindings
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectReleaseBinding'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    ProjectReleaseBinding:
+      type: object
+      description: |
+        ProjectReleaseBinding resource.
+        Pins a ProjectRelease to an Environment, owns the namespace for the
+        (Project, Environment) tuple, and applies the inlined
+        (Cluster)ProjectType resources to that namespace. Authored externally.
+      required:
+        - metadata
+      properties:
+        apiVersion:
+          type: string
+          readOnly: true
+          description: API version of the resource
+          example: openchoreo.dev/v1alpha1
+        kind:
+          type: string
+          readOnly: true
+          description: Kind of the resource
+          example: ProjectReleaseBinding
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ProjectReleaseBindingSpec'
+        status:
+          readOnly: true
+          allOf:
+            - $ref: '#/components/schemas/ProjectReleaseBindingStatus'
+
+    ProjectReleaseBindingSpec:
+      type: object
+      description: |
+        Desired state of a ProjectReleaseBinding. spec.owner and spec.environment
+        are immutable after creation. spec.projectRelease is the promote pin and is
+        advanced manually via `occ project promote` or kubectl edit.
+      required:
+        - owner
+        - environment
+      properties:
+        owner:
+          type: object
+          description: Identifies the project this binding belongs to.
+          required:
+            - projectName
+          properties:
+            projectName:
+              type: string
+              description: Parent project name
+              minLength: 1
+              example: my-app
+        environment:
+          type: string
+          description: Target environment name. Immutable after creation.
+          minLength: 1
+          example: dev
+        projectRelease:
+          type: string
+          description: Pinned ProjectRelease name. Advanced manually (e.g. via `occ project promote`).
+          example: my-app-abc123
+        environmentConfigs:
+          type: object
+          description: Per-environment values for the inlined (Cluster)ProjectType.spec.environmentConfigs.
+          additionalProperties: true
+
+    ProjectReleaseBindingStatus:
+      type: object
+      description: Observed state of a ProjectReleaseBinding.
+      properties:
+        observedGeneration:
+          type: integer
+          format: int64
+          description: Most recent generation observed by the controller.
+        conditions:
+          type: array
+          description: Latest available observations of the binding's state. Includes Synced, NamespaceReady, ResourcesReady, and Ready (aggregate).
+          items:
+            $ref: '#/components/schemas/Condition'
+        namespace:
+          type: string
+          description: The data-plane namespace owned by this binding.
+          example: dp-default-org-my-app-dev-7a3f9b
 
     # -------------------------------------------------------------------------
     # ResourceTypes

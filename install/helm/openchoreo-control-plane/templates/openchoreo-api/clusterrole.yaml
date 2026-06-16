@@ -42,6 +42,7 @@ rules:
   - projects
   - projecttypes
   - projectreleases
+  - projectreleasebindings
   - releasebindings
   - renderedreleases
   - resources
@@ -111,6 +112,7 @@ rules:
   - projects/status
   - projecttypes/status
   - projectreleases/status
+  - projectreleasebindings/status
   - releasebindings/status
   - renderedreleases/status
   - resources/status
