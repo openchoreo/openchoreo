@@ -173,7 +173,7 @@ func setComponentValidationFailedCondition(workflowRun *openchoreov1alpha1.Workf
 	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
 		Type:               string(ConditionWorkflowRunning),
 		Status:             metav1.ConditionFalse,
-		Reason:             string(ReasonComponentValidationFailed),
+		Reason:             string(ReasonWorkflowRunning),
 		Message:            message,
 		ObservedGeneration: workflowRun.Generation,
 	})
