@@ -1,0 +1,65 @@
+# Overlay for external IdP (Dex) e2e testing.
+# Layered on top of test/e2e/k3d/values-cp.yaml and test/ui/k3d/values-cp-ui.yaml:
+#   the OIDC endpoints point to the in-cluster Dex instance instead of Thunder.
+#
+# Also overrides openchoreoApi.config.security.authorization.bootstrap.mappings to
+# include only the bindings needed for this scenario and to use the Dex-specific
+# base64-encoded sub value for the Backstage service client.
+
+security:
+  oidc:
+    issuer: "http://dex.e2e-cp.local:28080/dex"
+    # Use in-cluster Service URLs for server-side calls (JWKS fetch and token
+    # exchange) to avoid the round-trip through kgateway from inside the cluster.
+    # authorizationUrl stays external because the browser must reach it.
+    jwksUrl: "http://dex.dex.svc.cluster.local:5556/dex/keys"
+    authorizationUrl: "http://dex.e2e-cp.local:28080/dex/auth"
+    tokenUrl: "http://dex.dex.svc.cluster.local:5556/dex/token"
+    wellKnownEndpoint: "http://dex.e2e-cp.local:28080/dex/.well-known/openid-configuration"
+
+backstage:
+  auth:
+    # groups   — Dex includes the groups claim only when this scope is requested.
+    # offline_access — requests a refresh token so Backstage can renew sessions;
+    #                  requires grantTypes: [refresh_token] in values-dex.yaml.
+    oidcScope: "openid profile email groups offline_access"
+    # scope for the background service client (Catalog Provider) using client_credentials.
+    # Dex returns a token with sub=<clientId> which matches the backstage-catalog-reader-binding.
+    scope: "openid"
+
+# Override the authorization mappings list to use the Dex-specific sub value for the
+# Backstage service client. Dex encodes client_credentials sub as base64(protobuf(clientId))
+# rather than the raw client ID. Only the bindings required by this e2e scenario are listed:
+# - admin-binding: grants the Dex static admin user (groups: admins) full access
+# - backstage-catalog-reader-binding: grants the Backstage CC client catalog read access
+# Helm replaces the entire list, so other default bindings are intentionally omitted.
+openchoreoApi:
+  config:
+    security:
+      authorization:
+        bootstrap:
+          mappings:
+            - name: admin-binding
+              kind: ClusterAuthzRoleBinding
+              roleMappings:
+                - roleRef:
+                    name: admin
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: groups
+                value: admins
+              effect: allow
+
+            # Dex encodes client_credentials sub as base64(protobuf(clientId)).
+            # The value below is the encoding of "openchoreo-backstage-client".
+            - name: backstage-catalog-reader-binding
+              kind: ClusterAuthzRoleBinding
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: backstage-catalog-reader
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: sub
+                value: ChtvcGVuY2hvcmVvLWJhY2tzdGFnZS1jbGllbnQ
+              effect: allow

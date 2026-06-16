@@ -6,8 +6,16 @@ import { defineConfig, devices } from '@playwright/test';
 // without /etc/hosts edits. Shared with global-setup.ts.
 import { hostResolverRules } from './fixtures/hosts';
 
+// In ext-idp mode only the external-idp suite runs (Dex replaces Thunder as
+// the OIDC provider — pre-minted Thunder storage states are unavailable).
+// In normal UI mode the external-idp suite is excluded because Dex is not
+// installed and the Thunder storage-state globalSetup would be skipped.
+const extIdpMode = process.env.E2E_WITH_EXT_IDP === 'true';
+
 export default defineConfig({
   testDir: './specs',
+  testMatch: extIdpMode ? ['**/external-idp/**/*.spec.ts'] : ['**/*.spec.ts'],
+  testIgnore: extIdpMode ? [] : ['**/external-idp/**'],
   // globalSetup mints per-role storage-state files in .auth/ before any
   // worker starts — test.use({ storageState }) only resolves after the
   // files exist on disk, so this can't live in a beforeAll hook.

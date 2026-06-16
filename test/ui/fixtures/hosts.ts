@@ -8,6 +8,7 @@
 export const E2E_HOSTS = [
   'openchoreo.e2e-cp.local',
   'thunder.e2e-cp.local',
+  'dex.e2e-cp.local',
   'api.e2e-cp.local',
   'observer.e2e-op.local',
 ];
