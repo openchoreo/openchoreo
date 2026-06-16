@@ -904,8 +904,10 @@ _e2e.mc.install-dp:
 
 .PHONY: _e2e.mc.install-openbao
 _e2e.mc.install-openbao:
-	@# Install OpenBao in CP, DP, and OP clusters (per install/k3d/multi-cluster/README.md).
-	@# WP does not need OpenBao — secrets are created directly (README §4 note).
+	@# Install OpenBao in CP, DP, WP, and OP clusters (per install/k3d/multi-cluster/README.md).
+	@# WP needs OpenBao so the Secret API's PushSecret can write git build
+	@# credentials into the workflow plane's ClusterSecretStore (the private-repo
+	@# build resolves repository.secretRef from there).
 	@$(call log_info, Installing OpenBao in CP cluster)
 	$(E2E_MC_CP_HELM) upgrade --install openbao oci://ghcr.io/openbao/charts/openbao \
 		--namespace openbao --create-namespace \
@@ -924,6 +926,15 @@ _e2e.mc.install-openbao:
 	@$(call log_info, Replacing fake ClusterSecretStore with openbao-backed default in DP)
 	$(E2E_MC_DP_KUBECTL) delete clustersecretstore default --ignore-not-found
 	$(E2E_MC_DP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/openbao-secretstore.yaml
+	@$(call log_info, Installing OpenBao in WP cluster \(backs the workflow-plane ClusterSecretStore\))
+	$(E2E_MC_WP_HELM) upgrade --install openbao oci://ghcr.io/openbao/charts/openbao \
+		--namespace openbao --create-namespace \
+		--version $(OPENBAO_CHART_VERSION) \
+		--values $(PROJECT_DIR)/install/k3d/common/values-openbao.yaml \
+		--wait --timeout $(E2E_SETUP_TIMEOUT)
+	@$(call log_info, Replacing fake ClusterSecretStore with openbao-backed default in WP)
+	$(E2E_MC_WP_KUBECTL) delete clustersecretstore default --ignore-not-found
+	$(E2E_MC_WP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/openbao-secretstore.yaml
 
 .PHONY: _e2e.mc.install-wp
 _e2e.mc.install-wp:

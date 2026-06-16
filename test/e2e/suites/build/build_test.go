@@ -208,17 +208,12 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 				Skip(fmt.Sprintf("%s not set; skipping private repository build scenario", privateRepoPATEnv))
 			}
 
-			By("seeding the GitHub PAT into the OpenBao secret store")
-			Expect(seedGitPATIntoOpenBao(privateRepoStoreKey, privateRepoGitUser, pat)).To(Succeed(),
-				"failed to seed PAT into OpenBao")
-
-			By("creating the SecretReference for the private repo credentials")
-			output, err := framework.KubectlApplyLiteral(kubeContext,
-				privateRepoSecretReferenceYAML(privateRepoSecretRef, privateRepoStoreKey))
-			Expect(err).NotTo(HaveOccurred(), "failed to apply SecretReference: %s", output)
+			By("creating the git basic-auth secret via the OpenChoreo Secret API")
+			Expect(createGitBasicAuthSecret(cpNs, privateRepoSecretRef, privateRepoGitUser, pat)).To(Succeed(),
+				"failed to create git secret via the OpenChoreo API")
 
 			By("applying the Component bound to the dockerfile-builder workflow")
-			output, err = framework.KubectlApplyLiteral(kubeContext,
+			output, err := framework.KubectlApplyLiteral(kubeContext,
 				privateRepoComponentYAML(componentPrivate, privateRepoSecretRef))
 			Expect(err).NotTo(HaveOccurred(), "failed to apply component: %s", output)
 
