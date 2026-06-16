@@ -20,8 +20,8 @@ def get_model(
     # module) when configured; the real provider key then lives at the gateway
     # so api_key may be a placeholder. Forward base_url only when set to leave
     # the direct-to-provider path unchanged.
-    if settings.llm_base_url and "base_url" not in kwargs:
-        kwargs["base_url"] = settings.llm_base_url
+    if settings.finops_agent_llm_base_url and "base_url" not in kwargs:
+        kwargs["base_url"] = settings.finops_agent_llm_base_url
     return init_chat_model(
         model=model_name,
         api_key=api_key,

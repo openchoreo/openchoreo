@@ -15,7 +15,7 @@ data:
   {{- end }}
   LLM_NAME: {{ .Values.finOpsAgent.llmName | quote }}
   {{- if .Values.finOpsAgent.llmBaseUrl }}
-  LLM_BASE_URL: {{ .Values.finOpsAgent.llmBaseUrl | quote }}
+  FINOPS_AGENT_LLM_BASE_URL: {{ .Values.finOpsAgent.llmBaseUrl | quote }}
   {{- end }}
   JWT_AUDIENCE: {{ .Values.security.jwt.audience | quote }}
   JWT_ISSUER: {{ .Values.security.oidc.issuer | quote }}
