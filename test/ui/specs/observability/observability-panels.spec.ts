@@ -72,6 +72,9 @@ metadata:
 spec:
   deploymentPipelineRef:
     name: default
+  type:
+    kind: ClusterProjectType
+    name: default
 `;
 
 const postgresYAML = `
