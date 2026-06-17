@@ -129,14 +129,14 @@ func setWorkflowNotFoundCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
 		Type:               string(ConditionWorkflowFailed),
 		Status:             metav1.ConditionTrue,
 		Reason:             string(ReasonWorkflowFailed),
-		Message:            "Workflow has been deleted from the cluster",
+		Message:            "Workflow is not found in the cluster",
 		ObservedGeneration: workflowRun.Generation,
 	})
 	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
 		Type:               string(ConditionWorkflowCompleted),
 		Status:             metav1.ConditionTrue,
 		Reason:             string(ReasonWorkflowFailed),
-		Message:            "Workflow has been deleted from the cluster",
+		Message:            "Workflow is not found in the cluster",
 		ObservedGeneration: workflowRun.Generation,
 	})
 }

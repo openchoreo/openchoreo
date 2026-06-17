@@ -340,8 +340,9 @@ func TestConditionFunctions(t *testing.T) {
 	t.Run("setWorkflowNotFoundCondition", func(t *testing.T) {
 		wfr := newWFRun()
 		setWorkflowNotFoundCondition(wfr)
-		assertConditionCount(t, wfr, 2)
+		assertConditionCount(t, wfr, 3)
 		assertCondition(t, wfr, string(ConditionWorkflowRunning), metav1.ConditionFalse, "")
+		assertCondition(t, wfr, string(ConditionWorkflowFailed), metav1.ConditionTrue, string(ReasonWorkflowFailed))
 		assertCondition(t, wfr, string(ConditionWorkflowCompleted), metav1.ConditionTrue, string(ReasonWorkflowFailed))
 	})
 
