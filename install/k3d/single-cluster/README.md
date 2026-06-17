@@ -29,7 +29,7 @@ docker exec k3d-openchoreo-server-0 sh -c \
 
 ```bash
 kubectl apply --server-side \
-  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/experimental-install.yaml
+  -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/standard-install.yaml
 ```
 
 ### cert-manager
@@ -73,8 +73,7 @@ helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/k
 
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
   --namespace openchoreo-control-plane --create-namespace \
-  --version v2.3.1 \
-  --set controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true
+  --version v2.3.1
 ```
 
 ## 3. Setup Control Plane

@@ -88,10 +88,10 @@ E2E_WP_NS              := openchoreo-workflow-plane
 E2E_OP_NS              := openchoreo-observability-plane
 
 # Dependency versions (keep in sync with install/k3d/single-cluster/README.md)
-GATEWAY_API_VERSION    ?= v1.4.1
+GATEWAY_API_VERSION    ?= v1.5.1
 CERT_MANAGER_VERSION   ?= v1.19.4
 ESO_VERSION            ?= 2.0.1
-KGATEWAY_VERSION       ?= v2.2.1
+KGATEWAY_VERSION       ?= v2.3.1
 OPENBAO_CHART_VERSION  ?= 0.25.6
 THUNDER_VERSION        ?= 0.28.0
 DEX_VERSION            ?= 0.24.1
@@ -366,7 +366,7 @@ e2e.setup-cluster: ## Create k3d cluster
 e2e.setup-prerequisites: ## Install Gateway API, cert-manager, ESO, kgateway
 	@$(call log_info, Installing Gateway API CRDs $(GATEWAY_API_VERSION))
 	$(E2E_KUBECTL) apply --server-side \
-		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/experimental-install.yaml
+		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/standard-install.yaml
 	@$(call log_info, Installing cert-manager $(CERT_MANAGER_VERSION))
 	$(E2E_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 		--namespace cert-manager --create-namespace \
@@ -756,7 +756,7 @@ e2e.multi.setup-clusters: ## Create all four k3d clusters (CP, DP, WP, OP)
 e2e.multi.setup-prerequisites: ## Install prerequisites into each cluster
 	@$(call log_info, === CP cluster prerequisites ===)
 	$(E2E_MC_CP_KUBECTL) apply --server-side \
-		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/experimental-install.yaml
+		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/standard-install.yaml
 	$(E2E_MC_CP_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 		--namespace cert-manager --create-namespace \
 		--version $(CERT_MANAGER_VERSION) --set crds.enabled=true \
@@ -774,7 +774,7 @@ e2e.multi.setup-prerequisites: ## Install prerequisites into each cluster
 	$(E2E_MC_CP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/secretstore.yaml
 	@$(call log_info, === DP cluster prerequisites ===)
 	$(E2E_MC_DP_KUBECTL) apply --server-side \
-		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/experimental-install.yaml
+		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/standard-install.yaml
 	$(E2E_MC_DP_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 		--namespace cert-manager --create-namespace \
 		--version $(CERT_MANAGER_VERSION) --set crds.enabled=true \
@@ -804,7 +804,7 @@ e2e.multi.setup-prerequisites: ## Install prerequisites into each cluster
 	$(E2E_MC_WP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/secretstore.yaml
 	@$(call log_info, === OP cluster prerequisites ===)
 	$(E2E_MC_OP_KUBECTL) apply --server-side \
-		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/experimental-install.yaml
+		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/standard-install.yaml
 	$(E2E_MC_OP_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 		--namespace cert-manager --create-namespace \
 		--version $(CERT_MANAGER_VERSION) --set crds.enabled=true \

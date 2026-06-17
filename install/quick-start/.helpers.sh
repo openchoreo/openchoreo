@@ -567,7 +567,7 @@ install_eso() {
 install_gateway_crds() {
     log_info "Installing Gateway API CRDs..."
     kubectl apply --server-side \
-        -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/experimental-install.yaml >/dev/null
+        -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/standard-install.yaml >/dev/null
     log_success "Gateway API CRDs installed"
 }
 
@@ -581,8 +581,7 @@ install_kgateway() {
         "--version" "$KGATEWAY_VERSION"
 
     install_helm_chart "kgateway" "$chart_ref/kgateway" "$CONTROL_PLANE_NS" "true" "false" "false" "300" \
-        "--version" "$KGATEWAY_VERSION" \
-        "--set" "controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true"
+        "--version" "$KGATEWAY_VERSION"
 
     log_success "kgateway installed"
 }

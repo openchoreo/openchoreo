@@ -31,7 +31,7 @@ step() {
 
 step "Installing Gateway API CRDs ($GATEWAY_API_VERSION)..."
 kubectl apply --server-side \
-    -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/experimental-install.yaml"
+    -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml"
 
 step "Installing cert-manager ($CERT_MANAGER_VERSION)..."
 helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
@@ -57,8 +57,7 @@ helm upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/k
 step "Installing kgateway ($KGATEWAY_VERSION)..."
 helm upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
     --namespace "$CONTROL_PLANE_NS" --create-namespace \
-    --version "$KGATEWAY_VERSION" \
-    --set controller.extraEnv.KGW_ENABLE_GATEWAY_API_EXPERIMENTAL_FEATURES=true
+    --version "$KGATEWAY_VERSION"
 
 step "Installing OpenBao ($OPENBAO_CHART_VERSION)..."
 helm upgrade --install openbao oci://ghcr.io/openbao/charts/openbao \
