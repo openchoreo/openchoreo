@@ -10694,10 +10694,11 @@ components:
       required:
         - resource
         - action
-        - subject_context
       properties:
         subject_context:
-          $ref: '#/components/schemas/SubjectContext'
+          allOf:
+            - $ref: '#/components/schemas/SubjectContext'
+          description: Subject to evaluate. Optional; defaults to the authenticated caller when omitted.
         resource:
           $ref: '#/components/schemas/Resource'
         action:

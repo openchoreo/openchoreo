@@ -79,6 +79,22 @@ func (h *Handler) ListActions(
 	return gen.ListActions200JSONResponse(result), nil
 }
 
+// resolveEvaluateSubject decides which subject an evaluate request item is checked against.
+// An explicit subject_context wins; otherwise it defaults to the authenticated caller.
+func resolveEvaluateSubject(reqSubject *gen.SubjectContext, caller *authz.SubjectContext) *authz.SubjectContext {
+	if reqSubject != nil {
+		return &authz.SubjectContext{
+			Type:              string(reqSubject.Type),
+			EntitlementClaim:  reqSubject.EntitlementClaim,
+			EntitlementValues: reqSubject.EntitlementValues,
+		}
+	}
+	if caller != nil {
+		return caller
+	}
+	return &authz.SubjectContext{}
+}
+
 // Evaluates evaluates one or more authorization requests.
 func (h *Handler) Evaluates(
 	ctx context.Context,
@@ -89,6 +105,10 @@ func (h *Handler) Evaluates(
 	}
 
 	h.logger.Debug("Evaluates handler called", "count", len(*request.Body))
+
+	// Resolve the authenticated caller's subject
+	callerSubject, _ := auth.GetSubjectContextFromContext(ctx)
+	callerAuthzSubject := authz.GetAuthzSubjectContext(callerSubject) // nil-safe
 
 	// Convert API requests to internal model
 	internalRequests := make([]authz.EvaluateRequest, len(*request.Body))
@@ -114,12 +134,8 @@ func (h *Handler) Evaluates(
 					Resource:  getStringValue(req.Resource.Hierarchy.Resource),
 				},
 			},
-			SubjectContext: &authz.SubjectContext{
-				Type:              string(req.SubjectContext.Type),
-				EntitlementClaim:  req.SubjectContext.EntitlementClaim,
-				EntitlementValues: req.SubjectContext.EntitlementValues,
-			},
-			Context: authzCtx,
+			SubjectContext: resolveEvaluateSubject(req.SubjectContext, callerAuthzSubject),
+			Context:        authzCtx,
 		}
 	}
 

@@ -2022,8 +2022,8 @@ type EvaluateRequest struct {
 	// Resource Resource for authorization evaluation
 	Resource Resource `json:"resource"`
 
-	// SubjectContext Authenticated subject context
-	SubjectContext SubjectContext `json:"subject_context"`
+	// SubjectContext Subject to evaluate. Optional; defaults to the authenticated caller when omitted.
+	SubjectContext *SubjectContext `json:"subject_context,omitempty"`
 }
 
 // ExternalRef Reference to an external CR whose spec is resolved and injected into the CEL context under the given id.
