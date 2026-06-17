@@ -20,12 +20,34 @@ import (
 // the openchoreoapi suite; each suite is its own package so the helpers cannot
 // be shared and are kept intentionally minimal here (only what this suite needs).
 const (
-	apiURL   = "http://api.e2e-cp.local:28080"
-	tokenURL = "http://thunder.e2e-cp.local:28080/oauth2/token"
-
 	tokenClientID     = "service_mcp_client"
 	tokenClientSecret = "service_mcp_client_secret"
 )
+
+// apiBaseURL and tokenURL resolve the control-plane gateway endpoints for the
+// active topology. Multi-cluster e2e (tier3) maps the *.e2e-mc-cp.local host
+// names on port 38080, while single-cluster maps *.e2e-cp.local on 28080. This
+// mirrors mcThunderURL() in the alerts/observability suites and is what lets the
+// private-repo / build-logs specs run in both topologies.
+func apiBaseURL() string {
+	if isMultiCluster() {
+		return "http://api.e2e-mc-cp.local:38080"
+	}
+	return "http://api.e2e-cp.local:28080"
+}
+
+func tokenURL() string {
+	if isMultiCluster() {
+		return "http://thunder.e2e-mc-cp.local:38080/oauth2/token"
+	}
+	return "http://thunder.e2e-cp.local:28080/oauth2/token"
+}
+
+// isMultiCluster reports whether the suite is running against the multi-cluster
+// topology, signalled by any of the secondary plane contexts being set.
+func isMultiCluster() bool {
+	return dpKubeContext != "" || wpKubeContext != "" || opKubeContext != ""
+}
 
 // bearerAuth returns a RequestEditorFn that injects the Authorization header.
 func bearerAuth(token string) gen.RequestEditorFn {
@@ -40,7 +62,7 @@ func bearerAuth(token string) gen.RequestEditorFn {
 func newAPIClient(token string) (*gen.ClientWithResponses, error) {
 	httpClient := &http.Client{Timeout: 30 * time.Second}
 	return gen.NewClientWithResponses(
-		apiURL,
+		apiBaseURL(),
 		gen.WithHTTPClient(httpClient),
 		gen.WithRequestEditorFn(bearerAuth(token)),
 	)
@@ -52,7 +74,7 @@ func fetchToken() (string, error) {
 	data := url.Values{"grant_type": {"client_credentials"}}
 
 	req, err := http.NewRequestWithContext(
-		context.Background(), http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
+		context.Background(), http.MethodPost, tokenURL(), strings.NewReader(data.Encode()))
 	if err != nil {
 		return "", fmt.Errorf("create token request: %w", err)
 	}
