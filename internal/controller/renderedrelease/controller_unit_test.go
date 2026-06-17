@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -1083,6 +1084,132 @@ func TestMakeDesiredResources(t *testing.T) {
 			if obj.GetLabels()[labels.LabelKeyManagedBy] != ControllerName {
 				t.Errorf("tracking label missing on %s", obj.GetName())
 			}
+		}
+	})
+}
+
+// ─────────────────────────────────────────────────────────────
+// makeDesiredNamespaces
+// ─────────────────────────────────────────────────────────────
+
+func TestMakeDesiredNamespaces(t *testing.T) {
+	r := &Reconciler{}
+
+	makeObjInNamespace := func(namespace string) *unstructured.Unstructured {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"})
+		if namespace != "" {
+			obj.SetNamespace(namespace)
+		}
+		return obj
+	}
+
+	t.Run("empty resources returns empty slice", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{}
+		result := r.makeDesiredNamespaces(release, nil)
+		if len(result) != 0 {
+			t.Errorf("expected 0, got %d", len(result))
+		}
+	})
+
+	t.Run("resources with empty namespace are skipped", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{}
+		result := r.makeDesiredNamespaces(release, []*unstructured.Unstructured{
+			makeObjInNamespace(""),
+			makeObjInNamespace(""),
+		})
+		if len(result) != 0 {
+			t.Errorf("expected 0 (cluster-scoped resources skipped), got %d", len(result))
+		}
+	})
+
+	t.Run("distinct namespaces are deduplicated", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{}
+		result := r.makeDesiredNamespaces(release, []*unstructured.Unstructured{
+			makeObjInNamespace("ns-a"),
+			makeObjInNamespace("ns-a"),
+			makeObjInNamespace("ns-b"),
+			makeObjInNamespace(""),
+		})
+		if len(result) != 2 {
+			t.Fatalf("expected 2 deduplicated namespaces, got %d", len(result))
+		}
+		names := map[string]bool{}
+		for _, ns := range result {
+			names[ns.Name] = true
+		}
+		if !names["ns-a"] || !names["ns-b"] {
+			t.Errorf("expected ns-a and ns-b, got %v", names)
+		}
+	})
+
+	t.Run("labels populated from the release", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-release", Namespace: "cp-ns", UID: "uid-xyz"},
+			Spec: openchoreov1alpha1.RenderedReleaseSpec{
+				EnvironmentName: "dev",
+				Owner:           openchoreov1alpha1.RenderedReleaseOwner{ProjectName: "my-project"},
+			},
+		}
+		result := r.makeDesiredNamespaces(release, []*unstructured.Unstructured{makeObjInNamespace("op-ns")})
+		if len(result) != 1 {
+			t.Fatalf("expected 1, got %d", len(result))
+		}
+		ns := result[0]
+		if ns.Name != "op-ns" {
+			t.Errorf("expected namespace name op-ns, got %s", ns.Name)
+		}
+		checks := map[string]string{
+			labels.LabelKeyCreatedBy:                ControllerName,
+			labels.LabelKeyRenderedReleaseName:      "my-release",
+			labels.LabelKeyRenderedReleaseNamespace: "cp-ns",
+			labels.LabelKeyRenderedReleaseUID:       "uid-xyz",
+			labels.LabelKeyNamespaceName:            "cp-ns",
+			labels.LabelKeyEnvironmentName:          "dev",
+			labels.LabelKeyProjectName:              "my-project",
+		}
+		for key, want := range checks {
+			if got := ns.Labels[key]; got != want {
+				t.Errorf("label %s: expected %q, got %q", key, want, got)
+			}
+		}
+	})
+}
+
+// ─────────────────────────────────────────────────────────────
+// ensureNamespaces
+// ─────────────────────────────────────────────────────────────
+
+func TestEnsureNamespaces(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+
+	makeNamespace := func(name string) *corev1.Namespace {
+		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name}}
+	}
+
+	t.Run("creates namespace that does not exist", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		if err := r.ensureNamespaces(ctx, cl, []*corev1.Namespace{makeNamespace("new-ns")}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		got := &corev1.Namespace{}
+		if err := cl.Get(ctx, client.ObjectKey{Name: "new-ns"}, got); err != nil {
+			t.Errorf("expected namespace to be created: %v", err)
+		}
+	})
+
+	t.Run("is idempotent when namespace already exists", func(t *testing.T) {
+		cl := fake.NewClientBuilder().WithObjects(makeNamespace("existing-ns")).Build()
+		if err := r.ensureNamespaces(ctx, cl, []*corev1.Namespace{makeNamespace("existing-ns")}); err != nil {
+			t.Fatalf("unexpected error for existing namespace: %v", err)
+		}
+	})
+
+	t.Run("empty list is a no-op", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		if err := r.ensureNamespaces(ctx, cl, nil); err != nil {
+			t.Fatalf("unexpected error: %v", err)
 		}
 	})
 }
