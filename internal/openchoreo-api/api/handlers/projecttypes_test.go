@@ -5,10 +5,13 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,8 +22,10 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	projecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projecttype"
+	projecttypemocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projecttype/mocks"
 )
 
 func newProjectTypeService(t *testing.T, objects []client.Object, pdp authzcore.PDP) projecttypesvc.Service {
@@ -356,4 +361,153 @@ func TestGetProjectTypeSchemaHandler(t *testing.T) {
 		require.NoError(t, err)
 		assert.IsType(t, gen.GetProjectTypeSchema403JSONResponse{}, resp)
 	})
+}
+
+// --- Error mapping (mock service) ---
+
+func newProjectTypeHandlerWithMock(svc *projecttypemocks.MockService) *Handler {
+	return &Handler{
+		services: &handlerservices.Services{ProjectTypeService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+}
+
+func TestListProjectTypesHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.ListProjectTypes400JSONResponse{}},
+		{"internal -> 500", errors.New("boom"), gen.ListProjectTypes500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := projecttypemocks.NewMockService(t)
+			svc.EXPECT().ListProjectTypes(mock.Anything, "test-ns", mock.Anything).Return(nil, tt.svcErr)
+			resp, err := newProjectTypeHandlerWithMock(svc).ListProjectTypes(ctx, gen.ListProjectTypesRequestObject{NamespaceName: "test-ns"})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestCreateProjectTypeHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.CreateProjectType403JSONResponse{}},
+		{"already exists -> 409", projecttypesvc.ErrProjectTypeAlreadyExists, gen.CreateProjectType409JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.CreateProjectType400JSONResponse{}},
+		{"internal -> 500", errors.New("boom"), gen.CreateProjectType500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := projecttypemocks.NewMockService(t)
+			svc.EXPECT().CreateProjectType(mock.Anything, "test-ns", mock.Anything).Return(nil, tt.svcErr)
+			resp, err := newProjectTypeHandlerWithMock(svc).CreateProjectType(ctx, gen.CreateProjectTypeRequestObject{
+				NamespaceName: "test-ns",
+				Body:          &gen.ProjectType{Metadata: gen.ObjectMeta{Name: "pt"}},
+			})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestGetProjectTypeHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.GetProjectType403JSONResponse{}},
+		{"not found -> 404", projecttypesvc.ErrProjectTypeNotFound, gen.GetProjectType404JSONResponse{}},
+		{"internal -> 500", errors.New("boom"), gen.GetProjectType500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := projecttypemocks.NewMockService(t)
+			svc.EXPECT().GetProjectType(mock.Anything, "test-ns", "pt").Return(nil, tt.svcErr)
+			resp, err := newProjectTypeHandlerWithMock(svc).GetProjectType(ctx, gen.GetProjectTypeRequestObject{NamespaceName: "test-ns", PtName: "pt"})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestUpdateProjectTypeHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.UpdateProjectType403JSONResponse{}},
+		{"not found -> 404", projecttypesvc.ErrProjectTypeNotFound, gen.UpdateProjectType404JSONResponse{}},
+		{"validation -> 400", &svcpkg.ValidationError{Msg: "bad request"}, gen.UpdateProjectType400JSONResponse{}},
+		{"internal -> 500", errors.New("boom"), gen.UpdateProjectType500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := projecttypemocks.NewMockService(t)
+			svc.EXPECT().UpdateProjectType(mock.Anything, "test-ns", mock.Anything).Return(nil, tt.svcErr)
+			resp, err := newProjectTypeHandlerWithMock(svc).UpdateProjectType(ctx, gen.UpdateProjectTypeRequestObject{
+				NamespaceName: "test-ns",
+				PtName:        "pt",
+				Body:          &gen.ProjectType{Metadata: gen.ObjectMeta{Name: "pt"}},
+			})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestDeleteProjectTypeHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.DeleteProjectType403JSONResponse{}},
+		{"not found -> 404", projecttypesvc.ErrProjectTypeNotFound, gen.DeleteProjectType404JSONResponse{}},
+		{"internal -> 500", errors.New("boom"), gen.DeleteProjectType500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := projecttypemocks.NewMockService(t)
+			svc.EXPECT().DeleteProjectType(mock.Anything, "test-ns", "pt").Return(tt.svcErr)
+			resp, err := newProjectTypeHandlerWithMock(svc).DeleteProjectType(ctx, gen.DeleteProjectTypeRequestObject{NamespaceName: "test-ns", PtName: "pt"})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}
+
+func TestGetProjectTypeSchemaHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"not found -> 404", projecttypesvc.ErrProjectTypeNotFound, gen.GetProjectTypeSchema404JSONResponse{}},
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.GetProjectTypeSchema403JSONResponse{}},
+		{"internal -> 500", errors.New("boom"), gen.GetProjectTypeSchema500JSONResponse{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := projecttypemocks.NewMockService(t)
+			svc.EXPECT().GetProjectTypeSchema(mock.Anything, "test-ns", "pt").Return(nil, tt.svcErr)
+			resp, err := newProjectTypeHandlerWithMock(svc).GetProjectTypeSchema(ctx, gen.GetProjectTypeSchemaRequestObject{NamespaceName: "test-ns", PtName: "pt"})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
 }

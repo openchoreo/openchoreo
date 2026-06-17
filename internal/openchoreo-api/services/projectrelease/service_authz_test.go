@@ -146,3 +146,34 @@ func TestListProjectReleases_AuthzCheck(t *testing.T) {
 		require.Empty(t, result.Items)
 	})
 }
+
+func TestProjectReleaseAuthz_FetchFirstAndNil(t *testing.T) {
+	t.Run("get propagates internal error before authz", func(t *testing.T) {
+		pdp := testutil.AllowPDP()
+		mockSvc := mocks.NewMockService(t)
+		mockSvc.On("GetProjectRelease", mock.Anything, testNamespace, "pr").Return(nil, ErrProjectReleaseNotFound)
+		svc := newPRAuthzSvc(pdp, mockSvc)
+		_, err := svc.GetProjectRelease(testutil.AuthzContext(), testNamespace, "pr")
+		require.ErrorIs(t, err, ErrProjectReleaseNotFound)
+		require.Empty(t, pdp.Captured, "authz must not be queried when the fetch fails")
+	})
+
+	t.Run("delete propagates internal error before authz", func(t *testing.T) {
+		pdp := testutil.AllowPDP()
+		mockSvc := mocks.NewMockService(t)
+		mockSvc.On("GetProjectRelease", mock.Anything, testNamespace, "pr").Return(nil, ErrProjectReleaseNotFound)
+		svc := newPRAuthzSvc(pdp, mockSvc)
+		err := svc.DeleteProjectRelease(testutil.AuthzContext(), testNamespace, "pr")
+		require.ErrorIs(t, err, ErrProjectReleaseNotFound)
+		require.Empty(t, pdp.Captured)
+	})
+
+	t.Run("create rejects nil before authz", func(t *testing.T) {
+		pdp := testutil.AllowPDP()
+		mockSvc := mocks.NewMockService(t)
+		svc := newPRAuthzSvc(pdp, mockSvc)
+		_, err := svc.CreateProjectRelease(testutil.AuthzContext(), testNamespace, nil)
+		require.ErrorIs(t, err, ErrProjectReleaseNil)
+		require.Empty(t, pdp.Captured)
+	})
+}
