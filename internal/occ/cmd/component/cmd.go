@@ -312,7 +312,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 	flags.AddNamespace(cmd)
 	flags.AddProject(cmd)
 	flags.AddEnvironment(cmd)
-	cmd.Flags().StringP("pod", "p", "", "Pod name to exec into (defaults to any ready pod)")
+	cmd.Flags().String("pod", "", "Pod name to exec into (defaults to any ready pod)")
 	cmd.Flags().StringP("container", "c", "", "Container name to exec into (defaults to first container)")
 	cmd.Flags().BoolP("tty", "t", false, "Allocate a pseudo-TTY")
 	cmd.Flags().BoolP("stdin", "i", false, "Pass stdin to the container")
