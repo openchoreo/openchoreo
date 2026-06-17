@@ -107,6 +107,7 @@ type ExecParams struct {
 	Project     string
 	Component   string
 	Environment string
+	Pod         string // optional — empty means auto-select any ready pod
 	Container   string
 	Command     []string // command to run; defaults to ["/bin/sh"] when empty
 	TTY         bool

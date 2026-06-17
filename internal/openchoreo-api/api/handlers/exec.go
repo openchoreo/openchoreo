@@ -68,6 +68,7 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	project := query.Get("project")
 	envName := query.Get("env")
 	container := query.Get("container")
+	podName := query.Get("pod")
 	commands := query["command"]
 	tty := query.Get("tty") == "true"
 	stdin := query.Get("stdin") == "true"
@@ -102,7 +103,7 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Resolve the pod to exec into
-	podInfo, err := h.resolvePod(ctx, namespace, componentName, project, envName)
+	podInfo, err := h.resolvePod(ctx, namespace, componentName, project, envName, podName)
 	if err != nil {
 		logger.Error("Failed to resolve pod for exec", "error", err)
 		http.Error(w, fmt.Sprintf("failed to resolve pod: %v", err), http.StatusBadRequest)
@@ -202,8 +203,8 @@ type execPodInfo struct {
 }
 
 // resolvePod resolves the target pod for exec by traversing:
-// component → environment → dataplane → pod (first Ready pod matching labels)
-func (h *ExecHandler) resolvePod(ctx context.Context, namespace, componentName, project, envName string) (*execPodInfo, error) {
+// component → environment → dataplane → pod (specific pod if podName set, else first Ready pod)
+func (h *ExecHandler) resolvePod(ctx context.Context, namespace, componentName, project, envName, podName string) (*execPodInfo, error) {
 	// Verify the component exists
 	comp := &openchoreov1alpha1.Component{}
 	if err := h.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: componentName}, comp); err != nil {
@@ -244,14 +245,19 @@ func (h *ExecHandler) resolvePod(ctx context.Context, namespace, componentName, 
 	}
 
 	// Find a pod via the gateway K8s proxy
-	podNamespace, podName, err := h.findReadyPod(ctx, plane, namespace, componentName, envName)
+	var resolvedNamespace, resolvedPodName string
+	if podName != "" {
+		resolvedNamespace, resolvedPodName, err = h.findNamedPod(ctx, plane, namespace, componentName, envName, podName)
+	} else {
+		resolvedNamespace, resolvedPodName, err = h.findReadyPod(ctx, plane, namespace, componentName, envName)
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	return &execPodInfo{
-		podNamespace: podNamespace,
-		podName:      podName,
+		podNamespace: resolvedNamespace,
+		podName:      resolvedPodName,
 		plane:        plane,
 	}, nil
 }
@@ -351,6 +357,64 @@ func (h *ExecHandler) findReadyPod(ctx context.Context, plane execPlaneInfo, nam
 	}
 
 	return "", "", fmt.Errorf("no running pods found for component %q in environment %q", componentName, envName)
+}
+
+// findNamedPod finds a specific pod by name and verifies it belongs to the component and is ready.
+func (h *ExecHandler) findNamedPod(ctx context.Context, plane execPlaneInfo, namespace, componentName, envName, podName string) (string, string, error) {
+	if h.gatewayClient == nil {
+		return "", "", fmt.Errorf("gateway client is not configured")
+	}
+
+	labelSelector := url.QueryEscape(fmt.Sprintf(
+		"openchoreo.dev/component=%s,openchoreo.dev/environment=%s,openchoreo.dev/namespace=%s",
+		componentName, envName, namespace,
+	))
+	fieldSelector := url.QueryEscape(fmt.Sprintf("metadata.name=%s", podName))
+	rawQuery := "labelSelector=" + labelSelector + "&fieldSelector=" + fieldSelector
+
+	resp, err := h.gatewayClient.ProxyK8sRequest(ctx, plane.planeType, plane.planeID, plane.crNamespace, plane.crName, "api/v1/pods", rawQuery)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to find pod %q: %w", podName, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", "", fmt.Errorf("failed to find pod %q (HTTP %d): %s", podName, resp.StatusCode, string(body))
+	}
+
+	var podList struct {
+		Items []struct {
+			Metadata struct {
+				Name      string `json:"name"`
+				Namespace string `json:"namespace"`
+			} `json:"metadata"`
+			Status struct {
+				Phase      string `json:"phase"`
+				Conditions []struct {
+					Type   string `json:"type"`
+					Status string `json:"status"`
+				} `json:"conditions"`
+			} `json:"status"`
+		} `json:"items"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&podList); err != nil {
+		return "", "", fmt.Errorf("failed to parse pod list: %w", err)
+	}
+
+	if len(podList.Items) == 0 {
+		return "", "", fmt.Errorf("pod %q not found for component %q in environment %q", podName, componentName, envName)
+	}
+
+	pod := podList.Items[0]
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == "Ready" && cond.Status == "True" {
+			return pod.Metadata.Namespace, pod.Metadata.Name, nil
+		}
+	}
+
+	return "", "", fmt.Errorf("pod %q is not ready (phase: %s)", podName, pod.Status.Phase)
 }
 
 // resolveLowestEnvironment finds the root environment from the project's deployment pipeline.

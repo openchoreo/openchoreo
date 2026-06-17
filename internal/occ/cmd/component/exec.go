@@ -221,6 +221,9 @@ func buildExecWebSocketURL(controlPlaneURL string, params ExecParams) (string, e
 	if params.Environment != "" {
 		q.Set("env", params.Environment)
 	}
+	if params.Pod != "" {
+		q.Set("pod", params.Pod)
+	}
 	if params.Container != "" {
 		q.Set("container", params.Container)
 	}
