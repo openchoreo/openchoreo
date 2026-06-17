@@ -360,6 +360,8 @@ func (h *ExecHandler) findReadyPod(ctx context.Context, plane execPlaneInfo, nam
 }
 
 // findNamedPod finds a specific pod by name and verifies it belongs to the component and is ready.
+// It uses only a label selector (not fieldSelector) because the gateway proxy may not support
+// fieldSelector passthrough — pod name matching is done in application code.
 func (h *ExecHandler) findNamedPod(ctx context.Context, plane execPlaneInfo, namespace, componentName, envName, podName string) (string, string, error) {
 	if h.gatewayClient == nil {
 		return "", "", fmt.Errorf("gateway client is not configured")
@@ -369,18 +371,17 @@ func (h *ExecHandler) findNamedPod(ctx context.Context, plane execPlaneInfo, nam
 		"openchoreo.dev/component=%s,openchoreo.dev/environment=%s,openchoreo.dev/namespace=%s",
 		componentName, envName, namespace,
 	))
-	fieldSelector := url.QueryEscape(fmt.Sprintf("metadata.name=%s", podName))
-	rawQuery := "labelSelector=" + labelSelector + "&fieldSelector=" + fieldSelector
+	rawQuery := "labelSelector=" + labelSelector
 
 	resp, err := h.gatewayClient.ProxyK8sRequest(ctx, plane.planeType, plane.planeID, plane.crNamespace, plane.crName, "api/v1/pods", rawQuery)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to find pod %q: %w", podName, err)
+		return "", "", fmt.Errorf("failed to list pods for component %q: %w", componentName, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", "", fmt.Errorf("failed to find pod %q (HTTP %d): %s", podName, resp.StatusCode, string(body))
+		return "", "", fmt.Errorf("failed to list pods (HTTP %d): %s", resp.StatusCode, string(body))
 	}
 
 	var podList struct {
@@ -403,18 +404,20 @@ func (h *ExecHandler) findNamedPod(ctx context.Context, plane execPlaneInfo, nam
 		return "", "", fmt.Errorf("failed to parse pod list: %w", err)
 	}
 
-	if len(podList.Items) == 0 {
-		return "", "", fmt.Errorf("pod %q not found for component %q in environment %q", podName, componentName, envName)
-	}
-
-	pod := podList.Items[0]
-	for _, cond := range pod.Status.Conditions {
-		if cond.Type == "Ready" && cond.Status == "True" {
-			return pod.Metadata.Namespace, pod.Metadata.Name, nil
+	// Filter by pod name in application code — fieldSelector may not be supported by the gateway proxy
+	for _, pod := range podList.Items {
+		if pod.Metadata.Name != podName {
+			continue
 		}
+		for _, cond := range pod.Status.Conditions {
+			if cond.Type == "Ready" && cond.Status == "True" {
+				return pod.Metadata.Namespace, pod.Metadata.Name, nil
+			}
+		}
+		return "", "", fmt.Errorf("pod %q is not ready (phase: %s)", podName, pod.Status.Phase)
 	}
 
-	return "", "", fmt.Errorf("pod %q is not ready (phase: %s)", podName, pod.Status.Phase)
+	return "", "", fmt.Errorf("pod %q not found for component %q in environment %q", podName, componentName, envName)
 }
 
 // resolveLowestEnvironment finds the root environment from the project's deployment pipeline.
