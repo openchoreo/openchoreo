@@ -98,3 +98,7 @@ helm-push.%: helm-package.% ## Push helm chart for the specified chart name.
 
 .PHONY: helm-push
 helm-push: $(addprefix helm-push., $(HELM_CHART_NAMES)) ## Push all helm charts.
+
+.PHONY: helm-render-test
+helm-render-test: ## Render each plane chart from local source against every bundled install value file.
+	$(PROJECT_DIR)/hack/test-helm-render.sh
