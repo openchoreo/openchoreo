@@ -153,7 +153,7 @@ func makeTLSRouteJSON(opts tlsRouteOpts) []byte {
 	}
 
 	route := map[string]interface{}{
-		"apiVersion": "gateway.networking.k8s.io/v1alpha2",
+		"apiVersion": "gateway.networking.k8s.io/v1",
 		"kind":       "TLSRoute",
 		"metadata":   metadata,
 	}
