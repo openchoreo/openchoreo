@@ -1152,6 +1152,12 @@
           "title": "enabled",
           "type": "boolean"
         },
+        "gatewayClassName": {
+          "default": "kgateway",
+          "description": "GatewayClass name to reference in the Gateway CR",
+          "title": "gatewayClassName",
+          "type": "string"
+        },
         "httpPort": {
           "default": 80,
           "description": "HTTP listener port",
