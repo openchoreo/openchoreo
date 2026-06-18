@@ -5,7 +5,7 @@ go 1.26.3
 require (
 	github.com/bufbuild/protocompile v0.14.1
 	github.com/casbin/casbin/v2 v2.135.0
-	github.com/cilium/cilium v1.19.4
+	github.com/cilium/cilium v1.19.5
 	github.com/getkin/kin-openapi v0.139.0
 	github.com/go-logr/logr v1.4.3
 	github.com/go-playground/validator/v10 v10.30.3
@@ -33,7 +33,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.36.2
 	k8s.io/apimachinery v0.36.2
 	k8s.io/client-go v0.36.2
-	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
+	k8s.io/utils v0.0.0-20260507154919-ff6756f316d2
 	modernc.org/sqlite v1.51.0
 	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/yaml v1.6.0
@@ -150,7 +150,7 @@ require (
 	go.uber.org/zap v1.27.1 // indirect
 	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93
-	golang.org/x/net v0.54.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/term v0.44.0
