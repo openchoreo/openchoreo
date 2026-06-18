@@ -210,6 +210,14 @@ var _ = Describe("WorkflowRun Controller Integration", func() {
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(string(ReasonWorkflowFailed)))
+
+			condFailed := meta.FindStatusCondition(wr.Status.Conditions, string(ConditionWorkflowFailed))
+			Expect(condFailed).NotTo(BeNil())
+			Expect(condFailed.Status).To(Equal(metav1.ConditionTrue))
+
+			condRunning := meta.FindStatusCondition(wr.Status.Conditions, string(ConditionWorkflowRunning))
+			Expect(condRunning).NotTo(BeNil())
+			Expect(condRunning.Status).To(Equal(metav1.ConditionFalse))
 		})
 	})
 
@@ -560,6 +568,14 @@ var _ = Describe("WorkflowRun Controller Integration", func() {
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(string(ReasonComponentValidationFailed)))
 			Expect(cond.Message).To(ContainSubstring("must have both"))
+
+			condFailed := meta.FindStatusCondition(resource.Status.Conditions, string(ConditionWorkflowFailed))
+			Expect(condFailed).NotTo(BeNil())
+			Expect(condFailed.Status).To(Equal(metav1.ConditionTrue))
+
+			condRunning := meta.FindStatusCondition(resource.Status.Conditions, string(ConditionWorkflowRunning))
+			Expect(condRunning).NotTo(BeNil())
+			Expect(condRunning.Status).To(Equal(metav1.ConditionFalse))
 		})
 	})
 

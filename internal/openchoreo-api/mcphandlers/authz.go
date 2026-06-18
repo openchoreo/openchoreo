@@ -457,12 +457,12 @@ func clusterAuthzRoleBindingDetail(b *openchoreov1alpha1.ClusterAuthzRoleBinding
 // Helpers — diagnostics
 // ---------------------------------------------------------------------------
 
-// resolveEvaluateSubject returns the subject context to evaluate against.
-// Unlike the HTTP /evaluates endpoint, which requires the client to supply a
-// subject, the MCP tool defaults to the caller when the request omits one — the
-// "can I do X?" case is overwhelmingly the common one for agents.
-func resolveEvaluateSubject(genSubject gen.SubjectContext, caller *auth.SubjectContext) *authzcore.SubjectContext {
-	if genSubject.EntitlementClaim != "" {
+// resolveEvaluateSubject returns the subject context to evaluate against. When
+// the request omits a subject it defaults to the caller — the "can I do X?"
+// case is overwhelmingly the common one for agents. An explicit subject
+// overrides the caller; when neither is present the subject stays empty (deny).
+func resolveEvaluateSubject(genSubject *gen.SubjectContext, caller *auth.SubjectContext) *authzcore.SubjectContext {
+	if genSubject != nil {
 		return &authzcore.SubjectContext{
 			Type:              string(genSubject.Type),
 			EntitlementClaim:  genSubject.EntitlementClaim,

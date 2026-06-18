@@ -55,6 +55,9 @@ metadata:
 spec:
   deploymentPipelineRef:
     name: default
+  type:
+    kind: ClusterProjectType
+    name: default
 ---
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterAuthzRole

@@ -20,6 +20,9 @@ spec:
             sizeLimit: 10Gi
         - name: app-dir
           emptyDir: {}
+        # Writable scratch for buildpack generated-artifacts (not used downstream).
+        - name: generated-artifacts
+          emptyDir: {}
         - name: registries-conf
           configMap:
             name: "{{workflow.parameters.workflowrun-name}}-registries-conf"
@@ -128,7 +131,7 @@ spec:
                 --builder "$BUILDER" \
                 --run-image "$RUN_IMAGE" \
                 --path "$WORKDIR/$APP_PATH" \
-                --volume "/mnt/vol:/app/generated-artifacts:rw" \
+                --volume "/generated-artifacts:/app/generated-artifacts:rw" \
                 --pull-policy always \
                 --publish \
                 $PACK_REGISTRY_ARGS \
@@ -147,7 +150,7 @@ spec:
               --run-image "$RUN_IMAGE" \
               --docker-host inherit \
               --path "$WORKDIR/$APP_PATH" \
-              --volume "/mnt/vol:/app/generated-artifacts:rw" \
+              --volume "/generated-artifacts:/app/generated-artifacts:rw" \
               --pull-policy always \
               $PACK_REGISTRY_ARGS \
               $ENV_ARGS
@@ -163,6 +166,8 @@ spec:
             name: storage
           - mountPath: /app
             name: app-dir
+          - mountPath: /generated-artifacts
+            name: generated-artifacts
           - mountPath: /etc/containers/registries.conf.d/mirrors.conf
             subPath: mirrors.conf
             name: registries-conf

@@ -29,6 +29,9 @@ metadata:
 spec:
   deploymentPipelineRef:
     name: default
+  type:
+    kind: ClusterProjectType
+    name: default
 `;
 
 test.describe.configure({ mode: 'serial' });

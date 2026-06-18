@@ -99,7 +99,7 @@ func TestEvaluatesHandler(t *testing.T) {
 				Id:        nil,
 				Hierarchy: gen.ResourceHierarchy{},
 			},
-			SubjectContext: gen.SubjectContext{
+			SubjectContext: &gen.SubjectContext{
 				Type:              gen.SubjectContextType("user"),
 				EntitlementClaim:  "",
 				EntitlementValues: nil,
@@ -134,7 +134,7 @@ func TestEvaluatesHandler(t *testing.T) {
 						Namespace: &ns,
 					},
 				},
-				SubjectContext: gen.SubjectContext{
+				SubjectContext: &gen.SubjectContext{
 					Type:              gen.SubjectContextType("user"),
 					EntitlementClaim:  "groups",
 					EntitlementValues: []string{"admin"},
@@ -149,7 +149,7 @@ func TestEvaluatesHandler(t *testing.T) {
 						Project:   &id,
 					},
 				},
-				SubjectContext: gen.SubjectContext{
+				SubjectContext: &gen.SubjectContext{
 					Type:              gen.SubjectContextType("user"),
 					EntitlementClaim:  "",
 					EntitlementValues: nil,
@@ -192,7 +192,7 @@ func TestEvaluatesHandler(t *testing.T) {
 		body := []gen.EvaluateRequest{{
 			Action:         "view",
 			Resource:       gen.Resource{Type: "project"},
-			SubjectContext: gen.SubjectContext{Type: gen.SubjectContextType("user")},
+			SubjectContext: &gen.SubjectContext{Type: gen.SubjectContextType("user")},
 		}}
 		svc := authzmocks.NewMockService(t)
 		svc.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(nil, errors.New("unexpected failure"))
@@ -201,6 +201,144 @@ func TestEvaluatesHandler(t *testing.T) {
 		resp, err := h.Evaluates(ctx, gen.EvaluatesRequestObject{Body: &body})
 		require.NoError(t, err)
 		assert.IsType(t, gen.Evaluates500JSONResponse{}, resp)
+	})
+
+	t.Run("omitted subject defaults to authenticated caller", func(t *testing.T) {
+		callerCtx := auth.SetSubjectContext(context.Background(), &auth.SubjectContext{
+			ID:                "u-1",
+			Type:              "user",
+			EntitlementClaim:  "groups",
+			EntitlementValues: []string{"admins"},
+		})
+		body := []gen.EvaluateRequest{{
+			Action:         "view",
+			Resource:       gen.Resource{Type: "project"},
+			SubjectContext: nil,
+		}}
+
+		svc := authzmocks.NewMockService(t)
+		svc.EXPECT().Evaluate(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, reqs []authzcore.EvaluateRequest) ([]authzcore.Decision, error) {
+			require.Len(t, reqs, 1)
+			require.NotNil(t, reqs[0].SubjectContext)
+			assert.Equal(t, "user", reqs[0].SubjectContext.Type, "caller type must be used")
+			assert.Equal(t, "groups", reqs[0].SubjectContext.EntitlementClaim)
+			assert.Equal(t, []string{"admins"}, reqs[0].SubjectContext.EntitlementValues)
+			return []authzcore.Decision{{Decision: true}}, nil
+		})
+		h := newHandlerWithAuthzService(t, svc, &config.Config{})
+
+		resp, err := h.Evaluates(callerCtx, gen.EvaluatesRequestObject{Body: &body})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.Evaluates200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		require.Len(t, typed, 1)
+		assert.True(t, typed[0].Decision)
+	})
+
+	t.Run("explicit subject overrides caller", func(t *testing.T) {
+		callerCtx := auth.SetSubjectContext(context.Background(), &auth.SubjectContext{
+			ID: "u-1", Type: "user", EntitlementClaim: "groups", EntitlementValues: []string{"admins"},
+		})
+		body := []gen.EvaluateRequest{{
+			Action:   "view",
+			Resource: gen.Resource{Type: "project"},
+			SubjectContext: &gen.SubjectContext{
+				Type:              gen.SubjectContextType("service_account"),
+				EntitlementClaim:  "sub",
+				EntitlementValues: []string{"svc-a"},
+			},
+		}}
+
+		svc := authzmocks.NewMockService(t)
+		svc.EXPECT().Evaluate(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, reqs []authzcore.EvaluateRequest) ([]authzcore.Decision, error) {
+			require.Len(t, reqs, 1)
+			require.NotNil(t, reqs[0].SubjectContext)
+			assert.Equal(t, "service_account", reqs[0].SubjectContext.Type, "explicit subject must override caller")
+			assert.Equal(t, "sub", reqs[0].SubjectContext.EntitlementClaim)
+			assert.Equal(t, []string{"svc-a"}, reqs[0].SubjectContext.EntitlementValues)
+			return []authzcore.Decision{{Decision: true}}, nil
+		})
+		h := newHandlerWithAuthzService(t, svc, &config.Config{})
+
+		resp, err := h.Evaluates(callerCtx, gen.EvaluatesRequestObject{Body: &body})
+		require.NoError(t, err)
+		assert.IsType(t, gen.Evaluates200JSONResponse{}, resp)
+	})
+
+	t.Run("mixed batch resolves subject per item", func(t *testing.T) {
+		callerCtx := auth.SetSubjectContext(context.Background(), &auth.SubjectContext{
+			ID: "u-1", Type: "user", EntitlementClaim: "groups", EntitlementValues: []string{"admins"},
+		})
+		body := []gen.EvaluateRequest{
+			{Action: "view", Resource: gen.Resource{Type: "project"}, SubjectContext: nil},
+			{Action: "view", Resource: gen.Resource{Type: "project"}, SubjectContext: &gen.SubjectContext{
+				Type: gen.SubjectContextType("service_account"), EntitlementClaim: "sub", EntitlementValues: []string{"svc-a"},
+			}},
+		}
+
+		svc := authzmocks.NewMockService(t)
+		svc.EXPECT().Evaluate(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, reqs []authzcore.EvaluateRequest) ([]authzcore.Decision, error) {
+			require.Len(t, reqs, 2)
+			require.NotNil(t, reqs[0].SubjectContext)
+			assert.Equal(t, "user", reqs[0].SubjectContext.Type, "item 0 defaults to caller")
+			require.NotNil(t, reqs[1].SubjectContext)
+			assert.Equal(t, "service_account", reqs[1].SubjectContext.Type, "item 1 uses explicit subject")
+			return []authzcore.Decision{{Decision: true}, {Decision: false}}, nil
+		})
+		h := newHandlerWithAuthzService(t, svc, &config.Config{})
+
+		resp, err := h.Evaluates(callerCtx, gen.EvaluatesRequestObject{Body: &body})
+		require.NoError(t, err)
+		assert.IsType(t, gen.Evaluates200JSONResponse{}, resp)
+	})
+
+	t.Run("omitted subject with no caller evaluates to deny", func(t *testing.T) {
+		body := []gen.EvaluateRequest{{
+			Action:         "view",
+			Resource:       gen.Resource{Type: "project"},
+			SubjectContext: nil,
+		}}
+
+		svc := authzmocks.NewMockService(t)
+		svc.EXPECT().Evaluate(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, reqs []authzcore.EvaluateRequest) ([]authzcore.Decision, error) {
+			require.Len(t, reqs, 1)
+			require.NotNil(t, reqs[0].SubjectContext)
+			assert.Equal(t, "", reqs[0].SubjectContext.Type)
+			assert.Empty(t, reqs[0].SubjectContext.EntitlementValues)
+			return []authzcore.Decision{{Decision: false}}, nil
+		})
+		h := newHandlerWithAuthzService(t, svc, &config.Config{})
+
+		resp, err := h.Evaluates(context.Background(), gen.EvaluatesRequestObject{Body: &body})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.Evaluates200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		require.Len(t, typed, 1)
+		assert.False(t, typed[0].Decision)
+	})
+
+	t.Run("explicit subject works without authenticated caller", func(t *testing.T) {
+		body := []gen.EvaluateRequest{{
+			Action:   "view",
+			Resource: gen.Resource{Type: "project"},
+			SubjectContext: &gen.SubjectContext{
+				Type: gen.SubjectContextType("user"), EntitlementClaim: "groups", EntitlementValues: []string{"admins"},
+			},
+		}}
+
+		svc := authzmocks.NewMockService(t)
+		svc.EXPECT().Evaluate(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, reqs []authzcore.EvaluateRequest) ([]authzcore.Decision, error) {
+			require.Len(t, reqs, 1)
+			require.NotNil(t, reqs[0].SubjectContext)
+			assert.Equal(t, "user", reqs[0].SubjectContext.Type)
+			assert.Equal(t, []string{"admins"}, reqs[0].SubjectContext.EntitlementValues)
+			return []authzcore.Decision{{Decision: true}}, nil
+		})
+		h := newHandlerWithAuthzService(t, svc, &config.Config{})
+
+		resp, err := h.Evaluates(context.Background(), gen.EvaluatesRequestObject{Body: &body})
+		require.NoError(t, err)
+		assert.IsType(t, gen.Evaluates200JSONResponse{}, resp)
 	})
 }
 

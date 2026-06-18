@@ -126,10 +126,17 @@ func setWorkflowNotFoundCondition(workflowRun *openchoreov1alpha1.WorkflowRun) {
 		ObservedGeneration: workflowRun.Generation,
 	})
 	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkflowFailed),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(ReasonWorkflowFailed),
+		Message:            "Workflow is not found in the cluster",
+		ObservedGeneration: workflowRun.Generation,
+	})
+	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
 		Type:               string(ConditionWorkflowCompleted),
 		Status:             metav1.ConditionTrue,
 		Reason:             string(ReasonWorkflowFailed),
-		Message:            "Workflow has been deleted from the cluster",
+		Message:            "Workflow is not found in the cluster",
 		ObservedGeneration: workflowRun.Generation,
 	})
 }
@@ -163,6 +170,20 @@ func isWorkflowRunning(workflowRun *openchoreov1alpha1.WorkflowRun) bool {
 // setComponentValidationFailedCondition marks the workflow run as permanently failed
 // due to a component workflow validation error.
 func setComponentValidationFailedCondition(workflowRun *openchoreov1alpha1.WorkflowRun, message string) {
+	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkflowRunning),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(ReasonWorkflowRunning),
+		Message:            message,
+		ObservedGeneration: workflowRun.Generation,
+	})
+	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
+		Type:               string(ConditionWorkflowFailed),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(ReasonComponentValidationFailed),
+		Message:            message,
+		ObservedGeneration: workflowRun.Generation,
+	})
 	meta.SetStatusCondition(&workflowRun.Status.Conditions, metav1.Condition{
 		Type:               string(ConditionWorkflowCompleted),
 		Status:             metav1.ConditionTrue,

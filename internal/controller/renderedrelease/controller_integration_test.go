@@ -949,6 +949,152 @@ var _ = Describe("RenderedRelease Controller", func() {
 	})
 
 	// ─────────────────────────────────────────────────────────────
+	// Reconcile: observability plane creates the target namespace
+	// ─────────────────────────────────────────────────────────────
+
+	Context("when an observability-plane RenderedRelease references a missing namespace", func() {
+		const (
+			releaseName = "release-op-ns-create"
+			envName     = "env-op-ns-create"
+			cdpName     = "cdp-op-ns-create"
+			copName     = "cop-op-ns-create"
+			planeID     = "plane-op-ns-create"
+			opPlaneID   = "obs-plane-op-ns-create"
+			targetNs    = "op-created-ns"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+			forceDeleteClusterObservabilityPlane(ctx, copName)
+			// Best-effort cleanup of the namespace created by the controller.
+			nsObj := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: targetNs}}
+			_ = k8sClient.Delete(ctx, nsObj)
+		})
+
+		It("creates the namespace before applying the resources", func() {
+			By("Creating prerequisite ClusterObservabilityPlane, ClusterDataPlane, and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterObservabilityPlane(copName, opPlaneID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeClusterDataPlaneWithOPRef(cdpName, planeID, copName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Confirming the target namespace does not exist yet")
+			ns := &corev1.Namespace{}
+			Expect(apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: targetNs}, ns))).To(BeTrue())
+
+			By("Creating an OP-targeted RenderedRelease with a ConfigMap in the missing namespace")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.TargetPlane = targetPlaneObservabilityPlane
+			cmJSON := []byte(fmt.Sprintf(`{
+				"apiVersion": "v1",
+				"kind": "ConfigMap",
+				"metadata": {
+					"name": "test-cm-op-ns",
+					"namespace": %q
+				},
+				"data": {
+					"key": "op-value"
+				}
+			}`, targetNs))
+			release.Spec.Resources = []openchoreov1alpha1.RenderedManifest{
+				{
+					ID:     "cm-op-ns-1",
+					Object: &runtime.RawExtension{Raw: cmJSON},
+				},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			By("Using the envtest client as the observability plane client")
+			r := testReconcilerWithDPClient(k8sClient, planeID, cdpName)
+
+			By("First reconcile: adds finalizer")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Second reconcile: creates the namespace and applies resources")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Verifying the namespace was created with audit labels")
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: targetNs}, ns)).To(Succeed())
+			Expect(ns.Labels[labels.LabelKeyCreatedBy]).To(Equal(ControllerName))
+			Expect(ns.Labels[labels.LabelKeyRenderedReleaseName]).To(Equal(releaseName))
+
+			By("Verifying the ConfigMap was applied into the created namespace")
+			cm := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "test-cm-op-ns", Namespace: targetNs}, cm)).To(Succeed())
+			Expect(cm.Data["key"]).To(Equal("op-value"))
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
+	// Reconcile: data plane does NOT create the target namespace
+	// ─────────────────────────────────────────────────────────────
+
+	Context("when a data-plane RenderedRelease references a missing namespace", func() {
+		const (
+			releaseName = "release-dp-ns-scope"
+			envName     = "env-dp-ns-scope"
+			cdpName     = "cdp-dp-ns-scope"
+			planeID     = "plane-dp-ns-scope"
+			targetNs    = "dp-uncreated-ns"
+		)
+		nn := types.NamespacedName{Name: releaseName, Namespace: testNs}
+		envNN := types.NamespacedName{Name: envName, Namespace: testNs}
+
+		AfterEach(func() {
+			forceDelete(ctx, nn)
+			forceDeleteEnvironment(ctx, envNN)
+			forceDeleteClusterDataPlane(ctx, cdpName)
+			nsObj := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: targetNs}}
+			_ = k8sClient.Delete(ctx, nsObj)
+		})
+
+		It("does not create the namespace (ownership stays with the binding)", func() {
+			By("Creating prerequisite ClusterDataPlane and Environment")
+			Expect(k8sClient.Create(ctx, makeClusterDataPlane(cdpName, planeID))).To(Succeed())
+			Expect(k8sClient.Create(ctx, makeEnvironment(envName, cdpName))).To(Succeed())
+
+			By("Creating a DP-targeted RenderedRelease with a ConfigMap in a missing namespace")
+			release := makeMinimalRelease(releaseName, envName)
+			release.Spec.TargetPlane = "" // defaults to dataplane
+			cmJSON := []byte(fmt.Sprintf(`{
+				"apiVersion": "v1",
+				"kind": "ConfigMap",
+				"metadata": {
+					"name": "test-cm-dp-ns",
+					"namespace": %q
+				},
+				"data": {
+					"key": "dp-value"
+				}
+			}`, targetNs))
+			release.Spec.Resources = []openchoreov1alpha1.RenderedManifest{
+				{
+					ID:     "cm-dp-ns-1",
+					Object: &runtime.RawExtension{Raw: cmJSON},
+				},
+			}
+			Expect(k8sClient.Create(ctx, release)).To(Succeed())
+
+			By("Using the envtest client as the data plane client")
+			r := testReconcilerWithDPClient(k8sClient, planeID, cdpName)
+
+			By("First reconcile: adds finalizer")
+			mustReconcile(r, reconcileRequest(releaseName))
+
+			By("Second reconcile: apply fails because the namespace was not created")
+			_, err := r.Reconcile(ctx, reconcileRequest(releaseName))
+			Expect(err).To(HaveOccurred())
+
+			By("Verifying the namespace was NOT created by the controller")
+			ns := &corev1.Namespace{}
+			Expect(apierrors.IsNotFound(k8sClient.Get(ctx, types.NamespacedName{Name: targetNs}, ns))).To(BeTrue())
+		})
+	})
+
+	// ─────────────────────────────────────────────────────────────
 	// Reconcile: apply failure sets ResourcesApplied=False
 	// ─────────────────────────────────────────────────────────────
 

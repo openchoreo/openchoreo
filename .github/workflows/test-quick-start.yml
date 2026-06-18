@@ -11,15 +11,9 @@
 # via OCI Helm charts with bespoke values and never runs the quick-start scripts
 # or container. This workflow catches regressions a user would actually hit.
 #
-# Two modes, picked by trigger:
-#   workflow_dispatch / workflow_call (the nightly e2e gate) -> pull the PUBLISHED
-#       quick-start image and run it as-is (true "what a user gets" smoke test of
-#       the latest-dev artifacts).
-#   pull_request (quick-start changes) -> the published image has stale scripts
-#       baked in, so build ONLY the quick-start image from the branch (just `occ`
-#       + the script layer, not the component-image matrix) and run it against
-#       published latest-dev component images and Helm charts. This exercises the
-#       PR's script/Dockerfile diff.
+# Runs nightly via the e2e gate (workflow_call) and on demand (workflow_dispatch):
+# pulls the PUBLISHED quick-start image and runs it as-is, a true "what a user
+# gets" smoke test of the latest-dev artifacts.
 
 name: Quick Start Smoke Test
 
@@ -38,12 +32,6 @@ on:
         required: false
         type: string
         default: "0.0.0-latest-dev"
-  pull_request:
-    paths:
-      - "install/quick-start/**"
-      - "install/k3d/**"
-      - "samples/from-image/react-starter-web-app/**"
-      - ".github/workflows/test-quick-start.yml"
 
 permissions:
   contents: read
@@ -91,35 +79,16 @@ jobs:
           HELM_CHART_VERSION: ${{ inputs.helm_chart_version }}
           DISPATCH_VERSION: ${{ github.event.inputs.version || 'latest-dev' }}
         run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            # Build the quick-start image from the branch; component images and
-            # Helm charts still come from published latest-dev.
-            echo "build_from_branch=true" >> "$GITHUB_OUTPUT"
-            echo "version=latest-dev" >> "$GITHUB_OUTPUT"
-          elif [[ -n "${HELM_CHART_VERSION}" ]]; then
+          if [[ -n "${HELM_CHART_VERSION}" ]]; then
             # Invoked by the e2e gate: it passes a Helm chart version
             # (0.0.0-latest-dev, 0.0.0-<sha>), validated above. build-and-test
-            # publishes the quick-start image under the bare suffix, so strip
-            # the prefix.
-            echo "build_from_branch=false" >> "$GITHUB_OUTPUT"
+            # publishes the quick-start image under the bare suffix, so strip the prefix.
             echo "version=${HELM_CHART_VERSION#0.0.0-}" >> "$GITHUB_OUTPUT"
           else
-            echo "build_from_branch=false" >> "$GITHUB_OUTPUT"
             echo "version=${DISPATCH_VERSION}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Setup Go
-        if: steps.mode.outputs.build_from_branch == 'true'
-        uses: ./.github/actions/setup-go
-
-      - name: Build quick-start image from branch
-        if: steps.mode.outputs.build_from_branch == 'true'
-        # Tags the image ghcr.io/openchoreo/quick-start:latest-dev locally so the
-        # run step below finds it without pulling.
-        run: make docker.build.quick-start TAG=latest-dev
-
       - name: Pull published quick-start image
-        if: steps.mode.outputs.build_from_branch != 'true'
         run: docker pull "${QS_IMAGE}:${{ steps.mode.outputs.version }}"
 
       - name: Start quick-start container
