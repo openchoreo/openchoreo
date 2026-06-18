@@ -16,9 +16,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/websocket"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
