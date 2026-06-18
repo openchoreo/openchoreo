@@ -1084,6 +1084,13 @@ gateway:
   enabled: true
 
   # @schema
+  # type: string
+  # description: GatewayClass name to reference in the Gateway CR
+  # default: "kgateway"
+  # @schema
+  gatewayClassName: "kgateway"
+
+  # @schema
   # type: object
   # additionalProperties: true
   # description: |
