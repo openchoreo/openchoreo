@@ -1,0 +1,1 @@
+{{- include "openchoreo-observability-plane.validateHostnames" . -}}

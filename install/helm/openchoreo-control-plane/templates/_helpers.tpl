@@ -230,19 +230,19 @@ Validate that placeholder .invalid hostnames have been replaced with real domain
 */}}
 {{- define "openchoreo-control-plane.validateHostnames" -}}
 {{- $errors := list -}}
-{{- if contains ".invalid" (join "," .Values.openchoreoApi.http.hostnames) -}}
+{{- if and .Values.gateway.enabled .Values.openchoreoApi.enabled .Values.openchoreoApi.http.enabled (contains ".invalid" (join "," .Values.openchoreoApi.http.hostnames)) -}}
   {{- $errors = append $errors "openchoreoApi.http.hostnames contains placeholder domain (.invalid)" -}}
 {{- end -}}
-{{- if contains ".invalid" (join "," .Values.backstage.http.hostnames) -}}
+{{- if and .Values.gateway.enabled .Values.backstage.enabled .Values.backstage.http.enabled (contains ".invalid" (join "," .Values.backstage.http.hostnames)) -}}
   {{- $errors = append $errors "backstage.http.hostnames contains placeholder domain (.invalid)" -}}
 {{- end -}}
-{{- if contains ".invalid" .Values.backstage.baseUrl -}}
+{{- if and .Values.backstage.enabled (contains ".invalid" .Values.backstage.baseUrl) -}}
   {{- $errors = append $errors "backstage.baseUrl contains placeholder domain (.invalid)" -}}
 {{- end -}}
-{{- if and .Values.gateway.tls.enabled (contains ".invalid" .Values.gateway.tls.hostname) -}}
+{{- if and .Values.gateway.enabled .Values.gateway.tls.enabled (contains ".invalid" .Values.gateway.tls.hostname) -}}
   {{- $errors = append $errors "gateway.tls.hostname contains placeholder domain (.invalid)" -}}
 {{- end -}}
-{{- if contains ".invalid" .Values.security.oidc.issuer -}}
+{{- if and .Values.security.enabled (contains ".invalid" .Values.security.oidc.issuer) -}}
   {{- $errors = append $errors "security.oidc.issuer contains placeholder domain (.invalid)" -}}
 {{- end -}}
 {{- if and .Values.backstage.enabled (not .Values.backstage.secretName) -}}

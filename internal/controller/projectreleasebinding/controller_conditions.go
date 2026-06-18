@@ -4,6 +4,8 @@
 package projectreleasebinding
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -30,6 +32,9 @@ const (
 
 	// ConditionReady aggregates Synced, NamespaceReady, and ResourcesReady.
 	ConditionReady controller.ConditionType = "Ready"
+
+	// ConditionFinalizing indicates the binding is being finalized (deleted).
+	ConditionFinalizing controller.ConditionType = "Finalizing"
 )
 
 // Condition reasons.
@@ -128,4 +133,19 @@ const (
 	// upstream validation breaks (snapshot deleted, environment removed,
 	// render now failing), giving a misleading status.
 	ReasonSyncedNotReady controller.ConditionReason = "SyncedNotReady"
+
+	// ReasonFinalizing indicates the binding is being finalized.
+	ReasonFinalizing controller.ConditionReason = "Finalizing"
 )
+
+// NewFinalizingCondition returns a Finalizing=True condition observed at the
+// given generation, used while the binding is being torn down.
+func NewFinalizingCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionFinalizing,
+		metav1.ConditionTrue,
+		ReasonFinalizing,
+		"ProjectReleaseBinding is finalizing",
+		generation,
+	)
+}

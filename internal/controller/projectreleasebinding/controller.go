@@ -58,10 +58,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	// Finalizer / deletion handling lands in a later Phase 4 commit. For now
-	// treat a deleting binding as a no-op.
+	old := binding.DeepCopy()
+
+	// Under deletion: run the cleanup finalizer so the owned RenderedRelease is
+	// torn down (and its data-plane resources cleaned up via the still-present
+	// Environment) before the binding is garbage collected.
 	if !binding.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
+		return r.finalize(ctx, old, binding)
+	}
+
+	// Ensure the cleanup finalizer is present before reconciling so deletion is
+	// always gated on RenderedRelease teardown.
+	if added, err := r.ensureFinalizer(ctx, binding); err != nil || added {
+		return ctrl.Result{}, err
 	}
 
 	return r.reconcile(ctx, binding)

@@ -8,12 +8,14 @@
 # does not support OPENSEARCH_INITIAL_ADMIN_PASSWORD injection for 3.x), so
 # we apply it manually. The template mirrors the chart's
 # opensearch-cluster/tls-route.yaml exactly.
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: opensearch
   namespace: openchoreo-observability-plane
 spec:
+  hostnames:
+    - "opensearch.observability.openchoreo.localhost"
   parentRefs:
     - name: gateway-default
       namespace: openchoreo-observability-plane

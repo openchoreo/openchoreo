@@ -90,7 +90,7 @@ spec:
       forEach: '${workload.endpoints.transformMap(name, ep, "external" in ep.visibility, ep)}'
       var: endpoint
       template:
-        apiVersion: gateway.networking.k8s.io/v1alpha2
+        apiVersion: gateway.networking.k8s.io/v1
         kind: TLSRoute
         metadata:
           name: ${oc_generate_name(metadata.componentName, endpoint.key)}

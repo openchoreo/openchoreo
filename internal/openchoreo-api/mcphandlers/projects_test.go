@@ -110,7 +110,7 @@ func TestCreateProject(t *testing.T) {
 			})).
 			Return(makeCreated(), nil)
 
-		typeKind := gen.ProjectType
+		typeKind := gen.ProjectTypeRefKindProjectType
 		req := &gen.CreateProjectJSONRequestBody{
 			Metadata: gen.ObjectMeta{Name: "my-proj"},
 			Spec: &gen.ProjectSpec{

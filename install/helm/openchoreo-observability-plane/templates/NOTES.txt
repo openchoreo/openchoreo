@@ -1,4 +1,3 @@
-{{- include "openchoreo-observability-plane.validateHostnames" . -}}
 OpenChoreo Observability Plane installed.
 
 Cross-cluster URLs default to placeholder ".invalid" domains and must be set per

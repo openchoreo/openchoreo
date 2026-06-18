@@ -471,6 +471,155 @@ func (_c *MockClientWithResponsesInterface_CreateClusterObservabilityPlaneWithRe
 	return _c
 }
 
+// CreateClusterProjectTypeWithBodyWithResponse provides a mock function with given fields: ctx, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateClusterProjectTypeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateClusterProjectTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateClusterProjectTypeWithBodyWithResponse")
+	}
+
+	var r0 *gen.CreateClusterProjectTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateClusterProjectTypeResp, error)); ok {
+		return rf(ctx, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, io.Reader, ...gen.RequestEditorFn) *gen.CreateClusterProjectTypeResp); ok {
+		r0 = rf(ctx, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateClusterProjectTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateClusterProjectTypeWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateClusterProjectTypeWithBodyWithResponse'
+type MockClientWithResponsesInterface_CreateClusterProjectTypeWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateClusterProjectTypeWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateClusterProjectTypeWithBodyWithResponse(ctx interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateClusterProjectTypeWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateClusterProjectTypeWithBodyWithResponse_Call{Call: _e.mock.On("CreateClusterProjectTypeWithBodyWithResponse",
+		append([]interface{}{ctx, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterProjectTypeWithBodyWithResponse_Call) Run(run func(ctx context.Context, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateClusterProjectTypeWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterProjectTypeWithBodyWithResponse_Call) Return(_a0 *gen.CreateClusterProjectTypeResp, _a1 error) *MockClientWithResponsesInterface_CreateClusterProjectTypeWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterProjectTypeWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateClusterProjectTypeResp, error)) *MockClientWithResponsesInterface_CreateClusterProjectTypeWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateClusterProjectTypeWithResponse provides a mock function with given fields: ctx, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateClusterProjectTypeWithResponse(ctx context.Context, body gen.ClusterProjectType, reqEditors ...gen.RequestEditorFn) (*gen.CreateClusterProjectTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateClusterProjectTypeWithResponse")
+	}
+
+	var r0 *gen.CreateClusterProjectTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, gen.ClusterProjectType, ...gen.RequestEditorFn) (*gen.CreateClusterProjectTypeResp, error)); ok {
+		return rf(ctx, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, gen.ClusterProjectType, ...gen.RequestEditorFn) *gen.CreateClusterProjectTypeResp); ok {
+		r0 = rf(ctx, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateClusterProjectTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, gen.ClusterProjectType, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateClusterProjectTypeWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateClusterProjectTypeWithResponse'
+type MockClientWithResponsesInterface_CreateClusterProjectTypeWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateClusterProjectTypeWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - body gen.ClusterProjectType
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateClusterProjectTypeWithResponse(ctx interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateClusterProjectTypeWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateClusterProjectTypeWithResponse_Call{Call: _e.mock.On("CreateClusterProjectTypeWithResponse",
+		append([]interface{}{ctx, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterProjectTypeWithResponse_Call) Run(run func(ctx context.Context, body gen.ClusterProjectType, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateClusterProjectTypeWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(gen.ClusterProjectType), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterProjectTypeWithResponse_Call) Return(_a0 *gen.CreateClusterProjectTypeResp, _a1 error) *MockClientWithResponsesInterface_CreateClusterProjectTypeWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateClusterProjectTypeWithResponse_Call) RunAndReturn(run func(context.Context, gen.ClusterProjectType, ...gen.RequestEditorFn) (*gen.CreateClusterProjectTypeResp, error)) *MockClientWithResponsesInterface_CreateClusterProjectTypeWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateClusterResourceTypeWithBodyWithResponse provides a mock function with given fields: ctx, contentType, body, reqEditors
 func (_m *MockClientWithResponsesInterface) CreateClusterResourceTypeWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateClusterResourceTypeResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -3175,6 +3324,308 @@ func (_c *MockClientWithResponsesInterface_CreateObservabilityPlaneWithResponse_
 	return _c
 }
 
+// CreateProjectReleaseWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateProjectReleaseWithBodyWithResponse(ctx context.Context, namespaceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateProjectReleaseResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateProjectReleaseWithBodyWithResponse")
+	}
+
+	var r0 *gen.CreateProjectReleaseResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateProjectReleaseResp, error)); ok {
+		return rf(ctx, namespaceName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) *gen.CreateProjectReleaseResp); ok {
+		r0 = rf(ctx, namespaceName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateProjectReleaseResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateProjectReleaseWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateProjectReleaseWithBodyWithResponse'
+type MockClientWithResponsesInterface_CreateProjectReleaseWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateProjectReleaseWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateProjectReleaseWithBodyWithResponse(ctx interface{}, namespaceName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateProjectReleaseWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateProjectReleaseWithBodyWithResponse_Call{Call: _e.mock.On("CreateProjectReleaseWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateProjectReleaseWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateProjectReleaseWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateProjectReleaseWithBodyWithResponse_Call) Return(_a0 *gen.CreateProjectReleaseResp, _a1 error) *MockClientWithResponsesInterface_CreateProjectReleaseWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateProjectReleaseWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateProjectReleaseResp, error)) *MockClientWithResponsesInterface_CreateProjectReleaseWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateProjectReleaseWithResponse provides a mock function with given fields: ctx, namespaceName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateProjectReleaseWithResponse(ctx context.Context, namespaceName string, body gen.ProjectRelease, reqEditors ...gen.RequestEditorFn) (*gen.CreateProjectReleaseResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateProjectReleaseWithResponse")
+	}
+
+	var r0 *gen.CreateProjectReleaseResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ProjectRelease, ...gen.RequestEditorFn) (*gen.CreateProjectReleaseResp, error)); ok {
+		return rf(ctx, namespaceName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ProjectRelease, ...gen.RequestEditorFn) *gen.CreateProjectReleaseResp); ok {
+		r0 = rf(ctx, namespaceName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateProjectReleaseResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ProjectRelease, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateProjectReleaseWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateProjectReleaseWithResponse'
+type MockClientWithResponsesInterface_CreateProjectReleaseWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateProjectReleaseWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - body gen.ProjectRelease
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateProjectReleaseWithResponse(ctx interface{}, namespaceName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateProjectReleaseWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateProjectReleaseWithResponse_Call{Call: _e.mock.On("CreateProjectReleaseWithResponse",
+		append([]interface{}{ctx, namespaceName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateProjectReleaseWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, body gen.ProjectRelease, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateProjectReleaseWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ProjectRelease), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateProjectReleaseWithResponse_Call) Return(_a0 *gen.CreateProjectReleaseResp, _a1 error) *MockClientWithResponsesInterface_CreateProjectReleaseWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateProjectReleaseWithResponse_Call) RunAndReturn(run func(context.Context, string, gen.ProjectRelease, ...gen.RequestEditorFn) (*gen.CreateProjectReleaseResp, error)) *MockClientWithResponsesInterface_CreateProjectReleaseWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateProjectTypeWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateProjectTypeWithBodyWithResponse(ctx context.Context, namespaceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateProjectTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateProjectTypeWithBodyWithResponse")
+	}
+
+	var r0 *gen.CreateProjectTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateProjectTypeResp, error)); ok {
+		return rf(ctx, namespaceName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) *gen.CreateProjectTypeResp); ok {
+		r0 = rf(ctx, namespaceName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateProjectTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateProjectTypeWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateProjectTypeWithBodyWithResponse'
+type MockClientWithResponsesInterface_CreateProjectTypeWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateProjectTypeWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateProjectTypeWithBodyWithResponse(ctx interface{}, namespaceName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateProjectTypeWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateProjectTypeWithBodyWithResponse_Call{Call: _e.mock.On("CreateProjectTypeWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateProjectTypeWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateProjectTypeWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateProjectTypeWithBodyWithResponse_Call) Return(_a0 *gen.CreateProjectTypeResp, _a1 error) *MockClientWithResponsesInterface_CreateProjectTypeWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateProjectTypeWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateProjectTypeResp, error)) *MockClientWithResponsesInterface_CreateProjectTypeWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateProjectTypeWithResponse provides a mock function with given fields: ctx, namespaceName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateProjectTypeWithResponse(ctx context.Context, namespaceName string, body gen.ProjectType, reqEditors ...gen.RequestEditorFn) (*gen.CreateProjectTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateProjectTypeWithResponse")
+	}
+
+	var r0 *gen.CreateProjectTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ProjectType, ...gen.RequestEditorFn) (*gen.CreateProjectTypeResp, error)); ok {
+		return rf(ctx, namespaceName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ProjectType, ...gen.RequestEditorFn) *gen.CreateProjectTypeResp); ok {
+		r0 = rf(ctx, namespaceName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateProjectTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ProjectType, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateProjectTypeWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateProjectTypeWithResponse'
+type MockClientWithResponsesInterface_CreateProjectTypeWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateProjectTypeWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - body gen.ProjectType
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateProjectTypeWithResponse(ctx interface{}, namespaceName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateProjectTypeWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateProjectTypeWithResponse_Call{Call: _e.mock.On("CreateProjectTypeWithResponse",
+		append([]interface{}{ctx, namespaceName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateProjectTypeWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, body gen.ProjectType, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateProjectTypeWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ProjectType), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateProjectTypeWithResponse_Call) Return(_a0 *gen.CreateProjectTypeResp, _a1 error) *MockClientWithResponsesInterface_CreateProjectTypeWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateProjectTypeWithResponse_Call) RunAndReturn(run func(context.Context, string, gen.ProjectType, ...gen.RequestEditorFn) (*gen.CreateProjectTypeResp, error)) *MockClientWithResponsesInterface_CreateProjectTypeWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateProjectWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, contentType, body, reqEditors
 func (_m *MockClientWithResponsesInterface) CreateProjectWithBodyWithResponse(ctx context.Context, namespaceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateProjectResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -5360,6 +5811,80 @@ func (_c *MockClientWithResponsesInterface_DeleteClusterObservabilityPlaneWithRe
 	return _c
 }
 
+// DeleteClusterProjectTypeWithResponse provides a mock function with given fields: ctx, cptName, reqEditors
+func (_m *MockClientWithResponsesInterface) DeleteClusterProjectTypeWithResponse(ctx context.Context, cptName string, reqEditors ...gen.RequestEditorFn) (*gen.DeleteClusterProjectTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, cptName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteClusterProjectTypeWithResponse")
+	}
+
+	var r0 *gen.DeleteClusterProjectTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) (*gen.DeleteClusterProjectTypeResp, error)); ok {
+		return rf(ctx, cptName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) *gen.DeleteClusterProjectTypeResp); ok {
+		r0 = rf(ctx, cptName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.DeleteClusterProjectTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, cptName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_DeleteClusterProjectTypeWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteClusterProjectTypeWithResponse'
+type MockClientWithResponsesInterface_DeleteClusterProjectTypeWithResponse_Call struct {
+	*mock.Call
+}
+
+// DeleteClusterProjectTypeWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cptName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) DeleteClusterProjectTypeWithResponse(ctx interface{}, cptName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_DeleteClusterProjectTypeWithResponse_Call {
+	return &MockClientWithResponsesInterface_DeleteClusterProjectTypeWithResponse_Call{Call: _e.mock.On("DeleteClusterProjectTypeWithResponse",
+		append([]interface{}{ctx, cptName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteClusterProjectTypeWithResponse_Call) Run(run func(ctx context.Context, cptName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_DeleteClusterProjectTypeWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteClusterProjectTypeWithResponse_Call) Return(_a0 *gen.DeleteClusterProjectTypeResp, _a1 error) *MockClientWithResponsesInterface_DeleteClusterProjectTypeWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteClusterProjectTypeWithResponse_Call) RunAndReturn(run func(context.Context, string, ...gen.RequestEditorFn) (*gen.DeleteClusterProjectTypeResp, error)) *MockClientWithResponsesInterface_DeleteClusterProjectTypeWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteClusterResourceTypeWithResponse provides a mock function with given fields: ctx, crtName, reqEditors
 func (_m *MockClientWithResponsesInterface) DeleteClusterResourceTypeWithResponse(ctx context.Context, crtName string, reqEditors ...gen.RequestEditorFn) (*gen.DeleteClusterResourceTypeResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -6699,6 +7224,156 @@ func (_c *MockClientWithResponsesInterface_DeleteObservabilityPlaneWithResponse_
 }
 
 func (_c *MockClientWithResponsesInterface_DeleteObservabilityPlaneWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.DeleteObservabilityPlaneResp, error)) *MockClientWithResponsesInterface_DeleteObservabilityPlaneWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteProjectReleaseWithResponse provides a mock function with given fields: ctx, namespaceName, projectReleaseName, reqEditors
+func (_m *MockClientWithResponsesInterface) DeleteProjectReleaseWithResponse(ctx context.Context, namespaceName string, projectReleaseName string, reqEditors ...gen.RequestEditorFn) (*gen.DeleteProjectReleaseResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, projectReleaseName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteProjectReleaseWithResponse")
+	}
+
+	var r0 *gen.DeleteProjectReleaseResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.DeleteProjectReleaseResp, error)); ok {
+		return rf(ctx, namespaceName, projectReleaseName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.DeleteProjectReleaseResp); ok {
+		r0 = rf(ctx, namespaceName, projectReleaseName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.DeleteProjectReleaseResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, projectReleaseName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_DeleteProjectReleaseWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteProjectReleaseWithResponse'
+type MockClientWithResponsesInterface_DeleteProjectReleaseWithResponse_Call struct {
+	*mock.Call
+}
+
+// DeleteProjectReleaseWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - projectReleaseName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) DeleteProjectReleaseWithResponse(ctx interface{}, namespaceName interface{}, projectReleaseName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_DeleteProjectReleaseWithResponse_Call {
+	return &MockClientWithResponsesInterface_DeleteProjectReleaseWithResponse_Call{Call: _e.mock.On("DeleteProjectReleaseWithResponse",
+		append([]interface{}{ctx, namespaceName, projectReleaseName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteProjectReleaseWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, projectReleaseName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_DeleteProjectReleaseWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteProjectReleaseWithResponse_Call) Return(_a0 *gen.DeleteProjectReleaseResp, _a1 error) *MockClientWithResponsesInterface_DeleteProjectReleaseWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteProjectReleaseWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.DeleteProjectReleaseResp, error)) *MockClientWithResponsesInterface_DeleteProjectReleaseWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteProjectTypeWithResponse provides a mock function with given fields: ctx, namespaceName, ptName, reqEditors
+func (_m *MockClientWithResponsesInterface) DeleteProjectTypeWithResponse(ctx context.Context, namespaceName string, ptName string, reqEditors ...gen.RequestEditorFn) (*gen.DeleteProjectTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, ptName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteProjectTypeWithResponse")
+	}
+
+	var r0 *gen.DeleteProjectTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.DeleteProjectTypeResp, error)); ok {
+		return rf(ctx, namespaceName, ptName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.DeleteProjectTypeResp); ok {
+		r0 = rf(ctx, namespaceName, ptName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.DeleteProjectTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, ptName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_DeleteProjectTypeWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteProjectTypeWithResponse'
+type MockClientWithResponsesInterface_DeleteProjectTypeWithResponse_Call struct {
+	*mock.Call
+}
+
+// DeleteProjectTypeWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - ptName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) DeleteProjectTypeWithResponse(ctx interface{}, namespaceName interface{}, ptName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_DeleteProjectTypeWithResponse_Call {
+	return &MockClientWithResponsesInterface_DeleteProjectTypeWithResponse_Call{Call: _e.mock.On("DeleteProjectTypeWithResponse",
+		append([]interface{}{ctx, namespaceName, ptName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteProjectTypeWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, ptName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_DeleteProjectTypeWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteProjectTypeWithResponse_Call) Return(_a0 *gen.DeleteProjectTypeResp, _a1 error) *MockClientWithResponsesInterface_DeleteProjectTypeWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteProjectTypeWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.DeleteProjectTypeResp, error)) *MockClientWithResponsesInterface_DeleteProjectTypeWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -8272,6 +8947,154 @@ func (_c *MockClientWithResponsesInterface_GetClusterObservabilityPlaneWithRespo
 }
 
 func (_c *MockClientWithResponsesInterface_GetClusterObservabilityPlaneWithResponse_Call) RunAndReturn(run func(context.Context, string, ...gen.RequestEditorFn) (*gen.GetClusterObservabilityPlaneResp, error)) *MockClientWithResponsesInterface_GetClusterObservabilityPlaneWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetClusterProjectTypeSchemaWithResponse provides a mock function with given fields: ctx, cptName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetClusterProjectTypeSchemaWithResponse(ctx context.Context, cptName string, reqEditors ...gen.RequestEditorFn) (*gen.GetClusterProjectTypeSchemaResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, cptName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterProjectTypeSchemaWithResponse")
+	}
+
+	var r0 *gen.GetClusterProjectTypeSchemaResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) (*gen.GetClusterProjectTypeSchemaResp, error)); ok {
+		return rf(ctx, cptName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) *gen.GetClusterProjectTypeSchemaResp); ok {
+		r0 = rf(ctx, cptName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetClusterProjectTypeSchemaResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, cptName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetClusterProjectTypeSchemaWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterProjectTypeSchemaWithResponse'
+type MockClientWithResponsesInterface_GetClusterProjectTypeSchemaWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetClusterProjectTypeSchemaWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cptName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetClusterProjectTypeSchemaWithResponse(ctx interface{}, cptName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetClusterProjectTypeSchemaWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetClusterProjectTypeSchemaWithResponse_Call{Call: _e.mock.On("GetClusterProjectTypeSchemaWithResponse",
+		append([]interface{}{ctx, cptName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterProjectTypeSchemaWithResponse_Call) Run(run func(ctx context.Context, cptName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetClusterProjectTypeSchemaWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterProjectTypeSchemaWithResponse_Call) Return(_a0 *gen.GetClusterProjectTypeSchemaResp, _a1 error) *MockClientWithResponsesInterface_GetClusterProjectTypeSchemaWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterProjectTypeSchemaWithResponse_Call) RunAndReturn(run func(context.Context, string, ...gen.RequestEditorFn) (*gen.GetClusterProjectTypeSchemaResp, error)) *MockClientWithResponsesInterface_GetClusterProjectTypeSchemaWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetClusterProjectTypeWithResponse provides a mock function with given fields: ctx, cptName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetClusterProjectTypeWithResponse(ctx context.Context, cptName string, reqEditors ...gen.RequestEditorFn) (*gen.GetClusterProjectTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, cptName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterProjectTypeWithResponse")
+	}
+
+	var r0 *gen.GetClusterProjectTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) (*gen.GetClusterProjectTypeResp, error)); ok {
+		return rf(ctx, cptName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, ...gen.RequestEditorFn) *gen.GetClusterProjectTypeResp); ok {
+		r0 = rf(ctx, cptName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetClusterProjectTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, cptName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetClusterProjectTypeWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterProjectTypeWithResponse'
+type MockClientWithResponsesInterface_GetClusterProjectTypeWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetClusterProjectTypeWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cptName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetClusterProjectTypeWithResponse(ctx interface{}, cptName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetClusterProjectTypeWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetClusterProjectTypeWithResponse_Call{Call: _e.mock.On("GetClusterProjectTypeWithResponse",
+		append([]interface{}{ctx, cptName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterProjectTypeWithResponse_Call) Run(run func(ctx context.Context, cptName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetClusterProjectTypeWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterProjectTypeWithResponse_Call) Return(_a0 *gen.GetClusterProjectTypeResp, _a1 error) *MockClientWithResponsesInterface_GetClusterProjectTypeWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetClusterProjectTypeWithResponse_Call) RunAndReturn(run func(context.Context, string, ...gen.RequestEditorFn) (*gen.GetClusterProjectTypeResp, error)) *MockClientWithResponsesInterface_GetClusterProjectTypeWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -10131,6 +10954,231 @@ func (_c *MockClientWithResponsesInterface_GetOpenAPISpecWithResponse_Call) Retu
 }
 
 func (_c *MockClientWithResponsesInterface_GetOpenAPISpecWithResponse_Call) RunAndReturn(run func(context.Context, ...gen.RequestEditorFn) (*gen.GetOpenAPISpecResp, error)) *MockClientWithResponsesInterface_GetOpenAPISpecWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetProjectReleaseWithResponse provides a mock function with given fields: ctx, namespaceName, projectReleaseName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetProjectReleaseWithResponse(ctx context.Context, namespaceName string, projectReleaseName string, reqEditors ...gen.RequestEditorFn) (*gen.GetProjectReleaseResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, projectReleaseName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetProjectReleaseWithResponse")
+	}
+
+	var r0 *gen.GetProjectReleaseResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetProjectReleaseResp, error)); ok {
+		return rf(ctx, namespaceName, projectReleaseName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.GetProjectReleaseResp); ok {
+		r0 = rf(ctx, namespaceName, projectReleaseName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetProjectReleaseResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, projectReleaseName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetProjectReleaseWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetProjectReleaseWithResponse'
+type MockClientWithResponsesInterface_GetProjectReleaseWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetProjectReleaseWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - projectReleaseName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetProjectReleaseWithResponse(ctx interface{}, namespaceName interface{}, projectReleaseName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetProjectReleaseWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetProjectReleaseWithResponse_Call{Call: _e.mock.On("GetProjectReleaseWithResponse",
+		append([]interface{}{ctx, namespaceName, projectReleaseName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetProjectReleaseWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, projectReleaseName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetProjectReleaseWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetProjectReleaseWithResponse_Call) Return(_a0 *gen.GetProjectReleaseResp, _a1 error) *MockClientWithResponsesInterface_GetProjectReleaseWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetProjectReleaseWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetProjectReleaseResp, error)) *MockClientWithResponsesInterface_GetProjectReleaseWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetProjectTypeSchemaWithResponse provides a mock function with given fields: ctx, namespaceName, ptName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetProjectTypeSchemaWithResponse(ctx context.Context, namespaceName string, ptName string, reqEditors ...gen.RequestEditorFn) (*gen.GetProjectTypeSchemaResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, ptName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetProjectTypeSchemaWithResponse")
+	}
+
+	var r0 *gen.GetProjectTypeSchemaResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetProjectTypeSchemaResp, error)); ok {
+		return rf(ctx, namespaceName, ptName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.GetProjectTypeSchemaResp); ok {
+		r0 = rf(ctx, namespaceName, ptName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetProjectTypeSchemaResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, ptName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetProjectTypeSchemaWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetProjectTypeSchemaWithResponse'
+type MockClientWithResponsesInterface_GetProjectTypeSchemaWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetProjectTypeSchemaWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - ptName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetProjectTypeSchemaWithResponse(ctx interface{}, namespaceName interface{}, ptName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetProjectTypeSchemaWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetProjectTypeSchemaWithResponse_Call{Call: _e.mock.On("GetProjectTypeSchemaWithResponse",
+		append([]interface{}{ctx, namespaceName, ptName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetProjectTypeSchemaWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, ptName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetProjectTypeSchemaWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetProjectTypeSchemaWithResponse_Call) Return(_a0 *gen.GetProjectTypeSchemaResp, _a1 error) *MockClientWithResponsesInterface_GetProjectTypeSchemaWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetProjectTypeSchemaWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetProjectTypeSchemaResp, error)) *MockClientWithResponsesInterface_GetProjectTypeSchemaWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetProjectTypeWithResponse provides a mock function with given fields: ctx, namespaceName, ptName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetProjectTypeWithResponse(ctx context.Context, namespaceName string, ptName string, reqEditors ...gen.RequestEditorFn) (*gen.GetProjectTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, ptName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetProjectTypeWithResponse")
+	}
+
+	var r0 *gen.GetProjectTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetProjectTypeResp, error)); ok {
+		return rf(ctx, namespaceName, ptName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.GetProjectTypeResp); ok {
+		r0 = rf(ctx, namespaceName, ptName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetProjectTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, ptName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetProjectTypeWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetProjectTypeWithResponse'
+type MockClientWithResponsesInterface_GetProjectTypeWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetProjectTypeWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - ptName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetProjectTypeWithResponse(ctx interface{}, namespaceName interface{}, ptName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetProjectTypeWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetProjectTypeWithResponse_Call{Call: _e.mock.On("GetProjectTypeWithResponse",
+		append([]interface{}{ctx, namespaceName, ptName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetProjectTypeWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, ptName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetProjectTypeWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetProjectTypeWithResponse_Call) Return(_a0 *gen.GetProjectTypeResp, _a1 error) *MockClientWithResponsesInterface_GetProjectTypeWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetProjectTypeWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetProjectTypeResp, error)) *MockClientWithResponsesInterface_GetProjectTypeWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -12455,6 +13503,80 @@ func (_c *MockClientWithResponsesInterface_ListClusterObservabilityPlanesWithRes
 	return _c
 }
 
+// ListClusterProjectTypesWithResponse provides a mock function with given fields: ctx, params, reqEditors
+func (_m *MockClientWithResponsesInterface) ListClusterProjectTypesWithResponse(ctx context.Context, params *gen.ListClusterProjectTypesParams, reqEditors ...gen.RequestEditorFn) (*gen.ListClusterProjectTypesResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, params)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListClusterProjectTypesWithResponse")
+	}
+
+	var r0 *gen.ListClusterProjectTypesResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *gen.ListClusterProjectTypesParams, ...gen.RequestEditorFn) (*gen.ListClusterProjectTypesResp, error)); ok {
+		return rf(ctx, params, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *gen.ListClusterProjectTypesParams, ...gen.RequestEditorFn) *gen.ListClusterProjectTypesResp); ok {
+		r0 = rf(ctx, params, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ListClusterProjectTypesResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *gen.ListClusterProjectTypesParams, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, params, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_ListClusterProjectTypesWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListClusterProjectTypesWithResponse'
+type MockClientWithResponsesInterface_ListClusterProjectTypesWithResponse_Call struct {
+	*mock.Call
+}
+
+// ListClusterProjectTypesWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - params *gen.ListClusterProjectTypesParams
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) ListClusterProjectTypesWithResponse(ctx interface{}, params interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_ListClusterProjectTypesWithResponse_Call {
+	return &MockClientWithResponsesInterface_ListClusterProjectTypesWithResponse_Call{Call: _e.mock.On("ListClusterProjectTypesWithResponse",
+		append([]interface{}{ctx, params}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_ListClusterProjectTypesWithResponse_Call) Run(run func(ctx context.Context, params *gen.ListClusterProjectTypesParams, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_ListClusterProjectTypesWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(*gen.ListClusterProjectTypesParams), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListClusterProjectTypesWithResponse_Call) Return(_a0 *gen.ListClusterProjectTypesResp, _a1 error) *MockClientWithResponsesInterface_ListClusterProjectTypesWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListClusterProjectTypesWithResponse_Call) RunAndReturn(run func(context.Context, *gen.ListClusterProjectTypesParams, ...gen.RequestEditorFn) (*gen.ListClusterProjectTypesResp, error)) *MockClientWithResponsesInterface_ListClusterProjectTypesWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListClusterResourceTypesWithResponse provides a mock function with given fields: ctx, params, reqEditors
 func (_m *MockClientWithResponsesInterface) ListClusterResourceTypesWithResponse(ctx context.Context, params *gen.ListClusterResourceTypesParams, reqEditors ...gen.RequestEditorFn) (*gen.ListClusterResourceTypesResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -13793,6 +14915,156 @@ func (_c *MockClientWithResponsesInterface_ListObservabilityPlanesWithResponse_C
 }
 
 func (_c *MockClientWithResponsesInterface_ListObservabilityPlanesWithResponse_Call) RunAndReturn(run func(context.Context, string, *gen.ListObservabilityPlanesParams, ...gen.RequestEditorFn) (*gen.ListObservabilityPlanesResp, error)) *MockClientWithResponsesInterface_ListObservabilityPlanesWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListProjectReleasesWithResponse provides a mock function with given fields: ctx, namespaceName, params, reqEditors
+func (_m *MockClientWithResponsesInterface) ListProjectReleasesWithResponse(ctx context.Context, namespaceName string, params *gen.ListProjectReleasesParams, reqEditors ...gen.RequestEditorFn) (*gen.ListProjectReleasesResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, params)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListProjectReleasesWithResponse")
+	}
+
+	var r0 *gen.ListProjectReleasesResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListProjectReleasesParams, ...gen.RequestEditorFn) (*gen.ListProjectReleasesResp, error)); ok {
+		return rf(ctx, namespaceName, params, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListProjectReleasesParams, ...gen.RequestEditorFn) *gen.ListProjectReleasesResp); ok {
+		r0 = rf(ctx, namespaceName, params, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ListProjectReleasesResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListProjectReleasesParams, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, params, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_ListProjectReleasesWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListProjectReleasesWithResponse'
+type MockClientWithResponsesInterface_ListProjectReleasesWithResponse_Call struct {
+	*mock.Call
+}
+
+// ListProjectReleasesWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListProjectReleasesParams
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) ListProjectReleasesWithResponse(ctx interface{}, namespaceName interface{}, params interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_ListProjectReleasesWithResponse_Call {
+	return &MockClientWithResponsesInterface_ListProjectReleasesWithResponse_Call{Call: _e.mock.On("ListProjectReleasesWithResponse",
+		append([]interface{}{ctx, namespaceName, params}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_ListProjectReleasesWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListProjectReleasesParams, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_ListProjectReleasesWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListProjectReleasesParams), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListProjectReleasesWithResponse_Call) Return(_a0 *gen.ListProjectReleasesResp, _a1 error) *MockClientWithResponsesInterface_ListProjectReleasesWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListProjectReleasesWithResponse_Call) RunAndReturn(run func(context.Context, string, *gen.ListProjectReleasesParams, ...gen.RequestEditorFn) (*gen.ListProjectReleasesResp, error)) *MockClientWithResponsesInterface_ListProjectReleasesWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListProjectTypesWithResponse provides a mock function with given fields: ctx, namespaceName, params, reqEditors
+func (_m *MockClientWithResponsesInterface) ListProjectTypesWithResponse(ctx context.Context, namespaceName string, params *gen.ListProjectTypesParams, reqEditors ...gen.RequestEditorFn) (*gen.ListProjectTypesResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, params)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListProjectTypesWithResponse")
+	}
+
+	var r0 *gen.ListProjectTypesResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListProjectTypesParams, ...gen.RequestEditorFn) (*gen.ListProjectTypesResp, error)); ok {
+		return rf(ctx, namespaceName, params, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListProjectTypesParams, ...gen.RequestEditorFn) *gen.ListProjectTypesResp); ok {
+		r0 = rf(ctx, namespaceName, params, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ListProjectTypesResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListProjectTypesParams, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, params, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_ListProjectTypesWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListProjectTypesWithResponse'
+type MockClientWithResponsesInterface_ListProjectTypesWithResponse_Call struct {
+	*mock.Call
+}
+
+// ListProjectTypesWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListProjectTypesParams
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) ListProjectTypesWithResponse(ctx interface{}, namespaceName interface{}, params interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_ListProjectTypesWithResponse_Call {
+	return &MockClientWithResponsesInterface_ListProjectTypesWithResponse_Call{Call: _e.mock.On("ListProjectTypesWithResponse",
+		append([]interface{}{ctx, namespaceName, params}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_ListProjectTypesWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListProjectTypesParams, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_ListProjectTypesWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListProjectTypesParams), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListProjectTypesWithResponse_Call) Return(_a0 *gen.ListProjectTypesResp, _a1 error) *MockClientWithResponsesInterface_ListProjectTypesWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListProjectTypesWithResponse_Call) RunAndReturn(run func(context.Context, string, *gen.ListProjectTypesParams, ...gen.RequestEditorFn) (*gen.ListProjectTypesResp, error)) *MockClientWithResponsesInterface_ListProjectTypesWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -15294,6 +16566,157 @@ func (_c *MockClientWithResponsesInterface_UpdateClusterObservabilityPlaneWithRe
 }
 
 func (_c *MockClientWithResponsesInterface_UpdateClusterObservabilityPlaneWithResponse_Call) RunAndReturn(run func(context.Context, string, gen.ClusterObservabilityPlane, ...gen.RequestEditorFn) (*gen.UpdateClusterObservabilityPlaneResp, error)) *MockClientWithResponsesInterface_UpdateClusterObservabilityPlaneWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateClusterProjectTypeWithBodyWithResponse provides a mock function with given fields: ctx, cptName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateClusterProjectTypeWithBodyWithResponse(ctx context.Context, cptName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.UpdateClusterProjectTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, cptName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateClusterProjectTypeWithBodyWithResponse")
+	}
+
+	var r0 *gen.UpdateClusterProjectTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateClusterProjectTypeResp, error)); ok {
+		return rf(ctx, cptName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) *gen.UpdateClusterProjectTypeResp); ok {
+		r0 = rf(ctx, cptName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateClusterProjectTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, cptName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateClusterProjectTypeWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateClusterProjectTypeWithBodyWithResponse'
+type MockClientWithResponsesInterface_UpdateClusterProjectTypeWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateClusterProjectTypeWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cptName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateClusterProjectTypeWithBodyWithResponse(ctx interface{}, cptName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateClusterProjectTypeWithBodyWithResponse_Call{Call: _e.mock.On("UpdateClusterProjectTypeWithBodyWithResponse",
+		append([]interface{}{ctx, cptName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithBodyWithResponse_Call) Run(run func(ctx context.Context, cptName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithBodyWithResponse_Call) Return(_a0 *gen.UpdateClusterProjectTypeResp, _a1 error) *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateClusterProjectTypeResp, error)) *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateClusterProjectTypeWithResponse provides a mock function with given fields: ctx, cptName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateClusterProjectTypeWithResponse(ctx context.Context, cptName string, body gen.ClusterProjectType, reqEditors ...gen.RequestEditorFn) (*gen.UpdateClusterProjectTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, cptName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateClusterProjectTypeWithResponse")
+	}
+
+	var r0 *gen.UpdateClusterProjectTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ClusterProjectType, ...gen.RequestEditorFn) (*gen.UpdateClusterProjectTypeResp, error)); ok {
+		return rf(ctx, cptName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ClusterProjectType, ...gen.RequestEditorFn) *gen.UpdateClusterProjectTypeResp); ok {
+		r0 = rf(ctx, cptName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateClusterProjectTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ClusterProjectType, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, cptName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateClusterProjectTypeWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateClusterProjectTypeWithResponse'
+type MockClientWithResponsesInterface_UpdateClusterProjectTypeWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateClusterProjectTypeWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cptName string
+//   - body gen.ClusterProjectType
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateClusterProjectTypeWithResponse(ctx interface{}, cptName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateClusterProjectTypeWithResponse_Call{Call: _e.mock.On("UpdateClusterProjectTypeWithResponse",
+		append([]interface{}{ctx, cptName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithResponse_Call) Run(run func(ctx context.Context, cptName string, body gen.ClusterProjectType, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ClusterProjectType), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithResponse_Call) Return(_a0 *gen.UpdateClusterProjectTypeResp, _a1 error) *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithResponse_Call) RunAndReturn(run func(context.Context, string, gen.ClusterProjectType, ...gen.RequestEditorFn) (*gen.UpdateClusterProjectTypeResp, error)) *MockClientWithResponsesInterface_UpdateClusterProjectTypeWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -17728,6 +19151,159 @@ func (_c *MockClientWithResponsesInterface_UpdateObservabilityPlaneWithResponse_
 }
 
 func (_c *MockClientWithResponsesInterface_UpdateObservabilityPlaneWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.ObservabilityPlane, ...gen.RequestEditorFn) (*gen.UpdateObservabilityPlaneResp, error)) *MockClientWithResponsesInterface_UpdateObservabilityPlaneWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateProjectTypeWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, ptName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateProjectTypeWithBodyWithResponse(ctx context.Context, namespaceName string, ptName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.UpdateProjectTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, ptName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateProjectTypeWithBodyWithResponse")
+	}
+
+	var r0 *gen.UpdateProjectTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateProjectTypeResp, error)); ok {
+		return rf(ctx, namespaceName, ptName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) *gen.UpdateProjectTypeResp); ok {
+		r0 = rf(ctx, namespaceName, ptName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateProjectTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, ptName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateProjectTypeWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateProjectTypeWithBodyWithResponse'
+type MockClientWithResponsesInterface_UpdateProjectTypeWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateProjectTypeWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - ptName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateProjectTypeWithBodyWithResponse(ctx interface{}, namespaceName interface{}, ptName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateProjectTypeWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateProjectTypeWithBodyWithResponse_Call{Call: _e.mock.On("UpdateProjectTypeWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, ptName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateProjectTypeWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, ptName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateProjectTypeWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateProjectTypeWithBodyWithResponse_Call) Return(_a0 *gen.UpdateProjectTypeResp, _a1 error) *MockClientWithResponsesInterface_UpdateProjectTypeWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateProjectTypeWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateProjectTypeResp, error)) *MockClientWithResponsesInterface_UpdateProjectTypeWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateProjectTypeWithResponse provides a mock function with given fields: ctx, namespaceName, ptName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateProjectTypeWithResponse(ctx context.Context, namespaceName string, ptName string, body gen.ProjectType, reqEditors ...gen.RequestEditorFn) (*gen.UpdateProjectTypeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, ptName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateProjectTypeWithResponse")
+	}
+
+	var r0 *gen.UpdateProjectTypeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ProjectType, ...gen.RequestEditorFn) (*gen.UpdateProjectTypeResp, error)); ok {
+		return rf(ctx, namespaceName, ptName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ProjectType, ...gen.RequestEditorFn) *gen.UpdateProjectTypeResp); ok {
+		r0 = rf(ctx, namespaceName, ptName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateProjectTypeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.ProjectType, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, ptName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateProjectTypeWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateProjectTypeWithResponse'
+type MockClientWithResponsesInterface_UpdateProjectTypeWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateProjectTypeWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - ptName string
+//   - body gen.ProjectType
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateProjectTypeWithResponse(ctx interface{}, namespaceName interface{}, ptName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateProjectTypeWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateProjectTypeWithResponse_Call{Call: _e.mock.On("UpdateProjectTypeWithResponse",
+		append([]interface{}{ctx, namespaceName, ptName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateProjectTypeWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, ptName string, body gen.ProjectType, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateProjectTypeWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.ProjectType), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateProjectTypeWithResponse_Call) Return(_a0 *gen.UpdateProjectTypeResp, _a1 error) *MockClientWithResponsesInterface_UpdateProjectTypeWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateProjectTypeWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.ProjectType, ...gen.RequestEditorFn) (*gen.UpdateProjectTypeResp, error)) *MockClientWithResponsesInterface_UpdateProjectTypeWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }

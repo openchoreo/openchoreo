@@ -2170,7 +2170,7 @@ func TestApplyTraitRemoves(t *testing.T) {
   kind: Service
   metadata:
     name: app-svc
-- apiVersion: gateway.networking.k8s.io/v1alpha2
+- apiVersion: gateway.networking.k8s.io/v1
   kind: TLSRoute
   metadata:
     name: app-tls-route
@@ -2203,7 +2203,7 @@ spec:
   kind: Service
   metadata:
     name: app-svc
-- apiVersion: gateway.networking.k8s.io/v1alpha2
+- apiVersion: gateway.networking.k8s.io/v1
   kind: TLSRoute
   metadata:
     name: app-tls-route
@@ -2687,7 +2687,7 @@ metadata:
 spec:
   creates:
     - template:
-        apiVersion: gateway.networking.k8s.io/v1alpha2
+        apiVersion: gateway.networking.k8s.io/v1
         kind: TLSRoute
         metadata:
           name: app-tls-route
@@ -2721,7 +2721,7 @@ spec:
     name: app-svc
     labels:
       tls-mode: passthrough
-- apiVersion: gateway.networking.k8s.io/v1alpha2
+- apiVersion: gateway.networking.k8s.io/v1
   kind: TLSRoute
   metadata:
     name: app-tls-route

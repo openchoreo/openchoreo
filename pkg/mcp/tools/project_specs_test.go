@@ -64,8 +64,8 @@ func projectToolSpecs() []toolTestSpec {
 				if req.Spec.Type == nil || req.Spec.Type.Name != "standard-project" {
 					t.Errorf("Expected type name %q, got %v", "standard-project", req.Spec.Type)
 				}
-				if req.Spec.Type == nil || req.Spec.Type.Kind == nil || *req.Spec.Type.Kind != gen.ProjectType {
-					t.Errorf("Expected type kind %q, got %v", gen.ProjectType, req.Spec.Type)
+				if req.Spec.Type == nil || req.Spec.Type.Kind == nil || *req.Spec.Type.Kind != gen.ProjectTypeRefKindProjectType {
+					t.Errorf("Expected type kind %q, got %v", gen.ProjectTypeRefKindProjectType, req.Spec.Type)
 				}
 				if req.Spec.Parameters == nil || (*req.Spec.Parameters)["tier"] != "premium" {
 					t.Errorf("Expected parameters tier=premium, got %v", req.Spec.Parameters)

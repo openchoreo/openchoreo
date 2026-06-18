@@ -42,7 +42,7 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, environment *openchore
 // finalize cleans up the resources associated with the environment.
 // The finalization flow is:
 //  1. Check if the environment is referenced by any DeploymentPipeline — if so, block deletion.
-//  2. Wait for all ReleaseBindings that reference this environment to be gone.
+//  2. Wait for all ReleaseBindings and ProjectReleaseBindings that reference this environment to be gone.
 //  3. Delete the data plane namespaces associated with the environment.
 //  4. Wait for namespace deletion to complete.
 //  5. Remove the finalizer to allow garbage collection.
@@ -77,11 +77,20 @@ func (r *Reconciler) finalize(ctx context.Context, old, environment *openchoreov
 		return ctrl.Result{}, nil
 	}
 
-	// Step 2: Delete all release bindings referencing this environment and wait for them to be gone.
-	pendingCount, err := r.deleteAndCountReleaseBindings(ctx, environment)
+	// Step 2: Delete all bindings referencing this environment and wait for them to be gone.
+	// Each binding owns a RenderedRelease whose own finalizer resolves the data-plane
+	// client through this Environment; the Environment must outlive them, or the
+	// RenderedRelease finalizer strands on a missing Environment and the namespace
+	// never finishes terminating.
+	pendingReleaseBindings, err := r.deleteAndCountReleaseBindings(ctx, environment)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	pendingProjectReleaseBindings, err := r.deleteAndCountProjectReleaseBindings(ctx, environment)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	pendingCount := pendingReleaseBindings + pendingProjectReleaseBindings
 	if pendingCount > 0 {
 		msg := fmt.Sprintf("Deleting %d release binding(s)", pendingCount)
 		logger.Info(msg)
@@ -244,6 +253,32 @@ func (r *Reconciler) deleteAndCountReleaseBindings(ctx context.Context, environm
 		if rb.DeletionTimestamp.IsZero() {
 			if err := r.Delete(ctx, rb); err != nil && !apierrors.IsNotFound(err) {
 				return 0, fmt.Errorf("failed to delete release binding %s: %w", rb.Name, err)
+			}
+		}
+	}
+
+	return count, nil
+}
+
+// deleteAndCountProjectReleaseBindings deletes all project release bindings that
+// reference this environment and returns the count of those still present
+// (pending deletion or not yet deleted).
+func (r *Reconciler) deleteAndCountProjectReleaseBindings(ctx context.Context, environment *openchoreov1alpha1.Environment) (int, error) {
+	bindingList := &openchoreov1alpha1.ProjectReleaseBindingList{}
+	if err := r.List(ctx, bindingList, client.InNamespace(environment.Namespace)); err != nil {
+		return 0, fmt.Errorf("failed to list project release bindings: %w", err)
+	}
+
+	count := 0
+	for i := range bindingList.Items {
+		binding := &bindingList.Items[i]
+		if binding.Spec.Environment != environment.Name {
+			continue
+		}
+		count++
+		if binding.DeletionTimestamp.IsZero() {
+			if err := r.Delete(ctx, binding); err != nil && !apierrors.IsNotFound(err) {
+				return 0, fmt.Errorf("failed to delete project release binding %s: %w", binding.Name, err)
 			}
 		}
 	}

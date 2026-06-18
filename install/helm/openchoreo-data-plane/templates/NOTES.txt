@@ -1,4 +1,3 @@
-{{- include "openchoreo-data-plane.validateHostnames" . -}}
 OpenChoreo Data Plane installed in namespace "{{ .Release.Namespace }}".
 
 {{- if .Values.gateway.enabled }}

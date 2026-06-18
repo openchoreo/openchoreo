@@ -167,6 +167,16 @@ func NewClusterResourceType(name string) *openchoreov1alpha1.ClusterResourceType
 	}
 }
 
+// NewClusterProjectType creates a ClusterProjectType test fixture.
+func NewClusterProjectType(name string) *openchoreov1alpha1.ClusterProjectType {
+	return &openchoreov1alpha1.ClusterProjectType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: defaultClusterProjectTypeSpec(),
+	}
+}
+
 // NewClusterDataPlane creates a ClusterDataPlane test fixture.
 func NewClusterDataPlane(name string) *openchoreov1alpha1.ClusterDataPlane {
 	return &openchoreov1alpha1.ClusterDataPlane{
@@ -282,6 +292,17 @@ func NewResourceType(namespace, name string) *openchoreov1alpha1.ResourceType {
 	}
 }
 
+// NewProjectType creates a ProjectType test fixture.
+func NewProjectType(namespace, name string) *openchoreov1alpha1.ProjectType {
+	return &openchoreov1alpha1.ProjectType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: defaultProjectTypeSpec(),
+	}
+}
+
 // NewResource creates a Resource test fixture.
 func NewResource(namespace, projectName, name string) *openchoreov1alpha1.Resource {
 	return &openchoreov1alpha1.Resource{
@@ -318,6 +339,42 @@ func NewResourceRelease(namespace, projectName, resourceName, name string) *open
 				Name: "mysql",
 				Spec: defaultResourceTypeSpec(),
 			},
+		},
+	}
+}
+
+// NewProjectRelease creates a ProjectRelease test fixture.
+func NewProjectRelease(namespace, projectName, name string) *openchoreov1alpha1.ProjectRelease {
+	return &openchoreov1alpha1.ProjectRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: openchoreov1alpha1.ProjectReleaseSpec{
+			Owner: openchoreov1alpha1.ProjectReleaseOwner{
+				ProjectName: projectName,
+			},
+			ProjectType: openchoreov1alpha1.ProjectReleaseProjectType{
+				Kind: openchoreov1alpha1.ProjectTypeRefKindClusterProjectType,
+				Name: "default",
+				Spec: defaultProjectTypeSpec(),
+			},
+		},
+	}
+}
+
+// NewProjectReleaseBinding creates a ProjectReleaseBinding test fixture.
+func NewProjectReleaseBinding(namespace, projectName, environment, name string) *openchoreov1alpha1.ProjectReleaseBinding {
+	return &openchoreov1alpha1.ProjectReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: openchoreov1alpha1.ProjectReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ProjectReleaseBindingOwner{
+				ProjectName: projectName,
+			},
+			Environment: environment,
 		},
 	}
 }
@@ -540,6 +597,22 @@ func defaultClusterComponentTypeSpec() openchoreov1alpha1.ClusterComponentTypeSp
 		WorkloadType: "deployment",
 		Resources: []openchoreov1alpha1.ResourceTemplate{
 			testResourceTemplate("deployment"),
+		},
+	}
+}
+
+func defaultClusterProjectTypeSpec() openchoreov1alpha1.ClusterProjectTypeSpec {
+	return openchoreov1alpha1.ClusterProjectTypeSpec{
+		Resources: []openchoreov1alpha1.ResourceTemplate{
+			testResourceTemplate("namespace"),
+		},
+	}
+}
+
+func defaultProjectTypeSpec() openchoreov1alpha1.ProjectTypeSpec {
+	return openchoreov1alpha1.ProjectTypeSpec{
+		Resources: []openchoreov1alpha1.ResourceTemplate{
+			testResourceTemplate("namespace"),
 		},
 	}
 }
