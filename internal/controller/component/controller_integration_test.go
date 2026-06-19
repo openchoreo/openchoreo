@@ -13,7 +13,9 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -1240,6 +1242,92 @@ var _ = Describe("Component Controller — Finalization", func() {
 				}
 				return fetchComp(ctx, compName) == nil
 			}, itTimeout, itInterval).Should(BeTrue())
+		})
+	})
+})
+
+// ── AutoDeploy webhook rejection ──────────────────────────────────────────────
+
+// webhookRejectClient wraps a real client and makes ComponentRelease Create
+// calls fail with an admission-style Invalid error, simulating a webhook rejection.
+type webhookRejectClient struct {
+	client.Client
+}
+
+func (c *webhookRejectClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	if _, ok := obj.(*openchoreov1alpha1.ComponentRelease); ok {
+		return k8serrors.NewInvalid(
+			schema.GroupKind{Group: "openchoreo.dev", Kind: "ComponentRelease"},
+			obj.GetName(),
+			field.ErrorList{field.Invalid(field.NewPath("spec"), nil, "simulated webhook rejection")},
+		)
+	}
+	return c.Client.Create(ctx, obj, opts...)
+}
+
+var _ = Describe("Component Controller — AutoDeploy webhook rejection", func() {
+	Context("When webhook rejects ComponentRelease creation with a permanent error", func() {
+		const (
+			ctName       = "webhook-reject-ct"
+			compName     = "webhook-reject-comp"
+			wlName       = "webhook-reject-wl"
+			project      = "webhook-reject-proj"
+			pipelineName = "webhook-reject-pipe"
+		)
+		var ct *openchoreov1alpha1.ComponentType
+		var wl *openchoreov1alpha1.Workload
+		var proj *openchoreov1alpha1.Project
+		var pipe *openchoreov1alpha1.DeploymentPipeline
+		var comp *openchoreov1alpha1.Component
+		var fakeRecorder *record.FakeRecorder
+
+		BeforeEach(func() {
+			ct = minimalCT(ctName, "deployment")
+			Expect(k8sClient.Create(ctx, ct)).To(Succeed())
+
+			wl = minimalWorkload(wlName, project, compName, "nginx:latest")
+			Expect(k8sClient.Create(ctx, wl)).To(Succeed())
+
+			proj = minimalProject(project, pipelineName)
+			Expect(k8sClient.Create(ctx, proj)).To(Succeed())
+
+			pipe = minimalPipeline(pipelineName)
+			Expect(k8sClient.Create(ctx, pipe)).To(Succeed())
+
+			comp = minimalComp(compName, project, string(openchoreov1alpha1.ComponentTypeRefKindComponentType),
+				"deployment/"+ctName, true)
+			Expect(k8sClient.Create(ctx, comp)).To(Succeed())
+
+			fakeRecorder = record.NewFakeRecorder(100)
+		})
+
+		AfterEach(func() {
+			forceDeleteObj(ctx, comp)
+			_ = k8sClient.Delete(ctx, pipe)
+			_ = k8sClient.Delete(ctx, proj)
+			_ = k8sClient.Delete(ctx, wl)
+			_ = k8sClient.Delete(ctx, ct)
+		})
+
+		It("should emit a warning event, set AutoDeployFailed condition, and not retry", func() {
+			r := &Reconciler{
+				Client:   &webhookRejectClient{Client: k8sClient},
+				Scheme:   k8sClient.Scheme(),
+				Recorder: fakeRecorder,
+			}
+
+			By("Reconciling until AutoDeployFailed condition is set")
+			reconcileUntilCondition(ctx, r, compName, ReasonAutoDeployFailed)
+
+			By("Verifying condition is False with AutoDeployFailed reason")
+			c := fetchComp(ctx, compName)
+			cond := conditionFor(c)
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonAutoDeployFailed)))
+			Expect(cond.Message).To(ContainSubstring("simulated webhook rejection"))
+
+			By("Verifying a warning event was emitted")
+			Eventually(fakeRecorder.Events).Should(Receive(ContainSubstring("AutoDeployFailed")))
 		})
 	})
 })
