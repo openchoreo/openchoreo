@@ -23,6 +23,7 @@ rules:
   - observabilityplanes
   - resources
   - resourcetypes
+  - projecttypes
   - clustercomponenttypes
   - clustertraits
   - clusterworkflows
@@ -30,6 +31,7 @@ rules:
   - clusterobservabilityplanes
   - clusterworkflowplanes
   - clusterresourcetypes
+  - clusterprojecttypes
   verbs:
   - get
   - list
