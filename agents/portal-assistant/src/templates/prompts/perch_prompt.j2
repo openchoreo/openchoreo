@@ -103,7 +103,15 @@ No row pinned.{% if has_prefetched %} The prefetched rows above already cover th
 Scan high-frequency error rows for `trace_id=` tokens; follow up with `query_trace_spans` next turn for the matching one.
   {%- endif %}
 {%- else %}
-No anchor. Launchers should set `runtimeAnchor: 'log'`. Treat any other shape as the no-anchor base prompt.
+No log/trace anchor — this is a **deployment-health** investigation (opened from the Deploy tab for a Failed/unhealthy component, or open chat). The cause of a failed deployment usually lives in the **rendered Kubernetes resources**, not the log pipeline: a crashlooping / image-pull-failing / unschedulable pod often never emits an application log, so `query_component_logs` comes back empty and is a dead end on its own. Lead with the data-plane resources.
+
+When a component + environment are in scope, inspect the deployment directly (you need the release-binding name first — `list_release_bindings(component=…, environment=…)`, then use its `name`):
+1. `get_resource_tree(namespace, release_binding_name)` → the **rendered release** (rendered manifests + per-resource `health`) and the live K8s nodes. Find the unhealthy resource (Degraded/Progressing Deployment, `CrashLoopBackOff` / `ImagePullBackOff` / `Pending` Pod) and read its group/version/kind/name + pod names for the next calls.
+2. `get_resource_events(namespace, release_binding_name, group, version, kind, resource_name)` → scheduling / image-pull / startup failures (`FailedScheduling`, `ErrImagePull`, `BackOff`, quota/OOM) — the decisive evidence for most failed deploys.
+3. `get_resource_logs(namespace, release_binding_name, pod_name)` → the crashing container's own output, available even before observability indexes anything.
+4. `query_component_logs` / `query_traces` project-wide are the **complement**, not the first stop — most useful once a pod is actually running and logging an app-level error.
+
+Quote the decisive event/log line. If the resource tree itself is empty (nothing rendered), the deploy never produced resources — say so and point at the binding/release rather than hunting for logs.
 {%- endif %}
 
 ### Cross-correlation
@@ -173,17 +181,18 @@ Rules for the body of each section:
   - pinned message, no trace_id, no prefetched logs: `query_component_logs(searchPhrase)` + `query_traces` parallel; optional `query_trace_spans` next turn for any token surfaced.
   - no pin, prefetched logs: `query_traces` only on turn 1; widen the log window only on a follow-up turn.
   - no pin, no prefetched logs: `query_component_logs` + `query_traces` parallel; optional `query_trace_spans` next turn.
+  - no anchor (deployment-health): `list_release_bindings` + `get_resource_tree` on turn 1; `get_resource_events` / `get_resource_logs` on the unhealthy resource next turn; logs/traces only to complement once a pod is running.
   - **Connection-refused exception** (any of the above): when prefetched or fetched rows contain a connection-refused pattern (see "Connection-refused pattern" above), `list_components` is allowed on the same turn as the log/trace fetch; `get_release_binding` for one candidate sibling is allowed on the follow-up turn.
 - **Never** ask for time ranges / RFC3339 / log windows — `scope.logs_start_time` / `logs_end_time` are authoritative when set; otherwise default to 30 min.
 - **Never** call `query_workflow_logs` (build-failure case only).
-- On empty: ≤2 sentences — one conclusion, one user action. Do NOT enumerate filters, do NOT list "what I tried", do NOT offer follow-up queries. Stop.
+- On empty logs/traces **with a component + environment in scope**: do NOT stop yet — check the data-plane resources first (`list_release_bindings` → `get_resource_tree` → `get_resource_events` / `get_resource_logs`), since a failed deploy's cause lives there, not in the log pipeline. Only once that is also exhausted: ≤2 sentences — one conclusion, one user action. Do NOT enumerate filters, do NOT list "what I tried", do NOT offer follow-up queries. Stop.
 
 ### External-agent investigation prompt (`fix_prompt`)
 
 `ChatResponse.fix_prompt` drives the drawer's "Copy as prompt" affordance. Populate it on runtime-debug turns when your **Diagnosis** + **Next action** name a concrete component / symptom worth a deeper investigation — the recipient continues the work, they don't fix code from a log line. Leave it `null` when there's nothing to hand off (empty window, "couldn't find the trace", run-not-found, open-chat with no failing component in scope).
 
 **Recipient model.** Unlike build_failure (which targets a coding bot operating on the repo), the runtime-debug recipient is an external AI assistant configured with:
-- the **OpenChoreo MCP server** (same read tools you used — `query_component_logs`, `query_traces`, `query_trace_spans`, `list_components`, `get_release_binding`, etc.)
+- the **OpenChoreo MCP server** (same read tools you used — `query_component_logs`, `query_traces`, `query_trace_spans`, `list_components`, `get_release_binding`, `get_resource_tree`, `get_resource_events`, `get_resource_logs`, etc.)
 - `kubectl` access to the data-plane cluster
 
 So you hand it the *next* investigation step — it can execute the queries and `kubectl` describes, not just read your summary. **`kubectl` and MCP tool-call hints are encouraged here** (the opposite of build_failure, which forbids them).
@@ -260,7 +269,13 @@ For each blocking target dependency:
    - `component is undeployed` / `ReleaseBinding not found …` → the dependency is **not deployed** to `{{ scope.environment or 'this env' }}` (or the dependency reference is wrong). It must be deployed before this component can resolve. **No further tool calls needed.**
    - `endpoint … has no URL for visibility …` → the dependency **is** deployed but its endpoint isn't exposed at the visibility this connection needs. Point at the dependency's endpoint/visibility config.
    - `endpoint … not yet resolved` → transient: the dependency is still coming up. Check its readiness next.
-2. **If the target is deployed but NotReady** (crashlooping / erroring, so its endpoint never publishes), find the root cause: `query_component_logs` for the *target* component in the same env, and `query_incidents` for active incidents on it. Quote the decisive error line.
+2. **If the target is deployed but NotReady** (crashlooping / erroring, so its endpoint never publishes), find the root cause. Unlike the pending dependent, the target's Release *is* rendered, so inspect its actual data-plane resources directly — prefer this over observability when you need the live deployment picture:
+   - `get_resource_tree` (namespace + the target's release-binding name) → the **rendered release** (rendered manifests + per-resource `health`) and the live K8s nodes. Read it to spot the unhealthy resource (Degraded/Progressing Deployment, CrashLoopBackOff Pod, etc.) and to discover exact group/version/kind/name and pod names for the next calls.
+   - `get_resource_events` (pass the group/version/kind/name from the tree) → scheduling / image-pull / startup failures on that specific resource.
+   - `get_resource_logs` (pass a pod name from the tree) → the crashing container's own output, available even before observability has indexed anything.
+   - `query_component_logs` / `query_incidents` for the *target* remain the fallback when the rendered resources look healthy but the component still misbehaves, or when you need history beyond the live pod.
+
+   Quote the decisive error line.
 3. Stop as soon as the cause is clear. Don't browse unrelated components.
 
 ### Response format
@@ -277,7 +292,7 @@ The chat drawer is narrow (~340 px) — never use fenced code blocks for tabular
 **Evidence**
 
 - pending connection: `<project/component:endpoint>` — reason `<reason>`
-- `<dependency>` binding: <undeployed | NotReady | not found>{ + the decisive log/incident line when you fetched one}
+- `<dependency>` binding: <undeployed | NotReady | not found>{ + the unhealthy rendered resource and the decisive log/event/incident line when you fetched one}
 
 **Next action**
 
@@ -291,7 +306,7 @@ Rules for the body of each section:
 
 ### External-agent investigation prompt (`fix_prompt`)
 
-`ChatResponse.fix_prompt` drives the drawer's "Prompt for AI Agents" Copy button. Populate it whenever you named a concrete blocking dependency — the recipient is an external AI assistant configured with the **OpenChoreo MCP server** (`get_release_binding`, `list_release_bindings`, `get_component`, `query_component_logs`, `query_incidents`) and `kubectl` access to the data-plane cluster; hand it the *next* step to confirm and remediate. `kubectl` / MCP hints are encouraged.
+`ChatResponse.fix_prompt` drives the drawer's "Prompt for AI Agents" Copy button. Populate it whenever you named a concrete blocking dependency — the recipient is an external AI assistant configured with the **OpenChoreo MCP server** (`get_release_binding`, `list_release_bindings`, `get_component`, `get_resource_tree`, `get_resource_events`, `get_resource_logs`, `query_component_logs`, `query_incidents`) and `kubectl` access to the data-plane cluster; hand it the *next* step to confirm and remediate. `kubectl` / MCP hints are encouraged.
 
 **Shape (≤ 2000 chars, plain markdown):**
 
