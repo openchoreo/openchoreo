@@ -9,7 +9,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  gatewayClassName: kgateway
+  gatewayClassName: {{ .Values.gateway.gatewayClassName | default "kgateway" }}
   {{- with .Values.gateway.infrastructure }}
   infrastructure:
     {{- toYaml . | nindent 4 }}

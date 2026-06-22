@@ -1499,17 +1499,13 @@ components:
             - unset
           description: The execution status of the span. One of "ok", "error", or "unset".
         attributes:
-          type: array
-          items:
-            type: object
-            description: The attributes of the span
-            properties:
-              key:
-                type: string
-                description: The key of the attribute
-              value:
-                type: string
-                description: The value of the attribute
+          type: object
+          description: The span attributes
+          additionalProperties: true
+        resourceAttributes:
+          type: object
+          description: The resource attributes
+          additionalProperties: true
 
     # Request schemas for alert rules
     AlertRuleRequest:

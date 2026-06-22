@@ -178,12 +178,10 @@ func convertSpanDetailResponse(resp *gen.TraceSpanDetailsResponse) *observabilit
 	}
 
 	if resp.Attributes != nil {
-		detail.Attributes = make(map[string]interface{}, len(*resp.Attributes))
-		for _, attr := range *resp.Attributes {
-			if attr.Key != nil && attr.Value != nil {
-				detail.Attributes[*attr.Key] = *attr.Value
-			}
-		}
+		detail.Attributes = *resp.Attributes
+	}
+	if resp.ResourceAttributes != nil {
+		detail.ResourceAttributes = *resp.ResourceAttributes
 	}
 
 	return detail

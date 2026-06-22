@@ -1076,13 +1076,8 @@ type RuntimeTopologySummary struct {
 
 // TraceSpanDetailsResponse defines model for TraceSpanDetailsResponse.
 type TraceSpanDetailsResponse struct {
-	Attributes *[]struct {
-		// Key The key of the attribute
-		Key *string `json:"key,omitempty"`
-
-		// Value The value of the attribute
-		Value *string `json:"value,omitempty"`
-	} `json:"attributes,omitempty"`
+	// Attributes The span attributes
+	Attributes *map[string]interface{} `json:"attributes,omitempty"`
 
 	// DurationNs The duration of the span in nanoseconds
 	DurationNs *int64 `json:"durationNs,omitempty"`
@@ -1092,6 +1087,9 @@ type TraceSpanDetailsResponse struct {
 
 	// ParentSpanId The parent span ID
 	ParentSpanId *string `json:"parentSpanId,omitempty"`
+
+	// ResourceAttributes The resource attributes
+	ResourceAttributes *map[string]interface{} `json:"resourceAttributes,omitempty"`
 
 	// SpanId The span ID
 	SpanId *string `json:"spanId,omitempty"`

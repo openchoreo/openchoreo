@@ -293,6 +293,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 				stdin = true
 			}
 
+			pod, _ := cmd.Flags().GetString("pod")
 			container, _ := cmd.Flags().GetString("container")
 
 			return New(cl).Exec(ExecParams{
@@ -300,6 +301,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 				Project:     flags.GetProject(cmd),
 				Component:   componentName,
 				Environment: flags.GetEnvironment(cmd),
+				Pod:         pod,
 				Container:   container,
 				Command:     command,
 				TTY:         tty,
@@ -310,6 +312,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 	flags.AddNamespace(cmd)
 	flags.AddProject(cmd)
 	flags.AddEnvironment(cmd)
+	cmd.Flags().String("pod", "", "Pod name to exec into (defaults to any ready pod)")
 	cmd.Flags().StringP("container", "c", "", "Container name to exec into (defaults to first container)")
 	cmd.Flags().BoolP("tty", "t", false, "Allocate a pseudo-TTY")
 	cmd.Flags().BoolP("stdin", "i", false, "Pass stdin to the container")

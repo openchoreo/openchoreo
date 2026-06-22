@@ -368,18 +368,11 @@ components:
                 description: The execution status of the span. One of "ok", "error", or "unset".
               attributes:
                 type: object
-                description: >-
-                  The span attributes as a key/value map. The list endpoint
-                  returns attributes in this compact map form; the span-details
-                  endpoint (GET /traces/{traceId}/spans/{spanId}) returns the
-                  same data as an array of {key, value} objects.
+                description: The span attributes as a key/value map
                 additionalProperties: true
               resourceAttributes:
                 type: object
-                description: >-
-                  The resource attributes as a key/value map. As with
-                  `attributes`, the span-details endpoint returns these as an
-                  array of {key, value} objects.
+                description: The resource attributes as a key/value map
                 additionalProperties: true
         total:
           type: integer
@@ -421,35 +414,10 @@ components:
           enum: [ok, error, unset]
           description: The execution status of the span. One of "ok", "error", or "unset".
         attributes:
-          type: array
-          description: >-
-            The span attributes as an array of {key, value} objects. The
-            span-details endpoint returns attributes in this expanded form; the
-            spans-list endpoint (POST /traces/{traceId}/spans/query) returns the
-            same data as a key/value map.
-          items:
-            type: object
-            description: The attributes of the span
-            properties:
-              key:
-                type: string
-                description: The key of the attribute
-              value:
-                type: string
-                description: The value of the attribute
+          type: object
+          description: The span attributes as a key/value map
+          additionalProperties: true
         resourceAttributes:
-          type: array
-          description: >-
-            The resource attributes as an array of {key, value} objects. As with
-            `attributes`, the spans-list endpoint returns these as a key/value
-            map.
-          items:
-            type: object
-            description: The attributes of the span related to the resource
-            properties:
-              key:
-                type: string
-                description: The key of the attribute
-              value:
-                type: string
-                description: The value of the attribute
+          type: object
+          description: The resource attributes as a key/value map
+          additionalProperties: true

@@ -6,11 +6,14 @@ package component
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -116,7 +119,12 @@ func dialExecWebSocket(ctx context.Context, params ExecParams) (*websocket.Conn,
 
 	conn, resp, err := websocket.DefaultDialer.DialContext(ctx, wsURL, headers)
 	if err != nil {
-		if resp != nil && resp.StatusCode != http.StatusSwitchingProtocols {
+		if resp != nil {
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+			resp.Body.Close()
+			if msg := strings.TrimSpace(string(body)); msg != "" {
+				return nil, errors.New(msg)
+			}
 			return nil, fmt.Errorf("exec connection failed (HTTP %d): %w", resp.StatusCode, err)
 		}
 		return nil, fmt.Errorf("failed to connect to exec endpoint: %w", err)
@@ -220,6 +228,9 @@ func buildExecWebSocketURL(controlPlaneURL string, params ExecParams) (string, e
 	}
 	if params.Environment != "" {
 		q.Set("env", params.Environment)
+	}
+	if params.Pod != "" {
+		q.Set("pod", params.Pod)
 	}
 	if params.Container != "" {
 		q.Set("container", params.Container)

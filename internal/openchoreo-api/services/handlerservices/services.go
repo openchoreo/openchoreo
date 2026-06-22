@@ -34,6 +34,7 @@ import (
 	observabilityplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/observabilityplane"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	projectreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projectrelease"
+	projectreleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projectreleasebinding"
 	projecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projecttype"
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
 	resourcesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resource"
@@ -56,6 +57,7 @@ type Services struct {
 	ProjectService                                projectsvc.Service
 	ProjectTypeService                            projecttypesvc.Service
 	ProjectReleaseService                         projectreleasesvc.Service
+	ProjectReleaseBindingService                  projectreleasebindingsvc.Service
 	WorkflowPlaneService                          workflowplanesvc.Service
 	ClusterWorkflowPlaneService                   clusterworkflowplanesvc.Service
 	ClusterComponentTypeService                   clustercomponenttypesvc.Service
@@ -97,6 +99,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		ProjectService:                                projectsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "project-service")),
 		ProjectTypeService:                            projecttypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "projecttype-service")),
 		ProjectReleaseService:                         projectreleasesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "projectrelease-service")),
+		ProjectReleaseBindingService:                  projectreleasebindingsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "projectreleasebinding-service")),
 		WorkflowPlaneService:                          workflowplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workflowplane-service")),
 		ClusterWorkflowPlaneService:                   clusterworkflowplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clusterworkflowplane-service")),
 		ClusterComponentTypeService:                   clustercomponenttypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "clustercomponenttype-service")),

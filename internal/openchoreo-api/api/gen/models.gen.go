@@ -2663,6 +2663,69 @@ type ProjectRelease struct {
 	Status *map[string]interface{} `json:"status,omitempty"`
 }
 
+// ProjectReleaseBinding ProjectReleaseBinding resource.
+// Pins a ProjectRelease to an Environment, owns the namespace for the
+// (Project, Environment) tuple, and applies the inlined
+// (Cluster)ProjectType resources to that namespace. Authored externally.
+type ProjectReleaseBinding struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a ProjectReleaseBinding. spec.owner and spec.environment
+	// are immutable after creation. spec.projectRelease is the promote pin and is
+	// advanced manually via `occ project promote` or kubectl edit.
+	Spec   *ProjectReleaseBindingSpec   `json:"spec,omitempty"`
+	Status *ProjectReleaseBindingStatus `json:"status,omitempty"`
+}
+
+// ProjectReleaseBindingList Paginated list of project release bindings
+type ProjectReleaseBindingList struct {
+	Items []ProjectReleaseBinding `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ProjectReleaseBindingSpec Desired state of a ProjectReleaseBinding. spec.owner and spec.environment
+// are immutable after creation. spec.projectRelease is the promote pin and is
+// advanced manually via `occ project promote` or kubectl edit.
+type ProjectReleaseBindingSpec struct {
+	// Environment Target environment name. Immutable after creation.
+	Environment string `json:"environment"`
+
+	// EnvironmentConfigs Per-environment values for the inlined (Cluster)ProjectType.spec.environmentConfigs.
+	EnvironmentConfigs *map[string]interface{} `json:"environmentConfigs,omitempty"`
+
+	// Owner Identifies the project this binding belongs to.
+	Owner struct {
+		// ProjectName Parent project name
+		ProjectName string `json:"projectName"`
+	} `json:"owner"`
+
+	// ProjectRelease Pinned ProjectRelease name. Advanced manually (e.g. via `occ project promote`).
+	ProjectRelease *string `json:"projectRelease,omitempty"`
+}
+
+// ProjectReleaseBindingStatus Observed state of a ProjectReleaseBinding.
+type ProjectReleaseBindingStatus struct {
+	// Conditions Latest available observations of the binding's state. Includes Synced, NamespaceReady, ResourcesReady, and Ready (aggregate).
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// Namespace The data-plane namespace owned by this binding.
+	Namespace *string `json:"namespace,omitempty"`
+
+	// ObservedGeneration Most recent generation observed by the controller.
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+}
+
 // ProjectReleaseList Paginated list of project releases
 type ProjectReleaseList struct {
 	Items []ProjectRelease `json:"items"`
@@ -4415,6 +4478,9 @@ type ProjectNameParam = string
 // ProjectQueryParam defines model for ProjectQueryParam.
 type ProjectQueryParam = string
 
+// ProjectReleaseBindingNameParam defines model for ProjectReleaseBindingNameParam.
+type ProjectReleaseBindingNameParam = string
+
 // ProjectReleaseNameParam defines model for ProjectReleaseNameParam.
 type ProjectReleaseNameParam = string
 
@@ -4856,6 +4922,26 @@ type ListObservabilityAlertsNotificationChannelsParams struct {
 
 // ListObservabilityPlanesParams defines parameters for ListObservabilityPlanes.
 type ListObservabilityPlanesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListProjectReleaseBindingsParams defines parameters for ListProjectReleaseBindings.
+type ListProjectReleaseBindingsParams struct {
+	// Project Filter resources by project name
+	Project *ProjectQueryParam `form:"project,omitempty" json:"project,omitempty"`
+
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
 	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
 	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
@@ -5322,6 +5408,12 @@ type CreateObservabilityPlaneJSONRequestBody = ObservabilityPlane
 
 // UpdateObservabilityPlaneJSONRequestBody defines body for UpdateObservabilityPlane for application/json ContentType.
 type UpdateObservabilityPlaneJSONRequestBody = ObservabilityPlane
+
+// CreateProjectReleaseBindingJSONRequestBody defines body for CreateProjectReleaseBinding for application/json ContentType.
+type CreateProjectReleaseBindingJSONRequestBody = ProjectReleaseBinding
+
+// UpdateProjectReleaseBindingJSONRequestBody defines body for UpdateProjectReleaseBinding for application/json ContentType.
+type UpdateProjectReleaseBindingJSONRequestBody = ProjectReleaseBinding
 
 // CreateProjectReleaseJSONRequestBody defines body for CreateProjectRelease for application/json ContentType.
 type CreateProjectReleaseJSONRequestBody = ProjectRelease
