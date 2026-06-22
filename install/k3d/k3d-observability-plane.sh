@@ -13,8 +13,8 @@ set -euo pipefail
 # -- versions (update these on release branches) --
 OPENCHOREO_REF="${OPENCHOREO_REF:-main}"           # overridable via env; defaults to main
 OPENCHOREO_OP_VERSION="${OPENCHOREO_OP_VERSION:-0.0.0-latest-dev}"  # overridable via env
-LOGS_OPENSEARCH_VERSION="0.5.1"
-TRACES_OPENSEARCH_VERSION="0.4.1"
+LOGS_OPENSEARCH_VERSION="0.5.3"
+TRACES_OPENSEARCH_VERSION="0.4.2"
 METRICS_PROMETHEUS_VERSION="0.6.1"
 EVENTS_OTEL_COLLECTOR_VERSION="0.1.1"
 
