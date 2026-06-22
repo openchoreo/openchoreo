@@ -5,6 +5,7 @@ package component
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"time"
 
@@ -1248,25 +1249,21 @@ var _ = Describe("Component Controller — Finalization", func() {
 
 // ── AutoDeploy webhook rejection ──────────────────────────────────────────────
 
-// webhookRejectClient wraps a real client and makes ComponentRelease Create
-// calls fail with an admission-style Invalid error, simulating a webhook rejection.
-type webhookRejectClient struct {
+// mockErrorClient wraps a real client and makes ComponentRelease Create calls fail with a specific error.
+type mockErrorClient struct {
 	client.Client
+	errToReturn error
 }
 
-func (c *webhookRejectClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+func (c *mockErrorClient) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
 	if _, ok := obj.(*openchoreov1alpha1.ComponentRelease); ok {
-		return k8serrors.NewInvalid(
-			schema.GroupKind{Group: "openchoreo.dev", Kind: "ComponentRelease"},
-			obj.GetName(),
-			field.ErrorList{field.Invalid(field.NewPath("spec"), nil, "simulated webhook rejection")},
-		)
+		return c.errToReturn
 	}
 	return c.Client.Create(ctx, obj, opts...)
 }
 
 var _ = Describe("Component Controller — AutoDeploy webhook rejection", func() {
-	Context("When webhook rejects ComponentRelease creation with a permanent error", func() {
+	Context("When webhook rejects ComponentRelease creation", func() {
 		const (
 			ctName       = "webhook-reject-ct"
 			compName     = "webhook-reject-comp"
@@ -1309,25 +1306,49 @@ var _ = Describe("Component Controller — AutoDeploy webhook rejection", func()
 			_ = k8sClient.Delete(ctx, ct)
 		})
 
-		It("should emit a warning event, set AutoDeployFailed condition, and not retry", func() {
-			r := &Reconciler{
-				Client:   &webhookRejectClient{Client: k8sClient},
-				Scheme:   k8sClient.Scheme(),
-				Recorder: fakeRecorder,
-			}
+		DescribeTable("Admission error handling",
+			func(errToReturn error, expectRetry bool) {
+				r := &Reconciler{
+					Client:   &mockErrorClient{Client: k8sClient, errToReturn: errToReturn},
+					Scheme:   k8sClient.Scheme(),
+					Recorder: fakeRecorder,
+				}
 
-			By("Reconciling until AutoDeployFailed condition is set")
-			reconcileUntilCondition(ctx, r, compName, ReasonAutoDeployFailed)
+				By("Reconciling once to trigger error")
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: compName, Namespace: itNamespace}}
+				result, err := r.Reconcile(ctx, req)
 
-			By("Verifying condition is False with AutoDeployFailed reason")
-			c := fetchComp(ctx, compName)
-			cond := conditionFor(c)
-			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-			Expect(cond.Reason).To(Equal(string(ReasonAutoDeployFailed)))
-			Expect(cond.Message).To(ContainSubstring("simulated webhook rejection"))
+				if expectRetry {
+					Expect(err).To(HaveOccurred())
+					Expect(err).To(MatchError(ContainSubstring("simulated")))
+				} else {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.Requeue).To(BeFalse())
+					Expect(result.RequeueAfter).To(BeZero())
 
-			By("Verifying a warning event was emitted")
-			Eventually(fakeRecorder.Events).Should(Receive(ContainSubstring("AutoDeployFailed")))
-		})
+					By("Verifying AutoDeployFailed condition")
+					c := fetchComp(ctx, compName)
+					cond := conditionFor(c)
+					Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+					Expect(cond.Reason).To(Equal(string(ReasonAutoDeployFailed)))
+					Expect(cond.Message).To(ContainSubstring("simulated"))
+
+					By("Verifying a warning event was emitted")
+					Eventually(fakeRecorder.Events).Should(Receive(ContainSubstring("AutoDeployFailed")))
+				}
+			},
+			Entry("Invalid error (permanent)", k8serrors.NewInvalid(
+				schema.GroupKind{Group: "openchoreo.dev", Kind: "ComponentRelease"},
+				"test",
+				field.ErrorList{field.Invalid(field.NewPath("spec"), nil, "simulated webhook rejection")},
+			), false),
+			Entry("Forbidden error (permanent)", k8serrors.NewForbidden(
+				schema.GroupResource{Group: "openchoreo.dev", Resource: "ComponentRelease"},
+				"test",
+				errors.New("simulated forbidden"),
+			), false),
+			Entry("BadRequest error (permanent)", k8serrors.NewBadRequest("simulated bad request"), false),
+			Entry("Internal error (retryable)", k8serrors.NewInternalError(errors.New("simulated internal error")), true),
+		)
 	})
 })
