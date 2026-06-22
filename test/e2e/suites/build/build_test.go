@@ -305,7 +305,7 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 			}, 2*time.Minute, 5*time.Second).Should(Succeed())
 
 			By("deleting the Argo Workflow from the workflow plane")
-			_, err = framework.Kubectl(kubeContext, "delete", "workflow.argoproj.io", runName,
+			_, err = framework.Kubectl(wpCtx(), "delete", "workflow.argoproj.io", runName,
 				"-n", "workflows-"+cpNs, "--ignore-not-found")
 			Expect(err).NotTo(HaveOccurred(), "failed to delete Argo Workflow")
 
