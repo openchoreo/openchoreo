@@ -105,14 +105,14 @@ func fetchToken() (string, error) {
 	return tokenResp.AccessToken, nil
 }
 
-// createGitBasicAuthSecret provisions a kubernetes.io/basic-auth secret through
-// the OpenChoreo Secret API. The API writes the K8s Secret plus a PushSecret to
-// the workflow plane and pushes the values into its ClusterSecretStore
-// (OpenBao), then creates a SecretReference named secretName in the control
-// plane that the build's repository.secretRef resolves. Targeting the workflow
-// plane (rather than seeding OpenBao directly) is what makes the private-repo
-// build work in both single- and multi-cluster topologies, since the build runs
-// in the workflow plane and reads its credentials from that plane's store.
+// createGitBasicAuthSecret provisions a basic-auth git credential through the
+// OpenChoreo Git Secret API. The API writes the K8s Secret plus a PushSecret to
+// the workflow plane and creates a SecretReference named secretName in the
+// control plane that the build's repository.secretRef resolves. Targeting the
+// workflow plane (rather than seeding OpenBao directly) is what makes the
+// private-repo build work in both single- and multi-cluster topologies, since
+// the build runs in the workflow plane and reads its credentials from that
+// plane's store.
 func createGitBasicAuthSecret(namespace, secretName, username, pat string) error {
 	token, err := fetchToken()
 	if err != nil {
@@ -126,23 +126,19 @@ func createGitBasicAuthSecret(namespace, secretName, username, pat string) error
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	resp, err := client.CreateSecretWithResponse(ctx, namespace, gen.CreateSecretRequest{
-		SecretName: secretName,
-		SecretType: gen.SecretTypeKubernetesIobasicAuth,
-		TargetPlane: gen.TargetPlaneRef{
-			Kind: gen.TargetPlaneRefKindClusterWorkflowPlane,
-			Name: "default",
-		},
-		Data: map[string]string{
-			"username": username,
-			"password": pat,
-		},
+	resp, err := client.CreateGitSecretWithResponse(ctx, namespace, gen.CreateGitSecretRequest{
+		SecretName:        secretName,
+		SecretType:        gen.BasicAuth,
+		Token:             &pat,
+		Username:          &username,
+		WorkflowPlaneKind: gen.CreateGitSecretRequestWorkflowPlaneKindClusterWorkflowPlane,
+		WorkflowPlaneName: "default",
 	})
 	if err != nil {
-		return fmt.Errorf("create secret request: %w", err)
+		return fmt.Errorf("create git secret request: %w", err)
 	}
 	if resp.StatusCode() != http.StatusCreated {
-		return fmt.Errorf("create secret returned %d: %s", resp.StatusCode(), string(resp.Body))
+		return fmt.Errorf("create git secret returned %d: %s", resp.StatusCode(), string(resp.Body))
 	}
 	return nil
 }

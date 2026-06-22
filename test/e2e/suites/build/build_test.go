@@ -125,10 +125,6 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 		output, err = framework.KubectlApplyLiteral(kubeContext, platformResourcesYAML())
 		Expect(err).NotTo(HaveOccurred(), "failed to apply platform resources: %s", output)
 
-		By("triggering all matrix builds up front so they run concurrently")
-		for _, spec := range matrixSpecs {
-			triggerDeployableBuildSpec(spec)
-		}
 	})
 
 	AfterAll(func() {
@@ -148,8 +144,15 @@ var _ = Describe("Build From Source Matrix", Ordered, Label("tier3"), func() {
 	})
 
 	Context("builder matrix", func() {
-		// Builds were already triggered in BeforeAll; each spec only waits on
-		// its own WorkflowRun and asserts the post-build chain.
+		// Builds are triggered once for this matrix context; each spec only
+		// waits on its own WorkflowRun and asserts the post-build chain.
+		BeforeAll(func() {
+			By("triggering all matrix builds up front so they run concurrently")
+			for _, spec := range matrixSpecs {
+				triggerDeployableBuildSpec(spec)
+			}
+		})
+
 		It("dockerfile-builder: builds, deploys, and is reachable (service)", func() {
 			assertDeployableBuildSpec(specDockerfileService)
 		})
