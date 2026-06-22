@@ -286,16 +286,17 @@ test.describe('pe-ops: Namespace lifecycle through the Backstage UI', () => {
     await del.openOverflowAndDelete('Namespace');
     await del.confirm();
 
-    // Cross-check: the Kubernetes namespace must be gone (or terminating).
+    // Assert phase, not existence: gone ('') or Terminating both prove the delete
+    // fired; full teardown waits on the finalizer cascade we don't gate on. Default
+    // check:true so a real kubectl error fails instead of passing as empty output.
     await expect
       .poll(
         () =>
-          kubectl(
-            ['get', 'namespace', NAMESPACE_NAME, '--ignore-not-found', '-o', 'name'],
-            { check: false },
-          ).stdout.trim(),
+          kubectl([
+            'get', 'namespace', NAMESPACE_NAME, '--ignore-not-found', '-o', 'jsonpath={.status.phase}',
+          ]).stdout.trim(),
         { timeout: 60_000, intervals: [3_000] },
       )
-      .toBe('');
+      .not.toBe('Active');
   });
 });
