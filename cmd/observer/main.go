@@ -246,7 +246,7 @@ func main() {
 	routes.HandleFunc("GET /health", newAPIHandler.Health)
 
 	// OAuth Protected Resource Metadata endpoint
-	routes.HandleFunc("GET /.well-known/oauth-protected-resource", oauthProtectedResourceMetadata(logger))
+	routes.HandleFunc("GET /.well-known/oauth-protected-resource", oauthProtectedResourceMetadata(cfg, logger))
 
 	// ===== Protected API Routes (JWT Authentication Required) =====
 
@@ -286,7 +286,7 @@ func main() {
 	newMCPServer := observermcp.NewHTTPServer(newMCPHandler)
 
 	// MCP endpoint with chained middleware (logger -> recovery -> auth401 -> jwt -> handler)
-	mcpMiddleware := initMCPMiddleware(logger)
+	mcpMiddleware := initMCPMiddleware(cfg, logger)
 	mcpRoutes := routes.Group(mcpMiddleware, jwtAuth)
 	mcpRoutes.Handle("/mcp", newMCPServer)
 
@@ -470,13 +470,12 @@ func initJWTMiddleware(cfg *config.Config, logger *slog.Logger) func(http.Handle
 }
 
 // initMCPMiddleware initializes the MCP middleware that adds WWW-Authenticate header to 401 responses
-func initMCPMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
-	// Get observer base URL from environment variables
-	observerBaseURL := os.Getenv("OBSERVER_BASE_URL")
+func initMCPMiddleware(cfg *config.Config, logger *slog.Logger) func(http.Handler) http.Handler {
+	observerBaseURL := cfg.Server.PublicURL
 	if observerBaseURL == "" {
 		// Default to localhost for development
 		observerBaseURL = "http://localhost:9097"
-		logger.Warn("OBSERVER_BASE_URL not set, using default", "url", observerBaseURL)
+		logger.Warn("server.public_url (OBSERVER_BASE_URL) not set, using default", "url", observerBaseURL)
 	}
 	resourceMetadataURL := observerBaseURL + "/.well-known/oauth-protected-resource"
 
@@ -485,13 +484,12 @@ func initMCPMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
 
 // oauthProtectedResourceMetadata returns a handler for OAuth 2.0 protected resource metadata
 // as defined in RFC 9728 and related OAuth standards
-func oauthProtectedResourceMetadata(logger *slog.Logger) http.HandlerFunc {
-	// Get configuration from environment variables
-	observerBaseURL := os.Getenv("OBSERVER_BASE_URL")
+func oauthProtectedResourceMetadata(cfg *config.Config, logger *slog.Logger) http.HandlerFunc {
+	observerBaseURL := cfg.Server.PublicURL
 	if observerBaseURL == "" {
 		// Default to localhost for development
 		observerBaseURL = "http://localhost:9097"
-		logger.Warn("OBSERVER_BASE_URL not set, using default", "url", observerBaseURL)
+		logger.Warn("server.public_url (OBSERVER_BASE_URL) not set, using default", "url", observerBaseURL)
 	}
 
 	authServerBaseURL := os.Getenv(apiconfig.EnvAuthServerBaseURL)

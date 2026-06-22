@@ -25,6 +25,7 @@ data:
   ALERT_STORE_BACKEND: {{ .Values.observer.alertStoreBackend | default "sqlite" | quote }}
   ALERT_SUPPRESSION_WINDOW: {{ .Values.observer.alertSuppressionWindow | quote }}
   OBSERVER_AUTH_CONFIG_PATH: /etc/openchoreo/auth-config.yaml
+  OBSERVER_BASE_URL: {{ .Values.observer.publicUrl | quote }}
   AUTHZ_SERVICE_URL: {{ .Values.observer.controlPlaneApiUrl | quote }}
   AUTHZ_TLS_INSECURE_SKIP_VERIFY: {{ .Values.observer.authzTlsInsecureSkipVerify | default false | quote }}
   UID_RESOLVER_OPENCHOREO_API_URL: {{ .Values.observer.controlPlaneApiUrl | quote }}

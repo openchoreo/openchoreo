@@ -52,6 +52,7 @@ type ServerConfig struct {
 	ReadTimeout     time.Duration `koanf:"read.timeout"`
 	WriteTimeout    time.Duration `koanf:"write.timeout"`
 	ShutdownTimeout time.Duration `koanf:"shutdown.timeout"`
+	PublicURL       string        `koanf:"public_url"`
 }
 
 // CORSConfig holds CORS configuration
@@ -169,6 +170,7 @@ func Load() (*Config, error) {
 		"SERVER_READ_TIMEOUT":                   "server.read.timeout",
 		"SERVER_WRITE_TIMEOUT":                  "server.write.timeout",
 		"SERVER_SHUTDOWN_TIMEOUT":               "server.shutdown.timeout",
+		"OBSERVER_BASE_URL":                     "server.public_url",
 		"AUTH_JWT_SECRET":                       "auth.jwt.secret",
 		"AUTH_ENABLE_AUTH":                      "auth.enable.auth",
 		"AUTH_REQUIRED_ROLE":                    "auth.required.role",
@@ -289,6 +291,7 @@ func getDefaults() map[string]interface{} {
 			"read.timeout":     "30s",
 			"write.timeout":    "30s",
 			"shutdown.timeout": "10s",
+			"public_url":       "",
 		},
 		"auth": map[string]interface{}{
 			"enable.auth":   false,

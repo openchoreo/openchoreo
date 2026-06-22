@@ -7,13 +7,12 @@ global:
 # OpenChoreo Observer Service Configuration
 observer:
   secretName: observer-secret
+  controlPlaneApiUrl: "http://api.openchoreo.localhost:8080"
+  publicUrl: "http://observer.openchoreo.localhost:11080"
   http:
     hostnames:
     - host.k3d.internal
     - observer.openchoreo.localhost
-  extraEnvs:
-    - name: OBSERVER_BASE_URL
-      value: "http://observer.openchoreo.localhost:11080"
   resources:
     limits:
       cpu: 50m

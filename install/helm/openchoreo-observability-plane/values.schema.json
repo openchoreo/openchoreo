@@ -1466,6 +1466,12 @@
           "title": "oauthScope",
           "type": "string"
         },
+        "publicUrl": {
+          "default": "",
+          "description": "Observer's own external URL (sets OBSERVER_BASE_URL). Empty falls back to a localhost default.",
+          "title": "publicUrl",
+          "type": "string"
+        },
         "replicas": {
           "default": 1,
           "description": "Number of Observer pod replicas",

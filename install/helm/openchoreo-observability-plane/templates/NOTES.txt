@@ -5,7 +5,6 @@ deployment (the observability plane typically runs on a separate cluster from th
 control plane):
 
   - observer.controlPlaneApiUrl
-  - observer.extraEnvs (OBSERVER_BASE_URL)
 {{- if .Values.rca.enabled }}
   - rca.openchoreoApiUrl
 {{- end }}

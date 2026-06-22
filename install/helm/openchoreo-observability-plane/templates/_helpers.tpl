@@ -151,9 +151,6 @@ explicitly per deployment. k3d overlays supply real values.
 {{- if contains ".invalid" .Values.observer.controlPlaneApiUrl -}}
   {{- $errors = append $errors "observer.controlPlaneApiUrl contains placeholder domain (.invalid)" -}}
 {{- end -}}
-{{- if contains ".invalid" (toYaml .Values.observer.extraEnvs) -}}
-  {{- $errors = append $errors "observer.extraEnvs contains placeholder domain (.invalid) (e.g. OBSERVER_BASE_URL)" -}}
-{{- end -}}
 {{- if .Values.rca.enabled -}}
   {{- if contains ".invalid" .Values.rca.openchoreoApiUrl -}}
     {{- $errors = append $errors "rca.openchoreoApiUrl contains placeholder domain (.invalid)" -}}
