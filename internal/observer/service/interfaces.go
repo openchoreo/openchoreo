@@ -25,6 +25,13 @@ type EventsQuerier interface {
 	QueryEvents(ctx context.Context, req *types.EventsQueryRequest) (*types.EventsQueryResponse, error)
 }
 
+// RunsQuerier is the interface for querying scheduled-task runs (Jobs) and retries (Pods).
+// Backed by the events adapter; events are grouped in-memory into runs and retries.
+type RunsQuerier interface {
+	QueryRuns(ctx context.Context, req *types.RunsQueryRequest) (*types.RunsQueryResponse, error)
+	QueryRetries(ctx context.Context, jobName string, req *types.RetriesQueryRequest) (*types.RetriesQueryResponse, error)
+}
+
 // MetricsQuerier is the interface for querying metrics and runtime topology.
 type MetricsQuerier interface {
 	QueryMetrics(ctx context.Context, req *types.MetricsQueryRequest) (any, error)
