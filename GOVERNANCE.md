@@ -88,7 +88,7 @@ Each WG must have a lead who is a current maintainer or active contributor with 
 Working groups use lazy consensus (3 business days) for day-to-day decisions. Decisions that modify a public API contract or cross-plane interface also require approval from at least one maintainer outside the WG. That member cannot be part of the WG, such as WG lead, co-lead(s), or core members. 
 
 ### Outputs
-WG outputs (architecture docs, design specs, RFCs) are merged to the repository via standard pull requests requiring two approvals from WG core members and one maintainer approval. Outputs do not constitute implementation authority — implementation work follows the standard contribution process.
+WG outputs (architecture docs, design specs, RFCs) are merged to the repository via standard pull requests requiring two approvals from WG members and one maintainer approval. Outputs do not constitute implementation authority — implementation work follows the standard contribution process.
 
 ### Dissolving a Working Group
 A WG closes when all charter deliverables are accepted or when the WG lead declares the effort complete. The lead notifies the maintainer group via a PR that archives the WG directory and updates its `CHARTER.md` status to `Completed`.
