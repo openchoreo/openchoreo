@@ -32,8 +32,8 @@ def test_postgresql_asyncpg_dialect_accepted():
 
 
 def test_bare_postgres_scheme_is_rejected():
-    # Unlike finops-agent, sre-agent does not normalize the ``postgres://`` alias:
-    # the URI must literally start with the ``report_backend`` value.
+    # The URI must literally start with the report_backend value; the bare
+    # ``postgres://`` alias is not normalized.
     with pytest.raises(ValueError, match="must match report_backend"):
         Settings(
             report_backend="postgresql",

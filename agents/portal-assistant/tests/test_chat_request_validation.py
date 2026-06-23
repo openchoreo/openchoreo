@@ -35,8 +35,7 @@ def test_total_content_cap_rejects_overage():
 
 
 def test_total_content_cap_at_boundary():
-    # Right at the limit must pass. The per-message cap is 10k, so the 60k
-    # total is split across multiple messages.
+    # Per-message cap is 10k, so split the total across multiple messages.
     per_msg = 10_000
     msgs = [
         ChatMessage(role="user", content="x" * per_msg)
