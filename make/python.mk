@@ -7,9 +7,6 @@ PYTHON_AGENTS := $(sort $(notdir $(patsubst %/,%,$(dir $(wildcard agents/*/pypro
 
 ##@ Python Agents
 
-.PHONY: test
-test: go.test python.test ## Run all Go and Python tests.
-
 .PHONY: python.test
 python.test: ## Run tests for all Python agents.
 	@for agent in $(PYTHON_AGENTS); do \
