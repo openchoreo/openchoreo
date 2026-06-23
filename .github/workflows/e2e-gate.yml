@@ -6,7 +6,6 @@
 # leg instead of the serial sum:
 #   tier1, tier2 — control plane + data plane only
 #   tier3       — multi-cluster (4 separate k3d clusters, one per plane)
-#   private-repo-build — single-cluster build-only path focused on private Git checkout
 #   ui          — full stack + Backstage portal (Playwright)
 #   ext-idp     — full stack + Backstage portal with Dex as external OIDC provider (Playwright)
 #   quick-start — published quick-start container, the documented Quick Start
@@ -57,11 +56,6 @@ on:
         required: false
         type: boolean
         default: true
-      run_private_repo_build:
-        description: "Run only the private GitHub repository build spec (single-cluster, build plane only)"
-        required: false
-        type: boolean
-        default: false
       run_ui:
         description: "Run the Playwright UI leg (full stack + Backstage)"
         required: false
@@ -109,11 +103,6 @@ on:
         required: false
         type: boolean
         default: true
-      run_private_repo_build:
-        description: "Run only the private GitHub repository build spec (single-cluster, build plane only)"
-        required: false
-        type: boolean
-        default: false
       run_ui:
         description: "Run the Playwright UI leg (full stack + Backstage)"
         required: false
@@ -363,103 +352,6 @@ jobs:
           path: test/e2e/_diagnostics/
           retention-days: 7
           if-no-files-found: ignore
-
-  private-repo-build:
-    name: E2E (Private Repo Build)
-    if: ${{ inputs.run_private_repo_build }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    steps:
-      - name: Clone the code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          ref: ${{ inputs.ref }}
-          persist-credentials: false
-
-      - name: Clone workflow actions
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          repository: ${{ job.workflow_repository }}
-          ref: ${{ job.workflow_sha }}
-          path: _workflow
-          persist-credentials: false
-
-      - name: Setup Go
-        uses: ./_workflow/.github/actions/setup-go
-
-      - name: Install k3d
-        run: |
-          curl -fsSL -o /tmp/k3d https://github.com/k3d-io/k3d/releases/download/${{ env.K3D_VERSION }}/k3d-linux-amd64
-          echo "${{ env.K3D_SHA256 }}  /tmp/k3d" | sha256sum -c -
-          sudo install /tmp/k3d /usr/local/bin/k3d
-          k3d version
-
-      - name: Install yq
-        run: |
-          curl -fsSL -o /tmp/yq https://github.com/mikefarah/yq/releases/download/${{ env.YQ_VERSION }}/yq_linux_amd64
-          echo "${{ env.YQ_SHA256 }}  /tmp/yq" | sha256sum -c -
-          sudo install /tmp/yq /usr/local/bin/yq
-
-      - name: Validate Helm chart version
-        run: |
-          if [ -z "${HELM_CHART_VERSION}" ]; then
-            echo "::error::HELM_CHART_VERSION is required"
-            exit 1
-          fi
-          case "${HELM_CHART_VERSION}" in
-            *[!A-Za-z0-9._-]*)
-              echo "::error::HELM_CHART_VERSION contains unsupported characters"
-              exit 1
-              ;;
-          esac
-
-      - name: Validate private repo PAT
-        env:
-          E2E_GITHUB_PAT: ${{ secrets.E2E_GITHUB_PAT }}
-        run: |
-          if [ -z "${E2E_GITHUB_PAT}" ]; then
-            echo "::error::E2E_GITHUB_PAT is required for the private repo build job"
-            exit 1
-          fi
-
-      - name: Add e2e host entries
-        run: echo '127.0.0.1 api.e2e-cp.local thunder.e2e-cp.local openchoreo.e2e-cp.local' | sudo tee -a /etc/hosts
-
-      - name: Install build-only e2e cluster
-        run: |
-          make e2e.setup \
-            E2E_HELM_SOURCE=oci \
-            HELM_CHART_VERSION="${HELM_CHART_VERSION}" \
-            E2E_WITH_BUILD=true \
-            E2E_WITH_OBSERVABILITY=false \
-            E2E_SETUP_TIMEOUT=10m
-
-      - name: Run private repo build spec
-        env:
-          E2E_GITHUB_PAT: ${{ secrets.E2E_GITHUB_PAT }}
-        run: |
-          go test ./test/e2e/suites/build \
-            -v -ginkgo.v \
-            -ginkgo.focus='private-repo:' \
-            -timeout 30m \
-            --e2e.kubecontext=k3d-openchoreo-e2e
-
-      - name: Collect e2e diagnostics
-        if: failure()
-        run: make e2e.diagnostics || true
-
-      - name: Upload diagnostics
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: e2e-diagnostics-private-repo-build
-          path: test/e2e/_diagnostics/
-          retention-days: 7
-          if-no-files-found: ignore
-
-      - name: Delete e2e cluster
-        if: always()
-        run: make e2e.down || true
 
   ui:
     name: E2E (UI / Playwright)
