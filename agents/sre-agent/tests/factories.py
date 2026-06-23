@@ -1,11 +1,7 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Builders for valid domain objects used across tests.
-
-Each helper returns a fully-populated, schema-valid object with sensible
-defaults, while allowing any field to be overridden via keyword arguments.
-"""
+"""Builders for valid domain objects used across tests."""
 
 from typing import Any
 
