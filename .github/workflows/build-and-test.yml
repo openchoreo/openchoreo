@@ -154,10 +154,54 @@ jobs:
           uv sync --frozen --group dev
           uv run --frozen pytest -q
 
+  sre-agent-test:
+    name: SRE Agent (Python)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: agents/sre-agent/uv.lock
+
+      - name: Run tests
+        working-directory: agents/sre-agent
+        # uv reads .python-version (3.14) and provisions the interpreter.
+        # ruff lint/format is intentionally deferred until the pre-existing
+        # src/ debt is cleaned up; this job gates on pytest only for now.
+        run: |
+          uv sync --frozen --group dev
+          uv run --frozen pytest -q
+
+  portal-assistant-test:
+    name: Portal Assistant (Python)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: agents/portal-assistant/uv.lock
+
+      - name: Run tests
+        working-directory: agents/portal-assistant
+        # uv reads .python-version (3.14) and provisions the interpreter.
+        # ruff lint/format is intentionally deferred until the pre-existing
+        # src/ debt is cleaned up; this job gates on pytest only for now.
+        run: |
+          uv sync --frozen --group dev
+          uv run --frozen pytest -q
+
   publish:
     name: ${{ github.event_name == 'push' && 'Publish' || 'Verify Packaging' }}
     runs-on: ubuntu-24.04
-    needs: [ lint, gen-check, test, build, finops-agent-test ]
+    needs: [ lint, gen-check, test, build, finops-agent-test, sre-agent-test, portal-assistant-test ]
     permissions:
       packages: write
     steps:
