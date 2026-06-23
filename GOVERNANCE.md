@@ -75,6 +75,29 @@ A formal vote is required for:
 - Removing maintainers
 - Major architectural or governance changes
 
+## Working Groups
+Working Groups (WGs) are time-bounded groups formed to address a specific architectural or cross-cutting concern that benefits from focused community effort. A working group produces concrete deliverables, typically architecture specifications, design documents, or implementation guidelines, and dissolves once those deliverables are accepted.
+
+### Forming a Working Group
+Any maintainer may propose a working group by opening a pull request that adds a `CHARTER.md` to `working-groups/<wg-name>/.` The charter must define the WG's objective, scope, deliverables, timeline, and proposed lead. At least one maintainer approval is required to merge.
+
+### Working Group Lead
+Each WG must have a lead who is a current maintainer or active contributor with demonstrated familiarity with the problem domain. The lead chairs meetings, drives the agenda, owns deliverables, and reports progress to the maintainer group at the monthly community call.
+
+### Decision Making
+Working groups use lazy consensus (3 business days) for day-to-day decisions. Decisions that modify a public API contract or cross-plane interface also require approval from at least one maintainer outside the WG. That member cannot be part of the WG, such as WG lead, core leads, or core members. 
+
+### Outputs
+WG outputs (architecture docs, design specs, RFCs) are merged to the repository via standard pull requests requiring two approvals from WG core members and one maintainer approval. Outputs do not constitute implementation authority — implementation work follows the standard contribution process.
+
+### Dissolving a Working Group
+A WG closes when all charter deliverables are accepted or when the WG lead declares the effort complete. The lead notifies the maintainer group via a PR that archives the WG directory and updates its `CHARTER.md` status to `Completed`.
+
+### Active Working Groups
+| Working Group | Lead | Status | Charter |
+|--------------|---------|-------------|-------------|
+
+
 ## Becoming a Maintainer
 
 New maintainers are selected based on demonstrated merit and sustained contributions to the project. Typical criteria include:
