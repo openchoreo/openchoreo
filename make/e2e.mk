@@ -701,8 +701,9 @@ e2e.down: ## Delete k3d cluster
 e2e.multi: ## Full multi-cluster e2e lifecycle: setup → test → down (collects diagnostics on failure)
 	@setup_ok=0; \
 	$(MAKE) e2e.multi.setup && setup_ok=1; \
+	test_exit=0; \
 	if [ $$setup_ok -eq 1 ]; then \
-		$(MAKE) e2e.multi.test; test_exit=$$?; \
+		$(MAKE) e2e.multi.test || test_exit=$$?; \
 		if [ $$test_exit -ne 0 ]; then $(MAKE) e2e.multi.diagnostics || true; fi; \
 	else \
 		test_exit=1; \
@@ -1282,6 +1283,19 @@ e2e.multi.diagnostics: ## Collect logs, events, and resource dumps from all four
 	done
 	@$(E2E_MC_CP_KUBECTL) get clusterdataplane,clusterworkflowplane,clusterobservabilityplane -o yaml > $(E2E_MC_DIAGNOSTICS_DIR)/plane-resources.yaml 2>&1 || true
 	@$(E2E_MC_CP_KUBECTL) get component,componentrelease,releasebinding,renderedrelease -A -o yaml > $(E2E_MC_DIAGNOSTICS_DIR)/release-chain.yaml 2>&1 || true
+	@# Build/workflow state: WorkflowRuns (per-test CP namespaces) and the Argo
+	@# Workflows + build pods (per-test WP "workflows-*" namespaces) — not covered
+	@# by the fixed plane namespaces above, but the usual tier3 failure point.
+	@$(E2E_MC_CP_KUBECTL) get workflowrun -A -o yaml > $(E2E_MC_DIAGNOSTICS_DIR)/cp-workflowruns.yaml 2>&1 || true
+	@kubectl --context $(E2E_MC_WP_KUBECONTEXT) get workflows.argoproj.io -A -o yaml > $(E2E_MC_DIAGNOSTICS_DIR)/wp-argo-workflows.yaml 2>&1 || true
+	@for ns in $$(kubectl --context $(E2E_MC_WP_KUBECONTEXT) get ns -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep '^workflows-'); do \
+		kubectl --context $(E2E_MC_WP_KUBECONTEXT) get pods -n $$ns -o wide > $(E2E_MC_DIAGNOSTICS_DIR)/wp-$$ns-pods.txt 2>&1 || true; \
+		kubectl --context $(E2E_MC_WP_KUBECONTEXT) get events -n $$ns --sort-by=.lastTimestamp > $(E2E_MC_DIAGNOSTICS_DIR)/wp-$$ns-events.txt 2>&1 || true; \
+		kubectl --context $(E2E_MC_WP_KUBECONTEXT) describe pods -n $$ns > $(E2E_MC_DIAGNOSTICS_DIR)/wp-$$ns-describe.txt 2>&1 || true; \
+		for pod in $$(kubectl --context $(E2E_MC_WP_KUBECONTEXT) get pods -n $$ns -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do \
+			kubectl --context $(E2E_MC_WP_KUBECONTEXT) logs $$pod -n $$ns --all-containers --tail=200 > $(E2E_MC_DIAGNOSTICS_DIR)/wp-$$ns-logs-$$pod.txt 2>&1 || true; \
+		done; \
+	done
 	@# Host-level resource usage of the k3d node containers. Captured from the
 	@# runner (not via kubectl) so it works even when a cluster's API server is
 	@# unresponsive — the CPU/memory-overcommit failure mode we most need to see.
