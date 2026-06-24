@@ -38,6 +38,12 @@ func TestLookupConditions(t *testing.T) {
 		require.Nil(t, specs)
 	})
 
+	t.Run("component:exec supports resource.environment", func(t *testing.T) {
+		specs := LookupConditions(ActionExecComponent)
+		require.Len(t, specs, 1)
+		require.Equal(t, AttrResourceEnvironment.Key, specs[0].Key)
+	})
+
 	t.Run("resourcereleasebinding actions support resource.environment", func(t *testing.T) {
 		for _, action := range []string{
 			ActionCreateResourceReleaseBinding,

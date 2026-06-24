@@ -78,7 +78,21 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger := h.logger.With("namespace", namespace, "component", componentName)
 	logger.Info("Exec request received", "env", envName, "pod", podName, "container", container)
 
-	// Authorize: check that the caller has component:exec permission.
+	// Resolve the target environment before authorizing so per-environment exec
+	// conditions are evaluated against it (`env` may be omitted by the client).
+	effectiveEnv, err := h.resolveEnvName(ctx, namespace, project, envName)
+	if err != nil {
+		status := http.StatusBadRequest
+		var infraErr *execInfraError
+		if errors.As(err, &infraErr) {
+			status = http.StatusServiceUnavailable
+		}
+		logger.Warn("Failed to resolve environment for exec", "error", err)
+		http.Error(w, fmt.Sprintf("failed to resolve environment: %v", err), status)
+		return
+	}
+
+	// Authorize: check that the caller has component:exec permission for this environment.
 	if h.authzChecker == nil {
 		logger.Error("Authorization checker not configured")
 		http.Error(w, "authorization not configured", http.StatusInternalServerError)
@@ -92,6 +106,11 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Namespace: namespace,
 			Project:   project,
 		},
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{
+				Environment: svcpkg.FormatDualScopedResourceName(namespace, effectiveEnv, false),
+			},
+		},
 	}); err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			http.Error(w, "you do not have permission to exec into this component", http.StatusForbidden)
@@ -103,7 +122,7 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Resolve the pod to exec into
-	podInfo, err := h.resolvePod(ctx, namespace, componentName, project, envName, podName)
+	podInfo, err := h.resolvePod(ctx, namespace, componentName, project, effectiveEnv, podName)
 	if err != nil {
 		status := http.StatusBadRequest
 		var infraErr *execInfraError
@@ -226,6 +245,18 @@ type execPodInfo struct {
 	podName      string
 	containers   []string // container names present in the pod
 	plane        execPlaneInfo
+}
+
+// resolveEnvName returns the effective environment, deriving the lowest env from
+// the project's deployment pipeline when the `env` query param is omitted.
+func (h *ExecHandler) resolveEnvName(ctx context.Context, namespace, project, envName string) (string, error) {
+	if envName != "" {
+		return envName, nil
+	}
+	if project == "" {
+		return "", fmt.Errorf("--project or --env is required")
+	}
+	return h.resolveLowestEnvironment(ctx, namespace, project)
 }
 
 // resolvePod resolves the target pod for exec by traversing:
@@ -475,7 +506,10 @@ func (h *ExecHandler) resolveLowestEnvironment(ctx context.Context, namespace, p
 
 	pipeline := &openchoreov1alpha1.DeploymentPipeline{}
 	if err := h.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: proj.Spec.DeploymentPipelineRef.Name}, pipeline); err != nil {
-		return "", fmt.Errorf("deployment pipeline not found: %w", err)
+		if apierrors.IsNotFound(err) {
+			return "", fmt.Errorf("deployment pipeline %q not found in namespace %q", proj.Spec.DeploymentPipelineRef.Name, namespace)
+		}
+		return "", infraErrorf("failed to look up deployment pipeline %q: %w", proj.Spec.DeploymentPipelineRef.Name, err)
 	}
 
 	if len(pipeline.Spec.PromotionPaths) == 0 {
