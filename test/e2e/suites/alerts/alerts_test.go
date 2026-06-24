@@ -29,6 +29,11 @@ const (
 	alertEvalBudget = 6 * time.Minute
 	alertPoll       = 10 * time.Second
 
+	// alertRenderBudget is how long we wait for a rendered ObservabilityAlertRule
+	// to cross into the OP cluster. Shared by the metric and log specs so the
+	// first-render gate isn't the tighter of the two.
+	alertRenderBudget = 5 * time.Minute
+
 	// buildTimeout matches the WP suite's build budget. Builds run on the
 	// same node as the test, so generous bounds avoid CI flakiness.
 	buildTimeout = 20 * time.Minute
@@ -47,6 +52,17 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 		// In multi-cluster mode the receiver must be in the same cluster as
 		// alertmanager (OP cluster) so notifications are deliverable in-cluster.
 		Expect(framework.DeployWebhookReceiver(opCtx(), alertReceiverNamespace)).To(Succeed())
+
+		By("waiting for the observability plane agent to connect")
+		// Alert rules render cross-cluster into the OP cluster; that apply only
+		// works once the OP agent has connected back to the control plane.
+		Eventually(func(g Gomega) {
+			out, err := framework.Kubectl(kubeContext,
+				"get", "clusterobservabilityplane", "default",
+				"-o", "jsonpath={.status.agentConnection.connected}")
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(out).To(Equal("true"), "observability plane agent not connected yet")
+		}, 5*time.Minute, 5*time.Second).Should(Succeed())
 
 		By("creating control plane namespace")
 		out, err := framework.KubectlApplyLiteral(kubeContext, cpNamespaceYAML())
@@ -115,7 +131,7 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(strings.Fields(out)).To(ContainElement(alertRuleMetric),
 				"no rendered ObservabilityAlertRule yet for %s", alertRuleMetric)
-		}, 3*time.Minute, 5*time.Second).Should(Succeed())
+		}, alertRenderBudget, 5*time.Second).Should(Succeed())
 
 		By("polling webhook receiver for the alert notification (best-effort)")
 		// Hard-asserting on a delivered notification couples the spec to
@@ -186,7 +202,7 @@ var _ = Describe("Observability Alerts", Ordered, Label("tier3"), func() {
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(strings.Fields(out)).To(ContainElement(alertRuleLog),
 				"no rendered ObservabilityAlertRule yet for %s", alertRuleLog)
-		}, 5*time.Minute, 5*time.Second).Should(Succeed())
+		}, alertRenderBudget, 5*time.Second).Should(Succeed())
 
 		By("polling webhook receiver for the alert notification (best-effort)")
 		// Same reasoning as the metric-alert spec — see comment there
