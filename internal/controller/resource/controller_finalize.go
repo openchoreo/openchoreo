@@ -8,7 +8,10 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -65,16 +68,25 @@ func (r *Reconciler) finalize(ctx context.Context, old, res *openchoreov1alpha1.
 	// deferred whole-status writer used by reconcile: every exit path either
 	// sets exactly one condition (Finalizing) and persists immediately, or
 	// sets nothing.
-	if meta.SetStatusCondition(&res.Status.Conditions, NewFinalizingCondition(res.Generation)) {
-		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, old, res)
+	cond := meta.FindStatusCondition(res.Status.Conditions, string(ConditionFinalizing))
+	if cond == nil || cond.Status != metav1.ConditionTrue {
+		if meta.SetStatusCondition(&res.Status.Conditions, NewFinalizingCondition(res.Generation)) {
+			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, old, res)
+		}
 	}
 
-	hasBindings, err := r.hasOwnedResourceReleaseBindings(ctx, res)
+	hasBindings, err := r.deleteOwnedResourceReleaseBindingsAndWait(ctx, res)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	if hasBindings {
 		logger.Info("Waiting for ResourceReleaseBindings to be deleted")
+		controller.MarkTrueCondition(res, ConditionFinalizing, ReasonFinalizing, "Waiting for ResourceReleaseBindings to be deleted")
+		if !equality.Semantic.DeepEqual(old.Status.Conditions, res.Status.Conditions) {
+			if err := controller.UpdateStatusConditions(ctx, r.Client, old, res); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 		return ctrl.Result{RequeueAfter: requeueWaitForChildren}, nil
 	}
 
@@ -83,6 +95,13 @@ func (r *Reconciler) finalize(ctx context.Context, old, res *openchoreov1alpha1.
 		return ctrl.Result{}, err
 	}
 	if deleted {
+		logger.Info("Waiting for ResourceReleases to be deleted")
+		controller.MarkTrueCondition(res, ConditionFinalizing, ReasonFinalizing, "Waiting for ResourceReleases to be deleted")
+		if !equality.Semantic.DeepEqual(old.Status.Conditions, res.Status.Conditions) {
+			if err := controller.UpdateStatusConditions(ctx, r.Client, old, res); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 		return ctrl.Result{RequeueAfter: requeueWaitForChildren}, nil
 	}
 
@@ -95,16 +114,62 @@ func (r *Reconciler) finalize(ctx context.Context, old, res *openchoreov1alpha1.
 	return ctrl.Result{}, nil
 }
 
-// hasOwnedResourceReleaseBindings returns true if any ResourceReleaseBinding in
-// the same namespace still references the given Resource.
-func (r *Reconciler) hasOwnedResourceReleaseBindings(ctx context.Context, res *openchoreov1alpha1.Resource) (bool, error) {
+// deleteOwnedResourceReleaseBindingsAndWait triggers deletion of every ResourceReleaseBinding
+// owned by the given Resource depending on its retention policy. Returns true if any
+// bindings still exist; the caller should requeue to wait for them to be deleted.
+func (r *Reconciler) deleteOwnedResourceReleaseBindingsAndWait(ctx context.Context, res *openchoreov1alpha1.Resource) (bool, error) {
 	bindings := &openchoreov1alpha1.ResourceReleaseBindingList{}
 	if err := r.List(ctx, bindings,
 		client.InNamespace(res.Namespace),
 		client.MatchingFields{controller.IndexKeyResourceReleaseBindingOwnerResourceName: res.Name}); err != nil {
 		return false, fmt.Errorf("list ResourceReleaseBindings: %w", err)
 	}
-	return len(bindings.Items) > 0, nil
+	if len(bindings.Items) == 0 {
+		return false, nil
+	}
+	for i := range bindings.Items {
+		binding := &bindings.Items[i]
+		if !binding.DeletionTimestamp.IsZero() {
+			continue
+		}
+		retain, err := r.effectiveRetainPolicy(ctx, binding)
+		if err != nil {
+			return false, fmt.Errorf("resolve effective retainPolicy for binding %s: %w", binding.Name, err)
+		}
+		if retain == openchoreov1alpha1.ResourceRetainPolicyRetain {
+			continue
+		}
+		if err := r.Delete(ctx, binding); err != nil {
+			return false, fmt.Errorf("delete ResourceReleaseBinding %s: %w", binding.Name, err)
+		}
+	}
+	return true, nil
+}
+
+// effectiveRetainPolicy resolves the policy in priority order:
+//  1. binding override (spec.retainPolicy)
+//  2. snapshot default (ResourceRelease.spec.resourceType.spec.retainPolicy)
+//  3. universal default (Delete)
+func (r *Reconciler) effectiveRetainPolicy(ctx context.Context, binding *openchoreov1alpha1.ResourceReleaseBinding) (openchoreov1alpha1.ResourceRetainPolicy, error) {
+	if binding.Spec.RetainPolicy != "" {
+		return binding.Spec.RetainPolicy, nil
+	}
+	if binding.Spec.ResourceRelease == "" {
+		return openchoreov1alpha1.ResourceRetainPolicyDelete, nil
+	}
+	rr := &openchoreov1alpha1.ResourceRelease{}
+	err := r.Get(ctx, client.ObjectKey{Name: binding.Spec.ResourceRelease, Namespace: binding.Namespace}, rr)
+	switch {
+	case err == nil:
+		if rr.Spec.ResourceType.Spec.RetainPolicy != "" {
+			return rr.Spec.ResourceType.Spec.RetainPolicy, nil
+		}
+		return openchoreov1alpha1.ResourceRetainPolicyDelete, nil
+	case apierrors.IsNotFound(err):
+		return openchoreov1alpha1.ResourceRetainPolicyDelete, nil
+	default:
+		return "", fmt.Errorf("get ResourceRelease %q: %w", binding.Spec.ResourceRelease, err)
+	}
 }
 
 // deleteOwnedResourceReleases triggers deletion of every ResourceRelease owned

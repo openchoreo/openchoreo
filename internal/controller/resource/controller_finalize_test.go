@@ -67,9 +67,13 @@ var _ = Describe("Finalizer", func() {
 		}
 	}
 
-	newBinding := func(name, ownerResource string) *openchoreov1alpha1.ResourceReleaseBinding {
+	newBinding := func(name, ownerResource string, withFinalizer bool) *openchoreov1alpha1.ResourceReleaseBinding {
+		om := metav1.ObjectMeta{Name: name, Namespace: "default"}
+		if withFinalizer {
+			om.Finalizers = []string{"test-keep"}
+		}
 		return &openchoreov1alpha1.ResourceReleaseBinding{
-			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+			ObjectMeta: om,
 			Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
 				Owner: openchoreov1alpha1.ResourceReleaseBindingOwner{
 					ProjectName:  "p",
@@ -109,7 +113,7 @@ var _ = Describe("Finalizer", func() {
 
 	It("holds the finalizer while ResourceReleaseBindings reference the Resource", func() {
 		res := newRes("fin-block", true)
-		binding := newBinding("fin-block-binding", res.Name)
+		binding := newBinding("fin-block-binding", res.Name, true)
 		cli := buildClient(res, binding)
 		r := &Reconciler{Client: cli, Scheme: scheme.Scheme}
 
@@ -133,6 +137,10 @@ var _ = Describe("Finalizer", func() {
 		cond := meta.FindStatusCondition(updated.Status.Conditions, "Finalizing")
 		Expect(cond).NotTo(BeNil())
 		Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+
+		updatedBinding := &openchoreov1alpha1.ResourceReleaseBinding{}
+		Expect(cli.Get(finCtx, client.ObjectKeyFromObject(binding), updatedBinding)).To(Succeed())
+		Expect(updatedBinding.DeletionTimestamp).NotTo(BeNil())
 	})
 
 	It("is a no-op when the resource-cleanup finalizer is not present (already removed elsewhere)", func() {
@@ -178,5 +186,33 @@ var _ = Describe("Finalizer", func() {
 
 		err = cli.Get(finCtx, client.ObjectKeyFromObject(release), &openchoreov1alpha1.ResourceRelease{})
 		Expect(apierrors.IsNotFound(err)).To(BeTrue(), "owned ResourceRelease should be deleted")
+	})
+
+	It("does not delete bindings and blocks when retainPolicy is Retain", func() {
+		res := newRes("fin-retain", true)
+		binding := newBinding("fin-retain-binding", res.Name, true)
+		binding.Spec.RetainPolicy = openchoreov1alpha1.ResourceRetainPolicyRetain
+		cli := buildClient(res, binding)
+		r := &Reconciler{Client: cli, Scheme: scheme.Scheme}
+
+		Expect(cli.Delete(finCtx, res)).To(Succeed())
+		req := reconcile.Request{NamespacedName: client.ObjectKeyFromObject(res)}
+
+		// 1st reconcile: finalize branch, sets Finalizing condition, returns.
+		_, err := r.Reconcile(finCtx, req)
+		Expect(err).NotTo(HaveOccurred())
+
+		// 2nd reconcile: binding is Retain, should NOT call delete on it, and requeue.
+		result, err := r.Reconcile(finCtx, req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.RequeueAfter).To(BeNumerically(">", 0))
+
+		updatedBinding := &openchoreov1alpha1.ResourceReleaseBinding{}
+		Expect(cli.Get(finCtx, client.ObjectKeyFromObject(binding), updatedBinding)).To(Succeed())
+		Expect(updatedBinding.DeletionTimestamp).To(BeNil(), "binding should NOT have been deleted automatically under Retain policy")
+
+		updated := &openchoreov1alpha1.Resource{}
+		Expect(cli.Get(finCtx, client.ObjectKeyFromObject(res), updated)).To(Succeed())
+		Expect(updated.Finalizers).To(ContainElement(ResourceFinalizer), "resource finalizer should still be blocked")
 	})
 })
