@@ -2547,6 +2547,24 @@ backstage:
 
   # @schema
   # type: object
+  # description: Observability plane tuning for Backstage. Separate from the features.observability feature flag above — this controls runtime behaviour of observability views, not whether they are shown.
+  # @schema
+  observability:
+    # @schema
+    # type: object
+    # description: Wirelogs (Cilium Hubble flow) stream tuning.
+    # @schema
+    wirelogs:
+      # @schema
+      # type: integer
+      # description: Hard cap in seconds on a single wirelogs SSE stream before the Backstage backend ends it. The UI shows soft warnings at ~1/3 and ~2/3 of this value and a toast when the server stops the stream. Maps to OPENCHOREO_OBSERVABILITY_WIRELOGS_STREAM_TIMEOUT_SECONDS in the Backstage container.
+      # default: 900
+      # minimum: 1
+      # @schema
+      streamTimeoutSeconds: 900
+
+  # @schema
+  # type: object
   # description: External CI platform integrations (Jenkins, GitHub Actions). GitLab support coming soon.
   # @schema
   externalCI:

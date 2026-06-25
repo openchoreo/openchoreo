@@ -152,6 +152,12 @@ spec:
         # skipped so the system runs in poll-only mode.
         - name: OPENCHOREO_EVENTS_ENABLED
           value: {{ .Values.eventForwarder.enabled | quote }}
+        # Observability tuning — hard cap (seconds) on a single wirelogs SSE
+        # stream before the backend ends it. The UI shows soft warnings at
+        # ~1/3 and ~2/3 of this value and a toast when the server stops it.
+        # Defaults to 900 (15 minutes).
+        - name: OPENCHOREO_OBSERVABILITY_WIRELOGS_STREAM_TIMEOUT_SECONDS
+          value: {{ .Values.backstage.observability.wirelogs.streamTimeoutSeconds | default 900 | quote }}
         # External CI Platform Integrations
         # Jenkins: requires jenkins.io/job-full-name annotation on entity
         - name: JENKINS_BASE_URL

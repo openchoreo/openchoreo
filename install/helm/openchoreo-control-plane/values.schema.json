@@ -801,6 +801,31 @@
           "title": "nodeSelector",
           "type": "object"
         },
+        "observability": {
+          "additionalProperties": false,
+          "description": "Observability plane tuning for Backstage. Separate from the features.observability feature flag above — this controls runtime behaviour of observability views, not whether they are shown.",
+          "properties": {
+            "wirelogs": {
+              "additionalProperties": false,
+              "description": "Wirelogs (Cilium Hubble flow) stream tuning.",
+              "properties": {
+                "streamTimeoutSeconds": {
+                  "default": 900,
+                  "description": "Hard cap in seconds on a single wirelogs SSE stream before the Backstage backend ends it. The UI shows soft warnings at ~1/3 and ~2/3 of this value and a toast when the server stops the stream. Maps to OPENCHOREO_OBSERVABILITY_WIRELOGS_STREAM_TIMEOUT_SECONDS in the Backstage container.",
+                  "minimum": 1,
+                  "title": "streamTimeoutSeconds",
+                  "type": "integer"
+                }
+              },
+              "required": [],
+              "title": "wirelogs",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "observability",
+          "type": "object"
+        },
         "openchoreoApi": {
           "additionalProperties": false,
           "description": "OpenChoreo API connection configuration",
