@@ -1226,7 +1226,8 @@ E2E_MC_SUITES := \
 .PHONY: e2e.multi.test
 e2e.multi.test: ## Run tier3 multi-cluster e2e suites (set E2E_LABEL_FILTER to scope further)
 	@$(call log_info, Running multi-cluster e2e tests$(if $(E2E_GINKGO_LABEL_FLAG), with label filter '$(E2E_LABEL_FILTER)'))
-	go test $(E2E_MC_SUITES) -v -ginkgo.v -timeout $(E2E_TEST_TIMEOUT) \
+	@# -p 1: serialize suites to avoid overcommitting the 4-vCPU runner.
+	go test -p 1 $(E2E_MC_SUITES) -v -ginkgo.v -timeout $(E2E_TEST_TIMEOUT) \
 		--e2e.kubecontext=$(E2E_MC_CP_KUBECONTEXT) \
 		--e2e.dp-kubecontext=$(E2E_MC_DP_KUBECONTEXT) \
 		--e2e.wp-kubecontext=$(E2E_MC_WP_KUBECONTEXT) \
