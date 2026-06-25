@@ -4,17 +4,13 @@
 import { type Page } from '@playwright/test';
 import { SidebarPO } from './sidebar';
 
-// The OpenChoreo "Create" page (CustomTemplateListPage). The landing view shows
-// a card per scaffolder template (Project, ComponentType, Trait, …) plus two
-// navigation cards — "Component" and "Resource" — that drill into their own
-// per-type template lists. Each template card renders a
-// `<button aria-label="Use template <title>">`, and the navigation cards are
-// role=button elements whose accessible name is "<Title> <description>".
-//
-// Reaching a template form is therefore a pure click flow (sidebar → Create →
-// card), so specs never need to deep-link to `/create/templates/...`. The
-// NamespaceEntityPicker falls back to the `default` namespace on its own, so the
-// `?namespace=` query the old URLs carried is unnecessary.
+// The OpenChoreo "Create" page (CustomTemplateListPage). "Application
+// Resources" are three navigation cards — "Project", "Component", "Resource" —
+// that drill into per-type template sub-lists; "Platform Resources" are direct
+// template cards (Namespace, Environment, ComponentType, Trait, …). Template
+// cards render `<button aria-label="Use template <title>">`; navigation cards
+// are role=button elements named "<Title> <description>". Reaching a form is a
+// pure click flow, so specs never deep-link to `/create/templates/...`.
 export class CreatePO {
   constructor(private readonly page: Page) {}
 
@@ -23,10 +19,20 @@ export class CreatePO {
     await new SidebarPO(this.page).goCreate();
   }
 
-  // Choose a landing-view template card (e.g. "Project", "ComponentType",
-  // "Trait") and land on its scaffolder form.
+  // Choose a "Platform Resources" template card (e.g. "Namespace",
+  // "ComponentType", "Trait") and land on its scaffolder form.
   async chooseTemplate(title: string): Promise<void> {
     await this.open();
+    await this.useTemplate(title);
+  }
+
+  // Project templates live behind the "Project" navigation card, which opens
+  // the per-ProjectType template list; pick the template from there.
+  async chooseProjectTemplate(title: string): Promise<void> {
+    await this.open();
+    await this.page
+      .getByRole('button', { name: /Project Browse project templates/i })
+      .click();
     await this.useTemplate(title);
   }
 

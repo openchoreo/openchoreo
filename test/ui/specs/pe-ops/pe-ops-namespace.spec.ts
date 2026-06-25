@@ -9,6 +9,7 @@ import { DeletePO } from '../../po/delete';
 import { CatalogTablePO } from '../../po/catalogTable';
 import { ScaffolderWizardPO } from '../../po/scaffolderWizard';
 import { CreatePO } from '../../po/create';
+import { DEFAULT_PROJECT_TYPE_TEMPLATE } from '../../po/project';
 
 // Namespace names must be valid Kubernetes namespace names: lowercase
 // alphanumeric + '-', no leading/trailing hyphens, max 63 characters.
@@ -170,12 +171,12 @@ test.describe('pe-ops: Namespace lifecycle through the Backstage UI', () => {
     test.setTimeout(300_000);
 
     await page.goto('/');
-    await new CreatePO(page).chooseTemplate('Project');
+    await new CreatePO(page).chooseProjectTemplate(DEFAULT_PROJECT_TYPE_TEMPLATE);
 
     const wizard = new ScaffolderWizardPO(page);
 
     // The NamespaceEntityPicker auto-selects 'default'; override to our namespace.
-    await wizard.selectMuiOption('Namespace Name', NAMESPACE_NAME);
+    await wizard.selectMuiOption('Namespace', NAMESPACE_NAME);
 
     // The DeploymentPipelinePicker auto-populates once the namespace is set.
     // Wait for it to resolve before filling other fields.

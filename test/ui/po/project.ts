@@ -4,32 +4,43 @@
 import { expect, type Page } from '@playwright/test';
 import { CreatePO } from './create';
 
+// Template card title for the default cluster-scoped ClusterProjectType; each
+// (Cluster)ProjectType yields one card titled by its display name.
+export const DEFAULT_PROJECT_TYPE_TEMPLATE = 'Default Project Type';
+
 export interface CreateProjectInput {
   name: string;
   namespace?: string; // defaults to "default"; preselected via ?namespace query.
   displayName?: string;
   description?: string;
   pipeline?: string; // matches a Deployment Pipeline entity name.
+  projectType?: string; // template card title; defaults to DEFAULT_PROJECT_TYPE_TEMPLATE.
 }
 
-// Project creation flows through the Backstage Scaffolder template
-// `create-openchoreo-project`, reached by clicking the "Project" card on the
-// Create page (CreatePO). The NamespaceEntityPicker auto-selects the `default`
-// namespace when no preselection is supplied, so the click flow needs no
-// `?namespace=` query.
+// Project creation flows through a per-(Cluster)ProjectType Scaffolder template,
+// reached via the "Project" navigation card on the Create page (CreatePO) then
+// the type's template card. The NamespaceEntityPicker auto-selects the `default`
+// namespace, so the click flow needs no `?namespace=` query.
 //
-// Field titles come from the template YAML: "Namespace Name", "Project Name",
-// "Display Name", "Description", "Deployment Pipeline". MUI labels are wired
-// through aria-labelledby, so getByLabel resolves each.
+// Field titles: "Namespace", "Project Name", "Display Name", "Description",
+// "Deployment Pipeline". MUI labels are wired through aria-labelledby, so
+// getByLabel resolves each.
 export class ProjectPO {
   constructor(private readonly page: Page) {}
 
-  // `namespace` is accepted for API symmetry; only the auto-selected `default`
-  // namespace is exercised. A non-default namespace would need the
-  // NamespaceEntityPicker driven explicitly here.
-  async openCreateForm(namespace = 'default'): Promise<void> {
-    void namespace;
-    await new CreatePO(this.page).chooseTemplate('Project');
+  // Only the auto-selected `default` namespace is supported here; a non-default
+  // namespace needs the NamespaceEntityPicker driven explicitly, so reject it
+  // rather than silently creating the project under `default`.
+  async openCreateForm(
+    namespace = 'default',
+    projectType = DEFAULT_PROJECT_TYPE_TEMPLATE,
+  ): Promise<void> {
+    if (namespace !== 'default') {
+      throw new Error(
+        `ProjectPO.openCreateForm: unsupported namespace "${namespace}"; drive the NamespaceEntityPicker explicitly for non-default namespaces.`,
+      );
+    }
+    await new CreatePO(this.page).chooseProjectTemplate(projectType);
   }
 
   async fillCreateForm(input: CreateProjectInput): Promise<void> {
@@ -56,13 +67,10 @@ export class ProjectPO {
   }
 
   async submitCreate(): Promise<void> {
-    // Scaffolder uses a multi-step layout. The Project template surfaces
-    // step 1 with a "Review" button (advances to step 2) and step 2 with a
-    // "Create" button (submits). Some templates also intersperse "Next" on
-    // wider steps, so that label is probed but optional. "Review" and
-    // "Create" are mandatory: a timeout there means a slow/broken render and
-    // must fail loudly — treating it as "absent" would skip the submit and
-    // surface as a confusing downstream failure.
+    // Multi-step scaffolder: "Next" advances optional intermediate steps;
+    // "Review" then "Create" submit. "Review"/"Create" are mandatory — a
+    // timeout there is a slow/broken render and must fail loudly, not be
+    // skipped.
     for (const { label, required } of [
       { label: 'Next', required: false },
       { label: 'Review', required: true },
@@ -80,7 +88,7 @@ export class ProjectPO {
   }
 
   async create(input: CreateProjectInput): Promise<void> {
-    await this.openCreateForm(input.namespace);
+    await this.openCreateForm(input.namespace, input.projectType);
     await this.fillCreateForm(input);
     await this.submitCreate();
   }
