@@ -40,15 +40,13 @@ Low-level examples demonstrating how to define and use custom component types wi
 - **[HTTP Service Component](./component-types/component-http-service/)** - Define a reusable HTTP service component type
 - **[Web App Component](./component-types/component-web-app/)** - Define a reusable web application component type
 - **[Component with Configs](./component-types/component-with-configs/)** - Demonstrate configuration management
-- **[Component with Traits](./component-types/component-with-traits/)** - Demonstrate trait composition
 - **[Component with Embedded Traits](./component-types/component-with-embedded-traits/)** - Demonstrate PE-defined embedded traits
-- **[Component with API Management](./component-types/component-with-api-management/)** - Demonstrate API management via traits
 
 ### [Workflows](./workflows)
 Reusable Workflow definitions for standalone automation tasks independent of any Component.
 
 **Available Samples:**
-- **[AWS RDS Postgres Create](./workflows/aws-rds-postgres/)** - Provision and destroy AWS RDS PostgreSQL instances using Terraform
+- **[AWS RDS Postgres Create](./workflows/aws-rds-postgres-create/)** - Provision and destroy AWS RDS PostgreSQL instances using Terraform
 - **[GitHub Stats Report](./workflows/github-stats-report/)** - Fetch GitHub repository statistics, transform the data, and generate a formatted report
 - **[SCM Create Repo](./workflows/scm-create-repo/)** - Create repositories in GitHub or AWS CodeCommit
 

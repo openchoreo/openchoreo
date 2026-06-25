@@ -19,7 +19,7 @@ The workflows have no dependency on any Component and can be triggered manually.
 
 Both workflows follow the same two-step pattern:
 
-```
+```text
 WorkflowRun
     │
     ▼
@@ -90,7 +90,7 @@ spec:
 
 ### Example Output
 
-```
+```text
 =================================
   GitHub Repository Created
 =================================
@@ -182,7 +182,7 @@ spec:
 
 ### Example Output
 
-```
+```text
 =================================
   CodeCommit Repository Created
 =================================

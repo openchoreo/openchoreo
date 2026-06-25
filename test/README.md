@@ -4,7 +4,7 @@ End-to-end and UI tests that run against a real OpenChoreo cluster (local k3d), 
 
 ## Structure
 
-```
+```text
 test/
 ├── e2e/        Go (Ginkgo) end-to-end tests — `make e2e`
 │   ├── e2e_suite_test.go   Suite entry point; requires --e2e.kubecontext

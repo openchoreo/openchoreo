@@ -123,7 +123,7 @@ spec:
 
 When validation rules fail, error messages include the rule index, rule text, and the user-provided message:
 
-```
+```text
 component type validation failed: rule[0] "${size(workload.endpoints) > 0}" evaluated to false: A deployment/service must expose at least one endpoint.
 ```
 
