@@ -27,6 +27,9 @@ const (
 	// IndexKeyComponentOwnerProjectName indexes Component by owner project name.
 	IndexKeyComponentOwnerProjectName = "component.spec.owner.projectName"
 
+	// IndexKeyResourceOwnerProjectName indexes Resource by owner project name.
+	IndexKeyResourceOwnerProjectName = "resource.spec.owner.projectName"
+
 	// IndexKeyProjectDeploymentPipelineRef indexes Project by deploymentPipelineRef.
 	IndexKeyProjectDeploymentPipelineRef = "project.spec.deploymentPipelineRef"
 
@@ -97,6 +100,17 @@ func SetupSharedIndexes(ctx context.Context, mgr ctrl.Manager) error {
 			return []string{component.Spec.Owner.ProjectName}
 		}); err != nil {
 		return fmt.Errorf("failed to setup Component owner project index: %w", err)
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Resource{},
+		IndexKeyResourceOwnerProjectName, func(obj client.Object) []string {
+			resource := obj.(*openchoreov1alpha1.Resource)
+			if resource.Spec.Owner.ProjectName == "" {
+				return nil
+			}
+			return []string{resource.Spec.Owner.ProjectName}
+		}); err != nil {
+		return fmt.Errorf("failed to setup Resource owner project index: %w", err)
 	}
 
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Project{},

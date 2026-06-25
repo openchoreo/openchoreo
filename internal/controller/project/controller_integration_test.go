@@ -578,6 +578,24 @@ var _ = Describe("Project Controller", func() {
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 
+			By("Creating an owned Resource")
+			resource := &openchoreov1alpha1.Resource{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "it-lifecycle-res",
+					Namespace: nsName,
+				},
+				Spec: openchoreov1alpha1.ResourceSpec{
+					Owner: openchoreov1alpha1.ResourceOwner{
+						ProjectName: projName,
+					},
+					Type: openchoreov1alpha1.ResourceTypeRef{
+						Kind: openchoreov1alpha1.ResourceTypeRefKindResourceType,
+						Name: "some-type",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+
 			By("Deleting project")
 			Expect(k8sClient.Delete(ctx, fetched)).To(Succeed())
 
@@ -593,12 +611,9 @@ var _ = Describe("Project Controller", func() {
 			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
 
-			By("Reconcile again: completes finalization")
-			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
-			Expect(err).NotTo(HaveOccurred())
-
 			By("Verifying project is fully deleted")
 			Eventually(func() bool {
+				_, _ = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 				return errors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.Project{}))
 			}, itTimeout, itInterval).Should(BeTrue())
 		})
@@ -652,4 +667,91 @@ var _ = Describe("Project Controller", func() {
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 		})
 	})
+
+	Context("Finalization with owned Resources", func() {
+		const (
+			nsName   = "it-finalize-res-ns"
+			dpName   = "it-finalize-res-dp"
+			envName  = "it-finalize-res-env"
+			pipName  = "it-finalize-res-pip"
+			projName = "it-finalize-res-proj"
+		)
+
+		nn := types.NamespacedName{Name: projName, Namespace: nsName}
+
+		BeforeEach(func() {
+			setupDependencies(nsName, dpName, envName, pipName)
+		})
+
+		It("should delete owned Resources when Project is deleted", func() {
+			project := &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      projName,
+					Namespace: nsName,
+				},
+				Spec: openchoreov1alpha1.ProjectSpec{
+					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+						Name: pipName,
+					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: "default",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, project)).To(Succeed())
+
+			r := itReconciler()
+
+			// Reconcile project to add finalizer
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Reconcile project to set Created condition
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Create owned Resource
+			resource := &openchoreov1alpha1.Resource{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "it-finalize-res-resource",
+					Namespace: nsName,
+				},
+				Spec: openchoreov1alpha1.ResourceSpec{
+					Owner: openchoreov1alpha1.ResourceOwner{
+						ProjectName: projName,
+					},
+					Type: openchoreov1alpha1.ResourceTypeRef{
+						Kind: openchoreov1alpha1.ResourceTypeRefKindResourceType,
+						Name: "some-type",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+
+			// Wait for resource to be visible in cache/client
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: "it-finalize-res-resource", Namespace: nsName}, &openchoreov1alpha1.Resource{})
+			}, itTimeout, itInterval).Should(Succeed())
+
+			// Delete the Project
+			updated := &openchoreov1alpha1.Project{}
+			Expect(k8sClient.Get(ctx, nn, updated)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, updated)).To(Succeed())
+
+			// Verify the owned Resource is deleted
+			Eventually(func() bool {
+				_, _ = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: "it-finalize-res-resource", Namespace: nsName}, &openchoreov1alpha1.Resource{})
+				return errors.IsNotFound(err)
+			}, itTimeout, itInterval).Should(BeTrue())
+
+			// Verify the project is deleted
+			Eventually(func() bool {
+				_, _ = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.Project{})
+				return errors.IsNotFound(err)
+			}, itTimeout, itInterval).Should(BeTrue())
+		})
+	})
+
 })

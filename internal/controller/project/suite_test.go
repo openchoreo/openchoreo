@@ -67,9 +67,10 @@ var _ = BeforeSuite(func() {
 			BindAddress: "0", // Disable metrics server in tests
 		},
 		Cache: cache.Options{
-			// Only cache Component type (required for field index queries)
+			// Only cache Component and Resource type (required for field index queries)
 			ByObject: map[client.Object]cache.ByObject{
 				&openchoreov1alpha1.Component{}: {},
+				&openchoreov1alpha1.Resource{}:  {},
 			},
 			DefaultNamespaces: map[string]cache.Config{},
 		},
@@ -95,6 +96,16 @@ var _ = BeforeSuite(func() {
 				return nil
 			}
 			return []string{component.Spec.Owner.ProjectName}
+		})
+	Expect(err).NotTo(HaveOccurred())
+
+	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Resource{},
+		controller.IndexKeyResourceOwnerProjectName, func(obj client.Object) []string {
+			resource := obj.(*openchoreov1alpha1.Resource)
+			if resource.Spec.Owner.ProjectName == "" {
+				return nil
+			}
+			return []string{resource.Spec.Owner.ProjectName}
 		})
 	Expect(err).NotTo(HaveOccurred())
 
