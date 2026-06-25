@@ -935,6 +935,10 @@ def slack_link(url: str, label: str = "Open source") -> str:
     return f"<{url}|{slack_mrkdwn_escape(label)}>"
 
 
+def is_http_url(url: str) -> bool:
+    return url.startswith(("http://", "https://"))
+
+
 def slack_severity_color(severity: str) -> str:
     return SLACK_SEVERITY_COLORS.get(severity.lower(), "#6e7781")
 
@@ -950,23 +954,35 @@ def slack_finding_attachment(finding: dict[str, Any]) -> dict[str, Any]:
     title = slack_mrkdwn_escape(finding.get("title", "Untitled finding"))
     action = slack_mrkdwn_escape(finding.get("action", "Review the source and assess impact."))
     owner = slack_mrkdwn_escape(finding.get("owner", "unassigned"))
+    url = str(finding.get("url", ""))
+    first_block: dict[str, Any] = {
+        "type": "section",
+        "text": {
+            "type": "mrkdwn",
+            "text": f"*{title}*\n{source_name}",
+        },
+    }
+    if is_http_url(url):
+        first_block["accessory"] = {
+            "type": "button",
+            "text": {
+                "type": "plain_text",
+                "text": "View notice",
+            },
+            "url": url,
+        }
 
     return {
         "color": slack_severity_color(str(finding.get("severity", "medium"))),
+        "fallback": f"{severity} - {finding.get('source_name', 'Unknown source')}: {finding.get('title', 'Untitled finding')}",
         "blocks": [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*{severity}* | *{source_name}*\n{title}",
-                },
-            },
+            first_block,
             {
                 "type": "section",
                 "fields": [
                     {
                         "type": "mrkdwn",
-                        "text": f"*Source*\n{slack_link(str(finding.get('url', '')))}",
+                        "text": f"*Severity*\n{severity}",
                     },
                     {
                         "type": "mrkdwn",
@@ -978,9 +994,16 @@ def slack_finding_attachment(finding: dict[str, Any]) -> dict[str, Any]:
                     },
                     {
                         "type": "mrkdwn",
-                        "text": f"*Action*\n{action}",
+                        "text": f"*Source*\n{slack_link(url, 'Notice link')}",
                     },
                 ],
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Action*\n{action}",
+                },
             },
         ],
     }
@@ -997,12 +1020,8 @@ def slack_payload(
     source_errors = sum(1 for finding in findings if finding.get("kind") == "source_error")
     compatibility_findings = len(findings) - source_errors
     part_note = f" Part {part}/{total_parts}." if total_parts > 1 else ""
-    title = "OpenChoreo external compatibility scan"
-    summary = (
-        f"Found *{compatibility_findings}* compatibility notice(s) and "
-        f"*{source_errors}* source-health issue(s) in this message."
-        f"{first_run_note}{part_note}"
-    )
+    title = "OpenChoreo External Compatibility Scan"
+    summary = "External API, webhook, SaaS, lifecycle, and Kubernetes compatibility notices."
     fallback_lines = [
         f"{title}: {compatibility_findings} compatibility notice(s), {source_errors} source-health issue(s).{first_run_note}{part_note}",
         f"Total matching notices observed this run: {total_matches}.",
@@ -1024,11 +1043,32 @@ def slack_payload(
             },
         },
         {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Compatibility notices*\n{compatibility_findings}",
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Source-health issues*\n{source_errors}",
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Total matches this run*\n{total_matches}",
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Run context*\n{('First scan state' if first_run else 'Existing scan state')}{part_note}",
+                },
+            ],
+        },
+        {
             "type": "context",
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": f"Total matching notices observed this run: *{total_matches}*. Full details are in the `external-compatibility-scan-state` artifact.",
+                    "text": "Full details are in the `external-compatibility-scan-state` artifact.",
                 }
             ],
         },
@@ -1047,6 +1087,7 @@ def slack_payload(
                 ],
             }
         )
+    blocks.append({"type": "divider"})
     for finding in findings:
         affected = ", ".join(finding.get("affected_files", [])[:3])
         if len(finding.get("affected_files", [])) > 3:

@@ -430,7 +430,10 @@ class ExternalCompatibilityScanTests(unittest.TestCase):
         self.assertIn("attachments", payload)
         self.assertEqual(payload["blocks"][0]["type"], "header")
         self.assertEqual(payload["attachments"][0]["color"], "#fb8500")
-        self.assertIn("*HIGH*", payload["attachments"][0]["blocks"][0]["text"]["text"])
+        self.assertEqual(payload["attachments"][0]["blocks"][0]["accessory"]["text"]["text"], "View notice")
+        self.assertIn("*Severity*\nHIGH", payload["attachments"][0]["blocks"][1]["fields"][0]["text"])
+        self.assertIn("|Notice link>", payload["attachments"][0]["blocks"][1]["fields"][3]["text"])
+        self.assertIn("*Action*", payload["attachments"][0]["blocks"][2]["text"]["text"])
 
     def test_validate_config_rejects_dead_affected_file_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
