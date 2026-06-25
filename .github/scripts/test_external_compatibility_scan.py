@@ -422,6 +422,16 @@ class ExternalCompatibilityScanTests(unittest.TestCase):
         self.assertEqual(len(payload_files), 3)
         self.assertEqual(len(ids_files), 3)
 
+    def test_slack_payload_uses_blocks_and_severity_colors(self) -> None:
+        payload = scanner.slack_payload([finding()], False, 1)
+
+        self.assertIn("text", payload)
+        self.assertIn("blocks", payload)
+        self.assertIn("attachments", payload)
+        self.assertEqual(payload["blocks"][0]["type"], "header")
+        self.assertEqual(payload["attachments"][0]["color"], "#fb8500")
+        self.assertIn("*HIGH*", payload["attachments"][0]["blocks"][0]["text"]["text"])
+
     def test_validate_config_rejects_dead_affected_file_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
