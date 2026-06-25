@@ -120,7 +120,7 @@ if err := (&component.Reconciler{
 }
 ```
 
-### 4. **Test the Refactored Controller**
+### 6. **Test the Refactored Controller**
 
 Run the following to verify that your changes are working as expected:
 
