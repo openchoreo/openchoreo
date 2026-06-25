@@ -42,6 +42,12 @@ USER_AGENT = "openchoreo-external-compatibility-scan/1.0 (+https://github.com/op
 MAX_FINDINGS_PER_SLACK_MESSAGE = 10
 MAX_SEEN_ITEMS = 2000
 RETRYABLE_HTTP_STATUS = {403, 429, 500, 502, 503, 504}
+SLACK_SEVERITY_COLORS = {
+    "critical": "#d1242f",
+    "high": "#fb8500",
+    "medium": "#d4a72c",
+    "low": "#6e7781",
+}
 NEGATION_BEFORE_KEYWORD = re.compile(
     r"\b(?:no\s+longer|not(?:\s+an?|\s+any)?|never)\s+(?:\w+\s+){0,3}$",
     re.IGNORECASE,
@@ -919,6 +925,67 @@ def workflow_run_url() -> str:
     return f"{server.rstrip('/')}/{repository}/actions/runs/{run_id}"
 
 
+def slack_mrkdwn_escape(value: Any) -> str:
+    return str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def slack_link(url: str, label: str = "Open source") -> str:
+    if not url.startswith(("http://", "https://")):
+        return slack_mrkdwn_escape(url)
+    return f"<{url}|{slack_mrkdwn_escape(label)}>"
+
+
+def slack_severity_color(severity: str) -> str:
+    return SLACK_SEVERITY_COLORS.get(severity.lower(), "#6e7781")
+
+
+def slack_finding_attachment(finding: dict[str, Any]) -> dict[str, Any]:
+    affected_files = finding.get("affected_files", [])
+    affected = ", ".join(affected_files[:3]) if affected_files else "Not specified"
+    if len(affected_files) > 3:
+        affected += ", ..."
+
+    severity = str(finding.get("severity", "medium")).upper()
+    source_name = slack_mrkdwn_escape(finding.get("source_name", "Unknown source"))
+    title = slack_mrkdwn_escape(finding.get("title", "Untitled finding"))
+    action = slack_mrkdwn_escape(finding.get("action", "Review the source and assess impact."))
+    owner = slack_mrkdwn_escape(finding.get("owner", "unassigned"))
+
+    return {
+        "color": slack_severity_color(str(finding.get("severity", "medium"))),
+        "blocks": [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*{severity}* | *{source_name}*\n{title}",
+                },
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Source*\n{slack_link(str(finding.get('url', '')))}",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Owner*\n{owner}",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Affected*\n{slack_mrkdwn_escape(affected)}",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Action*\n{action}",
+                    },
+                ],
+            },
+        ],
+    }
+
+
 def slack_payload(
     findings: list[dict[str, Any]],
     first_run: bool,
@@ -926,23 +993,65 @@ def slack_payload(
     part: int = 1,
     total_parts: int = 1,
 ) -> dict[str, Any]:
-    baseline_note = " First-run baseline mode was enabled." if first_run else ""
+    first_run_note = " First scan state for this branch." if first_run else ""
     source_errors = sum(1 for finding in findings if finding.get("kind") == "source_error")
     compatibility_findings = len(findings) - source_errors
     part_note = f" Part {part}/{total_parts}." if total_parts > 1 else ""
-    lines = [
-        f"OpenChoreo external compatibility scan found {compatibility_findings} compatibility notice(s) and {source_errors} source-health issue(s) in this message.{baseline_note}{part_note}",
+    title = "OpenChoreo external compatibility scan"
+    summary = (
+        f"Found *{compatibility_findings}* compatibility notice(s) and "
+        f"*{source_errors}* source-health issue(s) in this message."
+        f"{first_run_note}{part_note}"
+    )
+    fallback_lines = [
+        f"{title}: {compatibility_findings} compatibility notice(s), {source_errors} source-health issue(s).{first_run_note}{part_note}",
         f"Total matching notices observed this run: {total_matches}.",
-        "See the external-compatibility-scan-state artifact for report.json and full finding details.",
+        "See the external-compatibility-scan-state artifact for report.json and full details.",
+    ]
+    blocks: list[dict[str, Any]] = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": title,
+            },
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": summary,
+            },
+        },
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"Total matching notices observed this run: *{total_matches}*. Full details are in the `external-compatibility-scan-state` artifact.",
+                }
+            ],
+        },
     ]
     run_url = workflow_run_url()
     if run_url:
-        lines.append(f"Workflow run: {run_url}")
+        fallback_lines.append(f"Workflow run: {run_url}")
+        blocks.append(
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"Workflow run: {slack_link(run_url, 'open in GitHub Actions')}",
+                    }
+                ],
+            }
+        )
     for finding in findings:
         affected = ", ".join(finding.get("affected_files", [])[:3])
         if len(finding.get("affected_files", [])) > 3:
             affected += ", ..."
-        lines.append(
+        fallback_lines.append(
             "\n".join(
                 [
                     "",
@@ -955,7 +1064,11 @@ def slack_payload(
                 ]
             )
         )
-    return {"text": "\n".join(lines)}
+    return {
+        "text": "\n".join(fallback_lines),
+        "blocks": blocks,
+        "attachments": [slack_finding_attachment(finding) for finding in findings],
+    }
 
 
 def slack_payload_dir(slack_payload_path: Path) -> Path:
