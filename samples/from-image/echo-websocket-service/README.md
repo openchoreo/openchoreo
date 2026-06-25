@@ -62,7 +62,7 @@ Once connected, type any message and press Enter. The server will echo back the 
 
 ### Example Session
 
-```
+```text
 Connected (press CTRL+C to quit)
 > Hello, WebSocket!
 < Hello, WebSocket!

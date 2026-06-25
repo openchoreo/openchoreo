@@ -25,7 +25,7 @@ In real clusters, services often get allocated far more CPU and memory than they
 
 ### Architecture context
 
-```
+```text
 frontend (over-provisioned: 2 CPU, 2Gi memory)
 checkout (over-provisioned: 2 CPU, 2Gi memory)
 cart     (over-provisioned: 1 CPU, 1Gi memory)
@@ -66,7 +66,7 @@ Wait a couple of minutes for the pods to restart and for usage metrics to start 
 
 Ask the AI assistant to check the current resource configuration across the project.
 
-```
+```text
 Show me the resource configuration (CPU and memory requests and limits) from
 the release bindings for all components in the "default" namespace,
 "gcp-microservice-demo" project.
@@ -84,7 +84,7 @@ the release bindings for all components in the "default" namespace,
 
 Now compare the allocations against what the services are actually consuming.
 
-```
+```text
 Query the CPU and memory usage metrics for the frontend, checkout, and cart
 components in the "default" namespace, "gcp-microservice-demo" project,
 "development" environment over the last 15 minutes. Compare with their
@@ -102,7 +102,7 @@ configured limits.
 
 Ask the AI assistant to analyze the waste and suggest optimal values.
 
-```
+```text
 Based on the actual usage data, these services look over-provisioned.
 Suggest optimal CPU and memory requests and limits for frontend, checkout,
 and cart. Include a safety buffer and explain your reasoning.
@@ -118,7 +118,7 @@ and cart. Include a safety buffer and explain your reasoning.
 
 Apply the optimized resource configuration using the MCP server.
 
-```
+```text
 Update the release bindings for frontend, checkout, and cart with the recommended resource values.
 ```
 

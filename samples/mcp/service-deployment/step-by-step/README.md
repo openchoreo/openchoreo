@@ -28,7 +28,7 @@ You'll learn to:
 
 First, verify that your OpenChoreo instance has the necessary infrastructure.
 Prompt:
-```
+```text
 List the environments in my "default" namespace
 ```
 
@@ -39,7 +39,7 @@ List the environments in my "default" namespace
 Let's create a project called "greeter" for our application.
 
 Prompt:
-```
+```text
 Create a new project called "greeter" in the "default" namespace with description "Simple greeter service in Go"
 ```
 
@@ -53,7 +53,7 @@ Create a new project called "greeter" in the "default" namespace with descriptio
 Now let's create the greeter service component and configure its build workflow.
 
 Prompt:
-```
+```text
 Create a component called "greeter-service" in the greeter project. 
 It should be a deployment/service type, listening on port 9090, 
 with 1 replica, and publicly exposed. Configure it to build from 
@@ -76,7 +76,7 @@ Now let's build the container image for our greeter service.
 ### Build Greeter Service
 
 Prompt:
-```
+```text
 Trigger a build for the greeter-service component in the greeter project using the main branch
 ```
 
@@ -88,7 +88,7 @@ Trigger a build for the greeter-service component in the greeter project using t
 ### Monitor Build Progress
 
 Prompt:
-```
+```text
 What's the status of the greeter-service build? Check periodically until the build finishes
 ```
 
@@ -107,7 +107,7 @@ Let's verify that the greeter service is running correctly.
 ### Check Component Status
 
 Prompt:
-```
+```text
 Show me the deployment status of the greeter-service in the greeter project
 ```
 
@@ -119,7 +119,7 @@ Show me the deployment status of the greeter-service in the greeter project
 ### Get Access URL
 
 Prompt:
-```
+```text
 What is the endpoint URL for my greeter service in development? The gateway is running on the port 19080
 ```
 
@@ -130,12 +130,12 @@ What is the endpoint URL for my greeter service in development? The gateway is r
 ### Test the Service
 
 **Sample Curl**
-```
+```sh
 curl http://development-default.openchoreoapis.localhost:19080/greeter/greet?name=World
 ```
 
 **Expected response:**
-```
+```text
 Hello, World
 ```
 
@@ -148,7 +148,7 @@ After testing in development, let's promote the greeter service to production.
 ### Promote the Service
 
 Prompt:
-```
+```text
 Promote the greeter-service up to the production environment
 ```
 

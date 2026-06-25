@@ -52,7 +52,7 @@ git remote -v
 
 Expected output:
 
-```
+```text
 origin    https://github.com/<your-username>/openchoreo.git (fetch)
 origin    https://github.com/<your-username>/openchoreo.git (push)
 upstream  https://github.com/openchoreo/openchoreo.git (fetch)
@@ -140,7 +140,7 @@ PR titles must follow this format and are validated by the `lint-pr.yml` CI work
 
 ### Format
 
-```
+```text
 <type>(<scope>): <subject>
 ```
 
@@ -178,7 +178,7 @@ Scope is optional. If a change spans multiple areas, either use the most relevan
 
 ### Examples
 
-```
+```text
 feat(controller): add ComponentRelease reconciler
 fix(api): handle missing organization gracefully
 chore(deps): bump sigs.k8s.io/controller-runtime

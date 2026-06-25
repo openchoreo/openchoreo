@@ -8,7 +8,7 @@ The instance is a minimal, publicly accessible `db.t3.micro` (free-tier eligible
 
 ## Pipeline Overview
 
-```
+```text
 WorkflowRun
     │
     ▼
@@ -161,7 +161,7 @@ spec:
 
 ## Example Output
 
-```
+```text
 =================================================
   AWS RDS PostgreSQL Instance Created
 =================================================
@@ -208,7 +208,7 @@ kubectl apply -f aws-rds-postgres-delete.yaml
 ## Terraform State
 
 State is stored at:
-```
+```text
 s3://<tfState.s3Bucket>/rds/<db.identifier>/terraform.tfstate
 ```
 

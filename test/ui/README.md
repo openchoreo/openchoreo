@@ -4,7 +4,7 @@ Playwright tests that drive the Backstage portal end-to-end in Chromium against 
 
 ## Structure
 
-```
+```text
 ui/
 ├── playwright.config.ts   Runner config; maps *.e2e-cp.local hostnames to 127.0.0.1
 │                          via Chromium host-resolver rules (no /etc/hosts edit needed)
