@@ -48,7 +48,7 @@ Low-level examples demonstrating how to define and use custom component types wi
 Reusable Workflow definitions for standalone automation tasks independent of any Component.
 
 **Available Samples:**
-- **[AWS RDS Postgres Create](./workflows/aws-rds-postgres-create/)** - Provision and destroy AWS RDS PostgreSQL instances using Terraform
+- **[AWS RDS Postgres Create](./workflows/aws-rds-postgres/)** - Provision and destroy AWS RDS PostgreSQL instances using Terraform
 - **[GitHub Stats Report](./workflows/github-stats-report/)** - Fetch GitHub repository statistics, transform the data, and generate a formatted report
 - **[SCM Create Repo](./workflows/scm-create-repo/)** - Create repositories in GitHub or AWS CodeCommit
 
