@@ -17,7 +17,7 @@ dependencies = [
     # Service-DNS reachability, but the security argument assumes the
     # rest of the SDK's transport hardening is the post-1.23 shape.
     "mcp>=1.27.2",
-    "numpy>=2.4.1",
+    "numpy>=2.5.0",
     "aiosqlite>=0.20.0",
     "asyncpg>=0.30.0",
     "sqlalchemy[asyncio]>=2.0.51",
