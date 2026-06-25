@@ -1,0 +1,157 @@
+name: External Compatibility Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      notify_on_first_run:
+        description: "Send matching historical findings when no previous state exists"
+        required: false
+        default: false
+        type: boolean
+      post_to_slack:
+        description: "Post new findings to Slack when SLACK_EXTERNAL_COMPATIBILITY_WEBHOOK_URL is configured"
+        required: false
+        default: true
+        type: boolean
+  schedule:
+    # Run weekly on Monday at 03:10 UTC (08:40 IST).
+    - cron: "10 3 * * 1"
+
+concurrency:
+  group: external-compatibility-scan-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  scan:
+    name: Scan curated external compatibility sources
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+      NOTIFY_ON_FIRST_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.notify_on_first_run || false }}
+      POST_TO_SLACK: ${{ github.event_name != 'workflow_dispatch' || inputs.post_to_slack }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_EXTERNAL_COMPATIBILITY_WEBHOOK_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Restore previous external compatibility scan state
+        run: |
+          mkdir -p .external-compatibility-scan
+
+          previous_run_id="$(
+            gh run list \
+              --workflow external-compatibility-scan.yaml \
+              --branch "${{ github.ref_name }}" \
+              --status success \
+              --limit 1 \
+              --json databaseId \
+              --jq '.[0].databaseId // ""'
+          )"
+
+          if [ -z "${previous_run_id}" ]; then
+            echo "No previous successful external compatibility scan found for ${{ github.ref_name }}; this run will establish a baseline."
+            exit 0
+          fi
+
+          echo "Restoring external compatibility scan state from run ${previous_run_id}"
+          gh run download "${previous_run_id}" \
+            --name external-compatibility-scan-state \
+            --dir .external-compatibility-scan \
+            || echo "No previous state artifact found; this run will establish a baseline."
+
+      - name: Validate source configuration
+        run: |
+          python3 .github/scripts/external_compatibility_scan.py \
+            --config .github/external-compatibility-sources.json \
+            --state .external-compatibility-scan/state.json \
+            --state-out .external-compatibility-scan/state.json \
+            --slack-payload .external-compatibility-scan/slack-payload.json \
+            --report .external-compatibility-scan/report.json \
+            --validate-only
+
+      - name: Run external compatibility scan
+        run: |
+          args=()
+          if [ "${NOTIFY_ON_FIRST_RUN}" = "true" ]; then
+            args+=(--notify-on-first-run)
+          fi
+
+          python3 .github/scripts/external_compatibility_scan.py \
+            --config .github/external-compatibility-sources.json \
+            --state .external-compatibility-scan/state.json \
+            --state-out .external-compatibility-scan/state.json \
+            --slack-payload .external-compatibility-scan/slack-payload.json \
+            --report .external-compatibility-scan/report.json \
+            "${args[@]}"
+
+      - name: Post Slack digest
+        id: slack
+        run: |
+          if [ ! -d .external-compatibility-scan/slack-payloads ] || ! compgen -G ".external-compatibility-scan/slack-payloads/*.payload.json" > /dev/null; then
+            echo "No new external compatibility findings to post."
+            echo "posted=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [ "${POST_TO_SLACK}" != "true" ]; then
+            echo "Slack posting disabled for this run. Payloads:"
+            cat .external-compatibility-scan/slack-payloads/*.payload.json
+            echo "posted=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [ -z "${SLACK_WEBHOOK_URL}" ]; then
+            echo "SLACK_EXTERNAL_COMPATIBILITY_WEBHOOK_URL is not configured. Payloads:"
+            cat .external-compatibility-scan/slack-payloads/*.payload.json
+            echo "posted=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          for payload in .external-compatibility-scan/slack-payloads/*.payload.json; do
+            ids="${payload%.payload.json}.ids.json"
+            curl -fsS \
+              -X POST \
+              -H 'Content-Type: application/json' \
+              --data @"${payload}" \
+              "${SLACK_WEBHOOK_URL}"
+            python3 .github/scripts/external_compatibility_scan.py \
+              --config .github/external-compatibility-sources.json \
+              --state .external-compatibility-scan/state.json \
+              --state-out .external-compatibility-scan/state.json \
+              --slack-payload .external-compatibility-scan/slack-payload.json \
+              --report .external-compatibility-scan/report.json \
+              --mark-notified-ids "${ids}"
+          done
+          echo "posted=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Mark Slack digest as notified
+        if: steps.slack.outputs.posted == 'true'
+        run: |
+          python3 .github/scripts/external_compatibility_scan.py \
+            --config .github/external-compatibility-sources.json \
+            --state .external-compatibility-scan/state.json \
+            --state-out .external-compatibility-scan/state.json \
+            --slack-payload .external-compatibility-scan/slack-payload.json \
+            --report .external-compatibility-scan/report.json \
+            --mark-notified
+
+      - name: Upload external compatibility scan state
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: external-compatibility-scan-state
+          path: |
+            .external-compatibility-scan/state.json
+            .external-compatibility-scan/report.json
+            .external-compatibility-scan/slack-payload.json
+            .external-compatibility-scan/slack-payloads/*.json
+          if-no-files-found: ignore
+          retention-days: 90
