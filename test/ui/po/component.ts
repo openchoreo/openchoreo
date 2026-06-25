@@ -9,8 +9,8 @@ export interface CreateComponentInput {
   project: string; // project metadata name to select in the form's Project picker
   // Template card label on the "Browse component templates" page. Restricted
   // to the endpoint-bearing templates: create() drives the endpoint sub-form
-  // ("Add Endpoint" / "Apply changes") unconditionally, which non-HTTP
-  // templates (e.g. "Worker") don't render. Defaults to "Web Application".
+  // ("Add Endpoint" / "Save") unconditionally, which non-HTTP templates
+  // (e.g. "Worker") don't render. Defaults to "Web Application".
   template?: 'Web Application' | 'Service';
   image: string; // container image reference (Container Image deployment source)
   // Web Application / Service component types require at least one HTTP
@@ -125,7 +125,7 @@ export class ComponentPO {
     // an endpoint is still in edit mode ("Save or cancel the item you are
     // currently editing before proceeding.").
     await this.page
-      .getByRole('button', { name: 'Apply changes', exact: true })
+      .getByRole('button', { name: 'Save', exact: true })
       .click();
   }
 
