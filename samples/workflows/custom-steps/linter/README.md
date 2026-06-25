@@ -14,7 +14,7 @@ This sample demonstrates how to add an API linting step to an OpenChoreo CI work
 
 The `dockerfile-builder-linter` workflow runs these steps in order:
 
-```
+```text
 checkout-source → spectral-lint → build-image → publish-image → generate-workload-cr
 ```
 

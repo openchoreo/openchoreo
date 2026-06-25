@@ -14,7 +14,7 @@ OpenChoreo supports multiple build engines through a pluggable architecture that
 
 ### High-Level Architecture
 
-```
+```text
 Control Plane                                  Workflow Plane
 ┌───────────────────────────────────────┐      ┌─────────────────────────────┐
 │                                       │      │                             │
@@ -86,7 +86,7 @@ Build Lifecycle Flow:
 
 ### Component Structure
 
-```
+```text
 internal/controller/build/
 ├── builder.go                    # Builder mediator pattern (engine selection, lifecycle)
 ├── controller.go                 # Main build controller
