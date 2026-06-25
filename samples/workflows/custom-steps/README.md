@@ -19,7 +19,7 @@ Each subdirectory covers a category of custom step with its own README and sampl
 
 A standard OpenChoreo build pipeline runs these steps in order:
 
-```
+```text
 checkout-source → build-image → publish-image → generate-workload-cr
 ```
 

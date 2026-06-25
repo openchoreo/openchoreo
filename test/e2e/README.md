@@ -4,7 +4,7 @@ Go (Ginkgo) suites that exercise OpenChoreo features against a real Kubernetes c
 
 ## Structure
 
-```
+```text
 e2e/
 ├── e2e_suite_test.go   Suite entry point; verifies the cluster is reachable (--e2e.kubecontext)
 ├── e2e_test.go         Platform health checks: all control/data plane pods running

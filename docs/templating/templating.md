@@ -110,7 +110,7 @@ Bracket notation is **required** for:
 
 The `in` operator checks membership in maps and lists:
 
-```
+```cel
 # Check if a key exists in a map
 parameters.endpointName in workload.endpoints
 
@@ -120,7 +120,7 @@ parameters.endpointName in workload.endpoints
 
 For maps, `exists()` and `all()` iterate over **keys** — use bracket notation to access values:
 
-```
+```cel
 # Check if any endpoint is of type HTTP
 workload.endpoints.exists(name, workload.endpoints[name].type == 'HTTP')
 

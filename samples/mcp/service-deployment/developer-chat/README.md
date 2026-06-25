@@ -20,7 +20,7 @@ This guide uses a conversational workflow where you interact naturally with your
 
 ### Step 1: Enter the Agent's system prompt
 
-```
+```text
 You're a useful agent to help make OpenChoreo tasks easier for OpenChoreo users. You can use only the OpenChoreo MCP server. Specifically, you can't use curl and kubectl. You may refer to OpenChoreo docs: https://openchoreo.dev/docs/. You may ask back the user questions when you want further input for a task.
 
 You execute the MCP tools efficiently and avoid unnecessary tool calls. You reply concisely and keep the conversation clean. You don't generate .md files and other artifacts unless you're asked to.
@@ -32,7 +32,7 @@ The Agent will respond with the available MCP tools
 
 ### Step 2: Request Deployment
 
-```
+```text
 I want to deploy my Go REST API service on OpenChoreo. Source: https://github.com/openchoreo/sample-workloads/tree/main/service-go-greeter
 The source contains a Dockerfile. You can use it for the deployment.
 ```

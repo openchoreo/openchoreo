@@ -6,7 +6,7 @@ This sample demonstrates a Generic Workflow that fetches repository statistics f
 
 ## Pipeline Overview
 
-```
+```text
 WorkflowRun
     │
     ▼
@@ -70,7 +70,7 @@ spec:
 
 ## Example Output (table format)
 
-```
+```text
 =============================
   GitHub Repository Report
 =============================

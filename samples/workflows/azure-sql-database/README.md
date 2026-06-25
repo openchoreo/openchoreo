@@ -8,7 +8,7 @@ The database uses the Basic SKU (5 DTUs) — sized for dev/test, not production.
 
 ## Pipeline Overview
 
-```
+```text
 WorkflowRun
     │
     ▼
@@ -157,7 +157,7 @@ spec:
 
 ## Example Output
 
-```
+```text
 =================================================
   Azure SQL Database Created
 =================================================
@@ -205,7 +205,7 @@ kubectl apply -f azure-sql-database-delete.yaml
 ## Terraform State
 
 State is stored at:
-```
+```text
 Azure Storage Account: <tfState.storageAccount>
 Container:             tfstate
 Blob:                  azuresql/<server.name>/terraform.tfstate

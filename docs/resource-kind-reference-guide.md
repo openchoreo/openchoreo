@@ -83,7 +83,7 @@ erDiagram
 
 ### Core Deployment Flow
 
-```
+```text
 Project (defines deployment pipeline)
   └── Component (references ComponentType, attaches Traits, configures Workflow)
        ├── Workload (container spec, endpoints, dependencies on endpoints + resources)
@@ -94,7 +94,7 @@ Project (defines deployment pipeline)
 
 ### Managed-Infrastructure Flow
 
-```
+```text
 Project
   └── Resource (references ResourceType, supplies parameters)
        └── ResourceRelease (immutable snapshot of Resource.spec + ResourceType.spec)
@@ -107,7 +107,7 @@ referenced ResourceReleaseBinding to be Ready before producing its RenderedRelea
 
 ### Platform Infrastructure
 
-```
+```text
 DeploymentPipeline (defines promotion paths between Environments)
 Environment (runtime context: dev/staging/prod, references DataPlane)
 DataPlane / ClusterDataPlane (target K8s cluster, agent-based connectivity)

@@ -12,7 +12,7 @@ A sample application that demonstrates how an OpenChoreo Workload consumes manag
 
 ## Architecture
 
-```
+```text
                   external HTTP
                        │
                        ▼
