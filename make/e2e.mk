@@ -358,6 +358,12 @@ _e2e.prepare-backstage-secret:
 e2e.setup-cluster: ## Create k3d cluster
 	@$(call log_info, Creating k3d cluster '$(E2E_CLUSTER_NAME)')
 	k3d cluster create --config $(E2E_K3D_DIR)/config.yaml
+	@# Gate on node readiness before the first apply: k3d returns once the
+	@# cluster is "created", but the API server may still be bringing up its
+	@# OpenAPI/aggregation layer, which a client-side `apply` needs ("failed
+	@# to download openapi: the server is currently unable to handle the
+	@# request"). Mirrors the multi-cluster setup.
+	$(E2E_KUBECTL) wait --for=condition=Ready nodes --all --timeout=120s
 	@$(call log_info, Applying CoreDNS rewrite for e2e domains)
 	$(E2E_KUBECTL) apply -f $(E2E_K3D_DIR)/coredns-custom.yaml
 	@$(call log_success, k3d cluster '$(E2E_CLUSTER_NAME)' created)

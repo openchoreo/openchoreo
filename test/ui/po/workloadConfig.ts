@@ -162,7 +162,7 @@ export class WorkloadConfigPO {
 
   async expectApplyDisabled(): Promise<void> {
     await expect(
-      this.page.getByRole('button', { name: 'Apply changes' }),
+      this.page.getByRole('button', { name: 'Save changes' }),
     ).toBeDisabled();
   }
 
@@ -355,16 +355,16 @@ export class WorkloadConfigPO {
   private async clickEditOnEnvRow(name: string): Promise<void> {
     await this.cancelAnyOpenEditor();
     const card = this.envCard(name);
-    await card.getByRole('button', { name: 'Edit', exact: true }).first().click();
+    await card.getByRole('button', { name: 'Edit' }).first().click();
   }
 
   private async clickEditOnFileRow(fileName: string): Promise<void> {
     await this.cancelAnyOpenEditor();
     const card = this.fileCard(fileName);
     await card.scrollIntoViewIfNeeded();
-    await card.getByRole('button', { name: 'Edit', exact: true }).first().click();
+    await card.getByRole('button', { name: 'Edit' }).first().click();
     await this.page
-      .getByRole('button', { name: 'Apply changes' })
+      .getByRole('button', { name: 'Save changes' })
       .waitFor({ state: 'visible', timeout: 5_000 });
   }
 
@@ -382,7 +382,7 @@ export class WorkloadConfigPO {
       .getByRole('button', { name: 'Add Environment Variable', exact: true })
       .click();
     await this.page
-      .getByRole('button', { name: 'Apply changes' })
+      .getByRole('button', { name: 'Save changes' })
       .first()
       .waitFor({ state: 'visible', timeout: 10_000 });
   }
@@ -392,14 +392,14 @@ export class WorkloadConfigPO {
       .getByRole('button', { name: 'Add File Mount', exact: true })
       .click();
     await this.page
-      .getByRole('button', { name: 'Apply changes' })
+      .getByRole('button', { name: 'Save changes' })
       .last()
       .waitFor({ state: 'visible', timeout: 10_000 });
   }
 
   private async clickApply(): Promise<void> {
     await this.page
-      .getByRole('button', { name: 'Apply changes' })
+      .getByRole('button', { name: 'Save changes' })
       .click();
   }
 
