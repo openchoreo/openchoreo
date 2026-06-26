@@ -9,6 +9,7 @@ PROJECT_DIR := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 include make/common.mk
 include make/tools.mk
 include make/golang.mk
+include make/python.mk
 include make/lint.mk
 include make/docker.mk
 include make/kube.mk

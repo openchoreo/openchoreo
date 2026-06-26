@@ -35,9 +35,13 @@ def test_total_content_cap_rejects_overage():
 
 
 def test_total_content_cap_at_boundary():
-    # Right at the limit must pass.
-    msg = ChatMessage(role="user", content="x" * _TOTAL_CONTENT_LIMIT)
-    req = ChatRequest(messages=[msg])
+    # Per-message cap is 10k, so split the total across multiple messages.
+    per_msg = 10_000
+    msgs = [
+        ChatMessage(role="user", content="x" * per_msg)
+        for _ in range(_TOTAL_CONTENT_LIMIT // per_msg)
+    ]
+    req = ChatRequest(messages=msgs)
     assert sum(len(m.content) for m in req.messages) == _TOTAL_CONTENT_LIMIT
 
 

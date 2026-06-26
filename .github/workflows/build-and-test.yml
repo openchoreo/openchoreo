@@ -62,7 +62,7 @@ jobs:
 
       - name: Running Tests
         run: |
-          make test
+          make go.test
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
@@ -132,8 +132,8 @@ jobs:
           name: cluster-agent
           path: bin/dist/**/cluster-agent
 
-  finops-agent-test:
-    name: FinOps Agent (Python)
+  python-agents-test:
+    name: Python Agents
     runs-on: ubuntu-24.04
     steps:
       - name: Clone the code
@@ -143,21 +143,18 @@ jobs:
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           enable-cache: true
-          cache-dependency-glob: agents/finops-agent/uv.lock
+          cache-dependency-glob: agents/*/uv.lock
 
       - name: Run tests
-        working-directory: agents/finops-agent
-        # uv reads .python-version (3.14) and provisions the interpreter.
-        # ruff lint/format is intentionally deferred until the pre-existing
-        # src/ debt is cleaned up; this job gates on pytest only for now.
-        run: |
-          uv sync --frozen --group dev
-          uv run --frozen pytest -q
+        # uv reads each agent's .python-version (3.14) and provisions the
+        # interpreter. ruff lint/format is intentionally deferred until the
+        # pre-existing src/ debt is cleaned up; this gates on pytest only.
+        run: make python.test
 
   publish:
     name: ${{ github.event_name == 'push' && 'Publish' || 'Verify Packaging' }}
     runs-on: ubuntu-24.04
-    needs: [ lint, gen-check, test, build, finops-agent-test ]
+    needs: [ lint, gen-check, test, build, python-agents-test ]
     permissions:
       packages: write
     steps:
