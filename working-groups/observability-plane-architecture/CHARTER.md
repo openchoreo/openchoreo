@@ -6,7 +6,7 @@
 | **Created** | June 2026 |
 | **Last Updated** | June 2026 |
 | **WG Lead** | [@sameerajayasoma](https://github.com/sameerajayasoma) |
-| **Co-Lead(s)** | [@nilushancosta](https://github.com/nilushancosta), [@akila-i](https://github.com/sameerajayasoma)  |
+| **Co-Lead(s)** | [@nilushancosta](https://github.com/nilushancosta), [@akila-i](https://github.com/akila-i)  |
 | **Core Members** | [@lakwarus](https://github.com/lakwarus), [@binura-g](https://github.com/binura-g), [@tishan89](https://github.com/tishan89), [@Mirage20](https://github.com/Mirage20), [@LakshanSS](https://github.com/LakshanSS) |
 | **Slack** | `#openchoreo-dev` on [CNCF Slack](https://cloud-native.slack.com) |
 | **Meetings** | Biweekly — see [WG community calendar](https://zoom-lfx.platform.linuxfoundation.org/meetings/openchoreo?committee=6f05c460-a211-488b-8176-010c0cf1bcba&view=week) |
