@@ -92,6 +92,17 @@ func EventsScopeAuthz(req *types.EventsQueryRequest) (ResourceType, string, auth
 	return searchScopeAuthz(req.SearchScope)
 }
 
+// RunsScopeAuthz determines the authorization resource type, name, and hierarchy
+// for scheduled-task runs and retries queries. The runs/retries APIs accept a
+// component-only scope, which we wrap into the shared SearchScope envelope to
+// reuse the same authz pathway as events.
+func RunsScopeAuthz(scope *types.ComponentSearchScope) (ResourceType, string, authzcore.ResourceHierarchy, error) {
+	if scope == nil {
+		return "", "", authzcore.ResourceHierarchy{}, fmt.Errorf("searchScope is required")
+	}
+	return searchScopeAuthz(&types.SearchScope{Component: scope})
+}
+
 // CheckAuthorization performs a complete authorization check for observer operations.
 func CheckAuthorization(
 	ctx context.Context,
