@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     llm_name: str = ""
     llm_api_key: str = ""
+    finops_agent_llm_base_url: str = ""
 
     observability_mcp_server_url: str = "http://observer:8080/mcp"
     opencost_mcp_server_url: str = (

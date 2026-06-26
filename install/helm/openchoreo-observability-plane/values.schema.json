@@ -949,6 +949,12 @@
           "title": "image",
           "type": "object"
         },
+        "llmBaseUrl": {
+          "default": "",
+          "description": "Optional OpenAI-compatible base URL for LLM calls. Set this to route through the ai-gateway-agentgateway module (e.g., http://agentgateway-proxy.openchoreo-data-plane) instead of calling the provider directly. When set, the provider API key is managed at the gateway and LLM_API_KEY may be a placeholder.",
+          "title": "llmBaseUrl",
+          "type": "string"
+        },
         "llmName": {
           "default": "",
           "description": "LLM model name (e.g., gpt-5.2)",
@@ -1769,6 +1775,12 @@
           "additionalProperties": false,
           "description": "LLM configuration for AI-powered analysis",
           "properties": {
+            "baseUrl": {
+              "default": "",
+              "description": "Optional OpenAI-compatible base URL for LLM calls. Set this to route through the ai-gateway-agentgateway module (e.g., http://agentgateway-proxy.openchoreo-data-plane) instead of calling the provider directly. When set, the provider API key is managed at the gateway and RCA_LLM_API_KEY may be a placeholder.",
+              "title": "baseUrl",
+              "type": "string"
+            },
             "modelName": {
               "default": "",
               "description": "LLM model name (e.g., gpt-5.2)",
