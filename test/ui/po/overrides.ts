@@ -66,7 +66,7 @@ export class OverridesPO {
   ): Promise<void> {
     const card = this.envCard(name);
     await card
-      .getByRole('button', { name: 'Override', exact: true })
+      .getByRole('button', { name: 'Override' })
       .click();
     const valueField = this.page.getByLabel('Value', { exact: true }).last();
     await valueField.clear();
@@ -81,7 +81,7 @@ export class OverridesPO {
     await this.cancelAnyOpenEditor();
     const card = this.fileCard(fileName);
     await card
-      .getByRole('button', { name: 'Override', exact: true })
+      .getByRole('button', { name: 'Override' })
       .click();
     const content = this.page.getByLabel(/^(Edit )?Content$/).last();
     await content.scrollIntoViewIfNeeded();
@@ -155,7 +155,7 @@ export class OverridesPO {
     await this.cancelAnyOpenEditor();
     const card = this.envCard(name);
     await card
-      .getByRole('button', { name: 'Edit', exact: true })
+      .getByRole('button', { name: 'Edit' })
       .first()
       .click();
     const valueField = this.page.getByLabel('Value', { exact: true }).last();
@@ -172,11 +172,11 @@ export class OverridesPO {
     const card = this.fileCard(fileName);
     await card.scrollIntoViewIfNeeded();
     await card
-      .getByRole('button', { name: 'Edit', exact: true })
+      .getByRole('button', { name: 'Edit' })
       .first()
       .click();
     await this.page
-      .getByRole('button', { name: 'Apply changes' })
+      .getByRole('button', { name: 'Save changes' })
       .waitFor({ state: 'visible', timeout: 5_000 });
     const expandBtn = this.page.getByRole('button', {
       name: /expand content/i,
@@ -229,7 +229,7 @@ export class OverridesPO {
 
   async expectApplyDisabled(): Promise<void> {
     await expect(
-      this.page.getByRole('button', { name: 'Apply changes' }),
+      this.page.getByRole('button', { name: 'Save changes' }),
     ).toBeDisabled();
   }
 
@@ -279,7 +279,7 @@ export class OverridesPO {
       .getByRole('button', { name: 'Add Environment Variable', exact: true })
       .click();
     await this.page
-      .getByRole('button', { name: 'Apply changes' })
+      .getByRole('button', { name: 'Save changes' })
       .first()
       .waitFor({ state: 'visible', timeout: 10_000 });
   }
@@ -289,14 +289,14 @@ export class OverridesPO {
       .getByRole('button', { name: 'Add File Mount', exact: true })
       .click();
     await this.page
-      .getByRole('button', { name: 'Apply changes' })
+      .getByRole('button', { name: 'Save changes' })
       .last()
       .waitFor({ state: 'visible', timeout: 10_000 });
   }
 
   async clickApply(): Promise<void> {
     await this.page
-      .getByRole('button', { name: 'Apply changes' })
+      .getByRole('button', { name: 'Save changes' })
       .click();
   }
 

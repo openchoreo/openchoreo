@@ -296,7 +296,7 @@ test.describe('component config edits through Backstage UI', () => {
       .getByRole('button', { name: 'Add Environment Variable', exact: true })
       .click();
     await page
-      .getByRole('button', { name: 'Apply changes' })
+      .getByRole('button', { name: 'Save changes' })
       .waitFor({ state: 'visible', timeout: 10_000 });
     // Fill only the Value field, leave Name empty.
     await page.getByLabel('Value', { exact: true }).last().fill('some-value');
@@ -453,7 +453,7 @@ test.describe('component config edits through Backstage UI', () => {
       .getByRole('button', { name: 'Add Environment Variable', exact: true })
       .click();
     await page
-      .getByRole('button', { name: 'Apply changes' })
+      .getByRole('button', { name: 'Save changes' })
       .waitFor({ state: 'visible', timeout: 10_000 });
     await page.getByLabel('Value', { exact: true }).last().fill('orphan-val');
 
@@ -465,7 +465,7 @@ test.describe('component config edits through Backstage UI', () => {
       .getByRole('button', { name: 'Add File Mount', exact: true })
       .click();
     await page
-      .getByRole('button', { name: 'Apply changes' })
+      .getByRole('button', { name: 'Save changes' })
       .waitFor({ state: 'visible', timeout: 10_000 });
     await page
       .getByLabel('Mount Path', { exact: true })
@@ -499,7 +499,7 @@ test.describe('component config edits through Backstage UI', () => {
       })
       .last();
     await envCard
-      .getByRole('button', { name: 'Override', exact: true })
+      .getByRole('button', { name: 'Override' })
       .click();
     const envNameField = page.getByLabel('Name', { exact: true }).last();
     await expect(envNameField).toBeDisabled();
@@ -521,7 +521,7 @@ test.describe('component config edits through Backstage UI', () => {
       })
       .last();
     await fileCard
-      .getByRole('button', { name: 'Override', exact: true })
+      .getByRole('button', { name: 'Override' })
       .click();
     const fileNameField = page
       .getByLabel('File Name', { exact: true })

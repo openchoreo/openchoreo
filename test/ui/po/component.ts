@@ -9,8 +9,8 @@ export interface CreateComponentInput {
   project: string; // project metadata name to select in the form's Project picker
   // Template card label on the "Browse component templates" page. Restricted
   // to the endpoint-bearing templates: create() drives the endpoint sub-form
-  // ("Add Endpoint" / "Save") unconditionally, which non-HTTP templates
-  // (e.g. "Worker") don't render. Defaults to "Web Application".
+  // ("Add Endpoint" / "Save changes") unconditionally, which non-HTTP
+  // templates (e.g. "Worker") don't render. Defaults to "Web Application".
   template?: 'Web Application' | 'Service';
   image: string; // container image reference (Container Image deployment source)
   // Web Application / Service component types require at least one HTTP
@@ -123,9 +123,11 @@ export class ComponentPO {
     await portField.fill(String(port));
     // Commit the endpoint item — the wizard refuses to advance to Review while
     // an endpoint is still in edit mode ("Save or cancel the item you are
-    // currently editing before proceeding.").
+    // currently editing before proceeding."). The button reads "Save" but
+    // carries aria-label="Save changes", so the accessible name (what
+    // getByRole matches) is "Save changes", not the visible "Save".
     await this.page
-      .getByRole('button', { name: 'Save', exact: true })
+      .getByRole('button', { name: 'Save changes', exact: true })
       .click();
   }
 
