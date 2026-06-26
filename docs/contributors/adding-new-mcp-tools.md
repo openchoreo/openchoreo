@@ -8,7 +8,7 @@ This guide explains how to add new tools to the OpenChoreo MCP server implementa
   - Toolset handler interfaces and `Toolsets` struct: `pkg/mcp/tools/types.go`
   - Tool registration lists and `Toolsets.Register(...)`: `pkg/mcp/tools/register.go`
   - Schema/result helpers: `pkg/mcp/tools/helpers.go`
-  - Tool implementations are grouped by domain in files like `namespace.go`, `project.go`, `component.go`, `deployment.go`, `build.go`, `pe.go`
+  - Tool implementations are grouped by domain in files like `namespace.go`, `project.go`, `component.go`, `resource.go`, `resource_release.go`, `pe.go`
 - **Tool implementations (handlers)**: `internal/openchoreo-api/mcphandlers/`
   - A single handler type implements one or more toolset handler interfaces (e.g. `NamespaceToolsetHandler`, `ComponentToolsetHandler`, `PEToolsetHandler`).
 - **Wiring enabled toolsets**: `cmd/openchoreo-api/main.go` (`buildMCPToolsets`)
