@@ -151,7 +151,7 @@ You can directly run the `manager` or `occ` binary this location to try out.
 
 ### Incremental Development
 
-Rather using build and run the binaries every time, you can use the go run make targets to run the binaries directly.
+Rather than using build and run the binaries every time, you can use the go run make targets to run the binaries directly.
 
 - Running the `manager` binary:
   ```sh
