@@ -64,16 +64,12 @@ async def test_mcp_get_tools_wraps_failure_in_runtime_error():
 
 
 @pytest.mark.asyncio
-async def test_openchoreo_api_get_returns_json_and_raises_for_status():
+async def test_openchoreo_api_get_returns_json_with_base_url_and_headers():
     captured = {}
 
     class FakeResponse:
-        def __init__(self, status):
-            self._status = status
-
         def raise_for_status(self):
-            if self._status >= 400:
-                raise httpx.HTTPStatusError("err", request=None, response=None)
+            pass
 
         def json(self):
             return {"ok": True}
@@ -91,7 +87,7 @@ async def test_openchoreo_api_get_returns_json_and_raises_for_status():
         async def get(self, url, headers=None, params=None, auth=None):
             captured["url"] = url
             captured["headers"] = headers
-            return FakeResponse(200)
+            return FakeResponse()
 
     with patch("src.clients.openchoreo_api.httpx.AsyncClient", FakeClient):
         result = await openchoreo_api.get("/namespaces/ns/projects/p", AUTH)

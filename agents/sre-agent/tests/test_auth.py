@@ -277,6 +277,15 @@ async def test_authz_evaluate_empty_decisions_maps_to_503():
 
 
 @pytest.mark.asyncio
+async def test_authz_evaluate_malformed_payload_maps_to_503():
+    # Decision.model_validate fails on a decision missing the required field.
+    client = _authz_client_with_response(_response(200, [{"not_a_decision": True}]))
+    with pytest.raises(HTTPException) as exc:
+        await client.evaluate(_eval_request())
+    assert exc.value.status_code == 503
+
+
+@pytest.mark.asyncio
 async def test_authz_evaluate_connect_error_maps_to_503():
     import httpx
 
