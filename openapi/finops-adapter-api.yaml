@@ -1,0 +1,520 @@
+openapi: 3.0.3
+
+info:
+  title: OpenChoreo Cost Insights Adapter API
+  description: |
+    Adapter-layer API for the OpenChoreo Cost Insights feature. This API sits
+    between the Observer and the cost backend.
+
+    Every cost response is a flat list of component cost records under `items`.
+  version: v1alpha1
+
+tags:
+  - name: Costs
+    description: Per-component cost records
+  - name: Recommendations
+    description: Right-sizing recommendations at the component level
+
+paths:
+
+  /api/v1alpha1/costs/namespaces/{namespace}/environments/{environmentUid}:
+    get:
+      operationId: getComponentCosts
+      summary: Component cost records for a namespace+environment
+      description: |
+        Returns a flat list of per-component cost records for the namespace
+        within the given environment. Use `projectUid` and `componentUid` to
+        narrow the scope, and `granularity` to split each component into time
+        buckets.
+
+        Every response is a flat list of component cost records under `items`.
+
+        The set of records returned depends on the query params:
+
+        | URL + query params                                                            | `items` contains |
+        |-------------------------------------------------------------------------------|------------------|
+        | `/api/v1alpha1/costs/namespaces/{namespace}/environments/{environmentUid}`                             | All components in the namespace+environment |
+        | `/api/v1alpha1/costs/namespaces/{namespace}/environments/{environmentUid}?projectUid=<p>`              | All components in the project |
+        | `/api/v1alpha1/costs/namespaces/{namespace}/environments/{environmentUid}?projectUid=<p>&componentUid=<c>` | The single component |
+
+        When `granularity` is supplied, each component is split into one record
+        per time bucket. Records sharing the same `componentUid` but differing
+        in their `startTime`/`endTime` represent the same component across
+        multiple time windows. Granularity can be combined with any level of
+        filtering.
+      tags: [Costs]
+      parameters:
+        - $ref: '#/components/parameters/Namespace'
+        - $ref: '#/components/parameters/EnvironmentUid'
+        - $ref: '#/components/parameters/ProjectUid'
+        - $ref: '#/components/parameters/ComponentUid'
+        - $ref: '#/components/parameters/StartTime'
+        - $ref: '#/components/parameters/EndTime'
+        - $ref: '#/components/parameters/Granularity'
+      responses:
+        '200':
+          description: A list of component cost records.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CostResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /api/v1alpha1/costs/namespaces/{namespace}/environments/{environmentUid}/recommendations:
+    get:
+      operationId: getRecommendations
+      summary: Right-sizing recommendations for a project or single component
+      description: |
+        Returns right-sizing recommendations for components in the specified
+        environment. Each recommendation compares current resource requests
+        and limits against recommended values derived from observed usage.
+
+        The response uses the same `items` envelope as the cost endpoint, and
+        `projectUid`/`componentUid` filter the result the same way:
+
+        - neither set: one recommendation per component in the environment
+        - `projectUid` only: one per component in the project
+        - `projectUid` + `componentUid`: a single recommendation for that
+          component
+
+        The adapter calls the Observer's name-based metrics API to fetch CPU
+        and memory usage data needed for the computation, so the corresponding
+        names must accompany any UID that is supplied:
+
+        - `namespace` and `environment` are always required
+        - `project` is required only when `projectUid` is supplied
+        - `component` is required only when `componentUid` is supplied
+
+        When a level is left unfiltered (e.g. no `projectUid`), the adapter
+        resolves the relevant component names itself.
+
+        A valid JWT bearer token is also required so the adapter can
+        authenticate the callback to the Observer's metrics API.
+      tags: [Recommendations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Namespace'
+        - $ref: '#/components/parameters/EnvironmentUid'
+        - $ref: '#/components/parameters/StartTime'
+        - $ref: '#/components/parameters/EndTime'
+        - name: projectUid
+          in: query
+          required: false
+          description: |
+            Project UID. When set, narrows the result to components in this
+            project. When omitted, recommendations for all components in the
+            environment are returned.
+          schema:
+            type: string
+            format: uuid
+            example: '6c2a9bf3-8d1e-4b72-a4c8-f01a5e9c4d22'
+        - name: componentUid
+          in: query
+          required: false
+          description: |
+            Component UID. When set, narrows the result to this single
+            component. Requires `projectUid` to also be set.
+          schema:
+            type: string
+            format: uuid
+            example: 'ff0efd12-6f80-4c5e-9ca1-edc021cc57c4'
+        - name: environment
+          in: query
+          required: true
+          description: Environment name. Required for the same reason as `namespace`.
+          schema:
+            type: string
+            example: production
+        - name: project
+          in: query
+          required: false
+          description: |
+            Project name. Required only when `projectUid` is supplied, since
+            the adapter needs it for the name-based metrics call.
+          schema:
+            type: string
+            example: gcp-microservices
+        - name: component
+          in: query
+          required: false
+          description: |
+            Component name. Required only when `componentUid` is supplied,
+            since the adapter needs it for the name-based metrics call.
+          schema:
+            type: string
+            example: checkout-service
+      responses:
+        '200':
+          description: A list of right-sizing recommendations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Required only on the recommendations endpoint. The adapter forwards
+        this JWT to the Observer when calling its name-based metrics API to
+        fetch CPU and memory usage. The token must be valid against the
+        Observer's auth provider.
+
+  parameters:
+
+    Namespace:
+      name: namespace
+      in: path
+      required: true
+      description: |
+        Namespace name. OpenChoreo namespaces do not have UIDs, so the name is
+        used here. The adapter also uses it when calling the Observer's
+        name-based metrics API.
+      schema:
+        type: string
+        example: default
+
+    EnvironmentUid:
+      name: environmentUid
+      in: path
+      required: true
+      description: |
+        Environment UID. Exactly one environment is selected per request via
+        the URL path.
+      schema:
+        type: string
+        format: uuid
+        example: '7b8c9d0e-1f2a-3b4c-5d6e-7f8091a2b3c4'
+
+    ProjectUid:
+      name: projectUid
+      in: query
+      required: false
+      description: |
+        Project UID. When set, narrows the response to components in this
+        project.
+      schema:
+        type: string
+        format: uuid
+        example: '6c2a9bf3-8d1e-4b72-a4c8-f01a5e9c4d22'
+
+    ComponentUid:
+      name: componentUid
+      in: query
+      required: false
+      description: |
+        Component UID. When set, narrows the response to this single component.
+        Requires `projectUid` to also be set.
+      schema:
+        type: string
+        format: uuid
+        example: 'ff0efd12-6f80-4c5e-9ca1-edc021cc57c4'
+
+    StartTime:
+      name: startTime
+      in: query
+      required: true
+      description: |
+        Inclusive lower bound of the cost window. RFC 3339 timestamp with
+        second precision (sub-second components are not supported and will
+        be rejected).
+      schema:
+        type: string
+        format: date-time
+        pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})$'
+        example: '2026-05-23T10:00:01Z'
+
+    EndTime:
+      name: endTime
+      in: query
+      required: true
+      description: |
+        Exclusive upper bound of the cost window. RFC 3339 timestamp with
+        second precision (sub-second components are not supported and will
+        be rejected). Must be strictly greater than `startTime`.
+      schema:
+        type: string
+        format: date-time
+        pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(Z|[+-]\d{2}:\d{2})$'
+        example: '2026-05-24T10:00:01Z'
+
+    Granularity:
+      name: granularity
+      in: query
+      required: false
+      description: |
+        When present, each component is split into one record per time bucket
+        of this size. Records with the same `componentUid` and differing time
+        windows represent that component across multiple buckets.
+
+        The value uses `<count><unit>` notation, where `count` is a positive
+        integer and `unit` is one of `h` (hours), `d` (days), or `w` (weeks).
+        For example: `1h`, `2d`, `3w`.
+      schema:
+        type: string
+        pattern: '^[1-9][0-9]*[hdw]$'
+        example: 1d
+
+  schemas:
+
+    CostResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: |
+            Flat list of per-component cost records. Without `granularity`,
+            one record per component. With `granularity`, one record per
+            component per time bucket.
+          items:
+            $ref: '#/components/schemas/ComponentCost'
+
+    ComponentCost:
+      type: object
+      required:
+        - componentUid
+        - component
+        - startTime
+        - endTime
+        - environmentUid
+        - environment
+        - projectUid
+        - project
+        - namespace
+        - cpuCost
+        - memoryCost
+        - efficiency
+      properties:
+        componentUid:
+          type: string
+          format: uuid
+          description: UID of the component this record belongs to.
+          example: '123e4567-e89b-12d3-a456-426614174000'
+        component:
+          type: string
+          description: Human-readable component name. Not stable across renames.
+          example: 'greeting-service-xbsha'
+        startTime:
+          type: string
+          format: date-time
+          description: |
+            Inclusive start of the window this record covers. Equals the
+            request `startTime` when no granularity is set; otherwise the
+            start of the time bucket.
+          example: '2024-01-01T00:00:00Z'
+        endTime:
+          type: string
+          format: date-time
+          description: |
+            Exclusive end of the window this record covers. Equals the request
+            `endTime` when no granularity is set; otherwise the end of the
+            time bucket.
+          example: '2024-02-01T00:00:00Z'
+        environmentUid:
+          type: string
+          format: uuid
+          example: '567e4567-e89b-12d3-a456-426614174000'
+        environment:
+          type: string
+          description: Human-readable environment name.
+          example: 'production'
+        projectUid:
+          type: string
+          format: uuid
+          example: 'eac12345-e89b-12d3-a456-426614174000'
+        project:
+          type: string
+          description: Human-readable project name.
+          example: 'gcp-microservices'
+        namespace:
+          type: string
+          description: |
+            Namespace name. OpenChoreo namespaces do not have UIDs, so the
+            name is used here.
+          example: 'default'
+        cpuCost:
+          type: number
+          format: float
+          description: CPU cost for this record's window.
+          example: 1.25
+        memoryCost:
+          type: number
+          format: float
+          description: Memory cost for this record's window.
+          example: 0.10
+        efficiency:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: |
+            Cost-weighted blend of CPU and memory utilization for this
+            record's window. A value of 0.85 means 85% of what was paid for
+            was actually used.
+          example: 0.85
+
+    RecommendationResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: |
+            One recommendation per component in scope. A single element when
+            `componentUid` is specified; one per component in the project
+            otherwise. Uses the same array envelope as the cost endpoint.
+          items:
+            $ref: '#/components/schemas/ComponentRecommendation'
+
+    ComponentRecommendation:
+      type: object
+      required:
+        - componentUid
+        - component
+        - environmentUid
+        - environment
+        - projectUid
+        - project
+        - namespace
+        - current
+        - recommendation
+      example:
+        componentUid: '123e4567-e89b-12d3-a456-426614174000'
+        component: 'checkout-service'
+        environmentUid: '567e4567-e89b-12d3-a456-426614174000'
+        environment: 'production'
+        projectUid: 'eac12345-e89b-12d3-a456-426614174000'
+        project: 'gcp-microservices'
+        namespace: 'default'
+        current:
+          cpuRequest: '500m'
+          cpuLimit: '1000m'
+          memoryRequest: '512Mi'
+          memoryLimit: '1Gi'
+          cpuCost: 6.00
+          memoryCost: 2.00
+        recommendation:
+          cpuRequest: '150m'
+          cpuLimit: '300m'
+          memoryRequest: '192Mi'
+          memoryLimit: '384Mi'
+          cpuCost: 1.80
+          memoryCost: 0.75
+      properties:
+        componentUid:
+          type: string
+          format: uuid
+          example: '123e4567-e89b-12d3-a456-426614174000'
+        component:
+          type: string
+          description: Human-readable component name.
+          example: 'checkout-service'
+        environmentUid:
+          type: string
+          format: uuid
+          example: '567e4567-e89b-12d3-a456-426614174000'
+        environment:
+          type: string
+          description: Human-readable environment name.
+          example: 'production'
+        projectUid:
+          type: string
+          format: uuid
+          example: 'eac12345-e89b-12d3-a456-426614174000'
+        project:
+          type: string
+          description: Human-readable project name.
+          example: 'gcp-microservices'
+        namespace:
+          type: string
+          example: 'default'
+        current:
+          $ref: '#/components/schemas/ResourceProfile'
+        recommendation:
+          $ref: '#/components/schemas/ResourceProfile'
+
+    ResourceProfile:
+      type: object
+      description: |
+        Resource requests, limits, and resulting cost. Resource fields use
+        Kubernetes quantity notation as strings (e.g. `"230m"` for CPU
+        millicores, `"250Mi"` for memory).
+      required: [cpuRequest, cpuLimit, memoryRequest, memoryLimit, cpuCost, memoryCost]
+      properties:
+        cpuRequest:
+          type: string
+          example: '230m'
+        cpuLimit:
+          type: string
+          example: '530m'
+        memoryRequest:
+          type: string
+          example: '250Mi'
+        memoryLimit:
+          type: string
+          example: '500Mi'
+        cpuCost:
+          type: number
+          format: float
+          description: |
+            CPU cost for the selected time window at these resource settings.
+          example: 6.00
+        memoryCost:
+          type: number
+          format: float
+          description: |
+            Memory cost for the selected time window at these resource
+            settings.
+          example: 2.00
+
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: 'endTime must be strictly greater than startTime'
+
+  responses:
+
+    BadRequest:
+      description: Request validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: |
+        Missing, malformed, or expired JWT. Only returned by endpoints that
+        require authentication (the recommendations endpoint).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource in the URL path was not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Unexpected error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
