@@ -65,6 +65,7 @@ export class OverridesPO {
   // envNameField(). The action is matched by its exact accessible name so the
   // click can never resolve to another row's button.
   async startOverrideInheritedEnv(name: string): Promise<void> {
+    await this.cancelAnyOpenEditor();
     await this.envCard(name)
       .getByRole('button', {
         name: 'Override environment variable',
