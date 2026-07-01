@@ -39,3 +39,4 @@ checkVersion "Kubectl Client" "v1.31.0" "v1.33.0" "kubectl version" 1 "v[0-9]\.[
 checkVersion "Kubectl Server (context=$(kubectl config current-context))" "v1.31.0" "v1.33.0" "kubectl version" 3 "v[0-9]\.[0-9]+\.[0-9]+"
 checkVersion "Kubebuilder" "4.3.0" "4.4.0" "kubebuilder version" 1 "[0-9]+\.[0-9]+\.[0-9]+"
 checkVersion "Helm" "v3.16.0" "v3.30.0" "helm version" 1 "v[0-9]+\.[0-9]+\.[0-9]+"
+checkVersion "uv" "0.8.0" "1.0.0" "uv --version" 1 "[0-9]+\.[0-9]+\.[0-9]+"

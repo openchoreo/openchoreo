@@ -8,6 +8,7 @@
 - Kubernetes cluster with version v1.30.0+
 - Kubectl version v1.30.0+
 - Helm version v3.16.0+
+- uv version 0.8.0+
 
 
 To verify the tool versions, run the following command:
@@ -170,7 +171,9 @@ To run the tests, you can use the following command:
 ```sh
 make test
 ```
-This will run all the unit tests in the project.
+This runs both the Go tests and the Python agent tests (`agents/*`). To run
+them separately, use `make go.test` or `make python.test`. Running the Python
+tests requires [uv](https://docs.astral.sh/uv/).
 
 ### Code Quality and Generation
 

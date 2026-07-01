@@ -166,8 +166,8 @@ vet: ## Run go vet against code.
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION := 1.36.0
 
-.PHONY: test
-test: manifests generate fmt vet envtest ## Run tests.
+.PHONY: go.test
+go.test: manifests generate fmt vet envtest ## Run Go tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOL_BIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
 
 .PHONY: go.mod.tidy

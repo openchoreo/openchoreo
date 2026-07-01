@@ -26,8 +26,19 @@ dependencies = [
     "uvicorn>=0.49.0",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+]
+
 [tool.uv]
 exclude-dependencies = ["zstandard", "pywin32"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
@@ -54,6 +65,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+# Mock/stub signatures routinely take args they don't use.
+"tests/**" = ["ARG"]
 
 [tool.ruff.format]
 quote-style = "double"

@@ -18,6 +18,9 @@ endef
 
 ##@ Development Tools
 
+.PHONY: test
+test: go.test python.test ## Run all Go and Python tests.
+
 ## Location to install dependencies to
 TOOL_BIN ?= $(PROJECT_BIN_DIR)/tools
 $(TOOL_BIN):
