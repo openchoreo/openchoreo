@@ -2997,6 +2997,23 @@ backstage:
     # @schema
     hostnames:
       - openchoreo.invalid
+    # @schema
+    # type: object
+    # required: false
+    # @schema
+    sessionPersistence:
+      # @schema
+      # type: boolean
+      # description: Pin each browser to one Backstage replica via cookie session persistence on the catch-all route, so the exec terminal's init+ws handshake lands on the same pod when scaled out
+      # default: true
+      # @schema
+      enabled: true
+      # @schema
+      # type: string
+      # description: Name of the session-persistence cookie
+      # default: openchoreo-backstage-session
+      # @schema
+      sessionName: openchoreo-backstage-session
   # @schema
   # type: array
   # description: Topology spread constraints
