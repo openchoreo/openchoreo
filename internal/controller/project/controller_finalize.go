@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -51,8 +52,11 @@ func (r *Reconciler) finalize(ctx context.Context, old, project *openchoreov1alp
 
 	// Mark the project condition as finalizing and return so that the project will indicate that it is being finalized.
 	// The actual finalization will be done in the next reconcile loop triggered by the status update.
-	if meta.SetStatusCondition(&project.Status.Conditions, NewProjectFinalizingCondition(project.Generation)) {
-		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, old, project)
+	cond := meta.FindStatusCondition(project.Status.Conditions, string(ConditionFinalizing))
+	if cond == nil || cond.Status != metav1.ConditionTrue {
+		if meta.SetStatusCondition(&project.Status.Conditions, NewProjectFinalizingCondition(project.Generation)) {
+			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, old, project)
+		}
 	}
 
 	// Perform cleanup logic for deployment tracks
@@ -66,6 +70,9 @@ func (r *Reconciler) finalize(ctx context.Context, old, project *openchoreov1alp
 	// If deletion is still in progress, check in next cycle
 	if !artifactsDeleted {
 		logger.Info("Child resources are still being deleted", "name", project.Name)
+		if controller.MarkTrueCondition(project, ConditionFinalizing, ReasonProjectFinalizing, "Waiting for child resources to be deleted") {
+			return controller.UpdateStatusConditionsAndRequeueAfter(ctx, r.Client, old, project, time.Second*5)
+		}
 		return ctrl.Result{RequeueAfter: time.Second * 5}, nil
 	}
 
@@ -89,8 +96,16 @@ func (r *Reconciler) deleteChildAndLinkedResources(ctx context.Context, project 
 		logger.Error(err, "Failed to delete components")
 		return false, err
 	}
-	if !componentsDeleted {
-		logger.Info("Components are still being deleted", "name", project.Name)
+
+	// Clean up resources
+	resourcesDeleted, err := r.deleteResourcesAndWait(ctx, project)
+	if err != nil {
+		logger.Error(err, "Failed to delete resources")
+		return false, err
+	}
+
+	if !componentsDeleted || !resourcesDeleted {
+		logger.Info("Children are still being deleted", "name", project.Name)
 		return false, nil
 	}
 
@@ -135,6 +150,36 @@ func (r *Reconciler) deleteComponentsAndWait(ctx context.Context, project *openc
 		component := &componentsList.Items[i]
 		if err := client.IgnoreNotFound(r.Delete(ctx, component)); err != nil {
 			return false, fmt.Errorf("failed to delete component %s: %w", component.Name, err)
+		}
+	}
+
+	return false, nil
+}
+
+// deleteResourcesAndWait checks if any Resources owned by this Project still exist,
+// and deletes them if they exist.
+func (r *Reconciler) deleteResourcesAndWait(ctx context.Context, project *openchoreov1alpha1.Project) (bool, error) {
+	logger := log.FromContext(ctx).WithValues("project", project.Name)
+
+	// List Resources owned by this Project using shared field index
+	resourcesList := &openchoreov1alpha1.ResourceList{}
+	if err := r.List(ctx, resourcesList,
+		client.InNamespace(project.Namespace),
+		client.MatchingFields{controller.IndexKeyResourceOwnerProjectName: project.Name}); err != nil {
+		return false, fmt.Errorf("failed to list resources: %w", err)
+	}
+
+	if len(resourcesList.Items) == 0 {
+		logger.Info("All resources are deleted")
+		return true, nil
+	}
+
+	// Delete all Resources owned by this Project
+	logger.Info("Deleting owned Resources", "count", len(resourcesList.Items))
+	for i := range resourcesList.Items {
+		resource := &resourcesList.Items[i]
+		if err := client.IgnoreNotFound(r.Delete(ctx, resource)); err != nil {
+			return false, fmt.Errorf("failed to delete resource %s: %w", resource.Name, err)
 		}
 	}
 
