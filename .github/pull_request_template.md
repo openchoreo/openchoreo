@@ -24,6 +24,8 @@ See: docs/contributors/github_workflow.md#pr-title-convention
 - [ ] Tests added or updated (unit, integration, etc.)
 - [ ] Samples updated (if applicable)
 - [ ] Added `backport/<release-branch>` label if this should be backported (e.g., `backport/release-v1.0`)
+<!-- Tick the box below if AI generated code or content in this PR. Simple autocomplete or asking AI to explain code doesn't count. See docs/contributors/AI-POLICY.md -->
+- [ ] This PR includes AI-generated code or content
 
 ## Remarks
 > Add any additional context, known issues, or TODOs related to this PR.
