@@ -60,34 +60,58 @@ export class OverridesPO {
 
   // ── Override inherited entries ──────────────────────────────────────
 
+  // Begin overriding an inherited env var without filling anything. Splitting
+  // this out lets callers assert on the resulting (locked) editor fields — see
+  // envNameField(). The action is matched by its exact accessible name so the
+  // click can never resolve to another row's button.
+  async startOverrideInheritedEnv(name: string): Promise<void> {
+    await this.envCard(name)
+      .getByRole('button', {
+        name: 'Override environment variable',
+        exact: true,
+      })
+      .click();
+  }
+
   async overrideInheritedEnv(
     name: string,
     newValue: string,
   ): Promise<void> {
-    const card = this.envCard(name);
-    await card
-      .getByRole('button', { name: 'Override' })
-      .click();
+    await this.startOverrideInheritedEnv(name);
     const valueField = this.page.getByLabel('Value', { exact: true }).last();
     await valueField.clear();
     await valueField.fill(newValue);
     await this.clickApply();
   }
 
+  // Begin overriding an inherited file mount without filling anything.
+  async startOverrideInheritedFile(fileName: string): Promise<void> {
+    await this.cancelAnyOpenEditor();
+    await this.fileCard(fileName)
+      .getByRole('button', { name: 'Override file mount', exact: true })
+      .click();
+  }
+
   async overrideInheritedFile(
     fileName: string,
     newContent: string,
   ): Promise<void> {
-    await this.cancelAnyOpenEditor();
-    const card = this.fileCard(fileName);
-    await card
-      .getByRole('button', { name: 'Override' })
-      .click();
+    await this.startOverrideInheritedFile(fileName);
     const content = this.page.getByLabel(/^(Edit )?Content$/).last();
     await content.scrollIntoViewIfNeeded();
     await content.clear();
     await content.fill(newContent);
     await this.clickApply();
+  }
+
+  // The locked Name/File Name fields of the currently open editor. Only one row
+  // is ever editable at a time, so these resolve to a single field.
+  envNameField(): Locator {
+    return this.page.getByLabel('Name', { exact: true });
+  }
+
+  fileNameField(): Locator {
+    return this.page.getByLabel('File Name', { exact: true });
   }
 
   // ── Add new override entries ───────────────────────────────────────
@@ -155,8 +179,7 @@ export class OverridesPO {
     await this.cancelAnyOpenEditor();
     const card = this.envCard(name);
     await card
-      .getByRole('button', { name: 'Edit' })
-      .first()
+      .getByRole('button', { name: 'Edit environment variable', exact: true })
       .click();
     const valueField = this.page.getByLabel('Value', { exact: true }).last();
     await valueField.clear();
@@ -172,8 +195,7 @@ export class OverridesPO {
     const card = this.fileCard(fileName);
     await card.scrollIntoViewIfNeeded();
     await card
-      .getByRole('button', { name: 'Edit' })
-      .first()
+      .getByRole('button', { name: 'Edit file mount', exact: true })
       .click();
     await this.page
       .getByRole('button', { name: 'Save changes' })
@@ -241,28 +263,25 @@ export class OverridesPO {
 
   // ── Private helpers ────────────────────────────────────────────────
 
+  // The row card for a single entry, identified by its exact name/key.
+  //
+  // The row's action buttons (Override/Edit/Delete) live in a sibling of the
+  // element that renders the name, so the tightest container holding both is the
+  // *nearest* ancestor <div> that contains a button. `[1]` on the reverse-order
+  // XPath ancestor axis selects exactly that nearest ancestor — one row, no
+  // filtering and no `.last()` climbing to an outer container that wraps
+  // multiple rows (which previously matched several action buttons at once and
+  // tripped Playwright strict mode).
   private envCard(name: string): Locator {
     return this.page
       .getByText(name, { exact: true })
-      .locator('xpath=ancestor::div[.//button]')
-      .filter({
-        has: this.page.getByRole('button', {
-          name: /^(edit|override|remove environment variable)$/i,
-        }),
-      })
-      .last();
+      .locator('xpath=ancestor::div[.//button][1]');
   }
 
   private fileCard(fileName: string): Locator {
     return this.page
       .getByText(fileName, { exact: true })
-      .locator('xpath=ancestor::div[.//button]')
-      .filter({
-        has: this.page.getByRole('button', {
-          name: /^(edit|override|remove file mount)$/i,
-        }),
-      })
-      .last();
+      .locator('xpath=ancestor::div[.//button][1]');
   }
 
   async cancelAnyOpenEditor(): Promise<void> {

@@ -489,20 +489,8 @@ test.describe('component config edits through Backstage UI', () => {
     await overrides.openWorkloadTab();
 
     // Override inherited env var — Name must be disabled.
-    const envCard = page
-      .getByText('GREETING_PREFIX', { exact: true })
-      .locator('xpath=ancestor::div[.//button]')
-      .filter({
-        has: page.getByRole('button', {
-          name: /^(edit|override|remove environment variable)$/i,
-        }),
-      })
-      .last();
-    await envCard
-      .getByRole('button', { name: 'Override' })
-      .click();
-    const envNameField = page.getByLabel('Name', { exact: true }).last();
-    await expect(envNameField).toBeDisabled();
+    await overrides.startOverrideInheritedEnv('GREETING_PREFIX');
+    await expect(overrides.envNameField()).toBeDisabled();
 
     const envValueField = page.getByLabel('Value', { exact: true }).last();
     await envValueField.clear();
@@ -510,23 +498,8 @@ test.describe('component config edits through Backstage UI', () => {
     await overrides.clickApply();
 
     // Override inherited file mount — File Name must be disabled.
-    await overrides.cancelAnyOpenEditor();
-    const fileCard = page
-      .getByText('app.properties', { exact: true })
-      .locator('xpath=ancestor::div[.//button]')
-      .filter({
-        has: page.getByRole('button', {
-          name: /^(edit|override|remove file mount)$/i,
-        }),
-      })
-      .last();
-    await fileCard
-      .getByRole('button', { name: 'Override' })
-      .click();
-    const fileNameField = page
-      .getByLabel('File Name', { exact: true })
-      .last();
-    await expect(fileNameField).toBeDisabled();
+    await overrides.startOverrideInheritedFile('app.properties');
+    await expect(overrides.fileNameField()).toBeDisabled();
 
     const expandBtn = page.getByRole('button', { name: /expand content/i });
     if (await expandBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
