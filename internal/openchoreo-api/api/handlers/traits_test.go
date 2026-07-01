@@ -355,3 +355,38 @@ func TestGetTraitSchemaHandler(t *testing.T) {
 		assert.IsType(t, gen.GetTraitSchema403JSONResponse{}, resp)
 	})
 }
+
+// TestConvert_TraitPostRenderValidationsRoundTrip proves the new pre/post-render
+// validation fields survive the JSON round-trip conversion between the CRD type and
+// the OpenAPI generated model in both directions (so the HTTP API does not drop them).
+func TestConvert_TraitPostRenderValidationsRoundTrip(t *testing.T) {
+	src := openchoreov1alpha1.Trait{
+		ObjectMeta: metav1.ObjectMeta{Name: "t1"},
+		Spec: openchoreov1alpha1.TraitSpec{
+			PreRenderValidations: []openchoreov1alpha1.ValidationRule{{Rule: "${1 == 1}", Message: "pre"}},
+			PostRenderValidations: []openchoreov1alpha1.PostRenderValidation{{
+				When:    "${true}",
+				Target:  openchoreov1alpha1.PostRenderTarget{PatchTarget: openchoreov1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment", Where: "${resource.metadata.name == 'x'}"}, MustMatch: ptr.To(false)},
+				Rule:    "${resource.spec.replicas == 1}",
+				Message: "single replica",
+			}},
+		},
+	}
+
+	genTrait, err := convert[openchoreov1alpha1.Trait, gen.Trait](src)
+	require.NoError(t, err)
+	require.NotNil(t, genTrait.Spec.PreRenderValidations)
+	require.NotNil(t, genTrait.Spec.PostRenderValidations)
+
+	back, err := convert[gen.Trait, openchoreov1alpha1.Trait](genTrait)
+	require.NoError(t, err)
+	require.Len(t, back.Spec.PreRenderValidations, 1)
+	assert.Equal(t, "pre", back.Spec.PreRenderValidations[0].Message)
+	require.Len(t, back.Spec.PostRenderValidations, 1)
+	prv := back.Spec.PostRenderValidations[0]
+	assert.Equal(t, "single replica", prv.Message)
+	assert.Equal(t, "Deployment", prv.Target.Kind)
+	assert.Equal(t, "${resource.metadata.name == 'x'}", prv.Target.Where)
+	require.NotNil(t, prv.Target.MustMatch)
+	assert.False(t, *prv.Target.MustMatch)
+}

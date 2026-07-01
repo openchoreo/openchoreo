@@ -4,6 +4,7 @@
 package component
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -2046,4 +2047,243 @@ func TestUsesEndpointResources(t *testing.T) {
 			t.Fatal("expected true when macro is used in a trait")
 		}
 	})
+}
+
+// postRenderTestMetadata returns a minimal MetadataContext for the post/pre-render
+// validation pipeline tests below.
+func postRenderTestMetadata() context.MetadataContext {
+	return context.MetadataContext{
+		Name:               "test",
+		Namespace:          "ns",
+		ComponentName:      "app",
+		ComponentUID:       "uid1",
+		ComponentNamespace: "ns",
+		ProjectName:        "proj",
+		ProjectUID:         "uid2",
+		DataPlaneName:      "dp",
+		DataPlaneUID:       "uid3",
+		EnvironmentName:    "dev",
+		EnvironmentUID:     "uid4",
+		Labels:             map[string]string{},
+		Annotations:        map[string]string{},
+		PodSelectors:       map[string]string{"k": "v"},
+	}
+}
+
+// renderPipelineYAML builds a RenderInput from the given YAML fragments and runs the pipeline.
+func renderPipelineYAML(t *testing.T, componentTypeYAML, componentYAML, traitsYAML string) (*RenderOutput, error) {
+	t.Helper()
+	var componentType v1alpha1.ComponentType
+	if err := yaml.Unmarshal([]byte(componentTypeYAML), &componentType); err != nil {
+		t.Fatalf("Failed to parse componentType: %v", err)
+	}
+	var component v1alpha1.Component
+	if err := yaml.Unmarshal([]byte(componentYAML), &component); err != nil {
+		t.Fatalf("Failed to parse component: %v", err)
+	}
+	var traits []v1alpha1.Trait
+	if traitsYAML != "" {
+		if err := yaml.Unmarshal([]byte(traitsYAML), &traits); err != nil {
+			t.Fatalf("Failed to parse traits: %v", err)
+		}
+	}
+	input := &RenderInput{
+		ComponentType: &componentType,
+		Component:     &component,
+		Traits:        traits,
+		Workload:      &v1alpha1.Workload{},
+		Environment:   &v1alpha1.Environment{},
+		DataPlane:     &v1alpha1.DataPlane{},
+		Metadata:      postRenderTestMetadata(),
+	}
+	return NewPipeline().Render(input)
+}
+
+// renderWithTraitPostValidation renders a ComponentType that emits a single Deployment
+// with the given replicas, plus one component-level trait carrying a post-render validation.
+func renderWithTraitPostValidation(t *testing.T, replicas int, rule, message string, mustMatch *bool, when string) (*RenderOutput, error) {
+	t.Helper()
+	ct := fmt.Sprintf(`
+spec:
+  resources:
+    - id: deployment
+      template: {apiVersion: apps/v1, kind: Deployment, metadata: {name: web}, spec: {replicas: %d}}
+`, replicas)
+	comp := `
+spec:
+  traits:
+    - name: post
+      instanceName: p1
+`
+	var b strings.Builder
+	b.WriteString("- metadata: {name: post}\n")
+	b.WriteString("  spec:\n")
+	b.WriteString("    postRenderValidations:\n")
+	b.WriteString("      - target:\n")
+	b.WriteString("          group: apps\n")
+	b.WriteString("          version: v1\n")
+	b.WriteString("          kind: Deployment\n")
+	if mustMatch != nil {
+		b.WriteString(fmt.Sprintf("          mustMatch: %t\n", *mustMatch))
+	}
+	if when != "" {
+		b.WriteString(fmt.Sprintf("        when: %q\n", when))
+	}
+	b.WriteString(fmt.Sprintf("        rule: %q\n", rule))
+	b.WriteString(fmt.Sprintf("        message: %q\n", message))
+	return renderPipelineYAML(t, ct, comp, b.String())
+}
+
+// renderWithRemoveThenPostValidation renders a ComponentType emitting a Deployment, then
+// a trait that removes it, then a second trait whose post-render validation targets the
+// (now missing) Deployment with default mustMatch=true.
+func renderWithRemoveThenPostValidation(t *testing.T) (*RenderOutput, error) {
+	t.Helper()
+	ct := `
+spec:
+  resources:
+    - id: deployment
+      template: {apiVersion: apps/v1, kind: Deployment, metadata: {name: web}, spec: {replicas: 1}}
+`
+	comp := `
+spec:
+  traits:
+    - name: remover
+      instanceName: r1
+    - name: post
+      instanceName: p1
+`
+	traits := `
+- metadata: {name: remover}
+  spec:
+    removes:
+      - target: {group: apps, version: v1, kind: Deployment}
+- metadata: {name: post}
+  spec:
+    postRenderValidations:
+      - target: {group: apps, version: v1, kind: Deployment}
+        rule: "${resource.spec.replicas == 1}"
+        message: "deployment must survive"
+`
+	return renderPipelineYAML(t, ct, comp, traits)
+}
+
+// renderWithTraitPreRenderValidation renders a ComponentType emitting a Deployment plus a
+// trait using preRenderValidations (the non-deprecated alias) with the given rule.
+func renderWithTraitPreRenderValidation(t *testing.T, rule, message string) (*RenderOutput, error) {
+	t.Helper()
+	ct := `
+spec:
+  resources:
+    - id: deployment
+      template: {apiVersion: apps/v1, kind: Deployment, metadata: {name: web}, spec: {replicas: 1}}
+`
+	comp := `
+spec:
+  traits:
+    - name: pre
+      instanceName: p1
+`
+	traits := fmt.Sprintf(`
+- metadata: {name: pre}
+  spec:
+    preRenderValidations:
+      - rule: %q
+        message: %q
+`, rule, message)
+	return renderPipelineYAML(t, ct, comp, traits)
+}
+
+func TestRender_PostRenderValidationPasses(t *testing.T) {
+	out, err := renderWithTraitPostValidation(t, 1,
+		"${resource.spec.replicas == 1}", "must be single replica", nil, "")
+	if err != nil {
+		t.Fatalf("expected render to pass, got %v", err)
+	}
+	if out == nil || len(out.Resources) == 0 {
+		t.Fatalf("expected rendered resources")
+	}
+}
+
+func TestRender_PostRenderValidationFailsBlocksRender(t *testing.T) {
+	_, err := renderWithTraitPostValidation(t, 3,
+		"${resource.spec.replicas == 1}", "must be single replica", nil, "")
+	if err == nil || !strings.Contains(err.Error(), "must be single replica") {
+		t.Fatalf("expected post-render validation failure, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "post-render validation") {
+		t.Fatalf("expected error wrapped as post-render validation, got %v", err)
+	}
+}
+
+func TestRender_PostRenderMustMatchAfterRemove(t *testing.T) {
+	_, err := renderWithRemoveThenPostValidation(t)
+	if err == nil || !strings.Contains(err.Error(), "no resource matched target") {
+		t.Fatalf("expected mustMatch failure after remove, got %v", err)
+	}
+}
+
+func TestRender_PreRenderValidationsAliasHonored(t *testing.T) {
+	_, err := renderWithTraitPreRenderValidation(t, "${1 == 2}", "pre-render boom")
+	if err == nil || !strings.Contains(err.Error(), "pre-render boom") {
+		t.Fatalf("expected pre-render validation failure, got %v", err)
+	}
+}
+
+// renderWithForEachPostValidation renders a ComponentType emitting two HTTPRoutes ("a","b")
+// and attaches a trait whose forEach post-render validation iterates parameters.routes
+// (a, b, gone); the "gone" iteration selects no resource → default mustMatch fails.
+func renderWithForEachPostValidation(t *testing.T) (*RenderOutput, error) {
+	t.Helper()
+	ct := `
+spec:
+  resources:
+    - id: route-a
+      template: {apiVersion: gateway.networking.k8s.io/v1, kind: HTTPRoute, metadata: {name: a}, spec: {rules: [{}]}}
+    - id: route-b
+      template: {apiVersion: gateway.networking.k8s.io/v1, kind: HTTPRoute, metadata: {name: b}, spec: {rules: [{}]}}
+`
+	comp := `
+spec:
+  traits:
+    - name: routecheck
+      instanceName: rc
+      parameters:
+        routes:
+          - name: a
+          - name: b
+          - name: gone
+`
+	traits := `
+- metadata: {name: routecheck}
+  spec:
+    parameters:
+      openAPIV3Schema:
+        type: object
+        properties:
+          routes:
+            type: array
+            items:
+              type: object
+              properties:
+                name: {type: string}
+    postRenderValidations:
+      - forEach: "${parameters.routes}"
+        var: route
+        target:
+          group: gateway.networking.k8s.io
+          version: v1
+          kind: HTTPRoute
+          where: "${resource.metadata.name == route.name}"
+        rule: "${resource.spec.rules.size() > 0}"
+        message: "route ${route.name} lost its rules"
+`
+	return renderPipelineYAML(t, ct, comp, traits)
+}
+
+func TestRender_PostRenderForEachPerItemMustMatch(t *testing.T) {
+	_, err := renderWithForEachPostValidation(t)
+	if err == nil || !strings.Contains(err.Error(), "no resource matched target") {
+		t.Fatalf("expected forEach per-item mustMatch failure for the missing route, got %v", err)
+	}
 }
