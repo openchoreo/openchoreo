@@ -693,9 +693,6 @@ var _ = Describe("Project Controller", func() {
 					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
 						Name: pipName,
 					},
-					Type: openchoreov1alpha1.ProjectTypeRef{
-						Name: "default",
-					},
 				},
 			}
 			Expect(k8sClient.Create(ctx, project)).To(Succeed())
