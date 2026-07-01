@@ -29,7 +29,8 @@ type ProjectTypeSpec struct {
 	// ProjectReleaseBinding of this type. Each entry has a unique id;
 	// includeWhen and forEach control conditional and iterative rendering;
 	// CEL expressions in the template body are evaluated against
-	// ${parameters.*}, ${environmentConfigs.*}, and ${metadata.*}.
+	// ${parameters.*}, ${environmentConfigs.*}, ${metadata.*},
+	// ${dataplane.*}, ${environment.*}, and the effective ${gateway.*}.
 	// +kubebuilder:validation:MinItems=1
 	// +listType=map
 	// +listMapKey=id
