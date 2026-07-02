@@ -119,6 +119,97 @@ spec:
       maxReplicas: "integer | default=3 | minimum=1"
 ```
 
+## Common Mistakes and Pitfalls
+
+### Forgetting the `${...}` wrapper
+
+CEL expressions must be wrapped in `${...}`. Without the wrapper, the string is treated as a literal and will fail validation at admission time.
+
+```yaml
+# ❌ Wrong — missing ${ } wrapper
+validations:
+  - rule: "size(workload.endpoints) > 0"
+    message: "Must expose at least one endpoint."
+
+# ✅ Correct
+validations:
+  - rule: "${size(workload.endpoints) > 0}"
+    message: "Must expose at least one endpoint."
+```
+
+### Using the wrong context variable scope
+
+Trait validations have access to `trait` context, but ComponentType validations do not. Conversely, both have access to `workload`, but only through different paths.
+
+```yaml
+# ❌ Wrong — `trait` is not available in ComponentType validations
+kind: ComponentType
+spec:
+  validations:
+    - rule: "${trait.parameters.foo == 'bar'}"
+      message: "This will fail — ComponentType rules don't have trait context."
+
+# ✅ Correct — use parameters directly in ComponentType
+kind: ComponentType
+spec:
+  validations:
+    - rule: "${parameters.foo == 'bar'}"
+      message: "Validates the component's own parameters."
+```
+
+### Assuming short-circuit evaluation
+
+All validation rules in a `validations` list are **always evaluated** — there is no short-circuiting. If rule 1 fails, rule 2 is still evaluated. Design each rule to be independently valid.
+
+```yaml
+# ⚠️ Careful — rule[1] will still be evaluated even if rule[0] fails
+validations:
+  - rule: "${size(workload.endpoints) > 0}"
+    message: "Must have at least one endpoint."
+  - rule: "${workload.endpoints.exists(name, workload.endpoints[name].type == 'HTTP')}"
+    message: "Must have at least one HTTP endpoint."
+```
+
+If rule[1] depends on rule[0] being true, combine them into a single rule using `&&`:
+
+```yaml
+validations:
+  - rule: "${size(workload.endpoints) > 0 && workload.endpoints.exists(name, workload.endpoints[name].type == 'HTTP')}"
+    message: "Must expose at least one HTTP endpoint."
+```
+
+### Returning a non-boolean value
+
+Validation rules must evaluate to a boolean (`true` or `false`). Expressions that return strings, integers, or lists will be rejected at admission time.
+
+```yaml
+# ❌ Wrong — returns a string, not a boolean
+validations:
+  - rule: "${parameters.name}"
+    message: "Name must be set."
+
+# ✅ Correct — explicitly compare to produce a boolean
+validations:
+  - rule: "${parameters.name != ''}"
+    message: "Name must not be empty."
+```
+
+### Accessing optional fields without guarding for existence
+
+If a field is optional in the schema, accessing it directly in CEL may fail with a runtime error. Use the `has()` macro or provide a default.
+
+```yaml
+# ❌ Risky — environmentConfigs.maxReplicas may not exist
+validations:
+  - rule: "${environmentConfigs.maxReplicas >= 1}"
+    message: "maxReplicas must be at least 1."
+    
+# ✅ Safer — guard with has()
+validations:
+  - rule: "${!has(environmentConfigs.maxReplicas) || environmentConfigs.maxReplicas >= 1}"
+    message: "maxReplicas must be at least 1 when specified."
+```
+
 ## Error Messages
 
 When validation rules fail, error messages include the rule index, rule text, and the user-provided message:
