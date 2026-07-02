@@ -3944,6 +3944,11 @@ portalAssistant:
   llm:
     secretName: ""
     modelName: ""
+    # Optional OpenAI-compatible base URL. Set to route LLM calls through the
+    # ai-gateway-agentgateway module (e.g. http://agentgateway-proxy.openchoreo-data-plane)
+    # instead of the provider directly; the provider key is then managed at the
+    # gateway and the secret's PORTAL_ASSISTANT_LLM_API_KEY may be a placeholder.
+    baseUrl: ""
 
   config:
     openchoreoApiUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
