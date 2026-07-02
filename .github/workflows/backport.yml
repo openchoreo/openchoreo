@@ -26,11 +26,17 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    if: github.event.pull_request.merged
+    # Only run for merged PRs that carry a `backport/` label.
+    if: >-
+      github.event.pull_request.merged &&
+      contains(toJSON(github.event.pull_request.labels.*.name), '"backport/')
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          # Check out the base branch, not the PR merge commit: avoids checkout v7's
+          # fork-PR guard under pull_request_target. Backport only needs base history.
+          ref: ${{ github.event.pull_request.base.ref }}
 
       - name: Create backport pull requests
         id: backport
