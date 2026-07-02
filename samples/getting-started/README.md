@@ -80,6 +80,30 @@ clustertrait.openchoreo.dev/observability-alert-rule      10s
 | web-application | Deployment | react, docker | HTTP endpoint required |
 | scheduled-task | CronJob | docker, google-cloud-buildpacks | - |
 
+#### Choosing a Component Type
+
+Use this flowchart to determine which component type fits your workload:
+
+```mermaid
+flowchart TD
+    A["Does your app serve HTTP traffic?"] -->|Yes| B["Is it a frontend/UI?"]
+    A -->|No| C["Does it run on a schedule?"]
+    B -->|Yes| D["web-application"]
+    B -->|No| E["service"]
+    C -->|Yes| F["scheduled-task"]
+    C -->|No| G["worker"]
+```
+
+| Criteria | service | web-application | worker | scheduled-task |
+|----------|---------|-----------------|--------|----------------|
+| **Kubernetes workload** | Deployment | Deployment | Deployment | CronJob |
+| **Exposes endpoints?** | ✅ Required (≥1) | ✅ Required (HTTP) | ❌ Forbidden | N/A |
+| **Long-running?** | ✅ Yes | ✅ Yes | ✅ Yes | ❌ No (runs to completion) |
+| **Use case** | APIs, microservices, gRPC backends | React/Angular/Vue frontends, static sites | Queue consumers, event processors, background jobs | Periodic reports, cleanup jobs, batch processing |
+| **Example** | REST API, GraphQL server | Dashboard UI, marketing site | Email sender, log aggregator | Daily report generator, DB cleanup |
+
+> **Tip:** If none of these fit your workload (e.g., you need a StatefulSet or DaemonSet), you can define a custom ComponentType. See the [Component Types samples](../component-types/) for examples.
+
 ### Cluster Resource Types
 
 | Name | Description |
