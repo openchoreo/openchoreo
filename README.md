@@ -78,6 +78,65 @@ The diagram below illustrates some of the core concepts of the Platform API and 
 </div>
 </br>
 
+## Deployment Topologies
+
+OpenChoreo supports flexible deployment topologies, from a single development cluster to fully separated production planes.
+
+### Single-Cluster (Development)
+
+All planes run in a single Kubernetes cluster using separate namespaces. Ideal for local development and evaluation.
+
+```text
+┌─────────────────────────────────────────────────┐
+│              Single Kubernetes Cluster           │
+│                                                  │
+│  ┌──────────────────┐  ┌──────────────────┐     │
+│  │  Control Plane   │  │   Data Plane     │     │
+│  │  (namespace)     │  │   (namespace)    │     │
+│  └──────────────────┘  └──────────────────┘     │
+│  ┌──────────────────┐  ┌──────────────────┐     │
+│  │  Workflow Plane  │  │ Observability    │     │
+│  │  (namespace)     │  │ Plane (namespace)│     │
+│  └──────────────────┘  └──────────────────┘     │
+└─────────────────────────────────────────────────┘
+```
+
+### Multi-Cluster (Production)
+
+Each plane runs on its own Kubernetes cluster, connected via the cluster agent over secure WebSocket connections. This provides workload isolation, independent scaling, and clear security boundaries.
+
+```text
+┌──────────────────┐         ┌──────────────────┐
+│  Control Plane   │◄───────►│  Data Plane      │
+│  Cluster         │  agent  │  Cluster (prod)  │
+└──────────────────┘         └──────────────────┘
+        │                    ┌──────────────────┐
+        ├───────────────────►│  Data Plane      │
+        │              agent │  Cluster (staging)│
+        │                    └──────────────────┘
+        │                    ┌──────────────────┐
+        ├───────────────────►│  Workflow Plane  │
+        │              agent │  Cluster         │
+        │                    └──────────────────┘
+        │                    ┌──────────────────┐
+        └───────────────────►│  Observability   │
+                       agent │  Plane Cluster   │
+                             └──────────────────┘
+```
+
+### Topology Comparison
+
+| Aspect | Single-Cluster | Multi-Cluster |
+|--------|---------------|---------------|
+| **Setup complexity** | Low (one `helm install`) | Higher (one install per cluster + agent config) |
+| **Workload isolation** | Namespace-level only | Cluster-level (strongest isolation) |
+| **Scaling** | All planes share resources | Each plane scales independently |
+| **Fault domain** | Shared — control plane failure affects workloads | Isolated — data plane continues serving if control plane is down |
+| **Recommended for** | Development, CI, demos | Staging, production |
+| **Minimum clusters** | 1 | 2 (control + data) — additional planes optional |
+
+> **Note:** The [Quick Start Guide](https://openchoreo.dev/docs/getting-started/quick-start-guide/) uses a single-cluster topology. For production deployment guidance, see the [Installation Guide](https://openchoreo.dev/docs/getting-started/try-it-out/on-k3d-locally/).
+
 ## Getting Started
 
 The easiest way to try OpenChoreo is by following the **[Quick Start Guide](https://openchoreo.dev/docs/getting-started/quick-start-guide/)**. It walks you through setting up Choreo using a Dev Container, so you can start experimenting without affecting your local environment.
