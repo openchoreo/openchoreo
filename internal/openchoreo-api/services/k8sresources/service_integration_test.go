@@ -477,6 +477,133 @@ func TestGetResourceEvents(t *testing.T) {
 		// For cluster-scoped resource (empty namespace), the events path should be cluster-level
 		assert.Contains(t, capturedPath, "api/v1/events")
 	})
+
+	t.Run("events for rendered release come from the control plane", func(t *testing.T) {
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, nil)
+
+		matching := &corev1.Event{
+			ObjectMeta:     metav1.ObjectMeta{Name: "evt-1", Namespace: testNamespace},
+			InvolvedObject: corev1.ObjectReference{Kind: kindRenderedRelease, Name: "rr-1", Namespace: testNamespace},
+			Type:           "Warning",
+			Reason:         "RenderFailed",
+			Message:        "failed to render release",
+			Count:          3,
+			Source:         corev1.EventSource{Component: "renderedrelease-controller"},
+		}
+		// A different resource's event that must be filtered out by the selector.
+		unrelated := &corev1.Event{
+			ObjectMeta:     metav1.ObjectMeta{Name: "evt-2", Namespace: testNamespace},
+			InvolvedObject: corev1.ObjectReference{Kind: "Deployment", Name: "web", Namespace: testNamespace},
+			Type:           "Normal",
+			Reason:         "ScalingReplicaSet",
+		}
+
+		fc := fake.NewClientBuilder().
+			WithScheme(testScheme()).
+			WithRESTMapper(testRESTMapper()).
+			WithObjects(rb, env, dp, rr, matching, unrelated).
+			WithStatusSubresource(&openchoreov1alpha1.RenderedRelease{}).
+			WithIndex(&corev1.Event{}, "involvedObject.kind", func(o client.Object) []string {
+				return []string{o.(*corev1.Event).InvolvedObject.Kind}
+			}).
+			WithIndex(&corev1.Event{}, "involvedObject.name", func(o client.Object) []string {
+				return []string{o.(*corev1.Event).InvolvedObject.Name}
+			}).
+			Build()
+
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {})
+		svc := NewService(fc, gc, testLogger())
+
+		result, err := svc.GetResourceEvents(context.Background(), testNamespace, "rb-1",
+			"openchoreo.dev", "v1alpha1", kindRenderedRelease, "rr-1")
+		require.NoError(t, err)
+		require.Len(t, result.Events, 1)
+		assert.Equal(t, "Warning", result.Events[0].Type)
+		assert.Equal(t, "RenderFailed", result.Events[0].Reason)
+		assert.Equal(t, "renderedrelease-controller", result.Events[0].Source)
+		require.NotNil(t, result.Events[0].Count)
+		assert.Equal(t, int32(3), *result.Events[0].Count)
+	})
+
+	t.Run("release-level events aggregate the release's resource events", func(t *testing.T) {
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
+			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
+			{ID: "svc", Group: "", Version: "v1", Kind: "Service", Name: "web-svc", Namespace: "dp-ns"},
+		})
+
+		// Fake client with event indexes so the control-plane RR event lookup works
+		// (returns nothing here — the RR CR has no events).
+		fc := fake.NewClientBuilder().
+			WithScheme(testScheme()).
+			WithRESTMapper(testRESTMapper()).
+			WithObjects(rb, env, dp, rr).
+			WithStatusSubresource(&openchoreov1alpha1.RenderedRelease{}).
+			WithIndex(&corev1.Event{}, "involvedObject.kind", func(o client.Object) []string {
+				return []string{o.(*corev1.Event).InvolvedObject.Kind}
+			}).
+			WithIndex(&corev1.Event{}, "involvedObject.name", func(o client.Object) []string {
+				return []string{o.(*corev1.Event).InvolvedObject.Name}
+			}).
+			Build()
+
+		// Data-plane events: a Pod derived from the Deployment (prefix match), the
+		// Service (exact match), and an unrelated object (must be filtered out).
+		eventList := k8sList(
+			map[string]any{
+				"type": "Normal", "reason": "Scheduled", "message": "assigned",
+				"involvedObject": map[string]any{"kind": "Pod", "name": "web-6d8-abc"},
+				"firstTimestamp": "2024-01-15T10:00:00Z", "lastTimestamp": "2024-01-15T10:00:00Z",
+			},
+			map[string]any{
+				"type": "Normal", "reason": "Provisioned", "message": "svc ready",
+				"involvedObject": map[string]any{"kind": "Service", "name": "web-svc"},
+				"firstTimestamp": "2024-01-15T10:00:00Z", "lastTimestamp": "2024-01-15T10:00:00Z",
+			},
+			map[string]any{
+				"type": "Normal", "reason": "Unrelated", "message": "not ours",
+				"involvedObject": map[string]any{"kind": "Pod", "name": "other-component-xyz"},
+				"firstTimestamp": "2024-01-15T10:00:00Z", "lastTimestamp": "2024-01-15T10:00:00Z",
+			},
+		)
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, eventList))
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		result, err := svc.GetResourceEvents(context.Background(), testNamespace, "rb-1",
+			"openchoreo.dev", "v1alpha1", kindRenderedRelease, "rr-1")
+		require.NoError(t, err)
+
+		// The Pod (prefix "web-") and Service (exact) belong to the release; the
+		// unrelated pod is excluded.
+		require.Len(t, result.Events, 2)
+		reasons := []string{result.Events[0].Reason, result.Events[1].Reason}
+		assert.Contains(t, reasons, "Scheduled")
+		assert.Contains(t, reasons, "Provisioned")
+		assert.NotContains(t, reasons, "Unrelated")
+	})
+
+	t.Run("events for unknown rendered release returns not found", func(t *testing.T) {
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, nil)
+		fc := newFakeClient(rb, env, dp, rr)
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {})
+		svc := NewService(fc, gc, testLogger())
+
+		_, err := svc.GetResourceEvents(context.Background(), testNamespace, "rb-1",
+			"openchoreo.dev", "v1alpha1", kindRenderedRelease, "does-not-exist")
+		require.ErrorIs(t, err, ErrResourceNotFound)
+	})
 }
 
 // --- GetResourceLogs ---

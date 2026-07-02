@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,6 +32,9 @@ const (
 	planeTypeDataPlane          = "dataplane"
 	planeTypeObservabilityPlane = "observabilityplane"
 	maxResponseBytes            = 10 * 1024 * 1024 // 10MB
+
+	// kindRenderedRelease is the kind of the RenderedRelease control-plane CR.
+	kindRenderedRelease = "RenderedRelease"
 )
 
 // planeInfo holds the resolved plane coordinates for gateway proxy calls.
@@ -103,6 +107,19 @@ func (s *k8sResourcesService) GetResourceEvents(ctx context.Context, namespaceNa
 	releaseContexts, err := s.resolveReleaseContexts(ctx, namespaceName, releaseBindingName)
 	if err != nil {
 		return nil, err
+	}
+
+	// Special case: release-level events for a RenderedRelease. The RenderedRelease
+	// itself is a control-plane CR that reports state via status conditions and
+	// rarely emits Kubernetes events, so "release-level events" aggregates the
+	// events of every resource the release renders into the data plane (Deployment,
+	// ReplicaSet, Pods, Service, etc.) plus any events on the CR itself — letting
+	// users debug the release without drilling into each individual resource.
+	if kind == kindRenderedRelease && (group == "" || group == openchoreov1alpha1.GroupVersion.Group) {
+		if !releaseExists(releaseContexts, name) {
+			return nil, ErrResourceNotFound
+		}
+		return s.getReleaseLevelEvents(ctx, namespaceName, releaseContexts, name)
 	}
 
 	// Find which release context contains the requested resource
@@ -374,6 +391,179 @@ func (s *k8sResourcesService) findResourceRelease(contexts []releaseContext, gro
 	}
 
 	return nil, ""
+}
+
+// releaseExists reports whether one of the resolved release contexts is the
+// RenderedRelease with the given name.
+func releaseExists(contexts []releaseContext, name string) bool {
+	for i := range contexts {
+		if contexts[i].release.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// getReleaseLevelEvents returns the Kubernetes events relevant to a rendered
+// release: any events recorded on the RenderedRelease CR itself (control plane)
+// plus the events of every resource the release rendered into the data plane.
+func (s *k8sResourcesService) getReleaseLevelEvents(ctx context.Context, controlPlaneNamespace string, contexts []releaseContext, releaseName string) (*models.ResourceEventsResponse, error) {
+	events := make([]models.ResourceEvent, 0)
+
+	// Events recorded directly on the RenderedRelease CR (usually none today, but
+	// surfaces controller warnings such as render/apply failures if they appear).
+	cpEvents, err := s.getControlPlaneResourceEvents(ctx, controlPlaneNamespace, kindRenderedRelease, releaseName)
+	if err != nil {
+		return nil, err
+	}
+	events = append(events, cpEvents.Events...)
+
+	// Events for every data-plane resource the release manages.
+	for i := range contexts {
+		rc := &contexts[i]
+		if rc.release.Name != releaseName {
+			continue
+		}
+		rcEvents, err := s.aggregateReleaseResourceEvents(ctx, rc)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, rcEvents...)
+	}
+
+	return &models.ResourceEventsResponse{Events: events}, nil
+}
+
+// aggregateReleaseResourceEvents fetches the events of all data-plane resources
+// belonging to a single release. Resource names are matched exactly; workload
+// names (Deployment, ReplicaSet, ...) are also matched as prefixes so that the
+// ReplicaSets and Pods they spawn — which are not listed individually in the
+// release status — are included too.
+func (s *k8sResourcesService) aggregateReleaseResourceEvents(ctx context.Context, rc *releaseContext) ([]models.ResourceEvent, error) {
+	namespaces := make(map[string]struct{})
+	exact := make(map[string]struct{})
+	var prefixes []string
+	for i := range rc.release.Status.Resources {
+		r := &rc.release.Status.Resources[i]
+		if r.Namespace != "" {
+			namespaces[r.Namespace] = struct{}{}
+		}
+		exact[r.Name] = struct{}{}
+		if isPodParentKind(r.Kind) {
+			prefixes = append(prefixes, r.Name)
+		}
+	}
+	if len(namespaces) == 0 && rc.namespace != "" {
+		namespaces[rc.namespace] = struct{}{}
+	}
+
+	events := make([]models.ResourceEvent, 0)
+	for ns := range namespaces {
+		items, err := s.fetchK8sList(ctx, rc.plane, fmt.Sprintf("api/v1/namespaces/%s/events", ns), "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch events: %w", err)
+		}
+		for _, item := range items {
+			if involvedObjectBelongsToRelease(item, exact, prefixes) {
+				events = append(events, mapEventItem(item))
+			}
+		}
+	}
+	return events, nil
+}
+
+// isPodParentKind reports whether a workload kind owns Pods (directly or via a
+// ReplicaSet/Job) whose derived names are prefixed with the workload name.
+func isPodParentKind(kind string) bool {
+	switch kind {
+	case "Deployment", "ReplicaSet", "StatefulSet", "DaemonSet", "Job", "CronJob":
+		return true
+	default:
+		return false
+	}
+}
+
+// involvedObjectBelongsToRelease reports whether an event's involved object is
+// one of the release's resources (exact name) or a Pod/ReplicaSet derived from
+// one of its workloads (name prefix).
+func involvedObjectBelongsToRelease(item map[string]any, exact map[string]struct{}, prefixes []string) bool {
+	involved, ok := item["involvedObject"].(map[string]any)
+	if !ok {
+		return false
+	}
+	name, _ := involved["name"].(string)
+	if name == "" {
+		return false
+	}
+	if _, ok := exact[name]; ok {
+		return true
+	}
+	for _, p := range prefixes {
+		if strings.HasPrefix(name, p+"-") {
+			return true
+		}
+	}
+	return false
+}
+
+// getControlPlaneResourceEvents fetches Kubernetes events for a control-plane
+// resource (e.g. a RenderedRelease) directly from the control plane, filtered by
+// the involved object's kind and name.
+func (s *k8sResourcesService) getControlPlaneResourceEvents(ctx context.Context, namespace, kind, name string) (*models.ResourceEventsResponse, error) {
+	var eventList corev1.EventList
+	if err := s.k8sClient.List(ctx, &eventList,
+		client.InNamespace(namespace),
+		client.MatchingFields{
+			"involvedObject.kind": kind,
+			"involvedObject.name": name,
+		},
+	); err != nil {
+		return nil, fmt.Errorf("failed to list control-plane events: %w", err)
+	}
+
+	events := make([]models.ResourceEvent, 0, len(eventList.Items))
+	for i := range eventList.Items {
+		events = append(events, mapCoreEvent(&eventList.Items[i]))
+	}
+
+	return &models.ResourceEventsResponse{Events: events}, nil
+}
+
+// mapCoreEvent converts a typed core/v1 Event into the API's ResourceEvent model.
+func mapCoreEvent(e *corev1.Event) models.ResourceEvent {
+	event := models.ResourceEvent{
+		Type:    e.Type,
+		Reason:  e.Reason,
+		Message: e.Message,
+	}
+
+	if e.Count != 0 {
+		count := e.Count
+		event.Count = &count
+	}
+
+	if !e.FirstTimestamp.IsZero() {
+		t := e.FirstTimestamp.Time
+		event.FirstTimestamp = &t
+	} else if !e.EventTime.IsZero() {
+		t := e.EventTime.Time
+		event.FirstTimestamp = &t
+	}
+
+	if !e.LastTimestamp.IsZero() {
+		t := e.LastTimestamp.Time
+		event.LastTimestamp = &t
+	} else if event.FirstTimestamp != nil {
+		event.LastTimestamp = event.FirstTimestamp
+	}
+
+	if e.Source.Component != "" {
+		event.Source = e.Source.Component
+	} else {
+		event.Source = e.ReportingController
+	}
+
+	return event
 }
 
 // --- Fetching helpers ---
