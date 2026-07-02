@@ -14,6 +14,9 @@ data:
   CORS_ALLOWED_ORIGINS: {{ join "," .Values.finOpsAgent.cors.allowedOrigins | quote }}
   {{- end }}
   LLM_NAME: {{ .Values.finOpsAgent.llmName | quote }}
+  {{- if .Values.finOpsAgent.llmBaseUrl }}
+  FINOPS_AGENT_LLM_BASE_URL: {{ .Values.finOpsAgent.llmBaseUrl | quote }}
+  {{- end }}
   JWT_AUDIENCE: {{ .Values.security.jwt.audience | quote }}
   JWT_ISSUER: {{ .Values.security.oidc.issuer | quote }}
   JWT_JWKS_URL: {{ .Values.security.oidc.jwksUrl | quote }}

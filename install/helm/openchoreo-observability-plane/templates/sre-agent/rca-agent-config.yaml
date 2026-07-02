@@ -11,6 +11,9 @@ data:
   OPENCHOREO_API_URL: {{ .Values.rca.openchoreoApiUrl | quote }}
   AUTHZ_TIMEOUT_SECONDS: {{ .Values.rca.authz.timeoutSeconds | quote }}
   RCA_MODEL_NAME: {{ .Values.rca.llm.modelName | quote }}
+  {{- if .Values.rca.llm.baseUrl }}
+  RCA_LLM_BASE_URL: {{ .Values.rca.llm.baseUrl | quote }}
+  {{- end }}
   REPORT_BACKEND: {{ .Values.rca.reportBackend | quote }}
   OAUTH_TOKEN_URL: {{ .Values.security.oidc.tokenUrl | quote }}
   OAUTH_CLIENT_ID: {{ .Values.rca.oauth.clientId | quote }}

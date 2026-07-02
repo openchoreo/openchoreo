@@ -26,6 +26,12 @@ def get_model(
 ) -> BaseChatModel:
     model_name = model_name or settings.portal_assistant_model_name
     api_key = api_key or settings.portal_assistant_llm_api_key
+    # Route through an OpenAI-compatible proxy (the ai-gateway-agentgateway
+    # module) when configured; the real provider key then lives at the gateway
+    # so api_key may be a placeholder. Forward base_url only when set to leave
+    # the direct-to-provider path unchanged.
+    if settings.portal_assistant_llm_base_url and "base_url" not in kwargs:
+        kwargs["base_url"] = settings.portal_assistant_llm_base_url
     # OpenAI gpt-5 / o-series reasoning_effort. ``init_chat_model`` forwards
     # unknown kwargs to the provider class (langchain-openai's ChatOpenAI),
     # which accepts ``reasoning_effort`` as a first-class field. Only pass
