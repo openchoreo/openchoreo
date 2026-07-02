@@ -214,3 +214,92 @@ Once all changes are made and tested, you can submit a pull request by following
 
 - [Add New CRD Guide](adding-new-crd.md) - A guide to add new CRDs to the project.
 - [Adding New MCP Tools](adding-new-mcp-tools.md) - A guide to add new tools to the OpenChoreo MCP server.
+
+## Troubleshooting Development Setup
+
+### `make k3d` fails with "Cannot connect to the Docker daemon"
+
+**Cause:** Docker Desktop is not running, or the Docker socket is not accessible.
+
+**Fix:**
+1. Start Docker Desktop (or your container runtime).
+2. Verify connectivity: `docker info`
+3. If using Colima or Podman, ensure the Docker socket symlink exists:
+   ```sh
+   # Colima
+   sudo ln -sf ~/.colima/default/docker.sock /var/run/docker.sock
+   ```
+
+### k3d cluster creation hangs or OOMs
+
+**Cause:** Insufficient Docker resources. The k3d setup creates a multi-node cluster (1 server + 2 agents) which requires at least 8 GB RAM and 4 CPUs allocated to Docker.
+
+**Fix:**
+- Docker Desktop → Settings → Resources → Increase Memory to ≥8 GB and CPUs to ≥4
+- Verify available resources: `docker system info | grep -E 'CPUs|Total Memory'`
+
+### Port 8080 or 19080 already in use
+
+**Cause:** Another process is binding to the ports k3d needs.
+
+**Fix:**
+```sh
+# Find what's using the port
+lsof -i :8080
+# Either stop that process, or delete the existing k3d cluster first
+make k3d.down
+make k3d
+```
+
+### `make go.run.manager` crashes with webhook errors
+
+**Cause:** Running the manager locally without disabling webhooks. Webhooks require TLS certificates that are only available inside the cluster.
+
+**Fix:** Always pass `ENABLE_WEBHOOKS=false` when running locally:
+```sh
+make go.run.manager ENABLE_WEBHOOKS=false
+```
+
+### `make test` fails with "no matches for kind" or missing CRDs
+
+**Cause:** Generated CRD manifests are out of date or missing.
+
+**Fix:**
+```sh
+make generate
+make manifests
+make test
+```
+
+### `make lint` reports issues after code generation
+
+**Cause:** Generated code may not pass linting. This is expected.
+
+**Fix:** Run `make lint-fix` first, then `make code.gen-check` to ensure generated code is up to date:
+```sh
+make lint-fix
+make code.gen-check
+```
+
+### Controller changes not reflected in the cluster
+
+**Cause:** When developing with a running k3d cluster, the in-cluster controller deployment may override your local manager.
+
+**Fix:** Scale down the in-cluster controller before running locally:
+```sh
+kubectl --context k3d-openchoreo-dev -n openchoreo-control-plane \
+  scale deployment openchoreo-controller-manager --replicas=0
+make go.run.manager ENABLE_WEBHOOKS=false
+```
+
+### `kubectl` commands fail with "The connection to the server was refused"
+
+**Cause:** The k3d cluster is not running or the kubeconfig context is incorrect.
+
+**Fix:**
+```sh
+# Verify the cluster is running
+k3d cluster list
+# Set the correct context
+kubectl config use-context k3d-openchoreo-dev
+```
