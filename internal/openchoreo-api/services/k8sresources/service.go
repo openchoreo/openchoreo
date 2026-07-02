@@ -35,6 +35,9 @@ const (
 
 	// kindRenderedRelease is the kind of the RenderedRelease control-plane CR.
 	kindRenderedRelease = "RenderedRelease"
+	// kindDeployment is the workload kind whose Pods/ReplicaSets are matched by
+	// name prefix when aggregating release-level events.
+	kindDeployment = "Deployment"
 )
 
 // planeInfo holds the resolved plane coordinates for gateway proxy calls.
@@ -435,20 +438,28 @@ func (s *k8sResourcesService) getReleaseLevelEvents(ctx context.Context, control
 }
 
 // aggregateReleaseResourceEvents fetches the events of all data-plane resources
-// belonging to a single release. Resource names are matched exactly; workload
-// names (Deployment, ReplicaSet, ...) are also matched as prefixes so that the
-// ReplicaSets and Pods they spawn — which are not listed individually in the
-// release status — are included too.
+// belonging to a single release, matching resource names exactly and workload
+// names as prefixes (to catch the Pods/ReplicaSets they spawn).
+//
+// Generated child names can't be expressed in a fieldSelector, so instead of
+// querying by name we narrow each request by involvedObject.kind and match names
+// client-side. This keeps per-request responses small, avoiding the truncation
+// that listing every event in a busy namespace would risk.
 func (s *k8sResourcesService) aggregateReleaseResourceEvents(ctx context.Context, rc *releaseContext) ([]models.ResourceEvent, error) {
 	namespaces := make(map[string]struct{})
 	exact := make(map[string]struct{})
+	kinds := make(map[string]struct{})
 	var prefixes []string
+	hasClusterScoped := false
 	for i := range rc.release.Status.Resources {
 		r := &rc.release.Status.Resources[i]
 		if r.Namespace != "" {
 			namespaces[r.Namespace] = struct{}{}
+		} else {
+			hasClusterScoped = true
 		}
 		exact[r.Name] = struct{}{}
+		kinds[r.Kind] = struct{}{}
 		if isPodParentKind(r.Kind) {
 			prefixes = append(prefixes, r.Name)
 		}
@@ -456,16 +467,43 @@ func (s *k8sResourcesService) aggregateReleaseResourceEvents(ctx context.Context
 	if len(namespaces) == 0 && rc.namespace != "" {
 		namespaces[rc.namespace] = struct{}{}
 	}
+	// Include the child kinds so prefix-matched Pods/ReplicaSets/Jobs are queried.
+	if len(prefixes) > 0 {
+		for _, k := range []string{"Pod", "ReplicaSet", "Job"} {
+			kinds[k] = struct{}{}
+		}
+	}
 
 	events := make([]models.ResourceEvent, 0)
-	for ns := range namespaces {
-		items, err := s.fetchK8sList(ctx, rc.plane, fmt.Sprintf("api/v1/namespaces/%s/events", ns), "")
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch events: %w", err)
+	for kind := range kinds {
+		rawQuery := "fieldSelector=involvedObject.kind=" + kind
+
+		// Cluster-scoped resources don't appear in namespaced event lists. Take only
+		// cluster-scoped events here; namespaced ones come from the loop below.
+		if hasClusterScoped {
+			items, err := s.fetchK8sList(ctx, rc.plane, "api/v1/events", rawQuery)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch events: %w", err)
+			}
+			for _, item := range items {
+				if getNestedString(item, "involvedObject", "namespace") != "" {
+					continue
+				}
+				if involvedObjectBelongsToRelease(item, exact, prefixes) {
+					events = append(events, mapEventItem(item))
+				}
+			}
 		}
-		for _, item := range items {
-			if involvedObjectBelongsToRelease(item, exact, prefixes) {
-				events = append(events, mapEventItem(item))
+
+		for ns := range namespaces {
+			items, err := s.fetchK8sList(ctx, rc.plane, fmt.Sprintf("api/v1/namespaces/%s/events", ns), rawQuery)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch events: %w", err)
+			}
+			for _, item := range items {
+				if involvedObjectBelongsToRelease(item, exact, prefixes) {
+					events = append(events, mapEventItem(item))
+				}
 			}
 		}
 	}
@@ -476,7 +514,7 @@ func (s *k8sResourcesService) aggregateReleaseResourceEvents(ctx context.Context
 // ReplicaSet/Job) whose derived names are prefixed with the workload name.
 func isPodParentKind(kind string) bool {
 	switch kind {
-	case "Deployment", "ReplicaSet", "StatefulSet", "DaemonSet", "Job", "CronJob":
+	case kindDeployment, "ReplicaSet", "StatefulSet", "DaemonSet", "Job", "CronJob":
 		return true
 	default:
 		return false
@@ -497,6 +535,12 @@ func involvedObjectBelongsToRelease(item map[string]any, exact map[string]struct
 	}
 	if _, ok := exact[name]; ok {
 		return true
+	}
+	// Only child kinds may match by prefix, so an unrelated object like a ConfigMap
+	// "web-config" isn't misattributed to the "web" workload.
+	kind, _ := involved["kind"].(string)
+	if !isChildResourceKind(kind) {
+		return false
 	}
 	for _, p := range prefixes {
 		if strings.HasPrefix(name, p+"-") {
@@ -642,7 +686,7 @@ func (s *k8sResourcesService) fetchChildResources(ctx context.Context, pi planeI
 	}
 
 	switch rs.Kind {
-	case "Deployment":
+	case kindDeployment:
 		replicaSets := s.fetchOwnedResources(ctx, pi, "apps", "ReplicaSet", rs.Namespace, parentUID)
 		for _, rsObj := range replicaSets {
 			rsUID := getNestedString(rsObj, "metadata", "uid")
@@ -972,8 +1016,8 @@ func getAPIVersion(obj map[string]any) string {
 }
 
 var childResourceParentKinds = map[string][]string{
-	"Pod":        {"Deployment", "Job", "CronJob"},
-	"ReplicaSet": {"Deployment"},
+	"Pod":        {kindDeployment, "Job", "CronJob"},
+	"ReplicaSet": {kindDeployment},
 	"Job":        {"CronJob"},
 }
 
