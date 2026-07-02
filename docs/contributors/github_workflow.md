@@ -303,3 +303,64 @@ git reset --hard HEAD@{3}
 ```
 
 > **Warning**: This will discard changes that were part of the rebase.
+
+### What CI checks must pass before my PR can be merged?
+
+All of the following must pass:
+
+| Check | What it validates |
+|-------|-------------------|
+| `build-and-test` | Compiles the code and runs unit tests |
+| `lint-pr` | Validates PR title follows [Conventional Commits](#pr-title-convention) format |
+| `DCO` | Verifies all commits have `Signed-off-by` lines |
+| `lint` | Runs `golangci-lint` on changed files |
+| `code-gen-check` | Ensures generated code is up to date |
+
+If any check fails, click the "Details" link on the failing check to see the error output.
+
+### My CI is failing on code generation — what do I do?
+
+Run these commands locally, commit the changes, and push:
+
+```sh
+make generate
+make manifests
+make code.gen
+git add -A
+git commit -s -m "chore: regenerate code"
+git push origin feature-branch
+```
+
+### Can I open a draft PR?
+
+Yes. Draft PRs are a good way to get early feedback without triggering a full review cycle. Convert your PR from draft to "Ready for review" when you're satisfied with the changes. CI checks run on draft PRs too.
+
+### How many reviewers are needed to merge?
+
+At least **two approvals** are required, including at least one from a [maintainer](../../MAINTAINERS.md). The PR author cannot approve their own PR.
+
+### How long should I wait for a review?
+
+Maintainers aim to provide an initial review within **3–5 business days**. If your PR hasn't received attention after a week:
+1. Add a polite comment on the PR asking for review
+2. Reach out on [Slack](https://cloud-native.slack.com/archives/C0ABYRG1MND) with a link to your PR
+
+### My PR is getting stale — what should I do?
+
+If `main` has moved ahead significantly:
+
+```sh
+git fetch upstream
+git rebase upstream/main
+git push -f origin feature-branch
+```
+
+This updates your PR with the latest changes and re-triggers CI. If the PR has been open for a long time without activity, consider whether the scope should be reduced to make review easier.
+
+### Can I push directly to `main`?
+
+No. All changes must go through pull requests. Direct pushes to `main` are blocked by branch protection rules.
+
+### What if my PR addresses multiple issues?
+
+If the changes are closely related, a single PR is fine — list all related issues in the "Related Issues" section. If the changes are independent, split them into separate PRs for easier review and cleaner commit history.
