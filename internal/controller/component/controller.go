@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -29,7 +31,8 @@ import (
 // Reconciler reconciles a Component object
 type Reconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch;create;update;patch;delete
@@ -47,6 +50,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=workflowruns,verbs=list;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -177,6 +181,11 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 			msg := fmt.Sprintf("Failed to handle autoDeploy: %v", err)
 			controller.MarkFalseCondition(comp, ConditionReady, ReasonAutoDeployFailed, msg)
 			logger.Error(err, "Failed to handle autoDeploy")
+			r.Recorder.Event(comp, corev1.EventTypeWarning, string(ReasonAutoDeployFailed), msg)
+			// Do not retry permanent admission/validation errors
+			if apierrors.IsInvalid(err) || apierrors.IsForbidden(err) || apierrors.IsBadRequest(err) {
+				return ctrl.Result{}, nil
+			}
 			return ctrl.Result{}, err
 		}
 	}
@@ -853,6 +862,10 @@ func (r *Reconciler) ensureReleaseBinding(
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.Recorder == nil {
+		r.Recorder = mgr.GetEventRecorderFor("component-controller")
+	}
+
 	ctx := context.Background()
 
 	// Set up field indexes for efficient lookups
