@@ -142,6 +142,14 @@ linters:
       - linters:
           - staticcheck
         text: "SA1019: admission.CustomDefaulter is deprecated"
+      # SA1019: the deprecated Trait/ClusterTrait spec.validations field is intentionally
+      # exercised by tests for backward-compat coverage. Production reads are suppressed
+      # inline with //nolint; this scopes only the test-file uses so new production reads
+      # still warn.
+      - linters:
+          - staticcheck
+        text: "SA1019: .*Validations is deprecated: use PreRenderValidations"
+        path: _test\.go$
       # Suppress "should have a package comment" (EXC0015).
       - linters:
           - revive

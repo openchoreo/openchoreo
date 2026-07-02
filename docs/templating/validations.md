@@ -119,6 +119,96 @@ spec:
       maxReplicas: "integer | default=3 | minimum=1"
 ```
 
+## Trait Pre-render and Post-render Validations
+
+Traits and ClusterTraits support two additional validation stages beyond the shared `spec.validations` field.
+
+### `preRenderValidations` (replaces `validations`)
+
+On Trait and ClusterTrait, `spec.validations` is **deprecated**. Prefer `spec.preRenderValidations`, which has identical semantics — CEL rules evaluated before rendering against the trait's static context (`parameters`, `environmentConfigs`, `metadata`, `workload`, ...). The two fields are **mutually exclusive**: setting both on the same trait is rejected at admission time.
+
+```yaml
+kind: Trait
+metadata:
+  name: websocket-config
+spec:
+  preRenderValidations:
+    - rule: "${parameters.endpointName in workload.endpoints}"
+      message: "The specified endpointName must refer to an existing endpoint."
+```
+
+`preRenderValidations` uses the same rule structure (`rule` + `message`) and error format as `validations`. When both fields are absent, no pre-render rules run; the controller reads whichever field is set.
+
+### `postRenderValidations`
+
+`postRenderValidations` are CEL rules evaluated **after all traits are applied**, against the final rendered Kubernetes resources. This lets a trait assert invariants about the finished resource set — including whether its own contributions survived later traits in the stack.
+
+Each entry selects target resources by GVK (plus an optional `where` filter), binds each match to the `resource` variable, and requires `rule` to evaluate to `true`.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `when` | No | CEL guard evaluated against the trait context; if it evaluates to `false`, the validation is skipped |
+| `target.group` / `target.version` / `target.kind` | Yes | GVK of the rendered resources to select |
+| `target.where` | No | CEL expression (with `resource` bound) filtering the selection to a subset |
+| `target.mustMatch` | No | Defaults to `true`. When `true` and no resource matches the target, the validation fails |
+| `rule` | Yes | CEL expression wrapped in `${...}`, evaluated with `resource` bound to each match; must be `true` |
+| `message` | Yes | Error message shown when the rule evaluates to `false` |
+
+`mustMatch` defaults to `true`, so a target that selects zero resources fails the release. This closes the gap where a later trait removed the resource this trait was validating.
+
+```yaml
+kind: Trait
+metadata:
+  name: exclusive-writer
+spec:
+  parameters:
+    openAPIV3Schema:
+      mode: "string | default=read"
+  postRenderValidations:
+    - when: ${parameters.mode == 'write'}
+      target:
+        group: apps
+        version: v1
+        kind: Deployment
+      rule: ${resource.spec.replicas == 1}
+      message: "write mode requires a single replica for exclusive access"
+```
+
+#### Verifying your own changes survived later traits
+
+Because both `resource` and `parameters` are in scope, a single rule with CEL comprehensions can assert that everything a trait added (e.g. via `forEach` over `parameters`) is still present after the whole trait stack has run — no per-item loop construct is needed:
+
+```yaml
+postRenderValidations:
+  # Assert every volume mount this trait added via forEach over parameters.mounts
+  # is still present after all later traits in the stack have run.
+  - target: { group: apps, version: v1, kind: Deployment }
+    rule: ${parameters.mounts.all(m, resource.spec.template.spec.volumes.exists(v, v.name == m.name))}
+    message: "a later trait removed one of this trait's volume mounts"
+```
+
+Post-render rule failures across all matched resources and all traits are aggregated (joined with `; `) into a single error, mirroring pre-render behavior. A malformed `where` selector is reported immediately as a hard error.
+
+#### `forEach` — asserting a distinct resource survived per declared item
+
+Comprehensions cover the "did any of my changes survive" case, but not the *distinct-resource-per-item* case: "for each route I declared, assert that route's own resource still exists." A per-resource rule never fires for a resource that was removed entirely, so per-item existence can't be caught that way.
+
+`forEach` closes this. It repeats the validation for every item in a CEL-evaluated list (evaluated against the trait context), binding the loop variable (named by `var`) into `target.where` and `rule`. `mustMatch` then applies **per iteration**, so a missing resource for any single item fails that item. The semantics are identical to trait patch `forEach`: `var` is required when `forEach` is set (CRD-enforced), and the loop variable is in scope for `where` and `rule` but not for `when` (which is evaluated once, before iteration).
+
+```yaml
+postRenderValidations:
+  - forEach: ${parameters.routes}
+    var: route
+    target:
+      group: gateway.networking.k8s.io
+      version: v1
+      kind: HTTPRoute
+      where: ${resource.metadata.name == route.name}
+      mustMatch: true   # fails if this route's resource was removed by a later trait
+    rule: ${resource.spec.rules.size() > 0}
+    message: "route ${route.name} lost its rules"
+```
+
 ## Error Messages
 
 When validation rules fail, error messages include the rule index, rule text, and the user-provided message:
@@ -142,7 +232,8 @@ Multiple failures from the same `validations` list are joined with `; `.
 3. Base resources are rendered from ComponentType templates
 4. For each trait:
    a. Trait context is built with trait-specific parameters and environmentConfigs
-   b. **Trait validation rules** are evaluated using the TraitContext
-   c. Trait creates and patches are processed
+   b. **Trait pre-render validation rules** (`preRenderValidations`, or the deprecated `validations`) are evaluated using the TraitContext
+   c. Trait creates, patches, and removes are processed
+5. **Trait post-render validation rules** (`postRenderValidations`) are evaluated against the final rendered resource set, after every trait has been applied
 
 If any validation rule fails, rendering stops and the error is reported.
