@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2" //nolint:revive
@@ -39,7 +40,9 @@ var _ = Describe("Connection Resolution", Ordered, Label("tier1"), func() {
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(reason).To(Equal(expectedReason),
 				"expected condition %s reason=%s on ReleaseBinding %s", condType, expectedReason, rbName)
-		}, 3*time.Minute, 2*time.Second).Should(Succeed())
+		}, 3*time.Minute, 2*time.Second).Should(Succeed(), func() string {
+			return releaseBindingDiagnostics(namespace, rbName)
+		})
 	}
 
 	// assertRBCondition checks a ReleaseBinding condition in cpNs via jsonpath.
@@ -57,7 +60,9 @@ var _ = Describe("Connection Resolution", Ordered, Label("tier1"), func() {
 			g.Expect(err).NotTo(HaveOccurred(), "failed to get condition %s on ReleaseBinding %s", condType, rbName)
 			g.Expect(status).To(Equal(expectedStatus),
 				"expected condition %s status=%s on ReleaseBinding %s", condType, expectedStatus, rbName)
-		}, 3*time.Minute, 2*time.Second).Should(Succeed())
+		}, 3*time.Minute, 2*time.Second).Should(Succeed(), func() string {
+			return releaseBindingDiagnostics(cpNs, rbName)
+		})
 	}
 
 	// assertRBEndpointServiceURL checks that a ReleaseBinding endpoint has a serviceURL.
@@ -404,4 +409,41 @@ func getReleaseBindingStatusInNs(g Gomega, namespace, rbName string) openchoreov
 	var rb openchoreov1alpha1.ReleaseBinding
 	g.Expect(json.Unmarshal([]byte(output), &rb)).To(Succeed(), "failed to unmarshal ReleaseBinding %s", rbName)
 	return rb.Status
+}
+
+// releaseBindingDiagnostics returns a human-readable dump of every condition on a
+// ReleaseBinding (type/status/reason/message) plus its recent events. It is meant
+// to be passed as the lazily-evaluated failure description of a condition
+// assertion so that a timeout reports the full picture — not just the single
+// condition that was being polled (e.g. Ready=False with no reason).
+func releaseBindingDiagnostics(namespace, rbName string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "\n--- diagnostics for releasebinding %s/%s ---\n", namespace, rbName)
+
+	conditions, err := framework.Kubectl(
+		kubeContext,
+		"get", "releasebinding", rbName,
+		"-n", namespace,
+		"-o", `jsonpath={range .status.conditions[*]}{.type}={.status} (reason={.reason}, message={.message}){"\n"}{end}`,
+	)
+	if err != nil {
+		fmt.Fprintf(&b, "failed to read conditions: %v\n", err)
+	} else {
+		fmt.Fprintf(&b, "conditions:\n%s\n", conditions)
+	}
+
+	events, err := framework.Kubectl(
+		kubeContext,
+		"get", "events",
+		"-n", namespace,
+		"--field-selector", "involvedObject.name="+rbName,
+		"--sort-by", ".lastTimestamp",
+	)
+	if err != nil {
+		fmt.Fprintf(&b, "failed to read events: %v\n", err)
+	} else {
+		fmt.Fprintf(&b, "events:\n%s\n", events)
+	}
+
+	return b.String()
 }
