@@ -1192,6 +1192,7 @@ openchoreoApi:
                 - "clusterprojecttype:view"
                 - "clustertrait:view"
                 - "clusterworkflow:view"
+                - "observabilityalertsnotificationchannel:view"
 
             # FinOps agent role for cost analysis and resource overprovisioning assessment
             - name: finops-agent
