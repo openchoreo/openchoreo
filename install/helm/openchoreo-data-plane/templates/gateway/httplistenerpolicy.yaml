@@ -1,0 +1,19 @@
+{{- if and .Values.gateway.enabled (eq (.Values.gateway.gatewayClassName | default "kgateway") "kgateway") .Values.gateway.httpListenerPolicy.enabled }}
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: HTTPListenerPolicy
+metadata:
+  name: default-httplistenerpolicy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
+spec:
+  # Target the default gateway created by this chart
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway-default
+  # Enable WebSocket upgrades by default on all listeners of the target Gateway
+  upgradeConfig:
+    enabledUpgrades:
+      - websocket
+{{- end }}

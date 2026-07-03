@@ -725,6 +725,21 @@
           "title": "gatewayClassName",
           "type": "string"
         },
+        "httpListenerPolicy": {
+          "additionalProperties": false,
+          "description": "HTTPListenerPolicy configuration for KGateway. Configures additional listener-level settings\non the gateway default HTTP/HTTPS listeners (e.g. enabling WebSocket upgrades).",
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "Enable HTTPListenerPolicy creation for the gateway",
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "httpListenerPolicy",
+          "type": "object"
+        },
         "httpPort": {
           "default": 80,
           "description": "Port for the HTTP listener on the gateway",
