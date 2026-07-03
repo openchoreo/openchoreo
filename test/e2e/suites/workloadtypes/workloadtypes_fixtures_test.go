@@ -24,10 +24,10 @@ const (
 	envDev      = "development"
 	envStaging  = "staging"
 
-	componentService     = "greeter"
-	componentWebApp      = "react-spa"
-	componentScheduled   = "issue-reporter"
-	releaseBindingSuffix = "-" + envDev
+	componentService              = "greeter"
+	componentWebApp               = "react-spa"
+	componentScheduled            = "issue-reporter"
+	componentReleaseBindingSuffix = "-" + envDev
 
 	servicePort = 9090
 	webAppPort  = 8080
@@ -174,8 +174,8 @@ func componentWithImageYAML(name, componentType, image string, port int, args []
 	return mustYAMLDocs(comp, workload)
 }
 
-// scheduledTaskComponentYAML returns a Component + Workload + ReleaseBinding for
-// the cronjob/scheduled-task ClusterComponentType. The ReleaseBinding sets a
+// scheduledTaskComponentYAML returns a Component + Workload + ComponentReleaseBinding for
+// the cronjob/scheduled-task ClusterComponentType. The ComponentReleaseBinding sets a
 // minute-frequency schedule so the test can observe a scheduled Job within ~60s.
 func scheduledTaskComponentYAML(name, image string) string {
 	comp := &openchoreov1alpha1.Component{
@@ -213,13 +213,13 @@ func scheduledTaskComponentYAML(name, image string) string {
 			},
 		},
 	}
-	// ReleaseBinding override forces a 1-minute schedule so the test does not
+	// ComponentReleaseBinding override forces a 1-minute schedule so the test does not
 	// have to wait the sample's default 5 minutes for `lastScheduleTime`.
 	rb := map[string]any{
 		"apiVersion": openChoreoAPIVer,
-		"kind":       "ReleaseBinding",
+		"kind":       "ComponentReleaseBinding",
 		"metadata": map[string]any{
-			"name":      name + releaseBindingSuffix,
+			"name":      name + componentReleaseBindingSuffix,
 			"namespace": cpNs,
 		},
 		"spec": map[string]any{

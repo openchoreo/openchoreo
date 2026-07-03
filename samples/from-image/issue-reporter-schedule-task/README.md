@@ -71,14 +71,14 @@ The scheduled task requires several environment variables to be configured:
 
 If the scheduled task is not working correctly:
 
-1. **Check the ReleaseBinding status:**
+1. **Check the ComponentReleaseBinding status:**
    ```bash
-   kubectl get releasebinding github-issue-reporter-development -n default -o yaml
+   kubectl get componentreleasebinding github-issue-reporter-development -n default -o yaml
    ```
 
-2. **Check the ReleaseBinding conditions:**
+2. **Check the ComponentReleaseBinding conditions:**
    ```bash
-   kubectl get releasebinding github-issue-reporter-development -n default -o jsonpath='{.status.conditions}' | jq .
+   kubectl get componentreleasebinding github-issue-reporter-development -n default -o jsonpath='{.status.conditions}' | jq .
    ```
 
 3. **Verify the CronJob is created:**
@@ -121,7 +121,7 @@ Example schedules:
 - `0 9 * * 1-5` - Every weekday at 9 AM
 - `0 0 */3 * *` - Every 3 days at midnight
 
-You can also override the schedule for specific environments by modifying the `ReleaseBinding` resource and adding the schedule to the `componentTypeEnvironmentConfigs` section (as shown in the sample YAML where the development environment overrides the schedule to run every 5 minutes).
+You can also override the schedule for specific environments by modifying the `ComponentReleaseBinding` resource and adding the schedule to the `componentTypeEnvironmentConfigs` section (as shown in the sample YAML where the development environment overrides the schedule to run every 5 minutes).
 
 ## Clean Up
 

@@ -76,7 +76,7 @@ occ component deploy greeter-service
 Check the release bindings:
 
 ```bash
-occ releasebinding list
+occ componentreleasebinding list
 ```
 
 ## Step 5: Test the Application
@@ -84,13 +84,13 @@ occ releasebinding list
 Wait for the release binding status to show `Ready` before proceeding:
 
 ```bash
-occ releasebinding list
+occ componentreleasebinding list
 ```
 
 Get the invoke URL from the release binding status and test the endpoint:
 
 ```bash
-INVOKE_URL=$(occ releasebinding get greeter-service-development | yq '.status.endpoints[0].externalURLs.http | .scheme + "://" + .host + ":" + (.port | tostring) + .path')
+INVOKE_URL=$(occ componentreleasebinding get greeter-service-development | yq '.status.endpoints[0].externalURLs.http | .scheme + "://" + .host + ":" + (.port | tostring) + .path')
 ```
 
 ```bash
@@ -125,7 +125,7 @@ occ component deploy greeter-service --to staging
 Check the release binding status:
 
 ```bash
-occ releasebinding list
+occ componentreleasebinding list
 ```
 
 ## Step 8: Promote to Production

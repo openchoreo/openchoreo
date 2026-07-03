@@ -50,7 +50,7 @@ Specifies the container image and configuration for the component:
   - `application.toml`: Plain text config file mounted at `/conf`
   - `gitPAT`: Secret file mounted at `/conf` from secret reference
 
-### ReleaseBinding (`demo-app-development`)
+### ComponentReleaseBinding (`demo-app-development`)
 
 Represents a deployment of the component in a specific environment. It:
 
@@ -70,7 +70,7 @@ This sample demonstrates the comprehensive configuration capabilities available 
 - **Environment Variables**: Both plain text and secret-backed values
 - **Config Files**: Plain text configuration files mounted into containers
 - **Secret Files**: Secret-backed files (e.g., credentials, tokens) mounted into containers
-- **Environment-Specific Overrides**: Different configurations per environment via ReleaseBinding
+- **Environment-Specific Overrides**: Different configurations per environment via ComponentReleaseBinding
 
 > **Note**: The default `deployment/service` ComponentType already includes all these configuration capabilities. This sample uses a custom ComponentType (`deployment/service-with-configs`) following the same structure to explicitly demonstrate configuration features.
 
@@ -84,7 +84,7 @@ This sample demonstrates the comprehensive configuration capabilities available 
 2. **SecretReference** defines how to fetch secrets from external secret stores
 3. **Component** uses that template and provides base configuration
 4. **Workload** specifies what container(s) to run and their configurations (env vars, files, secrets)
-5. **ReleaseBinding** specifies the actual deployment with environment-specific overrides
+5. **ComponentReleaseBinding** specifies the actual deployment with environment-specific overrides
 
 The OpenChoreo controller manager uses these resources and generates the Kubernetes resources (Deployment, Service, HTTPRoute, ConfigMaps, ExternalSecrets) based on the templates and parameters.
 
@@ -96,10 +96,10 @@ Apply the sample:
 kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-with-configs/component-with-configs.yaml
 ```
 
-## Check the ReleaseBinding status
+## Check the ComponentReleaseBinding status
 
 ```bash
-kubectl get releasebinding demo-app-development -o yaml | grep -A 50 "^status:"
+kubectl get componentreleasebinding demo-app-development -o yaml | grep -A 50 "^status:"
 ```
 
 ## Verify Generated Resources
@@ -172,14 +172,14 @@ kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/h
 
 If the application is not accessible or resources are not created:
 
-1. **Check ReleaseBinding status:**
+1. **Check ComponentReleaseBinding status:**
    ```bash
-   kubectl get releasebinding demo-app-development -o yaml
+   kubectl get componentreleasebinding demo-app-development -o yaml
    ```
 
-2. **Check ReleaseBinding conditions:**
+2. **Check ComponentReleaseBinding conditions:**
    ```bash
-   kubectl get releasebinding demo-app-development -o jsonpath='{.status.conditions}' | jq .
+   kubectl get componentreleasebinding demo-app-development -o jsonpath='{.status.conditions}' | jq .
    ```
 
 3. **Check deployment status:**

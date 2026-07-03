@@ -72,8 +72,8 @@ Wait for the WorkflowRun to complete successfully. You should see:
 After the workflow completes, verify the deployment is ready:
 
 ```bash
-# Check ReleaseBinding status
-kubectl get releasebinding reading-list-service-development -n default -o jsonpath='{.status.conditions}' | jq .
+# Check ComponentReleaseBinding status
+kubectl get componentreleasebinding reading-list-service-development -n default -o jsonpath='{.status.conditions}' | jq .
 
 # Verify deployment is ready
 kubectl get deployment -A -l openchoreo.dev/component=reading-list-service
@@ -166,14 +166,14 @@ If the workflow fails or takes too long:
 
 If the application is not accessible:
 
-1. **Check ReleaseBinding status:**
+1. **Check ComponentReleaseBinding status:**
    ```bash
-   kubectl get releasebinding reading-list-service-development -n default -o yaml
+   kubectl get componentreleasebinding reading-list-service-development -n default -o yaml
    ```
 
-2. **Check ReleaseBinding conditions:**
+2. **Check ComponentReleaseBinding conditions:**
    ```bash
-   kubectl get releasebinding reading-list-service-development -n default -o jsonpath='{.status.conditions}' | jq .
+   kubectl get componentreleasebinding reading-list-service-development -n default -o jsonpath='{.status.conditions}' | jq .
    ```
 
 3. **Verify HTTPRoute is configured:**

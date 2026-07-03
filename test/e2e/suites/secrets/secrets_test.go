@@ -39,20 +39,20 @@ var _ = Describe("Secrets and External Secrets", Ordered, Label("tier2"), func()
 	assertRBCondition := func(condType, expectedStatus, expectedReason string) {
 		Eventually(func(g Gomega) {
 			status, err := framework.KubectlGetJsonpath(
-				kubeContext, cpNs, "releasebinding", rbName,
+				kubeContext, cpNs, "componentreleasebinding", rbName,
 				fmt.Sprintf(`{.status.conditions[?(@.type=="%s")].status}`, condType),
 			)
-			g.Expect(err).NotTo(HaveOccurred(), "failed to get condition %s on ReleaseBinding %s", condType, rbName)
+			g.Expect(err).NotTo(HaveOccurred(), "failed to get condition %s on ComponentReleaseBinding %s", condType, rbName)
 			g.Expect(status).To(Equal(expectedStatus),
-				"expected condition %s status=%s on ReleaseBinding %s", condType, expectedStatus, rbName)
+				"expected condition %s status=%s on ComponentReleaseBinding %s", condType, expectedStatus, rbName)
 
 			reason, err := framework.KubectlGetJsonpath(
-				kubeContext, cpNs, "releasebinding", rbName,
+				kubeContext, cpNs, "componentreleasebinding", rbName,
 				fmt.Sprintf(`{.status.conditions[?(@.type=="%s")].reason}`, condType),
 			)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(reason).To(Equal(expectedReason),
-				"expected condition %s reason=%s on ReleaseBinding %s", condType, expectedReason, rbName)
+				"expected condition %s reason=%s on ComponentReleaseBinding %s", condType, expectedReason, rbName)
 		}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
 	}
 
@@ -272,7 +272,7 @@ var _ = Describe("Secrets and External Secrets", Ordered, Label("tier2"), func()
 		}, framework.DefaultTimeout, 5*time.Second).Should(Succeed(), "dp namespace not found")
 		fmt.Fprintf(GinkgoWriter, "discovered dp namespace: %s\n", dpNs)
 
-		By("waiting for ReleaseBinding Ready=True")
+		By("waiting for ComponentReleaseBinding Ready=True")
 		assertRBCondition("Ready", "True", "Ready")
 	})
 
@@ -349,7 +349,7 @@ var _ = Describe("Secrets and External Secrets", Ordered, Label("tier2"), func()
 			secretReferenceYAML("env-secret", cpNs, "APP_USERNAME", "npm-token"))
 		Expect(err).NotTo(HaveOccurred(), "failed to update env SecretReference: %s", output)
 
-		By("waiting for ReleaseBinding to re-reconcile and reach Ready=True")
+		By("waiting for ComponentReleaseBinding to re-reconcile and reach Ready=True")
 		assertRBCondition("Ready", "True", "Ready")
 
 		By("waiting for new ExternalSecret with updated remoteRef")
@@ -407,7 +407,7 @@ var _ = Describe("Secrets and External Secrets", Ordered, Label("tier2"), func()
 
 		By("waiting for control plane cleanup")
 		assertResourceGone(cpNs, "component", componentName, 5*time.Minute)
-		assertResourceGone(cpNs, "releasebinding", rbName, 5*time.Minute)
+		assertResourceGone(cpNs, "componentreleasebinding", rbName, 5*time.Minute)
 
 		By("waiting for data plane ExternalSecret cleanup")
 		assertNoExternalSecretsForComponent(dpNs)

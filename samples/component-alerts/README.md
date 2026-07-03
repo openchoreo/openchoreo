@@ -25,14 +25,14 @@ This sample uses a simple, role-based workflow:
   - The same alert rules are reused as components are promoted across environments
 
 - **Per-environment tuning (by Platform Engineers)**:
-  - Use `ReleaseBinding` `traitEnvironmentConfigs` to enable/disable alerts, configure notification channels, toggle incident creation, and toggle AI analysis per environment
+  - Use `ComponentReleaseBinding` `traitEnvironmentConfigs` to enable/disable alerts, configure notification channels, toggle incident creation, and toggle AI analysis per environment
 
 ### Files in this folder
 
 - `alert-rule-trait.yaml`: The `Trait` definition for `observability-alert-rule` that enables attaching alert rules to components. This trait uses `openAPIV3Schema` format and is typically installed as part of the OpenChoreo control plane, but is included here for reference. **One-time setup by Platform Engineers.**
 - `alert-notification-channels.yaml`: Two `ObservabilityAlertsNotificationChannel`s (one email, one webhook) plus their backing `Secret`s for the `development` environment. **One-time setup per environment by Platform Engineers.**
 - `components-with-alert-rules.yaml`: `Component` definitions for `frontend`, `recommendation`, and `cart` microservices with alert rules attached as `observability-alert-rule` traits. **Defined once by Developers - alert rules propagate through environments.**
-- `failure-scenario-setup.yaml`: `ReleaseBinding`s that deliberately misconfigure the system (env var overrides, CPU / memory limit overrides) to cause alerts to fire. Also demonstrates environment-specific alert customization via `traitEnvironmentConfigs`.
+- `failure-scenario-setup.yaml`: `ComponentReleaseBinding`s that deliberately misconfigure the system (env var overrides, CPU / memory limit overrides) to cause alerts to fire. Also demonstrates environment-specific alert customization via `traitEnvironmentConfigs`.
 - `trigger-alerts.sh`: Simple script that drives traffic to the `frontend` to trigger the configured alerts.
 
 ---
@@ -78,7 +78,7 @@ Deploy the `gcp-microservices-demo` sample to setup the project and components:
 
 ### Step 4: Define Alert Rules for Components (One-Time per Component)
 
-Developers attach alert rules as traits to components once. These rules automatically propagate to all environments as the component is promoted. Platform Engineers can still customize behavior per environment via `ReleaseBinding` `traitEnvironmentConfigs` (enable/disable, AI analysis, notification channel selection).
+Developers attach alert rules as traits to components once. These rules automatically propagate to all environments as the component is promoted. Platform Engineers can still customize behavior per environment via `ComponentReleaseBinding` `traitEnvironmentConfigs` (enable/disable, AI analysis, notification channel selection).
 
 This step attaches alert-rule traits to the existing components:
 
@@ -91,7 +91,7 @@ Apply the components with alert rules:
 kubectl apply -f samples/component-alerts/components-with-alert-rules.yaml
 ```
 
-**Note**: The alert rules defined here don't specify notification channels in the trait parameters. Notification channels are configured per environment via `ReleaseBinding` `traitEnvironmentConfigs`. If you want to connect these alert rules to specific notification channels, you can use the `ReleaseBinding` resources in the next section with `traitEnvironmentConfigs` that reference the notification channel names under `actions.notifications.channels` (e.g., `["email-notification-channel-development"]` or `["webhook-notification-channel-development"]`). If not specified, the default notification channel for the environment will be used.
+**Note**: The alert rules defined here don't specify notification channels in the trait parameters. Notification channels are configured per environment via `ComponentReleaseBinding` `traitEnvironmentConfigs`. If you want to connect these alert rules to specific notification channels, you can use the `ComponentReleaseBinding` resources in the next section with `traitEnvironmentConfigs` that reference the notification channel names under `actions.notifications.channels` (e.g., `["email-notification-channel-development"]` or `["webhook-notification-channel-development"]`). If not specified, the default notification channel for the environment will be used.
 
 ---
 
@@ -99,7 +99,7 @@ kubectl apply -f samples/component-alerts/components-with-alert-rules.yaml
 
 ### Step 5: Configure Failure Scenarios (Optional - for Testing)
 
-This step creates `ReleaseBinding`s that:
+This step creates `ComponentReleaseBinding`s that:
 - **Misconfigure resources** to trigger alerts:
   - `frontend`: Override `PRODUCT_CATALOG_SERVICE_ADDR` to `http://localhost:8080` (invalid endpoint) via `workloadOverrides`
   - `recommendation`: Lower CPU limits to `10m` (very restrictive) via `componentTypeEnvironmentConfigs`

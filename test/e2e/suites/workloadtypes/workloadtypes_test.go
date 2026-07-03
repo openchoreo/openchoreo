@@ -95,10 +95,10 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 	})
 
 	Context("rendering and reachability", func() {
-		It("service: ReleaseBinding becomes Ready and endpoint is reachable", func() {
-			By("waiting for ReleaseBinding Ready")
+		It("service: ComponentReleaseBinding becomes Ready and endpoint is reachable", func() {
+			By("waiting for ComponentReleaseBinding Ready")
 			Eventually(func(g Gomega) {
-				framework.AssertReleaseBindingReady(g, kubeContext, cpNs, componentService+releaseBindingSuffix)
+				framework.AssertComponentReleaseBindingReady(g, kubeContext, cpNs, componentService+componentReleaseBindingSuffix)
 			}, 5*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("workload pod is Running")
@@ -118,10 +118,10 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 				"service endpoint %s:%s should be TCP-reachable", host, port)
 		})
 
-		It("web-application: ReleaseBinding becomes Ready and endpoint is reachable", func() {
-			By("waiting for ReleaseBinding Ready")
+		It("web-application: ComponentReleaseBinding becomes Ready and endpoint is reachable", func() {
+			By("waiting for ComponentReleaseBinding Ready")
 			Eventually(func(g Gomega) {
-				framework.AssertReleaseBindingReady(g, kubeContext, cpNs, componentWebApp+releaseBindingSuffix)
+				framework.AssertComponentReleaseBindingReady(g, kubeContext, cpNs, componentWebApp+componentReleaseBindingSuffix)
 			}, 5*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("workload pod is Running")
@@ -141,10 +141,10 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 				"web-app endpoint %s:%s should be TCP-reachable", host, port)
 		})
 
-		It("scheduled-task: ReleaseBinding becomes Ready and CronJob gets scheduled", func() {
-			By("waiting for ReleaseBinding Ready")
+		It("scheduled-task: ComponentReleaseBinding becomes Ready and CronJob gets scheduled", func() {
+			By("waiting for ComponentReleaseBinding Ready")
 			Eventually(func(g Gomega) {
-				framework.AssertReleaseBindingReady(g, kubeContext, cpNs, componentScheduled+releaseBindingSuffix)
+				framework.AssertComponentReleaseBindingReady(g, kubeContext, cpNs, componentScheduled+componentReleaseBindingSuffix)
 			}, 5*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("CronJob exists in the DP namespace")
@@ -220,10 +220,10 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 			Expect(err).NotTo(HaveOccurred(),
 				"failed to delete component %s: %s", componentWebApp, output)
 
-			By("ReleaseBinding for the deleted component is gone")
+			By("ComponentReleaseBinding for the deleted component is gone")
 			Eventually(func(g Gomega) {
-				framework.AssertResourceGone(g, kubeContext, cpNs, "releasebinding",
-					componentWebApp+releaseBindingSuffix)
+				framework.AssertResourceGone(g, kubeContext, cpNs, "componentreleasebinding",
+					componentWebApp+componentReleaseBindingSuffix)
 			}, 3*time.Minute, 2*time.Second).Should(Succeed())
 
 			By("no Deployment for the deleted component remains in DP namespace")
@@ -241,7 +241,7 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 
 			By("the service component is untouched")
 			Eventually(func(g Gomega) {
-				framework.AssertReleaseBindingReady(g, kubeContext, cpNs, componentService+releaseBindingSuffix)
+				framework.AssertComponentReleaseBindingReady(g, kubeContext, cpNs, componentService+componentReleaseBindingSuffix)
 			}, 1*time.Minute, 2*time.Second).Should(Succeed())
 		})
 
@@ -253,16 +253,16 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 			Expect(err).NotTo(HaveOccurred(),
 				"failed to delete project %s: %s", projectName, output)
 
-			By("all remaining ReleaseBindings under the project disappear")
+			By("all remaining ComponentReleaseBindings under the project disappear")
 			Eventually(func(g Gomega) {
 				out, err := framework.Kubectl(kubeContext,
-					"get", "releasebinding",
+					"get", "componentreleasebinding",
 					"-n", cpNs,
 					"-o", "jsonpath={.items[*].metadata.name}",
 				)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(out).To(BeEmpty(),
-					"ReleaseBindings still present after project delete: %s", out)
+					"ComponentReleaseBindings still present after project delete: %s", out)
 			}, 5*time.Minute, 5*time.Second).Should(Succeed())
 
 			By("DP namespace fully drains (no Deployment/Service/CronJob left)")
@@ -290,15 +290,15 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 })
 
 // endpointExternalHTTPURL reads the rendered external HTTP gateway URL for a
-// named endpoint off the ReleaseBinding status, assembled from scheme/host/
+// named endpoint off the ComponentReleaseBinding status, assembled from scheme/host/
 // port/path. This is the URL a real caller would hit through kgateway.
 // Path is optional — the web-application template renders no path prefix,
 // while the service template uses /<componentName>-<endpointKey>.
 func endpointExternalHTTPURL(component, endpoint string) string {
-	rbName := component + releaseBindingSuffix
+	rbName := component + componentReleaseBindingSuffix
 	jp := func(g Gomega, field string) string {
 		out, err := framework.KubectlGetJsonpath(
-			kubeContext, cpNs, "releasebinding", rbName,
+			kubeContext, cpNs, "componentreleasebinding", rbName,
 			fmt.Sprintf(`{.status.endpoints[?(@.name=="%s")].externalURLs.http.%s}`, endpoint, field),
 		)
 		g.Expect(err).NotTo(HaveOccurred())
@@ -319,22 +319,22 @@ func endpointExternalHTTPURL(component, endpoint string) string {
 }
 
 // endpointHostPort reads the rendered Service URL host+port for a named endpoint
-// off the ReleaseBinding status. Returns string host + string port (port is
+// off the ComponentReleaseBinding status. Returns string host + string port (port is
 // decimal as serialised in jsonpath).
 func endpointHostPort(component, endpoint string) (host, port string) {
-	rbName := component + releaseBindingSuffix
+	rbName := component + componentReleaseBindingSuffix
 	var hostOut, portOut string
 	Eventually(func(g Gomega) {
 		var err error
 		hostOut, err = framework.KubectlGetJsonpath(
-			kubeContext, cpNs, "releasebinding", rbName,
+			kubeContext, cpNs, "componentreleasebinding", rbName,
 			fmt.Sprintf(`{.status.endpoints[?(@.name=="%s")].serviceURL.host}`, endpoint),
 		)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(hostOut).NotTo(BeEmpty(), "serviceURL.host empty on %s endpoint %s", rbName, endpoint)
 
 		portOut, err = framework.KubectlGetJsonpath(
-			kubeContext, cpNs, "releasebinding", rbName,
+			kubeContext, cpNs, "componentreleasebinding", rbName,
 			fmt.Sprintf(`{.status.endpoints[?(@.name=="%s")].serviceURL.port}`, endpoint),
 		)
 		g.Expect(err).NotTo(HaveOccurred())

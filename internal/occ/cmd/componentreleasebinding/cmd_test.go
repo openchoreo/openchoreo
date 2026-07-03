@@ -1,0 +1,209 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package componentreleasebinding
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+)
+
+func mockFactory(mc *mocks.MockInterface) client.NewClientFunc {
+	return func() (client.Interface, error) {
+		return mc, nil
+	}
+}
+
+func errFactory(msg string) client.NewClientFunc {
+	return func() (client.Interface, error) {
+		return nil, fmt.Errorf("%s", msg)
+	}
+}
+
+// --- NewComponentReleaseBindingCmd structure ---
+
+func TestNewComponentReleaseBindingCmd_Use(t *testing.T) {
+	cmd := NewComponentReleaseBindingCmd(errFactory("unused"))
+	assert.Equal(t, "componentreleasebinding", cmd.Use)
+	assert.Contains(t, cmd.Aliases, "rb")
+	assert.Contains(t, cmd.Aliases, "componentcomponentreleasebindings")
+}
+
+func TestNewComponentReleaseBindingCmd_Subcommands(t *testing.T) {
+	cmd := NewComponentReleaseBindingCmd(errFactory("unused"))
+	names := make([]string, 0, len(cmd.Commands()))
+	for _, sub := range cmd.Commands() {
+		names = append(names, sub.Name())
+	}
+	assert.ElementsMatch(t, []string{"generate", "list", "get", "delete"}, names)
+}
+
+// --- list ---
+
+func TestListCmd_FactoryError(t *testing.T) {
+	cmd := newListCmd(errFactory("factory failed"))
+	err := cmd.RunE(cmd, nil)
+	assert.EqualError(t, err, "factory failed")
+}
+
+func TestListCmd_Success(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().ListComponentReleaseBindings(mock.Anything, mock.Anything, mock.Anything).Return(&gen.ComponentReleaseBindingList{
+		Items:      []gen.ComponentReleaseBinding{{Metadata: gen.ObjectMeta{Name: "my-binding"}}},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	cmd := newListCmd(mockFactory(mc))
+	require.NoError(t, cmd.Flags().Set("namespace", "acme-corp"))
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cmd.RunE(cmd, nil))
+	})
+	assert.Contains(t, out, "my-binding")
+}
+
+// --- get ---
+
+func TestGetCmd_MissingArg(t *testing.T) {
+	cmd := newGetCmd(errFactory("unused"))
+	err := cmd.Args(cmd, []string{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "required argument")
+}
+
+func TestGetCmd_TooManyArgs(t *testing.T) {
+	cmd := newGetCmd(errFactory("unused"))
+	err := cmd.Args(cmd, []string{"a", "b"})
+	assert.EqualError(t, err, "accepts 1 arg(s), received 2")
+}
+
+func TestGetCmd_FactoryError(t *testing.T) {
+	cmd := newGetCmd(errFactory("factory failed"))
+	err := cmd.RunE(cmd, []string{"my-binding"})
+	assert.EqualError(t, err, "factory failed")
+}
+
+func TestGetCmd_Success(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetComponentReleaseBinding(mock.Anything, mock.Anything, "my-binding").Return(
+		&gen.ComponentReleaseBinding{Metadata: gen.ObjectMeta{Name: "my-binding"}}, nil,
+	)
+
+	cmd := newGetCmd(mockFactory(mc))
+	require.NoError(t, cmd.Flags().Set("namespace", "acme-corp"))
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cmd.RunE(cmd, []string{"my-binding"}))
+	})
+	assert.Contains(t, out, "my-binding")
+}
+
+// --- delete ---
+
+func TestDeleteCmd_MissingArg(t *testing.T) {
+	cmd := newDeleteCmd(errFactory("unused"))
+	err := cmd.Args(cmd, []string{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "RELEASE_BINDING_NAME")
+}
+
+func TestDeleteCmd_FactoryError(t *testing.T) {
+	cmd := newDeleteCmd(errFactory("factory failed"))
+	err := cmd.RunE(cmd, []string{"my-binding"})
+	assert.EqualError(t, err, "factory failed")
+}
+
+func TestDeleteCmd_Success(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().DeleteComponentReleaseBinding(mock.Anything, mock.Anything, "my-binding").Return(nil)
+
+	cmd := newDeleteCmd(mockFactory(mc))
+	require.NoError(t, cmd.Flags().Set("namespace", "acme-corp"))
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cmd.RunE(cmd, []string{"my-binding"}))
+	})
+	assert.Contains(t, out, "deleted")
+}
+
+// --- isFlagInArgs ---
+
+func TestIsFlagInArgs_ExactMatch(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentreleasebinding", "generate", "--all"})
+	assert.True(t, isFlagInArgs("--all"))
+	assert.False(t, isFlagInArgs("--project"))
+}
+
+func TestIsFlagInArgs_EqualsForm(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentreleasebinding", "generate", "--project=my-proj"})
+	assert.True(t, isFlagInArgs("--project"))
+	assert.False(t, isFlagInArgs("--component"))
+}
+
+func TestIsFlagInArgs_NotPresent(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentreleasebinding", "generate"})
+	assert.False(t, isFlagInArgs("--all"))
+}
+
+// --- generate validation ---
+
+func TestGenerateCmd_NoScopeFlag(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentreleasebinding", "generate"})
+	cmd := newGenerateCmd()
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "one of --all, --project, or --component must be specified")
+}
+
+func TestGenerateCmd_AllWithoutUsePipeline(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentreleasebinding", "generate", "--all"})
+	cmd := newGenerateCmd()
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--use-pipeline is required when using --all scope")
+}
+
+func TestGenerateCmd_AllWithProject(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentreleasebinding", "generate", "--all", "--project=my-proj", "--use-pipeline=main"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("project", "my-proj")
+	_ = cmd.Flags().Set("use-pipeline", "main")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--all cannot be combined with --project or --component")
+}
+
+func TestGenerateCmd_AllWithComponent(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentreleasebinding", "generate", "--all", "--component=my-comp", "--use-pipeline=main"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("component", "my-comp")
+	_ = cmd.Flags().Set("use-pipeline", "main")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--all cannot be combined with --project or --component")
+}
+
+func TestGenerateCmd_ComponentWithoutProject(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentreleasebinding", "generate", "--component=my-comp"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("component", "my-comp")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--component requires --project to be specified")
+}
+
+func TestGenerateCmd_ComponentReleaseWithoutProjectComponent(t *testing.T) {
+	testutil.SetOSArgs(t, []string{"occ", "componentreleasebinding", "generate", "--component-release=cr-v1", "--project=my-proj"})
+	cmd := newGenerateCmd()
+	_ = cmd.Flags().Set("component-release", "cr-v1")
+	_ = cmd.Flags().Set("project", "my-proj")
+	err := cmd.RunE(cmd, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--component-release requires both --project and --component")
+}

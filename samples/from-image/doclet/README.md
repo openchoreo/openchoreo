@@ -79,7 +79,7 @@ kubectl apply \
   -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/doclet/bindings/development/nats.yaml
 ```
 
-Components have `autoDeploy: true` and create their `ReleaseBinding`s automatically. The `ResourceReleaseBinding`s under `bindings/development/` are applied with `spec.resourceRelease` intentionally unset — they will stay pending until promoted in the next step.
+Components have `autoDeploy: true` and create their `ComponentReleaseBinding`s automatically. The `ResourceReleaseBinding`s under `bindings/development/` are applied with `spec.resourceRelease` intentionally unset — they will stay pending until promoted in the next step.
 
 ## Step 3: Promote each resource to the development environment
 
@@ -88,7 +88,7 @@ Pin each Resource's binding to its latest release:
 ```bash
 for r in doclet-postgres doclet-nats; do
   release=$(kubectl get resource $r -n default -o jsonpath='{.status.latestRelease.name}')
-  kubectl patch resourcereleasebinding $r-development -n default \
+  kubectl patch resourcecomponentreleasebinding $r-development -n default \
     --type=merge -p "{\"spec\":{\"resourceRelease\":\"$release\"}}"
 done
 ```
@@ -96,15 +96,15 @@ done
 Wait for everything to reach `Ready=True`:
 
 ```bash
-kubectl get resourcereleasebinding,releasebinding -n default | grep doclet
+kubectl get resourcecomponentreleasebinding,componentreleasebinding -n default | grep doclet
 ```
 
 ## Access the frontend
 
-Find the gateway URL from the frontend's `ReleaseBinding`:
+Find the gateway URL from the frontend's `ComponentReleaseBinding`:
 
 ```bash
-kubectl get releasebinding doclet-frontend-development -n default -o jsonpath='{.status.endpoints[0].url}'
+kubectl get componentreleasebinding doclet-frontend-development -n default -o jsonpath='{.status.endpoints[0].url}'
 ```
 
 Open the URL in a browser. The React app loads, lists documents (empty on first launch), and lets you create and edit documents with real-time collaboration.
@@ -112,7 +112,7 @@ Open the URL in a browser. The React app loads, lists documents (empty on first 
 You can also smoke-test the document service directly through the frontend's reverse proxy:
 
 ```bash
-GATEWAY=$(kubectl get releasebinding doclet-frontend-development -n default -o jsonpath='{.status.endpoints[0].url}')
+GATEWAY=$(kubectl get componentreleasebinding doclet-frontend-development -n default -o jsonpath='{.status.endpoints[0].url}')
 curl -sS "$GATEWAY/api/document-svc/documents"
 curl -sS -X POST -H 'Content-Type: application/json' -d '{"title":"smoke test"}' "$GATEWAY/api/document-svc/documents"
 ```
@@ -122,8 +122,8 @@ curl -sS -X POST -H 'Content-Type: application/json' -d '{"title":"smoke test"}'
 The dev bindings enable `adminEnabled: true`, which spins up an admin UI for each resource. The URLs surface on the `ResourceReleaseBinding.status.outputs[*].adminURL`:
 
 ```bash
-kubectl get resourcereleasebinding doclet-postgres-development -n default -o jsonpath='{.status.outputs[?(@.name=="adminURL")].value}'
-kubectl get resourcereleasebinding doclet-nats-development     -n default -o jsonpath='{.status.outputs[?(@.name=="adminURL")].value}'
+kubectl get resourcecomponentreleasebinding doclet-postgres-development -n default -o jsonpath='{.status.outputs[?(@.name=="adminURL")].value}'
+kubectl get resourcecomponentreleasebinding doclet-nats-development     -n default -o jsonpath='{.status.outputs[?(@.name=="adminURL")].value}'
 ```
 
 - **Postgres → Adminer**. Server, database, and username (`demo`) are pre-filled via the query string. Password is `demo` (printed in `status.outputs[*].adminPassword`). The `demo` superuser is created by the CRT's bootstrap script and exists only when `adminEnabled: true`; the application user has an ESO-generated random password that never appears in any output.

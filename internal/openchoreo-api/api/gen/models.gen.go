@@ -106,6 +106,12 @@ const (
 	ClusterWorkflowPlaneRefKindClusterWorkflowPlane ClusterWorkflowPlaneRefKind = "ClusterWorkflowPlane"
 )
 
+// Defines values for ComponentReleaseBindingSpecState.
+const (
+	ComponentReleaseBindingSpecStateActive   ComponentReleaseBindingSpecState = "Active"
+	ComponentReleaseBindingSpecStateUndeploy ComponentReleaseBindingSpecState = "Undeploy"
+)
+
 // Defines values for ComponentSpecComponentTypeKind.
 const (
 	ComponentSpecComponentTypeKindClusterComponentType ComponentSpecComponentTypeKind = "ClusterComponentType"
@@ -270,8 +276,8 @@ const (
 
 // Defines values for ReleaseBindingSpecState.
 const (
-	ReleaseBindingSpecStateActive   ReleaseBindingSpecState = "Active"
-	ReleaseBindingSpecStateUndeploy ReleaseBindingSpecState = "Undeploy"
+	Active   ReleaseBindingSpecState = "Active"
+	Undeploy ReleaseBindingSpecState = "Undeploy"
 )
 
 // Defines values for ReleaseResourceTreeTargetPlane.
@@ -1343,6 +1349,87 @@ type ComponentRelease struct {
 
 	// Status ComponentRelease status (currently empty, immutable after creation)
 	Status *map[string]interface{} `json:"status,omitempty"`
+}
+
+// ComponentReleaseBinding ComponentReleaseBinding resource.
+// Binds a ComponentRelease to a specific environment.
+type ComponentReleaseBinding struct {
+	// ApiVersion API version of the resource
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind of the resource
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata Standard Kubernetes object metadata (without kind/apiVersion).
+	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec Desired state of a ComponentReleaseBinding
+	Spec   *ComponentReleaseBindingSpec   `json:"spec,omitempty"`
+	Status *ComponentReleaseBindingStatus `json:"status,omitempty"`
+}
+
+// ComponentReleaseBindingList Paginated list of release bindings
+type ComponentReleaseBindingList struct {
+	Items []ComponentReleaseBinding `json:"items"`
+
+	// Pagination Cursor-based pagination metadata. Uses Kubernetes-native continuation tokens
+	// for efficient pagination through large result sets.
+	Pagination Pagination `json:"pagination"`
+}
+
+// ComponentReleaseBindingSpec Desired state of a ComponentReleaseBinding
+type ComponentReleaseBindingSpec struct {
+	// ComponentTypeEnvironmentConfigs Environment-specific ComponentType overrides
+	ComponentTypeEnvironmentConfigs *map[string]interface{} `json:"componentTypeEnvironmentConfigs,omitempty"`
+
+	// Environment Target environment name
+	Environment string `json:"environment"`
+
+	// Owner Owner identifies the component and project this ComponentReleaseBinding belongs to
+	Owner struct {
+		// ComponentName Name of the component
+		ComponentName string `json:"componentName"`
+
+		// ProjectName Name of the project
+		ProjectName string `json:"projectName"`
+	} `json:"owner"`
+
+	// ReleaseName Reference to component release
+	ReleaseName *string `json:"releaseName,omitempty"`
+
+	// State Controls the state of the Release created by this binding
+	State *ComponentReleaseBindingSpecState `json:"state,omitempty"`
+
+	// TraitEnvironmentConfigs Environment-specific trait environment configs
+	TraitEnvironmentConfigs *map[string]interface{} `json:"traitEnvironmentConfigs,omitempty"`
+
+	// WorkloadOverrides Environment-specific workload overrides
+	WorkloadOverrides *WorkloadOverrides `json:"workloadOverrides,omitempty"`
+}
+
+// ComponentReleaseBindingSpecState Controls the state of the Release created by this binding
+type ComponentReleaseBindingSpecState string
+
+// ComponentReleaseBindingStatus Observed state of a ComponentReleaseBinding
+type ComponentReleaseBindingStatus struct {
+	// Conditions Latest available observations of the ComponentReleaseBinding's current state
+	Conditions *[]Condition `json:"conditions,omitempty"`
+
+	// Endpoints Resolved invoke URLs for each named workload endpoint
+	Endpoints *[]EndpointURLStatus `json:"endpoints,omitempty"`
+
+	// LastSpecUpdateTime Timestamp of the last spec change observed by the controller
+	LastSpecUpdateTime *time.Time `json:"lastSpecUpdateTime,omitempty"`
+
+	// ObservedGeneration Most recent generation observed by the controller
+	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+	// PendingConnections Connections that could not be resolved
+	PendingConnections *[]PendingConnection `json:"pendingConnections,omitempty"`
+
+	// ResolvedConnections Connections that have been successfully resolved
+	ResolvedConnections *[]ResolvedConnection `json:"resolvedConnections,omitempty"`
 }
 
 // ComponentReleaseList Paginated list of component releases
@@ -4430,6 +4517,9 @@ type ComponentNameParam = string
 // ComponentQueryParam defines model for ComponentQueryParam.
 type ComponentQueryParam = string
 
+// ComponentReleaseBindingNameParam defines model for ComponentReleaseBindingNameParam.
+type ComponentReleaseBindingNameParam = string
+
 // ComponentReleaseNameParam defines model for ComponentReleaseNameParam.
 type ComponentReleaseNameParam = string
 
@@ -4780,6 +4870,26 @@ type ListNamespaceRoleBindingsParams struct {
 
 // ListNamespaceRolesParams defines parameters for ListNamespaceRoles.
 type ListNamespaceRolesParams struct {
+	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
+	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
+	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
+	// Supports existence checks: "key" (label exists), "!key" (label does not exist).
+	// Multiple requirements are comma-separated and ANDed together.
+	LabelSelector *LabelSelectorParam `form:"labelSelector,omitempty" json:"labelSelector,omitempty"`
+
+	// Limit Maximum number of items to return per page
+	Limit *LimitParam `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor Opaque pagination cursor from a previous response.
+	// Pass the `nextCursor` value from pagination metadata to fetch the next page.
+	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListComponentReleaseBindingsParams defines parameters for ListComponentReleaseBindings.
+type ListComponentReleaseBindingsParams struct {
+	// Component Filter resources by component name
+	Component *ComponentQueryParam `form:"component,omitempty" json:"component,omitempty"`
+
 	// LabelSelector A label selector to filter resources using Kubernetes label selector syntax.
 	// Supports equality-based requirements: "key=value" (equality), "key!=value" (inequality).
 	// Supports set-based requirements: "key in (val1,val2)" (value in set), "key notin (val1,val2)" (value not in set).
@@ -5360,6 +5470,12 @@ type CreateNamespaceRoleJSONRequestBody = AuthzRole
 
 // UpdateNamespaceRoleJSONRequestBody defines body for UpdateNamespaceRole for application/json ContentType.
 type UpdateNamespaceRoleJSONRequestBody = AuthzRole
+
+// CreateComponentReleaseBindingJSONRequestBody defines body for CreateComponentReleaseBinding for application/json ContentType.
+type CreateComponentReleaseBindingJSONRequestBody = ComponentReleaseBinding
+
+// UpdateComponentReleaseBindingJSONRequestBody defines body for UpdateComponentReleaseBinding for application/json ContentType.
+type UpdateComponentReleaseBindingJSONRequestBody = ComponentReleaseBinding
 
 // CreateComponentReleaseJSONRequestBody defines body for CreateComponentRelease for application/json ContentType.
 type CreateComponentReleaseJSONRequestBody = ComponentRelease

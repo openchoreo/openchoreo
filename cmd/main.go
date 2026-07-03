@@ -38,6 +38,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/clusterworkflowplane"
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
+	"github.com/openchoreo/openchoreo/internal/controller/componentreleasebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
@@ -76,6 +77,7 @@ import (
 	clusterworkflowwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterworkflow"
 	componentwebhook "github.com/openchoreo/openchoreo/internal/webhook/component"
 	componentreleasewebhook "github.com/openchoreo/openchoreo/internal/webhook/componentrelease"
+	componentreleasebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/componentreleasebinding"
 	componenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/componenttype"
 	projectwebhook "github.com/openchoreo/openchoreo/internal/webhook/project"
 	releasebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/releasebinding"
@@ -193,6 +195,7 @@ func setupControlPlaneControllers(
 		&resource.Reconciler{Client: c, Scheme: s},
 		&resourcerelease.Reconciler{Client: c, Scheme: s},
 		&resourcereleasebinding.Reconciler{Client: c, Scheme: s},
+		&componentreleasebinding.Reconciler{Client: c, Scheme: s, Pipeline: componentpipeline.NewPipeline()},
 		&releasebinding.Reconciler{Client: c, Scheme: s, Pipeline: componentpipeline.NewPipeline()},
 		&renderedrelease.Reconciler{Client: c, PlaneClientProvider: planeClientProvider, Scheme: s},
 		&workflow.Reconciler{Client: c, Scheme: s},
@@ -454,6 +457,7 @@ func main() {
 			{"Trait", traitwebhook.SetupTraitWebhookWithManager},
 			{"ClusterTrait", clustertraitwebhook.SetupClusterTraitWebhookWithManager},
 			{"ComponentRelease", componentreleasewebhook.SetupComponentReleaseWebhookWithManager},
+			{"ComponentReleaseBinding", componentreleasebindingwebhook.SetupComponentReleaseBindingWebhookWithManager},
 			{"ReleaseBinding", releasebindingwebhook.SetupReleaseBindingWebhookWithManager},
 			{"ResourceType", resourcetypewebhook.SetupResourceTypeWebhookWithManager},
 			{"ClusterResourceType", clusterresourcetypewebhook.SetupClusterResourceTypeWebhookWithManager},

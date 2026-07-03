@@ -292,10 +292,10 @@ var _ = Describe("MCP Server", Ordered, Label("tier2"), func() {
 				g.Expect(releaseName).NotTo(BeEmpty(), "component should have a latestRelease")
 			}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
 
-			By("waiting for ReleaseBinding to appear")
+			By("waiting for ComponentReleaseBinding to appear")
 			rbName := fmt.Sprintf("%s-development", componentName)
 			Eventually(func(g Gomega) {
-				framework.AssertResourceExists(g, kubeContext, mcpNs, "releasebinding", rbName)
+				framework.AssertResourceExists(g, kubeContext, mcpNs, "componentreleasebinding", rbName)
 			}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
 
 			By("discovering data plane namespace for cleanup")

@@ -1777,3 +1777,52 @@ func schemaResponseToRaw(schema *gen.SchemaResponse) (*json.RawMessage, error) {
 	raw := json.RawMessage(data)
 	return &raw, nil
 }
+
+// --- ComponentReleaseBinding ---
+
+func (c *Client) CreateComponentReleaseBinding(ctx context.Context, namespaceName string, req *gen.ComponentReleaseBinding) (*gen.ComponentReleaseBinding, error) {
+	resp, err := c.client.CreateComponentReleaseBindingWithResponse(ctx, namespaceName, *req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call API: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+func (c *Client) GetComponentReleaseBinding(ctx context.Context, namespaceName string, componentReleaseBindingName string) (*gen.ComponentReleaseBinding, error) {
+	resp, err := c.client.GetComponentReleaseBindingWithResponse(ctx, namespaceName, componentReleaseBindingName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call API: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+func (c *Client) DeleteComponentReleaseBinding(ctx context.Context, namespaceName string, componentReleaseBindingName string) error {
+	resp, err := c.client.DeleteComponentReleaseBindingWithResponse(ctx, namespaceName, componentReleaseBindingName)
+	if err != nil {
+		return fmt.Errorf("failed to call API: %w", err)
+	}
+	if resp.StatusCode() != 200 && resp.StatusCode() != 204 {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+func (c *Client) ListComponentReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListComponentReleaseBindingsParams) (*gen.ComponentReleaseBindingList, error) {
+	if params == nil {
+		params = &gen.ListComponentReleaseBindingsParams{}
+	}
+	resp, err := c.client.ListComponentReleaseBindingsWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call API: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}

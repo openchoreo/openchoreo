@@ -35,7 +35,7 @@ const (
 	imageInitial = "hashicorp/http-echo:1.0.0"
 	imageUpdated = "hashicorp/http-echo:0.2.3"
 
-	releaseBindingSuffix = "-" + envDev
+	componentReleaseBindingSuffix = "-" + envDev
 )
 
 var (

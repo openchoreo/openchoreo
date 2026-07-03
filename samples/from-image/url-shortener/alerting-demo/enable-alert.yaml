@@ -1,7 +1,7 @@
 ---
 # Enable the log-based alert, incident creation, AI RCA, and notification channel on the frontend
 apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseBinding
+kind: ComponentReleaseBinding
 metadata:
   name: snip-frontend-development
   namespace: default

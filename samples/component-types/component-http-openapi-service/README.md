@@ -7,14 +7,14 @@ service (`ghcr.io/openchoreo/samples/reading-list:latest`), which serves a small
 API under `/api/v1/reading-list`.
 
 The sample's YAML is self-contained: it defines a custom `ClusterComponentType`
-(`http-openapi-service`) plus a `Component` + `Workload` + `ReleaseBinding` that use it.
+(`http-openapi-service`) plus a `Component` + `Workload` + `ComponentReleaseBinding` that use it.
 
 ## Two ways to route an HTTP endpoint
 
 1. **Prefix routing** (see [`samples/getting-started/component-types/service.yaml`](../../getting-started/component-types/service.yaml)) —
    a single `PathPrefix` match on a unique per-endpoint prefix (`/<component>-<endpoint>`)
    with a `ReplacePrefixMatch` rewrite to the endpoint `basePath`. Simple and catch-all:
-   every path/method under the prefix is forwarded. The ReleaseBinding controller derives
+   every path/method under the prefix is forwarded. The ComponentReleaseBinding controller derives
    the invoke URL from the first (and only) route match.
 
 2. **Schema-driven routing** (this sample) — the template parses the endpoint's OpenAPI
@@ -35,7 +35,7 @@ build one rule per `(path, method)`:
   `RegularExpression` match with `{param}` → `[^/]+` (Gateway API forbids `{` `}` in
   `Exact`/`PathPrefix` values, so templated paths must be regex).
 - The route carries `annotations: openchoreo.dev/endpoint-base-path: /<component>-<endpoint>`
-  so the ReleaseBinding controller can build the invoke URL.
+  so the ComponentReleaseBinding controller can build the invoke URL.
 
 A single **`TrafficPolicy`** per endpoint rewrites the gateway prefix back to the real
 `basePath`, preserving everything after it (including the path parameter captured by the
@@ -101,7 +101,7 @@ Expected matches:
 ## Check the invoke URL
 
 ```bash
-kubectl get releasebinding demo-app-reading-list-development \
+kubectl get componentreleasebinding demo-app-reading-list-development \
   -o jsonpath='{.status.endpoints[0].externalURLs.http}' | jq .
 ```
 
@@ -152,8 +152,8 @@ kubectl delete -f samples/component-types/component-http-openapi-service/http-op
 ## Troubleshooting
 
 ```bash
-# ReleaseBinding conditions
-kubectl get releasebinding demo-app-reading-list-development -o jsonpath='{.status.conditions}' | jq .
+# ComponentReleaseBinding conditions
+kubectl get componentreleasebinding demo-app-reading-list-development -o jsonpath='{.status.conditions}' | jq .
 
 # Route accepted by the gateway
 kubectl get httproute -A -l openchoreo.dev/component=demo-app-reading-list -o yaml

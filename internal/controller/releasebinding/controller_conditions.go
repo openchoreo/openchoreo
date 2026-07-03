@@ -33,6 +33,9 @@ const (
 
 	// ConditionFinalizing indicates that the ReleaseBinding is being finalized (deleted).
 	ConditionFinalizing controller.ConditionType = "Finalizing"
+
+	// ConditionDeprecated indicates that the ReleaseBinding is deprecated.
+	ConditionDeprecated controller.ConditionType = "Deprecated"
 )
 
 // Constants for condition reasons
@@ -139,6 +142,9 @@ const (
 
 	// ReasonFinalizing indicates the ReleaseBinding is being finalized
 	ReasonFinalizing controller.ConditionReason = "Finalizing"
+
+	// ReasonDeprecated indicates the ReleaseBinding is deprecated
+	ReasonDeprecated controller.ConditionReason = "Deprecated"
 )
 
 // NewReleaseBindingFinalizingCondition creates a condition indicating the ReleaseBinding is being finalized.

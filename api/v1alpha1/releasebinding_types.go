@@ -339,6 +339,7 @@ type ReleaseBindingStatus struct {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ReleaseBinding is the Schema for the releasebindings API.
+// Deprecated: ReleaseBinding is deprecated and will be removed in a future release. Use ComponentReleaseBinding instead.
 type ReleaseBinding struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

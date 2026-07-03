@@ -23,6 +23,7 @@ import (
 	clusterworkflowplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterworkflowplane"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componentreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componentrelease"
+	componentreleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componentreleasebinding"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
 	dataplanesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/dataplane"
 	deploymentpipelinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline"
@@ -78,6 +79,7 @@ type Services struct {
 	ObservabilityAlertsNotificationChannelService observabilityalertsnotificationchannelsvc.Service
 	ObservabilityPlaneService                     observabilityplanesvc.Service
 	K8sResourcesService                           k8sresourcessvc.Service
+	ComponentReleaseBindingService                componentreleasebindingsvc.Service
 	ReleaseBindingService                         releasebindingsvc.Service
 	ResourceService                               resourcesvc.Service
 	ResourceReleaseService                        resourcereleasesvc.Service
@@ -120,6 +122,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		ObservabilityAlertsNotificationChannelService: observabilityalertsnotificationchannelsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "observabilityalertsnotificationchannel-service")),
 		ObservabilityPlaneService:                     observabilityplanesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "observabilityplane-service")),
 		K8sResourcesService:                           k8sresourcessvc.NewServiceWithAuthz(k8sClient, gwClient, pdp, logger.With("component", "k8sresources-service")),
+		ComponentReleaseBindingService:                componentreleasebindingsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "componentreleasebinding-service")),
 		ReleaseBindingService:                         releasebindingsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "releasebinding-service")),
 		ResourceService:                               resourcesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "resource-service")),
 		ResourceReleaseService:                        resourcereleasesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "resourcerelease-service")),

@@ -1,0 +1,508 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package componentreleasebinding
+
+import (
+	"context"
+	"strings"
+
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+)
+
+const (
+	// secretReferencesIndex is the field index name for SecretReference names used in ComponentReleaseBinding.
+	// This index reads from status.secretReferenceNames (a pure function of the indexed object).
+	secretReferencesIndex = "status.secretReferenceNames"
+
+	// connectionTargetsIndex indexes ComponentComponentReleaseBindings by their connection targets
+	// (namespace/project/component/environment) for efficient reverse lookup when a
+	// dependency ComponentReleaseBinding's endpoints change.
+	connectionTargetsIndex = "status.connectionTargets"
+
+	// resourceDependencyTargetsIndex indexes ComponentComponentReleaseBindings by their resource dependency
+	// targets (namespace/project/resourceName/environment) for efficient reverse lookup
+	// when a provider ResourceReleaseBinding's outputs or Ready condition change.
+	resourceDependencyTargetsIndex = "status.resourceDependencyTargets"
+)
+
+// makeConnectionTargetKey creates an index key for a connection target.
+func makeConnectionTargetKey(namespace, project, component, environment string) string {
+	return namespace + "/" + project + "/" + component + "/" + environment
+}
+
+// makeResourceDependencyTargetKey creates an index key for a resource dependency target.
+// Same shape as makeConnectionTargetKey but with resourceName in the third slot.
+func makeResourceDependencyTargetKey(namespace, project, resourceName, environment string) string {
+	return namespace + "/" + project + "/" + resourceName + "/" + environment
+}
+
+// indexResourceDependencyTargets is the field-indexer function for resourceDependencyTargetsIndex.
+// Exported helper kept package-private so unit tests can register the same indexer the
+// production setup uses on the manager's cache.
+func indexResourceDependencyTargets(rb *openchoreov1alpha1.ComponentReleaseBinding) []string {
+	if len(rb.Status.ResourceDependencyTargets) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{})
+	var keys []string
+	for _, t := range rb.Status.ResourceDependencyTargets {
+		key := makeResourceDependencyTargetKey(t.Namespace, t.Project, t.ResourceName, t.Environment)
+		if _, ok := seen[key]; !ok {
+			seen[key] = struct{}{}
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}
+
+// setupSecretReferencesIndex sets up the field index for SecretReference names used by ComponentReleaseBinding.
+// This index reads from status.secretReferenceNames which is populated during reconciliation,
+// making it a pure function of the indexed object with no external API calls.
+func (r *Reconciler) setupSecretReferencesIndex(ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ComponentReleaseBinding{},
+		secretReferencesIndex, func(obj client.Object) []string {
+			releaseBinding := obj.(*openchoreov1alpha1.ComponentReleaseBinding)
+			return releaseBinding.Status.SecretReferenceNames
+		})
+}
+
+// setupConnectionTargetsIndex registers a field index that extracts unique
+// namespace/project/component/environment keys from each ComponentReleaseBinding's status.connectionTargets.
+func (r *Reconciler) setupConnectionTargetsIndex(ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ComponentReleaseBinding{},
+		connectionTargetsIndex, func(obj client.Object) []string {
+			rb := obj.(*openchoreov1alpha1.ComponentReleaseBinding)
+			if len(rb.Status.ConnectionTargets) == 0 {
+				return nil
+			}
+			seen := make(map[string]struct{})
+			var keys []string
+			for _, conn := range rb.Status.ConnectionTargets {
+				key := makeConnectionTargetKey(conn.Namespace, conn.Project, conn.Component, conn.Environment)
+				if _, ok := seen[key]; !ok {
+					seen[key] = struct{}{}
+					keys = append(keys, key)
+				}
+			}
+			return keys
+		})
+}
+
+// endpointStatusChangedPredicate returns a predicate that only passes when
+// status.endpoints changes on a ComponentReleaseBinding, or when spec.state changes
+// (Active/Undeploy). This avoids enqueuing consumers for unrelated status changes
+// (e.g., resolvedConnections updates), preventing infinite loops.
+func endpointStatusChangedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(_ event.CreateEvent) bool {
+			return true
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldRB, ok := e.ObjectOld.(*openchoreov1alpha1.ComponentReleaseBinding)
+			if !ok {
+				return false
+			}
+			newRB, ok := e.ObjectNew.(*openchoreov1alpha1.ComponentReleaseBinding)
+			if !ok {
+				return false
+			}
+			if oldRB.Spec.State != newRB.Spec.State {
+				return true
+			}
+			return !apiequality.Semantic.DeepEqual(oldRB.Status.Endpoints, newRB.Status.Endpoints)
+		},
+		DeleteFunc: func(_ event.DeleteEvent) bool {
+			return true
+		},
+		GenericFunc: func(_ event.GenericEvent) bool {
+			return false
+		},
+	}
+}
+
+// findConsumerComponentComponentReleaseBindings returns reconcile requests for all ComponentComponentReleaseBindings
+// that depend on the changed ComponentReleaseBinding (i.e., have it as a connection target).
+func (r *Reconciler) findConsumerComponentComponentReleaseBindings(ctx context.Context, obj client.Object) []reconcile.Request {
+	rb, ok := obj.(*openchoreov1alpha1.ComponentReleaseBinding)
+	if !ok {
+		return nil
+	}
+
+	targetKey := makeConnectionTargetKey(rb.Namespace, rb.Spec.Owner.ProjectName, rb.Spec.Owner.ComponentName, rb.Spec.Environment)
+
+	var consumers openchoreov1alpha1.ComponentReleaseBindingList
+	if err := r.List(ctx, &consumers,
+		client.MatchingFields{connectionTargetsIndex: targetKey}); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list consumer ComponentComponentReleaseBindings", "releaseBinding", rb.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(consumers.Items))
+	for _, consumer := range consumers.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      consumer.Name,
+				Namespace: consumer.Namespace,
+			},
+		})
+	}
+	return requests
+}
+
+// setupResourceDependencyTargetsIndex registers a field index that extracts unique
+// namespace/project/resourceName/environment keys from each ComponentReleaseBinding's
+// status.resourceDependencyTargets.
+func (r *Reconciler) setupResourceDependencyTargetsIndex(ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ComponentReleaseBinding{},
+		resourceDependencyTargetsIndex, func(obj client.Object) []string {
+			return indexResourceDependencyTargets(obj.(*openchoreov1alpha1.ComponentReleaseBinding))
+		})
+}
+
+// resourceComponentReleaseBindingOutputsChangedPredicate returns a predicate that passes when a
+// ResourceReleaseBinding update affects what consumers see: outputs change, generation
+// advances (spec edit by PE), or the Ready condition's Status / ObservedGeneration shift.
+// Other status changes (e.g., Synced reason updates) are filtered out. Tracking generation
+// and ObservedGeneration matches the consumer-side gate in isResourceReleaseBindingReady,
+// so a provider mid-reconcile re-enqueues consumers when it catches up.
+func resourceComponentReleaseBindingOutputsChangedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(_ event.CreateEvent) bool {
+			return true
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldRRB, ok := e.ObjectOld.(*openchoreov1alpha1.ResourceReleaseBinding)
+			if !ok {
+				return false
+			}
+			newRRB, ok := e.ObjectNew.(*openchoreov1alpha1.ResourceReleaseBinding)
+			if !ok {
+				return false
+			}
+			if oldRRB.Generation != newRRB.Generation {
+				return true
+			}
+			if !apiequality.Semantic.DeepEqual(oldRRB.Status.Outputs, newRRB.Status.Outputs) {
+				return true
+			}
+			return readyConditionChanged(oldRRB, newRRB)
+		},
+		DeleteFunc: func(_ event.DeleteEvent) bool {
+			return true
+		},
+		GenericFunc: func(_ event.GenericEvent) bool {
+			return false
+		},
+	}
+}
+
+// readyConditionChanged reports whether the Ready condition's Status or ObservedGeneration
+// differs between two ResourceComponentComponentReleaseBindings. Absence on either side maps to "" / 0, so a
+// True ↔ absent transition still counts as a flip. The ObservedGeneration check matches the
+// consumer-side gate in isResourceReleaseBindingReady — a provider that updates Ready in
+// place to track a new generation must re-enqueue consumers even if Status stays True.
+func readyConditionChanged(oldRRB, newRRB *openchoreov1alpha1.ResourceReleaseBinding) bool {
+	const readyType = "Ready"
+	var oldStatus, newStatus string
+	var oldObserved, newObserved int64
+	for i := range oldRRB.Status.Conditions {
+		if oldRRB.Status.Conditions[i].Type == readyType {
+			oldStatus = string(oldRRB.Status.Conditions[i].Status)
+			oldObserved = oldRRB.Status.Conditions[i].ObservedGeneration
+			break
+		}
+	}
+	for i := range newRRB.Status.Conditions {
+		if newRRB.Status.Conditions[i].Type == readyType {
+			newStatus = string(newRRB.Status.Conditions[i].Status)
+			newObserved = newRRB.Status.Conditions[i].ObservedGeneration
+			break
+		}
+	}
+	return oldStatus != newStatus || oldObserved != newObserved
+}
+
+// findConsumerComponentComponentReleaseBindingsForResourceReleaseBinding returns reconcile requests for all
+// ComponentComponentReleaseBindings that depend on the changed ResourceReleaseBinding via their workload's
+// dependencies.resources[]. Used by Watches(&ResourceReleaseBinding{}, ...) to propagate
+// provider output changes to consumers.
+func (r *Reconciler) findConsumerComponentComponentReleaseBindingsForResourceReleaseBinding(ctx context.Context, obj client.Object) []reconcile.Request {
+	rrb, ok := obj.(*openchoreov1alpha1.ResourceReleaseBinding)
+	if !ok {
+		return nil
+	}
+	// Bail early on a malformed RRB so we never produce a partial key like "ns///" that
+	// would over-list consumers carrying any zero-value targets. Mirrors the same guard
+	// in IndexResourceReleaseBindingOwnerEnv (internal/controller/watch.go).
+	if rrb.Spec.Owner.ProjectName == "" || rrb.Spec.Owner.ResourceName == "" || rrb.Spec.Environment == "" {
+		return nil
+	}
+
+	targetKey := makeResourceDependencyTargetKey(
+		rrb.Namespace,
+		rrb.Spec.Owner.ProjectName,
+		rrb.Spec.Owner.ResourceName,
+		rrb.Spec.Environment,
+	)
+
+	var consumers openchoreov1alpha1.ComponentReleaseBindingList
+	if err := r.List(ctx, &consumers,
+		client.MatchingFields{resourceDependencyTargetsIndex: targetKey}); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list consumer ComponentComponentReleaseBindings for ResourceReleaseBinding",
+			"resourceComponentReleaseBinding", rrb.Name)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0, len(consumers.Items))
+	for _, consumer := range consumers.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      consumer.Name,
+				Namespace: consumer.Namespace,
+			},
+		})
+	}
+	return requests
+}
+
+// listComponentComponentReleaseBindingsForSecretReference returns reconcile requests for all ComponentComponentReleaseBindings
+// that use the changed SecretReference (via status.secretReferenceNames index).
+func (r *Reconciler) listComponentComponentReleaseBindingsForSecretReference(ctx context.Context, obj client.Object) []reconcile.Request {
+	secretRef := obj.(*openchoreov1alpha1.SecretReference)
+	logger := log.FromContext(ctx)
+
+	logger.Info("SecretReference changed, finding affected ComponentComponentReleaseBindings",
+		"secretReference", secretRef.Name,
+		"namespace", secretRef.Namespace)
+
+	var releaseBindings openchoreov1alpha1.ComponentReleaseBindingList
+	if err := r.List(ctx, &releaseBindings,
+		client.InNamespace(secretRef.Namespace),
+		client.MatchingFields{secretReferencesIndex: secretRef.Name}); err != nil {
+		logger.Error(err, "Failed to list ComponentComponentReleaseBindings for SecretReference",
+			"secretReference", secretRef.Name)
+		return nil
+	}
+
+	if len(releaseBindings.Items) == 0 {
+		logger.Info("No ComponentComponentReleaseBindings found using this SecretReference",
+			"secretReference", secretRef.Name)
+		return nil
+	}
+
+	logger.Info("Found ComponentComponentReleaseBindings using SecretReference",
+		"secretReference", secretRef.Name,
+		"count", len(releaseBindings.Items))
+
+	requests := make([]reconcile.Request, len(releaseBindings.Items))
+	for i, rb := range releaseBindings.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      rb.Name,
+				Namespace: rb.Namespace,
+			},
+		}
+		logger.Info("Enqueuing ComponentReleaseBinding for reconciliation due to SecretReference change",
+			"releaseBinding", rb.Name,
+			"secretReference", secretRef.Name)
+	}
+
+	return requests
+}
+
+// findComponentComponentReleaseBindingsForComponent maps a Component to its owned ComponentComponentReleaseBindings.
+// Note: Uses the shared index key controller.IndexKeyComponentReleaseBindingOwnerComponentName
+// which is registered by the Component controller.
+func (r *Reconciler) findComponentComponentReleaseBindingsForComponent(ctx context.Context, obj client.Object) []ctrl.Request {
+	component := obj.(*openchoreov1alpha1.Component)
+
+	var bindings openchoreov1alpha1.ComponentReleaseBindingList
+	if err := r.List(ctx, &bindings,
+		client.InNamespace(component.Namespace),
+		client.MatchingFields{controller.IndexKeyComponentReleaseBindingOwnerComponentName: component.Name}); err != nil {
+		return nil
+	}
+
+	requests := make([]ctrl.Request, len(bindings.Items))
+	for i, binding := range bindings.Items {
+		requests[i] = ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      binding.Name,
+				Namespace: binding.Namespace,
+			},
+		}
+	}
+	return requests
+}
+
+// dataPlaneRenderInputsChangedPredicate passes when a (Cluster)DataPlane's spec or its
+// openchoreo.dev/-prefixed annotations change. Render reads inputs from both: the spec
+// (gateway, secretStore) and the annotations (surfaced to CEL as dataplane.annotations).
+// A change to either must re-render the bindings that use this data plane rather than
+// waiting for the periodic resync.
+//
+// Only platform-owned (openchoreo.dev/) annotations trigger a re-render. Render still
+// exposes every annotation to CEL, but matching on the whole map would fan out a wasted
+// re-render to every dependent binding on any third-party churn (GitOps sync stamps,
+// kubectl.kubernetes.io/last-applied-configuration). A non-prefixed annotation that a
+// template happens to read is still picked up by the periodic resync.
+//
+// Status-only updates are ignored to avoid needless reconciles.
+func dataPlaneRenderInputsChangedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc:  func(_ event.CreateEvent) bool { return true },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return false },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectOld == nil || e.ObjectNew == nil {
+				return false
+			}
+			if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+				return true // spec changed
+			}
+			return openchoreoAnnotationsChanged(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations())
+		},
+	}
+}
+
+// openchoreoAnnotationPrefix scopes the annotation-change trigger to platform-owned keys.
+const openchoreoAnnotationPrefix = "openchoreo.dev/"
+
+// openchoreoAnnotationsChanged reports whether the openchoreo.dev/-prefixed subset of two
+// annotation maps differs, ignoring annotations set by other tooling.
+func openchoreoAnnotationsChanged(oldAnn, newAnn map[string]string) bool {
+	pick := func(m map[string]string) map[string]string {
+		out := make(map[string]string, len(m))
+		for k, v := range m {
+			if strings.HasPrefix(k, openchoreoAnnotationPrefix) {
+				out[k] = v
+			}
+		}
+		return out
+	}
+	return !apiequality.Semantic.DeepEqual(pick(oldAnn), pick(newAnn))
+}
+
+// findComponentComponentReleaseBindingsForDataPlane enqueues every ComponentReleaseBinding whose target Environment
+// references the changed namespace-scoped DataPlane.
+func (r *Reconciler) findComponentComponentReleaseBindingsForDataPlane(ctx context.Context, obj client.Object) []reconcile.Request {
+	dp, ok := obj.(*openchoreov1alpha1.DataPlane)
+	if !ok {
+		return nil
+	}
+	return r.releaseBindingsForDataPlaneRef(ctx, dp.Namespace, openchoreov1alpha1.DataPlaneRefKindDataPlane, dp.Name)
+}
+
+// findComponentComponentReleaseBindingsForClusterDataPlane enqueues every ComponentReleaseBinding whose target
+// Environment references the changed cluster-scoped ClusterDataPlane. ClusterDataPlanes can be
+// referenced from any namespace, so the scan is cluster-wide.
+func (r *Reconciler) findComponentComponentReleaseBindingsForClusterDataPlane(ctx context.Context, obj client.Object) []reconcile.Request {
+	cdp, ok := obj.(*openchoreov1alpha1.ClusterDataPlane)
+	if !ok {
+		return nil
+	}
+	return r.releaseBindingsForDataPlaneRef(ctx, "", openchoreov1alpha1.DataPlaneRefKindClusterDataPlane, cdp.Name)
+}
+
+// releaseBindingsForDataPlaneRef returns reconcile requests for the ComponentComponentReleaseBindings whose target
+// Environment references the given data plane (kind+name). When namespace is empty the
+// Environment scan is cluster-wide (used for ClusterDataPlane). Environments that resolve to a
+// data plane only via the ClusterDataPlane "default" fallback are not matched here; the periodic
+// resync remains the backstop for that edge.
+func (r *Reconciler) releaseBindingsForDataPlaneRef(
+	ctx context.Context, namespace string, kind openchoreov1alpha1.DataPlaneRefKind, name string,
+) []reconcile.Request {
+	logger := log.FromContext(ctx)
+
+	var envs openchoreov1alpha1.EnvironmentList
+	var listOpts []client.ListOption
+	if namespace != "" {
+		listOpts = append(listOpts, client.InNamespace(namespace))
+	}
+	if err := r.List(ctx, &envs, listOpts...); err != nil {
+		logger.Error(err, "Failed to list Environments for data plane change", "kind", kind, "dataPlane", name)
+		return nil
+	}
+
+	// Group the matching environment names by namespace so each namespace is listed once.
+	envsByNamespace := make(map[string]map[string]struct{})
+	for i := range envs.Items {
+		env := &envs.Items[i]
+		ref := env.Spec.DataPlaneRef
+		if ref == nil || ref.Kind != kind || ref.Name != name {
+			continue
+		}
+		if envsByNamespace[env.Namespace] == nil {
+			envsByNamespace[env.Namespace] = make(map[string]struct{})
+		}
+		envsByNamespace[env.Namespace][env.Name] = struct{}{}
+	}
+	if len(envsByNamespace) == 0 {
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for ns, envNames := range envsByNamespace {
+		var bindings openchoreov1alpha1.ComponentReleaseBindingList
+		if err := r.List(ctx, &bindings, client.InNamespace(ns)); err != nil {
+			logger.Error(err, "Failed to list ComponentComponentReleaseBindings for data plane change", "namespace", ns, "dataPlane", name)
+			continue
+		}
+		for i := range bindings.Items {
+			rb := &bindings.Items[i]
+			if _, match := envNames[rb.Spec.Environment]; !match {
+				continue
+			}
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: rb.Name, Namespace: rb.Namespace},
+			})
+		}
+	}
+	return requests
+}
+
+// collectSecretReferenceNames extracts SecretReference names from a merged workload.
+// This is used to populate status.secretReferenceNames for the field index.
+func collectSecretReferenceNames(workload *openchoreov1alpha1.Workload, releaseBinding *openchoreov1alpha1.ComponentReleaseBinding) []string {
+	if workload == nil {
+		return nil
+	}
+
+	mergedWorkload := pipelinecontext.MergeWorkloadOverrides(workload, releaseBinding.Spec.WorkloadOverrides)
+	if mergedWorkload == nil {
+		return nil
+	}
+
+	seen := make(map[string]struct{})
+	var names []string
+	container := mergedWorkload.Spec.Container
+	for _, env := range container.Env {
+		if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil && env.ValueFrom.SecretKeyRef.Name != "" {
+			if _, dup := seen[env.ValueFrom.SecretKeyRef.Name]; !dup {
+				seen[env.ValueFrom.SecretKeyRef.Name] = struct{}{}
+				names = append(names, env.ValueFrom.SecretKeyRef.Name)
+			}
+		}
+	}
+	for _, file := range container.Files {
+		if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil && file.ValueFrom.SecretKeyRef.Name != "" {
+			if _, dup := seen[file.ValueFrom.SecretKeyRef.Name]; !dup {
+				seen[file.ValueFrom.SecretKeyRef.Name] = struct{}{}
+				names = append(names, file.ValueFrom.SecretKeyRef.Name)
+			}
+		}
+	}
+	return names
+}

@@ -57,14 +57,14 @@ curl http://development-default.openchoreoapis.localhost:19080/greeter-service-h
 
 If you cannot access the service:
 
-1. Check if the ReleaseBinding is ready:
+1. Check if the ComponentReleaseBinding is ready:
    ```bash
-   kubectl get releasebinding greeter-service-development -n default -o yaml
+   kubectl get componentreleasebinding greeter-service-development -n default -o yaml
    ```
 
-2. Check the ReleaseBinding status conditions:
+2. Check the ComponentReleaseBinding status conditions:
    ```bash
-   kubectl get releasebinding greeter-service-development -n default -o jsonpath='{.status.conditions}' | jq .
+   kubectl get componentreleasebinding greeter-service-development -n default -o jsonpath='{.status.conditions}' | jq .
    ```
 
 3. Verify the HTTPRoute is configured correctly:

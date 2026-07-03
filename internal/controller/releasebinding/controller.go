@@ -150,6 +150,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		// This ensures Ready is present on every reconciliation regardless of code path.
 		r.setReadyCondition(releaseBinding)
 
+		// Set deprecation warning condition
+		controller.MarkTrueCondition(releaseBinding, ConditionDeprecated, ReasonDeprecated, "ReleaseBinding is deprecated and will be removed in a future release. Use ComponentReleaseBinding instead.")
+
 		// Skip update if nothing changed
 		if apiequality.Semantic.DeepEqual(old.Status, releaseBinding.Status) {
 			return

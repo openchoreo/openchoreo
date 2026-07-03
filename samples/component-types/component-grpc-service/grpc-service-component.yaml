@@ -3,7 +3,7 @@
 # This sample demonstrates:
 # - Defining a custom ClusterComponentType that emits a Gateway API GRPCRoute
 # - A Workload with a gRPC endpoint
-# - Environment-specific overrides via ReleaseBinding
+# - Environment-specific overrides via ComponentReleaseBinding
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
@@ -204,7 +204,7 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseBinding
+kind: ComponentReleaseBinding
 metadata:
   name: demo-app-grpc-service-development
   namespace: default

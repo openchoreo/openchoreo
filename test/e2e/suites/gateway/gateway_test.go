@@ -24,7 +24,7 @@ var _ = Describe("Gateway Routing", Ordered, Label("tier2"), func() {
 		rbName := component + "-" + env
 		jp := func(g Gomega, field string) string {
 			out, err := framework.KubectlGetJsonpath(
-				kubeContext, cpNs, "releasebinding", rbName,
+				kubeContext, cpNs, "componentreleasebinding", rbName,
 				fmt.Sprintf(`{.status.endpoints[?(@.name=="%s")].externalURLs.http.%s}`, endpoint, field),
 			)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -48,7 +48,7 @@ var _ = Describe("Gateway Routing", Ordered, Label("tier2"), func() {
 		rbName := component + "-" + env
 		jp := func(g Gomega, field string) string {
 			out, err := framework.KubectlGetJsonpath(
-				kubeContext, cpNs, "releasebinding", rbName,
+				kubeContext, cpNs, "componentreleasebinding", rbName,
 				fmt.Sprintf(`{.status.endpoints[?(@.name=="%s")].internalURLs.http.%s}`, endpoint, field),
 			)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -136,9 +136,9 @@ var _ = Describe("Gateway Routing", Ordered, Label("tier2"), func() {
 		}, 3*time.Minute, 2*time.Second).Should(Succeed(),
 			"pods in %s not running in time", dpDevNs)
 
-		By("waiting for ReleaseBindings to become Ready")
+		By("waiting for ComponentReleaseBindings to become Ready")
 		for _, comp := range []string{"gw-ext", "gw-proj", "gw-int", "gw-multi", "gw-base"} {
-			framework.WaitForReleaseBindingReady(kubeContext, cpNs, comp+"-"+envDev)
+			framework.WaitForComponentReleaseBindingReady(kubeContext, cpNs, comp+"-"+envDev)
 		}
 
 		By("promoting gw-ext to staging for environment override test")
@@ -157,8 +157,8 @@ var _ = Describe("Gateway Routing", Ordered, Label("tier2"), func() {
 			return nil
 		}, 3*time.Minute, 5*time.Second).Should(Succeed(), "gw-ext ComponentRelease not created")
 
-		output, err = framework.KubectlApplyLiteral(kubeContext, releaseBindingYAML("gw-ext", compRelease, envStaging))
-		Expect(err).NotTo(HaveOccurred(), "failed to create staging ReleaseBinding: %s", output)
+		output, err = framework.KubectlApplyLiteral(kubeContext, componentReleaseBindingYAML("gw-ext", compRelease, envStaging))
+		Expect(err).NotTo(HaveOccurred(), "failed to create staging ComponentReleaseBinding: %s", output)
 
 		By("discovering staging DP namespace")
 		Eventually(func() error {
@@ -174,7 +174,7 @@ var _ = Describe("Gateway Routing", Ordered, Label("tier2"), func() {
 		}, 3*time.Minute, 2*time.Second).Should(Succeed(),
 			"pods in %s not running in time", dpStgNs)
 
-		framework.WaitForReleaseBindingReady(kubeContext, cpNs, "gw-ext-"+envStaging)
+		framework.WaitForComponentReleaseBindingReady(kubeContext, cpNs, "gw-ext-"+envStaging)
 	})
 
 	AfterAll(func() {
@@ -233,10 +233,10 @@ var _ = Describe("Gateway Routing", Ordered, Label("tier2"), func() {
 				g.Expect(count).To(Equal(0), "project-only component should have no external HTTPRoute")
 			}, 10*time.Second, 2*time.Second).Should(Succeed())
 
-			By("verifying ReleaseBinding has no externalURLs for gw-proj")
+			By("verifying ComponentReleaseBinding has no externalURLs for gw-proj")
 			rbName := "gw-proj-" + envDev
 			externalScheme, err := framework.KubectlGetJsonpath(
-				kubeContext, cpNs, "releasebinding", rbName,
+				kubeContext, cpNs, "componentreleasebinding", rbName,
 				`{.status.endpoints[?(@.name=="http")].externalURLs.http.scheme}`)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(externalScheme).To(BeEmpty(), "project-only endpoint should have no externalURLs")
@@ -274,10 +274,10 @@ var _ = Describe("Gateway Routing", Ordered, Label("tier2"), func() {
 			}, 30*time.Second, 2*time.Second).Should(Succeed(),
 				"internal URL %s should return 200", url)
 
-			By("verifying no externalURLs on ReleaseBinding")
+			By("verifying no externalURLs on ComponentReleaseBinding")
 			rbName := "gw-int-" + envDev
 			externalScheme, err := framework.KubectlGetJsonpath(
-				kubeContext, cpNs, "releasebinding", rbName,
+				kubeContext, cpNs, "componentreleasebinding", rbName,
 				`{.status.endpoints[?(@.name=="http")].externalURLs.http.scheme}`)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(externalScheme).To(BeEmpty(), "internal-only endpoint should have no externalURLs")
@@ -313,7 +313,7 @@ var _ = Describe("Gateway Routing", Ordered, Label("tier2"), func() {
 			for _, epName := range []string{"api", "admin"} {
 				rbName := "gw-multi-" + envDev
 				scheme, err := framework.KubectlGetJsonpath(
-					kubeContext, cpNs, "releasebinding", rbName,
+					kubeContext, cpNs, "componentreleasebinding", rbName,
 					fmt.Sprintf(`{.status.endpoints[?(@.name=="%s")].externalURLs.http.scheme}`, epName))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(scheme).NotTo(BeEmpty(), "endpoint %s should have externalURLs", epName)

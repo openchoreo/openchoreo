@@ -1514,6 +1514,157 @@ func (_c *MockClientWithResponsesInterface_CreateClusterWorkflowWithResponse_Cal
 	return _c
 }
 
+// CreateComponentReleaseBindingWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateComponentReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateComponentReleaseBindingResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateComponentReleaseBindingWithBodyWithResponse")
+	}
+
+	var r0 *gen.CreateComponentReleaseBindingResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateComponentReleaseBindingResp, error)); ok {
+		return rf(ctx, namespaceName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) *gen.CreateComponentReleaseBindingResp); ok {
+		r0 = rf(ctx, namespaceName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateComponentReleaseBindingResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateComponentReleaseBindingWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateComponentReleaseBindingWithBodyWithResponse'
+type MockClientWithResponsesInterface_CreateComponentReleaseBindingWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateComponentReleaseBindingWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateComponentReleaseBindingWithBodyWithResponse(ctx interface{}, namespaceName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateComponentReleaseBindingWithBodyWithResponse_Call{Call: _e.mock.On("CreateComponentReleaseBindingWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithBodyWithResponse_Call) Return(_a0 *gen.CreateComponentReleaseBindingResp, _a1 error) *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.CreateComponentReleaseBindingResp, error)) *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CreateComponentReleaseBindingWithResponse provides a mock function with given fields: ctx, namespaceName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) CreateComponentReleaseBindingWithResponse(ctx context.Context, namespaceName string, body gen.ComponentReleaseBinding, reqEditors ...gen.RequestEditorFn) (*gen.CreateComponentReleaseBindingResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateComponentReleaseBindingWithResponse")
+	}
+
+	var r0 *gen.CreateComponentReleaseBindingResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ComponentReleaseBinding, ...gen.RequestEditorFn) (*gen.CreateComponentReleaseBindingResp, error)); ok {
+		return rf(ctx, namespaceName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ComponentReleaseBinding, ...gen.RequestEditorFn) *gen.CreateComponentReleaseBindingResp); ok {
+		r0 = rf(ctx, namespaceName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.CreateComponentReleaseBindingResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ComponentReleaseBinding, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_CreateComponentReleaseBindingWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateComponentReleaseBindingWithResponse'
+type MockClientWithResponsesInterface_CreateComponentReleaseBindingWithResponse_Call struct {
+	*mock.Call
+}
+
+// CreateComponentReleaseBindingWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - body gen.ComponentReleaseBinding
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) CreateComponentReleaseBindingWithResponse(ctx interface{}, namespaceName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithResponse_Call {
+	return &MockClientWithResponsesInterface_CreateComponentReleaseBindingWithResponse_Call{Call: _e.mock.On("CreateComponentReleaseBindingWithResponse",
+		append([]interface{}{ctx, namespaceName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, body gen.ComponentReleaseBinding, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ComponentReleaseBinding), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithResponse_Call) Return(_a0 *gen.CreateComponentReleaseBindingResp, _a1 error) *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithResponse_Call) RunAndReturn(run func(context.Context, string, gen.ComponentReleaseBinding, ...gen.RequestEditorFn) (*gen.CreateComponentReleaseBindingResp, error)) *MockClientWithResponsesInterface_CreateComponentReleaseBindingWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateComponentReleaseWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, contentType, body, reqEditors
 func (_m *MockClientWithResponsesInterface) CreateComponentReleaseWithBodyWithResponse(ctx context.Context, namespaceName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.CreateComponentReleaseResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -6480,6 +6631,81 @@ func (_c *MockClientWithResponsesInterface_DeleteClusterWorkflowWithResponse_Cal
 	return _c
 }
 
+// DeleteComponentReleaseBindingWithResponse provides a mock function with given fields: ctx, namespaceName, componentReleaseBindingName, reqEditors
+func (_m *MockClientWithResponsesInterface) DeleteComponentReleaseBindingWithResponse(ctx context.Context, namespaceName string, componentReleaseBindingName string, reqEditors ...gen.RequestEditorFn) (*gen.DeleteComponentReleaseBindingResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, componentReleaseBindingName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteComponentReleaseBindingWithResponse")
+	}
+
+	var r0 *gen.DeleteComponentReleaseBindingResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.DeleteComponentReleaseBindingResp, error)); ok {
+		return rf(ctx, namespaceName, componentReleaseBindingName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.DeleteComponentReleaseBindingResp); ok {
+		r0 = rf(ctx, namespaceName, componentReleaseBindingName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.DeleteComponentReleaseBindingResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, componentReleaseBindingName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_DeleteComponentReleaseBindingWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteComponentReleaseBindingWithResponse'
+type MockClientWithResponsesInterface_DeleteComponentReleaseBindingWithResponse_Call struct {
+	*mock.Call
+}
+
+// DeleteComponentReleaseBindingWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - componentReleaseBindingName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) DeleteComponentReleaseBindingWithResponse(ctx interface{}, namespaceName interface{}, componentReleaseBindingName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_DeleteComponentReleaseBindingWithResponse_Call {
+	return &MockClientWithResponsesInterface_DeleteComponentReleaseBindingWithResponse_Call{Call: _e.mock.On("DeleteComponentReleaseBindingWithResponse",
+		append([]interface{}{ctx, namespaceName, componentReleaseBindingName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteComponentReleaseBindingWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, componentReleaseBindingName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_DeleteComponentReleaseBindingWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteComponentReleaseBindingWithResponse_Call) Return(_a0 *gen.DeleteComponentReleaseBindingResp, _a1 error) *MockClientWithResponsesInterface_DeleteComponentReleaseBindingWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_DeleteComponentReleaseBindingWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.DeleteComponentReleaseBindingResp, error)) *MockClientWithResponsesInterface_DeleteComponentReleaseBindingWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteComponentReleaseWithResponse provides a mock function with given fields: ctx, namespaceName, componentReleaseName, reqEditors
 func (_m *MockClientWithResponsesInterface) DeleteComponentReleaseWithResponse(ctx context.Context, namespaceName string, componentReleaseName string, reqEditors ...gen.RequestEditorFn) (*gen.DeleteComponentReleaseResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -9987,6 +10213,81 @@ func (_c *MockClientWithResponsesInterface_GetClusterWorkflowWithResponse_Call) 
 }
 
 func (_c *MockClientWithResponsesInterface_GetClusterWorkflowWithResponse_Call) RunAndReturn(run func(context.Context, string, ...gen.RequestEditorFn) (*gen.GetClusterWorkflowResp, error)) *MockClientWithResponsesInterface_GetClusterWorkflowWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetComponentReleaseBindingWithResponse provides a mock function with given fields: ctx, namespaceName, componentReleaseBindingName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetComponentReleaseBindingWithResponse(ctx context.Context, namespaceName string, componentReleaseBindingName string, reqEditors ...gen.RequestEditorFn) (*gen.GetComponentReleaseBindingResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, componentReleaseBindingName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetComponentReleaseBindingWithResponse")
+	}
+
+	var r0 *gen.GetComponentReleaseBindingResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetComponentReleaseBindingResp, error)); ok {
+		return rf(ctx, namespaceName, componentReleaseBindingName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.GetComponentReleaseBindingResp); ok {
+		r0 = rf(ctx, namespaceName, componentReleaseBindingName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetComponentReleaseBindingResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, componentReleaseBindingName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetComponentReleaseBindingWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetComponentReleaseBindingWithResponse'
+type MockClientWithResponsesInterface_GetComponentReleaseBindingWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetComponentReleaseBindingWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - componentReleaseBindingName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetComponentReleaseBindingWithResponse(ctx interface{}, namespaceName interface{}, componentReleaseBindingName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetComponentReleaseBindingWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetComponentReleaseBindingWithResponse_Call{Call: _e.mock.On("GetComponentReleaseBindingWithResponse",
+		append([]interface{}{ctx, namespaceName, componentReleaseBindingName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetComponentReleaseBindingWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, componentReleaseBindingName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetComponentReleaseBindingWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetComponentReleaseBindingWithResponse_Call) Return(_a0 *gen.GetComponentReleaseBindingResp, _a1 error) *MockClientWithResponsesInterface_GetComponentReleaseBindingWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetComponentReleaseBindingWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetComponentReleaseBindingResp, error)) *MockClientWithResponsesInterface_GetComponentReleaseBindingWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -14322,6 +14623,81 @@ func (_c *MockClientWithResponsesInterface_ListClusterWorkflowsWithResponse_Call
 	return _c
 }
 
+// ListComponentReleaseBindingsWithResponse provides a mock function with given fields: ctx, namespaceName, params, reqEditors
+func (_m *MockClientWithResponsesInterface) ListComponentReleaseBindingsWithResponse(ctx context.Context, namespaceName string, params *gen.ListComponentReleaseBindingsParams, reqEditors ...gen.RequestEditorFn) (*gen.ListComponentReleaseBindingsResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, params)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListComponentReleaseBindingsWithResponse")
+	}
+
+	var r0 *gen.ListComponentReleaseBindingsResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListComponentReleaseBindingsParams, ...gen.RequestEditorFn) (*gen.ListComponentReleaseBindingsResp, error)); ok {
+		return rf(ctx, namespaceName, params, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListComponentReleaseBindingsParams, ...gen.RequestEditorFn) *gen.ListComponentReleaseBindingsResp); ok {
+		r0 = rf(ctx, namespaceName, params, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ListComponentReleaseBindingsResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListComponentReleaseBindingsParams, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, params, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_ListComponentReleaseBindingsWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListComponentReleaseBindingsWithResponse'
+type MockClientWithResponsesInterface_ListComponentReleaseBindingsWithResponse_Call struct {
+	*mock.Call
+}
+
+// ListComponentReleaseBindingsWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListComponentReleaseBindingsParams
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) ListComponentReleaseBindingsWithResponse(ctx interface{}, namespaceName interface{}, params interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_ListComponentReleaseBindingsWithResponse_Call {
+	return &MockClientWithResponsesInterface_ListComponentReleaseBindingsWithResponse_Call{Call: _e.mock.On("ListComponentReleaseBindingsWithResponse",
+		append([]interface{}{ctx, namespaceName, params}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_ListComponentReleaseBindingsWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListComponentReleaseBindingsParams, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_ListComponentReleaseBindingsWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListComponentReleaseBindingsParams), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListComponentReleaseBindingsWithResponse_Call) Return(_a0 *gen.ListComponentReleaseBindingsResp, _a1 error) *MockClientWithResponsesInterface_ListComponentReleaseBindingsWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_ListComponentReleaseBindingsWithResponse_Call) RunAndReturn(run func(context.Context, string, *gen.ListComponentReleaseBindingsParams, ...gen.RequestEditorFn) (*gen.ListComponentReleaseBindingsResp, error)) *MockClientWithResponsesInterface_ListComponentReleaseBindingsWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListComponentReleasesWithResponse provides a mock function with given fields: ctx, namespaceName, params, reqEditors
 func (_m *MockClientWithResponsesInterface) ListComponentReleasesWithResponse(ctx context.Context, namespaceName string, params *gen.ListComponentReleasesParams, reqEditors ...gen.RequestEditorFn) (*gen.ListComponentReleasesResp, error) {
 	_va := make([]interface{}, len(reqEditors))
@@ -17999,6 +18375,159 @@ func (_c *MockClientWithResponsesInterface_UpdateClusterWorkflowWithResponse_Cal
 }
 
 func (_c *MockClientWithResponsesInterface_UpdateClusterWorkflowWithResponse_Call) RunAndReturn(run func(context.Context, string, gen.ClusterWorkflow, ...gen.RequestEditorFn) (*gen.UpdateClusterWorkflowResp, error)) *MockClientWithResponsesInterface_UpdateClusterWorkflowWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateComponentReleaseBindingWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, componentReleaseBindingName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateComponentReleaseBindingWithBodyWithResponse(ctx context.Context, namespaceName string, componentReleaseBindingName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.UpdateComponentReleaseBindingResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, componentReleaseBindingName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateComponentReleaseBindingWithBodyWithResponse")
+	}
+
+	var r0 *gen.UpdateComponentReleaseBindingResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateComponentReleaseBindingResp, error)); ok {
+		return rf(ctx, namespaceName, componentReleaseBindingName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) *gen.UpdateComponentReleaseBindingResp); ok {
+		r0 = rf(ctx, namespaceName, componentReleaseBindingName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateComponentReleaseBindingResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, componentReleaseBindingName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateComponentReleaseBindingWithBodyWithResponse'
+type MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateComponentReleaseBindingWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - componentReleaseBindingName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateComponentReleaseBindingWithBodyWithResponse(ctx interface{}, namespaceName interface{}, componentReleaseBindingName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithBodyWithResponse_Call{Call: _e.mock.On("UpdateComponentReleaseBindingWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, componentReleaseBindingName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, componentReleaseBindingName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithBodyWithResponse_Call) Return(_a0 *gen.UpdateComponentReleaseBindingResp, _a1 error) *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.UpdateComponentReleaseBindingResp, error)) *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateComponentReleaseBindingWithResponse provides a mock function with given fields: ctx, namespaceName, componentReleaseBindingName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) UpdateComponentReleaseBindingWithResponse(ctx context.Context, namespaceName string, componentReleaseBindingName string, body gen.ComponentReleaseBinding, reqEditors ...gen.RequestEditorFn) (*gen.UpdateComponentReleaseBindingResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, componentReleaseBindingName, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateComponentReleaseBindingWithResponse")
+	}
+
+	var r0 *gen.UpdateComponentReleaseBindingResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ComponentReleaseBinding, ...gen.RequestEditorFn) (*gen.UpdateComponentReleaseBindingResp, error)); ok {
+		return rf(ctx, namespaceName, componentReleaseBindingName, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ComponentReleaseBinding, ...gen.RequestEditorFn) *gen.UpdateComponentReleaseBindingResp); ok {
+		r0 = rf(ctx, namespaceName, componentReleaseBindingName, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.UpdateComponentReleaseBindingResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.ComponentReleaseBinding, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, componentReleaseBindingName, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateComponentReleaseBindingWithResponse'
+type MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithResponse_Call struct {
+	*mock.Call
+}
+
+// UpdateComponentReleaseBindingWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - componentReleaseBindingName string
+//   - body gen.ComponentReleaseBinding
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) UpdateComponentReleaseBindingWithResponse(ctx interface{}, namespaceName interface{}, componentReleaseBindingName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithResponse_Call {
+	return &MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithResponse_Call{Call: _e.mock.On("UpdateComponentReleaseBindingWithResponse",
+		append([]interface{}{ctx, namespaceName, componentReleaseBindingName, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, componentReleaseBindingName string, body gen.ComponentReleaseBinding, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.ComponentReleaseBinding), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithResponse_Call) Return(_a0 *gen.UpdateComponentReleaseBindingResp, _a1 error) *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.ComponentReleaseBinding, ...gen.RequestEditorFn) (*gen.UpdateComponentReleaseBindingResp, error)) *MockClientWithResponsesInterface_UpdateComponentReleaseBindingWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }

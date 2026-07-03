@@ -42,7 +42,7 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 
 `failure-scenario.yaml` misconfigures the api-service's `POSTGRES_DSN` to point to a non-existent host. The api-service starts but every DB query fails, returning 500s. This breaches the alert threshold. The RCA agent then traces from the frontend alert to api-service 500s to Postgres connection errors to the misconfigured DSN.
 
-Start generating traffic (auto-detects the frontend URL from the ReleaseBinding):
+Start generating traffic (auto-detects the frontend URL from the ComponentReleaseBinding):
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/alerting-demo/trigger-alerts.sh | bash
@@ -57,7 +57,7 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 After the alert fires, revert by applying the fix from the UI if suggested, or manually via:
 
 ```bash
-kubectl patch releasebinding snip-api-service-development --type=json -p '[{"op":"remove","path":"/spec/workloadOverrides"}]'
+kubectl patch componentreleasebinding snip-api-service-development --type=json -p '[{"op":"remove","path":"/spec/workloadOverrides"}]'
 ```
 
 ## Cleanup

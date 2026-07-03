@@ -87,6 +87,9 @@ type ComponentContextInput struct {
 	// ReleaseBinding contains release reference and environment-specific overrides.
 	ReleaseBinding *v1alpha1.ReleaseBinding
 
+	// ComponentReleaseBinding contains release reference and environment-specific overrides.
+	ComponentReleaseBinding *v1alpha1.ComponentReleaseBinding
+
 	// DataPlane contains the data plane configuration.
 	// Required - controller must provide this.
 	DataPlane *v1alpha1.DataPlane `validate:"required"`

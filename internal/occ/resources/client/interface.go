@@ -174,6 +174,11 @@ type Interface interface {
 	ListNamespaceRoleBindings(ctx context.Context, namespaceName string, params *gen.ListNamespaceRoleBindingsParams) (*gen.AuthzRoleBindingList, error)
 	GetNamespaceRoleBinding(ctx context.Context, namespaceName, name string) (*gen.AuthzRoleBinding, error)
 	DeleteNamespaceRoleBinding(ctx context.Context, namespaceName, name string) error
+
+	CreateComponentReleaseBinding(ctx context.Context, namespaceName string, req *gen.ComponentReleaseBinding) (*gen.ComponentReleaseBinding, error)
+	GetComponentReleaseBinding(ctx context.Context, namespaceName string, componentReleaseBindingName string) (*gen.ComponentReleaseBinding, error)
+	DeleteComponentReleaseBinding(ctx context.Context, namespaceName string, componentReleaseBindingName string) error
+	ListComponentReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListComponentReleaseBindingsParams) (*gen.ComponentReleaseBindingList, error)
 }
 
 // compile-time check that *Client satisfies Interface.

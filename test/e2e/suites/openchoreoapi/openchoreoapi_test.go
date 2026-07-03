@@ -261,20 +261,20 @@ metadata:
 			g.Expect(output).To(ContainSubstring(compName))
 		}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
 
-		By("verifying ReleaseBinding appears")
+		By("verifying ComponentReleaseBinding appears")
 		Eventually(func(g Gomega) {
-			output, err := framework.KubectlGet(kubeContext, nsName, "releasebinding")
-			g.Expect(err).NotTo(HaveOccurred(), "failed to list releasebindings: %s", output)
+			output, err := framework.KubectlGet(kubeContext, nsName, "componentreleasebinding")
+			g.Expect(err).NotTo(HaveOccurred(), "failed to list componentreleasebindings: %s", output)
 			g.Expect(output).To(ContainSubstring(compName))
 		}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
 	})
 
 	// ── Test 8: Get component + list release bindings via API ─────────────
 	It("should read component and release binding details via API", func() {
-		By("waiting for ReleaseBinding to become Ready")
+		By("waiting for ComponentReleaseBinding to become Ready")
 		rbName := fmt.Sprintf("%s-development", compName)
 		Eventually(func(g Gomega) {
-			framework.AssertReleaseBindingReady(g, kubeContext, nsName, rbName)
+			framework.AssertComponentReleaseBindingReady(g, kubeContext, nsName, rbName)
 		}, 5*time.Minute, framework.DefaultPolling).Should(Succeed())
 
 		By("getting component via API")
@@ -286,13 +286,13 @@ metadata:
 
 		By("listing release bindings via API")
 		compFilter := compName
-		rbResp, err := client.ListReleaseBindingsWithResponse(ctx, nsName, &gen.ListReleaseBindingsParams{
+		rbResp, err := client.ListComponentReleaseBindingsWithResponse(ctx, nsName, &gen.ListComponentReleaseBindingsParams{
 			Component: &compFilter,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rbResp.StatusCode()).To(Equal(http.StatusOK))
 		Expect(rbResp.JSON200).NotTo(BeNil())
-		Expect(rbResp.JSON200.Items).NotTo(BeEmpty(), "expected at least one ReleaseBinding")
+		Expect(rbResp.JSON200.Items).NotTo(BeEmpty(), "expected at least one ComponentReleaseBinding")
 
 		found := false
 		for _, rb := range rbResp.JSON200.Items {
@@ -304,7 +304,7 @@ metadata:
 				break
 			}
 		}
-		Expect(found).To(BeTrue(), "expected ReleaseBinding %s in API response", rbName)
+		Expect(found).To(BeTrue(), "expected ComponentReleaseBinding %s in API response", rbName)
 	})
 
 	// ── Test 9: Delete component → verify CR cleanup ─────────────────────
@@ -333,9 +333,9 @@ metadata:
 			g.Expect(output).NotTo(ContainSubstring(compName))
 		}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
 
-		By("verifying ReleaseBinding is cleaned up")
+		By("verifying ComponentReleaseBinding is cleaned up")
 		Eventually(func(g Gomega) {
-			output, err := framework.KubectlGet(kubeContext, nsName, "releasebinding")
+			output, err := framework.KubectlGet(kubeContext, nsName, "componentreleasebinding")
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(output).NotTo(ContainSubstring(compName))
 		}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())

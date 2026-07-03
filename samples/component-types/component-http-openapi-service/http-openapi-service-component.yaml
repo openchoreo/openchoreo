@@ -95,7 +95,7 @@ spec:
           # The gateway exposes a unique per-endpoint prefix (/<component>-<endpoint>) and
           # the rules below render one match per API operation, so the first match is a
           # specific operation rather than the base. Declare the invoke base path here so
-          # the ReleaseBinding controller can build the endpoint invoke URL.
+          # the ComponentReleaseBinding controller can build the endpoint invoke URL.
           annotations:
             openchoreo.dev/endpoint-base-path: /${metadata.componentName}-${endpoint.key}
         spec:
@@ -250,7 +250,7 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseBinding
+kind: ComponentReleaseBinding
 metadata:
   name: demo-app-reading-list-development
   namespace: default

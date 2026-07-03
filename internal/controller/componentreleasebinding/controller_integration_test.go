@@ -1,0 +1,2137 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package componentreleasebinding
+
+import (
+	"encoding/json"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
+	"github.com/openchoreo/openchoreo/internal/labels"
+	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
+)
+
+// ─── Minimal Templates ───────────────────────────────────────────────────────
+//
+// minimalTemplate is the minimal valid Kubernetes Deployment JSON required by
+// the +kubebuilder:validation:Required constraint on ResourceTemplate.Template.
+// It also satisfies pipeline.validateResources (apiVersion + kind + metadata.name).
+var minimalTemplate = &runtime.RawExtension{
+	Raw: []byte(`{` +
+		`"apiVersion":"apps/v1",` +
+		`"kind":"Deployment",` +
+		`"metadata":{"name":"test-deployment"},` +
+		`"spec":{` +
+		`"selector":{"matchLabels":{"app":"test"}},` +
+		`"template":{` +
+		`"metadata":{"labels":{"app":"test"}},` +
+		`"spec":{"containers":[{"name":"app","image":"nginx:latest"}]}` +
+		`}}}`,
+	),
+}
+
+// ─── Test Fixtures ────────────────────────────────────────────────────────────
+
+// rbFixture returns a ComponentReleaseBinding.  When withFinalizer is true the
+// finalizer is pre-seeded so that the first Reconcile skips straight to
+// business logic instead of just adding the finalizer and returning early.
+func rbFixture(name, project, component, envName, releaseName string, withFinalizer bool) *openchoreov1alpha1.ComponentReleaseBinding {
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: openchoreov1alpha1.ComponentReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseBindingOwner{
+				ProjectName:   project,
+				ComponentName: component,
+			},
+			Environment: envName,
+			ReleaseName: releaseName,
+		},
+	}
+	if withFinalizer {
+		rb.Finalizers = []string{ComponentReleaseBindingFinalizer}
+	}
+	return rb
+}
+
+// crFixture returns a valid ComponentRelease whose owners match the given
+// project/component.  The ResourceTemplate carries minimalTemplate (required
+// by CRD validation) and the Workload carries a minimal container spec (the
+// XValidation rule requires exactly one of container/containers to be set).
+func crFixture(name, project, component string) *openchoreov1alpha1.ComponentRelease {
+	return &openchoreov1alpha1.ComponentRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseOwner{
+				ProjectName:   project,
+				ComponentName: component,
+			},
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/test-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "deployment",
+					Resources: []openchoreov1alpha1.ResourceTemplate{
+						{ID: "deployment", Template: minimalTemplate},
+					},
+				},
+			},
+			// WorkloadTemplateSpec requires exactly one of container or containers.
+			Workload: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{Image: "nginx:latest"},
+			},
+		},
+	}
+}
+
+// envFixture returns a minimal Environment.  When dpName is non-empty the
+// Environment carries an explicit DataPlaneRef; otherwise the controller
+// defaults to a DataPlane named "default" in the same namespace.
+func envFixture(name, dpName string) *openchoreov1alpha1.Environment {
+	env := &openchoreov1alpha1.Environment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+	}
+	if dpName != "" {
+		env.Spec.DataPlaneRef = &openchoreov1alpha1.DataPlaneRef{
+			Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane,
+			Name: dpName,
+		}
+	}
+	return env
+}
+
+// dpFixture returns a minimal DataPlane.
+func dpFixture(name string) *openchoreov1alpha1.DataPlane {
+	return &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+	}
+}
+
+// componentFixture returns a minimal Component.
+// ComponentType.Name must match '^(deployment|statefulset|cronjob|job|proxy)/...' (CRD validation).
+func componentFixture(name, project string) *openchoreov1alpha1.Component {
+	return &openchoreov1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: openchoreov1alpha1.ComponentSpec{
+			Owner: openchoreov1alpha1.ComponentOwner{
+				ProjectName: project,
+			},
+			ComponentType: openchoreov1alpha1.ComponentTypeRef{
+				Name: "deployment/my-service",
+			},
+		},
+	}
+}
+
+// projectFixture returns a minimal Project.
+func projectFixture(name string) *openchoreov1alpha1.Project {
+	return &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+				Name: "default",
+			},
+			Type: openchoreov1alpha1.ProjectTypeRef{Name: "default"},
+		},
+	}
+}
+
+// releaseFixture returns a Release pre-labeled so that hasOwnedReleases
+// will match it for the given ComponentReleaseBinding owner fields.
+func releaseFixture(name, namespace, project, component, envName string, extraFinalizers ...string) *openchoreov1alpha1.RenderedRelease {
+	rel := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				labels.LabelKeyProjectName:     project,
+				labels.LabelKeyComponentName:   component,
+				labels.LabelKeyEnvironmentName: envName,
+			},
+		},
+		Spec: openchoreov1alpha1.RenderedReleaseSpec{
+			Owner: openchoreov1alpha1.RenderedReleaseOwner{
+				ProjectName:   project,
+				ComponentName: component,
+			},
+			EnvironmentName: envName,
+			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
+		},
+	}
+	if len(extraFinalizers) > 0 {
+		rel.Finalizers = extraFinalizers
+	}
+	return rel
+}
+
+// ─── Test Helpers ─────────────────────────────────────────────────────────────
+
+// testReconciler returns a Reconciler wired to the global envtest client.
+// Pipeline is intentionally nil — use testReconcilerWithPipeline for tests
+// that need to exercise the rendering path.
+func testReconciler() *Reconciler {
+	return &Reconciler{
+		Client: k8sClient,
+		Scheme: k8sClient.Scheme(),
+	}
+}
+
+// testReconcilerWithPipeline returns a Reconciler with a real component
+// rendering Pipeline.  This unlocks reconcileRelease → r.Pipeline.Render(...)
+// and all code paths beyond the undeploy check.
+func testReconcilerWithPipeline() *Reconciler {
+	return &Reconciler{
+		Client:   k8sClient,
+		Scheme:   k8sClient.Scheme(),
+		Pipeline: componentpipeline.NewPipeline(),
+	}
+}
+
+// reconcileRequest builds a reconcile.Request for the given name in the default test namespace.
+func reconcileRequest(name string) reconcile.Request {
+	return reconcile.Request{NamespacedName: types.NamespacedName{Namespace: ns, Name: name}}
+}
+
+// mustReconcile calls Reconcile and asserts no error is returned.
+func mustReconcile(r *Reconciler, req reconcile.Request) reconcile.Result {
+	GinkgoHelper()
+	result, err := r.Reconcile(ctx, req)
+	Expect(err).NotTo(HaveOccurred())
+	return result
+}
+
+// fetchRB re-reads a ComponentReleaseBinding from the API server.
+func fetchRB(name string) *openchoreov1alpha1.ComponentReleaseBinding {
+	GinkgoHelper()
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{}
+	Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: name}, rb)).To(Succeed())
+	return rb
+}
+
+// conditionFor finds a status condition by type; returns nil if absent.
+func conditionFor(rb *openchoreov1alpha1.ComponentReleaseBinding, condType string) *metav1.Condition {
+	return apimeta.FindStatusCondition(rb.Status.Conditions, condType)
+}
+
+// forceDelete strips all finalizers from a ComponentReleaseBinding in the default test namespace
+// and then deletes it. Call this in AfterEach to guarantee cleanup even when a finalizer is present.
+func forceDelete(name string) {
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{}
+	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: name}, rb); err != nil {
+		return // already gone
+	}
+	rb.Finalizers = nil
+	_ = k8sClient.Update(ctx, rb)
+	_ = k8sClient.Delete(ctx, rb)
+}
+
+// forceDeleteRelease strips all finalizers from a Release and then deletes it.
+func forceDeleteRelease(name string) {
+	rel := &openchoreov1alpha1.RenderedRelease{}
+	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: name}, rel); err != nil {
+		return
+	}
+	rel.Finalizers = nil
+	_ = k8sClient.Update(ctx, rel)
+	_ = k8sClient.Delete(ctx, rel)
+}
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
+
+const (
+	ns       = "default"
+	timeout  = 10 * time.Second
+	interval = 250 * time.Millisecond
+)
+
+var _ = Describe("ComponentReleaseBinding Controller", func() {
+	// All test resources live in the "default" namespace so that the suite
+	// can use the standard envtest setup without creating additional namespaces.
+	// Each Context uses distinct resource names to prevent inter-test interference.
+
+	// ── Finalizer management ──────────────────────────────────────────────────
+
+	Context("Finalizer management", func() {
+		const rbName = "rb-finalizer-test"
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() { forceDelete(rbName) })
+
+		It("adds the finalizer on the first reconcile and returns early", func() {
+			r := testReconciler()
+
+			By("Creating a ComponentReleaseBinding without a finalizer")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, "proj", "comp", "env", "rel", false),
+			)).To(Succeed())
+
+			By("First reconcile adds the finalizer and returns without error")
+			mustReconcile(r, req)
+
+			By("Verifying the finalizer is present after the first reconcile")
+			rb := fetchRB(rbName)
+			Expect(rb.Finalizers).To(ContainElement(ComponentReleaseBindingFinalizer))
+		})
+
+		It("does not add the finalizer more than once on repeated reconciles", func() {
+			r := testReconciler()
+
+			By("Creating a ComponentReleaseBinding without a finalizer")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, "proj", "comp", "env", "rel", false),
+			)).To(Succeed())
+
+			By("First reconcile adds the finalizer")
+			mustReconcile(r, req)
+
+			By("Second reconcile is a no-op for the finalizer")
+			mustReconcile(r, req)
+
+			By("Verifying the finalizer appears exactly once")
+			rb := fetchRB(rbName)
+			count := 0
+			for _, f := range rb.Finalizers {
+				if f == ComponentReleaseBindingFinalizer {
+					count++
+				}
+			}
+			Expect(count).To(Equal(1), "finalizer should appear exactly once")
+		})
+	})
+
+	// ── Missing ComponentRelease ──────────────────────────────────────────────
+
+	Context("when the referenced ComponentRelease does not exist", func() {
+		const rbName = "rb-no-cr"
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() { forceDelete(rbName) })
+
+		It("sets ReleaseSynced=False with reason ComponentReleaseNotFound", func() {
+			r := testReconciler()
+
+			By("Creating a ComponentReleaseBinding whose ReleaseName points to a non-existent CR")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, "proj", "comp", "env", "does-not-exist", true),
+			)).To(Succeed())
+
+			By("Reconciling — the controller should detect the missing ComponentRelease")
+			mustReconcile(r, req)
+
+			By("Verifying ReleaseSynced=False with ComponentReleaseNotFound reason")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil(), "ReleaseSynced condition must be set")
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonComponentReleaseNotFound)))
+		})
+	})
+
+	// ── Invalid ComponentRelease (owner mismatch) ─────────────────────────────
+
+	Context("when the ComponentRelease has mismatched owners", func() {
+		const (
+			rbName = "rb-bad-cr"
+			crName = "cr-bad-cr"
+		)
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+		})
+
+		It("sets ReleaseSynced=False with reason InvalidReleaseConfiguration", func() {
+			r := testReconciler()
+
+			By("Creating a ComponentRelease owned by 'other-project'")
+			Expect(k8sClient.Create(ctx, crFixture(crName, "other-project", "comp"))).To(Succeed())
+
+			By("Creating a ComponentReleaseBinding owned by 'my-project' that references the above CR")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, "my-project", "comp", "env", crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — the controller should detect the owner mismatch")
+			mustReconcile(r, req)
+
+			By("Verifying ReleaseSynced=False with InvalidReleaseConfiguration reason")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonInvalidReleaseConfiguration)))
+		})
+	})
+
+	// ── Missing Environment ───────────────────────────────────────────────────
+
+	Context("when the referenced Environment does not exist", func() {
+		const (
+			rbName = "rb-no-env"
+			crName = "cr-no-env"
+		)
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+		})
+
+		It("sets ReleaseSynced=False with reason EnvironmentNotFound", func() {
+			r := testReconciler()
+
+			By("Creating a valid ComponentRelease")
+			Expect(k8sClient.Create(ctx, crFixture(crName, "proj", "comp"))).To(Succeed())
+
+			By("Creating a ComponentReleaseBinding that references a non-existent Environment")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, "proj", "comp", "does-not-exist-env", crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — the controller should detect the missing Environment")
+			mustReconcile(r, req)
+
+			By("Verifying ReleaseSynced=False with EnvironmentNotFound reason")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonEnvironmentNotFound)))
+		})
+	})
+
+	// ── Missing DataPlane ─────────────────────────────────────────────────────
+
+	Context("when the referenced DataPlane does not exist", func() {
+		const (
+			rbName  = "rb-no-dp"
+			crName  = "cr-no-dp"
+			envName = "env-no-dp"
+		)
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+		})
+
+		It("sets ReleaseSynced=False with reason DataPlaneNotFound", func() {
+			r := testReconciler()
+
+			By("Creating a valid ComponentRelease")
+			Expect(k8sClient.Create(ctx, crFixture(crName, "proj", "comp"))).To(Succeed())
+
+			By("Creating an Environment with an explicit DataPlaneRef to a non-existent DataPlane")
+			Expect(k8sClient.Create(ctx, envFixture(envName, "does-not-exist-dp"))).To(Succeed())
+
+			By("Creating the ComponentReleaseBinding")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, "proj", "comp", envName, crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — the controller should detect the missing DataPlane")
+			mustReconcile(r, req)
+
+			By("Verifying ReleaseSynced=False with DataPlaneNotFound reason")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonDataPlaneNotFound)))
+		})
+	})
+
+	// ── Missing Component ─────────────────────────────────────────────────────
+
+	Context("when the referenced Component does not exist", func() {
+		const (
+			rbName  = "rb-no-comp"
+			crName  = "cr-no-comp"
+			envName = "env-no-comp"
+			dpName  = "dp-no-comp"
+		)
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+		})
+
+		It("sets ReleaseSynced=False with reason ComponentNotFound", func() {
+			r := testReconciler()
+
+			By("Creating a ComponentRelease for a component that will not be created")
+			Expect(k8sClient.Create(ctx, crFixture(crName, "proj", "does-not-exist-comp"))).To(Succeed())
+
+			By("Creating DataPlane and Environment")
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+
+			By("Creating the ComponentReleaseBinding (no matching Component created)")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, "proj", "does-not-exist-comp", envName, crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — the controller should detect the missing Component")
+			mustReconcile(r, req)
+
+			By("Verifying ReleaseSynced=False with ComponentNotFound reason")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonComponentNotFound)))
+		})
+	})
+
+	// ── Missing Project ───────────────────────────────────────────────────────
+
+	Context("when the referenced Project does not exist", func() {
+		const (
+			rbName   = "rb-no-proj"
+			crName   = "cr-no-proj"
+			envName  = "env-no-proj"
+			dpName   = "dp-no-proj"
+			compName = "comp-no-proj"
+		)
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+		})
+
+		It("sets ReleaseSynced=False with reason ProjectNotFound", func() {
+			r := testReconciler()
+
+			By("Creating all deps except the Project itself")
+			Expect(k8sClient.Create(ctx, crFixture(crName, "does-not-exist-proj", compName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, "does-not-exist-proj"))).To(Succeed())
+
+			By("Creating the ComponentReleaseBinding (no matching Project created)")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, "does-not-exist-proj", compName, envName, crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — the controller should detect the missing Project")
+			mustReconcile(r, req)
+
+			By("Verifying ReleaseSynced=False with ProjectNotFound reason")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonProjectNotFound)))
+		})
+	})
+
+	// ── Happy path: Release creation ──────────────────────────────────────────
+	//
+	// This context exercises the full rendering path by wiring a real
+	// componentpipeline.Pipeline into the reconciler.  The ComponentRelease
+	// carries a static Deployment template (no CEL expressions) so the pipeline
+	// produces a deterministic output.
+
+	Context("when all dependencies are present and State is not Undeploy", func() {
+		const (
+			project  = "happy-proj"
+			compName = "happy-comp"
+			envName  = "happy-env"
+			dpName   = "happy-dp"
+			rbName   = "rb-happy"
+			crName   = "cr-happy"
+		)
+		req := reconcileRequest(rbName)
+		expectedReleaseName := compName + "-" + envName // makeDataPlaneReleaseName format
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(expectedReleaseName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("creates a Release and sets ReleaseSynced=True", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating all five dependencies (CR, dp, env, component, project)")
+			Expect(k8sClient.Create(ctx, crFixture(crName, project, compName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ComponentReleaseBinding with the finalizer pre-set")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, project, compName, envName, crName, true),
+			)).To(Succeed())
+
+			By("First reconcile: renders resources and creates the dataplane Release")
+			result := mustReconcile(r, req)
+			Expect(result.Requeue).To(BeTrue(),
+				"first reconcile should request a requeue after creating the Release")
+
+			By("Verifying the dataplane Release object was created with the expected name")
+			createdRelease := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				createdRelease,
+			)).To(Succeed(), "Release %q should exist after first reconcile", expectedReleaseName)
+
+			By("Verifying the Release carries the expected owner labels")
+			Expect(createdRelease.Labels).To(HaveKeyWithValue(labels.LabelKeyProjectName, project))
+			Expect(createdRelease.Labels).To(HaveKeyWithValue(labels.LabelKeyComponentName, compName))
+			Expect(createdRelease.Labels).To(HaveKeyWithValue(labels.LabelKeyEnvironmentName, envName))
+
+			By("Verifying ReleaseSynced=True with ReasonReleaseCreated after first reconcile")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(string(ReasonReleaseCreated)))
+
+			By("Second reconcile (requeue): Release already exists — OperationResultNone path")
+			result = mustReconcile(r, req)
+			Expect(result.Requeue).To(BeFalse(),
+				"second reconcile should not request requeue when Release is unchanged")
+
+			By("Verifying ReleaseSynced=True with ReasonReleaseSynced after second reconcile")
+			rb = fetchRB(rbName)
+			cond = conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(string(ReasonReleaseSynced)))
+
+			By("Verifying ResourcesReady=False/Progressing — Release status is empty (no data plane running)")
+			cond = conditionFor(rb, string(ConditionResourcesReady))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonResourcesProgressing)))
+		})
+	})
+
+	// ── Undeploy: no existing Release ────────────────────────────────────────
+
+	Context("when State=Undeploy and no Release resources exist", func() {
+		const (
+			project  = "undeploy-proj"
+			compName = "undeploy-comp"
+			envName  = "undeploy-env"
+			dpName   = "undeploy-dp"
+			rbName   = "rb-undeploy"
+			crName   = "cr-undeploy"
+		)
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("sets ReleaseSynced, ResourcesReady and Ready=False with ResourcesUndeployed reason", func() {
+			r := testReconciler()
+
+			By("Creating all dependencies")
+			Expect(k8sClient.Create(ctx, crFixture(crName, project, compName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ComponentReleaseBinding with State=Undeploy")
+			rb := rbFixture(rbName, project, compName, envName, crName, true)
+			rb.Spec.State = openchoreov1alpha1.ReleaseStateUndeploy
+			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+
+			By("Reconciling — no Release exists, should mark as undeployed immediately")
+			mustReconcile(r, req)
+
+			By("Verifying all three conditions are False with ResourcesUndeployed reason")
+			updated := fetchRB(rbName)
+			for _, condType := range []string{
+				string(ConditionReleaseSynced),
+				string(ConditionResourcesReady),
+				string(ConditionReady),
+			} {
+				cond := conditionFor(updated, condType)
+				Expect(cond).NotTo(BeNil(), "condition %s should be set", condType)
+				Expect(cond.Status).To(Equal(metav1.ConditionFalse), "condition %s should be False", condType)
+				Expect(cond.Reason).To(Equal(string(ReasonResourcesUndeployed)),
+					"condition %s should carry reason ResourcesUndeployed", condType)
+			}
+		})
+	})
+
+	// ── Undeploy: existing Release gets deleted ───────────────────────────────
+
+	Context("when State=Undeploy and a Release exists", func() {
+		const (
+			project  = "undeploy-existing-proj"
+			compName = "undeploy-existing-comp"
+			envName  = "undeploy-existing-env"
+			dpName   = "undeploy-existing-dp"
+			rbName   = "rb-undeploy-existing"
+			crName   = "cr-undeploy-existing"
+		)
+		// makeDataPlaneReleaseName format: {component}-{env}
+		releaseName := compName + "-" + envName
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(releaseName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("deletes the Release and sets conditions to being-undeployed, then undeployed", func() {
+			r := testReconciler()
+
+			By("Creating all dependencies")
+			Expect(k8sClient.Create(ctx, crFixture(crName, project, compName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ComponentReleaseBinding with State=Undeploy")
+			rb := rbFixture(rbName, project, compName, envName, crName, true)
+			rb.Spec.State = openchoreov1alpha1.ReleaseStateUndeploy
+			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+
+			By("Pre-creating a Release with the matching labels so handleUndeploy finds it")
+			Expect(k8sClient.Create(ctx,
+				releaseFixture(releaseName, ns, project, compName, envName),
+			)).To(Succeed())
+
+			By("First reconcile: handleUndeploy deletes the Release and sets being-undeployed conditions")
+			mustReconcile(r, req)
+
+			By("Verifying the Release is marked for deletion")
+			Eventually(func() bool {
+				existing := &openchoreov1alpha1.RenderedRelease{}
+				if err := k8sClient.Get(ctx,
+					types.NamespacedName{Namespace: ns, Name: releaseName},
+					existing,
+				); err != nil {
+					return apierrors.IsNotFound(err) // already gone is also fine
+				}
+				return !existing.DeletionTimestamp.IsZero()
+			}, timeout, interval).Should(BeTrue(),
+				"Release should be marked for deletion after undeploy reconcile")
+
+			By("Verifying the conditions indicate 'being undeployed'")
+			updated := fetchRB(rbName)
+			for _, condType := range []string{
+				string(ConditionReleaseSynced),
+				string(ConditionResourcesReady),
+				string(ConditionReady),
+			} {
+				cond := conditionFor(updated, condType)
+				Expect(cond).NotTo(BeNil(), "condition %s should be set", condType)
+				Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				Expect(cond.Reason).To(Equal(string(ReasonResourcesUndeployed)))
+			}
+
+			By("Waiting for the Release to be fully deleted (it has no finalizer)")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx,
+					types.NamespacedName{Namespace: ns, Name: releaseName},
+					&openchoreov1alpha1.RenderedRelease{},
+				)
+				return apierrors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue(), "Release should be deleted")
+
+			By("Second reconcile: no Release exists — marks as undeployed")
+			mustReconcile(r, req)
+
+			By("Verifying all conditions are False with ResourcesUndeployed reason")
+			updated = fetchRB(rbName)
+			for _, condType := range []string{
+				string(ConditionReleaseSynced),
+				string(ConditionResourcesReady),
+				string(ConditionReady),
+			} {
+				cond := conditionFor(updated, condType)
+				Expect(cond).NotTo(BeNil(), "condition %s should be set", condType)
+				Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				Expect(cond.Reason).To(Equal(string(ReasonResourcesUndeployed)))
+			}
+		})
+	})
+
+	// ── Finalization: no owned Releases ───────────────────────────────────────
+
+	Context("Finalization with no owned Releases", func() {
+		const rbName = "rb-finalize-empty"
+		req := reconcileRequest(rbName)
+
+		It("sets Finalizing condition then removes the finalizer when no Releases exist", func() {
+			r := testReconciler()
+
+			By("Creating a ComponentReleaseBinding with the finalizer pre-set")
+			rb := rbFixture(rbName, "proj", "comp", "env", "rel", true)
+			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+
+			By("Triggering deletion — DeletionTimestamp is set; the finalizer keeps the object alive")
+			Expect(k8sClient.Delete(ctx, rb)).To(Succeed())
+
+			By("Verifying the object is marked for deletion but still present")
+			Eventually(func() bool {
+				updated := &openchoreov1alpha1.ComponentReleaseBinding{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: rbName}, updated); err != nil {
+					return false
+				}
+				return !updated.DeletionTimestamp.IsZero()
+			}, timeout, interval).Should(BeTrue())
+
+			By("First finalize reconcile: sets the Finalizing=True condition and returns early")
+			mustReconcile(r, req)
+
+			By("Verifying the Finalizing condition is True after the first finalize reconcile")
+			updated := fetchRB(rbName)
+			cond := conditionFor(updated, string(ConditionFinalizing))
+			Expect(cond).NotTo(BeNil(), "Finalizing condition must be present")
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(updated.Finalizers).To(ContainElement(ComponentReleaseBindingFinalizer),
+				"finalizer must still be present after first finalize reconcile")
+
+			By("Second finalize reconcile: no owned Releases found — removes finalizer")
+			mustReconcile(r, req)
+
+			By("Verifying the ComponentReleaseBinding is deleted after the finalizer is removed")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx,
+					types.NamespacedName{Namespace: ns, Name: rbName},
+					&openchoreov1alpha1.ComponentReleaseBinding{},
+				)
+				return apierrors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue(),
+				"ComponentReleaseBinding should be fully deleted after finalizer removal")
+		})
+	})
+
+	// ── Finalization: blocked by Release with finalizer ───────────────────────
+	//
+	// Mirrors the "blocked child" pattern from the component controller tests.
+	// The ComponentReleaseBinding should wait for its owned Release to be fully deleted
+	// before removing its own finalizer.
+
+	Context("Finalization blocked by an owned Release that has its own finalizer", func() {
+		const (
+			blockFinalizer = "test.openchoreo.dev/block-deletion"
+			project        = "blocked-proj"
+			compName       = "blocked-comp"
+			envName        = "blocked-env"
+			rbName         = "rb-finalize-blocked"
+		)
+		releaseName := compName + "-" + envName
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(releaseName)
+		})
+
+		It("waits for the blocked Release to finish terminating before removing its finalizer", func() {
+			r := testReconciler()
+
+			By("Creating the ComponentReleaseBinding with the finalizer pre-set")
+			rb := rbFixture(rbName, project, compName, envName, "rel", true)
+			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+
+			By("Creating an owned Release with matching labels AND a blocking finalizer")
+			rel := releaseFixture(releaseName, ns, project, compName, envName, blockFinalizer)
+			Expect(k8sClient.Create(ctx, rel)).To(Succeed())
+
+			By("Triggering deletion of the ComponentReleaseBinding")
+			Expect(k8sClient.Delete(ctx, rb)).To(Succeed())
+
+			By("Verifying ComponentReleaseBinding is marked for deletion")
+			Eventually(func() bool {
+				updated := &openchoreov1alpha1.ComponentReleaseBinding{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: rbName}, updated); err != nil {
+					return false
+				}
+				return !updated.DeletionTimestamp.IsZero()
+			}, timeout, interval).Should(BeTrue())
+
+			By("First finalize reconcile: sets the Finalizing condition and returns early")
+			mustReconcile(r, req)
+			updated := fetchRB(rbName)
+			cond := conditionFor(updated, string(ConditionFinalizing))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+
+			By("Second finalize reconcile: finds the Release, calls DeleteAllOf, requeues")
+			result := mustReconcile(r, req)
+			Expect(result.RequeueAfter).To(BeNumerically(">", 0),
+				"controller must requeue while the Release is still terminating")
+
+			By("Verifying the Release is marked for deletion but blocked by its finalizer")
+			Eventually(func(g Gomega) {
+				blockedRelease := &openchoreov1alpha1.RenderedRelease{}
+				g.Expect(k8sClient.Get(ctx,
+					types.NamespacedName{Namespace: ns, Name: releaseName},
+					blockedRelease,
+				)).To(Succeed())
+				g.Expect(blockedRelease.DeletionTimestamp.IsZero()).To(BeFalse(),
+					"Release should be marked for deletion")
+				g.Expect(blockedRelease.Finalizers).To(ContainElement(blockFinalizer),
+					"Release should still have its blocking finalizer")
+			}, timeout, interval).Should(Succeed())
+
+			By("Verifying the ComponentReleaseBinding still has its finalizer while the Release is blocked")
+			updated = fetchRB(rbName)
+			Expect(updated.Finalizers).To(ContainElement(ComponentReleaseBindingFinalizer))
+			Expect(updated.DeletionTimestamp.IsZero()).To(BeFalse())
+
+			By("Reconciling multiple times while the Release is blocked — ComponentReleaseBinding must not be deleted")
+			for range 3 {
+				result := mustReconcile(r, req)
+				Expect(result.RequeueAfter).To(BeNumerically(">", 0))
+
+				current := &openchoreov1alpha1.ComponentReleaseBinding{}
+				Expect(k8sClient.Get(ctx,
+					types.NamespacedName{Namespace: ns, Name: rbName},
+					current,
+				)).To(Succeed(), "ComponentReleaseBinding must still exist while Release is blocked")
+				Expect(current.Finalizers).To(ContainElement(ComponentReleaseBindingFinalizer))
+			}
+
+			By("Simulating the external process removing the Release's blocking finalizer")
+			blockedRelease := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: releaseName},
+				blockedRelease,
+			)).To(Succeed())
+			blockedRelease.Finalizers = nil
+			Expect(k8sClient.Update(ctx, blockedRelease)).To(Succeed())
+
+			By("Waiting for the Release to be fully deleted by the API server")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx,
+					types.NamespacedName{Namespace: ns, Name: releaseName},
+					&openchoreov1alpha1.RenderedRelease{},
+				)
+				return apierrors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
+
+			By("Reconciling until the ComponentReleaseBinding is also deleted")
+			Eventually(func() bool {
+				_, _ = r.Reconcile(ctx, req)
+				err := k8sClient.Get(ctx,
+					types.NamespacedName{Namespace: ns, Name: rbName},
+					&openchoreov1alpha1.ComponentReleaseBinding{},
+				)
+				return apierrors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue(),
+				"ComponentReleaseBinding should be deleted once the blocked Release is gone")
+		})
+	})
+
+	// ── Release ownership conflict ────────────────────────────────────────────
+
+	Context("when a Release with the expected name already exists but is owned by another resource", func() {
+		const (
+			project  = "conflict-proj"
+			compName = "conflict-comp"
+			envName  = "conflict-env"
+			dpName   = "conflict-dp"
+			rbName   = "rb-conflict"
+			crName   = "cr-conflict"
+		)
+		releaseName := compName + "-" + envName
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(releaseName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("sets ReleaseSynced=False with reason ReleaseOwnershipConflict", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating all dependencies")
+			Expect(k8sClient.Create(ctx, crFixture(crName, project, compName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Pre-creating a Release with the expected name but NO owner reference")
+			// The Release has no ownerReferences → HasOwnerReference will return false
+			// → controller returns "not owned by this ComponentReleaseBinding" error
+			Expect(k8sClient.Create(ctx, &openchoreov1alpha1.RenderedRelease{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      releaseName,
+					Namespace: ns,
+					// Deliberately NO owner reference set
+				},
+				Spec: openchoreov1alpha1.RenderedReleaseSpec{
+					Owner: openchoreov1alpha1.RenderedReleaseOwner{
+						ProjectName:   project,
+						ComponentName: compName,
+					},
+					EnvironmentName: envName,
+					TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
+				},
+			})).To(Succeed())
+
+			By("Creating the ComponentReleaseBinding with the finalizer pre-set")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, project, compName, envName, crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — pipeline renders resources; CreateOrUpdate finds existing Release with wrong owner")
+			mustReconcile(r, req)
+
+			By("Verifying ReleaseSynced=False with ReleaseOwnershipConflict reason")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonReleaseOwnershipConflict)))
+		})
+	})
+
+	// ── Apply failure: generation-aware condition propagation ─────────────────
+	//
+	// Exercises the branch at controller.go:621-631 that checks
+	// ConditionResourcesApplied on the dataplane Release.
+
+	Context("when the dataplane Release has ConditionResourcesApplied=False", func() {
+		const (
+			project  = "apply-fail-proj"
+			compName = "apply-fail-comp"
+			envName  = "apply-fail-env"
+			dpName   = "apply-fail-dp"
+			rbName   = "rb-apply-fail"
+			crName   = "cr-apply-fail"
+		)
+		expectedReleaseName := compName + "-" + envName
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(expectedReleaseName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		// createDepsAndRelease creates all dependencies, reconciles twice so the
+		// Release is created and the ComponentReleaseBinding reaches the steady state, then
+		// returns the current Release generation.
+		createDepsAndRelease := func(r *Reconciler) int64 {
+			GinkgoHelper()
+			Expect(k8sClient.Create(ctx, crFixture(crName, project, compName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, project, compName, envName, crName, true),
+			)).To(Succeed())
+
+			// First reconcile creates the Release (requeue=true).
+			result := mustReconcile(r, req)
+			Expect(result.Requeue).To(BeTrue())
+
+			// Read back the Release to get its generation.
+			rel := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				rel,
+			)).To(Succeed())
+			return rel.Generation
+		}
+
+		It("sets ResourcesReady=False/ResourceApplyFailed when ObservedGeneration matches Release.Generation", func() {
+			r := testReconcilerWithPipeline()
+			gen := createDepsAndRelease(r)
+
+			By("Setting ConditionResourcesApplied=False on the Release with matching ObservedGeneration")
+			rel := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				rel,
+			)).To(Succeed())
+			apimeta.SetStatusCondition(&rel.Status.Conditions, metav1.Condition{
+				Type:               renderedrelease.ConditionResourcesApplied,
+				Status:             metav1.ConditionFalse,
+				Reason:             renderedrelease.ReasonApplyFailed,
+				Message:            "failed to apply Deployment: admission webhook denied",
+				ObservedGeneration: gen,
+			})
+			Expect(k8sClient.Status().Update(ctx, rel)).To(Succeed())
+
+			By("Reconciling — the apply failure should be surfaced on the ComponentReleaseBinding")
+			mustReconcile(r, req)
+
+			By("Verifying ResourcesReady=False with ReasonResourceApplyFailed")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionResourcesReady))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonResourceApplyFailed)))
+			Expect(cond.Message).To(ContainSubstring("admission webhook denied"))
+
+			By("Verifying Ready=False (aggregated from ResourcesReady)")
+			readyCond := conditionFor(rb, string(ConditionReady))
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+		})
+
+		It("ignores ConditionResourcesApplied=False when ObservedGeneration is stale", func() {
+			r := testReconcilerWithPipeline()
+			gen := createDepsAndRelease(r)
+
+			By("Setting ConditionResourcesApplied=False with a stale (older) ObservedGeneration")
+			rel := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				rel,
+			)).To(Succeed())
+			apimeta.SetStatusCondition(&rel.Status.Conditions, metav1.Condition{
+				Type:               renderedrelease.ConditionResourcesApplied,
+				Status:             metav1.ConditionFalse,
+				Reason:             renderedrelease.ReasonApplyFailed,
+				Message:            "stale error from previous revision",
+				ObservedGeneration: gen - 1, // stale generation
+			})
+			Expect(k8sClient.Status().Update(ctx, rel)).To(Succeed())
+
+			By("Reconciling — stale condition should be ignored")
+			mustReconcile(r, req)
+
+			By("Verifying ResourcesReady is NOT set to ResourceApplyFailed")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionResourcesReady))
+			if cond != nil {
+				Expect(cond.Reason).NotTo(Equal(string(ReasonResourceApplyFailed)),
+					"stale apply failure should not be propagated to ResourcesReady")
+			}
+		})
+	})
+
+	Context("buildMetadataContext", func() {
+		var reconciler *Reconciler
+
+		BeforeEach(func() {
+			reconciler = &Reconciler{
+				Client: k8sClient,
+				Scheme: k8sClient.Scheme(),
+			}
+		})
+
+		It("should include all required fields in pod selectors", func() {
+			By("Creating test resources")
+			namespaceName := "test-namespace"
+			projectName := "test-project"
+			componentName := "test-component"
+			environmentName := "test-env"
+			componentUID := types.UID("component-uid-123")
+			projectUID := types.UID("project-uid-456")
+			environmentUID := types.UID("environment-uid-789")
+			dataPlaneUID := types.UID("dataplane-uid-abc")
+			dataPlaneName := "test-dataplane"
+
+			componentRelease := &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-release",
+					Namespace: namespaceName,
+				},
+				Spec: openchoreov1alpha1.ComponentReleaseSpec{
+					Owner: openchoreov1alpha1.ComponentReleaseOwner{
+						ProjectName:   projectName,
+						ComponentName: componentName,
+					},
+				},
+			}
+
+			component := &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      componentName,
+					Namespace: namespaceName,
+					UID:       componentUID,
+				},
+			}
+
+			project := &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      projectName,
+					Namespace: namespaceName,
+					UID:       projectUID,
+				},
+			}
+
+			dataPlane := &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: dataPlaneName,
+					UID:  dataPlaneUID,
+				},
+			}
+
+			environment := &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      environmentName,
+					Namespace: namespaceName,
+					UID:       environmentUID,
+				},
+			}
+
+			By("Building metadata context")
+			metadataContext := reconciler.buildMetadataContext(
+				componentRelease,
+				component,
+				project,
+				dataPlane,
+				environment,
+				environmentName,
+			)
+
+			By("Verifying pod selectors include all required fields")
+			Expect(metadataContext.PodSelectors).NotTo(BeNil())
+			Expect(metadataContext.PodSelectors).To(HaveKeyWithValue(labels.LabelKeyNamespaceName, namespaceName))
+			Expect(metadataContext.PodSelectors).To(HaveKeyWithValue(labels.LabelKeyProjectName, projectName))
+			Expect(metadataContext.PodSelectors).To(HaveKeyWithValue(labels.LabelKeyComponentName, componentName))
+			Expect(metadataContext.PodSelectors).To(HaveKeyWithValue(labels.LabelKeyEnvironmentName, environmentName))
+			Expect(metadataContext.PodSelectors).To(HaveKeyWithValue(labels.LabelKeyComponentUID, string(componentUID)))
+			Expect(metadataContext.PodSelectors).To(HaveKeyWithValue(labels.LabelKeyEnvironmentUID, string(environmentUID)))
+			Expect(metadataContext.PodSelectors).To(HaveKeyWithValue(labels.LabelKeyProjectUID, string(projectUID)))
+
+			By("Verifying pod selectors have exactly 7 entries")
+			Expect(metadataContext.PodSelectors).To(HaveLen(7))
+
+			By("Verifying standard labels also include all required fields")
+			Expect(metadataContext.Labels).NotTo(BeNil())
+			Expect(metadataContext.Labels).To(HaveKeyWithValue(labels.LabelKeyNamespaceName, namespaceName))
+			Expect(metadataContext.Labels).To(HaveKeyWithValue(labels.LabelKeyProjectName, projectName))
+			Expect(metadataContext.Labels).To(HaveKeyWithValue(labels.LabelKeyComponentName, componentName))
+			Expect(metadataContext.Labels).To(HaveKeyWithValue(labels.LabelKeyEnvironmentName, environmentName))
+			Expect(metadataContext.Labels).To(HaveKeyWithValue(labels.LabelKeyComponentUID, string(componentUID)))
+			Expect(metadataContext.Labels).To(HaveKeyWithValue(labels.LabelKeyEnvironmentUID, string(environmentUID)))
+			Expect(metadataContext.Labels).To(HaveKeyWithValue(labels.LabelKeyProjectUID, string(projectUID)))
+		})
+	})
+
+	// ── Rendering failure: CEL validation rules ─────────────────────────────
+
+	Context("when ComponentType CEL validation rule fails", func() {
+		const (
+			project  = "cel-ct-proj"
+			compName = "cel-ct-comp"
+			envName  = "cel-ct-env"
+			dpName   = "cel-ct-dp"
+			rbName   = "rb-cel-ct"
+			crName   = "cr-cel-ct"
+		)
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("sets ReleaseSynced=False/RenderingFailed and Ready=False/RenderingFailed", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating a ComponentRelease with a validation rule that will fail")
+			cr := crFixture(crName, project, compName)
+			cr.Spec.ComponentType.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			cr.Spec.ComponentType.Spec.Validations = []openchoreov1alpha1.ValidationRule{
+				{Rule: "${parameters.replicas > 5}", Message: "replicas must be greater than 5"},
+			}
+			cr.Spec.ComponentProfile = &openchoreov1alpha1.ComponentProfile{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"replicas":2}`),
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			By("Creating remaining dependencies")
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ComponentReleaseBinding with the finalizer pre-set")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, project, compName, envName, crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — expects an error from the rendering pipeline")
+			_, err := r.Reconcile(ctx, req)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to render resources"))
+
+			By("Verifying ReleaseSynced=False with reason RenderingFailed")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonRenderingFailed)))
+			Expect(cond.Message).To(ContainSubstring("replicas must be greater than 5"))
+
+			By("Verifying Ready=False mirrors the RenderingFailed reason")
+			readyCond := conditionFor(rb, string(ConditionReady))
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(string(ReasonRenderingFailed)))
+
+			By("Verifying no RenderedRelease was created")
+			releaseList := &openchoreov1alpha1.RenderedReleaseList{}
+			Expect(k8sClient.List(ctx, releaseList, client.InNamespace(ns))).To(Succeed())
+			for _, rel := range releaseList.Items {
+				Expect(rel.Labels[labels.LabelKeyComponentName]).NotTo(Equal(compName),
+					"no RenderedRelease should exist for this component")
+			}
+		})
+	})
+
+	Context("when Trait CEL validation rule fails", func() {
+		const (
+			project  = "cel-trait-proj"
+			compName = "cel-trait-comp"
+			envName  = "cel-trait-env"
+			dpName   = "cel-trait-dp"
+			rbName   = "rb-cel-trait"
+			crName   = "cr-cel-trait"
+		)
+		req := reconcileRequest(rbName)
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("sets ReleaseSynced=False/RenderingFailed with trait context in the message", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating a ComponentRelease with a trait that has a failing validation rule")
+			cr := crFixture(crName, project, compName)
+			cr.Spec.Traits = []openchoreov1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreov1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreov1alpha1.TraitSpec{
+						Parameters: &openchoreov1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{"type":"object","properties":{"sizeGB":{"type":"integer","default":1}}}`),
+							},
+						},
+						Validations: []openchoreov1alpha1.ValidationRule{
+							{Rule: "${parameters.sizeGB >= 10}", Message: "storage size must be at least 10GB"},
+						},
+						Creates: []openchoreov1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"storage-cfg"}}`),
+								},
+							},
+						},
+					},
+				},
+			}
+			cr.Spec.ComponentProfile = &openchoreov1alpha1.ComponentProfile{
+				Traits: []openchoreov1alpha1.ComponentProfileTrait{
+					{
+						Kind:         openchoreov1alpha1.TraitRefKindTrait,
+						Name:         "storage",
+						InstanceName: "vol1",
+						Parameters: &runtime.RawExtension{
+							Raw: []byte(`{"sizeGB":5}`),
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			By("Creating remaining dependencies")
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ComponentReleaseBinding with the finalizer pre-set")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, project, compName, envName, crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — expects a rendering error from the trait validation")
+			_, err := r.Reconcile(ctx, req)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to render resources"))
+
+			By("Verifying ReleaseSynced=False with reason RenderingFailed and trait context")
+			rb := fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonRenderingFailed)))
+			Expect(cond.Message).To(ContainSubstring("storage size must be at least 10GB"))
+
+			By("Verifying Ready=False mirrors the RenderingFailed reason")
+			readyCond := conditionFor(rb, string(ConditionReady))
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(string(ReasonRenderingFailed)))
+
+			By("Verifying no RenderedRelease was created")
+			releaseList := &openchoreov1alpha1.RenderedReleaseList{}
+			Expect(k8sClient.List(ctx, releaseList, client.InNamespace(ns))).To(Succeed())
+			for _, rel := range releaseList.Items {
+				Expect(rel.Labels[labels.LabelKeyComponentName]).NotTo(Equal(compName),
+					"no RenderedRelease should exist for this component")
+			}
+		})
+	})
+
+	Context("when a previously successful deploy fails CEL validation after envConfig update", func() {
+		const (
+			project  = "cel-regr-proj"
+			compName = "cel-regr-comp"
+			envName  = "cel-regr-env"
+			dpName   = "cel-regr-dp"
+			rbName   = "rb-cel-regr"
+			crName   = "cr-cel-regr"
+		)
+		req := reconcileRequest(rbName)
+		expectedReleaseName := compName + "-" + envName
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(expectedReleaseName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("flips conditions to RenderingFailed but preserves the existing RenderedRelease", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating a ComponentRelease with a validation rule referencing environmentConfigs")
+			cr := crFixture(crName, project, compName)
+			cr.Spec.ComponentType.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			cr.Spec.ComponentType.Spec.EnvironmentConfigs = &openchoreov1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"maxReplicas":{"type":"integer","default":10}}}`),
+				},
+			}
+			cr.Spec.ComponentType.Spec.Validations = []openchoreov1alpha1.ValidationRule{
+				{
+					Rule:    "${environmentConfigs.maxReplicas >= parameters.replicas}",
+					Message: "maxReplicas must be >= replicas",
+				},
+			}
+			cr.Spec.ComponentProfile = &openchoreov1alpha1.ComponentProfile{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"replicas":3}`),
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			By("Creating remaining dependencies")
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ComponentReleaseBinding with envConfig that satisfies the rule (maxReplicas=10 >= replicas=3)")
+			rb := rbFixture(rbName, project, compName, envName, crName, true)
+			rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{
+				Raw: []byte(`{"maxReplicas":10}`),
+			}
+			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+
+			By("First reconcile: renders successfully and creates the RenderedRelease")
+			result := mustReconcile(r, req)
+			Expect(result.Requeue).To(BeTrue())
+
+			By("Verifying ReleaseSynced=True after initial deploy")
+			rb = fetchRB(rbName)
+			cond := conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+
+			By("Verifying the RenderedRelease was created")
+			createdRelease := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				createdRelease,
+			)).To(Succeed())
+			originalReleaseUID := createdRelease.UID
+
+			By("Updating the ComponentReleaseBinding envConfig to break the rule (maxReplicas=1 < replicas=3)")
+			rb = fetchRB(rbName)
+			rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{
+				Raw: []byte(`{"maxReplicas":1}`),
+			}
+			Expect(k8sClient.Update(ctx, rb)).To(Succeed())
+
+			By("Re-reconciling — expects a rendering failure")
+			_, err := r.Reconcile(ctx, req)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to render resources"))
+
+			By("Verifying ReleaseSynced flipped to False/RenderingFailed")
+			rb = fetchRB(rbName)
+			cond = conditionFor(rb, string(ConditionReleaseSynced))
+			Expect(cond).NotTo(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(string(ReasonRenderingFailed)))
+			Expect(cond.Message).To(ContainSubstring("maxReplicas must be >= replicas"))
+
+			By("Verifying Ready=False mirrors the RenderingFailed reason")
+			readyCond := conditionFor(rb, string(ConditionReady))
+			Expect(readyCond).NotTo(BeNil())
+			Expect(readyCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCond.Reason).To(Equal(string(ReasonRenderingFailed)))
+
+			By("Verifying the existing RenderedRelease still exists and is unchanged")
+			survivingRelease := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				survivingRelease,
+			)).To(Succeed(), "RenderedRelease should survive a render failure")
+			Expect(survivingRelease.UID).To(Equal(originalReleaseUID),
+				"RenderedRelease should be the same object, not recreated")
+		})
+	})
+
+	Context("when environment-level configs are supplied via the ComponentReleaseBinding", func() {
+		const (
+			project  = "envcfg-proj"
+			compName = "envcfg-comp"
+			envName  = "envcfg-env"
+			dpName   = "envcfg-dp"
+			rbName   = "rb-envcfg"
+			crName   = "cr-envcfg"
+		)
+		req := reconcileRequest(rbName)
+		expectedReleaseName := compName + "-" + envName
+
+		// Template references parameters.replicas (numeric) and
+		// environmentConfigs.image (string). Because each CEL placeholder
+		// occupies its entire field, renderString returns the native CEL type:
+		// replicas comes through as a JSON number, image as a string.
+		templatedDeployment := &runtime.RawExtension{
+			Raw: []byte(`{` +
+				`"apiVersion":"apps/v1",` +
+				`"kind":"Deployment",` +
+				`"metadata":{"name":"envcfg-deployment"},` +
+				`"spec":{` +
+				`"replicas":"${parameters.replicas}",` +
+				`"selector":{"matchLabels":{"app":"envcfg"}},` +
+				`"template":{` +
+				`"metadata":{"labels":{"app":"envcfg"}},` +
+				`"spec":{"containers":[{"name":"app","image":"${environmentConfigs.image}"}]}` +
+				`}}}`,
+			),
+		}
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(expectedReleaseName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("propagates parameters and environmentConfigs into the rendered Deployment", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating a ComponentRelease whose template references parameters.replicas and environmentConfigs.image")
+			cr := crFixture(crName, project, compName)
+			cr.Spec.ComponentType.Spec.Resources = []openchoreov1alpha1.ResourceTemplate{
+				{ID: "deployment", Template: templatedDeployment},
+			}
+			cr.Spec.ComponentType.Spec.Parameters = &openchoreov1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"replicas":{"type":"integer","default":1}}}`),
+				},
+			}
+			cr.Spec.ComponentType.Spec.EnvironmentConfigs = &openchoreov1alpha1.SchemaSection{
+				OpenAPIV3Schema: &runtime.RawExtension{
+					Raw: []byte(`{"type":"object","properties":{"image":{"type":"string","default":"nginx:latest"}}}`),
+				},
+			}
+			cr.Spec.ComponentProfile = &openchoreov1alpha1.ComponentProfile{
+				Parameters: &runtime.RawExtension{
+					Raw: []byte(`{"replicas":3}`),
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			By("Creating the remaining dependencies")
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ComponentReleaseBinding with environmentConfigs={image: nginx:1.27}")
+			rb := rbFixture(rbName, project, compName, envName, crName, true)
+			rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{
+				Raw: []byte(`{"image":"nginx:1.27"}`),
+			}
+			Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+
+			By("Reconciling — the Pipeline renders and creates the RenderedRelease")
+			result := mustReconcile(r, req)
+			Expect(result.Requeue).To(BeTrue())
+
+			By("Fetching the RenderedRelease and locating the rendered Deployment")
+			createdRelease := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				createdRelease,
+			)).To(Succeed())
+			Expect(createdRelease.Spec.Resources).NotTo(BeEmpty())
+
+			// The pipeline also injects auxiliary resources (e.g. a NetworkPolicy)
+			// alongside the Deployment, so look it up by kind rather than by index.
+			var rendered map[string]any
+			for _, res := range createdRelease.Spec.Resources {
+				if res.Object == nil {
+					continue
+				}
+				var obj map[string]any
+				Expect(json.Unmarshal(res.Object.Raw, &obj)).To(Succeed())
+				if obj["kind"] == kindDeployment {
+					rendered = obj
+					break
+				}
+			}
+			Expect(rendered).NotTo(BeNil(), "expected a rendered Deployment among the pipeline outputs")
+
+			By("Verifying parameters.replicas landed as the integer 3 on .spec.replicas")
+			spec, ok := rendered["spec"].(map[string]any)
+			Expect(ok).To(BeTrue(), "rendered Deployment should have a spec object")
+			Expect(spec["replicas"]).To(BeNumerically("==", 3),
+				"parameters.replicas should substitute as a native int, not a quoted string")
+
+			By("Verifying environmentConfigs.image landed verbatim on the container")
+			tmpl, ok := spec["template"].(map[string]any)
+			Expect(ok).To(BeTrue(), "rendered Deployment should have spec.template")
+			podSpec, ok := tmpl["spec"].(map[string]any)
+			Expect(ok).To(BeTrue(), "rendered Deployment should have spec.template.spec")
+			containersAny, ok := podSpec["containers"].([]any)
+			Expect(ok).To(BeTrue(), "rendered Deployment should have containers slice")
+			Expect(containersAny).To(HaveLen(1))
+			container, ok := containersAny[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(container["image"]).To(Equal("nginx:1.27"),
+				"environmentConfigs.image from the ComponentReleaseBinding should land in the rendered container")
+		})
+	})
+
+	Context("when the ComponentType embeds a trait that creates an extra resource", func() {
+		const (
+			project  = "embedtrait-proj"
+			compName = "embedtrait-comp"
+			envName  = "embedtrait-env"
+			dpName   = "embedtrait-dp"
+			rbName   = "rb-embedtrait"
+			crName   = "cr-embedtrait"
+		)
+		req := reconcileRequest(rbName)
+		expectedReleaseName := compName + "-" + envName
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(expectedReleaseName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("renders the embedded trait's Creates[] resource alongside the workload Deployment", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating a ComponentRelease whose ComponentType embeds an HPA trait")
+			cr := crFixture(crName, project, compName)
+			// Embed the trait instance on the ComponentType (PE-defined, the
+			// 'component-with-embedded-traits' sample shape).
+			cr.Spec.ComponentType.Spec.Traits = []openchoreov1alpha1.ComponentTypeTrait{
+				{
+					Kind:         openchoreov1alpha1.TraitRefKindTrait,
+					Name:         "hpa-trait",
+					InstanceName: "autoscaler",
+					Parameters: &runtime.RawExtension{
+						Raw: []byte(`{"minReplicas":2,"maxReplicas":5}`),
+					},
+				},
+			}
+			// Freeze the trait's spec on the ComponentRelease so the Pipeline
+			// can resolve hpa-trait's Creates[] templates.
+			cr.Spec.Traits = []openchoreov1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreov1alpha1.TraitRefKindTrait,
+					Name: "hpa-trait",
+					Spec: openchoreov1alpha1.TraitSpec{
+						Parameters: &openchoreov1alpha1.SchemaSection{
+							OpenAPIV3Schema: &runtime.RawExtension{
+								Raw: []byte(`{"type":"object","properties":{"minReplicas":{"type":"integer"},"maxReplicas":{"type":"integer"}}}`),
+							},
+						},
+						Creates: []openchoreov1alpha1.TraitCreate{
+							{
+								Template: &runtime.RawExtension{
+									Raw: []byte(`{` +
+										`"apiVersion":"autoscaling/v2",` +
+										`"kind":"HorizontalPodAutoscaler",` +
+										`"metadata":{"name":"embedtrait-hpa"},` +
+										`"spec":{` +
+										`"scaleTargetRef":{"apiVersion":"apps/v1","kind":"Deployment","name":"test-deployment"},` +
+										`"minReplicas":"${parameters.minReplicas}",` +
+										`"maxReplicas":"${parameters.maxReplicas}"` +
+										`}}`),
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			By("Creating the remaining dependencies")
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ComponentReleaseBinding")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, project, compName, envName, crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — the Pipeline renders both the workload Deployment and the embedded trait's HPA")
+			result := mustReconcile(r, req)
+			Expect(result.Requeue).To(BeTrue())
+
+			By("Fetching the RenderedRelease and asserting both resources are present")
+			createdRelease := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				createdRelease,
+			)).To(Succeed())
+
+			var foundDeployment, foundHPA map[string]any
+			for _, res := range createdRelease.Spec.Resources {
+				if res.Object == nil {
+					continue
+				}
+				var obj map[string]any
+				Expect(json.Unmarshal(res.Object.Raw, &obj)).To(Succeed())
+				switch obj["kind"] {
+				case kindDeployment:
+					foundDeployment = obj
+				case "HorizontalPodAutoscaler":
+					foundHPA = obj
+				}
+			}
+			Expect(foundDeployment).NotTo(BeNil(), "workload Deployment should be rendered")
+			Expect(foundHPA).NotTo(BeNil(), "embedded trait's HPA should be rendered")
+
+			By("Verifying trait parameters substituted into the HPA spec")
+			hpaSpec, ok := foundHPA["spec"].(map[string]any)
+			Expect(ok).To(BeTrue(), "rendered HPA should have a spec object")
+			Expect(hpaSpec["minReplicas"]).To(BeNumerically("==", 2),
+				"trait parameters.minReplicas should substitute as a native int")
+			Expect(hpaSpec["maxReplicas"]).To(BeNumerically("==", 5),
+				"trait parameters.maxReplicas should substitute as a native int")
+		})
+	})
+
+	Context("when the Workload carries literal env vars and file configs", func() {
+		const (
+			project  = "configs-proj"
+			compName = "configs-comp"
+			envName  = "configs-env"
+			dpName   = "configs-dp"
+			rbName   = "rb-configs"
+			crName   = "cr-configs"
+		)
+		req := reconcileRequest(rbName)
+		expectedReleaseName := compName + "-" + envName
+
+		// Deployment template uses the ${configurations.*} CEL helpers from the
+		// component-with-configs sample: literal env vars become an envFrom
+		// configMapRef and literal files become container volumeMounts + pod
+		// volumes referencing a ConfigMap.
+		configsDeployment := &runtime.RawExtension{
+			Raw: []byte(`{` +
+				`"apiVersion":"apps/v1",` +
+				`"kind":"Deployment",` +
+				`"metadata":{"name":"configs-deployment"},` +
+				`"spec":{` +
+				`"selector":{"matchLabels":{"app":"configs"}},` +
+				`"template":{` +
+				`"metadata":{"labels":{"app":"configs"}},` +
+				`"spec":{` +
+				`"containers":[{` +
+				`"name":"app",` +
+				`"image":"nginx:latest",` +
+				`"envFrom":"${configurations.toContainerEnvFrom()}",` +
+				`"volumeMounts":"${configurations.toContainerVolumeMounts()}"` +
+				`}],` +
+				`"volumes":"${configurations.toVolumes()}"` +
+				`}}}}`),
+		}
+
+		// One ConfigMap per container-grouped env-var set.
+		envConfigTemplate := &runtime.RawExtension{
+			Raw: []byte(`{` +
+				`"apiVersion":"v1",` +
+				`"kind":"ConfigMap",` +
+				`"metadata":{"name":"${envConfig.resourceName}"}` +
+				`}`),
+		}
+
+		// One ConfigMap per literal file.
+		fileConfigTemplate := &runtime.RawExtension{
+			Raw: []byte(`{` +
+				`"apiVersion":"v1",` +
+				`"kind":"ConfigMap",` +
+				`"metadata":{"name":"${config.resourceName}"}` +
+				`}`),
+		}
+
+		AfterEach(func() {
+			forceDelete(rbName)
+			forceDeleteRelease(expectedReleaseName)
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.ComponentRelease{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: crName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Environment{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: envName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.DataPlane{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: dpName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Component{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: compName},
+			})
+			_ = k8sClient.Delete(ctx, &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: project},
+			})
+		})
+
+		It("injects env vars via envFrom and files via volumeMounts/volumes into the rendered Deployment", func() {
+			r := testReconcilerWithPipeline()
+
+			By("Creating a ComponentRelease whose template uses ${configurations.*} helpers and forEach ConfigMaps")
+			cr := crFixture(crName, project, compName)
+			cr.Spec.ComponentType.Spec.Resources = []openchoreov1alpha1.ResourceTemplate{
+				{ID: "deployment", Template: configsDeployment},
+				{
+					ID:       "env-config",
+					ForEach:  "${configurations.toConfigEnvsByContainer()}",
+					Var:      "envConfig",
+					Template: envConfigTemplate,
+				},
+				{
+					ID:       "file-config",
+					ForEach:  "${configurations.toConfigFileList()}",
+					Var:      "config",
+					Template: fileConfigTemplate,
+				},
+			}
+			// Workload carries one literal env var and one literal file —
+			// both go through the configs (non-secret) extraction path.
+			cr.Spec.Workload = openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "nginx:latest",
+					Env: []openchoreov1alpha1.EnvVar{
+						{Key: "LOG_LEVEL", Value: "info"},
+					},
+					Files: []openchoreov1alpha1.FileVar{
+						{Key: "application.toml", MountPath: "/conf", Value: "schema_generation:\n  enable: true\n"},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cr)).To(Succeed())
+
+			By("Creating the remaining dependencies")
+			Expect(k8sClient.Create(ctx, dpFixture(dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
+			Expect(k8sClient.Create(ctx, componentFixture(compName, project))).To(Succeed())
+			Expect(k8sClient.Create(ctx, projectFixture(project))).To(Succeed())
+
+			By("Creating the ComponentReleaseBinding")
+			Expect(k8sClient.Create(ctx,
+				rbFixture(rbName, project, compName, envName, crName, true),
+			)).To(Succeed())
+
+			By("Reconciling — the Pipeline renders the Deployment plus env-config and file-config ConfigMaps")
+			result := mustReconcile(r, req)
+			Expect(result.Requeue).To(BeTrue())
+
+			By("Fetching the RenderedRelease and partitioning resources by kind")
+			createdRelease := &openchoreov1alpha1.RenderedRelease{}
+			Expect(k8sClient.Get(ctx,
+				types.NamespacedName{Namespace: ns, Name: expectedReleaseName},
+				createdRelease,
+			)).To(Succeed())
+
+			var deployment map[string]any
+			var configMaps []map[string]any
+			for _, res := range createdRelease.Spec.Resources {
+				if res.Object == nil {
+					continue
+				}
+				var obj map[string]any
+				Expect(json.Unmarshal(res.Object.Raw, &obj)).To(Succeed())
+				switch obj["kind"] {
+				case kindDeployment:
+					deployment = obj
+				case "ConfigMap":
+					configMaps = append(configMaps, obj)
+				}
+			}
+			Expect(deployment).NotTo(BeNil(), "workload Deployment should be rendered")
+			Expect(configMaps).ToNot(BeEmpty(),
+				"at least one ConfigMap (env-config or file-config) should be rendered alongside the Deployment")
+
+			By("Locating the Deployment container spec")
+			depSpec, ok := deployment["spec"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			tmpl, ok := depSpec["template"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			podSpec, ok := tmpl["spec"].(map[string]any)
+			Expect(ok).To(BeTrue())
+			containers, ok := podSpec["containers"].([]any)
+			Expect(ok).To(BeTrue())
+			Expect(containers).To(HaveLen(1))
+			container, ok := containers[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+
+			By("Verifying envFrom carries a configMapRef (env-var injection path)")
+			envFromAny, ok := container["envFrom"].([]any)
+			Expect(ok).To(BeTrue(), "container.envFrom should be a list, got %T", container["envFrom"])
+			Expect(envFromAny).NotTo(BeEmpty(), "container.envFrom should contain at least one configMapRef entry")
+			firstEnvFrom, ok := envFromAny[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(firstEnvFrom).To(HaveKey("configMapRef"),
+				"envFrom entry from a literal env var should be a configMapRef, not a secretRef")
+
+			By("Verifying volumeMounts carries the file's mount path (file-mount injection path)")
+			volMountsAny, ok := container["volumeMounts"].([]any)
+			Expect(ok).To(BeTrue(), "container.volumeMounts should be a list, got %T", container["volumeMounts"])
+			Expect(volMountsAny).NotTo(BeEmpty(), "container.volumeMounts should include the literal file's mount")
+			firstMount, ok := volMountsAny[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(firstMount["mountPath"]).To(Equal("/conf/application.toml"),
+				"mountPath should be derived from FileVar.MountPath + FileVar.Key")
+
+			By("Verifying volumes carries a ConfigMap-backed volume")
+			volumesAny, ok := podSpec["volumes"].([]any)
+			Expect(ok).To(BeTrue(), "spec.template.spec.volumes should be a list, got %T", podSpec["volumes"])
+			Expect(volumesAny).NotTo(BeEmpty(), "spec.template.spec.volumes should include the file-config ConfigMap volume")
+			firstVolume, ok := volumesAny[0].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(firstVolume).To(HaveKey("configMap"),
+				"a volume for a literal file should be backed by configMap, not secret")
+		})
+	})
+})

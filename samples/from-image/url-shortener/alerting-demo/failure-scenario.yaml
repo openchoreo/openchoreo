@@ -2,7 +2,7 @@
 # Misconfigure the api-service Postgres DSN to point to a non-existent host
 # This causes all DB queries to fail, returning 500s that trigger the frontend log alert
 apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseBinding
+kind: ComponentReleaseBinding
 metadata:
   name: snip-api-service-development
   namespace: default

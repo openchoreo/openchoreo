@@ -342,17 +342,17 @@ func unprotectedPodYAML(namespace, name string) string {
 	return mustYAMLDocs(pod, svc)
 }
 
-// releaseBindingYAML creates a ReleaseBinding that deploys an existing ComponentRelease
+// componentReleaseBindingYAML creates a ComponentReleaseBinding that deploys an existing ComponentRelease
 // to a specific environment. Used to promote a component to staging without autoDeploy.
-func releaseBindingYAML(cpNamespace, project, component, releaseName, environment string) string {
-	rb := &openchoreov1alpha1.ReleaseBinding{
-		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "ReleaseBinding"},
+func componentReleaseBindingYAML(cpNamespace, project, component, releaseName, environment string) string {
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{
+		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "ComponentReleaseBinding"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", component, environment),
 			Namespace: cpNamespace,
 		},
-		Spec: openchoreov1alpha1.ReleaseBindingSpec{
-			Owner: openchoreov1alpha1.ReleaseBindingOwner{
+		Spec: openchoreov1alpha1.ComponentReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseBindingOwner{
 				ProjectName:   project,
 				ComponentName: component,
 			},

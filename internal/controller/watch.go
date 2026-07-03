@@ -24,6 +24,13 @@ const (
 	// (projectName, componentName, environment) for efficient lookups.
 	IndexKeyReleaseBindingOwnerEnv = "releasebinding.spec.owner.projectName/componentName/environment"
 
+	// IndexKeyComponentReleaseBindingOwnerComponentName indexes ComponentReleaseBinding by owner component name.
+	IndexKeyComponentReleaseBindingOwnerComponentName = "componentreleasebinding.spec.owner.componentName"
+
+	// IndexKeyComponentReleaseBindingOwnerEnv indexes ComponentReleaseBinding by the composite key
+	// (projectName, componentName, environment) for efficient lookups.
+	IndexKeyComponentReleaseBindingOwnerEnv = "componentreleasebinding.spec.owner.projectName/componentName/environment"
+
 	// IndexKeyComponentOwnerProjectName indexes Component by owner project name.
 	IndexKeyComponentOwnerProjectName = "component.spec.owner.projectName"
 
@@ -57,6 +64,12 @@ const (
 // MakeReleaseBindingOwnerEnvKey creates the composite index key for ReleaseBinding lookups
 // by (project, component, environment).
 func MakeReleaseBindingOwnerEnvKey(projectName, componentName, environment string) string {
+	return projectName + "/" + componentName + "/" + environment
+}
+
+// MakeComponentReleaseBindingOwnerEnvKey creates the composite index key for ComponentReleaseBinding lookups
+// by (project, component, environment).
+func MakeComponentReleaseBindingOwnerEnvKey(projectName, componentName, environment string) string {
 	return projectName + "/" + componentName + "/" + environment
 }
 

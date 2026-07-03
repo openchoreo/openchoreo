@@ -629,3 +629,10 @@ func ExpandActionPattern(pattern string) []string {
 	}
 	return nil
 }
+
+const (
+	ActionCreateComponentReleaseBinding = "componentreleasebinding:create"
+	ActionUpdateComponentReleaseBinding = "componentreleasebinding:update"
+	ActionDeleteComponentReleaseBinding = "componentreleasebinding:delete"
+	ActionViewComponentReleaseBinding   = "componentreleasebinding:view"
+)

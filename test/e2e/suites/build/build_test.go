@@ -444,7 +444,7 @@ func triggerDeployableBuildSpec(spec buildSpec) {
 }
 
 // assertDeployableBuildSpec waits for an already-triggered WorkflowRun and
-// asserts the post-build artifacts (ComponentRelease, ReleaseBinding, pod
+// asserts the post-build artifacts (ComponentRelease, ComponentReleaseBinding, pod
 // Running). Optionally probes the rendered Service for TCP reachability.
 // Shared by every spec in the builder matrix so the assertions stay in lockstep.
 func assertDeployableBuildSpec(spec buildSpec) {
@@ -469,9 +469,9 @@ func assertDeployableBuildSpec(spec buildSpec) {
 		framework.AssertComponentReleasePresent(g, kubeContext, cpNs, spec.component)
 	}, releasePropagation, 5*time.Second).Should(Succeed())
 
-	By("ReleaseBinding reaches Ready")
+	By("ComponentReleaseBinding reaches Ready")
 	Eventually(func(g Gomega) {
-		framework.AssertReleaseBindingReady(g, kubeContext, cpNs, spec.component+releaseBindingSuffix)
+		framework.AssertComponentReleaseBindingReady(g, kubeContext, cpNs, spec.component+componentReleaseBindingSuffix)
 	}, 5*time.Minute, 5*time.Second).Should(Succeed())
 
 	By("discovering the data plane namespace")
@@ -533,22 +533,22 @@ func assertWorkflowRunLogs(runName string) {
 }
 
 // endpointHostPort reads the rendered Service URL host+port for a named endpoint
-// off the ReleaseBinding status. Same shape as the workloadtypes suite — kept
+// off the ComponentReleaseBinding status. Same shape as the workloadtypes suite — kept
 // inline so the build suite doesn't pull a dependency on that test package.
 func endpointHostPort(component, endpoint string) (host, port string) {
-	rbName := component + releaseBindingSuffix
+	rbName := component + componentReleaseBindingSuffix
 	var hostOut, portOut string
 	Eventually(func(g Gomega) {
 		var err error
 		hostOut, err = framework.KubectlGetJsonpath(
-			kubeContext, cpNs, "releasebinding", rbName,
+			kubeContext, cpNs, "componentreleasebinding", rbName,
 			fmt.Sprintf(`{.status.endpoints[?(@.name=="%s")].serviceURL.host}`, endpoint),
 		)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(hostOut).NotTo(BeEmpty(), "serviceURL.host empty on %s endpoint %s", rbName, endpoint)
 
 		portOut, err = framework.KubectlGetJsonpath(
-			kubeContext, cpNs, "releasebinding", rbName,
+			kubeContext, cpNs, "componentreleasebinding", rbName,
 			fmt.Sprintf(`{.status.endpoints[?(@.name=="%s")].serviceURL.port}`, endpoint),
 		)
 		g.Expect(err).NotTo(HaveOccurred())

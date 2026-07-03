@@ -37,14 +37,14 @@ echo "Access the application at: http://${HOSTNAME}:19080"
 
 If you cannot access the application:
 
-1. **Check if the ReleaseBinding is ready:**
+1. **Check if the ComponentReleaseBinding is ready:**
    ```bash
-   kubectl get releasebinding react-starter-development -n default -o yaml
+   kubectl get componentreleasebinding react-starter-development -n default -o yaml
    ```
 
-2. **Check the ReleaseBinding status conditions:**
+2. **Check the ComponentReleaseBinding status conditions:**
    ```bash
-   kubectl get releasebinding react-starter-development -n default -o jsonpath='{.status.conditions}' | jq .
+   kubectl get componentreleasebinding react-starter-development -n default -o jsonpath='{.status.conditions}' | jq .
    ```
 
 3. **Verify the HTTPRoute is configured correctly:**

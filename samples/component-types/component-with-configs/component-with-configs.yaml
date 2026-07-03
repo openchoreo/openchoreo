@@ -325,7 +325,7 @@ spec:
 
 ---
 apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseBinding
+kind: ComponentReleaseBinding
 metadata:
   name: demo-app-development
   namespace: default

@@ -121,6 +121,9 @@ func AssertJsonpathEquals(g gomega.Gomega, kubeContext, namespace, resource, nam
 
 // AssertReleaseBindingReady checks that a ReleaseBinding has condition Ready=True.
 // Designed for use inside Eventually(func(g Gomega) { ... }).
+
+// AssertComponentReleaseBindingReady checks that a ComponentReleaseBinding has condition Ready=True.
+// Designed for use inside Eventually(func(g Gomega) { ... }).
 func AssertReleaseBindingReady(g gomega.Gomega, kubeContext, namespace, name string) {
 	AssertJsonpathEquals(g, kubeContext, namespace, "releasebinding", name,
 		`{.status.conditions[?(@.type=="Ready")].status}`, "True")
@@ -194,9 +197,25 @@ func AssertNamespaceGone(g gomega.Gomega, kubeContext, namespace string) {
 }
 
 // WaitForReleaseBindingReady polls until the named ReleaseBinding has condition Ready=True.
+
+// WaitForComponentReleaseBindingReady polls until the named ComponentReleaseBinding has condition Ready=True.
 func WaitForReleaseBindingReady(kubeContext, namespace, name string) {
 	gomega.Eventually(func(g gomega.Gomega) {
 		AssertReleaseBindingReady(g, kubeContext, namespace, name)
 	}, DefaultTimeout, 5*time.Second).Should(gomega.Succeed(),
 		"ReleaseBinding %s/%s should be Ready", namespace, name)
+}
+
+// AssertComponentReleaseBindingReady checks that a ComponentReleaseBinding has condition Ready=True.
+func AssertComponentReleaseBindingReady(g gomega.Gomega, kubeContext, namespace, name string) {
+	AssertJsonpathEquals(g, kubeContext, namespace, "componentreleasebinding", name,
+		`{.status.conditions[?(@.type=="Ready")].status}`, "True")
+}
+
+// WaitForComponentReleaseBindingReady waits until a ComponentReleaseBinding is ready
+func WaitForComponentReleaseBindingReady(kubeContext, namespace, name string) {
+	gomega.Eventually(func(g gomega.Gomega) {
+		AssertComponentReleaseBindingReady(g, kubeContext, namespace, name)
+	}, DefaultTimeout, 5*time.Second).Should(gomega.Succeed(),
+		"ComponentReleaseBinding %s/%s should be Ready", namespace, name)
 }

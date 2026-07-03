@@ -22,54 +22,54 @@ var (
 )
 
 var _ = Describe("Connection Resolution", Ordered, Label("tier1"), func() {
-	// assertRBConditionInNs checks a ReleaseBinding condition in a specific namespace.
+	// assertRBConditionInNs checks a ComponentReleaseBinding condition in a specific namespace.
 	assertRBConditionInNs := func(namespace, rbName, condType, expectedStatus, expectedReason string) {
 		Eventually(func(g Gomega) {
 			status, err := framework.KubectlGetJsonpath(
-				kubeContext, namespace, "releasebinding", rbName,
+				kubeContext, namespace, "componentreleasebinding", rbName,
 				fmt.Sprintf(`{.status.conditions[?(@.type=="%s")].status}`, condType),
 			)
-			g.Expect(err).NotTo(HaveOccurred(), "failed to get condition %s on ReleaseBinding %s", condType, rbName)
+			g.Expect(err).NotTo(HaveOccurred(), "failed to get condition %s on ComponentReleaseBinding %s", condType, rbName)
 			g.Expect(status).To(Equal(expectedStatus),
-				"expected condition %s status=%s on ReleaseBinding %s", condType, expectedStatus, rbName)
+				"expected condition %s status=%s on ComponentReleaseBinding %s", condType, expectedStatus, rbName)
 
 			reason, err := framework.KubectlGetJsonpath(
-				kubeContext, namespace, "releasebinding", rbName,
+				kubeContext, namespace, "componentreleasebinding", rbName,
 				fmt.Sprintf(`{.status.conditions[?(@.type=="%s")].reason}`, condType),
 			)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(reason).To(Equal(expectedReason),
-				"expected condition %s reason=%s on ReleaseBinding %s", condType, expectedReason, rbName)
+				"expected condition %s reason=%s on ComponentReleaseBinding %s", condType, expectedReason, rbName)
 		}, 3*time.Minute, 2*time.Second).Should(Succeed(), func() string {
-			return releaseBindingDiagnostics(namespace, rbName)
+			return componentReleaseBindingDiagnostics(namespace, rbName)
 		})
 	}
 
-	// assertRBCondition checks a ReleaseBinding condition in cpNs via jsonpath.
+	// assertRBCondition checks a ComponentReleaseBinding condition in cpNs via jsonpath.
 	assertRBCondition := func(rbName, condType, expectedStatus, expectedReason string) {
 		assertRBConditionInNs(cpNs, rbName, condType, expectedStatus, expectedReason)
 	}
 
-	// assertRBConditionStatus checks only the status of a ReleaseBinding condition (any reason).
+	// assertRBConditionStatus checks only the status of a ComponentReleaseBinding condition (any reason).
 	assertRBConditionStatus := func(rbName, condType, expectedStatus string) {
 		Eventually(func(g Gomega) {
 			status, err := framework.KubectlGetJsonpath(
-				kubeContext, cpNs, "releasebinding", rbName,
+				kubeContext, cpNs, "componentreleasebinding", rbName,
 				fmt.Sprintf(`{.status.conditions[?(@.type=="%s")].status}`, condType),
 			)
-			g.Expect(err).NotTo(HaveOccurred(), "failed to get condition %s on ReleaseBinding %s", condType, rbName)
+			g.Expect(err).NotTo(HaveOccurred(), "failed to get condition %s on ComponentReleaseBinding %s", condType, rbName)
 			g.Expect(status).To(Equal(expectedStatus),
-				"expected condition %s status=%s on ReleaseBinding %s", condType, expectedStatus, rbName)
+				"expected condition %s status=%s on ComponentReleaseBinding %s", condType, expectedStatus, rbName)
 		}, 3*time.Minute, 2*time.Second).Should(Succeed(), func() string {
-			return releaseBindingDiagnostics(cpNs, rbName)
+			return componentReleaseBindingDiagnostics(cpNs, rbName)
 		})
 	}
 
-	// assertRBEndpointServiceURL checks that a ReleaseBinding endpoint has a serviceURL.
+	// assertRBEndpointServiceURL checks that a ComponentReleaseBinding endpoint has a serviceURL.
 	assertRBEndpointServiceURL := func(rbName, endpointName string, expectedPort int) {
 		Eventually(func(g Gomega) {
 			host, err := framework.KubectlGetJsonpath(
-				kubeContext, cpNs, "releasebinding", rbName,
+				kubeContext, cpNs, "componentreleasebinding", rbName,
 				fmt.Sprintf(`{.status.endpoints[?(@.name=="%s")].serviceURL.host}`, endpointName),
 			)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -77,7 +77,7 @@ var _ = Describe("Connection Resolution", Ordered, Label("tier1"), func() {
 				"expected serviceURL host to contain .svc.cluster.local for endpoint %s on %s", endpointName, rbName)
 
 			port, err := framework.KubectlGetJsonpath(
-				kubeContext, cpNs, "releasebinding", rbName,
+				kubeContext, cpNs, "componentreleasebinding", rbName,
 				fmt.Sprintf(`{.status.endpoints[?(@.name=="%s")].serviceURL.port}`, endpointName),
 			)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -201,7 +201,7 @@ var _ = Describe("Connection Resolution", Ordered, Label("tier1"), func() {
 		}, 3*time.Minute, 5*time.Second).Should(Succeed(), "dp namespace for proj1/development not found")
 		fmt.Fprintf(GinkgoWriter, "discovered dp namespace: %s\n", dpNs)
 
-		By("waiting for provider ReleaseBindings to reach Ready=True")
+		By("waiting for provider ComponentReleaseBindings to reach Ready=True")
 		assertRBCondition("provider-a-development", "Ready", "True", "Ready")
 		assertRBCondition("provider-b-development", "Ready", "True", "Ready")
 
@@ -251,7 +251,7 @@ var _ = Describe("Connection Resolution", Ordered, Label("tier1"), func() {
 
 	Context("project visibility", func() {
 		It("resolves provider endpoints without connections", func() {
-			By("provider-a ReleaseBinding should have ConnectionsResolved=True with reason NoConnections")
+			By("provider-a ComponentReleaseBinding should have ConnectionsResolved=True with reason NoConnections")
 			assertRBCondition("provider-a-development", "ConnectionsResolved", "True", "NoConnections")
 			assertRBCondition("provider-a-development", "Ready", "True", "Ready")
 
@@ -260,7 +260,7 @@ var _ = Describe("Connection Resolution", Ordered, Label("tier1"), func() {
 		})
 
 		It("resolves consumer connections eventually", func() {
-			By("consumer ReleaseBinding should reach ConnectionsResolved=True")
+			By("consumer ComponentReleaseBinding should reach ConnectionsResolved=True")
 			assertRBCondition("consumer-development", "ConnectionsResolved", "True", "AllConnectionsResolved")
 			assertRBCondition("consumer-development", "Ready", "True", "Ready")
 		})
@@ -301,10 +301,10 @@ var _ = Describe("Connection Resolution", Ordered, Label("tier1"), func() {
 			), "PROVIDER_B_URL should be a valid service URL")
 		})
 
-		It("stores resolved connections in ReleaseBinding status", func() {
-			By("verifying ReleaseBinding has 2 resolved connections and 2 connection targets")
+		It("stores resolved connections in ComponentReleaseBinding status", func() {
+			By("verifying ComponentReleaseBinding has 2 resolved connections and 2 connection targets")
 			Eventually(func(g Gomega) {
-				status := getReleaseBindingStatus(g, "consumer-development")
+				status := getComponentReleaseBindingStatus(g, "consumer-development")
 				g.Expect(status.ResolvedConnections).To(HaveLen(2), "expected 2 resolved connections")
 				g.Expect(status.ConnectionTargets).To(HaveLen(2), "expected 2 connection targets")
 			}, 3*time.Minute, 2*time.Second).Should(Succeed())
@@ -330,7 +330,7 @@ var _ = Describe("Connection Resolution", Ordered, Label("tier1"), func() {
 			))
 			Expect(err).NotTo(HaveOccurred(), "failed to create consumer-bad: %s", output)
 
-			By("consumer-bad ReleaseBinding should have ConnectionsResolved=False")
+			By("consumer-bad ComponentReleaseBinding should have ConnectionsResolved=False")
 			assertRBCondition("consumer-bad-development", "ConnectionsResolved", "False", "ConnectionsPending")
 			// Ready=False is expected, but the reason may vary (ConnectionsPending or ReleaseSynced)
 			// depending on which sub-condition is evaluated first.
@@ -383,7 +383,7 @@ var _ = Describe("Connection Resolution", Ordered, Label("tier1"), func() {
 
 			By("verifying connectionTargets is empty")
 			Eventually(func(g Gomega) {
-				status := getReleaseBindingStatus(g, "consumer-development")
+				status := getComponentReleaseBindingStatus(g, "consumer-development")
 				g.Expect(status.ConnectionTargets).To(BeEmpty(), "expected no connection targets after removing connections")
 				g.Expect(status.ResolvedConnections).To(BeEmpty(), "expected no resolved connections after removing connections")
 			}, 3*time.Minute, 2*time.Second).Should(Succeed())
@@ -392,37 +392,37 @@ var _ = Describe("Connection Resolution", Ordered, Label("tier1"), func() {
 
 })
 
-// getReleaseBindingStatus fetches a ReleaseBinding as full JSON and returns its typed status.
-func getReleaseBindingStatus(g Gomega, rbName string) openchoreov1alpha1.ReleaseBindingStatus {
-	return getReleaseBindingStatusInNs(g, cpNs, rbName)
+// getComponentReleaseBindingStatus fetches a ComponentReleaseBinding as full JSON and returns its typed status.
+func getComponentReleaseBindingStatus(g Gomega, rbName string) openchoreov1alpha1.ComponentReleaseBindingStatus {
+	return getComponentReleaseBindingStatusInNs(g, cpNs, rbName)
 }
 
-func getReleaseBindingStatusInNs(g Gomega, namespace, rbName string) openchoreov1alpha1.ReleaseBindingStatus {
+func getComponentReleaseBindingStatusInNs(g Gomega, namespace, rbName string) openchoreov1alpha1.ComponentReleaseBindingStatus {
 	output, err := framework.Kubectl(
 		kubeContext,
-		"get", "releasebinding", rbName,
+		"get", "componentreleasebinding", rbName,
 		"-n", namespace,
 		"-o", "json",
 	)
-	g.Expect(err).NotTo(HaveOccurred(), "failed to get ReleaseBinding %s in %s", rbName, namespace)
+	g.Expect(err).NotTo(HaveOccurred(), "failed to get ComponentReleaseBinding %s in %s", rbName, namespace)
 
-	var rb openchoreov1alpha1.ReleaseBinding
-	g.Expect(json.Unmarshal([]byte(output), &rb)).To(Succeed(), "failed to unmarshal ReleaseBinding %s", rbName)
+	var rb openchoreov1alpha1.ComponentReleaseBinding
+	g.Expect(json.Unmarshal([]byte(output), &rb)).To(Succeed(), "failed to unmarshal ComponentReleaseBinding %s", rbName)
 	return rb.Status
 }
 
-// releaseBindingDiagnostics returns a human-readable dump of every condition on a
-// ReleaseBinding (type/status/reason/message) plus its recent events. It is meant
+// componentReleaseBindingDiagnostics returns a human-readable dump of every condition on a
+// ComponentReleaseBinding (type/status/reason/message) plus its recent events. It is meant
 // to be passed as the lazily-evaluated failure description of a condition
 // assertion so that a timeout reports the full picture — not just the single
 // condition that was being polled (e.g. Ready=False with no reason).
-func releaseBindingDiagnostics(namespace, rbName string) string {
+func componentReleaseBindingDiagnostics(namespace, rbName string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "\n--- diagnostics for releasebinding %s/%s ---\n", namespace, rbName)
+	fmt.Fprintf(&b, "\n--- diagnostics for componentreleasebinding %s/%s ---\n", namespace, rbName)
 
 	conditions, err := framework.Kubectl(
 		kubeContext,
-		"get", "releasebinding", rbName,
+		"get", "componentreleasebinding", rbName,
 		"-n", namespace,
 		"-o", `jsonpath={range .status.conditions[*]}{.type}={.status} (reason={.reason}, message={.message}){"\n"}{end}`,
 	)

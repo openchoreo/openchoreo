@@ -4,7 +4,7 @@ This sample demonstrates how to deploy a gRPC service component in OpenChoreo us
 
 ## Overview
 
-The sample's YAML is self-contained: it defines a custom `ClusterComponentType` and a `Component` + `Workload` + `ReleaseBinding` that consume it.
+The sample's YAML is self-contained: it defines a custom `ClusterComponentType` and a `Component` + `Workload` + `ComponentReleaseBinding` that consume it.
 
 ### ClusterComponentType (`grpc-service`)
 
@@ -24,13 +24,13 @@ References the `deployment/grpc-service` ClusterComponentType.
 
 Specifies the container image ([`ghcr.io/openchoreo/samples/hello-world-grpc`](https://github.com/openchoreo/samples) — a public gRPC server that exposes `greeter.Greeter/SayHello` on port `9090` with reflection enabled) and a `grpc` endpoint. The endpoint carries an inline `schema` (`type: proto`) describing the `Greeter` service. The ClusterComponentType template opts into schema parsing via the `workload.toEndpointResources(<endpointName>)` macro; OpenChoreo then parses this proto at render time and exposes the extracted services/methods (keyed by endpoint name) so the generated `GRPCRoute` matches the exact `(service, method)` rather than routing all traffic. The macro is opt-in — schemas are only parsed when a template calls it — and if the schema is omitted the route falls back to a catch-all rule.
 
-### ReleaseBinding (`demo-app-grpc-service-development`)
+### ComponentReleaseBinding (`demo-app-grpc-service-development`)
 
 Deploys the component to the `development` environment with a single replica.
 
 ## How It Works
 
-The OpenChoreo controller manager renders the ClusterComponentType templates into a `Deployment`, `Service`, and `GRPCRoute` for the data plane. The ReleaseBinding controller resolves the endpoint URLs from the rendered `GRPCRoute` and writes them to `.status.endpoints[].externalURLs`:
+The OpenChoreo controller manager renders the ClusterComponentType templates into a `Deployment`, `Service`, and `GRPCRoute` for the data plane. The ComponentReleaseBinding controller resolves the endpoint URLs from the rendered `GRPCRoute` and writes them to `.status.endpoints[].externalURLs`:
 
 - `externalURLs.http` — cleartext gRPC over the gateway's `http` listener (scheme `grpc`)
 - `externalURLs.https` — gRPC + TLS terminated at the gateway over the `https` listener (scheme `grpcs`)
@@ -64,10 +64,10 @@ The resolved `externalURLs` host (and the `:authority` clients dial) is this uni
 kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-grpc-service/grpc-service-component.yaml
 ```
 
-## Check the ReleaseBinding status
+## Check the ComponentReleaseBinding status
 
 ```bash
-kubectl get releasebinding demo-app-grpc-service-development -o jsonpath='{.status.endpoints}' | jq .
+kubectl get componentreleasebinding demo-app-grpc-service-development -o jsonpath='{.status.endpoints}' | jq .
 ```
 
 You should see something like:
@@ -114,11 +114,11 @@ service Greeter {
 }
 ```
 
-Get the endpoint's unique hostname from the ReleaseBinding status, then invoke against the
+Get the endpoint's unique hostname from the ComponentReleaseBinding status, then invoke against the
 cleartext gateway listener (the `:authority` selects the host the gateway routes on):
 
 ```bash
-HOST=$(kubectl get releasebinding demo-app-grpc-service-development \
+HOST=$(kubectl get componentreleasebinding demo-app-grpc-service-development \
   -o jsonpath='{.status.endpoints[0].externalURLs.http.host}')
 
 grpcurl -plaintext -import-path . -proto greeter.proto \
@@ -150,10 +150,10 @@ kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/h
 
 ## Troubleshooting
 
-1. **Check ReleaseBinding conditions:**
+1. **Check ComponentReleaseBinding conditions:**
 
    ```bash
-   kubectl get releasebinding demo-app-grpc-service-development -o jsonpath='{.status.conditions}' | jq .
+   kubectl get componentreleasebinding demo-app-grpc-service-development -o jsonpath='{.status.conditions}' | jq .
    ```
 
 2. **Verify the GRPCRoute is rendered and accepted by the gateway:**

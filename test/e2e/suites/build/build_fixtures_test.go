@@ -45,7 +45,7 @@ const (
 	componentPrivate         = "pvt-svc"
 	componentLogs            = "logs-svc"
 
-	releaseBindingSuffix = "-" + envDev
+	componentReleaseBindingSuffix = "-" + envDev
 
 	// Private-repository build scenario. The repo is private, so the build
 	// clones it with a GitHub PAT supplied out-of-band (privateRepoPATEnv);
@@ -147,7 +147,7 @@ func platformResourcesYAML() string {
 
 // buildComponentYAML returns a Component CR with the given builder workflow
 // configured. The Component uses autoDeploy=true so the build pipeline's
-// generated Workload triggers a ComponentRelease + ReleaseBinding automatically.
+// generated Workload triggers a ComponentRelease + ComponentReleaseBinding automatically.
 func buildComponentYAML(name, componentType, workflowName, gitURL, appPath, dockerfilePath string) string {
 	params := map[string]any{
 		"repository": map[string]any{

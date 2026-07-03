@@ -216,10 +216,10 @@ func populateEndpoints(workload *openchoreov1alpha1.Workload, endpoints map[stri
 	}
 }
 
-func releaseBindingYAML(component, releaseName, environment string) string {
+func componentReleaseBindingYAML(component, releaseName, environment string) string {
 	rb := map[string]any{
 		"apiVersion": openChoreoAPIVer,
-		"kind":       "ReleaseBinding",
+		"kind":       "ComponentReleaseBinding",
 		"metadata": map[string]any{
 			"name":      component + "-" + environment,
 			"namespace": cpNs,
@@ -235,7 +235,7 @@ func releaseBindingYAML(component, releaseName, environment string) string {
 	}
 	data, err := yaml.Marshal(rb)
 	if err != nil {
-		panic(fmt.Sprintf("failed to marshal ReleaseBinding: %v", err))
+		panic(fmt.Sprintf("failed to marshal ComponentReleaseBinding: %v", err))
 	}
 	return strings.TrimSpace(string(data))
 }

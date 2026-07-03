@@ -342,7 +342,7 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, Label("tier1"), func() {
 		}, 3*time.Minute, 5*time.Second).Should(Succeed(), "dp namespace for beta/proj1/development not found")
 		fmt.Fprintf(GinkgoWriter, "discovered dp namespace: beta/proj1/dev = %s\n", dpBetaProj1Dev)
 
-		By("promoting comp-a to staging via ReleaseBinding")
+		By("promoting comp-a to staging via ComponentReleaseBinding")
 		var compARelease string
 		Eventually(func() error {
 			var discoverErr error
@@ -363,14 +363,14 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, Label("tier1"), func() {
 		}, 3*time.Minute, 5*time.Second).Should(Succeed(), "comp-a ComponentRelease not created")
 		fmt.Fprintf(GinkgoWriter, "comp-a ComponentRelease: %s\n", compARelease)
 
-		output, err = framework.KubectlApplyLiteral(kubeContext, releaseBindingYAML(
+		output, err = framework.KubectlApplyLiteral(kubeContext, componentReleaseBindingYAML(
 			cpNsAcme,
 			"proj1",
 			"comp-a",
 			compARelease,
 			"staging",
 		))
-		Expect(err).NotTo(HaveOccurred(), "failed to create staging ReleaseBinding: %s", output)
+		Expect(err).NotTo(HaveOccurred(), "failed to create staging ComponentReleaseBinding: %s", output)
 
 		By("waiting for staging data plane namespace to appear")
 		Eventually(func() error {

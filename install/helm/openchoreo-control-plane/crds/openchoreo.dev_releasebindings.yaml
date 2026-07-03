@@ -29,7 +29,9 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ReleaseBinding is the Schema for the releasebindings API.
+        description: |-
+          ReleaseBinding is the Schema for the releasebindings API.
+          Deprecated: ReleaseBinding is deprecated and will be removed in a future release. Use ComponentReleaseBinding instead.
         properties:
           apiVersion:
             description: |-

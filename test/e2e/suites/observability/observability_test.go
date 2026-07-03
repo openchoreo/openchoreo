@@ -211,19 +211,19 @@ func generateTrafficAndQuery(marker string) {
 	}
 }
 
-// serviceURLHostPort reads ReleaseBinding.status.endpoints[name=http].serviceURL
+// serviceURLHostPort reads ComponentReleaseBinding.status.endpoints[name=http].serviceURL
 // host+port — the in-cluster ClusterIP the project-visibility endpoint maps to.
 // Mirrors the workloadtypes helper but lives here so we don't introduce a
 // cross-suite dependency.
-func serviceURLHostPort(g Gomega, releaseBinding string) (host, port string) {
-	host, err := framework.KubectlGetJsonpath(kubeContext, cpNs, "releasebinding", releaseBinding,
+func serviceURLHostPort(g Gomega, componentReleaseBinding string) (host, port string) {
+	host, err := framework.KubectlGetJsonpath(kubeContext, cpNs, "componentreleasebinding", componentReleaseBinding,
 		`{.status.endpoints[?(@.name=="http")].serviceURL.host}`)
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(host).NotTo(BeEmpty(), "serviceURL.host empty on %s", releaseBinding)
-	port, err = framework.KubectlGetJsonpath(kubeContext, cpNs, "releasebinding", releaseBinding,
+	g.Expect(host).NotTo(BeEmpty(), "serviceURL.host empty on %s", componentReleaseBinding)
+	port, err = framework.KubectlGetJsonpath(kubeContext, cpNs, "componentreleasebinding", componentReleaseBinding,
 		`{.status.endpoints[?(@.name=="http")].serviceURL.port}`)
 	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(port).NotTo(BeEmpty(), "serviceURL.port empty on %s", releaseBinding)
+	g.Expect(port).NotTo(BeEmpty(), "serviceURL.port empty on %s", componentReleaseBinding)
 	return host, port
 }
 

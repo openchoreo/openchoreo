@@ -1,0 +1,153 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package componentreleasebinding
+
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/openchoreo/openchoreo/internal/controller"
+)
+
+// Constants for condition types
+
+const (
+	// ConditionReleaseSynced indicates that the Release resource has been created/updated
+	// from the ComponentReleaseBinding
+	ConditionReleaseSynced controller.ConditionType = "ReleaseSynced"
+
+	// ConditionResourcesReady indicates that all resources in the Release are ready
+	// based on workload-type specific evaluation
+	ConditionResourcesReady controller.ConditionType = "ResourcesReady"
+
+	// ConditionReady indicates the overall readiness of the ComponentReleaseBinding
+	// This is the top-level condition that aggregates ReleaseSynced and ResourcesReady
+	ConditionReady controller.ConditionType = "Ready"
+
+	// ConditionConnectionsResolved indicates that all connection URLs have been resolved.
+	ConditionConnectionsResolved controller.ConditionType = "ConnectionsResolved"
+
+	// ConditionResourceDependenciesReady indicates that all resource dependencies have a
+	// matching ResourceReleaseBinding whose outputs are populated.
+	ConditionResourceDependenciesReady controller.ConditionType = "ResourceDependenciesReady"
+
+	// ConditionFinalizing indicates that the ComponentReleaseBinding is being finalized (deleted).
+	ConditionFinalizing controller.ConditionType = "Finalizing"
+)
+
+// Constants for condition reasons
+
+const (
+	// Success states (Status=True)
+
+	// ReasonReleaseCreated indicates the Release was successfully created
+	ReasonReleaseCreated controller.ConditionReason = "ReleaseCreated"
+	// ReasonReleaseSynced indicates the Release is up to date
+	ReasonReleaseSynced controller.ConditionReason = "ReleaseSynced"
+	// ReasonResourcesReady indicates all resources are ready
+	ReasonResourcesReady controller.ConditionReason = "ResourcesReady"
+
+	// Configuration issues (Status=False)
+
+	// ReasonComponentReleaseNotFound indicates the referenced ComponentRelease doesn't exist
+	ReasonComponentReleaseNotFound controller.ConditionReason = "ComponentReleaseNotFound"
+	// ReasonEnvironmentNotFound indicates the referenced Environment doesn't exist
+	ReasonEnvironmentNotFound controller.ConditionReason = "EnvironmentNotFound"
+	// ReasonDataPlaneNotFound indicates the referenced DataPlane doesn't exist
+	ReasonDataPlaneNotFound controller.ConditionReason = "DataPlaneNotFound"
+	// ReasonDataPlaneNotConfigured indicates the Environment has no DataPlaneRef
+	ReasonDataPlaneNotConfigured controller.ConditionReason = "DataPlaneNotConfigured"
+	// ReasonComponentNotFound indicates the referenced Component doesn't exist
+	ReasonComponentNotFound controller.ConditionReason = "ComponentNotFound"
+	// ReasonProjectNotFound indicates the referenced Project doesn't exist
+	ReasonProjectNotFound controller.ConditionReason = "ProjectNotFound"
+	// ReasonInvalidReleaseConfiguration indicates the ComponentRelease configuration is invalid
+	ReasonInvalidReleaseConfiguration controller.ConditionReason = "InvalidReleaseConfiguration"
+
+	// Rendering issues (Status=False)
+
+	// ReasonRenderingFailed indicates failure to render resources
+	ReasonRenderingFailed controller.ConditionReason = "RenderingFailed"
+
+	// Release management issues (Status=False)
+
+	// ReasonReleaseOwnershipConflict indicates the Release exists but is owned by another resource
+	ReasonReleaseOwnershipConflict controller.ConditionReason = "ReleaseOwnershipConflict"
+	// ReasonReleaseUpdateFailed indicates failure to create/update the Release
+	ReasonReleaseUpdateFailed controller.ConditionReason = "ReleaseUpdateFailed"
+	// ReasonReleaseDeletionFailed indicates failure to delete Release during undeploy
+	ReasonReleaseDeletionFailed controller.ConditionReason = "ReleaseDeletionFailed"
+
+	// ReleaseState-related reasons (intentional operational states)
+
+	// ReasonResourcesUndeployed indicates resources are intentionally undeployed (ReleaseState=Undeploy)
+	ReasonResourcesUndeployed controller.ConditionReason = "ResourcesUndeployed"
+
+	// Resource readiness issues (Status=False)
+
+	// ReasonResourceApplyFailed indicates one or more resources failed to apply to the target plane
+	ReasonResourceApplyFailed controller.ConditionReason = "ResourceApplyFailed"
+	// ReasonResourcesNotReady indicates one or more resources are not ready
+	ReasonResourcesNotReady controller.ConditionReason = "ResourcesNotReady"
+	// ReasonResourcesProgressing indicates resources are being created/updated
+	ReasonResourcesProgressing controller.ConditionReason = "ResourcesProgressing"
+	// ReasonResourcesDegraded indicates one or more resources are degraded
+	ReasonResourcesDegraded controller.ConditionReason = "ResourcesDegraded"
+	// ReasonResourcesUnknown indicates resource status is unknown
+	ReasonResourcesUnknown controller.ConditionReason = "ResourcesUnknown"
+
+	// Connection condition reasons
+
+	// ReasonAllConnectionsResolved indicates all connection URLs are resolved
+	ReasonAllConnectionsResolved controller.ConditionReason = "AllConnectionsResolved"
+	// ReasonConnectionsPending indicates some connections are not yet resolved
+	ReasonConnectionsPending controller.ConditionReason = "ConnectionsPending"
+	// ReasonNoConnections indicates there are no connections to resolve
+	ReasonNoConnections controller.ConditionReason = "NoConnections"
+
+	// Resource dependency condition reasons
+
+	// ReasonAllResourceDependenciesReady indicates all resource dependencies resolved successfully
+	ReasonAllResourceDependenciesReady controller.ConditionReason = "AllResourceDependenciesReady"
+	// ReasonResourceDependenciesPending indicates one or more resource dependencies are not yet resolved
+	ReasonResourceDependenciesPending controller.ConditionReason = "ResourceDependenciesPending"
+	// ReasonNoResourceDependencies indicates there are no resource dependencies to resolve
+	ReasonNoResourceDependencies controller.ConditionReason = "NoResourceDependencies"
+
+	// Ready condition reasons
+
+	// ReasonReady indicates the ComponentReleaseBinding is fully ready
+	ReasonReady controller.ConditionReason = "Ready"
+	// ReasonReadyWithSuspendedResources indicates ready with suspended workload (scaled to 0)
+	ReasonReadyWithSuspendedResources controller.ConditionReason = "ReadyWithSuspendedResources"
+
+	// Job-specific reasons
+
+	// ReasonJobCompleted indicates Job completed successfully
+	ReasonJobCompleted controller.ConditionReason = "JobCompleted"
+	// ReasonJobRunning indicates Job is running
+	ReasonJobRunning controller.ConditionReason = "JobRunning"
+	// ReasonJobFailed indicates Job failed
+	ReasonJobFailed controller.ConditionReason = "JobFailed"
+
+	// CronJob-specific reasons
+
+	// ReasonCronJobScheduled indicates CronJob is scheduled and ready
+	ReasonCronJobScheduled controller.ConditionReason = "CronJobScheduled"
+	// ReasonCronJobSuspended indicates CronJob is suspended
+	ReasonCronJobSuspended controller.ConditionReason = "CronJobSuspended"
+
+	// ReasonFinalizing indicates the ComponentReleaseBinding is being finalized
+	ReasonFinalizing controller.ConditionReason = "Finalizing"
+)
+
+// NewComponentReleaseBindingFinalizingCondition creates a condition indicating the ComponentReleaseBinding is being finalized.
+func NewComponentReleaseBindingFinalizingCondition(generation int64) metav1.Condition {
+	return controller.NewCondition(
+		ConditionFinalizing,
+		metav1.ConditionTrue,
+		ReasonFinalizing,
+		"ComponentReleaseBinding is finalizing",
+		generation,
+	)
+}

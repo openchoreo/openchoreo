@@ -7368,3 +7368,154 @@ func NewMockInterface(t interface {
 
 	return mock
 }
+
+// CreateComponentReleaseBinding provides a mock function with given fields: ctx, namespaceName, req
+func (_m *MockInterface) CreateComponentReleaseBinding(ctx context.Context, namespaceName string, req *gen.ComponentReleaseBinding) (*gen.ComponentReleaseBinding, error) {
+	ret := _m.Called(ctx, namespaceName, req)
+
+	var r0 *gen.ComponentReleaseBinding
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ComponentReleaseBinding) *gen.ComponentReleaseBinding); ok {
+		r0 = rf(ctx, namespaceName, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ComponentReleaseBinding)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ComponentReleaseBinding) error); ok {
+		r1 = rf(ctx, namespaceName, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// DeleteComponentReleaseBinding provides a mock function with given fields: ctx, namespaceName, componentReleaseBindingName
+func (_m *MockInterface) DeleteComponentReleaseBinding(ctx context.Context, namespaceName string, componentReleaseBindingName string) error {
+	ret := _m.Called(ctx, namespaceName, componentReleaseBindingName)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, componentReleaseBindingName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// GetComponentReleaseBinding provides a mock function with given fields: ctx, namespaceName, componentReleaseBindingName
+func (_m *MockInterface) GetComponentReleaseBinding(ctx context.Context, namespaceName string, componentReleaseBindingName string) (*gen.ComponentReleaseBinding, error) {
+	ret := _m.Called(ctx, namespaceName, componentReleaseBindingName)
+
+	var r0 *gen.ComponentReleaseBinding
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.ComponentReleaseBinding); ok {
+		r0 = rf(ctx, namespaceName, componentReleaseBindingName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ComponentReleaseBinding)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, componentReleaseBindingName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListComponentReleaseBindings provides a mock function with given fields: ctx, namespaceName, params
+func (_m *MockInterface) ListComponentReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListComponentReleaseBindingsParams) (*gen.ComponentReleaseBindingList, error) {
+	ret := _m.Called(ctx, namespaceName, params)
+
+	var r0 *gen.ComponentReleaseBindingList
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListComponentReleaseBindingsParams) *gen.ComponentReleaseBindingList); ok {
+		r0 = rf(ctx, namespaceName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ComponentReleaseBindingList)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListComponentReleaseBindingsParams) error); ok {
+		r1 = rf(ctx, namespaceName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListComponentReleaseBindings_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListComponentReleaseBindings'
+type MockInterface_ListComponentReleaseBindings_Call struct {
+	*mock.Call
+}
+
+func (_e *MockInterface_Expecter) ListComponentReleaseBindings(ctx interface{}, namespaceName interface{}, params interface{}) *MockInterface_ListComponentReleaseBindings_Call {
+	return &MockInterface_ListComponentReleaseBindings_Call{Call: _e.mock.On("ListComponentReleaseBindings", ctx, namespaceName, params)}
+}
+
+func (_c *MockInterface_ListComponentReleaseBindings_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListComponentReleaseBindingsParams)) *MockInterface_ListComponentReleaseBindings_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListComponentReleaseBindingsParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListComponentReleaseBindings_Call) Return(_a0 *gen.ComponentReleaseBindingList, _a1 error) *MockInterface_ListComponentReleaseBindings_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListComponentReleaseBindings_Call) RunAndReturn(run func(context.Context, string, *gen.ListComponentReleaseBindingsParams) (*gen.ComponentReleaseBindingList, error)) *MockInterface_ListComponentReleaseBindings_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// MockInterface_CreateComponentReleaseBinding_Call
+type MockInterface_CreateComponentReleaseBinding_Call struct {
+	*mock.Call
+}
+
+func (_e *MockInterface_Expecter) CreateComponentReleaseBinding(ctx interface{}, namespaceName interface{}, req interface{}) *MockInterface_CreateComponentReleaseBinding_Call {
+	return &MockInterface_CreateComponentReleaseBinding_Call{Call: _e.mock.On("CreateComponentReleaseBinding", ctx, namespaceName, req)}
+}
+
+func (_c *MockInterface_CreateComponentReleaseBinding_Call) Return(_a0 *gen.ComponentReleaseBinding, _a1 error) *MockInterface_CreateComponentReleaseBinding_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+// MockInterface_GetComponentReleaseBinding_Call
+type MockInterface_GetComponentReleaseBinding_Call struct {
+	*mock.Call
+}
+
+func (_e *MockInterface_Expecter) GetComponentReleaseBinding(ctx interface{}, namespaceName interface{}, componentReleaseBindingName interface{}) *MockInterface_GetComponentReleaseBinding_Call {
+	return &MockInterface_GetComponentReleaseBinding_Call{Call: _e.mock.On("GetComponentReleaseBinding", ctx, namespaceName, componentReleaseBindingName)}
+}
+
+func (_c *MockInterface_GetComponentReleaseBinding_Call) Return(_a0 *gen.ComponentReleaseBinding, _a1 error) *MockInterface_GetComponentReleaseBinding_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+// MockInterface_DeleteComponentReleaseBinding_Call
+type MockInterface_DeleteComponentReleaseBinding_Call struct {
+	*mock.Call
+}
+
+func (_e *MockInterface_Expecter) DeleteComponentReleaseBinding(ctx interface{}, namespaceName interface{}, componentReleaseBindingName interface{}) *MockInterface_DeleteComponentReleaseBinding_Call {
+	return &MockInterface_DeleteComponentReleaseBinding_Call{Call: _e.mock.On("DeleteComponentReleaseBinding", ctx, namespaceName, componentReleaseBindingName)}
+}
+
+func (_c *MockInterface_DeleteComponentReleaseBinding_Call) Return(_a0 error) *MockInterface_DeleteComponentReleaseBinding_Call {
+	_c.Call.Return(_a0)
+	return _c
+}

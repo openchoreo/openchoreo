@@ -98,7 +98,12 @@ func processComponentParameters(input *ComponentContextInput) (map[string]any, m
 	}
 
 	var rawEnvConfigs map[string]any
-	if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs != nil {
+	if input.ComponentReleaseBinding != nil && input.ComponentReleaseBinding.Spec.ComponentTypeEnvironmentConfigs != nil {
+		rawEnvConfigs, err = extractParameters(input.ComponentReleaseBinding.Spec.ComponentTypeEnvironmentConfigs)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to extract environment configs: %w", err)
+		}
+	} else if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs != nil {
 		rawEnvConfigs, err = extractParameters(input.ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to extract environment configs: %w", err)

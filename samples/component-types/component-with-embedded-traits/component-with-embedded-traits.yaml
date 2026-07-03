@@ -512,10 +512,10 @@ spec:
       - "9090"
 
 ---
-# ReleaseBinding for development environment
+# ComponentReleaseBinding for development environment
 # Platform admin can override disruption budget per environment
 apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseBinding
+kind: ComponentReleaseBinding
 metadata:
   name: demo-app-with-embedded-traits-development
   namespace: default

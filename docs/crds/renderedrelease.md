@@ -13,7 +13,7 @@ The RenderedRelease controller is part of OpenChoreo's multi-plane architecture,
 ```mermaid
 graph TD
     A[Component] --> B[ComponentRelease]
-    B --> C[ReleaseBinding]
+    B --> C[ComponentReleaseBinding]
     C --> H[RenderedRelease]
 
     subgraph "Control Plane"
@@ -43,8 +43,8 @@ graph TD
 **Flow Explanation:**
 1. **Component Definition**: Developers create Component resources that define the type, ownership, and configuration of their applications
 2. **ComponentRelease**: An immutable snapshot is created containing the frozen ComponentType, Traits, and Workload specifications
-3. **ReleaseBinding**: For each target environment, a ReleaseBinding binds a ComponentRelease to an Environment with environment-specific configuration overrides
-4. **RenderedRelease Generation**: The ReleaseBinding controller renders complete Kubernetes manifests using the rendering pipeline and creates RenderedRelease resources
+3. **ComponentReleaseBinding**: For each target environment, a ComponentReleaseBinding binds a ComponentRelease to an Environment with environment-specific configuration overrides
+4. **RenderedRelease Generation**: The ComponentReleaseBinding controller renders complete Kubernetes manifests using the rendering pipeline and creates RenderedRelease resources
 5. **Data Plane Deployment**: The RenderedRelease controller takes the rendered resources from RenderedRelease CRDs and applies them to the target data plane clusters
 
 ## RenderedRelease Controller Process

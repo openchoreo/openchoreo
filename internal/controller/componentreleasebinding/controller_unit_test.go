@@ -1,0 +1,2445 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package componentreleasebinding
+
+import (
+	"context"
+	"encoding/json"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/labels"
+)
+
+// Shared string constants used across unit tests to satisfy the goconst linter.
+const (
+	testProjectName   = "my-project"
+	testComponentName = "my-component"
+	testNamespace     = "my-ns"
+	testEnvStaging    = "staging"
+)
+
+// Unit tests for pure helper functions that don't require k8s environment
+
+func newTestReconciler() *Reconciler {
+	return &Reconciler{
+		Scheme: runtime.NewScheme(),
+	}
+}
+
+func makeValidComponentRelease(project, component string) *openchoreov1alpha1.ComponentRelease {
+	return &openchoreov1alpha1.ComponentRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+		},
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseOwner{
+				ProjectName:   project,
+				ComponentName: component,
+			},
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/test-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "deployment",
+					Resources: []openchoreov1alpha1.ResourceTemplate{
+						{ID: "deployment"},
+					},
+				},
+			},
+		},
+	}
+}
+
+func makeValidComponentReleaseBinding(project, component string) *openchoreov1alpha1.ComponentReleaseBinding {
+	return &openchoreov1alpha1.ComponentReleaseBinding{
+		Spec: openchoreov1alpha1.ComponentReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseBindingOwner{
+				ProjectName:   project,
+				ComponentName: component,
+			},
+		},
+	}
+}
+
+// ---- validateComponentRelease tests ----
+
+func TestValidateComponentRelease_Valid(t *testing.T) {
+	r := newTestReconciler()
+	cr := makeValidComponentRelease(testProjectName, testComponentName)
+	rb := makeValidComponentReleaseBinding(testProjectName, testComponentName)
+
+	if err := r.validateComponentRelease(cr, rb); err != nil {
+		t.Errorf("validateComponentRelease returned unexpected error: %v", err)
+	}
+}
+
+func TestValidateComponentRelease_NilResources(t *testing.T) {
+	r := newTestReconciler()
+
+	cr := &openchoreov1alpha1.ComponentRelease{
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseOwner{
+				ProjectName:   "proj",
+				ComponentName: "comp",
+			},
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/test-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "deployment",
+					Resources:    nil, // nil resources
+				},
+			},
+		},
+	}
+	rb := makeValidComponentReleaseBinding("proj", "comp")
+
+	err := r.validateComponentRelease(cr, rb)
+	if err == nil {
+		t.Error("validateComponentRelease should return error when resources is nil")
+	}
+}
+
+func TestValidateComponentRelease_MissingProjectName(t *testing.T) {
+	r := newTestReconciler()
+
+	cr := &openchoreov1alpha1.ComponentRelease{
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseOwner{
+				ProjectName:   "", // missing
+				ComponentName: "comp",
+			},
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/test-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "deployment",
+					Resources:    []openchoreov1alpha1.ResourceTemplate{{ID: "deployment"}},
+				},
+			},
+		},
+	}
+	rb := makeValidComponentReleaseBinding("", "comp")
+
+	err := r.validateComponentRelease(cr, rb)
+	if err == nil {
+		t.Error("validateComponentRelease should return error when projectName is empty")
+	}
+}
+
+func TestValidateComponentRelease_MissingComponentName(t *testing.T) {
+	r := newTestReconciler()
+
+	cr := &openchoreov1alpha1.ComponentRelease{
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseOwner{
+				ProjectName:   "proj",
+				ComponentName: "", // missing
+			},
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "deployment/test-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "deployment",
+					Resources:    []openchoreov1alpha1.ResourceTemplate{{ID: "deployment"}},
+				},
+			},
+		},
+	}
+	rb := makeValidComponentReleaseBinding("proj", "")
+
+	err := r.validateComponentRelease(cr, rb)
+	if err == nil {
+		t.Error("validateComponentRelease should return error when componentName is empty")
+	}
+}
+
+func TestValidateComponentRelease_OwnerMismatch_Project(t *testing.T) {
+	r := newTestReconciler()
+	cr := makeValidComponentRelease("project-A", "comp")
+	rb := makeValidComponentReleaseBinding("project-B", "comp") // different project
+
+	err := r.validateComponentRelease(cr, rb)
+	if err == nil {
+		t.Error("validateComponentRelease should return error when project names don't match")
+	}
+}
+
+func TestValidateComponentRelease_OwnerMismatch_Component(t *testing.T) {
+	r := newTestReconciler()
+	cr := makeValidComponentRelease("proj", "comp-A")
+	rb := makeValidComponentReleaseBinding("proj", "comp-B") // different component
+
+	err := r.validateComponentRelease(cr, rb)
+	if err == nil {
+		t.Error("validateComponentRelease should return error when component names don't match")
+	}
+}
+
+// ---- NewComponentReleaseBindingFinalizingCondition ----
+
+func TestNewComponentReleaseBindingFinalizingCondition(t *testing.T) {
+	cond := NewComponentReleaseBindingFinalizingCondition(5)
+	if cond.Type != string(ConditionFinalizing) {
+		t.Errorf("Type = %q, want %q", cond.Type, ConditionFinalizing)
+	}
+	if cond.Status != metav1.ConditionTrue {
+		t.Errorf("Status = %q, want True", cond.Status)
+	}
+	if cond.ObservedGeneration != 5 {
+		t.Errorf("ObservedGeneration = %d, want 5", cond.ObservedGeneration)
+	}
+}
+
+// ---- release name helpers ----
+
+func TestMakeDataPlaneReleaseName_Format(t *testing.T) {
+	cr := makeValidComponentRelease(testProjectName, testComponentName)
+	rb := makeValidComponentReleaseBinding(testProjectName, testComponentName)
+	rb.Spec.Environment = testEnvStaging
+
+	got := makeDataPlaneReleaseName(cr, rb)
+	want := testComponentName + "-" + testEnvStaging
+	if got != want {
+		t.Errorf("makeDataPlaneReleaseName = %q, want %q", got, want)
+	}
+}
+
+func TestMakeObservabilityReleaseName_Format(t *testing.T) {
+	cr := makeValidComponentRelease(testProjectName, testComponentName)
+	rb := makeValidComponentReleaseBinding(testProjectName, testComponentName)
+	rb.Spec.Environment = testEnvStaging
+
+	got := makeObservabilityReleaseName(cr, rb)
+	want := testComponentName + "-" + testEnvStaging + "-observability"
+	if got != want {
+		t.Errorf("makeObservabilityReleaseName = %q, want %q", got, want)
+	}
+}
+
+// ---- generateResourceID tests ----
+
+func TestGenerateResourceID_KindAndName(t *testing.T) {
+	r := newTestReconciler()
+	resource := map[string]any{
+		"kind": "Deployment",
+		"metadata": map[string]any{
+			"name": "my-app",
+		},
+	}
+	got := r.generateResourceID(resource, 0)
+	want := "deployment-my-app"
+	if got != want {
+		t.Errorf("generateResourceID = %q, want %q", got, want)
+	}
+}
+
+func TestGenerateResourceID_MissingKind_FallsBackToIndex(t *testing.T) {
+	r := newTestReconciler()
+	resource := map[string]any{
+		"metadata": map[string]any{"name": "my-app"},
+	}
+	got := r.generateResourceID(resource, 5)
+	want := "resource-5"
+	if got != want {
+		t.Errorf("generateResourceID with missing kind = %q, want %q", got, want)
+	}
+}
+
+func TestGenerateResourceID_MissingName_FallsBackToIndex(t *testing.T) {
+	r := newTestReconciler()
+	resource := map[string]any{
+		"kind": "Service",
+	}
+	got := r.generateResourceID(resource, 3)
+	want := "resource-3"
+	if got != want {
+		t.Errorf("generateResourceID with missing name = %q, want %q", got, want)
+	}
+}
+
+func TestGenerateResourceID_EmptyResource_FallsBackToIndex(t *testing.T) {
+	r := newTestReconciler()
+	got := r.generateResourceID(map[string]any{}, 7)
+	want := "resource-7"
+	if got != want {
+		t.Errorf("generateResourceID for empty resource = %q, want %q", got, want)
+	}
+}
+
+// ---- buildComponentFromRelease tests ----
+
+func TestBuildComponentFromRelease_WithoutProfile(t *testing.T) {
+	cr := &openchoreov1alpha1.ComponentRelease{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseOwner{
+				ProjectName:   testProjectName,
+				ComponentName: testComponentName,
+			},
+		},
+	}
+
+	comp := buildComponentFromRelease(cr)
+
+	if comp.Name != testComponentName {
+		t.Errorf("Name = %q, want %q", comp.Name, testComponentName)
+	}
+	if comp.Namespace != testNamespace {
+		t.Errorf("Namespace = %q, want %q", comp.Namespace, testNamespace)
+	}
+	if comp.Spec.Owner.ProjectName != testProjectName {
+		t.Errorf("Owner.ProjectName = %q, want %q", comp.Spec.Owner.ProjectName, testProjectName)
+	}
+	if comp.Spec.Parameters != nil {
+		t.Error("Parameters should be nil when ComponentProfile is nil")
+	}
+	if len(comp.Spec.Traits) != 0 {
+		t.Error("Traits should be empty when ComponentProfile is nil")
+	}
+}
+
+func TestBuildComponentFromRelease_WithProfile(t *testing.T) {
+	raw := []byte(`{"replicas":3}`)
+	cr := &openchoreov1alpha1.ComponentRelease{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseOwner{
+				ProjectName:   testProjectName,
+				ComponentName: testComponentName,
+			},
+			ComponentProfile: &openchoreov1alpha1.ComponentProfile{
+				Parameters: &runtime.RawExtension{Raw: raw},
+				Traits: []openchoreov1alpha1.ComponentProfileTrait{
+					{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "autoscaler", InstanceName: "autoscaler-1"},
+				},
+			},
+		},
+	}
+
+	comp := buildComponentFromRelease(cr)
+
+	if comp.Spec.Parameters == nil {
+		t.Error("Parameters should be propagated from ComponentProfile")
+	}
+	if len(comp.Spec.Traits) != 1 {
+		t.Errorf("Traits length = %d, want 1", len(comp.Spec.Traits))
+	}
+}
+
+// ---- buildWorkloadFromRelease tests ----
+
+func TestBuildWorkloadFromRelease_OwnerAndNamespace(t *testing.T) {
+	cr := &openchoreov1alpha1.ComponentRelease{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseOwner{
+				ProjectName:   testProjectName,
+				ComponentName: testComponentName,
+			},
+		},
+	}
+
+	wl := buildWorkloadFromRelease(cr)
+
+	if wl.Namespace != testNamespace {
+		t.Errorf("Namespace = %q, want %q", wl.Namespace, testNamespace)
+	}
+	if wl.Spec.Owner.ProjectName != testProjectName {
+		t.Errorf("Owner.ProjectName = %q, want %q", wl.Spec.Owner.ProjectName, testProjectName)
+	}
+	if wl.Spec.Owner.ComponentName != testComponentName {
+		t.Errorf("Owner.ComponentName = %q, want %q", wl.Spec.Owner.ComponentName, testComponentName)
+	}
+}
+
+// ---- buildComponentTypeFromRelease tests ----
+
+func TestBuildComponentTypeFromRelease_SpecIsCopied(t *testing.T) {
+	cr := &openchoreov1alpha1.ComponentRelease{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			ComponentType: openchoreov1alpha1.ComponentReleaseComponentType{
+				Kind: openchoreov1alpha1.ComponentTypeRefKindComponentType,
+				Name: "statefulset/test-type",
+				Spec: openchoreov1alpha1.ComponentTypeSpec{
+					WorkloadType: "statefulset",
+					Resources:    []openchoreov1alpha1.ResourceTemplate{{ID: "sts"}},
+				},
+			},
+		},
+	}
+
+	ct := buildComponentTypeFromRelease(cr)
+
+	if ct.Namespace != testNamespace {
+		t.Errorf("Namespace = %q, want %q", ct.Namespace, testNamespace)
+	}
+	if ct.Spec.WorkloadType != "statefulset" {
+		t.Errorf("WorkloadType = %q, want %q", ct.Spec.WorkloadType, "statefulset")
+	}
+	if len(ct.Spec.Resources) != 1 || ct.Spec.Resources[0].ID != "sts" {
+		t.Errorf("Resources mismatch: %+v", ct.Spec.Resources)
+	}
+}
+
+// ---- buildTraitsFromRelease tests ----
+
+func TestBuildTraitsFromRelease_NilTraits_ReturnsNil(t *testing.T) {
+	cr := &openchoreov1alpha1.ComponentRelease{}
+	traits := buildTraitsFromRelease(cr)
+	if traits != nil {
+		t.Errorf("expected nil, got %v", traits)
+	}
+}
+
+func TestBuildTraitsFromRelease_EmptySlice_ReturnsNil(t *testing.T) {
+	cr := &openchoreov1alpha1.ComponentRelease{
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Traits: []openchoreov1alpha1.ComponentReleaseTrait{},
+		},
+	}
+	traits := buildTraitsFromRelease(cr)
+	if traits != nil {
+		t.Errorf("expected nil for empty slice, got %v", traits)
+	}
+}
+
+func TestBuildTraitsFromRelease_WithTraits_NamespaceAndKindCorrect(t *testing.T) {
+	cr := &openchoreov1alpha1.ComponentRelease{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Traits: []openchoreov1alpha1.ComponentReleaseTrait{
+				{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "autoscaler"},
+				{Kind: openchoreov1alpha1.TraitRefKindClusterTrait, Name: "ingress"},
+			},
+		},
+	}
+
+	traits := buildTraitsFromRelease(cr)
+
+	if len(traits) != 2 {
+		t.Errorf("expected 2 traits, got %d", len(traits))
+	}
+	for _, trait := range traits {
+		if trait.Namespace != testNamespace {
+			t.Errorf("trait %q namespace = %q, want %q", trait.Name, trait.Namespace, testNamespace)
+		}
+		if trait.Kind == "" {
+			t.Errorf("trait %q should have Kind set in TypeMeta", trait.Name)
+		}
+		if trait.Name != "autoscaler" && trait.Name != "ingress" {
+			t.Errorf("unexpected trait name %q", trait.Name)
+		}
+	}
+	// Verify kind is preserved in TypeMeta
+	for _, trait := range traits {
+		switch trait.Name {
+		case "autoscaler":
+			if trait.Kind != string(openchoreov1alpha1.TraitRefKindTrait) {
+				t.Errorf("autoscaler Kind = %q, want %q", trait.Kind, openchoreov1alpha1.TraitRefKindTrait)
+			}
+		case "ingress":
+			if trait.Kind != string(openchoreov1alpha1.TraitRefKindClusterTrait) {
+				t.Errorf("ingress Kind = %q, want %q", trait.Kind, openchoreov1alpha1.TraitRefKindClusterTrait)
+			}
+		}
+	}
+}
+
+// ---- buildMetadataContext tests ----
+
+func TestBuildMetadataContext_FieldsPopulated(t *testing.T) {
+	r := newTestReconciler()
+
+	componentRelease := &openchoreov1alpha1.ComponentRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+		},
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseOwner{
+				ProjectName:   testProjectName,
+				ComponentName: testComponentName,
+			},
+		},
+	}
+	component := &openchoreov1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{
+			UID: "comp-uid-123",
+		},
+	}
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{
+			UID: "proj-uid-456",
+		},
+	}
+	dataPlane := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "my-dataplane",
+			UID:  "dp-uid-789",
+		},
+	}
+	environment := &openchoreov1alpha1.Environment{
+		ObjectMeta: metav1.ObjectMeta{
+			UID: "env-uid-101",
+		},
+	}
+	environmentName := testEnvStaging
+
+	ctx := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, environmentName)
+
+	if ctx.ComponentName != testComponentName {
+		t.Errorf("ComponentName = %q, want %q", ctx.ComponentName, testComponentName)
+	}
+	if ctx.ProjectName != testProjectName {
+		t.Errorf("ProjectName = %q, want %q", ctx.ProjectName, testProjectName)
+	}
+	if ctx.DataPlaneName != "my-dataplane" {
+		t.Errorf("DataPlaneName = %q, want %q", ctx.DataPlaneName, "my-dataplane")
+	}
+	if ctx.EnvironmentName != testEnvStaging {
+		t.Errorf("EnvironmentName = %q, want %q", ctx.EnvironmentName, testEnvStaging)
+	}
+	if ctx.ComponentUID != "comp-uid-123" {
+		t.Errorf("ComponentUID = %q, want %q", ctx.ComponentUID, "comp-uid-123")
+	}
+	if ctx.ProjectUID != "proj-uid-456" {
+		t.Errorf("ProjectUID = %q, want %q", ctx.ProjectUID, "proj-uid-456")
+	}
+	if ctx.DataPlaneUID != "dp-uid-789" {
+		t.Errorf("DataPlaneUID = %q, want %q", ctx.DataPlaneUID, "dp-uid-789")
+	}
+	if ctx.EnvironmentUID != "env-uid-101" {
+		t.Errorf("EnvironmentUID = %q, want %q", ctx.EnvironmentUID, "env-uid-101")
+	}
+	if ctx.Name == "" {
+		t.Error("Name should not be empty")
+	}
+	if ctx.Namespace == "" {
+		t.Error("Namespace should not be empty")
+	}
+	if len(ctx.Labels) == 0 {
+		t.Error("Labels should not be empty")
+	}
+	if ctx.Annotations == nil {
+		t.Error("Annotations should not be nil")
+	}
+	if len(ctx.PodSelectors) == 0 {
+		t.Error("PodSelectors should not be empty")
+	}
+}
+
+// ─── extractWorkloadType ───────────────────────────────────────────────────────
+
+func TestExtractWorkloadType_KnownTypes(t *testing.T) {
+	tests := []struct {
+		input string
+		want  WorkloadType
+	}{
+		{"deployment/http-service", WorkloadTypeDeployment},
+		{"statefulset/db", WorkloadTypeStatefulSet},
+		{"cronjob/nightly-task", WorkloadTypeCronJob},
+		{"job/migration", WorkloadTypeJob},
+		{"proxy/my-proxy", WorkloadTypeProxy},
+		{"", WorkloadTypeUnknown},
+		{"unknown/something", WorkloadTypeUnknown},
+		{"deployment", WorkloadTypeDeployment}, // no slash — first part only
+	}
+	for _, tc := range tests {
+		got := extractWorkloadType(tc.input)
+		if got != tc.want {
+			t.Errorf("extractWorkloadType(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
+// ─── isPrimaryWorkload ────────────────────────────────────────────────────────
+
+func TestIsPrimaryWorkload(t *testing.T) {
+	tests := []struct {
+		gvk          schema.GroupVersionKind
+		workloadType WorkloadType
+		want         bool
+	}{
+		{schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, WorkloadTypeDeployment, true},
+		{schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}, WorkloadTypeStatefulSet, true},
+		{schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "CronJob"}, WorkloadTypeCronJob, true},
+		{schema.GroupVersionKind{Group: "batch", Version: "v1", Kind: "Job"}, WorkloadTypeJob, true},
+		// wrong kind for workload type
+		{schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, WorkloadTypeStatefulSet, false},
+		// proxy has no primary workload
+		{schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, WorkloadTypeProxy, false},
+	}
+	for _, tc := range tests {
+		got := isPrimaryWorkload(tc.gvk, tc.workloadType)
+		if got != tc.want {
+			t.Errorf("isPrimaryWorkload(%v, %q) = %v, want %v", tc.gvk, tc.workloadType, got, tc.want)
+		}
+	}
+}
+
+// ─── categorizeResource ───────────────────────────────────────────────────────
+
+func TestCategorizeResource(t *testing.T) {
+	tests := []struct {
+		gvk          schema.GroupVersionKind
+		workloadType WorkloadType
+		want         ResourceCategory
+	}{
+		// Primary workload matches workloadType
+		{schema.GroupVersionKind{Group: "apps", Kind: "Deployment"}, WorkloadTypeDeployment, CategoryPrimaryWorkload},
+		{schema.GroupVersionKind{Group: "apps", Kind: "StatefulSet"}, WorkloadTypeStatefulSet, CategoryPrimaryWorkload},
+		{schema.GroupVersionKind{Group: "batch", Kind: "Job"}, WorkloadTypeJob, CategoryPrimaryWorkload},
+		{schema.GroupVersionKind{Group: "batch", Kind: "CronJob"}, WorkloadTypeCronJob, CategoryPrimaryWorkload},
+		// Supporting resources
+		{schema.GroupVersionKind{Group: "", Kind: "Service"}, WorkloadTypeDeployment, CategorySupporting},
+		{schema.GroupVersionKind{Group: "", Kind: "PersistentVolumeClaim"}, WorkloadTypeDeployment, CategorySupporting},
+		// No-status resources
+		{schema.GroupVersionKind{Group: "", Kind: "ConfigMap"}, WorkloadTypeDeployment, CategoryNoStatus},
+		{schema.GroupVersionKind{Group: "", Kind: "Secret"}, WorkloadTypeDeployment, CategoryNoStatus},
+		{schema.GroupVersionKind{Group: "", Kind: "ServiceAccount"}, WorkloadTypeDeployment, CategoryNoStatus},
+		// Operational resources
+		{schema.GroupVersionKind{Group: "autoscaling", Kind: "HorizontalPodAutoscaler"}, WorkloadTypeDeployment, CategoryOperational},
+		{schema.GroupVersionKind{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute"}, WorkloadTypeDeployment, CategoryOperational},
+		// Unknown → Operational
+		{schema.GroupVersionKind{Group: "custom.io", Kind: "FooBar"}, WorkloadTypeDeployment, CategoryOperational},
+	}
+	for _, tc := range tests {
+		got := categorizeResource(tc.gvk, tc.workloadType)
+		if got != tc.want {
+			t.Errorf("categorizeResource(%v, %q) = %q, want %q", tc.gvk, tc.workloadType, got, tc.want)
+		}
+	}
+}
+
+// ─── aggregateResourceStatus ─────────────────────────────────────────────────
+
+func TestAggregateResourceStatus(t *testing.T) {
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
+		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
+		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
+		{HealthStatus: openchoreov1alpha1.HealthStatusProgressing},
+		{HealthStatus: openchoreov1alpha1.HealthStatusDegraded},
+		{HealthStatus: openchoreov1alpha1.HealthStatusSuspended},
+		{HealthStatus: openchoreov1alpha1.HealthStatusUnknown},
+	}
+	got := aggregateResourceStatus(resources)
+	if got.Total != 6 {
+		t.Errorf("Total = %d, want 6", got.Total)
+	}
+	if got.Healthy != 2 {
+		t.Errorf("Healthy = %d, want 2", got.Healthy)
+	}
+	if got.Progressing != 1 {
+		t.Errorf("Progressing = %d, want 1", got.Progressing)
+	}
+	if got.Degraded != 1 {
+		t.Errorf("Degraded = %d, want 1", got.Degraded)
+	}
+	if got.Suspended != 1 {
+		t.Errorf("Suspended = %d, want 1", got.Suspended)
+	}
+	if got.Unknown != 1 {
+		t.Errorf("Unknown = %d, want 1", got.Unknown)
+	}
+
+	// Empty slice
+	empty := aggregateResourceStatus(nil)
+	if empty.Total != 0 {
+		t.Errorf("empty Total = %d, want 0", empty.Total)
+	}
+}
+
+// ─── evaluateDeploymentStatus ────────────────────────────────────────────────
+
+func deploymentResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
+		Group:        "apps",
+		Version:      "v1",
+		Kind:         "Deployment",
+		Name:         "test-deploy",
+		HealthStatus: status,
+	}
+}
+
+func serviceResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
+		Group:        "",
+		Version:      "v1",
+		Kind:         "Service",
+		Name:         "test-svc",
+		HealthStatus: status,
+	}
+}
+
+func hpaResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
+		Group:        "autoscaling",
+		Version:      "v2",
+		Kind:         "HorizontalPodAutoscaler",
+		Name:         "test-hpa",
+		HealthStatus: status,
+	}
+}
+
+func TestEvaluateDeploymentStatus_NoPrimaryWorkload(t *testing.T) {
+	ready, reason, _ := evaluateDeploymentStatus([]openchoreov1alpha1.RenderedManifestStatus{}, WorkloadTypeDeployment)
+	if ready {
+		t.Error("should not be ready when no primary workload")
+	}
+	if reason != string(ReasonResourcesProgressing) {
+		t.Errorf("reason = %q, want %q", reason, ReasonResourcesProgressing)
+	}
+}
+
+func TestEvaluateDeploymentStatus_PrimaryDegraded(t *testing.T) {
+	ready, reason, _ := evaluateDeploymentStatus(
+		[]openchoreov1alpha1.RenderedManifestStatus{deploymentResource(openchoreov1alpha1.HealthStatusDegraded)},
+		WorkloadTypeDeployment,
+	)
+	if ready {
+		t.Error("should not be ready when primary workload is degraded")
+	}
+	if reason != string(ReasonResourcesDegraded) {
+		t.Errorf("reason = %q, want %q", reason, ReasonResourcesDegraded)
+	}
+}
+
+func TestEvaluateDeploymentStatus_PrimaryProgressing(t *testing.T) {
+	ready, reason, _ := evaluateDeploymentStatus(
+		[]openchoreov1alpha1.RenderedManifestStatus{deploymentResource(openchoreov1alpha1.HealthStatusProgressing)},
+		WorkloadTypeDeployment,
+	)
+	if ready {
+		t.Error("should not be ready when primary workload is progressing")
+	}
+	if reason != string(ReasonResourcesProgressing) {
+		t.Errorf("reason = %q, want %q", reason, ReasonResourcesProgressing)
+	}
+}
+
+func TestEvaluateDeploymentStatus_PrimaryUnknown(t *testing.T) {
+	ready, reason, _ := evaluateDeploymentStatus(
+		[]openchoreov1alpha1.RenderedManifestStatus{deploymentResource(openchoreov1alpha1.HealthStatusUnknown)},
+		WorkloadTypeDeployment,
+	)
+	if ready {
+		t.Error("should not be ready when primary workload is unknown")
+	}
+	if reason != string(ReasonResourcesUnknown) {
+		t.Errorf("reason = %q, want %q", reason, ReasonResourcesUnknown)
+	}
+}
+
+func TestEvaluateDeploymentStatus_PrimarySuspended(t *testing.T) {
+	ready, reason, _ := evaluateDeploymentStatus(
+		[]openchoreov1alpha1.RenderedManifestStatus{deploymentResource(openchoreov1alpha1.HealthStatusSuspended)},
+		WorkloadTypeDeployment,
+	)
+	if !ready {
+		t.Error("suspended deployment should be considered ready (scaled to 0)")
+	}
+	if reason != string(ReasonReadyWithSuspendedResources) {
+		t.Errorf("reason = %q, want %q", reason, ReasonReadyWithSuspendedResources)
+	}
+}
+
+func TestEvaluateDeploymentStatus_PrimaryHealthy_AllHealthy(t *testing.T) {
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
+		deploymentResource(openchoreov1alpha1.HealthStatusHealthy),
+		serviceResource(openchoreov1alpha1.HealthStatusHealthy),
+	}
+	ready, reason, _ := evaluateDeploymentStatus(resources, WorkloadTypeDeployment)
+	if !ready {
+		t.Error("should be ready when primary and all supporting resources are healthy")
+	}
+	if reason != string(ReasonReady) {
+		t.Errorf("reason = %q, want %q", reason, ReasonReady)
+	}
+}
+
+func TestEvaluateDeploymentStatus_PrimaryHealthy_SupportingDegraded(t *testing.T) {
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
+		deploymentResource(openchoreov1alpha1.HealthStatusHealthy),
+		serviceResource(openchoreov1alpha1.HealthStatusDegraded),
+	}
+	ready, reason, _ := evaluateDeploymentStatus(resources, WorkloadTypeDeployment)
+	if ready {
+		t.Error("should not be ready when supporting resource is degraded")
+	}
+	if reason != string(ReasonResourcesDegraded) {
+		t.Errorf("reason = %q, want %q", reason, ReasonResourcesDegraded)
+	}
+}
+
+func TestEvaluateDeploymentStatus_PrimaryHealthy_OperationalDegraded(t *testing.T) {
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
+		deploymentResource(openchoreov1alpha1.HealthStatusHealthy),
+		hpaResource(openchoreov1alpha1.HealthStatusDegraded),
+	}
+	ready, reason, _ := evaluateDeploymentStatus(resources, WorkloadTypeDeployment)
+	if ready {
+		t.Error("should not be ready when operational resource is degraded")
+	}
+	if reason != string(ReasonResourcesDegraded) {
+		t.Errorf("reason = %q, want %q", reason, ReasonResourcesDegraded)
+	}
+}
+
+// ─── evaluateCronJobStatus ───────────────────────────────────────────────────
+
+func cronJobResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
+		Group:        "batch",
+		Version:      "v1",
+		Kind:         "CronJob",
+		Name:         "test-cj",
+		HealthStatus: status,
+	}
+}
+
+func TestEvaluateCronJobStatus_AllPathsAndNoPrimary(t *testing.T) {
+	tests := []struct {
+		status     openchoreov1alpha1.HealthStatus
+		wantReady  bool
+		wantReason string
+	}{
+		{openchoreov1alpha1.HealthStatusDegraded, false, string(ReasonResourcesDegraded)},
+		{openchoreov1alpha1.HealthStatusUnknown, false, string(ReasonResourcesUnknown)},
+		{openchoreov1alpha1.HealthStatusSuspended, true, string(ReasonCronJobSuspended)},
+		{openchoreov1alpha1.HealthStatusProgressing, true, string(ReasonCronJobScheduled)},
+		{openchoreov1alpha1.HealthStatusHealthy, true, string(ReasonCronJobScheduled)},
+	}
+	for _, tc := range tests {
+		ready, reason, _ := evaluateCronJobStatus(
+			[]openchoreov1alpha1.RenderedManifestStatus{cronJobResource(tc.status)},
+			WorkloadTypeCronJob,
+		)
+		if ready != tc.wantReady {
+			t.Errorf("status=%q: ready=%v, want %v", tc.status, ready, tc.wantReady)
+		}
+		if reason != tc.wantReason {
+			t.Errorf("status=%q: reason=%q, want %q", tc.status, reason, tc.wantReason)
+		}
+	}
+
+	// No primary CronJob
+	ready, reason, _ := evaluateCronJobStatus([]openchoreov1alpha1.RenderedManifestStatus{}, WorkloadTypeCronJob)
+	if ready || reason != string(ReasonResourcesProgressing) {
+		t.Errorf("no primary: ready=%v reason=%q, want false/%q", ready, reason, ReasonResourcesProgressing)
+	}
+}
+
+// ─── evaluateJobStatus ────────────────────────────────────────────────────────
+
+func jobResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
+		Group:        "batch",
+		Version:      "v1",
+		Kind:         "Job",
+		Name:         "test-job",
+		HealthStatus: status,
+	}
+}
+
+func TestEvaluateJobStatus_AllPathsAndNoPrimary(t *testing.T) {
+	tests := []struct {
+		status     openchoreov1alpha1.HealthStatus
+		wantReady  bool
+		wantReason string
+	}{
+		{openchoreov1alpha1.HealthStatusDegraded, false, string(ReasonJobFailed)},
+		{openchoreov1alpha1.HealthStatusUnknown, false, string(ReasonResourcesUnknown)},
+		{openchoreov1alpha1.HealthStatusProgressing, false, string(ReasonJobRunning)},
+		{openchoreov1alpha1.HealthStatusSuspended, false, string(ReasonJobRunning)},
+		{openchoreov1alpha1.HealthStatusHealthy, true, string(ReasonJobCompleted)},
+	}
+	for _, tc := range tests {
+		ready, reason, _ := evaluateJobStatus(
+			[]openchoreov1alpha1.RenderedManifestStatus{jobResource(tc.status)},
+			WorkloadTypeJob,
+		)
+		if ready != tc.wantReady {
+			t.Errorf("status=%q: ready=%v, want %v", tc.status, ready, tc.wantReady)
+		}
+		if reason != tc.wantReason {
+			t.Errorf("status=%q: reason=%q, want %q", tc.status, reason, tc.wantReason)
+		}
+	}
+
+	// No primary Job
+	ready, reason, _ := evaluateJobStatus([]openchoreov1alpha1.RenderedManifestStatus{}, WorkloadTypeJob)
+	if ready || reason != string(ReasonResourcesProgressing) {
+		t.Errorf("no primary: ready=%v reason=%q, want false/%q", ready, reason, ReasonResourcesProgressing)
+	}
+}
+
+// ─── evaluateGenericStatus ────────────────────────────────────────────────────
+
+func TestEvaluateGenericStatus(t *testing.T) {
+	// Empty → ready
+	ready, reason, _ := evaluateGenericStatus(nil)
+	if !ready || reason != string(ReasonReady) {
+		t.Errorf("empty: ready=%v reason=%q, want true/Ready", ready, reason)
+	}
+
+	// All healthy → ready
+	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.RenderedManifestStatus{
+		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
+		{HealthStatus: openchoreov1alpha1.HealthStatusSuspended},
+	})
+	if !ready || reason != string(ReasonReady) {
+		t.Errorf("all healthy: ready=%v reason=%q, want true/Ready", ready, reason)
+	}
+
+	// Any degraded → not ready
+	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.RenderedManifestStatus{
+		{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
+		{HealthStatus: openchoreov1alpha1.HealthStatusDegraded},
+	})
+	if ready || reason != string(ReasonResourcesDegraded) {
+		t.Errorf("degraded: ready=%v reason=%q, want false/Degraded", ready, reason)
+	}
+
+	// Any progressing → not ready
+	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.RenderedManifestStatus{
+		{HealthStatus: openchoreov1alpha1.HealthStatusProgressing},
+	})
+	if ready || reason != string(ReasonResourcesProgressing) {
+		t.Errorf("progressing: ready=%v reason=%q, want false/Progressing", ready, reason)
+	}
+
+	// Any unknown → not ready
+	ready, reason, _ = evaluateGenericStatus([]openchoreov1alpha1.RenderedManifestStatus{
+		{HealthStatus: openchoreov1alpha1.HealthStatusUnknown},
+	})
+	if ready || reason != string(ReasonResourcesUnknown) {
+		t.Errorf("unknown: ready=%v reason=%q, want false/Unknown", ready, reason)
+	}
+}
+
+// ─── convertToReleaseResources ───────────────────────────────────────────────
+
+func TestConvertToReleaseResources_EmptyInput(t *testing.T) {
+	r := newTestReconciler()
+	result, err := r.convertToReleaseResources(nil)
+	if err != nil {
+		t.Errorf("unexpected error for nil input: %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("expected empty result, got %d", len(result))
+	}
+}
+
+func TestConvertToReleaseResources_SingleResource(t *testing.T) {
+	r := newTestReconciler()
+	resources := []map[string]any{
+		{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata": map[string]any{
+				"name": "my-app",
+			},
+			"spec": map[string]any{
+				"replicas": 3,
+			},
+		},
+	}
+
+	result, err := r.convertToReleaseResources(resources)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(result))
+	}
+
+	// Verify ID is generated from kind and name
+	if result[0].ID != "deployment-my-app" {
+		t.Errorf("ID = %q, want %q", result[0].ID, "deployment-my-app")
+	}
+
+	// Verify Object contains valid JSON
+	if result[0].Object == nil || len(result[0].Object.Raw) == 0 {
+		t.Fatal("Object.Raw should not be nil or empty")
+	}
+
+	// Verify the JSON can be unmarshalled back
+	var decoded map[string]any
+	if err := json.Unmarshal(result[0].Object.Raw, &decoded); err != nil {
+		t.Fatalf("failed to unmarshal Object.Raw: %v", err)
+	}
+	if decoded["kind"] != "Deployment" {
+		t.Errorf("decoded kind = %q, want %q", decoded["kind"], "Deployment")
+	}
+}
+
+func TestConvertToReleaseResources_MultipleResources(t *testing.T) {
+	r := newTestReconciler()
+	resources := []map[string]any{
+		{
+			"apiVersion": "apps/v1",
+			"kind":       "Deployment",
+			"metadata":   map[string]any{"name": "deploy-1"},
+		},
+		{
+			"apiVersion": "v1",
+			"kind":       "Service",
+			"metadata":   map[string]any{"name": "svc-1"},
+		},
+		{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata":   map[string]any{"name": "cm-1"},
+		},
+	}
+
+	result, err := r.convertToReleaseResources(resources)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 3 {
+		t.Fatalf("expected 3 resources, got %d", len(result))
+	}
+
+	expectedIDs := []string{"deployment-deploy-1", "service-svc-1", "configmap-cm-1"}
+	for i, want := range expectedIDs {
+		if result[i].ID != want {
+			t.Errorf("result[%d].ID = %q, want %q", i, result[i].ID, want)
+		}
+	}
+}
+
+func TestConvertToReleaseResources_FallbackID(t *testing.T) {
+	r := newTestReconciler()
+	// Resource without kind or name → ID falls back to "resource-{index}"
+	resources := []map[string]any{
+		{"data": "something"},
+	}
+
+	result, err := r.convertToReleaseResources(resources)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result[0].ID != "resource-0" {
+		t.Errorf("ID = %q, want %q", result[0].ID, "resource-0")
+	}
+}
+
+// ─── setReleaseSyncedCondition ───────────────────────────────────────────────
+
+func makeComponentReleaseBindingForConditions() *openchoreov1alpha1.ComponentReleaseBinding {
+	return &openchoreov1alpha1.ComponentReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "test-rb",
+			Namespace:  "default",
+			Generation: 1,
+		},
+	}
+}
+
+func TestSetReleaseSyncedCondition_Created(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+
+	r.setReleaseSyncedCondition(rb, "my-release", controllerutil.OperationResultCreated, 3,
+		observabilityReleaseResult{managed: false, skipReason: "no observability resources to deploy"})
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
+	if cond == nil {
+		t.Fatal("ReleaseSynced condition should be set")
+	}
+	if cond.Status != metav1.ConditionTrue {
+		t.Errorf("Status = %q, want True", cond.Status)
+	}
+	if cond.Reason != string(ReasonReleaseCreated) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonReleaseCreated)
+	}
+	if !strings.Contains(cond.Message, "no observability resources to deploy") {
+		t.Errorf("Message = %q, want to contain skip reason", cond.Message)
+	}
+}
+
+func TestSetReleaseSyncedCondition_Updated(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+
+	r.setReleaseSyncedCondition(rb, "my-release", controllerutil.OperationResultUpdated, 5,
+		observabilityReleaseResult{managed: false, skipReason: "no observability resources to deploy"})
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
+	if cond == nil {
+		t.Fatal("ReleaseSynced condition should be set")
+	}
+	if cond.Status != metav1.ConditionTrue {
+		t.Errorf("Status = %q, want True", cond.Status)
+	}
+	if cond.Reason != string(ReasonReleaseCreated) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonReleaseCreated)
+	}
+}
+
+func TestSetReleaseSyncedCondition_None(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+
+	r.setReleaseSyncedCondition(rb, "my-release", controllerutil.OperationResultNone, 3,
+		observabilityReleaseResult{managed: false, skipReason: "no observability resources to deploy"})
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
+	if cond == nil {
+		t.Fatal("ReleaseSynced condition should be set")
+	}
+	if cond.Status != metav1.ConditionTrue {
+		t.Errorf("Status = %q, want True", cond.Status)
+	}
+	if cond.Reason != string(ReasonReleaseSynced) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonReleaseSynced)
+	}
+}
+
+func TestSetReleaseSyncedCondition_SkippedDueToPlaneLookupFailure(t *testing.T) {
+	r := newTestReconciler()
+
+	cases := []struct {
+		name string
+		op   controllerutil.OperationResult
+	}{
+		{name: "created", op: controllerutil.OperationResultCreated},
+		{name: "none", op: controllerutil.OperationResultNone},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rb := makeComponentReleaseBindingForConditions()
+			skipReason := `failed to resolve ObservabilityPlane: observabilityplanes.openchoreo.dev "default" not found`
+
+			r.setReleaseSyncedCondition(rb, "my-release", tc.op, 3,
+				observabilityReleaseResult{managed: false, skipReason: skipReason})
+
+			cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
+			if cond == nil {
+				t.Fatal("ReleaseSynced condition should be set")
+			}
+			if !strings.Contains(cond.Message, skipReason) {
+				t.Errorf("Message = %q, want to contain underlying skip reason %q", cond.Message, skipReason)
+			}
+			// Sanity check: the old generic boilerplate should no longer leak through.
+			if strings.Contains(cond.Message, "no ObservabilityPlaneRef or no resources") {
+				t.Errorf("Message = %q, must not contain the misleading boilerplate", cond.Message)
+			}
+		})
+	}
+}
+
+func TestSetReleaseSyncedCondition_WithObservability(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+
+	r.setReleaseSyncedCondition(rb, "my-release", controllerutil.OperationResultCreated, 3,
+		observabilityReleaseResult{
+			managed:       true,
+			releaseName:   "obs-release",
+			operation:     controllerutil.OperationResultCreated,
+			resourceCount: 2,
+		})
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
+	if cond == nil {
+		t.Fatal("ReleaseSynced condition should be set")
+	}
+	if cond.Status != metav1.ConditionTrue {
+		t.Errorf("Status = %q, want True", cond.Status)
+	}
+	if cond.Reason != string(ReasonReleaseCreated) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonReleaseCreated)
+	}
+	// Message should mention observability release
+	if cond.Message == "" {
+		t.Error("Message should not be empty")
+	}
+}
+
+func TestSetReleaseSyncedCondition_NoneWithObservability(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+
+	r.setReleaseSyncedCondition(rb, "my-release", controllerutil.OperationResultNone, 3,
+		observabilityReleaseResult{
+			managed:     true,
+			releaseName: "obs-release",
+			operation:   controllerutil.OperationResultNone,
+		})
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
+	if cond == nil {
+		t.Fatal("ReleaseSynced condition should be set")
+	}
+	if cond.Reason != string(ReasonReleaseSynced) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonReleaseSynced)
+	}
+}
+
+// ─── setReadyCondition ───────────────────────────────────────────────────────
+
+func setConditionOnRB(rb *openchoreov1alpha1.ComponentReleaseBinding, condType string, status metav1.ConditionStatus, reason, message string) {
+	for i := range rb.Status.Conditions {
+		if rb.Status.Conditions[i].Type == condType {
+			rb.Status.Conditions[i].Status = status
+			rb.Status.Conditions[i].Reason = reason
+			rb.Status.Conditions[i].Message = message
+			return
+		}
+	}
+	rb.Status.Conditions = append(rb.Status.Conditions, metav1.Condition{
+		Type:               condType,
+		Status:             status,
+		Reason:             reason,
+		Message:            message,
+		LastTransitionTime: metav1.Now(),
+	})
+}
+
+func TestSetReadyCondition_BothTrue_Ready(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+
+	setConditionOnRB(rb, string(ConditionReleaseSynced), metav1.ConditionTrue, string(ReasonReleaseSynced), "synced")
+	setConditionOnRB(rb, string(ConditionResourcesReady), metav1.ConditionTrue, string(ReasonReady), "ready")
+
+	r.setReadyCondition(rb)
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionReady))
+	if cond == nil {
+		t.Fatal("Ready condition should be set")
+	}
+	if cond.Status != metav1.ConditionTrue {
+		t.Errorf("Status = %q, want True", cond.Status)
+	}
+	if cond.Reason != string(ReasonReady) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonReady)
+	}
+}
+
+func TestSetReadyCondition_ReleaseSyncedFalse_NotReady(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+
+	setConditionOnRB(rb, string(ConditionReleaseSynced), metav1.ConditionFalse, string(ReasonComponentReleaseNotFound), "CR not found")
+	setConditionOnRB(rb, string(ConditionResourcesReady), metav1.ConditionTrue, string(ReasonReady), "ready")
+
+	r.setReadyCondition(rb)
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionReady))
+	if cond == nil {
+		t.Fatal("Ready condition should be set")
+	}
+	if cond.Status != metav1.ConditionFalse {
+		t.Errorf("Status = %q, want False", cond.Status)
+	}
+	if cond.Reason != string(ReasonComponentReleaseNotFound) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonComponentReleaseNotFound)
+	}
+}
+
+func TestSetReadyCondition_ResourcesReadyFalse_NotReady(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+
+	setConditionOnRB(rb, string(ConditionReleaseSynced), metav1.ConditionTrue, string(ReasonReleaseSynced), "synced")
+	setConditionOnRB(rb, string(ConditionResourcesReady), metav1.ConditionFalse, string(ReasonResourcesDegraded), "degraded")
+
+	r.setReadyCondition(rb)
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionReady))
+	if cond == nil {
+		t.Fatal("Ready condition should be set")
+	}
+	if cond.Status != metav1.ConditionFalse {
+		t.Errorf("Status = %q, want False", cond.Status)
+	}
+	if cond.Reason != string(ReasonResourcesDegraded) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonResourcesDegraded)
+	}
+}
+
+func TestSetReadyCondition_NoConditionsSet_NotReady(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+
+	r.setReadyCondition(rb)
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionReady))
+	if cond == nil {
+		t.Fatal("Ready condition should be set")
+	}
+	if cond.Status != metav1.ConditionFalse {
+		t.Errorf("Status = %q, want False", cond.Status)
+	}
+	if cond.Reason != string(ReasonReleaseSynced) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonReleaseSynced)
+	}
+}
+
+func TestSetReadyCondition_ReleaseSyncedTrue_NoResourcesReady_NotReady(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+
+	setConditionOnRB(rb, string(ConditionReleaseSynced), metav1.ConditionTrue, string(ReasonReleaseSynced), "synced")
+	// No ResourcesReady condition set
+
+	r.setReadyCondition(rb)
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionReady))
+	if cond == nil {
+		t.Fatal("Ready condition should be set")
+	}
+	if cond.Status != metav1.ConditionFalse {
+		t.Errorf("Status = %q, want False", cond.Status)
+	}
+	if cond.Reason != string(ReasonResourcesProgressing) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonResourcesProgressing)
+	}
+}
+
+// ─── setResourcesReadyStatus ─────────────────────────────────────────────────
+
+// testContext returns a context with a logger suitable for unit tests.
+func testContext() context.Context {
+	return log.IntoContext(context.Background(), zap.New(zap.WriteTo(nil)))
+}
+
+func TestSetResourcesReadyStatus_NoResources_Progressing(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+	release := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
+		// Status.Resources is empty
+	}
+	comp := &openchoreov1alpha1.Component{
+		Spec: openchoreov1alpha1.ComponentSpec{
+			ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "deployment/my-svc"},
+		},
+	}
+
+	err := r.setResourcesReadyStatus(testContext(), rb, release, comp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionResourcesReady))
+	if cond == nil {
+		t.Fatal("ResourcesReady condition should be set")
+	}
+	if cond.Status != metav1.ConditionFalse {
+		t.Errorf("Status = %q, want False", cond.Status)
+	}
+	if cond.Reason != string(ReasonResourcesProgressing) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonResourcesProgressing)
+	}
+}
+
+func TestSetResourcesReadyStatus_DeploymentHealthy(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+	release := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
+				{Group: "apps", Version: "v1", Kind: "Deployment", Name: "app", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
+			},
+		},
+	}
+	comp := &openchoreov1alpha1.Component{
+		Spec: openchoreov1alpha1.ComponentSpec{
+			ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "deployment/my-svc"},
+		},
+	}
+
+	err := r.setResourcesReadyStatus(testContext(), rb, release, comp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionResourcesReady))
+	if cond == nil {
+		t.Fatal("ResourcesReady condition should be set")
+	}
+	if cond.Status != metav1.ConditionTrue {
+		t.Errorf("Status = %q, want True", cond.Status)
+	}
+	if cond.Reason != string(ReasonReady) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonReady)
+	}
+}
+
+func TestSetResourcesReadyStatus_StatefulSetDegraded(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+	release := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
+				{Group: "apps", Version: "v1", Kind: "StatefulSet", Name: "db", HealthStatus: openchoreov1alpha1.HealthStatusDegraded},
+			},
+		},
+	}
+	comp := &openchoreov1alpha1.Component{
+		Spec: openchoreov1alpha1.ComponentSpec{
+			ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "statefulset/my-db"},
+		},
+	}
+
+	err := r.setResourcesReadyStatus(testContext(), rb, release, comp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionResourcesReady))
+	if cond == nil {
+		t.Fatal("ResourcesReady condition should be set")
+	}
+	if cond.Status != metav1.ConditionFalse {
+		t.Errorf("Status = %q, want False", cond.Status)
+	}
+	if cond.Reason != string(ReasonResourcesDegraded) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonResourcesDegraded)
+	}
+}
+
+func TestSetResourcesReadyStatus_CronJobScheduled(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+	release := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
+				{Group: "batch", Version: "v1", Kind: "CronJob", Name: "nightly", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
+			},
+		},
+	}
+	comp := &openchoreov1alpha1.Component{
+		Spec: openchoreov1alpha1.ComponentSpec{
+			ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "cronjob/nightly"},
+		},
+	}
+
+	err := r.setResourcesReadyStatus(testContext(), rb, release, comp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionResourcesReady))
+	if cond == nil {
+		t.Fatal("ResourcesReady condition should be set")
+	}
+	if cond.Status != metav1.ConditionTrue {
+		t.Errorf("Status = %q, want True", cond.Status)
+	}
+	if cond.Reason != string(ReasonCronJobScheduled) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonCronJobScheduled)
+	}
+}
+
+func TestSetResourcesReadyStatus_JobCompleted(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+	release := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
+				{Group: "batch", Version: "v1", Kind: "Job", Name: "migration", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
+			},
+		},
+	}
+	comp := &openchoreov1alpha1.Component{
+		Spec: openchoreov1alpha1.ComponentSpec{
+			ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "job/migration"},
+		},
+	}
+
+	err := r.setResourcesReadyStatus(testContext(), rb, release, comp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionResourcesReady))
+	if cond == nil {
+		t.Fatal("ResourcesReady condition should be set")
+	}
+	if cond.Status != metav1.ConditionTrue {
+		t.Errorf("Status = %q, want True", cond.Status)
+	}
+	if cond.Reason != string(ReasonJobCompleted) {
+		t.Errorf("Reason = %q, want %q", cond.Reason, ReasonJobCompleted)
+	}
+}
+
+func TestSetResourcesReadyStatus_ProxyGenericEvaluation(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+	release := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
+				{Group: "", Version: "v1", Kind: "Service", Name: "proxy-svc", HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
+			},
+		},
+	}
+	comp := &openchoreov1alpha1.Component{
+		Spec: openchoreov1alpha1.ComponentSpec{
+			ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "proxy/my-proxy"},
+		},
+	}
+
+	err := r.setResourcesReadyStatus(testContext(), rb, release, comp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionResourcesReady))
+	if cond == nil {
+		t.Fatal("ResourcesReady condition should be set")
+	}
+	if cond.Status != metav1.ConditionTrue {
+		t.Errorf("Status = %q, want True", cond.Status)
+	}
+}
+
+func TestSetResourcesReadyStatus_UnknownWorkloadType(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeComponentReleaseBindingForConditions()
+	release := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
+				{HealthStatus: openchoreov1alpha1.HealthStatusHealthy},
+			},
+		},
+	}
+	comp := &openchoreov1alpha1.Component{
+		Spec: openchoreov1alpha1.ComponentSpec{
+			ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "unknown/something"},
+		},
+	}
+
+	err := r.setResourcesReadyStatus(testContext(), rb, release, comp)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	cond := findCondition(rb.Status.Conditions, string(ConditionResourcesReady))
+	if cond == nil {
+		t.Fatal("ResourcesReady condition should be set")
+	}
+	// Generic evaluation: single healthy → ready
+	if cond.Status != metav1.ConditionTrue {
+		t.Errorf("Status = %q, want True", cond.Status)
+	}
+}
+
+// ─── evaluateStatefulSetStatus ───────────────────────────────────────────────
+
+func statefulSetResource(status openchoreov1alpha1.HealthStatus) openchoreov1alpha1.RenderedManifestStatus {
+	return openchoreov1alpha1.RenderedManifestStatus{
+		Group:        "apps",
+		Version:      "v1",
+		Kind:         "StatefulSet",
+		Name:         "test-sts",
+		HealthStatus: status,
+	}
+}
+
+func TestEvaluateStatefulSetStatus_AllPathsAndNoPrimary(t *testing.T) {
+	tests := []struct {
+		status     openchoreov1alpha1.HealthStatus
+		wantReady  bool
+		wantReason string
+	}{
+		{openchoreov1alpha1.HealthStatusDegraded, false, string(ReasonResourcesDegraded)},
+		{openchoreov1alpha1.HealthStatusProgressing, false, string(ReasonResourcesProgressing)},
+		{openchoreov1alpha1.HealthStatusUnknown, false, string(ReasonResourcesUnknown)},
+		{openchoreov1alpha1.HealthStatusSuspended, true, string(ReasonReadyWithSuspendedResources)},
+		{openchoreov1alpha1.HealthStatusHealthy, true, string(ReasonReady)},
+	}
+	for _, tc := range tests {
+		ready, reason, _ := evaluateStatefulSetStatus(
+			[]openchoreov1alpha1.RenderedManifestStatus{statefulSetResource(tc.status)},
+			WorkloadTypeStatefulSet,
+		)
+		if ready != tc.wantReady {
+			t.Errorf("status=%q: ready=%v, want %v", tc.status, ready, tc.wantReady)
+		}
+		if reason != tc.wantReason {
+			t.Errorf("status=%q: reason=%q, want %q", tc.status, reason, tc.wantReason)
+		}
+	}
+
+	// No primary StatefulSet
+	ready, reason, _ := evaluateStatefulSetStatus([]openchoreov1alpha1.RenderedManifestStatus{}, WorkloadTypeStatefulSet)
+	if ready || reason != string(ReasonResourcesProgressing) {
+		t.Errorf("no primary: ready=%v reason=%q, want false/%q", ready, reason, ReasonResourcesProgressing)
+	}
+}
+
+func TestEvaluateStatefulSetStatus_PrimaryHealthy_SupportingDegraded(t *testing.T) {
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
+		statefulSetResource(openchoreov1alpha1.HealthStatusHealthy),
+		serviceResource(openchoreov1alpha1.HealthStatusDegraded),
+	}
+	ready, reason, _ := evaluateStatefulSetStatus(resources, WorkloadTypeStatefulSet)
+	if ready {
+		t.Error("should not be ready when supporting resource is degraded")
+	}
+	if reason != string(ReasonResourcesDegraded) {
+		t.Errorf("reason = %q, want %q", reason, ReasonResourcesDegraded)
+	}
+}
+
+func TestEvaluateStatefulSetStatus_PrimaryHealthy_AllHealthy(t *testing.T) {
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
+		statefulSetResource(openchoreov1alpha1.HealthStatusHealthy),
+		serviceResource(openchoreov1alpha1.HealthStatusHealthy),
+	}
+	ready, reason, _ := evaluateStatefulSetStatus(resources, WorkloadTypeStatefulSet)
+	if !ready {
+		t.Error("should be ready when primary and all supporting resources are healthy")
+	}
+	if reason != string(ReasonReady) {
+		t.Errorf("reason = %q, want %q", reason, ReasonReady)
+	}
+}
+
+func TestEvaluateStatefulSetStatus_PrimaryHealthy_OperationalDegraded(t *testing.T) {
+	resources := []openchoreov1alpha1.RenderedManifestStatus{
+		statefulSetResource(openchoreov1alpha1.HealthStatusHealthy),
+		hpaResource(openchoreov1alpha1.HealthStatusDegraded),
+	}
+	ready, reason, _ := evaluateStatefulSetStatus(resources, WorkloadTypeStatefulSet)
+	if ready {
+		t.Error("should not be ready when operational resource is degraded")
+	}
+	if reason != string(ReasonResourcesDegraded) {
+		t.Errorf("reason = %q, want %q", reason, ReasonResourcesDegraded)
+	}
+}
+
+// ─── buildMetadataContext label content (improved) ───────────────────────────
+
+func TestBuildMetadataContext_LabelContent(t *testing.T) {
+	r := newTestReconciler()
+
+	namespaceName := "test-ns"
+	projectName := "test-proj"
+	componentName := "test-comp"
+	environmentName := "test-env"
+	componentUID := "comp-uid-aaa"
+	projectUID := "proj-uid-bbb"
+	environmentUID := "env-uid-ccc"
+	dataPlaneName := "test-dp"
+
+	componentRelease := &openchoreov1alpha1.ComponentRelease{
+		ObjectMeta: metav1.ObjectMeta{Namespace: namespaceName},
+		Spec: openchoreov1alpha1.ComponentReleaseSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseOwner{
+				ProjectName:   projectName,
+				ComponentName: componentName,
+			},
+		},
+	}
+	component := &openchoreov1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{UID: "comp-uid-aaa"},
+	}
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{UID: "proj-uid-bbb"},
+	}
+	dataPlane := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: dataPlaneName, UID: "dp-uid-ddd"},
+	}
+	environment := &openchoreov1alpha1.Environment{
+		ObjectMeta: metav1.ObjectMeta{UID: "env-uid-ccc"},
+	}
+
+	mctx := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, environmentName)
+
+	// Verify Labels contain specific key-value pairs
+	expectedLabels := map[string]string{
+		labels.LabelKeyNamespaceName:   namespaceName,
+		labels.LabelKeyProjectName:     projectName,
+		labels.LabelKeyComponentName:   componentName,
+		labels.LabelKeyEnvironmentName: environmentName,
+		labels.LabelKeyComponentUID:    componentUID,
+		labels.LabelKeyProjectUID:      projectUID,
+		labels.LabelKeyEnvironmentUID:  environmentUID,
+	}
+	for k, v := range expectedLabels {
+		got, ok := mctx.Labels[k]
+		if !ok {
+			t.Errorf("Labels missing key %q", k)
+		} else if got != v {
+			t.Errorf("Labels[%q] = %q, want %q", k, got, v)
+		}
+	}
+
+	if len(mctx.Labels) != len(expectedLabels) {
+		t.Errorf("Labels has %d entries, want %d", len(mctx.Labels), len(expectedLabels))
+	}
+
+	// Verify PodSelectors contain the same specific key-value pairs
+	for k, v := range expectedLabels {
+		got, ok := mctx.PodSelectors[k]
+		if !ok {
+			t.Errorf("PodSelectors missing key %q", k)
+		} else if got != v {
+			t.Errorf("PodSelectors[%q] = %q, want %q", k, got, v)
+		}
+	}
+
+	if len(mctx.PodSelectors) != len(expectedLabels) {
+		t.Errorf("PodSelectors has %d entries, want %d", len(mctx.PodSelectors), len(expectedLabels))
+	}
+
+	// Verify Annotations is non-nil but empty
+	if mctx.Annotations == nil {
+		t.Error("Annotations should not be nil")
+	}
+	if len(mctx.Annotations) != 0 {
+		t.Errorf("Annotations should be empty, got %d entries", len(mctx.Annotations))
+	}
+
+	// Verify ComponentNamespace is set correctly
+	if mctx.ComponentNamespace != namespaceName {
+		t.Errorf("ComponentNamespace = %q, want %q", mctx.ComponentNamespace, namespaceName)
+	}
+}
+
+// findCondition is a test helper that looks up a condition by type.
+func findCondition(conditions []metav1.Condition, condType string) *metav1.Condition {
+	for i := range conditions {
+		if conditions[i].Type == condType {
+			return &conditions[i]
+		}
+	}
+	return nil
+}
+
+func TestBuildConnectionTargets(t *testing.T) {
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ComponentReleaseBindingSpec{
+			Owner:       openchoreov1alpha1.ComponentReleaseBindingOwner{ProjectName: testProjectName, ComponentName: testComponentName},
+			Environment: testEnvStaging,
+		},
+	}
+
+	t.Run("no connections returns nil", func(t *testing.T) {
+		targets := buildConnectionTargets(rb, nil)
+		if targets != nil {
+			t.Errorf("expected nil, got %v", targets)
+		}
+	})
+
+	t.Run("builds targets with explicit project", func(t *testing.T) {
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{Project: "other-proj", Component: "svc-a", Name: "api", Visibility: string(openchoreov1alpha1.EndpointVisibilityProject)},
+		}
+		targets := buildConnectionTargets(rb, conns)
+		if len(targets) != 1 {
+			t.Fatalf("expected 1 target, got %d", len(targets))
+		}
+		if targets[0].Project != "other-proj" {
+			t.Errorf("expected project other-proj, got %s", targets[0].Project)
+		}
+		if targets[0].Namespace != testNamespace {
+			t.Errorf("expected namespace %s, got %s", testNamespace, targets[0].Namespace)
+		}
+		if targets[0].Environment != testEnvStaging {
+			t.Errorf("expected environment %s, got %s", testEnvStaging, targets[0].Environment)
+		}
+	})
+
+	t.Run("defaults project to owner", func(t *testing.T) {
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{Component: "svc-a", Name: "api", Visibility: string(openchoreov1alpha1.EndpointVisibilityProject)},
+		}
+		targets := buildConnectionTargets(rb, conns)
+		if len(targets) != 1 {
+			t.Fatalf("expected 1 target, got %d", len(targets))
+		}
+		if targets[0].Project != testProjectName {
+			t.Errorf("expected project %s, got %s", testProjectName, targets[0].Project)
+		}
+	})
+}
+
+func TestAllConnectionsResolved(t *testing.T) {
+	makeRB := func(resolved []openchoreov1alpha1.ResolvedConnection) *openchoreov1alpha1.ComponentReleaseBinding {
+		return &openchoreov1alpha1.ComponentReleaseBinding{
+			Spec: openchoreov1alpha1.ComponentReleaseBindingSpec{
+				Owner: openchoreov1alpha1.ComponentReleaseBindingOwner{ProjectName: testProjectName},
+			},
+			Status: openchoreov1alpha1.ComponentReleaseBindingStatus{
+				ResolvedConnections: resolved,
+			},
+		}
+	}
+
+	t.Run("no connections is resolved", func(t *testing.T) {
+		rb := makeRB(nil)
+		if !allConnectionsResolved(rb, nil) {
+			t.Error("expected true for no connections")
+		}
+	})
+
+	t.Run("all resolved", func(t *testing.T) {
+		rb := makeRB([]openchoreov1alpha1.ResolvedConnection{
+			{Project: testProjectName, Component: "svc-a", Endpoint: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+				URL: openchoreov1alpha1.EndpointURL{Host: "svc-a.default.svc.cluster.local", Port: 8080}},
+		})
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{Component: "svc-a", Name: "api", Visibility: string(openchoreov1alpha1.EndpointVisibilityProject)},
+		}
+		if !allConnectionsResolved(rb, conns) {
+			t.Error("expected true when all resolved")
+		}
+	})
+
+	t.Run("missing resolution", func(t *testing.T) {
+		rb := makeRB(nil)
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{Component: "svc-a", Name: "api", Visibility: string(openchoreov1alpha1.EndpointVisibilityProject)},
+		}
+		if allConnectionsResolved(rb, conns) {
+			t.Error("expected false when no resolutions")
+		}
+	})
+}
+
+func TestSetConnectionsCondition(t *testing.T) {
+	t.Run("no connections sets NoConnections", func(t *testing.T) {
+		rb := &openchoreov1alpha1.ComponentReleaseBinding{}
+		setConnectionsCondition(rb, true)
+		cond := findCondition(rb.Status.Conditions, string(ConditionConnectionsResolved))
+		if cond == nil {
+			t.Fatal("expected ConnectionsResolved condition")
+		}
+		if cond.Reason != string(ReasonNoConnections) {
+			t.Errorf("expected reason NoConnections, got %s", cond.Reason)
+		}
+	})
+
+	t.Run("all resolved", func(t *testing.T) {
+		rb := &openchoreov1alpha1.ComponentReleaseBinding{
+			Status: openchoreov1alpha1.ComponentReleaseBindingStatus{
+				ConnectionTargets: []openchoreov1alpha1.ConnectionTarget{
+					{Project: testProjectName, Component: "svc-a", Endpoint: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+				},
+				ResolvedConnections: []openchoreov1alpha1.ResolvedConnection{
+					{Project: testProjectName, Component: "svc-a", Endpoint: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+				},
+			},
+		}
+		setConnectionsCondition(rb, true)
+		cond := findCondition(rb.Status.Conditions, string(ConditionConnectionsResolved))
+		if cond == nil {
+			t.Fatal("expected ConnectionsResolved condition")
+		}
+		if cond.Status != metav1.ConditionTrue {
+			t.Errorf("expected True, got %s", cond.Status)
+		}
+	})
+
+	t.Run("pending connections", func(t *testing.T) {
+		rb := &openchoreov1alpha1.ComponentReleaseBinding{
+			Status: openchoreov1alpha1.ComponentReleaseBindingStatus{
+				ConnectionTargets: []openchoreov1alpha1.ConnectionTarget{
+					{Project: testProjectName, Component: "svc-a", Endpoint: "api", Visibility: openchoreov1alpha1.EndpointVisibilityProject},
+				},
+				PendingConnections: []openchoreov1alpha1.PendingConnection{
+					{Project: testProjectName, Component: "svc-a", Endpoint: "api", Reason: "not found"},
+				},
+			},
+		}
+		setConnectionsCondition(rb, false)
+		cond := findCondition(rb.Status.Conditions, string(ConditionConnectionsResolved))
+		if cond == nil {
+			t.Fatal("expected ConnectionsResolved condition")
+		}
+		if cond.Status != metav1.ConditionFalse {
+			t.Errorf("expected False, got %s", cond.Status)
+		}
+		if cond.Reason != string(ReasonConnectionsPending) {
+			t.Errorf("expected reason ConnectionsPending, got %s", cond.Reason)
+		}
+	})
+}
+
+func TestBuildConnectionItems(t *testing.T) {
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ComponentReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseBindingOwner{ProjectName: testProjectName},
+		},
+		Status: openchoreov1alpha1.ComponentReleaseBindingStatus{
+			ResolvedConnections: []openchoreov1alpha1.ResolvedConnection{
+				{
+					Namespace: testNamespace, Project: testProjectName, Component: "svc-a", Endpoint: "api",
+					Visibility: openchoreov1alpha1.EndpointVisibilityProject,
+					URL:        openchoreov1alpha1.EndpointURL{Scheme: "http", Host: "svc-a.ns.svc.cluster.local", Port: 8080, Path: "/v1"},
+				},
+			},
+		},
+	}
+
+	t.Run("all env binding fields", func(t *testing.T) {
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{
+				Component:  "svc-a",
+				Name:       "api",
+				Visibility: string(openchoreov1alpha1.EndpointVisibilityProject),
+				EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
+					Address:  "SVC_A_ADDRESS",
+					Host:     "SVC_A_HOST",
+					Port:     "SVC_A_PORT",
+					BasePath: "SVC_A_PATH",
+				},
+			},
+		}
+
+		items := buildConnectionItems(rb, conns)
+		if len(items) != 1 {
+			t.Fatalf("expected 1 item, got %d", len(items))
+		}
+
+		expected := map[string]string{
+			"SVC_A_ADDRESS": "http://svc-a.ns.svc.cluster.local:8080/v1",
+			"SVC_A_HOST":    "svc-a.ns.svc.cluster.local",
+			"SVC_A_PORT":    "8080",
+			"SVC_A_PATH":    "/v1",
+		}
+		if len(items[0].EnvVars) != len(expected) {
+			t.Fatalf("expected %d env vars, got %d", len(expected), len(items[0].EnvVars))
+		}
+		for _, ev := range items[0].EnvVars {
+			want, ok := expected[ev.Name]
+			if !ok {
+				t.Errorf("unexpected env var %q", ev.Name)
+				continue
+			}
+			if ev.Value != want {
+				t.Errorf("env var %s: got %q, want %q", ev.Name, ev.Value, want)
+			}
+		}
+	})
+
+	t.Run("address only", func(t *testing.T) {
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{
+				Component:  "svc-a",
+				Name:       "api",
+				Visibility: string(openchoreov1alpha1.EndpointVisibilityProject),
+				EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
+					Address: "SVC_A_ADDRESS",
+				},
+			},
+		}
+
+		items := buildConnectionItems(rb, conns)
+		if len(items) != 1 {
+			t.Fatalf("expected 1 item, got %d", len(items))
+		}
+		if len(items[0].EnvVars) != 1 {
+			t.Fatalf("expected 1 env var, got %d", len(items[0].EnvVars))
+		}
+		if items[0].EnvVars[0].Name != "SVC_A_ADDRESS" {
+			t.Errorf("expected name SVC_A_ADDRESS, got %s", items[0].EnvVars[0].Name)
+		}
+	})
+
+	t.Run("address omitted", func(t *testing.T) {
+		conns := []openchoreov1alpha1.WorkloadConnection{
+			{
+				Component:  "svc-a",
+				Name:       "api",
+				Visibility: string(openchoreov1alpha1.EndpointVisibilityProject),
+				EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{
+					Host: "SVC_A_HOST",
+					Port: "SVC_A_PORT",
+				},
+			},
+		}
+
+		items := buildConnectionItems(rb, conns)
+		if len(items) != 1 {
+			t.Fatalf("expected 1 item, got %d", len(items))
+		}
+		for _, ev := range items[0].EnvVars {
+			if ev.Name == "" {
+				t.Error("env var with empty name should not be emitted")
+			}
+		}
+		if len(items[0].EnvVars) != 2 {
+			t.Fatalf("expected 2 env vars (host, port), got %d", len(items[0].EnvVars))
+		}
+	})
+}
+
+func TestResolveURLForVisibility(t *testing.T) {
+	ep := openchoreov1alpha1.EndpointURLStatus{
+		Name: "api",
+		ServiceURL: &openchoreov1alpha1.EndpointURL{
+			Scheme: "http", Host: "svc.ns.svc.cluster.local", Port: 8080,
+		},
+		ExternalURLs: &openchoreov1alpha1.EndpointGatewayURLs{
+			HTTPS: &openchoreov1alpha1.EndpointURL{Scheme: "https", Host: "api.example.com", Port: 443},
+		},
+		InternalURLs: &openchoreov1alpha1.EndpointGatewayURLs{
+			HTTP: &openchoreov1alpha1.EndpointURL{Scheme: "http", Host: "api.internal", Port: 80},
+		},
+	}
+
+	t.Run("project visibility returns service URL", func(t *testing.T) {
+		url := resolveURLForVisibility(ep, openchoreov1alpha1.EndpointVisibilityProject)
+		if url == nil || url.Host != "svc.ns.svc.cluster.local" {
+			t.Errorf("expected service URL, got %v", url)
+		}
+	})
+
+	t.Run("namespace visibility returns service URL", func(t *testing.T) {
+		url := resolveURLForVisibility(ep, openchoreov1alpha1.EndpointVisibilityNamespace)
+		if url == nil || url.Host != "svc.ns.svc.cluster.local" {
+			t.Errorf("expected service URL, got %v", url)
+		}
+	})
+
+	t.Run("external visibility returns external HTTPS URL", func(t *testing.T) {
+		url := resolveURLForVisibility(ep, openchoreov1alpha1.EndpointVisibilityExternal)
+		if url == nil || url.Host != "api.example.com" {
+			t.Errorf("expected external URL, got %v", url)
+		}
+	})
+
+	t.Run("no service URL returns nil for project", func(t *testing.T) {
+		noServiceEP := openchoreov1alpha1.EndpointURLStatus{Name: "api"}
+		url := resolveURLForVisibility(noServiceEP, openchoreov1alpha1.EndpointVisibilityProject)
+		if url != nil {
+			t.Errorf("expected nil, got %v", url)
+		}
+	})
+}
+
+// ---- collectSecretReferences tests ----
+
+func newSecretReferenceTestReconciler(t *testing.T, objs ...client.Object) *Reconciler {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, openchoreov1alpha1.AddToScheme(scheme))
+	builder := fake.NewClientBuilder().WithScheme(scheme)
+	if len(objs) > 0 {
+		builder = builder.WithObjects(objs...)
+	}
+	return &Reconciler{Client: builder.Build(), Scheme: scheme}
+}
+
+func makeSecretReference(name string, keys ...string) *openchoreov1alpha1.SecretReference {
+	data := make([]openchoreov1alpha1.SecretDataSource, 0, len(keys))
+	for _, k := range keys {
+		data = append(data, openchoreov1alpha1.SecretDataSource{
+			SecretKey: k,
+			RemoteRef: openchoreov1alpha1.RemoteReference{Key: "remote/" + k},
+		})
+	}
+	return &openchoreov1alpha1.SecretReference{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
+		Spec: openchoreov1alpha1.SecretReferenceSpec{
+			Data: data,
+		},
+	}
+}
+
+func makeWorkloadWithEnvSecret(envKey, refName, refKey string) *openchoreov1alpha1.Workload {
+	return &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: envKey,
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: refName, Key: refKey},
+						},
+					}},
+				},
+			},
+		},
+	}
+}
+
+func makeWorkloadWithFileSecret(fileKey, mountPath, refName, refKey string) *openchoreov1alpha1.Workload {
+	return &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Files: []openchoreov1alpha1.FileVar{{
+						Key:       fileKey,
+						MountPath: mountPath,
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: refName, Key: refKey},
+						},
+					}},
+				},
+			},
+		},
+	}
+}
+
+func TestCollectSecretReferences_NilWorkloadNoOverrides(t *testing.T) {
+	r := newSecretReferenceTestReconciler(t)
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+	}
+
+	refs, err := r.collectSecretReferences(context.Background(), nil, rb)
+	require.NoError(t, err)
+	assert.Empty(t, refs)
+}
+
+func TestCollectSecretReferences_WorkloadEnv_KeyFound(t *testing.T) {
+	sr := makeSecretReference("db-secret", "password", "username")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := makeWorkloadWithEnvSecret("DB_PASSWORD", "db-secret", "password")
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	require.Len(t, refs, 1)
+	assert.NotNil(t, refs["db-secret"])
+}
+
+func TestCollectSecretReferences_WorkloadEnv_KeyMissing(t *testing.T) {
+	sr := makeSecretReference("db-secret", "password")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := makeWorkloadWithEnvSecret("DB_USERNAME", "db-secret", "username")
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	_, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, `key "username"`)
+	assert.Contains(t, msg, `SecretReference "db-secret"`)
+	assert.Contains(t, msg, "password")
+}
+
+func TestCollectSecretReferences_WorkloadFile_KeyMissing(t *testing.T) {
+	sr := makeSecretReference("tls-secret", "tls.crt")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := makeWorkloadWithFileSecret("tls.key", "/etc/tls/key", "tls-secret", "tls.key")
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	_, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, `key "tls.key"`)
+	assert.Contains(t, msg, `SecretReference "tls-secret"`)
+	assert.Contains(t, msg, "tls.crt")
+}
+
+func TestCollectSecretReferences_ComponentReleaseBindingOverrideEnv_KeyMissing(t *testing.T) {
+	sr := makeSecretReference("api-secret", "token")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ComponentReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: "API_KEY",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "api-secret", Key: "api-key"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	_, err := r.collectSecretReferences(context.Background(), nil, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, `key "api-key"`)
+	assert.Contains(t, msg, `SecretReference "api-secret"`)
+}
+
+func TestCollectSecretReferences_ComponentReleaseBindingOverrideFile_KeyMissing(t *testing.T) {
+	sr := makeSecretReference("cfg-secret", "app.conf")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ComponentReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Files: []openchoreov1alpha1.FileVar{{
+						Key:       "secret.conf",
+						MountPath: "/etc/cfg/secret.conf",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "cfg-secret", Key: "secret.conf"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	_, err := r.collectSecretReferences(context.Background(), nil, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, `key "secret.conf"`)
+	assert.Contains(t, msg, `SecretReference "cfg-secret"`)
+}
+
+func TestCollectSecretReferences_SecretReferenceNotFound(t *testing.T) {
+	r := newSecretReferenceTestReconciler(t) // no objects
+
+	wl := makeWorkloadWithEnvSecret("TOKEN", "missing-secret", "token")
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	_, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.Error(t, err)
+	msg := err.Error()
+	assert.Contains(t, msg, "failed to get SecretReference")
+	assert.Contains(t, msg, `"missing-secret"`)
+}
+
+func TestCollectSecretReferences_DuplicateRefsCachedAndValidated(t *testing.T) {
+	sr := makeSecretReference("shared-secret", "key-a", "key-b")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{
+						{
+							Key: "A",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "shared-secret", Key: "key-a"},
+							},
+						},
+						{
+							Key: "B",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "shared-secret", Key: "key-b"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	assert.Len(t, refs, 1)
+}
+
+func TestCollectSecretReferences_CachedRefStillValidatesKey(t *testing.T) {
+	sr := makeSecretReference("shared-secret", "key-a")
+	r := newSecretReferenceTestReconciler(t, sr)
+
+	wl := &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{
+						{
+							Key: "A",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "shared-secret", Key: "key-a"},
+							},
+						},
+						{
+							Key: "B",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								// Second ref to same SecretReference but requests a key that does not exist.
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "shared-secret", Key: "key-b"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	_, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `key "key-b"`)
+}
+
+func TestCollectSecretReferences_EmptyRefNameSkipped(t *testing.T) {
+	r := newSecretReferenceTestReconciler(t) // no objects, so any Get would fail
+
+	wl := &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: "X",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "", Key: "anything"},
+						},
+					}},
+				},
+			},
+		},
+	}
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	assert.Empty(t, refs)
+}
+
+func TestCollectSecretReferences_OverriddenEnvSkipsWorkloadSecret(t *testing.T) {
+	// Workload references "wl-secret" for env key "DB_PASSWORD", but releaseBinding
+	// overrides the same env key with "rb-secret". The workload's "wl-secret" should
+	// NOT be fetched — only "rb-secret" from the override.
+	rbSecret := makeSecretReference("rb-secret", "password")
+	r := newSecretReferenceTestReconciler(t, rbSecret) // wl-secret intentionally absent
+
+	wl := makeWorkloadWithEnvSecret("DB_PASSWORD", "wl-secret", "password")
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ComponentReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: "DB_PASSWORD",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "rb-secret", Key: "password"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	require.Len(t, refs, 1)
+	assert.NotNil(t, refs["rb-secret"])
+	assert.Nil(t, refs["wl-secret"], "wl-secret should not have been fetched since it was overridden")
+}
+
+func TestCollectSecretReferences_OverriddenFileSkipsWorkloadSecret(t *testing.T) {
+	// Same override logic but for file entries.
+	rbSecret := makeSecretReference("rb-file-secret", "cert.pem")
+	r := newSecretReferenceTestReconciler(t, rbSecret) // wl-file-secret intentionally absent
+
+	wl := makeWorkloadWithFileSecret("tls-cert", "/etc/tls/cert.pem", "wl-file-secret", "cert.pem")
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ComponentReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Files: []openchoreov1alpha1.FileVar{{
+						Key:       "tls-cert",
+						MountPath: "/etc/tls/cert.pem",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "rb-file-secret", Key: "cert.pem"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	require.Len(t, refs, 1)
+	assert.NotNil(t, refs["rb-file-secret"])
+	assert.Nil(t, refs["wl-file-secret"], "wl-file-secret should not have been fetched since it was overridden")
+}
+
+func TestCollectSecretReferences_NonOverriddenWorkloadEntryStillCollected(t *testing.T) {
+	// Workload has two env vars: one overridden and one not.
+	// Only the non-overridden one should be fetched from the workload.
+	wlSecret := makeSecretReference("wl-secret", "user")
+	rbSecret := makeSecretReference("rb-secret", "pass")
+	r := newSecretReferenceTestReconciler(t, wlSecret, rbSecret)
+
+	wl := &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{
+				Container: openchoreov1alpha1.Container{
+					Image: "example:latest",
+					Env: []openchoreov1alpha1.EnvVar{
+						{
+							Key: "DB_USER",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "wl-secret", Key: "user"},
+							},
+						},
+						{
+							Key: "DB_PASS",
+							ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+								SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "wl-secret", Key: "pass"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	rb := &openchoreov1alpha1.ComponentReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace},
+		Spec: openchoreov1alpha1.ComponentReleaseBindingSpec{
+			WorkloadOverrides: &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+				Container: &openchoreov1alpha1.ContainerOverride{
+					Env: []openchoreov1alpha1.EnvVar{{
+						Key: "DB_PASS",
+						ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+							SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "rb-secret", Key: "pass"},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	refs, err := r.collectSecretReferences(context.Background(), wl, rb)
+	require.NoError(t, err)
+	require.Len(t, refs, 2)
+	assert.NotNil(t, refs["wl-secret"], "expected wl-secret for non-overridden DB_USER")
+	assert.NotNil(t, refs["rb-secret"], "expected rb-secret for overridden DB_PASS")
+}

@@ -39,7 +39,7 @@ Specifies the container image and configuration for the component:
 - Defines the container image (`ghcr.io/openchoreo/samples/greeter-service:latest`)
 - Can specify multiple containers if needed
 
-### ReleaseBinding (`demo-app-development`)
+### ComponentReleaseBinding (`demo-app-development`)
 
 Represents a deployment of the component in a specific environment. It:
 
@@ -53,7 +53,7 @@ Represents a deployment of the component in a specific environment. It:
 1. **ComponentType** acts as a template/blueprint with path-based routing rules
 2. **Component** uses that template and provides base configuration
 3. **Workload** specifies what container(s) to run (echo server for testing)
-4. **ReleaseBinding** specifies the actual deployment of the component in a specific environment
+4. **ComponentReleaseBinding** specifies the actual deployment of the component in a specific environment
 
 The OpenChoreo controller manager uses these resources and generates the Kubernetes resources (Deployment, Service, HTTPRoute) based on the templates and parameters.
 
@@ -65,10 +65,10 @@ Apply the sample:
 kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-http-service/http-service-component.yaml
 ```
 
-## Check the ReleaseBinding status
+## Check the ComponentReleaseBinding status
 
 ```bash
-kubectl get releasebinding demo-app-http-service-development -o yaml | grep -A 50 "^status:"
+kubectl get componentreleasebinding demo-app-http-service-development -o yaml | grep -A 50 "^status:"
 ```
 
 ## Test the Service by invoking
@@ -106,14 +106,14 @@ kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/h
 
 If the application is not accessible:
 
-1. **Check ReleaseBinding status:**
+1. **Check ComponentReleaseBinding status:**
    ```bash
-   kubectl get releasebinding demo-app-http-service-development -o yaml
+   kubectl get componentreleasebinding demo-app-http-service-development -o yaml
    ```
 
-2. **Check ReleaseBinding conditions:**
+2. **Check ComponentReleaseBinding conditions:**
    ```bash
-   kubectl get releasebinding demo-app-http-service-development -o jsonpath='{.status.conditions}' | jq .
+   kubectl get componentreleasebinding demo-app-http-service-development -o jsonpath='{.status.conditions}' | jq .
    ```
 
 3. **Verify HTTPRoute is configured:**

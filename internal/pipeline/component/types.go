@@ -40,7 +40,11 @@ type RenderInput struct {
 	Environment *v1alpha1.Environment `validate:"required"`
 
 	// ReleaseBinding contains release reference and environment-specific overrides for the component.
+	// Deprecated: use ComponentReleaseBinding instead.
 	ReleaseBinding *v1alpha1.ReleaseBinding
+
+	// ComponentReleaseBinding contains release reference and environment-specific overrides for the component.
+	ComponentReleaseBinding *v1alpha1.ComponentReleaseBinding
 
 	// DataPlane contains the data plane configuration.
 	// Required

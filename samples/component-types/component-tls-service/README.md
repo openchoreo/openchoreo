@@ -4,7 +4,7 @@ This sample demonstrates how to deploy a service that is exposed via a Gateway A
 
 ## Overview
 
-The sample's YAML is self-contained: it defines a custom `ClusterComponentType` and the `Component` + `Workload` + `ReleaseBinding` that consume it.
+The sample's YAML is self-contained: it defines a custom `ClusterComponentType` and the `Component` + `Workload` + `ComponentReleaseBinding` that consume it.
 
 ### ClusterComponentType (`tls-service`)
 
@@ -29,13 +29,13 @@ Runs `nginx:1.27-alpine`, exposes an `https` endpoint on port `8443`, and mounts
 
 The cert and key inlined into the YAML are the same as the `tls.crt`/`tls.key` files committed to this directory, so you can re-use them as the CA bundle when invoking the service.
 
-### ReleaseBinding (`demo-app-tls-service-development`)
+### ComponentReleaseBinding (`demo-app-tls-service-development`)
 
 Deploys the component to the `development` environment with a single replica.
 
 ## How It Works
 
-The OpenChoreo controller manager renders the templates into a `Deployment`, `Service`, `TLSRoute`, and three `ConfigMap`s (one per mounted file). The ReleaseBinding controller resolves the endpoint URL from the rendered `TLSRoute` and writes it to `.status.endpoints[].externalURLs.tls`:
+The OpenChoreo controller manager renders the templates into a `Deployment`, `Service`, `TLSRoute`, and three `ConfigMap`s (one per mounted file). The ComponentReleaseBinding controller resolves the endpoint URL from the rendered `TLSRoute` and writes it to `.status.endpoints[].externalURLs.tls`:
 
 - `externalURLs.tls` — the URL served on the gateway's `tls-passthrough` listener. The scheme matches the application protocol the workload terminates (here `https`, because the workload endpoint type is `HTTP` over TLS).
 
@@ -45,10 +45,10 @@ The OpenChoreo controller manager renders the templates into a `Deployment`, `Se
 kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-tls-service/tls-service-component.yaml
 ```
 
-## Check the ReleaseBinding status
+## Check the ComponentReleaseBinding status
 
 ```bash
-kubectl get releasebinding demo-app-tls-service-development -o jsonpath='{.status.endpoints}' | jq .
+kubectl get componentreleasebinding demo-app-tls-service-development -o jsonpath='{.status.endpoints}' | jq .
 ```
 
 Expected:
@@ -135,10 +135,10 @@ kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/h
 
 ## Troubleshooting
 
-1. **Check ReleaseBinding conditions:**
+1. **Check ComponentReleaseBinding conditions:**
 
    ```bash
-   kubectl get releasebinding demo-app-tls-service-development -o jsonpath='{.status.conditions}' | jq .
+   kubectl get componentreleasebinding demo-app-tls-service-development -o jsonpath='{.status.conditions}' | jq .
    ```
 
 2. **Verify the TLSRoute is rendered and accepted:**

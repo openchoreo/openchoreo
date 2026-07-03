@@ -86,9 +86,9 @@ var _ = Describe("GitOps with Flux", Ordered, Label("tier3"), func() {
 				framework.AssertResourceExists(g, kubeContext, cpNs, "component", componentSingle)
 			}, 2*time.Minute, 3*time.Second).Should(Succeed())
 
-			By("ReleaseBinding becomes Ready")
+			By("ComponentReleaseBinding becomes Ready")
 			Eventually(func(g Gomega) {
-				framework.AssertReleaseBindingReady(g, kubeContext, cpNs, componentSingle+releaseBindingSuffix)
+				framework.AssertComponentReleaseBindingReady(g, kubeContext, cpNs, componentSingle+componentReleaseBindingSuffix)
 			}, 5*time.Minute, 5*time.Second).Should(Succeed())
 
 			By("discovering the data plane namespace")
@@ -153,13 +153,13 @@ var _ = Describe("GitOps with Flux", Ordered, Label("tier3"), func() {
 			Expect(framework.WaitForKustomizationReady(kubeContext, fluxNs, "bulk", 3*time.Minute)).
 				To(Succeed())
 
-			By("all 3 ReleaseBindings reach Ready")
+			By("all 3 ComponentReleaseBindings reach Ready")
 			for _, c := range components {
-				rb := c + releaseBindingSuffix
+				rb := c + componentReleaseBindingSuffix
 				Eventually(func(g Gomega) {
-					framework.AssertReleaseBindingReady(g, kubeContext, cpNs, rb)
+					framework.AssertComponentReleaseBindingReady(g, kubeContext, cpNs, rb)
 				}, 5*time.Minute, 5*time.Second).Should(Succeed(),
-					"ReleaseBinding %s did not reach Ready", rb)
+					"ComponentReleaseBinding %s did not reach Ready", rb)
 			}
 
 			By("all 3 component pods are Running")

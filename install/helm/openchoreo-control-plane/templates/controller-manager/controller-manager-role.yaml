@@ -79,6 +79,7 @@ rules:
     - clustertraits
     - clusterworkflowplanes
     - clusterworkflows
+    - componentcomponentreleasebindings
     - componentreleases
     - components
     - componenttypes
@@ -121,6 +122,7 @@ rules:
     - clustertraits/finalizers
     - clusterworkflowplanes/finalizers
     - clusterworkflows/finalizers
+    - componentcomponentreleasebindings/finalizers
     - componentreleases/finalizers
     - components/finalizers
     - componenttypes/finalizers
@@ -158,6 +160,7 @@ rules:
     - clustertraits/status
     - clusterworkflowplanes/status
     - clusterworkflows/status
+    - componentcomponentreleasebindings/status
     - componentreleases/status
     - components/status
     - componenttypes/status

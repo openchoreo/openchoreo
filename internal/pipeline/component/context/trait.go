@@ -60,6 +60,17 @@ func BuildTraitContext(input *TraitContextInput) (*TraitContext, error) {
 //
 // Note: TraitEnvironmentConfigs is keyed by instanceName (not traitName), as instanceNames
 // must be unique across all traits in a component.
+
+// ExtractTraitInstanceBindingsForCRB produces concrete parameter and environmentConfigs maps for a
+// component-level trait instance. Unlike ResolveEmbeddedTraitBindings, no CEL evaluation
+// happens here — values are already concrete and we just JSON-deserialize them.
+//
+// The instance parameters come from instance.Parameters (a runtime.RawExtension); the
+// environmentConfigs come from rb.Spec.TraitEnvironmentConfigs[instance.InstanceName], if
+// present. A nil ComponentReleaseBinding or a missing instance entry produces an empty envConfigs map.
+//
+// Note: TraitEnvironmentConfigs is keyed by instanceName (not traitName), as instanceNames
+// must be unique across all traits in a component.
 func ExtractTraitInstanceBindings(
 	instance v1alpha1.ComponentTrait,
 	rb *v1alpha1.ReleaseBinding,
@@ -190,4 +201,36 @@ func setCachedSchemaBundle(cache map[string]*SchemaBundle, key string, bundle *S
 	if cache != nil {
 		cache[key] = bundle
 	}
+}
+
+func ExtractTraitInstanceBindingsForCRB(
+	instance v1alpha1.ComponentTrait,
+	crb *v1alpha1.ComponentReleaseBinding,
+) (parameters map[string]any, envConfigs map[string]any, err error) {
+	parameters, err = extractParameters(instance.Parameters)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to extract trait instance parameters: %w", err)
+	}
+
+	envConfigs, err = extractTraitEnvConfigsForCRB(crb, instance.InstanceName)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return parameters, envConfigs, nil
+}
+
+func extractTraitEnvConfigsForCRB(crb *v1alpha1.ComponentReleaseBinding, instanceName string) (map[string]any, error) {
+	if crb == nil || crb.Spec.TraitEnvironmentConfigs == nil {
+		return make(map[string]any), nil
+	}
+	instanceOverride, ok := crb.Spec.TraitEnvironmentConfigs[instanceName]
+	if !ok {
+		return make(map[string]any), nil
+	}
+	envConfigs, err := extractParameters(&instanceOverride)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract trait environment configs: %w", err)
+	}
+	return envConfigs, nil
 }

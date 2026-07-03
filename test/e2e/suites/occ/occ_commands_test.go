@@ -44,10 +44,10 @@ func describeResourceCommands() {
 
 		It("lists release bindings in namespace", func() {
 			Eventually(func(g Gomega) {
-				stdout, _, err := occ.Run("releasebinding", "list", "-n", cpNs)
-				g.Expect(err).NotTo(HaveOccurred(), "occ releasebinding list failed")
+				stdout, _, err := occ.Run("componentreleasebinding", "list", "-n", cpNs)
+				g.Expect(err).NotTo(HaveOccurred(), "occ componentreleasebinding list failed")
 				g.Expect(stdout).To(ContainSubstring(componentName),
-					"expected component name in releasebinding list output")
+					"expected component name in componentreleasebinding list output")
 			}, 3*time.Minute, 2*time.Second).Should(Succeed())
 		})
 
@@ -145,7 +145,7 @@ func describeResourceCommands() {
 			Entry("secret", "secret", "-n", cpNs),
 			Entry("resource", "resource", "-n", cpNs),
 			Entry("resourcerelease", "resourcerelease", "-n", cpNs),
-			Entry("resourcereleasebinding", "resourcereleasebinding", "-n", cpNs),
+			Entry("resourcecomponentreleasebinding", "resourcecomponentreleasebinding", "-n", cpNs),
 			Entry("resourcetype", "resourcetype", "-n", cpNs),
 			Entry("observabilityalertsnotificationchannel",
 				"observabilityalertsnotificationchannel", "-n", cpNs),

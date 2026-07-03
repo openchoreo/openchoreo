@@ -35,25 +35,25 @@ These lightweight services typically use a fraction of these resources.
 
 ## Step 1: Introduce Over-Provisioning
 
-Patch the ReleaseBindings with excessive resource allocations. This is the OpenChoreo-native way to configure resources — patching deployments directly would be overwritten by the controllers.
+Patch the ComponentReleaseBindings with excessive resource allocations. This is the OpenChoreo-native way to configure resources — patching deployments directly would be overwritten by the controllers.
 
 ```bash
 # Over-provision frontend: 2 CPU / 2Gi memory
-kubectl patch releasebinding frontend-development -n default \
+kubectl patch componentreleasebinding frontend-development -n default \
   --type=merge -p '{
   "spec": {"componentTypeEnvironmentConfigs": {
     "resources": {"requests": {"cpu": "2", "memory": "2Gi"},
                   "limits": {"cpu": "2", "memory": "2Gi"}}}}}'
 
 # Over-provision checkout: 2 CPU / 2Gi memory
-kubectl patch releasebinding checkout-development -n default \
+kubectl patch componentreleasebinding checkout-development -n default \
   --type=merge -p '{
   "spec": {"componentTypeEnvironmentConfigs": {
     "resources": {"requests": {"cpu": "2", "memory": "2Gi"},
                   "limits": {"cpu": "2", "memory": "2Gi"}}}}}'
 
 # Over-provision cart: 1 CPU / 1Gi memory
-kubectl patch releasebinding cart-development -n default \
+kubectl patch componentreleasebinding cart-development -n default \
   --type=merge -p '{
   "spec": {"componentTypeEnvironmentConfigs": {
     "resources": {"requests": {"cpu": "1", "memory": "1Gi"},

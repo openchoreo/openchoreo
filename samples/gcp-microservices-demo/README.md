@@ -66,14 +66,14 @@ release (waits for the Resource controller to cut the release first):
 
 ```bash
 until release=$(kubectl get resource redis -n default -o jsonpath='{.status.latestRelease.name}') && [ -n "$release" ]; do sleep 2; done
-kubectl patch resourcereleasebinding redis-development -n default \
+kubectl patch resourcecomponentreleasebinding redis-development -n default \
   --type=merge -p "{\"spec\":{\"resourceRelease\":\"$release\"}}"
 ```
 
 Wait for the binding to reach `Ready=True`:
 
 ```bash
-kubectl get resourcereleasebinding redis-development -n default
+kubectl get resourcecomponentreleasebinding redis-development -n default
 ```
 
 ## Step 3: Deploy the Components

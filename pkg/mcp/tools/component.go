@@ -366,8 +366,8 @@ func (t *Toolsets) RegisterUpdateReleaseBinding(s *mcp.Server, perms map[string]
 			patchReq.ReleaseName = &args.ReleaseName
 		}
 		if args.ReleaseState != "" {
-			if args.ReleaseState != string(gen.ReleaseBindingSpecStateActive) &&
-				args.ReleaseState != string(gen.ReleaseBindingSpecStateUndeploy) {
+			if args.ReleaseState != string(gen.ComponentReleaseBindingSpecStateActive) &&
+				args.ReleaseState != string(gen.ComponentReleaseBindingSpecStateUndeploy) {
 				return nil, nil, fmt.Errorf("release_state must be one of: Active, Undeploy")
 			}
 			state := gen.ReleaseBindingSpecState(args.ReleaseState)

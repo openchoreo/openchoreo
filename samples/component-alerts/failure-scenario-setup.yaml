@@ -1,7 +1,7 @@
 ---
-# ReleaseBinding for frontend component with env variable misconfiguration
+# ComponentReleaseBinding for frontend component with env variable misconfiguration
 apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseBinding
+kind: ComponentReleaseBinding
 metadata:
   name: frontend-development
   namespace: default
@@ -34,9 +34,9 @@ spec:
           triggerAiRca: false                                      # AI root cause analysis can be enabled/disabled per environment. Default is false.
 
 ---
-# ReleaseBinding for recommendation component with cpu limit misconfiguration
+# ComponentReleaseBinding for recommendation component with cpu limit misconfiguration
 apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseBinding
+kind: ComponentReleaseBinding
 metadata:
   name: recommendation-development
   namespace: default
@@ -64,9 +64,9 @@ spec:
           triggerAiRca: true
 
 ---
-# ReleaseBinding for cart component with memory limit misconfiguration
+# ComponentReleaseBinding for cart component with memory limit misconfiguration
 apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseBinding
+kind: ComponentReleaseBinding
 metadata:
   name: cart-development
   namespace: default

@@ -10,7 +10,7 @@ import (
 )
 
 // platformResourcesYAML returns YAML for a DeploymentPipeline and Environment
-// that enable the release chain (ComponentRelease → ReleaseBinding) for a test namespace.
+// that enable the release chain (ComponentRelease → ComponentReleaseBinding) for a test namespace.
 func platformResourcesYAML(namespace string) string {
 	return fmt.Sprintf(`apiVersion: openchoreo.dev/v1alpha1
 kind: DeploymentPipeline

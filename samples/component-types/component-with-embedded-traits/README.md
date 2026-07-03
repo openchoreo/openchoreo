@@ -74,7 +74,7 @@ Represents the build output with:
 - Container image: `ghcr.io/openchoreo/samples/greeter-service:latest`
 - Configured to run on port 9090
 
-### ReleaseBinding
+### ComponentReleaseBinding
 
 Defines deployment settings for the `development` environment:
 
@@ -91,7 +91,7 @@ Defines deployment settings for the `development` environment:
 3. **Developer creates Component** and configures autoscaling replica bounds (2-10) via ComponentType parameters
 4. **Binding resolution**: CEL expressions like `${parameters.autoscaling.enabled}` are resolved against the component context
 5. **Trait renders**: The HPA trait receives resolved values (75% CPU threshold locked, replica bounds from component)
-6. **Environment overrides**: ReleaseBinding can override replica bounds per environment (e.g., 1-5 for dev)
+6. **Environment overrides**: ComponentReleaseBinding can override replica bounds per environment (e.g., 1-5 for dev)
 
 ## Deploy the sample
 
@@ -101,10 +101,10 @@ Apply the sample:
 kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-with-embedded-traits/component-with-embedded-traits.yaml
 ```
 
-## Check the ReleaseBinding status
+## Check the ComponentReleaseBinding status
 
 ```bash
-kubectl get releasebinding demo-app-with-embedded-traits-development -o yaml | grep -A 50 "^status:"
+kubectl get componentreleasebinding demo-app-with-embedded-traits-development -o yaml | grep -A 50 "^status:"
 ```
 
 ## Test the Service
@@ -173,14 +173,14 @@ kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/h
 
 If the application is not accessible or resources are not created:
 
-1. **Check ReleaseBinding status:**
+1. **Check ComponentReleaseBinding status:**
    ```bash
-   kubectl get releasebinding demo-app-with-embedded-traits-development -o yaml
+   kubectl get componentreleasebinding demo-app-with-embedded-traits-development -o yaml
    ```
 
-2. **Check ReleaseBinding conditions:**
+2. **Check ComponentReleaseBinding conditions:**
    ```bash
-   kubectl get releasebinding demo-app-with-embedded-traits-development -o jsonpath='{.status.conditions}' | jq .
+   kubectl get componentreleasebinding demo-app-with-embedded-traits-development -o jsonpath='{.status.conditions}' | jq .
    ```
 
 3. **Verify HTTPRoute is configured:**

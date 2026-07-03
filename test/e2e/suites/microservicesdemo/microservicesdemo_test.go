@@ -38,7 +38,7 @@ const (
 // All components shipped by the demo. Used to wait for each RB to reach Ready.
 // redis is not listed: it ships as a Resource (backed by the valkey
 // ClusterResourceType), so it has a ResourceReleaseBinding instead of a
-// ReleaseBinding and is waited on separately.
+// ComponentReleaseBinding and is waited on separately.
 var demoComponents = []string{
 	"ad", "cart", "checkout", "currency", "email",
 	"frontend", "payment", "productcatalog",
@@ -76,7 +76,7 @@ var _ = Describe("GCP Microservices Demo", Ordered, Label("tier1"), func() {
 			g.Expect(name).NotTo(BeEmpty(), "Resource redis has no latestRelease yet")
 			redisRelease = name
 		}, 2*time.Minute, 2*time.Second).Should(Succeed())
-		output, err = framework.Kubectl(kubeContext, "patch", "resourcereleasebinding",
+		output, err = framework.Kubectl(kubeContext, "patch", "resourcecomponentreleasebinding",
 			"redis-development", "-n", demoCPNamespace, "--type=merge",
 			"-p", fmt.Sprintf(`{"spec":{"resourceRelease":%q}}`, redisRelease))
 		Expect(err).NotTo(HaveOccurred(), "failed to promote redis binding: %s", output)
@@ -120,24 +120,24 @@ var _ = Describe("GCP Microservices Demo", Ordered, Label("tier1"), func() {
 	})
 
 	Context("multi-service deployment", func() {
-		It("all ReleaseBindings reach Ready", func() {
+		It("all ComponentReleaseBindings reach Ready", func() {
 			// redis is a Resource, not a Component — its readiness gates the
 			// cart component below, so wait on its ResourceReleaseBinding first.
 			By("waiting on ResourceReleaseBinding redis-" + demoEnvironment)
 			Eventually(func(g Gomega) {
 				framework.AssertJsonpathEquals(g, kubeContext, demoCPNamespace,
-					"resourcereleasebinding", "redis-"+demoEnvironment,
+					"resourcecomponentreleasebinding", "redis-"+demoEnvironment,
 					`{.status.conditions[?(@.type=="Ready")].status}`, "True")
 			}, 8*time.Minute, 5*time.Second).Should(Succeed(),
 				"ResourceReleaseBinding redis-%s should be Ready", demoEnvironment)
 
 			for _, comp := range demoComponents {
 				rbName := comp + "-" + demoEnvironment
-				By("waiting on ReleaseBinding " + rbName)
+				By("waiting on ComponentReleaseBinding " + rbName)
 				Eventually(func(g Gomega) {
-					framework.AssertReleaseBindingReady(g, kubeContext, demoCPNamespace, rbName)
+					framework.AssertComponentReleaseBindingReady(g, kubeContext, demoCPNamespace, rbName)
 				}, 8*time.Minute, 5*time.Second).Should(Succeed(),
-					"ReleaseBinding %s should be Ready", rbName)
+					"ComponentReleaseBinding %s should be Ready", rbName)
 			}
 		})
 
@@ -199,7 +199,7 @@ var _ = Describe("GCP Microservices Demo", Ordered, Label("tier1"), func() {
 	})
 })
 
-// frontendExternalHTTPURL polls the frontend ReleaseBinding until its `http`
+// frontendExternalHTTPURL polls the frontend ComponentReleaseBinding until its `http`
 // endpoint has an externally-resolved HTTP gateway URL, then returns the
 // assembled base URL (scheme://host:port, no trailing slash). This is what a
 // caller outside the cluster — or here, the tester pod going through CoreDNS
@@ -208,7 +208,7 @@ func frontendExternalHTTPURL() string {
 	rbName := demoFrontend + "-" + demoEnvironment
 	jp := func(expr string) (string, error) {
 		return framework.KubectlGetJsonpath(
-			kubeContext, demoCPNamespace, "releasebinding", rbName,
+			kubeContext, demoCPNamespace, "componentreleasebinding", rbName,
 			fmt.Sprintf(`{.status.endpoints[?(@.name=="http")].externalURLs.http.%s}`, expr),
 		)
 	}

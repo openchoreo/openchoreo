@@ -1,0 +1,1577 @@
+// Copyright 2025 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package componentreleasebinding
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
+	"strings"
+
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/labels"
+	"github.com/openchoreo/openchoreo/internal/networkpolicy"
+	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
+	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+)
+
+const (
+	httpRouteKind   = "HTTPRoute"
+	grpcRouteKind   = "GRPCRoute"
+	tlsRouteKind    = "TLSRoute"
+	gatewayAPIGroup = "gateway.networking.k8s.io"
+)
+
+// routeKindCompat lists which workload endpoint types each Gateway API route kind
+// may expose. HTTPRoute/GRPCRoute attach to the http and https gateway listeners
+// (the gateway terminates TLS on https); TLSRoute attaches to the tls listener for
+// SNI-based passthrough where the application terminates TLS. A given endpoint
+// is exposed by at most one route kind per visibility — the TLS trait swaps an
+// HTTPRoute/GRPCRoute for a TLSRoute when application-level TLS termination is
+// required.
+var routeKindCompat = map[string]map[openchoreov1alpha1.EndpointType]bool{
+	httpRouteKind: {
+		openchoreov1alpha1.EndpointTypeHTTP:      true,
+		openchoreov1alpha1.EndpointTypeGraphQL:   true,
+		openchoreov1alpha1.EndpointTypeWebsocket: true,
+		openchoreov1alpha1.EndpointTypeGRPC:      true,
+	},
+	grpcRouteKind: {
+		openchoreov1alpha1.EndpointTypeGRPC: true,
+	},
+	tlsRouteKind: {
+		openchoreov1alpha1.EndpointTypeHTTP:      true,
+		openchoreov1alpha1.EndpointTypeGraphQL:   true,
+		openchoreov1alpha1.EndpointTypeWebsocket: true,
+		openchoreov1alpha1.EndpointTypeGRPC:      true,
+		openchoreov1alpha1.EndpointTypeTCP:       true,
+	},
+}
+
+// Reconciler reconciles a ComponentReleaseBinding object
+type Reconciler struct {
+	client.Client
+	Scheme *runtime.Scheme
+
+	// Pipeline is the component rendering pipeline, shared across all reconciliations.
+	// This enables CEL environment caching across different component types and reconciliations.
+	Pipeline *componentpipeline.Pipeline
+}
+
+// networkPolicyProviderFromDataPlane reads the "openchoreo.dev/networkpolicyprovider" annotation
+// from the DataPlane or ClusterDataPlane CR and returns the matching Provider.
+// Absent annotation or any value other than "cilium" defaults to ProviderKubernetes.
+func networkPolicyProviderFromDataPlane(dp *controller.DataPlaneResult) networkpolicy.Provider {
+	var annotations map[string]string
+	switch {
+	case dp.DataPlane != nil:
+		annotations = dp.DataPlane.Annotations
+	case dp.ClusterDataPlane != nil:
+		annotations = dp.ClusterDataPlane.Annotations
+	}
+	if annotations["openchoreo.dev/networkpolicyprovider"] == string(networkpolicy.ProviderCilium) {
+		return networkpolicy.ProviderCilium
+	}
+	return networkpolicy.ProviderKubernetes
+}
+
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componentcomponentreleasebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componentcomponentreleasebindings/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componentcomponentreleasebindings/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componentreleases,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterobservabilityplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=renderedreleases,verbs=get;list;watch;create;update;patch;delete;deletecollection
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+
+// Reconcile is part of the main kubernetes reconciliation loop
+func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, rErr error) {
+	logger := log.FromContext(ctx)
+
+	// Fetch ComponentReleaseBinding (primary resource)
+	releaseBinding := &openchoreov1alpha1.ComponentReleaseBinding{}
+	if err := r.Get(ctx, req.NamespacedName, releaseBinding); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			logger.Error(err, "Failed to get ComponentReleaseBinding")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	// Keep a copy for comparison
+	old := releaseBinding.DeepCopy()
+
+	// Handle deletion - run finalizer logic
+	if !releaseBinding.DeletionTimestamp.IsZero() {
+		logger.Info("Finalizing releaseBinding")
+		return r.finalize(ctx, old, releaseBinding)
+	}
+
+	// Ensure finalizer is added
+	if finalizerAdded, err := r.ensureFinalizer(ctx, releaseBinding); err != nil || finalizerAdded {
+		return ctrl.Result{}, err
+	}
+
+	// Track spec changes
+	if releaseBinding.Generation != releaseBinding.Status.ObservedGeneration {
+		now := metav1.Now()
+		releaseBinding.Status.LastSpecUpdateTime = &now
+	}
+	releaseBinding.Status.ObservedGeneration = releaseBinding.Generation
+
+	// Deferred status update
+	defer func() {
+		// Always update the aggregated Ready condition based on current sub-conditions.
+		// This ensures Ready is present on every reconciliation regardless of code path.
+		r.setReadyCondition(releaseBinding)
+
+		// Skip update if nothing changed
+		if apiequality.Semantic.DeepEqual(old.Status, releaseBinding.Status) {
+			return
+		}
+
+		// Update the status
+		if err := r.Status().Update(ctx, releaseBinding); err != nil {
+			logger.Error(err, "Failed to update ComponentReleaseBinding status")
+			rErr = kerrors.NewAggregate([]error{rErr, err})
+		}
+	}()
+
+	// Fetch ComponentRelease
+	componentRelease := &openchoreov1alpha1.ComponentRelease{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      releaseBinding.Spec.ReleaseName,
+		Namespace: releaseBinding.Namespace,
+	}, componentRelease); err != nil {
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("ComponentRelease %q not found", releaseBinding.Spec.ReleaseName)
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+				ReasonComponentReleaseNotFound, msg)
+			logger.Info(msg, "componentRelease", releaseBinding.Spec.ReleaseName)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get ComponentRelease", "componentRelease", releaseBinding.Spec.ReleaseName)
+		return ctrl.Result{}, err
+	}
+
+	// Validate ComponentRelease configuration
+	if err := r.validateComponentRelease(componentRelease, releaseBinding); err != nil {
+		msg := fmt.Sprintf("Invalid ComponentRelease configuration: %v", err)
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonInvalidReleaseConfiguration, msg)
+		logger.Error(err, "ComponentRelease validation failed")
+		return ctrl.Result{}, nil
+	}
+
+	// Fetch Environment object
+	environment := &openchoreov1alpha1.Environment{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      releaseBinding.Spec.Environment,
+		Namespace: releaseBinding.Namespace,
+	}, environment); err != nil {
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("Environment %q not found", releaseBinding.Spec.Environment)
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+				ReasonEnvironmentNotFound, msg)
+			logger.Info("Environment not found", "environment", releaseBinding.Spec.Environment)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get Environment", "environment", releaseBinding.Spec.Environment)
+		return ctrl.Result{}, err
+	}
+
+	// Fetch DataPlane or ClusterDataPlane object using the resolution function
+	dataPlaneResult, err := controller.GetDataPlaneFromRef(ctx, r.Client, environment.Namespace, environment.Spec.DataPlaneRef)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("DataPlane not found for environment %q", environment.Name)
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+				ReasonDataPlaneNotFound, msg)
+			logger.Info("DataPlane not found", "environment", environment.Name)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to resolve DataPlane", "environment", environment.Name)
+		return ctrl.Result{}, err
+	}
+
+	// Fetch Component object
+	component := &openchoreov1alpha1.Component{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      componentRelease.Spec.Owner.ComponentName,
+		Namespace: releaseBinding.Namespace,
+	}, component); err != nil {
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("Component %q not found", componentRelease.Spec.Owner.ComponentName)
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+				ReasonComponentNotFound, msg)
+			logger.Info("Component not found", "component", componentRelease.Spec.Owner.ComponentName)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get Component", "component", componentRelease.Spec.Owner.ComponentName)
+		return ctrl.Result{}, err
+	}
+
+	// Fetch Project object
+	project := &openchoreov1alpha1.Project{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      componentRelease.Spec.Owner.ProjectName,
+		Namespace: releaseBinding.Namespace,
+	}, project); err != nil {
+		if apierrors.IsNotFound(err) {
+			msg := fmt.Sprintf("Project %q not found", componentRelease.Spec.Owner.ProjectName)
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+				ReasonProjectNotFound, msg)
+			logger.Info("Project not found", "project", componentRelease.Spec.Owner.ProjectName)
+			return ctrl.Result{}, nil
+		}
+		logger.Error(err, "Failed to get Project", "project", componentRelease.Spec.Owner.ProjectName)
+		return ctrl.Result{}, err
+	}
+
+	return r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlaneResult, component, project)
+}
+
+// validateComponentRelease validates the ComponentRelease configuration
+func (r *Reconciler) validateComponentRelease(componentRelease *openchoreov1alpha1.ComponentRelease,
+	releaseBinding *openchoreov1alpha1.ComponentReleaseBinding) error {
+	// Check ComponentType has resources
+	if componentRelease.Spec.ComponentType.Spec.Resources == nil {
+		return fmt.Errorf("component type has no resources")
+	}
+
+	// Check required owner fields
+	if componentRelease.Spec.Owner.ProjectName == "" {
+		return fmt.Errorf("component release owner missing required field: projectName")
+	}
+	if componentRelease.Spec.Owner.ComponentName == "" {
+		return fmt.Errorf("component release owner missing required field: componentName")
+	}
+
+	// Check if the owners are matching in componentRelease and releaseBinding
+	if releaseBinding.Spec.Owner.ProjectName != componentRelease.Spec.Owner.ProjectName ||
+		releaseBinding.Spec.Owner.ComponentName != componentRelease.Spec.Owner.ComponentName {
+		return fmt.Errorf("release binding owner (project: %q, component: %q) does not match "+
+			"component release owner (project: %q, component: %q)",
+			releaseBinding.Spec.Owner.ProjectName, releaseBinding.Spec.Owner.ComponentName,
+			componentRelease.Spec.Owner.ProjectName, componentRelease.Spec.Owner.ComponentName)
+	}
+
+	return nil
+}
+
+// buildMetadataContext creates the MetadataContext from ComponentRelease, component, project, dataplane, and environment.
+func (r *Reconciler) buildMetadataContext(
+	componentRelease *openchoreov1alpha1.ComponentRelease,
+	component *openchoreov1alpha1.Component,
+	project *openchoreov1alpha1.Project,
+	dataPlane *openchoreov1alpha1.DataPlane,
+	environment *openchoreov1alpha1.Environment,
+	environmentName string,
+) pipelinecontext.MetadataContext {
+	// Extract information
+	namespaceName := componentRelease.Namespace
+	projectName := componentRelease.Spec.Owner.ProjectName
+	componentName := componentRelease.Spec.Owner.ComponentName
+	componentUID := string(component.UID)
+	projectUID := string(project.UID)
+	dataPlaneName := dataPlane.Name
+	dataPlaneUID := string(dataPlane.UID)
+	environmentUID := string(environment.UID)
+
+	// Generate base name using platform naming conventions
+	// Format: {component}-{env}-{hash}
+	baseName := dpkubernetes.GenerateK8sName(componentName, environmentName)
+
+	// Generate namespace using platform naming conventions
+	// Format: dp-{namespace}-{project}-{env}-{hash}
+	namespace := dpkubernetes.GenerateK8sNameWithLengthLimit(
+		dpkubernetes.MaxNamespaceNameLength,
+		"dp", namespaceName, projectName, environmentName,
+	)
+
+	// Build standard labels
+	standardLabels := map[string]string{
+		labels.LabelKeyNamespaceName:   namespaceName,
+		labels.LabelKeyProjectName:     projectName,
+		labels.LabelKeyComponentName:   componentName,
+		labels.LabelKeyEnvironmentName: environmentName,
+		labels.LabelKeyComponentUID:    componentUID,
+		labels.LabelKeyEnvironmentUID:  environmentUID,
+		labels.LabelKeyProjectUID:      projectUID,
+	}
+
+	// Build pod selectors
+	podSelectors := map[string]string{
+		labels.LabelKeyNamespaceName:   namespaceName,
+		labels.LabelKeyProjectName:     projectName,
+		labels.LabelKeyComponentName:   componentName,
+		labels.LabelKeyEnvironmentName: environmentName,
+		labels.LabelKeyComponentUID:    componentUID,
+		labels.LabelKeyEnvironmentUID:  environmentUID,
+		labels.LabelKeyProjectUID:      projectUID,
+	}
+
+	return pipelinecontext.MetadataContext{
+		Name:               baseName,
+		Namespace:          namespace,
+		ComponentNamespace: namespaceName,
+		Labels:             standardLabels,
+		Annotations:        map[string]string{},
+		PodSelectors:       podSelectors,
+		ComponentName:      componentName,
+		ComponentUID:       componentUID,
+		ProjectName:        projectName,
+		ProjectUID:         projectUID,
+		DataPlaneName:      dataPlaneName,
+		DataPlaneUID:       dataPlaneUID,
+		EnvironmentName:    environmentName,
+		EnvironmentUID:     environmentUID,
+	}
+}
+
+// collectSecretReferences collects all SecretReferences needed for rendering from workload and releaseBinding.
+// It also validates that the key requested by each SecretKeyRef exists in the corresponding SecretReference's
+// spec.data[].secretKey so that typos or missing keys surface as a clear rendering error instead of being
+// silently dropped during configuration extraction.
+// Both workload and releaseBinding always reside in the same control plane namespace, so all
+// SecretReference lookups use releaseBinding.Namespace.
+func (r *Reconciler) collectSecretReferences(ctx context.Context, workload *openchoreov1alpha1.Workload, releaseBinding *openchoreov1alpha1.ComponentReleaseBinding) (map[string]*openchoreov1alpha1.SecretReference, error) {
+	secretRefs := make(map[string]*openchoreov1alpha1.SecretReference)
+	namespace := releaseBinding.Namespace
+
+	collectAndValidate := func(ref *openchoreov1alpha1.SecretKeyRef) error {
+		if ref.Name == "" {
+			return nil
+		}
+		secretRef, exists := secretRefs[ref.Name]
+		if !exists {
+			secretRef = &openchoreov1alpha1.SecretReference{}
+			if err := r.Get(ctx, client.ObjectKey{
+				Name:      ref.Name,
+				Namespace: namespace,
+			}, secretRef); err != nil {
+				return fmt.Errorf("failed to get SecretReference %q: %w", ref.Name, err)
+			}
+			secretRefs[ref.Name] = secretRef
+		}
+		availableKeys := make([]string, 0, len(secretRef.Spec.Data))
+		for _, data := range secretRef.Spec.Data {
+			if data.SecretKey == ref.Key {
+				return nil
+			}
+			availableKeys = append(availableKeys, data.SecretKey)
+		}
+		return fmt.Errorf("key %q not found in SecretReference %q; available keys: %v",
+			ref.Key, ref.Name, availableKeys)
+	}
+
+	// Collect from releaseBinding overrides first, tracking which env/file keys are
+	// overridden so we can skip the corresponding workload entries.
+	overriddenEnvKeys := make(map[string]struct{})
+	overriddenFileKeys := make(map[string]struct{})
+	if releaseBinding.Spec.WorkloadOverrides != nil && releaseBinding.Spec.WorkloadOverrides.Container != nil {
+		container := releaseBinding.Spec.WorkloadOverrides.Container
+		for _, env := range container.Env {
+			overriddenEnvKeys[env.Key] = struct{}{}
+			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
+				if err := collectAndValidate(env.ValueFrom.SecretKeyRef); err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		for _, file := range container.Files {
+			overriddenFileKeys[file.Key] = struct{}{}
+			if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
+				if err := collectAndValidate(file.ValueFrom.SecretKeyRef); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	// Collect from workload, skipping entries overridden by releaseBinding
+	if workload != nil {
+		container := workload.Spec.Container
+		for _, env := range container.Env {
+			if _, overridden := overriddenEnvKeys[env.Key]; overridden {
+				continue
+			}
+			if env.ValueFrom != nil && env.ValueFrom.SecretKeyRef != nil {
+				if err := collectAndValidate(env.ValueFrom.SecretKeyRef); err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		for _, file := range container.Files {
+			if _, overridden := overriddenFileKeys[file.Key]; overridden {
+				continue
+			}
+			if file.ValueFrom != nil && file.ValueFrom.SecretKeyRef != nil {
+				if err := collectAndValidate(file.ValueFrom.SecretKeyRef); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	return secretRefs, nil
+}
+
+// reconcileRelease creates or updates the Release resource and sets appropriate status conditions.
+//
+// nolint:gocyclo // Long reconcile state machine; complexity is structural, not accidental.
+// Matches the same nolint directive on setResourcesReadyStatus and the workflowrun reconcile.
+func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openchoreov1alpha1.ComponentReleaseBinding,
+	componentRelease *openchoreov1alpha1.ComponentRelease, environment *openchoreov1alpha1.Environment,
+	dataPlaneResult *controller.DataPlaneResult, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	// Handle undeploy state - delete Release resources if they exist
+	if releaseBinding.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy {
+		releaseBinding.Status.Endpoints = nil
+		return r.handleUndeploy(ctx, releaseBinding, componentRelease)
+	}
+
+	// Build a facade DataPlane from the result for use by the pipeline and helper functions.
+	// This works because ClusterDataPlane has the same spec fields (Gateway, SecretStoreRef, etc.).
+	dataPlane := dataPlaneResult.ToDataPlane()
+
+	// Build MetadataContext with computed names
+	metadataContext := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, releaseBinding.Spec.Environment)
+
+	// Fetch default notification channel for the environment if available
+	// This will be passed to the rendering pipeline and made available in the trait CEL context
+	defaultNotificationChannel, err := r.getDefaultNotificationChannelName(ctx, releaseBinding.Namespace, releaseBinding.Spec.Environment)
+	if err != nil {
+		if strings.Contains(err.Error(), "no default ObservabilityAlertsNotificationChannel found for environment") {
+			logger.V(1).Info("Default notification channel not configured", "environment", releaseBinding.Spec.Environment)
+			defaultNotificationChannel = ""
+		} else {
+			logger.Error(err, "Failed to resolve default notification channel", "environment", releaseBinding.Spec.Environment)
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Build Component from ComponentRelease for rendering
+	// The pipeline expects a Component object, so we need to reconstruct it from the ComponentRelease
+	snapshotComponent := buildComponentFromRelease(componentRelease)
+	snapshotComponentType := buildComponentTypeFromRelease(componentRelease)
+	snapshotTraits := buildTraitsFromRelease(componentRelease)
+	snapshotWorkload := buildWorkloadFromRelease(componentRelease)
+
+	// Collect all SecretReferences needed for rendering (must be done after workload merge)
+	secretReferences, err := r.collectSecretReferences(ctx, snapshotWorkload, releaseBinding)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to collect SecretReferences: %v", err)
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonRenderingFailed, msg)
+		logger.Error(err, "Failed to collect SecretReferences")
+		return ctrl.Result{}, fmt.Errorf("failed to collect SecretReferences: %w", err)
+	}
+
+	// Populate status.secretReferenceNames for the field index (pure function of the object)
+	releaseBinding.Status.SecretReferenceNames = collectSecretReferenceNames(snapshotWorkload, releaseBinding)
+
+	// Resolve connections inline: build targets, resolve URLs from dependency RBs
+	connectionTargets := buildConnectionTargets(releaseBinding, snapshotWorkload.Spec.GetDependencyEndpoints())
+	releaseBinding.Status.ConnectionTargets = connectionTargets
+	resolvedConns, pendingConns, err := r.resolveConnections(ctx, connectionTargets)
+	if err != nil {
+		logger.Error(err, "Failed to resolve connections")
+		return ctrl.Result{}, fmt.Errorf("failed to resolve connections: %w", err)
+	}
+	releaseBinding.Status.ResolvedConnections = resolvedConns
+	releaseBinding.Status.PendingConnections = pendingConns
+
+	// Pre-compute connection items with per-item env vars from resolved connections
+	dependencyItems := buildConnectionItems(releaseBinding, snapshotWorkload.Spec.GetDependencyEndpoints())
+
+	// Resolve resource dependencies inline: build targets, resolve provider RRB outputs.
+	resourceDeps := snapshotWorkload.Spec.GetDependencyResources()
+	resourceDepItems, err := r.populateResourceDependencyStatus(ctx, releaseBinding, resourceDeps)
+	if err != nil {
+		logger.Error(err, "Failed to resolve resource dependencies")
+		return ctrl.Result{}, fmt.Errorf("failed to resolve resource dependencies: %w", err)
+	}
+
+	// Prepare RenderInput
+	renderInput := &componentpipeline.RenderInput{
+		ComponentType:              snapshotComponentType,
+		Component:                  snapshotComponent,
+		Traits:                     snapshotTraits,
+		Workload:                   snapshotWorkload,
+		Environment:                environment,
+		ComponentReleaseBinding:    releaseBinding,
+		DataPlane:                  dataPlane,
+		SecretReferences:           secretReferences,
+		Metadata:                   metadataContext,
+		DefaultNotificationChannel: defaultNotificationChannel,
+		DependencyItems:            dependencyItems,
+		ResourceDependencyItems:    resourceDepItems,
+	}
+
+	// Render resources using the shared pipeline instance
+	renderOutput, err := r.Pipeline.Render(renderInput)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to render resources: %v", err)
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonRenderingFailed, msg)
+		logger.Error(err, "Failed to render resources")
+		return ctrl.Result{}, fmt.Errorf("failed to render resources: %w", err)
+	}
+
+	// Log warnings if any
+	if len(renderOutput.Metadata.Warnings) > 0 {
+		logger.Info("Rendering completed with warnings",
+			"warnings", renderOutput.Metadata.Warnings)
+	}
+
+	// Filter resources by target plane
+	dataPlaneResources := make([]map[string]any, 0, len(renderOutput.Resources))
+	observabilityPlaneResources := make([]map[string]any, 0, len(renderOutput.Resources))
+
+	for _, renderedResource := range renderOutput.Resources {
+		switch renderedResource.TargetPlane {
+		case openchoreov1alpha1.TargetPlaneDataPlane:
+			dataPlaneResources = append(dataPlaneResources, renderedResource.Resource)
+		case openchoreov1alpha1.TargetPlaneObservabilityPlane:
+			observabilityPlaneResources = append(observabilityPlaneResources, renderedResource.Resource)
+		}
+	}
+
+	// Inject per-component network policies into dataplane resources.
+	// The provider is determined by the "openchoreo.dev/networkpolicyprovider" annotation on the DataPlane CR.
+	componentNetpols := networkpolicy.MakeComponentPolicies(networkpolicy.ComponentPolicyParams{
+		Namespace:     metadataContext.Namespace,
+		CPNamespace:   metadataContext.ComponentNamespace,
+		Environment:   metadataContext.EnvironmentName,
+		ComponentName: metadataContext.ComponentName,
+		PodSelectors:  metadataContext.PodSelectors,
+		Endpoints:     snapshotWorkload.Spec.Endpoints,
+		Provider:      networkPolicyProviderFromDataPlane(dataPlaneResult),
+	})
+	dataPlaneResources = append(dataPlaneResources, componentNetpols...)
+
+	// Convert filtered dataplane resources to Release format
+	dataPlaneReleaseResources, err := r.convertToReleaseResources(dataPlaneResources)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to convert dataplane resources: %v", err)
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonRenderingFailed, msg)
+		logger.Error(err, "Failed to convert dataplane resources to Release format")
+		return ctrl.Result{}, fmt.Errorf("failed to convert dataplane resources: %w", err)
+	}
+
+	// Convert filtered observability plane resources to Release format
+	observabilityPlaneReleaseResources, err := r.convertToReleaseResources(observabilityPlaneResources)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to convert observability plane resources: %v", err)
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonRenderingFailed, msg)
+		logger.Error(err, "Failed to convert observability plane resources to Release format")
+		return ctrl.Result{}, fmt.Errorf("failed to convert observability plane resources: %w", err)
+	}
+
+	// Create or update dataplane Release
+	dpReleaseName := makeDataPlaneReleaseName(componentRelease, releaseBinding)
+	dataPlaneRelease := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dpReleaseName,
+			Namespace: releaseBinding.Namespace,
+		},
+	}
+
+	dpOp, err := controllerutil.CreateOrUpdate(ctx, r.Client, dataPlaneRelease, func() error {
+		// Check if we own this Release (only for existing releases)
+		if dataPlaneRelease.UID != "" {
+			hasOwner, err := controllerutil.HasOwnerReference(dataPlaneRelease.GetOwnerReferences(), releaseBinding, r.Scheme)
+			if err != nil {
+				return fmt.Errorf("failed to check owner reference: %w", err)
+			}
+			if !hasOwner {
+				return fmt.Errorf("release exists but is not owned by this ComponentReleaseBinding")
+			}
+		}
+
+		dataPlaneRelease.Labels = map[string]string{
+			labels.LabelKeyNamespaceName:   releaseBinding.Namespace,
+			labels.LabelKeyProjectName:     releaseBinding.Spec.Owner.ProjectName,
+			labels.LabelKeyComponentName:   releaseBinding.Spec.Owner.ComponentName,
+			labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
+		}
+
+		if v, ok := releaseBinding.Annotations[controller.AnnotationKeyRestartedAt]; ok {
+			if dataPlaneRelease.Annotations == nil {
+				dataPlaneRelease.Annotations = map[string]string{}
+			}
+			dataPlaneRelease.Annotations[controller.AnnotationKeyRestartedAt] = v
+		} else {
+			delete(dataPlaneRelease.Annotations, controller.AnnotationKeyRestartedAt)
+		}
+
+		dataPlaneRelease.Spec = openchoreov1alpha1.RenderedReleaseSpec{
+			Owner: openchoreov1alpha1.RenderedReleaseOwner{
+				ProjectName:   releaseBinding.Spec.Owner.ProjectName,
+				ComponentName: releaseBinding.Spec.Owner.ComponentName,
+			},
+			EnvironmentName: releaseBinding.Spec.Environment,
+			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
+			Resources:       dataPlaneReleaseResources,
+		}
+
+		return controllerutil.SetControllerReference(releaseBinding, dataPlaneRelease, r.Scheme)
+	})
+
+	if err != nil {
+		// Check for ownership conflict
+		if strings.Contains(err.Error(), "not owned by") {
+			msg := fmt.Sprintf("Release %q exists but is owned by another resource", dataPlaneRelease.Name)
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+				ReasonReleaseOwnershipConflict, msg)
+			logger.Error(err, msg)
+			return ctrl.Result{}, nil
+		}
+
+		// Transient errors
+		msg := fmt.Sprintf("Failed to reconcile dataplane Release: %v", err)
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonReleaseUpdateFailed, msg)
+		logger.Error(err, "Failed to reconcile dataplane Release", "release", dataPlaneRelease.Name)
+		return ctrl.Result{}, err
+	}
+
+	// Reconcile observability plane Release (create, update, or cleanup)
+	obsResult, err := r.reconcileObservabilityRelease(ctx, releaseBinding, componentRelease, dataPlaneResult, observabilityPlaneReleaseResources)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	// Check if we should return early due to ownership conflict
+	if obsResult.ownershipConflict {
+		return ctrl.Result{}, nil
+	}
+
+	// Resolve per-endpoint invoke URLs by matching HTTPRoute backendRef ports to workload endpoints.
+	releaseBinding.Status.Endpoints = resolveEndpointURLStatuses(
+		ctx,
+		dataPlaneReleaseResources,
+		componentRelease.Spec.Workload.Endpoints,
+		environment,
+		dataPlane,
+	)
+
+	// Resolve in-cluster Service URLs for all endpoints (including non-HTTP types like TCP, gRPC).
+	releaseBinding.Status.Endpoints = resolveServiceURLs(
+		ctx,
+		dataPlaneReleaseResources,
+		componentRelease.Spec.Workload.Endpoints,
+		releaseBinding.Status.Endpoints,
+	)
+
+	// Connection stability guard: check after endpoint URL resolution so that
+	// this component's own endpoint URLs are always kept up to date (unblocking
+	// other components' connections), but requeue before marking ReleaseSynced
+	// when our own outbound connections are not yet resolved.
+	connectionsResolved := allConnectionsResolved(releaseBinding, snapshotWorkload.Spec.GetDependencyEndpoints())
+	setConnectionsCondition(releaseBinding, connectionsResolved)
+	if !connectionsResolved {
+		logger.Info("Connections not yet resolved, waiting for provider endpoint changes",
+			"pending", len(releaseBinding.Status.PendingConnections),
+			"resolved", len(releaseBinding.Status.ResolvedConnections))
+		return ctrl.Result{}, nil
+	}
+
+	// Resource dependency stability guard: same shape as the connections guard above.
+	// Block ReleaseSynced when any provider ResourceReleaseBinding is missing, not Ready,
+	// or has not yet populated a referenced output.
+	resourceDeps = snapshotWorkload.Spec.GetDependencyResources()
+	resourceDepsResolved := allResourceDependenciesResolved(releaseBinding, resourceDeps)
+	setResourceDependenciesCondition(releaseBinding, resourceDepsResolved)
+	if !resourceDepsResolved {
+		logger.Info("Resource dependencies not yet resolved, waiting for provider outputs",
+			"pending", len(releaseBinding.Status.PendingResourceDependencies),
+			"deps", len(resourceDeps))
+		return ctrl.Result{}, nil
+	}
+
+	// Set ReleaseSynced condition based on operation results.
+	r.setReleaseSyncedCondition(releaseBinding, dataPlaneRelease.Name, dpOp, len(dataPlaneReleaseResources), obsResult)
+
+	// Check if the Release controller recorded a resource apply failure.
+	// Only act on the condition when it matches the current Release generation
+	// to avoid surfacing stale errors from a previous spec revision.
+	applyCond := meta.FindStatusCondition(dataPlaneRelease.Status.Conditions, renderedrelease.ConditionResourcesApplied)
+	if applyCond != nil && applyCond.Status == metav1.ConditionFalse &&
+		applyCond.ObservedGeneration == dataPlaneRelease.Generation {
+		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
+			ReasonResourceApplyFailed, applyCond.Message)
+		return ctrl.Result{}, nil
+	}
+
+	if dpOp == controllerutil.OperationResultCreated || dpOp == controllerutil.OperationResultUpdated {
+		logger.Info("Releases reconciled",
+			"dataplaneReleaseOp", dpOp,
+			"dataplaneRelease", dataPlaneRelease.Name,
+			"dataplaneResourceCount", len(dataPlaneReleaseResources),
+			"observabilityReleaseOp", obsResult.operation,
+			"observabilityReleaseName", obsResult.releaseName,
+			"observabilityResourceCount", obsResult.resourceCount,
+			"observabilityReleaseManaged", obsResult.managed)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// Evaluate resource readiness from dataplane Release status (with component for workload type)
+	if err := r.setResourcesReadyStatus(ctx, releaseBinding, dataPlaneRelease, component); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to set resources ready status: %w", err)
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// handleUndeploy deletes the Release resources when ReleaseState is Undeploy.
+// If the Release doesn't exist, marks the binding as undeployed.
+// If the Release exists but is being deleted, reports "being undeployed".
+func (r *Reconciler) handleUndeploy(ctx context.Context,
+	releaseBinding *openchoreov1alpha1.ComponentReleaseBinding,
+	componentRelease *openchoreov1alpha1.ComponentRelease) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+
+	// Get release names
+	dpReleaseName := makeDataPlaneReleaseName(componentRelease, releaseBinding)
+	obsReleaseName := makeObservabilityReleaseName(componentRelease, releaseBinding)
+
+	// Track release existence and deletion state
+	releaseFound := false
+	deletionPending := false
+
+	// Try to delete dataplane Release
+	dataPlaneRelease := &openchoreov1alpha1.RenderedRelease{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      dpReleaseName,
+		Namespace: releaseBinding.Namespace,
+	}, dataPlaneRelease)
+
+	if err == nil {
+		releaseFound = true
+		if dataPlaneRelease.DeletionTimestamp.IsZero() {
+			if err := r.Delete(ctx, dataPlaneRelease); err != nil {
+				err = fmt.Errorf("failed to delete dataplane release %q: %w", dpReleaseName, err)
+				controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+					ReasonReleaseDeletionFailed, err.Error())
+				return ctrl.Result{}, err
+			}
+			logger.Info("Deleted dataplane Release for undeploy", "release", dpReleaseName)
+		}
+		deletionPending = true
+	} else if !apierrors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("failed to get dataplane Release for undeploy: %w", err)
+	}
+
+	// Try to delete observability Release
+	observabilityRelease := &openchoreov1alpha1.RenderedRelease{}
+	err = r.Get(ctx, types.NamespacedName{
+		Name:      obsReleaseName,
+		Namespace: releaseBinding.Namespace,
+	}, observabilityRelease)
+
+	if err == nil {
+		releaseFound = true
+		if observabilityRelease.DeletionTimestamp.IsZero() {
+			if err := r.Delete(ctx, observabilityRelease); err != nil {
+				err = fmt.Errorf("failed to delete observability release %q: %w", obsReleaseName, err)
+				controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+					ReasonReleaseDeletionFailed, err.Error())
+				return ctrl.Result{}, err
+			}
+			logger.Info("Deleted observability Release for undeploy", "release", obsReleaseName)
+		}
+		deletionPending = true
+	} else if !apierrors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("failed to get observability Release for undeploy: %w", err)
+	}
+
+	// Set conditions based on Release state
+	if deletionPending {
+		// Release(s) exist but being deleted
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonResourcesUndeployed, "Resources being undeployed")
+		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
+			ReasonResourcesUndeployed, "Resources being undeployed")
+		return ctrl.Result{}, nil
+	}
+
+	if !releaseFound {
+		// All Releases are gone - mark as undeployed
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonResourcesUndeployed, "Resources undeployed")
+		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
+			ReasonResourcesUndeployed, "Resources undeployed")
+		return ctrl.Result{}, nil
+	}
+
+	// Releases were just deleted, requeue to check completion
+	return ctrl.Result{Requeue: true}, nil
+}
+
+// observabilityReleaseResult holds the result of reconciling an observability Release.
+type observabilityReleaseResult struct {
+	releaseName       string
+	operation         controllerutil.OperationResult
+	resourceCount     int
+	managed           bool
+	ownershipConflict bool
+	// skipReason explains why the observability Release was skipped when managed == false.
+	// Empty when managed == true.
+	skipReason string
+}
+
+// reconcileObservabilityRelease handles the creation, update, or cleanup of the observability plane Release.
+// It returns the result of the operation and any error encountered.
+func (r *Reconciler) reconcileObservabilityRelease(
+	ctx context.Context,
+	releaseBinding *openchoreov1alpha1.ComponentReleaseBinding,
+	componentRelease *openchoreov1alpha1.ComponentRelease,
+	dataPlaneResult *controller.DataPlaneResult,
+	observabilityPlaneReleaseResources []openchoreov1alpha1.RenderedManifest,
+) (observabilityReleaseResult, error) {
+	logger := log.FromContext(ctx)
+
+	// Determine if we should create/manage an observability Release:
+	// 1. There must be observability plane resources to deploy
+	// 2. ObservabilityPlane must resolve (with default fallback)
+	shouldManage := false
+	var skipReason string
+	if len(observabilityPlaneReleaseResources) == 0 {
+		skipReason = "no observability resources to deploy"
+	} else {
+		// Try to resolve the ObservabilityPlane - this will use "default" if not explicitly specified
+		if _, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client); err != nil {
+			skipReason = fmt.Sprintf("failed to resolve ObservabilityPlane: %v", err)
+			logger.Info("Skipping observability Release reconciliation", "reason", skipReason)
+		} else {
+			shouldManage = true
+		}
+	}
+
+	releaseName := makeObservabilityReleaseName(componentRelease, releaseBinding)
+
+	result := observabilityReleaseResult{
+		releaseName:   releaseName,
+		resourceCount: len(observabilityPlaneReleaseResources),
+		managed:       shouldManage,
+		skipReason:    skipReason,
+	}
+
+	if shouldManage {
+		// Create or update observability plane Release
+		observabilityRelease := &openchoreov1alpha1.RenderedRelease{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      releaseName,
+				Namespace: releaseBinding.Namespace,
+			},
+		}
+
+		opOp, err := controllerutil.CreateOrUpdate(ctx, r.Client, observabilityRelease, func() error {
+			// Check if we own this Release (only for existing releases)
+			if observabilityRelease.UID != "" {
+				hasOwner, err := controllerutil.HasOwnerReference(observabilityRelease.GetOwnerReferences(), releaseBinding, r.Scheme)
+				if err != nil {
+					return fmt.Errorf("failed to check owner reference: %w", err)
+				}
+				if !hasOwner {
+					return fmt.Errorf("release exists but is not owned by this ComponentReleaseBinding")
+				}
+			}
+
+			observabilityRelease.Labels = map[string]string{
+				labels.LabelKeyNamespaceName:   releaseBinding.Namespace,
+				labels.LabelKeyProjectName:     releaseBinding.Spec.Owner.ProjectName,
+				labels.LabelKeyComponentName:   releaseBinding.Spec.Owner.ComponentName,
+				labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
+			}
+
+			observabilityRelease.Spec = openchoreov1alpha1.RenderedReleaseSpec{
+				Owner: openchoreov1alpha1.RenderedReleaseOwner{
+					ProjectName:   releaseBinding.Spec.Owner.ProjectName,
+					ComponentName: releaseBinding.Spec.Owner.ComponentName,
+				},
+				EnvironmentName: releaseBinding.Spec.Environment,
+				TargetPlane:     openchoreov1alpha1.TargetPlaneObservabilityPlane,
+				Resources:       observabilityPlaneReleaseResources,
+			}
+
+			return controllerutil.SetControllerReference(releaseBinding, observabilityRelease, r.Scheme)
+		})
+
+		if err != nil {
+			// Check for ownership conflict
+			if strings.Contains(err.Error(), "not owned by") {
+				msg := fmt.Sprintf("Release %q exists but is owned by another resource", releaseName)
+				controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+					ReasonReleaseOwnershipConflict, msg)
+				logger.Error(err, msg)
+				result.ownershipConflict = true
+				return result, nil
+			}
+
+			// Transient errors
+			msg := fmt.Sprintf("Failed to reconcile observability plane Release: %v", err)
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+				ReasonReleaseUpdateFailed, msg)
+			logger.Error(err, "Failed to reconcile observability plane Release", "release", releaseName)
+			return result, err
+		}
+
+		result.operation = opOp
+		return result, nil
+	}
+
+	// Clean up existing observability Release if it exists but we no longer need it
+	// (e.g., ObservabilityPlaneRef was removed or no more observability resources)
+	existingObsRelease := &openchoreov1alpha1.RenderedRelease{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      releaseName,
+		Namespace: releaseBinding.Namespace,
+	}, existingObsRelease); err == nil {
+		// Check if we own this release before deleting
+		hasOwner, ownerErr := controllerutil.HasOwnerReference(existingObsRelease.GetOwnerReferences(), releaseBinding, r.Scheme)
+		if ownerErr == nil && hasOwner {
+			if deleteErr := r.Delete(ctx, existingObsRelease); deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
+				logger.Error(deleteErr, "Failed to delete stale observability Release", "release", releaseName)
+				return result, deleteErr
+			}
+			logger.Info("Deleted stale observability Release",
+				"release", releaseName,
+				"reason", "no ObservabilityPlaneRef configured or no observability resources")
+		}
+	}
+
+	// Mark as "skipped" for logging purposes
+	result.operation = controllerutil.OperationResultNone
+	return result, nil
+}
+
+// setReleaseSyncedCondition sets the ReleaseSynced condition based on operation results.
+func (r *Reconciler) setReleaseSyncedCondition(
+	releaseBinding *openchoreov1alpha1.ComponentReleaseBinding,
+	dpReleaseName string,
+	dpOp controllerutil.OperationResult,
+	dpResourceCount int,
+	obsResult observabilityReleaseResult,
+) {
+	switch dpOp {
+	case controllerutil.OperationResultCreated, controllerutil.OperationResultUpdated:
+		var msg string
+		if obsResult.managed {
+			msg = fmt.Sprintf("Dataplane Release %q %s with %d resources; observability Release %q %s with %d resources",
+				dpReleaseName, dpOp, dpResourceCount,
+				obsResult.releaseName, obsResult.operation, obsResult.resourceCount)
+		} else {
+			msg = fmt.Sprintf("Dataplane Release %q %s with %d resources (observability release skipped: %s)",
+				dpReleaseName, dpOp, dpResourceCount, obsResult.skipReason)
+		}
+		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseCreated, msg)
+
+	case controllerutil.OperationResultNone:
+		var msg string
+		if obsResult.managed {
+			msg = fmt.Sprintf("Dataplane Release %q is up to date; observability Release %q is %s",
+				dpReleaseName, obsResult.releaseName, obsResult.operation)
+		} else {
+			msg = fmt.Sprintf("Dataplane Release %q is up to date (observability release skipped: %s)",
+				dpReleaseName, obsResult.skipReason)
+		}
+		controller.MarkTrueCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseSynced, msg)
+	}
+}
+
+// Release naming helper functions
+
+// makeDataPlaneReleaseName returns the name for a dataplane Release.
+// Format: {componentName}-{environment}
+func makeDataPlaneReleaseName(componentRelease *openchoreov1alpha1.ComponentRelease, releaseBinding *openchoreov1alpha1.ComponentReleaseBinding) string {
+	return fmt.Sprintf("%s-%s", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
+}
+
+// makeObservabilityReleaseName returns the name for an observability plane Release.
+// Format: {componentName}-{environment}-observability
+func makeObservabilityReleaseName(componentRelease *openchoreov1alpha1.ComponentRelease, releaseBinding *openchoreov1alpha1.ComponentReleaseBinding) string {
+	return fmt.Sprintf("%s-%s-observability", componentRelease.Spec.Owner.ComponentName, releaseBinding.Spec.Environment)
+}
+
+// Helper functions to build snapshot structures from ComponentRelease
+
+func buildComponentFromRelease(componentRelease *openchoreov1alpha1.ComponentRelease) *openchoreov1alpha1.Component {
+	var parameters *runtime.RawExtension
+	var traits []openchoreov1alpha1.ComponentTrait
+
+	if componentRelease.Spec.ComponentProfile != nil {
+		parameters = componentRelease.Spec.ComponentProfile.Parameters
+		profileTraits := componentRelease.Spec.ComponentProfile.Traits
+		traits = make([]openchoreov1alpha1.ComponentTrait, 0, len(profileTraits))
+		for _, pt := range profileTraits {
+			traits = append(traits, openchoreov1alpha1.ComponentTrait(pt))
+		}
+	}
+
+	return &openchoreov1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      componentRelease.Spec.Owner.ComponentName,
+			Namespace: componentRelease.Namespace,
+		},
+		Spec: openchoreov1alpha1.ComponentSpec{
+			Owner: openchoreov1alpha1.ComponentOwner{
+				ProjectName: componentRelease.Spec.Owner.ProjectName,
+			},
+			Parameters: parameters,
+			Traits:     traits,
+		},
+	}
+}
+
+func buildComponentTypeFromRelease(componentRelease *openchoreov1alpha1.ComponentRelease) *openchoreov1alpha1.ComponentType {
+	return &openchoreov1alpha1.ComponentType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "from-release", // Name doesn't matter for rendering
+			Namespace: componentRelease.Namespace,
+		},
+		Spec: componentRelease.Spec.ComponentType.Spec,
+	}
+}
+
+func buildTraitsFromRelease(componentRelease *openchoreov1alpha1.ComponentRelease) []openchoreov1alpha1.Trait {
+	if len(componentRelease.Spec.Traits) == 0 {
+		return nil
+	}
+
+	traits := make([]openchoreov1alpha1.Trait, 0, len(componentRelease.Spec.Traits))
+	for _, rt := range componentRelease.Spec.Traits {
+		traits = append(traits, openchoreov1alpha1.Trait{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       string(rt.Kind),
+				APIVersion: openchoreov1alpha1.GroupVersion.String(),
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      rt.Name,
+				Namespace: componentRelease.Namespace,
+			},
+			Spec: rt.Spec,
+		})
+	}
+	return traits
+}
+
+func buildWorkloadFromRelease(componentRelease *openchoreov1alpha1.ComponentRelease) *openchoreov1alpha1.Workload {
+	return &openchoreov1alpha1.Workload{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "from-release", // Name doesn't matter for rendering
+			Namespace: componentRelease.Namespace,
+		},
+		Spec: openchoreov1alpha1.WorkloadSpec{
+			Owner: openchoreov1alpha1.WorkloadOwner{
+				ProjectName:   componentRelease.Spec.Owner.ProjectName,
+				ComponentName: componentRelease.Spec.Owner.ComponentName,
+			},
+			WorkloadTemplateSpec: componentRelease.Spec.Workload,
+		},
+	}
+}
+
+// convertToReleaseResources converts unstructured resources to Release.Resource format
+func (r *Reconciler) convertToReleaseResources(
+	resources []map[string]any,
+) ([]openchoreov1alpha1.RenderedManifest, error) {
+	releaseResources := make([]openchoreov1alpha1.RenderedManifest, 0, len(resources))
+
+	for i, resource := range resources {
+		// Generate resource ID
+		id := r.generateResourceID(resource, i)
+
+		// Marshal to JSON bytes
+		rawJSON, err := json.Marshal(resource)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal resource to JSON (resourceID: %s): %w", id, err)
+		}
+
+		releaseResources = append(releaseResources, openchoreov1alpha1.RenderedManifest{
+			ID: id,
+			Object: &runtime.RawExtension{
+				Raw: rawJSON,
+			},
+		})
+	}
+	return releaseResources, nil
+}
+
+// generateResourceID creates a unique ID for a resource
+func (r *Reconciler) generateResourceID(resource map[string]any, index int) string {
+	kind, _ := resource["kind"].(string)
+	metadata, _ := resource["metadata"].(map[string]any)
+	name, _ := metadata["name"].(string)
+
+	if kind != "" && name != "" {
+		resourceID := fmt.Sprintf("%s-%s", strings.ToLower(kind), name)
+		if len(resourceID) > dpkubernetes.MaxLabelNameLength {
+			return dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxLabelNameLength,
+				strings.ToLower(kind),
+				name)
+		}
+		return resourceID
+	}
+
+	// Fallback: use index
+	return fmt.Sprintf("resource-%d", index)
+}
+
+// endpointMeta holds the type and visibility configuration of a workload endpoint.
+type endpointMeta struct {
+	endpointType openchoreov1alpha1.EndpointType
+	visibility   []openchoreov1alpha1.EndpointVisibility
+}
+
+// indexedRoute is a Gateway API route resource paired with its kind so the URL
+// resolution pass can pick path-extraction and listener-targeting rules without
+// re-inspecting the unstructured object.
+type indexedRoute struct {
+	obj  *unstructured.Unstructured
+	kind string
+}
+
+// endpointRoutes holds the indexed Gateway API route for a single endpoint,
+// split into external and internal buckets. The TLS trait keeps route kinds
+// mutually exclusive per visibility, so a single pointer per bucket is enough.
+type endpointRoutes struct {
+	external *indexedRoute
+	internal *indexedRoute
+}
+
+// resolveEndpointURLStatuses matches each rendered Gateway API route (HTTPRoute,
+// GRPCRoute, or TLSRoute) to a named workload endpoint using the
+// openchoreo.dev/endpoint-name and openchoreo.dev/endpoint-visibility labels,
+// then derives the invoke URLs from the route hostname (and HTTPRoute path).
+// The gateway port is selected based on endpoint visibility: external visibility
+// uses the external ingress gateway; all other visibilities use the internal
+// ingress gateway. Environment-level gateway configuration takes precedence over
+// dataplane-level configuration. HTTPRoute and GRPCRoute populate the http/https
+// listener URLs; TLSRoute populates the tls listener URL. URL schemes are
+// derived from the endpoint type (e.g. ws/wss for Websocket, grpc/grpcs for gRPC).
+func resolveEndpointURLStatuses(
+	ctx context.Context,
+	resources []openchoreov1alpha1.RenderedManifest,
+	endpoints map[string]openchoreov1alpha1.WorkloadEndpoint,
+	environment *openchoreov1alpha1.Environment,
+	dataPlane *openchoreov1alpha1.DataPlane,
+) []openchoreov1alpha1.EndpointURLStatus {
+	logger := log.FromContext(ctx).WithName("endpoint-resolver")
+
+	if len(endpoints) == 0 {
+		logger.Info("No workload endpoints defined, skipping endpoint URL resolution")
+		return nil
+	}
+
+	// Build a map of endpoint name → endpointMeta for endpoint types that some
+	// route kind can expose. Routes targeting any other endpoint type are skipped
+	// during the indexing pass below.
+	routableEndpoints := make(map[string]endpointMeta, len(endpoints))
+	for name, ep := range endpoints {
+		if !isRoutableEndpointType(ep.Type) {
+			logger.Info("Skipping endpoint type not exposed by any Gateway API route",
+				"name", name, "type", ep.Type)
+			continue
+		}
+		routableEndpoints[name] = endpointMeta{
+			endpointType: ep.Type,
+			visibility:   ep.Visibility,
+		}
+		logger.Info("Registered routable endpoint", "name", name, "type", ep.Type)
+	}
+
+	// First pass: index Gateway API routes by endpoint name into external/internal
+	// buckets. No URL resolution happens here — just collect the objects.
+	routeIndex := make(map[string]*endpointRoutes)
+	for i := range resources {
+		res := &resources[i]
+		if res.Object == nil || len(res.Object.Raw) == 0 {
+			continue
+		}
+
+		obj := &unstructured.Unstructured{}
+		if err := obj.UnmarshalJSON(res.Object.Raw); err != nil {
+			logger.Error(err, "Failed to unmarshal resource", "resourceID", res.ID)
+			continue
+		}
+
+		if obj.GetObjectKind().GroupVersionKind().Group != gatewayAPIGroup {
+			continue
+		}
+		kind := obj.GetKind()
+		compat, isRoute := routeKindCompat[kind]
+		if !isRoute {
+			continue
+		}
+
+		objLabels := obj.GetLabels()
+		endpointName := objLabels[labels.LabelKeyEndpointName]
+		if endpointName == "" {
+			logger.Info("Route missing endpoint-name label, skipping",
+				"kind", kind, "routeName", obj.GetName())
+			continue
+		}
+
+		meta, ok := routableEndpoints[endpointName]
+		if !ok {
+			logger.Info("Route endpoint name not in routable endpoints, skipping",
+				"kind", kind, "routeName", obj.GetName(), "endpointName", endpointName)
+			continue
+		}
+
+		if !compat[meta.endpointType] {
+			logger.Info("Route kind incompatible with endpoint type, skipping",
+				"kind", kind, "routeName", obj.GetName(),
+				"endpointName", endpointName, "endpointType", meta.endpointType)
+			continue
+		}
+
+		if _, ok := routeIndex[endpointName]; !ok {
+			routeIndex[endpointName] = &endpointRoutes{}
+		}
+
+		route := &indexedRoute{obj: obj, kind: kind}
+		visibility := openchoreov1alpha1.EndpointVisibility(objLabels[labels.LabelKeyEndpointVisibility])
+		bucket := &routeIndex[endpointName].internal
+		if visibility == openchoreov1alpha1.EndpointVisibilityExternal {
+			bucket = &routeIndex[endpointName].external
+		}
+		if *bucket != nil {
+			logger.Info("Multiple routes target the same endpoint+visibility, overwriting",
+				"endpointName", endpointName, "visibility", visibility,
+				"existingKind", (*bucket).kind, "newKind", kind)
+		}
+		*bucket = route
+	}
+
+	// Second pass: iterate endpoints in sorted order and build one EndpointURLStatus per endpoint.
+	endpointNames := make([]string, 0, len(routableEndpoints))
+	for name := range routableEndpoints {
+		endpointNames = append(endpointNames, name)
+	}
+	sort.Strings(endpointNames)
+
+	result := make([]openchoreov1alpha1.EndpointURLStatus, 0, len(endpointNames))
+	for _, name := range endpointNames {
+		routes, ok := routeIndex[name]
+		if !ok {
+			continue
+		}
+
+		epType := routableEndpoints[name].endpointType
+		status := openchoreov1alpha1.EndpointURLStatus{
+			Name: name,
+			Type: epType,
+		}
+
+		if r := routes.external; r != nil {
+			hostname := extractFirstHostname(r.obj)
+			gwEndpoint := resolveGatewayEndpointByVisibility(openchoreov1alpha1.EndpointVisibilityExternal, environment, dataPlane)
+			if hostname == "" || gwEndpoint == nil {
+				logger.Info("No external gateway endpoint configured, skipping", "endpointName", name)
+			} else {
+				status.ExternalURLs = buildRouteURLs(r.kind, epType, hostname, routePath(r), gwEndpoint)
+				logger.Info("Resolved external endpoint URLs",
+					"endpointName", name, "kind", r.kind, "hostname", hostname)
+			}
+		}
+
+		if r := routes.internal; r != nil {
+			hostname := extractFirstHostname(r.obj)
+			visibilityStr := r.obj.GetLabels()[labels.LabelKeyEndpointVisibility]
+			gwEndpoint := resolveGatewayEndpointByVisibility(openchoreov1alpha1.EndpointVisibility(visibilityStr), environment, dataPlane)
+			if hostname == "" || gwEndpoint == nil {
+				logger.Info("No internal gateway endpoint configured, skipping",
+					"endpointName", name, "visibility", visibilityStr)
+			} else {
+				status.InternalURLs = buildRouteURLs(r.kind, epType, hostname, routePath(r), gwEndpoint)
+				logger.Info("Resolved internal endpoint URLs",
+					"endpointName", name, "kind", r.kind,
+					"hostname", hostname, "visibility", visibilityStr)
+			}
+		}
+
+		result = append(result, status)
+	}
+	return result
+}
+
+// isRoutableEndpointType reports whether any route kind can expose this endpoint type.
+func isRoutableEndpointType(t openchoreov1alpha1.EndpointType) bool {
+	for _, compat := range routeKindCompat {
+		if compat[t] {
+			return true
+		}
+	}
+	return false
+}
+
+// routePath returns the URL base path that clients use to reach the endpoint via
+// the gateway. A route may advertise this explicitly through the
+// openchoreo.dev/endpoint-base-path annotation; this is required for routes that
+// render one match per API resource (e.g. an HTTPRoute with an Exact match per
+// OpenAPI path), where the first match is a specific operation rather than the
+// endpoint base. When the annotation is absent, fall back to the first HTTPRoute
+// match path — the prefix-routing convention where the single match value is the
+// exposed base. GRPCRoute (method-based) and TLSRoute (SNI-based) carry no path.
+func routePath(r *indexedRoute) string {
+	if base := r.obj.GetAnnotations()[labels.AnnotationKeyEndpointBasePath]; base != "" {
+		return base
+	}
+	if r.kind == httpRouteKind {
+		return extractFirstPathValue(r.obj)
+	}
+	return ""
+}
+
+// buildRouteURLs constructs an EndpointGatewayURLs by writing into the listener
+// fields that the given route kind targets. HTTPRoute and GRPCRoute populate
+// urls.HTTP (cleartext) and urls.HTTPS (gateway-terminated TLS); TLSRoute
+// populates urls.TLS (SNI passthrough, application terminates TLS). The URL
+// scheme inside each entry is derived from the workload endpoint type — the
+// field name reflects the gateway listener, not the scheme.
+func buildRouteURLs(
+	routeKind string,
+	epType openchoreov1alpha1.EndpointType,
+	hostname, path string,
+	ep *openchoreov1alpha1.GatewayEndpointSpec,
+) *openchoreov1alpha1.EndpointGatewayURLs {
+	if ep == nil {
+		return nil
+	}
+	urls := &openchoreov1alpha1.EndpointGatewayURLs{}
+	switch routeKind {
+	case httpRouteKind, grpcRouteKind:
+		if ep.HTTP != nil {
+			urls.HTTP = buildInvokeURL(schemeFor(epType, false), hostname, path, ep.HTTP.Port)
+		}
+		if ep.HTTPS != nil {
+			urls.HTTPS = buildInvokeURL(schemeFor(epType, true), hostname, path, ep.HTTPS.Port)
+		}
+	case tlsRouteKind:
+		if ep.TLS != nil {
+			urls.TLS = buildInvokeURL(schemeFor(epType, true), hostname, path, ep.TLS.Port)
+		}
+	}
+	if urls.HTTP == nil && urls.HTTPS == nil && urls.TLS == nil {
+		return nil
+	}
+	return urls
+}
+
+// schemeFor returns the URL scheme used by clients of the given endpoint type.
+// The tls flag selects between the cleartext form (over the http listener) and
+// the TLS form (over the https or tls listener). Returns "" for endpoint types
+// that don't have a meaningful URL scheme for the requested TLS variant
+// (e.g. TCP without TLS).
+func schemeFor(t openchoreov1alpha1.EndpointType, tls bool) string {
+	switch t {
+	case openchoreov1alpha1.EndpointTypeHTTP, openchoreov1alpha1.EndpointTypeGraphQL:
+		if tls {
+			return schemeHTTPS
+		}
+		return schemeHTTP
+	case openchoreov1alpha1.EndpointTypeWebsocket:
+		if tls {
+			return schemeWSS
+		}
+		return schemeWS
+	case openchoreov1alpha1.EndpointTypeGRPC:
+		if tls {
+			return schemeGRPCS
+		}
+		return schemeGRPC
+	case openchoreov1alpha1.EndpointTypeTCP:
+		if tls {
+			return schemeTLS
+		}
+	}
+	return ""
+}
+
+// buildInvokeURL constructs a single EndpointURL from the given components.
+func buildInvokeURL(scheme, hostname, path string, port int32) *openchoreov1alpha1.EndpointURL {
+	return &openchoreov1alpha1.EndpointURL{
+		Scheme: scheme,
+		Host:   hostname,
+		Port:   port,
+		Path:   path,
+	}
+}
+
+// extractFirstHostname returns the first entry of spec.hostnames[], or "" if absent.
+func extractFirstHostname(obj *unstructured.Unstructured) string {
+	hostnames, found, err := unstructured.NestedStringSlice(obj.Object, "spec", "hostnames")
+	if err != nil || !found || len(hostnames) == 0 {
+		return ""
+	}
+	return hostnames[0]
+}
+
+// extractFirstPathValue walks spec.rules[0].matches[0].path.value and returns the path string.
+// Returns "" when the HTTPRoute has no path match rule (e.g. root-path webapps).
+func extractFirstPathValue(obj *unstructured.Unstructured) string {
+	rules, found, err := unstructured.NestedSlice(obj.Object, "spec", "rules")
+	if err != nil || !found || len(rules) == 0 {
+		return ""
+	}
+
+	firstRule, ok := rules[0].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	matches, found, err := unstructured.NestedSlice(firstRule, "matches")
+	if err != nil || !found || len(matches) == 0 {
+		return ""
+	}
+
+	firstMatch, ok := matches[0].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	value, _, _ := unstructured.NestedString(firstMatch, "path", "value")
+	return value
+}
+
+// resolveGatewayEndpointByVisibility returns the GatewayEndpointSpec for the ingress gateway
+// based on endpoint visibility. External visibility maps to the external gateway endpoint;
+// all other visibilities (internal, namespace, project) map to the internal gateway endpoint.
+// Environment-level gateway configuration takes precedence over dataplane-level configuration.
+// Returns nil if no gateway endpoint is configured for the given visibility.
+func resolveGatewayEndpointByVisibility(
+	visibility openchoreov1alpha1.EndpointVisibility,
+	env *openchoreov1alpha1.Environment,
+	dp *openchoreov1alpha1.DataPlane,
+) *openchoreov1alpha1.GatewayEndpointSpec {
+	if dp == nil {
+		return nil
+	}
+
+	// Use environment-level gateway config if present, otherwise fall back to dataplane.
+	spec := dp.Spec.Gateway
+	if env != nil && env.Spec.Gateway.Ingress != nil {
+		spec = env.Spec.Gateway
+	}
+
+	// If no ingress configured, we can't resolve an endpoint as we don't support egress gateways.
+	// TODO: (lahirude@wso2.com) Add support for egress gateway endpoints and update this logic accordingly.
+	if spec.Ingress == nil {
+		return nil
+	}
+
+	if visibility == openchoreov1alpha1.EndpointVisibilityExternal {
+		return spec.Ingress.External
+	}
+	return spec.Ingress.Internal
+}
+
+// getDefaultNotificationChannelName returns the default ObservabilityAlertsNotificationChannel name for an environment.
+func (r *Reconciler) getDefaultNotificationChannelName(ctx context.Context, namespace, environment string) (string, error) {
+	var channels openchoreov1alpha1.ObservabilityAlertsNotificationChannelList
+	if err := r.List(ctx, &channels, client.InNamespace(namespace)); err != nil {
+		return "", fmt.Errorf("failed to list ObservabilityAlertsNotificationChannels: %w", err)
+	}
+
+	for _, ch := range channels.Items {
+		if ch.Spec.Environment == environment && ch.Spec.IsEnvDefault && ch.DeletionTimestamp.IsZero() {
+			return ch.Name, nil
+		}
+	}
+
+	return "", fmt.Errorf("no default ObservabilityAlertsNotificationChannel found for environment %q", environment)
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	ctx := context.Background()
+
+	// Setup field index for SecretReferences (reads from status.secretReferenceNames)
+	if err := r.setupSecretReferencesIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup SecretReferences index: %w", err)
+	}
+
+	// Setup field index for connection targets (reads from status.connectionTargets)
+	if err := r.setupConnectionTargetsIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup connection targets index: %w", err)
+	}
+
+	// Setup field index for resource dependency targets (reads from status.resourceDependencyTargets)
+	if err := r.setupResourceDependencyTargetsIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup resource dependency targets index: %w", err)
+	}
+
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&openchoreov1alpha1.ComponentReleaseBinding{}).
+		Owns(&openchoreov1alpha1.RenderedRelease{}).
+		Watches(&openchoreov1alpha1.Component{},
+			handler.EnqueueRequestsFromMapFunc(r.findComponentComponentReleaseBindingsForComponent)).
+		Watches(
+			&openchoreov1alpha1.SecretReference{},
+			handler.EnqueueRequestsFromMapFunc(r.listComponentComponentReleaseBindingsForSecretReference),
+		).
+		Watches(
+			&openchoreov1alpha1.ComponentReleaseBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.findConsumerComponentComponentReleaseBindings),
+			builder.WithPredicates(endpointStatusChangedPredicate()),
+		).
+		// The two consumer-side watches do not form a cycle: the endpoint watch enqueues
+		// on Status.Endpoints changes, while the resource-dep watch enqueues on a
+		// ResourceReleaseBinding's Status.Outputs changes. A consumer reconcile may
+		// update its own Status.Endpoints (re-entering the endpoint watch) but never
+		// updates a ResourceReleaseBinding, so the resource-dep watch is fed only by the
+		// independent ResourceReleaseBinding controller.
+		Watches(
+			&openchoreov1alpha1.ResourceReleaseBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.findConsumerComponentComponentReleaseBindingsForResourceReleaseBinding),
+			builder.WithPredicates(resourceComponentReleaseBindingOutputsChangedPredicate()),
+		).
+		// A DataPlane's annotations and spec feed the render context (annotations are exposed
+		// to CEL as dataplane.annotations), so re-render the bindings that use it when it
+		// changes instead of waiting for the periodic resync.
+		Watches(
+			&openchoreov1alpha1.DataPlane{},
+			handler.EnqueueRequestsFromMapFunc(r.findComponentComponentReleaseBindingsForDataPlane),
+			builder.WithPredicates(dataPlaneRenderInputsChangedPredicate()),
+		).
+		Watches(
+			&openchoreov1alpha1.ClusterDataPlane{},
+			handler.EnqueueRequestsFromMapFunc(r.findComponentComponentReleaseBindingsForClusterDataPlane),
+			builder.WithPredicates(dataPlaneRenderInputsChangedPredicate()),
+		).
+		Named("componentreleasebinding").
+		Complete(r)
+}

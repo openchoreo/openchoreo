@@ -33,10 +33,10 @@ frontend ──→ recommendation ──→ productcatalog
 
 ## Step 1: Introduce the Failure
 
-Scale the product catalog service to zero replicas by patching its ReleaseBinding. This is the OpenChoreo-native way to change replica count — patching the deployment directly would be overwritten by the controllers.
+Scale the product catalog service to zero replicas by patching its ComponentReleaseBinding. This is the OpenChoreo-native way to change replica count — patching the deployment directly would be overwritten by the controllers.
 
 ```bash
-kubectl patch releasebinding productcatalog-development -n default \
+kubectl patch componentreleasebinding productcatalog-development -n default \
   --type=merge -p '{"spec": {"componentTypeEnvironmentConfigs": {"replicas": 0}}}'
 ```
 

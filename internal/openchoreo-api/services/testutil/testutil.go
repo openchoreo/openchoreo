@@ -652,3 +652,22 @@ func testRunTemplate() *runtime.RawExtension {
 		Raw: []byte(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"template"}}`),
 	}
 }
+
+func NewComponentReleaseBinding(namespace, projectName, componentName, environmentName, name string) *openchoreov1alpha1.ComponentReleaseBinding {
+	rb := NewReleaseBinding(namespace, projectName, componentName, environmentName, name)
+	return &openchoreov1alpha1.ComponentReleaseBinding{
+		TypeMeta:   rb.TypeMeta,
+		ObjectMeta: rb.ObjectMeta,
+		Spec: openchoreov1alpha1.ComponentReleaseBindingSpec{
+			Owner: openchoreov1alpha1.ComponentReleaseBindingOwner{
+				ProjectName:   rb.Spec.Owner.ProjectName,
+				ComponentName: rb.Spec.Owner.ComponentName,
+			},
+			Environment:                     rb.Spec.Environment,
+			ReleaseName:                     rb.Spec.ReleaseName,
+			ComponentTypeEnvironmentConfigs: rb.Spec.ComponentTypeEnvironmentConfigs,
+			TraitEnvironmentConfigs:         rb.Spec.TraitEnvironmentConfigs,
+			State:                           openchoreov1alpha1.ReleaseState(rb.Spec.State),
+		},
+	}
+}

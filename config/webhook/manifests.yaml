@@ -70,6 +70,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /mutate-openchoreo-dev-v1alpha1-componentreleasebinding
+  failurePolicy: Fail
+  name: mcomponentreleasebinding-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - componentcomponentreleasebindings
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /mutate-openchoreo-dev-v1alpha1-project
   failurePolicy: Fail
   name: mproject-v1alpha1.kb.io
@@ -289,6 +309,26 @@ webhooks:
     - UPDATE
     resources:
     - componentreleases
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-openchoreo-dev-v1alpha1-componentreleasebinding
+  failurePolicy: Fail
+  name: vcomponentreleasebinding-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - openchoreo.dev
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - componentcomponentreleasebindings
   sideEffects: None
 - admissionReviewVersions:
   - v1

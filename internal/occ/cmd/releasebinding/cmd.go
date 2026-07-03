@@ -18,10 +18,11 @@ import (
 
 func NewReleaseBindingCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "releasebinding",
-		Aliases: []string{"releasebindings", "rb"},
-		Short:   "Manage release bindings",
-		Long:    "Commands for managing release bindings.",
+		Use:        "releasebinding",
+		Aliases:    []string{"releasebindings", "rb"},
+		Short:      "Manage release bindings",
+		Long:       "Commands for managing release bindings.",
+		Deprecated: "use 'componentreleasebinding' instead",
 	}
 	cmd.AddCommand(
 		newGenerateCmd(),

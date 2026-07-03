@@ -26,18 +26,18 @@ const (
 	envDev      = "development"
 	envStaging  = "staging"
 
-	componentAlerts        = "alert-greeter-svc"
-	componentBuildLogs     = "alert-build-svc"
-	releaseBindingSuffix   = "-" + envDev
-	servicePort            = 9090
-	notificationChannel    = "webhook-notification-channel-development"
-	imageGreeter           = "ghcr.io/openchoreo/samples/greeter-service@sha256:5c67732c99ac3505dbab14c7ec92c33be57904420d62812694c64b56c5f92d40"
-	curlImage              = "curlimages/curl:8.10.1"
-	curlPodLabel           = "app=alerts-tester"
-	curlContainer          = "tester"
-	alertRuleMetric        = "alert-metric-cpu"
-	alertRuleLog           = "alert-log-error"
-	alertReceiverNamespace = "e2e-alert-webhook"
+	componentAlerts               = "alert-greeter-svc"
+	componentBuildLogs            = "alert-build-svc"
+	componentReleaseBindingSuffix = "-" + envDev
+	servicePort                   = 9090
+	notificationChannel           = "webhook-notification-channel-development"
+	imageGreeter                  = "ghcr.io/openchoreo/samples/greeter-service@sha256:5c67732c99ac3505dbab14c7ec92c33be57904420d62812694c64b56c5f92d40"
+	curlImage                     = "curlimages/curl:8.10.1"
+	curlPodLabel                  = "app=alerts-tester"
+	curlContainer                 = "tester"
+	alertRuleMetric               = "alert-metric-cpu"
+	alertRuleLog                  = "alert-log-error"
+	alertReceiverNamespace        = "e2e-alert-webhook"
 )
 
 var alertRunID = fmt.Sprintf("%d", time.Now().UnixNano())
@@ -150,12 +150,12 @@ func notificationChannelYAML() string {
 }
 
 // alertComponentYAML returns a service-flavour Component+Workload+
-// ReleaseBinding for the alert specs. The ReleaseBinding is needed because
+// ComponentReleaseBinding for the alert specs. The ComponentReleaseBinding is needed because
 // the alert-rule trait validation rejects rules without an explicit
 // notifications channel (the trait CEL falls back to
 // `environment.defaultNotificationChannel`, which the e2e environment does
 // not surface). Setting
-// `releaseBinding.spec.traitEnvironmentConfigs.<ruleName>.actions.notifications.channels`
+// `componentReleaseBinding.spec.traitEnvironmentConfigs.<ruleName>.actions.notifications.channels`
 // pins the channel deterministically.
 type alertRuleFixture struct {
 	name   string
@@ -227,9 +227,9 @@ func alertComponentYAML(componentName string, rules ...alertRuleFixture) string 
 	}
 	rb := map[string]any{
 		"apiVersion": openChoreoAPIVer,
-		"kind":       "ReleaseBinding",
+		"kind":       "ComponentReleaseBinding",
 		"metadata": map[string]any{
-			"name":      componentName + releaseBindingSuffix,
+			"name":      componentName + componentReleaseBindingSuffix,
 			"namespace": cpNs,
 		},
 		"spec": map[string]any{

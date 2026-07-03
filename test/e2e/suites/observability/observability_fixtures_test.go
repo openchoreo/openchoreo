@@ -28,8 +28,8 @@ const (
 	envDev      = "development"
 	envStaging  = "staging"
 
-	componentGreeter     = "obs-greeter"
-	releaseBindingSuffix = "-" + envDev
+	componentGreeter              = "obs-greeter"
+	componentReleaseBindingSuffix = "-" + envDev
 
 	servicePort = 9090
 
@@ -256,10 +256,10 @@ func ensureObservabilityFixtures() {
 		framework.AssertPodsRunning(g, dpCtx(), dpNs, curlPodLabel)
 	}, 4*time.Minute, 3*time.Second).Should(Succeed())
 
-	By("waiting for greeter ReleaseBinding Ready")
+	By("waiting for greeter ComponentReleaseBinding Ready")
 	Eventually(func(g Gomega) {
-		framework.AssertReleaseBindingReady(g, kubeContext, cpNs,
-			componentGreeter+releaseBindingSuffix)
+		framework.AssertComponentReleaseBindingReady(g, kubeContext, cpNs,
+			componentGreeter+componentReleaseBindingSuffix)
 	}, 5*time.Minute, 5*time.Second).Should(Succeed())
 
 	By("waiting for greeter pod Running")
@@ -270,7 +270,7 @@ func ensureObservabilityFixtures() {
 
 	By("resolving greeter Service host:port")
 	Eventually(func(g Gomega) {
-		h, p := serviceURLHostPort(g, componentGreeter+releaseBindingSuffix)
+		h, p := serviceURLHostPort(g, componentGreeter+componentReleaseBindingSuffix)
 		greeterHost, greeterPort = h, p
 	}, 3*time.Minute, 3*time.Second).Should(Succeed())
 	fmt.Fprintf(GinkgoWriter, "greeter resolved at %s:%s\n", greeterHost, greeterPort)

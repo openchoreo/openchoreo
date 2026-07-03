@@ -15,7 +15,7 @@ OpenChoreo uses two context types depending on where the template is evaluated:
 ## ComponentContext
 
 ComponentContext is used when rendering ComponentType resources. It provides access to component metadata, parameters (
-from Component), environment overrides (from ReleaseBinding), workload information, and configurations.
+from Component), environment overrides (from ComponentReleaseBinding), workload information, and configurations.
 
 ### Available in ComponentType
 
@@ -129,7 +129,7 @@ spec:
 
 ### environmentConfigs
 
-Environment-specific overrides from `ReleaseBinding.Spec.ComponentTypeEnvironmentConfigs`, pruned to the ComponentType's
+Environment-specific overrides from `ComponentReleaseBinding.Spec.ComponentTypeEnvironmentConfigs`, pruned to the ComponentType's
 `schema.environmentConfigs` section with defaults applied. Use for values that vary per environment (resources,
 replicas, etc.).
 
@@ -150,7 +150,7 @@ schema:
         cpu: "string | default=500m"
         memory: "string | default=512Mi"
 
-# And this ReleaseBinding:
+# And this ComponentReleaseBinding:
 spec:
   componentTypeEnvironmentConfigs:
     resources:
@@ -162,8 +162,8 @@ spec:
 environmentConfigs:
   resources:
     requests:
-      cpu: "200m"                # ${environmentConfigs.resources.requests.cpu} (from ReleaseBinding)
-      memory: "256Mi"            # ${environmentConfigs.resources.requests.memory} (from ReleaseBinding)
+      cpu: "200m"                # ${environmentConfigs.resources.requests.cpu} (from ComponentReleaseBinding)
+      memory: "256Mi"            # ${environmentConfigs.resources.requests.memory} (from ComponentReleaseBinding)
     limits:
       cpu: "500m"                # ${environmentConfigs.resources.limits.cpu} (default)
       memory: "512Mi"            # ${environmentConfigs.resources.limits.memory} (default)
@@ -189,7 +189,7 @@ spec:
 **Key difference from parameters:**
 
 - `parameters`: Static values from Component - same across all environments
-- `environmentConfigs`: Environment-specific values from ReleaseBinding - different per environment
+- `environmentConfigs`: Environment-specific values from ComponentReleaseBinding - different per environment
 
 ### dataplane
 
@@ -754,7 +754,7 @@ spec:
 ## TraitContext
 
 TraitContext is used when rendering Trait creates and patches. It provides access to metadata, trait-specific
-information, parameters (from trait instance), and environment overrides (from ReleaseBinding).
+information, parameters (from trait instance), and environment overrides (from ComponentReleaseBinding).
 
 ### Available in Traits
 
@@ -836,7 +836,7 @@ parameters:
 
 ### environmentConfigs
 
-Environment-specific overrides from `ReleaseBinding.Spec.TraitEnvironmentConfigs[instanceName]`, pruned to the Trait's
+Environment-specific overrides from `ComponentReleaseBinding.Spec.TraitEnvironmentConfigs[instanceName]`, pruned to the Trait's
 `schema.environmentConfigs` section with defaults applied. Use for values that vary per environment.
 
 ```yaml
@@ -846,7 +846,7 @@ schema:
     size: "string | default=10Gi"
     storageClass: "string | default=standard"
 
-# And this ReleaseBinding:
+# And this ComponentReleaseBinding:
 spec:
   traitEnvironmentConfigs:
     data-storage: # keyed by instanceName
@@ -855,8 +855,8 @@ spec:
 
 # The environmentConfigs context would be:
 environmentConfigs:
-  size: "50Gi"                   # ${environmentConfigs.size} (from ReleaseBinding)
-  storageClass: "fast-ssd"       # ${environmentConfigs.storageClass} (from ReleaseBinding)
+  size: "50Gi"                   # ${environmentConfigs.size} (from ComponentReleaseBinding)
+  storageClass: "fast-ssd"       # ${environmentConfigs.storageClass} (from ComponentReleaseBinding)
 ```
 
 **Example usage:**
@@ -1023,7 +1023,7 @@ The entire rendered Kubernetes resource is available, including:
 |------------------------|---------------------------------------------------------|-------------------------------------------------|
 | `metadata.*`           | ✅                                                       | ✅                                               |
 | `parameters.*`         | ✅ (from Component.Spec.Parameters)                      | ✅ (from Trait instance)                         |
-| `environmentConfigs.*` | ✅ (from ReleaseBinding.ComponentTypeEnvironmentConfigs) | ✅ (from ReleaseBinding.TraitEnvironmentConfigs) |
+| `environmentConfigs.*` | ✅ (from ComponentReleaseBinding.ComponentTypeEnvironmentConfigs) | ✅ (from ComponentReleaseBinding.TraitEnvironmentConfigs) |
 | `dataplane.*`          | ✅                                                       | ✅                                               |
 | `gateway.*`            | ✅                                                       | ✅                                               |
 | `environment.*`        | ✅                                                       | ✅                                               |

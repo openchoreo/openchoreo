@@ -82,8 +82,12 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 
 	// Apply workload overrides from ReleaseBinding if present
 	workload := input.Workload
-	if input.Workload != nil && input.ReleaseBinding != nil && input.ReleaseBinding.Spec.WorkloadOverrides != nil {
-		workload = context.MergeWorkloadOverrides(input.Workload, input.ReleaseBinding.Spec.WorkloadOverrides)
+	if input.Workload != nil {
+		if input.ComponentReleaseBinding != nil && input.ComponentReleaseBinding.Spec.WorkloadOverrides != nil {
+			workload = context.MergeWorkloadOverrides(input.Workload, input.ComponentReleaseBinding.Spec.WorkloadOverrides)
+		} else if input.ReleaseBinding != nil && input.ReleaseBinding.Spec.WorkloadOverrides != nil {
+			workload = context.MergeWorkloadOverrides(input.Workload, input.ReleaseBinding.Spec.WorkloadOverrides)
+		}
 	}
 
 	// Pre-compute workload data and configurations once and share across all contexts
@@ -120,6 +124,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		Component:                  input.Component,
 		ComponentType:              input.ComponentType,
 		ReleaseBinding:             input.ReleaseBinding,
+		ComponentReleaseBinding:    input.ComponentReleaseBinding,
 		DataPlane:                  input.DataPlane,
 		Environment:                input.Environment,
 		WorkloadData:               workloadData,
@@ -241,7 +246,14 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		}
 
 		// Resolve the component-level trait's instance bindings (just JSON deserialization)
-		resolvedParams, resolvedEnvironmentConfigs, err := context.ExtractTraitInstanceBindings(traitInstance, input.ReleaseBinding)
+		var resolvedParams map[string]any
+		var resolvedEnvironmentConfigs map[string]any
+		var err error
+		if input.ComponentReleaseBinding != nil {
+			resolvedParams, resolvedEnvironmentConfigs, err = context.ExtractTraitInstanceBindingsForCRB(traitInstance, input.ComponentReleaseBinding)
+		} else {
+			resolvedParams, resolvedEnvironmentConfigs, err = context.ExtractTraitInstanceBindings(traitInstance, input.ReleaseBinding)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract trait bindings for %s/%s: %w",
 				traitInstance.Name, traitInstance.InstanceName, err)

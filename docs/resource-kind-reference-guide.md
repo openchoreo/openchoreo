@@ -13,11 +13,11 @@ This document describes the resource kinds used in OpenChoreo CRDs, the relation
     - [Component](#component)
     - [Workload](#workload)
     - [ComponentRelease](#componentrelease)
-    - [ReleaseBinding](#releasebinding)
+    - [ComponentReleaseBinding](#componentreleasebinding)
     - [RenderedRelease](#renderedrelease)
     - [Resource](#resource)
     - [ResourceRelease](#resourcerelease)
-    - [ResourceReleaseBinding](#resourcereleasebinding)
+    - [ResourceReleaseBinding](#resourcecomponentreleasebinding)
   - [Composition and Templating](#composition-and-templating)
     - [ComponentType / ClusterComponentType](#componenttype--clustercomponenttype)
     - [Trait / ClusterTrait](#trait--clustertrait)
@@ -64,9 +64,9 @@ erDiagram
     Component ||--|| Workload : "has"
     Component }o--|| ComponentType : "references"
     Component ||--o{ ComponentRelease : "creates"
-    ComponentRelease ||--o{ ReleaseBinding : "bound to"
-    ReleaseBinding ||--o{ RenderedRelease : "renders"
-    ReleaseBinding }o--|| Environment : "targets"
+    ComponentRelease ||--o{ ComponentReleaseBinding : "bound to"
+    ComponentReleaseBinding ||--o{ RenderedRelease : "renders"
+    ComponentReleaseBinding }o--|| Environment : "targets"
     Resource }o--|| ResourceType : "references"
     Resource ||--o{ ResourceRelease : "creates"
     ResourceRelease ||--o{ ResourceReleaseBinding : "bound to"
@@ -88,7 +88,7 @@ Project (defines deployment pipeline)
   └── Component (references ComponentType, attaches Traits, configures Workflow)
        ├── Workload (container spec, endpoints, dependencies on endpoints + resources)
        └── ComponentRelease (immutable snapshot of ComponentType + Traits + Workload)
-            └── ReleaseBinding (binds release to Environment with overrides)
+            └── ComponentReleaseBinding (binds release to Environment with overrides)
                  └── RenderedRelease (final K8s manifests → applied to DataPlane)
 ```
 
@@ -102,7 +102,7 @@ Project
                  └── RenderedRelease (provisioned K8s manifests → applied to DataPlane)
 ```
 
-Workloads consume Resources via `Workload.spec.dependencies.resources[]`; the ReleaseBinding render waits for each
+Workloads consume Resources via `Workload.spec.dependencies.resources[]`; the ComponentReleaseBinding render waits for each
 referenced ResourceReleaseBinding to be Ready before producing its RenderedRelease.
 
 ### Platform Infrastructure
@@ -160,7 +160,7 @@ Resources are organized under Kubernetes namespaces which serve as organizationa
 
 **Relationships:**
 - References: DeploymentPipeline
-- Owns: Components, ReleaseBindings
+- Owns: Components, ComponentReleaseBindings
 
 [Back to Top](#overview)
 
@@ -180,7 +180,7 @@ Resources are organized under Kubernetes namespaces which serve as organizationa
 |-------|------|----------|---------|-------------|
 | `owner.projectName` | string | Yes | No | Parent Project name |
 | `componentType` | ComponentTypeRef | Yes | No | References ComponentType in format `{workloadType}/{name}` |
-| `autoDeploy` | bool | No | Yes | Auto-create ComponentRelease and ReleaseBinding on changes |
+| `autoDeploy` | bool | No | Yes | Auto-create ComponentRelease and ComponentReleaseBinding on changes |
 | `autoBuild` | bool | No | Yes | Trigger builds on code push (requires webhooks) |
 | `parameters` | RawExtension | No | Yes | Developer-provided values matching ComponentType schema |
 | `traits[]` | ComponentTrait[] | No | Yes | Additional trait instances (instanceName, kind, name, parameters) |
@@ -268,14 +268,14 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 
 **Relationships:**
 - Owner: Component
-- Referenced by: ReleaseBinding (via `spec.releaseName`)
+- Referenced by: ComponentReleaseBinding (via `spec.releaseName`)
 - Contains frozen copies of: ComponentType spec, Trait specs, Workload spec
 
 [Back to Top](#overview)
 
 ---
 
-#### ReleaseBinding
+#### ComponentReleaseBinding
 
 | | |
 |---|---|
@@ -344,7 +344,7 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 **Resource Health States:** Unknown, Progressing, Healthy, Suspended, Degraded
 
 **Relationships:**
-- Created by: ReleaseBinding controller
+- Created by: ComponentReleaseBinding controller
 - Deployed to: DataPlane or ObservabilityPlane
 
 For detailed design documentation, see [RenderedRelease CRD Design](crds/renderedrelease.md).
@@ -703,7 +703,7 @@ gateway:
 ```
 
 **Relationships:**
-- Referenced by: ReleaseBinding, DeploymentPipeline
+- Referenced by: ComponentReleaseBinding, DeploymentPipeline
 - References: DataPlane or ClusterDataPlane
 
 [Back to Top](#overview)
