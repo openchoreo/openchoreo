@@ -178,6 +178,16 @@ paths:
                 title: "internalServerError"
                 errorCode: "OBS-V1-E-01"
                 message: ""
+        "501":
+          description: Not Implemented
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "notImplemented"
+                errorCode: ""
+                message: "Events query is not implemented by this adapter"
 
   /api/v1alpha1/alerts/rules:
     post:
@@ -788,6 +798,7 @@ components:
             - notFound
             - conflict
             - internalServerError
+            - notImplemented
         errorCode:
           type: string
           description: The error code from observer service
