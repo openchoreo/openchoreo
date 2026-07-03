@@ -28,6 +28,9 @@ var (
 	ErrEventsResolveSearchScope = errors.New("events search scope resolution failed")
 	// ErrEventsRetrieval indicates a failure while retrieving events from the adapter.
 	ErrEventsRetrieval = errors.New("events retrieval failed")
+	// ErrEventsNotImplemented indicates the configured logs adapter does not
+	// implement events querying (adapter returned 501).
+	ErrEventsNotImplemented = errors.New("events query not implemented by adapter")
 )
 
 // NewEventsService creates a new EventsService instance backed by the HTTP logs adapter.

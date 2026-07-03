@@ -18,6 +18,7 @@ const (
 	ErrorCodeV1EventsServiceNotReady = "OBS-V1-E-03"
 	ErrorCodeV1EventsResolverFailed  = "OBS-V1-E-04"
 	ErrorCodeV1EventsRetrievalFailed = "OBS-V1-E-05"
+	ErrorCodeV1EventsNotImplemented  = "OBS-V1-E-06"
 
 	// Metrics API (v1) internal server error codes.
 	ErrorCodeV1MetricsInternalGeneric = "OBS-V1-M-01"

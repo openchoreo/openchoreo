@@ -52,6 +52,16 @@ func (h *Handler) QueryEvents(w http.ResponseWriter, r *http.Request) {
 			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
 			return
 		}
+		if errors.Is(err, service.ErrEventsNotImplemented) {
+			h.writeErrorResponse(
+				w,
+				http.StatusNotImplemented,
+				gen.NotImplemented,
+				types.ErrorCodeV1EventsNotImplemented,
+				"Events query is not implemented by the configured logs adapter",
+			)
+			return
+		}
 		h.logger.Error("Failed to query events", "error", err)
 		errorCode := types.ErrorCodeV1EventsInternalGeneric
 		switch {

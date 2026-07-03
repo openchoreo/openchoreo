@@ -397,6 +397,13 @@ func TestAlertService_MetricsAdapter_HTTPErrors(t *testing.T) {
 			expectedErrMsg: "adapter returned 409",
 		},
 		{
+			name:           "501 not implemented",
+			statusCode:     http.StatusNotImplemented,
+			responseBody:   `{"error": "events not implemented"}`,
+			expectedErr:    ErrEventsNotImplemented,
+			expectedErrMsg: "adapter returned 501",
+		},
+		{
 			name:         "500 internal server error",
 			statusCode:   http.StatusInternalServerError,
 			responseBody: `{"error": "internal error"}`,

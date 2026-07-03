@@ -71,6 +71,7 @@ const (
 	Forbidden           ErrorResponseTitle = "forbidden"
 	InternalServerError ErrorResponseTitle = "internalServerError"
 	NotFound            ErrorResponseTitle = "notFound"
+	NotImplemented      ErrorResponseTitle = "notImplemented"
 	Unauthorized        ErrorResponseTitle = "unauthorized"
 )
 
@@ -1300,6 +1301,7 @@ type QueryEventsResp struct {
 	JSON401      *ErrorResponse
 	JSON403      *ErrorResponse
 	JSON500      *ErrorResponse
+	JSON501      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1656,6 +1658,13 @@ func ParseQueryEventsResp(rsp *http.Response) (*QueryEventsResp, error) {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 
