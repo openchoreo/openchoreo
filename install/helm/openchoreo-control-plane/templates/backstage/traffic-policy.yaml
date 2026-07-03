@@ -1,4 +1,4 @@
-{{- if and .Values.backstage.enabled .Values.backstage.http.enabled .Values.gateway.enabled .Values.backstage.http.hostnames -}}
+{{- if and .Values.backstage.enabled .Values.backstage.http.enabled .Values.gateway.enabled .Values.backstage.http.hostnames (eq (.Values.gateway.gatewayClassName | default "kgateway") "kgateway") -}}
 apiVersion: gateway.kgateway.dev/v1alpha1
 kind: TrafficPolicy
 metadata:
