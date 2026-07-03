@@ -48,6 +48,8 @@ func (r *Reconciler) renderAndEmit(
 		ProjectParameters:  release.Spec.Parameters,
 		EnvironmentConfigs: binding.Spec.EnvironmentConfigs,
 		Metadata:           metadataCtx,
+		DataPlane:          projectpipeline.BuildDataPlaneContext(dataPlane),
+		Environment:        projectpipeline.BuildEnvironmentContext(environment, dataPlane),
 	}
 
 	output, err := r.Pipeline.Render(input)

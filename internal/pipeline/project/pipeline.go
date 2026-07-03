@@ -12,7 +12,8 @@
 //   - Render walks ProjectTypeSpec.Resources[] and returns the rendered
 //     entries. ForEach templates contribute one entry per iteration with
 //     ID suffixed by the iteration index. CEL context exposes ${metadata.*}
-//     (including namespace), ${parameters.*}, and ${environmentConfigs.*}.
+//     (including namespace), ${parameters.*}, ${environmentConfigs.*},
+//     ${dataplane.*}, ${environment.*}, and the effective ${gateway.*}.
 package projectpipeline
 
 import (
@@ -44,6 +45,9 @@ func NewPipeline() *Pipeline {
 //   - ${metadata.*} (namespace, projectName/UID, environmentName/UID, ...)
 //   - ${parameters.*} (Project.spec.parameters with schema defaults applied)
 //   - ${environmentConfigs.*} (binding overrides with schema defaults applied)
+//   - ${dataplane.*} (secretStore, gateway, observabilityPlaneRef)
+//   - ${environment.*} (env-or-dataplane merged gateway)
+//   - ${gateway.*} (top-level alias of the effective environment gateway)
 //
 // ProjectTypeSpec.Validations are evaluated against the same context before
 // rendering begins; any rule that returns false aborts the call.
@@ -212,6 +216,9 @@ func buildBaseContext(input *RenderInput) (map[string]any, error) {
 		Metadata:           md,
 		Parameters:         parameters,
 		EnvironmentConfigs: envConfigs,
+		DataPlane:          input.DataPlane,
+		Environment:        input.Environment,
+		Gateway:            input.Environment.Gateway,
 	})
 }
 
