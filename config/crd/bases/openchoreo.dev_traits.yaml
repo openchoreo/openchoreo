@@ -215,6 +215,127 @@ spec:
                   - message: var is required when forEach is specified
                     rule: '!has(self.forEach) || has(self.var)'
                 type: array
+              postRenderValidations:
+                description: |-
+                  PostRenderValidations are CEL-based rules evaluated after all traits are applied,
+                  against the final rendered Kubernetes resources.
+                items:
+                  description: |-
+                    PostRenderValidation asserts a CEL rule against the rendered Kubernetes resources
+                    after all traits have been applied. It selects target resources by GVK (and an
+                    optional where filter), binds each match to the `resource` variable, and requires
+                    the rule to evaluate to true.
+                  properties:
+                    forEach:
+                      description: |-
+                        ForEach repeats this validation for every item in a CEL-evaluated list, evaluated
+                        against the trait context. Requires var. The loop variable is available in
+                        target.where and rule, and mustMatch is applied per iteration.
+                      pattern: ^\$\{[\s\S]+\}\s*$
+                      type: string
+                    message:
+                      description: Message is the error message shown when the rule
+                        evaluates to false.
+                      minLength: 1
+                      type: string
+                    rule:
+                      description: |-
+                        Rule is a CEL expression wrapped in ${...} evaluated with `resource` bound to each
+                        matched resource (and the forEach loop variable, if any). It must evaluate to true.
+                      pattern: ^\$\{[\s\S]+\}\s*$
+                      type: string
+                    target:
+                      description: Target selects which rendered resources this validation
+                        applies to.
+                      properties:
+                        group:
+                          description: |-
+                            Group is the API group of the resource (e.g., "apps", "batch")
+                            Must be explicitly set. Use empty string "" for core API resources (v1 Service, ConfigMap, etc.)
+                          type: string
+                        kind:
+                          description: Kind is the resource type to patch (e.g., "Deployment",
+                            "StatefulSet")
+                          minLength: 1
+                          type: string
+                        mustMatch:
+                          default: true
+                          description: |-
+                            MustMatch requires at least one rendered resource to match this target.
+                            When true (the default) and no resource matches, the validation fails.
+                            This catches the case where an earlier/later trait removed the target resource.
+                          type: boolean
+                        version:
+                          description: Version is the API version of the resource
+                            (e.g., "v1", "v1beta1")
+                          minLength: 1
+                          type: string
+                        where:
+                          description: |-
+                            Where is an optional CEL expression to filter which resources to patch
+                            Example: ${resource.metadata.name.endsWith("-secret-envs")}
+                          pattern: ^\$\{[\s\S]+\}\s*$
+                          type: string
+                      required:
+                      - group
+                      - kind
+                      - version
+                      type: object
+                    targetPlane:
+                      default: dataplane
+                      description: |-
+                        TargetPlane scopes selection to resources in a single plane, matching how trait
+                        creates/patches/removes target a plane. Defaults to "dataplane".
+                      enum:
+                      - dataplane
+                      - observabilityplane
+                      type: string
+                    var:
+                      description: Var names the binding for forEach iterations. Required
+                        when forEach is specified.
+                      pattern: ^[a-zA-Z_][a-zA-Z0-9_]*$
+                      type: string
+                    when:
+                      description: |-
+                        When is an optional CEL guard evaluated once against the trait context (the loop
+                        variable is NOT in scope here). If set and it evaluates to false, this validation
+                        is skipped entirely.
+                      pattern: ^\$\{[\s\S]+\}\s*$
+                      type: string
+                  required:
+                  - message
+                  - rule
+                  - target
+                  type: object
+                  x-kubernetes-validations:
+                  - message: var is required when forEach is specified
+                    rule: '!has(self.forEach) || has(self.var)'
+                type: array
+              preRenderValidations:
+                description: |-
+                  PreRenderValidations are CEL-based rules evaluated before rendering, against
+                  the trait's static parameters/environmentConfigs/metadata context.
+                  All rules must evaluate to true for rendering to proceed. Replaces Validations.
+                items:
+                  description: ValidationRule defines a CEL-based validation rule
+                    evaluated during rendering.
+                  properties:
+                    message:
+                      description: Message is the error message shown when the rule
+                        evaluates to false.
+                      minLength: 1
+                      type: string
+                    rule:
+                      description: |-
+                        Rule is a CEL expression wrapped in ${...} that must evaluate to true.
+                        Uses the same syntax as includeWhen and where fields.
+                      pattern: ^\$\{[\s\S]+\}\s*$
+                      type: string
+                  required:
+                  - message
+                  - rule
+                  type: object
+                type: array
               removes:
                 description: |-
                   Removes deletes whole resources previously produced by the ComponentType or earlier traits.
@@ -286,8 +407,10 @@ spec:
                 type: array
               validations:
                 description: |-
-                  Validations are CEL-based rules evaluated during rendering.
-                  All rules must evaluate to true for rendering to proceed.
+                  Validations are CEL-based rules evaluated before rendering.
+
+                  Deprecated: use PreRenderValidations. Retained for backward compatibility;
+                  it is mutually exclusive with PreRenderValidations and has identical semantics.
                 items:
                   description: ValidationRule defines a CEL-based validation rule
                     evaluated during rendering.
@@ -309,6 +432,11 @@ spec:
                   type: object
                 type: array
             type: object
+            x-kubernetes-validations:
+            - message: set only one of spec.validations or spec.preRenderValidations;
+                validations is deprecated, use preRenderValidations
+              rule: '!(has(self.validations) && size(self.validations) > 0 && has(self.preRenderValidations)
+                && size(self.preRenderValidations) > 0)'
           status:
             description: TraitStatus defines the observed state of Trait.
             type: object

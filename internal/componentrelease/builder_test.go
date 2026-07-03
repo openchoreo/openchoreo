@@ -461,3 +461,41 @@ func TestBuildSpec_EmbeddedTraits(t *testing.T) {
 		}
 	})
 }
+
+// buildSpecForTest builds a ComponentReleaseSpec from a minimal valid BuildInput
+// carrying the given traits map, failing the test on any build error.
+func buildSpecForTest(t *testing.T, traits map[string]openchoreov1alpha1.TraitSpec) *openchoreov1alpha1.ComponentReleaseSpec {
+	t.Helper()
+	out, err := BuildSpec(BuildInput{
+		Component:     makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
+		ComponentType: makeCT(),
+		Traits:        traits,
+		Workload: &openchoreov1alpha1.WorkloadTemplateSpec{
+			Container: openchoreov1alpha1.Container{Image: "nginx:1.21"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildSpec failed: %v", err)
+	}
+	return out
+}
+
+func TestBuildSpec_PreservesPostRenderValidations(t *testing.T) {
+	prv := []openchoreov1alpha1.PostRenderValidation{{
+		Target:  openchoreov1alpha1.PostRenderTarget{PatchTarget: openchoreov1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"}},
+		Rule:    "${resource.spec.replicas == 1}",
+		Message: "single replica",
+	}}
+	out := buildSpecForTest(t, map[string]openchoreov1alpha1.TraitSpec{
+		"t1": {PostRenderValidations: prv},
+	})
+	var found bool
+	for _, rt := range out.Traits {
+		if len(rt.Spec.PostRenderValidations) == 1 && rt.Spec.PostRenderValidations[0].Message == "single replica" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected postRenderValidations to survive freeze into ComponentReleaseSpec")
+	}
+}

@@ -31,17 +31,11 @@ func ValidateClusterTraitCreatesAndPatchesWithSchema(
 	parametersSchema *apiextschema.Structural,
 	environmentConfigsSchema *apiextschema.Structural,
 ) field.ErrorList {
-	// ClusterTraitSpec has the same fields as TraitSpec but is a distinct type.
-	// Convert by extracting the relevant slices.
-	spec := v1alpha1.TraitSpec{
-		Parameters:         ct.Spec.Parameters,
-		EnvironmentConfigs: ct.Spec.EnvironmentConfigs,
-		Validations:        ct.Spec.Validations,
-		Creates:            ct.Spec.Creates,
-		Patches:            ct.Spec.Patches,
-		Removes:            ct.Spec.Removes,
-	}
-	return ValidateTraitSpec(spec, parametersSchema, environmentConfigsSchema, field.NewPath("spec"))
+	// ClusterTraitSpec is field-for-field identical to TraitSpec, so the direct struct
+	// conversion below won't compile if the two specs ever diverge in field name, type,
+	// or order — which guarantees new fields are always validated. Convert directly
+	// rather than copying fields by hand.
+	return ValidateTraitSpec(v1alpha1.TraitSpec(ct.Spec), parametersSchema, environmentConfigsSchema, field.NewPath("spec"))
 }
 
 // ValidateTraitSpec validates all creates, patches, removes, and validations in a TraitSpec with schema-aware type checking.
@@ -70,10 +64,23 @@ func ValidateTraitSpec(
 	}
 
 	// Validate validation rules
+	//nolint:staticcheck // deprecated field still read for backward-compat alias fallback
 	for i, rule := range spec.Validations {
 		rulePath := basePath.Child("validations").Index(i)
 		errs := validateValidationRule(rule, validator, rulePath)
 		allErrs = append(allErrs, errs...)
+	}
+
+	// Validate preRenderValidations (same shape/semantics as the deprecated validations)
+	for i, rule := range spec.PreRenderValidations {
+		rulePath := basePath.Child("preRenderValidations").Index(i)
+		allErrs = append(allErrs, validateValidationRule(rule, validator, rulePath)...)
+	}
+
+	// Validate postRenderValidations
+	for i, prv := range spec.PostRenderValidations {
+		prvPath := basePath.Child("postRenderValidations").Index(i)
+		allErrs = append(allErrs, validatePostRenderValidation(prv, validator, prvPath)...)
 	}
 
 	// Validate creates
@@ -396,6 +403,87 @@ func validatePatchOperation(
 		allErrs = append(allErrs, field.Required(
 			basePath.Child("value"),
 			fmt.Sprintf("value is required for '%s' operation", op.Op)))
+	}
+
+	return allErrs
+}
+
+// validatePostRenderValidation validates one post-render validation: the optional
+// when guard (boolean, base context only), the optional forEach/var (iterable + loop
+// variable), the target (GVK + optional where), and the rule (boolean, with `resource`
+// and the forEach loop variable in scope).
+func validatePostRenderValidation(
+	prv v1alpha1.PostRenderValidation,
+	validator *CELValidator,
+	basePath *field.Path,
+) field.ErrorList {
+	allErrs := field.ErrorList{}
+	env := validator.GetBaseEnv()
+
+	// when is an optional boolean guard evaluated against the base trait context; the
+	// forEach loop variable is NOT in scope here, so validate it before extending env.
+	if prv.When != "" {
+		whenCEL, ok := extractCELFromTemplate(prv.When)
+		if !ok {
+			allErrs = append(allErrs, field.Invalid(basePath.Child("when"), prv.When,
+				"when must be a template expression wrapped with ${...}"))
+		} else if err := validator.ValidateBooleanExpression(whenCEL, env); err != nil {
+			allErrs = append(allErrs, field.Invalid(basePath.Child("when"), prv.When,
+				fmt.Sprintf("when must return boolean: %v", err)))
+		}
+	}
+
+	// forEach repeats the validation per item; analyze it and extend env with the loop
+	// variable so target.where and rule can reference it (mirrors validateTraitPatch).
+	if prv.ForEach != "" {
+		forEachCEL, ok := extractCELFromTemplate(prv.ForEach)
+		if !ok {
+			allErrs = append(allErrs, field.Invalid(basePath.Child("forEach"), prv.ForEach,
+				"forEach must be a template expression wrapped with ${...}"))
+		} else {
+			if err := validator.ValidateIterableExpression(forEachCEL, env); err != nil {
+				allErrs = append(allErrs, field.Invalid(basePath.Child("forEach"), prv.ForEach, err.Error()))
+			}
+			forEachInfo, err := analyzeForEachExpression(forEachCEL, prv.Var, env)
+			if err != nil && !strings.Contains(err.Error(), "type check") {
+				allErrs = append(allErrs, field.Invalid(basePath.Child("forEach"), prv.ForEach,
+					fmt.Sprintf("failed to analyze forEach: %v", err)))
+			}
+			if forEachInfo != nil {
+				if extended, err := extendEnvWithForEach(env, forEachInfo, validator.GetTypeProvider()); err != nil {
+					allErrs = append(allErrs, field.InternalError(basePath.Child("forEach"),
+						fmt.Errorf("failed to extend environment: %w", err)))
+				} else {
+					env = extended
+				}
+			}
+		}
+	}
+
+	// target reuses PatchTarget validation (group/version/kind required, where boolean);
+	// env already includes the loop variable so target.where may reference it.
+	allErrs = append(allErrs, validatePatchTarget(prv.Target.PatchTarget, validator, env, basePath.Child("target"))...)
+
+	// rule is a boolean CEL expression with `resource` bound to the matched resource
+	// (and the forEach loop variable, if any, already in env).
+	rulePath := basePath.Child("rule")
+	ruleCEL, ok := extractCELFromTemplate(prv.Rule)
+	if !ok {
+		allErrs = append(allErrs, field.Invalid(rulePath, prv.Rule,
+			"rule must be a template expression wrapped with ${...}"))
+	} else {
+		ruleEnv, err := env.Extend(cel.Variable("resource", cel.DynType))
+		if err != nil {
+			allErrs = append(allErrs, field.InternalError(rulePath,
+				fmt.Errorf("failed to extend environment with resource variable: %w", err)))
+		} else if err := validator.ValidateBooleanExpression(ruleCEL, ruleEnv); err != nil {
+			allErrs = append(allErrs, field.Invalid(rulePath, prv.Rule,
+				fmt.Sprintf("rule must return boolean: %v", err)))
+		}
+	}
+
+	if prv.Message == "" {
+		allErrs = append(allErrs, field.Required(basePath.Child("message"), "message is required"))
 	}
 
 	return allErrs

@@ -9,6 +9,7 @@ import (
 )
 
 // TraitSpec defines the desired state of Trait.
+// +kubebuilder:validation:XValidation:rule="!(has(self.validations) && size(self.validations) > 0 && has(self.preRenderValidations) && size(self.preRenderValidations) > 0)",message="set only one of spec.validations or spec.preRenderValidations; validations is deprecated, use preRenderValidations"
 type TraitSpec struct {
 	// Parameters defines developer-facing configuration options for this trait.
 	// +optional
@@ -18,10 +19,23 @@ type TraitSpec struct {
 	// +optional
 	EnvironmentConfigs *SchemaSection `json:"environmentConfigs,omitempty"`
 
-	// Validations are CEL-based rules evaluated during rendering.
-	// All rules must evaluate to true for rendering to proceed.
+	// Validations are CEL-based rules evaluated before rendering.
+	//
+	// Deprecated: use PreRenderValidations. Retained for backward compatibility;
+	// it is mutually exclusive with PreRenderValidations and has identical semantics.
 	// +optional
 	Validations []ValidationRule `json:"validations,omitempty"`
+
+	// PreRenderValidations are CEL-based rules evaluated before rendering, against
+	// the trait's static parameters/environmentConfigs/metadata context.
+	// All rules must evaluate to true for rendering to proceed. Replaces Validations.
+	// +optional
+	PreRenderValidations []ValidationRule `json:"preRenderValidations,omitempty"`
+
+	// PostRenderValidations are CEL-based rules evaluated after all traits are applied,
+	// against the final rendered Kubernetes resources.
+	// +optional
+	PostRenderValidations []PostRenderValidation `json:"postRenderValidations,omitempty"`
 
 	// Creates defines new Kubernetes resources to create when this trait is applied
 	// +optional
@@ -35,6 +49,95 @@ type TraitSpec struct {
 	// Workload resources (e.g. Deployment, StatefulSet, CronJob) cannot be removed.
 	// +optional
 	Removes []TraitRemove `json:"removes,omitempty"`
+}
+
+// EffectivePreRenderValidations returns the pre-render validation rules to apply.
+// PreRenderValidations takes precedence; Validations is the deprecated fallback.
+// The two are mutually exclusive (enforced by a CRD XValidation rule), so at most
+// one is non-empty in practice.
+func (s *TraitSpec) EffectivePreRenderValidations() []ValidationRule {
+	if len(s.PreRenderValidations) > 0 {
+		return s.PreRenderValidations
+	}
+	return s.Validations
+}
+
+// PostRenderValidation asserts a CEL rule against the rendered Kubernetes resources
+// after all traits have been applied. It selects target resources by GVK (and an
+// optional where filter), binds each match to the `resource` variable, and requires
+// the rule to evaluate to true.
+// +kubebuilder:validation:XValidation:rule="!has(self.forEach) || has(self.var)",message="var is required when forEach is specified"
+type PostRenderValidation struct {
+	// When is an optional CEL guard evaluated once against the trait context (the loop
+	// variable is NOT in scope here). If set and it evaluates to false, this validation
+	// is skipped entirely.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
+	When string `json:"when,omitempty"`
+
+	// ForEach repeats this validation for every item in a CEL-evaluated list, evaluated
+	// against the trait context. Requires var. The loop variable is available in
+	// target.where and rule, and mustMatch is applied per iteration.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
+	ForEach string `json:"forEach,omitempty"`
+
+	// Var names the binding for forEach iterations. Required when forEach is specified.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[a-zA-Z_][a-zA-Z0-9_]*$`
+	Var string `json:"var,omitempty"`
+
+	// Target selects which rendered resources this validation applies to.
+	// +kubebuilder:validation:Required
+	Target PostRenderTarget `json:"target"`
+
+	// TargetPlane scopes selection to resources in a single plane, matching how trait
+	// creates/patches/removes target a plane. Defaults to "dataplane".
+	// +optional
+	// +kubebuilder:validation:Enum=dataplane;observabilityplane
+	// +kubebuilder:default=dataplane
+	TargetPlane string `json:"targetPlane,omitempty"`
+
+	// Rule is a CEL expression wrapped in ${...} evaluated with `resource` bound to each
+	// matched resource (and the forEach loop variable, if any). It must evaluate to true.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`
+	Rule string `json:"rule"`
+
+	// Message is the error message shown when the rule evaluates to false.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Message string `json:"message"`
+}
+
+// TargetPlaneOrDefault returns the effective targetPlane, defaulting to "dataplane" when
+// unset. The CRD default handles serialized objects; this covers structs built in-memory
+// (tests), mirroring MustMatchOrDefault and the create/patch targetPlane normalization.
+func (v *PostRenderValidation) TargetPlaneOrDefault() string {
+	if v.TargetPlane == "" {
+		return TargetPlaneDataPlane
+	}
+	return v.TargetPlane
+}
+
+// PostRenderTarget selects rendered resources by GVK with an optional where filter.
+// It reuses the same GVK + where model as trait patches (PatchTarget) and adds
+// MustMatch to require the selection to be non-empty.
+type PostRenderTarget struct {
+	PatchTarget `json:",inline"`
+
+	// MustMatch requires at least one rendered resource to match this target.
+	// When true (the default) and no resource matches, the validation fails.
+	// This catches the case where an earlier/later trait removed the target resource.
+	// +optional
+	// +kubebuilder:default=true
+	MustMatch *bool `json:"mustMatch,omitempty"`
+}
+
+// MustMatchOrDefault returns the effective MustMatch value, defaulting to true when unset.
+// The CRD default handles serialized objects; this covers structs built in-memory (tests).
+func (t *PostRenderTarget) MustMatchOrDefault() bool {
+	return t.MustMatch == nil || *t.MustMatch
 }
 
 // TraitCreate defines a resource template to be created by the trait

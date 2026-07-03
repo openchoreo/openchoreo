@@ -8,6 +8,7 @@ import (
 )
 
 // ClusterTraitSpec defines the desired state of ClusterTrait.
+// +kubebuilder:validation:XValidation:rule="!(has(self.validations) && size(self.validations) > 0 && has(self.preRenderValidations) && size(self.preRenderValidations) > 0)",message="set only one of spec.validations or spec.preRenderValidations; validations is deprecated, use preRenderValidations"
 type ClusterTraitSpec struct {
 	// Parameters defines developer-facing configuration options for this trait.
 	// +optional
@@ -17,10 +18,23 @@ type ClusterTraitSpec struct {
 	// +optional
 	EnvironmentConfigs *SchemaSection `json:"environmentConfigs,omitempty"`
 
-	// Validations are CEL-based rules evaluated during rendering.
-	// All rules must evaluate to true for rendering to proceed.
+	// Validations are CEL-based rules evaluated before rendering.
+	//
+	// Deprecated: use PreRenderValidations. Retained for backward compatibility;
+	// it is mutually exclusive with PreRenderValidations and has identical semantics.
 	// +optional
 	Validations []ValidationRule `json:"validations,omitempty"`
+
+	// PreRenderValidations are CEL-based rules evaluated before rendering, against
+	// the trait's static parameters/environmentConfigs/metadata context.
+	// All rules must evaluate to true for rendering to proceed. Replaces Validations.
+	// +optional
+	PreRenderValidations []ValidationRule `json:"preRenderValidations,omitempty"`
+
+	// PostRenderValidations are CEL-based rules evaluated after all traits are applied,
+	// against the final rendered Kubernetes resources.
+	// +optional
+	PostRenderValidations []PostRenderValidation `json:"postRenderValidations,omitempty"`
 
 	// Creates defines new Kubernetes resources to create when this trait is applied
 	// +optional

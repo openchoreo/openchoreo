@@ -176,6 +176,10 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	// Create schema cache for trait reuse within this render
 	schemaCache := make(map[string]*context.SchemaBundle)
 
+	// Accumulate post-render validations across all traits; evaluated once after every
+	// trait's creates/patches/removes have been applied to the final resource set.
+	var pendingPostRenders []pendingPostRender
+
 	// Process embedded traits from ComponentType (before component-level traits)
 	for _, embeddedTrait := range input.ComponentType.Spec.Traits {
 		embeddedKind := string(embeddedTrait.Kind)
@@ -213,7 +217,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		}
 
 		traitContextMap := traitContext.ToMap()
-		if err := renderer.EvaluateValidationRules(p.templateEngine, t.Spec.Validations, traitContextMap); err != nil {
+		if err := renderer.EvaluateValidationRules(p.templateEngine, t.Spec.EffectivePreRenderValidations(), traitContextMap); err != nil {
 			return nil, fmt.Errorf("trait %s/%s validation failed: %w",
 				embeddedTrait.Name, embeddedTrait.InstanceName, err)
 		}
@@ -223,6 +227,14 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to process embedded trait %s/%s: %w",
 				embeddedTrait.Name, embeddedTrait.InstanceName, err)
+		}
+
+		if len(t.Spec.PostRenderValidations) > 0 {
+			pendingPostRenders = append(pendingPostRenders, pendingPostRender{
+				label:       fmt.Sprintf("%s %s/%s", embeddedKind, embeddedTrait.Name, embeddedTrait.InstanceName),
+				context:     traitContextMap,
+				validations: t.Spec.PostRenderValidations,
+			})
 		}
 
 		metadata.TraitCount++
@@ -262,7 +274,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		}
 
 		traitContextMap := traitContext.ToMap()
-		if err := renderer.EvaluateValidationRules(p.templateEngine, t.Spec.Validations, traitContextMap); err != nil {
+		if err := renderer.EvaluateValidationRules(p.templateEngine, t.Spec.EffectivePreRenderValidations(), traitContextMap); err != nil {
 			return nil, fmt.Errorf("trait %s/%s validation failed: %w",
 				traitInstance.Name, traitInstance.InstanceName, err)
 		}
@@ -274,8 +286,22 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 				traitInstance.Name, traitInstance.InstanceName, err)
 		}
 
+		if len(t.Spec.PostRenderValidations) > 0 {
+			pendingPostRenders = append(pendingPostRenders, pendingPostRender{
+				label:       fmt.Sprintf("%s %s/%s", instanceKind, traitInstance.Name, traitInstance.InstanceName),
+				context:     traitContextMap,
+				validations: t.Spec.PostRenderValidations,
+			})
+		}
+
 		metadata.TraitCount++
 		metadata.TraitResourceCount += len(renderedResources) - beforeCount
+	}
+
+	// Post-render validations run against the final resource set, after every trait's
+	// creates/patches/removes have been applied and before OpenChoreo post-processing.
+	if err := evaluatePostRenderValidations(p.templateEngine, renderedResources, pendingPostRenders); err != nil {
+		return nil, fmt.Errorf("post-render validation failed: %w", err)
 	}
 
 	if err := p.postProcessResources(renderedResources, input); err != nil {
@@ -325,7 +351,8 @@ func usesEndpointResources(input *RenderInput) bool {
 	}
 	for i := range input.Traits {
 		t := input.Traits[i].Spec
-		if jsonContainsToken(token, t.Validations, t.Creates, t.Patches, t.Removes) {
+		//nolint:staticcheck // deprecated field still read for backward-compat alias fallback
+		if jsonContainsToken(token, t.Validations, t.PreRenderValidations, t.PostRenderValidations, t.Creates, t.Patches, t.Removes) {
 			return true
 		}
 	}

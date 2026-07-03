@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -467,6 +468,24 @@ var _ = Describe("ClusterTrait Webhook", func() {
 
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("CRD-level validation via apiserver (XOR guard)", func() {
+		It("rejects a ClusterTrait that sets both validations and preRenderValidations", func() {
+			if k8sClient == nil {
+				Skip("envtest apiserver not available")
+			}
+			ct := &openchoreodevv1alpha1.ClusterTrait{
+				ObjectMeta: metav1.ObjectMeta{GenerateName: "xor-"},
+				Spec: openchoreodevv1alpha1.ClusterTraitSpec{
+					Validations:          []openchoreodevv1alpha1.ValidationRule{{Rule: "${1 == 1}", Message: "legacy"}},
+					PreRenderValidations: []openchoreodevv1alpha1.ValidationRule{{Rule: "${2 == 2}", Message: "fresh"}},
+				},
+			}
+			err := k8sClient.Create(ctx, ct)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("only one of"))
 		})
 	})
 })

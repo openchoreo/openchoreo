@@ -1173,3 +1173,101 @@ func TestExtractCELFromTemplate(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateTraitSpec_PreRenderValidations(t *testing.T) {
+	spec := v1alpha1.TraitSpec{
+		PreRenderValidations: []v1alpha1.ValidationRule{{Rule: "${1 +}", Message: "bad"}}, // invalid CEL
+	}
+	errs := ValidateTraitSpec(spec, nil, nil, field.NewPath("spec"))
+	if len(errs) == 0 {
+		t.Fatalf("expected an error for invalid preRenderValidations CEL")
+	}
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e.Field, "preRenderValidations") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected error path to mention preRenderValidations, got %v", errs)
+	}
+}
+
+func TestValidateTraitSpec_PostRenderValidation_BadRule(t *testing.T) {
+	// `resource` is bound as CEL DynType, so a dynamic field access can't be proven
+	// non-boolean at admission time. Use a statically-typed non-boolean literal so the
+	// CEL type checker rejects it. (Runtime non-boolean coverage lives in postrender_test.go.)
+	spec := v1alpha1.TraitSpec{
+		PostRenderValidations: []v1alpha1.PostRenderValidation{{
+			Target:  v1alpha1.PostRenderTarget{PatchTarget: v1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"}},
+			Rule:    "${1}", // statically non-boolean
+			Message: "x",
+		}},
+	}
+	errs := ValidateTraitSpec(spec, nil, nil, field.NewPath("spec"))
+	if len(errs) == 0 {
+		t.Fatalf("expected an error for non-boolean post-render rule")
+	}
+}
+
+func TestValidateTraitSpec_PostRenderValidation_Valid(t *testing.T) {
+	spec := v1alpha1.TraitSpec{
+		PostRenderValidations: []v1alpha1.PostRenderValidation{{
+			When:    "${true}",
+			Target:  v1alpha1.PostRenderTarget{PatchTarget: v1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment", Where: "${resource.metadata.name == 'x'}"}},
+			Rule:    "${resource.spec.replicas == 1}",
+			Message: "single replica",
+		}},
+	}
+	errs := ValidateTraitSpec(spec, nil, nil, field.NewPath("spec"))
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors for valid post-render validation, got %v", errs)
+	}
+}
+
+func TestValidateClusterTrait_PostRenderValidated(t *testing.T) {
+	// Proves the ClusterTrait path no longer drops new fields: a bad post-render rule must be caught.
+	ct := &v1alpha1.ClusterTrait{Spec: v1alpha1.ClusterTraitSpec{
+		PostRenderValidations: []v1alpha1.PostRenderValidation{{
+			Target:  v1alpha1.PostRenderTarget{PatchTarget: v1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"}},
+			Rule:    "${1}", // statically non-boolean → must be caught
+			Message: "x",
+		}},
+	}}
+	errs := ValidateClusterTraitCreatesAndPatchesWithSchema(ct, nil, nil)
+	if len(errs) == 0 {
+		t.Fatalf("expected ClusterTrait post-render validation to be checked, got no errors")
+	}
+}
+
+func TestValidateTraitSpec_PostRender_ForEachRequiresVarIsCELValidated(t *testing.T) {
+	// where references the loop var; with forEach analyzed, this must type-check cleanly.
+	// A parametersSchema declaring routes is required because this package types an absent
+	// schema as an empty object (not DynType), so parameters.routes would otherwise be an
+	// "undefined field" error unrelated to loop-var scoping.
+	paramsSchema := &apiextschema.Structural{
+		Generic: apiextschema.Generic{Type: "object"},
+		Properties: map[string]apiextschema.Structural{
+			"routes": {
+				Generic: apiextschema.Generic{Type: "array"},
+				Items: &apiextschema.Structural{
+					Generic: apiextschema.Generic{Type: "object"},
+					Properties: map[string]apiextschema.Structural{
+						"name": {Generic: apiextschema.Generic{Type: "string"}},
+					},
+				},
+			},
+		},
+	}
+	spec := v1alpha1.TraitSpec{PostRenderValidations: []v1alpha1.PostRenderValidation{{
+		ForEach: "${parameters.routes}",
+		Var:     "route",
+		Target:  v1alpha1.PostRenderTarget{PatchTarget: v1alpha1.PatchTarget{Group: "g", Version: "v1", Kind: "HTTPRoute", Where: "${resource.metadata.name == route.name}"}},
+		Rule:    "${resource.spec.rules.size() > 0}",
+		Message: "m",
+	}}}
+	errs := ValidateTraitSpec(spec, paramsSchema, nil, field.NewPath("spec"))
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors when forEach loop var 'route' is in scope for where/rule, got %v", errs)
+	}
+}

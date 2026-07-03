@@ -25,7 +25,10 @@ type ComponentReleaseSpec struct {
 	// Traits holds frozen trait specifications at the time of ComponentRelease, ensuring immutability.
 	// Each entry carries its kind (Trait or ClusterTrait), name, and spec, preserving the original
 	// resource identity so that a Trait and ClusterTrait with the same name can coexist.
+	// MaxItems bounds this unbounded array so the CEL cost estimate of the embedded TraitSpec
+	// XValidation rules (evaluated per trait item) stays within the apiserver's cost budget.
 	// +optional
+	// +kubebuilder:validation:MaxItems=100
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.traits is immutable"
 	Traits []ComponentReleaseTrait `json:"traits,omitempty"`
 

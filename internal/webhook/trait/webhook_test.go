@@ -8,7 +8,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
@@ -692,6 +694,82 @@ var _ = Describe("Trait Webhook", func() {
 			_, err := validator.ValidateCreate(ctx, obj)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("template is required"))
+		})
+	})
+
+	Context("CRD-level validation via apiserver (XOR guard + defaults)", func() {
+		It("rejects a Trait that sets both validations and preRenderValidations", func() {
+			if k8sClient == nil {
+				Skip("envtest apiserver not available")
+			}
+			tr := &openchoreodevv1alpha1.Trait{
+				ObjectMeta: metav1.ObjectMeta{GenerateName: "xor-", Namespace: "default"},
+				Spec: openchoreodevv1alpha1.TraitSpec{
+					Validations:          []openchoreodevv1alpha1.ValidationRule{{Rule: "${1 == 1}", Message: "legacy"}},
+					PreRenderValidations: []openchoreodevv1alpha1.ValidationRule{{Rule: "${2 == 2}", Message: "fresh"}},
+				},
+			}
+			err := k8sClient.Create(ctx, tr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("only one of"))
+		})
+
+		It("accepts a Trait that sets only preRenderValidations", func() {
+			if k8sClient == nil {
+				Skip("envtest apiserver not available")
+			}
+			tr := &openchoreodevv1alpha1.Trait{
+				ObjectMeta: metav1.ObjectMeta{GenerateName: "alias-", Namespace: "default"},
+				Spec: openchoreodevv1alpha1.TraitSpec{
+					PreRenderValidations: []openchoreodevv1alpha1.ValidationRule{{Rule: "${2 == 2}", Message: "fresh"}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, tr)).To(Succeed())
+		})
+
+		It("accepts a Trait with postRenderValidations and defaults mustMatch to true", func() {
+			if k8sClient == nil {
+				Skip("envtest apiserver not available")
+			}
+			tr := &openchoreodevv1alpha1.Trait{
+				ObjectMeta: metav1.ObjectMeta{GenerateName: "postr-", Namespace: "default"},
+				Spec: openchoreodevv1alpha1.TraitSpec{
+					PostRenderValidations: []openchoreodevv1alpha1.PostRenderValidation{{
+						Target: openchoreodevv1alpha1.PostRenderTarget{
+							PatchTarget: openchoreodevv1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"},
+						},
+						Rule:    "${resource.spec.replicas == 1}",
+						Message: "single replica",
+					}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, tr)).To(Succeed())
+			created := &openchoreodevv1alpha1.Trait{}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(tr), created)).To(Succeed())
+			Expect(created.Spec.PostRenderValidations[0].Target.MustMatch).ToNot(BeNil())
+			Expect(*created.Spec.PostRenderValidations[0].Target.MustMatch).To(BeTrue())
+		})
+
+		It("rejects a postRenderValidation that sets forEach without var", func() {
+			if k8sClient == nil {
+				Skip("envtest apiserver not available")
+			}
+			tr := &openchoreodevv1alpha1.Trait{
+				ObjectMeta: metav1.ObjectMeta{GenerateName: "foreach-", Namespace: "default"},
+				Spec: openchoreodevv1alpha1.TraitSpec{
+					PostRenderValidations: []openchoreodevv1alpha1.PostRenderValidation{{
+						ForEach: "${parameters.routes}",
+						Target: openchoreodevv1alpha1.PostRenderTarget{
+							PatchTarget: openchoreodevv1alpha1.PatchTarget{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute"},
+						},
+						Rule:    "${resource.spec.rules.size() > 0}",
+						Message: "route lost its rules",
+					}},
+				},
+			}
+			err := k8sClient.Create(ctx, tr)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("var is required when forEach is specified"))
 		})
 	})
 })

@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/componentrelease"
 )
 
 func makeCTSnapshot() openchoreov1alpha1.ComponentReleaseComponentType {
@@ -307,4 +309,46 @@ func TestHashOutputExamples(t *testing.T) {
 		fmt.Printf("%-30s → %s (with collision count 1)\n", ex.name, hashWithCollision)
 	}
 	fmt.Println("===============================================")
+}
+
+// buildSpecForTest builds a ComponentReleaseSpec via componentrelease.BuildSpec with a
+// minimal valid input carrying the given traits map. Lives here (not the builder package)
+// because the hash helpers below are in this package and importing them there would cycle.
+func buildSpecForTest(t *testing.T, traits map[string]openchoreov1alpha1.TraitSpec) *openchoreov1alpha1.ComponentReleaseSpec {
+	t.Helper()
+	out, err := componentrelease.BuildSpec(componentrelease.BuildInput{
+		Component: &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "comp"},
+			Spec:       openchoreov1alpha1.ComponentSpec{Owner: openchoreov1alpha1.ComponentOwner{ProjectName: "proj"}},
+		},
+		ComponentType: makeCTSnapshot(),
+		Traits:        traits,
+		Workload: &openchoreov1alpha1.WorkloadTemplateSpec{
+			Container: openchoreov1alpha1.Container{Image: "nginx:1.21"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildSpec failed: %v", err)
+	}
+	return out
+}
+
+// hashOf mirrors the component controller: derive a ReleaseSpec then compute its hash.
+func hashOf(t *testing.T, spec *openchoreov1alpha1.ComponentReleaseSpec) string {
+	t.Helper()
+	return ComputeReleaseHash(ReleaseSpecFromComponentReleaseSpec(spec), nil)
+}
+
+func TestReleaseHash_ChangesWithPostRenderValidations(t *testing.T) {
+	base := buildSpecForTest(t, map[string]openchoreov1alpha1.TraitSpec{"t1": {}})
+	withPRV := buildSpecForTest(t, map[string]openchoreov1alpha1.TraitSpec{
+		"t1": {PostRenderValidations: []openchoreov1alpha1.PostRenderValidation{{
+			Target:  openchoreov1alpha1.PostRenderTarget{PatchTarget: openchoreov1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"}},
+			Rule:    "${resource.spec.replicas == 1}",
+			Message: "m",
+		}}},
+	})
+	if hashOf(t, base) == hashOf(t, withPRV) {
+		t.Fatalf("expected release hash to change when a trait gains postRenderValidations")
+	}
 }
