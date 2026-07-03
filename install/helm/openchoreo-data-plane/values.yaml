@@ -165,6 +165,21 @@ gateway:
 
   # @schema
   # type: object
+  # additionalProperties: false
+  # description: |
+  #   HTTPListenerPolicy configuration for KGateway. Configures additional listener-level settings
+  #   on the gateway default HTTP/HTTPS listeners (e.g. enabling WebSocket upgrades).
+  # @schema
+  httpListenerPolicy:
+    # @schema
+    # type: boolean
+    # description: Enable HTTPListenerPolicy creation for the gateway
+    # default: true
+    # @schema
+    enabled: true
+
+  # @schema
+  # type: object
   # additionalProperties: true
   # description: KGateway controller configuration for managing Gateway API resources
   # @schema
