@@ -120,6 +120,7 @@ const (
 	Forbidden           ErrorResponseTitle = "forbidden"
 	InternalServerError ErrorResponseTitle = "internalServerError"
 	NotFound            ErrorResponseTitle = "notFound"
+	NotImplemented      ErrorResponseTitle = "notImplemented"
 	Unauthorized        ErrorResponseTitle = "unauthorized"
 )
 

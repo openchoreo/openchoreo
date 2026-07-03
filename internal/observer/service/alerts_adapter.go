@@ -115,6 +115,8 @@ func mapAdapterHTTPError(resp *http.Response, adapterName string) error {
 		return fmt.Errorf("%w: adapter returned 404", ErrAlertRuleNotFound)
 	case http.StatusConflict:
 		return fmt.Errorf("%w: adapter returned 409", ErrAlertRuleAlreadyExists)
+	case http.StatusNotImplemented:
+		return fmt.Errorf("%w: adapter returned 501", ErrEventsNotImplemented)
 	default:
 		return fmt.Errorf("%s returned HTTP %d: %s", adapterName, resp.StatusCode, string(body))
 	}
