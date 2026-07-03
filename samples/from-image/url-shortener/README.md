@@ -14,15 +14,35 @@ A sample application that demonstrates OpenChoreo's **tracing**, **alerting**, a
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/alerting-demo/alert-notification-channels.yaml
 kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/project.yaml
+```
+
+Postgres is provisioned as a `Resource` from the shipped `postgres` `ClusterResourceType` rather than as a Component, so it needs an explicit `ResourceReleaseBinding` (Components get one automatically via `autoDeploy`). Apply the Resource + binding, then promote the binding to the resource's latest release:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/resources/postgres.yaml
+
+until release=$(kubectl get resource snip-postgres -n default -o jsonpath='{.status.latestRelease.name}') && [ -n "$release" ]; do sleep 2; done
+kubectl patch resourcereleasebinding snip-postgres-development -n default \
+  --type=merge -p "{\"spec\":{\"resourceRelease\":\"$release\"}}"
+```
+
+Wait for the binding to reach `Ready=True`:
+
+```bash
+kubectl get resourcereleasebinding snip-postgres-development -n default
+```
+
+Now deploy the components:
+
+```bash
 kubectl apply \
-  -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/postgres.yaml \
   -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/redis.yaml \
   -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/api-service.yaml \
   -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/analytics-service.yaml \
   -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/frontend.yaml
 ```
 
-This deploys the notification channel first, then five components (snip-postgres, snip-redis, snip-api-service, snip-analytics-service, snip-frontend). The alert trait is already attached to the frontend component. Distributed tracing works out of the box once deployed.
+This deploys the notification channel and the Postgres resource first, then four components (snip-redis, snip-api-service, snip-analytics-service, snip-frontend). The api-service and analytics-service consume Postgres via `dependencies.resources[]` — the CRT's `url` output (a full DSN) is injected as `POSTGRES_DSN`. The alert trait is already attached to the frontend component. Distributed tracing works out of the box once deployed.
 
 For alerting and the RCA agent, follow the setup below.
 
