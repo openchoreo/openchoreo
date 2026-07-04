@@ -53,9 +53,10 @@ spec:
             mkdir -p /storage/run /storage/graph
             cat > /etc/containers/storage.conf <<STEOF
             [storage]
-            driver = "vfs"
+            driver = "overlay"
             runroot = "/storage/run"
             graphroot = "/storage/graph"
+            [storage.options.overlay]
             STEOF
 
             cat > /etc/containers/containers.conf <<CEOF
