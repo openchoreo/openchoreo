@@ -70,7 +70,7 @@ spec:
               docker.io/paketobuildpacks/run-jammy-full@sha256:84a29ab400de17994da1270742de91718658dfbe4713cae9b765f0c9e1062eac
               gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1
               gcr.io/buildpacks/google-22/run@sha256:a8ccb6641b4d98b0adf6397f954e7194611d1ae61310f0561f1c00fdf7f9ba96
-              ghcr.io/openchoreo/buildpack/ballerina@sha256:bd85ed5b6573ba27294f456e22478a5b4d1c36a540526c35e822234aa69ee1bd
+              ghcr.io/openchoreo/buildpack/ballerina@sha256:4615d47b43885210b2ae9a9b6f327cd8c10165a2d5af8e13dce6fcfefeae8a0d
               ghcr.io/openchoreo/openchoreo-cli:latest-dev
               "
 
