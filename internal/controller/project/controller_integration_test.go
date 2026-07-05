@@ -858,6 +858,91 @@ var _ = Describe("Project Controller", func() {
 		})
 	})
 
+	Context("Finalization cascades ProjectReleaseBindings", func() {
+		const (
+			nsName   = "it-cascade-ns"
+			dpName   = "it-cascade-dp"
+			envName  = "it-cascade-env"
+			pipName  = "it-cascade-pip"
+			projName = "it-cascade-proj"
+		)
+
+		nn := types.NamespacedName{Name: projName, Namespace: nsName}
+
+		BeforeEach(func() {
+			setupDependencies(nsName, dpName, envName, pipName)
+		})
+
+		It("should delete the project's bindings regardless of owner references", func() {
+			project := &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      projName,
+					Namespace: nsName,
+				},
+				Spec: openchoreov1alpha1.ProjectSpec{
+					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+						Name: pipName,
+					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: "default",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, project)).To(Succeed())
+
+			r := itReconciler()
+
+			// Reconcile to add the finalizer.
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Externally authored bindings: no OwnerReference, matched only
+			// by spec.owner.projectName.
+			for _, b := range []*openchoreov1alpha1.ProjectReleaseBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "it-cascade-b1", Namespace: nsName},
+					Spec: openchoreov1alpha1.ProjectReleaseBindingSpec{
+						Owner:       openchoreov1alpha1.ProjectReleaseBindingOwner{ProjectName: projName},
+						Environment: envName,
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "it-cascade-b2", Namespace: nsName},
+					Spec: openchoreov1alpha1.ProjectReleaseBindingSpec{
+						Owner:          openchoreov1alpha1.ProjectReleaseBindingOwner{ProjectName: projName},
+						Environment:    "env-other",
+						ProjectRelease: "some-release",
+					},
+				},
+			} {
+				Expect(k8sClient.Create(ctx, b)).To(Succeed())
+				Eventually(func() error {
+					return k8sClient.Get(ctx, types.NamespacedName{Name: b.Name, Namespace: nsName},
+						&openchoreov1alpha1.ProjectReleaseBinding{})
+				}, itTimeout, itInterval).Should(Succeed())
+			}
+
+			// Delete the project and drive finalization to completion.
+			fetched := &openchoreov1alpha1.Project{}
+			Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, fetched)).To(Succeed())
+
+			Eventually(func() bool {
+				_, _ = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				return errors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.Project{}))
+			}, itTimeout, itInterval).Should(BeTrue())
+
+			// Both bindings are gone.
+			for _, name := range []string{"it-cascade-b1", "it-cascade-b2"} {
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: nsName},
+						&openchoreov1alpha1.ProjectReleaseBinding{})
+					return errors.IsNotFound(err)
+				}, itTimeout, itInterval).Should(BeTrue())
+			}
+		})
+	})
+
 	Context("Finalization with owned Resources", func() {
 		const (
 			nsName   = "it-finalize-res-ns"
