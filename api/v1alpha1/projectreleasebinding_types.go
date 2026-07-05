@@ -13,8 +13,9 @@ import (
 // the schema declared on the inlined (Cluster)ProjectType environmentConfigs.
 // Owns the cell namespace for (Project, Environment); applies the inlined
 // (Cluster)ProjectType.spec.resources to that namespace.
-// The projectRelease pin is advanced manually (e.g. via `occ project promote`
-// or kubectl edit); the binding controller never authors it.
+// An empty projectRelease pin is seeded once by the Project controller with
+// the project's latest release; advancing the pin afterwards is manual
+// (e.g. via `occ project promote` or kubectl edit).
 type ProjectReleaseBindingSpec struct {
 	// Owner identifies the project this ProjectReleaseBinding belongs to.
 	// +kubebuilder:validation:Required
@@ -28,11 +29,10 @@ type ProjectReleaseBindingSpec struct {
 	Environment string `json:"environment"`
 
 	// ProjectRelease is the name of the ProjectRelease pinned by this binding.
-	// For Project-owned bindings the Project controller seeds this on initial
-	// creation with the latest ProjectRelease, then never touches it again —
-	// advancing the pin is left to whoever drives promotion (occ, GitOps,
-	// manual kubectl edit). Unset before the first ProjectRelease is cut; the
-	// binding controller leaves the binding pending until set.
+	// Leave unset to have the Project controller seed it once with the
+	// project's latest release; the binding stays pending until the pin is
+	// set. A set pin is never touched by controllers — advancing it is left
+	// to whoever drives promotion (occ, GitOps, manual kubectl edit).
 	// +optional
 	ProjectRelease string `json:"projectRelease,omitempty"`
 
@@ -87,8 +87,9 @@ type ProjectReleaseBindingStatus struct {
 // ProjectReleaseBinding is the Schema for the projectreleasebindings API.
 // Pins a ProjectRelease to an Environment, owns the cell namespace for the
 // (Project, Environment) tuple, and applies the inlined (Cluster)ProjectType
-// resources to that namespace. Authored externally; not managed by a Project
-// controller.
+// resources to that namespace. Authored externally; the Project controller
+// only seeds an empty projectRelease pin and cascades deletion on project
+// finalize.
 type ProjectReleaseBinding struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

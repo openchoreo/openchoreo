@@ -12,7 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	controllerpkg "github.com/openchoreo/openchoreo/internal/controller"
 )
 
 const (
@@ -85,29 +84,6 @@ func (r *Reconciler) listProjectsForClusterProjectType(ctx context.Context, obj 
 	cpt := obj.(*openchoreov1alpha1.ClusterProjectType)
 	indexKey := string(openchoreov1alpha1.ProjectTypeRefKindClusterProjectType) + ":" + cpt.Name
 	return r.requestsForProjectTypeIndexKey(ctx, indexKey)
-}
-
-// listProjectsForDeploymentPipeline returns reconcile requests for Projects
-// in the same namespace as the given DeploymentPipeline that reference it
-// via spec.deploymentPipelineRef.name. Drives re-reconcile (and binding
-// fan-out updates) when PEs add/remove environments on the pipeline.
-func (r *Reconciler) listProjectsForDeploymentPipeline(ctx context.Context, obj client.Object) []reconcile.Request {
-	pipeline := obj.(*openchoreov1alpha1.DeploymentPipeline)
-	var projects openchoreov1alpha1.ProjectList
-	if err := r.List(ctx, &projects,
-		client.InNamespace(pipeline.Namespace),
-		client.MatchingFields{controllerpkg.IndexKeyProjectDeploymentPipelineRef: pipeline.Name}); err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "Failed to list Projects by deploymentPipelineRef",
-			"deploymentPipeline", pipeline.Name)
-		return nil
-	}
-	requests := make([]reconcile.Request, len(projects.Items))
-	for i, p := range projects.Items {
-		requests[i] = reconcile.Request{
-			NamespacedName: types.NamespacedName{Name: p.Name, Namespace: p.Namespace},
-		}
-	}
-	return requests
 }
 
 // requestsForProjectTypeIndexKey lists Projects by the projectTypeRefIndex and

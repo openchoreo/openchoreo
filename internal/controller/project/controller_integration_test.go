@@ -855,6 +855,12 @@ var _ = Describe("Project Controller", func() {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "custom-binding-late", Namespace: nsName}, seeded)).To(Succeed())
 				g.Expect(seeded.Spec.ProjectRelease).To(Equal(project.Status.LatestRelease.Name))
 			}, itTimeout, itInterval).Should(Succeed())
+
+			// The controller no longer authors bindings: the (project, env)
+			// tuple for the pipeline environment stays vacant.
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: projName + "-" + envName, Namespace: nsName},
+				&openchoreov1alpha1.ProjectReleaseBinding{})
+			Expect(errors.IsNotFound(err)).To(BeTrue())
 		})
 	})
 

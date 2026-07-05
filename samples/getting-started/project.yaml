@@ -14,3 +14,48 @@ spec:
   type:
     kind: ClusterProjectType
     name: default
+
+
+# ProjectReleaseBindings deploy the project to each pipeline environment.
+# spec.projectRelease is left unset; the Project controller seeds it once
+# with the latest ProjectRelease. Advancing it afterwards (promotion) is
+# manual.
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ProjectReleaseBinding
+metadata:
+  name: default-development
+  namespace: default
+  labels:
+    openchoreo.dev/project: default
+    openchoreo.dev/environment: development
+spec:
+  owner:
+    projectName: default
+  environment: development
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ProjectReleaseBinding
+metadata:
+  name: default-staging
+  namespace: default
+  labels:
+    openchoreo.dev/project: default
+    openchoreo.dev/environment: staging
+spec:
+  owner:
+    projectName: default
+  environment: staging
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ProjectReleaseBinding
+metadata:
+  name: default-production
+  namespace: default
+  labels:
+    openchoreo.dev/project: default
+    openchoreo.dev/environment: production
+spec:
+  owner:
+    projectName: default
+  environment: production
