@@ -222,7 +222,7 @@ kind: Component
 metadata:
   name: reading-list
   namespace: acme
-  lables:
+  labels:
     openchoreo.dev/org: acme
     openchoreo.dev/project: hello-project
     openchoreo.dev/component: reading-list\
@@ -261,8 +261,8 @@ spec:
 The organization field is also optional. The default organization is called “default” which maps to the “default” namespace of the Kubernetes cluster. AFAIK, this default namespace will always be there in a Kubernetes cluster and it cannot be deleted. 
 
 Here is a sample with the organization name. If you want to use a different organization, then you would have to add two fields:
-- `metadata.namepsace` 
-- `spec.organiation`
+- `metadata.namespace` 
+- `spec.organization`
 
 ```yaml
 apiVersion: openchoreo.dev/v1alpha1
