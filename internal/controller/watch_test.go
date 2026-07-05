@@ -129,3 +129,35 @@ func TestIndexResourceReleaseBindingOwnerEnv(t *testing.T) {
 		})
 	}
 }
+
+func TestIndexProjectReleaseBindingOwner(t *testing.T) {
+	// Register through SetupSharedIndexes so the test exercises the same
+	// registration path the manager uses.
+	mgr := &mockManager{indexer: &mockIndexer{}}
+	err := SetupSharedIndexes(context.Background(), mgr)
+	require.NoError(t, err)
+
+	idxFunc := mgr.indexer.indexFuncs[IndexKeyProjectReleaseBindingOwner]
+	require.NotNil(t, idxFunc)
+
+	t.Run("with_owner_project_name", func(t *testing.T) {
+		prb := &openchoreov1alpha1.ProjectReleaseBinding{
+			Spec: openchoreov1alpha1.ProjectReleaseBindingSpec{
+				Owner:       openchoreov1alpha1.ProjectReleaseBindingOwner{ProjectName: "my-project"},
+				Environment: "development",
+			},
+		}
+		got := idxFunc(prb)
+		require.Len(t, got, 1)
+		assert.Equal(t, "my-project", got[0])
+	})
+
+	t.Run("empty_owner_returns_nil", func(t *testing.T) {
+		prb := &openchoreov1alpha1.ProjectReleaseBinding{
+			Spec: openchoreov1alpha1.ProjectReleaseBindingSpec{
+				Environment: "development",
+			},
+		}
+		assert.Nil(t, idxFunc(prb))
+	})
+}
