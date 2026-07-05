@@ -114,10 +114,6 @@ var _ = BeforeSuite(func() {
 		controller.IndexKeyProjectReleaseBindingOwner, controller.IndexProjectReleaseBindingOwner)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ProjectReleaseBinding{},
-		controller.IndexKeyProjectReleaseBindingOwnerEnv, controller.IndexProjectReleaseBindingOwnerEnv)
-	Expect(err).NotTo(HaveOccurred())
-
 	// Start the manager in a goroutine
 	go func() {
 		defer GinkgoRecover()
