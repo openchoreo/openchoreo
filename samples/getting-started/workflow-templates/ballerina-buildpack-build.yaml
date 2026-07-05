@@ -76,9 +76,9 @@ spec:
             export DOCKER_HOST=unix:///run/podman/podman.sock
 
             # ghcr.io/openchoreo/buildpack/ballerina:18
-            BUILDER="ghcr.io/openchoreo/buildpack/ballerina@sha256:bd85ed5b6573ba27294f456e22478a5b4d1c36a540526c35e822234aa69ee1bd"
+            BUILDER="ghcr.io/openchoreo/buildpack/ballerina@sha256:4615d47b43885210b2ae9a9b6f327cd8c10165a2d5af8e13dce6fcfefeae8a0d"
             # ghcr.io/openchoreo/buildpack/ballerina:18-run
-            RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina@sha256:cae91b6892095e0215f22208799f432646d74ad0b05f9a764a532dbeccb9f94c"
+            RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina@sha256:121499416443e19dcb43a22e7acfa246d29427a978a43b29b5b4e7a8385b222c"
 
             # Build --env flags
             ENV_ARGS=""
