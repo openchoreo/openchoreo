@@ -52,6 +52,11 @@ const (
 	// (projectName, environment) so the Project controller can look up the binding for a given
 	// (project, env) tuple by spec identity rather than by deterministic name.
 	IndexKeyProjectReleaseBindingOwnerEnv = "projectreleasebinding.spec.owner.projectName/environment"
+
+	// IndexKeyProjectReleaseBindingOwner indexes ProjectReleaseBinding by owner project name
+	// so the Project controller can list all bindings of a project regardless of author
+	// (labels are optional on externally authored bindings).
+	IndexKeyProjectReleaseBindingOwner = "projectreleasebinding.spec.owner.projectName"
 )
 
 // MakeReleaseBindingOwnerEnvKey creates the composite index key for ReleaseBinding lookups
@@ -180,6 +185,11 @@ func SetupSharedIndexes(ctx context.Context, mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup ProjectReleaseBinding owner+env index: %w", err)
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ProjectReleaseBinding{},
+		IndexKeyProjectReleaseBindingOwner, IndexProjectReleaseBindingOwner); err != nil {
+		return fmt.Errorf("failed to setup ProjectReleaseBinding owner index: %w", err)
+	}
+
 	return nil
 }
 
@@ -218,6 +228,17 @@ func IndexResourceReleaseBindingOwnerEnv(obj client.Object) []string {
 		rrb.Spec.Owner.ResourceName,
 		rrb.Spec.Environment,
 	)}
+}
+
+// IndexProjectReleaseBindingOwner extracts the owner project name from a
+// ProjectReleaseBinding. Exported for fake-client tests so they can register
+// the same indexer the production setup uses.
+func IndexProjectReleaseBindingOwner(obj client.Object) []string {
+	prb := obj.(*openchoreov1alpha1.ProjectReleaseBinding)
+	if prb.Spec.Owner.ProjectName == "" {
+		return nil
+	}
+	return []string{prb.Spec.Owner.ProjectName}
 }
 
 // IndexProjectReleaseBindingOwnerEnv extracts the composite (project, environment)

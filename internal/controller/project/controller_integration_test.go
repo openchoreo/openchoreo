@@ -12,8 +12,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -133,6 +135,31 @@ func setupDependencies(namespaceName, dpName, envName, deppipName string) {
 	}
 	testutils.CreateAndReconcileResource(ctx, k8sClient, depPip,
 		depPipReconciler, types.NamespacedName{Name: deppipName, Namespace: namespaceName})
+}
+
+// createProjectType creates a minimal valid ProjectType in the given namespace
+// so that resolveType succeeds and the project controller cuts a ProjectRelease.
+func createProjectType(namespaceName, ptName string) {
+	pt := &openchoreov1alpha1.ProjectType{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ptName,
+			Namespace: namespaceName,
+		},
+		Spec: openchoreov1alpha1.ProjectTypeSpec{
+			Resources: []openchoreov1alpha1.ResourceTemplate{
+				{
+					ID: "namespace",
+					Template: &runtime.RawExtension{
+						Raw: []byte(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"${metadata.namespace}"}}`),
+					},
+				},
+			},
+		},
+	}
+	err := k8sClient.Get(ctx, types.NamespacedName{Name: ptName, Namespace: namespaceName}, &openchoreov1alpha1.ProjectType{})
+	if err != nil && errors.IsNotFound(err) {
+		Expect(k8sClient.Create(ctx, pt)).To(Succeed())
+	}
 }
 
 // ── Integration tests ────────────────────────────────────────────────────────
@@ -692,6 +719,142 @@ var _ = Describe("Project Controller", func() {
 			cond := meta.FindStatusCondition(updated.Status.Conditions, string(ConditionCreated))
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+		})
+	})
+
+	Context("ProjectRelease pin seeding", func() {
+		const (
+			nsName   = "it-seed-ns"
+			dpName   = "it-seed-dp"
+			envName  = "it-seed-env"
+			pipName  = "it-seed-pip"
+			projName = "it-seed-proj"
+			ptName   = "it-seed-pt"
+		)
+
+		nn := types.NamespacedName{Name: projName, Namespace: nsName}
+
+		newProject := func() *openchoreov1alpha1.Project {
+			return &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      projName,
+					Namespace: nsName,
+				},
+				Spec: openchoreov1alpha1.ProjectSpec{
+					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+						Name: pipName,
+					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: ptName,
+					},
+				},
+			}
+		}
+
+		newBinding := func(name, envName, releaseName string) *openchoreov1alpha1.ProjectReleaseBinding {
+			return &openchoreov1alpha1.ProjectReleaseBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: nsName,
+				},
+				Spec: openchoreov1alpha1.ProjectReleaseBindingSpec{
+					Owner: openchoreov1alpha1.ProjectReleaseBindingOwner{
+						ProjectName: projName,
+					},
+					Environment:    envName,
+					ProjectRelease: releaseName,
+				},
+			}
+		}
+
+		// waitForCacheVisibility blocks until the manager cache serves the
+		// binding, so index-based lists inside the reconciler see it.
+		waitForCacheVisibility := func(name string) {
+			Eventually(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: name, Namespace: nsName},
+					&openchoreov1alpha1.ProjectReleaseBinding{})
+			}, itTimeout, itInterval).Should(Succeed())
+		}
+
+		BeforeEach(func() {
+			setupDependencies(nsName, dpName, envName, pipName)
+			createProjectType(nsName, ptName)
+		})
+
+		AfterEach(func() {
+			forceDeleteProject(nn)
+			Expect(k8sClient.DeleteAllOf(ctx, &openchoreov1alpha1.ProjectReleaseBinding{},
+				client.InNamespace(nsName))).To(Succeed())
+		})
+
+		It("should seed empty pins and leave explicit pins untouched", func() {
+			// Externally authored bindings created before the project exists:
+			// one unpinned (to be seeded), one explicitly pinned (untouchable).
+			unpinned := newBinding("custom-binding-dev", envName, "")
+			Expect(k8sClient.Create(ctx, unpinned)).To(Succeed())
+			pinned := newBinding("custom-binding-manual", "env-manual", "user-pinned-release")
+			Expect(k8sClient.Create(ctx, pinned)).To(Succeed())
+			waitForCacheVisibility("custom-binding-dev")
+			waitForCacheVisibility("custom-binding-manual")
+
+			Expect(k8sClient.Create(ctx, newProject())).To(Succeed())
+
+			r := itReconciler()
+
+			// First reconcile adds the finalizer; the second cuts the release
+			// and seeds pins. Eventually tolerates cache lag on the list.
+			var latestRelease string
+			Eventually(func(g Gomega) {
+				_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				g.Expect(err).NotTo(HaveOccurred())
+
+				project := &openchoreov1alpha1.Project{}
+				g.Expect(k8sClient.Get(ctx, nn, project)).To(Succeed())
+				g.Expect(project.Status.LatestRelease).NotTo(BeNil())
+				latestRelease = project.Status.LatestRelease.Name
+
+				seeded := &openchoreov1alpha1.ProjectReleaseBinding{}
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "custom-binding-dev", Namespace: nsName}, seeded)).To(Succeed())
+				g.Expect(seeded.Spec.ProjectRelease).To(Equal(latestRelease))
+			}, itTimeout, itInterval).Should(Succeed())
+
+			// The explicit pin is never touched.
+			untouched := &openchoreov1alpha1.ProjectReleaseBinding{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "custom-binding-manual", Namespace: nsName}, untouched)).To(Succeed())
+			Expect(untouched.Spec.ProjectRelease).To(Equal("user-pinned-release"))
+		})
+
+		It("should seed a binding created after the release exists", func() {
+			Expect(k8sClient.Create(ctx, newProject())).To(Succeed())
+
+			r := itReconciler()
+
+			// Reconcile until the release is cut.
+			Eventually(func(g Gomega) {
+				_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				g.Expect(err).NotTo(HaveOccurred())
+				project := &openchoreov1alpha1.Project{}
+				g.Expect(k8sClient.Get(ctx, nn, project)).To(Succeed())
+				g.Expect(project.Status.LatestRelease).NotTo(BeNil())
+			}, itTimeout, itInterval).Should(Succeed())
+
+			// A binding authored after the release exists gets seeded on the
+			// next reconcile (in production the PRB watch triggers it).
+			late := newBinding("custom-binding-late", "env-late", "")
+			Expect(k8sClient.Create(ctx, late)).To(Succeed())
+			waitForCacheVisibility("custom-binding-late")
+
+			Eventually(func(g Gomega) {
+				_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				g.Expect(err).NotTo(HaveOccurred())
+
+				project := &openchoreov1alpha1.Project{}
+				g.Expect(k8sClient.Get(ctx, nn, project)).To(Succeed())
+
+				seeded := &openchoreov1alpha1.ProjectReleaseBinding{}
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "custom-binding-late", Namespace: nsName}, seeded)).To(Succeed())
+				g.Expect(seeded.Spec.ProjectRelease).To(Equal(project.Status.LatestRelease.Name))
+			}, itTimeout, itInterval).Should(Succeed())
 		})
 	})
 

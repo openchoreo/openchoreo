@@ -36,6 +36,24 @@ func (r *Reconciler) findProjectForComponent(ctx context.Context, obj client.Obj
 	}}
 }
 
+// findProjectForProjectReleaseBinding maps a ProjectReleaseBinding to its
+// owner Project via spec.owner.projectName. Deliberately not an Owns watch:
+// externally authored bindings (console, occ, API, GitOps) carry no
+// OwnerReference, but the Project controller must still reconcile to seed
+// their empty projectRelease pins.
+func (r *Reconciler) findProjectForProjectReleaseBinding(ctx context.Context, obj client.Object) []ctrl.Request {
+	binding := obj.(*openchoreov1alpha1.ProjectReleaseBinding)
+	if binding.Spec.Owner.ProjectName == "" {
+		return nil
+	}
+	return []ctrl.Request{{
+		NamespacedName: client.ObjectKey{
+			Name:      binding.Spec.Owner.ProjectName,
+			Namespace: binding.Namespace,
+		},
+	}}
+}
+
 // indexProjectTypeRef extracts the (Cluster)ProjectType reference key from a
 // Project. Exposed as a package-level value so tests can pass it to
 // fake.NewClientBuilder().WithIndex.
