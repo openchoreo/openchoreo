@@ -499,3 +499,27 @@ func TestBuildSpec_PreservesPostRenderValidations(t *testing.T) {
 		t.Fatalf("expected postRenderValidations to survive freeze into ComponentReleaseSpec")
 	}
 }
+
+func TestBuildSpec_PreservesComponentTypePostRenderValidations(t *testing.T) {
+	ct := makeCT()
+	ct.Spec.PostRenderValidations = []openchoreov1alpha1.PostRenderValidation{{
+		Target:  openchoreov1alpha1.PostRenderTarget{PatchTarget: openchoreov1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"}},
+		Rule:    "${resource.spec.replicas == 1}",
+		Message: "single replica",
+	}}
+	out, err := BuildSpec(BuildInput{
+		Component:     makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
+		ComponentType: ct,
+		Workload: &openchoreov1alpha1.WorkloadTemplateSpec{
+			Container: openchoreov1alpha1.Container{Image: "nginx:1.21"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildSpec failed: %v", err)
+	}
+	if len(out.ComponentType.Spec.PostRenderValidations) != 1 ||
+		out.ComponentType.Spec.PostRenderValidations[0].Message != "single replica" {
+		t.Fatalf("expected ComponentType postRenderValidations to survive freeze into ComponentReleaseSpec, got %+v",
+			out.ComponentType.Spec.PostRenderValidations)
+	}
+}

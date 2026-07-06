@@ -217,6 +217,48 @@ postRenderValidations:
 - **Empty `forEach` passes vacuously.** If the `forEach` list evaluates to empty, the validation passes without running any check — even with `mustMatch: true`. An empty or mistyped source list silently skips the validation.
 - **Runs before OpenChoreo post-processing.** Post-render validations evaluate before OpenChoreo injects its own labels, annotations, and owner references, so rules can assert only on what the traits themselves rendered — not on platform-managed metadata.
 
+## ComponentType Pre-render and Post-render Validations
+
+ComponentTypes and ClusterComponentTypes support the same two additional validation stages as Traits, with the same field shapes and semantics.
+
+### `preRenderValidations` (replaces `validations`)
+
+On ComponentType and ClusterComponentType, `spec.validations` is **deprecated**. Prefer `spec.preRenderValidations`, which has identical semantics — CEL rules evaluated before rendering against the component context (`parameters`, `environmentConfigs`, `metadata`, `workload`, `dataplane`, ...). The two fields are **mutually exclusive**: setting both on the same ComponentType is rejected at admission time.
+
+```yaml
+kind: ComponentType
+metadata:
+  name: deployment/web-app
+spec:
+  workloadType: deployment
+  preRenderValidations:
+    - rule: "${size(workload.endpoints) > 0}"
+      message: "A web-app must expose at least one endpoint."
+```
+
+When both fields are absent, no pre-render rules run; the controller reads whichever field is set.
+
+### `postRenderValidations`
+
+`postRenderValidations` on a ComponentType are CEL rules evaluated **after all traits are applied**, against the final rendered Kubernetes resources — the same stage as trait post-render validations. This lets a ComponentType author assert invariants about the finished resource set, such as "no attached trait changed my Deployment's replica count."
+
+The field shapes (`when`, `forEach`/`var`, `target.{group,version,kind,where,mustMatch}`, `targetPlane`, `rule`, `message`), the default `mustMatch: true` behavior, and the aggregation of failures are **identical to the trait `postRenderValidations` documented above** — the only difference is that the rules bind to the component context (`parameters`, `environmentConfigs`, ...) rather than a trait's context.
+
+```yaml
+kind: ComponentType
+metadata:
+  name: deployment/web-app
+spec:
+  workloadType: deployment
+  postRenderValidations:
+    - target:
+        group: apps
+        version: v1
+        kind: Deployment
+      rule: ${resource.spec.replicas == parameters.replicas}
+      message: "a trait changed replicas away from the component's declared value"
+```
+
 ## Error Messages
 
 When validation rules fail, error messages include the rule index, rule text, and the user-provided message:
@@ -236,12 +278,12 @@ Multiple failures from the same `validations` list are joined with `; `.
 ## Evaluation Order
 
 1. Schema defaults are applied to parameters and environmentConfigs
-2. **ComponentType validation rules** are evaluated using the full ComponentContext
+2. **ComponentType pre-render validation rules** (`preRenderValidations`, or the deprecated `validations`) are evaluated using the full ComponentContext
 3. Base resources are rendered from ComponentType templates
 4. For each trait:
    a. Trait context is built with trait-specific parameters and environmentConfigs
    b. **Trait pre-render validation rules** (`preRenderValidations`, or the deprecated `validations`) are evaluated using the TraitContext
    c. Trait creates, patches, and removes are processed
-5. **Trait post-render validation rules** (`postRenderValidations`) are evaluated against the final rendered resource set, after every trait has been applied
+5. **Post-render validation rules** (`postRenderValidations`) — from both the ComponentType and every trait — are evaluated against the final rendered resource set, after every trait has been applied
 
 If any validation rule fails, rendering stops and the error is reported.

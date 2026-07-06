@@ -1058,7 +1058,9 @@ func buildComponentFromRelease(componentRelease *openchoreov1alpha1.ComponentRel
 func buildComponentTypeFromRelease(componentRelease *openchoreov1alpha1.ComponentRelease) *openchoreov1alpha1.ComponentType {
 	return &openchoreov1alpha1.ComponentType{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "from-release", // Name doesn't matter for rendering
+			// Name identifies the ComponentType in post-render validation error messages,
+			// so use the frozen reference name rather than a placeholder.
+			Name:      componentRelease.Spec.ComponentType.Name,
 			Namespace: componentRelease.Namespace,
 		},
 		Spec: componentRelease.Spec.ComponentType.Spec,

@@ -8,6 +8,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -756,6 +757,28 @@ var _ = Describe("ClusterComponentType Webhook", func() {
 			_, err := validator.ValidateDelete(ctx, wrongObj)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("expected a ClusterComponentType object"))
+		})
+	})
+
+	Context("CRD-level validation via apiserver (XOR guard)", func() {
+		It("rejects a ClusterComponentType that sets both validations and preRenderValidations", func() {
+			if k8sClient == nil {
+				Skip("envtest apiserver not available")
+			}
+			cct := &openchoreodevv1alpha1.ClusterComponentType{
+				ObjectMeta: metav1.ObjectMeta{GenerateName: "xor-"},
+				Spec: openchoreodevv1alpha1.ClusterComponentTypeSpec{
+					WorkloadType: workloadTypeDeployment,
+					Resources: []openchoreodevv1alpha1.ResourceTemplate{
+						{ID: workloadTypeDeployment, Template: validDeploymentTemplate()},
+					},
+					Validations:          []openchoreodevv1alpha1.ValidationRule{{Rule: "${1 == 1}", Message: "legacy"}},
+					PreRenderValidations: []openchoreodevv1alpha1.ValidationRule{{Rule: "${2 == 2}", Message: "fresh"}},
+				},
+			}
+			err := k8sClient.Create(ctx, cct)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("only one of"))
 		})
 	})
 })

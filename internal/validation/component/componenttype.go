@@ -23,7 +23,8 @@ func ValidateComponentTypeResourcesWithSchema(
 	parametersSchema *apiextschema.Structural,
 	environmentConfigsSchema *apiextschema.Structural,
 ) field.ErrorList {
-	return ValidateResourcesWithSchema(ct.Spec.Resources, ct.Spec.Validations, parametersSchema, environmentConfigsSchema, field.NewPath("spec"))
+	//nolint:staticcheck // deprecated field still validated for backward compatibility
+	return ValidateResourcesWithSchema(ct.Spec.Resources, ct.Spec.Validations, ct.Spec.PreRenderValidations, ct.Spec.PostRenderValidations, parametersSchema, environmentConfigsSchema, field.NewPath("spec"))
 }
 
 // ValidateClusterComponentTypeResourcesWithSchema validates all resources in a ClusterComponentType with schema-aware type checking.
@@ -32,7 +33,8 @@ func ValidateClusterComponentTypeResourcesWithSchema(
 	parametersSchema *apiextschema.Structural,
 	environmentConfigsSchema *apiextschema.Structural,
 ) field.ErrorList {
-	return ValidateResourcesWithSchema(cct.Spec.Resources, cct.Spec.Validations, parametersSchema, environmentConfigsSchema, field.NewPath("spec"))
+	//nolint:staticcheck // deprecated field still validated for backward compatibility
+	return ValidateResourcesWithSchema(cct.Spec.Resources, cct.Spec.Validations, cct.Spec.PreRenderValidations, cct.Spec.PostRenderValidations, parametersSchema, environmentConfigsSchema, field.NewPath("spec"))
 }
 
 // ValidateResourcesWithSchema validates resource templates and validation rules with schema-aware CEL type checking.
@@ -41,6 +43,8 @@ func ValidateClusterComponentTypeResourcesWithSchema(
 func ValidateResourcesWithSchema(
 	resources []v1alpha1.ResourceTemplate,
 	validations []v1alpha1.ValidationRule,
+	preRenderValidations []v1alpha1.ValidationRule,
+	postRenderValidations []v1alpha1.PostRenderValidation,
 	parametersSchema *apiextschema.Structural,
 	environmentConfigsSchema *apiextschema.Structural,
 	basePath *field.Path,
@@ -69,6 +73,18 @@ func ValidateResourcesWithSchema(
 		rulePath := basePath.Child("validations").Index(i)
 		errs := validateValidationRule(rule, validator, rulePath)
 		allErrs = append(allErrs, errs...)
+	}
+
+	// preRenderValidations share the shape/semantics of the deprecated validations.
+	for i, rule := range preRenderValidations {
+		rulePath := basePath.Child("preRenderValidations").Index(i)
+		allErrs = append(allErrs, validateValidationRule(rule, validator, rulePath)...)
+	}
+
+	// postRenderValidations evaluate against the final rendered resources with `resource` bound.
+	for i, prv := range postRenderValidations {
+		prvPath := basePath.Child("postRenderValidations").Index(i)
+		allErrs = append(allErrs, validatePostRenderValidation(prv, validator, prvPath)...)
 	}
 
 	return allErrs
