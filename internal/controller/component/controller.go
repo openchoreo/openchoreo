@@ -246,46 +246,10 @@ func (r *Reconciler) validateAndFetchComponentType(ctx context.Context, comp *op
 			return nil, nil
 		}
 
-		// Wrap ClusterComponentTypeSpec into a ComponentType object for downstream compatibility
-		// Convert ClusterTraitRef to TraitRef for allowedTraits
-		allowedTraits := make([]openchoreov1alpha1.TraitRef, len(cct.Spec.AllowedTraits))
-		for i, ref := range cct.Spec.AllowedTraits {
-			allowedTraits[i] = openchoreov1alpha1.TraitRef{
-				Kind: openchoreov1alpha1.TraitRefKind(ref.Kind),
-				Name: ref.Name,
-			}
-		}
-		// Convert ClusterComponentTypeTrait to ComponentTypeTrait
-		traits := make([]openchoreov1alpha1.ComponentTypeTrait, len(cct.Spec.Traits))
-		for i, t := range cct.Spec.Traits {
-			traits[i] = openchoreov1alpha1.ComponentTypeTrait{
-				Kind:               openchoreov1alpha1.TraitRefKind(t.Kind),
-				Name:               t.Name,
-				InstanceName:       t.InstanceName,
-				Parameters:         t.Parameters,
-				EnvironmentConfigs: t.EnvironmentConfigs,
-			}
-		}
-		// Convert ClusterWorkflowRef to WorkflowRef
-		allowedWorkflows := make([]openchoreov1alpha1.WorkflowRef, len(cct.Spec.AllowedWorkflows))
-		for i, ref := range cct.Spec.AllowedWorkflows {
-			allowedWorkflows[i] = openchoreov1alpha1.WorkflowRef{
-				Kind: openchoreov1alpha1.WorkflowRefKind(ref.Kind),
-				Name: ref.Name,
-			}
-		}
+		// Wrap ClusterComponentTypeSpec into a ComponentType object for downstream compatibility.
 		ct := &openchoreov1alpha1.ComponentType{
 			ObjectMeta: cct.ObjectMeta,
-			Spec: openchoreov1alpha1.ComponentTypeSpec{
-				WorkloadType:       cct.Spec.WorkloadType,
-				AllowedWorkflows:   allowedWorkflows,
-				Parameters:         cct.Spec.Parameters,
-				EnvironmentConfigs: cct.Spec.EnvironmentConfigs,
-				Traits:             traits,
-				AllowedTraits:      allowedTraits,
-				Validations:        cct.Spec.Validations,
-				Resources:          cct.Spec.Resources,
-			},
+			Spec:       cct.Spec.ToComponentTypeSpec(),
 		}
 		return ct, nil
 

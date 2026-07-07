@@ -208,6 +208,32 @@ func TestParseComponentTypeName(t *testing.T) {
 	}
 }
 
+// TestClusterComponentTypeSpec_PreservesValidationFields guards the shared CCT->CT
+// conversion (ClusterComponentTypeSpec.ToComponentTypeSpec, which clusterComponentTypeSpec
+// and the component controller both delegate to): because ClusterComponentTypeSpec and
+// ComponentTypeSpec are not directly convertible, a new field must be copied by hand in that
+// method or it silently drops from every consumer.
+func TestClusterComponentTypeSpec_PreservesValidationFields(t *testing.T) {
+	cct := &openchoreov1alpha1.ClusterComponentType{
+		Spec: openchoreov1alpha1.ClusterComponentTypeSpec{
+			WorkloadType:         "deployment",
+			PreRenderValidations: []openchoreov1alpha1.ValidationRule{{Rule: "${1 == 1}", Message: "pre"}},
+			PostRenderValidations: []openchoreov1alpha1.PostRenderValidation{{
+				Target:  openchoreov1alpha1.PostRenderTarget{PatchTarget: openchoreov1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"}},
+				Rule:    "${resource.spec.replicas == 1}",
+				Message: "single replica",
+			}},
+		},
+	}
+
+	got := clusterComponentTypeSpec(cct)
+
+	require.Len(t, got.PreRenderValidations, 1)
+	assert.Equal(t, "pre", got.PreRenderValidations[0].Message)
+	require.Len(t, got.PostRenderValidations, 1)
+	assert.Equal(t, "single replica", got.PostRenderValidations[0].Message)
+}
+
 func TestBuildTraitEnvironmentConfigsSchema(t *testing.T) {
 	tests := []struct {
 		name      string

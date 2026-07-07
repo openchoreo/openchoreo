@@ -101,12 +101,6 @@ const (
 	ClusterTraitSpecPatchesTargetPlaneObservabilityplane ClusterTraitSpecPatchesTargetPlane = "observabilityplane"
 )
 
-// Defines values for ClusterTraitSpecPostRenderValidationsTargetPlane.
-const (
-	ClusterTraitSpecPostRenderValidationsTargetPlaneDataplane          ClusterTraitSpecPostRenderValidationsTargetPlane = "dataplane"
-	ClusterTraitSpecPostRenderValidationsTargetPlaneObservabilityplane ClusterTraitSpecPostRenderValidationsTargetPlane = "observabilityplane"
-)
-
 // Defines values for ClusterWorkflowPlaneRefKind.
 const (
 	ClusterWorkflowPlaneRefKindClusterWorkflowPlane ClusterWorkflowPlaneRefKind = "ClusterWorkflowPlane"
@@ -244,6 +238,12 @@ const (
 const (
 	ObservabilityPlaneRefKindClusterObservabilityPlane ObservabilityPlaneRefKind = "ClusterObservabilityPlane"
 	ObservabilityPlaneRefKindObservabilityPlane        ObservabilityPlaneRefKind = "ObservabilityPlane"
+)
+
+// Defines values for PostRenderValidationTargetPlane.
+const (
+	PostRenderValidationTargetPlaneDataplane          PostRenderValidationTargetPlane = "dataplane"
+	PostRenderValidationTargetPlaneObservabilityplane PostRenderValidationTargetPlane = "observabilityplane"
 )
 
 // Defines values for ProjectReleaseSpecProjectTypeKind.
@@ -389,12 +389,6 @@ const (
 const (
 	TraitSpecPatchesTargetPlaneDataplane          TraitSpecPatchesTargetPlane = "dataplane"
 	TraitSpecPatchesTargetPlaneObservabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
-)
-
-// Defines values for TraitSpecPostRenderValidationsTargetPlane.
-const (
-	Dataplane          TraitSpecPostRenderValidationsTargetPlane = "dataplane"
-	Observabilityplane TraitSpecPostRenderValidationsTargetPlane = "observabilityplane"
 )
 
 // Defines values for WorkflowPlaneRefKind.
@@ -831,6 +825,12 @@ type ClusterComponentTypeSpec struct {
 	// Parameters Schema section using openAPIV3Schema format
 	Parameters *SchemaSection `json:"parameters,omitempty"`
 
+	// PostRenderValidations CEL-based validation rules evaluated after all traits are applied, against the final rendered Kubernetes resources
+	PostRenderValidations *[]PostRenderValidation `json:"postRenderValidations,omitempty"`
+
+	// PreRenderValidations CEL-based validation rules evaluated before rendering; replaces the deprecated validations field
+	PreRenderValidations *[]ValidationRule `json:"preRenderValidations,omitempty"`
+
 	// Resources Templates that generate Kubernetes resources dynamically
 	Resources []struct {
 		// ForEach CEL expression for generating multiple resources from a list
@@ -870,7 +870,7 @@ type ClusterComponentTypeSpec struct {
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 	} `json:"traits,omitempty"`
 
-	// Validations CEL-based validation rules evaluated during rendering
+	// Validations CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive).
 	Validations *[]ValidationRule `json:"validations,omitempty"`
 
 	// WorkloadType Primary workload resource type for this component type
@@ -1174,43 +1174,7 @@ type ClusterTraitSpec struct {
 	} `json:"patches,omitempty"`
 
 	// PostRenderValidations CEL-based validation rules evaluated after all traits are applied, against the final rendered Kubernetes resources
-	PostRenderValidations *[]struct {
-		// ForEach Optional CEL expression yielding a list; the validation is repeated per item with the loop variable bound. Requires var.
-		ForEach *string `json:"forEach,omitempty"`
-
-		// Message Error message shown when the rule evaluates to false
-		Message string `json:"message"`
-
-		// Rule CEL expression wrapped in ${...}, evaluated with resource bound to each match; must evaluate to true
-		Rule string `json:"rule"`
-
-		// Target Rendered resources this validation applies to
-		Target struct {
-			// Group API group of the resource
-			Group string `json:"group"`
-
-			// Kind Resource type to select
-			Kind string `json:"kind"`
-
-			// MustMatch Require at least one rendered resource to match this target; when true and none match, the validation fails
-			MustMatch *bool `json:"mustMatch,omitempty"`
-
-			// Version API version of the resource
-			Version string `json:"version"`
-
-			// Where CEL expression to filter which resources to select
-			Where *string `json:"where,omitempty"`
-		} `json:"target"`
-
-		// TargetPlane Plane to scope selection to; without it a rule matches resources of the same GVK across every plane
-		TargetPlane *ClusterTraitSpecPostRenderValidationsTargetPlane `json:"targetPlane,omitempty"`
-
-		// Var Loop variable name for forEach iterations; available in target.where and rule. Required when forEach is set.
-		Var *string `json:"var,omitempty"`
-
-		// When Optional CEL guard evaluated against the trait context; if it evaluates to false the validation is skipped
-		When *string `json:"when,omitempty"`
-	} `json:"postRenderValidations,omitempty"`
+	PostRenderValidations *[]PostRenderValidation `json:"postRenderValidations,omitempty"`
 
 	// PreRenderValidations CEL-based validation rules evaluated before rendering; replaces the deprecated validations field
 	PreRenderValidations *[]ValidationRule `json:"preRenderValidations,omitempty"`
@@ -1227,9 +1191,6 @@ type ClusterTraitSpecPatchesOperationsOp string
 
 // ClusterTraitSpecPatchesTargetPlane Target plane for this patch
 type ClusterTraitSpecPatchesTargetPlane string
-
-// ClusterTraitSpecPostRenderValidationsTargetPlane Plane to scope selection to; without it a rule matches resources of the same GVK across every plane
-type ClusterTraitSpecPostRenderValidationsTargetPlane string
 
 // ClusterTraitStatus Observed state of a ClusterTrait
 type ClusterTraitStatus = map[string]interface{}
@@ -1584,6 +1545,12 @@ type ComponentTypeSpec struct {
 	// Parameters Schema section using openAPIV3Schema format
 	Parameters *SchemaSection `json:"parameters,omitempty"`
 
+	// PostRenderValidations CEL-based validation rules evaluated after all traits are applied, against the final rendered Kubernetes resources
+	PostRenderValidations *[]PostRenderValidation `json:"postRenderValidations,omitempty"`
+
+	// PreRenderValidations CEL-based validation rules evaluated before rendering; replaces the deprecated validations field
+	PreRenderValidations *[]ValidationRule `json:"preRenderValidations,omitempty"`
+
 	// Resources Templates that generate Kubernetes resources dynamically
 	Resources []struct {
 		// ForEach CEL expression for generating multiple resources from a list
@@ -1623,7 +1590,7 @@ type ComponentTypeSpec struct {
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 	} `json:"traits,omitempty"`
 
-	// Validations CEL-based validation rules evaluated during rendering
+	// Validations CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive).
 	Validations *[]ValidationRule `json:"validations,omitempty"`
 
 	// WorkloadType Primary workload resource type for this component type
@@ -2670,6 +2637,48 @@ type PodLogEntry struct {
 	// Timestamp Timestamp of the log entry in RFC3339 format
 	Timestamp time.Time `json:"timestamp"`
 }
+
+// PostRenderValidation CEL-based validation rule evaluated after all traits are applied, against the final rendered Kubernetes resources
+type PostRenderValidation struct {
+	// ForEach Optional CEL expression yielding a list; the validation is repeated per item with the loop variable bound. Requires var.
+	ForEach *string `json:"forEach,omitempty"`
+
+	// Message Error message shown when the rule evaluates to false
+	Message string `json:"message"`
+
+	// Rule CEL expression wrapped in ${...}, evaluated with resource bound to each match; must evaluate to true
+	Rule string `json:"rule"`
+
+	// Target Rendered resources this validation applies to
+	Target struct {
+		// Group API group of the resource
+		Group string `json:"group"`
+
+		// Kind Resource type to select
+		Kind string `json:"kind"`
+
+		// MustMatch Require at least one rendered resource to match this target; when true and none match, the validation fails
+		MustMatch *bool `json:"mustMatch,omitempty"`
+
+		// Version API version of the resource
+		Version string `json:"version"`
+
+		// Where CEL expression to filter which resources to select
+		Where *string `json:"where,omitempty"`
+	} `json:"target"`
+
+	// TargetPlane Plane to scope selection to; without it a rule matches resources of the same GVK across every plane
+	TargetPlane *PostRenderValidationTargetPlane `json:"targetPlane,omitempty"`
+
+	// Var Loop variable name for forEach iterations; available in target.where and rule. Required when forEach is set.
+	Var *string `json:"var,omitempty"`
+
+	// When Optional CEL guard evaluated against the source's context; if it evaluates to false the validation is skipped
+	When *string `json:"when,omitempty"`
+}
+
+// PostRenderValidationTargetPlane Plane to scope selection to; without it a rule matches resources of the same GVK across every plane
+type PostRenderValidationTargetPlane string
 
 // Project Project resource.
 // Projects group components within a namespace and reference a deployment pipeline.
@@ -3944,43 +3953,7 @@ type TraitSpec struct {
 	} `json:"patches,omitempty"`
 
 	// PostRenderValidations CEL-based validation rules evaluated after all traits are applied, against the final rendered Kubernetes resources
-	PostRenderValidations *[]struct {
-		// ForEach Optional CEL expression yielding a list; the validation is repeated per item with the loop variable bound. Requires var.
-		ForEach *string `json:"forEach,omitempty"`
-
-		// Message Error message shown when the rule evaluates to false
-		Message string `json:"message"`
-
-		// Rule CEL expression wrapped in ${...}, evaluated with resource bound to each match; must evaluate to true
-		Rule string `json:"rule"`
-
-		// Target Rendered resources this validation applies to
-		Target struct {
-			// Group API group of the resource
-			Group string `json:"group"`
-
-			// Kind Resource type to select
-			Kind string `json:"kind"`
-
-			// MustMatch Require at least one rendered resource to match this target; when true and none match, the validation fails
-			MustMatch *bool `json:"mustMatch,omitempty"`
-
-			// Version API version of the resource
-			Version string `json:"version"`
-
-			// Where CEL expression to filter which resources to select
-			Where *string `json:"where,omitempty"`
-		} `json:"target"`
-
-		// TargetPlane Plane to scope selection to; without it a rule matches resources of the same GVK across every plane
-		TargetPlane *TraitSpecPostRenderValidationsTargetPlane `json:"targetPlane,omitempty"`
-
-		// Var Loop variable name for forEach iterations; available in target.where and rule. Required when forEach is set.
-		Var *string `json:"var,omitempty"`
-
-		// When Optional CEL guard evaluated against the trait context; if it evaluates to false the validation is skipped
-		When *string `json:"when,omitempty"`
-	} `json:"postRenderValidations,omitempty"`
+	PostRenderValidations *[]PostRenderValidation `json:"postRenderValidations,omitempty"`
 
 	// PreRenderValidations CEL-based validation rules evaluated before rendering; replaces the deprecated validations field
 	PreRenderValidations *[]ValidationRule `json:"preRenderValidations,omitempty"`
@@ -3997,9 +3970,6 @@ type TraitSpecPatchesOperationsOp string
 
 // TraitSpecPatchesTargetPlane Target plane for this patch
 type TraitSpecPatchesTargetPlane string
-
-// TraitSpecPostRenderValidationsTargetPlane Plane to scope selection to; without it a rule matches resources of the same GVK across every plane
-type TraitSpecPostRenderValidationsTargetPlane string
 
 // TraitStatus Observed state of a Trait
 type TraitStatus = map[string]interface{}

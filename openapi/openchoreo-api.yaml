@@ -8372,9 +8372,19 @@ components:
                 minLength: 1
         validations:
           type: array
-          description: CEL-based validation rules evaluated during rendering
+          description: "CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive)."
           items:
             $ref: '#/components/schemas/ValidationRule'
+        preRenderValidations:
+          type: array
+          description: CEL-based validation rules evaluated before rendering; replaces the deprecated validations field
+          items:
+            $ref: '#/components/schemas/ValidationRule'
+        postRenderValidations:
+          type: array
+          description: CEL-based validation rules evaluated after all traits are applied, against the final rendered Kubernetes resources
+          items:
+            $ref: '#/components/schemas/PostRenderValidation'
         resources:
           type: array
           description: Templates that generate Kubernetes resources dynamically
@@ -8479,64 +8489,7 @@ components:
           type: array
           description: CEL-based validation rules evaluated after all traits are applied, against the final rendered Kubernetes resources
           items:
-            type: object
-            required:
-              - target
-              - rule
-              - message
-            properties:
-              when:
-                type: string
-                pattern: '^\$\{[\s\S]+\}\s*$'
-                description: "Optional CEL guard evaluated against the trait context; if it evaluates to false the validation is skipped"
-              forEach:
-                type: string
-                pattern: '^\$\{[\s\S]+\}\s*$'
-                description: "Optional CEL expression yielding a list; the validation is repeated per item with the loop variable bound. Requires var."
-              var:
-                type: string
-                pattern: '^[a-zA-Z_][a-zA-Z0-9_]*$'
-                description: "Loop variable name for forEach iterations; available in target.where and rule. Required when forEach is set."
-              target:
-                type: object
-                description: Rendered resources this validation applies to
-                required:
-                  - group
-                  - version
-                  - kind
-                properties:
-                  group:
-                    type: string
-                    description: API group of the resource
-                  version:
-                    type: string
-                    minLength: 1
-                    description: API version of the resource
-                  kind:
-                    type: string
-                    minLength: 1
-                    description: Resource type to select
-                  where:
-                    type: string
-                    pattern: '^\$\{[\s\S]+\}\s*$'
-                    description: "CEL expression to filter which resources to select"
-                  mustMatch:
-                    type: boolean
-                    description: Require at least one rendered resource to match this target; when true and none match, the validation fails
-                    default: true
-              targetPlane:
-                type: string
-                enum: [dataplane, observabilityplane]
-                default: dataplane
-                description: "Plane to scope selection to; without it a rule matches resources of the same GVK across every plane"
-              rule:
-                type: string
-                pattern: '^\$\{[\s\S]+\}\s*$'
-                description: "CEL expression wrapped in ${...}, evaluated with resource bound to each match; must evaluate to true"
-              message:
-                type: string
-                minLength: 1
-                description: Error message shown when the rule evaluates to false
+            $ref: '#/components/schemas/PostRenderValidation'
         creates:
           type: array
           description: New Kubernetes resources to create when this trait is applied
@@ -8733,9 +8686,19 @@ components:
                 description: Name of the Trait or ClusterTrait resource
         validations:
           type: array
-          description: CEL-based validation rules evaluated during rendering
+          description: "CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive)."
           items:
             $ref: '#/components/schemas/ValidationRule'
+        preRenderValidations:
+          type: array
+          description: CEL-based validation rules evaluated before rendering; replaces the deprecated validations field
+          items:
+            $ref: '#/components/schemas/ValidationRule'
+        postRenderValidations:
+          type: array
+          description: CEL-based validation rules evaluated after all traits are applied, against the final rendered Kubernetes resources
+          items:
+            $ref: '#/components/schemas/PostRenderValidation'
         resources:
           type: array
           description: Templates that generate Kubernetes resources dynamically
@@ -8838,64 +8801,7 @@ components:
           type: array
           description: CEL-based validation rules evaluated after all traits are applied, against the final rendered Kubernetes resources
           items:
-            type: object
-            required:
-              - target
-              - rule
-              - message
-            properties:
-              when:
-                type: string
-                pattern: '^\$\{[\s\S]+\}\s*$'
-                description: "Optional CEL guard evaluated against the trait context; if it evaluates to false the validation is skipped"
-              forEach:
-                type: string
-                pattern: '^\$\{[\s\S]+\}\s*$'
-                description: "Optional CEL expression yielding a list; the validation is repeated per item with the loop variable bound. Requires var."
-              var:
-                type: string
-                pattern: '^[a-zA-Z_][a-zA-Z0-9_]*$'
-                description: "Loop variable name for forEach iterations; available in target.where and rule. Required when forEach is set."
-              target:
-                type: object
-                description: Rendered resources this validation applies to
-                required:
-                  - group
-                  - version
-                  - kind
-                properties:
-                  group:
-                    type: string
-                    description: API group of the resource
-                  version:
-                    type: string
-                    minLength: 1
-                    description: API version of the resource
-                  kind:
-                    type: string
-                    minLength: 1
-                    description: Resource type to select
-                  where:
-                    type: string
-                    pattern: '^\$\{[\s\S]+\}\s*$'
-                    description: "CEL expression to filter which resources to select"
-                  mustMatch:
-                    type: boolean
-                    description: Require at least one rendered resource to match this target; when true and none match, the validation fails
-                    default: true
-              targetPlane:
-                type: string
-                enum: [dataplane, observabilityplane]
-                default: dataplane
-                description: "Plane to scope selection to; without it a rule matches resources of the same GVK across every plane"
-              rule:
-                type: string
-                pattern: '^\$\{[\s\S]+\}\s*$'
-                description: "CEL expression wrapped in ${...}, evaluated with resource bound to each match; must evaluate to true"
-              message:
-                type: string
-                minLength: 1
-                description: Error message shown when the rule evaluates to false
+            $ref: '#/components/schemas/PostRenderValidation'
         creates:
           type: array
           description: New Kubernetes resources to create when this trait is applied
@@ -9001,6 +8907,67 @@ components:
           type: string
           description: Error message shown when the rule evaluates to false
           minLength: 1
+
+    PostRenderValidation:
+      type: object
+      description: CEL-based validation rule evaluated after all traits are applied, against the final rendered Kubernetes resources
+      required:
+        - target
+        - rule
+        - message
+      properties:
+        when:
+          type: string
+          pattern: '^\$\{[\s\S]+\}\s*$'
+          description: "Optional CEL guard evaluated against the source's context; if it evaluates to false the validation is skipped"
+        forEach:
+          type: string
+          pattern: '^\$\{[\s\S]+\}\s*$'
+          description: "Optional CEL expression yielding a list; the validation is repeated per item with the loop variable bound. Requires var."
+        var:
+          type: string
+          pattern: '^[a-zA-Z_][a-zA-Z0-9_]*$'
+          description: "Loop variable name for forEach iterations; available in target.where and rule. Required when forEach is set."
+        target:
+          type: object
+          description: Rendered resources this validation applies to
+          required:
+            - group
+            - version
+            - kind
+          properties:
+            group:
+              type: string
+              description: API group of the resource
+            version:
+              type: string
+              minLength: 1
+              description: API version of the resource
+            kind:
+              type: string
+              minLength: 1
+              description: Resource type to select
+            where:
+              type: string
+              pattern: '^\$\{[\s\S]+\}\s*$'
+              description: "CEL expression to filter which resources to select"
+            mustMatch:
+              type: boolean
+              description: Require at least one rendered resource to match this target; when true and none match, the validation fails
+              default: true
+        targetPlane:
+          type: string
+          enum: [dataplane, observabilityplane]
+          default: dataplane
+          description: "Plane to scope selection to; without it a rule matches resources of the same GVK across every plane"
+        rule:
+          type: string
+          pattern: '^\$\{[\s\S]+\}\s*$'
+          description: "CEL expression wrapped in ${...}, evaluated with resource bound to each match; must evaluate to true"
+        message:
+          type: string
+          minLength: 1
+          description: Error message shown when the rule evaluates to false
 
     Trait:
       type: object

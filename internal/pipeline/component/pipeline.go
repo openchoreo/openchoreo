@@ -137,14 +137,19 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	// and embedded trait binding resolution.
 	componentContextMap := componentContext.ToMap()
 
-	// Evaluate ComponentType validation rules
+	// Evaluate ComponentType pre-render validation rules
 	if err := renderer.EvaluateValidationRules(
 		p.templateEngine,
-		input.ComponentType.Spec.Validations,
+		input.ComponentType.Spec.EffectivePreRenderValidations(),
 		componentContextMap,
 	); err != nil {
 		return nil, fmt.Errorf("component type validation failed: %w", err)
 	}
+
+	// Accumulate post-render validations across the ComponentType and every trait;
+	// evaluated once after every trait's creates/patches/removes have been applied to
+	// the final resource set.
+	pendingPostRenders := componentTypePendingPostRenders(input, componentContextMap)
 
 	input.ApplyTargetPlaneDefaults()
 
@@ -175,10 +180,6 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 
 	// Create schema cache for trait reuse within this render
 	schemaCache := make(map[string]*context.SchemaBundle)
-
-	// Accumulate post-render validations across all traits; evaluated once after every
-	// trait's creates/patches/removes have been applied to the final resource set.
-	var pendingPostRenders []pendingPostRender
 
 	// Process embedded traits from ComponentType (before component-level traits)
 	for _, embeddedTrait := range input.ComponentType.Spec.Traits {
@@ -336,6 +337,20 @@ func (p *Pipeline) validateInput(input *RenderInput) error {
 	return nil
 }
 
+// componentTypePendingPostRenders seeds the post-render accumulator with the
+// ComponentType's own post-render validations (bound to the component context), so
+// they are evaluated in the same stage as the traits', after every trait is applied.
+func componentTypePendingPostRenders(input *RenderInput, componentContextMap map[string]any) []pendingPostRender {
+	if len(input.ComponentType.Spec.PostRenderValidations) == 0 {
+		return nil
+	}
+	return []pendingPostRender{{
+		label:       fmt.Sprintf("ComponentType %s", input.ComponentType.Name),
+		context:     componentContextMap,
+		validations: input.ComponentType.Spec.PostRenderValidations,
+	}}
+}
+
 // endpointResourcesMacroToken is the literal that appears in a template's CEL
 // expressions when it opts into endpoint schema extraction via
 // workload.toEndpointResources().
@@ -346,7 +361,8 @@ const endpointResourcesMacroToken = "toEndpointResources"
 func usesEndpointResources(input *RenderInput) bool {
 	token := []byte(endpointResourcesMacroToken)
 	ct := input.ComponentType.Spec
-	if jsonContainsToken(token, ct.Resources, ct.Validations, ct.Traits) {
+	//nolint:staticcheck // deprecated field still read for backward-compat alias fallback
+	if jsonContainsToken(token, ct.Resources, ct.Validations, ct.PreRenderValidations, ct.PostRenderValidations, ct.Traits) {
 		return true
 	}
 	for i := range input.Traits {

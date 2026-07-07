@@ -257,7 +257,10 @@ func validateEmbeddedResourceTemplates(release *openchoreodevv1alpha1.ComponentR
 
 	allErrs = append(allErrs, component.ValidateResourcesWithSchema(
 		release.Spec.ComponentType.Spec.Resources,
+		//nolint:staticcheck // deprecated field still validated for backward compatibility
 		release.Spec.ComponentType.Spec.Validations,
+		release.Spec.ComponentType.Spec.PreRenderValidations,
+		release.Spec.ComponentType.Spec.PostRenderValidations,
 		parametersSchema, envConfigsSchema,
 		ctSpecPath,
 	)...)

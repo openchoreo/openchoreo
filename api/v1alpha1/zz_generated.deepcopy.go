@@ -487,6 +487,18 @@ func (in *ClusterComponentTypeSpec) DeepCopyInto(out *ClusterComponentTypeSpec) 
 		*out = make([]ValidationRule, len(*in))
 		copy(*out, *in)
 	}
+	if in.PreRenderValidations != nil {
+		in, out := &in.PreRenderValidations, &out.PreRenderValidations
+		*out = make([]ValidationRule, len(*in))
+		copy(*out, *in)
+	}
+	if in.PostRenderValidations != nil {
+		in, out := &in.PostRenderValidations, &out.PostRenderValidations
+		*out = make([]PostRenderValidation, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
 		*out = make([]ResourceTemplate, len(*in))
@@ -1945,6 +1957,18 @@ func (in *ComponentTypeSpec) DeepCopyInto(out *ComponentTypeSpec) {
 		in, out := &in.Validations, &out.Validations
 		*out = make([]ValidationRule, len(*in))
 		copy(*out, *in)
+	}
+	if in.PreRenderValidations != nil {
+		in, out := &in.PreRenderValidations, &out.PreRenderValidations
+		*out = make([]ValidationRule, len(*in))
+		copy(*out, *in)
+	}
+	if in.PostRenderValidations != nil {
+		in, out := &in.PostRenderValidations, &out.PostRenderValidations
+		*out = make([]PostRenderValidation, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources

@@ -352,3 +352,36 @@ func TestReleaseHash_ChangesWithPostRenderValidations(t *testing.T) {
 		t.Fatalf("expected release hash to change when a trait gains postRenderValidations")
 	}
 }
+
+// buildSpecWithComponentType builds a release spec from a ComponentType snapshot, so tests can
+// vary the ComponentType's own fields (not just traits).
+func buildSpecWithComponentType(t *testing.T, ct openchoreov1alpha1.ComponentReleaseComponentType) *openchoreov1alpha1.ComponentReleaseSpec {
+	t.Helper()
+	out, err := componentrelease.BuildSpec(componentrelease.BuildInput{
+		Component: &openchoreov1alpha1.Component{
+			ObjectMeta: metav1.ObjectMeta{Name: "comp"},
+			Spec:       openchoreov1alpha1.ComponentSpec{Owner: openchoreov1alpha1.ComponentOwner{ProjectName: "proj"}},
+		},
+		ComponentType: ct,
+		Workload: &openchoreov1alpha1.WorkloadTemplateSpec{
+			Container: openchoreov1alpha1.Container{Image: "nginx:1.21"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("BuildSpec failed: %v", err)
+	}
+	return out
+}
+
+func TestReleaseHash_ChangesWithComponentTypePostRenderValidations(t *testing.T) {
+	base := buildSpecWithComponentType(t, makeCTSnapshot())
+	withPRV := makeCTSnapshot()
+	withPRV.Spec.PostRenderValidations = []openchoreov1alpha1.PostRenderValidation{{
+		Target:  openchoreov1alpha1.PostRenderTarget{PatchTarget: openchoreov1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"}},
+		Rule:    "${resource.spec.replicas == 1}",
+		Message: "m",
+	}}
+	if hashOf(t, base) == hashOf(t, buildSpecWithComponentType(t, withPRV)) {
+		t.Fatalf("expected release hash to change when the ComponentType gains postRenderValidations")
+	}
+}

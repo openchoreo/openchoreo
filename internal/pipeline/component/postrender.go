@@ -14,19 +14,21 @@ import (
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
-// pendingPostRender carries a trait's post-render validations together with the
-// trait context they evaluate against. Collected during trait processing and
-// evaluated once, after every trait has been applied to the resource set.
+// pendingPostRender carries a source's post-render validations together with the
+// CEL context they evaluate against. The source is either a trait or the ComponentType
+// itself. Collected during rendering and evaluated once, after every trait has been
+// applied to the resource set.
 type pendingPostRender struct {
-	// label identifies the trait for error messages, e.g. "traitName/instanceName".
+	// label identifies the source for error messages, e.g. "Trait name/instanceName"
+	// or "ComponentType name".
 	label string
-	// context is the trait's CEL context map (parameters, environmentConfigs, etc.).
+	// context is the source's CEL context map (parameters, environmentConfigs, etc.).
 	context map[string]any
-	// validations are the trait's declared post-render validations.
+	// validations are the source's declared post-render validations.
 	validations []v1alpha1.PostRenderValidation
 }
 
-// evaluatePostRenderValidations runs every pending trait's post-render validations
+// evaluatePostRenderValidations runs every pending source's post-render validations
 // against the fully rendered resource set. All failures are collected (no
 // short-circuit) and joined into a single error, matching EvaluateValidationRules.
 func evaluatePostRenderValidations(
@@ -62,7 +64,7 @@ func evaluateOnePostRender(
 	if v.When != "" {
 		include, err := renderer.ShouldInclude(engine, v.When, p.context)
 		if err != nil {
-			return fmt.Errorf("trait %q post-render validation: when evaluation error: %w", p.label, err)
+			return fmt.Errorf("%q post-render validation: when evaluation error: %w", p.label, err)
 		}
 		if !include {
 			return nil
@@ -75,11 +77,11 @@ func evaluateOnePostRender(
 
 	itemsRaw, err := engine.Render(v.ForEach, p.context)
 	if err != nil {
-		return fmt.Errorf("trait %q post-render validation: forEach evaluation error: %w", p.label, err)
+		return fmt.Errorf("%q post-render validation: forEach evaluation error: %w", p.label, err)
 	}
 	items, err := renderer.ToIterableItems(itemsRaw)
 	if err != nil {
-		return fmt.Errorf("trait %q post-render validation: invalid forEach result: %w", p.label, err)
+		return fmt.Errorf("%q post-render validation: invalid forEach result: %w", p.label, err)
 	}
 	varName := v.Var
 	if varName == "" {
@@ -133,14 +135,14 @@ func evaluatePostRenderSelection(
 	if v.Target.Where != "" {
 		filtered, err := filterByWhere(engine, matched, v.Target.Where, ctx)
 		if err != nil {
-			return fmt.Errorf("trait %q post-render validation: %w", label, err)
+			return fmt.Errorf("%q post-render validation: %w", label, err)
 		}
 		matched = filtered
 	}
 
 	if len(matched) == 0 {
 		if v.Target.MustMatchOrDefault() {
-			return fmt.Errorf("trait %q post-render validation: no resource matched target %s/%s/%s%s",
+			return fmt.Errorf("%q post-render validation: no resource matched target %s/%s/%s%s",
 				label, v.Target.Group, v.Target.Version, v.Target.Kind, suffix)
 		}
 		return nil
@@ -152,18 +154,18 @@ func evaluatePostRenderSelection(
 		rctx["resource"] = rr.Resource
 		result, err := engine.Render(v.Rule, rctx)
 		if err != nil {
-			errs = append(errs, fmt.Sprintf("trait %q post-render rule evaluation error on %s: %v%s",
+			errs = append(errs, fmt.Sprintf("%q post-render rule evaluation error on %s: %v%s",
 				label, resourceIdentity(rr), err, suffix))
 			continue
 		}
 		boolResult, ok := result.(bool)
 		if !ok {
-			errs = append(errs, fmt.Sprintf("trait %q post-render rule on %s must evaluate to boolean, got %T%s",
+			errs = append(errs, fmt.Sprintf("%q post-render rule on %s must evaluate to boolean, got %T%s",
 				label, resourceIdentity(rr), result, suffix))
 			continue
 		}
 		if !boolResult {
-			errs = append(errs, fmt.Sprintf("trait %q post-render validation on %s failed: %s%s",
+			errs = append(errs, fmt.Sprintf("%q post-render validation on %s failed: %s%s",
 				label, resourceIdentity(rr), v.Message, suffix))
 		}
 	}

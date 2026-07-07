@@ -4,6 +4,7 @@
 package component
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -689,7 +690,7 @@ func TestValidateResourcesWithSchema_CustomBasePath(t *testing.T) {
 				Template: nil,
 			},
 		}
-		errs := ValidateResourcesWithSchema(resources, nil, nil, nil, customBase)
+		errs := ValidateResourcesWithSchema(resources, nil, nil, nil, nil, nil, customBase)
 		require.NotEmpty(t, errs)
 		assert.Contains(t, errs[0].Field, "spec.componentType.spec.resources")
 	})
@@ -699,15 +700,88 @@ func TestValidateResourcesWithSchema_CustomBasePath(t *testing.T) {
 		validations := []v1alpha1.ValidationRule{
 			{Rule: "not-wrapped", Message: "test"},
 		}
-		errs := ValidateResourcesWithSchema(nil, validations, nil, nil, customBase)
+		errs := ValidateResourcesWithSchema(nil, validations, nil, nil, nil, nil, customBase)
 		require.NotEmpty(t, errs)
 		assert.Contains(t, errs[0].Field, "spec.componentType.spec.validations")
 	})
 
 	t.Run("empty resources and validations", func(t *testing.T) {
-		errs := ValidateResourcesWithSchema(nil, nil, nil, nil, field.NewPath("spec"))
+		errs := ValidateResourcesWithSchema(nil, nil, nil, nil, nil, nil, field.NewPath("spec"))
 		assert.Empty(t, errs)
 	})
+}
+
+func validComponentTypeResource() []v1alpha1.ResourceTemplate {
+	return []v1alpha1.ResourceTemplate{
+		{
+			ID: "deployment",
+			Template: &runtime.RawExtension{
+				Raw: []byte(`{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": {"name": "test"}}`),
+			},
+		},
+	}
+}
+
+func TestValidateComponentType_PreRenderValidations(t *testing.T) {
+	ct := &v1alpha1.ComponentType{Spec: v1alpha1.ComponentTypeSpec{
+		WorkloadType:         "deployment",
+		Resources:            validComponentTypeResource(),
+		PreRenderValidations: []v1alpha1.ValidationRule{{Rule: "${1 +}", Message: "bad"}}, // invalid CEL
+	}}
+	errs := ValidateComponentTypeResourcesWithSchema(ct, nil, nil)
+	require.NotEmpty(t, errs)
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e.Field, "preRenderValidations") {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected error path to mention preRenderValidations, got %v", errs)
+}
+
+func TestValidateComponentType_PostRenderValidation_BadRule(t *testing.T) {
+	// `resource` binds as CEL DynType, so use a statically non-boolean literal the type
+	// checker can reject at admission time.
+	ct := &v1alpha1.ComponentType{Spec: v1alpha1.ComponentTypeSpec{
+		WorkloadType: "deployment",
+		Resources:    validComponentTypeResource(),
+		PostRenderValidations: []v1alpha1.PostRenderValidation{{
+			Target:  v1alpha1.PostRenderTarget{PatchTarget: v1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"}},
+			Rule:    "${1}",
+			Message: "x",
+		}},
+	}}
+	errs := ValidateComponentTypeResourcesWithSchema(ct, nil, nil)
+	require.NotEmpty(t, errs)
+}
+
+func TestValidateComponentType_PostRenderValidation_Valid(t *testing.T) {
+	ct := &v1alpha1.ComponentType{Spec: v1alpha1.ComponentTypeSpec{
+		WorkloadType: "deployment",
+		Resources:    validComponentTypeResource(),
+		PostRenderValidations: []v1alpha1.PostRenderValidation{{
+			When:    "${true}",
+			Target:  v1alpha1.PostRenderTarget{PatchTarget: v1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment", Where: "${resource.metadata.name == 'x'}"}},
+			Rule:    "${resource.spec.replicas == 1}",
+			Message: "single replica",
+		}},
+	}}
+	errs := ValidateComponentTypeResourcesWithSchema(ct, nil, nil)
+	assert.Empty(t, errs, "expected no errors for valid post-render validation, got %v", errs)
+}
+
+func TestValidateClusterComponentType_PostRenderValidated(t *testing.T) {
+	cct := &v1alpha1.ClusterComponentType{Spec: v1alpha1.ClusterComponentTypeSpec{
+		WorkloadType: "deployment",
+		Resources:    validComponentTypeResource(),
+		PostRenderValidations: []v1alpha1.PostRenderValidation{{
+			Target:  v1alpha1.PostRenderTarget{PatchTarget: v1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"}},
+			Rule:    "${1}", // statically non-boolean → must be caught
+			Message: "x",
+		}},
+	}}
+	errs := ValidateClusterComponentTypeResourcesWithSchema(cct, nil, nil)
+	require.NotEmpty(t, errs, "expected ClusterComponentType post-render validation to be checked")
 }
 
 func TestValidateResourceTemplate_ForEachErrors(t *testing.T) {

@@ -55,6 +55,7 @@ func (s *SchemaSection) IsOpenAPIV3() bool {
 
 // ComponentTypeSpec defines the desired state of ComponentType.
 // +kubebuilder:validation:XValidation:rule="self.workloadType == 'proxy' || self.resources.exists(r, r.id == self.workloadType)",message="resources must contain a primary resource with id matching workloadType (unless workloadType is 'proxy')"
+// +kubebuilder:validation:XValidation:rule="!(has(self.validations) && size(self.validations) > 0 && has(self.preRenderValidations) && size(self.preRenderValidations) > 0)",message="set only one of spec.validations or spec.preRenderValidations; validations is deprecated, use preRenderValidations"
 type ComponentTypeSpec struct {
 	// WorkloadType must be one of: deployment, statefulset, cronjob, job, proxy
 	// This determines the primary workload resource type for this component type
@@ -93,9 +94,22 @@ type ComponentTypeSpec struct {
 	AllowedTraits []TraitRef `json:"allowedTraits,omitempty"`
 
 	// Validations are CEL-based rules evaluated during rendering.
-	// All rules must evaluate to true for rendering to proceed.
+	//
+	// Deprecated: use PreRenderValidations. Retained for backward compatibility;
+	// it is mutually exclusive with PreRenderValidations and has identical semantics.
 	// +optional
 	Validations []ValidationRule `json:"validations,omitempty"`
+
+	// PreRenderValidations are CEL-based rules evaluated before rendering, against the
+	// component context (parameters/environmentConfigs/workload/metadata). All rules must
+	// evaluate to true for rendering to proceed. Replaces Validations.
+	// +optional
+	PreRenderValidations []ValidationRule `json:"preRenderValidations,omitempty"`
+
+	// PostRenderValidations are CEL-based rules evaluated after all traits are applied,
+	// against the final rendered Kubernetes resources.
+	// +optional
+	PostRenderValidations []PostRenderValidation `json:"postRenderValidations,omitempty"`
 
 	// Resources are templates that generate Kubernetes resources dynamically.
 	// At least one resource template is required. For non-proxy workload types,
@@ -103,6 +117,18 @@ type ComponentTypeSpec struct {
 	// is "proxy", a matching resource id is not required.
 	// +kubebuilder:validation:MinItems=1
 	Resources []ResourceTemplate `json:"resources"`
+}
+
+// EffectivePreRenderValidations returns the pre-render validation rules to apply.
+// PreRenderValidations takes precedence; Validations is the deprecated fallback.
+// The two are mutually exclusive (enforced by a CRD XValidation rule), so at most
+// one is non-empty in practice.
+func (s *ComponentTypeSpec) EffectivePreRenderValidations() []ValidationRule {
+	if len(s.PreRenderValidations) > 0 {
+		return s.PreRenderValidations
+	}
+	//nolint:staticcheck // deprecated field still supported for backward compatibility
+	return s.Validations
 }
 
 // ResourceTemplate defines a template for generating Kubernetes resources

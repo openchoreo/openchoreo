@@ -2362,3 +2362,117 @@ func TestRender_EmbeddedTraitPostRenderValidationFailsBlocksRender(t *testing.T)
 		t.Fatalf("expected embedded-trait post-render to pass when name matches, got %v", err)
 	}
 }
+
+// renderWithComponentTypePostValidation renders a ComponentType that emits a single Deployment
+// with the given replicas and carries the post-render validation directly on the ComponentType
+// (no traits).
+func renderWithComponentTypePostValidation(t *testing.T, replicas int, rule, message string, mustMatch *bool, when string) (*RenderOutput, error) {
+	t.Helper()
+	var b strings.Builder
+	b.WriteString("spec:\n")
+	b.WriteString("  postRenderValidations:\n")
+	b.WriteString("    - target:\n")
+	b.WriteString("        group: apps\n")
+	b.WriteString("        version: v1\n")
+	b.WriteString("        kind: Deployment\n")
+	if mustMatch != nil {
+		b.WriteString(fmt.Sprintf("        mustMatch: %t\n", *mustMatch))
+	}
+	if when != "" {
+		b.WriteString(fmt.Sprintf("      when: %q\n", when))
+	}
+	b.WriteString(fmt.Sprintf("      rule: %q\n", rule))
+	b.WriteString(fmt.Sprintf("      message: %q\n", message))
+	b.WriteString("  resources:\n")
+	b.WriteString("    - id: deployment\n")
+	b.WriteString(fmt.Sprintf("      template: {apiVersion: apps/v1, kind: Deployment, metadata: {name: web}, spec: {replicas: %d}}\n", replicas))
+	return renderPipelineYAML(t, b.String(), "spec: {}", "")
+}
+
+// renderWithComponentTypePostValidationAndTraitMutation renders a ComponentType that emits a
+// Deployment with replicas 1 and asserts (via its own post-render validation) replicas == 1,
+// then attaches a trait that patches replicas to 3. Because ComponentType post-render runs
+// after all traits, the validation must observe the mutated value and fail.
+func renderWithComponentTypePostValidationAndTraitMutation(t *testing.T) (*RenderOutput, error) {
+	t.Helper()
+	ct := `
+spec:
+  postRenderValidations:
+    - target: {group: apps, version: v1, kind: Deployment}
+      rule: "${resource.spec.replicas == 1}"
+      message: "a trait changed replicas"
+  resources:
+    - id: deployment
+      template: {apiVersion: apps/v1, kind: Deployment, metadata: {name: web}, spec: {replicas: 1}}
+`
+	comp := `
+spec:
+  traits:
+    - name: bump
+      instanceName: b1
+`
+	traits := `
+- metadata: {name: bump}
+  spec:
+    patches:
+      - target: {group: apps, version: v1, kind: Deployment}
+        operations:
+          - {op: replace, path: /spec/replicas, value: 3}
+`
+	return renderPipelineYAML(t, ct, comp, traits)
+}
+
+// renderWithComponentTypePreRenderValidation renders a ComponentType emitting a Deployment
+// and carrying a preRenderValidations rule (the non-deprecated alias) on the ComponentType.
+func renderWithComponentTypePreRenderValidation(t *testing.T, rule, message string) (*RenderOutput, error) {
+	t.Helper()
+	ct := fmt.Sprintf(`
+spec:
+  preRenderValidations:
+    - rule: %q
+      message: %q
+  resources:
+    - id: deployment
+      template: {apiVersion: apps/v1, kind: Deployment, metadata: {name: web}, spec: {replicas: 1}}
+`, rule, message)
+	return renderPipelineYAML(t, ct, "spec: {}", "")
+}
+
+func TestRender_ComponentTypePostRenderValidationPasses(t *testing.T) {
+	out, err := renderWithComponentTypePostValidation(t, 1,
+		"${resource.spec.replicas == 1}", "must be single replica", nil, "")
+	if err != nil {
+		t.Fatalf("expected render to pass, got %v", err)
+	}
+	if out == nil || len(out.Resources) == 0 {
+		t.Fatalf("expected rendered resources")
+	}
+}
+
+func TestRender_ComponentTypePostRenderValidationFailsBlocksRender(t *testing.T) {
+	_, err := renderWithComponentTypePostValidation(t, 3,
+		"${resource.spec.replicas == 1}", "must be single replica", nil, "")
+	if err == nil || !strings.Contains(err.Error(), "must be single replica") {
+		t.Fatalf("expected post-render validation failure, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "post-render validation") {
+		t.Fatalf("expected error wrapped as post-render validation, got %v", err)
+	}
+}
+
+func TestRender_ComponentTypePostRenderRunsAfterTraits(t *testing.T) {
+	_, err := renderWithComponentTypePostValidationAndTraitMutation(t)
+	if err == nil || !strings.Contains(err.Error(), "post-render validation") {
+		t.Fatalf("expected CT post-render to observe the trait mutation and fail, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "a trait changed replicas") {
+		t.Fatalf("expected CT post-render message, got %v", err)
+	}
+}
+
+func TestRender_ComponentTypePreRenderValidationsAliasHonored(t *testing.T) {
+	_, err := renderWithComponentTypePreRenderValidation(t, "${1 == 2}", "pre-render boom")
+	if err == nil || !strings.Contains(err.Error(), "pre-render boom") {
+		t.Fatalf("expected pre-render validation failure, got %v", err)
+	}
+}

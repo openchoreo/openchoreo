@@ -9,7 +9,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreodevv1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
@@ -1328,6 +1330,70 @@ var _ = Describe("ComponentType Webhook", func() {
 			_, err := validator.ValidateUpdate(ctx, oldObj, wrongObj)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("expected a ComponentType object for the newObj"))
+		})
+	})
+
+	Context("CRD-level validation via apiserver (XOR guard + defaults)", func() {
+		// A minimal valid ComponentType spec: deployment workloadType with a matching resource.
+		validSpec := func() openchoreodevv1alpha1.ComponentTypeSpec {
+			return openchoreodevv1alpha1.ComponentTypeSpec{
+				WorkloadType: workloadTypeDeployment,
+				Resources: []openchoreodevv1alpha1.ResourceTemplate{
+					{ID: workloadTypeDeployment, Template: validDeploymentTemplate()},
+				},
+			}
+		}
+
+		It("rejects a ComponentType that sets both validations and preRenderValidations", func() {
+			if k8sClient == nil {
+				Skip("envtest apiserver not available")
+			}
+			spec := validSpec()
+			spec.Validations = []openchoreodevv1alpha1.ValidationRule{{Rule: "${1 == 1}", Message: "legacy"}}
+			spec.PreRenderValidations = []openchoreodevv1alpha1.ValidationRule{{Rule: "${2 == 2}", Message: "fresh"}}
+			ct := &openchoreodevv1alpha1.ComponentType{
+				ObjectMeta: metav1.ObjectMeta{GenerateName: "xor-", Namespace: "default"},
+				Spec:       spec,
+			}
+			err := k8sClient.Create(ctx, ct)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("only one of"))
+		})
+
+		It("accepts a ComponentType that sets only preRenderValidations", func() {
+			if k8sClient == nil {
+				Skip("envtest apiserver not available")
+			}
+			spec := validSpec()
+			spec.PreRenderValidations = []openchoreodevv1alpha1.ValidationRule{{Rule: "${2 == 2}", Message: "fresh"}}
+			ct := &openchoreodevv1alpha1.ComponentType{
+				ObjectMeta: metav1.ObjectMeta{GenerateName: "alias-", Namespace: "default"},
+				Spec:       spec,
+			}
+			Expect(k8sClient.Create(ctx, ct)).To(Succeed())
+		})
+
+		It("accepts a ComponentType with postRenderValidations and defaults mustMatch to true", func() {
+			if k8sClient == nil {
+				Skip("envtest apiserver not available")
+			}
+			spec := validSpec()
+			spec.PostRenderValidations = []openchoreodevv1alpha1.PostRenderValidation{{
+				Target: openchoreodevv1alpha1.PostRenderTarget{
+					PatchTarget: openchoreodevv1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"},
+				},
+				Rule:    "${resource.spec.replicas == 1}",
+				Message: "single replica",
+			}}
+			ct := &openchoreodevv1alpha1.ComponentType{
+				ObjectMeta: metav1.ObjectMeta{GenerateName: "postr-", Namespace: "default"},
+				Spec:       spec,
+			}
+			Expect(k8sClient.Create(ctx, ct)).To(Succeed())
+			created := &openchoreodevv1alpha1.ComponentType{}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(ct), created)).To(Succeed())
+			Expect(created.Spec.PostRenderValidations[0].Target.MustMatch).ToNot(BeNil())
+			Expect(*created.Spec.PostRenderValidations[0].Target.MustMatch).To(BeTrue())
 		})
 	})
 })
