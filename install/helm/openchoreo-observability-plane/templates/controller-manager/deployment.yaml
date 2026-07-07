@@ -50,12 +50,6 @@ spec:
           value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
-        {{- if .Values.controllerManager.clusterGateway.enabled }}
-        - name: CLUSTER_GATEWAY_URL
-          value: {{ quote .Values.controllerManager.clusterGateway.url }}
-        - name: CLUSTER_GATEWAY_CA_CERT
-          value: {{ quote .Values.controllerManager.clusterGateway.tls.caPath }}
-        {{- end }}
         ports:
         - name: metrics
           containerPort: 8080
@@ -81,10 +75,4 @@ spec:
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-      {{- if .Values.controllerManager.clusterGateway.enabled }}
-      volumes:
-      - name: cluster-gateway-ca
-        configMap:
-          name: {{ .Values.controllerManager.clusterGateway.tls.caConfigMap }}
-      {{- end }}
 {{- end }}

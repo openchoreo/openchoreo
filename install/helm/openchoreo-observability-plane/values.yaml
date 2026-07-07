@@ -327,41 +327,6 @@ controllerManager:
       # @schema
       enableWebhooks: "false"
 
-  # @schema
-  # type: object
-  # description: Cluster gateway configuration for multi-cluster communication
-  # @schema
-  clusterGateway:
-    # @schema
-    # type: boolean
-    # description: Enable cluster gateway integration for multi-cluster setups
-    # default: false
-    # @schema
-    enabled: false
-    # @schema
-    # type: string
-    # description: URL of the cluster gateway service in the control plane
-    # default: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
-    # @schema
-    url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
-    # @schema
-    # type: object
-    # description: TLS configuration for cluster gateway communication
-    # @schema
-    tls:
-      # @schema
-      # type: string
-      # description: Path to the CA certificate file for gateway verification
-      # default: /etc/cluster-gateway/ca.crt
-      # @schema
-      caPath: /etc/cluster-gateway/ca.crt
-      # @schema
-      # type: string
-      # description: Name of the ConfigMap containing the gateway CA certificate
-      # default: cluster-gateway-ca
-      # @schema
-      caConfigMap: cluster-gateway-ca
-
 ## Values for dependent charts
 
 
