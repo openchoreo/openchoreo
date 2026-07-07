@@ -459,48 +459,6 @@
           "title": "affinity",
           "type": "object"
         },
-        "clusterGateway": {
-          "additionalProperties": false,
-          "description": "Cluster gateway configuration for multi-cluster communication",
-          "properties": {
-            "enabled": {
-              "default": false,
-              "description": "Enable cluster gateway integration for multi-cluster setups",
-              "title": "enabled",
-              "type": "boolean"
-            },
-            "tls": {
-              "additionalProperties": false,
-              "description": "TLS configuration for cluster gateway communication",
-              "properties": {
-                "caConfigMap": {
-                  "default": "cluster-gateway-ca",
-                  "description": "Name of the ConfigMap containing the gateway CA certificate",
-                  "title": "caConfigMap",
-                  "type": "string"
-                },
-                "caPath": {
-                  "default": "/etc/cluster-gateway/ca.crt",
-                  "description": "Path to the CA certificate file for gateway verification",
-                  "title": "caPath",
-                  "type": "string"
-                }
-              },
-              "required": [],
-              "title": "tls",
-              "type": "object"
-            },
-            "url": {
-              "default": "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443",
-              "description": "URL of the cluster gateway service in the control plane",
-              "title": "url",
-              "type": "string"
-            }
-          },
-          "required": [],
-          "title": "clusterGateway",
-          "type": "object"
-        },
         "containerSecurityContext": {
           "additionalProperties": false,
           "description": "Container-level security context settings",
