@@ -426,6 +426,28 @@ func workloadSpecSchema() *extv1.JSONSchemaProps {
 		},
 	}
 
+	resourceDependencySchema := extv1.JSONSchemaProps{
+		Type:        objectType,
+		Description: "Dependency on a project-bound Resource. Named outputs of the resolved ResourceReleaseBinding are wired into the container.",
+		Required:    []string{"ref"},
+		Properties: map[string]extv1.JSONSchemaProps{
+			"ref": {
+				Type:        stringType,
+				Description: "Name of the Resource to consume. Must be in the same project as the consuming component.",
+			},
+			"envBindings": {
+				Type:                 objectType,
+				Description:          "Maps ResourceType output names to container environment variable names.",
+				AdditionalProperties: &extv1.JSONSchemaPropsOrBool{Schema: &extv1.JSONSchemaProps{Type: stringType}},
+			},
+			"fileBindings": {
+				Type:                 objectType,
+				Description:          "Maps ResourceType output names to container mount paths.",
+				AdditionalProperties: &extv1.JSONSchemaPropsOrBool{Schema: &extv1.JSONSchemaProps{Type: stringType}},
+			},
+		},
+	}
+
 	return &extv1.JSONSchemaProps{
 		Type:        objectType,
 		Description: "Workload specification defining the runtime configuration for a component.",
@@ -469,12 +491,17 @@ func workloadSpecSchema() *extv1.JSONSchemaProps {
 			},
 			"dependencies": {
 				Type:        objectType,
-				Description: "Dependencies on other components' endpoints.",
+				Description: "Dependencies on other components' endpoints and on project-bound Resources.",
 				Properties: map[string]extv1.JSONSchemaProps{
 					"endpoints": {
 						Type:        "array",
 						Description: "Endpoint connections to other components.",
 						Items:       &extv1.JSONSchemaPropsOrArray{Schema: &connectionSchema},
+					},
+					"resources": {
+						Type:        "array",
+						Description: "Resource dependencies on project-bound Resources.",
+						Items:       &extv1.JSONSchemaPropsOrArray{Schema: &resourceDependencySchema},
 					},
 				},
 			},
