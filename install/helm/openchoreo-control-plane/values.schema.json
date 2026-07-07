@@ -2927,9 +2927,11 @@
                     "project",
                     "component",
                     "deployment",
-                    "build"
+                    "build",
+                    "pe",
+                    "resource"
                   ],
-                  "description": "List of enabled MCP toolsets. Each toolset exposes a group of related operations. Allowed toolsets: namespace, project, component, deployment, build, pe",
+                  "description": "List of enabled MCP toolsets. Each toolset exposes a group of related operations. Allowed toolsets: namespace, project, component, deployment, build, pe, resource",
                   "items": {
                     "type": "string"
                   },
