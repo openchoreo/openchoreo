@@ -132,6 +132,8 @@ Projects, components and APIs are Kubernetes CRDs. We can make them less complic
 
 This section describes the shape and semantics of these kinds. 
 
+> **Note** This proposal originally described a first-class `Organization` CRD (1:1 mapped to a Kubernetes namespace), as shown in the "Namespaces and Organizations" and "Custom resource (CR) naming scope" sections below. The `Organization` CRD and all `spec.organization` / `organizationName` fields have since been **removed** from OpenChoreo — resources are now grouped directly under Kubernetes namespaces instead. See [openchoreo/openchoreo#1583](https://github.com/openchoreo/openchoreo/pull/1583) ("Use k8s namespaces to group resources and remove Organization") for the removal, and [openchoreo/openchoreo#1468](https://github.com/openchoreo/openchoreo/issues/1468) / [openchoreo/openchoreo#1273](https://github.com/openchoreo/openchoreo/issues/1273) / [openchoreo/openchoreo#1271](https://github.com/openchoreo/openchoreo/issues/1271) for the design discussion and related tasks. The sections below are kept as-is for historical context; treat any `organization` references as superseded by the corresponding Kubernetes namespace.
+
 ### Namespaces and Organizations
 There is a 1:1 mapping between OpenChoreo organizations and Kubernetes namespaces in the OpenChoreo control plane. 
 
