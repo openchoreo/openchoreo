@@ -178,6 +178,20 @@ func (w *Workload) GetDependencies() []interface{} {
 	return connections
 }
 
+// GetDependencyResources returns the workload's external Resource dependencies (ref,
+// envBindings, fileBindings) as a slice for template processing, or nil when none are
+// defined. These flow into spec.workload.dependencies.resources of the generated
+// ComponentRelease, where the rendering pipeline's ${dependencies.toContainerEnvs()}
+// injects them as container env vars; dropping them silently omits the bindings.
+// It round-trips through the API types' JSON tags so the emitted keys match the CRD
+// field names exactly and new fields cannot be silently dropped.
+func (w *Workload) GetDependencyResources() []interface{} {
+	if len(w.Spec.GetDependencyResources()) == 0 {
+		return nil
+	}
+	return apiSliceToInterface(w.Spec.GetDependencyResources())
+}
+
 // stringsToInterfaceSlice converts []string to []interface{} for JSON compatibility
 // This is needed because DeepCopyJSONValue cannot handle []string directly
 func stringsToInterfaceSlice(strs []string) []interface{} {

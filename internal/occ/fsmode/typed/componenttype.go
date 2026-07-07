@@ -76,6 +76,16 @@ func (ct *ComponentType) GetResources() []interface{} {
 	return resources
 }
 
+// GetValidationFields returns the component type's CEL validation rules keyed by their
+// CRD json tags (validations, preRenderValidations, postRenderValidations) for template
+// processing, or nil when none are defined. These flow into the componentType spec of the
+// generated ComponentRelease, where the rendering pipeline enforces them; dropping any of
+// them silently disables the component type's validations.
+func (ct *ComponentType) GetValidationFields() map[string]interface{} {
+	vals := ct.Spec.Validations //nolint:staticcheck // deprecated Validations field read intentionally to pass it through unchanged
+	return buildValidationFields(vals, ct.Spec.PreRenderValidations, ct.Spec.PostRenderValidations)
+}
+
 // WorkloadType returns the workload type
 func (ct *ComponentType) WorkloadType() string {
 	return ct.Spec.WorkloadType

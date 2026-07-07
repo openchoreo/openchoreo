@@ -40,6 +40,17 @@ func (t *Trait) GetSpec() map[string]interface{} {
 		}
 	}
 
+	// Add validation rules and removes. These flow into the embedded trait spec of the
+	// generated ComponentRelease, where the rendering pipeline enforces them; dropping
+	// them here silently disables the trait's validations and removes.
+	vals := t.Spec.Validations //nolint:staticcheck // deprecated Validations field read intentionally to pass it through unchanged
+	for k, v := range buildValidationFields(vals, t.Spec.PreRenderValidations, t.Spec.PostRenderValidations) {
+		spec[k] = v
+	}
+	if len(t.Spec.Removes) > 0 {
+		spec["removes"] = apiSliceToInterface(t.Spec.Removes)
+	}
+
 	// Add creates
 	if len(t.Spec.Creates) > 0 {
 		creates := make([]interface{}, len(t.Spec.Creates))

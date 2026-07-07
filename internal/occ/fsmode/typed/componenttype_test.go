@@ -208,3 +208,55 @@ func TestComponentTypeGetResources(t *testing.T) {
 		})
 	}
 }
+
+// TestComponentTypeGetValidationFields verifies validations, preRenderValidations and
+// postRenderValidations round-trip through GetValidationFields with correct JSON keys,
+// and that nil is returned when none are defined.
+func TestComponentTypeGetValidationFields(t *testing.T) {
+	ct := &ComponentType{
+		ComponentType: &v1alpha1.ComponentType{
+			Spec: v1alpha1.ComponentTypeSpec{
+				Validations: []v1alpha1.ValidationRule{
+					{Rule: "${parameters.replicas > 0}", Message: "replicas must be positive"},
+				},
+				PreRenderValidations: []v1alpha1.ValidationRule{
+					{Rule: "${has(parameters.image)}", Message: "image required"},
+				},
+				PostRenderValidations: []v1alpha1.PostRenderValidation{
+					{Rule: "${resource.spec.replicas > 0}", Message: "must scale"},
+				},
+			},
+		},
+	}
+	got := ct.GetValidationFields()
+	require.NotNil(t, got)
+
+	// validations
+	raw, err := json.Marshal(got["validations"])
+	require.NoError(t, err)
+	var vals []v1alpha1.ValidationRule
+	require.NoError(t, json.Unmarshal(raw, &vals))
+	require.Len(t, vals, 1)
+	assert.Equal(t, "${parameters.replicas > 0}", vals[0].Rule)
+	assert.Equal(t, "replicas must be positive", vals[0].Message)
+
+	// preRenderValidations
+	raw, err = json.Marshal(got["preRenderValidations"])
+	require.NoError(t, err)
+	var pre []v1alpha1.ValidationRule
+	require.NoError(t, json.Unmarshal(raw, &pre))
+	require.Len(t, pre, 1)
+	assert.Equal(t, "${has(parameters.image)}", pre[0].Rule)
+
+	// postRenderValidations
+	raw, err = json.Marshal(got["postRenderValidations"])
+	require.NoError(t, err)
+	var post []v1alpha1.PostRenderValidation
+	require.NoError(t, json.Unmarshal(raw, &post))
+	require.Len(t, post, 1)
+	assert.Equal(t, "${resource.spec.replicas > 0}", post[0].Rule)
+	assert.Equal(t, "must scale", post[0].Message)
+
+	empty := &ComponentType{ComponentType: &v1alpha1.ComponentType{Spec: v1alpha1.ComponentTypeSpec{}}}
+	assert.Nil(t, empty.GetValidationFields())
+}

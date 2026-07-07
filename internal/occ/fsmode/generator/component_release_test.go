@@ -860,3 +860,212 @@ func TestGenerateRelease_WorkloadWithoutEndpoints(t *testing.T) {
 	assert.Nil(t, workload["endpoints"], "expected spec.workload.endpoints to be absent")
 	assert.Nil(t, workload["connections"], "expected spec.workload.connections to be absent")
 }
+
+// addComponentTypeWithSpec adds a ComponentType with a caller-provided spec, allowing
+// tests to include fields (e.g. validations) that the minimal addComponentType helper omits.
+func addComponentTypeWithSpec(t *testing.T, idx *index.Index, name string, spec map[string]any, filePath string) {
+	t.Helper()
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "ComponentType",
+				"metadata": map[string]any{
+					"name":      name,
+					"namespace": "default",
+				},
+				"spec": spec,
+			},
+		},
+		FilePath: filePath,
+	}
+	require.NoError(t, idx.Add(entry))
+}
+
+// TestGenerateRelease_ValidationsPropagated verifies that the generated ComponentRelease
+// carries both the ComponentType's validations and the trait's validation rules
+// (validations, preRenderValidations, postRenderValidations) plus removes into the frozen
+// snapshot, so the rendering pipeline enforces them. Regression test for the occ fsmode
+// mappers silently dropping these fields.
+func TestGenerateRelease_ValidationsPropagated(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+		releaseName   = "my-svc-release-1"
+	)
+
+	idx := index.New("/repo")
+
+	addComponentWithTraits(t, idx, namespace,
+		[]map[string]any{
+			{"kind": "Trait", "name": "resource-limits", "instanceName": "rl-1"},
+		},
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	addComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources":    []any{},
+			"validations": []any{
+				map[string]any{"rule": "${parameters.replicas > 0}", "message": "replicas must be positive"},
+			},
+			"preRenderValidations": []any{
+				map[string]any{"rule": "${has(parameters.image)}", "message": "image required"},
+			},
+			"postRenderValidations": []any{
+				map[string]any{
+					"target":  map[string]any{"group": "apps", "version": "v1", "kind": "Deployment"},
+					"rule":    "${resource.spec.replicas > 0}",
+					"message": "must scale",
+				},
+			},
+		},
+		"/repo/platform/component-types/service.yaml")
+
+	addTrait(t, idx, "resource-limits",
+		map[string]any{
+			"validations": []any{
+				map[string]any{"rule": "${parameters.cpu != ''}", "message": "cpu required"},
+			},
+			"preRenderValidations": []any{
+				map[string]any{"rule": "${parameters.memory != ''}", "message": "memory required"},
+			},
+			"postRenderValidations": []any{
+				map[string]any{
+					"target":  map[string]any{"group": "apps", "version": "v1", "kind": "Deployment"},
+					"rule":    "${resource.spec.template.spec.containers.all(c, has(c.resources))}",
+					"message": "containers must set resources",
+				},
+			},
+			"removes": []any{
+				map[string]any{
+					"target": map[string]any{"group": "", "version": "v1", "kind": "Service"},
+				},
+			},
+		},
+		"/repo/platform/traits/resource-limits.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": "reg/my-svc:v1"}},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   releaseName,
+	})
+	require.NoError(t, err)
+
+	// ComponentType validations must be carried into componentType.spec.validations.
+	ctValidations, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentType", "spec", "validations")
+	require.True(t, ok, "expected spec.componentType.spec.validations to exist")
+	require.Len(t, ctValidations, 1)
+	ctv := ctValidations[0].(map[string]interface{})
+	assert.Equal(t, "${parameters.replicas > 0}", ctv["rule"])
+	assert.Equal(t, "replicas must be positive", ctv["message"])
+
+	// ComponentType pre/post-render validations must be carried too (added in #4088).
+	ctPre, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentType", "spec", "preRenderValidations")
+	require.True(t, ok, "expected spec.componentType.spec.preRenderValidations to exist")
+	require.Len(t, ctPre, 1)
+	assert.Equal(t, "${has(parameters.image)}", ctPre[0].(map[string]interface{})["rule"])
+
+	ctPost, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentType", "spec", "postRenderValidations")
+	require.True(t, ok, "expected spec.componentType.spec.postRenderValidations to exist")
+	require.Len(t, ctPost, 1)
+	assert.Equal(t, "must scale", ctPost[0].(map[string]interface{})["message"])
+
+	// Trait validation fields and removes must be carried into spec.traits[0].spec.
+	traitsSlice, ok, _ := unstructured.NestedSlice(release.Object, "spec", "traits")
+	require.True(t, ok, "expected spec.traits to exist")
+	require.Len(t, traitsSlice, 1)
+	traitSpec := traitsSlice[0].(map[string]interface{})["spec"].(map[string]interface{})
+
+	require.Contains(t, traitSpec, "validations")
+	require.Contains(t, traitSpec, "preRenderValidations")
+	require.Contains(t, traitSpec, "postRenderValidations")
+	require.Contains(t, traitSpec, "removes")
+
+	preRender := traitSpec["preRenderValidations"].([]interface{})
+	require.Len(t, preRender, 1)
+	assert.Equal(t, "${parameters.memory != ''}", preRender[0].(map[string]interface{})["rule"])
+
+	postRender := traitSpec["postRenderValidations"].([]interface{})
+	require.Len(t, postRender, 1)
+	prv := postRender[0].(map[string]interface{})
+	assert.Equal(t, "containers must set resources", prv["message"])
+	prTarget := prv["target"].(map[string]interface{})
+	assert.Equal(t, "Deployment", prTarget["kind"])
+
+	removes := traitSpec["removes"].([]interface{})
+	require.Len(t, removes, 1)
+	rmTarget := removes[0].(map[string]interface{})["target"].(map[string]interface{})
+	assert.Equal(t, "Service", rmTarget["kind"])
+}
+
+// TestGenerateRelease_WorkloadResourceDependenciesPropagated verifies that a Workload's
+// spec.dependencies.resources (external Resource env/file bindings) is carried into the
+// generated ComponentRelease's spec.workload.dependencies.resources, where
+// ${dependencies.toContainerEnvs()} injects it. Regression test for discussion #4103.
+func TestGenerateRelease_WorkloadResourceDependenciesPropagated(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+		releaseName   = "my-svc-release-1"
+	)
+
+	idx := index.New("/repo")
+
+	addComponentWithTraits(t, idx, namespace, nil,
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	addComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources":    []any{},
+		},
+		"/repo/platform/component-types/service.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{
+			"container": map[string]any{"image": "reg/my-svc:v1"},
+			"dependencies": map[string]any{
+				"resources": []any{
+					map[string]any{
+						"ref": "swa-hetzner-ducklake",
+						"envBindings": map[string]any{
+							"DUCKLAKE_PG_DSN": "DUCKLAKE_PG_DSN",
+							"SEAWEEDFS_KEY":   "SEAWEEDFS_KEY",
+						},
+					},
+				},
+			},
+		},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   releaseName,
+	})
+	require.NoError(t, err)
+
+	resources, ok, _ := unstructured.NestedSlice(release.Object, "spec", "workload", "dependencies", "resources")
+	require.True(t, ok, "expected spec.workload.dependencies.resources to exist")
+	require.Len(t, resources, 1)
+	res := resources[0].(map[string]interface{})
+	assert.Equal(t, "swa-hetzner-ducklake", res["ref"])
+	envBindings := res["envBindings"].(map[string]interface{})
+	assert.Equal(t, "DUCKLAKE_PG_DSN", envBindings["DUCKLAKE_PG_DSN"])
+	assert.Equal(t, "SEAWEEDFS_KEY", envBindings["SEAWEEDFS_KEY"])
+}

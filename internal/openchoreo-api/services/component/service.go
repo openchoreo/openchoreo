@@ -561,22 +561,11 @@ func (s *componentService) GetComponentSchema(ctx context.Context, namespaceName
 			}
 			return nil, fmt.Errorf("failed to get ClusterComponentType: %w", err)
 		}
-		allowedWfs := make([]openchoreov1alpha1.WorkflowRef, len(cct.Spec.AllowedWorkflows))
-		for i, ref := range cct.Spec.AllowedWorkflows {
-			allowedWfs[i] = openchoreov1alpha1.WorkflowRef{
-				Kind: openchoreov1alpha1.WorkflowRefKind(ref.Kind),
-				Name: ref.Name,
-			}
-		}
+		// Reuse the canonical converter so every ComponentTypeSpec field (including
+		// Validations) is carried over; an inline field-by-field copy silently drifts.
 		ct = openchoreov1alpha1.ComponentType{
 			ObjectMeta: cct.ObjectMeta,
-			Spec: openchoreov1alpha1.ComponentTypeSpec{
-				WorkloadType:       cct.Spec.WorkloadType,
-				AllowedWorkflows:   allowedWfs,
-				Parameters:         cct.Spec.Parameters,
-				EnvironmentConfigs: cct.Spec.EnvironmentConfigs,
-				Resources:          cct.Spec.Resources,
-			},
+			Spec:       *clusterComponentTypeSpec(&cct),
 		}
 	default:
 		ctKey := client.ObjectKey{

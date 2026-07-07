@@ -199,3 +199,50 @@ func TestClusterComponentTypeGetResources(t *testing.T) {
 		})
 	}
 }
+
+// TestClusterComponentTypeGetValidationFields verifies validations, preRenderValidations
+// and postRenderValidations round-trip through GetValidationFields with correct JSON keys,
+// and that nil is returned when none are defined.
+func TestClusterComponentTypeGetValidationFields(t *testing.T) {
+	cct := &ClusterComponentType{
+		ClusterComponentType: &v1alpha1.ClusterComponentType{
+			Spec: v1alpha1.ClusterComponentTypeSpec{
+				Validations: []v1alpha1.ValidationRule{
+					{Rule: "${parameters.replicas > 0}", Message: "replicas must be positive"},
+				},
+				PreRenderValidations: []v1alpha1.ValidationRule{
+					{Rule: "${has(parameters.image)}", Message: "image required"},
+				},
+				PostRenderValidations: []v1alpha1.PostRenderValidation{
+					{Rule: "${resource.spec.replicas > 0}", Message: "must scale"},
+				},
+			},
+		},
+	}
+	got := cct.GetValidationFields()
+	require.NotNil(t, got)
+
+	raw, err := json.Marshal(got["validations"])
+	require.NoError(t, err)
+	var vals []v1alpha1.ValidationRule
+	require.NoError(t, json.Unmarshal(raw, &vals))
+	require.Len(t, vals, 1)
+	assert.Equal(t, "${parameters.replicas > 0}", vals[0].Rule)
+
+	raw, err = json.Marshal(got["preRenderValidations"])
+	require.NoError(t, err)
+	var pre []v1alpha1.ValidationRule
+	require.NoError(t, json.Unmarshal(raw, &pre))
+	require.Len(t, pre, 1)
+	assert.Equal(t, "${has(parameters.image)}", pre[0].Rule)
+
+	raw, err = json.Marshal(got["postRenderValidations"])
+	require.NoError(t, err)
+	var post []v1alpha1.PostRenderValidation
+	require.NoError(t, json.Unmarshal(raw, &post))
+	require.Len(t, post, 1)
+	assert.Equal(t, "${resource.spec.replicas > 0}", post[0].Rule)
+
+	empty := &ClusterComponentType{ClusterComponentType: &v1alpha1.ClusterComponentType{Spec: v1alpha1.ClusterComponentTypeSpec{}}}
+	assert.Nil(t, empty.GetValidationFields())
+}

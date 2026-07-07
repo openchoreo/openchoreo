@@ -62,6 +62,7 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 	var workloadType string
 	var ctResources []interface{}
 	var ctSchema map[string]interface{}
+	var ctValidations map[string]interface{}
 
 	switch ctKind {
 	case "ComponentType":
@@ -73,6 +74,7 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 		workloadType = ct.WorkloadType()
 		ctResources = ct.GetResources()
 		ctSchema = ct.GetSchema()
+		ctValidations = ct.GetValidationFields()
 	case "ClusterComponentType":
 		cct, err := g.index.GetTypedClusterComponentType(typeName)
 		if err != nil {
@@ -82,6 +84,7 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 		workloadType = cct.WorkloadType()
 		ctResources = cct.GetResources()
 		ctSchema = cct.GetSchema()
+		ctValidations = cct.GetValidationFields()
 	default:
 		return nil, fmt.Errorf("unsupported component type kind %q for component %q", ctKind, opts.ComponentName)
 	}
@@ -114,7 +117,7 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 	}
 
 	// 6. Build ComponentRelease
-	release := g.buildRelease(releaseName, opts.Namespace, comp, wl, workloadType, ctResources, ctSchema, ctKind, traitsList, profileTraits)
+	release := g.buildRelease(releaseName, opts.Namespace, comp, wl, workloadType, ctResources, ctSchema, ctValidations, ctKind, traitsList, profileTraits)
 
 	return release, nil
 }
@@ -199,10 +202,18 @@ func (g *ReleaseGenerator) buildWorkloadData(wl *typed2.Workload) map[string]int
 	if endpoints := wl.GetEndpoints(); len(endpoints) > 0 {
 		workloadMap["endpoints"] = endpoints
 	}
+	// Carry both endpoint connections and external Resource dependencies; dropping
+	// resources omits the env/file bindings that ${dependencies.toContainerEnvs()}
+	// injects into the container.
+	dependencies := map[string]interface{}{}
 	if connections := wl.GetDependencies(); len(connections) > 0 {
-		workloadMap["dependencies"] = map[string]interface{}{
-			"endpoints": connections,
-		}
+		dependencies["endpoints"] = connections
+	}
+	if resources := wl.GetDependencyResources(); len(resources) > 0 {
+		dependencies["resources"] = resources
+	}
+	if len(dependencies) > 0 {
+		workloadMap["dependencies"] = dependencies
 	}
 	return workloadMap
 }
@@ -215,6 +226,7 @@ func (g *ReleaseGenerator) buildRelease(
 	workloadType string,
 	ctResources []interface{},
 	ctSchema map[string]interface{},
+	ctValidations map[string]interface{},
 	ctKind string,
 	traitsList []interface{},
 	profileTraits []interface{},
@@ -228,6 +240,12 @@ func (g *ReleaseGenerator) buildRelease(
 		for k, v := range ctSchema {
 			componentTypeSpec[k] = v
 		}
+	}
+	// Carry component type validations (validations, preRenderValidations,
+	// postRenderValidations) so the rendering pipeline enforces them; the controller
+	// evaluates them against the component context. Dropping any silently disables it.
+	for k, v := range ctValidations {
+		componentTypeSpec[k] = v
 	}
 
 	spec := map[string]interface{}{

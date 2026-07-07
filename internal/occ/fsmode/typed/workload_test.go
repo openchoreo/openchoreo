@@ -4,6 +4,7 @@
 package typed
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -535,4 +536,56 @@ func TestGetDependencies(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestGetDependencyResources verifies external Resource dependencies (ref, envBindings,
+// fileBindings) round-trip through GetDependencyResources with the CRD json keys, and
+// that nil is returned when none are defined. Regression test for the occ fsmode mapper
+// silently dropping spec.dependencies.resources (discussion #4103).
+func TestGetDependencyResources(t *testing.T) {
+	newWorkload := func(deps *v1alpha1.WorkloadDependencies) *Workload {
+		return &Workload{
+			Workload: &v1alpha1.Workload{
+				Spec: v1alpha1.WorkloadSpec{
+					WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
+						Container:    v1alpha1.Container{Image: "test:latest"},
+						Dependencies: deps,
+					},
+				},
+			},
+		}
+	}
+
+	// No dependencies at all.
+	assert.Nil(t, newWorkload(nil).GetDependencyResources())
+	// Dependencies present but no resources.
+	assert.Nil(t, newWorkload(&v1alpha1.WorkloadDependencies{
+		Endpoints: []v1alpha1.WorkloadConnection{{Component: "c", Name: "tcp"}},
+	}).GetDependencyResources())
+
+	wl := newWorkload(&v1alpha1.WorkloadDependencies{
+		Resources: []v1alpha1.WorkloadResourceDependency{
+			{
+				Ref: "swa-hetzner-ducklake",
+				EnvBindings: map[string]string{
+					"DUCKLAKE_PG_DSN": "DUCKLAKE_PG_DSN",
+				},
+				FileBindings: map[string]string{
+					"TLS_CERT": "/etc/certs/tls.crt",
+				},
+			},
+		},
+	})
+	got := wl.GetDependencyResources()
+	require.Len(t, got, 1)
+
+	// Round-trip back into the typed slice to prove the keys match the CRD json tags.
+	raw, err := json.Marshal(got)
+	require.NoError(t, err)
+	var decoded []v1alpha1.WorkloadResourceDependency
+	require.NoError(t, json.Unmarshal(raw, &decoded))
+	require.Len(t, decoded, 1)
+	assert.Equal(t, "swa-hetzner-ducklake", decoded[0].Ref)
+	assert.Equal(t, "DUCKLAKE_PG_DSN", decoded[0].EnvBindings["DUCKLAKE_PG_DSN"])
+	assert.Equal(t, "/etc/certs/tls.crt", decoded[0].FileBindings["TLS_CERT"])
 }

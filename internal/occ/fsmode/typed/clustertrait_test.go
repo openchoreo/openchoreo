@@ -4,6 +4,7 @@
 package typed
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -204,4 +205,102 @@ func TestClusterTraitGetSpec(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestClusterTraitGetSpecValidationsAndRemoves verifies that GetSpec carries the cluster
+// trait's validation rules (deprecated validations, preRenderValidations,
+// postRenderValidations) and removes into the emitted spec, mirroring the namespace-scoped
+// Trait. Dropping any of them silently disables the corresponding trait behavior in the
+// generated ComponentRelease.
+func TestClusterTraitGetSpecValidationsAndRemoves(t *testing.T) {
+	mustMatch := false
+	ct := &ClusterTrait{
+		ClusterTrait: &v1alpha1.ClusterTrait{
+			Spec: v1alpha1.ClusterTraitSpec{
+				Validations: []v1alpha1.ValidationRule{
+					{Rule: "${parameters.a > 0}", Message: "a must be positive"},
+				},
+				PreRenderValidations: []v1alpha1.ValidationRule{
+					{Rule: "${parameters.b != ''}", Message: "b is required"},
+				},
+				PostRenderValidations: []v1alpha1.PostRenderValidation{
+					{
+						When:    "${parameters.enabled}",
+						ForEach: "${parameters.items}",
+						Var:     "item",
+						Target: v1alpha1.PostRenderTarget{
+							PatchTarget: v1alpha1.PatchTarget{
+								Group:   "apps",
+								Version: "v1",
+								Kind:    "Deployment",
+								Where:   "${resource.metadata.name == item}",
+							},
+							MustMatch: &mustMatch,
+						},
+						TargetPlane: "dataplane",
+						Rule:        "${resource.spec.replicas > 0}",
+						Message:     "replicas must be positive",
+					},
+				},
+				Removes: []v1alpha1.TraitRemove{
+					{
+						ForEach:     "${parameters.routesToDrop}",
+						Var:         "route",
+						TargetPlane: "dataplane",
+						Target: v1alpha1.PatchTarget{
+							Group:   "",
+							Version: "v1",
+							Kind:    "Service",
+							Where:   "${resource.metadata.name == route}",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	spec := ct.GetSpec()
+	require.NotNil(t, spec)
+
+	raw, err := json.Marshal(spec)
+	require.NoError(t, err)
+	var decoded v1alpha1.ClusterTraitSpec
+	require.NoError(t, json.Unmarshal(raw, &decoded))
+
+	require.Len(t, decoded.Validations, 1)
+	assert.Equal(t, "${parameters.a > 0}", decoded.Validations[0].Rule)
+
+	require.Len(t, decoded.PreRenderValidations, 1)
+	assert.Equal(t, "${parameters.b != ''}", decoded.PreRenderValidations[0].Rule)
+
+	require.Len(t, decoded.PostRenderValidations, 1)
+	prv := decoded.PostRenderValidations[0]
+	assert.Equal(t, "${parameters.enabled}", prv.When)
+	assert.Equal(t, "${parameters.items}", prv.ForEach)
+	assert.Equal(t, "item", prv.Var)
+	assert.Equal(t, "Deployment", prv.Target.Kind)
+	assert.Equal(t, "${resource.metadata.name == item}", prv.Target.Where)
+	require.NotNil(t, prv.Target.MustMatch)
+	assert.False(t, *prv.Target.MustMatch)
+	assert.Equal(t, "dataplane", prv.TargetPlane)
+	assert.Equal(t, "${resource.spec.replicas > 0}", prv.Rule)
+	assert.Equal(t, "replicas must be positive", prv.Message)
+
+	require.Len(t, decoded.Removes, 1)
+	rm := decoded.Removes[0]
+	assert.Equal(t, "${parameters.routesToDrop}", rm.ForEach)
+	assert.Equal(t, "route", rm.Var)
+	assert.Equal(t, "Service", rm.Target.Kind)
+}
+
+// TestClusterTraitGetSpecOmitsEmptyValidationsAndRemoves verifies validation and removes
+// keys are absent when the cluster trait defines none.
+func TestClusterTraitGetSpecOmitsEmptyValidationsAndRemoves(t *testing.T) {
+	ct := &ClusterTrait{ClusterTrait: &v1alpha1.ClusterTrait{Spec: v1alpha1.ClusterTraitSpec{}}}
+	spec := ct.GetSpec()
+	require.NotNil(t, spec)
+	assert.NotContains(t, spec, "validations")
+	assert.NotContains(t, spec, "preRenderValidations")
+	assert.NotContains(t, spec, "postRenderValidations")
+	assert.NotContains(t, spec, "removes")
 }

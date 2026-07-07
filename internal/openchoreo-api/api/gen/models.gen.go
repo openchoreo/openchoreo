@@ -372,6 +372,12 @@ const (
 	TargetPlaneRefKindWorkflowPlane        TargetPlaneRefKind = "WorkflowPlane"
 )
 
+// Defines values for TraitRemoveTargetPlane.
+const (
+	TraitRemoveTargetPlaneDataplane          TraitRemoveTargetPlane = "dataplane"
+	TraitRemoveTargetPlaneObservabilityplane TraitRemoveTargetPlane = "observabilityplane"
+)
+
 // Defines values for TraitSpecCreatesTargetPlane.
 const (
 	TraitSpecCreatesTargetPlaneDataplane          TraitSpecCreatesTargetPlane = "dataplane"
@@ -387,8 +393,8 @@ const (
 
 // Defines values for TraitSpecPatchesTargetPlane.
 const (
-	TraitSpecPatchesTargetPlaneDataplane          TraitSpecPatchesTargetPlane = "dataplane"
-	TraitSpecPatchesTargetPlaneObservabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
+	Dataplane          TraitSpecPatchesTargetPlane = "dataplane"
+	Observabilityplane TraitSpecPatchesTargetPlane = "observabilityplane"
 )
 
 // Defines values for WorkflowPlaneRefKind.
@@ -1178,6 +1184,9 @@ type ClusterTraitSpec struct {
 
 	// PreRenderValidations CEL-based validation rules evaluated before rendering; replaces the deprecated validations field
 	PreRenderValidations *[]ValidationRule `json:"preRenderValidations,omitempty"`
+
+	// Removes Whole resources to delete that were previously produced by the ComponentType or earlier traits
+	Removes *[]TraitRemove `json:"removes,omitempty"`
 
 	// Validations CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive).
 	Validations *[]ValidationRule `json:"validations,omitempty"`
@@ -3887,6 +3896,36 @@ type TraitList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
+// TraitRemove Whole resource to delete that was previously produced by the ComponentType or earlier traits
+type TraitRemove struct {
+	// ForEach CEL expression for repeating this remove
+	ForEach *string `json:"forEach,omitempty"`
+
+	// Target Target resource to remove
+	Target struct {
+		// Group API group of the resource
+		Group string `json:"group"`
+
+		// Kind Resource type to remove
+		Kind string `json:"kind"`
+
+		// Version API version of the resource
+		Version string `json:"version"`
+
+		// Where CEL expression to filter which resources to remove
+		Where *string `json:"where,omitempty"`
+	} `json:"target"`
+
+	// TargetPlane Target plane for this remove
+	TargetPlane *TraitRemoveTargetPlane `json:"targetPlane,omitempty"`
+
+	// Var Loop variable name when using forEach
+	Var *string `json:"var,omitempty"`
+}
+
+// TraitRemoveTargetPlane Target plane for this remove
+type TraitRemoveTargetPlane string
+
 // TraitSpec Desired state of a Trait
 type TraitSpec struct {
 	// Creates New Kubernetes resources to create when this trait is applied
@@ -3957,6 +3996,9 @@ type TraitSpec struct {
 
 	// PreRenderValidations CEL-based validation rules evaluated before rendering; replaces the deprecated validations field
 	PreRenderValidations *[]ValidationRule `json:"preRenderValidations,omitempty"`
+
+	// Removes Whole resources to delete that were previously produced by the ComponentType or earlier traits
+	Removes *[]TraitRemove `json:"removes,omitempty"`
 
 	// Validations CEL-based validation rules evaluated before rendering. Deprecated: use preRenderValidations (mutually exclusive).
 	Validations *[]ValidationRule `json:"validations,omitempty"`

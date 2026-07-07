@@ -8575,6 +8575,11 @@ components:
                       description: JSON Pointer to the field to modify
                     value:
                       description: Value to set (for add/replace operations)
+        removes:
+          type: array
+          description: Whole resources to delete that were previously produced by the ComponentType or earlier traits
+          items:
+            $ref: '#/components/schemas/TraitRemove'
 
     ClusterTraitStatus:
       type: object
@@ -8887,6 +8892,11 @@ components:
                       description: JSON Pointer to the field to modify
                     value:
                       description: Value to set (for add/replace operations)
+        removes:
+          type: array
+          description: Whole resources to delete that were previously produced by the ComponentType or earlier traits
+          items:
+            $ref: '#/components/schemas/TraitRemove'
 
     TraitStatus:
       type: object
@@ -8968,6 +8978,44 @@ components:
           type: string
           minLength: 1
           description: Error message shown when the rule evaluates to false
+
+    TraitRemove:
+      type: object
+      description: Whole resource to delete that was previously produced by the ComponentType or earlier traits
+      required:
+        - target
+      properties:
+        forEach:
+          type: string
+          description: "CEL expression for repeating this remove"
+        var:
+          type: string
+          description: Loop variable name when using forEach
+        target:
+          type: object
+          description: Target resource to remove
+          required:
+            - group
+            - version
+            - kind
+          properties:
+            group:
+              type: string
+              description: API group of the resource
+            version:
+              type: string
+              description: API version of the resource
+            kind:
+              type: string
+              description: Resource type to remove
+            where:
+              type: string
+              description: "CEL expression to filter which resources to remove"
+        targetPlane:
+          type: string
+          description: Target plane for this remove
+          enum: [dataplane, observabilityplane]
+          default: dataplane
 
     Trait:
       type: object

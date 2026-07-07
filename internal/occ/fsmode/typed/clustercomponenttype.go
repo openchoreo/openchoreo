@@ -76,6 +76,16 @@ func (cct *ClusterComponentType) GetResources() []interface{} {
 	return resources
 }
 
+// GetValidationFields returns the cluster component type's CEL validation rules keyed by
+// their CRD json tags (validations, preRenderValidations, postRenderValidations) for
+// template processing, or nil when none are defined. These flow into the componentType spec
+// of the generated ComponentRelease, where the rendering pipeline enforces them; dropping
+// any of them silently disables the component type's validations.
+func (cct *ClusterComponentType) GetValidationFields() map[string]interface{} {
+	vals := cct.Spec.Validations //nolint:staticcheck // deprecated Validations field read intentionally to pass it through unchanged
+	return buildValidationFields(vals, cct.Spec.PreRenderValidations, cct.Spec.PostRenderValidations)
+}
+
 // WorkloadType returns the workload type
 func (cct *ClusterComponentType) WorkloadType() string {
 	return cct.Spec.WorkloadType
