@@ -1,4 +1,4 @@
-{{- if and .Values.openchoreoApi.enabled .Values.openchoreoApi.http.enabled .Values.gateway.enabled -}}
+{{- if and .Values.openchoreoApi.enabled .Values.openchoreoApi.http.enabled .Values.gateway.enabled (eq (.Values.gateway.gatewayClassName | default "kgateway") "kgateway") -}}
 apiVersion: gateway.kgateway.dev/v1alpha1
 kind: TrafficPolicy
 metadata:
