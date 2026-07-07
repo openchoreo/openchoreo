@@ -272,4 +272,46 @@ func TestGetWorkloadSchema(t *testing.T) {
 		require.True(t, ok)
 		assert.Contains(t, container.Required, "image")
 	})
+
+	t.Run("exposes endpoint and resource dependencies", func(t *testing.T) {
+		svc := newService(t)
+
+		schema, err := svc.GetWorkloadSchema(ctx)
+		require.NoError(t, err)
+
+		deps, ok := schema.Properties["dependencies"]
+		require.True(t, ok, "schema must define dependencies")
+		assert.Equal(t, "object", deps.Type)
+
+		// Endpoint dependencies on other components.
+		endpoints, ok := deps.Properties["endpoints"]
+		require.True(t, ok, "dependencies must define endpoints")
+		assert.Equal(t, "array", endpoints.Type)
+
+		// Resource dependencies on project-bound Resources.
+		resources, ok := deps.Properties["resources"]
+		require.True(t, ok, "dependencies must define resources")
+		assert.Equal(t, "array", resources.Type)
+		require.NotNil(t, resources.Items)
+		require.NotNil(t, resources.Items.Schema)
+
+		item := resources.Items.Schema
+		assert.Equal(t, "object", item.Type)
+		assert.Contains(t, item.Required, "ref")
+
+		ref, ok := item.Properties["ref"]
+		require.True(t, ok, "resource dependency must define ref")
+		assert.Equal(t, "string", ref.Type)
+
+		// envBindings and fileBindings are maps of output name -> target, so
+		// they use additionalProperties (string), not fixed properties.
+		for _, name := range []string{"envBindings", "fileBindings"} {
+			binding, ok := item.Properties[name]
+			require.True(t, ok, "resource dependency must define %s", name)
+			assert.Equal(t, "object", binding.Type)
+			require.NotNil(t, binding.AdditionalProperties, "%s must set additionalProperties", name)
+			require.NotNil(t, binding.AdditionalProperties.Schema, "%s additionalProperties must have a schema", name)
+			assert.Equal(t, "string", binding.AdditionalProperties.Schema.Type)
+		}
+	})
 }
