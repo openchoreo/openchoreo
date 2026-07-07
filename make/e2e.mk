@@ -276,6 +276,18 @@ define e2e_mc_op_settle
 	done
 endef
 
+# Retries kubectl wait for node-Ready, since a just-created k3s API server can
+# briefly return ServiceUnavailable and kubectl wait won't retry that itself.
+# Usage: $(call e2e_mc_wait_nodes_ready,<kubectl-context-flags>,<cluster-label>)
+define e2e_mc_wait_nodes_ready
+	@for i in $$(seq 1 $(E2E_SETTLE_STABLE_HITS)); do \
+		if kubectl $(1) wait --for=condition=Ready nodes --all --timeout=120s; then exit 0; fi; \
+		if [ $$i -eq $(E2E_SETTLE_STABLE_HITS) ]; then echo "$(2) API server did not become ready in time"; exit 1; fi; \
+		$(call log_info, $(2) API server not ready yet, retrying node-ready wait); \
+		sleep $(E2E_SETTLE_INTERVAL); \
+	done
+endef
+
 ##@ E2E Testing
 
 # ---------------------------------------------------------------------------
@@ -734,16 +746,16 @@ e2e.multi.setup: ## All setup: clusters + prerequisites + install + configure
 e2e.multi.setup-clusters: ## Create all four k3d clusters (CP, DP, WP, OP)
 	@$(call log_info, Creating CP cluster '$(E2E_MC_CP_CLUSTER_NAME)')
 	k3d cluster create --config $(E2E_MC_K3D_DIR)/config-cp.yaml
-	$(E2E_MC_CP_KUBECTL) wait --for=condition=Ready nodes --all --timeout=120s
+	$(call e2e_mc_wait_nodes_ready,--context $(E2E_MC_CP_KUBECONTEXT),CP)
 	@$(call log_info, Creating DP cluster '$(E2E_MC_DP_CLUSTER_NAME)')
 	k3d cluster create --config $(E2E_MC_K3D_DIR)/config-dp.yaml
-	$(E2E_MC_DP_KUBECTL) wait --for=condition=Ready nodes --all --timeout=120s
+	$(call e2e_mc_wait_nodes_ready,--context $(E2E_MC_DP_KUBECONTEXT),DP)
 	@$(call log_info, Creating WP cluster '$(E2E_MC_WP_CLUSTER_NAME)')
 	k3d cluster create --config $(E2E_MC_K3D_DIR)/config-wp.yaml
-	$(E2E_MC_WP_KUBECTL) wait --for=condition=Ready nodes --all --timeout=120s
+	$(call e2e_mc_wait_nodes_ready,--context $(E2E_MC_WP_KUBECONTEXT),WP)
 	@$(call log_info, Creating OP cluster '$(E2E_MC_OP_CLUSTER_NAME)')
 	k3d cluster create --config $(E2E_MC_K3D_DIR)/config-op.yaml
-	$(E2E_MC_OP_KUBECTL) wait --for=condition=Ready nodes --all --timeout=120s
+	$(call e2e_mc_wait_nodes_ready,--context $(E2E_MC_OP_KUBECONTEXT),OP)
 	@$(call log_info, Applying CoreDNS rewrites)
 	$(E2E_MC_CP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/coredns-custom-cp.yaml
 	$(E2E_MC_DP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/coredns-custom-dp.yaml
