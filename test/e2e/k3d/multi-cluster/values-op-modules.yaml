@@ -15,6 +15,38 @@ openSearch:
     limits:
       memory: "1.5Gi"
 
+# ---- observability-logs-opensearch (OP cluster — cluster mode) ----
+# Trims the default 3-master + 2-data cluster to fit the runner; unconstrained
+# it overcommits the node's CPU and causes it to flap NotReady.
+openSearchCluster:
+  bootstrap:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1000Mi
+      requests:
+        cpu: 100m
+        memory: 1000Mi
+  nodePools:
+    data:
+      replicas: 1
+      resources:
+        limits:
+          cpu: 500m
+          memory: 1000Mi
+        requests:
+          cpu: 100m
+          memory: 1000Mi
+    master:
+      replicas: 1
+      resources:
+        limits:
+          cpu: 500m
+          memory: 900Mi
+        requests:
+          cpu: 100m
+          memory: 900Mi
+
 # ---- observability-metrics-prometheus ----
 kube-prometheus-stack:
   prometheus:
