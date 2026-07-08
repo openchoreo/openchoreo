@@ -1572,7 +1572,7 @@
               "type": "object"
             },
             "url": {
-              "default": "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443",
+              "default": "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8444",
               "description": "Cluster gateway service URL",
               "title": "url",
               "type": "string"
