@@ -100,6 +100,10 @@ install_cert_manager
 install_eso
 install_gateway_crds
 
+# Step 3b: Install OpenBao secret backend (seeds platform secrets + ClusterSecretStore).
+# Must run before the control plane so its ExternalSecrets can sync from the store.
+install_openbao
+
 # Step 4: Install kgateway and Thunder
 install_kgateway
 install_thunder
@@ -107,16 +111,15 @@ install_thunder
 # Step 5: Apply CoreDNS config
 apply_coredns_config
 
-# Step 6: Create backstage secret and install Control Plane
-create_backstage_secret "$CONTROL_PLANE_NS"
+# Step 6: Create backstage ExternalSecret and install Control Plane
+create_backstage_external_secret "$CONTROL_PLANE_NS"
 install_control_plane
 
 # Step 6b: Extract cluster-gateway CA into ConfigMap
 extract_cluster_gateway_ca
 
-# Step 7: Set up Data Plane CA and secret store
+# Step 7: Set up Data Plane CA
 setup_data_plane_ca
-install_openbao
 
 # Step 8: Install Data Plane
 install_data_plane
@@ -139,7 +142,7 @@ fi
 # Step 11: Install Observability Plane (optional)
 if [[ "$ENABLE_OBSERVABILITY" == "true" ]]; then
     setup_observability_plane_ca
-    create_observability_secrets "$OBSERVABILITY_NS"
+    create_observability_external_secrets "$OBSERVABILITY_NS"
 
     install_observability_plane
 
