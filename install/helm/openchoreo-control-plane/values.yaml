@@ -713,9 +713,9 @@ controllerManager:
     # @schema
     # type: string
     # description: Cluster gateway service URL
-    # default: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+    # default: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8444
     # @schema
-    url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+    url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8444
     # @schema
     # type: object
     # description: TLS configuration for cluster gateway connection
@@ -885,9 +885,9 @@ openchoreoApi:
     # @schema
     # type: string
     # description: Cluster gateway service URL the API server connects to
-    # default: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+    # default: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8444
     # @schema
-    url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8443
+    url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8444
     # @schema
     # type: object
     # description: TLS settings for the cluster gateway connection

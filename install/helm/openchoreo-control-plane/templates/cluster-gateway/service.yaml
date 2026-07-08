@@ -23,6 +23,10 @@ spec:
     {{- if and (eq .Values.clusterGateway.service.type "NodePort") .Values.clusterGateway.service.nodePort }}
     nodePort: {{ .Values.clusterGateway.service.nodePort }}
     {{- end }}
+  - name: internal-api
+    port: 8444
+    targetPort: 8444
+    protocol: TCP
   selector:
     app: cluster-gateway
     app.kubernetes.io/component: cluster-gateway

@@ -47,6 +47,7 @@ spec:
         imagePullPolicy: {{ .Values.clusterGateway.image.pullPolicy }}
         args:
         - --port={{ .Values.clusterGateway.port }}
+        - --internal-port=8444
         - --server-cert=/certs/tls.crt
         - --server-key=/certs/tls.key
         - --heartbeat-interval={{ .Values.clusterGateway.heartbeatInterval }}
@@ -56,6 +57,9 @@ spec:
         ports:
         - name: websocket
           containerPort: {{ .Values.clusterGateway.port }}
+          protocol: TCP
+        - name: internal-api
+          containerPort: 8444
           protocol: TCP
         - name: health
           containerPort: 8080
