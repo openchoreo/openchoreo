@@ -102,6 +102,10 @@ spec:
                   - name
                   type: object
                 type: array
+              displayName:
+                description: DisplayName is a human-friendly name for this component
+                  type shown in the UI.
+                type: string
               environmentConfigs:
                 description: EnvironmentConfigs defines per-environment configurations
                   developers can set via ReleaseBinding.

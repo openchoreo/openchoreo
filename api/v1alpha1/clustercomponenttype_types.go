@@ -18,6 +18,10 @@ type ClusterComponentTypeSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.workloadType cannot be changed after creation"
 	WorkloadType string `json:"workloadType"`
 
+	// DisplayName is a human-friendly name for this component type shown in the UI.
+	// +optional
+	DisplayName string `json:"displayName,omitempty"`
+
 	// AllowedWorkflows restricts which ClusterWorkflow CRs developers can use
 	// for building components of this type. If empty, no workflows are allowed.
 	// References must point to ClusterWorkflow resources.
