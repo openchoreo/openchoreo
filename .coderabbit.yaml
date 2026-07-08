@@ -90,6 +90,32 @@ reviews:
         - If schema changes: call out upgrade/migration impact and required controller/CRD/OpenAPI updates.
         - Add or update tests to cover new/changed fields or behaviors.
 
+    - path: "api/v1alpha1/**"
+      instructions: |
+        LEVEL: VERY STRICT (CRD types - cross-surface propagation)
+        Codegen is already enforced by CI (`make code.gen-check` covers CRD manifests and
+        openapi.yaml<->generated-code consistency), so do NOT comment about regenerating code
+        or CRDs. Focus only on the hand-maintained hops that have no generator and silently
+        drift when a CRD field is added.
+
+        Trigger ONLY when this PR adds or renames a developer/user-facing spec field (a field
+        on a *Spec type). Then inspect THIS PR's diff and comment ONLY for a surface that
+        plausibly needs the field but has no corresponding change in the PR - as a short
+        checklist the author can confirm or consciously skip:
+        - OpenAPI source: does openapi/openchoreo-api.yaml (hand-authored, NOT generated from
+          the CRD types) need the field to keep the REST contract in sync?
+        - MCP: do the handlers in internal/openchoreo-api/mcphandlers/** surface it?
+        - CLI (occ fsmode): do the field-by-field mappers in internal/occ/fsmode/typed/** and
+          the generator in internal/occ/fsmode/generator/** emit it? These reconstruct specs
+          field by field and have repeatedly dropped new fields (validations, removes,
+          dependency resources).
+        - Service converters in internal/openchoreo-api/services/** if they copy specs by field.
+
+        Stay SILENT - emit no comment - when the field is status-only, internal or
+        controller-only, or clearly not part of these surfaces, or when the PR already updates
+        them. Do not speculate or produce a checklist "just in case"; flag only a concrete,
+        visible gap. The author decides whether each surface truly needs the change.
+
     - path: "openapi/**"
       instructions: |
         LEVEL: VERY STRICT (OpenAPI)
