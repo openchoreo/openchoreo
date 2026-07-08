@@ -2,6 +2,24 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.1.2
+
+Changes since [v1.1.1](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.1).
+
+### Security
+
+- **(Cluster Gateway)** Fixed unauthenticated access to data-plane operations via the cluster-gateway management APIs. The `/api/*` endpoints are now served on a separate internal listener for in-cluster callers only and are no longer exposed on the public agent WebSocket port. ([GHSA-qh9r-j7rp-4x2m](https://github.com/openchoreo/openchoreo/security/advisories/GHSA-qh9r-j7rp-4x2m))
+
+### Enhancements
+
+- **(Helm)** Resource MCP toolset is now enabled by default in the control-plane chart. ([#4094](https://github.com/openchoreo/openchoreo/pull/4094))
+
+### Bug Fixes
+
+- **(API)** Workload schema now advertises `dependencies.resources[]` so MCP clients can wire project-bound Resources into a workload. ([#4102](https://github.com/openchoreo/openchoreo/pull/4102))
+- **(Controller)** Resource deletions now cascade correctly and finalize statuses are reported more precisely. ([#4047](https://github.com/openchoreo/openchoreo/pull/4047))
+- **(Observer)** Regenerated the logs adapter client to match its API spec. ([#4048](https://github.com/openchoreo/openchoreo/pull/4048))
+
 ## v1.1.1
 
 Changes since [v1.1.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.0).
