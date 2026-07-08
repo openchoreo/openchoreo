@@ -74,12 +74,6 @@ const (
 	Unauthorized        ErrorResponseTitle = "unauthorized"
 )
 
-// Defines values for EventsQueryRequestSortOrder.
-const (
-	EventsQueryRequestSortOrderAsc  EventsQueryRequestSortOrder = "asc"
-	EventsQueryRequestSortOrderDesc EventsQueryRequestSortOrder = "desc"
-)
-
 // Defines values for LogsQueryRequestLogLevels.
 const (
 	DEBUG LogsQueryRequestLogLevels = "DEBUG"
@@ -90,8 +84,8 @@ const (
 
 // Defines values for LogsQueryRequestSortOrder.
 const (
-	LogsQueryRequestSortOrderAsc  LogsQueryRequestSortOrder = "asc"
-	LogsQueryRequestSortOrderDesc LogsQueryRequestSortOrder = "desc"
+	Asc  LogsQueryRequestSortOrder = "asc"
+	Desc LogsQueryRequestSortOrder = "desc"
 )
 
 // AlertRuleRequest defines model for AlertRuleRequest.
@@ -290,90 +284,6 @@ type ErrorResponse struct {
 // ErrorResponseTitle The error message
 type ErrorResponseTitle string
 
-// EventEntry defines model for EventEntry.
-type EventEntry struct {
-	// Message The event message
-	Message *string `json:"message,omitempty"`
-
-	// Metadata The metadata of the event
-	Metadata *struct {
-		// ComponentName The OpenChoreo component name the event is associated with
-		ComponentName *string `json:"componentName,omitempty"`
-
-		// ComponentUid The OpenChoreo component UID the event is associated with
-		ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
-
-		// EnvironmentName The OpenChoreo environment name the event is associated with
-		EnvironmentName *string `json:"environmentName,omitempty"`
-
-		// EnvironmentUid The OpenChoreo environment UID the event is associated with
-		EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
-
-		// NamespaceName The OpenChoreo namespace name the event is associated with
-		NamespaceName *string `json:"namespaceName,omitempty"`
-
-		// ObjectKind The kind of the Kubernetes object the event involves (e.g. CronJob)
-		ObjectKind *string `json:"objectKind,omitempty"`
-
-		// ObjectName The name of the Kubernetes object the event involves
-		ObjectName *string `json:"objectName,omitempty"`
-
-		// ObjectNamespace The namespace of the Kubernetes object the event involves
-		ObjectNamespace *string `json:"objectNamespace,omitempty"`
-
-		// ProjectName The OpenChoreo project name the event is associated with
-		ProjectName *string `json:"projectName,omitempty"`
-
-		// ProjectUid The OpenChoreo project UID the event is associated with
-		ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
-	} `json:"metadata,omitempty"`
-
-	// Reason The short, machine-readable reason for the event (e.g. SawCompletedJob)
-	Reason *string `json:"reason,omitempty"`
-
-	// Timestamp The timestamp of the event
-	Timestamp *time.Time `json:"timestamp,omitempty"`
-
-	// Type The event type (e.g. Normal, Warning)
-	Type *string `json:"type,omitempty"`
-}
-
-// EventsQueryRequest defines model for EventsQueryRequest.
-type EventsQueryRequest struct {
-	// EndTime The end time of the query
-	EndTime time.Time `json:"endTime"`
-
-	// Limit The maximum number of items to return
-	Limit       *int                           `json:"limit,omitempty"`
-	SearchScope EventsQueryRequest_SearchScope `json:"searchScope"`
-
-	// SortOrder The sort order of the query
-	SortOrder *EventsQueryRequestSortOrder `json:"sortOrder,omitempty"`
-
-	// StartTime The start time of the query
-	StartTime time.Time `json:"startTime"`
-}
-
-// EventsQueryRequest_SearchScope defines model for EventsQueryRequest.SearchScope.
-type EventsQueryRequest_SearchScope struct {
-	union json.RawMessage
-}
-
-// EventsQueryRequestSortOrder The sort order of the query
-type EventsQueryRequestSortOrder string
-
-// EventsQueryResponse defines model for EventsQueryResponse.
-type EventsQueryResponse struct {
-	// Events The events queried successfully
-	Events *[]EventEntry `json:"events,omitempty"`
-
-	// TookMs The time taken to query the events in milliseconds
-	TookMs *int `json:"tookMs,omitempty"`
-
-	// Total The total number of matching events, capped at 1000
-	Total *int `json:"total,omitempty"`
-}
-
 // LogsQueryRequest defines model for LogsQueryRequest.
 type LogsQueryRequest struct {
 	// EndTime The end time of the query
@@ -437,18 +347,12 @@ type WorkflowLogEntry struct {
 
 // WorkflowSearchScope defines model for WorkflowSearchScope.
 type WorkflowSearchScope struct {
-	Namespace string `json:"namespace"`
-
-	// TaskName Filter events to a specific workflow task
-	TaskName        *string `json:"taskName,omitempty"`
+	Namespace       string  `json:"namespace"`
 	WorkflowRunName *string `json:"workflowRunName,omitempty"`
 }
 
 // HandleAlertWebhookJSONBody defines parameters for HandleAlertWebhook.
 type HandleAlertWebhookJSONBody = map[string]interface{}
-
-// QueryEventsJSONRequestBody defines body for QueryEvents for application/json ContentType.
-type QueryEventsJSONRequestBody = EventsQueryRequest
 
 // QueryLogsJSONRequestBody defines body for QueryLogs for application/json ContentType.
 type QueryLogsJSONRequestBody = LogsQueryRequest
@@ -461,68 +365,6 @@ type UpdateAlertRuleJSONRequestBody = AlertRuleRequest
 
 // HandleAlertWebhookJSONRequestBody defines body for HandleAlertWebhook for application/json ContentType.
 type HandleAlertWebhookJSONRequestBody = HandleAlertWebhookJSONBody
-
-// AsComponentSearchScope returns the union data inside the EventsQueryRequest_SearchScope as a ComponentSearchScope
-func (t EventsQueryRequest_SearchScope) AsComponentSearchScope() (ComponentSearchScope, error) {
-	var body ComponentSearchScope
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromComponentSearchScope overwrites any union data inside the EventsQueryRequest_SearchScope as the provided ComponentSearchScope
-func (t *EventsQueryRequest_SearchScope) FromComponentSearchScope(v ComponentSearchScope) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeComponentSearchScope performs a merge with any union data inside the EventsQueryRequest_SearchScope, using the provided ComponentSearchScope
-func (t *EventsQueryRequest_SearchScope) MergeComponentSearchScope(v ComponentSearchScope) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsWorkflowSearchScope returns the union data inside the EventsQueryRequest_SearchScope as a WorkflowSearchScope
-func (t EventsQueryRequest_SearchScope) AsWorkflowSearchScope() (WorkflowSearchScope, error) {
-	var body WorkflowSearchScope
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromWorkflowSearchScope overwrites any union data inside the EventsQueryRequest_SearchScope as the provided WorkflowSearchScope
-func (t *EventsQueryRequest_SearchScope) FromWorkflowSearchScope(v WorkflowSearchScope) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeWorkflowSearchScope performs a merge with any union data inside the EventsQueryRequest_SearchScope, using the provided WorkflowSearchScope
-func (t *EventsQueryRequest_SearchScope) MergeWorkflowSearchScope(v WorkflowSearchScope) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t EventsQueryRequest_SearchScope) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *EventsQueryRequest_SearchScope) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
 
 // AsComponentSearchScope returns the union data inside the LogsQueryRequest_SearchScope as a ComponentSearchScope
 func (t LogsQueryRequest_SearchScope) AsComponentSearchScope() (ComponentSearchScope, error) {
@@ -721,11 +563,6 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// QueryEventsWithBody request with any body
-	QueryEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	QueryEvents(ctx context.Context, body QueryEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// QueryLogsWithBody request with any body
 	QueryLogsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -754,30 +591,6 @@ type ClientInterface interface {
 
 	// Health request
 	Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-}
-
-func (c *Client) QueryEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewQueryEventsRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) QueryEvents(ctx context.Context, body QueryEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewQueryEventsRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
 }
 
 func (c *Client) QueryLogsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -910,46 +723,6 @@ func (c *Client) Health(ctx context.Context, reqEditors ...RequestEditorFn) (*ht
 		return nil, err
 	}
 	return c.Client.Do(req)
-}
-
-// NewQueryEventsRequest calls the generic QueryEvents builder with application/json body
-func NewQueryEventsRequest(server string, body QueryEventsJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewQueryEventsRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewQueryEventsRequestWithBody generates requests for QueryEvents with any type of body
-func NewQueryEventsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/events/query")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
 }
 
 // NewQueryLogsRequest calls the generic QueryLogs builder with application/json body
@@ -1257,11 +1030,6 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// QueryEventsWithBodyWithResponse request with any body
-	QueryEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryEventsResp, error)
-
-	QueryEventsWithResponse(ctx context.Context, body QueryEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryEventsResp, error)
-
 	// QueryLogsWithBodyWithResponse request with any body
 	QueryLogsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryLogsResp, error)
 
@@ -1290,32 +1058,6 @@ type ClientWithResponsesInterface interface {
 
 	// HealthWithResponse request
 	HealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthResp, error)
-}
-
-type QueryEventsResp struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *EventsQueryResponse
-	JSON400      *ErrorResponse
-	JSON401      *ErrorResponse
-	JSON403      *ErrorResponse
-	JSON500      *ErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r QueryEventsResp) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r QueryEventsResp) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
 }
 
 type QueryLogsResp struct {
@@ -1424,7 +1166,6 @@ type UpdateAlertRuleResp struct {
 	HTTPResponse *http.Response
 	JSON200      *AlertingRuleSyncResponse
 	JSON400      *ErrorResponse
-	JSON404      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -1494,23 +1235,6 @@ func (r HealthResp) StatusCode() int {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
-}
-
-// QueryEventsWithBodyWithResponse request with arbitrary body returning *QueryEventsResp
-func (c *ClientWithResponses) QueryEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryEventsResp, error) {
-	rsp, err := c.QueryEventsWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseQueryEventsResp(rsp)
-}
-
-func (c *ClientWithResponses) QueryEventsWithResponse(ctx context.Context, body QueryEventsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryEventsResp, error) {
-	rsp, err := c.QueryEvents(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseQueryEventsResp(rsp)
 }
 
 // QueryLogsWithBodyWithResponse request with arbitrary body returning *QueryLogsResp
@@ -1606,60 +1330,6 @@ func (c *ClientWithResponses) HealthWithResponse(ctx context.Context, reqEditors
 		return nil, err
 	}
 	return ParseHealthResp(rsp)
-}
-
-// ParseQueryEventsResp parses an HTTP response from a QueryEventsWithResponse call
-func ParseQueryEventsResp(rsp *http.Response) (*QueryEventsResp, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &QueryEventsResp{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest EventsQueryResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
 }
 
 // ParseQueryLogsResp parses an HTTP response from a QueryLogsWithResponse call
@@ -1884,13 +1554,6 @@ func ParseUpdateAlertRuleResp(rsp *http.Response) (*UpdateAlertRuleResp, error) 
 			return nil, err
 		}
 		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
-		var dest ErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
