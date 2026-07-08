@@ -18,7 +18,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -189,6 +191,31 @@ func reconcileUntilCondition(
 		g.Expect(cond.Reason).To(Equal(string(expectedReason)))
 	}, itTimeout, itInterval).Should(Succeed())
 }
+
+// ── SetupWithManager recorder initialisation ─────────────────────────────────
+
+var _ = Describe("Component Controller — SetupWithManager", func() {
+	It("initializes Recorder when it is nil", func() {
+		// Use a fresh manager so SetupWithManager can register its field indexes
+		// without conflicting with the indexes already registered on testMgr by BeforeSuite.
+		freshMgr, err := ctrl.NewManager(cfg, ctrl.Options{
+			Scheme:  k8sClient.Scheme(),
+			Metrics: metricsserver.Options{BindAddress: "0"},
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		r := &Reconciler{
+			Client: k8sClient,
+			Scheme: k8sClient.Scheme(),
+			// Recorder intentionally left nil to exercise the nil-guard in SetupWithManager
+		}
+		Expect(r.Recorder).To(BeNil())
+
+		Expect(r.SetupWithManager(freshMgr)).To(Succeed())
+
+		Expect(r.Recorder).NotTo(BeNil())
+	})
+})
 
 // ── ComponentType resolution ──────────────────────────────────────────────────
 
@@ -1321,6 +1348,15 @@ var _ = Describe("Component Controller — AutoDeploy webhook rejection", func()
 				if expectRetry {
 					Expect(err).To(HaveOccurred())
 					Expect(err).To(MatchError(ContainSubstring("simulated")))
+
+					By("Verifying AutoDeployFailed condition is set even on retryable errors")
+					c := fetchComp(ctx, compName)
+					cond := conditionFor(c)
+					Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+					Expect(cond.Reason).To(Equal(string(ReasonAutoDeployFailed)))
+
+					By("Verifying no event is emitted for transient errors")
+					Consistently(fakeRecorder.Events, 100*time.Millisecond, 10*time.Millisecond).ShouldNot(Receive())
 				} else {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(result.Requeue).To(BeFalse())
@@ -1342,11 +1378,11 @@ var _ = Describe("Component Controller — AutoDeploy webhook rejection", func()
 				"test",
 				field.ErrorList{field.Invalid(field.NewPath("spec"), nil, "simulated webhook rejection")},
 			), false),
-			Entry("Forbidden error (permanent)", k8serrors.NewForbidden(
+			Entry("Forbidden error (retryable)", k8serrors.NewForbidden(
 				schema.GroupResource{Group: "openchoreo.dev", Resource: "ComponentRelease"},
 				"test",
 				errors.New("simulated forbidden"),
-			), false),
+			), true),
 			Entry("BadRequest error (permanent)", k8serrors.NewBadRequest("simulated bad request"), false),
 			Entry("Internal error (retryable)", k8serrors.NewInternalError(errors.New("simulated internal error")), true),
 		)

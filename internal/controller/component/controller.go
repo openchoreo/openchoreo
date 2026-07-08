@@ -181,9 +181,10 @@ func (r *Reconciler) reconcileWithComponentType(ctx context.Context, comp *openc
 			msg := fmt.Sprintf("Failed to handle autoDeploy: %v", err)
 			controller.MarkFalseCondition(comp, ConditionReady, ReasonAutoDeployFailed, msg)
 			logger.Error(err, "Failed to handle autoDeploy")
-			r.Recorder.Event(comp, corev1.EventTypeWarning, string(ReasonAutoDeployFailed), msg)
-			// Do not retry permanent admission/validation errors
-			if apierrors.IsInvalid(err) || apierrors.IsForbidden(err) || apierrors.IsBadRequest(err) {
+			// Do not retry permanent admission/validation errors; emit an event so the
+			// user can discover the rejection reason via kubectl describe / kubectl get events.
+			if apierrors.IsInvalid(err) || apierrors.IsBadRequest(err) {
+				r.Recorder.Event(comp, corev1.EventTypeWarning, string(ReasonAutoDeployFailed), msg)
 				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{}, err
