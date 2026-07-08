@@ -104,7 +104,14 @@ func (r *Reconciler) deleteChildAndLinkedResources(ctx context.Context, project 
 		return false, err
 	}
 
-	if !componentsDeleted || !resourcesDeleted {
+	// Clean up project release bindings
+	bindingsDeleted, err := r.deleteProjectReleaseBindingsAndWait(ctx, project)
+	if err != nil {
+		logger.Error(err, "Failed to delete project release bindings")
+		return false, err
+	}
+
+	if !componentsDeleted || !resourcesDeleted || !bindingsDeleted {
 		logger.Info("Children are still being deleted", "name", project.Name)
 		return false, nil
 	}
@@ -180,6 +187,39 @@ func (r *Reconciler) deleteResourcesAndWait(ctx context.Context, project *opench
 		resource := &resourcesList.Items[i]
 		if err := client.IgnoreNotFound(r.Delete(ctx, resource)); err != nil {
 			return false, fmt.Errorf("failed to delete resource %s: %w", resource.Name, err)
+		}
+	}
+
+	return false, nil
+}
+
+// deleteProjectReleaseBindingsAndWait checks if any ProjectReleaseBindings of this
+// Project still exist, and deletes them if they exist. Bindings are matched by
+// spec.owner.projectName regardless of author or OwnerReference: externally
+// authored bindings (console, occ, API, GitOps) carry no owner reference, and a
+// binding without its project is meaningless (the owner tuple is immutable).
+// Deleting a binding tears down its downstream state via the K8s GC walking the
+// binding's RenderedRelease to the applied manifests.
+func (r *Reconciler) deleteProjectReleaseBindingsAndWait(ctx context.Context, project *openchoreov1alpha1.Project) (bool, error) {
+	logger := log.FromContext(ctx).WithValues("project", project.Name)
+
+	bindingsList := &openchoreov1alpha1.ProjectReleaseBindingList{}
+	if err := r.List(ctx, bindingsList,
+		client.InNamespace(project.Namespace),
+		client.MatchingFields{controller.IndexKeyProjectReleaseBindingOwner: project.Name}); err != nil {
+		return false, fmt.Errorf("failed to list project release bindings: %w", err)
+	}
+
+	if len(bindingsList.Items) == 0 {
+		logger.Info("All project release bindings are deleted")
+		return true, nil
+	}
+
+	logger.Info("Deleting ProjectReleaseBindings", "count", len(bindingsList.Items))
+	for i := range bindingsList.Items {
+		binding := &bindingsList.Items[i]
+		if err := client.IgnoreNotFound(r.Delete(ctx, binding)); err != nil {
+			return false, fmt.Errorf("failed to delete project release binding %s: %w", binding.Name, err)
 		}
 	}
 

@@ -10443,8 +10443,10 @@ components:
       type: object
       description: |
         Desired state of a ProjectReleaseBinding. spec.owner and spec.environment
-        are immutable after creation. spec.projectRelease is the promote pin and is
-        advanced manually via `occ project promote` or kubectl edit.
+        are immutable after creation. spec.projectRelease is the promote pin:
+        left unset, the Project controller seeds it once with the project's
+        latest release; advancing it afterwards is manual (API update, GitOps,
+        kubectl edit).
       required:
         - owner
         - environment
@@ -10467,7 +10469,7 @@ components:
           example: dev
         projectRelease:
           type: string
-          description: Pinned ProjectRelease name. Advanced manually (e.g. via `occ project promote`).
+          description: Pinned ProjectRelease name. Left unset, it is seeded once by the Project controller with the latest release; advanced manually afterwards (e.g. via `occ project promote`).
           example: my-app-abc123
         environmentConfigs:
           type: object

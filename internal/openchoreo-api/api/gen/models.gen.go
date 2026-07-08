@@ -2745,8 +2745,10 @@ type ProjectReleaseBinding struct {
 	Metadata ObjectMeta `json:"metadata"`
 
 	// Spec Desired state of a ProjectReleaseBinding. spec.owner and spec.environment
-	// are immutable after creation. spec.projectRelease is the promote pin and is
-	// advanced manually via `occ project promote` or kubectl edit.
+	// are immutable after creation. spec.projectRelease is the promote pin:
+	// left unset, the Project controller seeds it once with the project's
+	// latest release; advancing it afterwards is manual (API update, GitOps,
+	// kubectl edit).
 	Spec   *ProjectReleaseBindingSpec   `json:"spec,omitempty"`
 	Status *ProjectReleaseBindingStatus `json:"status,omitempty"`
 }
@@ -2761,8 +2763,10 @@ type ProjectReleaseBindingList struct {
 }
 
 // ProjectReleaseBindingSpec Desired state of a ProjectReleaseBinding. spec.owner and spec.environment
-// are immutable after creation. spec.projectRelease is the promote pin and is
-// advanced manually via `occ project promote` or kubectl edit.
+// are immutable after creation. spec.projectRelease is the promote pin:
+// left unset, the Project controller seeds it once with the project's
+// latest release; advancing it afterwards is manual (API update, GitOps,
+// kubectl edit).
 type ProjectReleaseBindingSpec struct {
 	// Environment Target environment name. Immutable after creation.
 	Environment string `json:"environment"`
@@ -2776,7 +2780,7 @@ type ProjectReleaseBindingSpec struct {
 		ProjectName string `json:"projectName"`
 	} `json:"owner"`
 
-	// ProjectRelease Pinned ProjectRelease name. Advanced manually (e.g. via `occ project promote`).
+	// ProjectRelease Pinned ProjectRelease name. Left unset, it is seeded once by the Project controller with the latest release; advanced manually afterwards (e.g. via `occ project promote`).
 	ProjectRelease *string `json:"projectRelease,omitempty"`
 }
 

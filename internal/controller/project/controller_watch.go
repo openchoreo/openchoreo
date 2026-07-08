@@ -12,7 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	controllerpkg "github.com/openchoreo/openchoreo/internal/controller"
 )
 
 const (
@@ -32,6 +31,24 @@ func (r *Reconciler) findProjectForComponent(ctx context.Context, obj client.Obj
 		NamespacedName: client.ObjectKey{
 			Name:      component.Spec.Owner.ProjectName,
 			Namespace: component.Namespace,
+		},
+	}}
+}
+
+// findProjectForProjectReleaseBinding maps a ProjectReleaseBinding to its
+// owner Project via spec.owner.projectName. Deliberately not an Owns watch:
+// externally authored bindings (console, occ, API, GitOps) carry no
+// OwnerReference, but the Project controller must still reconcile to seed
+// their empty projectRelease pins.
+func (r *Reconciler) findProjectForProjectReleaseBinding(ctx context.Context, obj client.Object) []ctrl.Request {
+	binding := obj.(*openchoreov1alpha1.ProjectReleaseBinding)
+	if binding.Spec.Owner.ProjectName == "" {
+		return nil
+	}
+	return []ctrl.Request{{
+		NamespacedName: client.ObjectKey{
+			Name:      binding.Spec.Owner.ProjectName,
+			Namespace: binding.Namespace,
 		},
 	}}
 }
@@ -67,29 +84,6 @@ func (r *Reconciler) listProjectsForClusterProjectType(ctx context.Context, obj 
 	cpt := obj.(*openchoreov1alpha1.ClusterProjectType)
 	indexKey := string(openchoreov1alpha1.ProjectTypeRefKindClusterProjectType) + ":" + cpt.Name
 	return r.requestsForProjectTypeIndexKey(ctx, indexKey)
-}
-
-// listProjectsForDeploymentPipeline returns reconcile requests for Projects
-// in the same namespace as the given DeploymentPipeline that reference it
-// via spec.deploymentPipelineRef.name. Drives re-reconcile (and binding
-// fan-out updates) when PEs add/remove environments on the pipeline.
-func (r *Reconciler) listProjectsForDeploymentPipeline(ctx context.Context, obj client.Object) []reconcile.Request {
-	pipeline := obj.(*openchoreov1alpha1.DeploymentPipeline)
-	var projects openchoreov1alpha1.ProjectList
-	if err := r.List(ctx, &projects,
-		client.InNamespace(pipeline.Namespace),
-		client.MatchingFields{controllerpkg.IndexKeyProjectDeploymentPipelineRef: pipeline.Name}); err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "Failed to list Projects by deploymentPipelineRef",
-			"deploymentPipeline", pipeline.Name)
-		return nil
-	}
-	requests := make([]reconcile.Request, len(projects.Items))
-	for i, p := range projects.Items {
-		requests[i] = reconcile.Request{
-			NamespacedName: types.NamespacedName{Name: p.Name, Namespace: p.Namespace},
-		}
-	}
-	return requests
 }
 
 // requestsForProjectTypeIndexKey lists Projects by the projectTypeRefIndex and

@@ -38,7 +38,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projecttypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterprojecttypes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projectreleases,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=openchoreo.dev,resources=projectreleasebindings,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=projectreleasebindings,verbs=get;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=deploymentpipelines,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
@@ -164,7 +164,7 @@ func (r *Reconciler) reconcileProjectRelease(ctx context.Context, project *openc
 		}
 	}
 
-	if err := r.reconcileBindings(ctx, project); err != nil {
+	if err := r.seedBindingPins(ctx, project); err != nil {
 		return err
 	}
 
@@ -271,13 +271,11 @@ func projectTypeKind(k openchoreov1alpha1.ProjectTypeRefKind) openchoreov1alpha1
 //   - a (Cluster)ProjectType referenced via spec.type changes — so PE
 //     edits to the template drive a new ProjectRelease cut on the
 //     referencing Projects
-//   - the DeploymentPipeline referenced via spec.deploymentPipelineRef
-//     changes — so adding/removing environments propagates to the
-//     auto-created ProjectReleaseBindings
-//   - an owned ProjectReleaseBinding changes (Owns) — status updates
-//     from the binding can drive Project-level aggregation in a future
-//     phase, and cascade-delete on Project tear-down works via the
-//     OwnerReference set in ensureProjectReleaseBinding
+//   - a ProjectReleaseBinding of the Project changes (mapped via
+//     spec.owner.projectName rather than Owns, since externally authored
+//     bindings carry no OwnerReference) — newly authored bindings get
+//     their empty projectRelease pin seeded, and binding status updates
+//     can drive Project-level aggregation in a future phase
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.Recorder == nil {
 		r.Recorder = mgr.GetEventRecorderFor("project-controller")
@@ -290,14 +288,13 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.Project{}).
 		Named("project").
-		Owns(&openchoreov1alpha1.ProjectReleaseBinding{}).
+		Watches(&openchoreov1alpha1.ProjectReleaseBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.findProjectForProjectReleaseBinding)).
 		Watches(&openchoreov1alpha1.Component{},
 			handler.EnqueueRequestsFromMapFunc(r.findProjectForComponent)).
 		Watches(&openchoreov1alpha1.ProjectType{},
 			handler.EnqueueRequestsFromMapFunc(r.listProjectsForProjectType)).
 		Watches(&openchoreov1alpha1.ClusterProjectType{},
 			handler.EnqueueRequestsFromMapFunc(r.listProjectsForClusterProjectType)).
-		Watches(&openchoreov1alpha1.DeploymentPipeline{},
-			handler.EnqueueRequestsFromMapFunc(r.listProjectsForDeploymentPipeline)).
 		Complete(r)
 }
