@@ -1,0 +1,22 @@
+{{- if and .Values.gateway.enabled (eq (.Values.gateway.gatewayClassName | default "kgateway") "kgateway") }}
+# NOTE: Existing users who previously applied a manual HTTPListenerPolicy named 'default-httplistenerpolicy'
+# should delete it before upgrading to this chart version to avoid collision:
+# `kubectl delete httplistenerpolicy default-httplistenerpolicy -n {{ .Release.Namespace }}`
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: HTTPListenerPolicy
+metadata:
+  name: {{ include "openchoreo-data-plane.fullname" . }}-httplistenerpolicy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-data-plane.componentLabels" (dict "context" . "component" "gateway") | nindent 4 }}
+spec:
+  # Target the default gateway created by this chart
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway-default
+  # Enable WebSocket upgrades by default on all listeners of the target Gateway
+  upgradeConfig:
+    enabledUpgrades:
+      - websocket
+{{- end }}

@@ -40,29 +40,7 @@ A sample application that demonstrates how an OpenChoreo Workload consumes manag
 - An OpenChoreo cluster with the control plane installed
 - `kubectl` access to the cluster
 
-## Step 1: Enable WebSockets at the data-plane gateway
-
-The doclet frontend reverse-proxies a WebSocket sub-path (`/ws/collab-svc`) to the collab service. kgateway disables WebSocket upgrades by default; enable them on the data-plane Gateway with a one-time `HTTPListenerPolicy`:
-
-```bash
-kubectl apply -f - <<EOF
-apiVersion: gateway.kgateway.dev/v1alpha1
-kind: HTTPListenerPolicy
-metadata:
-  name: default-httplistenerpolicy
-  namespace: openchoreo-data-plane
-spec:
-  targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: gateway-default
-  upgradeConfig:
-    enabledUpgrades:
-      - websocket
-EOF
-```
-
-## Step 2: Deploy
+## Step 1: Deploy
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/doclet/project.yaml
@@ -81,7 +59,7 @@ kubectl apply \
 
 Components have `autoDeploy: true` and create their `ReleaseBinding`s automatically. The `ResourceReleaseBinding`s under `bindings/development/` are applied with `spec.resourceRelease` intentionally unset — they will stay pending until promoted in the next step.
 
-## Step 3: Promote each resource to the development environment
+## Step 2: Promote each resource to the development environment
 
 Pin each Resource's binding to its latest release:
 
