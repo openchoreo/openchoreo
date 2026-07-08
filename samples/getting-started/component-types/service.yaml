@@ -151,6 +151,18 @@ spec:
                   path:
                     type: ReplacePrefixMatch
                     replacePrefixMatch: '${endpoint.value.?basePath.orValue("/")}'
+              # Allow browsers to call this endpoint cross-origin (e.g. the portal's
+              # OpenAPI "Try Out" console). The wildcard origin suits a dev IDP; tighten
+              # to the portal origin(s) for production. No credentials are used, so "*"
+              # is valid. The prefix match above serves all methods, so OPTIONS preflight
+              # requests reach this filter.
+              - type: CORS
+                cors:
+                  allowOrigins: ["*"]
+                  allowMethods: [GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD]
+                  allowHeaders: ["*"]
+                  exposeHeaders: ["*"]
+                  allowCredentials: false
             backendRefs:
             - name: ${metadata.componentName}
               port: ${endpoint.value.port}
