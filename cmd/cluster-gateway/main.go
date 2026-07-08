@@ -58,7 +58,8 @@ func main() {
 	flag.IntVar(&port, "port", cmdutil.GetEnvInt("AGENT_SERVER_PORT", defaultPort),
 		"Public server port serving the agent WebSocket endpoint (/ws)")
 	flag.IntVar(&internalPort, "internal-port", cmdutil.GetEnvInt("AGENT_INTERNAL_PORT", defaultInternalPort),
-		"Internal server port serving the caller-facing /api/* endpoints (in-cluster callers only; not exposed outside the cluster)")
+		"Internal server port serving the caller-facing /api/* endpoints "+
+			"(in-cluster callers only; not exposed outside the cluster)")
 	flag.StringVar(&serverCertPath, "server-cert",
 		cmdutil.GetEnv("SERVER_CERT_PATH", "/certs/tls.crt"),
 		"Path to server certificate")
