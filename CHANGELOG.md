@@ -2,6 +2,31 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.0.2
+Changes since [v1.0.1](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.1).
+
+### Security
+
+- **(Cluster Gateway)** Caller-facing `/api/*` endpoints moved to a dedicated internal port
+  (default 8444), no longer served on the publicly exposed agent WebSocket
+  port. ([047d80dd](https://github.com/openchoreo/openchoreo/commit/047d80ddc63b4b4b9dd67044d5cffcdbd77685ce))
+
+### Enhancements
+
+- **(Observability)** Observability adapter API specs moved from the docs
+  repo. ([#3849](https://github.com/openchoreo/openchoreo/pull/3849))
+
+### Bug Fixes
+
+- **(API)** Component release delete action registered in the authorization action
+  registry. ([#3306](https://github.com/openchoreo/openchoreo/pull/3306))
+- **(Samples)** Raw GitHub URL removed from `all.yaml` header to prevent code generation check
+  failures on release branches. ([#3839](https://github.com/openchoreo/openchoreo/pull/3839))
+- **(CI)** `GITHUB_BASE_REF`/`GITHUB_REF_NAME` used for `SAMPLES_BRANCH` in
+  CI. ([#3654](https://github.com/openchoreo/openchoreo/pull/3654))
+- **(CI)** `release-next-v*` branches handled in `SAMPLES_BRANCH` with cleanup after
+  merge. ([#3649](https://github.com/openchoreo/openchoreo/pull/3649))
+
 ## v1.0.1
 Changes since [v1.0.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.0).
 
