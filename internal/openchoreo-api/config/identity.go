@@ -14,20 +14,20 @@ type IdentityConfig struct {
 	// Clients defines OAuth client configurations for external integrations.
 	// Keys are client identifiers (e.g., "cli", "ci").
 	Clients map[string]ClientConfig `koanf:"clients"`
-	// Scopes is the list of OAuth scopes supported by this resource server.
-	// Advertised via the protected-resource metadata (RFC 9728) and the
-	// WWW-Authenticate header on 401 responses so MCP clients can pick a
+	// MCPOAuthScopes is the list of OAuth scopes advertised by the MCP
+	// endpoint. Advertised via the protected-resource metadata (RFC 9728) and
+	// the WWW-Authenticate header on 401 responses so MCP clients can pick a
 	// scope set without falling back to the authorization server's
 	// (potentially over-broad) scopes_supported.
-	Scopes []string `koanf:"scopes"`
+	MCPOAuthScopes []string `koanf:"mcp_oauth_scopes"`
 }
 
 // IdentityDefaults returns the default identity configuration.
 func IdentityDefaults() IdentityConfig {
 	return IdentityConfig{
-		OIDC:    OIDCDefaults(),
-		Clients: nil,
-		Scopes:  []string{"openid", "profile", "email"},
+		OIDC:           OIDCDefaults(),
+		Clients:        nil,
+		MCPOAuthScopes: []string{"openid", "profile", "email"},
 	}
 }
 

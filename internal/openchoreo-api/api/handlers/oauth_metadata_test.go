@@ -45,7 +45,7 @@ func TestGetOAuthProtectedResourceMetadata(t *testing.T) {
 						OIDC: config.OIDCConfig{
 							Issuer: "http://sts.openchoreo.localhost",
 						},
-						Scopes: tt.cfgScopes,
+						MCPOAuthScopes: tt.cfgScopes,
 					},
 				},
 			}

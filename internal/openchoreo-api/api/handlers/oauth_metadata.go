@@ -32,7 +32,7 @@ func (h *Handler) GetOAuthProtectedResourceMetadata(
 	securityEnabled := h.Config.Security.Enabled
 	resource := strings.TrimSuffix(h.Config.Server.PublicURL, "/") + "/mcp"
 
-	scopesSupported := h.Config.Identity.Scopes
+	scopesSupported := h.Config.Identity.MCPOAuthScopes
 	if scopesSupported == nil {
 		scopesSupported = []string{}
 	}

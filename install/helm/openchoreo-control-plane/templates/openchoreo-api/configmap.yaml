@@ -54,8 +54,8 @@ data:
           scopes:
             {{- toYaml .scopes | nindent 12 }}
         {{- end }}
-      scopes:
-        {{- toYaml .Values.security.oidc.scopes | nindent 8 }}
+      mcp_oauth_scopes:
+        {{- toYaml .Values.security.oidc.mcpOAuthScopes | nindent 8 }}
 
     mcp:
       enabled: {{ .Values.openchoreoApi.config.mcp.enabled }}

@@ -144,21 +144,22 @@ identity:
         - "profile"
         - "email"
 
+  # OAuth scopes advertised by the MCP endpoint via
+  # `.well-known/oauth-protected-resource` and the WWW-Authenticate header on
+  # 401 responses. MCP clients prefer this list over the authorization server's
+  # scopes_supported, which can be over-broad (e.g. Cognito pool-level scopes
+  # that a specific app client doesn't allow). See issue #3217.
+  mcp_oauth_scopes:
+    - "openid"
+    - "profile"
+    - "email"
+
 secret_management:
   # Enable the Secret management API under
   # /api/v1alpha1/namespaces/{namespaceName}/secrets
   # (POST/PUT/GET/LIST/DELETE).
   # When false, all five endpoints return 501 Not Implemented.
   enabled: false
-  # OAuth scopes advertised by the MCP endpoint via
-  # `.well-known/oauth-protected-resource` and the WWW-Authenticate header on
-  # 401 responses. MCP clients prefer this list over the authorization server's
-  # scopes_supported, which can be over-broad (e.g. Cognito pool-level scopes
-  # that a specific app client doesn't allow). See issue #3217.
-  scopes:
-    - "openid"
-    - "profile"
-    - "email"
 
 mcp:
   # Enable the Model Context Protocol (MCP) server.

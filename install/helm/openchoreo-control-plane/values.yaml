@@ -102,7 +102,7 @@ security:
     # type: array
     # description: OAuth scopes advertised by the MCP endpoint via the protected-resource metadata (RFC 9728) and the WWW-Authenticate 401 challenge. MCP clients prefer this list over the authorization server's scopes_supported, which can be over-broad (e.g. Cognito pool-level scopes).
     # @schema
-    scopes:
+    mcpOAuthScopes:
       - "openid"
       - "profile"
       - "email"
