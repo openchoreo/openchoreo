@@ -1967,6 +1967,14 @@
               "title": "jwksUrlTlsInsecureSkipVerify",
               "type": "string"
             },
+            "mcpOAuthScopes": {
+              "description": "OAuth scopes advertised by the observer's MCP endpoint via the protected-resource metadata (RFC 9728) and WWW-Authenticate 401 challenge. Leave empty to use the default (openid profile email).",
+              "items": {
+                "required": []
+              },
+              "title": "mcpOAuthScopes",
+              "type": "array"
+            },
             "tokenUrl": {
               "default": "",
               "description": "OIDC token endpoint URL",

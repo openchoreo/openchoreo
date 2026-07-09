@@ -5,6 +5,7 @@ package mcp
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
 )
@@ -12,9 +13,9 @@ import (
 // responseWriter401Interceptor wraps http.ResponseWriter to intercept 401 status codes
 type responseWriter401Interceptor struct {
 	http.ResponseWriter
-	statusCode          int
-	headerWritten       bool
-	resourceMetadataURL string
+	statusCode      int
+	headerWritten   bool
+	challengeHeader string
 }
 
 // WriteHeader intercepts the status code and adds WWW-Authenticate header on 401
@@ -28,7 +29,7 @@ func (rw *responseWriter401Interceptor) WriteHeader(statusCode int) {
 
 	// Add WWW-Authenticate header if status is 401
 	if statusCode == http.StatusUnauthorized {
-		rw.ResponseWriter.Header().Set("WWW-Authenticate", "Bearer resource_metadata=\""+rw.resourceMetadataURL+"\"")
+		rw.ResponseWriter.Header().Set("WWW-Authenticate", rw.challengeHeader)
 	}
 
 	rw.ResponseWriter.WriteHeader(statusCode)
@@ -44,21 +45,38 @@ func (rw *responseWriter401Interceptor) Write(b []byte) (int, error) {
 	return rw.ResponseWriter.Write(b)
 }
 
-// Auth401Interceptor creates a middleware that adds WWW-Authenticate header on 401 responses
-// resourceMetadataURL is the URL to the OAuth protected resource metadata endpoint
-func Auth401Interceptor(resourceMetadataURL string) middleware.Middleware {
+// Auth401Interceptor creates a middleware that adds WWW-Authenticate header on 401 responses.
+// resourceMetadataURL is the URL to the OAuth protected resource metadata endpoint.
+// scopes is the space-delimited scope list advertised in the challenge so MCP clients
+// pick the resource's required scopes (MCP 2025-06-18 §Authorization scope selection)
+// instead of falling back to the authorization server's scopes_supported.
+func Auth401Interceptor(resourceMetadataURL string, scopes []string) middleware.Middleware {
+	challenge := buildChallengeHeader(resourceMetadataURL, scopes)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Wrap the response writer to intercept status codes
 			interceptor := &responseWriter401Interceptor{
-				ResponseWriter:      w,
-				statusCode:          http.StatusOK,
-				headerWritten:       false,
-				resourceMetadataURL: resourceMetadataURL,
+				ResponseWriter:  w,
+				statusCode:      http.StatusOK,
+				headerWritten:   false,
+				challengeHeader: challenge,
 			}
 
 			// Call the next handler with our wrapped response writer
 			next.ServeHTTP(interceptor, r)
 		})
 	}
+}
+
+func buildChallengeHeader(resourceMetadataURL string, scopes []string) string {
+	var b strings.Builder
+	b.WriteString(`Bearer resource_metadata="`)
+	b.WriteString(resourceMetadataURL)
+	b.WriteString(`"`)
+	if scope := strings.TrimSpace(strings.Join(scopes, " ")); scope != "" {
+		b.WriteString(`, scope="`)
+		b.WriteString(scope)
+		b.WriteString(`"`)
+	}
+	return b.String()
 }

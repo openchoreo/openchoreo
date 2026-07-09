@@ -23,6 +23,12 @@ const (
 	// EnvMCPToolsets is the comma-separated list of enabled MCP toolsets
 	EnvMCPToolsets = "MCP_TOOLSETS"
 
+	// EnvMCPOAuthScopes is the space-delimited list of OAuth scopes advertised
+	// in the MCP endpoint's protected-resource metadata and WWW-Authenticate
+	// challenge. Lets operators override the default so MCP clients don't fall
+	// back to the authorization server's (possibly over-broad) scopes_supported.
+	EnvMCPOAuthScopes = "MCP_OAUTH_SCOPES"
+
 	// EnvJWTDisabled is the flag to disable JWT authentication
 	EnvJWTDisabled = "JWT_DISABLED"
 

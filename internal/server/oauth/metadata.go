@@ -34,14 +34,23 @@ type MetadataHandlerConfig struct {
 	ResourceName         string
 	ResourceURL          string
 	AuthorizationServers []string
-	Clients              []ClientInfo
-	SecurityEnabled      bool
-	Logger               *slog.Logger
+	// ScopesSupported is advertised as scopes_supported in the protected-resource
+	// metadata (RFC 9728). MCP clients prefer this list over the authorization
+	// server's scopes_supported — critical when the AS (e.g. Cognito) advertises
+	// pool-level scopes that a specific app client doesn't allow.
+	ScopesSupported []string
+	Clients         []ClientInfo
+	SecurityEnabled bool
+	Logger          *slog.Logger
 }
 
 // NewMetadataHandler creates an HTTP handler that serves OAuth 2.0 protected resource metadata
 func NewMetadataHandler(config MetadataHandlerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		scopesSupported := config.ScopesSupported
+		if scopesSupported == nil {
+			scopesSupported = []string{}
+		}
 		metadata := ProtectedResourceMetadata{
 			ResourceName:         config.ResourceName,
 			Resource:             config.ResourceURL,
@@ -49,7 +58,7 @@ func NewMetadataHandler(config MetadataHandlerConfig) http.HandlerFunc {
 			BearerMethodsSupported: []string{
 				"header",
 			},
-			ScopesSupported:           []string{},
+			ScopesSupported:           scopesSupported,
 			OpenChoreoClients:         config.Clients,
 			OpenChoreoSecurityEnabled: config.SecurityEnabled,
 		}

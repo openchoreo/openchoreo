@@ -9,9 +9,12 @@ import (
 	"testing"
 )
 
+const testResourceMetadataURL = "http://api.openchoreo.localhost/.well-known/oauth-protected-resource"
+
 func TestAuth401Interceptor(t *testing.T) {
-	resourceMetadataURL := "http://api.openchoreo.localhost/.well-known/oauth-protected-resource"
-	expectedHeader := "Bearer resource_metadata=\"http://api.openchoreo.localhost/.well-known/oauth-protected-resource\""
+	resourceMetadataURL := testResourceMetadataURL
+	scopes := []string{"openid", "profile", "email"}
+	expectedHeader := `Bearer resource_metadata="http://api.openchoreo.localhost/.well-known/oauth-protected-resource", scope="openid profile email"`
 
 	tests := []struct {
 		name             string
@@ -48,7 +51,7 @@ func TestAuth401Interceptor(t *testing.T) {
 			})
 
 			// Wrap the handler with the middleware
-			middleware := Auth401Interceptor(resourceMetadataURL)
+			middleware := Auth401Interceptor(resourceMetadataURL, scopes)
 			wrappedHandler := middleware(testHandler)
 
 			// Create a test request and response recorder
@@ -82,8 +85,9 @@ func TestAuth401Interceptor(t *testing.T) {
 }
 
 func TestAuth401Interceptor_WithWrite(t *testing.T) {
-	resourceMetadataURL := "http://api.openchoreo.localhost/.well-known/oauth-protected-resource"
-	expectedHeader := "Bearer resource_metadata=\"http://api.openchoreo.localhost/.well-known/oauth-protected-resource\""
+	resourceMetadataURL := testResourceMetadataURL
+	scopes := []string{"openid", "profile", "email"}
+	expectedHeader := `Bearer resource_metadata="http://api.openchoreo.localhost/.well-known/oauth-protected-resource", scope="openid profile email"`
 
 	// Test handler that writes without explicitly calling WriteHeader
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +95,7 @@ func TestAuth401Interceptor_WithWrite(t *testing.T) {
 		_, _ = w.Write([]byte("OK"))
 	})
 
-	middleware := Auth401Interceptor(resourceMetadataURL)
+	middleware := Auth401Interceptor(resourceMetadataURL, scopes)
 	wrappedHandler := middleware(testHandler)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -133,5 +137,37 @@ func TestAuth401Interceptor_WithWrite(t *testing.T) {
 	}
 	if wwwAuth401 != expectedHeader {
 		t.Errorf("expected WWW-Authenticate header to be %q, got %q", expectedHeader, wwwAuth401)
+	}
+}
+
+func TestAuth401Interceptor_NoScopes(t *testing.T) {
+	resourceMetadataURL := testResourceMetadataURL
+	expectedHeader := `Bearer resource_metadata="` + testResourceMetadataURL + `"`
+
+	tests := []struct {
+		name   string
+		scopes []string
+	}{
+		{name: "nil scopes", scopes: nil},
+		{name: "empty scopes", scopes: []string{}},
+		{name: "whitespace-only scopes", scopes: []string{"", "  "}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusUnauthorized)
+			})
+
+			wrappedHandler := Auth401Interceptor(resourceMetadataURL, tt.scopes)(testHandler)
+
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			rec := httptest.NewRecorder()
+			wrappedHandler.ServeHTTP(rec, req)
+
+			if got := rec.Header().Get("WWW-Authenticate"); got != expectedHeader {
+				t.Errorf("expected WWW-Authenticate header to be %q, got %q", expectedHeader, got)
+			}
+		})
 	}
 }
