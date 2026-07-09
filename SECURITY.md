@@ -1,41 +1,39 @@
 # Security Policy
-OpenChoreo takes the security of our users and the ecosystem seriously. We follow industry-standard practices for responsible disclosure and encourage the community to report vulnerabilities safely and privately. 
 
-If you discover a security issue, please do not open a public GitHub issue. Instead, follow the process below.
+OpenChoreo takes the security of our users and the ecosystem seriously. We follow coordinated disclosure practices and appreciate the community's help in keeping the project secure.
 
-# Reporting a Vulnerability
-To report a security vulnerability, please email: [security@openchoreo.io](mailto:security@openchoreo.io)
+## Reporting a Vulnerability
 
-Your report should include:
-- A description of the issue
-- Steps to reproduce (if possible)
-- Potential impact
-- Any suggested remediation
-- Your contact information for follow-up questions
+Please **do not** report security vulnerabilities through public GitHub issues, discussions, or pull requests.
 
+Instead, report them privately using GitHub's private vulnerability reporting:
 
-You will receive an acknowledgment within 3 business days.
+**[Report a vulnerability](https://github.com/openchoreo/openchoreo/security/advisories/new)** (Security → Advisories → Report a vulnerability)
 
-# Security Response Process
-Once a report is received:
-1. The security team reviews the issue and determines the severity.
-2. A fix is developed privately in a restricted branch or fork.
-3. Once validated, the patch is merged and released.
-4. Security advisories (GHSA) are published as needed.
-5. The reporter is credited unless they request anonymity.
+Please include as much detail as you can:
 
-We strive to resolve critical issues as quickly as possible and follow coordinated disclosure best practices.
+- A clear description of the issue.
+- The affected component and version(s).
+- Steps or a proof of concept to reproduce it.
+- The potential impact.
 
-# Supported Versions
-Security fixes will be backported to:
-- The latest stable release
-- The previous stable minor release (if feasible)
+If you would like to help fix the issue, you are welcome to propose a fix privately through the advisory's temporary private fork.
 
+We will acknowledge your report within **3 business days** and keep you informed as we work toward a fix.
 
-Pre-1.0 releases (0.x) may receive fixes at the discretion of the maintainers.
+## Disclosure Process
 
-# Public Communication
-Security announcements will be published through:
-- GitHub Security Advisories
-- Release notes
-- The OpenChoreo community channels
+We use [GitHub Security Advisories](https://docs.github.com/en/code-security/security-advisories), with GitHub acting as the CVE Numbering Authority (CNA). Once a report is received:
+
+1. Maintainers validate the report and assess severity.
+2. A fix is developed privately within the security advisory.
+3. A CVE is requested through the advisory, and the fix is released.
+4. The advisory is published, and the reporter is credited unless anonymity is requested.
+
+## Supported Versions
+
+Security fixes are provided for:
+
+- The latest stable release.
+- The previous stable minor release, where feasible.
+- Pre-1.0 (0.x) releases, at the maintainers' discretion.
