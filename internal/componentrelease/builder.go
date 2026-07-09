@@ -5,6 +5,7 @@ package componentrelease
 
 import (
 	"fmt"
+	"sort"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
@@ -100,6 +101,15 @@ func mergeTraits(traits map[string]openchoreov1alpha1.TraitSpec, clusterTraits m
 			Spec: openchoreov1alpha1.TraitSpec(spec),
 		})
 	}
+	// Sort by (Kind, Name) so the frozen order is stable: mergeTraits ranges over maps,
+	// whose iteration order Go randomizes, and the release spec-hash matcher treats the
+	// traits slice order as significant. (Kind, Name) is unique per entry, so the sort is total.
+	sort.Slice(merged, func(i, j int) bool {
+		if merged[i].Kind != merged[j].Kind {
+			return merged[i].Kind < merged[j].Kind
+		}
+		return merged[i].Name < merged[j].Name
+	})
 	return merged
 }
 

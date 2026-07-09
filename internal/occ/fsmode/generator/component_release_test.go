@@ -264,6 +264,204 @@ func TestGenerateRelease_ManifestShape(t *testing.T) {
 	assert.Equal(t, projectName, ownerProj)
 }
 
+// TestGenerateRelease_DeterministicTraitOrder verifies that generating a release for a
+// component with multiple traits across both kinds produces a spec that always spec-matches
+// itself: without a stable trait order in BuildSpec, the frozen spec.traits order drifts
+// between generations and the order-sensitive release spec-hash matcher fails to re-match.
+func TestGenerateRelease_DeterministicTraitOrder(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+	)
+
+	newGen := func() *ReleaseGenerator {
+		idx := index.New("/repo")
+
+		addComponentWithTraits(t, idx, namespace,
+			[]map[string]any{
+				{"kind": "Trait", "name": "zebra", "instanceName": "zebra-1"},
+				{"kind": "Trait", "name": "alpha", "instanceName": "alpha-1"},
+				{"kind": "ClusterTrait", "name": "yak", "instanceName": "yak-1"},
+				{"kind": "ClusterTrait", "name": "beta", "instanceName": "beta-1"},
+			},
+			"/repo/projects/myproj/components/my-svc/component.yaml")
+
+		addComponentTypeWithSpec(t, idx, "service",
+			map[string]any{
+				"workloadType": "deployment",
+				"resources":    []any{},
+				"schema":       map[string]any{},
+				"allowedTraits": []any{
+					map[string]any{"kind": "Trait", "name": "zebra"},
+					map[string]any{"kind": "Trait", "name": "alpha"},
+					map[string]any{"kind": "ClusterTrait", "name": "yak"},
+					map[string]any{"kind": "ClusterTrait", "name": "beta"},
+				},
+			},
+			"/repo/platform/component-types/service.yaml")
+
+		addTrait(t, idx, "zebra", map[string]any{}, "/repo/platform/traits/zebra.yaml")
+		addTrait(t, idx, "alpha", map[string]any{}, "/repo/platform/traits/alpha.yaml")
+		addClusterTrait(t, idx, "yak", map[string]any{}, "/repo/platform/cluster-traits/yak.yaml")
+		addClusterTrait(t, idx, "beta", map[string]any{}, "/repo/platform/cluster-traits/beta.yaml")
+
+		addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+			map[string]any{"container": map[string]any{"image": "reg/my-svc:v1"}},
+			"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+		return NewReleaseGenerator(fsmode.WrapIndex(idx))
+	}
+
+	// Build a reference release once, then regenerate from a fresh index many times.
+	// Each regeneration must spec-match the reference; map-iteration randomness in the
+	// merge means a single comparison could pass by chance, so require all N to match.
+	reference, err := newGen().GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   "ref",
+	})
+	require.NoError(t, err)
+
+	const iterations = 20
+	for i := 0; i < iterations; i++ {
+		candidate, err := newGen().GenerateRelease(ReleaseOptions{
+			ComponentName: componentName,
+			ProjectName:   projectName,
+			Namespace:     namespace,
+			ReleaseName:   "candidate",
+		})
+		require.NoError(t, err)
+
+		match, err := output.CompareReleaseSpecs(reference, candidate)
+		require.NoError(t, err)
+		require.Truef(t, match, "iteration %d: regenerated release must spec-match the reference", i)
+	}
+}
+
+// TestGenerateRelease_ClusterComponentTypeEmbeddedTraitOmittedKind verifies that an embedded
+// trait in a ClusterComponentType file that omits its kind is resolved as a ClusterTrait (the
+// kubebuilder default the API server would apply) and frozen with kind "ClusterTrait", rather
+// than being misrouted to a namespace Trait lookup and frozen with an empty kind.
+func TestGenerateRelease_ClusterComponentTypeEmbeddedTraitOmittedKind(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+		releaseName   = "my-svc-release-1"
+	)
+
+	idx := index.New("/repo")
+
+	addComponentWithKind(t, idx, namespace, componentName, projectName, "deployment/service",
+		"ClusterComponentType",
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	// Embedded trait entry omits "kind"; the file is a ClusterComponentType, so it must
+	// default to ClusterTrait.
+	addClusterComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources":    []any{},
+			"traits": []any{
+				map[string]any{"name": "global-logging", "instanceName": "logging-1"},
+			},
+		},
+		"/repo/platform/cluster-component-types/service.yaml")
+
+	addClusterTrait(t, idx, "global-logging",
+		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}}},
+		"/repo/platform/cluster-traits/global-logging.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": "reg/my-svc:v1"}},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	gen := NewReleaseGenerator(fsmode.WrapIndex(idx))
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   releaseName,
+	})
+	require.NoError(t, err)
+
+	// The frozen embedded trait must carry the defaulted kind.
+	embedded, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentType", "spec", "traits")
+	require.True(t, ok, "expected componentType.spec.traits")
+	require.Len(t, embedded, 1)
+	assert.Equal(t, "ClusterTrait", embedded[0].(map[string]interface{})["kind"])
+
+	// The resolved trait in the merged spec.traits must be a ClusterTrait.
+	traitsSlice, ok, _ := unstructured.NestedSlice(release.Object, "spec", "traits")
+	require.True(t, ok, "expected spec.traits")
+	require.Len(t, traitsSlice, 1)
+	merged := traitsSlice[0].(map[string]interface{})
+	assert.Equal(t, "ClusterTrait", merged["kind"])
+	assert.Equal(t, "global-logging", merged["name"])
+}
+
+// TestGenerateRelease_ComponentTypeEmbeddedTraitOmittedKind verifies that an embedded trait in
+// a namespace ComponentType file that omits its kind is frozen with kind "Trait" (the kubebuilder
+// default the API server applies), so the frozen spec matches control-plane-generated releases
+// rather than carrying an empty kind byte-difference.
+func TestGenerateRelease_ComponentTypeEmbeddedTraitOmittedKind(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+		releaseName   = "my-svc-release-1"
+	)
+
+	idx := index.New("/repo")
+
+	addComponentWithTraits(t, idx, namespace, nil,
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	// Embedded trait entry omits "kind"; the file is a ComponentType, so it must default to Trait.
+	addComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources":    []any{},
+			"traits": []any{
+				map[string]any{"name": "sidecar", "instanceName": "sidecar-1"},
+			},
+		},
+		"/repo/platform/component-types/service.yaml")
+
+	addTrait(t, idx, "sidecar",
+		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}}},
+		"/repo/platform/traits/sidecar.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": "reg/my-svc:v1"}},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	gen := NewReleaseGenerator(fsmode.WrapIndex(idx))
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   releaseName,
+	})
+	require.NoError(t, err)
+
+	embedded, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentType", "spec", "traits")
+	require.True(t, ok, "expected componentType.spec.traits")
+	require.Len(t, embedded, 1)
+	assert.Equal(t, "Trait", embedded[0].(map[string]interface{})["kind"])
+
+	traitsSlice, ok, _ := unstructured.NestedSlice(release.Object, "spec", "traits")
+	require.True(t, ok, "expected spec.traits")
+	require.Len(t, traitsSlice, 1)
+	merged := traitsSlice[0].(map[string]interface{})
+	assert.Equal(t, "Trait", merged["kind"])
+	assert.Equal(t, "sidecar", merged["name"])
+}
+
 // addClusterComponentType adds a ClusterComponentType resource entry to the index.
 func addClusterComponentType(t *testing.T, idx *index.Index, name, workloadType string, filePath string) {
 	t.Helper()

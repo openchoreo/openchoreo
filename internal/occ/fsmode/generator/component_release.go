@@ -85,6 +85,12 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 		return nil, fmt.Errorf("unsupported component type kind %q for component %q", ctKind, opts.ComponentName)
 	}
 
+	// The embedded-trait kind default (Trait / ClusterTrait) is applied by the API server at
+	// admission time. fsmode loads raw YAML, so an omitted kind reaches us as "". Default it
+	// here — before validation, gatherTraits, and BuildSpec — so the frozen spec routes lookups
+	// correctly and matches control-plane-generated releases byte-for-byte.
+	defaultEmbeddedTraitKinds(&ctSpec, ctKind)
+
 	// Enforce the same pre-build validation the controller and API server run: component-level
 	// traits must be permitted by allowedTraits, and trait instance names must be unique across
 	// embedded and component-level traits.
@@ -133,6 +139,24 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 	}
 
 	return toUnstructuredRelease(releaseName, opts.Namespace, crSpec)
+}
+
+// defaultEmbeddedTraitKinds fills in the kind of any embedded ComponentType trait that omitted
+// it in the source file, mirroring the kubebuilder defaults the API server applies at admission:
+// ClusterComponentType embedded traits default to ClusterTrait, ComponentType embedded traits to
+// Trait. In-cluster objects are already defaulted, so this normalization lives in the fsmode
+// generator rather than the shared ToComponentTypeSpec/api method. The ctSpec traits slice is a
+// fresh per-call conversion, so mutating it in place does not affect the cached index entry.
+func defaultEmbeddedTraitKinds(ctSpec *v1alpha1.ComponentTypeSpec, ctKind string) {
+	defaultKind := v1alpha1.TraitRefKindTrait
+	if ctKind == string(v1alpha1.ComponentTypeRefKindClusterComponentType) {
+		defaultKind = v1alpha1.TraitRefKindClusterTrait
+	}
+	for i := range ctSpec.Traits {
+		if ctSpec.Traits[i].Kind == "" {
+			ctSpec.Traits[i].Kind = defaultKind
+		}
+	}
 }
 
 // gatherTraits resolves all unique Trait/ClusterTrait specs referenced by the embedded
