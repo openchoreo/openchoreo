@@ -36,4 +36,5 @@ type Context struct {
 	Namespace    string `yaml:"namespace,omitempty"`
 	Project      string `yaml:"project,omitempty"`
 	Component    string `yaml:"component,omitempty"`
+	Resource     string `yaml:"resource,omitempty"`
 }

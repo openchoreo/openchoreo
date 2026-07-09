@@ -97,7 +97,7 @@ func (c *Config) ListContexts() error {
 	}
 
 	// First empty column for current context marker
-	headers := []string{"", "NAME", "CONTROLPLANE", "CREDENTIALS", "NAMESPACE", "PROJECT", "COMPONENT"}
+	headers := []string{"", "NAME", "CONTROLPLANE", "CREDENTIALS", "NAMESPACE", "PROJECT", "COMPONENT", "RESOURCE"}
 	rows := make([][]string, 0, len(cfg.Contexts))
 
 	for _, ctx := range cfg.Contexts {
@@ -114,6 +114,7 @@ func (c *Config) ListContexts() error {
 			formatValueOrPlaceholder(ctx.Namespace),
 			formatValueOrPlaceholder(ctx.Project),
 			formatValueOrPlaceholder(ctx.Component),
+			formatValueOrPlaceholder(ctx.Resource),
 		})
 	}
 
@@ -200,6 +201,9 @@ func (c *Config) UpdateContext(params UpdateContextParams) error {
 			if params.Component != "" {
 				cfg.Contexts[i].Component = params.Component
 			}
+			if params.Resource != "" {
+				cfg.Contexts[i].Resource = params.Resource
+			}
 			if params.ControlPlane != "" {
 				cfg.Contexts[i].ControlPlane = params.ControlPlane
 			}
@@ -284,6 +288,7 @@ func ApplyContextDefaults(cmd *cobra.Command) error {
 	applyIfNotSet(cmd, "namespace", curCtx.Namespace)
 	applyIfNotSet(cmd, "project", curCtx.Project)
 	applyIfNotSet(cmd, "component", curCtx.Component)
+	applyIfNotSet(cmd, "resource", curCtx.Resource)
 
 	return nil
 }
