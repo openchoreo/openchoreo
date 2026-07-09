@@ -168,7 +168,7 @@ func TestGenerateRelease_ManifestShape(t *testing.T) {
 		},
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
-	addComponentTypeWithSpec(t, idx, "service",
+	addComponentTypeWithSpec(t, idx,
 		map[string]any{
 			"workloadType": "deployment",
 			"resources":    []any{},
@@ -287,7 +287,7 @@ func TestGenerateRelease_DeterministicTraitOrder(t *testing.T) {
 			},
 			"/repo/projects/myproj/components/my-svc/component.yaml")
 
-		addComponentTypeWithSpec(t, idx, "service",
+		addComponentTypeWithSpec(t, idx,
 			map[string]any{
 				"workloadType": "deployment",
 				"resources":    []any{},
@@ -421,7 +421,7 @@ func TestGenerateRelease_ComponentTypeEmbeddedTraitOmittedKind(t *testing.T) {
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
 	// Embedded trait entry omits "kind"; the file is a ComponentType, so it must default to Trait.
-	addComponentTypeWithSpec(t, idx, "service",
+	addComponentTypeWithSpec(t, idx,
 		map[string]any{
 			"workloadType": "deployment",
 			"resources":    []any{},
@@ -669,7 +669,7 @@ func TestGenerateRelease_ClusterTrait(t *testing.T) {
 		},
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
-	addComponentTypeWithSpec(t, idx, "service",
+	addComponentTypeWithSpec(t, idx,
 		map[string]any{
 			"workloadType": "deployment",
 			"resources":    []any{},
@@ -739,7 +739,7 @@ func TestGenerateRelease_MissingClusterTraitErrors(t *testing.T) {
 		},
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
-	addComponentTypeWithSpec(t, idx, "service",
+	addComponentTypeWithSpec(t, idx,
 		map[string]any{
 			"workloadType": "deployment",
 			"resources":    []any{},
@@ -1023,7 +1023,7 @@ func TestGenerateRelease_UnsupportedTraitKindErrors(t *testing.T) {
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
 	// allowedTraits permits the trait so validation passes and gatherTraits reports the bad kind.
-	addComponentTypeWithSpec(t, idx, "service",
+	addComponentTypeWithSpec(t, idx,
 		map[string]any{
 			"workloadType": "deployment",
 			"resources":    []any{},
@@ -1109,7 +1109,7 @@ func TestGenerateRelease_DuplicateTraitsDeduped(t *testing.T) {
 		},
 		"/repo/comp.yaml")
 
-	addComponentTypeWithSpec(t, idx, "service",
+	addComponentTypeWithSpec(t, idx,
 		map[string]any{
 			"workloadType": "deployment",
 			"resources":    []any{},
@@ -1190,14 +1190,14 @@ func TestGenerateRelease_WorkloadWithoutEndpoints(t *testing.T) {
 }
 
 // addComponentTypeWithSpec adds a ComponentType with a caller-supplied spec to the index.
-func addComponentTypeWithSpec(t *testing.T, idx *index.Index, name string, spec map[string]any, filePath string) {
+func addComponentTypeWithSpec(t *testing.T, idx *index.Index, spec map[string]any, filePath string) {
 	t.Helper()
 	entry := &index.ResourceEntry{
 		Resource: &unstructured.Unstructured{
 			Object: map[string]any{
 				"apiVersion": "openchoreo.dev/v1alpha1",
 				"kind":       "ComponentType",
-				"metadata":   map[string]any{"name": name, "namespace": "default"},
+				"metadata":   map[string]any{"name": "service", "namespace": "default"},
 				"spec":       spec,
 			},
 		},
@@ -1222,7 +1222,7 @@ func TestGenerateRelease_FullComponentTypeSpecPreserved(t *testing.T) {
 	addComponentWithTraits(t, idx, namespace, nil,
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
-	addComponentTypeWithSpec(t, idx, "service",
+	addComponentTypeWithSpec(t, idx,
 		map[string]any{
 			"workloadType": "deployment",
 			"resources": []any{
@@ -1310,7 +1310,7 @@ func TestGenerateRelease_TraitNotInAllowedTraitsErrors(t *testing.T) {
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
 	// allowedTraits permits only "logging", so the component-level "ingress" is disallowed.
-	addComponentTypeWithSpec(t, idx, "service",
+	addComponentTypeWithSpec(t, idx,
 		map[string]any{
 			"workloadType": "deployment",
 			"resources":    []any{},
@@ -1359,7 +1359,7 @@ func TestGenerateRelease_DuplicateTraitInstanceNameErrors(t *testing.T) {
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
 	// Embedded trait "sidecar" reuses the same instanceName the component-level trait declares.
-	addComponentTypeWithSpec(t, idx, "service",
+	addComponentTypeWithSpec(t, idx,
 		map[string]any{
 			"workloadType": "deployment",
 			"resources":    []any{},
@@ -1408,7 +1408,7 @@ func TestGenerateRelease_MissingEmbeddedTraitErrors(t *testing.T) {
 	addComponentWithTraits(t, idx, namespace, nil,
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
-	addComponentTypeWithSpec(t, idx, "service",
+	addComponentTypeWithSpec(t, idx,
 		map[string]any{
 			"workloadType": "deployment",
 			"resources": []any{
@@ -1528,7 +1528,7 @@ func TestGenerateRelease_ByteCompatCommonCase(t *testing.T) {
 	}
 	require.NoError(t, idx.Add(compEntry))
 
-	addComponentTypeWithSpec(t, idx, "service",
+	addComponentTypeWithSpec(t, idx,
 		map[string]any{
 			"workloadType": "deployment",
 			"resources": []any{
