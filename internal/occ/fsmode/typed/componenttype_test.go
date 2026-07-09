@@ -6,7 +6,6 @@ package typed
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -53,37 +52,6 @@ func TestNewComponentType(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.NotNil(t, ct)
-		})
-	}
-}
-
-func TestComponentTypeWorkloadType(t *testing.T) {
-	tests := []struct {
-		name         string
-		workloadType string
-		want         string
-	}{
-		{
-			name:         "present",
-			workloadType: "deployment",
-			want:         "deployment",
-		},
-		{
-			name:         "empty",
-			workloadType: "",
-			want:         "",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ct := &ComponentType{
-				ComponentType: &v1alpha1.ComponentType{
-					Spec: v1alpha1.ComponentTypeSpec{
-						WorkloadType: tt.workloadType,
-					},
-				},
-			}
-			assert.Equal(t, tt.want, ct.WorkloadType())
 		})
 	}
 }

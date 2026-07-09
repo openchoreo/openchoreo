@@ -23,8 +23,3 @@ func NewClusterComponentType(entry *index.ResourceEntry) (*ClusterComponentType,
 	}
 	return &ClusterComponentType{ClusterComponentType: cct}, nil
 }
-
-// WorkloadType returns the workload type
-func (cct *ClusterComponentType) WorkloadType() string {
-	return cct.Spec.WorkloadType
-}

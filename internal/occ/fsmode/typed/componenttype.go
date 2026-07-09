@@ -23,8 +23,3 @@ func NewComponentType(entry *index.ResourceEntry) (*ComponentType, error) {
 	}
 	return &ComponentType{ComponentType: ct}, nil
 }
-
-// WorkloadType returns the workload type
-func (ct *ComponentType) WorkloadType() string {
-	return ct.Spec.WorkloadType
-}

@@ -177,7 +177,7 @@ func TestGetTypedClusterComponentType(t *testing.T) {
 	t.Run("found", func(t *testing.T) {
 		cct, err := ocIndex.GetTypedClusterComponentType("service")
 		require.NoError(t, err)
-		assert.Equal(t, "deployment", cct.WorkloadType())
+		assert.Equal(t, "deployment", cct.Spec.WorkloadType)
 	})
 
 	t.Run("not found", func(t *testing.T) {
@@ -575,7 +575,7 @@ func TestGetTypedComponentType(t *testing.T) {
 	t.Run("found", func(t *testing.T) {
 		ct, err := ocIndex.GetTypedComponentType("http-service")
 		require.NoError(t, err)
-		assert.Equal(t, "deployment", ct.WorkloadType())
+		assert.Equal(t, "deployment", ct.Spec.WorkloadType)
 	})
 
 	t.Run("not found", func(t *testing.T) {

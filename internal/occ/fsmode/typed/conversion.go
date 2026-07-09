@@ -4,7 +4,6 @@
 package typed
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,27 +27,4 @@ func FromEntry[T any](entry *index.ResourceEntry) (*T, error) {
 	}
 
 	return &obj, nil
-}
-
-// rawExtensionToMap converts a runtime.RawExtension to map[string]interface{} for template processing
-func rawExtensionToMap(raw *runtime.RawExtension) map[string]interface{} {
-	if raw == nil || raw.Raw == nil {
-		return nil
-	}
-
-	var result map[string]interface{}
-	if err := json.Unmarshal(raw.Raw, &result); err != nil {
-		return nil
-	}
-
-	return result
-}
-
-// TraitRef is a convenience type for trait references
-// This mirrors the v1alpha1.ComponentTrait structure but uses map for Parameters
-type TraitRef struct {
-	Kind         string
-	Name         string
-	InstanceName string
-	Parameters   map[string]interface{}
 }
