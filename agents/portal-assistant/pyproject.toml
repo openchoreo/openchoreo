@@ -14,7 +14,7 @@ dependencies = [
     "pyjwt[crypto]>=2.13.0",
     "python-dotenv>=1.0.0",
     "pyyaml>=6.0.0",
-    "uvicorn>=0.49.0",
+    "uvicorn>=0.51.0",
 ]
 
 [dependency-groups]
