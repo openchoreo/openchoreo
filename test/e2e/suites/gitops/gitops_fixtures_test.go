@@ -119,9 +119,27 @@ func platformResourcesYAML() string {
 			Type:                  openchoreov1alpha1.ProjectTypeRef{Kind: openchoreov1alpha1.ProjectTypeRefKindClusterProjectType, Name: "default"},
 		},
 	}
+	// ProjectReleaseBinding deploys the project to the development environment,
+	// creating its cell (DP) namespace. spec.projectRelease is left unset; the
+	// Project controller seeds it once the first ProjectRelease is cut.
+	binding := &openchoreov1alpha1.ProjectReleaseBinding{
+		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "ProjectReleaseBinding"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      projectName + "-" + envDev,
+			Namespace: cpNs,
+			Labels: map[string]string{
+				"openchoreo.dev/project":     projectName,
+				"openchoreo.dev/environment": envDev,
+			},
+		},
+		Spec: openchoreov1alpha1.ProjectReleaseBindingSpec{
+			Owner:       openchoreov1alpha1.ProjectReleaseBindingOwner{ProjectName: projectName},
+			Environment: envDev,
+		},
+	}
 	docs := []any{pipeline}
 	docs = append(docs, envs...)
-	docs = append(docs, proj)
+	docs = append(docs, proj, binding)
 	return mustYAMLDocs(docs...)
 }
 

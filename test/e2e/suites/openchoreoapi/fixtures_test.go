@@ -90,6 +90,25 @@ func newProject(name string) gen.Project {
 	}
 }
 
+// newProjectReleaseBinding returns an unpinned gen.ProjectReleaseBinding for the
+// given project and environment. Binding creation is client-driven, so the suite
+// must create it explicitly for the project's data-plane cell namespace to exist.
+func newProjectReleaseBinding(projectName, env string) gen.ProjectReleaseBinding {
+	return gen.ProjectReleaseBinding{
+		Metadata: gen.ObjectMeta{
+			Name: fmt.Sprintf("%s-%s", projectName, env),
+		},
+		Spec: &gen.ProjectReleaseBindingSpec{
+			Environment: env,
+			Owner: struct {
+				ProjectName string `json:"projectName"`
+			}{
+				ProjectName: projectName,
+			},
+		},
+	}
+}
+
 // newComponent returns a gen.Component for creation, referencing a ClusterComponentType.
 func newComponent(name, projectName, clusterComponentTypeName string) gen.Component {
 	autoDeploy := true
