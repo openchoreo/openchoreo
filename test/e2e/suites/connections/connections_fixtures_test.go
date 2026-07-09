@@ -112,6 +112,15 @@ func platformResourcesYAML(cpNamespace string, environments, projects []string) 
 		})
 	}
 
+	// deployEnv is the root environment components are deployed into (the first
+	// environment in the promotion chain). Each project gets an unpinned
+	// ProjectReleaseBinding for it so the Project's cell (DP) namespace is
+	// created; the Project controller no longer auto-creates these bindings.
+	deployEnv := "development"
+	if len(environments) > 0 {
+		deployEnv = environments[0]
+	}
+
 	for _, proj := range projects {
 		docs = append(docs, &openchoreov1alpha1.Project{
 			TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "Project"},
@@ -125,6 +134,25 @@ func platformResourcesYAML(cpNamespace string, environments, projects []string) 
 			Spec: openchoreov1alpha1.ProjectSpec{
 				DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "default"},
 				Type:                  openchoreov1alpha1.ProjectTypeRef{Kind: openchoreov1alpha1.ProjectTypeRefKindClusterProjectType, Name: "default"},
+			},
+		})
+
+		// ProjectReleaseBinding deploys the project to the root environment,
+		// creating its cell (DP) namespace. spec.projectRelease is left unset;
+		// the Project controller seeds it once the first ProjectRelease is cut.
+		docs = append(docs, &openchoreov1alpha1.ProjectReleaseBinding{
+			TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "ProjectReleaseBinding"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      proj + "-" + deployEnv,
+				Namespace: cpNamespace,
+				Labels: map[string]string{
+					"openchoreo.dev/project":     proj,
+					"openchoreo.dev/environment": deployEnv,
+				},
+			},
+			Spec: openchoreov1alpha1.ProjectReleaseBindingSpec{
+				Owner:       openchoreov1alpha1.ProjectReleaseBindingOwner{ProjectName: proj},
+				Environment: deployEnv,
 			},
 		})
 	}

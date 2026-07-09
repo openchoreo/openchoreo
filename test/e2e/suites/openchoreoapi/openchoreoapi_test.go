@@ -178,6 +178,14 @@ metadata:
 		Expect(getResp.StatusCode()).To(Equal(http.StatusOK))
 		Expect(getResp.JSON200).NotTo(BeNil())
 		Expect(getResp.JSON200.Metadata.Name).To(Equal(projectName))
+
+		By("creating an unpinned ProjectReleaseBinding to provision the cell namespace")
+		prbResp, err := client.CreateProjectReleaseBindingWithResponse(ctx, nsName,
+			newProjectReleaseBinding(projectName, "development"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(prbResp.StatusCode()).To(Equal(http.StatusCreated),
+			"expected 201 for project release binding creation, got %d: %s",
+			prbResp.StatusCode(), string(prbResp.Body))
 	})
 
 	// ── Test 6: ComponentType list + pagination ──────────────────────────

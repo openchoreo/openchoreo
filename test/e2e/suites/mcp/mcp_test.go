@@ -237,6 +237,11 @@ var _ = Describe("MCP Server", Ordered, Label("tier2"), func() {
 			Eventually(func(g Gomega) {
 				framework.AssertResourceExists(g, kubeContext, mcpNs, "project", projectName)
 			}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
+
+			By("creating a ProjectReleaseBinding so the development cell namespace is provisioned")
+			output, err := framework.KubectlApplyLiteral(kubeContext,
+				projectReleaseBindingYAML(mcpNs, projectName, "development"))
+			Expect(err).NotTo(HaveOccurred(), "failed to create ProjectReleaseBinding: %s", output)
 		})
 
 		It("creates a component via MCP", func() {

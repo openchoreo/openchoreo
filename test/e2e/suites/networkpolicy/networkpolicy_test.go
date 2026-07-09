@@ -220,6 +220,22 @@ var _ = Describe("NetworkPolicy Enforcement", Ordered, Label("tier1"), func() {
 		output, err = framework.KubectlApplyLiteral(kubeContext, platformResourcesYAML(cpNsBeta, []string{"development", "staging"}, []string{"proj1"}))
 		Expect(err).NotTo(HaveOccurred(), "failed to apply beta platform resources: %s", output)
 
+		By("creating ProjectReleaseBindings for acme")
+		// Binding creation is client-driven; each (project, environment) we deploy
+		// to needs an unpinned ProjectReleaseBinding for its cell namespace to appear.
+		for _, prb := range []struct{ project, env string }{
+			{"proj1", "development"},
+			{"proj1", "staging"},
+			{"proj2", "development"},
+		} {
+			output, err = framework.KubectlApplyLiteral(kubeContext, projectReleaseBindingYAML(cpNsAcme, prb.project, prb.env))
+			Expect(err).NotTo(HaveOccurred(), "failed to create acme %s/%s ProjectReleaseBinding: %s", prb.project, prb.env, output)
+		}
+
+		By("creating ProjectReleaseBindings for beta")
+		output, err = framework.KubectlApplyLiteral(kubeContext, projectReleaseBindingYAML(cpNsBeta, "proj1", "development"))
+		Expect(err).NotTo(HaveOccurred(), "failed to create beta proj1/development ProjectReleaseBinding: %s", output)
+
 		By("creating Components and Workloads in acme")
 		// comp-a: http-echo with project + namespace + external visibility.
 		output, err = framework.KubectlApplyLiteral(kubeContext, componentYAML(

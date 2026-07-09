@@ -147,7 +147,29 @@ func platformResourcesYAML() string {
 		},
 	}
 
-	return mustYAMLDocs(pipeline, envDevObj, envStgObj, proj)
+	// Binding creation is client-driven: create an unpinned ProjectReleaseBinding
+	// for each environment so the data-plane cell namespaces get created.
+	docs := []any{pipeline, envDevObj, envStgObj, proj}
+	for _, envName := range []string{envDev, envStaging} {
+		binding := &openchoreov1alpha1.ProjectReleaseBinding{
+			TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "ProjectReleaseBinding"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      projectName + "-" + envName,
+				Namespace: cpNs,
+				Labels: map[string]string{
+					"openchoreo.dev/project":     projectName,
+					"openchoreo.dev/environment": envName,
+				},
+			},
+			Spec: openchoreov1alpha1.ProjectReleaseBindingSpec{
+				Owner:       openchoreov1alpha1.ProjectReleaseBindingOwner{ProjectName: projectName},
+				Environment: envName,
+			},
+		}
+		docs = append(docs, binding)
+	}
+
+	return mustYAMLDocs(docs...)
 }
 
 func componentYAML(name, image string, args []string, endpoints map[string]endpointDef, traits []openchoreov1alpha1.ComponentTrait) string {

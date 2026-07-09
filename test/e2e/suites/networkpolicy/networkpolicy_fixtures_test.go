@@ -342,6 +342,29 @@ func unprotectedPodYAML(namespace, name string) string {
 	return mustYAMLDocs(pod, svc)
 }
 
+// projectReleaseBindingYAML creates an unpinned ProjectReleaseBinding for a
+// (project, environment) pair. This is what triggers creation of the data-plane
+// cell namespace; spec.projectRelease is left unset so the Project controller
+// seeds it once the first ProjectRelease is cut.
+func projectReleaseBindingYAML(cpNamespace, project, environment string) string {
+	binding := &openchoreov1alpha1.ProjectReleaseBinding{
+		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "ProjectReleaseBinding"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s", project, environment),
+			Namespace: cpNamespace,
+			Labels: map[string]string{
+				"openchoreo.dev/project":     project,
+				"openchoreo.dev/environment": environment,
+			},
+		},
+		Spec: openchoreov1alpha1.ProjectReleaseBindingSpec{
+			Owner:       openchoreov1alpha1.ProjectReleaseBindingOwner{ProjectName: project},
+			Environment: environment,
+		},
+	}
+	return mustYAMLDocs(binding)
+}
+
 // releaseBindingYAML creates a ReleaseBinding that deploys an existing ComponentRelease
 // to a specific environment. Used to promote a component to staging without autoDeploy.
 func releaseBindingYAML(cpNamespace, project, component, releaseName, environment string) string {
