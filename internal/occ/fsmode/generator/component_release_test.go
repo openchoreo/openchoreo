@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
+	"github.com/openchoreo/openchoreo/internal/occ/fsmode/output"
 	"github.com/openchoreo/openchoreo/pkg/fsindex/index"
 )
 
@@ -208,20 +209,26 @@ func TestGenerateRelease_ManifestShape(t *testing.T) {
 	assert.Equal(t, "deployment/service", ctName)
 	assert.Equal(t, "deployment", ctWorkloadType)
 
-	// Verify spec.traits[]
+	// Verify spec.traits[] (order-independent: BuildSpec assembles traits from a map merge)
 	traitsSlice, ok, _ := unstructured.NestedSlice(release.Object, "spec", "traits")
 	require.True(t, ok, "expected spec.traits to exist")
 	require.Len(t, traitsSlice, 2)
 
-	for i, expected := range []struct{ kind, name string }{
+	traitsByName := map[string]map[string]interface{}{}
+	for i := range traitsSlice {
+		traitMap, ok := traitsSlice[i].(map[string]interface{})
+		require.True(t, ok, "spec.traits[%d] is not a map", i)
+		name, _ := traitMap["name"].(string)
+		traitsByName[name] = traitMap
+	}
+	for _, expected := range []struct{ kind, name string }{
 		{"Trait", "ingress"},
 		{"Trait", "logging"},
 	} {
-		traitMap, ok := traitsSlice[i].(map[string]interface{})
-		require.True(t, ok, "spec.traits[%d] is not a map", i)
-		assert.Equal(t, expected.kind, traitMap["kind"], "spec.traits[%d].kind", i)
-		assert.Equal(t, expected.name, traitMap["name"], "spec.traits[%d].name", i)
-		assert.NotNil(t, traitMap["spec"], "spec.traits[%d].spec should not be nil", i)
+		traitMap, ok := traitsByName[expected.name]
+		require.True(t, ok, "expected trait %q in spec.traits", expected.name)
+		assert.Equal(t, expected.kind, traitMap["kind"], "spec.traits[%s].kind", expected.name)
+		assert.NotNil(t, traitMap["spec"], "spec.traits[%s].spec should not be nil", expected.name)
 	}
 
 	// Verify spec.componentProfile.traits[]
@@ -316,6 +323,83 @@ func addComponentWithKind(t *testing.T, idx *index.Index, namespace, name, proje
 		FilePath: filePath,
 	}
 	require.NoError(t, idx.Add(entry))
+}
+
+// addClusterComponentTypeWithSpec adds a ClusterComponentType with a caller-supplied spec.
+func addClusterComponentTypeWithSpec(t *testing.T, idx *index.Index, name string, spec map[string]any, filePath string) {
+	t.Helper()
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "ClusterComponentType",
+				"metadata":   map[string]any{"name": name},
+				"spec":       spec,
+			},
+		},
+		FilePath: filePath,
+	}
+	require.NoError(t, idx.Add(entry))
+}
+
+// TestGenerateRelease_ClusterComponentTypeValidationsPreserved verifies that converting a
+// ClusterComponentType into the frozen componentType.spec preserves preRenderValidations and
+// postRenderValidations (fields a hand-rolled conversion is prone to silently drop).
+func TestGenerateRelease_ClusterComponentTypeValidationsPreserved(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+		releaseName   = "my-svc-release-1"
+	)
+
+	idx := index.New("/repo")
+
+	addComponentWithKind(t, idx, namespace, componentName, projectName, "deployment/service",
+		"ClusterComponentType",
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	addClusterComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources": []any{
+				map[string]any{"id": "deployment", "template": map[string]any{"apiVersion": "apps/v1", "kind": "Deployment"}},
+			},
+			"preRenderValidations": []any{
+				map[string]any{"rule": "${parameters.replicas > 0}", "message": "replicas must be positive"},
+			},
+			"postRenderValidations": []any{
+				map[string]any{
+					"target":  map[string]any{"group": "apps", "version": "v1", "kind": "Deployment"},
+					"rule":    "${object.spec.replicas > 0}",
+					"message": "rendered replicas must be positive",
+				},
+			},
+		},
+		"/repo/platform/cluster-component-types/service.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": "reg/my-svc:v1"}},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   releaseName,
+	})
+	require.NoError(t, err)
+
+	preRender, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentType", "spec", "preRenderValidations")
+	require.True(t, ok, "expected componentType.spec.preRenderValidations to be preserved")
+	require.Len(t, preRender, 1)
+
+	postRender, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentType", "spec", "postRenderValidations")
+	require.True(t, ok, "expected componentType.spec.postRenderValidations to be preserved")
+	require.Len(t, postRender, 1)
 }
 
 func TestGenerateRelease_ClusterComponentType(t *testing.T) {
@@ -775,8 +859,10 @@ func TestGenerateRelease_WithComponentParameters(t *testing.T) {
 	// Verify componentProfile.parameters is present
 	params, ok, _ := unstructured.NestedMap(release.Object, "spec", "componentProfile", "parameters")
 	require.True(t, ok, "expected spec.componentProfile.parameters")
-	assert.Equal(t, float64(8080), params["port"])
-	assert.Equal(t, float64(3), params["replicas"])
+	// Typed conversion preserves whole-number parameters as int64; EqualValues ignores the
+	// numeric concrete type (file/YAML output and CompareReleaseSpecs normalize both alike).
+	assert.EqualValues(t, 8080, params["port"])
+	assert.EqualValues(t, 3, params["replicas"])
 }
 
 func TestGenerateRelease_DuplicateTraitsDeduped(t *testing.T) {
@@ -859,4 +945,351 @@ func TestGenerateRelease_WorkloadWithoutEndpoints(t *testing.T) {
 	assert.NotNil(t, workload["container"], "expected spec.workload.container to exist")
 	assert.Nil(t, workload["endpoints"], "expected spec.workload.endpoints to be absent")
 	assert.Nil(t, workload["connections"], "expected spec.workload.connections to be absent")
+}
+
+// addComponentTypeWithSpec adds a ComponentType with a caller-supplied spec to the index.
+func addComponentTypeWithSpec(t *testing.T, idx *index.Index, name string, spec map[string]any, filePath string) {
+	t.Helper()
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "ComponentType",
+				"metadata":   map[string]any{"name": name, "namespace": "default"},
+				"spec":       spec,
+			},
+		},
+		FilePath: filePath,
+	}
+	require.NoError(t, idx.Add(entry))
+}
+
+// TestGenerateRelease_FullComponentTypeSpecPreserved verifies that the frozen componentType.spec
+// carries allowedTraits, allowedWorkflows, validations, and embedded traits, and that embedded
+// ComponentType traits are resolved into the frozen spec.traits snapshot.
+func TestGenerateRelease_FullComponentTypeSpecPreserved(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+		releaseName   = "my-svc-release-1"
+	)
+
+	idx := index.New("/repo")
+
+	addComponentWithTraits(t, idx, namespace, nil,
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	addComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources": []any{
+				map[string]any{
+					"id":       "deployment",
+					"template": map[string]any{"apiVersion": "apps/v1", "kind": "Deployment"},
+				},
+			},
+			"traits": []any{
+				map[string]any{"kind": "Trait", "name": "sidecar", "instanceName": "sidecar-1"},
+			},
+			"allowedTraits": []any{
+				map[string]any{"kind": "Trait", "name": "ingress"},
+			},
+			"allowedWorkflows": []any{
+				map[string]any{"kind": "ClusterWorkflow", "name": "buildpack"},
+			},
+			"validations": []any{
+				map[string]any{"rule": "${parameters.replicas > 0}", "message": "replicas must be positive"},
+			},
+		},
+		"/repo/platform/component-types/service.yaml")
+
+	addTrait(t, idx, "sidecar",
+		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}}},
+		"/repo/platform/traits/sidecar.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": "reg/my-svc:v1"}},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   releaseName,
+	})
+	require.NoError(t, err)
+
+	allowedTraits, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentType", "spec", "allowedTraits")
+	require.True(t, ok, "expected componentType.spec.allowedTraits")
+	require.Len(t, allowedTraits, 1)
+
+	allowedWorkflows, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentType", "spec", "allowedWorkflows")
+	require.True(t, ok, "expected componentType.spec.allowedWorkflows")
+	require.Len(t, allowedWorkflows, 1)
+
+	validations, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentType", "spec", "validations")
+	require.True(t, ok, "expected componentType.spec.validations")
+	require.Len(t, validations, 1)
+
+	embeddedTraits, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentType", "spec", "traits")
+	require.True(t, ok, "expected componentType.spec.traits (embedded)")
+	require.Len(t, embeddedTraits, 1)
+
+	// The embedded trait must be resolved into the frozen spec.traits snapshot.
+	traitsSlice, ok, _ := unstructured.NestedSlice(release.Object, "spec", "traits")
+	require.True(t, ok, "expected spec.traits to contain the embedded trait")
+	require.Len(t, traitsSlice, 1)
+	sidecar := traitsSlice[0].(map[string]interface{})
+	assert.Equal(t, "Trait", sidecar["kind"])
+	assert.Equal(t, "sidecar", sidecar["name"])
+	assert.NotNil(t, sidecar["spec"])
+}
+
+// TestGenerateRelease_MissingEmbeddedTraitErrors verifies that a trait embedded in the
+// ComponentType but absent from the index produces an error.
+func TestGenerateRelease_MissingEmbeddedTraitErrors(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+	)
+
+	idx := index.New("/repo")
+
+	addComponentWithTraits(t, idx, namespace, nil,
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	addComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources": []any{
+				map[string]any{"id": "deployment", "template": map[string]any{"apiVersion": "apps/v1", "kind": "Deployment"}},
+			},
+			"traits": []any{
+				map[string]any{"kind": "Trait", "name": "sidecar", "instanceName": "sidecar-1"},
+			},
+		},
+		"/repo/platform/component-types/service.yaml")
+
+	// Note: Trait "sidecar" is NOT added to the index.
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": "reg/my-svc:v1"}},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	_, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   "test-release",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "sidecar")
+}
+
+// TestGenerateRelease_WorkloadDependencyResourcesPreserved verifies that
+// workload.dependencies.resources survives into the frozen workload snapshot.
+func TestGenerateRelease_WorkloadDependencyResourcesPreserved(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "doclet"
+		componentName = "document-svc"
+		releaseName   = "document-svc-abc123"
+	)
+
+	idx := index.New("/repo")
+
+	addComponent(t, idx, componentName, projectName, "deployment/service",
+		"/repo/projects/doclet/components/document-svc/component.yaml")
+
+	addComponentType(t, idx, "service", "deployment",
+		"/repo/platform/component-types/service.yaml")
+
+	addWorkload(t, idx, namespace, "document-svc-workload", projectName, componentName,
+		map[string]any{
+			"container": map[string]any{"image": "reg/document-svc:v1"},
+			"dependencies": map[string]any{
+				"resources": []any{
+					map[string]any{
+						"ref":         "app-db",
+						"envBindings": map[string]any{"connectionString": "DATABASE_URL"},
+					},
+				},
+			},
+		},
+		"/repo/projects/doclet/components/document-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   releaseName,
+	})
+	require.NoError(t, err)
+
+	resources, ok, err := unstructured.NestedSlice(release.Object, "spec", "workload", "dependencies", "resources")
+	require.NoError(t, err)
+	require.True(t, ok, "expected spec.workload.dependencies.resources to be preserved")
+	require.Len(t, resources, 1)
+
+	res := resources[0].(map[string]interface{})
+	assert.Equal(t, "app-db", res["ref"])
+}
+
+// TestGenerateRelease_ByteCompatCommonCase pins the claim that when a ComponentType/Workload
+// uses none of the fields the old hand-rolled generator dropped (allowedTraits, allowedWorkflows,
+// validations, embedded traits, workload.dependencies.resources), the new BuildSpec-based output
+// still spec-matches a release produced in the old format. This guarantees the common case does
+// not invalidate previously generated release files.
+func TestGenerateRelease_ByteCompatCommonCase(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+		releaseName   = "my-svc-release-1"
+	)
+
+	idx := index.New("/repo")
+
+	// Component with a parameter and a single namespace-scoped trait.
+	compEntry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "Component",
+				"metadata":   map[string]any{"name": componentName, "namespace": namespace},
+				"spec": map[string]any{
+					"owner":         map[string]any{"projectName": projectName},
+					"componentType": map[string]any{"name": "deployment/service", "kind": "ComponentType"},
+					"parameters":    map[string]any{"replicas": int64(2)},
+					"traits": []any{
+						map[string]any{"kind": "Trait", "name": "ingress", "instanceName": "ingress-1"},
+					},
+				},
+			},
+		},
+		FilePath: "/repo/projects/myproj/components/my-svc/component.yaml",
+	}
+	require.NoError(t, idx.Add(compEntry))
+
+	addComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources": []any{
+				map[string]any{
+					"id":       "deployment",
+					"template": map[string]any{"apiVersion": "apps/v1", "kind": "Deployment"},
+				},
+			},
+		},
+		"/repo/platform/component-types/service.yaml")
+
+	addTrait(t, idx, "ingress",
+		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "networking.k8s.io/v1", "kind": "Ingress"}}}},
+		"/repo/platform/traits/ingress.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{
+			"container": map[string]any{"image": "reg/my-svc:v1"},
+			"endpoints": map[string]any{
+				"http": map[string]any{"type": "HTTP", "port": int64(8080)},
+			},
+			"dependencies": map[string]any{
+				"endpoints": []any{
+					map[string]any{
+						"component":   "db",
+						"name":        "tcp",
+						"visibility":  "project",
+						"envBindings": map[string]any{"address": "DB_URL"},
+					},
+				},
+			},
+		},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   releaseName,
+	})
+	require.NoError(t, err)
+
+	// Hand-authored release in the shape the old generator emitted for this fixture.
+	oldFormat := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "openchoreo.dev/v1alpha1",
+			"kind":       "ComponentRelease",
+			"metadata":   map[string]any{"name": releaseName, "namespace": namespace},
+			"spec": map[string]any{
+				"owner": map[string]any{
+					"componentName": componentName,
+					"projectName":   projectName,
+				},
+				"componentType": map[string]any{
+					"kind": "ComponentType",
+					"name": "deployment/service",
+					"spec": map[string]any{
+						"workloadType": "deployment",
+						"resources": []any{
+							map[string]any{
+								"id":       "deployment",
+								"template": map[string]any{"apiVersion": "apps/v1", "kind": "Deployment"},
+							},
+						},
+					},
+				},
+				"traits": []any{
+					map[string]any{
+						"kind": "Trait",
+						"name": "ingress",
+						"spec": map[string]any{
+							"creates": []any{
+								map[string]any{"template": map[string]any{"apiVersion": "networking.k8s.io/v1", "kind": "Ingress"}},
+							},
+						},
+					},
+				},
+				"componentProfile": map[string]any{
+					"parameters": map[string]any{"replicas": int64(2)},
+					"traits": []any{
+						map[string]any{"kind": "Trait", "name": "ingress", "instanceName": "ingress-1"},
+					},
+				},
+				"workload": map[string]any{
+					"container": map[string]any{"image": "reg/my-svc:v1"},
+					"endpoints": map[string]any{
+						"http": map[string]any{"type": "HTTP", "port": int64(8080)},
+					},
+					"dependencies": map[string]any{
+						"endpoints": []any{
+							map[string]any{
+								"component":   "db",
+								"name":        "tcp",
+								"visibility":  "project",
+								"envBindings": map[string]any{"address": "DB_URL"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	equal, err := output.CompareReleaseSpecs(release, oldFormat)
+	require.NoError(t, err)
+	assert.True(t, equal, "new BuildSpec output must spec-match the old-format release for the common case")
 }
