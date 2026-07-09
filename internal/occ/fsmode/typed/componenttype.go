@@ -24,58 +24,6 @@ func NewComponentType(entry *index.ResourceEntry) (*ComponentType, error) {
 	return &ComponentType{ComponentType: ct}, nil
 }
 
-// GetSchema returns the schema as a map for template processing
-func (ct *ComponentType) GetSchema() map[string]interface{} {
-	schema := make(map[string]interface{})
-
-	if params := ct.Spec.Parameters.GetRaw(); params != nil {
-		schema["parameters"] = map[string]interface{}{
-			"openAPIV3Schema": rawExtensionToMap(params),
-		}
-	}
-	if envConfig := ct.Spec.EnvironmentConfigs.GetRaw(); envConfig != nil {
-		schema["environmentConfigs"] = map[string]interface{}{
-			"openAPIV3Schema": rawExtensionToMap(envConfig),
-		}
-	}
-
-	return schema
-}
-
-// GetResources returns the resource templates as a slice for template processing
-func (ct *ComponentType) GetResources() []interface{} {
-	if len(ct.Spec.Resources) == 0 {
-		return nil
-	}
-
-	resources := make([]interface{}, len(ct.Spec.Resources))
-	for i, res := range ct.Spec.Resources {
-		resourceMap := map[string]interface{}{
-			"id": res.ID,
-		}
-
-		if res.TargetPlane != "" {
-			resourceMap["targetPlane"] = res.TargetPlane
-		}
-		if res.IncludeWhen != "" {
-			resourceMap["includeWhen"] = res.IncludeWhen
-		}
-		if res.ForEach != "" {
-			resourceMap["forEach"] = res.ForEach
-		}
-		if res.Var != "" {
-			resourceMap["var"] = res.Var
-		}
-		if res.Template != nil {
-			resourceMap["template"] = rawExtensionToMap(res.Template)
-		}
-
-		resources[i] = resourceMap
-	}
-
-	return resources
-}
-
 // WorkloadType returns the workload type
 func (ct *ComponentType) WorkloadType() string {
 	return ct.Spec.WorkloadType
