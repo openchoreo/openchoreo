@@ -760,6 +760,192 @@ func TestGenerateBulkBindings(t *testing.T) {
 	})
 }
 
+// addTraitUsingComponent adds a Component that references a component-level trait,
+// a ComponentType carrying an embedded trait plus allowedTraits and validations, the
+// two referenced Traits, and a Workload. This produces a "full-spec" expected release
+// exercising every legacy-projection branch (componentType.spec extras, embedded-trait
+// entries in spec.traits, and component-level traits in componentProfile).
+func addTraitUsingComponent(t *testing.T, idx *index.Index, namespace, projectName, componentName, componentTypeName, image string) {
+	t.Helper()
+
+	componentEntry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "Component",
+				"metadata": map[string]any{
+					"name":      componentName,
+					"namespace": namespace,
+				},
+				"spec": map[string]any{
+					"owner": map[string]any{"projectName": projectName},
+					"componentType": map[string]any{
+						"name": componentTypeName,
+						"kind": "ComponentType",
+					},
+					"traits": []any{
+						map[string]any{"kind": "Trait", "name": "logging", "instanceName": "logging-1"},
+					},
+				},
+			},
+		},
+		FilePath: "/repo/projects/" + projectName + "/components/" + componentName + ".yaml",
+	}
+	require.NoError(t, idx.Add(componentEntry))
+
+	ctEntry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "ComponentType",
+				"metadata": map[string]any{
+					"name":      componentTypeName,
+					"namespace": namespace,
+				},
+				"spec": map[string]any{
+					"workloadType": "deployment",
+					"resources":    []any{},
+					"traits": []any{
+						map[string]any{"kind": "Trait", "name": "sidecar", "instanceName": "sidecar-1"},
+					},
+					"allowedTraits": []any{
+						map[string]any{"kind": "Trait", "name": "logging"},
+					},
+					"validations": []any{
+						map[string]any{"rule": "${true}", "message": "always ok"},
+					},
+				},
+			},
+		},
+		FilePath: "/repo/component-types/" + componentTypeName + ".yaml",
+	}
+	require.NoError(t, idx.Add(ctEntry))
+
+	addTrait(t, idx, "logging",
+		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}}},
+		"/repo/traits/logging.yaml")
+	addTrait(t, idx, "sidecar",
+		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": "Service"}}}},
+		"/repo/traits/sidecar.yaml")
+	addWorkload(t, idx, namespace, componentName+"-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": image}},
+		"/repo/projects/"+projectName+"/components/"+componentName+"/workload.yaml")
+}
+
+// stripToLegacyShape returns a deep copy of a generated ComponentRelease reduced to the
+// shape an older occ version (pre-BuildSpec) would have written on disk: the extended
+// ComponentType spec fields, embedded-trait entries, and workload dependency resources
+// were never emitted. embeddedTraitNames lists the embedded (ComponentType) trait names
+// to drop from spec.traits. This is an independent reconstruction of the old format, not
+// a call into the production projection, so the test does not trivially mirror it.
+func stripToLegacyShape(t *testing.T, release *unstructured.Unstructured, embeddedTraitNames ...string) *unstructured.Unstructured {
+	t.Helper()
+	legacy := release.DeepCopy()
+
+	for _, f := range []string{"allowedTraits", "allowedWorkflows", "validations", "preRenderValidations", "postRenderValidations"} {
+		unstructured.RemoveNestedField(legacy.Object, "spec", "componentType", "spec", f)
+	}
+	unstructured.RemoveNestedField(legacy.Object, "spec", "workload", "dependencies", "resources")
+
+	drop := map[string]struct{}{}
+	for _, n := range embeddedTraitNames {
+		drop[n] = struct{}{}
+	}
+	traits, found, _ := unstructured.NestedSlice(legacy.Object, "spec", "traits")
+	if found {
+		kept := make([]any, 0, len(traits))
+		for _, tr := range traits {
+			trm, _ := tr.(map[string]interface{})
+			name, _ := trm["name"].(string)
+			if _, isEmbedded := drop[name]; isEmbedded {
+				continue
+			}
+			kept = append(kept, tr)
+		}
+		require.NoError(t, unstructured.SetNestedSlice(legacy.Object, kept, "spec", "traits"))
+	}
+	return legacy
+}
+
+func TestSelectComponentRelease_LegacyFormatRelease(t *testing.T) {
+	const (
+		namespace         = "test-ns"
+		projectName       = "my-proj"
+		componentName     = "my-comp"
+		componentTypeName = "my-type"
+		releaseName       = "my-comp-20250101-0"
+		image             = "reg/my-comp:v1"
+	)
+
+	idx := index.New("/repo")
+	addTraitUsingComponent(t, idx, namespace, projectName, componentName, componentTypeName, image)
+
+	// Generate the full-spec expected release, then reduce it to the old on-disk shape.
+	expected := generateMatchingRelease(t, idx, releaseName, projectName, componentName)
+	legacy := stripToLegacyShape(t, expected, "sidecar")
+	require.NoError(t, idx.Add(&index.ResourceEntry{
+		Resource: legacy,
+		FilePath: "/repo/projects/my-proj/components/my-comp/releases/" + releaseName + ".yaml",
+	}))
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewBindingGenerator(ocIndex)
+
+	_, err := gen.GenerateBinding(BindingOptions{
+		ProjectName:   projectName,
+		ComponentName: componentName,
+		TargetEnv:     "dev",
+		PipelineInfo:  newTestPipelineInfo(),
+		Namespace:     namespace,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), releaseName, "legacy error must name the offending release")
+	assert.Contains(t, err.Error(), "older occ version")
+	assert.Contains(t, err.Error(), "componentrelease generate")
+	assert.NotContains(t, err.Error(), "no matching release found",
+		"legacy match must not fall through to the generic no-match error")
+}
+
+func TestSelectComponentRelease_DifferentReleaseNotLegacy(t *testing.T) {
+	const (
+		namespace         = "test-ns"
+		projectName       = "my-proj"
+		componentName     = "my-comp"
+		componentTypeName = "my-type"
+		releaseName       = "my-comp-20250101-0"
+		image             = "reg/my-comp:v2"
+	)
+
+	idx := index.New("/repo")
+	addTraitUsingComponent(t, idx, namespace, projectName, componentName, componentTypeName, image)
+
+	// Build an old-shape release, then genuinely diverge it by changing the workload image
+	// so it must NOT be treated as a legacy match.
+	expected := generateMatchingRelease(t, idx, releaseName, projectName, componentName)
+	legacy := stripToLegacyShape(t, expected, "sidecar")
+	require.NoError(t, unstructured.SetNestedField(legacy.Object, "reg/my-comp:OTHER",
+		"spec", "workload", "container", "image"))
+	require.NoError(t, idx.Add(&index.ResourceEntry{
+		Resource: legacy,
+		FilePath: "/repo/projects/my-proj/components/my-comp/releases/" + releaseName + ".yaml",
+	}))
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewBindingGenerator(ocIndex)
+
+	_, err := gen.GenerateBinding(BindingOptions{
+		ProjectName:   projectName,
+		ComponentName: componentName,
+		TargetEnv:     "dev",
+		PipelineInfo:  newTestPipelineInfo(),
+		Namespace:     namespace,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no matching release found for current component state")
+	assert.NotContains(t, err.Error(), "older occ version",
+		"a genuinely different release must not be reported as a legacy match")
+}
+
 // addReleaseBinding adds a ReleaseBinding resource entry to the index.
 func addReleaseBinding(t *testing.T, idx *index.Index, namespace, name, project, component, env, releaseName, filePath string) {
 	t.Helper()
