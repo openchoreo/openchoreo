@@ -82,6 +82,7 @@ RUN cp /tmp/install/quick-start/.bash_profile ${USER_HOME}/.bash_profile && \
     cp /tmp/install/k3d/preload-images.sh ${USER_HOME}/.preload-images.sh && \
     mkdir -p ${USER_HOME}/install/k3d/common && \
     cp /tmp/install/k3d/common/values-thunder.yaml ${USER_HOME}/install/k3d/common/values-thunder.yaml && \
+    cp /tmp/install/k3d/common/values-openbao.yaml ${USER_HOME}/install/k3d/common/values-openbao.yaml && \
     cp /tmp/install/k3d/common/coredns-custom.yaml ${USER_HOME}/install/k3d/common/coredns-custom.yaml && \
     cp /tmp/install/k3d/common/gateway-tmp-volume-patch.json ${USER_HOME}/install/k3d/common/gateway-tmp-volume-patch.json && \
     cp -r /tmp/samples ${USER_HOME}/samples && \
