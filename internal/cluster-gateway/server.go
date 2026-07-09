@@ -49,6 +49,7 @@ type Connection interface {
 type Server struct {
 	config                *Config
 	httpServer            *http.Server
+	internalServer        *http.Server
 	healthServer          *http.Server
 	upgrader              websocket.Upgrader
 	connMgr               *ConnectionManager
@@ -115,15 +116,19 @@ func (s *Server) Start() error {
 		"note", "Client certificate verification performed at application level per DataPlane/WorkflowPlane CR",
 	)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/ws", s.handleWebSocket)
-	mux.HandleFunc("/api/proxy/", s.handleHTTPProxy)   // HTTP proxy to data plane services
-	mux.HandleFunc("/api/exec/", s.handleExec)         // WebSocket exec proxy to data plane pods
-	mux.HandleFunc("/api/wirelogs/", s.handleWirelogs) // WebSocket wirelogs (Cilium Hubble flow) stream
+	// Public listener: agent WebSocket only (reached by remote data planes).
+	publicMux := http.NewServeMux()
+	publicMux.HandleFunc("/ws", s.handleWebSocket)
+
+	// Internal listener: caller-facing /api/* for in-cluster components only.
+	internalMux := http.NewServeMux()
+	internalMux.HandleFunc("/api/proxy/", s.handleHTTPProxy)   // HTTP proxy to data plane services
+	internalMux.HandleFunc("/api/exec/", s.handleExec)         // WebSocket exec proxy to data plane pods
+	internalMux.HandleFunc("/api/wirelogs/", s.handleWirelogs) // WebSocket wirelogs (Cilium Hubble flow) stream
 
 	// Register plane lifecycle API (for controller notifications and status queries)
 	planeAPI := NewPlaneAPI(s.connMgr, s, s.logger)
-	planeAPI.RegisterRoutes(mux)
+	planeAPI.RegisterRoutes(internalMux)
 	s.logger.Info("plane API registered",
 		"endpoints", []string{
 			"/api/v1/planes/notify",
@@ -135,8 +140,17 @@ func (s *Server) Start() error {
 
 	s.httpServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.config.Port),
-		Handler:      mux,
+		Handler:      publicMux,
 		TLSConfig:    tlsConfig,
+		ReadTimeout:  s.config.ReadTimeout,
+		WriteTimeout: s.config.WriteTimeout,
+		IdleTimeout:  s.config.IdleTimeout,
+	}
+
+	s.internalServer = &http.Server{
+		Addr:         fmt.Sprintf(":%d", s.config.InternalPort),
+		Handler:      internalMux,
+		TLSConfig:    tlsConfig.Clone(),
 		ReadTimeout:  s.config.ReadTimeout,
 		WriteTimeout: s.config.WriteTimeout,
 		IdleTimeout:  s.config.IdleTimeout,
@@ -157,14 +171,24 @@ func (s *Server) Start() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	serverErrors := make(chan error, 2)
+	serverErrors := make(chan error, 3)
 
 	go func() {
-		s.logger.Info("agent server starting",
+		s.logger.Info("public agent server starting",
 			"port", s.config.Port,
+			"endpoints", "/ws",
 			"tls", "enabled",
 		)
 		serverErrors <- s.httpServer.ListenAndServeTLS("", "")
+	}()
+
+	go func() {
+		s.logger.Info("internal API server starting",
+			"port", s.config.InternalPort,
+			"endpoints", "/api/*",
+			"tls", "enabled",
+		)
+		serverErrors <- s.internalServer.ListenAndServeTLS("", "")
 	}()
 
 	go func() {
@@ -190,6 +214,15 @@ func (s *Server) Start() error {
 		if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
 			s.logger.Error("main server shutdown error", "error", err)
 			shutdownErr = fmt.Errorf("main server shutdown failed: %w", err)
+		}
+
+		if err := s.internalServer.Shutdown(shutdownCtx); err != nil {
+			s.logger.Error("internal server shutdown error", "error", err)
+			if shutdownErr != nil {
+				shutdownErr = fmt.Errorf("%w; internal server shutdown failed: %w", shutdownErr, err)
+			} else {
+				shutdownErr = fmt.Errorf("internal server shutdown failed: %w", err)
+			}
 		}
 
 		if err := s.healthServer.Shutdown(shutdownCtx); err != nil {

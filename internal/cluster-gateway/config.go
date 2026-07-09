@@ -8,6 +8,7 @@ import "time"
 // Config holds configuration for the agent server
 type Config struct {
 	Port                 int
+	InternalPort         int
 	ServerCertPath       string
 	ServerKeyPath        string
 	SkipClientCertVerify bool

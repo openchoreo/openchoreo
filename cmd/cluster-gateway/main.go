@@ -21,6 +21,7 @@ import (
 
 const (
 	defaultPort              = 8443
+	defaultInternalPort      = 8444
 	defaultReadTimeout       = 60 * time.Second
 	defaultWriteTimeout      = 60 * time.Second
 	defaultIdleTimeout       = 120 * time.Second
@@ -41,6 +42,7 @@ func init() {
 func main() {
 	var (
 		port                 int
+		internalPort         int
 		serverCertPath       string
 		serverKeyPath        string
 		skipClientCertVerify bool
@@ -53,7 +55,11 @@ func main() {
 		logLevel             string
 	)
 
-	flag.IntVar(&port, "port", cmdutil.GetEnvInt("AGENT_SERVER_PORT", defaultPort), "Server port")
+	flag.IntVar(&port, "port", cmdutil.GetEnvInt("AGENT_SERVER_PORT", defaultPort),
+		"Public server port serving the agent WebSocket endpoint (/ws)")
+	flag.IntVar(&internalPort, "internal-port", cmdutil.GetEnvInt("AGENT_INTERNAL_PORT", defaultInternalPort),
+		"Internal server port serving the caller-facing /api/* endpoints "+
+			"(in-cluster callers only; not exposed outside the cluster)")
 	flag.StringVar(&serverCertPath, "server-cert",
 		cmdutil.GetEnv("SERVER_CERT_PATH", "/certs/tls.crt"),
 		"Path to server certificate")
@@ -76,6 +82,7 @@ func main() {
 
 	logger.Info("starting OpenChoreo Cluster Gateway",
 		"port", port,
+		"internalPort", internalPort,
 		"serverCert", serverCertPath,
 		"serverKey", serverKeyPath,
 		"heartbeatInterval", heartbeatInterval,
@@ -100,6 +107,7 @@ func main() {
 
 	config := &clustergateway.Config{
 		Port:                 port,
+		InternalPort:         internalPort,
 		ServerCertPath:       serverCertPath,
 		ServerKeyPath:        serverKeyPath,
 		SkipClientCertVerify: skipClientCertVerify,
