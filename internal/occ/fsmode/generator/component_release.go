@@ -14,6 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/occ/fsmode"
+	componentvalidation "github.com/openchoreo/openchoreo/internal/validation/component"
 )
 
 const (
@@ -82,6 +83,16 @@ func (g *ReleaseGenerator) GenerateRelease(opts ReleaseOptions) (*unstructured.U
 		ctSpec = cct.Spec.ToComponentTypeSpec()
 	default:
 		return nil, fmt.Errorf("unsupported component type kind %q for component %q", ctKind, opts.ComponentName)
+	}
+
+	// Enforce the same pre-build validation the controller and API server run: component-level
+	// traits must be permitted by allowedTraits, and trait instance names must be unique across
+	// embedded and component-level traits.
+	if err := componentvalidation.ValidateAllowedTraits(comp.Spec.Traits, ctSpec.AllowedTraits); err != nil {
+		return nil, fmt.Errorf("component %q trait validation failed: %w", opts.ComponentName, err)
+	}
+	if err := componentvalidation.ValidateTraitInstanceNameUniqueness(comp.Spec.Traits, ctSpec.Traits); err != nil {
+		return nil, fmt.Errorf("component %q trait validation failed: %w", opts.ComponentName, err)
 	}
 
 	// Gather every Trait/ClusterTrait referenced by both the embedded ComponentType traits

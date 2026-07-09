@@ -168,7 +168,17 @@ func TestGenerateRelease_ManifestShape(t *testing.T) {
 		},
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
-	addComponentType(t, idx, "service", "deployment",
+	addComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources":    []any{},
+			"schema":       map[string]any{},
+			"allowedTraits": []any{
+				map[string]any{"kind": "Trait", "name": "ingress"},
+				// The component-level "logging" trait omits kind; allowedTraits matches literally.
+				map[string]any{"name": "logging"},
+			},
+		},
 		"/repo/platform/component-types/service.yaml")
 
 	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
@@ -461,7 +471,15 @@ func TestGenerateRelease_ClusterTrait(t *testing.T) {
 		},
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
-	addComponentType(t, idx, "service", "deployment",
+	addComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources":    []any{},
+			"schema":       map[string]any{},
+			"allowedTraits": []any{
+				map[string]any{"kind": "ClusterTrait", "name": "global-ingress"},
+			},
+		},
 		"/repo/platform/component-types/service.yaml")
 
 	addClusterTrait(t, idx, "global-ingress",
@@ -523,7 +541,15 @@ func TestGenerateRelease_MissingClusterTraitErrors(t *testing.T) {
 		},
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
-	addComponentType(t, idx, "service", "deployment",
+	addComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources":    []any{},
+			"schema":       map[string]any{},
+			"allowedTraits": []any{
+				map[string]any{"kind": "ClusterTrait", "name": "global-ingress"},
+			},
+		},
 		"/repo/platform/component-types/service.yaml")
 
 	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
@@ -798,7 +824,16 @@ func TestGenerateRelease_UnsupportedTraitKindErrors(t *testing.T) {
 		},
 		"/repo/projects/myproj/components/my-svc/component.yaml")
 
-	addComponentType(t, idx, "service", "deployment",
+	// allowedTraits permits the trait so validation passes and gatherTraits reports the bad kind.
+	addComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources":    []any{},
+			"schema":       map[string]any{},
+			"allowedTraits": []any{
+				map[string]any{"kind": "UnknownTraitKind", "name": "my-trait"},
+			},
+		},
 		"/repo/platform/component-types/service.yaml")
 
 	addWorkload(t, idx, "default", "my-svc-workload", "myproj", "my-svc",
@@ -876,7 +911,16 @@ func TestGenerateRelease_DuplicateTraitsDeduped(t *testing.T) {
 		},
 		"/repo/comp.yaml")
 
-	addComponentType(t, idx, "service", "deployment", "/repo/ct.yaml")
+	addComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources":    []any{},
+			"schema":       map[string]any{},
+			"allowedTraits": []any{
+				map[string]any{"kind": "Trait", "name": "ingress"},
+			},
+		},
+		"/repo/ct.yaml")
 	addTrait(t, idx, "ingress", map[string]any{}, "/repo/traits/ingress.yaml")
 	addWorkload(t, idx, "default", "my-svc-workload", "myproj", "my-svc",
 		map[string]any{"container": map[string]any{"image": "img:v1"}}, "/repo/wl.yaml")
@@ -1049,6 +1093,109 @@ func TestGenerateRelease_FullComponentTypeSpecPreserved(t *testing.T) {
 	assert.NotNil(t, sidecar["spec"])
 }
 
+// TestGenerateRelease_TraitNotInAllowedTraitsErrors verifies that a component-level trait
+// that is not listed in the ComponentType's allowedTraits is rejected, matching the
+// validation the API service and controller run before building the release spec.
+func TestGenerateRelease_TraitNotInAllowedTraitsErrors(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+	)
+
+	idx := index.New("/repo")
+
+	addComponentWithTraits(t, idx, namespace,
+		[]map[string]any{
+			{"kind": "Trait", "name": "ingress", "instanceName": "ingress-1"},
+		},
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	// allowedTraits permits only "logging", so the component-level "ingress" is disallowed.
+	addComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources":    []any{},
+			"allowedTraits": []any{
+				map[string]any{"kind": "Trait", "name": "logging"},
+			},
+		},
+		"/repo/platform/component-types/service.yaml")
+
+	// The trait exists in the index so that, absent validation, the release would build cleanly.
+	addTrait(t, idx, "ingress", map[string]any{}, "/repo/platform/traits/ingress.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": "reg/my-svc:v1"}},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	_, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   "test-release",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not in the allowed list")
+	assert.Contains(t, err.Error(), "ingress")
+}
+
+// TestGenerateRelease_DuplicateTraitInstanceNameErrors verifies that a component-level trait
+// whose instanceName collides with an embedded ComponentType trait's instanceName is rejected.
+func TestGenerateRelease_DuplicateTraitInstanceNameErrors(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+	)
+
+	idx := index.New("/repo")
+
+	addComponentWithTraits(t, idx, namespace,
+		[]map[string]any{
+			{"kind": "Trait", "name": "ingress", "instanceName": "shared-1"},
+		},
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	// Embedded trait "sidecar" reuses the same instanceName the component-level trait declares.
+	addComponentTypeWithSpec(t, idx, "service",
+		map[string]any{
+			"workloadType": "deployment",
+			"resources":    []any{},
+			"traits": []any{
+				map[string]any{"kind": "Trait", "name": "sidecar", "instanceName": "shared-1"},
+			},
+			"allowedTraits": []any{
+				map[string]any{"kind": "Trait", "name": "ingress"},
+			},
+		},
+		"/repo/platform/component-types/service.yaml")
+
+	// Both traits exist so that, absent validation, the release would build cleanly.
+	addTrait(t, idx, "ingress", map[string]any{}, "/repo/platform/traits/ingress.yaml")
+	addTrait(t, idx, "sidecar", map[string]any{}, "/repo/platform/traits/sidecar.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": "reg/my-svc:v1"}},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	ocIndex := fsmode.WrapIndex(idx)
+	gen := NewReleaseGenerator(ocIndex)
+
+	_, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   "test-release",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "collide with embedded traits")
+	assert.Contains(t, err.Error(), "shared-1")
+}
+
 // TestGenerateRelease_MissingEmbeddedTraitErrors verifies that a trait embedded in the
 // ComponentType but absent from the index produces an error.
 func TestGenerateRelease_MissingEmbeddedTraitErrors(t *testing.T) {
@@ -1146,11 +1293,14 @@ func TestGenerateRelease_WorkloadDependencyResourcesPreserved(t *testing.T) {
 	assert.Equal(t, "app-db", res["ref"])
 }
 
-// TestGenerateRelease_ByteCompatCommonCase pins the claim that when a ComponentType/Workload
-// uses none of the fields the old hand-rolled generator dropped (allowedTraits, allowedWorkflows,
-// validations, embedded traits, workload.dependencies.resources), the new BuildSpec-based output
-// still spec-matches a release produced in the old format. This guarantees the common case does
-// not invalidate previously generated release files.
+// TestGenerateRelease_ByteCompatCommonCase pins the boundary within which the new BuildSpec-based
+// output still spec-matches a release the old hand-rolled generator produced: byte-compat holds
+// only when the ComponentType/Workload/Component use none of the fields the old generator dropped
+// (allowedTraits, allowedWorkflows, validations, embedded traits, workload.dependencies.resources)
+// AND the component has no component-level traits. A component-level trait forces allowedTraits
+// into the new output (validation parity requires the ComponentType to permit it), which old-format
+// files never carry; that mismatch is expected and is handled by Task 4's legacy-release detection,
+// not by this test. This guarantees the common case does not invalidate previously generated files.
 func TestGenerateRelease_ByteCompatCommonCase(t *testing.T) {
 	const (
 		namespace     = "default"
@@ -1161,7 +1311,8 @@ func TestGenerateRelease_ByteCompatCommonCase(t *testing.T) {
 
 	idx := index.New("/repo")
 
-	// Component with a parameter and a single namespace-scoped trait.
+	// Component with a parameter and no component-level traits: a trait would force allowedTraits
+	// into the new output, which no old-format file carries (see the test doc comment).
 	compEntry := &index.ResourceEntry{
 		Resource: &unstructured.Unstructured{
 			Object: map[string]any{
@@ -1172,9 +1323,6 @@ func TestGenerateRelease_ByteCompatCommonCase(t *testing.T) {
 					"owner":         map[string]any{"projectName": projectName},
 					"componentType": map[string]any{"name": "deployment/service", "kind": "ComponentType"},
 					"parameters":    map[string]any{"replicas": int64(2)},
-					"traits": []any{
-						map[string]any{"kind": "Trait", "name": "ingress", "instanceName": "ingress-1"},
-					},
 				},
 			},
 		},
@@ -1193,10 +1341,6 @@ func TestGenerateRelease_ByteCompatCommonCase(t *testing.T) {
 			},
 		},
 		"/repo/platform/component-types/service.yaml")
-
-	addTrait(t, idx, "ingress",
-		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "networking.k8s.io/v1", "kind": "Ingress"}}}},
-		"/repo/platform/traits/ingress.yaml")
 
 	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
 		map[string]any{
@@ -1252,22 +1396,8 @@ func TestGenerateRelease_ByteCompatCommonCase(t *testing.T) {
 						},
 					},
 				},
-				"traits": []any{
-					map[string]any{
-						"kind": "Trait",
-						"name": "ingress",
-						"spec": map[string]any{
-							"creates": []any{
-								map[string]any{"template": map[string]any{"apiVersion": "networking.k8s.io/v1", "kind": "Ingress"}},
-							},
-						},
-					},
-				},
 				"componentProfile": map[string]any{
 					"parameters": map[string]any{"replicas": int64(2)},
-					"traits": []any{
-						map[string]any{"kind": "Trait", "name": "ingress", "instanceName": "ingress-1"},
-					},
 				},
 				"workload": map[string]any{
 					"container": map[string]any{"image": "reg/my-svc:v1"},
