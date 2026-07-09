@@ -14,3 +14,46 @@ spec:
   type:
     kind: ClusterProjectType
     name: default
+
+# ProjectReleaseBindings deploy the project to each pipeline environment and
+# own its cell namespaces. spec.projectRelease is left unset; the Project
+# controller seeds it once with the latest ProjectRelease.
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ProjectReleaseBinding
+metadata:
+  name: latency-lab-development
+  namespace: default
+  labels:
+    openchoreo.dev/project: latency-lab
+    openchoreo.dev/environment: development
+spec:
+  owner:
+    projectName: latency-lab
+  environment: development
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ProjectReleaseBinding
+metadata:
+  name: latency-lab-staging
+  namespace: default
+  labels:
+    openchoreo.dev/project: latency-lab
+    openchoreo.dev/environment: staging
+spec:
+  owner:
+    projectName: latency-lab
+  environment: staging
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ProjectReleaseBinding
+metadata:
+  name: latency-lab-production
+  namespace: default
+  labels:
+    openchoreo.dev/project: latency-lab
+    openchoreo.dev/environment: production
+spec:
+  owner:
+    projectName: latency-lab
+  environment: production
