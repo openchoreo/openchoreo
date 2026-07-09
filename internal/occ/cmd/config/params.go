@@ -11,6 +11,7 @@ type AddContextParams struct {
 	Namespace    string
 	Project      string
 	Component    string
+	Resource     string
 }
 
 // GetControlPlane returns the control plane name.
@@ -30,6 +31,7 @@ type UpdateContextParams struct {
 	Namespace    string
 	Project      string
 	Component    string
+	Resource     string
 	ControlPlane string
 	Credentials  string
 }

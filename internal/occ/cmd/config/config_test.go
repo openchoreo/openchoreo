@@ -322,7 +322,7 @@ func TestListContexts(t *testing.T) {
 		seedConfig(t, &StoredConfig{
 			CurrentContext: "ctx1",
 			Contexts: []Context{
-				{Name: "ctx1", ControlPlane: "cp1", Credentials: "cred1", Namespace: "ns1", Project: "proj1", Component: "comp1"},
+				{Name: "ctx1", ControlPlane: "cp1", Credentials: "cred1", Namespace: "ns1", Project: "proj1", Component: "comp1", Resource: "res1"},
 				{Name: "ctx2", ControlPlane: "cp2", Credentials: "cred2"},
 			},
 		})
@@ -333,10 +333,12 @@ func TestListContexts(t *testing.T) {
 		assert.Contains(t, out, "NAME")
 		assert.Contains(t, out, "CONTROLPLANE")
 		assert.Contains(t, out, "CREDENTIALS")
+		assert.Contains(t, out, "RESOURCE")
 		assert.Contains(t, out, "ctx1")
 		assert.Contains(t, out, "ctx2")
 		assert.Contains(t, out, "cp1")
 		assert.Contains(t, out, "ns1")
+		assert.Contains(t, out, "res1")
 	})
 
 	t.Run("marks current context with asterisk", func(t *testing.T) {
@@ -453,6 +455,7 @@ func TestAddContext(t *testing.T) {
 				Credentials:  "cred1",
 				Namespace:    "ns1",
 				Project:      "proj1",
+				Resource:     "analytics-db",
 			})
 			require.NoError(t, err)
 		})
@@ -463,6 +466,7 @@ func TestAddContext(t *testing.T) {
 		require.Len(t, cfg.Contexts, 1)
 		assert.Equal(t, "ctx1", cfg.Contexts[0].Name)
 		assert.Equal(t, "ns1", cfg.Contexts[0].Namespace)
+		assert.Equal(t, "analytics-db", cfg.Contexts[0].Resource)
 		// CP and credential should be auto-created
 		require.Len(t, cfg.ControlPlanes, 1)
 		assert.Equal(t, "cp1", cfg.ControlPlanes[0].Name)
@@ -1002,6 +1006,7 @@ func TestApplyContextDefaults(t *testing.T) {
 		cmd.Flags().String("namespace", "", "")
 		cmd.Flags().String("project", "", "")
 		cmd.Flags().String("component", "", "")
+		cmd.Flags().String("resource", "", "")
 		return cmd
 	}
 
@@ -1039,6 +1044,7 @@ func TestApplyContextDefaults(t *testing.T) {
 				Namespace: "ns1",
 				Project:   "proj1",
 				Component: "comp1",
+				Resource:  "res1",
 			}},
 		})
 		cmd := newCmd()
@@ -1046,19 +1052,21 @@ func TestApplyContextDefaults(t *testing.T) {
 		assert.Equal(t, "ns1", cmd.Flags().Lookup("namespace").Value.String())
 		assert.Equal(t, "proj1", cmd.Flags().Lookup("project").Value.String())
 		assert.Equal(t, "comp1", cmd.Flags().Lookup("component").Value.String())
+		assert.Equal(t, "res1", cmd.Flags().Lookup("resource").Value.String())
 	})
 
 	t.Run("does not override explicitly set flags", func(t *testing.T) {
 		setupTestHome(t)
 		seedConfig(t, &StoredConfig{
 			CurrentContext: "ctx1",
-			Contexts:       []Context{{Name: "ctx1", Namespace: "from-config", Project: "from-config"}},
+			Contexts:       []Context{{Name: "ctx1", Namespace: "from-config", Project: "from-config", Resource: "from-config"}},
 		})
 		cmd := newCmd()
 		require.NoError(t, cmd.Flags().Set("namespace", "explicit"))
 		require.NoError(t, ApplyContextDefaults(cmd))
 		assert.Equal(t, "explicit", cmd.Flags().Lookup("namespace").Value.String())
 		assert.Equal(t, "from-config", cmd.Flags().Lookup("project").Value.String())
+		assert.Equal(t, "from-config", cmd.Flags().Lookup("resource").Value.String())
 	})
 }
 
@@ -1078,6 +1086,25 @@ func TestUpdateContext_ComponentField(t *testing.T) {
 		cfg, err := LoadStoredConfig()
 		require.NoError(t, err)
 		assert.Equal(t, "new-comp", cfg.Contexts[0].Component)
+	})
+}
+
+func TestUpdateContext_ResourceField(t *testing.T) {
+	c := New()
+
+	t.Run("updates resource field", func(t *testing.T) {
+		setupTestHome(t)
+		seedConfig(t, &StoredConfig{
+			Contexts:      []Context{{Name: "ctx1", ControlPlane: "cp1", Credentials: "cred1", Resource: "old-res"}},
+			ControlPlanes: []ControlPlane{{Name: "cp1"}},
+			Credentials:   []Credential{{Name: "cred1"}},
+		})
+
+		require.NoError(t, c.UpdateContext(UpdateContextParams{Name: "ctx1", Resource: "new-res"}))
+
+		cfg, err := LoadStoredConfig()
+		require.NoError(t, err)
+		assert.Equal(t, "new-res", cfg.Contexts[0].Resource)
 	})
 }
 

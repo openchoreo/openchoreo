@@ -55,15 +55,17 @@ func describeConfigCommands() {
 				_, _, err := occ.Run("config", "context", "use", "test-ctx")
 				Expect(err).NotTo(HaveOccurred())
 			})
-			It("updates the context", func() {
+			It("updates the context with namespace, project, and resource", func() {
 				_, _, err := occ.Run("config", "context", "update", "test-ctx",
-					"--namespace", "default", "--project", "default")
+					"--namespace", "default", "--project", "default", "--resource", "analytics-db")
 				Expect(err).NotTo(HaveOccurred())
 
 				stdout, _, err := occ.Run("config", "context", "list")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(stdout).To(ContainSubstring("default"),
 					"expected updated namespace/project in context list")
+				Expect(stdout).To(ContainSubstring("analytics-db"),
+					"expected updated resource in context list")
 			})
 			It("switches back to original context and deletes test context", func() {
 				_, _, err := occ.Run("config", "context", "use", "e2e")

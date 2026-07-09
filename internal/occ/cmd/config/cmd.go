@@ -56,6 +56,7 @@ func newContextAddCmd() *cobra.Command {
 				Namespace:    flags.GetNamespace(cmd),
 				Project:      flags.GetProject(cmd),
 				Component:    flags.GetComponent(cmd),
+				Resource:     flags.GetResource(cmd),
 			})
 		},
 	}
@@ -64,6 +65,7 @@ func newContextAddCmd() *cobra.Command {
 	flags.AddNamespace(cmd)
 	flags.AddProject(cmd)
 	flags.AddComponent(cmd)
+	flags.AddResource(cmd)
 	_ = cmd.MarkFlagRequired("controlplane")
 	_ = cmd.MarkFlagRequired("credentials")
 	return cmd
@@ -102,6 +104,7 @@ func newContextUpdateCmd() *cobra.Command {
 				Namespace:    flags.GetNamespace(cmd),
 				Project:      flags.GetProject(cmd),
 				Component:    flags.GetComponent(cmd),
+				Resource:     flags.GetResource(cmd),
 				ControlPlane: flags.GetControlPlane(cmd),
 				Credentials:  flags.GetCredentials(cmd),
 			})
@@ -110,6 +113,7 @@ func newContextUpdateCmd() *cobra.Command {
 	flags.AddNamespace(cmd)
 	flags.AddProject(cmd)
 	flags.AddComponent(cmd)
+	flags.AddResource(cmd)
 	flags.AddControlPlane(cmd)
 	flags.AddCredentials(cmd)
 	return cmd
