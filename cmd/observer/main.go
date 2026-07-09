@@ -17,6 +17,7 @@ import (
 	"sync"
 	"syscall"
 
+	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	apihandler "github.com/openchoreo/openchoreo/internal/observer/api/handlers"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	k8s "github.com/openchoreo/openchoreo/internal/observer/clients"
@@ -25,6 +26,7 @@ import (
 	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
+	"github.com/openchoreo/openchoreo/internal/observer/store/deliveryinsights"
 	"github.com/openchoreo/openchoreo/internal/observer/store/incidententry"
 	apiconfig "github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
@@ -110,6 +112,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	// A nil PDP makes the authz-wrapped services skip authorization checks entirely.
+	var pdp authzcore.PDP = authzClient
+	if cfg.Authz.Disabled {
+		logger.Warn("Authorization is DISABLED (AUTHZ_DISABLED=true) - all requests will be permitted")
+		pdp = nil
+	}
+
 	// Initialize HTTP server
 	mux := http.NewServeMux()
 
@@ -185,6 +194,23 @@ func main() {
 		}
 	}()
 
+	deliveryInsightsStore, err := deliveryinsights.New(
+		cfg.Insights.StoreBackend,
+		cfg.Insights.StoreDSN,
+		logger.With("component", "delivery-insights-store"),
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize delivery insights store: %v", err)
+	}
+	if err := deliveryInsightsStore.Initialize(context.Background()); err != nil {
+		log.Fatalf("Failed to initialize delivery insights store schema: %v", err)
+	}
+	defer func() {
+		if closeErr := deliveryInsightsStore.Close(); closeErr != nil {
+			logger.Error("Failed to close delivery insights store", "error", closeErr)
+		}
+	}()
+
 	// Initialize alert service for the internal v1alpha1 API
 	alertService := service.NewAlertService(
 		alertEntryStore,
@@ -202,18 +228,31 @@ func main() {
 		cfg.Alerting.FinOpsAgentEnabled,
 	)
 
+	// Initialize the delivery insights (DORA metrics) query service. The passthrough
+	// resolver is a development affordance for querying seeded dummy data without a
+	// control plane to resolve scope names against.
+	var insightsScopeResolver service.ScopeUIDResolver = uidResolver
+	if cfg.Insights.UIDResolution == "passthrough" {
+		logger.Warn("Insights UID resolution is set to passthrough - scope names are used as UIDs directly")
+		insightsScopeResolver = service.NewPassthroughUIDResolver()
+	}
+	insightsService := service.NewInsightsService(
+		deliveryInsightsStore, insightsScopeResolver, logger.With("component", "insights-service"))
+
 	// Wrap services with authorization checks.
 	// Both the API handler and MCP handler share the same authz-wrapped instances
 	// so authorization logic is enforced once, in the service layer.
-	authzLogsService := service.NewLogsServiceWithAuthz(logsService, authzClient, logger.With("component", "authz-logs"))
+	authzLogsService := service.NewLogsServiceWithAuthz(logsService, pdp, logger.With("component", "authz-logs"))
 	authzEventsService := service.NewEventsServiceWithAuthz(
-		eventsService, authzClient, logger.With("component", "authz-events"))
+		eventsService, pdp, logger.With("component", "authz-events"))
 	authzMetricsService := service.NewMetricsServiceWithAuthz(
-		metricsService, authzClient, logger.With("component", "authz-metrics"))
+		metricsService, pdp, logger.With("component", "authz-metrics"))
 	authzTracesService := service.NewTracesServiceWithAuthz(
-		tracesService, authzClient, logger.With("component", "authz-traces"))
+		tracesService, pdp, logger.With("component", "authz-traces"))
 	authzAlertIncidentService := service.NewAlertIncidentServiceWithAuthz(
-		alertService, authzClient, logger.With("component", "authz-alerts-incidents"))
+		alertService, pdp, logger.With("component", "authz-alerts-incidents"))
+	authzInsightsService := service.NewInsightsServiceWithAuthz(
+		insightsService, pdp, logger.With("component", "authz-insights"))
 
 	// Initialize new API handler
 	newAPIHandler := apihandler.NewHandler(
@@ -223,6 +262,7 @@ func main() {
 		authzMetricsService,
 		authzAlertIncidentService,
 		authzTracesService,
+		authzInsightsService,
 		logger.With("component", "api-handler"),
 	)
 
@@ -270,6 +310,10 @@ func main() {
 	api.HandleFunc("POST /api/v1alpha1/alerts/query", newAPIHandler.QueryAlerts)
 	api.HandleFunc("POST /api/v1alpha1/incidents/query", newAPIHandler.QueryIncidents)
 	api.HandleFunc("PUT /api/v1alpha1/incidents/{incidentId}", newAPIHandler.UpdateIncident)
+
+	// ===== Delivery Insights (DORA metrics) =====
+	api.HandleFunc("POST /api/v1alpha1/insights/dora/query", newAPIHandler.QueryDoraMetrics)
+	api.HandleFunc("POST /api/v1alpha1/insights/dora/deployments/query", newAPIHandler.QueryDoraDeployments)
 
 	// Initialize new MCP handler backed by the authz-wrapped service layer
 	newMCPHandler, err := observermcp.NewMCPHandler(

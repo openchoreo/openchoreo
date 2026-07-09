@@ -789,6 +789,101 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /api/v1alpha1/insights/dora/query:
+    post:
+      tags:
+        - DeliveryInsights
+      summary: Query DORA metrics
+      description: >
+        Query pre-computed DORA metrics (Deployment Frequency, Lead Time for Changes,
+        Change Failure Rate, Mean Time to Recovery) for an org, project, or component
+        scope, optionally sliced by environment. Serves the Delivery Insights pages.
+      operationId: queryDoraMetrics
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DoraMetricsQueryRequest"
+      responses:
+        "200":
+          description: DORA metrics queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoraMetricsQueryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1alpha1/insights/dora/deployments/query:
+    post:
+      tags:
+        - DeliveryInsights
+      summary: Query deployments
+      description: >
+        Query the individual deployments behind the DORA metrics — the drill-down that
+        explains which deployment moved a number.
+      operationId: queryDoraDeployments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DoraDeploymentsQueryRequest"
+      responses:
+        "200":
+          description: Deployments queried successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DoraDeploymentsQueryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     # Request schemas for logs
@@ -2084,6 +2179,289 @@ components:
               type: string
               description: The UID of the project
               format: uuid
+
+    # Request/response schemas for delivery insights (DORA metrics)
+    DoraMetricsQueryRequest:
+      type: object
+      properties:
+        searchScope:
+          $ref: "#/components/schemas/ComponentSearchScope"
+        granularity:
+          type: string
+          description: Time bucket size for the series
+          enum:
+            - daily
+            - weekly
+            - monthly
+          default: daily
+        startTime:
+          type: string
+          description: The start time of the query
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the query
+          format: date-time
+        metrics:
+          type: array
+          description: Metrics to compute; all four when omitted
+          items:
+            type: string
+            enum:
+              - deploymentFrequency
+              - leadTime
+              - changeFailureRate
+              - mttr
+      required: [startTime, endTime, searchScope]
+
+    DoraClassification:
+      type: string
+      description: DORA performance classification for the summary value
+      enum:
+        - Elite
+        - High
+        - Medium
+        - Low
+        - Unknown
+
+    DoraMetricsQueryResponse:
+      type: object
+      properties:
+        scope:
+          $ref: "#/components/schemas/ComponentSearchScope"
+        granularity:
+          type: string
+          enum:
+            - daily
+            - weekly
+            - monthly
+        window:
+          type: object
+          properties:
+            startTime:
+              type: string
+              format: date-time
+            endTime:
+              type: string
+              format: date-time
+            generatedAt:
+              type: string
+              format: date-time
+        summary:
+          type: object
+          description: Headline values over the whole window (exact, computed from facts)
+          properties:
+            deploymentFrequency:
+              type: object
+              properties:
+                total:
+                  type: integer
+                  description: Successful deployments in the window
+                perDay:
+                  type: number
+                  description: Successful deployments per day
+                classification:
+                  $ref: "#/components/schemas/DoraClassification"
+                deltaPct:
+                  type: number
+                  description: Change vs the preceding window of equal length (percent)
+                  nullable: true
+            leadTime:
+              type: object
+              properties:
+                p50Ms:
+                  type: integer
+                  format: int64
+                  nullable: true
+                p95Ms:
+                  type: integer
+                  format: int64
+                  nullable: true
+                coverage:
+                  type: number
+                  description: Fraction of deployments carrying commit provenance
+                classification:
+                  $ref: "#/components/schemas/DoraClassification"
+                deltaPct:
+                  type: number
+                  nullable: true
+            changeFailureRate:
+              type: object
+              properties:
+                rate:
+                  type: number
+                  description: failed / total, 0..1
+                failed:
+                  type: integer
+                total:
+                  type: integer
+                classification:
+                  $ref: "#/components/schemas/DoraClassification"
+                deltaPct:
+                  type: number
+                  nullable: true
+            mttr:
+              type: object
+              properties:
+                meanMs:
+                  type: integer
+                  format: int64
+                  nullable: true
+                p50Ms:
+                  type: integer
+                  format: int64
+                  nullable: true
+                recoveries:
+                  type: integer
+                  description: Closed recovery episodes in the window
+                classification:
+                  $ref: "#/components/schemas/DoraClassification"
+                deltaPct:
+                  type: number
+                  nullable: true
+        series:
+          type: object
+          description: Chart-ready per-bucket values
+          properties:
+            deploymentFrequency:
+              type: array
+              description: Zero-filled — one entry per bucket in the window
+              items:
+                type: object
+                properties:
+                  bucketStart:
+                    type: string
+                    format: date-time
+                  count:
+                    type: integer
+            leadTime:
+              type: array
+              description: Only buckets with data appear
+              items:
+                type: object
+                properties:
+                  bucketStart:
+                    type: string
+                    format: date-time
+                  p50Ms:
+                    type: integer
+                    format: int64
+                  p75Ms:
+                    type: integer
+                    format: int64
+                  p95Ms:
+                    type: integer
+                    format: int64
+            changeFailureRate:
+              type: array
+              description: Zero-filled — one entry per bucket in the window
+              items:
+                type: object
+                properties:
+                  bucketStart:
+                    type: string
+                    format: date-time
+                  rate:
+                    type: number
+                  failed:
+                    type: integer
+                  total:
+                    type: integer
+            mttr:
+              type: array
+              description: Only buckets with data appear
+              items:
+                type: object
+                properties:
+                  bucketStart:
+                    type: string
+                    format: date-time
+                  meanMs:
+                    type: integer
+                    format: int64
+                  p50Ms:
+                    type: integer
+                    format: int64
+                  count:
+                    type: integer
+
+    DoraDeploymentsQueryRequest:
+      type: object
+      properties:
+        searchScope:
+          $ref: "#/components/schemas/ComponentSearchScope"
+        startTime:
+          type: string
+          description: The start time of the query
+          format: date-time
+        endTime:
+          type: string
+          description: The end time of the query
+          format: date-time
+        limit:
+          type: integer
+          description: The maximum number of items to return
+          default: 100
+          minimum: 1
+          maximum: 1000
+        sortOrder:
+          type: string
+          description: Sort by deployment moment
+          enum:
+            - asc
+            - desc
+          default: desc
+      required: [startTime, endTime, searchScope]
+
+    DoraDeploymentsQueryResponse:
+      type: object
+      properties:
+        deployments:
+          type: array
+          items:
+            type: object
+            properties:
+              deployedAt:
+                type: string
+                description: The best-known deployment moment
+                format: date-time
+              projectName:
+                type: string
+              componentName:
+                type: string
+              environmentName:
+                type: string
+              componentRelease:
+                type: string
+                description: The ComponentRelease this deployment rolled out
+              commit:
+                type: string
+                description: Full commit SHA; empty when provenance is missing
+              outcome:
+                type: string
+                enum:
+                  - success
+                  - failed
+                  - in_progress
+              failedBy:
+                type: string
+                description: rollout or incident; empty for successful deployments
+              failureReason:
+                type: string
+                description: e.g. CrashLoopBackOff; empty unless a rollout failure
+              incidentId:
+                type: string
+                description: Linked incident when failedBy=incident
+              leadTimeMs:
+                type: integer
+                format: int64
+                description: Commit-to-ready latency; null when provenance is missing
+                nullable: true
+        totalCount:
+          type: integer
+          description: Total matching deployments (before limit)
+        tookMs:
+          type: integer
 
     # New error response schema
     ErrorResponse:

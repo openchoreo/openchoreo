@@ -113,6 +113,50 @@ const (
 	Metric AlertsQueryResponseAlertsMetadataAlertRuleSourceType = "metric"
 )
 
+// Defines values for DoraClassification.
+const (
+	Elite   DoraClassification = "Elite"
+	High    DoraClassification = "High"
+	Low     DoraClassification = "Low"
+	Medium  DoraClassification = "Medium"
+	Unknown DoraClassification = "Unknown"
+)
+
+// Defines values for DoraDeploymentsQueryRequestSortOrder.
+const (
+	DoraDeploymentsQueryRequestSortOrderAsc  DoraDeploymentsQueryRequestSortOrder = "asc"
+	DoraDeploymentsQueryRequestSortOrderDesc DoraDeploymentsQueryRequestSortOrder = "desc"
+)
+
+// Defines values for DoraDeploymentsQueryResponseDeploymentsOutcome.
+const (
+	DoraDeploymentsQueryResponseDeploymentsOutcomeFailed     DoraDeploymentsQueryResponseDeploymentsOutcome = "failed"
+	DoraDeploymentsQueryResponseDeploymentsOutcomeInProgress DoraDeploymentsQueryResponseDeploymentsOutcome = "in_progress"
+	DoraDeploymentsQueryResponseDeploymentsOutcomeSuccess    DoraDeploymentsQueryResponseDeploymentsOutcome = "success"
+)
+
+// Defines values for DoraMetricsQueryRequestGranularity.
+const (
+	DoraMetricsQueryRequestGranularityDaily   DoraMetricsQueryRequestGranularity = "daily"
+	DoraMetricsQueryRequestGranularityMonthly DoraMetricsQueryRequestGranularity = "monthly"
+	DoraMetricsQueryRequestGranularityWeekly  DoraMetricsQueryRequestGranularity = "weekly"
+)
+
+// Defines values for DoraMetricsQueryRequestMetrics.
+const (
+	ChangeFailureRate   DoraMetricsQueryRequestMetrics = "changeFailureRate"
+	DeploymentFrequency DoraMetricsQueryRequestMetrics = "deploymentFrequency"
+	LeadTime            DoraMetricsQueryRequestMetrics = "leadTime"
+	Mttr                DoraMetricsQueryRequestMetrics = "mttr"
+)
+
+// Defines values for DoraMetricsQueryResponseGranularity.
+const (
+	DoraMetricsQueryResponseGranularityDaily   DoraMetricsQueryResponseGranularity = "daily"
+	DoraMetricsQueryResponseGranularityMonthly DoraMetricsQueryResponseGranularity = "monthly"
+	DoraMetricsQueryResponseGranularityWeekly  DoraMetricsQueryResponseGranularity = "weekly"
+)
+
 // Defines values for ErrorResponseTitle.
 const (
 	BadRequest          ErrorResponseTitle = "badRequest"
@@ -198,15 +242,15 @@ const (
 
 // Defines values for SpanStatusCode.
 const (
-	SpanStatusCodeError SpanStatusCode = "error"
-	SpanStatusCodeOk    SpanStatusCode = "ok"
-	SpanStatusCodeUnset SpanStatusCode = "unset"
+	Error SpanStatusCode = "error"
+	Ok    SpanStatusCode = "ok"
+	Unset SpanStatusCode = "unset"
 )
 
 // Defines values for TracesQueryRequestSortOrder.
 const (
-	Asc  TracesQueryRequestSortOrder = "asc"
-	Desc TracesQueryRequestSortOrder = "desc"
+	TracesQueryRequestSortOrderAsc  TracesQueryRequestSortOrder = "asc"
+	TracesQueryRequestSortOrderDesc TracesQueryRequestSortOrder = "desc"
 )
 
 // AlertRuleRequest defines model for AlertRuleRequest.
@@ -538,6 +582,181 @@ type ComponentSearchScope struct {
 	Namespace   string  `json:"namespace"`
 	Project     *string `json:"project,omitempty"`
 }
+
+// DoraClassification DORA performance classification for the summary value
+type DoraClassification string
+
+// DoraDeploymentsQueryRequest defines model for DoraDeploymentsQueryRequest.
+type DoraDeploymentsQueryRequest struct {
+	// EndTime The end time of the query
+	EndTime time.Time `json:"endTime"`
+
+	// Limit The maximum number of items to return
+	Limit       *int                 `json:"limit,omitempty"`
+	SearchScope ComponentSearchScope `json:"searchScope"`
+
+	// SortOrder Sort by deployment moment
+	SortOrder *DoraDeploymentsQueryRequestSortOrder `json:"sortOrder,omitempty"`
+
+	// StartTime The start time of the query
+	StartTime time.Time `json:"startTime"`
+}
+
+// DoraDeploymentsQueryRequestSortOrder Sort by deployment moment
+type DoraDeploymentsQueryRequestSortOrder string
+
+// DoraDeploymentsQueryResponse defines model for DoraDeploymentsQueryResponse.
+type DoraDeploymentsQueryResponse struct {
+	Deployments *[]struct {
+		// Commit Full commit SHA; empty when provenance is missing
+		Commit        *string `json:"commit,omitempty"`
+		ComponentName *string `json:"componentName,omitempty"`
+
+		// ComponentRelease The ComponentRelease this deployment rolled out
+		ComponentRelease *string `json:"componentRelease,omitempty"`
+
+		// DeployedAt The best-known deployment moment
+		DeployedAt      *time.Time `json:"deployedAt,omitempty"`
+		EnvironmentName *string    `json:"environmentName,omitempty"`
+
+		// FailedBy rollout or incident; empty for successful deployments
+		FailedBy *string `json:"failedBy,omitempty"`
+
+		// FailureReason e.g. CrashLoopBackOff; empty unless a rollout failure
+		FailureReason *string `json:"failureReason,omitempty"`
+
+		// IncidentId Linked incident when failedBy=incident
+		IncidentId *string `json:"incidentId,omitempty"`
+
+		// LeadTimeMs Commit-to-ready latency; null when provenance is missing
+		LeadTimeMs  *int64                                          `json:"leadTimeMs"`
+		Outcome     *DoraDeploymentsQueryResponseDeploymentsOutcome `json:"outcome,omitempty"`
+		ProjectName *string                                         `json:"projectName,omitempty"`
+	} `json:"deployments,omitempty"`
+	TookMs *int `json:"tookMs,omitempty"`
+
+	// TotalCount Total matching deployments (before limit)
+	TotalCount *int `json:"totalCount,omitempty"`
+}
+
+// DoraDeploymentsQueryResponseDeploymentsOutcome defines model for DoraDeploymentsQueryResponse.Deployments.Outcome.
+type DoraDeploymentsQueryResponseDeploymentsOutcome string
+
+// DoraMetricsQueryRequest defines model for DoraMetricsQueryRequest.
+type DoraMetricsQueryRequest struct {
+	// EndTime The end time of the query
+	EndTime time.Time `json:"endTime"`
+
+	// Granularity Time bucket size for the series
+	Granularity *DoraMetricsQueryRequestGranularity `json:"granularity,omitempty"`
+
+	// Metrics Metrics to compute; all four when omitted
+	Metrics     *[]DoraMetricsQueryRequestMetrics `json:"metrics,omitempty"`
+	SearchScope ComponentSearchScope              `json:"searchScope"`
+
+	// StartTime The start time of the query
+	StartTime time.Time `json:"startTime"`
+}
+
+// DoraMetricsQueryRequestGranularity Time bucket size for the series
+type DoraMetricsQueryRequestGranularity string
+
+// DoraMetricsQueryRequestMetrics defines model for DoraMetricsQueryRequest.Metrics.
+type DoraMetricsQueryRequestMetrics string
+
+// DoraMetricsQueryResponse defines model for DoraMetricsQueryResponse.
+type DoraMetricsQueryResponse struct {
+	Granularity *DoraMetricsQueryResponseGranularity `json:"granularity,omitempty"`
+	Scope       *ComponentSearchScope                `json:"scope,omitempty"`
+
+	// Series Chart-ready per-bucket values
+	Series *struct {
+		// ChangeFailureRate Zero-filled — one entry per bucket in the window
+		ChangeFailureRate *[]struct {
+			BucketStart *time.Time `json:"bucketStart,omitempty"`
+			Failed      *int       `json:"failed,omitempty"`
+			Rate        *float32   `json:"rate,omitempty"`
+			Total       *int       `json:"total,omitempty"`
+		} `json:"changeFailureRate,omitempty"`
+
+		// DeploymentFrequency Zero-filled — one entry per bucket in the window
+		DeploymentFrequency *[]struct {
+			BucketStart *time.Time `json:"bucketStart,omitempty"`
+			Count       *int       `json:"count,omitempty"`
+		} `json:"deploymentFrequency,omitempty"`
+
+		// LeadTime Only buckets with data appear
+		LeadTime *[]struct {
+			BucketStart *time.Time `json:"bucketStart,omitempty"`
+			P50Ms       *int64     `json:"p50Ms,omitempty"`
+			P75Ms       *int64     `json:"p75Ms,omitempty"`
+			P95Ms       *int64     `json:"p95Ms,omitempty"`
+		} `json:"leadTime,omitempty"`
+
+		// Mttr Only buckets with data appear
+		Mttr *[]struct {
+			BucketStart *time.Time `json:"bucketStart,omitempty"`
+			Count       *int       `json:"count,omitempty"`
+			MeanMs      *int64     `json:"meanMs,omitempty"`
+			P50Ms       *int64     `json:"p50Ms,omitempty"`
+		} `json:"mttr,omitempty"`
+	} `json:"series,omitempty"`
+
+	// Summary Headline values over the whole window (exact, computed from facts)
+	Summary *struct {
+		ChangeFailureRate *struct {
+			// Classification DORA performance classification for the summary value
+			Classification *DoraClassification `json:"classification,omitempty"`
+			DeltaPct       *float32            `json:"deltaPct"`
+			Failed         *int                `json:"failed,omitempty"`
+
+			// Rate failed / total, 0..1
+			Rate  *float32 `json:"rate,omitempty"`
+			Total *int     `json:"total,omitempty"`
+		} `json:"changeFailureRate,omitempty"`
+		DeploymentFrequency *struct {
+			// Classification DORA performance classification for the summary value
+			Classification *DoraClassification `json:"classification,omitempty"`
+
+			// DeltaPct Change vs the preceding window of equal length (percent)
+			DeltaPct *float32 `json:"deltaPct"`
+
+			// PerDay Successful deployments per day
+			PerDay *float32 `json:"perDay,omitempty"`
+
+			// Total Successful deployments in the window
+			Total *int `json:"total,omitempty"`
+		} `json:"deploymentFrequency,omitempty"`
+		LeadTime *struct {
+			// Classification DORA performance classification for the summary value
+			Classification *DoraClassification `json:"classification,omitempty"`
+
+			// Coverage Fraction of deployments carrying commit provenance
+			Coverage *float32 `json:"coverage,omitempty"`
+			DeltaPct *float32 `json:"deltaPct"`
+			P50Ms    *int64   `json:"p50Ms"`
+			P95Ms    *int64   `json:"p95Ms"`
+		} `json:"leadTime,omitempty"`
+		Mttr *struct {
+			// Classification DORA performance classification for the summary value
+			Classification *DoraClassification `json:"classification,omitempty"`
+			DeltaPct       *float32            `json:"deltaPct"`
+			MeanMs         *int64              `json:"meanMs"`
+			P50Ms          *int64              `json:"p50Ms"`
+
+			// Recoveries Closed recovery episodes in the window
+			Recoveries *int `json:"recoveries,omitempty"`
+		} `json:"mttr,omitempty"`
+	} `json:"summary,omitempty"`
+	Window *struct {
+		EndTime     *time.Time `json:"endTime,omitempty"`
+		GeneratedAt *time.Time `json:"generatedAt,omitempty"`
+		StartTime   *time.Time `json:"startTime,omitempty"`
+	} `json:"window,omitempty"`
+}
+
+// DoraMetricsQueryResponseGranularity defines model for DoraMetricsQueryResponse.Granularity.
+type DoraMetricsQueryResponseGranularity string
 
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
@@ -1255,6 +1474,12 @@ type QueryIncidentsJSONRequestBody = IncidentsQueryRequest
 
 // UpdateIncidentJSONRequestBody defines body for UpdateIncident for application/json ContentType.
 type UpdateIncidentJSONRequestBody = IncidentPutRequest
+
+// QueryDoraDeploymentsJSONRequestBody defines body for QueryDoraDeployments for application/json ContentType.
+type QueryDoraDeploymentsJSONRequestBody = DoraDeploymentsQueryRequest
+
+// QueryDoraMetricsJSONRequestBody defines body for QueryDoraMetrics for application/json ContentType.
+type QueryDoraMetricsJSONRequestBody = DoraMetricsQueryRequest
 
 // QueryRuntimeTopologyJSONRequestBody defines body for QueryRuntimeTopology for application/json ContentType.
 type QueryRuntimeTopologyJSONRequestBody = RuntimeTopologyRequest

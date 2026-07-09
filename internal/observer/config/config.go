@@ -20,6 +20,12 @@ import (
 // This matches the OpenAPI spec's maximum for the limit field.
 const MaxLimit = 1000
 
+// Supported SQL store backends for the alert/incident and delivery insights stores.
+const (
+	storeBackendSQLite     = "sqlite"
+	storeBackendPostgreSQL = "postgresql"
+)
+
 // Config holds all configuration for the logging service
 type Config struct {
 	Server      ServerConfig      `koanf:"server"`
@@ -27,6 +33,7 @@ type Config struct {
 	Authz       AuthzConfig       `koanf:"authz"`
 	Logging     LoggingConfig     `koanf:"logging"`
 	Alerting    AlertingConfig    `koanf:"alerting"`
+	Insights    InsightsConfig    `koanf:"insights"`
 	Adapters    AdaptersConfig    `koanf:"adapters"`
 	UIDResolver UIDResolverConfig `koanf:"uid_resolver"`
 	CORS        CORSConfig        `koanf:"cors"`
@@ -72,6 +79,9 @@ type AuthzConfig struct {
 	ServiceURL            string        `koanf:"service.url"`
 	Timeout               time.Duration `koanf:"timeout"`
 	TLSInsecureSkipVerify bool          `koanf:"tls.insecure.skip.verify"`
+	// Disabled skips all PDP authorization checks (mirrors JWT_DISABLED).
+	// Development/demo affordance only — never enable in production.
+	Disabled bool `koanf:"disabled"`
 }
 
 // LoggingConfig holds application logging configuration
@@ -105,6 +115,22 @@ type AlertingConfig struct {
 	FinOpsAgentURL string `koanf:"finops.agent.url"`
 	// FinOpsAgentEnabled controls whether FinOps agent integration is enabled.
 	FinOpsAgentEnabled bool `koanf:"finops.agent.enabled"`
+}
+
+// InsightsConfig holds configuration for the Delivery Insights (DORA metrics) store.
+type InsightsConfig struct {
+	// StoreBackend controls where delivery facts and metric rollups are persisted.
+	// Supported values: sqlite, postgresql. Empty inherits the alert store backend.
+	StoreBackend string `koanf:"store.backend"`
+	// StoreDSN is the SQL connection string for delivery insights storage.
+	// Empty inherits the alert store DSN so all observer stores share one database,
+	// which keeps incident↔deployment attribution a local SQL join.
+	StoreDSN string `koanf:"store.dsn"`
+	// UIDResolution controls how insights search-scope names are translated to the
+	// UIDs the store is keyed by. "resolver" (default) resolves via openchoreo-api;
+	// "passthrough" treats names as UIDs directly — a development/demo affordance
+	// for querying seeded dummy data without a control plane.
+	UIDResolution string `koanf:"uid.resolution"`
 }
 
 // UIDResolverConfig holds configuration for the resource UID resolver
@@ -187,6 +213,10 @@ func Load() (*Config, error) {
 		"ALERT_SUPPRESSION_WINDOW":              "alerting.alert.suppression.window",
 		"FINOPS_AGENT_URL":                      "alerting.finops.agent.url",
 		"FINOPS_AGENT_ENABLED":                  "alerting.finops.agent.enabled",
+		"INSIGHTS_STORE_BACKEND":                "insights.store.backend",
+		"INSIGHTS_STORE_DSN":                    "insights.store.dsn",
+		"INSIGHTS_UID_RESOLUTION":               "insights.uid.resolution",
+		"AUTHZ_DISABLED":                        "authz.disabled",
 		"LOG_LEVEL":                             "loglevel",
 		"PORT":                                  "server.port",           // Common alias
 		"INTERNAL_PORT":                         "server.internal.port",  // Common alias
@@ -316,6 +346,11 @@ func getDefaults() map[string]interface{} {
 			"finops.agent.url":         "http://finops-agent:8080",
 			"finops.agent.enabled":     false,
 		},
+		"insights": map[string]interface{}{
+			"store.backend":  "",
+			"store.dsn":      "",
+			"uid.resolution": "resolver",
+		},
 		"adapters": map[string]interface{}{
 			"logs.adapter.url":        "http://logs-adapter:9098",
 			"logs.adapter.timeout":    "30s",
@@ -382,17 +417,44 @@ func (c *Config) validate() error {
 
 	c.Alerting.AlertStoreBackend = strings.ToLower(strings.TrimSpace(c.Alerting.AlertStoreBackend))
 	switch c.Alerting.AlertStoreBackend {
-	case "", "sqlite":
-		c.Alerting.AlertStoreBackend = "sqlite"
+	case "", storeBackendSQLite:
+		c.Alerting.AlertStoreBackend = storeBackendSQLite
 		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
 			c.Alerting.AlertStoreDSN = "file:/data/alerts.db?_journal=WAL"
 		}
-	case "postgresql":
+	case storeBackendPostgreSQL:
 		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
 			return fmt.Errorf("alert.store.dsn is required when alert.store.backend=postgresql")
 		}
 	default:
 		return fmt.Errorf("alert.store.backend must be 'sqlite' or 'postgresql'")
+	}
+
+	// The insights store defaults to sharing the alert store database so that
+	// incident↔deployment attribution stays a local SQL join.
+	c.Insights.StoreBackend = strings.ToLower(strings.TrimSpace(c.Insights.StoreBackend))
+	if c.Insights.StoreBackend == "" {
+		c.Insights.StoreBackend = c.Alerting.AlertStoreBackend
+	}
+	switch c.Insights.StoreBackend {
+	case storeBackendSQLite, storeBackendPostgreSQL:
+	default:
+		return fmt.Errorf("insights.store.backend must be 'sqlite' or 'postgresql'")
+	}
+	if strings.TrimSpace(c.Insights.StoreDSN) == "" {
+		if c.Insights.StoreBackend != c.Alerting.AlertStoreBackend {
+			return fmt.Errorf(
+				"insights.store.dsn is required when insights.store.backend differs from alert.store.backend")
+		}
+		c.Insights.StoreDSN = c.Alerting.AlertStoreDSN
+	}
+	c.Insights.UIDResolution = strings.ToLower(strings.TrimSpace(c.Insights.UIDResolution))
+	switch c.Insights.UIDResolution {
+	case "":
+		c.Insights.UIDResolution = "resolver"
+	case "resolver", "passthrough":
+	default:
+		return fmt.Errorf("insights.uid.resolution must be 'resolver' or 'passthrough'")
 	}
 
 	// Validate and normalize MetricsAdapter configuration
