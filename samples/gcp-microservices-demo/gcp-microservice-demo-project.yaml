@@ -14,3 +14,46 @@ spec:
   type:
     kind: ClusterProjectType
     name: default
+
+# ProjectReleaseBindings deploy the project to each pipeline environment and
+# own its cell namespaces. spec.projectRelease is left unset; the Project
+# controller seeds it once with the latest ProjectRelease.
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ProjectReleaseBinding
+metadata:
+  name: gcp-microservice-demo-development
+  namespace: default
+  labels:
+    openchoreo.dev/project: gcp-microservice-demo
+    openchoreo.dev/environment: development
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  environment: development
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ProjectReleaseBinding
+metadata:
+  name: gcp-microservice-demo-staging
+  namespace: default
+  labels:
+    openchoreo.dev/project: gcp-microservice-demo
+    openchoreo.dev/environment: staging
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  environment: staging
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ProjectReleaseBinding
+metadata:
+  name: gcp-microservice-demo-production
+  namespace: default
+  labels:
+    openchoreo.dev/project: gcp-microservice-demo
+    openchoreo.dev/environment: production
+spec:
+  owner:
+    projectName: gcp-microservice-demo
+  environment: production
