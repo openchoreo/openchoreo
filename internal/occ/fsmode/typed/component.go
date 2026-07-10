@@ -35,43 +35,6 @@ func (c *Component) ComponentTypeName() string {
 	return ct
 }
 
-// ComponentTypeCategory extracts the category from componentType
-// Example: "deployment" from "deployment/http-service"
-func (c *Component) ComponentTypeCategory() string {
-	ct := c.Spec.ComponentType.Name
-	if idx := strings.Index(ct, "/"); idx >= 0 {
-		return ct[:idx]
-	}
-	return ""
-}
-
-// GetParameters returns the component parameters as a map for template processing
-func (c *Component) GetParameters() map[string]interface{} {
-	return rawExtensionToMap(c.Spec.Parameters)
-}
-
-// GetTraitRefs returns trait references converted to TraitRef for easier use
-func (c *Component) GetTraitRefs() []TraitRef {
-	if len(c.Spec.Traits) == 0 {
-		return nil
-	}
-
-	refs := make([]TraitRef, len(c.Spec.Traits))
-	for i, trait := range c.Spec.Traits {
-		kind := string(trait.Kind)
-		if kind == "" {
-			kind = "Trait"
-		}
-		refs[i] = TraitRef{
-			Kind:         kind,
-			Name:         trait.Name,
-			InstanceName: trait.InstanceName,
-			Parameters:   rawExtensionToMap(trait.Parameters),
-		}
-	}
-	return refs
-}
-
 // ProjectName returns the project name from spec.owner.projectName
 func (c *Component) ProjectName() string {
 	return c.Spec.Owner.ProjectName

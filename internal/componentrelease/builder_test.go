@@ -266,6 +266,58 @@ func TestBuildSpec_WithTraits(t *testing.T) {
 	})
 }
 
+func TestBuildSpec_DeterministicTraitOrder(t *testing.T) {
+	workload := &openchoreov1alpha1.WorkloadTemplateSpec{
+		Container: openchoreov1alpha1.Container{Image: "nginx:1.21"},
+	}
+
+	// Multiple traits across both kinds: mergeTraits ranges over maps, whose iteration
+	// order Go randomizes per range, so without a stable sort the frozen spec.traits order
+	// (which the release spec-hash matcher treats as significant) drifts between calls.
+	input := BuildInput{
+		Component:     makeComponent("proj", "comp", openchoreov1alpha1.ComponentSpec{}),
+		ComponentType: makeCT(),
+		Traits: map[string]openchoreov1alpha1.TraitSpec{
+			"zebra": {},
+			"alpha": {},
+			"mango": {},
+		},
+		ClusterTraits: map[string]openchoreov1alpha1.ClusterTraitSpec{
+			"yak":  {},
+			"beta": {},
+		},
+		Workload: workload,
+	}
+
+	// Sorted by (Kind, Name); "ClusterTrait" sorts before "Trait".
+	want := []openchoreov1alpha1.ComponentReleaseTrait{
+		{Kind: openchoreov1alpha1.TraitRefKindClusterTrait, Name: "beta"},
+		{Kind: openchoreov1alpha1.TraitRefKindClusterTrait, Name: "yak"},
+		{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "alpha"},
+		{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "mango"},
+		{Kind: openchoreov1alpha1.TraitRefKindTrait, Name: "zebra"},
+	}
+
+	// Repeated builds must yield the identical order (and it must be the sorted order).
+	// A single build could match the sorted order by chance, so require all N builds agree.
+	const iterations = 20
+	for i := 0; i < iterations; i++ {
+		spec, err := BuildSpec(input)
+		if err != nil {
+			t.Fatalf("iteration %d: unexpected error: %v", i, err)
+		}
+		if len(spec.Traits) != len(want) {
+			t.Fatalf("iteration %d: expected %d traits, got %d", i, len(want), len(spec.Traits))
+		}
+		for j := range want {
+			if spec.Traits[j].Kind != want[j].Kind || spec.Traits[j].Name != want[j].Name {
+				t.Fatalf("iteration %d: trait[%d] = %s/%s, want %s/%s",
+					i, j, spec.Traits[j].Kind, spec.Traits[j].Name, want[j].Kind, want[j].Name)
+			}
+		}
+	}
+}
+
 func TestBuildSpec_WithComponentTraits(t *testing.T) {
 	ct := makeCT()
 	workload := &openchoreov1alpha1.WorkloadTemplateSpec{
