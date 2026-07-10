@@ -38,3 +38,19 @@ type DeployParams struct {
 
 func (p DeployParams) GetNamespace() string   { return p.Namespace }
 func (p DeployParams) GetProjectName() string { return p.ProjectName }
+
+// ScaffoldParams defines parameters for scaffolding a Project from a (Cluster)ProjectType
+type ScaffoldParams struct {
+	ProjectName        string
+	Namespace          string
+	ProjectType        string // --projecttype (namespace-scoped)
+	ClusterProjectType string // --clusterprojecttype (cluster-scoped)
+	DeploymentPipeline string // --deployment-pipeline
+	OutputPath         string // -o
+	SkipComments       bool
+	SkipOptional       bool
+	NoBindings         bool // skip per-environment ProjectReleaseBinding output
+}
+
+func (p ScaffoldParams) GetNamespace() string   { return p.Namespace }
+func (p ScaffoldParams) GetProjectName() string { return p.ProjectName }
