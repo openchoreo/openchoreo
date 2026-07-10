@@ -36,8 +36,9 @@ const (
 	observerQueryHTTPTimeoutSc = 20
 
 	// IngestionBudget is the upper bound the observability specs poll within
-	// for OpenSearch ingestion lag (logs/metrics/traces queries). Centralised
-	// here so a CI tuning bump only changes one place.
+	// for backend ingestion lag (logs/metrics/traces queries) — OpenObserve
+	// for logs, OpenSearch for traces. Centralised here so a CI tuning bump
+	// only changes one place.
 	IngestionBudget = 3 * time.Minute
 )
 

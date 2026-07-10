@@ -12,20 +12,9 @@ agents: 0
 kubeAPI:
   hostPort: "36553"
 ports:
-  # Observer API via kgateway HTTP
+  # Observer API via kgateway HTTP (also carries OpenObserve log ingestion
+  # from DP/WP Fluent Bit, routed by the logs module's own HTTPRoute)
   - port: 31080:11080
-    nodeFilters:
-      - loadbalancer
-  # kgateway HTTPS / OpenSearch TLS passthrough
-  - port: 31085:11085
-    nodeFilters:
-      - loadbalancer
-  # OpenSearch Dashboard
-  - port: 31081:5601
-    nodeFilters:
-      - loadbalancer
-  # OpenSearch API (Fluent Bit data ingestion from DP/WP)
-  - port: 31082:9200
     nodeFilters:
       - loadbalancer
   # Prometheus remote-write from DP/WP

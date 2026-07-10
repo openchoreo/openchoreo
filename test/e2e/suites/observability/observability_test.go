@@ -23,7 +23,7 @@ var (
 
 const (
 	// trafficRPS keeps the synthetic load gentle so the suite doesn't stress
-	// the greeter sample or the OpenSearch ingestion pipeline. We just need
+	// the greeter sample or the OpenObserve ingestion pipeline. We just need
 	// enough volume to land a few log lines + metric samples.
 	trafficRPS = 5
 	// trafficDuration is long enough to span at least one Prometheus
@@ -32,9 +32,10 @@ const (
 	trafficDuration = 45
 
 	// pollLogs / pollMetrics / pollTraces are how long each spec waits for
-	// the corresponding signal to surface via the observer API. OpenSearch
-	// ingestion + Prometheus scrape lag adds up; we use the shared
-	// framework.IngestionBudget to keep the value consistent across specs.
+	// the corresponding signal to surface via the observer API. Backend
+	// ingestion lag (OpenObserve for logs, OpenSearch for traces) + Prometheus
+	// scrape lag adds up; we use the shared framework.IngestionBudget to keep
+	// the value consistent across specs.
 	pollPoll = 10 * time.Second
 
 	tracesRetrievalFailedCode = "OBS-V1-T-05"

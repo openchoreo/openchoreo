@@ -147,7 +147,7 @@ func platformResourcesYAML() string {
 
 // greeterComponentYAML returns a service-flavour Component + Workload that
 // exposes the greeter sample on `servicePort`. Logs land on stdout, which
-// the cluster's logs-adapter ships into OpenSearch under the rendered DP
+// the cluster's logs-adapter ships into OpenObserve under the rendered DP
 // namespace + the component's pod labels — which is exactly what the
 // observer's componentSearchScope query needs to find them.
 func greeterComponentYAML() string {

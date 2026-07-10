@@ -195,12 +195,12 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 	// What actually differs per tool, and therefore needs a *live cluster* to verify, is the
 	// distinct signal/service path each tool drives — its own service + adapter + authz wrapper,
 	// and (for most) a distinct external dependency:
-	//   - logs   → logs service → OpenSearch
+	//   - logs   → logs service → OpenObserve
 	//   - metrics → metrics service → Prometheus
 	//   - events → events service + `events_adapter.go` (forwards to the logs adapter →
-	//     OpenSearch); NOT a separate backend, but a separate service/adapter AND the only observer
+	//     OpenObserve); NOT a separate backend, but a separate service/adapter AND the only observer
 	//     authz wrapper with zero unit coverage (`events_authz.go`, see O5b) — so it earns an e2e
-	//   - traces → traces service → tracing receiver (make/e2e.mk:984-993)
+	//   - traces → traces service → tracing receiver (make/e2e.mk:1043-1050)
 	// e2e earns its (expensive, ingestion-lag-prone, CPU-starved tier3) keep by exercising one
 	// representative tool per signal/service path — query_component_logs, query_resource_metrics,
 	// query_component_events, query_traces — which proves the wiring to each external system end
@@ -219,7 +219,7 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 	//
 	//   | Cut tool            | Why no e2e                                                       | Coverage home                          |
 	//   |---------------------|-----------------------------------------------------------------|----------------------------------------|
-	//   | query_workflow_logs | same OpenSearch backend as query_component_logs, different query;| unit/integration: logs adapter +       |
+	//   | query_workflow_logs | same OpenObserve backend as query_component_logs, different query;| unit/integration: logs adapter +      |
 	//   |                     | no WorkflowRun fixture here (build suite owns it)               | query builder                          |
 	//   | query_workflow_events| same events service path as query_component_events; no WorkflowRun| unit/integration: events adapter      |
 	//   | query_http_metrics  | same Prometheus backend as query_resource_metrics; no envoy/    | unit/integration: metrics adapter      |
@@ -232,10 +232,10 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 	//   | query_alerts,       | alert/incident firing is owned by the alerts suite's fixtures;  | alerts suite (firing) +                |
 	//   | query_incidents     | same authz/PDP path as O5/O6 proves the wiring                 | unit/integration (query/decode)        |
 
-	It("O4a: query_component_logs returns the greeter's logs (logs → OpenSearch)", func() {
-		// O4a: query_component_logs must return the greeter's logs. Verifies the logs -> OpenSearch
+	It("O4a: query_component_logs returns the greeter's logs (logs → OpenObserve)", func() {
+		// O4a: query_component_logs must return the greeter's logs. Verifies the logs -> OpenObserve
 		// signal path end to end. Genuinely needs e2e: real log ingestion (pod stdout -> adapter ->
-		// OpenSearch -> query) is the actual value here and can't be reproduced at integration level.
+		// OpenObserve -> query) is the actual value here and can't be reproduced at integration level.
 		Eventually(func(g Gomega) {
 			start, end := observerTimeWindow()
 			var out struct {
@@ -280,7 +280,7 @@ var _ = Describe("Observer MCP", Ordered, Label("tier3"), func() {
 
 	It("O4c: query_component_events succeeds + decodes (events service + events_adapter.go)", func() {
 		// O4c: query_component_events must succeed and decode — this exercises the events service +
-		// events_adapter.go path (distinct service code, though it reuses the logs/OpenSearch backend).
+		// events_adapter.go path (distinct service code, though it reuses the logs/OpenObserve backend).
 		// Assert succeeds+decodes, NOT non-empty events: greeter events come from deployment-time
 		// activity (pod scheduling/image pull), not the traffic burst, and may not be queryable within
 		// the e2e window. Keeping it non-fatal also avoids blocking the later specs in this Ordered
