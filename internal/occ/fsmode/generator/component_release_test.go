@@ -175,7 +175,7 @@ func TestGenerateRelease_ManifestShape(t *testing.T) {
 			"schema":       map[string]any{},
 			"allowedTraits": []any{
 				map[string]any{"kind": "Trait", "name": "ingress"},
-				// The component-level "logging" trait omits kind; allowedTraits matches literally.
+				// The component-level "logging" trait omits kind; both sides default to Trait.
 				map[string]any{"name": "logging"},
 			},
 		},
@@ -262,6 +262,68 @@ func TestGenerateRelease_ManifestShape(t *testing.T) {
 	ownerProj, _, _ := unstructured.NestedString(release.Object, "spec", "owner", "projectName")
 	assert.Equal(t, componentName, ownerComp)
 	assert.Equal(t, projectName, ownerProj)
+}
+
+// TestGenerateRelease_AllowedTraitKindDefaulted verifies that an allowedTraits entry whose kind
+// is omitted in the ComponentType file is defaulted to Trait, so that (a) a component-level trait
+// that spells its kind out explicitly still passes allowedTraits validation instead of being
+// rejected on a kind:name mismatch, and (b) the frozen componentType.spec.allowedTraits carries the
+// concrete kind the controller and API server emit. Without defaulting, the allowed set keyed on
+// ":logging" would not match the component's "Trait:logging".
+func TestGenerateRelease_AllowedTraitKindDefaulted(t *testing.T) {
+	const (
+		namespace     = "default"
+		projectName   = "myproj"
+		componentName = "my-svc"
+		releaseName   = "my-svc-release-1"
+	)
+
+	idx := index.New("/repo")
+
+	// Component spells the trait kind out explicitly; the ComponentType's allowedTraits omits it.
+	addComponentWithTraits(t, idx, namespace,
+		[]map[string]any{
+			{"kind": "Trait", "name": "logging", "instanceName": "logging-1"},
+		},
+		"/repo/projects/myproj/components/my-svc/component.yaml")
+
+	addComponentTypeWithSpec(t, idx,
+		map[string]any{
+			"workloadType": "deployment",
+			"resources":    []any{},
+			"schema":       map[string]any{},
+			"allowedTraits": []any{
+				map[string]any{"name": "logging"},
+			},
+		},
+		"/repo/platform/component-types/service.yaml")
+
+	addWorkload(t, idx, namespace, "my-svc-workload", projectName, componentName,
+		map[string]any{"container": map[string]any{"image": "reg/my-svc:v1"}},
+		"/repo/projects/myproj/components/my-svc/workload.yaml")
+
+	addTrait(t, idx, "logging",
+		map[string]any{"creates": []any{map[string]any{"template": map[string]any{"apiVersion": "v1", "kind": "ConfigMap"}}}},
+		"/repo/platform/traits/logging.yaml")
+
+	gen := NewReleaseGenerator(fsmode.WrapIndex(idx))
+
+	release, err := gen.GenerateRelease(ReleaseOptions{
+		ComponentName: componentName,
+		ProjectName:   projectName,
+		Namespace:     namespace,
+		ReleaseName:   releaseName,
+	})
+	// Before allowedTraits defaulting this rejected the component with a "not in the allowed list" error.
+	require.NoError(t, err)
+
+	allowed, ok, _ := unstructured.NestedSlice(release.Object, "spec", "componentType", "spec", "allowedTraits")
+	require.True(t, ok, "expected componentType.spec.allowedTraits")
+	require.Len(t, allowed, 1)
+	allowedEntry, ok := allowed[0].(map[string]interface{})
+	require.True(t, ok, "allowedTraits[0] is not a map")
+	assert.Equal(t, "Trait", allowedEntry["kind"], "allowedTraits[0].kind should be defaulted to Trait")
+	assert.Equal(t, "logging", allowedEntry["name"])
 }
 
 // TestGenerateRelease_DeterministicTraitOrder verifies that generating a release for a
