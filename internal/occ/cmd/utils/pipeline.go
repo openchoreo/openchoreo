@@ -32,6 +32,34 @@ func FindLowestEnvironment(pipeline *gen.DeploymentPipeline) (string, error) {
 	return (*pipeline.Spec.PromotionPaths)[0].SourceEnvironmentRef.Name, nil
 }
 
+// ExpandEnvironments returns every environment referenced by the pipeline's
+// promotion paths (each path's source followed by its targets), de-duplicated
+// while preserving first-seen order. A pipeline that declares no promotion
+// paths yields no environments; that is a valid state, not an error.
+func ExpandEnvironments(pipeline *gen.DeploymentPipeline) []string {
+	if pipeline == nil || pipeline.Spec == nil || pipeline.Spec.PromotionPaths == nil {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	var envs []string
+	add := func(name string) {
+		if name != "" && !seen[name] {
+			seen[name] = true
+			envs = append(envs, name)
+		}
+	}
+
+	for _, path := range *pipeline.Spec.PromotionPaths {
+		add(path.SourceEnvironmentRef.Name)
+		for _, targetRef := range path.TargetEnvironmentRefs {
+			add(targetRef.Name)
+		}
+	}
+
+	return envs
+}
+
 // FindSourceEnvironment finds the source environment for a given target environment in the pipeline.
 func FindSourceEnvironment(pipeline *gen.DeploymentPipeline, targetEnv string) (string, error) {
 	if pipeline.Spec == nil || pipeline.Spec.PromotionPaths == nil || len(*pipeline.Spec.PromotionPaths) == 0 {

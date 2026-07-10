@@ -21,6 +21,18 @@ type schemaProcessingResult struct {
 	defaultedObj map[string]any
 }
 
+// ApplyDefaultsToSchema applies schema defaults and returns the schema together
+// with the defaulted object. It exposes the defaulting used by the component
+// scaffolder so other scaffold generators (e.g. project) can render fields with
+// the same behavior.
+func ApplyDefaultsToSchema(jsonSchema *extv1.JSONSchemaProps) (*extv1.JSONSchemaProps, map[string]any, error) {
+	res, err := applyDefaultsToSchema(jsonSchema)
+	if err != nil {
+		return nil, nil, err
+	}
+	return res.jsonSchema, res.defaultedObj, nil
+}
+
 // applyDefaultsToSchema takes a JSONSchemaProps and applies defaults to create a schemaProcessingResult.
 // This is used when the schema has already been converted from OpenChoreo format.
 func applyDefaultsToSchema(jsonSchema *extv1.JSONSchemaProps) (*schemaProcessingResult, error) {
