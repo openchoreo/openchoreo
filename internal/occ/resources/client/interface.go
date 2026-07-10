@@ -139,6 +139,12 @@ type Interface interface {
 	CreateProjectRelease(ctx context.Context, namespaceName string, pr gen.ProjectRelease) (*gen.ProjectRelease, error)
 	DeleteProjectRelease(ctx context.Context, namespaceName, projectReleaseName string) error
 
+	ListProjectReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListProjectReleaseBindingsParams) (*gen.ProjectReleaseBindingList, error)
+	GetProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string) (*gen.ProjectReleaseBinding, error)
+	CreateProjectReleaseBinding(ctx context.Context, namespaceName string, prb gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error)
+	UpdateProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string, prb gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error)
+	DeleteProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string) error
+
 	ListResources(ctx context.Context, namespaceName string, params *gen.ListResourcesParams) (*gen.ResourceInstanceList, error)
 	GetResource(ctx context.Context, namespaceName, resourceName string) (*gen.ResourceInstance, error)
 	CreateResource(ctx context.Context, namespaceName string, r gen.ResourceInstance) (*gen.ResourceInstance, error)

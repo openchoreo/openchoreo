@@ -322,6 +322,66 @@ func (_c *MockInterface_CreateProjectRelease_Call) RunAndReturn(run func(context
 	return _c
 }
 
+// CreateProjectReleaseBinding provides a mock function with given fields: ctx, namespaceName, prb
+func (_m *MockInterface) CreateProjectReleaseBinding(ctx context.Context, namespaceName string, prb gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error) {
+	ret := _m.Called(ctx, namespaceName, prb)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateProjectReleaseBinding")
+	}
+
+	var r0 *gen.ProjectReleaseBinding
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error)); ok {
+		return rf(ctx, namespaceName, prb)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ProjectReleaseBinding) *gen.ProjectReleaseBinding); ok {
+		r0 = rf(ctx, namespaceName, prb)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ProjectReleaseBinding)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ProjectReleaseBinding) error); ok {
+		r1 = rf(ctx, namespaceName, prb)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateProjectReleaseBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateProjectReleaseBinding'
+type MockInterface_CreateProjectReleaseBinding_Call struct {
+	*mock.Call
+}
+
+// CreateProjectReleaseBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - prb gen.ProjectReleaseBinding
+func (_e *MockInterface_Expecter) CreateProjectReleaseBinding(ctx interface{}, namespaceName interface{}, prb interface{}) *MockInterface_CreateProjectReleaseBinding_Call {
+	return &MockInterface_CreateProjectReleaseBinding_Call{Call: _e.mock.On("CreateProjectReleaseBinding", ctx, namespaceName, prb)}
+}
+
+func (_c *MockInterface_CreateProjectReleaseBinding_Call) Run(run func(ctx context.Context, namespaceName string, prb gen.ProjectReleaseBinding)) *MockInterface_CreateProjectReleaseBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ProjectReleaseBinding))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateProjectReleaseBinding_Call) Return(_a0 *gen.ProjectReleaseBinding, _a1 error) *MockInterface_CreateProjectReleaseBinding_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateProjectReleaseBinding_Call) RunAndReturn(run func(context.Context, string, gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error)) *MockInterface_CreateProjectReleaseBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateProjectType provides a mock function with given fields: ctx, namespaceName, pt
 func (_m *MockInterface) CreateProjectType(ctx context.Context, namespaceName string, pt gen.ProjectType) (*gen.ProjectType, error) {
 	ret := _m.Called(ctx, namespaceName, pt)
@@ -1951,6 +2011,54 @@ func (_c *MockInterface_DeleteProjectRelease_Call) Return(_a0 error) *MockInterf
 }
 
 func (_c *MockInterface_DeleteProjectRelease_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteProjectRelease_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteProjectReleaseBinding provides a mock function with given fields: ctx, namespaceName, bindingName
+func (_m *MockInterface) DeleteProjectReleaseBinding(ctx context.Context, namespaceName string, bindingName string) error {
+	ret := _m.Called(ctx, namespaceName, bindingName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteProjectReleaseBinding")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, bindingName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteProjectReleaseBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteProjectReleaseBinding'
+type MockInterface_DeleteProjectReleaseBinding_Call struct {
+	*mock.Call
+}
+
+// DeleteProjectReleaseBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - bindingName string
+func (_e *MockInterface_Expecter) DeleteProjectReleaseBinding(ctx interface{}, namespaceName interface{}, bindingName interface{}) *MockInterface_DeleteProjectReleaseBinding_Call {
+	return &MockInterface_DeleteProjectReleaseBinding_Call{Call: _e.mock.On("DeleteProjectReleaseBinding", ctx, namespaceName, bindingName)}
+}
+
+func (_c *MockInterface_DeleteProjectReleaseBinding_Call) Run(run func(ctx context.Context, namespaceName string, bindingName string)) *MockInterface_DeleteProjectReleaseBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteProjectReleaseBinding_Call) Return(_a0 error) *MockInterface_DeleteProjectReleaseBinding_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteProjectReleaseBinding_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteProjectReleaseBinding_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -4376,6 +4484,66 @@ func (_c *MockInterface_GetProjectRelease_Call) RunAndReturn(run func(context.Co
 	return _c
 }
 
+// GetProjectReleaseBinding provides a mock function with given fields: ctx, namespaceName, bindingName
+func (_m *MockInterface) GetProjectReleaseBinding(ctx context.Context, namespaceName string, bindingName string) (*gen.ProjectReleaseBinding, error) {
+	ret := _m.Called(ctx, namespaceName, bindingName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetProjectReleaseBinding")
+	}
+
+	var r0 *gen.ProjectReleaseBinding
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.ProjectReleaseBinding, error)); ok {
+		return rf(ctx, namespaceName, bindingName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.ProjectReleaseBinding); ok {
+		r0 = rf(ctx, namespaceName, bindingName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ProjectReleaseBinding)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, bindingName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetProjectReleaseBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetProjectReleaseBinding'
+type MockInterface_GetProjectReleaseBinding_Call struct {
+	*mock.Call
+}
+
+// GetProjectReleaseBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - bindingName string
+func (_e *MockInterface_Expecter) GetProjectReleaseBinding(ctx interface{}, namespaceName interface{}, bindingName interface{}) *MockInterface_GetProjectReleaseBinding_Call {
+	return &MockInterface_GetProjectReleaseBinding_Call{Call: _e.mock.On("GetProjectReleaseBinding", ctx, namespaceName, bindingName)}
+}
+
+func (_c *MockInterface_GetProjectReleaseBinding_Call) Run(run func(ctx context.Context, namespaceName string, bindingName string)) *MockInterface_GetProjectReleaseBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetProjectReleaseBinding_Call) Return(_a0 *gen.ProjectReleaseBinding, _a1 error) *MockInterface_GetProjectReleaseBinding_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetProjectReleaseBinding_Call) RunAndReturn(run func(context.Context, string, string) (*gen.ProjectReleaseBinding, error)) *MockInterface_GetProjectReleaseBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetProjectType provides a mock function with given fields: ctx, namespaceName, ptName
 func (_m *MockInterface) GetProjectType(ctx context.Context, namespaceName string, ptName string) (*gen.ProjectType, error) {
 	ret := _m.Called(ctx, namespaceName, ptName)
@@ -6767,6 +6935,66 @@ func (_c *MockInterface_ListObservabilityPlanes_Call) RunAndReturn(run func(cont
 	return _c
 }
 
+// ListProjectReleaseBindings provides a mock function with given fields: ctx, namespaceName, params
+func (_m *MockInterface) ListProjectReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListProjectReleaseBindingsParams) (*gen.ProjectReleaseBindingList, error) {
+	ret := _m.Called(ctx, namespaceName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListProjectReleaseBindings")
+	}
+
+	var r0 *gen.ProjectReleaseBindingList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListProjectReleaseBindingsParams) (*gen.ProjectReleaseBindingList, error)); ok {
+		return rf(ctx, namespaceName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListProjectReleaseBindingsParams) *gen.ProjectReleaseBindingList); ok {
+		r0 = rf(ctx, namespaceName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ProjectReleaseBindingList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListProjectReleaseBindingsParams) error); ok {
+		r1 = rf(ctx, namespaceName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListProjectReleaseBindings_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListProjectReleaseBindings'
+type MockInterface_ListProjectReleaseBindings_Call struct {
+	*mock.Call
+}
+
+// ListProjectReleaseBindings is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListProjectReleaseBindingsParams
+func (_e *MockInterface_Expecter) ListProjectReleaseBindings(ctx interface{}, namespaceName interface{}, params interface{}) *MockInterface_ListProjectReleaseBindings_Call {
+	return &MockInterface_ListProjectReleaseBindings_Call{Call: _e.mock.On("ListProjectReleaseBindings", ctx, namespaceName, params)}
+}
+
+func (_c *MockInterface_ListProjectReleaseBindings_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListProjectReleaseBindingsParams)) *MockInterface_ListProjectReleaseBindings_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListProjectReleaseBindingsParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListProjectReleaseBindings_Call) Return(_a0 *gen.ProjectReleaseBindingList, _a1 error) *MockInterface_ListProjectReleaseBindings_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListProjectReleaseBindings_Call) RunAndReturn(run func(context.Context, string, *gen.ListProjectReleaseBindingsParams) (*gen.ProjectReleaseBindingList, error)) *MockInterface_ListProjectReleaseBindings_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListProjectReleases provides a mock function with given fields: ctx, namespaceName, params
 func (_m *MockInterface) ListProjectReleases(ctx context.Context, namespaceName string, params *gen.ListProjectReleasesParams) (*gen.ProjectReleaseList, error) {
 	ret := _m.Called(ctx, namespaceName, params)
@@ -7844,6 +8072,67 @@ func (_c *MockInterface_UpdateComponentType_Call) Return(_a0 *gen.ComponentType,
 }
 
 func (_c *MockInterface_UpdateComponentType_Call) RunAndReturn(run func(context.Context, string, string, gen.ComponentType) (*gen.ComponentType, error)) *MockInterface_UpdateComponentType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateProjectReleaseBinding provides a mock function with given fields: ctx, namespaceName, bindingName, prb
+func (_m *MockInterface) UpdateProjectReleaseBinding(ctx context.Context, namespaceName string, bindingName string, prb gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error) {
+	ret := _m.Called(ctx, namespaceName, bindingName, prb)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateProjectReleaseBinding")
+	}
+
+	var r0 *gen.ProjectReleaseBinding
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error)); ok {
+		return rf(ctx, namespaceName, bindingName, prb)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ProjectReleaseBinding) *gen.ProjectReleaseBinding); ok {
+		r0 = rf(ctx, namespaceName, bindingName, prb)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ProjectReleaseBinding)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.ProjectReleaseBinding) error); ok {
+		r1 = rf(ctx, namespaceName, bindingName, prb)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_UpdateProjectReleaseBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateProjectReleaseBinding'
+type MockInterface_UpdateProjectReleaseBinding_Call struct {
+	*mock.Call
+}
+
+// UpdateProjectReleaseBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - bindingName string
+//   - prb gen.ProjectReleaseBinding
+func (_e *MockInterface_Expecter) UpdateProjectReleaseBinding(ctx interface{}, namespaceName interface{}, bindingName interface{}, prb interface{}) *MockInterface_UpdateProjectReleaseBinding_Call {
+	return &MockInterface_UpdateProjectReleaseBinding_Call{Call: _e.mock.On("UpdateProjectReleaseBinding", ctx, namespaceName, bindingName, prb)}
+}
+
+func (_c *MockInterface_UpdateProjectReleaseBinding_Call) Run(run func(ctx context.Context, namespaceName string, bindingName string, prb gen.ProjectReleaseBinding)) *MockInterface_UpdateProjectReleaseBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.ProjectReleaseBinding))
+	})
+	return _c
+}
+
+func (_c *MockInterface_UpdateProjectReleaseBinding_Call) Return(_a0 *gen.ProjectReleaseBinding, _a1 error) *MockInterface_UpdateProjectReleaseBinding_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_UpdateProjectReleaseBinding_Call) RunAndReturn(run func(context.Context, string, string, gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error)) *MockInterface_UpdateProjectReleaseBinding_Call {
 	_c.Call.Return(run)
 	return _c
 }

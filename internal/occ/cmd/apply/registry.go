@@ -858,6 +858,31 @@ func addNamespacedScopedResources(reg map[string]resourceEntry) {
 		},
 	}
 
+	reg["ProjectReleaseBinding"] = resourceEntry{
+		scope: scopeNamespaced,
+		get: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string) (int, error) {
+			r, err := c.GetProjectReleaseBindingWithResponse(ctx, ns, name)
+			if err != nil {
+				return 0, err
+			}
+			return r.StatusCode(), nil
+		},
+		create: func(ctx context.Context, c *gen.ClientWithResponses, ns string, body io.Reader) (int, []byte, error) {
+			r, err := c.CreateProjectReleaseBindingWithBodyWithResponse(ctx, ns, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+		update: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string, body io.Reader) (int, []byte, error) {
+			r, err := c.UpdateProjectReleaseBindingWithBodyWithResponse(ctx, ns, name, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+	}
+
 	// Create-only resources
 
 	reg["WorkflowRun"] = resourceEntry{

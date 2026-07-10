@@ -1799,6 +1799,69 @@ func (c *Client) DeleteProjectRelease(ctx context.Context, namespaceName, projec
 	return nil
 }
 
+// ListProjectReleaseBindings retrieves all project release bindings in a namespace
+func (c *Client) ListProjectReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListProjectReleaseBindingsParams) (*gen.ProjectReleaseBindingList, error) {
+	if params == nil {
+		params = &gen.ListProjectReleaseBindingsParams{}
+	}
+	resp, err := c.client.ListProjectReleaseBindingsWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list project release bindings: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetProjectReleaseBinding retrieves a specific project release binding
+func (c *Client) GetProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string) (*gen.ProjectReleaseBinding, error) {
+	resp, err := c.client.GetProjectReleaseBindingWithResponse(ctx, namespaceName, bindingName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project release binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateProjectReleaseBinding creates a new project release binding
+func (c *Client) CreateProjectReleaseBinding(ctx context.Context, namespaceName string, prb gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error) {
+	resp, err := c.client.CreateProjectReleaseBindingWithResponse(ctx, namespaceName, prb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project release binding: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateProjectReleaseBinding updates an existing project release binding
+func (c *Client) UpdateProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string, prb gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error) {
+	resp, err := c.client.UpdateProjectReleaseBindingWithResponse(ctx, namespaceName, bindingName, prb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update project release binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteProjectReleaseBinding deletes a project release binding
+func (c *Client) DeleteProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string) error {
+	resp, err := c.client.DeleteProjectReleaseBindingWithResponse(ctx, namespaceName, bindingName)
+	if err != nil {
+		return fmt.Errorf("failed to delete project release binding: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
 // ListResources retrieves all resources for a namespace
 func (c *Client) ListResources(ctx context.Context, namespaceName string, params *gen.ListResourcesParams) (*gen.ResourceInstanceList, error) {
 	if params == nil {

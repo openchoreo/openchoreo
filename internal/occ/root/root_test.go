@@ -30,6 +30,7 @@ func TestBuildRootCmd_Subcommands(t *testing.T) {
 		"resourcerelease",
 		"projectrelease",
 		"resourcereleasebinding",
+		"projectreleasebinding",
 		"releasebinding",
 		"namespace",
 		"project",
