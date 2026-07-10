@@ -104,7 +104,7 @@ func printList(items []gen.Project) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tAGE")
+	fmt.Fprintln(w, "NAME\tTYPE\tAGE")
 
 	for _, proj := range items {
 		name := proj.Metadata.Name
@@ -112,8 +112,21 @@ func printList(items []gen.Project) error {
 		if proj.Metadata.CreationTimestamp != nil {
 			age = utils.FormatAge(*proj.Metadata.CreationTimestamp)
 		}
-		fmt.Fprintf(w, "%s\t%s\n", name, age)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", name, projectType(proj), age)
 	}
 
 	return w.Flush()
+}
+
+// projectType renders spec.type as "<Kind>/<Name>", defaulting the kind to
+// ProjectType when unset (matching the API default).
+func projectType(proj gen.Project) string {
+	if proj.Spec == nil || proj.Spec.Type == nil {
+		return ""
+	}
+	kind := string(gen.ProjectTypeRefKindProjectType)
+	if proj.Spec.Type.Kind != nil {
+		kind = string(*proj.Spec.Type.Kind)
+	}
+	return kind + "/" + proj.Spec.Type.Name
 }
