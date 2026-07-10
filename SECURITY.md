@@ -32,8 +32,4 @@ We use [GitHub Security Advisories](https://docs.github.com/en/code-security/sec
 
 ## Supported Versions
 
-Security fixes are provided for:
-
-- The latest stable release.
-- The previous stable minor release, where feasible.
-- Pre-1.0 (0.x) releases, at the maintainers' discretion.
+For the versions that receive security fixes, see our [release and support process](https://openchoreo.dev/docs/releases/release-and-support-process).
