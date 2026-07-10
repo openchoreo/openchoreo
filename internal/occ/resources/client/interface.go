@@ -120,6 +120,13 @@ type Interface interface {
 	DeleteClusterResourceType(ctx context.Context, crtName string) error
 	GetClusterResourceTypeSchema(ctx context.Context, crtName string) (*json.RawMessage, error)
 
+	ListProjectTypes(ctx context.Context, namespaceName string, params *gen.ListProjectTypesParams) (*gen.ProjectTypeList, error)
+	GetProjectType(ctx context.Context, namespaceName, ptName string) (*gen.ProjectType, error)
+	CreateProjectType(ctx context.Context, namespaceName string, pt gen.ProjectType) (*gen.ProjectType, error)
+	UpdateProjectType(ctx context.Context, namespaceName, ptName string, pt gen.ProjectType) (*gen.ProjectType, error)
+	DeleteProjectType(ctx context.Context, namespaceName, ptName string) error
+	GetProjectTypeSchema(ctx context.Context, namespaceName, ptName string) (*json.RawMessage, error)
+
 	ListResources(ctx context.Context, namespaceName string, params *gen.ListResourcesParams) (*gen.ResourceInstanceList, error)
 	GetResource(ctx context.Context, namespaceName, resourceName string) (*gen.ResourceInstance, error)
 	CreateResource(ctx context.Context, namespaceName string, r gen.ResourceInstance) (*gen.ResourceInstance, error)

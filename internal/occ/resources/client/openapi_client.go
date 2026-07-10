@@ -1592,6 +1592,84 @@ func (c *Client) GetClusterResourceTypeSchema(ctx context.Context, crtName strin
 	return schemaResponseToRaw(resp.JSON200)
 }
 
+// ListProjectTypes retrieves all project types in a namespace
+func (c *Client) ListProjectTypes(ctx context.Context, namespaceName string, params *gen.ListProjectTypesParams) (*gen.ProjectTypeList, error) {
+	if params == nil {
+		params = &gen.ListProjectTypesParams{}
+	}
+	resp, err := c.client.ListProjectTypesWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list project types: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetProjectType retrieves a specific project type
+func (c *Client) GetProjectType(ctx context.Context, namespaceName, ptName string) (*gen.ProjectType, error) {
+	resp, err := c.client.GetProjectTypeWithResponse(ctx, namespaceName, ptName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateProjectType creates a new project type
+func (c *Client) CreateProjectType(ctx context.Context, namespaceName string, pt gen.ProjectType) (*gen.ProjectType, error) {
+	resp, err := c.client.CreateProjectTypeWithResponse(ctx, namespaceName, pt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project type: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateProjectType updates an existing project type
+func (c *Client) UpdateProjectType(ctx context.Context, namespaceName, ptName string, pt gen.ProjectType) (*gen.ProjectType, error) {
+	resp, err := c.client.UpdateProjectTypeWithResponse(ctx, namespaceName, ptName, pt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update project type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteProjectType deletes a project type
+func (c *Client) DeleteProjectType(ctx context.Context, namespaceName, ptName string) error {
+	resp, err := c.client.DeleteProjectTypeWithResponse(ctx, namespaceName, ptName)
+	if err != nil {
+		return fmt.Errorf("failed to delete project type: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// GetProjectTypeSchema retrieves the parameter schema for a project type
+func (c *Client) GetProjectTypeSchema(ctx context.Context, namespaceName, ptName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetProjectTypeSchemaWithResponse(ctx, namespaceName, ptName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project type schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("project type %q not found", ptName)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
 // ListResources retrieves all resources for a namespace
 func (c *Client) ListResources(ctx context.Context, namespaceName string, params *gen.ListResourcesParams) (*gen.ResourceInstanceList, error) {
 	if params == nil {

@@ -758,6 +758,31 @@ func addNamespacedScopedResources(reg map[string]resourceEntry) {
 		},
 	}
 
+	reg["ProjectType"] = resourceEntry{
+		scope: scopeNamespaced,
+		get: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string) (int, error) {
+			r, err := c.GetProjectTypeWithResponse(ctx, ns, name)
+			if err != nil {
+				return 0, err
+			}
+			return r.StatusCode(), nil
+		},
+		create: func(ctx context.Context, c *gen.ClientWithResponses, ns string, body io.Reader) (int, []byte, error) {
+			r, err := c.CreateProjectTypeWithBodyWithResponse(ctx, ns, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+		update: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string, body io.Reader) (int, []byte, error) {
+			r, err := c.UpdateProjectTypeWithBodyWithResponse(ctx, ns, name, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+	}
+
 	reg["Resource"] = resourceEntry{
 		scope: scopeNamespaced,
 		get: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string) (int, error) {

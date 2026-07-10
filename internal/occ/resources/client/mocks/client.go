@@ -203,6 +203,66 @@ func (_c *MockInterface_CreateComponentType_Call) RunAndReturn(run func(context.
 	return _c
 }
 
+// CreateProjectType provides a mock function with given fields: ctx, namespaceName, pt
+func (_m *MockInterface) CreateProjectType(ctx context.Context, namespaceName string, pt gen.ProjectType) (*gen.ProjectType, error) {
+	ret := _m.Called(ctx, namespaceName, pt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateProjectType")
+	}
+
+	var r0 *gen.ProjectType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ProjectType) (*gen.ProjectType, error)); ok {
+		return rf(ctx, namespaceName, pt)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ProjectType) *gen.ProjectType); ok {
+		r0 = rf(ctx, namespaceName, pt)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ProjectType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ProjectType) error); ok {
+		r1 = rf(ctx, namespaceName, pt)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateProjectType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateProjectType'
+type MockInterface_CreateProjectType_Call struct {
+	*mock.Call
+}
+
+// CreateProjectType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - pt gen.ProjectType
+func (_e *MockInterface_Expecter) CreateProjectType(ctx interface{}, namespaceName interface{}, pt interface{}) *MockInterface_CreateProjectType_Call {
+	return &MockInterface_CreateProjectType_Call{Call: _e.mock.On("CreateProjectType", ctx, namespaceName, pt)}
+}
+
+func (_c *MockInterface_CreateProjectType_Call) Run(run func(ctx context.Context, namespaceName string, pt gen.ProjectType)) *MockInterface_CreateProjectType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ProjectType))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateProjectType_Call) Return(_a0 *gen.ProjectType, _a1 error) *MockInterface_CreateProjectType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateProjectType_Call) RunAndReturn(run func(context.Context, string, gen.ProjectType) (*gen.ProjectType, error)) *MockInterface_CreateProjectType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateReleaseBinding provides a mock function with given fields: ctx, namespaceName, req
 func (_m *MockInterface) CreateReleaseBinding(ctx context.Context, namespaceName string, req gen.ReleaseBinding) (*gen.ReleaseBinding, error) {
 	ret := _m.Called(ctx, namespaceName, req)
@@ -1677,6 +1737,54 @@ func (_c *MockInterface_DeleteProject_Call) Return(_a0 error) *MockInterface_Del
 }
 
 func (_c *MockInterface_DeleteProject_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteProject_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteProjectType provides a mock function with given fields: ctx, namespaceName, ptName
+func (_m *MockInterface) DeleteProjectType(ctx context.Context, namespaceName string, ptName string) error {
+	ret := _m.Called(ctx, namespaceName, ptName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteProjectType")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, ptName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteProjectType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteProjectType'
+type MockInterface_DeleteProjectType_Call struct {
+	*mock.Call
+}
+
+// DeleteProjectType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - ptName string
+func (_e *MockInterface_Expecter) DeleteProjectType(ctx interface{}, namespaceName interface{}, ptName interface{}) *MockInterface_DeleteProjectType_Call {
+	return &MockInterface_DeleteProjectType_Call{Call: _e.mock.On("DeleteProjectType", ctx, namespaceName, ptName)}
+}
+
+func (_c *MockInterface_DeleteProjectType_Call) Run(run func(ctx context.Context, namespaceName string, ptName string)) *MockInterface_DeleteProjectType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteProjectType_Call) Return(_a0 error) *MockInterface_DeleteProjectType_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteProjectType_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteProjectType_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -3872,6 +3980,126 @@ func (_c *MockInterface_GetProjectDeploymentPipeline_Call) Return(_a0 *gen.Deplo
 }
 
 func (_c *MockInterface_GetProjectDeploymentPipeline_Call) RunAndReturn(run func(context.Context, string, string) (*gen.DeploymentPipeline, error)) *MockInterface_GetProjectDeploymentPipeline_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetProjectType provides a mock function with given fields: ctx, namespaceName, ptName
+func (_m *MockInterface) GetProjectType(ctx context.Context, namespaceName string, ptName string) (*gen.ProjectType, error) {
+	ret := _m.Called(ctx, namespaceName, ptName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetProjectType")
+	}
+
+	var r0 *gen.ProjectType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.ProjectType, error)); ok {
+		return rf(ctx, namespaceName, ptName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.ProjectType); ok {
+		r0 = rf(ctx, namespaceName, ptName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ProjectType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, ptName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetProjectType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetProjectType'
+type MockInterface_GetProjectType_Call struct {
+	*mock.Call
+}
+
+// GetProjectType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - ptName string
+func (_e *MockInterface_Expecter) GetProjectType(ctx interface{}, namespaceName interface{}, ptName interface{}) *MockInterface_GetProjectType_Call {
+	return &MockInterface_GetProjectType_Call{Call: _e.mock.On("GetProjectType", ctx, namespaceName, ptName)}
+}
+
+func (_c *MockInterface_GetProjectType_Call) Run(run func(ctx context.Context, namespaceName string, ptName string)) *MockInterface_GetProjectType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetProjectType_Call) Return(_a0 *gen.ProjectType, _a1 error) *MockInterface_GetProjectType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetProjectType_Call) RunAndReturn(run func(context.Context, string, string) (*gen.ProjectType, error)) *MockInterface_GetProjectType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetProjectTypeSchema provides a mock function with given fields: ctx, namespaceName, ptName
+func (_m *MockInterface) GetProjectTypeSchema(ctx context.Context, namespaceName string, ptName string) (*json.RawMessage, error) {
+	ret := _m.Called(ctx, namespaceName, ptName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetProjectTypeSchema")
+	}
+
+	var r0 *json.RawMessage
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*json.RawMessage, error)); ok {
+		return rf(ctx, namespaceName, ptName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *json.RawMessage); ok {
+		r0 = rf(ctx, namespaceName, ptName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*json.RawMessage)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, ptName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetProjectTypeSchema_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetProjectTypeSchema'
+type MockInterface_GetProjectTypeSchema_Call struct {
+	*mock.Call
+}
+
+// GetProjectTypeSchema is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - ptName string
+func (_e *MockInterface_Expecter) GetProjectTypeSchema(ctx interface{}, namespaceName interface{}, ptName interface{}) *MockInterface_GetProjectTypeSchema_Call {
+	return &MockInterface_GetProjectTypeSchema_Call{Call: _e.mock.On("GetProjectTypeSchema", ctx, namespaceName, ptName)}
+}
+
+func (_c *MockInterface_GetProjectTypeSchema_Call) Run(run func(ctx context.Context, namespaceName string, ptName string)) *MockInterface_GetProjectTypeSchema_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetProjectTypeSchema_Call) Return(_a0 *json.RawMessage, _a1 error) *MockInterface_GetProjectTypeSchema_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetProjectTypeSchema_Call) RunAndReturn(run func(context.Context, string, string) (*json.RawMessage, error)) *MockInterface_GetProjectTypeSchema_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -6088,6 +6316,66 @@ func (_c *MockInterface_ListObservabilityPlanes_Call) RunAndReturn(run func(cont
 	return _c
 }
 
+// ListProjectTypes provides a mock function with given fields: ctx, namespaceName, params
+func (_m *MockInterface) ListProjectTypes(ctx context.Context, namespaceName string, params *gen.ListProjectTypesParams) (*gen.ProjectTypeList, error) {
+	ret := _m.Called(ctx, namespaceName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListProjectTypes")
+	}
+
+	var r0 *gen.ProjectTypeList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListProjectTypesParams) (*gen.ProjectTypeList, error)); ok {
+		return rf(ctx, namespaceName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListProjectTypesParams) *gen.ProjectTypeList); ok {
+		r0 = rf(ctx, namespaceName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ProjectTypeList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListProjectTypesParams) error); ok {
+		r1 = rf(ctx, namespaceName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListProjectTypes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListProjectTypes'
+type MockInterface_ListProjectTypes_Call struct {
+	*mock.Call
+}
+
+// ListProjectTypes is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListProjectTypesParams
+func (_e *MockInterface_Expecter) ListProjectTypes(ctx interface{}, namespaceName interface{}, params interface{}) *MockInterface_ListProjectTypes_Call {
+	return &MockInterface_ListProjectTypes_Call{Call: _e.mock.On("ListProjectTypes", ctx, namespaceName, params)}
+}
+
+func (_c *MockInterface_ListProjectTypes_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListProjectTypesParams)) *MockInterface_ListProjectTypes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListProjectTypesParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListProjectTypes_Call) Return(_a0 *gen.ProjectTypeList, _a1 error) *MockInterface_ListProjectTypes_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListProjectTypes_Call) RunAndReturn(run func(context.Context, string, *gen.ListProjectTypesParams) (*gen.ProjectTypeList, error)) *MockInterface_ListProjectTypes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListProjects provides a mock function with given fields: ctx, namespaceName, params
 func (_m *MockInterface) ListProjects(ctx context.Context, namespaceName string, params *gen.ListProjectsParams) (*gen.ProjectList, error) {
 	ret := _m.Called(ctx, namespaceName, params)
@@ -6985,6 +7273,67 @@ func (_c *MockInterface_UpdateComponentType_Call) Return(_a0 *gen.ComponentType,
 }
 
 func (_c *MockInterface_UpdateComponentType_Call) RunAndReturn(run func(context.Context, string, string, gen.ComponentType) (*gen.ComponentType, error)) *MockInterface_UpdateComponentType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateProjectType provides a mock function with given fields: ctx, namespaceName, ptName, pt
+func (_m *MockInterface) UpdateProjectType(ctx context.Context, namespaceName string, ptName string, pt gen.ProjectType) (*gen.ProjectType, error) {
+	ret := _m.Called(ctx, namespaceName, ptName, pt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateProjectType")
+	}
+
+	var r0 *gen.ProjectType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ProjectType) (*gen.ProjectType, error)); ok {
+		return rf(ctx, namespaceName, ptName, pt)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.ProjectType) *gen.ProjectType); ok {
+		r0 = rf(ctx, namespaceName, ptName, pt)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ProjectType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.ProjectType) error); ok {
+		r1 = rf(ctx, namespaceName, ptName, pt)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_UpdateProjectType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateProjectType'
+type MockInterface_UpdateProjectType_Call struct {
+	*mock.Call
+}
+
+// UpdateProjectType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - ptName string
+//   - pt gen.ProjectType
+func (_e *MockInterface_Expecter) UpdateProjectType(ctx interface{}, namespaceName interface{}, ptName interface{}, pt interface{}) *MockInterface_UpdateProjectType_Call {
+	return &MockInterface_UpdateProjectType_Call{Call: _e.mock.On("UpdateProjectType", ctx, namespaceName, ptName, pt)}
+}
+
+func (_c *MockInterface_UpdateProjectType_Call) Run(run func(ctx context.Context, namespaceName string, ptName string, pt gen.ProjectType)) *MockInterface_UpdateProjectType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.ProjectType))
+	})
+	return _c
+}
+
+func (_c *MockInterface_UpdateProjectType_Call) Return(_a0 *gen.ProjectType, _a1 error) *MockInterface_UpdateProjectType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_UpdateProjectType_Call) RunAndReturn(run func(context.Context, string, string, gen.ProjectType) (*gen.ProjectType, error)) *MockInterface_UpdateProjectType_Call {
 	_c.Call.Return(run)
 	return _c
 }
