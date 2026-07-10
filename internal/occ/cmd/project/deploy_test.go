@@ -222,6 +222,79 @@ func TestPromote_UnknownTargetEnv_Error(t *testing.T) {
 	assert.ErrorContains(t, err, "no promotion path found for target environment 'prod'")
 }
 
+// --- --set / environmentConfigs ---
+
+func TestApplyEnvConfigOverrides_Empty(t *testing.T) {
+	b := &gen.ProjectReleaseBinding{Spec: &gen.ProjectReleaseBindingSpec{Environment: "dev"}}
+	out, err := applyEnvConfigOverrides(b, nil)
+	require.NoError(t, err)
+	assert.Same(t, b, out) // unchanged, same pointer
+}
+
+func TestApplyEnvConfigOverrides_Invalid(t *testing.T) {
+	b := &gen.ProjectReleaseBinding{Spec: &gen.ProjectReleaseBindingSpec{}}
+	_, err := applyEnvConfigOverrides(b, []string{"noequals"})
+	assert.ErrorContains(t, err, "invalid --set format")
+}
+
+func TestApplyEnvConfigOverrides_Merge(t *testing.T) {
+	b := &gen.ProjectReleaseBinding{Spec: &gen.ProjectReleaseBindingSpec{Environment: "dev"}}
+	out, err := applyEnvConfigOverrides(b, []string{"replicas=3", "tier=gold"})
+	require.NoError(t, err)
+	require.NotNil(t, out.Spec.EnvironmentConfigs)
+	ec := *out.Spec.EnvironmentConfigs
+	assert.Equal(t, float64(3), ec["replicas"]) // numbers stay numeric
+	assert.Equal(t, "gold", ec["tier"])
+	assert.Equal(t, "dev", out.Spec.Environment) // existing fields preserved
+}
+
+func TestDeploy_WithSet_Create(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "acme", "online-store").
+		Return(makePipeline(promotionPath("dev", "prod")), nil)
+	mc.EXPECT().ListProjectReleaseBindings(mock.Anything, "acme", mock.Anything).
+		Return(&gen.ProjectReleaseBindingList{Items: []gen.ProjectReleaseBinding{}}, nil)
+	mc.EXPECT().CreateProjectReleaseBinding(mock.Anything, "acme", mock.MatchedBy(func(b gen.ProjectReleaseBinding) bool {
+		if b.Spec == nil || b.Spec.EnvironmentConfigs == nil {
+			return false
+		}
+		ec := *b.Spec.EnvironmentConfigs
+		return ec["replicas"] == float64(3) && b.Spec.ProjectRelease == nil
+	})).Return(&gen.ProjectReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: "online-store-dev"},
+		Spec:     &gen.ProjectReleaseBindingSpec{Environment: "dev"},
+	}, nil)
+
+	p := New(mc)
+	require.NoError(t, p.Deploy(DeployParams{Namespace: "acme", ProjectName: "online-store", Set: []string{"replicas=3"}}))
+}
+
+func TestDeploy_WithSet_UpdatesExistingWithoutRelease(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "acme", "online-store").
+		Return(makePipeline(promotionPath("dev", "prod")), nil)
+	mc.EXPECT().ListProjectReleaseBindings(mock.Anything, "acme", mock.Anything).
+		Return(&gen.ProjectReleaseBindingList{Items: []gen.ProjectReleaseBinding{
+			bindingFor("online-store-dev", "online-store", "dev", ptr("online-store-abc")),
+		}}, nil)
+	// --set given, so the existing binding is updated (not an early "already deployed" return),
+	// and the controller-seeded release pin is preserved.
+	mc.EXPECT().UpdateProjectReleaseBinding(mock.Anything, "acme", "online-store-dev", mock.MatchedBy(func(b gen.ProjectReleaseBinding) bool {
+		if b.Spec == nil || b.Spec.EnvironmentConfigs == nil {
+			return false
+		}
+		ec := *b.Spec.EnvironmentConfigs
+		return ec["replicas"] == float64(5) &&
+			b.Spec.ProjectRelease != nil && *b.Spec.ProjectRelease == "online-store-abc"
+	})).Return(&gen.ProjectReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: "online-store-dev"},
+		Spec:     &gen.ProjectReleaseBindingSpec{Environment: "dev"},
+	}, nil)
+
+	p := New(mc)
+	require.NoError(t, p.Deploy(DeployParams{Namespace: "acme", ProjectName: "online-store", Set: []string{"replicas=5"}}))
+}
+
 // --- cmd wiring ---
 
 func TestDeployCmd_FactoryError(t *testing.T) {

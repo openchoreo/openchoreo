@@ -111,7 +111,10 @@ func newDeployCmd(f client.NewClientFunc) *cobra.Command {
   occ project deploy online-store --namespace acme-corp --to staging
 
   # Pin an explicit release
-  occ project deploy online-store --namespace acme-corp --release online-store-abc123`,
+  occ project deploy online-store --namespace acme-corp --release online-store-abc123
+
+  # Override environment config values
+  occ project deploy online-store --namespace acme-corp --to staging --set replicas=3`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -124,11 +127,13 @@ func newDeployCmd(f client.NewClientFunc) *cobra.Command {
 				ProjectName: args[0],
 				To:          flags.GetTo(cmd),
 				Release:     flags.GetRelease(cmd),
+				Set:         flags.GetSet(cmd),
 			})
 		},
 	}
 	flags.AddNamespace(cmd)
 	flags.AddTo(cmd)
 	flags.AddRelease(cmd)
+	flags.AddSet(cmd)
 	return cmd
 }

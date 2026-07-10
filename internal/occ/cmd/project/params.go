@@ -31,8 +31,9 @@ func (p DeleteParams) GetProjectName() string { return p.ProjectName }
 type DeployParams struct {
 	Namespace   string
 	ProjectName string
-	To          string // --to flag (target env for promotion)
-	Release     string // --release flag (optional explicit ProjectRelease name to pin)
+	To          string   // --to flag (target env for promotion)
+	Release     string   // --release flag (optional explicit ProjectRelease name to pin)
+	Set         []string // --set values (key=value) merged into spec.environmentConfigs
 }
 
 func (p DeployParams) GetNamespace() string   { return p.Namespace }

@@ -5,8 +5,11 @@ package project
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/setoverride"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -73,16 +76,26 @@ func (p *Project) deployProject(ctx context.Context, params DeployParams) (*gen.
 	if existing != nil {
 		// Binding already exists. Only advance an explicit release pin; otherwise
 		// leave the controller-seeded value untouched.
-		if releasePtr == nil {
+		if releasePtr == nil && len(params.Set) == 0 {
 			fmt.Printf("Project '%s' is already deployed to environment '%s'\n", params.ProjectName, lowestEnv)
 			return existing, nil
 		}
-		existing.Spec.ProjectRelease = releasePtr
-		return p.client.UpdateProjectReleaseBinding(ctx, params.Namespace, existing.Metadata.Name, *existing)
+		if releasePtr != nil {
+			existing.Spec.ProjectRelease = releasePtr
+		}
+		merged, err := applyEnvConfigOverrides(existing, params.Set)
+		if err != nil {
+			return nil, err
+		}
+		return p.client.UpdateProjectReleaseBinding(ctx, params.Namespace, existing.Metadata.Name, *merged)
 	}
 
 	prb := newBinding(fmt.Sprintf("%s-%s", params.ProjectName, lowestEnv), params.ProjectName, lowestEnv, releasePtr)
-	return p.client.CreateProjectReleaseBinding(ctx, params.Namespace, prb)
+	merged, err := applyEnvConfigOverrides(&prb, params.Set)
+	if err != nil {
+		return nil, err
+	}
+	return p.client.CreateProjectReleaseBinding(ctx, params.Namespace, *merged)
 }
 
 // promoteProject advances the target environment's ProjectReleaseBinding to the
@@ -117,11 +130,19 @@ func (p *Project) promoteProject(ctx context.Context, params DeployParams) (*gen
 
 	if existing != nil {
 		existing.Spec.ProjectRelease = &releaseName
-		return p.client.UpdateProjectReleaseBinding(ctx, params.Namespace, existing.Metadata.Name, *existing)
+		merged, err := applyEnvConfigOverrides(existing, params.Set)
+		if err != nil {
+			return nil, err
+		}
+		return p.client.UpdateProjectReleaseBinding(ctx, params.Namespace, existing.Metadata.Name, *merged)
 	}
 
 	prb := newBinding(fmt.Sprintf("%s-%s", params.ProjectName, params.To), params.ProjectName, params.To, &releaseName)
-	return p.client.CreateProjectReleaseBinding(ctx, params.Namespace, prb)
+	merged, err := applyEnvConfigOverrides(&prb, params.Set)
+	if err != nil {
+		return nil, err
+	}
+	return p.client.CreateProjectReleaseBinding(ctx, params.Namespace, *merged)
 }
 
 // findBinding returns the ProjectReleaseBinding owned by the project for the
@@ -154,4 +175,39 @@ func newBinding(name, project, env string, release *string) gen.ProjectReleaseBi
 	}
 	prb.Spec.Owner.ProjectName = project
 	return prb
+}
+
+// applyEnvConfigOverrides merges --set key=value pairs into the binding's
+// spec.environmentConfigs. Each key is a JSON path relative to
+// environmentConfigs (e.g. "replicas" -> spec.environmentConfigs.replicas).
+// Returns the binding unchanged when no overrides are given.
+func applyEnvConfigOverrides(binding *gen.ProjectReleaseBinding, setValues []string) (*gen.ProjectReleaseBinding, error) {
+	if len(setValues) == 0 {
+		return binding, nil
+	}
+
+	scoped := make([]string, 0, len(setValues))
+	for _, sv := range setValues {
+		parts := strings.SplitN(sv, "=", 2)
+		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
+			return nil, fmt.Errorf("invalid --set format %q, expected key=value", sv)
+		}
+		scoped = append(scoped, "spec.environmentConfigs."+strings.TrimSpace(parts[0])+"="+parts[1])
+	}
+
+	bindingJSON, err := json.Marshal(binding)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal binding: %w", err)
+	}
+
+	merged, err := setoverride.Apply(string(bindingJSON), scoped)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge overrides: %w", err)
+	}
+
+	var out gen.ProjectReleaseBinding
+	if err := json.Unmarshal([]byte(merged), &out); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal merged binding: %w", err)
+	}
+	return &out, nil
 }
