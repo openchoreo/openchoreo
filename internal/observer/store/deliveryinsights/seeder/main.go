@@ -24,6 +24,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
@@ -62,13 +63,31 @@ var profiles = []componentProfile{
 
 type environment struct {
 	name       string
-	rateFactor float64 // deployment cadence relative to prod
+	rateFactor float64 // deployment cadence relative to the production-like env
 }
 
-var environments = []environment{
-	{name: "dev", rateFactor: 3.0},
-	{name: "staging", rateFactor: 1.5},
-	{name: "prod", rateFactor: 1.0},
+// parseEnvironments builds the environment list from a comma-separated flag value,
+// ordered dev-like → production-like. The first environment deploys at 3x the base
+// cadence, the last at 1x, and any in between at 1.5x.
+func parseEnvironments(value string) ([]environment, error) {
+	names := strings.Split(value, ",")
+	envs := make([]environment, 0, len(names))
+	for _, raw := range names {
+		name := strings.TrimSpace(raw)
+		if name == "" {
+			continue
+		}
+		envs = append(envs, environment{name: name, rateFactor: 1.5})
+	}
+	if len(envs) == 0 {
+		return nil, fmt.Errorf("at least one environment name is required")
+	}
+	envs[0].rateFactor = 3.0
+	envs[len(envs)-1].rateFactor = 1.0
+	if len(envs) == 1 {
+		envs[0].rateFactor = 1.0
+	}
+	return envs, nil
 }
 
 var rolloutFailureReasons = []string{
@@ -89,16 +108,32 @@ func main() {
 	namespace := flag.String("namespace", "default", "org namespace to seed")
 	seedIncidents := flag.Bool("seed-incidents", true,
 		"also seed matching alert/incident entries into the same database")
+	environmentNames := flag.String("environments", "dev,staging,prod",
+		"comma-separated environment names, ordered dev-like to production-like")
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	if err := run(logger, *dsn, *backend, *namespace, *days, *seed, *seedIncidents); err != nil {
+	environments, err := parseEnvironments(*environmentNames)
+	if err != nil {
+		logger.Error("Invalid -environments flag", "error", err)
+		os.Exit(1)
+	}
+	if err := run(
+		logger, *dsn, *backend, *namespace, environments, *days, *seed, *seedIncidents,
+	); err != nil {
 		logger.Error("Seeding failed", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run(logger *slog.Logger, dsn, backend, namespace string, days int, seed int64, seedIncidents bool) error {
+func run(
+	logger *slog.Logger,
+	dsn, backend, namespace string,
+	environments []environment,
+	days int,
+	seed int64,
+	seedIncidents bool,
+) error {
 	store, err := deliveryinsights.New(backend, dsn, logger)
 	if err != nil {
 		return err
