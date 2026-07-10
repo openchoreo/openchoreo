@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -68,7 +69,7 @@ func TestFindLowestEnvironment(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := findLowestEnvironment(tt.pipeline)
+			got, err := utils.FindLowestEnvironment(tt.pipeline)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -125,7 +126,7 @@ func TestFindSourceEnvironment(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := findSourceEnvironment(tt.pipeline, tt.targetEnv)
+			got, err := utils.FindSourceEnvironment(tt.pipeline, tt.targetEnv)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)

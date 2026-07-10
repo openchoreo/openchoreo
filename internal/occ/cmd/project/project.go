@@ -29,7 +29,7 @@ func New(c client.Interface) *Project {
 }
 
 // List lists all projects in a namespace
-func (l *Project) List(params ListParams) error {
+func (p *Project) List(params ListParams) error {
 	if err := cmdutil.RequireFields("list", "project", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
@@ -37,12 +37,12 @@ func (l *Project) List(params ListParams) error {
 	ctx := context.Background()
 
 	items, err := pagination.FetchAll(func(limit int, cursor string) ([]gen.Project, string, error) {
-		p := &gen.ListProjectsParams{}
-		p.Limit = &limit
+		lp := &gen.ListProjectsParams{}
+		lp.Limit = &limit
 		if cursor != "" {
-			p.Cursor = &cursor
+			lp.Cursor = &cursor
 		}
-		result, err := l.client.ListProjects(ctx, params.Namespace, p)
+		result, err := p.client.ListProjects(ctx, params.Namespace, lp)
 		if err != nil {
 			return nil, "", err
 		}
@@ -60,14 +60,14 @@ func (l *Project) List(params ListParams) error {
 }
 
 // Get retrieves a single project and outputs it as YAML
-func (l *Project) Get(params GetParams) error {
+func (p *Project) Get(params GetParams) error {
 	if err := cmdutil.RequireFields("get", "project", map[string]string{"namespace": params.Namespace}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
 
-	result, err := l.client.GetProject(ctx, params.Namespace, params.ProjectName)
+	result, err := p.client.GetProject(ctx, params.Namespace, params.ProjectName)
 	if err != nil {
 		return err
 	}
@@ -82,14 +82,14 @@ func (l *Project) Get(params GetParams) error {
 }
 
 // Delete deletes a single project
-func (l *Project) Delete(params DeleteParams) error {
+func (p *Project) Delete(params DeleteParams) error {
 	if err := cmdutil.RequireFields("delete", "project", map[string]string{"namespace": params.Namespace, "name": params.ProjectName}); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
 
-	if err := l.client.DeleteProject(ctx, params.Namespace, params.ProjectName); err != nil {
+	if err := p.client.DeleteProject(ctx, params.Namespace, params.ProjectName); err != nil {
 		return err
 	}
 

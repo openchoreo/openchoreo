@@ -23,6 +23,7 @@ func NewProjectCmd(f client.NewClientFunc) *cobra.Command {
 		newListCmd(f),
 		newGetCmd(f),
 		newDeleteCmd(f),
+		newDeployCmd(f),
 	)
 	return cmd
 }
@@ -94,5 +95,40 @@ func newDeleteCmd(f client.NewClientFunc) *cobra.Command {
 		},
 	}
 	flags.AddNamespace(cmd)
+	return cmd
+}
+
+func newDeployCmd(f client.NewClientFunc) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "deploy [PROJECT_NAME]",
+		Short: "Deploy or promote a project",
+		Long: "Deploy a project's ProjectReleaseBinding to the lowest environment in " +
+			"the pipeline, or promote it to the next environment.",
+		Example: `  # Deploy to the lowest environment (controller seeds the latest release)
+  occ project deploy online-store --namespace acme-corp
+
+  # Promote to a specific environment
+  occ project deploy online-store --namespace acme-corp --to staging
+
+  # Pin an explicit release
+  occ project deploy online-store --namespace acme-corp --release online-store-abc123`,
+		Args:    cmdutil.ExactOneArgWithUsage(),
+		PreRunE: auth.RequireLogin(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := f()
+			if err != nil {
+				return err
+			}
+			return New(cl).Deploy(DeployParams{
+				Namespace:   flags.GetNamespace(cmd),
+				ProjectName: args[0],
+				To:          flags.GetTo(cmd),
+				Release:     flags.GetRelease(cmd),
+			})
+		},
+	}
+	flags.AddNamespace(cmd)
+	flags.AddTo(cmd)
+	flags.AddRelease(cmd)
 	return cmd
 }

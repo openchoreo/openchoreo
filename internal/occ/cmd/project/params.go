@@ -26,3 +26,14 @@ type DeleteParams struct {
 
 func (p DeleteParams) GetNamespace() string   { return p.Namespace }
 func (p DeleteParams) GetProjectName() string { return p.ProjectName }
+
+// DeployParams defines parameters for deploying or promoting a project
+type DeployParams struct {
+	Namespace   string
+	ProjectName string
+	To          string // --to flag (target env for promotion)
+	Release     string // --release flag (optional explicit ProjectRelease name to pin)
+}
+
+func (p DeployParams) GetNamespace() string   { return p.Namespace }
+func (p DeployParams) GetProjectName() string { return p.ProjectName }
