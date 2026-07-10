@@ -14,6 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterdataplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterobservabilityplane"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterprojecttype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterresourcetype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clustertrait"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterworkflow"
@@ -83,6 +84,7 @@ func BuildRootCmd() *cobra.Command {
 		projecttype.NewProjectTypeCmd(f),
 		clustercomponenttype.NewClusterComponentTypeCmd(f),
 		clusterresourcetype.NewClusterResourceTypeCmd(f),
+		clusterprojecttype.NewClusterProjectTypeCmd(f),
 		clusterdataplane.NewClusterDataPlaneCmd(f),
 		clusterobservabilityplane.NewClusterObservabilityPlaneCmd(f),
 		clusterworkflowplane.NewClusterWorkflowPlaneCmd(f),

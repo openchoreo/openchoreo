@@ -1670,6 +1670,84 @@ func (c *Client) GetProjectTypeSchema(ctx context.Context, namespaceName, ptName
 	return schemaResponseToRaw(resp.JSON200)
 }
 
+// ListClusterProjectTypes retrieves all cluster-scoped project types
+func (c *Client) ListClusterProjectTypes(ctx context.Context, params *gen.ListClusterProjectTypesParams) (*gen.ClusterProjectTypeList, error) {
+	if params == nil {
+		params = &gen.ListClusterProjectTypesParams{}
+	}
+	resp, err := c.client.ListClusterProjectTypesWithResponse(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster project types: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetClusterProjectType retrieves a specific cluster project type
+func (c *Client) GetClusterProjectType(ctx context.Context, cptName string) (*gen.ClusterProjectType, error) {
+	resp, err := c.client.GetClusterProjectTypeWithResponse(ctx, cptName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster project type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateClusterProjectType creates a new cluster project type
+func (c *Client) CreateClusterProjectType(ctx context.Context, cpt gen.ClusterProjectType) (*gen.ClusterProjectType, error) {
+	resp, err := c.client.CreateClusterProjectTypeWithResponse(ctx, cpt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cluster project type: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateClusterProjectType updates an existing cluster project type
+func (c *Client) UpdateClusterProjectType(ctx context.Context, cptName string, cpt gen.ClusterProjectType) (*gen.ClusterProjectType, error) {
+	resp, err := c.client.UpdateClusterProjectTypeWithResponse(ctx, cptName, cpt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update cluster project type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteClusterProjectType deletes a cluster project type
+func (c *Client) DeleteClusterProjectType(ctx context.Context, cptName string) error {
+	resp, err := c.client.DeleteClusterProjectTypeWithResponse(ctx, cptName)
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster project type: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// GetClusterProjectTypeSchema retrieves the parameter schema for a cluster-scoped project type
+func (c *Client) GetClusterProjectTypeSchema(ctx context.Context, cptName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetClusterProjectTypeSchemaWithResponse(ctx, cptName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster project type schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("cluster project type %q not found", cptName)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
 // ListResources retrieves all resources for a namespace
 func (c *Client) ListResources(ctx context.Context, namespaceName string, params *gen.ListResourcesParams) (*gen.ResourceInstanceList, error) {
 	if params == nil {

@@ -310,6 +310,31 @@ func addClusterScopedResources(reg map[string]resourceEntry) {
 			return r.StatusCode(), r.Body, nil
 		},
 	}
+
+	reg["ClusterProjectType"] = resourceEntry{
+		scope: scopeCluster,
+		get: func(ctx context.Context, c *gen.ClientWithResponses, _, name string) (int, error) {
+			r, err := c.GetClusterProjectTypeWithResponse(ctx, name)
+			if err != nil {
+				return 0, err
+			}
+			return r.StatusCode(), nil
+		},
+		create: func(ctx context.Context, c *gen.ClientWithResponses, _ string, body io.Reader) (int, []byte, error) {
+			r, err := c.CreateClusterProjectTypeWithBodyWithResponse(ctx, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+		update: func(ctx context.Context, c *gen.ClientWithResponses, _, name string, body io.Reader) (int, []byte, error) {
+			r, err := c.UpdateClusterProjectTypeWithBodyWithResponse(ctx, name, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+	}
 }
 
 //nolint:funlen,gocyclo // namespaced resources registry table — one entry per resource kind

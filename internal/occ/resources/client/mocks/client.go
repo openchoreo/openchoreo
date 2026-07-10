@@ -24,6 +24,65 @@ func (_m *MockInterface) EXPECT() *MockInterface_Expecter {
 	return &MockInterface_Expecter{mock: &_m.Mock}
 }
 
+// CreateClusterProjectType provides a mock function with given fields: ctx, cpt
+func (_m *MockInterface) CreateClusterProjectType(ctx context.Context, cpt gen.ClusterProjectType) (*gen.ClusterProjectType, error) {
+	ret := _m.Called(ctx, cpt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateClusterProjectType")
+	}
+
+	var r0 *gen.ClusterProjectType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, gen.ClusterProjectType) (*gen.ClusterProjectType, error)); ok {
+		return rf(ctx, cpt)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, gen.ClusterProjectType) *gen.ClusterProjectType); ok {
+		r0 = rf(ctx, cpt)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterProjectType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, gen.ClusterProjectType) error); ok {
+		r1 = rf(ctx, cpt)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateClusterProjectType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateClusterProjectType'
+type MockInterface_CreateClusterProjectType_Call struct {
+	*mock.Call
+}
+
+// CreateClusterProjectType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cpt gen.ClusterProjectType
+func (_e *MockInterface_Expecter) CreateClusterProjectType(ctx interface{}, cpt interface{}) *MockInterface_CreateClusterProjectType_Call {
+	return &MockInterface_CreateClusterProjectType_Call{Call: _e.mock.On("CreateClusterProjectType", ctx, cpt)}
+}
+
+func (_c *MockInterface_CreateClusterProjectType_Call) Run(run func(ctx context.Context, cpt gen.ClusterProjectType)) *MockInterface_CreateClusterProjectType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(gen.ClusterProjectType))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateClusterProjectType_Call) Return(_a0 *gen.ClusterProjectType, _a1 error) *MockInterface_CreateClusterProjectType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateClusterProjectType_Call) RunAndReturn(run func(context.Context, gen.ClusterProjectType) (*gen.ClusterProjectType, error)) *MockInterface_CreateClusterProjectType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateClusterResourceType provides a mock function with given fields: ctx, crt
 func (_m *MockInterface) CreateClusterResourceType(ctx context.Context, crt gen.ClusterResourceType) (*gen.ClusterResourceType, error) {
 	ret := _m.Called(ctx, crt)
@@ -880,6 +939,53 @@ func (_c *MockInterface_DeleteClusterObservabilityPlane_Call) Return(_a0 error) 
 }
 
 func (_c *MockInterface_DeleteClusterObservabilityPlane_Call) RunAndReturn(run func(context.Context, string) error) *MockInterface_DeleteClusterObservabilityPlane_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteClusterProjectType provides a mock function with given fields: ctx, cptName
+func (_m *MockInterface) DeleteClusterProjectType(ctx context.Context, cptName string) error {
+	ret := _m.Called(ctx, cptName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteClusterProjectType")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, cptName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteClusterProjectType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteClusterProjectType'
+type MockInterface_DeleteClusterProjectType_Call struct {
+	*mock.Call
+}
+
+// DeleteClusterProjectType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cptName string
+func (_e *MockInterface_Expecter) DeleteClusterProjectType(ctx interface{}, cptName interface{}) *MockInterface_DeleteClusterProjectType_Call {
+	return &MockInterface_DeleteClusterProjectType_Call{Call: _e.mock.On("DeleteClusterProjectType", ctx, cptName)}
+}
+
+func (_c *MockInterface_DeleteClusterProjectType_Call) Run(run func(ctx context.Context, cptName string)) *MockInterface_DeleteClusterProjectType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteClusterProjectType_Call) Return(_a0 error) *MockInterface_DeleteClusterProjectType_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteClusterProjectType_Call) RunAndReturn(run func(context.Context, string) error) *MockInterface_DeleteClusterProjectType_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2610,6 +2716,124 @@ func (_c *MockInterface_GetClusterObservabilityPlane_Call) Return(_a0 *gen.Clust
 }
 
 func (_c *MockInterface_GetClusterObservabilityPlane_Call) RunAndReturn(run func(context.Context, string) (*gen.ClusterObservabilityPlane, error)) *MockInterface_GetClusterObservabilityPlane_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetClusterProjectType provides a mock function with given fields: ctx, cptName
+func (_m *MockInterface) GetClusterProjectType(ctx context.Context, cptName string) (*gen.ClusterProjectType, error) {
+	ret := _m.Called(ctx, cptName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterProjectType")
+	}
+
+	var r0 *gen.ClusterProjectType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*gen.ClusterProjectType, error)); ok {
+		return rf(ctx, cptName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *gen.ClusterProjectType); ok {
+		r0 = rf(ctx, cptName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterProjectType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, cptName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetClusterProjectType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterProjectType'
+type MockInterface_GetClusterProjectType_Call struct {
+	*mock.Call
+}
+
+// GetClusterProjectType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cptName string
+func (_e *MockInterface_Expecter) GetClusterProjectType(ctx interface{}, cptName interface{}) *MockInterface_GetClusterProjectType_Call {
+	return &MockInterface_GetClusterProjectType_Call{Call: _e.mock.On("GetClusterProjectType", ctx, cptName)}
+}
+
+func (_c *MockInterface_GetClusterProjectType_Call) Run(run func(ctx context.Context, cptName string)) *MockInterface_GetClusterProjectType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetClusterProjectType_Call) Return(_a0 *gen.ClusterProjectType, _a1 error) *MockInterface_GetClusterProjectType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetClusterProjectType_Call) RunAndReturn(run func(context.Context, string) (*gen.ClusterProjectType, error)) *MockInterface_GetClusterProjectType_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetClusterProjectTypeSchema provides a mock function with given fields: ctx, cptName
+func (_m *MockInterface) GetClusterProjectTypeSchema(ctx context.Context, cptName string) (*json.RawMessage, error) {
+	ret := _m.Called(ctx, cptName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetClusterProjectTypeSchema")
+	}
+
+	var r0 *json.RawMessage
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*json.RawMessage, error)); ok {
+		return rf(ctx, cptName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *json.RawMessage); ok {
+		r0 = rf(ctx, cptName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*json.RawMessage)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, cptName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetClusterProjectTypeSchema_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetClusterProjectTypeSchema'
+type MockInterface_GetClusterProjectTypeSchema_Call struct {
+	*mock.Call
+}
+
+// GetClusterProjectTypeSchema is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cptName string
+func (_e *MockInterface_Expecter) GetClusterProjectTypeSchema(ctx interface{}, cptName interface{}) *MockInterface_GetClusterProjectTypeSchema_Call {
+	return &MockInterface_GetClusterProjectTypeSchema_Call{Call: _e.mock.On("GetClusterProjectTypeSchema", ctx, cptName)}
+}
+
+func (_c *MockInterface_GetClusterProjectTypeSchema_Call) Run(run func(ctx context.Context, cptName string)) *MockInterface_GetClusterProjectTypeSchema_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetClusterProjectTypeSchema_Call) Return(_a0 *json.RawMessage, _a1 error) *MockInterface_GetClusterProjectTypeSchema_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetClusterProjectTypeSchema_Call) RunAndReturn(run func(context.Context, string) (*json.RawMessage, error)) *MockInterface_GetClusterProjectTypeSchema_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -5302,6 +5526,65 @@ func (_c *MockInterface_ListClusterObservabilityPlanes_Call) RunAndReturn(run fu
 	return _c
 }
 
+// ListClusterProjectTypes provides a mock function with given fields: ctx, params
+func (_m *MockInterface) ListClusterProjectTypes(ctx context.Context, params *gen.ListClusterProjectTypesParams) (*gen.ClusterProjectTypeList, error) {
+	ret := _m.Called(ctx, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListClusterProjectTypes")
+	}
+
+	var r0 *gen.ClusterProjectTypeList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *gen.ListClusterProjectTypesParams) (*gen.ClusterProjectTypeList, error)); ok {
+		return rf(ctx, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *gen.ListClusterProjectTypesParams) *gen.ClusterProjectTypeList); ok {
+		r0 = rf(ctx, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterProjectTypeList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *gen.ListClusterProjectTypesParams) error); ok {
+		r1 = rf(ctx, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListClusterProjectTypes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListClusterProjectTypes'
+type MockInterface_ListClusterProjectTypes_Call struct {
+	*mock.Call
+}
+
+// ListClusterProjectTypes is a helper method to define mock.On call
+//   - ctx context.Context
+//   - params *gen.ListClusterProjectTypesParams
+func (_e *MockInterface_Expecter) ListClusterProjectTypes(ctx interface{}, params interface{}) *MockInterface_ListClusterProjectTypes_Call {
+	return &MockInterface_ListClusterProjectTypes_Call{Call: _e.mock.On("ListClusterProjectTypes", ctx, params)}
+}
+
+func (_c *MockInterface_ListClusterProjectTypes_Call) Run(run func(ctx context.Context, params *gen.ListClusterProjectTypesParams)) *MockInterface_ListClusterProjectTypes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*gen.ListClusterProjectTypesParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListClusterProjectTypes_Call) Return(_a0 *gen.ClusterProjectTypeList, _a1 error) *MockInterface_ListClusterProjectTypes_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListClusterProjectTypes_Call) RunAndReturn(run func(context.Context, *gen.ListClusterProjectTypesParams) (*gen.ClusterProjectTypeList, error)) *MockInterface_ListClusterProjectTypes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListClusterResourceTypes provides a mock function with given fields: ctx, params
 func (_m *MockInterface) ListClusterResourceTypes(ctx context.Context, params *gen.ListClusterResourceTypesParams) (*gen.ClusterResourceTypeList, error) {
 	ret := _m.Called(ctx, params)
@@ -7152,6 +7435,66 @@ func (_c *MockInterface_ListWorkloads_Call) Return(_a0 *gen.WorkloadList, _a1 er
 }
 
 func (_c *MockInterface_ListWorkloads_Call) RunAndReturn(run func(context.Context, string, *gen.ListWorkloadsParams) (*gen.WorkloadList, error)) *MockInterface_ListWorkloads_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateClusterProjectType provides a mock function with given fields: ctx, cptName, cpt
+func (_m *MockInterface) UpdateClusterProjectType(ctx context.Context, cptName string, cpt gen.ClusterProjectType) (*gen.ClusterProjectType, error) {
+	ret := _m.Called(ctx, cptName, cpt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateClusterProjectType")
+	}
+
+	var r0 *gen.ClusterProjectType
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ClusterProjectType) (*gen.ClusterProjectType, error)); ok {
+		return rf(ctx, cptName, cpt)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ClusterProjectType) *gen.ClusterProjectType); ok {
+		r0 = rf(ctx, cptName, cpt)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ClusterProjectType)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ClusterProjectType) error); ok {
+		r1 = rf(ctx, cptName, cpt)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_UpdateClusterProjectType_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateClusterProjectType'
+type MockInterface_UpdateClusterProjectType_Call struct {
+	*mock.Call
+}
+
+// UpdateClusterProjectType is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cptName string
+//   - cpt gen.ClusterProjectType
+func (_e *MockInterface_Expecter) UpdateClusterProjectType(ctx interface{}, cptName interface{}, cpt interface{}) *MockInterface_UpdateClusterProjectType_Call {
+	return &MockInterface_UpdateClusterProjectType_Call{Call: _e.mock.On("UpdateClusterProjectType", ctx, cptName, cpt)}
+}
+
+func (_c *MockInterface_UpdateClusterProjectType_Call) Run(run func(ctx context.Context, cptName string, cpt gen.ClusterProjectType)) *MockInterface_UpdateClusterProjectType_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ClusterProjectType))
+	})
+	return _c
+}
+
+func (_c *MockInterface_UpdateClusterProjectType_Call) Return(_a0 *gen.ClusterProjectType, _a1 error) *MockInterface_UpdateClusterProjectType_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_UpdateClusterProjectType_Call) RunAndReturn(run func(context.Context, string, gen.ClusterProjectType) (*gen.ClusterProjectType, error)) *MockInterface_UpdateClusterProjectType_Call {
 	_c.Call.Return(run)
 	return _c
 }
