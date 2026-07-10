@@ -1748,6 +1748,57 @@ func (c *Client) GetClusterProjectTypeSchema(ctx context.Context, cptName string
 	return schemaResponseToRaw(resp.JSON200)
 }
 
+// ListProjectReleases retrieves all project releases in a namespace
+func (c *Client) ListProjectReleases(ctx context.Context, namespaceName string, params *gen.ListProjectReleasesParams) (*gen.ProjectReleaseList, error) {
+	if params == nil {
+		params = &gen.ListProjectReleasesParams{}
+	}
+	resp, err := c.client.ListProjectReleasesWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list project releases: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetProjectRelease retrieves a specific project release
+func (c *Client) GetProjectRelease(ctx context.Context, namespaceName, projectReleaseName string) (*gen.ProjectRelease, error) {
+	resp, err := c.client.GetProjectReleaseWithResponse(ctx, namespaceName, projectReleaseName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project release: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateProjectRelease creates a new project release
+func (c *Client) CreateProjectRelease(ctx context.Context, namespaceName string, pr gen.ProjectRelease) (*gen.ProjectRelease, error) {
+	resp, err := c.client.CreateProjectReleaseWithResponse(ctx, namespaceName, pr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project release: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// DeleteProjectRelease deletes a project release
+func (c *Client) DeleteProjectRelease(ctx context.Context, namespaceName, projectReleaseName string) error {
+	resp, err := c.client.DeleteProjectReleaseWithResponse(ctx, namespaceName, projectReleaseName)
+	if err != nil {
+		return fmt.Errorf("failed to delete project release: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
 // ListResources retrieves all resources for a namespace
 func (c *Client) ListResources(ctx context.Context, namespaceName string, params *gen.ListResourcesParams) (*gen.ResourceInstanceList, error) {
 	if params == nil {

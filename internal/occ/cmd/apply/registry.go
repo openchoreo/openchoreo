@@ -897,6 +897,25 @@ func addNamespacedScopedResources(reg map[string]resourceEntry) {
 			return r.StatusCode(), r.Body, nil
 		},
 	}
+
+	reg["ProjectRelease"] = resourceEntry{
+		scope:      scopeNamespaced,
+		capability: capCreateOnly,
+		get: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string) (int, error) {
+			r, err := c.GetProjectReleaseWithResponse(ctx, ns, name)
+			if err != nil {
+				return 0, err
+			}
+			return r.StatusCode(), nil
+		},
+		create: func(ctx context.Context, c *gen.ClientWithResponses, ns string, body io.Reader) (int, []byte, error) {
+			r, err := c.CreateProjectReleaseWithBodyWithResponse(ctx, ns, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+	}
 }
 
 // supportedKinds returns a sorted list of supported kind names.

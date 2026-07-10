@@ -32,6 +32,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityalertsnotificationchannel"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/project"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/projectrelease"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/projecttype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resource"
@@ -69,6 +70,7 @@ func BuildRootCmd() *cobra.Command {
 		version.NewVersionCmd(),
 		componentrelease.NewComponentReleaseCmd(f),
 		resourcerelease.NewResourceReleaseCmd(f),
+		projectrelease.NewProjectReleaseCmd(f),
 		resourcereleasebinding.NewResourceReleaseBindingCmd(f),
 		releasebinding.NewReleaseBindingCmd(f),
 		namespace.NewNamespaceCmd(f),

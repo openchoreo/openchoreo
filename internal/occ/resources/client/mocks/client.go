@@ -262,6 +262,66 @@ func (_c *MockInterface_CreateComponentType_Call) RunAndReturn(run func(context.
 	return _c
 }
 
+// CreateProjectRelease provides a mock function with given fields: ctx, namespaceName, pr
+func (_m *MockInterface) CreateProjectRelease(ctx context.Context, namespaceName string, pr gen.ProjectRelease) (*gen.ProjectRelease, error) {
+	ret := _m.Called(ctx, namespaceName, pr)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateProjectRelease")
+	}
+
+	var r0 *gen.ProjectRelease
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ProjectRelease) (*gen.ProjectRelease, error)); ok {
+		return rf(ctx, namespaceName, pr)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, gen.ProjectRelease) *gen.ProjectRelease); ok {
+		r0 = rf(ctx, namespaceName, pr)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ProjectRelease)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, gen.ProjectRelease) error); ok {
+		r1 = rf(ctx, namespaceName, pr)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_CreateProjectRelease_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateProjectRelease'
+type MockInterface_CreateProjectRelease_Call struct {
+	*mock.Call
+}
+
+// CreateProjectRelease is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - pr gen.ProjectRelease
+func (_e *MockInterface_Expecter) CreateProjectRelease(ctx interface{}, namespaceName interface{}, pr interface{}) *MockInterface_CreateProjectRelease_Call {
+	return &MockInterface_CreateProjectRelease_Call{Call: _e.mock.On("CreateProjectRelease", ctx, namespaceName, pr)}
+}
+
+func (_c *MockInterface_CreateProjectRelease_Call) Run(run func(ctx context.Context, namespaceName string, pr gen.ProjectRelease)) *MockInterface_CreateProjectRelease_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(gen.ProjectRelease))
+	})
+	return _c
+}
+
+func (_c *MockInterface_CreateProjectRelease_Call) Return(_a0 *gen.ProjectRelease, _a1 error) *MockInterface_CreateProjectRelease_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_CreateProjectRelease_Call) RunAndReturn(run func(context.Context, string, gen.ProjectRelease) (*gen.ProjectRelease, error)) *MockInterface_CreateProjectRelease_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateProjectType provides a mock function with given fields: ctx, namespaceName, pt
 func (_m *MockInterface) CreateProjectType(ctx context.Context, namespaceName string, pt gen.ProjectType) (*gen.ProjectType, error) {
 	ret := _m.Called(ctx, namespaceName, pt)
@@ -1843,6 +1903,54 @@ func (_c *MockInterface_DeleteProject_Call) Return(_a0 error) *MockInterface_Del
 }
 
 func (_c *MockInterface_DeleteProject_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteProject_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteProjectRelease provides a mock function with given fields: ctx, namespaceName, projectReleaseName
+func (_m *MockInterface) DeleteProjectRelease(ctx context.Context, namespaceName string, projectReleaseName string) error {
+	ret := _m.Called(ctx, namespaceName, projectReleaseName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteProjectRelease")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, namespaceName, projectReleaseName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockInterface_DeleteProjectRelease_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteProjectRelease'
+type MockInterface_DeleteProjectRelease_Call struct {
+	*mock.Call
+}
+
+// DeleteProjectRelease is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - projectReleaseName string
+func (_e *MockInterface_Expecter) DeleteProjectRelease(ctx interface{}, namespaceName interface{}, projectReleaseName interface{}) *MockInterface_DeleteProjectRelease_Call {
+	return &MockInterface_DeleteProjectRelease_Call{Call: _e.mock.On("DeleteProjectRelease", ctx, namespaceName, projectReleaseName)}
+}
+
+func (_c *MockInterface_DeleteProjectRelease_Call) Run(run func(ctx context.Context, namespaceName string, projectReleaseName string)) *MockInterface_DeleteProjectRelease_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_DeleteProjectRelease_Call) Return(_a0 error) *MockInterface_DeleteProjectRelease_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockInterface_DeleteProjectRelease_Call) RunAndReturn(run func(context.Context, string, string) error) *MockInterface_DeleteProjectRelease_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -4204,6 +4312,66 @@ func (_c *MockInterface_GetProjectDeploymentPipeline_Call) Return(_a0 *gen.Deplo
 }
 
 func (_c *MockInterface_GetProjectDeploymentPipeline_Call) RunAndReturn(run func(context.Context, string, string) (*gen.DeploymentPipeline, error)) *MockInterface_GetProjectDeploymentPipeline_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetProjectRelease provides a mock function with given fields: ctx, namespaceName, projectReleaseName
+func (_m *MockInterface) GetProjectRelease(ctx context.Context, namespaceName string, projectReleaseName string) (*gen.ProjectRelease, error) {
+	ret := _m.Called(ctx, namespaceName, projectReleaseName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetProjectRelease")
+	}
+
+	var r0 *gen.ProjectRelease
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.ProjectRelease, error)); ok {
+		return rf(ctx, namespaceName, projectReleaseName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.ProjectRelease); ok {
+		r0 = rf(ctx, namespaceName, projectReleaseName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ProjectRelease)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, projectReleaseName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetProjectRelease_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetProjectRelease'
+type MockInterface_GetProjectRelease_Call struct {
+	*mock.Call
+}
+
+// GetProjectRelease is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - projectReleaseName string
+func (_e *MockInterface_Expecter) GetProjectRelease(ctx interface{}, namespaceName interface{}, projectReleaseName interface{}) *MockInterface_GetProjectRelease_Call {
+	return &MockInterface_GetProjectRelease_Call{Call: _e.mock.On("GetProjectRelease", ctx, namespaceName, projectReleaseName)}
+}
+
+func (_c *MockInterface_GetProjectRelease_Call) Run(run func(ctx context.Context, namespaceName string, projectReleaseName string)) *MockInterface_GetProjectRelease_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetProjectRelease_Call) Return(_a0 *gen.ProjectRelease, _a1 error) *MockInterface_GetProjectRelease_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetProjectRelease_Call) RunAndReturn(run func(context.Context, string, string) (*gen.ProjectRelease, error)) *MockInterface_GetProjectRelease_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -6595,6 +6763,66 @@ func (_c *MockInterface_ListObservabilityPlanes_Call) Return(_a0 *gen.Observabil
 }
 
 func (_c *MockInterface_ListObservabilityPlanes_Call) RunAndReturn(run func(context.Context, string, *gen.ListObservabilityPlanesParams) (*gen.ObservabilityPlaneList, error)) *MockInterface_ListObservabilityPlanes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListProjectReleases provides a mock function with given fields: ctx, namespaceName, params
+func (_m *MockInterface) ListProjectReleases(ctx context.Context, namespaceName string, params *gen.ListProjectReleasesParams) (*gen.ProjectReleaseList, error) {
+	ret := _m.Called(ctx, namespaceName, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListProjectReleases")
+	}
+
+	var r0 *gen.ProjectReleaseList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListProjectReleasesParams) (*gen.ProjectReleaseList, error)); ok {
+		return rf(ctx, namespaceName, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, *gen.ListProjectReleasesParams) *gen.ProjectReleaseList); ok {
+		r0 = rf(ctx, namespaceName, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.ProjectReleaseList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, *gen.ListProjectReleasesParams) error); ok {
+		r1 = rf(ctx, namespaceName, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_ListProjectReleases_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListProjectReleases'
+type MockInterface_ListProjectReleases_Call struct {
+	*mock.Call
+}
+
+// ListProjectReleases is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - params *gen.ListProjectReleasesParams
+func (_e *MockInterface_Expecter) ListProjectReleases(ctx interface{}, namespaceName interface{}, params interface{}) *MockInterface_ListProjectReleases_Call {
+	return &MockInterface_ListProjectReleases_Call{Call: _e.mock.On("ListProjectReleases", ctx, namespaceName, params)}
+}
+
+func (_c *MockInterface_ListProjectReleases_Call) Run(run func(ctx context.Context, namespaceName string, params *gen.ListProjectReleasesParams)) *MockInterface_ListProjectReleases_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*gen.ListProjectReleasesParams))
+	})
+	return _c
+}
+
+func (_c *MockInterface_ListProjectReleases_Call) Return(_a0 *gen.ProjectReleaseList, _a1 error) *MockInterface_ListProjectReleases_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_ListProjectReleases_Call) RunAndReturn(run func(context.Context, string, *gen.ListProjectReleasesParams) (*gen.ProjectReleaseList, error)) *MockInterface_ListProjectReleases_Call {
 	_c.Call.Return(run)
 	return _c
 }

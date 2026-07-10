@@ -134,6 +134,11 @@ type Interface interface {
 	DeleteClusterProjectType(ctx context.Context, cptName string) error
 	GetClusterProjectTypeSchema(ctx context.Context, cptName string) (*json.RawMessage, error)
 
+	ListProjectReleases(ctx context.Context, namespaceName string, params *gen.ListProjectReleasesParams) (*gen.ProjectReleaseList, error)
+	GetProjectRelease(ctx context.Context, namespaceName, projectReleaseName string) (*gen.ProjectRelease, error)
+	CreateProjectRelease(ctx context.Context, namespaceName string, pr gen.ProjectRelease) (*gen.ProjectRelease, error)
+	DeleteProjectRelease(ctx context.Context, namespaceName, projectReleaseName string) error
+
 	ListResources(ctx context.Context, namespaceName string, params *gen.ListResourcesParams) (*gen.ResourceInstanceList, error)
 	GetResource(ctx context.Context, namespaceName, resourceName string) (*gen.ResourceInstance, error)
 	CreateResource(ctx context.Context, namespaceName string, r gen.ResourceInstance) (*gen.ResourceInstance, error)
