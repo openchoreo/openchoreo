@@ -11,7 +11,7 @@ import (
 
 // FindLowestEnvironment finds the environment that is not a target in any promotion path.
 func FindLowestEnvironment(pipeline *gen.DeploymentPipeline) (string, error) {
-	if pipeline.Spec == nil || pipeline.Spec.PromotionPaths == nil || len(*pipeline.Spec.PromotionPaths) == 0 {
+	if pipeline == nil || pipeline.Spec == nil || pipeline.Spec.PromotionPaths == nil || len(*pipeline.Spec.PromotionPaths) == 0 {
 		return "", fmt.Errorf("deployment pipeline has no promotion paths")
 	}
 
@@ -62,7 +62,7 @@ func ExpandEnvironments(pipeline *gen.DeploymentPipeline) []string {
 
 // FindSourceEnvironment finds the source environment for a given target environment in the pipeline.
 func FindSourceEnvironment(pipeline *gen.DeploymentPipeline, targetEnv string) (string, error) {
-	if pipeline.Spec == nil || pipeline.Spec.PromotionPaths == nil || len(*pipeline.Spec.PromotionPaths) == 0 {
+	if pipeline == nil || pipeline.Spec == nil || pipeline.Spec.PromotionPaths == nil || len(*pipeline.Spec.PromotionPaths) == 0 {
 		return "", fmt.Errorf("deployment pipeline has no promotion paths")
 	}
 

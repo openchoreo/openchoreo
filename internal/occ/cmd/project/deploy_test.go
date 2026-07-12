@@ -101,6 +101,37 @@ func TestDeploy_AlreadyDeployed_NoRelease(t *testing.T) {
 	assert.Contains(t, out, "already deployed to environment 'dev'")
 }
 
+// findBinding must follow pagination: when the matching binding is on a later
+// page, deploy must detect it and not create a duplicate.
+func TestDeploy_FindBinding_FollowsPagination(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "acme", "online-store").
+		Return(makePipeline(promotionPath("dev", "prod")), nil)
+
+	// Page 1: no dev binding, but signals a next page.
+	mc.EXPECT().ListProjectReleaseBindings(mock.Anything, "acme", mock.MatchedBy(func(p *gen.ListProjectReleaseBindingsParams) bool {
+		return p.Cursor == nil
+	})).Return(&gen.ProjectReleaseBindingList{
+		Items:      []gen.ProjectReleaseBinding{bindingFor("online-store-prod", "online-store", "prod", ptr("rel-prod"))},
+		Pagination: gen.Pagination{NextCursor: ptr("page-2")},
+	}, nil)
+
+	// Page 2: the dev binding lives here.
+	mc.EXPECT().ListProjectReleaseBindings(mock.Anything, "acme", mock.MatchedBy(func(p *gen.ListProjectReleaseBindingsParams) bool {
+		return p.Cursor != nil && *p.Cursor == "page-2"
+	})).Return(&gen.ProjectReleaseBindingList{
+		Items:      []gen.ProjectReleaseBinding{bindingFor("online-store-dev", "online-store", "dev", ptr("rel-dev"))},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	// No Create/Update: the existing dev binding was found on page 2.
+	p := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, p.Deploy(DeployParams{Namespace: "acme", ProjectName: "online-store"}))
+	})
+	assert.Contains(t, out, "already deployed to environment 'dev'")
+}
+
 func TestDeploy_WithReleasePin_Create(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetProjectDeploymentPipeline(mock.Anything, "acme", "online-store").

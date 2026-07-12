@@ -71,3 +71,26 @@ func TestExpandEnvironments_SkipsEmptyNames(t *testing.T) {
 	envs := ExpandEnvironments(makePipeline(promotionPath("", "staging")))
 	assert.Equal(t, []string{"staging"}, envs)
 }
+
+// FindLowestEnvironment and FindSourceEnvironment must not panic on a nil
+// pipeline; they return the same "no promotion paths" error as for empty data.
+
+func TestFindLowestEnvironment_Nil(t *testing.T) {
+	_, err := FindLowestEnvironment(nil)
+	assert.ErrorContains(t, err, "no promotion paths")
+}
+
+func TestFindLowestEnvironment_NilSpec(t *testing.T) {
+	_, err := FindLowestEnvironment(&gen.DeploymentPipeline{})
+	assert.ErrorContains(t, err, "no promotion paths")
+}
+
+func TestFindSourceEnvironment_Nil(t *testing.T) {
+	_, err := FindSourceEnvironment(nil, "staging")
+	assert.ErrorContains(t, err, "no promotion paths")
+}
+
+func TestFindSourceEnvironment_NilSpec(t *testing.T) {
+	_, err := FindSourceEnvironment(&gen.DeploymentPipeline{}, "staging")
+	assert.ErrorContains(t, err, "no promotion paths")
+}

@@ -146,21 +146,31 @@ func (p *Project) promoteProject(ctx context.Context, params DeployParams) (*gen
 }
 
 // findBinding returns the ProjectReleaseBinding owned by the project for the
-// given environment, or nil if none exists.
+// given environment, or nil if none exists. The binding list is paginated, so
+// it follows NextCursor across pages until a match is found or the pages are
+// exhausted.
 func (p *Project) findBinding(ctx context.Context, namespace, project, env string) (*gen.ProjectReleaseBinding, error) {
-	list, err := p.client.ListProjectReleaseBindings(ctx, namespace, &gen.ListProjectReleaseBindingsParams{
-		Project: &project,
-	})
-	if err != nil {
-		return nil, err
-	}
-	for i := range list.Items {
-		b := &list.Items[i]
-		if b.Spec != nil && b.Spec.Environment == env && b.Spec.Owner.ProjectName == project {
-			return b, nil
+	cursor := ""
+	for {
+		params := &gen.ListProjectReleaseBindingsParams{Project: &project}
+		if cursor != "" {
+			params.Cursor = &cursor
 		}
+		list, err := p.client.ListProjectReleaseBindings(ctx, namespace, params)
+		if err != nil {
+			return nil, err
+		}
+		for i := range list.Items {
+			b := &list.Items[i]
+			if b.Spec != nil && b.Spec.Environment == env && b.Spec.Owner.ProjectName == project {
+				return b, nil
+			}
+		}
+		if list.Pagination.NextCursor == nil {
+			return nil, nil
+		}
+		cursor = *list.Pagination.NextCursor
 	}
-	return nil, nil
 }
 
 // newBinding builds a ProjectReleaseBinding for the given project and environment.
