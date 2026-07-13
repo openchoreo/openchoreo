@@ -31,9 +31,6 @@ const (
 	planeTypeDataPlane          = "dataplane"
 	planeTypeObservabilityPlane = "observabilityplane"
 	maxResponseBytes            = 10 * 1024 * 1024 // 10MB
-
-	// kindRenderedRelease is the kind of the RenderedRelease control-plane CR.
-	kindRenderedRelease = "RenderedRelease"
 )
 
 // planeInfo holds the resolved plane coordinates for gateway proxy calls.
@@ -106,16 +103,6 @@ func (s *k8sResourcesService) GetResourceEvents(ctx context.Context, namespaceNa
 	releaseContexts, err := s.resolveReleaseContexts(ctx, namespaceName, releaseBindingName)
 	if err != nil {
 		return nil, err
-	}
-
-	// A RenderedRelease emits no Kubernetes events of its own — the release controllers
-	// report state through status.conditions — so there is nothing to return.
-	//
-	// Must come before findResourceRelease: that searches status.Resources, which lists
-	// the resources the release created, never the release itself. It would return
-	// "not found" for the release node the UI always renders.
-	if kind == kindRenderedRelease && (group == "" || group == openchoreov1alpha1.GroupVersion.Group) {
-		return &models.ResourceEventsResponse{Events: make([]models.ResourceEvent, 0)}, nil
 	}
 
 	// Find which release context contains the requested resource

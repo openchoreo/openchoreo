@@ -477,50 +477,6 @@ func TestGetResourceEvents(t *testing.T) {
 		// For cluster-scoped resource (empty namespace), the events path should be cluster-level
 		assert.Contains(t, capturedPath, "api/v1/events")
 	})
-
-	t.Run("events for a rendered release are empty", func(t *testing.T) {
-		// A RenderedRelease reports its state via status conditions and does not
-		// surface its own or its runtime resources' events, so the events endpoint
-		// returns an empty set (the UI shows "No events available").
-		rb := testReleaseBinding()
-		env := testEnvironment()
-		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
-			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
-		})
-		fc := newFakeClient(rb, env, dp, rr)
-		// The gateway must not be queried for release-level events.
-		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
-			t.Errorf("unexpected gateway call for rendered release events: %s", r.URL.Path)
-		})
-		svc := NewService(fc, gc, testLogger())
-
-		result, err := svc.GetResourceEvents(context.Background(), testNamespace, "rb-1",
-			"openchoreo.dev", "v1alpha1", kindRenderedRelease, "rr-1")
-		require.NoError(t, err)
-		require.NotNil(t, result)
-		assert.Empty(t, result.Events)
-	})
-
-	t.Run("rendered release events are empty even when the name differs from the CR", func(t *testing.T) {
-		// Any RenderedRelease name must return an empty set, not a 404, so the UI shows
-		// "No events available" instead of an error.
-		rb := testReleaseBinding()
-		env := testEnvironment()
-		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, nil)
-		fc := newFakeClient(rb, env, dp, rr)
-		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
-			t.Errorf("unexpected gateway call for rendered release events: %s", r.URL.Path)
-		})
-		svc := NewService(fc, gc, testLogger())
-
-		result, err := svc.GetResourceEvents(context.Background(), testNamespace, "rb-1",
-			"openchoreo.dev", "v1alpha1", kindRenderedRelease, "react-starter-development")
-		require.NoError(t, err)
-		require.NotNil(t, result)
-		assert.Empty(t, result.Events)
-	})
 }
 
 // --- GetResourceLogs ---
