@@ -162,7 +162,14 @@ ON CONFLICT (id) DO UPDATE SET
 	severity = CASE WHEN excluded.severity <> ''
 		THEN excluded.severity ELSE recovery_fact.severity END,
 	recovered_ms = COALESCE(excluded.recovered_ms, recovery_fact.recovered_ms),
-	duration_ms = COALESCE(excluded.duration_ms, recovery_fact.duration_ms),
+	-- failure_started_ms keeps the existing row's value (a Recovered write must not
+	-- move the episode start), so duration derives from the MERGED row: merged
+	-- recovery time minus the original failure start.
+	duration_ms = CASE
+		WHEN COALESCE(excluded.recovered_ms, recovery_fact.recovered_ms) IS NOT NULL
+		THEN COALESCE(excluded.recovered_ms, recovery_fact.recovered_ms)
+			- recovery_fact.failure_started_ms
+		ELSE recovery_fact.duration_ms END,
 	updated_at_ms = excluded.updated_at_ms;`
 
 const upsertRollupQuery = `INSERT INTO delivery_metric_rollup (
@@ -500,6 +507,88 @@ FROM deployment_fact` + where +
 		return nil, 0, fmt.Errorf("failed to iterate deployment facts: %w", err)
 	}
 	return facts, total, nil
+}
+
+func (s *sqlStore) AttributeIncident(
+	ctx context.Context, componentUID, environmentUID, incidentID string,
+	triggeredMs, windowMs int64,
+) (AttributionResult, error) {
+	if strings.TrimSpace(componentUID) == "" || strings.TrimSpace(environmentUID) == "" {
+		return AttributionResult{}, nil // unscoped incidents cannot be attributed
+	}
+	if strings.TrimSpace(incidentID) == "" {
+		return AttributionResult{}, fmt.Errorf("incident ID is required for attribution")
+	}
+
+	// The deployment "live" at the trigger is the latest one that occurred at or
+	// before it, within the attribution window.
+	query := s.rebind(`SELECT release_uid, ` + occurredMsExpr + ` AS occurred_ms
+FROM deployment_fact
+WHERE component_uid = ? AND environment_uid = ?
+	AND ` + occurredMsExpr + ` <= ? AND ` + occurredMsExpr + ` > ?
+ORDER BY occurred_ms DESC LIMIT 1;`)
+
+	var result AttributionResult
+	err := s.db.QueryRowContext(ctx, query,
+		componentUID, environmentUID, triggeredMs, triggeredMs-windowMs,
+	).Scan(&result.ReleaseUID, &result.OccurredMs)
+	if errors.Is(err, sql.ErrNoRows) {
+		return AttributionResult{}, nil
+	}
+	if err != nil {
+		return AttributionResult{}, fmt.Errorf("failed to find deployment for incident %q: %w", incidentID, err)
+	}
+
+	// Rollout failures take precedence; already-attributed facts stay untouched,
+	// which also makes re-processing the same incident idempotent.
+	update := s.rebind(`UPDATE deployment_fact
+SET outcome = 'failed', failed_by = 'incident', incident_id = ?, updated_at_ms = ?
+WHERE release_uid = ? AND failed_by = '';`)
+	updateResult, err := s.db.ExecContext(ctx, update,
+		incidentID, time.Now().UnixMilli(), result.ReleaseUID)
+	if err != nil {
+		return AttributionResult{}, fmt.Errorf("failed to attribute incident %q: %w", incidentID, err)
+	}
+	if rows, rowsErr := updateResult.RowsAffected(); rowsErr == nil && rows > 0 {
+		result.Attributed = true
+	}
+	return result, nil
+}
+
+func (s *sqlStore) QueryRecoveryFacts(ctx context.Context, q FactQuery) ([]RecoveryFact, error) {
+	conditions, args := s.factScopeConditions(q)
+	conditions = append(conditions, "failure_started_ms >= ?", "failure_started_ms < ?")
+	args = append(args, q.StartMs, q.EndMs)
+
+	query := s.rebind(`SELECT id, org_namespace, project_uid, component_uid, environment_uid,
+	release_uid, incident_id, severity, source,
+	failure_started_ms, recovered_ms, duration_ms, updated_at_ms
+FROM recovery_fact WHERE ` + strings.Join(conditions, " AND ") +
+		" ORDER BY failure_started_ms ASC;")
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query recovery facts: %w", err)
+	}
+	defer closeRows(rows, s.logger)
+
+	var facts []RecoveryFact
+	for rows.Next() {
+		var f RecoveryFact
+		var recovered, duration sql.NullInt64
+		if err := rows.Scan(&f.ID, &f.OrgNamespace, &f.ProjectUID, &f.ComponentUID,
+			&f.EnvironmentUID, &f.ReleaseUID, &f.IncidentID, &f.Severity, &f.Source,
+			&f.FailureStartedMs, &recovered, &duration, &f.UpdatedAtMs); err != nil {
+			return nil, fmt.Errorf("failed to scan recovery fact: %w", err)
+		}
+		f.RecoveredMs = int64Ptr(recovered)
+		f.DurationMs = int64Ptr(duration)
+		facts = append(facts, f)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate recovery facts: %w", err)
+	}
+	return facts, nil
 }
 
 func (s *sqlStore) QueryLeadTimes(ctx context.Context, q FactQuery) ([]int64, error) {

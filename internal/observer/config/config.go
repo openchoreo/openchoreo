@@ -131,6 +131,20 @@ type InsightsConfig struct {
 	// "passthrough" treats names as UIDs directly — a development/demo affordance
 	// for querying seeded dummy data without a control plane.
 	UIDResolution string `koanf:"uid.resolution"`
+	// AggregationEnabled runs the DORA aggregator in the observer process.
+	AggregationEnabled bool `koanf:"aggregation.enabled"`
+	// AggregationInterval is the aggregator tick interval.
+	AggregationInterval time.Duration `koanf:"aggregation.interval"`
+	// AggregationOverlap re-reads this much of the previous window each tick to
+	// absorb source ingest lag.
+	AggregationOverlap time.Duration `koanf:"aggregation.overlap"`
+	// AttributionWindow caps how long after a deployment an incident may trigger
+	// and still count against it (change failure attribution).
+	AttributionWindow time.Duration `koanf:"aggregation.attribution.window"`
+	// IncidentLookback is the rolling incident window rescanned every tick (late
+	// incident resolutions do not bump ingestion timestamps, so pure watermark
+	// increments would miss them).
+	IncidentLookback time.Duration `koanf:"aggregation.incident.lookback"`
 }
 
 // UIDResolverConfig holds configuration for the resource UID resolver
@@ -216,6 +230,11 @@ func Load() (*Config, error) {
 		"INSIGHTS_STORE_BACKEND":                "insights.store.backend",
 		"INSIGHTS_STORE_DSN":                    "insights.store.dsn",
 		"INSIGHTS_UID_RESOLUTION":               "insights.uid.resolution",
+		"INSIGHTS_AGGREGATION_ENABLED":          "insights.aggregation.enabled",
+		"INSIGHTS_AGGREGATION_INTERVAL":         "insights.aggregation.interval",
+		"INSIGHTS_AGGREGATION_OVERLAP":          "insights.aggregation.overlap",
+		"INSIGHTS_ATTRIBUTION_WINDOW":           "insights.aggregation.attribution.window",
+		"INSIGHTS_INCIDENT_LOOKBACK":            "insights.aggregation.incident.lookback",
 		"AUTHZ_DISABLED":                        "authz.disabled",
 		"LOG_LEVEL":                             "loglevel",
 		"PORT":                                  "server.port",           // Common alias
@@ -347,9 +366,14 @@ func getDefaults() map[string]interface{} {
 			"finops.agent.enabled":     false,
 		},
 		"insights": map[string]interface{}{
-			"store.backend":  "",
-			"store.dsn":      "",
-			"uid.resolution": "resolver",
+			"store.backend":                  "",
+			"store.dsn":                      "",
+			"uid.resolution":                 "resolver",
+			"aggregation.enabled":            true,
+			"aggregation.interval":           "5m",
+			"aggregation.overlap":            "10m",
+			"aggregation.attribution.window": "24h",
+			"aggregation.incident.lookback":  "720h", // 30 days
 		},
 		"adapters": map[string]interface{}{
 			"logs.adapter.url":        "http://logs-adapter:9098",
@@ -370,6 +394,34 @@ func getDefaults() map[string]interface{} {
 		},
 		"loglevel": "info",
 	}
+}
+
+// validateInsights normalizes and validates the delivery insights section.
+func (c *Config) validateInsights() error {
+	c.Insights.UIDResolution = strings.ToLower(strings.TrimSpace(c.Insights.UIDResolution))
+	switch c.Insights.UIDResolution {
+	case "":
+		c.Insights.UIDResolution = "resolver"
+	case "resolver", "passthrough":
+	default:
+		return fmt.Errorf("insights.uid.resolution must be 'resolver' or 'passthrough'")
+	}
+	if !c.Insights.AggregationEnabled {
+		return nil
+	}
+	if c.Insights.AggregationInterval <= 0 {
+		return fmt.Errorf("insights.aggregation.interval must be positive")
+	}
+	if c.Insights.AggregationOverlap < 0 {
+		return fmt.Errorf("insights.aggregation.overlap must be non-negative")
+	}
+	if c.Insights.AttributionWindow <= 0 {
+		return fmt.Errorf("insights.aggregation.attribution.window must be positive")
+	}
+	if c.Insights.IncidentLookback <= 0 {
+		return fmt.Errorf("insights.aggregation.incident.lookback must be positive")
+	}
+	return nil
 }
 
 func (c *Config) validate() error {
@@ -448,13 +500,8 @@ func (c *Config) validate() error {
 		}
 		c.Insights.StoreDSN = c.Alerting.AlertStoreDSN
 	}
-	c.Insights.UIDResolution = strings.ToLower(strings.TrimSpace(c.Insights.UIDResolution))
-	switch c.Insights.UIDResolution {
-	case "":
-		c.Insights.UIDResolution = "resolver"
-	case "resolver", "passthrough":
-	default:
-		return fmt.Errorf("insights.uid.resolution must be 'resolver' or 'passthrough'")
+	if err := c.validateInsights(); err != nil {
+		return err
 	}
 
 	// Validate and normalize MetricsAdapter configuration

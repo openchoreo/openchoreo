@@ -18,6 +18,7 @@ import (
 	"syscall"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	"github.com/openchoreo/openchoreo/internal/observer/aggregator"
 	apihandler "github.com/openchoreo/openchoreo/internal/observer/api/handlers"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	k8s "github.com/openchoreo/openchoreo/internal/observer/clients"
@@ -369,6 +370,35 @@ func main() {
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}
 
+	// Graceful shutdown using signal context (also stops background workers)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Start the DORA aggregator: folds incidents (and delivery events, once the
+	// controllers emit them and a source is wired) into the delivery insights store.
+	var backgroundWG sync.WaitGroup
+	if cfg.Insights.AggregationEnabled {
+		doraAggregator := aggregator.New(
+			deliveryInsightsStore,
+			incidentEntryStore,
+			nil, // events source: no delivery lifecycle events are emitted yet
+			aggregator.Config{
+				Interval:          cfg.Insights.AggregationInterval,
+				Overlap:           cfg.Insights.AggregationOverlap,
+				AttributionWindow: cfg.Insights.AttributionWindow,
+				IncidentLookback:  cfg.Insights.IncidentLookback,
+			},
+			logger.With("component", "dora-aggregator"),
+		)
+		backgroundWG.Add(1)
+		go func() {
+			defer backgroundWG.Done()
+			doraAggregator.Run(ctx)
+		}()
+	} else {
+		logger.Info("DORA aggregator is disabled (INSIGHTS_AGGREGATION_ENABLED=false)")
+	}
+
 	// Start main server
 	go func() {
 		logger.Info("Starting server", "address", addr)
@@ -385,12 +415,9 @@ func main() {
 		}
 	}()
 
-	// Graceful shutdown using signal context
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
 	// Wait for interrupt signal
 	<-ctx.Done()
+	backgroundWG.Wait()
 
 	logger.Info("Shutting down server...")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)

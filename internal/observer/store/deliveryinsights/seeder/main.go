@@ -415,6 +415,10 @@ func seedIncidentEntries(
 			return count, fmt.Errorf("failed to seed incident entry: %w", err)
 		}
 
+		// Match the aggregator's recovery-fact ID convention ("incident-<id>") so
+		// its backfill over these incidents merges into the seeded rows instead of
+		// duplicating the episodes.
+		r.ID = "incident-" + incidentID
 		r.IncidentID = incidentID
 		if fact := factByRelease[r.ReleaseUID]; fact != nil {
 			fact.IncidentID = incidentID

@@ -154,14 +154,33 @@ type FactQuery struct {
 	SortOrder      string
 }
 
+// AttributionResult reports the deployment an incident was matched against.
+type AttributionResult struct {
+	// ReleaseUID of the deployment live when the incident triggered; empty when no
+	// deployment matched within the attribution window.
+	ReleaseUID string
+	// OccurredMs is that deployment's moment — the rollup bucket it lives in.
+	OccurredMs int64
+	// Attributed is true when this call marked the fact failed-by-incident. False
+	// when there was no match or the fact already carried a failure attribution.
+	Attributed bool
+}
+
 // Store persists delivery facts and metric rollups behind a pluggable SQL backend.
 type Store interface {
 	Initialize(ctx context.Context) error
 	UpsertDeploymentFacts(ctx context.Context, facts []DeploymentFact) error
 	UpsertRecoveryFacts(ctx context.Context, facts []RecoveryFact) error
 	UpsertRollups(ctx context.Context, rollups []MetricRollup) error
+	// AttributeIncident marks the deployment live in (componentUID, environmentUID)
+	// at triggeredMs as failed-by-incident, if one deployed within windowMs before
+	// the trigger and no failure is attributed to it yet (rollout failures win).
+	AttributeIncident(
+		ctx context.Context, componentUID, environmentUID, incidentID string,
+		triggeredMs, windowMs int64) (AttributionResult, error)
 	QueryRollups(ctx context.Context, q RollupQuery) ([]MetricRollup, error)
 	QueryDeploymentFacts(ctx context.Context, q FactQuery) ([]DeploymentFact, int, error)
+	QueryRecoveryFacts(ctx context.Context, q FactQuery) ([]RecoveryFact, error)
 	QueryLeadTimes(ctx context.Context, q FactQuery) ([]int64, error)
 	QueryRecoveryDurations(ctx context.Context, q FactQuery) ([]int64, error)
 	Watermark(ctx context.Context, source string) (int64, error)
