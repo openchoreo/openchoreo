@@ -383,6 +383,12 @@ func (b *YAMLBuilder) AddCommentedInlineSequence(key string, values []string, op
 	return b
 }
 
+// SetHeadComment sets the document-level head comment, rendered above the first
+// field during Encode.
+func (b *YAMLBuilder) SetHeadComment(comment string) {
+	b.root.Content[0].HeadComment = comment
+}
+
 // Encode returns the YAML string with commented fields rendered as comments.
 func (b *YAMLBuilder) Encode() (string, error) {
 	var buf bytes.Buffer

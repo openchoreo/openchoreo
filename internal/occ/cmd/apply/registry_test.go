@@ -26,9 +26,13 @@ func TestResourceFamilyKindsRegistered(t *testing.T) {
 	}{
 		{"ClusterResourceType", scopeCluster, capCreateAndUpdate, true},
 		{"ResourceType", scopeNamespaced, capCreateAndUpdate, true},
+		{"ProjectType", scopeNamespaced, capCreateAndUpdate, true},
+		{"ClusterProjectType", scopeCluster, capCreateAndUpdate, true},
 		{"Resource", scopeNamespaced, capCreateAndUpdate, true},
 		{"ResourceRelease", scopeNamespaced, capCreateOnly, false},
 		{"ResourceReleaseBinding", scopeNamespaced, capCreateAndUpdate, true},
+		{"ProjectRelease", scopeNamespaced, capCreateOnly, false},
+		{"ProjectReleaseBinding", scopeNamespaced, capCreateAndUpdate, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.kind, func(t *testing.T) {

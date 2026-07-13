@@ -43,9 +43,36 @@ func TestPrintList_WithItems(t *testing.T) {
 		require.NoError(t, printList(items))
 	})
 	assert.Contains(t, out, "NAME")
+	assert.Contains(t, out, "TYPE")
 	assert.Contains(t, out, "AGE")
 	assert.Contains(t, out, "proj-a")
 	assert.Contains(t, out, "proj-b")
+}
+
+func TestPrintList_ShowsType(t *testing.T) {
+	clusterKind := gen.ProjectTypeRefKindClusterProjectType
+	items := []gen.Project{
+		// Explicit ClusterProjectType kind.
+		{
+			Metadata: gen.ObjectMeta{Name: "proj-cluster"},
+			Spec:     &gen.ProjectSpec{Type: &gen.ProjectTypeRef{Kind: &clusterKind, Name: "default"}},
+		},
+		// Kind unset defaults to ProjectType.
+		{
+			Metadata: gen.ObjectMeta{Name: "proj-ns"},
+			Spec:     &gen.ProjectSpec{Type: &gen.ProjectTypeRef{Name: "web-service"}},
+		},
+	}
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, printList(items))
+	})
+	assert.Contains(t, out, "ClusterProjectType/default")
+	assert.Contains(t, out, "ProjectType/web-service")
+}
+
+func TestProjectType_NilSpec(t *testing.T) {
+	assert.Equal(t, "", projectType(gen.Project{}))
+	assert.Equal(t, "", projectType(gen.Project{Spec: &gen.ProjectSpec{}}))
 }
 
 // --- Params tests ---

@@ -1,0 +1,223 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package project
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/setoverride"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
+	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+)
+
+// Deploy deploys or promotes a project by managing its ProjectReleaseBinding.
+func (p *Project) Deploy(params DeployParams) error {
+	if err := cmdutil.RequireFields("deploy", "project", map[string]string{
+		"namespace": params.Namespace,
+		"name":      params.ProjectName,
+	}); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	var binding *gen.ProjectReleaseBinding
+	var err error
+	if params.To != "" {
+		binding, err = p.promoteProject(ctx, params)
+	} else {
+		binding, err = p.deployProject(ctx, params)
+	}
+	if err != nil {
+		return err
+	}
+
+	env := ""
+	if binding.Spec != nil {
+		env = binding.Spec.Environment
+	}
+	fmt.Printf("Successfully deployed project '%s' to environment '%s'\n", params.ProjectName, env)
+	if binding.Spec != nil && binding.Spec.ProjectRelease != nil {
+		fmt.Printf("  Release: %s\n", *binding.Spec.ProjectRelease)
+	}
+	fmt.Printf("  Binding: %s\n", binding.Metadata.Name)
+	return nil
+}
+
+// deployProject ensures a ProjectReleaseBinding exists for the lowest environment
+// in the project's pipeline. When no --release is given, spec.projectRelease is
+// left unset so the Project controller seeds it with the latest release.
+func (p *Project) deployProject(ctx context.Context, params DeployParams) (*gen.ProjectReleaseBinding, error) {
+	pipeline, err := p.client.GetProjectDeploymentPipeline(ctx, params.Namespace, params.ProjectName)
+	if err != nil {
+		return nil, err
+	}
+
+	lowestEnv, err := utils.FindLowestEnvironment(pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	var releasePtr *string
+	if params.Release != "" {
+		releasePtr = &params.Release
+	}
+
+	existing, err := p.findBinding(ctx, params.Namespace, params.ProjectName, lowestEnv)
+	if err != nil {
+		return nil, err
+	}
+
+	if existing != nil {
+		// Binding already exists. Only advance an explicit release pin; otherwise
+		// leave the controller-seeded value untouched.
+		if releasePtr == nil && len(params.Set) == 0 {
+			fmt.Printf("Project '%s' is already deployed to environment '%s'\n", params.ProjectName, lowestEnv)
+			return existing, nil
+		}
+		if releasePtr != nil {
+			existing.Spec.ProjectRelease = releasePtr
+		}
+		merged, err := applyEnvConfigOverrides(existing, params.Set)
+		if err != nil {
+			return nil, err
+		}
+		return p.client.UpdateProjectReleaseBinding(ctx, params.Namespace, existing.Metadata.Name, *merged)
+	}
+
+	prb := newBinding(fmt.Sprintf("%s-%s", params.ProjectName, lowestEnv), params.ProjectName, lowestEnv, releasePtr)
+	merged, err := applyEnvConfigOverrides(&prb, params.Set)
+	if err != nil {
+		return nil, err
+	}
+	return p.client.CreateProjectReleaseBinding(ctx, params.Namespace, *merged)
+}
+
+// promoteProject advances the target environment's ProjectReleaseBinding to the
+// release pinned in the source environment (or an explicit --release).
+func (p *Project) promoteProject(ctx context.Context, params DeployParams) (*gen.ProjectReleaseBinding, error) {
+	pipeline, err := p.client.GetProjectDeploymentPipeline(ctx, params.Namespace, params.ProjectName)
+	if err != nil {
+		return nil, err
+	}
+
+	sourceEnv, err := utils.FindSourceEnvironment(pipeline, params.To)
+	if err != nil {
+		return nil, err
+	}
+
+	releaseName := params.Release
+	if releaseName == "" {
+		source, err := p.findBinding(ctx, params.Namespace, params.ProjectName, sourceEnv)
+		if err != nil {
+			return nil, err
+		}
+		if source == nil || source.Spec == nil || source.Spec.ProjectRelease == nil || *source.Spec.ProjectRelease == "" {
+			return nil, fmt.Errorf("no release pinned for source environment '%s'", sourceEnv)
+		}
+		releaseName = *source.Spec.ProjectRelease
+	}
+
+	existing, err := p.findBinding(ctx, params.Namespace, params.ProjectName, params.To)
+	if err != nil {
+		return nil, err
+	}
+
+	if existing != nil {
+		existing.Spec.ProjectRelease = &releaseName
+		merged, err := applyEnvConfigOverrides(existing, params.Set)
+		if err != nil {
+			return nil, err
+		}
+		return p.client.UpdateProjectReleaseBinding(ctx, params.Namespace, existing.Metadata.Name, *merged)
+	}
+
+	prb := newBinding(fmt.Sprintf("%s-%s", params.ProjectName, params.To), params.ProjectName, params.To, &releaseName)
+	merged, err := applyEnvConfigOverrides(&prb, params.Set)
+	if err != nil {
+		return nil, err
+	}
+	return p.client.CreateProjectReleaseBinding(ctx, params.Namespace, *merged)
+}
+
+// findBinding returns the ProjectReleaseBinding owned by the project for the
+// given environment, or nil if none exists. The binding list is paginated, so
+// it follows NextCursor across pages until a match is found or the pages are
+// exhausted.
+func (p *Project) findBinding(ctx context.Context, namespace, project, env string) (*gen.ProjectReleaseBinding, error) {
+	cursor := ""
+	for {
+		params := &gen.ListProjectReleaseBindingsParams{Project: &project}
+		if cursor != "" {
+			params.Cursor = &cursor
+		}
+		list, err := p.client.ListProjectReleaseBindings(ctx, namespace, params)
+		if err != nil {
+			return nil, err
+		}
+		for i := range list.Items {
+			b := &list.Items[i]
+			if b.Spec != nil && b.Spec.Environment == env && b.Spec.Owner.ProjectName == project {
+				return b, nil
+			}
+		}
+		if list.Pagination.NextCursor == nil {
+			return nil, nil
+		}
+		cursor = *list.Pagination.NextCursor
+	}
+}
+
+// newBinding builds a ProjectReleaseBinding for the given project and environment.
+// A nil release leaves spec.projectRelease unset for the controller to seed.
+func newBinding(name, project, env string, release *string) gen.ProjectReleaseBinding {
+	prb := gen.ProjectReleaseBinding{
+		Metadata: gen.ObjectMeta{Name: name},
+		Spec: &gen.ProjectReleaseBindingSpec{
+			Environment:    env,
+			ProjectRelease: release,
+		},
+	}
+	prb.Spec.Owner.ProjectName = project
+	return prb
+}
+
+// applyEnvConfigOverrides merges --set key=value pairs into the binding's
+// spec.environmentConfigs. Each key is a JSON path relative to
+// environmentConfigs (e.g. "replicas" -> spec.environmentConfigs.replicas).
+// Returns the binding unchanged when no overrides are given.
+func applyEnvConfigOverrides(binding *gen.ProjectReleaseBinding, setValues []string) (*gen.ProjectReleaseBinding, error) {
+	if len(setValues) == 0 {
+		return binding, nil
+	}
+
+	scoped := make([]string, 0, len(setValues))
+	for _, sv := range setValues {
+		parts := strings.SplitN(sv, "=", 2)
+		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
+			return nil, fmt.Errorf("invalid --set format %q, expected key=value", sv)
+		}
+		scoped = append(scoped, "spec.environmentConfigs."+strings.TrimSpace(parts[0])+"="+parts[1])
+	}
+
+	bindingJSON, err := json.Marshal(binding)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal binding: %w", err)
+	}
+
+	merged, err := setoverride.Apply(string(bindingJSON), scoped)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge overrides: %w", err)
+	}
+
+	var out gen.ProjectReleaseBinding
+	if err := json.Unmarshal([]byte(merged), &out); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal merged binding: %w", err)
+	}
+	return &out, nil
+}

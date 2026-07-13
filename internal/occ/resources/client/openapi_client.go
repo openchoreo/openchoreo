@@ -1592,6 +1592,276 @@ func (c *Client) GetClusterResourceTypeSchema(ctx context.Context, crtName strin
 	return schemaResponseToRaw(resp.JSON200)
 }
 
+// ListProjectTypes retrieves all project types in a namespace
+func (c *Client) ListProjectTypes(ctx context.Context, namespaceName string, params *gen.ListProjectTypesParams) (*gen.ProjectTypeList, error) {
+	if params == nil {
+		params = &gen.ListProjectTypesParams{}
+	}
+	resp, err := c.client.ListProjectTypesWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list project types: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetProjectType retrieves a specific project type
+func (c *Client) GetProjectType(ctx context.Context, namespaceName, ptName string) (*gen.ProjectType, error) {
+	resp, err := c.client.GetProjectTypeWithResponse(ctx, namespaceName, ptName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateProjectType creates a new project type
+func (c *Client) CreateProjectType(ctx context.Context, namespaceName string, pt gen.ProjectType) (*gen.ProjectType, error) {
+	resp, err := c.client.CreateProjectTypeWithResponse(ctx, namespaceName, pt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project type: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateProjectType updates an existing project type
+func (c *Client) UpdateProjectType(ctx context.Context, namespaceName, ptName string, pt gen.ProjectType) (*gen.ProjectType, error) {
+	resp, err := c.client.UpdateProjectTypeWithResponse(ctx, namespaceName, ptName, pt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update project type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteProjectType deletes a project type
+func (c *Client) DeleteProjectType(ctx context.Context, namespaceName, ptName string) error {
+	resp, err := c.client.DeleteProjectTypeWithResponse(ctx, namespaceName, ptName)
+	if err != nil {
+		return fmt.Errorf("failed to delete project type: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// GetProjectTypeSchema retrieves the parameter schema for a project type
+func (c *Client) GetProjectTypeSchema(ctx context.Context, namespaceName, ptName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetProjectTypeSchemaWithResponse(ctx, namespaceName, ptName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project type schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("project type %q not found", ptName)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
+// ListClusterProjectTypes retrieves all cluster-scoped project types
+func (c *Client) ListClusterProjectTypes(ctx context.Context, params *gen.ListClusterProjectTypesParams) (*gen.ClusterProjectTypeList, error) {
+	if params == nil {
+		params = &gen.ListClusterProjectTypesParams{}
+	}
+	resp, err := c.client.ListClusterProjectTypesWithResponse(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster project types: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetClusterProjectType retrieves a specific cluster project type
+func (c *Client) GetClusterProjectType(ctx context.Context, cptName string) (*gen.ClusterProjectType, error) {
+	resp, err := c.client.GetClusterProjectTypeWithResponse(ctx, cptName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster project type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateClusterProjectType creates a new cluster project type
+func (c *Client) CreateClusterProjectType(ctx context.Context, cpt gen.ClusterProjectType) (*gen.ClusterProjectType, error) {
+	resp, err := c.client.CreateClusterProjectTypeWithResponse(ctx, cpt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cluster project type: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateClusterProjectType updates an existing cluster project type
+func (c *Client) UpdateClusterProjectType(ctx context.Context, cptName string, cpt gen.ClusterProjectType) (*gen.ClusterProjectType, error) {
+	resp, err := c.client.UpdateClusterProjectTypeWithResponse(ctx, cptName, cpt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update cluster project type: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteClusterProjectType deletes a cluster project type
+func (c *Client) DeleteClusterProjectType(ctx context.Context, cptName string) error {
+	resp, err := c.client.DeleteClusterProjectTypeWithResponse(ctx, cptName)
+	if err != nil {
+		return fmt.Errorf("failed to delete cluster project type: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// GetClusterProjectTypeSchema retrieves the parameter schema for a cluster-scoped project type
+func (c *Client) GetClusterProjectTypeSchema(ctx context.Context, cptName string) (*json.RawMessage, error) {
+	resp, err := c.client.GetClusterProjectTypeSchemaWithResponse(ctx, cptName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster project type schema: %w", err)
+	}
+	if resp.JSON404 != nil {
+		return nil, fmt.Errorf("cluster project type %q not found", cptName)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return schemaResponseToRaw(resp.JSON200)
+}
+
+// ListProjectReleases retrieves all project releases in a namespace
+func (c *Client) ListProjectReleases(ctx context.Context, namespaceName string, params *gen.ListProjectReleasesParams) (*gen.ProjectReleaseList, error) {
+	if params == nil {
+		params = &gen.ListProjectReleasesParams{}
+	}
+	resp, err := c.client.ListProjectReleasesWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list project releases: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetProjectRelease retrieves a specific project release
+func (c *Client) GetProjectRelease(ctx context.Context, namespaceName, projectReleaseName string) (*gen.ProjectRelease, error) {
+	resp, err := c.client.GetProjectReleaseWithResponse(ctx, namespaceName, projectReleaseName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project release: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateProjectRelease creates a new project release
+func (c *Client) CreateProjectRelease(ctx context.Context, namespaceName string, pr gen.ProjectRelease) (*gen.ProjectRelease, error) {
+	resp, err := c.client.CreateProjectReleaseWithResponse(ctx, namespaceName, pr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project release: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// DeleteProjectRelease deletes a project release
+func (c *Client) DeleteProjectRelease(ctx context.Context, namespaceName, projectReleaseName string) error {
+	resp, err := c.client.DeleteProjectReleaseWithResponse(ctx, namespaceName, projectReleaseName)
+	if err != nil {
+		return fmt.Errorf("failed to delete project release: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
+// ListProjectReleaseBindings retrieves all project release bindings in a namespace
+func (c *Client) ListProjectReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListProjectReleaseBindingsParams) (*gen.ProjectReleaseBindingList, error) {
+	if params == nil {
+		params = &gen.ListProjectReleaseBindingsParams{}
+	}
+	resp, err := c.client.ListProjectReleaseBindingsWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list project release bindings: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// GetProjectReleaseBinding retrieves a specific project release binding
+func (c *Client) GetProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string) (*gen.ProjectReleaseBinding, error) {
+	resp, err := c.client.GetProjectReleaseBindingWithResponse(ctx, namespaceName, bindingName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project release binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// CreateProjectReleaseBinding creates a new project release binding
+func (c *Client) CreateProjectReleaseBinding(ctx context.Context, namespaceName string, prb gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error) {
+	resp, err := c.client.CreateProjectReleaseBindingWithResponse(ctx, namespaceName, prb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project release binding: %w", err)
+	}
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON201, nil
+}
+
+// UpdateProjectReleaseBinding updates an existing project release binding
+func (c *Client) UpdateProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string, prb gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error) {
+	resp, err := c.client.UpdateProjectReleaseBindingWithResponse(ctx, namespaceName, bindingName, prb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update project release binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteProjectReleaseBinding deletes a project release binding
+func (c *Client) DeleteProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string) error {
+	resp, err := c.client.DeleteProjectReleaseBindingWithResponse(ctx, namespaceName, bindingName)
+	if err != nil {
+		return fmt.Errorf("failed to delete project release binding: %w", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		return apiError(resp.StatusCode(), resp.Body)
+	}
+	return nil
+}
+
 // ListResources retrieves all resources for a namespace
 func (c *Client) ListResources(ctx context.Context, namespaceName string, params *gen.ListResourcesParams) (*gen.ResourceInstanceList, error) {
 	if params == nil {

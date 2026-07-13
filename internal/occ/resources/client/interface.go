@@ -120,6 +120,31 @@ type Interface interface {
 	DeleteClusterResourceType(ctx context.Context, crtName string) error
 	GetClusterResourceTypeSchema(ctx context.Context, crtName string) (*json.RawMessage, error)
 
+	ListProjectTypes(ctx context.Context, namespaceName string, params *gen.ListProjectTypesParams) (*gen.ProjectTypeList, error)
+	GetProjectType(ctx context.Context, namespaceName, ptName string) (*gen.ProjectType, error)
+	CreateProjectType(ctx context.Context, namespaceName string, pt gen.ProjectType) (*gen.ProjectType, error)
+	UpdateProjectType(ctx context.Context, namespaceName, ptName string, pt gen.ProjectType) (*gen.ProjectType, error)
+	DeleteProjectType(ctx context.Context, namespaceName, ptName string) error
+	GetProjectTypeSchema(ctx context.Context, namespaceName, ptName string) (*json.RawMessage, error)
+
+	ListClusterProjectTypes(ctx context.Context, params *gen.ListClusterProjectTypesParams) (*gen.ClusterProjectTypeList, error)
+	GetClusterProjectType(ctx context.Context, cptName string) (*gen.ClusterProjectType, error)
+	CreateClusterProjectType(ctx context.Context, cpt gen.ClusterProjectType) (*gen.ClusterProjectType, error)
+	UpdateClusterProjectType(ctx context.Context, cptName string, cpt gen.ClusterProjectType) (*gen.ClusterProjectType, error)
+	DeleteClusterProjectType(ctx context.Context, cptName string) error
+	GetClusterProjectTypeSchema(ctx context.Context, cptName string) (*json.RawMessage, error)
+
+	ListProjectReleases(ctx context.Context, namespaceName string, params *gen.ListProjectReleasesParams) (*gen.ProjectReleaseList, error)
+	GetProjectRelease(ctx context.Context, namespaceName, projectReleaseName string) (*gen.ProjectRelease, error)
+	CreateProjectRelease(ctx context.Context, namespaceName string, pr gen.ProjectRelease) (*gen.ProjectRelease, error)
+	DeleteProjectRelease(ctx context.Context, namespaceName, projectReleaseName string) error
+
+	ListProjectReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListProjectReleaseBindingsParams) (*gen.ProjectReleaseBindingList, error)
+	GetProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string) (*gen.ProjectReleaseBinding, error)
+	CreateProjectReleaseBinding(ctx context.Context, namespaceName string, prb gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error)
+	UpdateProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string, prb gen.ProjectReleaseBinding) (*gen.ProjectReleaseBinding, error)
+	DeleteProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string) error
+
 	ListResources(ctx context.Context, namespaceName string, params *gen.ListResourcesParams) (*gen.ResourceInstanceList, error)
 	GetResource(ctx context.Context, namespaceName, resourceName string) (*gen.ResourceInstance, error)
 	CreateResource(ctx context.Context, namespaceName string, r gen.ResourceInstance) (*gen.ResourceInstance, error)

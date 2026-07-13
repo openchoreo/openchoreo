@@ -1,7 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-package project
+package projecttype
 
 import (
 	"fmt"
@@ -29,22 +29,22 @@ func errFactory(msg string) client.NewClientFunc {
 	}
 }
 
-// --- NewProjectCmd structure ---
+// --- NewProjectTypeCmd structure ---
 
-func TestNewProjectCmd_Use(t *testing.T) {
-	cmd := NewProjectCmd(errFactory("unused"))
-	assert.Equal(t, "project", cmd.Use)
-	assert.Contains(t, cmd.Aliases, "proj")
-	assert.Contains(t, cmd.Aliases, "projects")
+func TestNewProjectTypeCmd_Use(t *testing.T) {
+	cmd := NewProjectTypeCmd(errFactory("unused"))
+	assert.Equal(t, "projecttype", cmd.Use)
+	assert.Contains(t, cmd.Aliases, "pt")
+	assert.Contains(t, cmd.Aliases, "projecttypes")
 }
 
-func TestNewProjectCmd_Subcommands(t *testing.T) {
-	cmd := NewProjectCmd(errFactory("unused"))
+func TestNewProjectTypeCmd_Subcommands(t *testing.T) {
+	cmd := NewProjectTypeCmd(errFactory("unused"))
 	names := make([]string, 0, len(cmd.Commands()))
 	for _, sub := range cmd.Commands() {
 		names = append(names, sub.Name())
 	}
-	assert.ElementsMatch(t, []string{"list", "get", "delete", "deploy", "scaffold"}, names)
+	assert.ElementsMatch(t, []string{"list", "get", "delete"}, names)
 }
 
 // --- list ---
@@ -57,17 +57,17 @@ func TestListCmd_FactoryError(t *testing.T) {
 
 func TestListCmd_Success(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	mc.EXPECT().ListProjects(mock.Anything, mock.Anything, mock.Anything).Return(&gen.ProjectList{
-		Items:      []gen.Project{{Metadata: gen.ObjectMeta{Name: "online-store"}}},
+	mc.EXPECT().ListProjectTypes(mock.Anything, "my-org", mock.Anything).Return(&gen.ProjectTypeList{
+		Items:      []gen.ProjectType{{Metadata: gen.ObjectMeta{Name: "web-service"}}},
 		Pagination: gen.Pagination{},
 	}, nil)
 
 	cmd := newListCmd(mockFactory(mc))
-	require.NoError(t, cmd.Flags().Set("namespace", "acme-corp"))
+	require.NoError(t, cmd.Flags().Set("namespace", "my-org"))
 	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cmd.RunE(cmd, nil))
 	})
-	assert.Contains(t, out, "online-store")
+	assert.Contains(t, out, "web-service")
 }
 
 // --- get ---
@@ -87,22 +87,22 @@ func TestGetCmd_TooManyArgs(t *testing.T) {
 
 func TestGetCmd_FactoryError(t *testing.T) {
 	cmd := newGetCmd(errFactory("factory failed"))
-	err := cmd.RunE(cmd, []string{"online-store"})
+	err := cmd.RunE(cmd, []string{"web-service"})
 	assert.EqualError(t, err, "factory failed")
 }
 
 func TestGetCmd_Success(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	mc.EXPECT().GetProject(mock.Anything, mock.Anything, "online-store").Return(
-		&gen.Project{Metadata: gen.ObjectMeta{Name: "online-store"}}, nil,
+	mc.EXPECT().GetProjectType(mock.Anything, "my-org", "web-service").Return(
+		&gen.ProjectType{Metadata: gen.ObjectMeta{Name: "web-service"}}, nil,
 	)
 
 	cmd := newGetCmd(mockFactory(mc))
-	require.NoError(t, cmd.Flags().Set("namespace", "acme-corp"))
+	require.NoError(t, cmd.Flags().Set("namespace", "my-org"))
 	out := testutil.CaptureStdout(t, func() {
-		require.NoError(t, cmd.RunE(cmd, []string{"online-store"}))
+		require.NoError(t, cmd.RunE(cmd, []string{"web-service"}))
 	})
-	assert.Contains(t, out, "online-store")
+	assert.Contains(t, out, "web-service")
 }
 
 // --- delete ---
@@ -111,23 +111,23 @@ func TestDeleteCmd_MissingArg(t *testing.T) {
 	cmd := newDeleteCmd(errFactory("unused"))
 	err := cmd.Args(cmd, []string{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "PROJECT_NAME")
+	assert.Contains(t, err.Error(), "PROJECT_TYPE_NAME")
 }
 
 func TestDeleteCmd_FactoryError(t *testing.T) {
 	cmd := newDeleteCmd(errFactory("factory failed"))
-	err := cmd.RunE(cmd, []string{"online-store"})
+	err := cmd.RunE(cmd, []string{"web-service"})
 	assert.EqualError(t, err, "factory failed")
 }
 
 func TestDeleteCmd_Success(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	mc.EXPECT().DeleteProject(mock.Anything, mock.Anything, "online-store").Return(nil)
+	mc.EXPECT().DeleteProjectType(mock.Anything, "my-org", "web-service").Return(nil)
 
 	cmd := newDeleteCmd(mockFactory(mc))
-	require.NoError(t, cmd.Flags().Set("namespace", "acme-corp"))
+	require.NoError(t, cmd.Flags().Set("namespace", "my-org"))
 	out := testutil.CaptureStdout(t, func() {
-		require.NoError(t, cmd.RunE(cmd, []string{"online-store"}))
+		require.NoError(t, cmd.RunE(cmd, []string{"web-service"}))
 	})
 	assert.Contains(t, out, "deleted")
 }

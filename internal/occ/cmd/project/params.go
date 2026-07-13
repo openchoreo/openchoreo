@@ -26,3 +26,31 @@ type DeleteParams struct {
 
 func (p DeleteParams) GetNamespace() string   { return p.Namespace }
 func (p DeleteParams) GetProjectName() string { return p.ProjectName }
+
+// DeployParams defines parameters for deploying or promoting a project
+type DeployParams struct {
+	Namespace   string
+	ProjectName string
+	To          string   // --to flag (target env for promotion)
+	Release     string   // --release flag (optional explicit ProjectRelease name to pin)
+	Set         []string // --set values (key=value) merged into spec.environmentConfigs
+}
+
+func (p DeployParams) GetNamespace() string   { return p.Namespace }
+func (p DeployParams) GetProjectName() string { return p.ProjectName }
+
+// ScaffoldParams defines parameters for scaffolding a Project from a (Cluster)ProjectType
+type ScaffoldParams struct {
+	ProjectName        string
+	Namespace          string
+	ProjectType        string // --projecttype (namespace-scoped)
+	ClusterProjectType string // --clusterprojecttype (cluster-scoped)
+	DeploymentPipeline string // --deployment-pipeline
+	OutputPath         string // -o
+	SkipComments       bool
+	SkipOptional       bool
+	NoBindings         bool // skip per-environment ProjectReleaseBinding output
+}
+
+func (p ScaffoldParams) GetNamespace() string   { return p.Namespace }
+func (p ScaffoldParams) GetProjectName() string { return p.ProjectName }

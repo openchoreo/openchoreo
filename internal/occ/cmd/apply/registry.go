@@ -310,6 +310,31 @@ func addClusterScopedResources(reg map[string]resourceEntry) {
 			return r.StatusCode(), r.Body, nil
 		},
 	}
+
+	reg["ClusterProjectType"] = resourceEntry{
+		scope: scopeCluster,
+		get: func(ctx context.Context, c *gen.ClientWithResponses, _, name string) (int, error) {
+			r, err := c.GetClusterProjectTypeWithResponse(ctx, name)
+			if err != nil {
+				return 0, err
+			}
+			return r.StatusCode(), nil
+		},
+		create: func(ctx context.Context, c *gen.ClientWithResponses, _ string, body io.Reader) (int, []byte, error) {
+			r, err := c.CreateClusterProjectTypeWithBodyWithResponse(ctx, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+		update: func(ctx context.Context, c *gen.ClientWithResponses, _, name string, body io.Reader) (int, []byte, error) {
+			r, err := c.UpdateClusterProjectTypeWithBodyWithResponse(ctx, name, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+	}
 }
 
 //nolint:funlen,gocyclo // namespaced resources registry table — one entry per resource kind
@@ -758,6 +783,31 @@ func addNamespacedScopedResources(reg map[string]resourceEntry) {
 		},
 	}
 
+	reg["ProjectType"] = resourceEntry{
+		scope: scopeNamespaced,
+		get: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string) (int, error) {
+			r, err := c.GetProjectTypeWithResponse(ctx, ns, name)
+			if err != nil {
+				return 0, err
+			}
+			return r.StatusCode(), nil
+		},
+		create: func(ctx context.Context, c *gen.ClientWithResponses, ns string, body io.Reader) (int, []byte, error) {
+			r, err := c.CreateProjectTypeWithBodyWithResponse(ctx, ns, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+		update: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string, body io.Reader) (int, []byte, error) {
+			r, err := c.UpdateProjectTypeWithBodyWithResponse(ctx, ns, name, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+	}
+
 	reg["Resource"] = resourceEntry{
 		scope: scopeNamespaced,
 		get: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string) (int, error) {
@@ -808,6 +858,31 @@ func addNamespacedScopedResources(reg map[string]resourceEntry) {
 		},
 	}
 
+	reg["ProjectReleaseBinding"] = resourceEntry{
+		scope: scopeNamespaced,
+		get: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string) (int, error) {
+			r, err := c.GetProjectReleaseBindingWithResponse(ctx, ns, name)
+			if err != nil {
+				return 0, err
+			}
+			return r.StatusCode(), nil
+		},
+		create: func(ctx context.Context, c *gen.ClientWithResponses, ns string, body io.Reader) (int, []byte, error) {
+			r, err := c.CreateProjectReleaseBindingWithBodyWithResponse(ctx, ns, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+		update: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string, body io.Reader) (int, []byte, error) {
+			r, err := c.UpdateProjectReleaseBindingWithBodyWithResponse(ctx, ns, name, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+	}
+
 	// Create-only resources
 
 	reg["WorkflowRun"] = resourceEntry{
@@ -841,6 +916,25 @@ func addNamespacedScopedResources(reg map[string]resourceEntry) {
 		},
 		create: func(ctx context.Context, c *gen.ClientWithResponses, ns string, body io.Reader) (int, []byte, error) {
 			r, err := c.CreateResourceReleaseWithBodyWithResponse(ctx, ns, contentTypeJSON, body)
+			if err != nil {
+				return 0, nil, err
+			}
+			return r.StatusCode(), r.Body, nil
+		},
+	}
+
+	reg["ProjectRelease"] = resourceEntry{
+		scope:      scopeNamespaced,
+		capability: capCreateOnly,
+		get: func(ctx context.Context, c *gen.ClientWithResponses, ns, name string) (int, error) {
+			r, err := c.GetProjectReleaseWithResponse(ctx, ns, name)
+			if err != nil {
+				return 0, err
+			}
+			return r.StatusCode(), nil
+		},
+		create: func(ctx context.Context, c *gen.ClientWithResponses, ns string, body io.Reader) (int, []byte, error) {
+			r, err := c.CreateProjectReleaseWithBodyWithResponse(ctx, ns, contentTypeJSON, body)
 			if err != nil {
 				return 0, nil, err
 			}

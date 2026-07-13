@@ -14,6 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clustercomponenttype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterdataplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterobservabilityplane"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterprojecttype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterresourcetype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clustertrait"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/clusterworkflow"
@@ -31,6 +32,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityalertsnotificationchannel"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityplane"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/project"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/projectrelease"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/projectreleasebinding"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/projecttype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resource"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcerelease"
@@ -67,7 +71,9 @@ func BuildRootCmd() *cobra.Command {
 		version.NewVersionCmd(),
 		componentrelease.NewComponentReleaseCmd(f),
 		resourcerelease.NewResourceReleaseCmd(f),
+		projectrelease.NewProjectReleaseCmd(f),
 		resourcereleasebinding.NewResourceReleaseBindingCmd(f),
+		projectreleasebinding.NewProjectReleaseBindingCmd(f),
 		releasebinding.NewReleaseBindingCmd(f),
 		namespace.NewNamespaceCmd(f),
 		project.NewProjectCmd(f),
@@ -79,8 +85,10 @@ func BuildRootCmd() *cobra.Command {
 		observabilityplane.NewObservabilityPlaneCmd(f),
 		componenttype.NewComponentTypeCmd(f),
 		resourcetype.NewResourceTypeCmd(f),
+		projecttype.NewProjectTypeCmd(f),
 		clustercomponenttype.NewClusterComponentTypeCmd(f),
 		clusterresourcetype.NewClusterResourceTypeCmd(f),
+		clusterprojecttype.NewClusterProjectTypeCmd(f),
 		clusterdataplane.NewClusterDataPlaneCmd(f),
 		clusterobservabilityplane.NewClusterObservabilityPlaneCmd(f),
 		clusterworkflowplane.NewClusterWorkflowPlaneCmd(f),
