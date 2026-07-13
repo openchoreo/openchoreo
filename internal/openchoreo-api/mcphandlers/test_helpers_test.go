@@ -16,6 +16,7 @@ import (
 	namespacesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/namespace"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	projectreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projectrelease"
+	projectreleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projectreleasebinding"
 	projecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projecttype"
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
 	resourcesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resource"
@@ -70,6 +71,10 @@ func withClusterProjectTypeService(s clusterprojecttypesvc.Service) func(*handle
 
 func withProjectReleaseService(s projectreleasesvc.Service) func(*handlerservices.Services) {
 	return func(svc *handlerservices.Services) { svc.ProjectReleaseService = s }
+}
+
+func withProjectReleaseBindingService(s projectreleasebindingsvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.ProjectReleaseBindingService = s }
 }
 
 func withReleaseBindingService(s releasebindingsvc.Service) func(*handlerservices.Services) {

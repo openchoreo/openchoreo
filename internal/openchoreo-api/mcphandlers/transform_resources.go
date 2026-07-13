@@ -108,6 +108,35 @@ func projectReleaseDetail(pr *openchoreov1alpha1.ProjectRelease) map[string]any 
 }
 
 // ---------------------------------------------------------------------------
+// ProjectReleaseBinding
+// ---------------------------------------------------------------------------
+
+func projectReleaseBindingSummary(rb openchoreov1alpha1.ProjectReleaseBinding) map[string]any {
+	m := extractCommonMeta(&rb)
+	m["projectName"] = rb.Spec.Owner.ProjectName
+	m["environment"] = rb.Spec.Environment
+	setIfNotEmpty(m, "projectRelease", rb.Spec.ProjectRelease)
+	setIfNotEmpty(m, "status", readyStatus(rb.Status.Conditions))
+	return m
+}
+
+func projectReleaseBindingDetail(rb *openchoreov1alpha1.ProjectReleaseBinding) map[string]any {
+	m := extractCommonMeta(rb)
+	m["projectName"] = rb.Spec.Owner.ProjectName
+	m["environment"] = rb.Spec.Environment
+	setIfNotEmpty(m, "projectRelease", rb.Spec.ProjectRelease)
+	if rb.Spec.EnvironmentConfigs != nil {
+		m["environmentConfigs"] = rawExtensionToAny(rb.Spec.EnvironmentConfigs)
+	}
+	setIfNotEmpty(m, "dataPlaneNamespace", rb.Status.Namespace)
+	setIfNotEmpty(m, "status", readyStatus(rb.Status.Conditions))
+	if conds := conditionsSummary(rb.Status.Conditions); conds != nil {
+		m["conditions"] = conds
+	}
+	return m
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 

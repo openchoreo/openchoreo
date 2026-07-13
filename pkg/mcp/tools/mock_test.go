@@ -1135,3 +1135,40 @@ func (m *MockCoreToolsetHandler) DeleteResourceReleaseBinding(
 	m.recordCall("DeleteResourceReleaseBinding", namespaceName, bindingName)
 	return deletedResponse, nil
 }
+
+// ProjectReleaseBinding methods
+
+func (m *MockCoreToolsetHandler) ListProjectReleaseBindings(
+	ctx context.Context, namespaceName, projectName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListProjectReleaseBindings", namespaceName, projectName, opts)
+	return `[{"name":"project-release-binding-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetProjectReleaseBinding(
+	ctx context.Context, namespaceName, bindingName string,
+) (any, error) {
+	m.recordCall("GetProjectReleaseBinding", namespaceName, bindingName)
+	return `{"name":"project-release-binding-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateProjectReleaseBinding(
+	ctx context.Context, namespaceName string, req *gen.CreateProjectReleaseBindingJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateProjectReleaseBinding", namespaceName, req)
+	return `{"name":"new-project-release-binding","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateProjectReleaseBinding(
+	ctx context.Context, namespaceName string, req *gen.UpdateProjectReleaseBindingJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateProjectReleaseBinding", namespaceName, req)
+	return `{"name":"updated-project-release-binding","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteProjectReleaseBinding(
+	ctx context.Context, namespaceName, bindingName string,
+) (any, error) {
+	m.recordCall("DeleteProjectReleaseBinding", namespaceName, bindingName)
+	return deletedResponse, nil
+}

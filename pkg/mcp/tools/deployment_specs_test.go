@@ -16,6 +16,7 @@ func deploymentToolSpecs() []toolTestSpec {
 	specs = append(specs, deploymentResourceReleaseSpecs()...)
 	specs = append(specs, deploymentResourceReleaseBindingSpecs()...)
 	specs = append(specs, deploymentProjectReleaseSpecs()...)
+	specs = append(specs, deploymentProjectReleaseBindingSpecs()...)
 	return specs
 }
 

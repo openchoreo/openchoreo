@@ -467,6 +467,21 @@ type DeploymentToolsetHandler interface {
 		req *gen.UpdateResourceReleaseBindingJSONRequestBody,
 	) (any, error)
 	DeleteResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
+
+	// Project release binding operations
+	ListProjectReleaseBindings(
+		ctx context.Context, namespaceName, projectName string, opts ListOpts,
+	) (any, error)
+	GetProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
+	CreateProjectReleaseBinding(
+		ctx context.Context, namespaceName string,
+		req *gen.CreateProjectReleaseBindingJSONRequestBody,
+	) (any, error)
+	UpdateProjectReleaseBinding(
+		ctx context.Context, namespaceName string,
+		req *gen.UpdateProjectReleaseBindingJSONRequestBody,
+	) (any, error)
+	DeleteProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
 }
 
 // BuildToolsetHandler handles workflow and CI/CD operations
