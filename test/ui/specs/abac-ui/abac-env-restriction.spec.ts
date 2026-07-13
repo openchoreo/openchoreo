@@ -86,6 +86,19 @@ spec:
   environment: staging
 ---
 apiVersion: openchoreo.dev/v1alpha1
+kind: ProjectReleaseBinding
+metadata:
+  name: ${PROJECT_NAME}-production
+  namespace: default
+  labels:
+    openchoreo.dev/project: ${PROJECT_NAME}
+    openchoreo.dev/environment: production
+spec:
+  owner:
+    projectName: ${PROJECT_NAME}
+  environment: production
+---
+apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterAuthzRole
 metadata:
   name: ${BINDING_NAME}-rb-role
