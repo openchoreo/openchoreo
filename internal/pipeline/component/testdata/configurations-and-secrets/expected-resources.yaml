@@ -67,6 +67,11 @@
   spec:
     replicas: 3
     template:
+      metadata:
+        annotations:
+          # Pinned: part of the upgrade contract - a change rolls all existing
+          # workloads' pods on upgrade. Update only when intended.
+          openchoreo.dev/dp-resource-hash: "66789f766"
       spec:
         containers:
           - name: main

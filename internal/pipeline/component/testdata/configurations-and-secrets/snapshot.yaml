@@ -10,6 +10,7 @@ spec:
         replicas: 2
   componentType:
     spec:
+      workloadType: deployment
       environmentConfigs:
         openAPIV3Schema:
           type: object

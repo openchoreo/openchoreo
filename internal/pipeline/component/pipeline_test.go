@@ -40,6 +40,16 @@ func loadTestDataFile(t *testing.T, path string) string {
 	return string(data)
 }
 
+// resourceKindName returns a "Kind/name" label for a rendered resource, for test messages.
+func resourceKindName(resource map[string]any) string {
+	kind, _ := resource["kind"].(string)
+	name := ""
+	if meta, ok := resource["metadata"].(map[string]any); ok {
+		name, _ = meta["name"].(string)
+	}
+	return fmt.Sprintf("%s/%s", kind, name)
+}
+
 func TestPipeline_Render(t *testing.T) {
 	devEnvironmentYAML := `
     apiVersion: openchoreo.dev/v1alpha1
@@ -104,9 +114,12 @@ func TestPipeline_Render(t *testing.T) {
 		environmentYAML      string
 		dataplaneYAML        string
 		secretReferencesYAML string
+		wantMetadata         *RenderMetadata
+		wantTargetPlanes     []string
 	}{
 		{
-			name: "simple component without traits",
+			name:         "simple component without traits",
+			wantMetadata: &RenderMetadata{ResourceCount: 1, BaseResourceCount: 1, TraitCount: 0, TraitResourceCount: 0, Warnings: []string{}},
 			snapshotYAML: `
 apiVersion: core.choreo.dev/v1alpha1
 kind: ComponentEnvSnapshot
@@ -291,7 +304,9 @@ spec:
 			wantErr: false,
 		},
 		{
-			name: "component with trait creates",
+			name:             "component with trait creates",
+			wantMetadata:     &RenderMetadata{ResourceCount: 2, BaseResourceCount: 1, TraitCount: 1, TraitResourceCount: 1, Warnings: []string{}},
+			wantTargetPlanes: []string{v1alpha1.TargetPlaneDataPlane, v1alpha1.TargetPlaneObservabilityPlane},
 			snapshotYAML: `
 apiVersion: core.choreo.dev/v1alpha1
 kind: ComponentEnvSnapshot
@@ -328,7 +343,8 @@ spec:
               database:
                 type: string
         creates:
-          - template:
+          - targetPlane: observabilityplane
+            template:
               apiVersion: v1
               kind: Secret
               metadata:
@@ -370,7 +386,8 @@ spec:
 			wantErr: false,
 		},
 		{
-			name: "component with trait patches",
+			name:         "component with trait patches",
+			wantMetadata: &RenderMetadata{ResourceCount: 1, BaseResourceCount: 1, TraitCount: 1, TraitResourceCount: 0, Warnings: []string{}},
 			snapshotYAML: `
 apiVersion: core.choreo.dev/v1alpha1
 kind: ComponentEnvSnapshot
@@ -815,7 +832,13 @@ spec:
 			wantErr: false,
 		},
 		{
-			name:                 "component with configurations and secrets",
+			name:         "component with configurations and secrets",
+			wantMetadata: &RenderMetadata{ResourceCount: 7, BaseResourceCount: 7, TraitCount: 0, TraitResourceCount: 0, Warnings: []string{}},
+			wantTargetPlanes: []string{
+				v1alpha1.TargetPlaneDataPlane, v1alpha1.TargetPlaneDataPlane, v1alpha1.TargetPlaneDataPlane,
+				v1alpha1.TargetPlaneDataPlane,
+				v1alpha1.TargetPlaneDataPlane, v1alpha1.TargetPlaneDataPlane, v1alpha1.TargetPlaneDataPlane,
+			},
 			snapshotYAML:         loadTestDataFile(t, "configurations-and-secrets/snapshot.yaml"),
 			settingsYAML:         loadTestDataFile(t, "configurations-and-secrets/settings.yaml"),
 			environmentYAML:      devEnvironmentYAML,
@@ -937,7 +960,33 @@ spec:
 				return
 			}
 
-			if !tt.wantErr && tt.wantResourceYAML != "" {
+			if tt.wantErr {
+				return
+			}
+			if output == nil {
+				t.Fatalf("Render() returned nil output without an error")
+			}
+
+			if tt.wantMetadata != nil {
+				if diff := cmp.Diff(tt.wantMetadata, output.Metadata); diff != "" {
+					t.Errorf("Metadata mismatch (-want +got):\n%s", diff)
+				}
+			}
+
+			if tt.wantTargetPlanes != nil {
+				if len(tt.wantTargetPlanes) != len(output.Resources) {
+					t.Fatalf("wantTargetPlanes length %d != rendered resource count %d",
+						len(tt.wantTargetPlanes), len(output.Resources))
+				}
+				for i, rr := range output.Resources {
+					if rr.TargetPlane != tt.wantTargetPlanes[i] {
+						t.Errorf("resource[%d] (%s) targetPlane = %q, want %q",
+							i, resourceKindName(rr.Resource), rr.TargetPlane, tt.wantTargetPlanes[i])
+					}
+				}
+			}
+
+			if tt.wantResourceYAML != "" {
 				// Parse expected resources
 				var wantResources []map[string]any
 				if err := yaml.Unmarshal([]byte(tt.wantResourceYAML), &wantResources); err != nil {
