@@ -98,6 +98,9 @@ DEX_VERSION            ?= 0.24.1
 OBSERVABILITY_LOGS_OPENSEARCH_VERSION     ?= 0.5.3
 OBSERVABILITY_TRACES_OPENSEARCH_VERSION   ?= 0.4.2
 OBSERVABILITY_METRICS_PROMETHEUS_VERSION  ?= 0.6.1
+# Tier3 multi-cluster e2e only (see _e2e.mc.install-op / _e2e.mc.install-fluent-bit):
+# logs use the OpenObserve community module there instead of OpenSearch.
+OBSERVABILITY_LOGS_OPENOBSERVE_VERSION    ?= 0.5.1
 
 # Helm chart references: local chart dirs or OCI registry
 ifeq ($(E2E_HELM_SOURCE),oci)
@@ -986,29 +989,25 @@ _e2e.mc.install-op:
 		"[ -f /etc/machine-id ] || cat /proc/sys/kernel/random/uuid | tr -d '-' > /etc/machine-id"
 	@$(call log_info, Creating OP cluster namespace and base secrets)
 	@$(E2E_MC_OP_KUBECTL) create namespace $(E2E_OP_NS) --dry-run=client -o yaml | $(E2E_MC_OP_KUBECTL) apply -f -
-	@$(E2E_MC_OP_KUBECTL) create secret generic observer-opensearch-credentials \
-		-n $(E2E_OP_NS) \
-		--from-literal=username="admin" \
-		--from-literal=password="ThisIsTheOpenSearchPassword1" \
-		--dry-run=client -o yaml | $(E2E_MC_OP_KUBECTL) apply -f -
 	@$(E2E_MC_OP_KUBECTL) create secret generic observer-secret \
 		-n $(E2E_OP_NS) \
-		--from-literal=OPENSEARCH_USERNAME="admin" \
-		--from-literal=OPENSEARCH_PASSWORD="ThisIsTheOpenSearchPassword1" \
 		--from-literal=UID_RESOLVER_OAUTH_CLIENT_SECRET="openchoreo-observer-resource-reader-client-secret" \
 		--dry-run=client -o yaml | $(E2E_MC_OP_KUBECTL) apply -f -
-	@$(call log_info, Installing OpenBao in OP cluster \(required for ExternalSecret → opensearch-admin-credentials\))
+	@$(call log_info, Installing OpenBao in OP cluster \(required for ExternalSecret → opensearch/openobserve-admin-credentials\))
 	$(E2E_MC_OP_HELM) upgrade --install openbao oci://ghcr.io/openbao/charts/openbao \
 		--namespace openbao --create-namespace \
 		--version $(OPENBAO_CHART_VERSION) \
 		--values $(PROJECT_DIR)/install/k3d/common/values-openbao.yaml \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
-	@$(call log_info, Creating ClusterSecretStore and ExternalSecret for opensearch-admin-credentials)
+	@$(call log_info, Creating ClusterSecretStore and ExternalSecrets for opensearch/openobserve-admin-credentials)
 	$(E2E_MC_OP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/openbao-secretstore.yaml
 	$(E2E_MC_OP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/opensearch-admin-externalsecret.yaml
-	@$(call log_info, Waiting for opensearch-admin-credentials secret to be ready)
+	$(E2E_MC_OP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/openobserve-admin-externalsecret.yaml
+	@$(call log_info, Waiting for opensearch/openobserve-admin-credentials secrets to be ready)
 	$(E2E_MC_OP_KUBECTL) wait -n $(E2E_OP_NS) \
 		--for=condition=Ready externalsecret/opensearch-admin-credentials --timeout=60s
+	$(E2E_MC_OP_KUBECTL) wait -n $(E2E_OP_NS) \
+		--for=condition=Ready externalsecret/openobserve-admin-credentials --timeout=60s
 	@$(call log_info, Installing Observability Plane)
 	$(E2E_MC_OP_HELM) upgrade --install openchoreo-observability-plane $(E2E_OP_CHART) \
 		$(E2E_HELM_DEP_UPDATE) \
@@ -1016,51 +1015,42 @@ _e2e.mc.install-op:
 		--values $(E2E_MC_K3D_DIR)/values-op.yaml \
 		--timeout $(E2E_SETUP_TIMEOUT)
 	$(call e2e_mc_patch_gateway,$(E2E_MC_OP_KUBECONTEXT),$(E2E_OP_NS))
-	@$(call log_info, Installing OpenSearch operator \(v2.8.0 per module README\))
-	helm repo add opensearch-operator https://opensearch-project.github.io/opensearch-k8s-operator/ 2>/dev/null || true
-	helm repo update opensearch-operator 2>/dev/null || true
-	$(E2E_MC_OP_HELM) upgrade --install opensearch-operator opensearch-operator/opensearch-operator \
-		--namespace $(E2E_OP_NS) --create-namespace \
-		--version 2.8.0 \
-		--set kubeRbacProxy.image.repository=quay.io/brancz/kube-rbac-proxy \
-		--set kubeRbacProxy.image.tag=v0.15.0 \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
-	@# Install per module README — operator mode with ExternalSecret-backed credentials.
-	@# https://github.com/openchoreo/community-modules/blob/main/observability-logs-opensearch/README.md
-	@$(call log_info, Installing logs module without Fluent Bit \(operator mode per README\))
-	$(E2E_MC_OP_HELM) upgrade --install observability-logs-opensearch \
-		oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
-		--version $(OBSERVABILITY_LOGS_OPENSEARCH_VERSION) \
+	@# Logs module — https://github.com/openchoreo/community-modules/blob/main/observability-logs-openobserve/README.md
+	@# common.openObserveStream must match the chart's HTTPRoute
+	@# (/api/default/container-logs/_json), which is what lets the DP/WP Fluent Bit
+	@# legs (_e2e.mc.install-fluent-bit) reach OpenObserve through the shared
+	@# kgateway HTTP listener (host.k3d.internal:31080) instead of a dedicated
+	@# TLS-passthrough port like the OpenSearch module needed.
+	@$(call log_info, Installing logs module \(OpenObserve\))
+	$(E2E_MC_OP_HELM) upgrade --install observability-logs-openobserve \
+		oci://ghcr.io/openchoreo/helm-charts/observability-logs-openobserve \
+		--version $(OBSERVABILITY_LOGS_OPENOBSERVE_VERSION) \
 		--namespace $(E2E_OP_NS) \
-		--values $(E2E_MC_K3D_DIR)/values-op-modules.yaml \
-		--set openSearch.enabled=false \
-		--set openSearchCluster.enabled=true \
-		--set openSearchCluster.credentialsSecretName="opensearch-admin-credentials" \
-		--set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
-		--set adapter.openSearchSecretName="opensearch-admin-credentials" \
-		--set fluent-bit.enabled=false \
-		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
-	@$(call log_info, Enabling Fluent Bit after logs module setup)
-	$(E2E_MC_OP_HELM) upgrade --install observability-logs-opensearch \
-		oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
-		--version $(OBSERVABILITY_LOGS_OPENSEARCH_VERSION) \
-		--namespace $(E2E_OP_NS) \
-		--values $(E2E_MC_K3D_DIR)/values-op-modules.yaml \
-		--set openSearch.enabled=false \
-		--set openSearchCluster.enabled=true \
-		--set openSearchCluster.credentialsSecretName="opensearch-admin-credentials" \
-		--set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
-		--set adapter.openSearchSecretName="opensearch-admin-credentials" \
+		--set common.openObserveStream=container-logs \
+		--set-json 'openobserve-standalone.httpRouteHostnames=["host.k3d.internal"]' \
 		--set fluent-bit.enabled=true \
 		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
+	@# OpenObserve stores the stream as "container_logs" (hyphen -> underscore),
+	@# so the adapter must query that name even though ingest/HTTPRoute use the
+	@# hyphenated one above. This env override takes precedence over envFrom.
+	$(E2E_MC_OP_KUBECTL) set env deployment/logs-adapter-openobserve -n $(E2E_OP_NS) \
+		OPENOBSERVE_STREAM=container_logs
+	$(E2E_MC_OP_KUBECTL) rollout status deployment/logs-adapter-openobserve -n $(E2E_OP_NS) --timeout=60s
 	$(call e2e_mc_op_settle,tracing module install)
+	@# Tracing module stays on OpenSearch (the OpenObserve tracing module has no
+	@# multi-cluster receiver/exporter mode yet — its OTel Collector always exports
+	@# to a same-cluster OpenObserve with no endpoint override). Use the chart's
+	@# bundled standalone (non-HA, single-node) OpenSearch — the defaults
+	@# (openSearch.enabled=true / openSearchCluster.enabled=false) — now that the
+	@# logs module no longer stands up a shared operator-managed cluster for it to
+	@# attach to; this also drops the opensearch-operator install entirely.
 	@# Multi-cluster receiver mode — per observability-tracing-opensearch README
 	$(E2E_MC_OP_HELM) upgrade --install observability-traces-opensearch \
 		oci://ghcr.io/openchoreo/helm-charts/observability-tracing-opensearch \
 		--version $(OBSERVABILITY_TRACES_OPENSEARCH_VERSION) \
 		--namespace $(E2E_OP_NS) \
+		--values $(E2E_MC_K3D_DIR)/values-op-modules.yaml \
 		--set global.installationMode="multiClusterReceiver" \
-		--set openSearch.enabled=false \
 		--set openSearchSetup.openSearchSecretName="opensearch-admin-credentials" \
 		--set-json 'opentelemetryCollectorCustomizations.http.hostnames=["host.k3d.internal"]' \
 		--wait --wait-for-jobs --timeout $(E2E_SETUP_TIMEOUT)
@@ -1080,52 +1070,52 @@ _e2e.mc.install-op:
 .PHONY: _e2e.mc.install-fluent-bit
 _e2e.mc.install-fluent-bit:
 	@# Install Fluent Bit in the DP and WP clusters so workload and build logs are
-	@# shipped to OpenSearch in the OP cluster. Each cluster only enables Fluent Bit;
-	@# the OpenSearch stack (setup, operator, adapter) runs only in OP.
-	@# Follows install/k3d/multi-cluster/README.md §5 "Enable Fluent Bit in DP/WP".
+	@# shipped to OpenObserve in the OP cluster. Each cluster only enables Fluent Bit;
+	@# the OpenObserve stack (setup, adapter) runs only in OP.
 	@$(call log_info, Preparing observability namespaces and credentials in DP/WP clusters)
 	$(E2E_MC_DP_KUBECTL) create namespace $(E2E_OP_NS) --dry-run=client -o yaml | $(E2E_MC_DP_KUBECTL) apply -f -
 	$(E2E_MC_WP_KUBECTL) create namespace $(E2E_OP_NS) --dry-run=client -o yaml | $(E2E_MC_WP_KUBECTL) apply -f -
-	@# DP cluster has OpenBao — create opensearch-admin-credentials via ExternalSecret (per README §5)
-	$(E2E_MC_DP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/opensearch-admin-externalsecret.yaml
+	@# DP cluster has OpenBao — create openobserve-admin-credentials via ExternalSecret
+	$(E2E_MC_DP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/openobserve-admin-externalsecret.yaml
 	$(E2E_MC_DP_KUBECTL) wait -n $(E2E_OP_NS) \
-		--for=condition=Ready externalsecret/opensearch-admin-credentials --timeout=60s
-	@# WP cluster has no ClusterSecretStore — create secret directly (per README §5 note)
-	@$(E2E_MC_WP_KUBECTL) create secret generic opensearch-admin-credentials \
+		--for=condition=Ready externalsecret/openobserve-admin-credentials --timeout=60s
+	@# WP cluster has no ClusterSecretStore — create secret directly
+	@$(E2E_MC_WP_KUBECTL) create secret generic openobserve-admin-credentials \
 		-n $(E2E_OP_NS) \
-		--from-literal=username="admin" \
-		--from-literal=password="ThisIsTheOpenSearchPassword1" \
+		--from-literal=ZO_ROOT_USER_EMAIL="admin@openchoreo.localhost" \
+		--from-literal=ZO_ROOT_USER_PASSWORD="ThisIsTheOpenObservePassword1" \
 		--dry-run=client -o yaml | $(E2E_MC_WP_KUBECTL) apply -f -
-	@# Fluent Bit routes logs through the OP cluster's kgateway TLS passthrough
-	@# (port 31085 → 11085 → kgateway SNI routing → OpenSearch 9200 with TLS).
-	@# This mirrors install/k3d/multi-cluster/README.md §5 "Enable Fluent Bit in DP/WP".
+	@# Fluent Bit routes logs through the OP cluster's shared kgateway HTTP listener
+	@# (port 31080 → 11080), matched by the logs module's own HTTPRoute for the
+	@# container-logs stream (see the comment in _e2e.mc.install-op). No TLS
+	@# passthrough is needed since OpenObserve talks plain HTTP.
 	@$(call log_info, Installing Fluent Bit in DP cluster)
-	$(E2E_MC_DP_HELM) upgrade --install observability-logs-opensearch \
-		oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
-		--version $(OBSERVABILITY_LOGS_OPENSEARCH_VERSION) \
+	$(E2E_MC_DP_HELM) upgrade --install observability-logs-openobserve \
+		oci://ghcr.io/openchoreo/helm-charts/observability-logs-openobserve \
+		--version $(OBSERVABILITY_LOGS_OPENOBSERVE_VERSION) \
 		--namespace $(E2E_OP_NS) \
-		--set openSearch.enabled=false \
-		--set openSearchCluster.enabled=false \
-		--set openSearchSetup.enabled=false \
+		--set openobserve-standalone.enabled=false \
+		--set openObserveSetup.enabled=false \
 		--set adapter.enabled=false \
 		--set fluent-bit.enabled=true \
-		--set fluent-bit.openSearchHost=host.k3d.internal \
-		--set fluent-bit.openSearchPort=31085 \
-		--set fluent-bit.openSearchVHost=opensearch.observability.openchoreo.localhost \
+		--set common.openObserveStream=container-logs \
+		--set fluent-bit.openObserveHost=host.k3d.internal \
+		--set fluent-bit.openObservePort=31080 \
+		--set fluent-bit.openObserveTls=Off \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 	@$(call log_info, Installing Fluent Bit in WP cluster)
-	$(E2E_MC_WP_HELM) upgrade --install observability-logs-opensearch \
-		oci://ghcr.io/openchoreo/helm-charts/observability-logs-opensearch \
-		--version $(OBSERVABILITY_LOGS_OPENSEARCH_VERSION) \
+	$(E2E_MC_WP_HELM) upgrade --install observability-logs-openobserve \
+		oci://ghcr.io/openchoreo/helm-charts/observability-logs-openobserve \
+		--version $(OBSERVABILITY_LOGS_OPENOBSERVE_VERSION) \
 		--namespace $(E2E_OP_NS) \
-		--set openSearch.enabled=false \
-		--set openSearchCluster.enabled=false \
-		--set openSearchSetup.enabled=false \
+		--set openobserve-standalone.enabled=false \
+		--set openObserveSetup.enabled=false \
 		--set adapter.enabled=false \
 		--set fluent-bit.enabled=true \
-		--set fluent-bit.openSearchHost=host.k3d.internal \
-		--set fluent-bit.openSearchPort=31085 \
-		--set fluent-bit.openSearchVHost=opensearch.observability.openchoreo.localhost \
+		--set common.openObserveStream=container-logs \
+		--set fluent-bit.openObserveHost=host.k3d.internal \
+		--set fluent-bit.openObservePort=31080 \
+		--set fluent-bit.openObserveTls=Off \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
 	@# Install metrics exporter in DP and WP clusters — per observability-metrics-prometheus README.
 	@# Deploys PrometheusAgent to scrape local metrics and forward to OP cluster's receiver

@@ -11,7 +11,7 @@ import (
 
 // RandSuffix returns a lowercase hex string of the requested length. Used by
 // the observability and alerts suites to mint marker tokens that won't collide
-// with anything else in the OpenSearch index.
+// with anything else in the observability backend (OpenObserve logs, OpenSearch traces).
 func RandSuffix(n int) string {
 	if n <= 0 {
 		n = 4

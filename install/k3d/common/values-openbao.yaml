@@ -61,3 +61,6 @@ server:
       # OpenSearch (observability)
       bao kv put secret/opensearch-username value="admin"
       bao kv put secret/opensearch-password value="ThisIsTheOpenSearchPassword1"
+      # OpenObserve (observability)
+      bao kv put secret/openobserve-admin-email value="admin@openchoreo.localhost"
+      bao kv put secret/openobserve-admin-password value="ThisIsTheOpenObservePassword1"

@@ -47,8 +47,9 @@ echo "loadgen %s done"`,
 }
 
 // LoadGenMarker returns a unique marker token suitable for both shell loops
-// and OpenSearch search phrases. Suites should call this once per spec and
-// keep the value for the polling assertion.
+// and observability backend search phrases (OpenObserve logs, OpenSearch
+// traces). Suites should call this once per spec and keep the value for the
+// polling assertion.
 func LoadGenMarker(prefix string) string {
 	return prefix + "-" + RandSuffix(8)
 }
