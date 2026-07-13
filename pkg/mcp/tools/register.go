@@ -123,6 +123,7 @@ func (t *Toolsets) deploymentToolRegistrations() []RegisterFunc {
 		t.RegisterDeleteReleaseBinding,
 		t.RegisterDeleteComponentRelease,
 		t.RegisterDeleteResourceRelease,
+		t.RegisterDeleteProjectRelease,
 		t.RegisterListResourceReleaseBindings,
 		t.RegisterGetResourceReleaseBinding,
 		t.RegisterCreateResourceReleaseBinding,
@@ -179,6 +180,11 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterPEListResourceReleases,
 		t.RegisterPECreateResourceRelease,
 		t.RegisterPEGetResourceRelease,
+
+		// Project releases (admin: list/get/create; delete lives on the deployment toolset).
+		t.RegisterPEListProjectReleases,
+		t.RegisterPECreateProjectRelease,
+		t.RegisterPEGetProjectRelease,
 
 		// Plane resources (scope-collapsed: pass scope="cluster" for cluster-scoped planes).
 		t.RegisterListDataPlanes,

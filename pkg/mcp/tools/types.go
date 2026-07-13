@@ -148,6 +148,16 @@ type PEToolsetHandler interface {
 	) (any, error)
 	GetResourceRelease(ctx context.Context, namespaceName, releaseName string) (any, error)
 
+	// Project release operations (delete lives on the deployment toolset).
+	ListProjectReleases(
+		ctx context.Context, namespaceName, projectName string, opts ListOpts,
+	) (any, error)
+	CreateProjectRelease(
+		ctx context.Context, namespaceName string,
+		req *gen.CreateProjectReleaseJSONRequestBody,
+	) (any, error)
+	GetProjectRelease(ctx context.Context, namespaceName, releaseName string) (any, error)
+
 	// DeploymentPipeline operations
 	CreateDeploymentPipeline(ctx context.Context, namespaceName string,
 		req *gen.CreateDeploymentPipelineJSONRequestBody) (any, error)
@@ -439,6 +449,9 @@ type DeploymentToolsetHandler interface {
 
 	// Resource release delete (dev-side cleanup; mirrors DeleteComponentRelease).
 	DeleteResourceRelease(ctx context.Context, namespaceName, resourceReleaseName string) (any, error)
+
+	// Project release delete (dev-side cleanup; mirrors DeleteResourceRelease).
+	DeleteProjectRelease(ctx context.Context, namespaceName, projectReleaseName string) (any, error)
 
 	// Resource release binding operations
 	ListResourceReleaseBindings(

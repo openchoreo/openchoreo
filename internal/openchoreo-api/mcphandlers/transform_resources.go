@@ -78,6 +78,36 @@ func clusterProjectTypeDetail(cpt *openchoreov1alpha1.ClusterProjectType) map[st
 }
 
 // ---------------------------------------------------------------------------
+// ProjectRelease
+// ---------------------------------------------------------------------------
+
+func projectReleaseSummary(pr openchoreov1alpha1.ProjectRelease) map[string]any {
+	m := extractCommonMeta(&pr)
+	m["projectName"] = pr.Spec.Owner.ProjectName
+	m["projectType"] = map[string]any{
+		"kind": string(pr.Spec.ProjectType.Kind),
+		"name": pr.Spec.ProjectType.Name,
+	}
+	return m
+}
+
+func projectReleaseDetail(pr *openchoreov1alpha1.ProjectRelease) map[string]any {
+	m := extractCommonMeta(pr)
+	m["projectName"] = pr.Spec.Owner.ProjectName
+	m["projectType"] = map[string]any{
+		"kind": string(pr.Spec.ProjectType.Kind),
+		"name": pr.Spec.ProjectType.Name,
+	}
+	if spec := specToMap(pr.Spec.ProjectType.Spec); len(spec) > 0 {
+		m["projectTypeSpec"] = spec
+	}
+	if pr.Spec.Parameters != nil {
+		m["parameters"] = rawExtensionToAny(pr.Spec.Parameters)
+	}
+	return m
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
