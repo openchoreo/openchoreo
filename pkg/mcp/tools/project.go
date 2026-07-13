@@ -50,7 +50,11 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server, perms map[string]ToolPer
 		Description: "Create a new project in an namespace. Project names must be DNS-compatible " +
 			"(lowercase, alphanumeric, hyphens only, max 63 chars). The project references a " +
 			"ProjectType (namespace-scoped) or ClusterProjectType (cluster-scoped) template; when " +
-			"omitted it defaults to the cluster-scoped \"default\" ClusterProjectType.",
+			"omitted it defaults to the cluster-scoped \"default\" ClusterProjectType. " +
+			"By default this also creates one ProjectReleaseBinding per environment in the project's " +
+			"deployment pipeline — a project with no bindings is not deployed to any environment. " +
+			"Pass skip_bindings=true to create the project alone. The returned releaseBindings field " +
+			"lists the bindings that were created.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name": stringProperty(
@@ -67,6 +71,13 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server, perms map[string]ToolPer
 				"type":        "object",
 				"description": "Optional: parameter values for the referenced (Cluster)ProjectType schema.",
 			},
+			"skip_bindings": map[string]any{
+				"type":    "boolean",
+				"default": false,
+				"description": "Optional: skip creating the per-environment ProjectReleaseBindings. " +
+					"Defaults to false (bindings are created). Mirrors `occ project scaffold --no-bindings`. " +
+					"Only set true when the caller wants to author bindings explicitly afterwards.",
+			},
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName      string         `json:"namespace_name"`
@@ -76,6 +87,7 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server, perms map[string]ToolPer
 		TypeName           string         `json:"type_name"`
 		TypeKind           string         `json:"type_kind"`
 		Parameters         map[string]any `json:"parameters"`
+		SkipBindings       bool           `json:"skip_bindings"`
 	}) (*mcp.CallToolResult, any, error) {
 		annotations := map[string]string{}
 		if args.Description != "" {
@@ -110,7 +122,7 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server, perms map[string]ToolPer
 			projectReq.Spec = ensureProjectSpec(projectReq.Spec)
 			projectReq.Spec.Parameters = &args.Parameters
 		}
-		result, err := t.ProjectToolset.CreateProject(ctx, args.NamespaceName, projectReq)
+		result, err := t.ProjectToolset.CreateProject(ctx, args.NamespaceName, projectReq, args.SkipBindings)
 		return handleToolResult(result, err)
 	})
 }

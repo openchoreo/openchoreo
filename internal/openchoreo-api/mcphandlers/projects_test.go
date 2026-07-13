@@ -53,7 +53,7 @@ func TestCreateProject(t *testing.T) {
 			},
 		}
 		h := newTestHandler(withProjectService(projSvc))
-		_, err := h.CreateProject(ctx, testNS, req)
+		_, err := h.CreateProject(ctx, testNS, req, true)
 		require.NoError(t, err)
 	})
 
@@ -78,7 +78,7 @@ func TestCreateProject(t *testing.T) {
 			},
 		}
 		h := newTestHandler(withProjectService(projSvc))
-		_, err := h.CreateProject(ctx, testNS, req)
+		_, err := h.CreateProject(ctx, testNS, req, true)
 		require.NoError(t, err)
 	})
 
@@ -95,7 +95,7 @@ func TestCreateProject(t *testing.T) {
 			Spec:     nil,
 		}
 		h := newTestHandler(withProjectService(projSvc))
-		_, err := h.CreateProject(ctx, testNS, req)
+		_, err := h.CreateProject(ctx, testNS, req, true)
 		require.NoError(t, err)
 	})
 
@@ -119,7 +119,7 @@ func TestCreateProject(t *testing.T) {
 			},
 		}
 		h := newTestHandler(withProjectService(projSvc))
-		_, err := h.CreateProject(ctx, testNS, req)
+		_, err := h.CreateProject(ctx, testNS, req, true)
 		require.NoError(t, err)
 	})
 
@@ -138,7 +138,7 @@ func TestCreateProject(t *testing.T) {
 			},
 		}
 		h := newTestHandler(withProjectService(projSvc))
-		_, err := h.CreateProject(ctx, testNS, req)
+		_, err := h.CreateProject(ctx, testNS, req, true)
 		require.NoError(t, err)
 	})
 
@@ -154,7 +154,7 @@ func TestCreateProject(t *testing.T) {
 			},
 		}
 		h := newTestHandler(withProjectService(projSvc))
-		_, err := h.CreateProject(ctx, testNS, req)
+		_, err := h.CreateProject(ctx, testNS, req, true)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "marshal parameters")
 	})
@@ -177,7 +177,7 @@ func TestCreateProject(t *testing.T) {
 			Metadata: gen.ObjectMeta{Name: "my-proj", Annotations: &annotations},
 		}
 		h := newTestHandler(withProjectService(projSvc))
-		_, err := h.CreateProject(ctx, testNS, req)
+		_, err := h.CreateProject(ctx, testNS, req, true)
 		require.NoError(t, err)
 	})
 
@@ -187,7 +187,7 @@ func TestCreateProject(t *testing.T) {
 
 		req := &gen.CreateProjectJSONRequestBody{Metadata: gen.ObjectMeta{Name: "my-proj"}}
 		h := newTestHandler(withProjectService(projSvc))
-		_, err := h.CreateProject(ctx, testNS, req)
+		_, err := h.CreateProject(ctx, testNS, req, true)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "create failed")
 	})

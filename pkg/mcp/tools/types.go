@@ -368,7 +368,12 @@ type NamespaceToolsetHandler interface {
 type ProjectToolsetHandler interface {
 	// Project operations
 	ListProjects(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
-	CreateProject(ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody) (any, error)
+	// CreateProject creates the project and, unless skipBindings is set, one
+	// ProjectReleaseBinding per environment in its deployment pipeline.
+	CreateProject(
+		ctx context.Context, namespaceName string,
+		req *gen.CreateProjectJSONRequestBody, skipBindings bool,
+	) (any, error)
 	UpdateProject(ctx context.Context, namespaceName, projectName string, req *gen.PatchProjectRequest) (any, error)
 	DeleteProject(ctx context.Context, namespaceName, projectName string) (any, error)
 

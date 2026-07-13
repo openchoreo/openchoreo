@@ -40,7 +40,9 @@ func projectCoreToolSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"create", "project"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "name"},
-			optionalParams:      []string{"description", "deployment_pipeline", "type_name", "type_kind", "parameters"},
+			optionalParams: []string{
+				"description", "deployment_pipeline", "type_name", "type_kind", "parameters", "skip_bindings",
+			},
 			testArgs: map[string]any{
 				"namespace_name":      testNamespaceName,
 				"name":                "new-project",
@@ -49,11 +51,15 @@ func projectCoreToolSpecs() []toolTestSpec {
 				"type_name":           "standard-project",
 				"type_kind":           "ProjectType",
 				"parameters":          map[string]any{"tier": "premium"},
+				"skip_bindings":       true,
 			},
 			expectedMethod: "CreateProject",
 			validateCall: func(t *testing.T, args []interface{}) {
 				if args[0] != testNamespaceName {
 					t.Errorf("Expected namespace %q, got %v", testNamespaceName, args[0])
+				}
+				if skip, ok := args[2].(bool); !ok || !skip {
+					t.Errorf("Expected skip_bindings to be threaded through as true, got %v", args[2])
 				}
 				req, ok := args[1].(*gen.CreateProjectJSONRequestBody)
 				if !ok {
