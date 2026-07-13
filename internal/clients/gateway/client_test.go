@@ -824,7 +824,10 @@ func TestBuildTLSConfig(t *testing.T) {
 		})
 		require.NoError(t, err)
 		assert.True(t, cfg.InsecureSkipVerify)
-		assert.Len(t, cfg.Certificates, 1)
+		require.NotNil(t, cfg.GetClientCertificate)
+		cert, err := cfg.GetClientCertificate(&tls.CertificateRequestInfo{})
+		require.NoError(t, err)
+		assert.NotEmpty(t, cert.Certificate)
 	})
 
 	t.Run("ServerName is propagated", func(t *testing.T) {
@@ -868,7 +871,60 @@ func TestBuildTLSConfig(t *testing.T) {
 			ClientKeyFile:  keyFile,
 		})
 		require.NoError(t, err)
-		assert.Len(t, cfg.Certificates, 1)
+		require.NotNil(t, cfg.GetClientCertificate)
+		cert, err := cfg.GetClientCertificate(&tls.CertificateRequestInfo{})
+		require.NoError(t, err)
+		assert.NotEmpty(t, cert.Certificate)
+	})
+
+	t.Run("client cert renewed on disk is picked up without rebuilding the config", func(t *testing.T) {
+		certPEM, keyPEM := mustGenerateKeyPairPEM(t)
+		dir := t.TempDir()
+		certFile := filepath.Join(dir, "client.crt")
+		keyFile := filepath.Join(dir, "client.key")
+		require.NoError(t, os.WriteFile(certFile, certPEM, 0o600))
+		require.NoError(t, os.WriteFile(keyFile, keyPEM, 0o600))
+
+		cfg, err := BuildTLSConfig(&TLSConfig{
+			ClientCertFile: certFile,
+			ClientKeyFile:  keyFile,
+		})
+		require.NoError(t, err)
+
+		first, err := cfg.GetClientCertificate(&tls.CertificateRequestInfo{})
+		require.NoError(t, err)
+
+		// Simulate cert-manager renewal: overwrite the keypair on disk.
+		renewedCertPEM, renewedKeyPEM := mustGenerateKeyPairPEM(t)
+		require.NoError(t, os.WriteFile(certFile, renewedCertPEM, 0o600))
+		require.NoError(t, os.WriteFile(keyFile, renewedKeyPEM, 0o600))
+
+		second, err := cfg.GetClientCertificate(&tls.CertificateRequestInfo{})
+		require.NoError(t, err)
+		assert.NotEqual(t, first.Certificate, second.Certificate,
+			"handshake must present the renewed certificate, not the startup-time one")
+	})
+
+	t.Run("client cert removed from disk surfaces a handshake-time error", func(t *testing.T) {
+		certPEM, keyPEM := mustGenerateKeyPairPEM(t)
+		dir := t.TempDir()
+		certFile := filepath.Join(dir, "client.crt")
+		keyFile := filepath.Join(dir, "client.key")
+		require.NoError(t, os.WriteFile(certFile, certPEM, 0o600))
+		require.NoError(t, os.WriteFile(keyFile, keyPEM, 0o600))
+
+		cfg, err := BuildTLSConfig(&TLSConfig{
+			ClientCertFile: certFile,
+			ClientKeyFile:  keyFile,
+		})
+		require.NoError(t, err)
+
+		require.NoError(t, os.Remove(certFile))
+		require.NoError(t, os.Remove(keyFile))
+
+		_, err = cfg.GetClientCertificate(&tls.CertificateRequestInfo{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to load client key pair")
 	})
 
 	t.Run("only ClientCertFile set returns asymmetric-config error", func(t *testing.T) {

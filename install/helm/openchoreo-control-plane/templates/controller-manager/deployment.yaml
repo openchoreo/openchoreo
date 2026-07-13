@@ -64,6 +64,10 @@ spec:
         {{- if .Values.controllerManager.clusterGateway.tls.insecure }}
         - --cluster-gateway-insecure
         {{- end }}
+        {{- if .Values.clusterGateway.internalMtls.enabled }}
+        - --cluster-gateway-client-cert=/etc/cluster-gateway-client/tls.crt
+        - --cluster-gateway-client-key=/etc/cluster-gateway-client/tls.key
+        {{- end }}
         env:
         - name: ENABLE_WEBHOOKS
           value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}
@@ -119,6 +123,11 @@ spec:
           name: cluster-gateway-ca
           readOnly: true
         {{- end }}
+        {{- if .Values.clusterGateway.internalMtls.enabled }}
+        - mountPath: /etc/cluster-gateway-client
+          name: cluster-gateway-client-cert
+          readOnly: true
+        {{- end }}
       volumes:
       {{- if eq (toString .Values.controllerManager.manager.env.enableWebhooks) "true" }}
       - name: cert
@@ -130,4 +139,14 @@ spec:
       - name: cluster-gateway-ca
         secret:
           secretName: {{ .Values.controllerManager.clusterGateway.tls.caSecret }}
+          # Only the CA certificate is needed for server verification; do not
+          # expose the CA private key to this pod.
+          items:
+          - key: ca.crt
+            path: ca.crt
+      {{- end }}
+      {{- if .Values.clusterGateway.internalMtls.enabled }}
+      - name: cluster-gateway-client-cert
+        secret:
+          secretName: controller-manager-gateway-client-tls
       {{- end }}

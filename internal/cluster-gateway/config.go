@@ -12,6 +12,9 @@ type Config struct {
 	ServerCertPath       string
 	ServerKeyPath        string
 	SkipClientCertVerify bool
+	// InternalClientCAPath, when non-empty, enables mTLS on the internal
+	// listener: callers must present a certificate signed by this CA.
+	InternalClientCAPath string
 	ReadTimeout          time.Duration
 	WriteTimeout         time.Duration
 	IdleTimeout          time.Duration

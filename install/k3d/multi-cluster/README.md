@@ -113,6 +113,51 @@ kubectl --context k3d-openchoreo-cp wait -n openchoreo-control-plane \
   --for=condition=available --timeout=300s deployment --all
 ```
 
+### (Optional) Enable mTLS on the Cluster Gateway Internal Listener
+
+By default, the cluster-gateway's internal listener (`:8444`, serving `/api/proxy/`,
+`/api/exec/`, `/api/wirelogs/`, and `/api/v1/planes/*`) is ClusterIP-only and relies on
+network reachability. For defence-in-depth against in-cluster lateral movement, enable
+mTLS so callers (controller-manager and openchoreo-api) must present a client
+certificate issued by the cluster-gateway CA. Client certificates are created and
+renewed automatically via cert-manager — no manual cert handling.
+
+Add `--set clusterGateway.internalMtls.enabled=true` to the install command above, or
+enable it on an existing install:
+
+```bash
+helm upgrade openchoreo-control-plane install/helm/openchoreo-control-plane \
+  --kube-context k3d-openchoreo-cp \
+  --namespace openchoreo-control-plane \
+  --values install/k3d/multi-cluster/values-cp.yaml \
+  --set clusterGateway.internalMtls.enabled=true
+
+kubectl --context k3d-openchoreo-cp wait -n openchoreo-control-plane \
+  --for=condition=available --timeout=300s deployment --all
+```
+
+> [!NOTE]
+> Enabling this rolls the cluster-gateway, controller-manager, and openchoreo-api
+> deployments together. Brief handshake failures during the rollout self-heal —
+> callers retry transient connection errors. Cluster agents are unaffected: they
+> connect to the external listener (`:8443`), whose authentication is unchanged.
+
+Verify the gateway is enforcing client certificates:
+
+```bash
+# Gateway log confirms enforcement
+kubectl --context k3d-openchoreo-cp logs deployment/cluster-gateway \
+  -n openchoreo-control-plane | grep "internal listener mTLS enabled"
+
+# A caller without a client certificate must be rejected at the TLS handshake
+kubectl --context k3d-openchoreo-cp run mtls-check --rm -i --restart=Never \
+  --image=curlimages/curl -n openchoreo-control-plane -- \
+  curl -sk https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8444/api/v1/planes/status
+# expected: request fails with a TLS alert about the missing/required client certificate
+```
+
+To disable, set `clusterGateway.internalMtls.enabled=false` and upgrade again.
+
 ## 2. Install Default Resources
 
 ```bash

@@ -3625,6 +3625,33 @@ clusterGateway:
     renewBefore: 360h
 
   # type: object
+  # description: Mutual TLS for the internal listener (:8444)
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Mutual TLS for the internal listener (:8444). When enabled, the gateway requires in-cluster callers (controller manager, API server) to present a client certificate issued by the cluster-gateway CA. Client certificates are created automatically via cert-manager. Requires clusterGateway.tls.enabled with a server-cert secret containing ca.crt (the default cert-manager setup).
+  # @schema
+  internalMtls:
+    # @schema
+    # type: boolean
+    # description: Enable mTLS on the internal listener
+    # default: false
+    # @schema
+    enabled: false
+    # @schema
+    # type: string
+    # description: Client certificate validity duration (90 days)
+    # default: 2160h
+    # @schema
+    duration: 2160h
+    # @schema
+    # type: string
+    # description: Client certificate renewal threshold (30 days before expiry)
+    # default: 720h
+    # @schema
+    renewBefore: 720h
+
+  # type: object
   # description: Pod security context
   # @schema
   # type: object

@@ -46,6 +46,7 @@ func main() {
 		serverCertPath       string
 		serverKeyPath        string
 		skipClientCertVerify bool
+		internalClientCAPath string
 		readTimeout          time.Duration
 		writeTimeout         time.Duration
 		idleTimeout          time.Duration
@@ -69,6 +70,10 @@ func main() {
 	flag.BoolVar(&skipClientCertVerify, "skip-client-cert-verify",
 		cmdutil.GetEnvBool("SKIP_CLIENT_CERT_VERIFY", false),
 		"Skip client certificate verification (for single-cluster setups without mTLS)")
+	flag.StringVar(&internalClientCAPath, "internal-client-ca",
+		cmdutil.GetEnv("INTERNAL_CLIENT_CA_PATH", ""),
+		"Path to a CA bundle for verifying client certificates on the internal listener "+
+			"(env: INTERNAL_CLIENT_CA_PATH). Empty (default) disables internal mTLS.")
 	flag.DurationVar(&readTimeout, "read-timeout", defaultReadTimeout, "HTTP read timeout")
 	flag.DurationVar(&writeTimeout, "write-timeout", defaultWriteTimeout, "HTTP write timeout")
 	flag.DurationVar(&idleTimeout, "idle-timeout", defaultIdleTimeout, "HTTP idle timeout")
@@ -83,6 +88,7 @@ func main() {
 	logger.Info("starting OpenChoreo Cluster Gateway",
 		"port", port,
 		"internalPort", internalPort,
+		"internalMTLS", internalClientCAPath != "",
 		"serverCert", serverCertPath,
 		"serverKey", serverKeyPath,
 		"heartbeatInterval", heartbeatInterval,
@@ -111,6 +117,7 @@ func main() {
 		ServerCertPath:       serverCertPath,
 		ServerKeyPath:        serverKeyPath,
 		SkipClientCertVerify: skipClientCertVerify,
+		InternalClientCAPath: internalClientCAPath,
 		ReadTimeout:          readTimeout,
 		WriteTimeout:         writeTimeout,
 		IdleTimeout:          idleTimeout,

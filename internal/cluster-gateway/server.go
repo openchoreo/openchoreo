@@ -96,6 +96,28 @@ func getOrGenerateRequestID(r *http.Request) string {
 	return requestID
 }
 
+// buildInternalTLSConfig derives the internal listener's TLS config from the
+// base config. When caPath is non-empty, callers must present a client
+// certificate signed by that CA (mTLS); when empty, the base TLS behavior is
+// kept unchanged.
+func buildInternalTLSConfig(base *tls.Config, caPath string) (*tls.Config, error) {
+	cfg := base.Clone()
+	if caPath == "" {
+		return cfg, nil
+	}
+	caPEM, err := os.ReadFile(caPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read internal client CA: %w", err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(caPEM) {
+		return nil, fmt.Errorf("no certificates parsed from internal client CA %q", caPath)
+	}
+	cfg.ClientAuth = tls.RequireAndVerifyClientCert
+	cfg.ClientCAs = pool
+	return cfg, nil
+}
+
 func (s *Server) Start() error {
 	cert, err := tls.LoadX509KeyPair(s.config.ServerCertPath, s.config.ServerKeyPath)
 	if err != nil {
@@ -115,6 +137,17 @@ func (s *Server) Start() error {
 		"clientAuth", "RequestClientCert",
 		"note", "Client certificate verification performed at application level per DataPlane/WorkflowPlane CR",
 	)
+
+	internalTLSConfig, err := buildInternalTLSConfig(tlsConfig, s.config.InternalClientCAPath)
+	if err != nil {
+		return err
+	}
+	if s.config.InternalClientCAPath != "" {
+		s.logger.Info("internal listener mTLS enabled",
+			"clientAuth", "RequireAndVerifyClientCert",
+			"clientCA", s.config.InternalClientCAPath,
+		)
+	}
 
 	// Public listener: agent WebSocket only (reached by remote data planes).
 	publicMux := http.NewServeMux()
@@ -150,7 +183,7 @@ func (s *Server) Start() error {
 	s.internalServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.config.InternalPort),
 		Handler:      internalMux,
-		TLSConfig:    tlsConfig.Clone(),
+		TLSConfig:    internalTLSConfig,
 		ReadTimeout:  s.config.ReadTimeout,
 		WriteTimeout: s.config.WriteTimeout,
 		IdleTimeout:  s.config.IdleTimeout,

@@ -7,13 +7,18 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -872,4 +877,240 @@ func TestHandleConnection_NormalClose(t *testing.T) {
 
 	// Should log "agent disconnected" and return
 	s.handleConnection("dataplane/prod", connID, mock)
+}
+
+// --- Internal listener mTLS tests ---
+
+// writeTestCAFile writes the given CA certificate as PEM to a temp file.
+func writeTestCAFile(t *testing.T, caCert *x509.Certificate) string {
+	t.Helper()
+	caFile := filepath.Join(t.TempDir(), "ca.crt")
+	require.NoError(t, os.WriteFile(caFile, encodeCertToPEM(t, caCert), 0o600))
+	return caFile
+}
+
+// generateTestClientKeyPair creates a tls.Certificate (cert + key) signed by the given CA.
+func generateTestClientKeyPair(t *testing.T, caCert *x509.Certificate, caKey *ecdsa.PrivateKey) tls.Certificate {
+	t.Helper()
+	clientKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	clientTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(3),
+		Subject:      pkix.Name{CommonName: "Test Internal Caller"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+
+	clientDER, err := x509.CreateCertificate(rand.Reader, clientTemplate, caCert, &clientKey.PublicKey, caKey)
+	require.NoError(t, err)
+
+	return tls.Certificate{
+		Certificate: [][]byte{clientDER},
+		PrivateKey:  clientKey,
+	}
+}
+
+func TestBuildInternalTLSConfig(t *testing.T) {
+	base := &tls.Config{
+		ClientAuth: tls.RequestClientCert,
+		MinVersion: tls.VersionTLS12,
+	}
+
+	t.Run("empty CA path keeps base TLS behavior unchanged", func(t *testing.T) {
+		// Default-off contract: without a CA, the internal listener must behave
+		// exactly like today so enabling the feature is strictly opt-in.
+		cfg, err := buildInternalTLSConfig(base, "")
+		require.NoError(t, err)
+		assert.Equal(t, tls.RequestClientCert, cfg.ClientAuth)
+		assert.Nil(t, cfg.ClientCAs)
+	})
+
+	t.Run("valid CA requires and verifies client certificates", func(t *testing.T) {
+		caCert, _ := generateTestCA(t)
+		cfg, err := buildInternalTLSConfig(base, writeTestCAFile(t, caCert))
+		require.NoError(t, err)
+		assert.Equal(t, tls.RequireAndVerifyClientCert, cfg.ClientAuth)
+		assert.NotNil(t, cfg.ClientCAs)
+		// The base config must not be mutated: the public listener keeps
+		// serving agents without TLS-level verification.
+		assert.Equal(t, tls.RequestClientCert, base.ClientAuth)
+		assert.Nil(t, base.ClientCAs)
+	})
+
+	t.Run("missing CA file is a fatal configuration error", func(t *testing.T) {
+		_, err := buildInternalTLSConfig(base, "/path/does/not/exist/ca.crt")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read internal client CA")
+	})
+
+	t.Run("garbage PEM is a fatal configuration error", func(t *testing.T) {
+		caFile := filepath.Join(t.TempDir(), "ca.crt")
+		require.NoError(t, os.WriteFile(caFile, []byte("not-a-cert"), 0o600))
+		_, err := buildInternalTLSConfig(base, caFile)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no certificates parsed")
+	})
+}
+
+// TestInternalListenerMTLS_Handshake exercises real TLS handshakes against a
+// listener using the internal TLS config, proving the mTLS boundary holds:
+// callers without a certificate (or with one from a different CA) must be
+// rejected before any handler runs, and callers with a certificate from the
+// configured CA must get through.
+func TestInternalListenerMTLS_Handshake(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	base := &tls.Config{
+		ClientAuth: tls.RequestClientCert,
+		MinVersion: tls.VersionTLS12,
+	}
+	cfg, err := buildInternalTLSConfig(base, writeTestCAFile(t, caCert))
+	require.NoError(t, err)
+
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	srv.TLS = cfg
+	srv.StartTLS()
+	defer srv.Close()
+
+	t.Run("caller without a client certificate is rejected", func(t *testing.T) {
+		// srv.Client() trusts the server certificate but presents none itself.
+		_, err := srv.Client().Get(srv.URL + "/api/v1/planes/status")
+		require.Error(t, err, "certificate-less handshake must be refused")
+	})
+
+	t.Run("caller with a certificate from the configured CA is accepted", func(t *testing.T) {
+		client := srv.Client()
+		transport := client.Transport.(*http.Transport).Clone()
+		transport.TLSClientConfig.Certificates = []tls.Certificate{generateTestClientKeyPair(t, caCert, caKey)}
+		client.Transport = transport
+
+		resp, err := client.Get(srv.URL + "/api/v1/planes/status")
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("caller with a certificate from a different CA is rejected", func(t *testing.T) {
+		otherCACert, otherCAKey := generateTestCA(t)
+		client := srv.Client()
+		transport := client.Transport.(*http.Transport).Clone()
+		transport.TLSClientConfig.Certificates = []tls.Certificate{generateTestClientKeyPair(t, otherCACert, otherCAKey)}
+		client.Transport = transport
+
+		_, err := client.Get(srv.URL + "/api/v1/planes/status")
+		require.Error(t, err, "certificate from an unknown CA must be refused")
+	})
+
+	t.Run("with no CA configured, certificate-less callers still succeed", func(t *testing.T) {
+		// Regression guard for the non-breaking default: this failing means the
+		// default-off contract broke and existing installs would lose gateway access.
+		plainCfg, err := buildInternalTLSConfig(base, "")
+		require.NoError(t, err)
+
+		plainSrv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		plainSrv.TLS = plainCfg
+		plainSrv.StartTLS()
+		defer plainSrv.Close()
+
+		resp, err := plainSrv.Client().Get(plainSrv.URL + "/api/v1/planes/status")
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+}
+
+// --- Server.Start tests ---
+
+// writeTestServerKeyPairFiles writes a self-signed server certificate and key
+// to temp files and returns their paths.
+func writeTestServerKeyPairFiles(t *testing.T) (certPath, keyPath string) {
+	t.Helper()
+	caCert, caKey := generateTestCA(t)
+
+	dir := t.TempDir()
+	certPath = filepath.Join(dir, "tls.crt")
+	keyPath = filepath.Join(dir, "tls.key")
+
+	keyDER, err := x509.MarshalECPrivateKey(caKey)
+	require.NoError(t, err)
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+
+	require.NoError(t, os.WriteFile(certPath, encodeCertToPEM(t, caCert), 0o600))
+	require.NoError(t, os.WriteFile(keyPath, keyPEM, 0o600))
+	return certPath, keyPath
+}
+
+func TestStart_InvalidServerCertIsFatal(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	s := New(&Config{
+		ServerCertPath: "/path/does/not/exist/tls.crt",
+		ServerKeyPath:  "/path/does/not/exist/tls.key",
+	}, fakeClient, testLogger())
+
+	err := s.Start()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to load server certificate")
+}
+
+func TestStart_InvalidInternalClientCAIsFatal(t *testing.T) {
+	certPath, keyPath := writeTestServerKeyPairFiles(t)
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	s := New(&Config{
+		ServerCertPath:       certPath,
+		ServerKeyPath:        keyPath,
+		InternalClientCAPath: "/path/does/not/exist/ca.crt",
+	}, fakeClient, testLogger())
+
+	// Start must fail before binding any listener: a gateway configured for
+	// internal mTLS that cannot verify callers must not come up without it.
+	err := s.Start()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read internal client CA")
+}
+
+func TestStart_ReturnsServerErrorWhenPublicPortBusy(t *testing.T) {
+	// Occupy a port so the public listener fails fast; Start must surface the
+	// error through the serverErrors channel. Internal mTLS is enabled so the
+	// full listener-setup path (including the mTLS log branch) is exercised.
+	// The server binds with a wildcard address (":<port>"), so the occupying
+	// listener must use a wildcard address too — a loopback-only listener
+	// (e.g. "127.0.0.1:0") doesn't conflict with a wildcard bind on the same
+	// port and would leave Start() hanging forever instead of erroring.
+	ln, err := net.Listen("tcp", ":0") //nolint:gosec // G102: wildcard bind is required to conflict with the server's wildcard listener
+	require.NoError(t, err)
+	defer ln.Close()
+	busyPort := ln.Addr().(*net.TCPAddr).Port
+
+	certPath, keyPath := writeTestServerKeyPairFiles(t)
+	caCert, _ := generateTestCA(t)
+
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	s := New(&Config{
+		Port:                 busyPort,
+		InternalPort:         0, // ephemeral
+		ServerCertPath:       certPath,
+		ServerKeyPath:        keyPath,
+		InternalClientCAPath: writeTestCAFile(t, caCert),
+		ShutdownTimeout:      time.Second,
+	}, fakeClient, testLogger())
+	defer func() {
+		for _, srv := range []*http.Server{s.httpServer, s.internalServer, s.healthServer} {
+			if srv != nil {
+				srv.Close()
+			}
+		}
+	}()
+
+	err = s.Start()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "server error")
 }
