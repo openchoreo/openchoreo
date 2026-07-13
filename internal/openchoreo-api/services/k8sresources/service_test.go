@@ -461,48 +461,6 @@ func TestHasParentResourceInRelease(t *testing.T) {
 	})
 }
 
-func TestInvolvedObjectBelongsToRelease(t *testing.T) {
-	exact := map[string]struct{}{"web": {}, "web-config": {}}
-	prefixes := []string{"web"}
-
-	event := func(kind, name string) map[string]any {
-		return map[string]any{
-			"involvedObject": map[string]any{"kind": kind, "name": name},
-		}
-	}
-
-	t.Run("exact name match", func(t *testing.T) {
-		assert.True(t, involvedObjectBelongsToRelease(event(kindDeployment, "web"), exact, prefixes))
-	})
-
-	t.Run("child kind prefix match", func(t *testing.T) {
-		assert.True(t, involvedObjectBelongsToRelease(event("ReplicaSet", "web-abc123"), exact, prefixes))
-		assert.True(t, involvedObjectBelongsToRelease(event("Pod", "web-abc123-xyz"), exact, prefixes))
-	})
-
-	t.Run("non-child kind prefix is rejected", func(t *testing.T) {
-		// A ConfigMap named "web-secret" starts with the workload prefix but must
-		// not be attributed to the release via prefix matching.
-		assert.False(t, involvedObjectBelongsToRelease(event("ConfigMap", "web-secret"), exact, prefixes))
-	})
-
-	t.Run("non-child kind still matches on exact name", func(t *testing.T) {
-		assert.True(t, involvedObjectBelongsToRelease(event("ConfigMap", "web-config"), exact, prefixes))
-	})
-
-	t.Run("unrelated object", func(t *testing.T) {
-		assert.False(t, involvedObjectBelongsToRelease(event("Pod", "other-abc"), exact, prefixes))
-	})
-
-	t.Run("missing involvedObject", func(t *testing.T) {
-		assert.False(t, involvedObjectBelongsToRelease(map[string]any{}, exact, prefixes))
-	})
-
-	t.Run("empty name", func(t *testing.T) {
-		assert.False(t, involvedObjectBelongsToRelease(event("Pod", ""), exact, prefixes))
-	})
-}
-
 func TestDeriveNamespace(t *testing.T) {
 	t.Run("with resources", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{
