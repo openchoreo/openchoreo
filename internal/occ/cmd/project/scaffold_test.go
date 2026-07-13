@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -210,7 +211,7 @@ func TestScaffold_EmitsBindingPerEnvironment(t *testing.T) {
 	assert.Contains(t, out, "name: online-store-dev")
 	assert.Contains(t, out, "name: online-store-staging")
 	assert.Contains(t, out, "name: online-store-prod")
-	assert.Equal(t, 3, countOccurrences(out, "kind: ProjectReleaseBinding"))
+	assert.Equal(t, 3, strings.Count(out, "kind: ProjectReleaseBinding"))
 
 	// projectRelease is left unset for the controller to seed
 	assert.NotContains(t, out, "projectRelease:")
@@ -292,14 +293,4 @@ func TestScaffold_WritesOutputFile(t *testing.T) {
 	})
 	assert.Contains(t, out, "Project YAML written to")
 	assert.FileExists(t, outPath)
-}
-
-func countOccurrences(s, substr string) int {
-	count := 0
-	for i := 0; i+len(substr) <= len(s); i++ {
-		if s[i:i+len(substr)] == substr {
-			count++
-		}
-	}
-	return count
 }
