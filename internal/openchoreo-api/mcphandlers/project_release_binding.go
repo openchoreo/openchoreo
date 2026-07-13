@@ -5,7 +5,11 @@ package mcphandlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/runtime"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -66,13 +70,32 @@ func (h *MCPHandler) UpdateProjectReleaseBinding(
 	if req == nil {
 		return nil, errors.New("request body is required")
 	}
-	rb, err := convertSpec[gen.ProjectReleaseBinding, openchoreov1alpha1.ProjectReleaseBinding](*req)
+
+	// The service replaces spec wholesale, but this tool exposes only the mutable
+	// fields (projectRelease, environmentConfigs) as inputs. Fetch the existing
+	// binding and apply the provided fields onto it so the immutable spec.owner
+	// and spec.environment are preserved — otherwise they would be submitted empty
+	// and rejected by the CRD's immutability and min-length validations.
+	existing, err := h.services.ProjectReleaseBindingService.GetProjectReleaseBinding(
+		ctx, namespaceName, req.Metadata.Name)
 	if err != nil {
 		return nil, err
 	}
-	rb.Namespace = namespaceName
 
-	updated, err := h.services.ProjectReleaseBindingService.UpdateProjectReleaseBinding(ctx, namespaceName, &rb)
+	if req.Spec != nil {
+		if req.Spec.ProjectRelease != nil {
+			existing.Spec.ProjectRelease = *req.Spec.ProjectRelease
+		}
+		if req.Spec.EnvironmentConfigs != nil {
+			raw, mErr := json.Marshal(*req.Spec.EnvironmentConfigs)
+			if mErr != nil {
+				return nil, fmt.Errorf("marshal environmentConfigs: %w", mErr)
+			}
+			existing.Spec.EnvironmentConfigs = &runtime.RawExtension{Raw: raw}
+		}
+	}
+
+	updated, err := h.services.ProjectReleaseBindingService.UpdateProjectReleaseBinding(ctx, namespaceName, existing)
 	if err != nil {
 		return nil, err
 	}

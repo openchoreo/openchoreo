@@ -174,32 +174,108 @@ func TestCreateProjectReleaseBinding(t *testing.T) {
 func TestUpdateProjectReleaseBinding(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("converts gen body to CRD and sets namespace", func(t *testing.T) {
+	const newRelease = "standard-project-def456"
+
+	// partialUpdateBody mirrors what the update_project_release_binding tool
+	// actually produces: only the mutable fields are set. spec.owner and
+	// spec.environment are absent, so the handler must fill them from the
+	// existing binding rather than submit them empty.
+	partialUpdateBody := func() *gen.UpdateProjectReleaseBindingJSONRequestBody {
+		pin := newRelease
+		return &gen.UpdateProjectReleaseBindingJSONRequestBody{
+			Metadata: gen.ObjectMeta{Name: testProjectReleaseBindingName},
+			Spec:     &gen.ProjectReleaseBindingSpec{ProjectRelease: &pin},
+		}
+	}
+
+	// Regression guard: the tool sends no owner/environment, so a naive convert
+	// submitted them empty and the CRD rejected the update as an immutability
+	// violation. The handler must preserve them from the existing binding.
+	t.Run("re-pins release and preserves immutable owner and environment", func(t *testing.T) {
 		rbSvc := projectreleasebindingmocks.NewMockService(t)
 		rbSvc.EXPECT().
-			UpdateProjectReleaseBinding(mock.Anything, testNS, mock.MatchedBy(func(rb *openchoreov1alpha1.ProjectReleaseBinding) bool {
-				return rb.Namespace == testNS &&
-					rb.Spec.ProjectRelease == testProjectReleaseName
-			})).
+			GetProjectReleaseBinding(mock.Anything, testNS, testProjectReleaseBindingName).
+			Return(sampleProjectReleaseBinding(), nil)
+
+		var sent *openchoreov1alpha1.ProjectReleaseBinding
+		rbSvc.EXPECT().
+			UpdateProjectReleaseBinding(mock.Anything, testNS, mock.Anything).
+			Run(func(_ context.Context, _ string, rb *openchoreov1alpha1.ProjectReleaseBinding) {
+				sent = rb
+			}).
 			Return(sampleProjectReleaseBinding(), nil)
 
 		h := newTestHandler(withProjectReleaseBindingService(rbSvc))
-		result, err := h.UpdateProjectReleaseBinding(ctx, testNS, genProjectReleaseBindingBody(t))
+		result, err := h.UpdateProjectReleaseBinding(ctx, testNS, partialUpdateBody())
 		require.NoError(t, err)
+
+		require.NotNil(t, sent)
+		assert.Equal(t, newRelease, sent.Spec.ProjectRelease, "new pin must be applied")
+		assert.Equal(t, testBindingEnvironment, sent.Spec.Environment, "environment must be preserved")
+		assert.Equal(t, testProject, sent.Spec.Owner.ProjectName, "owner must be preserved")
+
 		m, ok := result.(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "updated", m["action"])
 	})
 
-	t.Run("service error propagates", func(t *testing.T) {
+	t.Run("applies environmentConfigs and preserves the existing pin", func(t *testing.T) {
+		rbSvc := projectreleasebindingmocks.NewMockService(t)
+		rbSvc.EXPECT().
+			GetProjectReleaseBinding(mock.Anything, testNS, testProjectReleaseBindingName).
+			Return(sampleProjectReleaseBinding(), nil)
+
+		var sent *openchoreov1alpha1.ProjectReleaseBinding
+		rbSvc.EXPECT().
+			UpdateProjectReleaseBinding(mock.Anything, testNS, mock.Anything).
+			Run(func(_ context.Context, _ string, rb *openchoreov1alpha1.ProjectReleaseBinding) {
+				sent = rb
+			}).
+			Return(sampleProjectReleaseBinding(), nil)
+
+		body := &gen.UpdateProjectReleaseBindingJSONRequestBody{
+			Metadata: gen.ObjectMeta{Name: testProjectReleaseBindingName},
+			Spec: &gen.ProjectReleaseBindingSpec{
+				EnvironmentConfigs: &map[string]interface{}{"replicas": float64(3)},
+			},
+		}
+
+		h := newTestHandler(withProjectReleaseBindingService(rbSvc))
+		_, err := h.UpdateProjectReleaseBinding(ctx, testNS, body)
+		require.NoError(t, err)
+
+		require.NotNil(t, sent)
+		assert.Equal(t, testBindingEnvironment, sent.Spec.Environment)
+		assert.Equal(t, testProject, sent.Spec.Owner.ProjectName)
+		assert.Equal(t, testProjectReleaseName, sent.Spec.ProjectRelease, "unset pin must keep existing value")
+		require.NotNil(t, sent.Spec.EnvironmentConfigs)
+		assert.JSONEq(t, `{"replicas":3}`, string(sent.Spec.EnvironmentConfigs.Raw))
+	})
+
+	t.Run("propagates get error before attempting update", func(t *testing.T) {
+		expected := errors.New("not found")
+		rbSvc := projectreleasebindingmocks.NewMockService(t)
+		rbSvc.EXPECT().
+			GetProjectReleaseBinding(mock.Anything, testNS, testProjectReleaseBindingName).
+			Return(nil, expected)
+
+		h := newTestHandler(withProjectReleaseBindingService(rbSvc))
+		_, err := h.UpdateProjectReleaseBinding(ctx, testNS, partialUpdateBody())
+		require.ErrorIs(t, err, expected)
+	})
+
+	t.Run("propagates update error", func(t *testing.T) {
 		expected := errors.New("update failed")
 		rbSvc := projectreleasebindingmocks.NewMockService(t)
+		rbSvc.EXPECT().
+			GetProjectReleaseBinding(mock.Anything, testNS, testProjectReleaseBindingName).
+			Return(sampleProjectReleaseBinding(), nil)
 		rbSvc.EXPECT().
 			UpdateProjectReleaseBinding(mock.Anything, testNS, mock.Anything).
 			Return(nil, expected)
 
 		h := newTestHandler(withProjectReleaseBindingService(rbSvc))
-		_, err := h.UpdateProjectReleaseBinding(ctx, testNS, genProjectReleaseBindingBody(t))
+		_, err := h.UpdateProjectReleaseBinding(ctx, testNS, partialUpdateBody())
 		require.ErrorIs(t, err, expected)
 	})
 
