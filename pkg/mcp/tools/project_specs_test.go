@@ -11,6 +11,13 @@ import (
 
 // projectToolSpecs returns test specs for project toolset
 func projectToolSpecs() []toolTestSpec {
+	specs := projectCoreToolSpecs()
+	specs = append(specs, projectProjectTypeSpecs()...)
+	return specs
+}
+
+// projectCoreToolSpecs returns the Project CRUD tool specs.
+func projectCoreToolSpecs() []toolTestSpec {
 	return []toolTestSpec{
 		{
 			name:                "list_projects",

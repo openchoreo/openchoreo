@@ -959,6 +959,86 @@ func (m *MockCoreToolsetHandler) DeleteClusterResourceType(ctx context.Context, 
 	return deletedResponse, nil
 }
 
+// Project type methods (namespace-scoped)
+
+func (m *MockCoreToolsetHandler) ListProjectTypes(
+	ctx context.Context, namespaceName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListProjectTypes", namespaceName, opts)
+	return `[{"name":"project-type-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetProjectType(
+	ctx context.Context, namespaceName, ptName string,
+) (any, error) {
+	m.recordCall("GetProjectType", namespaceName, ptName)
+	return `{"name":"project-type-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetProjectTypeSchema(
+	ctx context.Context, namespaceName, ptName string,
+) (any, error) {
+	m.recordCall("GetProjectTypeSchema", namespaceName, ptName)
+	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateProjectType(
+	ctx context.Context, namespaceName string, req *gen.CreateProjectTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateProjectType", namespaceName, req)
+	return `{"name":"new-project-type","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateProjectType(
+	ctx context.Context, namespaceName string, req *gen.UpdateProjectTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateProjectType", namespaceName, req)
+	return `{"name":"updated-project-type","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteProjectType(
+	ctx context.Context, namespaceName, ptName string,
+) (any, error) {
+	m.recordCall("DeleteProjectType", namespaceName, ptName)
+	return deletedResponse, nil
+}
+
+// Project type methods (cluster-scoped)
+
+func (m *MockCoreToolsetHandler) ListClusterProjectTypes(ctx context.Context, opts ListOpts) (any, error) {
+	m.recordCall("ListClusterProjectTypes", opts)
+	return `[{"name":"cluster-project-type-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterProjectType(ctx context.Context, cptName string) (any, error) {
+	m.recordCall("GetClusterProjectType", cptName)
+	return `{"name":"cluster-project-type-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterProjectTypeSchema(ctx context.Context, cptName string) (any, error) {
+	m.recordCall("GetClusterProjectTypeSchema", cptName)
+	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateClusterProjectType(
+	ctx context.Context, req *gen.CreateClusterProjectTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateClusterProjectType", req)
+	return `{"name":"new-cluster-project-type","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateClusterProjectType(
+	ctx context.Context, req *gen.UpdateClusterProjectTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateClusterProjectType", req)
+	return `{"name":"updated-cluster-project-type","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteClusterProjectType(ctx context.Context, cptName string) (any, error) {
+	m.recordCall("DeleteClusterProjectType", cptName)
+	return deletedResponse, nil
+}
+
 // ResourceRelease methods
 
 func (m *MockCoreToolsetHandler) ListResourceReleases(

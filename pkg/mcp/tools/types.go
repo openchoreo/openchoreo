@@ -255,6 +255,34 @@ type PEToolsetHandler interface {
 	) (any, error)
 	DeleteClusterResourceType(ctx context.Context, crtName string) (any, error)
 
+	// Project types (namespace-scoped) — read
+	ListProjectTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetProjectType(ctx context.Context, namespaceName, ptName string) (any, error)
+	GetProjectTypeSchema(ctx context.Context, namespaceName, ptName string) (any, error)
+
+	// Project types (namespace-scoped) — write
+	CreateProjectType(
+		ctx context.Context, namespaceName string, req *gen.CreateProjectTypeJSONRequestBody,
+	) (any, error)
+	UpdateProjectType(
+		ctx context.Context, namespaceName string, req *gen.UpdateProjectTypeJSONRequestBody,
+	) (any, error)
+	DeleteProjectType(ctx context.Context, namespaceName, ptName string) (any, error)
+
+	// Project types (cluster-scoped) — read
+	ListClusterProjectTypes(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterProjectType(ctx context.Context, cptName string) (any, error)
+	GetClusterProjectTypeSchema(ctx context.Context, cptName string) (any, error)
+
+	// Project types (cluster-scoped) — write
+	CreateClusterProjectType(
+		ctx context.Context, req *gen.CreateClusterProjectTypeJSONRequestBody,
+	) (any, error)
+	UpdateClusterProjectType(
+		ctx context.Context, req *gen.UpdateClusterProjectTypeJSONRequestBody,
+	) (any, error)
+	DeleteClusterProjectType(ctx context.Context, cptName string) (any, error)
+
 	// Diagnostics
 	GetResourceTree(ctx context.Context, namespaceName, releaseBindingName string) (any, error)
 	GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName,
@@ -333,6 +361,16 @@ type ProjectToolsetHandler interface {
 	CreateProject(ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody) (any, error)
 	UpdateProject(ctx context.Context, namespaceName, projectName string, req *gen.PatchProjectRequest) (any, error)
 	DeleteProject(ctx context.Context, namespaceName, projectName string) (any, error)
+
+	// Project types (read-only, namespace-scoped)
+	ListProjectTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetProjectType(ctx context.Context, namespaceName, ptName string) (any, error)
+	GetProjectTypeSchema(ctx context.Context, namespaceName, ptName string) (any, error)
+
+	// Project types (read-only, cluster-scoped)
+	ListClusterProjectTypes(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterProjectType(ctx context.Context, cptName string) (any, error)
+	GetClusterProjectTypeSchema(ctx context.Context, cptName string) (any, error)
 }
 
 // ComponentToolsetHandler handles component definition and configuration operations

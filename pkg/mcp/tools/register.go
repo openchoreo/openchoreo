@@ -74,6 +74,9 @@ func (t *Toolsets) projectToolRegistrations() []RegisterFunc {
 		t.RegisterCreateProject,
 		t.RegisterUpdateProject,
 		t.RegisterDeleteProject,
+		t.RegisterListProjectTypes,
+		t.RegisterGetProjectType,
+		t.RegisterGetProjectTypeSchema,
 	}
 }
 
@@ -222,6 +225,16 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterCreateResourceType,
 		t.RegisterUpdateResourceType,
 		t.RegisterDeleteResourceType,
+
+		// Project types (scope-collapsed: pass scope="cluster" for a ClusterProjectType).
+		// Reads are dual-registered with the project toolset; writes are PE-only.
+		t.RegisterPEListProjectTypes,
+		t.RegisterPEGetProjectType,
+		t.RegisterPEGetProjectTypeSchema,
+		t.RegisterGetProjectTypeCreationSchema,
+		t.RegisterCreateProjectType,
+		t.RegisterUpdateProjectType,
+		t.RegisterDeleteProjectType,
 
 		// Deprecated cluster-prefixed platform-standards aliases (hidden from the default tools/list).
 		t.RegisterGetClusterComponentTypeCreationSchema,

@@ -42,6 +42,42 @@ func projectSummary(p openchoreov1alpha1.Project) map[string]any {
 }
 
 // ---------------------------------------------------------------------------
+// ProjectType
+// ---------------------------------------------------------------------------
+
+func projectTypeSummary(pt openchoreov1alpha1.ProjectType) map[string]any {
+	m := extractCommonMeta(&pt)
+	m["resources"] = len(pt.Spec.Resources)
+	return m
+}
+
+func projectTypeDetail(pt *openchoreov1alpha1.ProjectType) map[string]any {
+	m := extractCommonMeta(pt)
+	if spec := specToMap(pt.Spec); len(spec) > 0 {
+		m["spec"] = spec
+	}
+	return m
+}
+
+// ---------------------------------------------------------------------------
+// ClusterProjectType
+// ---------------------------------------------------------------------------
+
+func clusterProjectTypeSummary(cpt openchoreov1alpha1.ClusterProjectType) map[string]any {
+	m := extractCommonMeta(&cpt)
+	m["resources"] = len(cpt.Spec.Resources)
+	return m
+}
+
+func clusterProjectTypeDetail(cpt *openchoreov1alpha1.ClusterProjectType) map[string]any {
+	m := extractCommonMeta(cpt)
+	if spec := specToMap(cpt.Spec); len(spec) > 0 {
+		m["spec"] = spec
+	}
+	return m
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
