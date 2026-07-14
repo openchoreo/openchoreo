@@ -71,6 +71,14 @@ The frontend captured the rows below from the user's table. They are authoritati
 ```
 
 {% endif -%}
+### Verifying a fix — "is it fixed now?", "did my change work?", "is it still happening?"
+
+These ask for the **current** state, not the original incident, so the visible window and any prefetched rows are **stale** — captured when the drawer opened, before the user's change. Do NOT answer from `prefetched_logs` or `logs_end_time` on these turns.
+
+The latest user message is prefixed with `[current server time: <RFC3339>]` (authoritative — the server clock, not a value you compute). On a verification turn:
+1. Re-fetch project-wide `query_component_logs` with `end_time` = that current server time, `start_time` = `logs_start_time` if set else current server time − 30 min, plus `log_levels`.
+2. Judge **only** from the freshly-returned rows. Error absent from the fresh window → say it has not recurred since `start_time`. Error still present → quote the fresh line **with its timestamp**. No rows at all → say there's been no activity since the change; do not declare it fixed or broken.
+
 ### Start here — parallel pair on turn 1
 {% if scope.runtime_anchor == 'log' -%}
   {%- if scope.pinned_log_trace_id %}
@@ -184,6 +192,7 @@ Rules for the body of each section:
   - no anchor (deployment-health): `list_release_bindings` + `get_resource_tree` on turn 1; `get_resource_events` / `get_resource_logs` on the unhealthy resource next turn; logs/traces only to complement once a pod is running.
   - **Connection-refused exception** (any of the above): when prefetched or fetched rows contain a connection-refused pattern (see "Connection-refused pattern" above), `list_components` is allowed on the same turn as the log/trace fetch; `get_release_binding` for one candidate sibling is allowed on the follow-up turn.
 - **Never** ask for time ranges / RFC3339 / log windows — `scope.logs_start_time` / `logs_end_time` are authoritative when set; otherwise default to 30 min.
+- **Verification override**: for "is it fixed / resolved / still happening / did my change work" follow-ups, `logs_end_time` and `prefetched_logs` are STALE — ignore them and use the `[current server time]` stamped on the latest user message as `end_time`, re-fetching fresh (see "Verifying a fix").
 - **Never** call `query_workflow_logs` (build-failure case only).
 - On empty logs/traces **with a component + environment in scope**: do NOT stop yet — check the data-plane resources first (`list_release_bindings` → `get_resource_tree` → `get_resource_events` / `get_resource_logs`), since a failed deploy's cause lives there, not in the log pipeline. Only once that is also exhausted: ≤2 sentences — one conclusion, one user action. Do NOT enumerate filters, do NOT list "what I tried", do NOT offer follow-up queries. Stop.
 
