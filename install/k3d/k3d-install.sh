@@ -518,7 +518,7 @@ EOF
 
 print_summary() {
     step "OpenChoreo installation complete"
-    info "Console:  http://openchoreo.localhost:8080"
+    info "Console:  http://openchoreo.localhost:8080  (log in with admin@openchoreo.dev / Admin@123)"
     info "API:      http://api.openchoreo.localhost:8080"
     info "Planes:   control, data$([[ "$WITH_BUILD" == "true" ]] && echo ", workflow")$([[ "$WITH_OBSERVABILITY" == "true" ]] && echo ", observability")"
     info "Delete:   k3d cluster delete ${CLUSTER_NAME}"
