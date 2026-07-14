@@ -304,6 +304,95 @@ func TestFindEnvironmentNamesFromDeploymentPipeline(t *testing.T) {
 	}
 }
 
+// ── makeProjectContext ───────────────────────────────────────────────────────
+
+func TestMakeProjectContext_EmptyDeploymentPipeline(t *testing.T) {
+	s := newSeedTestScheme(t)
+	pipeline := &openchoreov1alpha1.DeploymentPipeline{
+		ObjectMeta: metav1.ObjectMeta{Name: "empty-pipeline", Namespace: "test-ns"},
+		Spec: openchoreov1alpha1.DeploymentPipelineSpec{
+			PromotionPaths: []openchoreov1alpha1.PromotionPath{},
+		},
+	}
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-project", Namespace: "test-ns"},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "empty-pipeline"},
+		},
+	}
+	cli := fake.NewClientBuilder().WithScheme(s).WithObjects(pipeline, project).Build()
+	r := &Reconciler{Client: cli, Scheme: s}
+
+	projectCtx, err := r.makeProjectContext(context.Background(), project)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if projectCtx == nil {
+		t.Fatal("expected non-nil project context")
+	}
+	if projectCtx.Project == nil || projectCtx.Project.Name != "my-project" {
+		t.Errorf("expected project my-project, got %#v", projectCtx.Project)
+	}
+	if projectCtx.DeploymentPipeline == nil || projectCtx.DeploymentPipeline.Name != "empty-pipeline" {
+		t.Errorf("expected pipeline empty-pipeline, got %#v", projectCtx.DeploymentPipeline)
+	}
+	if len(projectCtx.EnvironmentNames) != 0 {
+		t.Errorf("expected no environment names, got %v", projectCtx.EnvironmentNames)
+	}
+	if len(projectCtx.NamespaceNames) != 0 {
+		t.Errorf("expected no namespace names, got %v", projectCtx.NamespaceNames)
+	}
+}
+
+func TestMakeProjectContext_MissingDeploymentPipeline(t *testing.T) {
+	s := newSeedTestScheme(t)
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-project", Namespace: "test-ns"},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "already-gone"},
+		},
+	}
+	cli := fake.NewClientBuilder().WithScheme(s).WithObjects(project).Build()
+	r := &Reconciler{Client: cli, Scheme: s}
+
+	projectCtx, err := r.makeProjectContext(context.Background(), project)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if projectCtx == nil || projectCtx.Project == nil {
+		t.Fatal("expected project context with project set")
+	}
+	if projectCtx.DeploymentPipeline != nil {
+		t.Errorf("expected nil pipeline when not found, got %#v", projectCtx.DeploymentPipeline)
+	}
+}
+
+func TestDeleteExternalResourcesAndWait_EmptyPipeline(t *testing.T) {
+	s := newSeedTestScheme(t)
+	pipeline := &openchoreov1alpha1.DeploymentPipeline{
+		ObjectMeta: metav1.ObjectMeta{Name: "empty-pipeline", Namespace: "test-ns"},
+		Spec: openchoreov1alpha1.DeploymentPipelineSpec{
+			PromotionPaths: nil,
+		},
+	}
+	project := &openchoreov1alpha1.Project{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-project", Namespace: "test-ns"},
+		Spec: openchoreov1alpha1.ProjectSpec{
+			DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{Name: "empty-pipeline"},
+		},
+	}
+	cli := fake.NewClientBuilder().WithScheme(s).WithObjects(pipeline, project).Build()
+	r := &Reconciler{Client: cli, Scheme: s, Recorder: record.NewFakeRecorder(10)}
+
+	done, err := r.deleteExternalResourcesAndWait(context.Background(), project)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !done {
+		t.Fatal("expected cleanup to complete for empty pipeline")
+	}
+}
+
 // ── makeExternalResourceHandlers ─────────────────────────────────────────────
 
 func TestMakeExternalResourceHandlers(t *testing.T) {

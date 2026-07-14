@@ -467,6 +467,100 @@ var _ = Describe("Project Controller", func() {
 		})
 	})
 
+	Context("Finalization with empty DeploymentPipeline", func() {
+		const (
+			nsName   = "it-empty-pip-ns"
+			pipName  = "it-empty-pip"
+			projName = "it-empty-pip-proj"
+		)
+
+		nn := types.NamespacedName{Name: projName, Namespace: nsName}
+
+		BeforeEach(func() {
+			ns := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: nsName},
+			}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: nsName}, ns)
+			if err != nil && errors.IsNotFound(err) {
+				Expect(k8sClient.Create(ctx, ns)).To(Succeed())
+			}
+
+			depPip := &openchoreov1alpha1.DeploymentPipeline{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      pipName,
+					Namespace: nsName,
+				},
+				Spec: openchoreov1alpha1.DeploymentPipelineSpec{
+					PromotionPaths: []openchoreov1alpha1.PromotionPath{},
+				},
+			}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: pipName, Namespace: nsName}, &openchoreov1alpha1.DeploymentPipeline{})
+			if err != nil && errors.IsNotFound(err) {
+				Expect(k8sClient.Create(ctx, depPip)).To(Succeed())
+			}
+		})
+
+		AfterEach(func() {
+			forceDeleteProject(nn)
+		})
+
+		It("should finalize and delete project when pipeline has no environments", func() {
+			project := &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      projName,
+					Namespace: nsName,
+					Labels:    map[string]string{},
+				},
+				Spec: openchoreov1alpha1.ProjectSpec{
+					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+						Name: pipName,
+					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: "default",
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, project)).To(Succeed())
+
+			r := itReconciler()
+
+			// First reconcile: adds finalizer
+			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Second reconcile: sets Created condition
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Delete the project
+			updated := &openchoreov1alpha1.Project{}
+			Expect(k8sClient.Get(ctx, nn, updated)).To(Succeed())
+			Expect(k8sClient.Delete(ctx, updated)).To(Succeed())
+
+			Eventually(func() bool {
+				p := &openchoreov1alpha1.Project{}
+				if err := k8sClient.Get(ctx, nn, p); err != nil {
+					return false
+				}
+				return !p.DeletionTimestamp.IsZero()
+			}, itTimeout, itInterval).Should(BeTrue())
+
+			// Reconcile to set Finalizing condition
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Reconcile again to complete finalization
+			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify project is deleted
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, nn, &openchoreov1alpha1.Project{})
+				return errors.IsNotFound(err)
+			}, itTimeout, itInterval).Should(BeTrue())
+		})
+	})
+
 	Context("Finalization without finalizer", func() {
 		It("should return no error when project has no finalizer and is being deleted", func() {
 			const (
