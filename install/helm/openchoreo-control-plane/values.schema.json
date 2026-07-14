@@ -3119,8 +3119,14 @@
                   "properties": {
                     "bootstrap": {
                       "additionalProperties": false,
-                      "description": "Bootstrap default roles and mappings as CRDs during installation",
+                      "description": "Default authorization roles and bindings, upserted via a post-install/upgrade hook on every install and upgrade. Hand-edits made directly against these objects in the cluster do not survive the next upgrade; customize here instead.",
                       "properties": {
+                        "image": {
+                          "default": "registry.k8s.io/kubectl:v1.36.0",
+                          "description": "Container image for the authz bootstrap job. Only needs to run `kubectl apply`, so any kubectl image works; override for airgapped/mirrored registries.",
+                          "title": "image",
+                          "type": "string"
+                        },
                         "mappings": {
                           "default": [],
                           "description": "Default role-to-entitlement mappings to create at installation",

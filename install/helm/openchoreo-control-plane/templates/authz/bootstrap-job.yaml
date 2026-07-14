@@ -1,0 +1,68 @@
+{{- if .Values.security.authz.enabled }}
+{{- $name := include "openchoreo-control-plane.authz.bootstrapName" . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: authz-bootstrap
+    spec:
+      serviceAccountName: {{ $name }}
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: authz-bootstrap
+          # Every bootstrap object is upserted via a single `kubectl apply`,
+          # so no shell/scripting is needed here; retries on a not-yet-ready
+          # webhook backend are handled by the Job's own backoffLimit instead
+          # of an in-container retry loop. That means this doesn't need a
+          # shell, so it can run a distroless kubectl image.
+          image: {{ .Values.openchoreoApi.config.security.authorization.bootstrap.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - kubectl
+            - apply
+            - -f
+            - /bootstrap/manifests.yaml
+          env:
+            - name: HOME
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: bootstrap
+              mountPath: /bootstrap
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: bootstrap
+          configMap:
+            name: {{ $name }}
+            defaultMode: 0444
+        - name: tmp
+          emptyDir: {}
+{{- end }}
