@@ -959,6 +959,86 @@ func (m *MockCoreToolsetHandler) DeleteClusterResourceType(ctx context.Context, 
 	return deletedResponse, nil
 }
 
+// Project type methods (namespace-scoped)
+
+func (m *MockCoreToolsetHandler) ListProjectTypes(
+	ctx context.Context, namespaceName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListProjectTypes", namespaceName, opts)
+	return `[{"name":"project-type-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetProjectType(
+	ctx context.Context, namespaceName, ptName string,
+) (any, error) {
+	m.recordCall("GetProjectType", namespaceName, ptName)
+	return `{"name":"project-type-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetProjectTypeSchema(
+	ctx context.Context, namespaceName, ptName string,
+) (any, error) {
+	m.recordCall("GetProjectTypeSchema", namespaceName, ptName)
+	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateProjectType(
+	ctx context.Context, namespaceName string, req *gen.CreateProjectTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateProjectType", namespaceName, req)
+	return `{"name":"new-project-type","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateProjectType(
+	ctx context.Context, namespaceName string, req *gen.UpdateProjectTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateProjectType", namespaceName, req)
+	return `{"name":"updated-project-type","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteProjectType(
+	ctx context.Context, namespaceName, ptName string,
+) (any, error) {
+	m.recordCall("DeleteProjectType", namespaceName, ptName)
+	return deletedResponse, nil
+}
+
+// Project type methods (cluster-scoped)
+
+func (m *MockCoreToolsetHandler) ListClusterProjectTypes(ctx context.Context, opts ListOpts) (any, error) {
+	m.recordCall("ListClusterProjectTypes", opts)
+	return `[{"name":"cluster-project-type-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterProjectType(ctx context.Context, cptName string) (any, error) {
+	m.recordCall("GetClusterProjectType", cptName)
+	return `{"name":"cluster-project-type-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetClusterProjectTypeSchema(ctx context.Context, cptName string) (any, error) {
+	m.recordCall("GetClusterProjectTypeSchema", cptName)
+	return emptyObjectSchema, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateClusterProjectType(
+	ctx context.Context, req *gen.CreateClusterProjectTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateClusterProjectType", req)
+	return `{"name":"new-cluster-project-type","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateClusterProjectType(
+	ctx context.Context, req *gen.UpdateClusterProjectTypeJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateClusterProjectType", req)
+	return `{"name":"updated-cluster-project-type","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteClusterProjectType(ctx context.Context, cptName string) (any, error) {
+	m.recordCall("DeleteClusterProjectType", cptName)
+	return deletedResponse, nil
+}
+
 // ResourceRelease methods
 
 func (m *MockCoreToolsetHandler) ListResourceReleases(
@@ -986,6 +1066,36 @@ func (m *MockCoreToolsetHandler) DeleteResourceRelease(
 	ctx context.Context, namespaceName, resourceReleaseName string,
 ) (any, error) {
 	m.recordCall("DeleteResourceRelease", namespaceName, resourceReleaseName)
+	return deletedResponse, nil
+}
+
+// ProjectRelease methods
+
+func (m *MockCoreToolsetHandler) ListProjectReleases(
+	ctx context.Context, namespaceName, projectName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListProjectReleases", namespaceName, projectName, opts)
+	return `[{"name":"project-release-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateProjectRelease(
+	ctx context.Context, namespaceName string, req *gen.CreateProjectReleaseJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateProjectRelease", namespaceName, req)
+	return `{"name":"new-project-release","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetProjectRelease(
+	ctx context.Context, namespaceName, releaseName string,
+) (any, error) {
+	m.recordCall("GetProjectRelease", namespaceName, releaseName)
+	return `{"name":"project-release-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteProjectRelease(
+	ctx context.Context, namespaceName, projectReleaseName string,
+) (any, error) {
+	m.recordCall("DeleteProjectRelease", namespaceName, projectReleaseName)
 	return deletedResponse, nil
 }
 
@@ -1023,5 +1133,42 @@ func (m *MockCoreToolsetHandler) DeleteResourceReleaseBinding(
 	ctx context.Context, namespaceName, bindingName string,
 ) (any, error) {
 	m.recordCall("DeleteResourceReleaseBinding", namespaceName, bindingName)
+	return deletedResponse, nil
+}
+
+// ProjectReleaseBinding methods
+
+func (m *MockCoreToolsetHandler) ListProjectReleaseBindings(
+	ctx context.Context, namespaceName, projectName string, opts ListOpts,
+) (any, error) {
+	m.recordCall("ListProjectReleaseBindings", namespaceName, projectName, opts)
+	return `[{"name":"project-release-binding-1"}]`, nil
+}
+
+func (m *MockCoreToolsetHandler) GetProjectReleaseBinding(
+	ctx context.Context, namespaceName, bindingName string,
+) (any, error) {
+	m.recordCall("GetProjectReleaseBinding", namespaceName, bindingName)
+	return `{"name":"project-release-binding-1"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) CreateProjectReleaseBinding(
+	ctx context.Context, namespaceName string, req *gen.CreateProjectReleaseBindingJSONRequestBody,
+) (any, error) {
+	m.recordCall("CreateProjectReleaseBinding", namespaceName, req)
+	return `{"name":"new-project-release-binding","action":"created"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) UpdateProjectReleaseBinding(
+	ctx context.Context, namespaceName string, req *gen.UpdateProjectReleaseBindingJSONRequestBody,
+) (any, error) {
+	m.recordCall("UpdateProjectReleaseBinding", namespaceName, req)
+	return `{"name":"updated-project-release-binding","action":"updated"}`, nil
+}
+
+func (m *MockCoreToolsetHandler) DeleteProjectReleaseBinding(
+	ctx context.Context, namespaceName, bindingName string,
+) (any, error) {
+	m.recordCall("DeleteProjectReleaseBinding", namespaceName, bindingName)
 	return deletedResponse, nil
 }

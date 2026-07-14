@@ -50,7 +50,14 @@ func (t *Toolsets) RegisterCreateProject(s *mcp.Server, perms map[string]ToolPer
 		Description: "Create a new project in an namespace. Project names must be DNS-compatible " +
 			"(lowercase, alphanumeric, hyphens only, max 63 chars). The project references a " +
 			"ProjectType (namespace-scoped) or ClusterProjectType (cluster-scoped) template; when " +
-			"omitted it defaults to the cluster-scoped \"default\" ClusterProjectType.",
+			"omitted it defaults to the cluster-scoped \"default\" ClusterProjectType. " +
+			"This creates only the Project entity and does NOT create ProjectReleaseBindings, so the " +
+			"project is not yet deployed to any environment. Making it deployable is the expected next " +
+			"step: unless the caller only wants the bare entity, follow up by creating one " +
+			"ProjectReleaseBinding per target environment with create_project_release_binding. " +
+			"Create bindings right away with the release pin left empty: they stay pending and the " +
+			"controller fills the pin once the project's first ProjectRelease is cut, so a not-yet-existing " +
+			"release is not a blocker. Use get_deployment_pipeline to list the pipeline's environments.",
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
 			"name": stringProperty(

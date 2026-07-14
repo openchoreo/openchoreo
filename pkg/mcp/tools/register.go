@@ -74,6 +74,9 @@ func (t *Toolsets) projectToolRegistrations() []RegisterFunc {
 		t.RegisterCreateProject,
 		t.RegisterUpdateProject,
 		t.RegisterDeleteProject,
+		t.RegisterListProjectTypes,
+		t.RegisterGetProjectType,
+		t.RegisterGetProjectTypeSchema,
 	}
 }
 
@@ -120,11 +123,17 @@ func (t *Toolsets) deploymentToolRegistrations() []RegisterFunc {
 		t.RegisterDeleteReleaseBinding,
 		t.RegisterDeleteComponentRelease,
 		t.RegisterDeleteResourceRelease,
+		t.RegisterDeleteProjectRelease,
 		t.RegisterListResourceReleaseBindings,
 		t.RegisterGetResourceReleaseBinding,
 		t.RegisterCreateResourceReleaseBinding,
 		t.RegisterUpdateResourceReleaseBinding,
 		t.RegisterDeleteResourceReleaseBinding,
+		t.RegisterListProjectReleaseBindings,
+		t.RegisterGetProjectReleaseBinding,
+		t.RegisterCreateProjectReleaseBinding,
+		t.RegisterUpdateProjectReleaseBinding,
+		t.RegisterDeleteProjectReleaseBinding,
 		t.RegisterListDeploymentPipelines,
 		t.RegisterGetDeploymentPipeline,
 		t.RegisterListEnvironments,
@@ -177,6 +186,11 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterPECreateResourceRelease,
 		t.RegisterPEGetResourceRelease,
 
+		// Project releases (admin: list/get/create; delete lives on the deployment toolset).
+		t.RegisterPEListProjectReleases,
+		t.RegisterPECreateProjectRelease,
+		t.RegisterPEGetProjectRelease,
+
 		// Plane resources (scope-collapsed: pass scope="cluster" for cluster-scoped planes).
 		t.RegisterListDataPlanes,
 		t.RegisterGetDataPlane,
@@ -222,6 +236,16 @@ func (t *Toolsets) peToolRegistrations() []RegisterFunc {
 		t.RegisterCreateResourceType,
 		t.RegisterUpdateResourceType,
 		t.RegisterDeleteResourceType,
+
+		// Project types (scope-collapsed: pass scope="cluster" for a ClusterProjectType).
+		// Reads are dual-registered with the project toolset; writes are PE-only.
+		t.RegisterPEListProjectTypes,
+		t.RegisterPEGetProjectType,
+		t.RegisterPEGetProjectTypeSchema,
+		t.RegisterGetProjectTypeCreationSchema,
+		t.RegisterCreateProjectType,
+		t.RegisterUpdateProjectType,
+		t.RegisterDeleteProjectType,
 
 		// Deprecated cluster-prefixed platform-standards aliases (hidden from the default tools/list).
 		t.RegisterGetClusterComponentTypeCreationSchema,

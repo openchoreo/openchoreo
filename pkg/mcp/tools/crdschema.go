@@ -23,6 +23,8 @@ var crdSpecSchemas struct {
 	clusterWorkflow            map[string]any
 	resourceType               map[string]any
 	clusterResourceType        map[string]any
+	projectType                map[string]any
+	clusterProjectType         map[string]any
 	authzRole                  map[string]any
 	clusterAuthzRole           map[string]any
 	authzRoleBinding           map[string]any
@@ -35,6 +37,8 @@ var crdSpecSchemas struct {
 	clusterWorkflowErr         error
 	resourceTypeErr            error
 	clusterResourceTypeErr     error
+	projectTypeErr             error
+	clusterProjectTypeErr      error
 	authzRoleErr               error
 	clusterAuthzRoleErr        error
 	authzRoleBindingErr        error
@@ -92,6 +96,18 @@ func ClusterResourceTypeCreationSchema() (map[string]any, error) {
 	return crdSpecSchemas.clusterResourceType, crdSpecSchemas.clusterResourceTypeErr
 }
 
+// ProjectTypeCreationSchema returns the JSON schema for the ProjectType spec.
+func ProjectTypeCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.projectType, crdSpecSchemas.projectTypeErr
+}
+
+// ClusterProjectTypeCreationSchema returns the JSON schema for the ClusterProjectType spec.
+func ClusterProjectTypeCreationSchema() (map[string]any, error) {
+	crdSpecSchemas.once.Do(parseCRDSchemas)
+	return crdSpecSchemas.clusterProjectType, crdSpecSchemas.clusterProjectTypeErr
+}
+
 // AuthzRoleCreationSchema returns the JSON schema for the AuthzRole spec.
 func AuthzRoleCreationSchema() (map[string]any, error) {
 	crdSpecSchemas.once.Do(parseCRDSchemas)
@@ -140,6 +156,12 @@ func parseCRDSchemas() {
 	)
 	crdSpecSchemas.clusterResourceType, crdSpecSchemas.clusterResourceTypeErr = extractSpecSchema(
 		"bases/openchoreo.dev_clusterresourcetypes.yaml",
+	)
+	crdSpecSchemas.projectType, crdSpecSchemas.projectTypeErr = extractSpecSchema(
+		"bases/openchoreo.dev_projecttypes.yaml",
+	)
+	crdSpecSchemas.clusterProjectType, crdSpecSchemas.clusterProjectTypeErr = extractSpecSchema(
+		"bases/openchoreo.dev_clusterprojecttypes.yaml",
 	)
 	crdSpecSchemas.authzRole, crdSpecSchemas.authzRoleErr = extractSpecSchema(
 		"bases/openchoreo.dev_authzroles.yaml",

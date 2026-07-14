@@ -5,6 +5,7 @@ package mcphandlers
 
 import (
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
+	clusterprojecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterprojecttype"
 	clusterresourcetypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clusterresourcetype"
 	componentsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/component"
 	componentreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componentrelease"
@@ -14,6 +15,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	namespacesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/namespace"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
+	projectreleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projectrelease"
+	projectreleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projectreleasebinding"
+	projecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projecttype"
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
 	resourcesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resource"
 	resourcereleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcerelease"
@@ -55,6 +59,22 @@ func withNamespaceService(s namespacesvc.Service) func(*handlerservices.Services
 
 func withProjectService(s projectsvc.Service) func(*handlerservices.Services) {
 	return func(svc *handlerservices.Services) { svc.ProjectService = s }
+}
+
+func withProjectTypeService(s projecttypesvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.ProjectTypeService = s }
+}
+
+func withClusterProjectTypeService(s clusterprojecttypesvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.ClusterProjectTypeService = s }
+}
+
+func withProjectReleaseService(s projectreleasesvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.ProjectReleaseService = s }
+}
+
+func withProjectReleaseBindingService(s projectreleasebindingsvc.Service) func(*handlerservices.Services) {
+	return func(svc *handlerservices.Services) { svc.ProjectReleaseBindingService = s }
 }
 
 func withReleaseBindingService(s releasebindingsvc.Service) func(*handlerservices.Services) {

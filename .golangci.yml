@@ -166,6 +166,12 @@ linters:
           - dupl
           - lll
         path: ^internal/
+      # MCP scope-collapsed tool registration files and their spec-test fixtures
+      # are intentionally parallel per resource family (project types mirror
+      # resource types, etc.). dupl flags this structural repetition with no value.
+      - linters:
+          - dupl
+        path: pkg/mcp/tools/(scoped_.*|.*_specs_test)\.go$
     paths:
       - internal/dataplane/kubernetes/types # 3rd party types for CustomResourceDefinitions
       - ^test/ # E2E tests

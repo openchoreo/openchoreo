@@ -148,6 +148,16 @@ type PEToolsetHandler interface {
 	) (any, error)
 	GetResourceRelease(ctx context.Context, namespaceName, releaseName string) (any, error)
 
+	// Project release operations (delete lives on the deployment toolset).
+	ListProjectReleases(
+		ctx context.Context, namespaceName, projectName string, opts ListOpts,
+	) (any, error)
+	CreateProjectRelease(
+		ctx context.Context, namespaceName string,
+		req *gen.CreateProjectReleaseJSONRequestBody,
+	) (any, error)
+	GetProjectRelease(ctx context.Context, namespaceName, releaseName string) (any, error)
+
 	// DeploymentPipeline operations
 	CreateDeploymentPipeline(ctx context.Context, namespaceName string,
 		req *gen.CreateDeploymentPipelineJSONRequestBody) (any, error)
@@ -255,6 +265,34 @@ type PEToolsetHandler interface {
 	) (any, error)
 	DeleteClusterResourceType(ctx context.Context, crtName string) (any, error)
 
+	// Project types (namespace-scoped) — read
+	ListProjectTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetProjectType(ctx context.Context, namespaceName, ptName string) (any, error)
+	GetProjectTypeSchema(ctx context.Context, namespaceName, ptName string) (any, error)
+
+	// Project types (namespace-scoped) — write
+	CreateProjectType(
+		ctx context.Context, namespaceName string, req *gen.CreateProjectTypeJSONRequestBody,
+	) (any, error)
+	UpdateProjectType(
+		ctx context.Context, namespaceName string, req *gen.UpdateProjectTypeJSONRequestBody,
+	) (any, error)
+	DeleteProjectType(ctx context.Context, namespaceName, ptName string) (any, error)
+
+	// Project types (cluster-scoped) — read
+	ListClusterProjectTypes(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterProjectType(ctx context.Context, cptName string) (any, error)
+	GetClusterProjectTypeSchema(ctx context.Context, cptName string) (any, error)
+
+	// Project types (cluster-scoped) — write
+	CreateClusterProjectType(
+		ctx context.Context, req *gen.CreateClusterProjectTypeJSONRequestBody,
+	) (any, error)
+	UpdateClusterProjectType(
+		ctx context.Context, req *gen.UpdateClusterProjectTypeJSONRequestBody,
+	) (any, error)
+	DeleteClusterProjectType(ctx context.Context, cptName string) (any, error)
+
 	// Diagnostics
 	GetResourceTree(ctx context.Context, namespaceName, releaseBindingName string) (any, error)
 	GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName,
@@ -333,6 +371,16 @@ type ProjectToolsetHandler interface {
 	CreateProject(ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody) (any, error)
 	UpdateProject(ctx context.Context, namespaceName, projectName string, req *gen.PatchProjectRequest) (any, error)
 	DeleteProject(ctx context.Context, namespaceName, projectName string) (any, error)
+
+	// Project types (read-only, namespace-scoped)
+	ListProjectTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
+	GetProjectType(ctx context.Context, namespaceName, ptName string) (any, error)
+	GetProjectTypeSchema(ctx context.Context, namespaceName, ptName string) (any, error)
+
+	// Project types (read-only, cluster-scoped)
+	ListClusterProjectTypes(ctx context.Context, opts ListOpts) (any, error)
+	GetClusterProjectType(ctx context.Context, cptName string) (any, error)
+	GetClusterProjectTypeSchema(ctx context.Context, cptName string) (any, error)
 }
 
 // ComponentToolsetHandler handles component definition and configuration operations
@@ -402,6 +450,9 @@ type DeploymentToolsetHandler interface {
 	// Resource release delete (dev-side cleanup; mirrors DeleteComponentRelease).
 	DeleteResourceRelease(ctx context.Context, namespaceName, resourceReleaseName string) (any, error)
 
+	// Project release delete (dev-side cleanup; mirrors DeleteResourceRelease).
+	DeleteProjectRelease(ctx context.Context, namespaceName, projectReleaseName string) (any, error)
+
 	// Resource release binding operations
 	ListResourceReleaseBindings(
 		ctx context.Context, namespaceName, resourceName string, opts ListOpts,
@@ -416,6 +467,21 @@ type DeploymentToolsetHandler interface {
 		req *gen.UpdateResourceReleaseBindingJSONRequestBody,
 	) (any, error)
 	DeleteResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
+
+	// Project release binding operations
+	ListProjectReleaseBindings(
+		ctx context.Context, namespaceName, projectName string, opts ListOpts,
+	) (any, error)
+	GetProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
+	CreateProjectReleaseBinding(
+		ctx context.Context, namespaceName string,
+		req *gen.CreateProjectReleaseBindingJSONRequestBody,
+	) (any, error)
+	UpdateProjectReleaseBinding(
+		ctx context.Context, namespaceName string,
+		req *gen.UpdateProjectReleaseBindingJSONRequestBody,
+	) (any, error)
+	DeleteProjectReleaseBinding(ctx context.Context, namespaceName, bindingName string) (any, error)
 }
 
 // BuildToolsetHandler handles workflow and CI/CD operations

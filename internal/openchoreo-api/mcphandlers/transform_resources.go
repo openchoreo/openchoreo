@@ -42,6 +42,101 @@ func projectSummary(p openchoreov1alpha1.Project) map[string]any {
 }
 
 // ---------------------------------------------------------------------------
+// ProjectType
+// ---------------------------------------------------------------------------
+
+func projectTypeSummary(pt openchoreov1alpha1.ProjectType) map[string]any {
+	m := extractCommonMeta(&pt)
+	m["resources"] = len(pt.Spec.Resources)
+	return m
+}
+
+func projectTypeDetail(pt *openchoreov1alpha1.ProjectType) map[string]any {
+	m := extractCommonMeta(pt)
+	if spec := specToMap(pt.Spec); len(spec) > 0 {
+		m["spec"] = spec
+	}
+	return m
+}
+
+// ---------------------------------------------------------------------------
+// ClusterProjectType
+// ---------------------------------------------------------------------------
+
+func clusterProjectTypeSummary(cpt openchoreov1alpha1.ClusterProjectType) map[string]any {
+	m := extractCommonMeta(&cpt)
+	m["resources"] = len(cpt.Spec.Resources)
+	return m
+}
+
+func clusterProjectTypeDetail(cpt *openchoreov1alpha1.ClusterProjectType) map[string]any {
+	m := extractCommonMeta(cpt)
+	if spec := specToMap(cpt.Spec); len(spec) > 0 {
+		m["spec"] = spec
+	}
+	return m
+}
+
+// ---------------------------------------------------------------------------
+// ProjectRelease
+// ---------------------------------------------------------------------------
+
+func projectReleaseSummary(pr openchoreov1alpha1.ProjectRelease) map[string]any {
+	m := extractCommonMeta(&pr)
+	m["projectName"] = pr.Spec.Owner.ProjectName
+	m["projectType"] = map[string]any{
+		"kind": string(pr.Spec.ProjectType.Kind),
+		"name": pr.Spec.ProjectType.Name,
+	}
+	return m
+}
+
+func projectReleaseDetail(pr *openchoreov1alpha1.ProjectRelease) map[string]any {
+	m := extractCommonMeta(pr)
+	m["projectName"] = pr.Spec.Owner.ProjectName
+	m["projectType"] = map[string]any{
+		"kind": string(pr.Spec.ProjectType.Kind),
+		"name": pr.Spec.ProjectType.Name,
+	}
+	if spec := specToMap(pr.Spec.ProjectType.Spec); len(spec) > 0 {
+		m["projectTypeSpec"] = spec
+	}
+	if pr.Spec.Parameters != nil {
+		m["parameters"] = rawExtensionToAny(pr.Spec.Parameters)
+	}
+	return m
+}
+
+// ---------------------------------------------------------------------------
+// ProjectReleaseBinding
+// ---------------------------------------------------------------------------
+
+func projectReleaseBindingSummary(rb openchoreov1alpha1.ProjectReleaseBinding) map[string]any {
+	m := extractCommonMeta(&rb)
+	m["projectName"] = rb.Spec.Owner.ProjectName
+	m["environment"] = rb.Spec.Environment
+	setIfNotEmpty(m, "projectRelease", rb.Spec.ProjectRelease)
+	setIfNotEmpty(m, "status", readyStatus(rb.Status.Conditions))
+	return m
+}
+
+func projectReleaseBindingDetail(rb *openchoreov1alpha1.ProjectReleaseBinding) map[string]any {
+	m := extractCommonMeta(rb)
+	m["projectName"] = rb.Spec.Owner.ProjectName
+	m["environment"] = rb.Spec.Environment
+	setIfNotEmpty(m, "projectRelease", rb.Spec.ProjectRelease)
+	if rb.Spec.EnvironmentConfigs != nil {
+		m["environmentConfigs"] = rawExtensionToAny(rb.Spec.EnvironmentConfigs)
+	}
+	setIfNotEmpty(m, "dataPlaneNamespace", rb.Status.Namespace)
+	setIfNotEmpty(m, "status", readyStatus(rb.Status.Conditions))
+	if conds := conditionsSummary(rb.Status.Conditions); conds != nil {
+		m["conditions"] = conds
+	}
+	return m
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 

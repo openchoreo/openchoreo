@@ -25,7 +25,13 @@ func (h *MCPHandler) ListProjects(ctx context.Context, namespaceName string, opt
 	return wrapTransformedList("projects", result.Items, result.NextCursor, projectSummary), nil
 }
 
-func (h *MCPHandler) CreateProject(ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody) (any, error) {
+// CreateProject creates the Project CR only. ProjectReleaseBindings, which bind
+// the project to an environment, are created separately via
+// CreateProjectReleaseBinding so this tool's required authz stays exactly
+// project:create rather than also depending on projectreleasebinding:create.
+func (h *MCPHandler) CreateProject(
+	ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody,
+) (any, error) {
 	annotations := map[string]string{}
 	if req.Metadata.Annotations != nil {
 		for key, value := range *req.Metadata.Annotations {
