@@ -122,10 +122,10 @@ func (m *MockCoreToolsetHandler) ListProjects(ctx context.Context, namespaceName
 }
 
 func (m *MockCoreToolsetHandler) CreateProject(
-	ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody, skipBindings bool,
+	ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody,
 ) (any, error) {
-	m.recordCall("CreateProject", namespaceName, req, skipBindings)
-	return `{"name":"new-project","releaseBindings":["new-project-dev"]}`, nil
+	m.recordCall("CreateProject", namespaceName, req)
+	return `{"name":"new-project"}`, nil
 }
 
 func (m *MockCoreToolsetHandler) UpdateProject(
