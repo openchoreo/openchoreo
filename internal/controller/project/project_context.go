@@ -31,8 +31,13 @@ func (r *Reconciler) makeProjectContext(ctx context.Context, project *openchoreo
 	}
 
 	environmentNames := r.findEnvironmentNamesFromDeploymentPipeline(deploymentPipeline)
+	// If the pipeline has no environments, return a context without namespace names.
+	// This allows finalization to proceed when the pipeline is empty.
 	if len(environmentNames) == 0 {
-		return nil, fmt.Errorf("no environments found for deployment pipeline %s", project.Spec.DeploymentPipelineRef.Name)
+		return &dataplane.ProjectContext{
+			DeploymentPipeline: deploymentPipeline,
+			Project:            project,
+		}, nil
 	}
 
 	namespaceNames := k8sintegrations.MakeNamespaceNames(environmentNames, *project)
