@@ -34,6 +34,7 @@ from src.agent.stream_events import emit as _emit_event
 from src.agent.stream_parser import ChatResponseParser
 from src.config import settings
 from src.logging_config import request_id_context
+from src.models import get_current_utc
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,37 @@ def _get_semaphore() -> asyncio.Semaphore:
     if _semaphore is None:
         _semaphore = asyncio.Semaphore(settings.max_concurrent_chats)
     return _semaphore
+
+
+def _stamp_current_time(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Prefix the latest user turn with the current server time.
+
+    Perch has no clock and must never synthesise timestamps (it hallucinates
+    dates), so the frontend normally pre-computes the log window. But the
+    observer's ``query_component_logs`` requires an explicit ``end_time``, and
+    on an "is it fixed now?" follow-up the frontend window is stale — captured
+    when the drawer opened, before the user's fix. We hand the model a
+    trustworthy "now" here — per turn, from the server clock — so the prompt
+    can anchor a fresh re-fetch on it. Injected into the message rather than the
+    system prompt because the rendered system prompt is cached across turns
+    (see builder._get_or_render_prompt) and would freeze the timestamp at first
+    render.
+
+    The latest user turn is normally the final message, but we scan backward
+    for it so a trailing assistant (or other) turn can't silently suppress the
+    stamp — the contract is "the latest user turn," wherever it sits.
+    """
+    idx = next(
+        (i for i in reversed(range(len(messages))) if messages[i].get("role") == "user"),
+        None,
+    )
+    if idx is None:
+        return messages
+    now = get_current_utc().isoformat()
+    target = messages[idx]
+    stamped = dict(target)
+    stamped["content"] = f"[current server time: {now}]\n{target.get('content', '')}"
+    return [*messages[:idx], stamped, *messages[idx + 1 :]]
 
 
 async def stream_chat(
@@ -67,6 +99,11 @@ async def stream_chat(
     """
     request_id_context.set(f"msg_{uuid.uuid4().hex[:12]}")
 
+    # Stamp the server clock onto the latest user turn ONCE and share it with
+    # both the normal streaming path and the recovery fallback, so they anchor
+    # on the same "now" (see _stamp_current_time).
+    stamped_messages = _stamp_current_time(messages)
+
     async with _get_semaphore():
         try:
             agent, _tools, _tools_by_name = await _build_agent(
@@ -76,7 +113,7 @@ async def stream_chat(
             )
             parser = ChatResponseParser()
 
-            async for ev in _yield_chunks(agent, messages, parser):
+            async for ev in _yield_chunks(agent, stamped_messages, parser):
                 yield ev
 
             # Final delta flush — when the model emits the structured
@@ -140,7 +177,7 @@ async def stream_chat(
             yield _emit_event(done_payload)
 
         except Exception as e:
-            async for err_event in _handle_stream_error(e, messages, scope):
+            async for err_event in _handle_stream_error(e, stamped_messages, scope):
                 yield err_event
 
 
