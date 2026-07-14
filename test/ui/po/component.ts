@@ -1,7 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { CreatePO } from './create';
 
 export interface CreateComponentInput {
@@ -256,7 +256,7 @@ export class ComponentPO {
     const panelDeploy = this.page
       .getByRole('button', { name: 'Deploy', exact: true })
       .first();
-    await expect(panelDeploy).toBeEnabled({ timeout: 30_000 });
+    await this.waitForPanelDeployEnabled(panelDeploy);
     await panelDeploy.click();
     await this.page.waitForURL(
       new RegExp(`overrides/${environment}`),
@@ -267,6 +267,15 @@ export class ComponentPO {
       .getByRole('button', { name: 'Deploy', exact: true })
       .first()
       .click();
+  }
+
+  // Reloads and reopens the Set up panel until the Deploy button is enabled.
+  private async waitForPanelDeployEnabled(panelDeploy: Locator): Promise<void> {
+    await expect(async () => {
+      await this.page.reload();
+      await this.openSetupPanel();
+      await expect(panelDeploy).toBeEnabled({ timeout: 5_000 });
+    }).toPass({ timeout: 90_000 });
   }
 
   // Deploy the latest existing release to `environment`. Use when releases
@@ -282,7 +291,7 @@ export class ComponentPO {
     const panelDeploy = this.page
       .getByRole('button', { name: 'Deploy', exact: true })
       .first();
-    await expect(panelDeploy).toBeEnabled({ timeout: 30_000 });
+    await this.waitForPanelDeployEnabled(panelDeploy);
     await panelDeploy.click();
     await this.page.waitForURL(new RegExp(`overrides/${environment}`), {
       timeout: 15_000,
