@@ -26,14 +26,22 @@ spec:
         {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "observer") | nindent 8 }}
     spec:
       serviceAccountName: observer
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
         runAsGroup: 65532
         fsGroup: 65532
       containers:
+      {{- $observerImage := dict "repository" "ghcr.io/openchoreo/observer" }}
+      {{- if .Values.observer.image }}
+      {{- $observerImage = dict "repository" (.Values.observer.image.repository | default "ghcr.io/openchoreo/observer") "tag" (.Values.observer.image.tag | default "") }}
+      {{- end }}
       - name: observer
-        image: "{{ if .Values.observer.image }}{{ .Values.observer.image.repository | default "ghcr.io/openchoreo/observer" }}:{{ .Values.observer.image.tag | default .Chart.AppVersion }}{{ else }}ghcr.io/openchoreo/observer:{{ .Chart.AppVersion }}{{ end }}"
+        image: "{{ include "openchoreo-observability-plane.image" (dict "context" . "image" $observerImage) }}"
         imagePullPolicy: {{ if .Values.observer.image }}{{ .Values.observer.image.pullPolicy | default "IfNotPresent" }}{{ else }}IfNotPresent{{ end }}
         ports:
         - name: http

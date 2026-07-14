@@ -36,6 +36,10 @@ spec:
       labels:
         {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "finops-agent") | nindent 8 }}
     spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 12000
@@ -43,7 +47,7 @@ spec:
         fsGroup: 12000
       containers:
       - name: finops-agent
-        image: "{{ .Values.finOpsAgent.image.repository }}:{{ .Values.finOpsAgent.image.tag | default .Chart.AppVersion }}"
+        image: "{{ include "openchoreo-observability-plane.image" (dict "context" . "image" .Values.finOpsAgent.image) }}"
         imagePullPolicy: {{ .Values.finOpsAgent.image.pullPolicy }}
         ports:
         - name: http

@@ -140,3 +140,37 @@ Cluster Agent service account name
 {{- end }}
 {{- end }}
 
+{{/*
+Container image reference for a component.
+
+Renders "<repository>:<tag>", with the tag defaulting to .Chart.AppVersion.
+When global.imageRegistry is set, the registry host of the repository is
+replaced with it so every first-party image resolves from a single private
+or mirror registry. A leading path segment counts as a registry host only
+if it contains "." or ":" or equals "localhost", the same rule Docker and
+containerd use to parse image references. The override may itself carry a
+path (e.g. "registry.example.com/ghcr.io") for path-preserving mirrors.
+
+Note: images of the argo-workflows subchart are not covered by this value;
+override them via argo-workflows.{controller,executor,server}.image.registry.
+
+Usage:
+  {{ include "openchoreo-workflow-plane.image" (dict "context" . "image" .Values.clusterAgent.image) }}
+
+Parameters:
+  - context: The current Helm context (usually .)
+  - image: The component image block (repository, tag)
+*/}}
+{{- define "openchoreo-workflow-plane.image" -}}
+{{- $repo := .image.repository -}}
+{{- with .context.Values.global.imageRegistry -}}
+{{- $parts := splitList "/" $repo -}}
+{{- $first := first $parts -}}
+{{- if and (gt (len $parts) 1) (or (contains "." $first) (contains ":" $first) (eq $first "localhost")) -}}
+{{- $repo = join "/" (rest $parts) -}}
+{{- end -}}
+{{- $repo = printf "%s/%s" . $repo -}}
+{{- end -}}
+{{- printf "%s:%s" $repo (.image.tag | default .context.Chart.AppVersion) -}}
+{{- end }}
+

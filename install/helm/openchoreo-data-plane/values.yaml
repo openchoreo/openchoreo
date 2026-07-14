@@ -20,6 +20,22 @@ global:
   # @schema
   commonLabels: {}
 
+  # @schema
+  # type: string
+  # description: Registry override for all first-party container images. When set, it replaces the registry host of each image repository. May include a path (e.g. registry.example.com/ghcr.io) for path-preserving mirrors. Empty uses each image's default registry.
+  # default: ""
+  # @schema
+  imageRegistry: ""
+
+  # @schema
+  # type: array
+  # description: Image pull secrets applied to all first-party pods, for pulling images from authenticated private registries. Entries are LocalObjectReferences (name only).
+  # items:
+  #   type: object
+  # default: []
+  # @schema
+  imagePullSecrets: []
+
 # @schema
 # type: string
 # description: Kubernetes cluster DNS domain used for service discovery and certificate generation

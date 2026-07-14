@@ -22,6 +22,10 @@ spec:
         {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "openchoreo-control-plane.backstage.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- if .Values.backstage.priorityClass.create }}
       priorityClassName: {{ .Values.backstage.priorityClass.name }}
       {{- end }}
@@ -47,7 +51,7 @@ spec:
       {{- end }}
       containers:
       - name: backstage
-        image: "{{ .Values.backstage.image.repository }}:{{ .Values.backstage.image.tag | default .Chart.AppVersion }}"
+        image: "{{ include "openchoreo-control-plane.image" (dict "context" . "image" .Values.backstage.image) }}"
         imagePullPolicy: {{ .Values.backstage.image.pullPolicy }}
         args:
         - "node"

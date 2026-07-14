@@ -25,6 +25,10 @@ spec:
         kubectl.kubernetes.io/default-container: manager
     spec:
       serviceAccountName: {{ .Values.controllerManager.name }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- if .Values.controllerManager.priorityClass.create }}
       priorityClassName: {{ .Values.controllerManager.priorityClass.name }}
       {{- end }}
@@ -52,7 +56,7 @@ spec:
       {{- /* No init container needed - Secret is created directly by cert-manager */}}
       containers:
       - name: manager
-        image: {{ .Values.controllerManager.image.repository }}:{{ .Values.controllerManager.image.tag | default .Chart.AppVersion }}
+        image: {{ include "openchoreo-control-plane.image" (dict "context" . "image" .Values.controllerManager.image) }}
         imagePullPolicy: {{ .Values.controllerManager.image.pullPolicy }}
         command:
         - /manager
