@@ -35,6 +35,8 @@ E2E_SETTLE_ATTEMPTS      ?= 60
 E2E_SETTLE_INTERVAL      ?= 4
 E2E_SETTLE_PROBE_TIMEOUT ?= 5s
 E2E_SETTLE_STABLE_HITS   ?= 3
+# Retries for prerequisite helm installs, see e2e_helm_retry.
+E2E_HELM_RETRY_ATTEMPTS  ?= 3
 # Ginkgo label-filter expression to select which specs run. Empty = run everything.
 # Suites are labeled `tier1`, `tier2`, … on their top-level Describe; see proposal #3509.
 # Examples: `tier1`, `tier1 || tier2`, `tier1 && !tier2`.
@@ -291,6 +293,18 @@ define e2e_mc_wait_nodes_ready
 	done
 endef
 
+# Retries a full helm command up to E2E_HELM_RETRY_ATTEMPTS times, since a
+# just-created k3s API server can transiently drop connections.
+# Usage: $(call e2e_helm_retry,<full helm command>)
+define e2e_helm_retry
+	@for i in $$(seq 1 $(E2E_HELM_RETRY_ATTEMPTS)); do \
+		if $(1); then exit 0; fi; \
+		if [ $$i -eq $(E2E_HELM_RETRY_ATTEMPTS) ]; then echo "helm command failed after $(E2E_HELM_RETRY_ATTEMPTS) attempts"; exit 1; fi; \
+		$(call log_info, helm command failed (attempt $$i/$(E2E_HELM_RETRY_ATTEMPTS)) - retrying); \
+		sleep $(E2E_SETTLE_INTERVAL); \
+	done
+endef
+
 ##@ E2E Testing
 
 # ---------------------------------------------------------------------------
@@ -389,22 +403,22 @@ e2e.setup-prerequisites: ## Install Gateway API, cert-manager, ESO, kgateway
 	$(E2E_KUBECTL) apply --server-side \
 		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/standard-install.yaml
 	@$(call log_info, Installing cert-manager $(CERT_MANAGER_VERSION))
-	$(E2E_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+	$(call e2e_helm_retry,$(E2E_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 		--namespace cert-manager --create-namespace \
 		--version $(CERT_MANAGER_VERSION) --set crds.enabled=true \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
 	@$(call log_info, Installing External Secrets Operator $(ESO_VERSION))
-	$(E2E_HELM) upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+	$(call e2e_helm_retry,$(E2E_HELM) upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
 		--namespace external-secrets --create-namespace \
 		--version $(ESO_VERSION) --set installCRDs=true \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
 	@$(call log_info, Installing kgateway $(KGATEWAY_VERSION))
-	$(E2E_HELM) upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
-		--version $(KGATEWAY_VERSION)
-	$(E2E_HELM) upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
+	$(call e2e_helm_retry,$(E2E_HELM) upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
+		--version $(KGATEWAY_VERSION))
+	$(call e2e_helm_retry,$(E2E_HELM) upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
 		--namespace $(E2E_CP_NS) --create-namespace \
 		--version $(KGATEWAY_VERSION) \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
 	@$(call log_info, Creating ClusterSecretStore)
 	$(E2E_KUBECTL) apply -f $(E2E_K3D_DIR)/secretstore.yaml
 	@$(call log_success, Prerequisites installed)
@@ -779,68 +793,68 @@ e2e.multi.setup-prerequisites: ## Install prerequisites into each cluster
 	@$(call log_info, === CP cluster prerequisites ===)
 	$(E2E_MC_CP_KUBECTL) apply --server-side \
 		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/standard-install.yaml
-	$(E2E_MC_CP_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+	$(call e2e_helm_retry,$(E2E_MC_CP_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 		--namespace cert-manager --create-namespace \
 		--version $(CERT_MANAGER_VERSION) --set crds.enabled=true \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
-	$(E2E_MC_CP_HELM) upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
+	$(call e2e_helm_retry,$(E2E_MC_CP_HELM) upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
 		--namespace external-secrets --create-namespace \
 		--version $(ESO_VERSION) --set installCRDs=true \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
-	$(E2E_MC_CP_HELM) upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
-		--version $(KGATEWAY_VERSION)
-	$(E2E_MC_CP_HELM) upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
+	$(call e2e_helm_retry,$(E2E_MC_CP_HELM) upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
+		--version $(KGATEWAY_VERSION))
+	$(call e2e_helm_retry,$(E2E_MC_CP_HELM) upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
 		--namespace $(E2E_CP_NS) --create-namespace \
 		--version $(KGATEWAY_VERSION) \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
 	$(E2E_MC_CP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/secretstore.yaml
 	@$(call log_info, === DP cluster prerequisites ===)
 	$(E2E_MC_DP_KUBECTL) apply --server-side \
 		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/standard-install.yaml
-	$(E2E_MC_DP_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+	$(call e2e_helm_retry,$(E2E_MC_DP_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 		--namespace cert-manager --create-namespace \
 		--version $(CERT_MANAGER_VERSION) --set crds.enabled=true \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
-	$(E2E_MC_DP_HELM) upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
+	$(call e2e_helm_retry,$(E2E_MC_DP_HELM) upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
 		--namespace external-secrets --create-namespace \
 		--version $(ESO_VERSION) --set installCRDs=true \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
-	$(E2E_MC_DP_HELM) upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
-		--version $(KGATEWAY_VERSION)
-	$(E2E_MC_DP_HELM) upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
+	$(call e2e_helm_retry,$(E2E_MC_DP_HELM) upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
+		--version $(KGATEWAY_VERSION))
+	$(call e2e_helm_retry,$(E2E_MC_DP_HELM) upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
 		--namespace $(E2E_DP_NS) --create-namespace \
 		--version $(KGATEWAY_VERSION) \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
 	$(E2E_MC_DP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/secretstore.yaml
 	@$(call log_info, === WP cluster prerequisites ===)
-	$(E2E_MC_WP_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+	$(call e2e_helm_retry,$(E2E_MC_WP_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 		--namespace cert-manager --create-namespace \
 		--version $(CERT_MANAGER_VERSION) --set crds.enabled=true \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
 	@# ESO CRDs are required in WP cluster so the WorkflowRun controller can create
 	@# ExternalSecret resources in the workflows-<cpNs> namespace before build jobs run.
-	$(E2E_MC_WP_HELM) upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+	$(call e2e_helm_retry,$(E2E_MC_WP_HELM) upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
 		--namespace external-secrets --create-namespace \
 		--version $(ESO_VERSION) --set installCRDs=true \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
 	$(E2E_MC_WP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/secretstore.yaml
 	@$(call log_info, === OP cluster prerequisites ===)
 	$(E2E_MC_OP_KUBECTL) apply --server-side \
 		-f https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/standard-install.yaml
-	$(E2E_MC_OP_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
+	$(call e2e_helm_retry,$(E2E_MC_OP_HELM) upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 		--namespace cert-manager --create-namespace \
 		--version $(CERT_MANAGER_VERSION) --set crds.enabled=true \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
-	$(E2E_MC_OP_HELM) upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
-		--version $(KGATEWAY_VERSION)
-	$(E2E_MC_OP_HELM) upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
+	$(call e2e_helm_retry,$(E2E_MC_OP_HELM) upgrade --install kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
+		--version $(KGATEWAY_VERSION))
+	$(call e2e_helm_retry,$(E2E_MC_OP_HELM) upgrade --install kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
 		--namespace $(E2E_OP_NS) --create-namespace \
 		--version $(KGATEWAY_VERSION) \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
-	$(E2E_MC_OP_HELM) upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
+	$(call e2e_helm_retry,$(E2E_MC_OP_HELM) upgrade --install external-secrets oci://ghcr.io/external-secrets/charts/external-secrets \
 		--namespace external-secrets --create-namespace \
 		--version $(ESO_VERSION) --set installCRDs=true \
-		--wait --timeout $(E2E_SETUP_TIMEOUT)
+		--wait --timeout $(E2E_SETUP_TIMEOUT))
 	@$(call log_success, Prerequisites installed in all clusters)
 
 .PHONY: e2e.multi.setup-install
