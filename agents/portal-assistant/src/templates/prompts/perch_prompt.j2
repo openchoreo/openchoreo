@@ -73,11 +73,15 @@ The frontend captured the rows below from the user's table. They are authoritati
 {% endif -%}
 ### Verifying a fix — "is it fixed now?", "did my change work?", "is it still happening?"
 
-These ask for the **current** state, not the original incident, so the visible window and any prefetched rows are **stale** — captured when the drawer opened, before the user's change. Do NOT answer from `prefetched_logs` or `logs_end_time` on these turns.
+These ask for the **current** state, not the original incident. `logs_start_time`, `logs_end_time`, and `prefetched_logs` are all **stale** — captured when the drawer opened, BEFORE the user's change — and the original incident window still spans the pre-fix error burst. Querying that window (or reading the prefetched rows) re-surfaces the OLD errors and produces a false "still failing." Do NOT use `prefetched_logs`, `logs_start_time`, or `logs_end_time` on these turns.
 
 The latest user message is prefixed with `[current server time: <RFC3339>]` (authoritative — the server clock, not a value you compute). On a verification turn:
-1. Re-fetch project-wide `query_component_logs` with `end_time` = that current server time, `start_time` = `logs_start_time` if set else current server time − 30 min, plus `log_levels`.
-2. Judge **only** from the freshly-returned rows. Error absent from the fresh window → say it has not recurred since `start_time`. Error still present → quote the fresh line **with its timestamp**. No rows at all → say there's been no activity since the change; do not declare it fixed or broken.
+1. Re-fetch project-wide `query_component_logs` over a FRESH, RECENT window that deliberately excludes the original incident: `end_time` = the current server time, `start_time` = current server time − 15 min (do NOT use `logs_start_time` — it predates the fix). Pass `log_levels`, and pass `environment` from scope when set so you read the same environment the user changed. Keep the default `sort_order: "desc"` so the newest rows come first.
+2. Judge by the **recency of the error inside the freshly-returned rows**, not by mere presence:
+   - The error line still appears with a timestamp within ~2 min of the current server time → still happening. Quote the fresh line **with its timestamp**.
+   - The newest rows are clean and the last matching error is older than the newest rows (normal logs arrived *after* the last error) → the error has stopped. Say it hasn't recurred since `<last error timestamp>`.
+   - No rows at all in the recent window → no activity since the change; do not declare it fixed or broken.
+   An error that only appears with timestamps *older* than the newest returned rows is a leftover from before the fix — do NOT report it as "still failing."
 
 ### Start here — parallel pair on turn 1
 {% if scope.runtime_anchor == 'log' -%}
@@ -192,7 +196,7 @@ Rules for the body of each section:
   - no anchor (deployment-health): `list_release_bindings` + `get_resource_tree` on turn 1; `get_resource_events` / `get_resource_logs` on the unhealthy resource next turn; logs/traces only to complement once a pod is running.
   - **Connection-refused exception** (any of the above): when prefetched or fetched rows contain a connection-refused pattern (see "Connection-refused pattern" above), `list_components` is allowed on the same turn as the log/trace fetch; `get_release_binding` for one candidate sibling is allowed on the follow-up turn.
 - **Never** ask for time ranges / RFC3339 / log windows — `scope.logs_start_time` / `logs_end_time` are authoritative when set; otherwise default to 30 min.
-- **Verification override**: for "is it fixed / resolved / still happening / did my change work" follow-ups, `logs_end_time` and `prefetched_logs` are STALE — ignore them and use the `[current server time]` stamped on the latest user message as `end_time`, re-fetching fresh (see "Verifying a fix").
+- **Verification override**: for "is it fixed / resolved / still happening / did my change work" follow-ups, `logs_start_time`, `logs_end_time` and `prefetched_logs` are ALL STALE — ignore them and re-fetch a fresh window ending at the `[current server time]` stamp and starting 15 min before it (NOT `logs_start_time`), scoped to `environment`, then judge by error *recency* (see "Verifying a fix").
 - **Never** call `query_workflow_logs` (build-failure case only).
 - On empty logs/traces **with a component + environment in scope**: do NOT stop yet — check the data-plane resources first (`list_release_bindings` → `get_resource_tree` → `get_resource_events` / `get_resource_logs`), since a failed deploy's cause lives there, not in the log pipeline. Only once that is also exhausted: ≤2 sentences — one conclusion, one user action. Do NOT enumerate filters, do NOT list "what I tried", do NOT offer follow-up queries. Stop.
 
