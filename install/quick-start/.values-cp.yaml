@@ -54,6 +54,17 @@ openchoreoApi:
                 claim: sub
                 value: openchoreo-backstage-client
               effect: allow
+            - name: finops-agent-binding
+              kind: ClusterAuthzRoleBinding
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: finops-agent
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: sub
+                value: openchoreo-finops-agent
+              effect: allow
             - name: rca-agent-binding
               kind: ClusterAuthzRoleBinding
               system: true

@@ -1176,6 +1176,90 @@ openchoreoApi:
           # default: []
           # @schema
           roles:
+            # Backstage catalog provider role for reading catalog data from the control plane
+            - name: backstage-catalog-reader
+              system: true
+              actions:
+                - "component:view"
+                - "componenttype:view"
+                - "resource:view"
+                - "resourcerelease:view"
+                - "projectrelease:view"
+                - "resourcereleasebinding:view"
+                - "projectreleasebinding:view"
+                - "resourcetype:view"
+                - "projecttype:view"
+                - "namespace:view"
+                - "project:view"
+                - "dataplane:view"
+                - "environment:view"
+                - "trait:view"
+                - "workload:view"
+                - "workflowplane:view"
+                - "clusterworkflowplane:view"
+                - "workflow:view"
+                - "deploymentpipeline:view"
+                - "observabilityplane:view"
+                - "clusterobservabilityplane:view"
+                - "clusterdataplane:view"
+                - "clustercomponenttype:view"
+                - "clusterresourcetype:view"
+                - "clusterprojecttype:view"
+                - "clustertrait:view"
+                - "clusterworkflow:view"
+                - "observabilityalertsnotificationchannel:view"
+
+            # FinOps agent role for cost analysis and resource overprovisioning assessment
+            - name: finops-agent
+              system: true
+              actions:
+                - "component:view"
+                - "project:view"
+                - "namespace:view"
+                - "environment:view"
+                - "metrics:view"
+                - "alerts:view"
+
+            # Root Cause Analysis (RCA) agent role for troubleshooting and debugging
+            - name: rca-agent
+              system: true
+              actions:
+                - "component:view"
+                - "project:view"
+                - "namespace:view"
+                - "componentrelease:view"
+                - "releasebinding:view"
+                - "workflowrun:view"
+                - "environment:view"
+                - "workload:view"
+                - "trait:view"
+                - "logs:view"
+                - "events:view"
+                - "metrics:view"
+                - "alerts:view"
+                - "incidents:view"
+                - "incidents:update"
+                - "traces:view"
+
+            # Workload publisher role for creating workloads from CI workflows
+            - name: workload-publisher
+              system: true
+              actions:
+                - "workload:create"
+                - "workload:update"
+                - "workload:view"
+                - "workflowrun:view"
+                - "workflowrun:update"
+
+            # Observer service role for resolving resource UIDs
+            - name: observer-resource-reader
+              system: true
+              actions:
+                - "component:view"
+                - "project:view"
+                - "namespace:view"
+                - "environment:view"
+
             # Admin role with full permissions to all resources
             - name: admin
               actions:
@@ -1608,6 +1692,71 @@ openchoreoApi:
               entitlement:
                 claim: sub
                 value: service_mcp_client
+              effect: allow
+
+            # Backstage catalog reader mapping - grants the Backstage catalog provider's service identity read access
+            - name: backstage-catalog-reader-binding
+              kind: ClusterAuthzRoleBinding
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: backstage-catalog-reader
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: sub
+                value: openchoreo-backstage-client
+              effect: allow
+
+            # FinOps agent mapping - grants FinOps service account cost analysis access
+            - name: finops-agent-binding
+              kind: ClusterAuthzRoleBinding
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: finops-agent
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: sub
+                value: openchoreo-finops-agent
+              effect: allow
+
+            # RCA agent mapping - grants RCA service account troubleshooting access
+            - name: rca-agent-binding
+              kind: ClusterAuthzRoleBinding
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: rca-agent
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: sub
+                value: openchoreo-rca-agent
+              effect: allow
+
+            # Workload publisher mapping - grants workload publisher service account workload creation access
+            - name: workload-publisher-binding
+              kind: ClusterAuthzRoleBinding
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: workload-publisher
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: sub
+                value: openchoreo-workload-publisher-client
+              effect: allow
+
+            # Observer mapping - grants observer service account resource UID resolver access
+            - name: observer-resource-reader-binding
+              kind: ClusterAuthzRoleBinding
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: observer-resource-reader
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: sub
+                value: openchoreo-observer-resource-reader-client
               effect: allow
     # identity.oidc and identity.clients come from security.oidc.* and security.oidc.externalClients
     # @schema
