@@ -1040,6 +1040,7 @@ _e2e.mc.install-op:
 		oci://ghcr.io/openchoreo/helm-charts/observability-logs-openobserve \
 		--version $(OBSERVABILITY_LOGS_OPENOBSERVE_VERSION) \
 		--namespace $(E2E_OP_NS) \
+		--values $(E2E_MC_K3D_DIR)/values-op-modules.yaml \
 		--set common.openObserveStream=container-logs \
 		--set-json 'openobserve-standalone.httpRouteHostnames=["host.k3d.internal"]' \
 		--set fluent-bit.enabled=true \

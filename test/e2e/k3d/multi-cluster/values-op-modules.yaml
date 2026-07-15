@@ -1,5 +1,10 @@
 # Resource config for the observability module charts installed by _e2e.mc.install-op.
-# Passed via -f to observability-tracing-opensearch and observability-metrics-prometheus.
+# Passed via -f to observability-tracing-opensearch, observability-metrics-prometheus,
+# and observability-logs-openobserve.
+#
+# CPU requests raised above upstream defaults so these pods keep a fair CFS
+# share under OP-node contention and don't miss probe deadlines and get
+# kubelet-restarted.
 
 # ---- observability-tracing-opensearch (OP cluster — bundled standalone, non-HA OpenSearch) ----
 # Caps standalone OpenSearch JVM heap, memory and CPU to fit the shared 10 GB Lima VM.
@@ -11,7 +16,7 @@ openSearch:
       value: "-Xms512m -Xmx768m"
   resources:
     requests:
-      cpu: 100m
+      cpu: 200m
       memory: "1Gi"
     limits:
       cpu: 500m
@@ -19,20 +24,81 @@ openSearch:
 
 # ---- observability-metrics-prometheus ----
 kube-prometheus-stack:
+  prometheusOperator:
+    resources:
+      requests:
+        cpu: 100m
+        memory: "30Mi"
+      limits:
+        cpu: 200m
+        memory: "60Mi"
+
   prometheus:
     prometheusSpec:
       resources:
         requests:
+          cpu: 200m
           memory: "256Mi"
         limits:
+          cpu: 500m
           memory: "512Mi"
+
+  alertmanager:
+    alertmanagerSpec:
+      resources:
+        requests:
+          cpu: 100m
+          memory: "100Mi"
+        limits:
+          cpu: 200m
+          memory: "200Mi"
+
+  # Ships with resources: {} upstream (BestEffort QoS).
+  kube-state-metrics:
+    resources:
+      requests:
+        cpu: 50m
+        memory: "50Mi"
+      limits:
+        cpu: 100m
+        memory: "150Mi"
+
+# ---- shared "adapter" deployment shape across all three modules ----
+# (metrics-adapter-prometheus, tracing-adapter-opensearch, logs-adapter-openobserve)
+adapter:
+  resources:
+    requests:
+      cpu: 100m
+      memory: "128Mi"
+    limits:
+      cpu: 200m
+      memory: "256Mi"
+
+# ---- observability-logs-openobserve ----
+openobserve-standalone:
+  resources:
+    requests:
+      cpu: 100m
+      memory: "500Mi"
+    limits:
+      cpu: 500m
+      memory: "1000Mi"
+
+fluent-bit:
+  resources:
+    requests:
+      cpu: 50m
+      memory: "125Mi"
+    limits:
+      cpu: 100m
+      memory: "150Mi"
 
 # ---- observability-tracing-opensearch: bundled opentelemetry-collector ----
 # Ships with resources: {} (BestEffort QoS) — first OOM-kill target under pressure.
 opentelemetry-collector:
   resources:
     requests:
-      cpu: 50m
+      cpu: 100m
       memory: "128Mi"
     limits:
       cpu: 300m
