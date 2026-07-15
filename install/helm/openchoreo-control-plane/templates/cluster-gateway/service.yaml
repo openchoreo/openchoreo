@@ -1,7 +1,39 @@
+# Internal service: in-cluster clients only. Always ClusterIP so the internal API
+# (8444) can never be exposed outside the cluster.
+#   - websocket   (8443): cluster-agents running in this cluster (single-cluster installs)
+#   - internal-api(8444): openchoreo-api / controller-manager (/api/* proxy, exec, wirelogs, plane lifecycle)
 apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-gateway
+    app: cluster-gateway
+spec:
+  type: ClusterIP
+  ports:
+  - name: websocket
+    port: {{ .Values.clusterGateway.service.port }}
+    targetPort: {{ .Values.clusterGateway.port }}
+    protocol: TCP
+  - name: internal-api
+    port: 8444
+    targetPort: 8444
+    protocol: TCP
+  selector:
+    app: cluster-gateway
+    app.kubernetes.io/component: cluster-gateway
+    {{- include "openchoreo-control-plane.selectorLabels" . | nindent 4 }}
+---
+# External service: agent WebSocket (8443) only. Target of the TLSRoute / LoadBalancer.
+# The internal API (8444) is deliberately NOT published here, so it cannot be exposed
+# outside the cluster even when service.type is LoadBalancer or NodePort.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}-external
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
@@ -23,10 +55,6 @@ spec:
     {{- if and (eq .Values.clusterGateway.service.type "NodePort") .Values.clusterGateway.service.nodePort }}
     nodePort: {{ .Values.clusterGateway.service.nodePort }}
     {{- end }}
-  - name: internal-api
-    port: 8444
-    targetPort: 8444
-    protocol: TCP
   selector:
     app: cluster-gateway
     app.kubernetes.io/component: cluster-gateway
