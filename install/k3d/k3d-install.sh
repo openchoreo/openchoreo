@@ -294,10 +294,10 @@ copy_gateway_ca() {
         -n "$ns" --dry-run=client -o yaml | $KUBECTL apply -f -
 }
 
-# agent_ca <namespace> — echo the plane agent's CA (waits for the TLS secret)
+# agent_ca <namespace> <certificate> — wait for the agent cert to be issued, then echo its CA.
 agent_ca() {
-    local ns="$1"
-    $KUBECTL wait -n "$ns" --for=jsonpath='{.data.ca\.crt}' secret/cluster-agent-tls --timeout=120s >&2
+    local ns="$1" cert="$2"
+    $KUBECTL wait -n "$ns" --for=condition=Ready "certificate/$cert" --timeout=120s >&2
     $KUBECTL get secret cluster-agent-tls -n "$ns" -o jsonpath='{.data.ca\.crt}' | base64 -d
 }
 
@@ -311,7 +311,7 @@ install_data_plane() {
         --values "$(asset install/k3d/single-cluster/values-dp.yaml)"
 
     step "Registering the data plane"
-    local ca; ca=$(agent_ca "$DATA_PLANE_NS")
+    local ca; ca=$(agent_ca "$DATA_PLANE_NS" cluster-agent-dataplane-tls)
     $KUBECTL apply -f - <<EOF
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterDataPlane
@@ -361,7 +361,7 @@ install_workflow_plane() {
         -f "$(asset samples/getting-started/workflow-templates/generate-workload-k3d.yaml)"
 
     step "Registering the workflow plane"
-    local ca; ca=$(agent_ca "$WORKFLOW_PLANE_NS")
+    local ca; ca=$(agent_ca "$WORKFLOW_PLANE_NS" cluster-agent-workflowplane-tls)
     $KUBECTL apply -f - <<EOF
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterWorkflowPlane
@@ -489,7 +489,7 @@ pipelineExporters:
 EOF
 
     step "Registering the observability plane"
-    local ca; ca=$(agent_ca "$OBSERVABILITY_NS")
+    local ca; ca=$(agent_ca "$OBSERVABILITY_NS" cluster-agent-observabilityplane-tls)
     $KUBECTL apply -f - <<EOF
 apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterObservabilityPlane
