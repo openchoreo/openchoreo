@@ -118,6 +118,24 @@ unexpected:
   %q`, contract, needle)
 }
 
+func requireEnvContains(t *testing.T, env []envVar, name string, valueNeedle string, contract string) {
+	t.Helper()
+	for _, item := range env {
+		if item.Name == name && strings.Contains(item.Value, valueNeedle) {
+			return
+		}
+	}
+	t.Fatalf(`
+contract:
+  %s
+
+expected env:
+  %s contains %q
+
+actual env:
+  %v`, contract, name, valueNeedle, env)
+}
+
 // --- Cross-cutting invariants (scenario 21, 22) ---
 
 func TestAllTemplates_ParseAndShape(t *testing.T) {
@@ -214,39 +232,58 @@ func TestBuildTemplates_SharedContract(t *testing.T) {
 	for _, file := range buildTemplates {
 		t.Run(file, func(t *testing.T) {
 			s := scriptForTemplate(t, file, "build-image")
+			env := envForTemplate(t, file, "build-image")
 			// Output handoff to publish-image.
 			requireContains(t, s, "/mnt/vol/app-image.tar")
 			// Path validation guard.
 			requireContains(t, s, "exit 1")
 			// build-env JSON -> --env flags, with empty/[] skipped.
-			requireContains(t, s, "build-env", `!= "[]"`, "--env")
+			requireContains(t, s, "BUILD_ENV_JSON", `!= "[]"`, "--env")
+			requireEnvContains(t, env, "BUILD_ENV_JSON", "build-env",
+				"build templates must receive build-env through container env, not raw shell interpolation")
+			requireEnvContains(t, env, "IMAGE_NAME", "image-name",
+				"build templates must receive image-name through container env")
+			requireEnvContains(t, env, "IMAGE_TAG", "image-tag",
+				"build templates must receive image-tag through container env")
+			requireEnvContains(t, env, "GIT_REVISION", "git-revision",
+				"build templates must receive git-revision through container env")
 		})
 	}
 }
 
 func TestContainerfileBuild_Specifics(t *testing.T) {
 	s := scriptForTemplate(t, "containerfile-build.yaml", "build-image")
+	env := envForTemplate(t, "containerfile-build.yaml", "build-image")
 	requireContains(t, s,
 		"podman build",
-		"dockerfile-path",
-		"docker-context",
+		"DOCKERFILE_PATH",
+		"DOCKER_CONTEXT",
 		"--build-arg", // containerfile additionally handles build-args
 		"podman save -o /mnt/vol/app-image.tar",
 	)
+	requireEnvContains(t, env, "DOCKERFILE_PATH", "dockerfile-path",
+		"containerfile build must receive dockerfile-path through container env")
+	requireEnvContains(t, env, "DOCKER_CONTEXT", "docker-context",
+		"containerfile build must receive docker-context through container env")
+	requireEnvContains(t, env, "BUILD_ARGS_JSON", "build-args",
+		"containerfile build must receive build-args through container env")
 }
 
 func TestBuildpackTemplates_Specifics(t *testing.T) {
 	for _, file := range buildpackTemplates {
 		t.Run(file, func(t *testing.T) {
 			s := scriptForTemplate(t, file, "build-image")
+			env := envForTemplate(t, file, "build-image")
 			requireContains(t, s,
 				"pack build",
 				"--builder",
 				"--run-image",
 				"--pull-policy always",
 				"--docker-host inherit",
-				"app-path",
+				"APP_PATH",
 			)
+			requireEnvContains(t, env, "APP_PATH", "app-path",
+				"buildpack templates must receive app-path through container env")
 			// Supply-chain: builder/run images pinned by digest, not a tag.
 			requireContains(t, s, "@sha256:")
 			// Rootless podman service is started and waited on.

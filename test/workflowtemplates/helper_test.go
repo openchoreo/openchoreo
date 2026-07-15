@@ -27,32 +27,40 @@ type workflowTemplate struct {
 		Name string `yaml:"name"`
 	} `yaml:"metadata"`
 	Spec struct {
-		Templates []struct {
-			Name   string `yaml:"name"`
-			Inputs struct {
-				Parameters []struct {
-					Name    string `yaml:"name"`
-					Default string `yaml:"default"`
-				} `yaml:"parameters"`
-			} `yaml:"inputs"`
-			Container struct {
-				Image        string   `yaml:"image"`
-				Args         []string `yaml:"args"`
-				VolumeMounts []struct {
-					Name      string `yaml:"name"`
-					MountPath string `yaml:"mountPath"`
-					ReadOnly  bool   `yaml:"readOnly"`
-				} `yaml:"volumeMounts"`
-			} `yaml:"container"`
-			Volumes []struct {
-				Name   string `yaml:"name"`
-				Secret *struct {
-					SecretName string `yaml:"secretName"`
-					Optional   *bool  `yaml:"optional"`
-				} `yaml:"secret"`
-			} `yaml:"volumes"`
-		} `yaml:"templates"`
+		Templates []workflowTemplateStep `yaml:"templates"`
 	} `yaml:"spec"`
+}
+
+type workflowTemplateStep struct {
+	Name   string `yaml:"name"`
+	Inputs struct {
+		Parameters []struct {
+			Name    string `yaml:"name"`
+			Default string `yaml:"default"`
+		} `yaml:"parameters"`
+	} `yaml:"inputs"`
+	Container struct {
+		Image        string   `yaml:"image"`
+		Args         []string `yaml:"args"`
+		Env          []envVar `yaml:"env"`
+		VolumeMounts []struct {
+			Name      string `yaml:"name"`
+			MountPath string `yaml:"mountPath"`
+			ReadOnly  bool   `yaml:"readOnly"`
+		} `yaml:"volumeMounts"`
+	} `yaml:"container"`
+	Volumes []struct {
+		Name   string `yaml:"name"`
+		Secret *struct {
+			SecretName string `yaml:"secretName"`
+			Optional   *bool  `yaml:"optional"`
+		} `yaml:"secret"`
+	} `yaml:"volumes"`
+}
+
+type envVar struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
 }
 
 type clusterWorkflow struct {
@@ -163,17 +171,29 @@ func loadCIWorkflow(t *testing.T, filename string) clusterWorkflow {
 // scriptForTemplate returns container.args[0] for the named Argo template.
 func scriptForTemplate(t *testing.T, filename, templateName string) string {
 	t.Helper()
+	tmpl := workflowTemplateByName(t, filename, templateName)
+	args := tmpl.Container.Args
+	require.NotEmpty(t, args, "template %s/%s has no container.args", filename, templateName)
+	return args[0]
+}
+
+func envForTemplate(t *testing.T, filename, templateName string) []envVar {
+	t.Helper()
+	tmpl := workflowTemplateByName(t, filename, templateName)
+	return tmpl.Container.Env
+}
+
+func workflowTemplateByName(t *testing.T, filename, templateName string) workflowTemplateStep {
+	t.Helper()
 	wt := loadTemplate(t, filename)
 	for _, tmpl := range wt.Spec.Templates {
 		if tmpl.Name != templateName {
 			continue
 		}
-		args := tmpl.Container.Args
-		require.NotEmpty(t, args, "template %s/%s has no container.args", filename, templateName)
-		return args[0]
+		return tmpl
 	}
 	require.Failf(t, "template not found", "template %s not found in %s", templateName, filename)
-	return ""
+	return workflowTemplateStep{}
 }
 
 func writeExec(t *testing.T, path, content string) {
