@@ -62,6 +62,19 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 			scheduledTaskComponentYAML(componentScheduled, imageScheduled))
 		Expect(err).NotTo(HaveOccurred(), "failed to create scheduled-task component: %s", output)
 
+		// Wait for AutoDeploy's ReleaseBinding before patching its schedule.
+		By("waiting for auto-created scheduled-task ReleaseBinding")
+		scheduledRBName := componentScheduled + releaseBindingSuffix
+		Eventually(func() error {
+			_, err := framework.KubectlGet(kubeContext, cpNs, "releasebinding", scheduledRBName)
+			return err
+		}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
+
+		By("patching scheduled-task ReleaseBinding for a 1-minute schedule")
+		output, err = framework.Kubectl(kubeContext, "patch", "releasebinding", scheduledRBName,
+			"-n", cpNs, "--type=merge", "-p", scheduleOverridePatch)
+		Expect(err).NotTo(HaveOccurred(), "failed to patch schedule on ReleaseBinding %s: %s", scheduledRBName, output)
+
 		By("waiting for data plane namespace discovery")
 		Eventually(func() error {
 			var discoverErr error
