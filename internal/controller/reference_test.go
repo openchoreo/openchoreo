@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,13 +57,14 @@ func TestGetDataPlaneFromRef(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		namespace string
-		ref       *openchoreov1alpha1.DataPlaneRef
-		objects   []client.Object
-		wantName  string
-		wantNS    bool // true = expect namespace-scoped result
-		wantErr   string
+		name         string
+		namespace    string
+		ref          *openchoreov1alpha1.DataPlaneRef
+		objects      []client.Object
+		wantName     string
+		wantNS       bool // true = expect namespace-scoped result
+		wantErr      string
+		wantNotFound bool
 	}{
 		// ── explicit ref ──
 		{
@@ -82,16 +84,18 @@ func TestGetDataPlaneFromRef(t *testing.T) {
 			wantNS:    false,
 		},
 		{
-			name:      "explicit ref not found",
-			namespace: "ns-a",
-			ref:       &openchoreov1alpha1.DataPlaneRef{Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane, Name: "missing"},
-			wantErr:   "not found",
+			name:         "explicit ref not found",
+			namespace:    "ns-a",
+			ref:          &openchoreov1alpha1.DataPlaneRef{Kind: openchoreov1alpha1.DataPlaneRefKindDataPlane, Name: "missing"},
+			wantErr:      "not found",
+			wantNotFound: true,
 		},
 		{
-			name:      "explicit ClusterDataPlane ref not found",
-			namespace: "ns-a",
-			ref:       &openchoreov1alpha1.DataPlaneRef{Kind: openchoreov1alpha1.DataPlaneRefKindClusterDataPlane, Name: "missing"},
-			wantErr:   "not found",
+			name:         "explicit ClusterDataPlane ref not found",
+			namespace:    "ns-a",
+			ref:          &openchoreov1alpha1.DataPlaneRef{Kind: openchoreov1alpha1.DataPlaneRefKindClusterDataPlane, Name: "missing"},
+			wantErr:      "not found",
+			wantNotFound: true,
 		},
 		{
 			name:      "unsupported ref kind",
@@ -117,10 +121,11 @@ func TestGetDataPlaneFromRef(t *testing.T) {
 			wantNS:    false,
 		},
 		{
-			name:      "nil ref errors when no defaults exist",
-			namespace: "ns-a",
-			ref:       nil,
-			wantErr:   "no DataPlaneRef specified",
+			name:         "nil ref errors when no defaults exist",
+			namespace:    "ns-a",
+			ref:          nil,
+			wantErr:      "no DataPlaneRef specified",
+			wantNotFound: true,
 		},
 		// ── nil ref, cluster-scoped referrer ──
 		{
@@ -132,17 +137,19 @@ func TestGetDataPlaneFromRef(t *testing.T) {
 			wantNS:    false,
 		},
 		{
-			name:      "nil ref with empty namespace skips namespace lookup",
-			namespace: "",
-			ref:       nil,
-			objects:   []client.Object{defaultDP}, // only namespace-scoped exists, should not find it
-			wantErr:   "no DataPlaneRef specified",
+			name:         "nil ref with empty namespace skips namespace lookup",
+			namespace:    "",
+			ref:          nil,
+			objects:      []client.Object{defaultDP}, // only namespace-scoped exists, should not find it
+			wantErr:      "no DataPlaneRef specified",
+			wantNotFound: true,
 		},
 		{
-			name:      "nil ref with empty namespace errors when cluster default missing",
-			namespace: "",
-			ref:       nil,
-			wantErr:   "default ClusterDataPlane 'default' not found",
+			name:         "nil ref with empty namespace errors when cluster default missing",
+			namespace:    "",
+			ref:          nil,
+			wantErr:      "default ClusterDataPlane 'default' not found",
+			wantNotFound: true,
 		},
 	}
 
@@ -155,6 +162,7 @@ func TestGetDataPlaneFromRef(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
 				assert.Nil(t, result)
+				assert.Equal(t, tt.wantNotFound, apierrors.IsNotFound(err), "IsNotFound(err)=%v", apierrors.IsNotFound(err))
 				return
 			}
 
@@ -194,13 +202,14 @@ func TestGetObservabilityPlaneFromRef(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		namespace string
-		ref       *openchoreov1alpha1.ObservabilityPlaneRef
-		objects   []client.Object
-		wantName  string
-		wantNS    bool
-		wantErr   string
+		name         string
+		namespace    string
+		ref          *openchoreov1alpha1.ObservabilityPlaneRef
+		objects      []client.Object
+		wantName     string
+		wantNS       bool
+		wantErr      string
+		wantNotFound bool
 	}{
 		// ── explicit ref ──
 		{
@@ -220,16 +229,18 @@ func TestGetObservabilityPlaneFromRef(t *testing.T) {
 			wantNS:    false,
 		},
 		{
-			name:      "explicit ref not found",
-			namespace: "ns-a",
-			ref:       &openchoreov1alpha1.ObservabilityPlaneRef{Kind: openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane, Name: "missing"},
-			wantErr:   "not found",
+			name:         "explicit ref not found",
+			namespace:    "ns-a",
+			ref:          &openchoreov1alpha1.ObservabilityPlaneRef{Kind: openchoreov1alpha1.ObservabilityPlaneRefKindObservabilityPlane, Name: "missing"},
+			wantErr:      "not found",
+			wantNotFound: true,
 		},
 		{
-			name:      "explicit ClusterObservabilityPlane ref not found",
-			namespace: "ns-a",
-			ref:       &openchoreov1alpha1.ObservabilityPlaneRef{Kind: openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane, Name: "missing"},
-			wantErr:   "not found",
+			name:         "explicit ClusterObservabilityPlane ref not found",
+			namespace:    "ns-a",
+			ref:          &openchoreov1alpha1.ObservabilityPlaneRef{Kind: openchoreov1alpha1.ObservabilityPlaneRefKindClusterObservabilityPlane, Name: "missing"},
+			wantErr:      "not found",
+			wantNotFound: true,
 		},
 		{
 			name:      "unsupported ref kind",
@@ -255,10 +266,11 @@ func TestGetObservabilityPlaneFromRef(t *testing.T) {
 			wantNS:    false,
 		},
 		{
-			name:      "nil ref errors when no defaults exist",
-			namespace: "ns-a",
-			ref:       nil,
-			wantErr:   "no ObservabilityPlaneRef specified",
+			name:         "nil ref errors when no defaults exist",
+			namespace:    "ns-a",
+			ref:          nil,
+			wantErr:      "no ObservabilityPlaneRef specified",
+			wantNotFound: true,
 		},
 		// ── nil ref, cluster-scoped referrer ──
 		{
@@ -270,17 +282,19 @@ func TestGetObservabilityPlaneFromRef(t *testing.T) {
 			wantNS:    false,
 		},
 		{
-			name:      "nil ref with empty namespace skips namespace lookup",
-			namespace: "",
-			ref:       nil,
-			objects:   []client.Object{defaultOP},
-			wantErr:   "no ObservabilityPlaneRef specified",
+			name:         "nil ref with empty namespace skips namespace lookup",
+			namespace:    "",
+			ref:          nil,
+			objects:      []client.Object{defaultOP},
+			wantErr:      "no ObservabilityPlaneRef specified",
+			wantNotFound: true,
 		},
 		{
-			name:      "nil ref with empty namespace errors when cluster default missing",
-			namespace: "",
-			ref:       nil,
-			wantErr:   "default ClusterObservabilityPlane 'default' not found",
+			name:         "nil ref with empty namespace errors when cluster default missing",
+			namespace:    "",
+			ref:          nil,
+			wantErr:      "default ClusterObservabilityPlane 'default' not found",
+			wantNotFound: true,
 		},
 	}
 
@@ -293,6 +307,7 @@ func TestGetObservabilityPlaneFromRef(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
 				assert.Nil(t, result)
+				assert.Equal(t, tt.wantNotFound, apierrors.IsNotFound(err), "IsNotFound(err)=%v", apierrors.IsNotFound(err))
 				return
 			}
 
@@ -332,13 +347,14 @@ func TestGetWorkflowPlaneFromRef(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		namespace string
-		ref       *openchoreov1alpha1.WorkflowPlaneRef
-		objects   []client.Object
-		wantName  string
-		wantNS    bool
-		wantErr   string
+		name         string
+		namespace    string
+		ref          *openchoreov1alpha1.WorkflowPlaneRef
+		objects      []client.Object
+		wantName     string
+		wantNS       bool
+		wantErr      string
+		wantNotFound bool
 	}{
 		// ── explicit ref ──
 		{
@@ -358,16 +374,18 @@ func TestGetWorkflowPlaneFromRef(t *testing.T) {
 			wantNS:    false,
 		},
 		{
-			name:      "explicit ref not found",
-			namespace: "ns-a",
-			ref:       &openchoreov1alpha1.WorkflowPlaneRef{Kind: openchoreov1alpha1.WorkflowPlaneRefKindWorkflowPlane, Name: "missing"},
-			wantErr:   "not found",
+			name:         "explicit ref not found",
+			namespace:    "ns-a",
+			ref:          &openchoreov1alpha1.WorkflowPlaneRef{Kind: openchoreov1alpha1.WorkflowPlaneRefKindWorkflowPlane, Name: "missing"},
+			wantErr:      "not found",
+			wantNotFound: true,
 		},
 		{
-			name:      "explicit ClusterWorkflowPlane ref not found",
-			namespace: "ns-a",
-			ref:       &openchoreov1alpha1.WorkflowPlaneRef{Kind: openchoreov1alpha1.WorkflowPlaneRefKindClusterWorkflowPlane, Name: "missing"},
-			wantErr:   "not found",
+			name:         "explicit ClusterWorkflowPlane ref not found",
+			namespace:    "ns-a",
+			ref:          &openchoreov1alpha1.WorkflowPlaneRef{Kind: openchoreov1alpha1.WorkflowPlaneRefKindClusterWorkflowPlane, Name: "missing"},
+			wantErr:      "not found",
+			wantNotFound: true,
 		},
 		{
 			name:      "unsupported ref kind",
@@ -393,10 +411,11 @@ func TestGetWorkflowPlaneFromRef(t *testing.T) {
 			wantNS:    false,
 		},
 		{
-			name:      "nil ref errors when no defaults exist",
-			namespace: "ns-a",
-			ref:       nil,
-			wantErr:   "no WorkflowPlaneRef specified",
+			name:         "nil ref errors when no defaults exist",
+			namespace:    "ns-a",
+			ref:          nil,
+			wantErr:      "no WorkflowPlaneRef specified",
+			wantNotFound: true,
 		},
 		// ── nil ref, cluster-scoped referrer ──
 		{
@@ -408,17 +427,19 @@ func TestGetWorkflowPlaneFromRef(t *testing.T) {
 			wantNS:    false,
 		},
 		{
-			name:      "nil ref with empty namespace skips namespace lookup",
-			namespace: "",
-			ref:       nil,
-			objects:   []client.Object{defaultWP},
-			wantErr:   "no WorkflowPlaneRef specified",
+			name:         "nil ref with empty namespace skips namespace lookup",
+			namespace:    "",
+			ref:          nil,
+			objects:      []client.Object{defaultWP},
+			wantErr:      "no WorkflowPlaneRef specified",
+			wantNotFound: true,
 		},
 		{
-			name:      "nil ref with empty namespace errors when cluster default missing",
-			namespace: "",
-			ref:       nil,
-			wantErr:   "default ClusterWorkflowPlane 'default' not found",
+			name:         "nil ref with empty namespace errors when cluster default missing",
+			namespace:    "",
+			ref:          nil,
+			wantErr:      "default ClusterWorkflowPlane 'default' not found",
+			wantNotFound: true,
 		},
 	}
 
@@ -431,6 +452,7 @@ func TestGetWorkflowPlaneFromRef(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
 				assert.Nil(t, result)
+				assert.Equal(t, tt.wantNotFound, apierrors.IsNotFound(err), "IsNotFound(err)=%v", apierrors.IsNotFound(err))
 				return
 			}
 
