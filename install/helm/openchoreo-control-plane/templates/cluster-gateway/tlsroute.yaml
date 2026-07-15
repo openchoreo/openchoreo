@@ -21,6 +21,6 @@ spec:
     {{- end }}
   rules:
     - backendRefs:
-        - name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}
+        - name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}-external
           port: {{ .Values.clusterGateway.service.port }}
 {{- end }}
