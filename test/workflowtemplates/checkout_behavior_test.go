@@ -108,21 +108,28 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 	// hard-coded absolute paths to our temp dirs. The auth/URL logic is left
 	// byte-for-byte intact.
 	script := echoShim + scriptForTemplate(t, "checkout-source.yaml", "checkout")
-	script = strings.NewReplacer(
+	replacements := []string{
 		"{{workflow.parameters.git-repo}}", in.repo,
 		"{{workflow.parameters.branch}}", in.branch,
 		"{{workflow.parameters.commit}}", in.commit,
 		"/etc/secrets/git-secret", secretDir,
 		"/mnt/vol/source", source,
 		"/tmp/git-revision.txt", revFile,
-	).Replace(script)
+	}
+	script = strings.NewReplacer(replacements...).Replace(script)
 
-	cmd := exec.Command("sh", "-c", script)
-	cmd.Env = append(os.Environ(),
+	env := append(os.Environ(),
 		"HOME="+home,
 		"PATH="+stubDir+string(os.PathListSeparator)+os.Getenv("PATH"),
 		"GIT_CALLS="+gitCalls,
 	)
+	replacer := strings.NewReplacer(replacements...)
+	for _, item := range envForTemplate(t, "checkout-source.yaml", "checkout") {
+		env = append(env, item.Name+"="+replacer.Replace(item.Value))
+	}
+
+	cmd := exec.Command("sh", "-c", script)
+	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 
 	res := checkoutResult{output: string(out), root: root}

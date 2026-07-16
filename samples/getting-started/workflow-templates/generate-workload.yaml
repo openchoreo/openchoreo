@@ -42,6 +42,29 @@ spec:
               mountPath: /tools
       container:
         image: ghcr.io/openchoreo/podman-runner:v1.2
+        env:
+          - name: IMAGE
+            value: '{{inputs.parameters.image}}'
+          - name: RUN_NAME
+            value: '{{inputs.parameters.run-name}}'
+          - name: PROJECT_NAME
+            value: '{{workflow.parameters.project-name}}'
+          - name: COMPONENT_NAME
+            value: '{{workflow.parameters.component-name}}'
+          - name: NAMESPACE_NAME
+            value: '{{workflow.parameters.namespace-name}}'
+          - name: APP_PATH
+            value: '{{workflow.parameters.app-path}}'
+          - name: OAUTH_URL
+            value: '{{inputs.parameters.oauth-token-url}}'
+          - name: CLIENT_ID
+            value: '{{inputs.parameters.oauth-client-id}}'
+          - name: CLIENT_SECRET
+            value: '{{inputs.parameters.oauth-client-secret}}'
+          - name: OAUTH_SCOPE
+            value: '{{inputs.parameters.oauth-scope}}'
+          - name: API_URL
+            value: '{{inputs.parameters.api-server-url}}'
         command:
           - sh
           - -c
@@ -52,13 +75,6 @@ spec:
             export PATH="/tools/bin:${PATH}"
             export HOME="/tmp/openchoreo"
             mkdir -p "${HOME}"
-
-            IMAGE={{inputs.parameters.image}}
-            RUN_NAME={{inputs.parameters.run-name}}
-            PROJECT_NAME={{workflow.parameters.project-name}}
-            COMPONENT_NAME={{workflow.parameters.component-name}}
-            NAMESPACE_NAME={{workflow.parameters.namespace-name}}
-            APP_PATH="{{workflow.parameters.app-path}}"
 
             WORK_DIR="/tmp/openchoreo-workload"
             mkdir -p "${WORK_DIR}"
@@ -118,11 +134,6 @@ spec:
             cat "${WORKLOAD_JSON}"
 
             # --- Step 3: Get OAuth token ---
-            OAUTH_URL="{{inputs.parameters.oauth-token-url}}"
-            CLIENT_ID="{{inputs.parameters.oauth-client-id}}"
-            CLIENT_SECRET="{{inputs.parameters.oauth-client-secret}}"
-            OAUTH_SCOPE="{{inputs.parameters.oauth-scope}}"
-
             echo ">> Requesting OAuth token from ${OAUTH_URL}"
             if [ -n "${OAUTH_SCOPE}" ]; then
               TOKEN_RESPONSE=$(curl -sk --fail-with-body \
@@ -149,8 +160,6 @@ spec:
             echo ">> Successfully obtained access token"
 
             # --- Step 4: Create or update workload via API server ---
-            API_URL="{{inputs.parameters.api-server-url}}"
-
             WORKLOAD_NAME=$(yq -r '.metadata.name' "${WORKLOAD_JSON}")
 
             echo ">> Creating workload via ${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads"

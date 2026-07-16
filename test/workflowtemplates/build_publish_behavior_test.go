@@ -47,11 +47,15 @@ input=$(cat)
 echo "jq $*" >> "$CALLS"
 echo "jq-stdin $input" >> "$CALLS"
 case "$*" in
-  *"--env"*)
-    printf '%s\n' "--env FOO=bar" "--env HELLO=world"
-    ;;
-  *"--build-arg"*)
-    printf '%s\n' "--build-arg HTTP_PROXY=http://proxy"
+  *)
+    case "$input" in
+      *HTTP_PROXY*)
+        printf '%s\n' "HTTP_PROXY=http://proxy"
+        ;;
+      *FOO*)
+        printf '%s\n' "FOO=bar" "HELLO=world"
+        ;;
+    esac
     ;;
 esac
 exit 0
@@ -71,6 +75,11 @@ type scriptRunResult struct {
 
 func runScript(t *testing.T, script string, stubs map[string]string, setup func(root string), replacements func(root string) []string) scriptRunResult {
 	t.Helper()
+	return runScriptWithEnv(t, script, nil, stubs, setup, replacements)
+}
+
+func runScriptWithEnv(t *testing.T, script string, templateEnv []envVar, stubs map[string]string, setup func(root string), replacements func(root string) []string) scriptRunResult {
+	t.Helper()
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("sh not available; skipping behavioral test")
 	}
@@ -86,14 +95,25 @@ func runScript(t *testing.T, script string, stubs map[string]string, setup func(
 		setup(root)
 	}
 
+	replacementPairs := []string(nil)
 	if replacements != nil {
-		script = strings.NewReplacer(replacements(root)...).Replace(script)
+		replacementPairs = replacements(root)
+		script = strings.NewReplacer(replacementPairs...).Replace(script)
 	}
-	cmd := exec.Command("sh", "-c", script)
-	cmd.Env = append(os.Environ(),
+
+	env := append(os.Environ(),
 		"PATH="+stubDir+string(os.PathListSeparator)+os.Getenv("PATH"),
 		"CALLS="+callsFile,
 	)
+	if len(templateEnv) > 0 {
+		replacer := strings.NewReplacer(replacementPairs...)
+		for _, item := range templateEnv {
+			env = append(env, item.Name+"="+replacer.Replace(item.Value))
+		}
+	}
+
+	cmd := exec.Command("sh", "-c", script)
+	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 
 	res := scriptRunResult{output: string(out), root: root}
@@ -137,7 +157,8 @@ func buildReplacements(root string) []string {
 
 func TestContainerfileBuild_Behavior(t *testing.T) {
 	script := scriptForTemplate(t, "containerfile-build.yaml", "build-image")
-	res := runScript(t, script, map[string]string{
+	env := envForTemplate(t, "containerfile-build.yaml", "build-image")
+	res := runScriptWithEnv(t, script, env, map[string]string{
 		"podman": buildPodmanStub,
 		"jq":     buildJQStub,
 	}, func(root string) {
@@ -162,7 +183,8 @@ func TestContainerfileBuild_Behavior(t *testing.T) {
 
 func TestContainerfileBuild_MissingDockerfileFailsBeforeBuild(t *testing.T) {
 	script := scriptForTemplate(t, "containerfile-build.yaml", "build-image")
-	res := runScript(t, script, map[string]string{
+	env := envForTemplate(t, "containerfile-build.yaml", "build-image")
+	res := runScriptWithEnv(t, script, env, map[string]string{
 		"podman": buildPodmanStub,
 		"jq":     buildJQStub,
 	}, func(root string) {
@@ -188,7 +210,8 @@ func TestBuildpackBuilds_Behavior(t *testing.T) {
 	} {
 		t.Run(tc.file, func(t *testing.T) {
 			script := scriptForTemplate(t, tc.file, "build-image")
-			res := runScript(t, script, map[string]string{
+			env := envForTemplate(t, tc.file, "build-image")
+			res := runScriptWithEnv(t, script, env, map[string]string{
 				"podman": buildPodmanStub,
 				"pack":   packStub,
 				"jq":     buildJQStub,
@@ -223,7 +246,8 @@ func TestBuildpackBuilds_Behavior(t *testing.T) {
 
 func TestBuildpackBuild_MissingAppPathFailsBeforePack(t *testing.T) {
 	script := scriptForTemplate(t, "gcp-buildpacks-build.yaml", "build-image")
-	res := runScript(t, script, map[string]string{
+	env := envForTemplate(t, "gcp-buildpacks-build.yaml", "build-image")
+	res := runScriptWithEnv(t, script, env, map[string]string{
 		"podman": buildPodmanStub,
 		"pack":   packStub,
 		"jq":     buildJQStub,
@@ -270,7 +294,8 @@ func TestPublishImage_BehaviorWithAndWithoutAuth(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			script := echoShim + scriptForTemplate(t, tc.file, "publish-image")
-			res := runScript(t, script, map[string]string{"podman": publishPodmanStub}, func(root string) {
+			env := envForTemplate(t, tc.file, "publish-image")
+			res := runScriptWithEnv(t, script, env, map[string]string{"podman": publishPodmanStub}, func(root string) {
 				require.NoError(t, os.MkdirAll(filepath.Join(root, "mnt-vol"), 0o755))
 				require.NoError(t, os.MkdirAll(filepath.Join(root, "storage"), 0o755))
 				require.NoError(t, os.MkdirAll(filepath.Join(root, "containers"), 0o755))
@@ -329,7 +354,8 @@ func TestPublishImage_LoadsAndTagsBuildOutput(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			script := echoShim + scriptForTemplate(t, tc.file, "publish-image")
-			res := runScript(t, script, map[string]string{"podman": publishPodmanStub}, func(root string) {
+			env := envForTemplate(t, tc.file, "publish-image")
+			res := runScriptWithEnv(t, script, env, map[string]string{"podman": publishPodmanStub}, func(root string) {
 				require.NoError(t, os.MkdirAll(filepath.Join(root, "mnt-vol"), 0o755))
 				require.NoError(t, os.MkdirAll(filepath.Join(root, "storage"), 0o755))
 				require.NoError(t, os.MkdirAll(filepath.Join(root, "containers"), 0o755))
@@ -347,7 +373,8 @@ func TestPublishImage_LoadsAndTagsBuildOutput(t *testing.T) {
 
 func TestPublishImage_MissingTarFailsBeforePush(t *testing.T) {
 	script := scriptForTemplate(t, "publish-image.yaml", "publish-image")
-	res := runScript(t, script, map[string]string{"podman": publishPodmanStub}, func(root string) {
+	env := envForTemplate(t, "publish-image.yaml", "publish-image")
+	res := runScriptWithEnv(t, script, env, map[string]string{"podman": publishPodmanStub}, func(root string) {
 		require.NoError(t, os.MkdirAll(filepath.Join(root, "mnt-vol"), 0o755))
 		require.NoError(t, os.MkdirAll(filepath.Join(root, "storage"), 0o755))
 		require.NoError(t, os.MkdirAll(filepath.Join(root, "containers"), 0o755))
