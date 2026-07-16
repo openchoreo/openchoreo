@@ -36,6 +36,10 @@ USER_AGENT = "openchoreo-external-compatibility-scan/1.0 (+https://github.com/op
 MAX_FINDINGS_PER_SLACK_MESSAGE = 10
 MAX_SEEN_ITEMS = 2000
 RETRYABLE_HTTP_STATUS = {403, 429, 500, 502, 503, 504}
+# Hostnames permitted to receive an Authorization token. Kept as an explicit
+# allowlist so a misconfigured or redirected URL cannot exfiltrate a secret
+# (e.g. GITHUB_TOKEN) to an arbitrary host.
+TOKEN_ALLOWED_HOSTS = {"api.github.com"}
 SLACK_SEVERITY_COLORS = {
     "critical": "#d1242f",
     "high": "#fb8500",
@@ -179,8 +183,12 @@ def validate_config(config: dict[str, Any], root: Path | None = None) -> list[st
             validate_path_patterns(root, f"{source_id}.affected_files", source.get("affected_files", []), errors)
         if not source.get("action"):
             errors.append(f"{source_id}: missing action")
-        if source.get("type") == "page_contains" and not source.get("required_text"):
-            errors.append(f"{source_id}: page_contains sources require required_text")
+        if source.get("type") == "page_contains":
+            required_text = source.get("required_text")
+            if not required_text:
+                errors.append(f"{source_id}: page_contains sources require required_text")
+            elif not isinstance(required_text, (str, list)):
+                errors.append(f"{source_id}: required_text must be a string or list of strings")
         if source.get("type") == "page_terms" and not source.get("match_terms"):
             errors.append(f"{source_id}: page_terms sources require match_terms")
         if source.get("required_terms") is not None and not isinstance(source.get("required_terms"), list):
@@ -253,6 +261,13 @@ def fetch_url(
     if auth_env:
         token = os.getenv(auth_env)
         if token and "Authorization" not in headers:
+            parsed = urllib.parse.urlsplit(url)
+            if parsed.scheme != "https":
+                raise ValueError(f"refusing to send {auth_env} token to non-HTTPS URL: {url}")
+            if (parsed.hostname or "").lower() not in TOKEN_ALLOWED_HOSTS:
+                raise ValueError(
+                    f"refusing to send {auth_env} token to non-allowlisted host: {parsed.hostname}"
+                )
             headers["Authorization"] = f"Bearer {token}"
 
     last_error: Exception | None = None
@@ -469,7 +484,10 @@ def scan_page_contains(source: dict[str, Any], timeout: float) -> tuple[list[dic
     result = fetch_url(source["url"], timeout)
     require_success(result)
     text = normalized_text_from_html(result.body).lower()
-    missing = [needle for needle in source.get("required_text", []) if str(needle).lower() not in text]
+    required_text = source.get("required_text", [])
+    if isinstance(required_text, str):
+        required_text = [required_text]
+    missing = [needle for needle in required_text if str(needle).lower() not in text]
     findings: list[dict[str, Any]] = []
     if missing:
         title = f"{source['name']} no longer contains expected supported value(s)"
@@ -487,7 +505,7 @@ def scan_page_contains(source: dict[str, Any], timeout: float) -> tuple[list[dic
         )
     return findings, {
         "status": result.status,
-        "required_text": source.get("required_text", []),
+        "required_text": required_text,
         "missing": missing,
         "matches": len(findings),
         "url": source["url"],
@@ -595,26 +613,34 @@ def scan_page_terms(source: dict[str, Any], timeout: float) -> tuple[list[dict[s
     matched_terms: list[str] = []
     for term in source.get("match_terms", []):
         term_text = str(term)
-        index = lowered.find(term_text.lower())
-        if index < 0:
-            continue
-        start = max(0, index - context_chars)
-        end = min(len(text), index + len(term_text) + context_chars)
-        context = text[start:end].strip()
-        if keywords and not matches_keywords(context, keywords):
-            continue
-        matched_terms.append(term_text)
-        findings.append(
-            {
-                **common_finding_fields(source),
-                "id": finding_id(source["id"], source["url"], term_text),
-                "title": f"{source['name']} mentions monitored term: {term_text}",
-                "url": source["url"],
-                "summary": context[:700],
-                "observed_at": now_iso(),
-                "kind": "page_terms",
-            }
-        )
+        term_lower = term_text.lower()
+        # Walk every occurrence of the term; a term can appear first in a benign
+        # context and only later next to a change keyword, so stop at the first
+        # keyword-adjacent occurrence rather than only checking the first hit.
+        search_from = 0
+        while True:
+            index = lowered.find(term_lower, search_from)
+            if index < 0:
+                break
+            start = max(0, index - context_chars)
+            end = min(len(text), index + len(term_text) + context_chars)
+            context = text[start:end].strip()
+            search_from = index + max(1, len(term_text))
+            if keywords and not matches_keywords(context, keywords):
+                continue
+            matched_terms.append(term_text)
+            findings.append(
+                {
+                    **common_finding_fields(source),
+                    "id": finding_id(source["id"], source["url"], term_text),
+                    "title": f"{source['name']} mentions monitored term: {term_text}",
+                    "url": source["url"],
+                    "summary": context[:700],
+                    "observed_at": now_iso(),
+                    "kind": "page_terms",
+                }
+            )
+            break
     return findings, {
         "status": result.status,
         "match_terms": source.get("match_terms", []),

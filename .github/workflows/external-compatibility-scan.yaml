@@ -34,7 +34,6 @@ jobs:
       GITHUB_TOKEN: ${{ github.token }}
       NOTIFY_ON_FIRST_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.notify_on_first_run || false }}
       POST_TO_SLACK: ${{ github.event_name != 'workflow_dispatch' || inputs.post_to_slack }}
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_EXTERNAL_COMPATIBILITY_WEBHOOK_URL }}
 
     steps:
       - name: Checkout code
@@ -43,13 +42,15 @@ jobs:
           persist-credentials: false
 
       - name: Restore previous external compatibility scan state
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
           mkdir -p .external-compatibility-scan
 
           previous_run_id="$(
             gh run list \
               --workflow external-compatibility-scan.yaml \
-              --branch "${{ github.ref_name }}" \
+              --branch "${REF_NAME}" \
               --status success \
               --limit 1 \
               --json databaseId \
@@ -57,7 +58,7 @@ jobs:
           )"
 
           if [ -z "${previous_run_id}" ]; then
-            echo "No previous successful external compatibility scan found for ${{ github.ref_name }}; this run will establish a baseline."
+            echo "No previous successful external compatibility scan found for ${REF_NAME}; this run will establish a baseline."
             exit 0
           fi
 
@@ -94,6 +95,8 @@ jobs:
 
       - name: Post Slack digest
         id: slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_EXTERNAL_COMPATIBILITY_WEBHOOK_URL }}
         run: |
           if [ ! -d .external-compatibility-scan/slack-payloads ] || ! compgen -G ".external-compatibility-scan/slack-payloads/*.payload.json" > /dev/null; then
             echo "No new external compatibility findings to post."
@@ -118,6 +121,8 @@ jobs:
           for payload in .external-compatibility-scan/slack-payloads/*.payload.json; do
             ids="${payload%.payload.json}.ids.json"
             curl -fsS \
+              --connect-timeout 10 \
+              --max-time 30 \
               -X POST \
               -H 'Content-Type: application/json' \
               --data @"${payload}" \
