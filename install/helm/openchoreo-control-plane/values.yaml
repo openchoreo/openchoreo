@@ -1097,9 +1097,15 @@ openchoreoApi:
         resync_interval: "10m"
         # @schema
         # type: object
-        # description: Bootstrap default roles and mappings as CRDs during installation
+        # description: Default authorization roles and bindings, upserted via a post-install/upgrade hook on every install and upgrade. Hand-edits made directly against these objects in the cluster do not survive the next upgrade; customize here instead.
         # @schema
         bootstrap:
+          # @schema
+          # type: string
+          # description: Container image for the authz bootstrap job. Only needs to run `kubectl apply`, so any kubectl image works; override for airgapped/mirrored registries.
+          # default: registry.k8s.io/kubectl:v1.36.0
+          # @schema
+          image: registry.k8s.io/kubectl:v1.36.0
           # @schema
           # type: array
           # description: Default authorization roles to create at installation
