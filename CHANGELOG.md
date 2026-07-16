@@ -2,6 +2,53 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.2.0-rc.1
+
+Changes since [v1.1.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.0).
+
+### Features
+
+- **(Project Lifecycle)** Release lifecycle extended to projects: new `ProjectType`, `ClusterProjectType`, `ProjectRelease`, and `ProjectReleaseBinding` CRDs with controller, API, CLI, and MCP support, plus a Backstage UI creation wizard, catalog pages, and Deploy tab for project-level releases. ([#3762](https://github.com/openchoreo/openchoreo/pull/3762), [#3874](https://github.com/openchoreo/openchoreo/pull/3874), [#3918](https://github.com/openchoreo/openchoreo/pull/3918), [#4167](https://github.com/openchoreo/openchoreo/pull/4167), [#4172](https://github.com/openchoreo/openchoreo/pull/4172), [#645](https://github.com/openchoreo/backstage-plugins/pull/645), [#653](https://github.com/openchoreo/backstage-plugins/pull/653), [#658](https://github.com/openchoreo/backstage-plugins/pull/658))
+- **(Exec)** Interactive terminal access to running components via UI, API, and CLI, with environment-conditionable access and optional pod targeting. ([#3887](https://github.com/openchoreo/openchoreo/pull/3887), [#3974](https://github.com/openchoreo/openchoreo/pull/3974), [#634](https://github.com/openchoreo/backstage-plugins/pull/634))
+- **(Backstage UI)** Component deploy view redesigned around a Release → Deploy model: release browser dialog with compare/diff mode and reworked auto-deploy setup card. ([#575](https://github.com/openchoreo/backstage-plugins/pull/575), [#580](https://github.com/openchoreo/backstage-plugins/pull/580), [#591](https://github.com/openchoreo/backstage-plugins/pull/591))
+- **(Observability)** Kubernetes events collection added to the observability plane, with querying support in the Observer API and across logging modules. ([#3781](https://github.com/openchoreo/openchoreo/pull/3781), [#3738](https://github.com/openchoreo/openchoreo/pull/3738), [#134](https://github.com/openchoreo/community-modules/pull/134), [#136](https://github.com/openchoreo/community-modules/pull/136), [#211](https://github.com/openchoreo/community-modules/pull/211), [#282](https://github.com/openchoreo/community-modules/pull/282))
+- **(Observability)** Wirelogs (Cilium Hubble network flow logs) can be streamed via the API and visualized in the Backstage UI. ([#3571](https://github.com/openchoreo/openchoreo/pull/3571), [#3620](https://github.com/openchoreo/openchoreo/pull/3620), [#3800](https://github.com/openchoreo/openchoreo/pull/3800), [#604](https://github.com/openchoreo/backstage-plugins/pull/604))
+- **(Authz)** New ABAC conditions: `resource.resourceType`, `resource.componentType`, and `resource.workflow`. ([#3591](https://github.com/openchoreo/openchoreo/pull/3591), [#3612](https://github.com/openchoreo/openchoreo/pull/3612), [#3618](https://github.com/openchoreo/openchoreo/pull/3618))
+- **(CRD)** Pre/post-render CEL validations added for ComponentTypes and Traits. ([#4088](https://github.com/openchoreo/openchoreo/pull/4088), [#4052](https://github.com/openchoreo/openchoreo/pull/4052))
+- **(Backstage UI)** Portal brought to WCAG 2.2 AA / BITV 2.0 accessibility conformance. ([#579](https://github.com/openchoreo/backstage-plugins/pull/579), [#583](https://github.com/openchoreo/backstage-plugins/pull/583), [#584](https://github.com/openchoreo/backstage-plugins/pull/584))
+- **(Backstage UI)** Customizable and bundled component-creation wizard templates via a `template-url`/`skip-template` annotation contract, with bundled wizards for agent component types (Claude, Codex, Gemini, OpenClaw). ([#664](https://github.com/openchoreo/backstage-plugins/pull/664), [#287](https://github.com/openchoreo/community-modules/pull/287), [#292](https://github.com/openchoreo/community-modules/pull/292))
+- **(Backstage UI)** API Try Out console for testing OpenAPI and GraphQL APIs. ([#670](https://github.com/openchoreo/backstage-plugins/pull/670))
+- **(Gateway)** Kubernetes Gateway API bumped to v1.5 on the standard channel, with expanded gateway module support (NGINX Gateway Fabric). ([#3819](https://github.com/openchoreo/openchoreo/pull/3819), [#3883](https://github.com/openchoreo/openchoreo/pull/3883), [#3888](https://github.com/openchoreo/openchoreo/pull/3888), [#240](https://github.com/openchoreo/community-modules/pull/240))
+- **(Controller)** Cluster gateway service divided into internal and external services for tighter network boundaries. ([#4185](https://github.com/openchoreo/openchoreo/pull/4185), [#4122](https://github.com/openchoreo/openchoreo/pull/4122))
+- **(Resources)** Resource MCP toolset enabled by default. ([#4092](https://github.com/openchoreo/openchoreo/pull/4092), [#4097](https://github.com/openchoreo/openchoreo/pull/4097))
+- **(Build)** Build cache support added to speed up component builds. ([#3675](https://github.com/openchoreo/openchoreo/pull/3675))
+- **(Portal Assistant)** Deployment status debug flow and automated build/runtime fix-prompt suggestions added. ([#3763](https://github.com/openchoreo/openchoreo/pull/3763), [#3867](https://github.com/openchoreo/openchoreo/pull/3867), [#3923](https://github.com/openchoreo/openchoreo/pull/3923))
+- **(Modules)** KEDA-based autoscaling module for scale-to-zero support. ([#209](https://github.com/openchoreo/community-modules/pull/209))
+- **(CRD)** `removes` section added to the Trait API for deleting rendered resources. ([#3573](https://github.com/openchoreo/openchoreo/pull/3573))
+- **(Install)** Single-command k3d install script, with console login shown in the install summary. ([#4096](https://github.com/openchoreo/openchoreo/pull/4096), [#4183](https://github.com/openchoreo/openchoreo/pull/4183))
+- **(Helm)** Global image registry and pull secret overrides, in support of air-gapped installs. ([#4182](https://github.com/openchoreo/openchoreo/pull/4182))
+- **(CI)** GitHub Actions external CI integration. ([#3641](https://github.com/openchoreo/openchoreo/pull/3641))
+
+### Enhancements
+
+- **(Backstage UI)** Portal performance and UX polish: frontend response caching, a unified token-driven loading skeleton/spinner system, and virtualized log/event/trace/wirelog views. ([#676](https://github.com/openchoreo/backstage-plugins/pull/676), [#682](https://github.com/openchoreo/backstage-plugins/pull/682), [#633](https://github.com/openchoreo/backstage-plugins/pull/633))
+- **(Observability)** Notification channel management views added to the Backstage portal. ([#4050](https://github.com/openchoreo/openchoreo/pull/4050), [#663](https://github.com/openchoreo/backstage-plugins/pull/663))
+- **(Helm)** WebSocket upgrades enabled by default on KGateway for component exec. ([#4080](https://github.com/openchoreo/openchoreo/pull/4080), [#4066](https://github.com/openchoreo/openchoreo/pull/4066))
+- **(API)** Endpoint URL resolution added for GRPCRoute and TLSRoute. ([#3592](https://github.com/openchoreo/openchoreo/pull/3592))
+- **(Dependencies)** Kubernetes dependency updated to 1.36. ([#3596](https://github.com/openchoreo/openchoreo/pull/3596), [#3624](https://github.com/openchoreo/openchoreo/pull/3624))
+- **(Controller)** Data plane annotations exposed to the render context. ([#3754](https://github.com/openchoreo/openchoreo/pull/3754))
+
+### Bug Fixes
+
+- **(Security)** Shell parameter injection in workflow templates fixed; root access removed from workflow templates. ([#4193](https://github.com/openchoreo/openchoreo/pull/4193), [#3600](https://github.com/openchoreo/openchoreo/pull/3600))
+- **(Controller)** Webhook downtime during controller-manager rolling upgrades prevented. ([#3743](https://github.com/openchoreo/openchoreo/pull/3743))
+- **(Controller)** Resource deletions now cascade correctly with precise finalize statuses. ([#3917](https://github.com/openchoreo/openchoreo/pull/3917))
+- **(Controller)** Project finalization now allowed with an empty deployment pipeline. ([#4181](https://github.com/openchoreo/openchoreo/pull/4181))
+- **(Helm)** Webhook race condition on first install resolved. ([#3606](https://github.com/openchoreo/openchoreo/pull/3606))
+- **(CRD)** `oneOf`/`anyOf`/`allOf` values now preserved in component and trait rendering. ([#3816](https://github.com/openchoreo/openchoreo/pull/3816))
+- **(API)** OAuth scopes now advertised in `WWW-Authenticate` and protected-resource metadata. ([#3223](https://github.com/openchoreo/openchoreo/pull/3223))
+- **(Portal Assistant)** Fixed to pick up the latest logs when identifying and verifying fixes. ([#4177](https://github.com/openchoreo/openchoreo/pull/4177), [#4190](https://github.com/openchoreo/openchoreo/pull/4190))
+
 ## v1.1.0
 
 Changes since [v1.1.0-alpha-1](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.0-alpha-1).
