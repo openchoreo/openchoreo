@@ -22,6 +22,23 @@ import (
 // a reasonable time window this is comfortably above typical event counts.
 const adapterEventLimit = 1000
 
+// Run-level statuses (lowercase to match the existing JSON contract).
+const (
+	runStatusSucceeded = "succeeded"
+	runStatusFailed    = "failed"
+	runStatusRunning   = "running"
+	runStatusUnknown   = "unknown"
+)
+
+// Retry-level statuses (capitalized to match Kubernetes Pod phase conventions
+// already exposed by the API).
+const (
+	retryStatusSucceeded = "Succeeded"
+	retryStatusFailed    = "Failed"
+	retryStatusRunning   = "Running"
+	retryStatusUnknown   = "Unknown"
+)
+
 // RunsService groups Kubernetes events into scheduled-task runs (Jobs) and retries (Pods).
 //
 // It fetches events from the upstream logs adapter (no direct OpenSearch access) and
@@ -262,10 +279,10 @@ func groupRuns(events []observability.EventEntry, includeEvents bool) []types.Ru
 			StartTime:  st.earliestTS.UTC().Format(time.RFC3339),
 			EventCount: st.eventCount,
 		}
-		if !st.latestTS.IsZero() && (status == "succeeded" || status == "failed") {
+		if !st.latestTS.IsZero() && (status == runStatusSucceeded || status == runStatusFailed) {
 			run.CompletionTime = st.latestTS.UTC().Format(time.RFC3339)
 		}
-		if status == "failed" {
+		if status == runStatusFailed {
 			run.FailureReason = deriveFailureReasonFromMap(st.reasons)
 		}
 		if includeEvents {
@@ -395,21 +412,21 @@ func applyRunStatusOverride(retries []types.RetryEntry, jobStatus string) {
 		return
 	}
 	switch jobStatus {
-	case "failed":
+	case runStatusFailed:
 		for i := range retries {
-			retries[i].Status = "Failed"
+			retries[i].Status = retryStatusFailed
 		}
-	case "succeeded":
+	case runStatusSucceeded:
 		for i := range retries {
 			if i == len(retries)-1 {
-				retries[i].Status = "Succeeded"
+				retries[i].Status = retryStatusSucceeded
 			} else {
-				retries[i].Status = "Failed"
+				retries[i].Status = retryStatusFailed
 			}
 		}
-	case "running":
+	case runStatusRunning:
 		for i := 0; i < len(retries)-1; i++ {
-			retries[i].Status = "Failed"
+			retries[i].Status = retryStatusFailed
 		}
 	}
 }
@@ -417,21 +434,21 @@ func applyRunStatusOverride(retries []types.RetryEntry, jobStatus string) {
 // deriveRunStatusFromMap determines run status from a reason-frequency map.
 func deriveRunStatusFromMap(reasons map[string]int) string {
 	if _, ok := reasons["Completed"]; ok {
-		return "succeeded"
+		return runStatusSucceeded
 	}
 	if _, ok := reasons["BackoffLimitExceeded"]; ok {
-		return "failed"
+		return runStatusFailed
 	}
 	if _, ok := reasons["DeadlineExceeded"]; ok {
-		return "failed"
+		return runStatusFailed
 	}
 	if _, ok := reasons["FailedCreate"]; ok {
-		return "failed"
+		return runStatusFailed
 	}
 	if _, ok := reasons["SuccessfulCreate"]; ok {
-		return "running"
+		return runStatusRunning
 	}
-	return "unknown"
+	return runStatusUnknown
 }
 
 // deriveFailureReasonFromMap returns the K8s event reason that caused the Job to fail,
@@ -452,17 +469,17 @@ func deriveFailureReasonFromMap(reasons map[string]int) string {
 // parent Job's terminal status.
 func deriveRetryStatusFromMap(reasons map[string]int) string {
 	if _, ok := reasons["Completed"]; ok {
-		return "Succeeded"
+		return retryStatusSucceeded
 	}
 	for _, key := range []string{"OOMKilled", "CrashLoopBackOff", "BackOff"} {
 		if _, ok := reasons[key]; ok {
-			return "Failed"
+			return retryStatusFailed
 		}
 	}
 	for _, key := range []string{"Started", "Pulled"} {
 		if _, ok := reasons[key]; ok {
-			return "Running"
+			return retryStatusRunning
 		}
 	}
-	return "Unknown"
+	return retryStatusUnknown
 }
