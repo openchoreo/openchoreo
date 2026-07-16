@@ -1463,6 +1463,17 @@ preload_images() {
 
     log_info "Preloading Docker images for faster deployments..."
 
+    # Resolve values files for prerequisites installed outside the CP/DP/WP/OP charts
+    # (mirrors the fallback paths used by install_thunder/install_openbao)
+    local thunder_values="$SCRIPT_DIR/../k3d/common/values-thunder.yaml"
+    if [[ ! -f "$thunder_values" ]]; then
+        thunder_values="/home/openchoreo/install/k3d/common/values-thunder.yaml"
+    fi
+    local openbao_values="$SCRIPT_DIR/../k3d/common/values-openbao.yaml"
+    if [[ ! -f "$openbao_values" ]]; then
+        openbao_values="/home/openchoreo/install/k3d/common/values-openbao.yaml"
+    fi
+
     # Build arguments for preload script
     local preload_args=(
         "--cluster" "$CLUSTER_NAME"
@@ -1470,6 +1481,17 @@ preload_images() {
         "--cp-values" "${SCRIPT_DIR}/.values-cp.yaml"
         "--data-plane"
         "--dp-values" "${SCRIPT_DIR}/.values-dp.yaml"
+        # Prerequisites (cert-manager, ESO, kgateway, OpenBao, Thunder) are installed
+        # unconditionally in install.sh, so they're preloaded on every run too.
+        "--prerequisites"
+        "--cert-manager-version" "$CERT_MANAGER_VERSION"
+        "--eso-version" "${ESO_VERSION#v}"
+        "--kgateway-version" "$KGATEWAY_VERSION"
+        # OpenBao's version is hardcoded inline in install_openbao (no shared variable yet)
+        "--openbao-version" "0.25.6"
+        "--openbao-values" "$openbao_values"
+        "--thunder-version" "$THUNDER_VERSION"
+        "--thunder-values" "$thunder_values"
     )
 
     # Use local charts when in dev mode
@@ -1489,6 +1511,9 @@ preload_images() {
         preload_args+=(
             "--workflow-plane"
             "--wp-values" "${SCRIPT_DIR}/.values-wp.yaml"
+            # preload-images.sh includes the registry image automatically whenever
+            # --workflow-plane is passed (install_registry only runs alongside it)
+            "--registry-values" "${SCRIPT_DIR}/.values-registry.yaml"
         )
     fi
 
@@ -1497,6 +1522,12 @@ preload_images() {
         preload_args+=(
             "--observability-plane"
             "--op-values" "${SCRIPT_DIR}/.values-op.yaml"
+            # preload-images.sh includes the community-module images automatically
+            # whenever --observability-plane is passed (they only run alongside it)
+            "--logs-opensearch-version" "$LOGS_OPENSEARCH_VERSION"
+            "--traces-opensearch-version" "$TRACES_OPENSEARCH_VERSION"
+            "--metrics-prometheus-version" "$METRICS_PROMETHEUS_VERSION"
+            "--events-otel-version" "$EVENTS_OTEL_COLLECTOR_VERSION"
         )
     fi
 

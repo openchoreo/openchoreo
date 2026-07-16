@@ -36,6 +36,19 @@ DP_CHART=""
 WP_CHART=""
 OP_CHART=""
 EXTRA_IMAGES=()
+INCLUDE_PREREQUISITES=false
+CERT_MANAGER_VERSION=""
+ESO_VERSION=""
+KGATEWAY_VERSION=""
+OPENBAO_VERSION=""
+OPENBAO_VALUES=""
+THUNDER_VERSION=""
+THUNDER_VALUES=""
+REGISTRY_VALUES=""
+LOGS_OPENSEARCH_VERSION=""
+TRACES_OPENSEARCH_VERSION=""
+METRICS_PROMETHEUS_VERSION=""
+EVENTS_OTEL_COLLECTOR_VERSION=""
 
 # Color codes for output
 GREEN='\033[0;32m'
@@ -93,6 +106,34 @@ Optional:
   --op-chart PATH/URL         Custom Observability Plane chart path or OCI URL
   --extra-images IMAGES       Comma-separated list of additional images to preload
   --help                      Show this help message
+
+Prerequisite / Third-Party Dependencies:
+  These are installed by the k3d/quick-start installers outside of the CP/DP/WP/OP
+  charts, so they aren't picked up by the plane flags above.
+
+  --prerequisites              Include cert-manager, ESO, kgateway, OpenBao and Thunder
+                                images (installed unconditionally, regardless of planes -
+                                not tied to any single plane flag)
+  --cert-manager-version VER   cert-manager chart version
+  --eso-version VER            External Secrets Operator chart version
+  --kgateway-version VER       kgateway chart version
+  --openbao-version VER        OpenBao chart version
+  --openbao-values FILE        Helm values file for OpenBao
+  --thunder-version VER        Thunder chart version
+  --thunder-values FILE        Helm values file for Thunder
+
+  The container registry and observability community-module images are installed
+  alongside the Workflow/Observability Plane charts, so they're included
+  automatically whenever --workflow-plane / --observability-plane is passed -
+  no separate flag needed, just supply their versions/values below.
+
+  --registry-values FILE       Helm values file for the container registry chart
+                                (used when --workflow-plane is set)
+  --logs-opensearch-version VER      Observability logs-opensearch module chart version
+  --traces-opensearch-version VER    Observability tracing-opensearch module chart version
+  --metrics-prometheus-version VER   Observability metrics-prometheus module chart version
+  --events-otel-version VER          Observability events-otel-collector module chart version
+                                      (all four used only when --observability-plane is set)
 
 Examples:
   # Local development with local charts
@@ -207,6 +248,58 @@ while [[ $# -gt 0 ]]; do
             done
             shift 2
             ;;
+        --prerequisites)
+            INCLUDE_PREREQUISITES=true
+            shift
+            ;;
+        --cert-manager-version)
+            CERT_MANAGER_VERSION="$2"
+            shift 2
+            ;;
+        --eso-version)
+            ESO_VERSION="$2"
+            shift 2
+            ;;
+        --kgateway-version)
+            KGATEWAY_VERSION="$2"
+            shift 2
+            ;;
+        --openbao-version)
+            OPENBAO_VERSION="$2"
+            shift 2
+            ;;
+        --openbao-values)
+            OPENBAO_VALUES="$2"
+            shift 2
+            ;;
+        --thunder-version)
+            THUNDER_VERSION="$2"
+            shift 2
+            ;;
+        --thunder-values)
+            THUNDER_VALUES="$2"
+            shift 2
+            ;;
+        --registry-values)
+            REGISTRY_VALUES="$2"
+            shift 2
+            ;;
+        --logs-opensearch-version)
+            LOGS_OPENSEARCH_VERSION="$2"
+            shift 2
+            ;;
+        --traces-opensearch-version)
+            TRACES_OPENSEARCH_VERSION="$2"
+            shift 2
+            ;;
+        --metrics-prometheus-version)
+            METRICS_PROMETHEUS_VERSION="$2"
+            shift 2
+            ;;
+        --events-otel-version)
+            EVENTS_OTEL_COLLECTOR_VERSION="$2"
+            shift 2
+            ;;
         --help|-h)
             usage
             exit 0
@@ -230,10 +323,44 @@ fi
 if [[ "$INCLUDE_CONTROL_PLANE" == "false" ]] && \
    [[ "$INCLUDE_DATA_PLANE" == "false" ]] && \
    [[ "$INCLUDE_WORKFLOW_PLANE" == "false" ]] && \
-   [[ "$INCLUDE_OBSERVABILITY_PLANE" == "false" ]]; then
+   [[ "$INCLUDE_OBSERVABILITY_PLANE" == "false" ]] && \
+   [[ "$INCLUDE_PREREQUISITES" == "false" ]]; then
     log_error "At least one plane must be selected"
     usage
     exit 1
+fi
+
+# --prerequisites needs a version for every chart it templates - an empty version
+# would get word-split into the wrong helm flag (e.g. "--version --set ...") and
+# fail silently inside get_helm_chart_images, so fail fast here instead.
+if [[ "$INCLUDE_PREREQUISITES" == "true" ]]; then
+    missing_versions=()
+    [[ -z "$CERT_MANAGER_VERSION" ]] && missing_versions+=("--cert-manager-version")
+    [[ -z "$ESO_VERSION" ]] && missing_versions+=("--eso-version")
+    [[ -z "$KGATEWAY_VERSION" ]] && missing_versions+=("--kgateway-version")
+    [[ -z "$OPENBAO_VERSION" ]] && missing_versions+=("--openbao-version")
+    [[ -z "$THUNDER_VERSION" ]] && missing_versions+=("--thunder-version")
+
+    if [[ ${#missing_versions[@]} -gt 0 ]]; then
+        log_error "--prerequisites requires: ${missing_versions[*]}"
+        usage
+        exit 1
+    fi
+fi
+
+# Same failure mode as above, for the observability community-module versions.
+if [[ "$INCLUDE_OBSERVABILITY_PLANE" == "true" ]]; then
+    missing_versions=()
+    [[ -z "$LOGS_OPENSEARCH_VERSION" ]] && missing_versions+=("--logs-opensearch-version")
+    [[ -z "$TRACES_OPENSEARCH_VERSION" ]] && missing_versions+=("--traces-opensearch-version")
+    [[ -z "$METRICS_PROMETHEUS_VERSION" ]] && missing_versions+=("--metrics-prometheus-version")
+    [[ -z "$EVENTS_OTEL_COLLECTOR_VERSION" ]] && missing_versions+=("--events-otel-version")
+
+    if [[ ${#missing_versions[@]} -gt 0 ]]; then
+        log_error "--observability-plane requires: ${missing_versions[*]}"
+        usage
+        exit 1
+    fi
 fi
 
 # Check if k3d cluster exists
@@ -296,10 +423,12 @@ get_helm_chart_images() {
         fi
     fi
 
-    # For local charts, verify the chart directory exists
-    # chart_ref may be a path (local) or OCI URL
+    # For local filesystem charts, verify the chart directory exists.
+    # chart_ref may be a local path, an OCI/http(s) URL, or a classic "repo/chart"
+    # shorthand (e.g. "twuni/docker-registry") that resolves via a registered Helm repo
+    # rather than a directory on disk - only absolute/relative paths need this check.
     local chart_path="${chart_ref%% *}"  # Get first word (path without --version flag)
-    if [[ "$chart_path" != oci://* && "$chart_path" != http://* && "$chart_path" != https://* ]]; then
+    if [[ "$chart_path" == /* || "$chart_path" == .* ]]; then
         if [[ ! -d "$chart_path" ]]; then
             log_warning "Chart directory not found: $chart_path" >&2
             return 0
@@ -345,6 +474,18 @@ docker.io/rancher/mirrored-library-traefik:3.6.13
 docker.io/rancher/mirrored-metrics-server:v0.8.1
 docker.io/rancher/mirrored-pause:3.6
 EOF
+}
+
+# Ensure a classic (non-OCI) Helm repo is registered and up to date.
+# Needed for charts like twuni/docker-registry that aren't published via OCI.
+ensure_classic_repo() {
+    local repo_name="$1"
+    local repo_url="$2"
+
+    if ! helm repo list 2>/dev/null | grep -q "^${repo_name}"; then
+        helm repo add "$repo_name" "$repo_url" >/dev/null 2>&1
+    fi
+    helm repo update "$repo_name" >/dev/null 2>&1
 }
 
 # Collect all images based on selected planes
@@ -402,6 +543,19 @@ collect_images() {
             log_warning "No images found for Workflow Plane (helm template may have failed)" >&2
         fi
         all_images+=("${wp_images[@]}")
+
+        # Container registry (twuni/docker-registry) is installed alongside the
+        # Workflow Plane, so its image is only relevant here.
+        log_info "Collecting container registry image..." >&2
+        ensure_classic_repo "twuni" "https://twuni.github.io/docker-registry.helm"
+        local registry_images=()
+        while IFS= read -r line; do
+            registry_images+=("$line")
+        done < <(get_helm_chart_images "twuni/docker-registry" "${REGISTRY_VALUES}" "registry")
+        if [[ ${#registry_images[@]} -eq 0 ]]; then
+            log_warning "No images found for container registry (helm template may have failed)" >&2
+        fi
+        all_images+=("${registry_images[@]}")
     fi
 
     # Observability Plane images
@@ -417,6 +571,58 @@ collect_images() {
             log_warning "No images found for Observability Plane (helm template may have failed)" >&2
         fi
         all_images+=("${op_images[@]}")
+
+        # The OpenSearch/Prometheus/OTel-collector community modules are installed
+        # alongside the Observability Plane, so they're only relevant here.
+        log_info "Collecting observability module images..." >&2
+        local modules_repo="oci://ghcr.io/openchoreo/helm-charts"
+        local module_charts=(
+            "${modules_repo}/observability-logs-opensearch --version ${LOGS_OPENSEARCH_VERSION} --set openSearchSetup.openSearchSecretName=opensearch-admin-credentials --set adapter.openSearchSecretName=opensearch-admin-credentials --set fluent-bit.enabled=true|observability-logs-opensearch"
+            "${modules_repo}/observability-tracing-opensearch --version ${TRACES_OPENSEARCH_VERSION} --set openSearch.enabled=false --set openSearchSetup.openSearchSecretName=opensearch-admin-credentials|observability-traces-opensearch"
+            "${modules_repo}/observability-metrics-prometheus --version ${METRICS_PROMETHEUS_VERSION}|observability-metrics-prometheus"
+            "${modules_repo}/observability-events-otel-collector --version ${EVENTS_OTEL_COLLECTOR_VERSION}|observability-events-kubernetes"
+        )
+        local module_images=()
+        local module_entry module_chart_ref module_release
+        for module_entry in "${module_charts[@]}"; do
+            IFS='|' read -r module_chart_ref module_release <<< "$module_entry"
+            while IFS= read -r line; do
+                module_images+=("$line")
+            done < <(get_helm_chart_images "$module_chart_ref" "" "$module_release")
+        done
+        if [[ ${#module_images[@]} -eq 0 ]]; then
+            log_warning "No images found for observability modules (helm template may have failed)" >&2
+        fi
+        all_images+=("${module_images[@]}")
+    fi
+
+    # Prerequisite images (cert-manager, External Secrets Operator, kgateway, OpenBao, Thunder).
+    # These are installed unconditionally by the k3d/quick-start installers regardless of
+    # which planes are selected, so they're preloaded whenever --prerequisites is passed.
+    if [[ "$INCLUDE_PREREQUISITES" == "true" ]]; then
+        log_info "Collecting prerequisite images (cert-manager, ESO, kgateway, OpenBao, Thunder)..." >&2
+
+        local prereq_charts=(
+            "oci://quay.io/jetstack/charts/cert-manager --version ${CERT_MANAGER_VERSION} --set crds.enabled=true|cert-manager|"
+            "oci://ghcr.io/external-secrets/charts/external-secrets --version ${ESO_VERSION} --set installCRDs=true|external-secrets|"
+            "oci://cr.kgateway.dev/kgateway-dev/charts/kgateway --version ${KGATEWAY_VERSION}|kgateway|"
+            "oci://ghcr.io/openbao/charts/openbao --version ${OPENBAO_VERSION}|openbao|${OPENBAO_VALUES}"
+            "oci://ghcr.io/asgardeo/helm-charts/thunder --version ${THUNDER_VERSION}|thunder|${THUNDER_VALUES}"
+        )
+
+        local prereq_images=()
+        local prereq_entry prereq_chart_ref prereq_release prereq_values
+        for prereq_entry in "${prereq_charts[@]}"; do
+            IFS='|' read -r prereq_chart_ref prereq_release prereq_values <<< "$prereq_entry"
+            while IFS= read -r line; do
+                prereq_images+=("$line")
+            done < <(get_helm_chart_images "$prereq_chart_ref" "$prereq_values" "$prereq_release")
+        done
+
+        if [[ ${#prereq_images[@]} -eq 0 ]]; then
+            log_warning "No images found for prerequisites (helm template may have failed)" >&2
+        fi
+        all_images+=("${prereq_images[@]}")
     fi
 
     # Extra images provided by user via --extra-images flag
