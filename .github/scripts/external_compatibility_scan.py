@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 """Scan curated external compatibility sources and produce a Slack digest.
 
-The scanner is intentionally dependency-free so it can run in GitHub Actions
-without installing Python packages. It supports:
+Dependency-free so it runs in GitHub Actions with no package install. Sources
+are declared in the config JSON; each has a `type` handled by a `scan_*`
+function (RSS/Atom feeds, provider pages, endoflife.date, GitHub API versions,
+response-header probes, and static Kubernetes manifest API-version scans).
 
-- RSS/Atom feeds, scanned item-by-item.
-- Reference pages, fetched for source-health visibility but not converted into
-  keyword-based Slack findings.
-- Page contains checks, which alert only when expected text disappears from a
-  provider page.
-- Machine-readable endoflife.date checks.
-- HTTP response header probes for Deprecation, Sunset, Warning, and similar
-  provider headers.
-
-On the first run with an empty state file, findings are recorded but not sent by
-default. This baselines historical compatibility notices and prevents Slack noise.
+State is persisted between runs to dedupe already-seen notices. On the first
+run (empty state) findings are baselined rather than sent, so Slack only ever
+receives notices that are new since the previous scan.
 """
 
 from __future__ import annotations
@@ -450,6 +444,11 @@ def common_finding_fields(source: dict[str, Any]) -> dict[str, Any]:
 
 
 def scan_reference_page(source: dict[str, Any], timeout: float) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Fetch a page for source-health only; it never produces findings.
+
+    Used for reference docs where keyword matching would be too noisy. The
+    returned report records a content hash so drift is visible in report.json.
+    """
     result = fetch_url(source["url"], timeout)
     require_success(result)
     text = normalized_text_from_html(result.body)
@@ -462,6 +461,11 @@ def scan_reference_page(source: dict[str, Any], timeout: float) -> tuple[list[di
 
 
 def scan_page_contains(source: dict[str, Any], timeout: float) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Alert when expected text disappears from a provider page.
+
+    Inverts the usual keyword scan: a finding is raised when a required_text
+    value (e.g. a currently-supported version) is no longer present.
+    """
     result = fetch_url(source["url"], timeout)
     require_success(result)
     text = normalized_text_from_html(result.body).lower()
@@ -495,6 +499,12 @@ def source_request_headers(source: dict[str, Any]) -> dict[str, str]:
 
 
 def scan_github_api_versions(source: dict[str, Any], timeout: float) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Check the pinned GitHub REST API version against the supported list.
+
+    Raises findings when the pinned version has dropped off the supported list,
+    when its `supported_until` window is closing, or (optionally) when it is no
+    longer the latest supported version.
+    """
     result = fetch_url(
         source["url"],
         timeout,
@@ -570,6 +580,11 @@ def scan_github_api_versions(source: dict[str, Any], timeout: float) -> tuple[li
 
 
 def scan_page_terms(source: dict[str, Any], timeout: float) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Alert when a monitored term appears on a page near a change keyword.
+
+    A term only produces a finding if a deprecation/removal keyword also occurs
+    within `context_chars` of it, keeping incidental mentions out of Slack.
+    """
     result = fetch_url(source["url"], timeout)
     require_success(result)
     text = normalized_text_from_html(result.body)
@@ -610,6 +625,11 @@ def scan_page_terms(source: dict[str, Any], timeout: float) -> tuple[list[dict[s
 
 
 def scan_eol_api(source: dict[str, Any], timeout: float) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Check a cycle's end-of-life date from an endoflife.date response.
+
+    Alerts when the cycle is already EOL, or when its EOL date is within
+    `warn_within_days`.
+    """
     result = fetch_url(source["url"], timeout)
     require_success(result)
     payload = json.loads(result.body)
@@ -662,6 +682,12 @@ def scan_eol_api(source: dict[str, Any], timeout: float) -> tuple[list[dict[str,
 
 
 def scan_feed(config: dict[str, Any], source: dict[str, Any], timeout: float) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Scan the newest RSS/Atom items for change keywords.
+
+    Each item's title and summary are matched against the source's keywords. If
+    `required_terms` is set, a keyword only counts when one of those terms also
+    appears nearby, narrowing a broad feed to items relevant to OpenChoreo.
+    """
     result = fetch_url(source["url"], timeout)
     require_success(result)
     keywords = source_keywords(config, source)
@@ -710,6 +736,11 @@ def scan_feed(config: dict[str, Any], source: dict[str, Any], timeout: float) ->
 
 
 def scan_header_probe(probe: dict[str, Any], timeout: float) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Probe an endpoint for RFC 8594 deprecation signals.
+
+    Raises a finding when any watched response header (Deprecation, Sunset,
+    Warning, ...) is present, or when the endpoint returns HTTP 410 Gone.
+    """
     result = fetch_url(
         probe["url"],
         timeout,
@@ -752,6 +783,11 @@ def scan_header_probe(probe: dict[str, Any], timeout: float) -> tuple[list[dict[
 
 
 def scan_kubernetes_api_versions(scan: dict[str, Any], root: Path | None = None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Statically scan local manifests for removed Kubernetes API versions.
+
+    Reads each matched file's `apiVersion:` lines and flags any that appear in
+    the removed-API table. Templated values (containing `{{`) are skipped.
+    """
     root = root or Path.cwd()
     deprecated = dict(DEFAULT_DEPRECATED_K8S_APIS)
     deprecated.update(scan.get("deprecated_api_versions", {}))
@@ -794,6 +830,13 @@ def scan_kubernetes_api_versions(scan: dict[str, Any], root: Path | None = None)
 
 
 def source_health_findings(state: dict[str, Any], errors: list[dict[str, str]], checked_ids: set[str]) -> list[dict[str, Any]]:
+    """Track per-source failures and alert once they persist.
+
+    A source that succeeds has its failure counter reset. A failing source only
+    raises a finding at escalating thresholds (2, 3, 7, 14, 30 consecutive
+    failures, then every 30) so a single transient outage stays quiet while a
+    genuinely dark source is surfaced.
+    """
     health = state.setdefault("source_health", {})
     by_id = {str(error.get("id") or "unknown-source"): error for error in errors}
     findings: list[dict[str, Any]] = []
@@ -862,6 +905,13 @@ def update_state_and_filter(
     first_run: bool,
     notify_on_first_run: bool,
 ) -> list[dict[str, Any]]:
+    """Record findings in state and return the ones that should be notified.
+
+    A finding is notified unless it was already notified before, or this is the
+    first run and first-run notification is disabled — in which case it is
+    baselined (marked notified without sending). `seen` retains every finding's
+    first/last observation for auditing.
+    """
     seen = state.setdefault("seen", {})
     notified = state.setdefault("notified", {})
     pending = state.setdefault("pending", {})
@@ -872,7 +922,7 @@ def update_state_and_filter(
         if should_notify:
             new_findings.append(finding)
             pending[finding["id"]] = finding
-        elif not should_notify and first_run and not notify_on_first_run:
+        elif first_run and not notify_on_first_run:
             notified[finding["id"]] = {
                 "source_id": finding["source_id"],
                 "title": finding["title"],
@@ -899,6 +949,12 @@ def pending_findings(state: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def mark_pending_notified(state: dict[str, Any], finding_ids: set[str] | None = None) -> int:
+    """Move pending findings to notified after Slack delivery succeeds.
+
+    Called by --mark-notified once the workflow has posted a chunk, so a failed
+    post leaves findings pending and they are retried on the next run. With
+    finding_ids given, only those are marked; otherwise all pending are marked.
+    """
     pending = state.setdefault("pending", {})
     notified = state.setdefault("notified", {})
     marked = 0
@@ -1122,6 +1178,13 @@ def write_slack_payloads(
     first_run: bool,
     total_matches: int,
 ) -> None:
+    """Write Slack payloads, chunked to stay under Slack's per-message limits.
+
+    Findings are split into groups of MAX_FINDINGS_PER_SLACK_MESSAGE; each chunk
+    gets a numbered payload plus a matching `.ids.json` the workflow feeds back
+    to --mark-notified-ids after posting. The stale payload dir is cleared first,
+    and the first chunk is also written to the primary payload path.
+    """
     payload_dir = slack_payload_dir(slack_payload_path)
     payload_dir.mkdir(parents=True, exist_ok=True)
     for existing in payload_dir.glob("*.json"):
