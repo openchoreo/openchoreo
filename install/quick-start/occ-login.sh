@@ -15,7 +15,10 @@ SYSTEM_APP_CLIENT_SECRET="openchoreo-system-app-secret"
 
 # CLI app credentials
 CLI_CLIENT_ID="openchoreo-cli-quickstart"
-CLI_CLIENT_SECRET=""
+# Thunder never returns the client_secret in GET/PUT responses (only echoes
+# back whatever it was given), so we generate it ourselves and send it
+# explicitly in the create/update payload.
+CLI_CLIENT_SECRET=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')
 
 # Discover API server URL from HTTPRoute
 API_URL=$(kubectl get httproute -n openchoreo-control-plane openchoreo-api -o jsonpath='{.spec.hostnames[0]}' 2>/dev/null || echo "")
@@ -80,6 +83,7 @@ APP_PAYLOAD=$(cat <<EOF
         "token_endpoint_auth_method": "client_secret_post",
         "pkce_required": false,
         "public_client": false,
+        "client_secret": "${CLI_CLIENT_SECRET}",
         "token": {
           "access_token": {
             "validity_period": 3600
@@ -93,36 +97,31 @@ EOF
 )
 
 if [ -n "$APP_ID" ] && [ "$APP_ID" != "null" ]; then
-  # Application exists, update it
   log_info "CLI application already exists (id: ${APP_ID}), updating..."
-  APP_RESPONSE=$(curl -s --max-time 10 -X PUT "${THUNDER_ENDPOINT}/applications/${APP_ID}" \
+  HTTP_RESPONSE=$(curl -s --max-time 10 -w '\n%{http_code}' -X PUT "${THUNDER_ENDPOINT}/applications/${APP_ID}" \
     -H "Authorization: Bearer ${SYSTEM_TOKEN}" \
     -H "Content-Type: application/json" \
     -d "${APP_PAYLOAD}")
-
-  log_success "CLI application updated"
+  ACTION="updated"
 else
-  # Application doesn't exist, create it
   log_info "Creating CLI application..."
-  APP_RESPONSE=$(curl -s --max-time 10 -X POST "${THUNDER_ENDPOINT}/applications" \
+  HTTP_RESPONSE=$(curl -s --max-time 10 -w '\n%{http_code}' -X POST "${THUNDER_ENDPOINT}/applications" \
     -H "Authorization: Bearer ${SYSTEM_TOKEN}" \
     -H "Content-Type: application/json" \
     -d "${APP_PAYLOAD}")
-
-  log_success "CLI application created"
+  ACTION="created"
 fi
 
-CLI_CLIENT_SECRET=$(echo "${APP_RESPONSE}" | jq -r '.inbound_auth_config[] | select(.type == "oauth2") | .config.client_secret // empty')
+HTTP_STATUS=$(echo "${HTTP_RESPONSE}" | tail -n1)
+APP_RESPONSE=$(echo "${HTTP_RESPONSE}" | sed '$d')
 
-# Fallback to root level client_secret if not found in config
-if [ -z "$CLI_CLIENT_SECRET" ] || [ "$CLI_CLIENT_SECRET" = "null" ]; then
-  CLI_CLIENT_SECRET=$(echo "${APP_RESPONSE}" | jq -r '.client_secret // empty')
-fi
-
-if [ -z "$CLI_CLIENT_SECRET" ] || [ "$CLI_CLIENT_SECRET" = "null" ]; then
-  log_error "Failed to get CLI client secret"
+if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+  log_error "Thunder returned HTTP ${HTTP_STATUS} while creating/updating the CLI application"
+  log_error "Response: ${APP_RESPONSE}"
   exit 1
 fi
+
+log_success "CLI application ${ACTION}"
 
 # Step 4: Save CLI credentials to file
 log_info "Saving CLI credentials..."
