@@ -189,15 +189,16 @@ while true; do
     elapsed=$((elapsed + SLEEP_INTERVAL))
 done
 
-# Wait for all Deployments to be available
+# Wait for all component ReleaseBindings to become Ready
 log_info "Waiting for all Deployments to be available..."
 elapsed=0
 while true; do
-    # Count total releases for this project
-    total_releases=$(kubectl get renderedrelease -n "$NAMESPACE" -o json 2>/dev/null | jq -r "[.items[] | select(.metadata.labels.\"openchoreo.dev/project\" == \"$PROJECT_NAME\")] | length" || echo "0")
+    # Count total ReleaseBindings for this project (components only; excludes
+    # ProjectReleaseBinding/ResourceReleaseBinding, which aren't Deployments)
+    total_releases=$(kubectl get releasebinding -n "$NAMESPACE" -o json 2>/dev/null | jq -r "[.items[] | select(.spec.owner.projectName == \"$PROJECT_NAME\")] | length" || echo "0")
 
-    # Count releases with healthy deployments
-    available=$(kubectl get renderedrelease -n "$NAMESPACE" -o json 2>/dev/null | jq -r "[.items[] | select(.metadata.labels.\"openchoreo.dev/project\" == \"$PROJECT_NAME\") | select(.status.resources[]? | select(.kind==\"Deployment\" and .healthStatus==\"Healthy\"))] | length" || echo "0")
+    # Count ReleaseBindings whose aggregated Ready condition is True
+    available=$(kubectl get releasebinding -n "$NAMESPACE" -o json 2>/dev/null | jq -r "[.items[] | select(.spec.owner.projectName == \"$PROJECT_NAME\") | select(.status.conditions[]? | select(.type==\"Ready\" and .status==\"True\"))] | length" || echo "0")
 
     if [[ "$total_releases" -gt 0 ]] && [[ "$available" -eq "$total_releases" ]]; then
         log_success "All $total_releases Deployments are available"
