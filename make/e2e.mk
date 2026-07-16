@@ -98,7 +98,7 @@ OPENBAO_CHART_VERSION  ?= 0.25.6
 THUNDER_VERSION        ?= 0.28.0
 DEX_VERSION            ?= 0.24.1
 OBSERVABILITY_LOGS_OPENSEARCH_VERSION     ?= 0.5.3
-OBSERVABILITY_TRACES_OPENSEARCH_VERSION   ?= 0.4.2
+OBSERVABILITY_TRACES_OPENSEARCH_VERSION   ?= 0.5.0
 OBSERVABILITY_METRICS_PROMETHEUS_VERSION  ?= 0.6.1
 # Tier3 multi-cluster e2e only (see _e2e.mc.install-op / _e2e.mc.install-fluent-bit):
 # logs use the OpenObserve community module there instead of OpenSearch.
