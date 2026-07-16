@@ -1223,6 +1223,22 @@
           "title": "commonLabels",
           "type": "object"
         },
+        "imagePullSecrets": {
+          "default": [],
+          "description": "Image pull secrets applied to all first-party pods, for pulling images from authenticated private registries. Entries are LocalObjectReferences (name only).",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "imagePullSecrets",
+          "type": "array"
+        },
+        "imageRegistry": {
+          "default": "",
+          "description": "Registry override for all first-party container images. When set, it replaces the registry host of each image repository. May include a path (e.g. registry.example.com/ghcr.io) for path-preserving mirrors. Empty uses each image's default registry.",
+          "title": "imageRegistry",
+          "type": "string"
+        },
         "installationMode": {
           "default": "singleCluster",
           "description": "Installation mode of OpenChoreo",

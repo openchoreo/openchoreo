@@ -28,6 +28,10 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/openchoreo-api/configmap.yaml") . | sha256sum }}
     spec:
       serviceAccountName: {{ include "openchoreo-control-plane.openchoreoApi.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- if .Values.openchoreoApi.priorityClass.create }}
       priorityClassName: {{ .Values.openchoreoApi.priorityClass.name }}
       {{- end }}
@@ -53,7 +57,7 @@ spec:
       {{- end }}
       containers:
       - name: api-server
-        image: "{{ .Values.openchoreoApi.image.repository }}:{{ .Values.openchoreoApi.image.tag | default .Chart.AppVersion }}"
+        image: "{{ include "openchoreo-control-plane.image" (dict "context" . "image" .Values.openchoreoApi.image) }}"
         imagePullPolicy: {{ .Values.openchoreoApi.image.pullPolicy }}
         args:
           - --config=/etc/openchoreo/config.yaml

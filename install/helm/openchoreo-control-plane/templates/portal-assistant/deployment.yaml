@@ -28,6 +28,10 @@ spec:
         app.kubernetes.io/component: portal-assistant
     spec:
       serviceAccountName: {{ include "openchoreo-control-plane.portalAssistant.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 12000
@@ -35,7 +39,7 @@ spec:
         fsGroup: 12000
       containers:
       - name: portal-assistant
-        image: "{{ .Values.portalAssistant.image.repository }}:{{ .Values.portalAssistant.image.tag | default .Chart.AppVersion }}"
+        image: "{{ include "openchoreo-control-plane.image" (dict "context" . "image" .Values.portalAssistant.image) }}"
         imagePullPolicy: {{ .Values.portalAssistant.image.pullPolicy }}
         ports:
         - name: http

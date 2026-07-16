@@ -567,25 +567,26 @@
           "required": [],
           "title": "commonLabels",
           "type": "object"
-        }
-      },
-      "required": [],
-      "title": "global",
-      "type": "object"
-    },
-    "waitJob": {
-      "additionalProperties": false,
-      "description": "Wait job configuration for post-install hooks",
-      "properties": {
-        "image": {
-          "default": "rancher/kubectl:v1.36.0",
-          "description": "Container image used for wait jobs (must contain kubectl)",
-          "title": "image",
+        },
+        "imagePullSecrets": {
+          "default": [],
+          "description": "Image pull secrets applied to all first-party pods, for pulling images from authenticated private registries. Entries are LocalObjectReferences (name only).",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "imagePullSecrets",
+          "type": "array"
+        },
+        "imageRegistry": {
+          "default": "",
+          "description": "Registry override for all first-party container images. When set, it replaces the registry host of each image repository. May include a path (e.g. registry.example.com/ghcr.io) for path-preserving mirrors. Empty uses each image's default registry.",
+          "title": "imageRegistry",
           "type": "string"
         }
       },
       "required": [],
-      "title": "waitJob",
+      "title": "global",
       "type": "object"
     }
   },
