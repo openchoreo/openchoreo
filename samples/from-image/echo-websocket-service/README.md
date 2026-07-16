@@ -18,7 +18,7 @@ The service is deployed from the pre-built image:
 The following command will create the relevant resources in OpenChoreo:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/echo-websocket-service/echo-websocket-service.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/from-image/echo-websocket-service/echo-websocket-service.yaml
 ```
 
 > [!NOTE]
@@ -77,5 +77,5 @@ If you cannot access the service:
 Remove all resources:
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/echo-websocket-service/echo-websocket-service.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/from-image/echo-websocket-service/echo-websocket-service.yaml
 ```

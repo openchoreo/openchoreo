@@ -48,7 +48,7 @@ gcp-microservices-demo/
 First, create the project that will contain all the microservices:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml
 ```
 
 ## Step 2: Provision the Redis cache
@@ -58,7 +58,7 @@ shipped `valkey` `ClusterResourceType`. The same file also declares a
 `ResourceReleaseBinding` for the development environment:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/resources/redis.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/resources/redis.yaml
 ```
 
 The binding ships with `spec.resourceRelease` unset. Pin it to the resource's latest
@@ -84,16 +84,16 @@ Deploy the microservices. Cart consumes the Redis resource via
 
 ```bash
 kubectl apply \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/ad-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/cart-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/checkout-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/currency-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/email-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/frontend-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/payment-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/productcatalog-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/recommendation-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/shipping-component.yaml
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/ad-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/cart-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/checkout-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/currency-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/email-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/frontend-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/payment-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/productcatalog-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/recommendation-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/shipping-component.yaml
 ```
 
 This will deploy all the microservices using official Google Container Registry images.
@@ -158,20 +158,20 @@ Remove all resources:
 ```bash
 # Remove components
 kubectl delete \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/ad-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/cart-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/checkout-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/currency-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/email-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/frontend-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/payment-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/productcatalog-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/recommendation-component.yaml \
--f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/components/shipping-component.yaml
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/ad-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/cart-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/checkout-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/currency-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/email-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/frontend-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/payment-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/productcatalog-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/recommendation-component.yaml \
+-f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/components/shipping-component.yaml
 
 # Remove the redis Resource and binding (cascades to the StatefulSet + Secret on the data plane)
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/resources/redis.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/resources/redis.yaml
 
 # Remove project
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.1/samples/gcp-microservices-demo/gcp-microservice-demo-project.yaml
 ```
