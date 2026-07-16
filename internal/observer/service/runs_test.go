@@ -352,6 +352,34 @@ func TestGroupRetries(t *testing.T) {
 	})
 }
 
+// ── parseTimeRange ──────────────────────────────────────────────────
+
+func TestParseTimeRange(t *testing.T) {
+	t.Run("valid range returns parsed window", func(t *testing.T) {
+		s, e, err := parseTimeRange("2026-06-22T00:00:00Z", "2026-06-22T01:00:00Z")
+		assert.NoError(t, err)
+		assert.Equal(t, "2026-06-22T00:00:00Z", s.UTC().Format(time.RFC3339))
+		assert.Equal(t, "2026-06-22T01:00:00Z", e.UTC().Format(time.RFC3339))
+	})
+	t.Run("equal start and end is allowed (zero-length window)", func(t *testing.T) {
+		_, _, err := parseTimeRange("2026-06-22T00:00:00Z", "2026-06-22T00:00:00Z")
+		assert.NoError(t, err)
+	})
+	t.Run("inverted range returns error", func(t *testing.T) {
+		_, _, err := parseTimeRange("2026-06-22T02:00:00Z", "2026-06-22T01:00:00Z")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "end time must be greater than or equal to start time")
+	})
+	t.Run("malformed start returns error", func(t *testing.T) {
+		_, _, err := parseTimeRange("not-a-time", "2026-06-22T01:00:00Z")
+		assert.Error(t, err)
+	})
+	t.Run("malformed end returns error", func(t *testing.T) {
+		_, _, err := parseTimeRange("2026-06-22T00:00:00Z", "not-a-time")
+		assert.Error(t, err)
+	})
+}
+
 // ── parseOptionalTimeRange ──────────────────────────────────────────
 
 func TestParseOptionalTimeRange(t *testing.T) {
@@ -361,11 +389,21 @@ func TestParseOptionalTimeRange(t *testing.T) {
 		assert.Equal(t, "2026-06-22T00:00:00Z", s.UTC().Format(time.RFC3339))
 		assert.Equal(t, "2026-06-22T01:00:00Z", e.UTC().Format(time.RFC3339))
 	})
-	t.Run("missing startTime falls back to 30d window", func(t *testing.T) {
+	t.Run("both empty falls back to 30d window", func(t *testing.T) {
 		s, e, err := parseOptionalTimeRange("", "")
 		assert.NoError(t, err)
 		// Fallback should be ~30 days; loose check to avoid flakiness.
 		assert.InDelta(t, 30*24*time.Hour, e.Sub(s), float64(time.Minute))
+	})
+	t.Run("only startTime provided returns error", func(t *testing.T) {
+		_, _, err := parseOptionalTimeRange("2026-06-22T00:00:00Z", "")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "must be provided together")
+	})
+	t.Run("only endTime provided returns error", func(t *testing.T) {
+		_, _, err := parseOptionalTimeRange("", "2026-06-22T01:00:00Z")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "must be provided together")
 	})
 	t.Run("invalid time returns error", func(t *testing.T) {
 		_, _, err := parseOptionalTimeRange("not-a-time", "2026-06-22T01:00:00Z")

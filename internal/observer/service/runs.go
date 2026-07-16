@@ -58,6 +58,10 @@ var (
 	ErrRunsResolveSearchScope = errors.New("runs search scope resolution failed")
 	// ErrRunsRetrieval indicates a failure while retrieving events from the adapter.
 	ErrRunsRetrieval = errors.New("runs retrieval failed")
+	// ErrRunsInvalidRequest indicates a caller-supplied request was malformed
+	// (e.g. an unparseable or inconsistent time window). Handlers should map this
+	// to HTTP 400 rather than treating it as an internal error.
+	ErrRunsInvalidRequest = errors.New("runs invalid request")
 )
 
 // NewRunsService creates a new RunsService backed by the HTTP logs adapter.
@@ -101,7 +105,7 @@ func (s *RunsService) QueryRuns(ctx context.Context, req *types.RunsQueryRequest
 
 	startTime, endTime, err := parseTimeRange(req.StartTime, req.EndTime)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrRunsInvalidRequest, err)
 	}
 
 	events, took, err := s.fetchComponentEvents(ctx, componentScope, startTime, endTime, req.SortOrder)
@@ -149,7 +153,7 @@ func (s *RunsService) QueryRetries(ctx context.Context, jobName string, req *typ
 	// per-call event cap truncating retries for high-frequency CronJobs.
 	startTime, endTime, err := parseOptionalTimeRange(req.StartTime, req.EndTime)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrRunsInvalidRequest, err)
 	}
 
 	events, took, err := s.fetchComponentEvents(ctx, componentScope, startTime, endTime, "asc")
@@ -206,6 +210,8 @@ func (s *RunsService) fetchComponentEvents(
 }
 
 // parseTimeRange validates and parses required RFC3339 startTime / endTime.
+// It also enforces endTime >= startTime so callers cannot request an
+// impossible window (which would silently return zero results).
 func parseTimeRange(startStr, endStr string) (time.Time, time.Time, error) {
 	startTime, err := time.Parse(time.RFC3339, startStr)
 	if err != nil {
@@ -215,15 +221,22 @@ func parseTimeRange(startStr, endStr string) (time.Time, time.Time, error) {
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("failed to parse end time: %w", err)
 	}
+	if endTime.Before(startTime) {
+		return time.Time{}, time.Time{}, fmt.Errorf("end time must be greater than or equal to start time")
+	}
 	return startTime, endTime, nil
 }
 
 // parseOptionalTimeRange parses RFC3339 startTime / endTime when provided, and
-// falls back to a 30-day lookback ending at now when either is empty.
+// falls back to a 30-day lookback ending at now when both are empty. If exactly
+// one of the two is provided, that is a client error (ambiguous window).
 func parseOptionalTimeRange(startStr, endStr string) (time.Time, time.Time, error) {
-	if startStr == "" || endStr == "" {
+	if startStr == "" && endStr == "" {
 		endTime := time.Now().UTC()
 		return endTime.Add(-30 * 24 * time.Hour), endTime, nil
+	}
+	if startStr == "" || endStr == "" {
+		return time.Time{}, time.Time{}, fmt.Errorf("startTime and endTime must be provided together")
 	}
 	return parseTimeRange(startStr, endStr)
 }

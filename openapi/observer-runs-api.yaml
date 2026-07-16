@@ -13,6 +13,9 @@ servers:
   - url: http://localhost:8080
     description: Observer external (requires JWT)
 
+security:
+  - bearerAuth: []
+
 paths:
   /api/v1/scheduled-tasks/runs/query:
     post:
@@ -106,6 +109,18 @@ paths:
                 tookMs: 121
         '400':
           description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden — the subject does not have permission to view scheduled-task runs for this component in this environment
           content:
             application/json:
               schema:
@@ -210,6 +225,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden — the subject does not have permission to view scheduled-task retries for this component in this environment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error
           content:
@@ -218,6 +245,11 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     ComponentSearchScope:
       type: object

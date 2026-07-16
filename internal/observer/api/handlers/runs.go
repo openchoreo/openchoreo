@@ -46,6 +46,11 @@ func (h *Handler) QueryRuns(w http.ResponseWriter, r *http.Request) {
 			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
 			return
 		}
+		if errors.Is(err, service.ErrRunsInvalidRequest) {
+			h.logger.Debug("Invalid runs request", "error", err)
+			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", err.Error())
+			return
+		}
 		h.logger.Error("Failed to query runs", "error", err)
 		if errors.Is(err, service.ErrRunsResolveSearchScope) {
 			h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, types.ErrorCodeV1LogsResolverFailed, "Failed to resolve search scope")
@@ -73,8 +78,9 @@ func (h *Handler) QueryRetries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.SearchScope == nil {
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", "searchScope is required")
+	if err := validateRetriesQueryRequest(&req); err != nil {
+		h.logger.Debug("Validation failed", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", err.Error())
 		return
 	}
 
@@ -92,6 +98,11 @@ func (h *Handler) QueryRetries(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
 			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
+			return
+		}
+		if errors.Is(err, service.ErrRunsInvalidRequest) {
+			h.logger.Debug("Invalid retries request", "error", err)
+			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", err.Error())
 			return
 		}
 		h.logger.Error("Failed to query retries", "error", err)
@@ -125,6 +136,25 @@ func validateRunsQueryRequest(req *types.RunsQueryRequest) error {
 	}
 	if req.SearchScope.Environment == "" {
 		return fmt.Errorf("searchScope.environment is required for run queries")
+	}
+	return nil
+}
+
+// validateRetriesQueryRequest validates the retries query request. It mirrors the
+// runs validation minus the time-range checks, since retries default to a 30-day
+// lookback when no explicit window is provided.
+func validateRetriesQueryRequest(req *types.RetriesQueryRequest) error {
+	if req.SearchScope == nil {
+		return fmt.Errorf("searchScope is required")
+	}
+	if req.SearchScope.Namespace == "" {
+		return fmt.Errorf("searchScope.namespace is required")
+	}
+	if req.SearchScope.Component == "" {
+		return fmt.Errorf("searchScope.component is required for retry queries")
+	}
+	if req.SearchScope.Environment == "" {
+		return fmt.Errorf("searchScope.environment is required for retry queries")
 	}
 	return nil
 }
