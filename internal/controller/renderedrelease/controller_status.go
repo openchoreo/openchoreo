@@ -190,23 +190,29 @@ func getDeploymentHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Hea
 		return openchoreov1alpha1.HealthStatusUnknown, fmt.Errorf("failed to convert to deployment: %w", err)
 	}
 
-	// Check if deployment is paused (or deliberately scaled to zero) -> Suspended
+	// Check if deployment is paused -> Suspended
 	if deployment.Spec.Paused {
 		return openchoreov1alpha1.HealthStatusSuspended, nil
 	}
-	if deployment.Spec.Replicas != nil && *deployment.Spec.Replicas == 0 {
-		return openchoreov1alpha1.HealthStatusSuspended, nil
+	// Extract replica details
+	desiredReplicas := int32(1)
+	if deployment.Spec.Replicas != nil {
+		desiredReplicas = *deployment.Spec.Replicas
+	}
+	// A workload scaled to zero is Suspended only once no pods remain. An autoscaler
+	// (e.g. KEDA/HPA) writes spec.replicas=0 to scale down before its pods are gone,
+	// so while pods still exist, judge readiness against the observed count rather
+	// than report Suspended or progress toward a stale desired count of 0.
+	if desiredReplicas == 0 {
+		if deployment.Status.Replicas == 0 {
+			return openchoreov1alpha1.HealthStatusSuspended, nil
+		}
+		desiredReplicas = deployment.Status.Replicas
 	}
 
 	// New spec not yet observed -> Progressing
 	if deployment.Status.ObservedGeneration == 0 || deployment.Generation > deployment.Status.ObservedGeneration {
 		return openchoreov1alpha1.HealthStatusProgressing, nil
-	}
-
-	// Extract replica details
-	desiredReplicas := int32(1)
-	if deployment.Spec.Replicas != nil {
-		desiredReplicas = *deployment.Spec.Replicas
 	}
 	updatedReplicas := deployment.Status.UpdatedReplicas
 	readyReplicas := deployment.Status.ReadyReplicas
