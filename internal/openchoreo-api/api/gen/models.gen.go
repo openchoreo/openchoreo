@@ -2640,6 +2640,9 @@ type PendingConnection struct {
 
 // PodLogEntry A single log entry from a pod
 type PodLogEntry struct {
+	// Container Name of the container that produced this log entry
+	Container *string `json:"container,omitempty"`
+
 	// Log Log message content
 	Log string `json:"log"`
 
@@ -5168,6 +5171,9 @@ type GetReleaseBindingK8sResourceEventsParams struct {
 type GetReleaseBindingK8sResourceLogsParams struct {
 	// PodName Name of the pod
 	PodName string `form:"podName" json:"podName"`
+
+	// Container Name of the container to fetch logs from. If omitted, logs from all containers in the pod are returned, with each entry tagged by container.
+	Container *string `form:"container,omitempty" json:"container,omitempty"`
 
 	// SinceSeconds Number of seconds since which to show logs
 	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`

@@ -482,11 +482,21 @@ func TestGetResourceEvents(t *testing.T) {
 // --- GetResourceLogs ---
 
 func TestGetResourceLogs(t *testing.T) {
+	dataPlaneRelease := func() []client.Object {
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
+			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
+		})
+		return []client.Object{rb, env, dp, rr}
+	}
+
 	t.Run("nil gateway client returns error", func(t *testing.T) {
 		fc := newFakeClient()
 		svc := NewService(fc, nil, testLogger())
 
-		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", nil)
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "", nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "gateway client is not configured")
 	})
@@ -503,73 +513,158 @@ func TestGetResourceLogs(t *testing.T) {
 		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {})
 		svc := NewService(fc, gc, testLogger())
 
-		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", nil)
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "", nil)
 		require.ErrorIs(t, err, ErrResourceNotFound)
 	})
 
-	t.Run("success returns parsed logs", func(t *testing.T) {
-		rb := testReleaseBinding()
-		env := testEnvironment()
-		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
-			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
-		})
-		fc := newFakeClient(rb, env, dp, rr)
+	t.Run("single container returns parsed logs tagged with container", func(t *testing.T) {
+		objs := dataPlaneRelease()
+		fc := newFakeClient(objs...)
 
-		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("2024-01-15T10:00:00Z Starting server\n2024-01-15T10:00:01Z Ready\n"))
-		})
+		gc := testGatewayServer(t, podLogsHandler(t, []string{"main"}, map[string]string{
+			"main": "2024-01-15T10:00:00Z Starting server\n2024-01-15T10:00:01Z Ready\n",
+		}))
 
 		svc := NewService(fc, gc, testLogger())
-		result, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", nil)
+		result, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "", nil)
 		require.NoError(t, err)
 		require.Len(t, result.LogEntries, 2)
 		assert.Equal(t, "Starting server", result.LogEntries[0].Log)
+		assert.Equal(t, "main", result.LogEntries[0].Container)
 		assert.Equal(t, "Ready", result.LogEntries[1].Log)
+		assert.Equal(t, "main", result.LogEntries[1].Container)
 	})
 
-	t.Run("permanent gateway error returns not found", func(t *testing.T) {
-		rb := testReleaseBinding()
-		env := testEnvironment()
-		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
-			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
+	t.Run("multiple containers aggregate ordered by timestamp and tagged", func(t *testing.T) {
+		objs := dataPlaneRelease()
+		fc := newFakeClient(objs...)
+
+		gc := testGatewayServer(t, podLogsHandler(t, []string{"main", "daprd"}, map[string]string{
+			"main":  "2024-01-15T10:00:00Z main-a\n2024-01-15T10:00:02Z main-b\n",
+			"daprd": "2024-01-15T10:00:01Z daprd-a\n2024-01-15T10:00:03Z daprd-b\n",
+		}))
+
+		svc := NewService(fc, gc, testLogger())
+		result, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "", nil)
+		require.NoError(t, err)
+		require.Len(t, result.LogEntries, 4)
+
+		logs := make([]string, 0, len(result.LogEntries))
+		containers := make([]string, 0, len(result.LogEntries))
+		for _, e := range result.LogEntries {
+			logs = append(logs, e.Log)
+			containers = append(containers, e.Container)
+		}
+		assert.Equal(t, []string{"main-a", "daprd-a", "main-b", "daprd-b"}, logs)
+		assert.Equal(t, []string{"main", "daprd", "main", "daprd"}, containers)
+	})
+
+	t.Run("explicit container fetches only that container without listing the pod", func(t *testing.T) {
+		objs := dataPlaneRelease()
+		fc := newFakeClient(objs...)
+
+		var capturedContainer string
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			require.True(t, strings.HasSuffix(r.URL.Path, "/log"),
+				"expected only a pod-log request, got %s", r.URL.Path)
+			capturedContainer = r.URL.Query().Get("container")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("2024-01-15T10:00:00Z only-daprd\n"))
 		})
-		fc := newFakeClient(rb, env, dp, rr)
+
+		svc := NewService(fc, gc, testLogger())
+		result, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "daprd", nil)
+		require.NoError(t, err)
+		require.Len(t, result.LogEntries, 1)
+		assert.Equal(t, "daprd", capturedContainer)
+		assert.Equal(t, "daprd", result.LogEntries[0].Container)
+	})
+
+	t.Run("explicit invalid container returns ErrInvalidContainer", func(t *testing.T) {
+		objs := dataPlaneRelease()
+		fc := newFakeClient(objs...)
+
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "nope", nil)
+		require.ErrorIs(t, err, ErrInvalidContainer)
+	})
+
+	t.Run("pod enumeration failure returns not found", func(t *testing.T) {
+		objs := dataPlaneRelease()
+		fc := newFakeClient(objs...)
 
 		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
 		})
 
 		svc := NewService(fc, gc, testLogger())
-		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", nil)
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "", nil)
 		require.ErrorIs(t, err, ErrResourceNotFound)
 	})
 
-	t.Run("with sinceSeconds", func(t *testing.T) {
-		rb := testReleaseBinding()
-		env := testEnvironment()
-		dp := testDataPlane("default")
-		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
-			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
-		})
-		fc := newFakeClient(rb, env, dp, rr)
+	t.Run("with sinceSeconds forwards the query param", func(t *testing.T) {
+		objs := dataPlaneRelease()
+		fc := newFakeClient(objs...)
 
-		var capturedURL string
+		var capturedLogsURL string
 		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
-			capturedURL = r.URL.String()
+			if strings.HasSuffix(r.URL.Path, "/log") {
+				capturedLogsURL = r.URL.String()
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte("2024-01-15T10:00:00Z recent log\n"))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("2024-01-15T10:00:00Z recent log\n"))
+			_, _ = w.Write(jsonMarshal(t, podWithContainers("main")))
 		})
 
 		svc := NewService(fc, gc, testLogger())
 		since := int64(300)
-		result, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", &since)
+		result, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "", &since)
 		require.NoError(t, err)
 		require.Len(t, result.LogEntries, 1)
-		assert.Contains(t, capturedURL, "sinceSeconds=300")
+		assert.Contains(t, capturedLogsURL, "sinceSeconds=300")
 	})
+}
+
+// podWithContainers builds a minimal pod object (as decoded JSON) with the given container names.
+func podWithContainers(names ...string) map[string]any {
+	cs := make([]any, len(names))
+	for i, n := range names {
+		cs[i] = map[string]any{"name": n}
+	}
+	return map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata":   map[string]any{"name": "pod-1", "namespace": "dp-ns"},
+		"spec":       map[string]any{"containers": cs},
+	}
+}
+
+// podLogsHandler routes a proxied pod GET to a pod carrying the given containers, and each
+// pod-log request to the log body for its ?container= value.
+func podLogsHandler(t *testing.T, containers []string, logsByContainer map[string]string) http.HandlerFunc {
+	t.Helper()
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/log") {
+			body, ok := logsByContainer[r.URL.Query().Get("container")]
+			if !ok {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(body))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(jsonMarshal(t, podWithContainers(containers...)))
+	}
 }
 
 // --- fetchLiveResource ---

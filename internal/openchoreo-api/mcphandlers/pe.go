@@ -177,7 +177,7 @@ func (h *MCPHandler) GetResourceEvents(ctx context.Context, namespaceName, relea
 }
 
 func (h *MCPHandler) GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName, podName string, sinceSeconds *int64) (any, error) {
-	result, err := h.services.K8sResourcesService.GetResourceLogs(ctx, namespaceName, releaseBindingName, podName, sinceSeconds)
+	result, err := h.services.K8sResourcesService.GetResourceLogs(ctx, namespaceName, releaseBindingName, podName, "", sinceSeconds)
 	if err != nil {
 		return nil, err
 	}

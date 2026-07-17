@@ -53,11 +53,11 @@ func (s *k8sResourcesServiceWithAuthz) GetResourceEvents(ctx context.Context, na
 	return s.internal.GetResourceEvents(ctx, namespaceName, releaseBindingName, group, version, kind, name)
 }
 
-func (s *k8sResourcesServiceWithAuthz) GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName, podName string, sinceSeconds *int64) (*models.ResourcePodLogsResponse, error) {
+func (s *k8sResourcesServiceWithAuthz) GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName, podName, container string, sinceSeconds *int64) (*models.ResourcePodLogsResponse, error) {
 	if err := s.checkReleaseBindingAuthz(ctx, namespaceName, releaseBindingName); err != nil {
 		return nil, err
 	}
-	return s.internal.GetResourceLogs(ctx, namespaceName, releaseBindingName, podName, sinceSeconds)
+	return s.internal.GetResourceLogs(ctx, namespaceName, releaseBindingName, podName, container, sinceSeconds)
 }
 
 // checkReleaseBindingAuthz fetches the release binding and checks authorization.

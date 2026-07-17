@@ -433,6 +433,7 @@ type ResourceEventsResponse struct {
 type PodLogEntry struct {
 	Timestamp string `json:"timestamp"`
 	Log       string `json:"log"`
+	Container string `json:"container,omitempty"`
 }
 
 // ResourcePodLogsResponse is the response for the resource pod logs endpoint

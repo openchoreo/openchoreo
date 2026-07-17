@@ -4398,6 +4398,14 @@ paths:
           description: Name of the pod
           schema:
             type: string
+        - name: container
+          in: query
+          required: false
+          description: >-
+            Name of the container to fetch logs from. If omitted, logs from all
+            containers in the pod are returned, with each entry tagged by container.
+          schema:
+            type: string
         - name: sinceSeconds
           in: query
           required: false
@@ -11215,6 +11223,10 @@ components:
           type: string
           description: Log message content
           example: "Starting application server on port 8080"
+        container:
+          type: string
+          description: Name of the container that produced this log entry
+          example: "main"
 
     ResourcePodLogsResponse:
       type: object

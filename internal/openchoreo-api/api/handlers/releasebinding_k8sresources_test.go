@@ -190,9 +190,9 @@ func TestGetReleaseBindingK8sResourceLogsHandler_SuccessReturnsLogs(t *testing.T
 	since := int64(60)
 
 	svc := k8sresourcesmocks.NewMockService(t)
-	svc.EXPECT().GetResourceLogs(mock.Anything, "test-ns", "rb-1", "pod-1", &since).
+	svc.EXPECT().GetResourceLogs(mock.Anything, "test-ns", "rb-1", "pod-1", "", &since).
 		Return(&models.ResourcePodLogsResponse{LogEntries: []models.PodLogEntry{
-			{Timestamp: "2026-01-02T03:04:05Z", Log: "hello"},
+			{Timestamp: "2026-01-02T03:04:05Z", Log: "hello", Container: "main"},
 		}}, nil)
 	h := &Handler{
 		services: &handlerservices.Services{K8sResourcesService: svc},
@@ -225,12 +225,13 @@ func TestGetReleaseBindingK8sResourceLogsHandler_MapsErrors(t *testing.T) {
 		{"rendered release not found -> 404", k8sresourcessvc.ErrRenderedReleaseNotFound, gen.GetReleaseBindingK8sResourceLogs404JSONResponse{}},
 		{"environment not found -> 404", k8sresourcessvc.ErrEnvironmentNotFound, gen.GetReleaseBindingK8sResourceLogs404JSONResponse{}},
 		{"resource not found -> 404", k8sresourcessvc.ErrResourceNotFound, gen.GetReleaseBindingK8sResourceLogs404JSONResponse{}},
+		{"invalid container -> 400", k8sresourcessvc.ErrInvalidContainer, gen.GetReleaseBindingK8sResourceLogs400JSONResponse{}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := k8sresourcesmocks.NewMockService(t)
-			svc.EXPECT().GetResourceLogs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			svc.EXPECT().GetResourceLogs(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, tt.svcErr)
 			h := &Handler{
 				services: &handlerservices.Services{K8sResourcesService: svc},
 				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
