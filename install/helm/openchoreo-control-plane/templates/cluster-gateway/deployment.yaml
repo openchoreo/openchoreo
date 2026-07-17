@@ -42,6 +42,10 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.clusterGateway.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.clusterGateway.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}

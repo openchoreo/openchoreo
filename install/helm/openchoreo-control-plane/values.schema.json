@@ -7,7 +7,7 @@
       "description": "Backstage UI configuration",
       "properties": {
         "affinity": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "default": {},
           "description": "Affinity rules",
           "required": [],
@@ -1541,6 +1541,16 @@
           },
           "title": "tolerations",
           "type": "array"
+        },
+        "topologySpreadConstraints": {
+          "default": [],
+          "description": "Topology spread constraints for pod distribution across failure domains",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "topologySpreadConstraints",
+          "type": "array"
         }
       },
       "required": [],
@@ -1552,7 +1562,7 @@
       "description": "Controller Manager configuration - the main controller for OpenChoreo CRDs",
       "properties": {
         "affinity": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "default": {},
           "description": "Affinity rules for pod scheduling",
           "required": [],
@@ -2366,6 +2376,14 @@
       "additionalProperties": false,
       "description": "Event-forwarder configuration — watches OpenChoreo Kubernetes resources via informers and forwards change-notification webhooks to subscribers (typically Backstage's events plugin) for near-real-time catalog updates.",
       "properties": {
+        "affinity": {
+          "additionalProperties": true,
+          "default": {},
+          "description": "Affinity rules for pod scheduling",
+          "required": [],
+          "title": "affinity",
+          "type": "object"
+        },
         "config": {
           "additionalProperties": false,
           "properties": {
@@ -2513,6 +2531,16 @@
           "title": "name",
           "type": "string"
         },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Node selector for pod scheduling",
+          "required": [],
+          "title": "nodeSelector",
+          "type": "object"
+        },
         "podSecurityContext": {
           "additionalProperties": false,
           "properties": {
@@ -2617,6 +2645,16 @@
           ],
           "title": "serviceAccount",
           "type": "object"
+        },
+        "tolerations": {
+          "default": [],
+          "description": "Tolerations for pod scheduling",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "tolerations",
+          "type": "array"
         }
       },
       "required": [
@@ -2839,7 +2877,7 @@
       "description": "OpenChoreo API server configuration",
       "properties": {
         "affinity": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "default": {},
           "description": "Affinity rules",
           "required": [],
@@ -4116,6 +4154,14 @@
       "additionalProperties": false,
       "description": "Optional Portal Assistant chat agent. Disabled by default; enable to opt in.",
       "properties": {
+        "affinity": {
+          "additionalProperties": true,
+          "default": {},
+          "description": "Affinity rules for pod scheduling",
+          "required": [],
+          "title": "affinity",
+          "type": "object"
+        },
         "authConfigConfigMap": {
           "default": "",
           "title": "authConfigConfigMap",
@@ -4300,6 +4346,16 @@
           "title": "name",
           "type": "string"
         },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Node selector for pod scheduling",
+          "required": [],
+          "title": "nodeSelector",
+          "type": "object"
+        },
         "replicas": {
           "default": 1,
           "title": "replicas",
@@ -4383,6 +4439,26 @@
           ],
           "title": "service",
           "type": "object"
+        },
+        "tolerations": {
+          "default": [],
+          "description": "Tolerations for pod scheduling",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "tolerations",
+          "type": "array"
+        },
+        "topologySpreadConstraints": {
+          "default": [],
+          "description": "Topology spread constraints for pod distribution across failure domains",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "topologySpreadConstraints",
+          "type": "array"
         }
       },
       "required": [

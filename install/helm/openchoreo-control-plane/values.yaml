@@ -641,6 +641,7 @@ controllerManager:
 
   # @schema
   # type: object
+  # additionalProperties: true
   # description: Affinity rules for pod scheduling
   # default: {}
   # @schema
@@ -2204,6 +2205,7 @@ openchoreoApi:
 
   # @schema
   # type: object
+  # additionalProperties: true
   # description: Affinity rules
   # default: {}
   # @schema
@@ -3060,6 +3062,7 @@ backstage:
 
   # @schema
   # type: object
+  # additionalProperties: true
   # description: Affinity rules
   # default: {}
   # @schema
@@ -3756,6 +3759,15 @@ clusterGateway:
   # @schema
   affinity: {}
 
+  # @schema
+  # type: array
+  # description: Topology spread constraints for pod distribution across failure domains
+  # items:
+  #   type: object
+  # default: []
+  # @schema
+  topologySpreadConstraints: []
+
 # @schema
 # type: object
 # additionalProperties: true
@@ -3946,6 +3958,32 @@ eventForwarder:
     readOnlyRootFilesystem: true
     allowPrivilegeEscalation: false
 
+  # @schema
+  # type: object
+  # description: Node selector for pod scheduling
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
+  nodeSelector: {}
+
+  # @schema
+  # type: array
+  # description: Tolerations for pod scheduling
+  # items:
+  #   type: object
+  # default: []
+  # @schema
+  tolerations: []
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Affinity rules for pod scheduling
+  # default: {}
+  # @schema
+  affinity: {}
+
 # @schema
 # type: object
 # description: Optional Portal Assistant chat agent. Disabled by default; enable to opt in.
@@ -4051,3 +4089,38 @@ portalAssistant:
     requests:
       cpu: 100m
       memory: 256Mi
+
+  # @schema
+  # type: object
+  # description: Node selector for pod scheduling
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
+  nodeSelector: {}
+
+  # @schema
+  # type: array
+  # description: Tolerations for pod scheduling
+  # items:
+  #   type: object
+  # default: []
+  # @schema
+  tolerations: []
+
+  # @schema
+  # type: object
+  # additionalProperties: true
+  # description: Affinity rules for pod scheduling
+  # default: {}
+  # @schema
+  affinity: {}
+
+  # @schema
+  # type: array
+  # description: Topology spread constraints for pod distribution across failure domains
+  # items:
+  #   type: object
+  # default: []
+  # @schema
+  topologySpreadConstraints: []
