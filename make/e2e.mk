@@ -22,7 +22,6 @@ E2E_WITH_UI            ?= false
 E2E_BACKSTAGE_IMAGE_TAG ?=
 # Set to "true" to replace Thunder with Dex as the OIDC provider and run the
 # external-IdP Playwright suite (test/ui/specs/external-idp/).
-# Implies Backstage — no need to also set E2E_WITH_UI=true.
 E2E_WITH_EXT_IDP       ?= false
 # Go duration for the test suite (go test -timeout)
 E2E_TEST_TIMEOUT       ?= 20m
@@ -62,25 +61,23 @@ UI_DIR                 := $(PROJECT_DIR)/test/ui
 UI_K3D_DIR             := $(UI_DIR)/k3d
 
 # When the UI suite is enabled, layer the cp-ui overlay on top of the default
-# control-plane values so Backstage gets switched on. When a Backstage image tag
-# is supplied, pin it so the install does not fall back to the chart AppVersion
-# (the openchoreo SHA), which has no matching openchoreo-ui image.
+# control-plane values so Backstage gets switched on. External-IdP mode layers
+# a second overlay on top that swaps Thunder for Dex as the OIDC provider (the
+# ext-idp overlay overrides security.oidc.* and adds the groups scope) — it
+# requires E2E_WITH_UI=true too, since Backstage is what the ext-idp suite
+# drives. When a Backstage image tag is supplied, pin it so the install does
+# not fall back to the chart AppVersion (the openchoreo SHA), which has no
+# matching openchoreo-ui image.
 ifeq ($(E2E_WITH_UI),true)
   E2E_CP_EXTRA_VALUES := --values $(UI_K3D_DIR)/values-cp-ui.yaml
+  ifeq ($(E2E_WITH_EXT_IDP),true)
+    E2E_CP_EXTRA_VALUES += --values $(UI_K3D_DIR)/values-cp-ext-idp.yaml
+  endif
   ifneq ($(strip $(E2E_BACKSTAGE_IMAGE_TAG)),)
     E2E_CP_EXTRA_VALUES += --set-string backstage.image.tag=$(E2E_BACKSTAGE_IMAGE_TAG)
   endif
 else
   E2E_CP_EXTRA_VALUES :=
-endif
-
-# External-IdP mode: enable Backstage AND swap Thunder for Dex as the OIDC provider.
-# The ext-idp overlay overrides security.oidc.* and adds the groups scope.
-ifeq ($(E2E_WITH_EXT_IDP),true)
-  E2E_CP_EXTRA_VALUES := --values $(UI_K3D_DIR)/values-cp-ui.yaml --values $(UI_K3D_DIR)/values-cp-ext-idp.yaml
-  ifneq ($(strip $(E2E_BACKSTAGE_IMAGE_TAG)),)
-    E2E_CP_EXTRA_VALUES += --set-string backstage.image.tag=$(E2E_BACKSTAGE_IMAGE_TAG)
-  endif
 endif
 
 # Namespaces
