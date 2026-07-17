@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,6 +42,35 @@ const (
 	tlsRouteKind    = "TLSRoute"
 	gatewayAPIGroup = "gateway.networking.k8s.io"
 )
+
+// autoscaledStableInterval is the reconcile interval used for releases whose
+// workload is driven by an external autoscaler (KEDA/HPA). Those workloads
+// change replica count in the data plane without any control-plane event, and
+// the data plane can't be watched, so the reported status is only as fresh as
+// the poll. A short interval keeps the UI roughly in sync with scale up/down
+// instead of lagging by the default stable interval (5m).
+const autoscaledStableInterval = 30 * time.Second
+
+// autoscalerKinds are the resource kinds whose presence in a release means an
+// external autoscaler owns the workload's replica count.
+var autoscalerKinds = map[string]struct{}{
+	"ScaledObject":            {}, // keda.sh
+	"HTTPScaledObject":        {}, // http.keda.sh
+	"HorizontalPodAutoscaler": {}, // autoscaling
+}
+
+// hasAutoscaledWorkload reports whether any rendered resource is an autoscaler,
+// so the release can be polled more frequently to track replica changes.
+func hasAutoscaledWorkload(resources []map[string]any) bool {
+	for _, res := range resources {
+		if kind, ok := res["kind"].(string); ok {
+			if _, isAutoscaler := autoscalerKinds[kind]; isAutoscaler {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // routeKindCompat lists which workload endpoint types each Gateway API route kind
 // may expose. HTTPRoute/GRPCRoute attach to the http and https gateway listeners
@@ -644,6 +674,12 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			EnvironmentName: releaseBinding.Spec.Environment,
 			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
 			Resources:       dataPlaneReleaseResources,
+		}
+
+		// Poll autoscaled workloads more frequently so the reported status tracks
+		// KEDA/HPA scale up/down (the data plane can't be watched cross-plane).
+		if hasAutoscaledWorkload(dataPlaneResources) {
+			dataPlaneRelease.Spec.Interval = &metav1.Duration{Duration: autoscaledStableInterval}
 		}
 
 		return controllerutil.SetControllerReference(releaseBinding, dataPlaneRelease, r.Scheme)

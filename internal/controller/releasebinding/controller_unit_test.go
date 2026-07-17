@@ -231,6 +231,66 @@ func TestMakeObservabilityReleaseName_Format(t *testing.T) {
 	}
 }
 
+func TestHasAutoscaledWorkload(t *testing.T) {
+	tests := []struct {
+		name      string
+		resources []map[string]any
+		want      bool
+	}{
+		{
+			name:      "no resources",
+			resources: nil,
+			want:      false,
+		},
+		{
+			name: "plain deployment only",
+			resources: []map[string]any{
+				{"kind": "Deployment"},
+				{"kind": "Service"},
+			},
+			want: false,
+		},
+		{
+			name: "KEDA ScaledObject present",
+			resources: []map[string]any{
+				{"kind": "Deployment"},
+				{"kind": "ScaledObject"},
+			},
+			want: true,
+		},
+		{
+			name: "KEDA HTTPScaledObject present",
+			resources: []map[string]any{
+				{"kind": "HTTPScaledObject"},
+			},
+			want: true,
+		},
+		{
+			name: "HorizontalPodAutoscaler present",
+			resources: []map[string]any{
+				{"kind": "HorizontalPodAutoscaler"},
+			},
+			want: true,
+		},
+		{
+			name: "resource without a string kind is ignored",
+			resources: []map[string]any{
+				{"kind": 123},
+				{"notkind": "ScaledObject"},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasAutoscaledWorkload(tt.resources); got != tt.want {
+				t.Errorf("hasAutoscaledWorkload() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 // ---- generateResourceID tests ----
 
 func TestGenerateResourceID_KindAndName(t *testing.T) {
