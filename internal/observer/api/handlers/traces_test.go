@@ -10,7 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
 func TestConvertTracesResponseToGen(t *testing.T) {
@@ -151,6 +153,7 @@ func TestConvertSpansResponseToGen_WithIncludeAttributes(t *testing.T) {
 				SpanName:  "http.request",
 				StartTime: &now,
 				EndTime:   &now,
+				Status:    &observability.SpanStatus{Code: "error", Message: "failed to initialize connection to database"},
 				Attributes: map[string]interface{}{
 					"http.method": "GET",
 					"http.url":    "http://example.com",
@@ -173,6 +176,11 @@ func TestConvertSpansResponseToGen_WithIncludeAttributes(t *testing.T) {
 	assert.Equal(t, "GET", (*span.Attributes)["http.method"])
 	require.NotNil(t, span.ResourceAttributes)
 	assert.Equal(t, "my-service", (*span.ResourceAttributes)["service.name"])
+	require.NotNil(t, span.Status)
+	require.NotNil(t, span.Status.Code)
+	assert.Equal(t, gen.SpanStatusCodeError, *span.Status.Code)
+	require.NotNil(t, span.Status.Message)
+	assert.Equal(t, "failed to initialize connection to database", *span.Status.Message)
 }
 
 func TestConvertSpansResponseToGen_ExcludeAttributesWhenFalse(t *testing.T) {
@@ -225,6 +233,7 @@ func TestConvertSpanDetailsToGen(t *testing.T) {
 		StartTime:    &now,
 		EndTime:      &now,
 		DurationNs:   1000000,
+		Status:       &observability.SpanStatus{Code: "error", Message: "failed to initialize connection to database"},
 		Attributes: map[string]interface{}{
 			"http.method": "GET",
 		},
@@ -237,6 +246,7 @@ func TestConvertSpanDetailsToGen(t *testing.T) {
 	require.NotNil(t, spanData)
 	assert.Equal(t, "span-1", spanData["spanId"])
 	assert.Equal(t, "SERVER", spanData["spanKind"])
+	assert.Equal(t, &observability.SpanStatus{Code: "error", Message: "failed to initialize connection to database"}, spanData["status"])
 }
 
 func TestConvertSpanDetailsToGen_NilSpan(t *testing.T) {

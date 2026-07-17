@@ -361,7 +361,7 @@ func convertSpansResponseToGen(resp *types.SpansQueryResponse, includeAttributes
 		if span.SpanKind != "" {
 			spanData[i]["spanKind"] = span.SpanKind
 		}
-		if span.Status != "" {
+		if span.Status != nil {
 			spanData[i]["status"] = span.Status
 		}
 		if span.ParentSpanID != "" {
@@ -408,7 +408,7 @@ func convertSpanDetailsToGen(span *types.SpanInfo) map[string]interface{} {
 	if span.SpanKind != "" {
 		spanData["spanKind"] = span.SpanKind
 	}
-	if span.Status != "" {
+	if span.Status != nil {
 		spanData["status"] = span.Status
 	}
 	if span.ParentSpanID != "" {
