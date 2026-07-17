@@ -298,7 +298,7 @@ type PEToolsetHandler interface {
 	GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName,
 		group, version, kind, name string) (any, error)
 	GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName,
-		podName string, sinceSeconds *int64) (any, error)
+		podName, container string, sinceSeconds *int64) (any, error)
 
 	// Authz roles (namespace-scoped)
 	ListAuthzRoles(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
