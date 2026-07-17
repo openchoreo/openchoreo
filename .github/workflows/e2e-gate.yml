@@ -27,17 +27,17 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Git ref (commit SHA or branch) to check out and test; defaults to the dispatched branch"
+        description: "Git ref to check out and test: full 40-char commit SHA, branch, or tag (actions/checkout can't resolve an abbreviated SHA); defaults to the dispatched branch"
         required: false
         type: string
         default: ""
       helm_chart_version:
-        description: "Helm chart version (e.g., 0.0.0-latest-dev or 0.0.0-<commit-sha>)"
+        description: "Helm chart version (e.g., 0.0.0-latest-dev or 0.0.0-<8-char-short-sha>)"
         required: false
         type: string
         default: "0.0.0-latest-dev"
       backstage_image_tag:
-        description: "Backstage (openchoreo-ui) image tag for the UI leg; empty uses the chart's AppVersion default"
+        description: "Backstage (openchoreo-ui) image tag for the UI leg, e.g. the backstage-plugins commit's 8-char short SHA or 'latest-dev'; empty uses the chart's AppVersion default"
         required: false
         type: string
         default: ""
@@ -74,17 +74,17 @@ on:
   workflow_call:
     inputs:
       ref:
-        description: "Git ref (commit SHA or branch) to check out and test; defaults to the caller's ref"
+        description: "Git ref to check out and test: full 40-char commit SHA, branch, or tag (actions/checkout can't resolve an abbreviated SHA); defaults to the caller's ref"
         required: false
         type: string
         default: ""
       helm_chart_version:
-        description: "Helm chart version (e.g., 0.0.0-latest-dev or 0.0.0-<commit-sha>)"
+        description: "Helm chart version (e.g., 0.0.0-latest-dev or 0.0.0-<8-char-short-sha>)"
         required: false
         type: string
         default: "0.0.0-latest-dev"
       backstage_image_tag:
-        description: "Backstage (openchoreo-ui) image tag for the UI leg; empty uses the chart's AppVersion default"
+        description: "Backstage (openchoreo-ui) image tag for the UI leg, e.g. the backstage-plugins commit's 8-char short SHA or 'latest-dev'; empty uses the chart's AppVersion default"
         required: false
         type: string
         default: ""
@@ -176,16 +176,10 @@ jobs:
 
       - name: Validate Helm chart version
         run: |
-          if [ -z "${HELM_CHART_VERSION}" ]; then
-            echo "::error::HELM_CHART_VERSION is required"
+          if [[ ! "${HELM_CHART_VERSION}" =~ ^0\.0\.0-(latest-dev|[0-9a-f]{8})$ ]]; then
+            echo "::error::HELM_CHART_VERSION must be '0.0.0-latest-dev' or '0.0.0-<8-char-short-sha>' (got '${HELM_CHART_VERSION}')"
             exit 1
           fi
-          case "${HELM_CHART_VERSION}" in
-            *[!A-Za-z0-9._-]*)
-              echo "::error::HELM_CHART_VERSION contains unsupported characters"
-              exit 1
-              ;;
-          esac
 
       - name: Add e2e host entries
         run: echo '127.0.0.1 api.e2e-cp.local thunder.e2e-cp.local openchoreo.e2e-cp.local' | sudo tee -a /etc/hosts
@@ -245,16 +239,10 @@ jobs:
 
       - name: Validate Helm chart version
         run: |
-          if [ -z "${HELM_CHART_VERSION}" ]; then
-            echo "::error::HELM_CHART_VERSION is required"
+          if [[ ! "${HELM_CHART_VERSION}" =~ ^0\.0\.0-(latest-dev|[0-9a-f]{8})$ ]]; then
+            echo "::error::HELM_CHART_VERSION must be '0.0.0-latest-dev' or '0.0.0-<8-char-short-sha>' (got '${HELM_CHART_VERSION}')"
             exit 1
           fi
-          case "${HELM_CHART_VERSION}" in
-            *[!A-Za-z0-9._-]*)
-              echo "::error::HELM_CHART_VERSION contains unsupported characters"
-              exit 1
-              ;;
-          esac
 
       - name: Add e2e host entries
         run: echo '127.0.0.1 api.e2e-cp.local thunder.e2e-cp.local openchoreo.e2e-cp.local' | sudo tee -a /etc/hosts
@@ -314,16 +302,10 @@ jobs:
 
       - name: Validate Helm chart version
         run: |
-          if [ -z "${HELM_CHART_VERSION}" ]; then
-            echo "::error::HELM_CHART_VERSION is required"
+          if [[ ! "${HELM_CHART_VERSION}" =~ ^0\.0\.0-(latest-dev|[0-9a-f]{8})$ ]]; then
+            echo "::error::HELM_CHART_VERSION must be '0.0.0-latest-dev' or '0.0.0-<8-char-short-sha>' (got '${HELM_CHART_VERSION}')"
             exit 1
           fi
-          case "${HELM_CHART_VERSION}" in
-            *[!A-Za-z0-9._-]*)
-              echo "::error::HELM_CHART_VERSION contains unsupported characters"
-              exit 1
-              ;;
-          esac
 
       - name: Add e2e multi-cluster host entries
         # CP cluster external domains plus the OP observer hostname. The observer
@@ -431,16 +413,18 @@ jobs:
       - name: Validate Helm chart version
         if: steps.ui-suite.outputs.present == 'true'
         run: |
-          if [ -z "${HELM_CHART_VERSION}" ]; then
-            echo "::error::HELM_CHART_VERSION is required"
+          if [[ ! "${HELM_CHART_VERSION}" =~ ^0\.0\.0-(latest-dev|[0-9a-f]{8})$ ]]; then
+            echo "::error::HELM_CHART_VERSION must be '0.0.0-latest-dev' or '0.0.0-<8-char-short-sha>' (got '${HELM_CHART_VERSION}')"
             exit 1
           fi
-          case "${HELM_CHART_VERSION}" in
-            *[!A-Za-z0-9._-]*)
-              echo "::error::HELM_CHART_VERSION contains unsupported characters"
-              exit 1
-              ;;
-          esac
+
+      - name: Validate Backstage image tag
+        if: steps.ui-suite.outputs.present == 'true'
+        run: |
+          if [[ -n "${E2E_BACKSTAGE_IMAGE_TAG}" && ! "${E2E_BACKSTAGE_IMAGE_TAG}" =~ ^(latest-dev|[0-9a-f]{8})$ ]]; then
+            echo "::error::backstage_image_tag must be empty, 'latest-dev', or an 8-char short SHA (got '${E2E_BACKSTAGE_IMAGE_TAG}')"
+            exit 1
+          fi
 
       - name: Map e2e hostnames for host processes
         # The browsers resolve *.e2e-cp.local via Chromium host-resolver-rules,
@@ -584,16 +568,10 @@ jobs:
       - name: Validate Helm chart version
         if: steps.ui-suite.outputs.present == 'true'
         run: |
-          if [ -z "${HELM_CHART_VERSION}" ]; then
-            echo "::error::HELM_CHART_VERSION is required"
+          if [[ ! "${HELM_CHART_VERSION}" =~ ^0\.0\.0-(latest-dev|[0-9a-f]{8})$ ]]; then
+            echo "::error::HELM_CHART_VERSION must be '0.0.0-latest-dev' or '0.0.0-<8-char-short-sha>' (got '${HELM_CHART_VERSION}')"
             exit 1
           fi
-          case "${HELM_CHART_VERSION}" in
-            *[!A-Za-z0-9._-]*)
-              echo "::error::HELM_CHART_VERSION contains unsupported characters"
-              exit 1
-              ;;
-          esac
 
       - name: Map e2e hostnames for host processes
         # Browsers use --host-resolver-rules; this entry covers any host process

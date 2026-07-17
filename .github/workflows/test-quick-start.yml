@@ -28,7 +28,7 @@ on:
   workflow_call:
     inputs:
       helm_chart_version:
-        description: "Helm chart version (e.g., 0.0.0-latest-dev or 0.0.0-<sha>); the quick-start image tag is the bare suffix"
+        description: "Helm chart version (e.g., 0.0.0-latest-dev or 0.0.0-<8-char-short-sha>); the quick-start image tag is the bare suffix"
         required: false
         type: string
         default: "0.0.0-latest-dev"
@@ -60,16 +60,10 @@ jobs:
         env:
           HELM_CHART_VERSION: ${{ inputs.helm_chart_version }}
         run: |
-          if [ -z "${HELM_CHART_VERSION}" ]; then
-            echo "::error::HELM_CHART_VERSION is required"
+          if [[ ! "${HELM_CHART_VERSION}" =~ ^0\.0\.0-(latest-dev|[0-9a-f]{8})$ ]]; then
+            echo "::error::HELM_CHART_VERSION must be '0.0.0-latest-dev' or '0.0.0-<8-char-short-sha>' (got '${HELM_CHART_VERSION}')"
             exit 1
           fi
-          case "${HELM_CHART_VERSION}" in
-            *[!A-Za-z0-9._-]*)
-              echo "::error::HELM_CHART_VERSION contains unsupported characters"
-              exit 1
-              ;;
-          esac
 
       - name: Resolve test mode
         id: mode
