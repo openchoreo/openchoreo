@@ -223,6 +223,9 @@ If --env is not specified, uses the lowest environment from the deployment pipel
   # Get logs from a specific environment
   occ component logs my-component --env dev
 
+  # Get logs from a single container in a multi-container pod
+  occ component logs my-component --container main
+
   # Follow logs in real-time
   occ component logs my-component --env dev -f`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
@@ -232,12 +235,14 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 			if err != nil {
 				return err
 			}
+			container, _ := cmd.Flags().GetString("container")
 			tail := flags.GetTail(cmd)
 			return New(cl).Logs(LogsParams{
 				Namespace:   flags.GetNamespace(cmd),
 				Project:     flags.GetProject(cmd),
 				Component:   args[0],
 				Environment: flags.GetEnvironment(cmd),
+				Container:   container,
 				Follow:      flags.GetFollow(cmd),
 				Since:       flags.GetSince(cmd),
 				Tail:        tail,
@@ -247,6 +252,7 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 	flags.AddNamespace(cmd)
 	flags.AddProject(cmd)
 	flags.AddEnvironment(cmd)
+	cmd.Flags().StringP("container", "c", "", "Container name to fetch logs from (defaults to all containers)")
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
 	flags.AddTail(cmd)

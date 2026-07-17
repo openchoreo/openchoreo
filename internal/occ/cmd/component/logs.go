@@ -116,10 +116,31 @@ func (cp *Component) fetchAndPrintLogs(
 	}
 
 	for _, log := range logs {
-		fmt.Printf("%s %s\n", log.Timestamp, log.Log)
+		printLogEntry(log)
 	}
 
 	return nil
+}
+
+// printLogEntry prints a log entry, prefixing the container name when known so logs from
+// different containers of the same pod can be told apart.
+func printLogEntry(log client.LogEntry) {
+	if container := log.ContainerName(); container != "" {
+		fmt.Printf("%s [%s] %s\n", log.Timestamp, container, log.Log)
+		return
+	}
+	fmt.Printf("%s %s\n", log.Timestamp, log.Log)
+}
+
+// filterLogsByContainer keeps only entries produced by the named container.
+func filterLogsByContainer(logs []client.LogEntry, container string) []client.LogEntry {
+	filtered := make([]client.LogEntry, 0, len(logs))
+	for _, log := range logs {
+		if log.ContainerName() == container {
+			filtered = append(filtered, log)
+		}
+	}
+	return filtered
 }
 
 // reverseLogs reverses a slice of log entries in place
@@ -156,7 +177,7 @@ func (cp *Component) followLogs(
 
 	// Print initial logs
 	for _, log := range logs {
-		fmt.Printf("%s %s\n", log.Timestamp, log.Log)
+		printLogEntry(log)
 	}
 
 	// Update startTime to the last log timestamp or endTime
@@ -196,7 +217,7 @@ func (cp *Component) followLogs(
 
 			// Print new logs
 			for _, log := range logs {
-				fmt.Printf("%s %s\n", log.Timestamp, log.Log)
+				printLogEntry(log)
 			}
 
 			// Update startTime
@@ -250,7 +271,12 @@ func (cp *Component) fetchLogs(
 			params.Component, params.Project, params.Namespace, params.Environment, observerURL, err)
 	}
 
-	return logResponse.Logs, nil
+	logs := logResponse.Logs
+	if params.Container != "" {
+		logs = filterLogsByContainer(logs, params.Container)
+	}
+
+	return logs, nil
 }
 
 // findRootEnvironment finds the lowest environment in a deployment pipeline.

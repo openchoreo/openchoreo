@@ -86,6 +86,43 @@ func TestReverseLogs(t *testing.T) {
 	}
 }
 
+// --- filterLogsByContainer ---
+
+func TestFilterLogsByContainer(t *testing.T) {
+	logs := []client.LogEntry{
+		{Log: "m1", Metadata: &client.LogMetadata{ContainerName: "main"}},
+		{Log: "d1", Metadata: &client.LogMetadata{ContainerName: "daprd"}},
+		{Log: "m2", Metadata: &client.LogMetadata{ContainerName: "main"}},
+		{Log: "no-meta"},
+	}
+
+	got := filterLogsByContainer(logs, "main")
+	require.Len(t, got, 2)
+	assert.Equal(t, "m1", got[0].Log)
+	assert.Equal(t, "m2", got[1].Log)
+}
+
+// --- printLogEntry ---
+
+func TestPrintLogEntry(t *testing.T) {
+	t.Run("with container prefixes the container name", func(t *testing.T) {
+		out := testutil.CaptureStdout(t, func() {
+			printLogEntry(client.LogEntry{
+				Timestamp: "t1", Log: "hello",
+				Metadata: &client.LogMetadata{ContainerName: "daprd"},
+			})
+		})
+		assert.Equal(t, "t1 [daprd] hello\n", out)
+	})
+
+	t.Run("without container omits the prefix", func(t *testing.T) {
+		out := testutil.CaptureStdout(t, func() {
+			printLogEntry(client.LogEntry{Timestamp: "t1", Log: "hello"})
+		})
+		assert.Equal(t, "t1 hello\n", out)
+	})
+}
+
 // --- findRootEnvironment ---
 
 func makePipeline(paths []gen.PromotionPath) *gen.DeploymentPipeline {
@@ -434,4 +471,31 @@ func TestLogs_WithTail(t *testing.T) {
 	assert.Contains(t, out, "first")
 	assert.Contains(t, out, "second")
 	assert.Contains(t, out, "third")
+}
+
+func TestLogs_WithContainerFilter(t *testing.T) {
+	setupLogsConfig(t)
+
+	observerURL := observerTestURL
+	mc := mocks.NewMockInterface(t)
+	setupMockForLogs(t, mc, observerURL)
+
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		return testutil.JSONResp(http.StatusOK, client.LogResponse{
+			Logs: []client.LogEntry{
+				{Timestamp: "2026-01-01T00:00:00Z", Log: "main log", Metadata: &client.LogMetadata{ContainerName: "main"}},
+				{Timestamp: "2026-01-01T00:00:01Z", Log: "daprd log", Metadata: &client.LogMetadata{ContainerName: "daprd"}},
+			},
+		}), nil
+	}))
+
+	cp := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cp.Logs(LogsParams{
+			Namespace: "ns", Project: "my-proj", Component: "my-comp", Container: "daprd",
+		}))
+	})
+	// Only the requested container's logs appear, prefixed with the container name.
+	assert.Contains(t, out, "[daprd] daprd log")
+	assert.NotContains(t, out, "main log")
 }
