@@ -523,7 +523,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
+      E2E_WITH_UI: "true"
       E2E_WITH_EXT_IDP: "true"
+      E2E_BACKSTAGE_IMAGE_TAG: ${{ inputs.backstage_image_tag }}
       E2E_KUBECONTEXT: k3d-openchoreo-e2e
       UI_BASE_URL: http://openchoreo.e2e-cp.local:28080
     steps:
@@ -618,7 +620,9 @@ jobs:
           make e2e.setup \
             E2E_HELM_SOURCE=oci \
             HELM_CHART_VERSION="${HELM_CHART_VERSION}" \
+            E2E_WITH_UI="${E2E_WITH_UI}" \
             E2E_WITH_EXT_IDP="${E2E_WITH_EXT_IDP}" \
+            E2E_BACKSTAGE_IMAGE_TAG="${E2E_BACKSTAGE_IMAGE_TAG}" \
             E2E_SETUP_TIMEOUT=10m
 
       - name: Run ext-idp Playwright tests
