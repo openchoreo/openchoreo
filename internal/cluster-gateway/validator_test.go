@@ -30,7 +30,7 @@ func TestNewRequestValidator(t *testing.T) {
 		assert.True(t, v.allowedTargets[tgt], "target %s should be allowed", tgt)
 	}
 
-	assert.Len(t, v.blockedPaths, 2)
+	assert.Empty(t, v.blockedPaths)
 }
 
 func TestValidateRequest_AllowedMethods(t *testing.T) {
@@ -61,20 +61,24 @@ func TestValidateRequest_AllowedMethods(t *testing.T) {
 	}
 }
 
-func TestValidateRequest_BlockedPaths(t *testing.T) {
+func TestValidateRequest_SensitiveCoreResources(t *testing.T) {
 	v := NewRequestValidator()
 
-	tests := []struct {
+	blocked := []struct {
 		name string
 		path string
 	}{
+		{"namespaced secrets list", "/api/v1/namespaces/default/secrets"},
+		{"namespaced secret get", "/api/v1/namespaces/openchoreo-control-plane/secrets/my-secret"},
 		{"kube-system secrets", "/api/v1/namespaces/kube-system/secrets"},
-		{"cluster-wide service accounts", "/apis/v1/serviceaccounts"},
-		{"kube-system secrets subpath", "/api/v1/namespaces/kube-system/secrets/my-secret"},
+		{"cluster serviceaccounts list", "/api/v1/serviceaccounts"},
+		{"namespaced serviceaccounts list", "/api/v1/namespaces/default/serviceaccounts"},
+		{"serviceaccount get", "/api/v1/namespaces/default/serviceaccounts/default"},
+		{"serviceaccount token subresource", "/api/v1/namespaces/default/serviceaccounts/default/token"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range blocked {
+		t.Run("blocked_"+tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 			err := v.ValidateRequest(req, "k8s", tt.path)
 			require.Error(t, err)
@@ -83,6 +87,33 @@ func TestValidateRequest_BlockedPaths(t *testing.T) {
 			assert.Equal(t, http.StatusForbidden, valErr.Code)
 		})
 	}
+
+	// CRDs under /apis/ must not be blocked by the core secrets/SA check.
+	allowed := []struct {
+		name string
+		path string
+	}{
+		{"pods", "/api/v1/namespaces/default/pods"},
+		{"events", "/api/v1/namespaces/default/events"},
+		{"external secrets crd", "/apis/external-secrets.io/v1beta1/namespaces/default/externalsecrets"},
+		{"wrong legacy sa path string still not core api", "/apis/v1/serviceaccounts"},
+	}
+
+	for _, tt := range allowed {
+		t.Run("allowed_"+tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			err := v.ValidateRequest(req, "k8s", tt.path)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestPathTouchesSensitiveCoreResource(t *testing.T) {
+	assert.True(t, pathTouchesSensitiveCoreResource("/api/v1/namespaces/ns/secrets"))
+	assert.True(t, pathTouchesSensitiveCoreResource("/api/v1/serviceaccounts"))
+	assert.False(t, pathTouchesSensitiveCoreResource("/api/v1/namespaces/ns/pods"))
+	assert.False(t, pathTouchesSensitiveCoreResource("/apis/v1/serviceaccounts"))
+	assert.False(t, pathTouchesSensitiveCoreResource("/apis/external-secrets.io/v1/namespaces/ns/externalsecrets"))
 }
 
 func TestValidateRequest_AllowedTargets(t *testing.T) {
