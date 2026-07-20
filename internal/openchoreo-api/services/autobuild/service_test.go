@@ -191,27 +191,24 @@ func TestGetWebhookSecret(t *testing.T) {
 		assert.Equal(t, "my-value", val)
 	})
 
-	t.Run("missing key returns error", func(t *testing.T) {
+	t.Run("missing key returns ErrSecretNotConfigured", func(t *testing.T) {
 		svc := newAutobuildService(t, newWebhookSecret("other-key", "value"))
 
 		_, err := svc.getWebhookSecret(ctx, "missing-key")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "does not contain")
+		require.ErrorIs(t, err, ErrSecretNotConfigured)
 	})
 
-	t.Run("empty value returns error", func(t *testing.T) {
+	t.Run("empty value returns ErrSecretNotConfigured", func(t *testing.T) {
 		svc := newAutobuildService(t, newWebhookSecret("my-key", ""))
 
 		_, err := svc.getWebhookSecret(ctx, "my-key")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "empty")
+		require.ErrorIs(t, err, ErrSecretNotConfigured)
 	})
 
-	t.Run("secret not found returns error", func(t *testing.T) {
+	t.Run("secret not found returns ErrSecretNotConfigured", func(t *testing.T) {
 		svc := newAutobuildService(t)
 
 		_, err := svc.getWebhookSecret(ctx, "any-key")
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to get webhook secret")
+		require.ErrorIs(t, err, ErrSecretNotConfigured)
 	})
 }
