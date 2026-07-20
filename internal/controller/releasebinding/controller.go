@@ -621,10 +621,12 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		}
 
 		dataPlaneRelease.Labels = map[string]string{
-			labels.LabelKeyNamespaceName:   releaseBinding.Namespace,
-			labels.LabelKeyProjectName:     releaseBinding.Spec.Owner.ProjectName,
-			labels.LabelKeyComponentName:   releaseBinding.Spec.Owner.ComponentName,
-			labels.LabelKeyEnvironmentName: releaseBinding.Spec.Environment,
+			labels.LabelKeyNamespaceName:        releaseBinding.Namespace,
+			labels.LabelKeyProjectName:          releaseBinding.Spec.Owner.ProjectName,
+			labels.LabelKeyComponentName:        releaseBinding.Spec.Owner.ComponentName,
+			labels.LabelKeyEnvironmentName:      releaseBinding.Spec.Environment,
+			labels.LabelKeyComponentReleaseName: componentRelease.Name,
+			labels.LabelKeyComponentReleaseUID:  string(componentRelease.UID),
 		}
 
 		if v, ok := releaseBinding.Annotations[controller.AnnotationKeyRestartedAt]; ok {

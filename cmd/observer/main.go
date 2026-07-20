@@ -378,10 +378,16 @@ func main() {
 	// controllers emit them and a source is wired) into the delivery insights store.
 	var backgroundWG sync.WaitGroup
 	if cfg.Insights.AggregationEnabled {
+		// The events source needs a logs adapter with the reasons filter and
+		// searchAfter pagination; keep it opt-in until the deployed adapter has them.
+		var eventsSource aggregator.EventsSource
+		if cfg.Insights.EventsSourceEnabled {
+			eventsSource = concreteLogsAdapter
+		}
 		doraAggregator := aggregator.New(
 			deliveryInsightsStore,
 			incidentEntryStore,
-			nil, // events source: no delivery lifecycle events are emitted yet
+			eventsSource,
 			aggregator.Config{
 				Interval:          cfg.Insights.AggregationInterval,
 				Overlap:           cfg.Insights.AggregationOverlap,

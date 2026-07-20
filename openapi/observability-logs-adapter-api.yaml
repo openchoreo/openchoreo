@@ -543,11 +543,28 @@ components:
             - asc
             - desc
           default: desc
+        reasons:
+          type: array
+          items:
+            type: string
+          description: >
+            Optional server-side filter on the event reason field (terms match).
+            Used by machine consumers such as the delivery insights aggregator
+            to sweep specific controller-emitted events (e.g. DeploymentSucceeded).
+        searchAfter:
+          type: string
+          description: >
+            Opaque pagination cursor from a previous response's nextCursor.
+            Enables deep pagination beyond the limit cap for machine consumers.
         searchScope:
           oneOf:
             - $ref: "#/components/schemas/ComponentSearchScope"
             - $ref: "#/components/schemas/WorkflowSearchScope"
-      required: [startTime, endTime, searchScope]
+          description: >
+            Scope of the query. May be omitted only for reason-filtered sweeps
+            (machine consumers reading controller-emitted events across all
+            namespaces); interactive queries must always be scoped.
+      required: [startTime, endTime]
 
     # Response schemas for events
     EventEntry:
@@ -618,6 +635,11 @@ components:
         tookMs:
           type: integer
           description: The time taken to query the events in milliseconds
+        nextCursor:
+          type: string
+          description: >
+            Opaque cursor to pass as searchAfter in a follow-up request to
+            continue past this page. Absent when there are no further results.
 
     # Request schemas for alert rules
     AlertRuleRequest:

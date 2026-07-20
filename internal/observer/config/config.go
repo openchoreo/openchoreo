@@ -145,6 +145,11 @@ type InsightsConfig struct {
 	// incident resolutions do not bump ingestion timestamps, so pure watermark
 	// increments would miss them).
 	IncidentLookback time.Duration `koanf:"aggregation.incident.lookback"`
+	// EventsSourceEnabled feeds the aggregator delivery lifecycle events read
+	// from the logs adapter. Requires an adapter that supports the events query
+	// reasons filter and searchAfter pagination; off by default until the
+	// deployed adapter does.
+	EventsSourceEnabled bool `koanf:"aggregation.events.source.enabled"`
 }
 
 // UIDResolverConfig holds configuration for the resource UID resolver
@@ -233,6 +238,7 @@ func Load() (*Config, error) {
 		"INSIGHTS_AGGREGATION_ENABLED":          "insights.aggregation.enabled",
 		"INSIGHTS_AGGREGATION_INTERVAL":         "insights.aggregation.interval",
 		"INSIGHTS_AGGREGATION_OVERLAP":          "insights.aggregation.overlap",
+		"INSIGHTS_EVENTS_SOURCE_ENABLED":        "insights.aggregation.events.source.enabled",
 		"INSIGHTS_ATTRIBUTION_WINDOW":           "insights.aggregation.attribution.window",
 		"INSIGHTS_INCIDENT_LOOKBACK":            "insights.aggregation.incident.lookback",
 		"AUTHZ_DISABLED":                        "authz.disabled",
@@ -366,14 +372,15 @@ func getDefaults() map[string]interface{} {
 			"finops.agent.enabled":     false,
 		},
 		"insights": map[string]interface{}{
-			"store.backend":                  "",
-			"store.dsn":                      "",
-			"uid.resolution":                 "resolver",
-			"aggregation.enabled":            true,
-			"aggregation.interval":           "5m",
-			"aggregation.overlap":            "10m",
-			"aggregation.attribution.window": "24h",
-			"aggregation.incident.lookback":  "720h", // 30 days
+			"store.backend":                     "",
+			"store.dsn":                         "",
+			"uid.resolution":                    "resolver",
+			"aggregation.enabled":               true,
+			"aggregation.interval":              "5m",
+			"aggregation.overlap":               "10m",
+			"aggregation.attribution.window":    "24h",
+			"aggregation.incident.lookback":     "720h", // 30 days
+			"aggregation.events.source.enabled": false,
 		},
 		"adapters": map[string]interface{}{
 			"logs.adapter.url":        "http://logs-adapter:9098",

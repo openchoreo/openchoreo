@@ -25,11 +25,8 @@ import (
 
 // updateStatus updates the Release status with applied resources
 // Returns true if the status was updated, false if unchanged
-func (r *Reconciler) updateStatus(ctx context.Context, old, release *openchoreov1alpha1.RenderedRelease, appliedResources, liveResources []*unstructured.Unstructured) (bool, error) {
+func (r *Reconciler) updateStatus(ctx context.Context, old, release *openchoreov1alpha1.RenderedRelease, resourceStatuses []openchoreov1alpha1.RenderedManifestStatus) (bool, error) {
 	logger := log.FromContext(ctx)
-
-	// Build resource status from applied and live resources
-	resourceStatuses := r.buildResourceStatus(ctx, old, appliedResources, liveResources)
 
 	// Update the status
 	release.Status.Resources = resourceStatuses
@@ -170,13 +167,13 @@ func (r *Reconciler) hasTransitioningResources(resources []openchoreov1alpha1.Re
 
 func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (openchoreov1alpha1.HealthStatus, error) {
 	switch {
-	case gvk.Group == "apps" && gvk.Kind == "Deployment":
+	case gvk.Group == "apps" && gvk.Kind == kindDeployment:
 		return getDeploymentHealth
-	case gvk.Group == "apps" && gvk.Kind == "StatefulSet":
+	case gvk.Group == "apps" && gvk.Kind == kindStatefulSet:
 		return getStatefulSetHealth
 	case gvk.Group == "" && gvk.Kind == "Pod":
 		return getPodHealth
-	case gvk.Group == "batch" && gvk.Kind == "CronJob":
+	case gvk.Group == "batch" && gvk.Kind == kindCronJob:
 		return getCronJobHealth
 		// TODO: Add gateway http route health check, and other resources as needed
 	}
@@ -217,7 +214,7 @@ func getDeploymentHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Hea
 	availableCond, progressingCond, replicaFailCond := extractDeploymentConditions(deployment.Status.Conditions)
 
 	// Progress deadline or replica failure -> Degraded
-	if progressingCond != nil && progressingCond.Reason == "ProgressDeadlineExceeded" {
+	if progressingCond != nil && progressingCond.Reason == reasonProgressDeadlineExceeded {
 		return openchoreov1alpha1.HealthStatusDegraded, nil
 	}
 	if replicaFailCond != nil && replicaFailCond.Status == corev1.ConditionTrue {

@@ -57,6 +57,37 @@ type RenderedReleaseStatus struct {
 	// Conditions represent the latest available observations of the RenderedRelease's current state.
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// Delivery tracks which delivery lifecycle events have been emitted for the
+	// current rollout, so each phase is emitted exactly once per rollout even
+	// though the emitted Events themselves are garbage-collected by Kubernetes.
+	// +optional
+	Delivery *DeliveryStatus `json:"delivery,omitempty"`
+}
+
+// DeliveryStatus records delivery lifecycle event emission markers for one rollout.
+// A rollout is one ComponentRelease rolled out through this RenderedRelease; when
+// RolloutID changes, all markers reset.
+type DeliveryStatus struct {
+	// RolloutID identifies the rollout the markers below refer to.
+	RolloutID string `json:"rolloutId"`
+
+	// StartedAt is when DeploymentStarted was emitted for this rollout.
+	// +optional
+	StartedAt *metav1.Time `json:"startedAt,omitempty"`
+
+	// SucceededAt is when DeploymentSucceeded was emitted for this rollout.
+	// +optional
+	SucceededAt *metav1.Time `json:"succeededAt,omitempty"`
+
+	// FailedAt is when DeploymentFailed was last emitted. A failure episode is
+	// open while FailedAt is set and RecoveredAt is unset or earlier than FailedAt.
+	// +optional
+	FailedAt *metav1.Time `json:"failedAt,omitempty"`
+
+	// RecoveredAt is when DeploymentRecovered was last emitted.
+	// +optional
+	RecoveredAt *metav1.Time `json:"recoveredAt,omitempty"`
 }
 
 // +kubebuilder:object:root=true

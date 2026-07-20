@@ -345,8 +345,16 @@ type EventsQueryRequest struct {
 	EndTime time.Time `json:"endTime"`
 
 	// Limit The maximum number of items to return
-	Limit       *int                           `json:"limit,omitempty"`
-	SearchScope EventsQueryRequest_SearchScope `json:"searchScope"`
+	Limit *int `json:"limit,omitempty"`
+
+	// Reasons Optional server-side filter on the event reason field (terms match). Used by machine consumers such as the delivery insights aggregator to sweep specific controller-emitted events (e.g. DeploymentSucceeded).
+	Reasons *[]string `json:"reasons,omitempty"`
+
+	// SearchAfter Opaque pagination cursor from a previous response's nextCursor. Enables deep pagination beyond the limit cap for machine consumers.
+	SearchAfter *string `json:"searchAfter,omitempty"`
+
+	// SearchScope Scope of the query. May be omitted only for reason-filtered sweeps (machine consumers reading controller-emitted events across all namespaces); interactive queries must always be scoped.
+	SearchScope *EventsQueryRequest_SearchScope `json:"searchScope,omitempty"`
 
 	// SortOrder The sort order of the query
 	SortOrder *EventsQueryRequestSortOrder `json:"sortOrder,omitempty"`
@@ -355,7 +363,7 @@ type EventsQueryRequest struct {
 	StartTime time.Time `json:"startTime"`
 }
 
-// EventsQueryRequest_SearchScope defines model for EventsQueryRequest.SearchScope.
+// EventsQueryRequest_SearchScope Scope of the query. May be omitted only for reason-filtered sweeps (machine consumers reading controller-emitted events across all namespaces); interactive queries must always be scoped.
 type EventsQueryRequest_SearchScope struct {
 	union json.RawMessage
 }
@@ -367,6 +375,9 @@ type EventsQueryRequestSortOrder string
 type EventsQueryResponse struct {
 	// Events The events queried successfully
 	Events *[]EventEntry `json:"events,omitempty"`
+
+	// NextCursor Opaque cursor to pass as searchAfter in a follow-up request to continue past this page. Absent when there are no further results.
+	NextCursor *string `json:"nextCursor,omitempty"`
 
 	// TookMs The time taken to query the events in milliseconds
 	TookMs *int `json:"tookMs,omitempty"`
