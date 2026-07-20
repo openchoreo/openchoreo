@@ -252,7 +252,8 @@ If --env is not specified, uses the lowest environment from the deployment pipel
 	flags.AddNamespace(cmd)
 	flags.AddProject(cmd)
 	flags.AddEnvironment(cmd)
-	cmd.Flags().StringP("container", "c", "", "Container name to fetch logs from (defaults to all containers)")
+	// No short alias: `-c` denotes --component elsewhere in the CLI.
+	cmd.Flags().String("container", "", "Container name to fetch logs from (defaults to all containers)")
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
 	flags.AddTail(cmd)
