@@ -25,6 +25,25 @@ spec:
             optional: true
       container:
         image: ghcr.io/openchoreo/podman-runner:v1.2
+        env:
+          - name: IMAGE_NAME
+            value: '{{workflow.parameters.image-name}}'
+          - name: IMAGE_TAG
+            value: '{{workflow.parameters.image-tag}}'
+          - name: GIT_REVISION
+            value: '{{inputs.parameters.git-revision}}'
+          - name: DOCKER_CONTEXT
+            value: '{{workflow.parameters.docker-context}}'
+          - name: DOCKERFILE_PATH
+            value: '{{workflow.parameters.dockerfile-path}}'
+          - name: BUILD_ENV_JSON
+            value: '{{inputs.parameters.build-env}}'
+          - name: BUILD_ARGS_JSON
+            value: '{{inputs.parameters.build-args}}'
+          - name: CACHE_REGISTRY
+            value: '{{inputs.parameters.build-cache}}'
+          - name: CACHE_LAYERS_MODE
+            value: '{{inputs.parameters.cache-layers-mode}}'
         command:
           - sh
           - -c
@@ -33,13 +52,7 @@ spec:
             set -e
 
             WORKDIR="/mnt/vol/source"
-            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
-            DOCKER_CONTEXT="{{workflow.parameters.docker-context}}"
-            DOCKERFILE_PATH="{{workflow.parameters.dockerfile-path}}"
-            BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
-            BUILD_ARGS_JSON='{{inputs.parameters.build-args}}'
-            CACHE_REGISTRY="{{inputs.parameters.build-cache}}"
-            CACHE_LAYERS_MODE="{{inputs.parameters.cache-layers-mode}}"
+            IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
 
             echo ">> Image: $IMAGE"
             echo ">> Dockerfile: $DOCKERFILE_PATH"
@@ -78,18 +91,25 @@ spec:
             [storage.options.overlay]
             STEOF
 
-            ENV_ARGS=""
+            # Build --env and --build-arg flags as argv entries, not shell fragments.
+            set --
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | jq -r '.[] | "--env \(.name)=\(.value)"' | tr '\n' ' ')
+              while IFS= read -r kv; do
+                [ -n "$kv" ] && set -- "$@" --env "$kv"
+              done <<EOF
+            $(printf '%s' "$BUILD_ENV_JSON" | jq -r '.[] | "\(.name)=\(.value)"')
+            EOF
             fi
 
-            BUILD_ARG_ARGS=""
             if [ -n "$BUILD_ARGS_JSON" ] && [ "$BUILD_ARGS_JSON" != "[]" ]; then
-              BUILD_ARG_ARGS=$(echo "$BUILD_ARGS_JSON" | jq -r '.[] | "--build-arg \(.name)=\(.value)"' | tr '\n' ' ')
+              while IFS= read -r kv; do
+                [ -n "$kv" ] && set -- "$@" --build-arg "$kv"
+              done <<EOF
+            $(printf '%s' "$BUILD_ARGS_JSON" | jq -r '.[] | "\(.name)=\(.value)"')
+            EOF
             fi
 
             CACHE_AVAILABLE="false"
-            CACHE_ARGS=""
             if [ -n "$CACHE_REGISTRY" ] && [ "$CACHE_REGISTRY" != "none" ]; then
               if curl -sf --connect-timeout 3 "http://${CACHE_REGISTRY}/v2/" >/dev/null 2>&1; then
                 CACHE_AVAILABLE="true"
@@ -107,14 +127,14 @@ spec:
             fi
 
             if [ "$CACHE_AVAILABLE" = "true" ] && [ "$CACHE_LAYERS_MODE" != "disabled" ]; then
-              CACHE_REF="${CACHE_REGISTRY}/build-cache/containerfile/{{workflow.parameters.image-name}}"
+              CACHE_REF="${CACHE_REGISTRY}/build-cache/containerfile/${IMAGE_NAME}"
               case "$CACHE_LAYERS_MODE" in
                 reuse)
-                  CACHE_ARGS="--layers --cache-from=${CACHE_REF} --cache-to=${CACHE_REF} --cache-ttl=168h"
+                  set -- "$@" --layers "--cache-from=${CACHE_REF}" "--cache-to=${CACHE_REF}" --cache-ttl=168h
                   echo ">> Layer cache: reuse ${CACHE_REF}"
                   ;;
                 rebuild)
-                  CACHE_ARGS="--layers --cache-to=${CACHE_REF} --cache-ttl=168h"
+                  set -- "$@" --layers "--cache-to=${CACHE_REF}" --cache-ttl=168h
                   echo ">> Layer cache: rebuild ${CACHE_REF}"
                   ;;
               esac
@@ -125,9 +145,9 @@ spec:
             fi
 
             echo ">> Building image"
-            podman build -t $IMAGE -f $WORKDIR/$DOCKERFILE_PATH $ENV_ARGS $BUILD_ARG_ARGS $CACHE_ARGS $WORKDIR/$DOCKER_CONTEXT
+            podman build -t "$IMAGE" -f "$WORKDIR/$DOCKERFILE_PATH" "$@" -- "$WORKDIR/$DOCKER_CONTEXT"
             echo ">> Image built successfully"
-            podman save -o /mnt/vol/app-image.tar $IMAGE
+            podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:
           privileged: true
         volumeMounts:

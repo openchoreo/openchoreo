@@ -29,18 +29,28 @@ spec:
             optional: true
       container:
         image: ghcr.io/openchoreo/podman-runner:v1.2
+        env:
+          - name: IMAGE_NAME
+            value: '{{workflow.parameters.image-name}}'
+          - name: IMAGE_TAG
+            value: '{{workflow.parameters.image-tag}}'
+          - name: GIT_REVISION
+            value: '{{inputs.parameters.git-revision}}'
+          - name: APP_PATH
+            value: '{{workflow.parameters.app-path}}'
+          - name: BUILD_ENV_JSON
+            value: '{{inputs.parameters.build-env}}'
+          - name: CACHE_REGISTRY
+            value: '{{inputs.parameters.build-cache}}'
+          - name: CACHE_LAYERS_MODE
+            value: '{{inputs.parameters.cache-layers-mode}}'
         command: [sh, -c]
         args:
           - |-
             set -e
 
             WORKDIR=/mnt/vol/source
-            GIT_REVISION="{{inputs.parameters.git-revision}}"
-            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-${GIT_REVISION}"
-            APP_PATH="{{workflow.parameters.app-path}}"
-            BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
-            CACHE_REGISTRY="{{inputs.parameters.build-cache}}"
-            CACHE_LAYERS_MODE="{{inputs.parameters.cache-layers-mode}}"
+            IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
 
             case "$CACHE_LAYERS_MODE" in disabled|reuse|rebuild) ;; *) echo ">> Error: invalid cache layers mode '$CACHE_LAYERS_MODE'"; exit 1 ;; esac
 
@@ -97,9 +107,14 @@ spec:
             # ghcr.io/openchoreo/buildpack/ballerina:18-run
             RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina@sha256:121499416443e19dcb43a22e7acfa246d29427a978a43b29b5b4e7a8385b222c"
 
-            ENV_ARGS=""
+            # Build --env flags as argv entries, not shell fragments.
+            set --
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | jq -r '.[] | "--env \(.name)=\(.value)"' | tr '\n' ' ')
+              while IFS= read -r kv; do
+                [ -n "$kv" ] && set -- "$@" --env "$kv"
+              done <<EOF
+            $(printf '%s' "$BUILD_ENV_JSON" | jq -r '.[] | "\(.name)=\(.value)"')
+            EOF
             fi
 
             CACHE_AVAILABLE="false"
@@ -122,8 +137,8 @@ spec:
             fi
 
             if [ "$CACHE_AVAILABLE" = "true" ] && [ "$CACHE_LAYERS_MODE" != "disabled" ]; then
-              CACHE_IMAGE="${CACHE_REGISTRY}/build-cache/cnb/{{workflow.parameters.image-name}}:cnb-cache"
-              PUBLISH_REF="${CACHE_REGISTRY}/build-tmp/cnb/{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-${GIT_REVISION}"
+              CACHE_IMAGE="${CACHE_REGISTRY}/build-cache/cnb/${IMAGE_NAME}:cnb-cache"
+              PUBLISH_REF="${CACHE_REGISTRY}/build-tmp/cnb/${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
               CLEAR_CACHE_ARG=""
               if [ "$CACHE_LAYERS_MODE" = "rebuild" ]; then CLEAR_CACHE_ARG="--clear-cache"; fi
 
@@ -137,7 +152,7 @@ spec:
                 $PACK_REGISTRY_ARGS \
                 --cache-image "$CACHE_IMAGE" \
                 $CLEAR_CACHE_ARG \
-                $ENV_ARGS
+                "$@"
 
               podman pull --tls-verify=false "$PUBLISH_REF"
               podman tag "$PUBLISH_REF" "$IMAGE"
@@ -153,7 +168,7 @@ spec:
               --volume "/generated-artifacts:/app/generated-artifacts:rw" \
               --pull-policy always \
               $PACK_REGISTRY_ARGS \
-              $ENV_ARGS
+              "$@"
 
             until podman image exists "$IMAGE" 2>/dev/null; do sleep 1; done
             podman save -o /mnt/vol/app-image.tar "$IMAGE"

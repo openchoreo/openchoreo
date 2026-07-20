@@ -35,6 +35,13 @@ spec:
             secretName: '{{workflow.parameters.registry-push-secret}}'
       container:
         image: ghcr.io/openchoreo/podman-runner@sha256:2165f0d5ca5c8286c234388d542f50ede8f38108fc25a57ce141fcdf5cc87b00
+        env:
+          - name: GIT_REVISION
+            value: '{{inputs.parameters.git-revision}}'
+          - name: IMAGE_NAME
+            value: '{{workflow.parameters.image-name}}'
+          - name: IMAGE_TAG
+            value: '{{workflow.parameters.image-tag}}'
         command:
           - sh
           - -c
@@ -42,9 +49,6 @@ spec:
           - |-
             set -e
 
-            GIT_REVISION={{inputs.parameters.git-revision}}
-            IMAGE_NAME={{workflow.parameters.image-name}}
-            IMAGE_TAG={{workflow.parameters.image-tag}}
             SRC_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
 
             REGISTRY_ENDPOINT="host.k3d.internal:20082"
@@ -73,13 +77,13 @@ spec:
 
             podman load -i /mnt/vol/app-image.tar
 
-            podman tag $SRC_IMAGE $REGISTRY_ENDPOINT/$SRC_IMAGE
+            podman tag "$SRC_IMAGE" "$REGISTRY_ENDPOINT/$SRC_IMAGE"
 
             echo ">> Pushing image to registry"
             if [ -f "$AUTH_FILE" ]; then
-              podman push --tls-verify=false --authfile "$AUTH_FILE" $REGISTRY_ENDPOINT/$SRC_IMAGE
+              podman push --tls-verify=false --authfile "$AUTH_FILE" "$REGISTRY_ENDPOINT/$SRC_IMAGE"
             else
-              podman push --tls-verify=false $REGISTRY_ENDPOINT/$SRC_IMAGE
+              podman push --tls-verify=false "$REGISTRY_ENDPOINT/$SRC_IMAGE"
             fi
 
             echo ">> Image published successfully: $REGISTRY_ENDPOINT/$SRC_IMAGE"
