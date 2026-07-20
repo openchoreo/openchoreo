@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -322,13 +323,20 @@ func getSchemaFieldDefault(schema *runtime.RawExtension, dottedPath string) stri
 // It returns "" for hosts that don't map to a known SaaS provider (e.g. self-hosted
 // installations), in which case callers should not enforce a provider-consistency check.
 func providerFromRepoURL(repoURL string) git.ProviderType {
-	normalized := normalizeWebhookRepoURL(repoURL)
+	// Inspect the URL host only. Matching against the full URL (e.g. via substring)
+	// would misclassify a repository whose org/name path contains another provider's
+	// domain, such as https://bitbucket.org/my-org/github.com-sync.
+	u, err := url.Parse(normalizeWebhookRepoURL(repoURL))
+	if err != nil {
+		return ""
+	}
+	host := u.Hostname()
 	switch {
-	case strings.Contains(normalized, "github.com"):
+	case host == "github.com" || strings.HasSuffix(host, ".github.com"):
 		return git.ProviderGitHub
-	case strings.Contains(normalized, "gitlab.com"):
+	case host == "gitlab.com" || strings.HasSuffix(host, ".gitlab.com"):
 		return git.ProviderGitLab
-	case strings.Contains(normalized, "bitbucket.org"):
+	case host == "bitbucket.org" || strings.HasSuffix(host, ".bitbucket.org"):
 		return git.ProviderBitbucket
 	default:
 		return ""

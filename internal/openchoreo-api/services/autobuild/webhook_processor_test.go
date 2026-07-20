@@ -657,6 +657,35 @@ func TestWebhookBranchFilter_Match(t *testing.T) {
 	}
 }
 
+func TestProviderFromRepoURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		repoURL string
+		want    git.ProviderType
+	}{
+		{"github https", "https://github.com/org/repo", git.ProviderGitHub},
+		{"github https .git", "https://github.com/org/repo.git", git.ProviderGitHub},
+		{"github ssh", "git@github.com:org/repo.git", git.ProviderGitHub},
+		{"gitlab https", "https://gitlab.com/org/repo", git.ProviderGitLab},
+		{"bitbucket https", "https://bitbucket.org/org/repo", git.ProviderBitbucket},
+		// Regression: a Bitbucket repo whose path contains another provider's domain
+		// must be classified by host, not by substring match on the path.
+		{"bitbucket repo path contains github.com", "https://bitbucket.org/my-org/github.com-sync", git.ProviderBitbucket},
+		{"github repo path contains bitbucket.org", "https://github.com/my-org/bitbucket.org-mirror", git.ProviderGitHub},
+		// Self-hosted / unknown hosts are not inferred.
+		{"self-hosted host", "https://git.example.com/org/repo", ""},
+		{"self-hosted with github in path", "https://git.example.com/org/github.com", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := providerFromRepoURL(tt.repoURL); got != tt.want {
+				t.Errorf("providerFromRepoURL(%q) = %q, want %q", tt.repoURL, got, tt.want)
+			}
+		})
+	}
+}
+
 // TestWebhookProviderFilter_Mismatch verifies that a webhook authenticated as one provider
 // does not trigger builds for a component hosted on a different provider, even when the
 // repository URL matches. This guards against provider-confusion across shared repo URLs.
