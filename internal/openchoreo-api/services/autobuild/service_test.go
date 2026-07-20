@@ -5,6 +5,9 @@ package autobuild
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -17,6 +20,14 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/git"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/testutil"
 )
+
+// hmacSignature returns the "sha256=<hex>" HMAC-SHA256 signature of payload under secret,
+// matching the format git providers send in their signature headers.
+func hmacSignature(secret string, payload []byte) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(payload)
+	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
+}
 
 // mockProcessor is a test double for WebhookProcessor.
 type mockProcessor struct {
@@ -56,17 +67,19 @@ func newAutobuildService(t *testing.T, objs ...client.Object) *autobuildService 
 func TestProcessWebhook(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("success with bitbucket token validation", func(t *testing.T) {
-		secret := newWebhookSecret("bitbucket-secret", "my-token")
+	t.Run("success with bitbucket HMAC signature", func(t *testing.T) {
+		const secretValue = "my-token"
+		payload := []byte(`{"push":{}}`)
+		secret := newWebhookSecret("bitbucket-secret", secretValue)
 		processor := &mockProcessor{components: []string{"comp-a", "comp-b"}}
 		svc := newService(t, processor, secret)
 
 		result, err := svc.ProcessWebhook(ctx, &ProcessWebhookParams{
 			ProviderType:    git.ProviderBitbucket,
-			SignatureHeader: "X-Hook-UUID",
-			Signature:       "my-token",
+			SignatureHeader: "X-Hub-Signature",
+			Signature:       hmacSignature(secretValue, payload),
 			SecretKey:       "bitbucket-secret",
-			Payload:         []byte(`{"push":{}}`),
+			Payload:         payload,
 		})
 
 		require.NoError(t, err)
@@ -100,15 +113,15 @@ func TestProcessWebhook(t *testing.T) {
 		require.ErrorIs(t, err, ErrSecretNotConfigured)
 	})
 
-	t.Run("secret key missing with signature header", func(t *testing.T) {
-		// Secret exists but missing the expected key; signature header is present so allowEmpty=false
+	t.Run("secret key missing fails closed", func(t *testing.T) {
+		// Secret object exists but is missing the expected provider key.
 		secret := newWebhookSecret("other-key", "value")
 		svc := newService(t, &mockProcessor{}, secret)
 
 		_, err := svc.ProcessWebhook(ctx, &ProcessWebhookParams{
 			ProviderType:    git.ProviderBitbucket,
-			SignatureHeader: "X-Hook-UUID",
-			Signature:       "token",
+			SignatureHeader: "X-Hub-Signature",
+			Signature:       "sha256=abc",
 			SecretKey:       "bitbucket-secret",
 			Payload:         []byte(`{}`),
 		})
@@ -122,8 +135,24 @@ func TestProcessWebhook(t *testing.T) {
 
 		_, err := svc.ProcessWebhook(ctx, &ProcessWebhookParams{
 			ProviderType:    git.ProviderBitbucket,
-			SignatureHeader: "X-Hook-UUID",
-			Signature:       "wrong-token",
+			SignatureHeader: "X-Hub-Signature",
+			Signature:       "sha256=deadbeef",
+			SecretKey:       "bitbucket-secret",
+			Payload:         []byte(`{}`),
+		})
+
+		require.ErrorIs(t, err, ErrInvalidSignature)
+	})
+
+	t.Run("missing signature fails closed", func(t *testing.T) {
+		// A forged Bitbucket webhook with a configured secret but no signature must be rejected.
+		secret := newWebhookSecret("bitbucket-secret", "correct-token")
+		svc := newService(t, &mockProcessor{}, secret)
+
+		_, err := svc.ProcessWebhook(ctx, &ProcessWebhookParams{
+			ProviderType:    git.ProviderBitbucket,
+			SignatureHeader: "X-Hub-Signature",
+			Signature:       "",
 			SecretKey:       "bitbucket-secret",
 			Payload:         []byte(`{}`),
 		})
@@ -132,16 +161,18 @@ func TestProcessWebhook(t *testing.T) {
 	})
 
 	t.Run("processor error", func(t *testing.T) {
-		secret := newWebhookSecret("bitbucket-secret", "my-token")
+		const secretValue = "my-token"
+		payload := []byte(`{}`)
+		secret := newWebhookSecret("bitbucket-secret", secretValue)
 		processor := &mockProcessor{err: fmt.Errorf("build trigger failed")}
 		svc := newService(t, processor, secret)
 
 		_, err := svc.ProcessWebhook(ctx, &ProcessWebhookParams{
 			ProviderType:    git.ProviderBitbucket,
-			SignatureHeader: "X-Hook-UUID",
-			Signature:       "my-token",
+			SignatureHeader: "X-Hub-Signature",
+			Signature:       hmacSignature(secretValue, payload),
 			SecretKey:       "bitbucket-secret",
-			Payload:         []byte(`{}`),
+			Payload:         payload,
 		})
 
 		require.Error(t, err)
@@ -155,39 +186,23 @@ func TestGetWebhookSecret(t *testing.T) {
 	t.Run("returns secret value", func(t *testing.T) {
 		svc := newAutobuildService(t, newWebhookSecret("my-key", "my-value"))
 
-		val, err := svc.getWebhookSecret(ctx, "my-key", false)
+		val, err := svc.getWebhookSecret(ctx, "my-key")
 		require.NoError(t, err)
 		assert.Equal(t, "my-value", val)
 	})
 
-	t.Run("missing key with allowEmpty returns empty", func(t *testing.T) {
+	t.Run("missing key returns error", func(t *testing.T) {
 		svc := newAutobuildService(t, newWebhookSecret("other-key", "value"))
 
-		val, err := svc.getWebhookSecret(ctx, "missing-key", true)
-		require.NoError(t, err)
-		assert.Equal(t, "", val)
-	})
-
-	t.Run("missing key without allowEmpty returns error", func(t *testing.T) {
-		svc := newAutobuildService(t, newWebhookSecret("other-key", "value"))
-
-		_, err := svc.getWebhookSecret(ctx, "missing-key", false)
+		_, err := svc.getWebhookSecret(ctx, "missing-key")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not contain")
 	})
 
-	t.Run("empty value with allowEmpty returns empty", func(t *testing.T) {
+	t.Run("empty value returns error", func(t *testing.T) {
 		svc := newAutobuildService(t, newWebhookSecret("my-key", ""))
 
-		val, err := svc.getWebhookSecret(ctx, "my-key", true)
-		require.NoError(t, err)
-		assert.Equal(t, "", val)
-	})
-
-	t.Run("empty value without allowEmpty returns error", func(t *testing.T) {
-		svc := newAutobuildService(t, newWebhookSecret("my-key", ""))
-
-		_, err := svc.getWebhookSecret(ctx, "my-key", false)
+		_, err := svc.getWebhookSecret(ctx, "my-key")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "empty")
 	})
@@ -195,7 +210,7 @@ func TestGetWebhookSecret(t *testing.T) {
 	t.Run("secret not found returns error", func(t *testing.T) {
 		svc := newAutobuildService(t)
 
-		_, err := svc.getWebhookSecret(ctx, "any-key", false)
+		_, err := svc.getWebhookSecret(ctx, "any-key")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get webhook secret")
 	})

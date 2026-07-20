@@ -640,6 +640,7 @@ func TestWebhookBranchFilter_Match(t *testing.T) {
 	svc := &webhookProcessor{k8sClient: k8sClient, logger: discardLogger()}
 
 	event := &git.WebhookEvent{
+		Provider:      string(git.ProviderGitHub),
 		RepositoryURL: "https://github.com/example/repo",
 		Branch:        "main",
 	}
@@ -653,6 +654,38 @@ func TestWebhookBranchFilter_Match(t *testing.T) {
 	}
 	if affected[0].Name != "svc" {
 		t.Errorf("expected component %q, got %q", "svc", affected[0].Name)
+	}
+}
+
+// TestWebhookProviderFilter_Mismatch verifies that a webhook authenticated as one provider
+// does not trigger builds for a component hosted on a different provider, even when the
+// repository URL matches. This guards against provider-confusion across shared repo URLs.
+func TestWebhookProviderFilter_Mismatch(t *testing.T) {
+	makeRaw := func(v interface{}) *runtime.RawExtension {
+		b, _ := json.Marshal(v)
+		return &runtime.RawExtension{Raw: b}
+	}
+
+	scheme := newTestSchemeForWebhook(t)
+	comp := makeAutoBuildComponent("svc", "ns1", "wf1", "https://github.com/example/repo", "main", makeRaw)
+	workflow := makeWorkflowWithBranch("wf1", "ns1")
+
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(comp, workflow).Build()
+	svc := &webhookProcessor{k8sClient: k8sClient, logger: discardLogger()}
+
+	// GitHub-hosted component, but the webhook was validated as Bitbucket.
+	event := &git.WebhookEvent{
+		Provider:      string(git.ProviderBitbucket),
+		RepositoryURL: "https://github.com/example/repo",
+		Branch:        "main",
+	}
+
+	affected, err := svc.findAffectedComponents(context.Background(), event)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(affected) != 0 {
+		t.Fatalf("expected 0 affected components for provider mismatch, got %d", len(affected))
 	}
 }
 
@@ -670,6 +703,7 @@ func TestWebhookBranchFilter_Mismatch(t *testing.T) {
 	svc := &webhookProcessor{k8sClient: k8sClient, logger: discardLogger()}
 
 	event := &git.WebhookEvent{
+		Provider:      string(git.ProviderGitHub),
 		RepositoryURL: "https://github.com/example/repo",
 		Branch:        "feature/new-api",
 	}
@@ -713,6 +747,7 @@ func TestWebhookBranchFilter_NoConfiguredBranch(t *testing.T) {
 	for _, pushBranch := range []string{"main", "feature/foo", "release/v1"} {
 		t.Run(pushBranch, func(t *testing.T) {
 			event := &git.WebhookEvent{
+				Provider:      string(git.ProviderGitHub),
 				RepositoryURL: "https://github.com/example/repo",
 				Branch:        pushBranch,
 			}

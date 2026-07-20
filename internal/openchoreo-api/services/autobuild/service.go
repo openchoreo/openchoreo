@@ -53,8 +53,7 @@ func (s *autobuildService) ProcessWebhook(ctx context.Context, params *ProcessWe
 		return nil, fmt.Errorf("failed to get git provider: %w", err)
 	}
 
-	allowEmpty := params.SignatureHeader == ""
-	webhookSecret, err := s.getWebhookSecret(ctx, params.SecretKey, allowEmpty)
+	webhookSecret, err := s.getWebhookSecret(ctx, params.SecretKey)
 	if err != nil {
 		s.logger.Error("Failed to get webhook secret", "error", err, "provider", params.ProviderType)
 		return nil, ErrSecretNotConfigured
@@ -79,8 +78,9 @@ func (s *autobuildService) ProcessWebhook(ctx context.Context, params *ProcessWe
 }
 
 // getWebhookSecret retrieves the webhook secret value for the given key from the Kubernetes Secret.
-// When allowEmpty is true (e.g. Bitbucket, which has no HMAC header), a missing or empty key is not an error.
-func (s *autobuildService) getWebhookSecret(ctx context.Context, secretKey string, allowEmpty bool) (string, error) {
+// A missing key or empty value is treated as an error so that signature validation always fails
+// closed when no secret is configured for the provider.
+func (s *autobuildService) getWebhookSecret(ctx context.Context, secretKey string) (string, error) {
 	secret := &corev1.Secret{}
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      webhookSecretName,
@@ -92,17 +92,11 @@ func (s *autobuildService) getWebhookSecret(ctx context.Context, secretKey strin
 
 	secretData, ok := secret.Data[secretKey]
 	if !ok {
-		if allowEmpty {
-			return "", nil
-		}
 		return "", fmt.Errorf("secret %s/%s does not contain '%s' key",
 			webhookSecretNamespace, webhookSecretName, secretKey)
 	}
 
 	if len(secretData) == 0 {
-		if allowEmpty {
-			return "", nil
-		}
 		return "", fmt.Errorf("secret %s/%s has empty '%s' value",
 			webhookSecretNamespace, webhookSecretName, secretKey)
 	}

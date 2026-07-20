@@ -145,6 +145,20 @@ func (s *webhookProcessor) findAffectedComponents(ctx context.Context, event *gi
 			continue
 		}
 
+		// Ensure the authenticated webhook provider matches the provider that hosts the
+		// component's repository. The webhook was validated against a specific provider's
+		// secret; without this check a webhook validated for one provider could trigger
+		// builds for components hosted on a different provider that share a repository URL.
+		// For hosts that don't map to a known SaaS provider (e.g. self-hosted), the provider
+		// cannot be inferred and no additional check is enforced.
+		if expected := providerFromRepoURL(repoURL); expected != "" && string(expected) != event.Provider {
+			s.logger.Info("Skipping component: provider mismatch",
+				"component", comp.Name,
+				"expectedProvider", expected,
+				"webhookProvider", event.Provider)
+			continue
+		}
+
 		// Check if the webhook branch matches the component's configured branch.
 		// If the component has no branch configured, all branches trigger builds.
 		if branch != "" && branch != event.Branch {
@@ -302,6 +316,23 @@ func getSchemaFieldDefault(schema *runtime.RawExtension, dottedPath string) stri
 	}
 	def, _ := current["default"].(string)
 	return def
+}
+
+// providerFromRepoURL infers the git provider from a repository URL's host.
+// It returns "" for hosts that don't map to a known SaaS provider (e.g. self-hosted
+// installations), in which case callers should not enforce a provider-consistency check.
+func providerFromRepoURL(repoURL string) git.ProviderType {
+	normalized := normalizeWebhookRepoURL(repoURL)
+	switch {
+	case strings.Contains(normalized, "github.com"):
+		return git.ProviderGitHub
+	case strings.Contains(normalized, "gitlab.com"):
+		return git.ProviderGitLab
+	case strings.Contains(normalized, "bitbucket.org"):
+		return git.ProviderBitbucket
+	default:
+		return ""
+	}
 }
 
 // matchesRepository checks if component's repository matches the webhook repository.
