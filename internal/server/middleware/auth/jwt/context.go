@@ -57,3 +57,10 @@ func GetTokenFromContext(ctx context.Context) string {
 	token, _ := ctx.Value(tokenContextKey).(string)
 	return token
 }
+
+// ContextWithToken returns a copy of ctx carrying the raw JWT token string.
+// The middleware sets this automatically; it is exported mainly so downstream
+// code (and tests) can populate the token the same way.
+func ContextWithToken(ctx context.Context, token string) context.Context {
+	return context.WithValue(ctx, tokenContextKey, token)
+}

@@ -486,6 +486,42 @@ type AlertsQueryResponseAlertsMetadataAlertRuleSeverity string
 // AlertsQueryResponseAlertsMetadataAlertRuleSourceType The type of the alert source
 type AlertsQueryResponseAlertsMetadataAlertRuleSourceType string
 
+// ComponentCost defines model for ComponentCost.
+type ComponentCost struct {
+	// Component Human-readable component name.
+	Component string `json:"component"`
+
+	// ComponentUid UID of the component this record belongs to.
+	ComponentUid openapi_types.UUID `json:"componentUid"`
+
+	// CpuCost CPU cost for this record's window.
+	CpuCost float32 `json:"cpuCost"`
+
+	// Efficiency Cost-weighted blend of CPU and memory utilization for this record's
+	// window. A value of 0.85 means 85% of what was paid for was used.
+	Efficiency float32 `json:"efficiency"`
+
+	// EndTime Exclusive end of the window this record covers.
+	EndTime time.Time `json:"endTime"`
+
+	// Environment Human-readable environment name.
+	Environment    string             `json:"environment"`
+	EnvironmentUid openapi_types.UUID `json:"environmentUid"`
+
+	// MemoryCost Memory cost for this record's window.
+	MemoryCost float32 `json:"memoryCost"`
+
+	// Namespace Namespace name.
+	Namespace string `json:"namespace"`
+
+	// Project Human-readable project name.
+	Project    string             `json:"project"`
+	ProjectUid openapi_types.UUID `json:"projectUid"`
+
+	// StartTime Inclusive start of the window this record covers.
+	StartTime time.Time `json:"startTime"`
+}
+
 // ComponentLogEntry defines model for ComponentLogEntry.
 type ComponentLogEntry struct {
 	// Level The log level
@@ -531,12 +567,46 @@ type ComponentLogEntry struct {
 	Timestamp *time.Time `json:"timestamp,omitempty"`
 }
 
+// ComponentRecommendation defines model for ComponentRecommendation.
+type ComponentRecommendation struct {
+	// Component Human-readable component name.
+	Component    string             `json:"component"`
+	ComponentUid openapi_types.UUID `json:"componentUid"`
+
+	// Current Resource requests, limits, and resulting cost. Resource fields use
+	// Kubernetes quantity notation as strings (e.g. `"230m"` for CPU
+	// millicores, `"250Mi"` for memory).
+	Current ResourceProfile `json:"current"`
+
+	// Environment Human-readable environment name.
+	Environment    string             `json:"environment"`
+	EnvironmentUid openapi_types.UUID `json:"environmentUid"`
+	Namespace      string             `json:"namespace"`
+
+	// Project Human-readable project name.
+	Project    string             `json:"project"`
+	ProjectUid openapi_types.UUID `json:"projectUid"`
+
+	// Recommendation Resource requests, limits, and resulting cost. Resource fields use
+	// Kubernetes quantity notation as strings (e.g. `"230m"` for CPU
+	// millicores, `"250Mi"` for memory).
+	Recommendation ResourceProfile `json:"recommendation"`
+}
+
 // ComponentSearchScope defines model for ComponentSearchScope.
 type ComponentSearchScope struct {
 	Component   *string `json:"component,omitempty"`
 	Environment *string `json:"environment,omitempty"`
 	Namespace   string  `json:"namespace"`
 	Project     *string `json:"project,omitempty"`
+}
+
+// CostResponse defines model for CostResponse.
+type CostResponse struct {
+	// Items Flat list of per-component cost records. Without `granularity`, one
+	// record per component. With `granularity`, one record per component
+	// per time bucket.
+	Items []ComponentCost `json:"items"`
 }
 
 // ErrorResponse defines model for ErrorResponse.
@@ -896,6 +966,13 @@ type MetricsTimeSeriesItem struct {
 	Value *float64 `json:"value,omitempty"`
 }
 
+// RecommendationResponse defines model for RecommendationResponse.
+type RecommendationResponse struct {
+	// Items One recommendation per component in scope. A single element when
+	// `component` is specified; one per component in the project otherwise.
+	Items []ComponentRecommendation `json:"items"`
+}
+
 // ResourceMetricsTimeSeries defines model for ResourceMetricsTimeSeries.
 type ResourceMetricsTimeSeries struct {
 	CpuLimits      *[]MetricsTimeSeriesItem `json:"cpuLimits,omitempty"`
@@ -904,6 +981,21 @@ type ResourceMetricsTimeSeries struct {
 	MemoryLimits   *[]MetricsTimeSeriesItem `json:"memoryLimits,omitempty"`
 	MemoryRequests *[]MetricsTimeSeriesItem `json:"memoryRequests,omitempty"`
 	MemoryUsage    *[]MetricsTimeSeriesItem `json:"memoryUsage,omitempty"`
+}
+
+// ResourceProfile Resource requests, limits, and resulting cost. Resource fields use
+// Kubernetes quantity notation as strings (e.g. `"230m"` for CPU
+// millicores, `"250Mi"` for memory).
+type ResourceProfile struct {
+	// CpuCost CPU cost for the selected time window at these resource settings.
+	CpuCost    float32 `json:"cpuCost"`
+	CpuLimit   string  `json:"cpuLimit"`
+	CpuRequest string  `json:"cpuRequest"`
+
+	// MemoryCost Memory cost for the selected time window at these resource settings.
+	MemoryCost    float32 `json:"memoryCost"`
+	MemoryLimit   string  `json:"memoryLimit"`
+	MemoryRequest string  `json:"memoryRequest"`
 }
 
 // RuntimeTopologyEdge An observed traffic flow from a source node to a target node.
@@ -1227,6 +1319,62 @@ type WorkflowSearchScope struct {
 	Namespace       string  `json:"namespace"`
 	TaskName        *string `json:"taskName,omitempty"`
 	WorkflowRunName *string `json:"workflowRunName,omitempty"`
+}
+
+// FinOpsComponent defines model for FinOpsComponent.
+type FinOpsComponent = string
+
+// FinOpsEndTime defines model for FinOpsEndTime.
+type FinOpsEndTime = time.Time
+
+// FinOpsEnvironment defines model for FinOpsEnvironment.
+type FinOpsEnvironment = string
+
+// FinOpsGranularity defines model for FinOpsGranularity.
+type FinOpsGranularity = string
+
+// FinOpsNamespace defines model for FinOpsNamespace.
+type FinOpsNamespace = string
+
+// FinOpsProject defines model for FinOpsProject.
+type FinOpsProject = string
+
+// FinOpsStartTime defines model for FinOpsStartTime.
+type FinOpsStartTime = time.Time
+
+// GetComponentCostsParams defines parameters for GetComponentCosts.
+type GetComponentCostsParams struct {
+	// Project Project name. When set, narrows the response to components in this project.
+	Project *FinOpsProject `form:"project,omitempty" json:"project,omitempty"`
+
+	// Component Component name. When set, narrows the response to this single component. Requires `project`.
+	Component *FinOpsComponent `form:"component,omitempty" json:"component,omitempty"`
+
+	// StartTime Inclusive lower bound of the cost window (RFC 3339, second precision).
+	StartTime FinOpsStartTime `form:"startTime" json:"startTime"`
+
+	// EndTime Exclusive upper bound of the cost window (RFC 3339). Must be strictly greater than startTime.
+	EndTime FinOpsEndTime `form:"endTime" json:"endTime"`
+
+	// Granularity When present, each component is split into one record per time bucket of
+	// this size. Uses `<count><unit>` notation where unit is one of `h`
+	// (hours), `d` (days), or `w` (weeks). For example `1h`, `2d`, `3w`.
+	Granularity *FinOpsGranularity `form:"granularity,omitempty" json:"granularity,omitempty"`
+}
+
+// GetRecommendationsParams defines parameters for GetRecommendations.
+type GetRecommendationsParams struct {
+	// Project Project name. When set, narrows the response to components in this project.
+	Project *FinOpsProject `form:"project,omitempty" json:"project,omitempty"`
+
+	// Component Component name. When set, narrows the response to this single component. Requires `project`.
+	Component *FinOpsComponent `form:"component,omitempty" json:"component,omitempty"`
+
+	// StartTime Inclusive lower bound of the cost window (RFC 3339, second precision).
+	StartTime FinOpsStartTime `form:"startTime" json:"startTime"`
+
+	// EndTime Exclusive upper bound of the cost window (RFC 3339). Must be strictly greater than startTime.
+	EndTime FinOpsEndTime `form:"endTime" json:"endTime"`
 }
 
 // QueryEventsJSONRequestBody defines body for QueryEvents for application/json ContentType.

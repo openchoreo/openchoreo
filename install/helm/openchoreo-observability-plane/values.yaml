@@ -489,6 +489,24 @@ observer:
     timeout: "30s"
 
   # @schema
+  # type: object
+  # description: Configurations for FinOps adapter connectivity
+  # @schema
+  finOpsAdapter:
+    # @schema
+    # type: string
+    # description: URL of the FinOps adapter service
+    # default: "http://finops-adapter:9101"
+    # @schema
+    url: "http://finops-adapter:9101"
+    # @schema
+    # type: string
+    # description: Timeout for FinOps adapter requests
+    # default: "30s"
+    # @schema
+    timeout: "30s"
+
+  # @schema
   # type: string
   # description: OAuth2 client ID used by the Observer when calling the control plane API
   # default: openchoreo-observer-resource-reader-client

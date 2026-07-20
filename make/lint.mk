@@ -10,6 +10,7 @@ ALL_GO_FILES := $(shell \
 		! -path './api/v1alpha1/zz_generated.deepcopy.go' \
 		! -path './internal/observer/api/gen/*' \
 		! -path './internal/observer/api/logsadapterclientgen/*' \
+		! -path './internal/observer/api/finopsadapterclientgen/*' \
 		! -path './samples/*' \
 		! -path '**/mocks/*' \
 	| sort)
