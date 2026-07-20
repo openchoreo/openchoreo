@@ -6,6 +6,7 @@ package k8sresources
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -178,7 +179,13 @@ func (s *k8sResourcesService) GetResourceLogs(ctx context.Context, namespaceName
 		containers, err = s.resolvePodContainers(ctx, targetRC.plane, targetRC.namespace, podName)
 		if err != nil {
 			s.logger.Warn("Failed to resolve pod containers", "pod", podName, "error", err)
-			return nil, ErrResourceNotFound
+			var statusErr *liveResourceStatusError
+			if errors.As(err, &statusErr) && statusErr.statusCode == http.StatusNotFound {
+				return nil, ErrResourceNotFound
+			}
+			// The pod is present but unreadable (transient/agent error) or the
+			// response was otherwise unexpected
+			return nil, fmt.Errorf("failed to resolve pod containers: %w", err)
 		}
 	}
 
@@ -196,16 +203,28 @@ func (s *k8sResourcesService) GetResourceLogs(ctx context.Context, namespaceName
 				SinceSeconds:      sinceSeconds,
 			})
 		if err != nil {
-			if gateway.IsPermanentError(err) {
-				// A container the caller explicitly asked for that Kubernetes rejects is a bad
-				// request, not a missing resource.
+			var permErr *gateway.PermanentError
+			if errors.As(err, &permErr) {
 				if container != "" {
-					return nil, ErrInvalidContainer
+					switch permErr.StatusCode {
+					case http.StatusNotFound:
+						return nil, ErrResourceNotFound
+					case http.StatusBadRequest:
+						return nil, ErrInvalidContainer
+					default:
+						return nil, fmt.Errorf("failed to fetch logs for container %q: %w", containerName, err)
+					}
 				}
-				// While aggregating, skip containers whose logs cannot be read yet (e.g. a
-				// container that has not started) instead of failing the whole request.
-				s.logger.Warn("Skipping container logs", "pod", podName, "container", containerName, "error", err)
-				continue
+				// Aggregating: a container that is still starting or already gone
+				// returns 400/404 and is safely skipped, but surface anything else
+				// (e.g. a 403 from a misconfigured agent) instead of returning a
+				// partial result.
+				if permErr.StatusCode == http.StatusBadRequest || permErr.StatusCode == http.StatusNotFound {
+					s.logger.Warn("Skipping container with no readable logs",
+						"pod", podName, "container", containerName, "status", permErr.StatusCode)
+					continue
+				}
+				return nil, fmt.Errorf("failed to fetch logs for container %q: %w", containerName, err)
 			}
 			return nil, fmt.Errorf("failed to fetch pod logs: %w", err)
 		}
@@ -431,6 +450,19 @@ func (s *k8sResourcesService) findResourceRelease(contexts []releaseContext, gro
 
 // --- Fetching helpers ---
 
+// liveResourceStatusError is returned by fetchLiveResource when the proxied
+// Kubernetes GET responds with a non-200 status. It preserves the status code so
+// callers can tell a genuine 404 apart from transient or otherwise unexpected
+// failures instead of collapsing them all into "not found".
+type liveResourceStatusError struct {
+	statusCode int
+	path       string
+}
+
+func (e *liveResourceStatusError) Error() string {
+	return fmt.Sprintf("unexpected status %d for %s", e.statusCode, e.path)
+}
+
 func (s *k8sResourcesService) fetchLiveResource(ctx context.Context, pi planeInfo, k8sPath string) (map[string]any, error) {
 	resp, err := s.gatewayClient.ProxyK8sRequest(ctx, pi.planeType, pi.planeID, pi.crNamespace, pi.crName, k8sPath, "")
 	if err != nil {
@@ -439,7 +471,7 @@ func (s *k8sResourcesService) fetchLiveResource(ctx context.Context, pi planeInf
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status %d for %s", resp.StatusCode, k8sPath)
+		return nil, &liveResourceStatusError{statusCode: resp.StatusCode, path: k8sPath}
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))

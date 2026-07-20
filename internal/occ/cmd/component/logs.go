@@ -115,9 +115,7 @@ func (cp *Component) fetchAndPrintLogs(
 		reverseLogs(logs)
 	}
 
-	for _, log := range logs {
-		printLogEntry(log)
-	}
+	printLogs(logs, params.Container)
 
 	return nil
 }
@@ -141,6 +139,16 @@ func filterLogsByContainer(logs []client.LogEntry, container string) []client.Lo
 		}
 	}
 	return filtered
+}
+
+// printLogs prints the entries, restricting to a single container when requested.
+func printLogs(logs []client.LogEntry, container string) {
+	if container != "" {
+		logs = filterLogsByContainer(logs, container)
+	}
+	for _, log := range logs {
+		printLogEntry(log)
+	}
 }
 
 // reverseLogs reverses a slice of log entries in place
@@ -176,9 +184,7 @@ func (cp *Component) followLogs(
 	}
 
 	// Print initial logs
-	for _, log := range logs {
-		printLogEntry(log)
-	}
+	printLogs(logs, params.Container)
 
 	// Update startTime to the last log timestamp or endTime
 	startTime = endTime // default
@@ -216,9 +222,7 @@ func (cp *Component) followLogs(
 			}
 
 			// Print new logs
-			for _, log := range logs {
-				printLogEntry(log)
-			}
+			printLogs(logs, params.Container)
 
 			// Update startTime
 			if len(logs) > 0 {
@@ -271,12 +275,9 @@ func (cp *Component) fetchLogs(
 			params.Component, params.Project, params.Namespace, params.Environment, observerURL, err)
 	}
 
-	logs := logResponse.Logs
-	if params.Container != "" {
-		logs = filterLogsByContainer(logs, params.Container)
-	}
-
-	return logs, nil
+	// Return the full pod-wide result; callers filter by container at print time so the
+	// follow poll can still advance startTime past every container's latest log.
+	return logResponse.Logs, nil
 }
 
 // findRootEnvironment finds the lowest environment in a deployment pipeline.

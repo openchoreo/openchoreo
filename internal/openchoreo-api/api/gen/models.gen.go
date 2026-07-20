@@ -2641,7 +2641,7 @@ type PendingConnection struct {
 // PodLogEntry A single log entry from a pod
 type PodLogEntry struct {
 	// Container Name of the container that produced this log entry
-	Container *string `json:"container,omitempty"`
+	Container string `json:"container"`
 
 	// Log Log message content
 	Log string `json:"log"`

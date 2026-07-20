@@ -630,6 +630,97 @@ func TestGetResourceLogs(t *testing.T) {
 		require.Len(t, result.LogEntries, 1)
 		assert.Contains(t, capturedLogsURL, "sinceSeconds=300")
 	})
+
+	t.Run("explicit container on a missing pod returns not found, not invalid container", func(t *testing.T) {
+		objs := dataPlaneRelease()
+		fc := newFakeClient(objs...)
+
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "main", nil)
+		require.ErrorIs(t, err, ErrResourceNotFound)
+		require.NotErrorIs(t, err, ErrInvalidContainer)
+	})
+
+	t.Run("explicit container forbidden surfaces the error instead of 404/400", func(t *testing.T) {
+		objs := dataPlaneRelease()
+		fc := newFakeClient(objs...)
+
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusForbidden)
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "main", nil)
+		require.Error(t, err)
+		require.NotErrorIs(t, err, ErrResourceNotFound)
+		require.NotErrorIs(t, err, ErrInvalidContainer)
+	})
+
+	t.Run("transient pod-resolution failure is not reported as not found", func(t *testing.T) {
+		objs := dataPlaneRelease()
+		fc := newFakeClient(objs...)
+
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "", nil)
+		require.Error(t, err)
+		require.NotErrorIs(t, err, ErrResourceNotFound)
+	})
+
+	t.Run("aggregate skips a still-starting container and returns the rest", func(t *testing.T) {
+		objs := dataPlaneRelease()
+		fc := newFakeClient(objs...)
+
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/log") {
+				if r.URL.Query().Get("container") == "sidecar" {
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write([]byte("2024-01-15T10:00:00Z sidecar up\n"))
+					return
+				}
+				// "main" is still starting — Kubernetes returns 400.
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, podWithContainers("main", "sidecar")))
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		result, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "", nil)
+		require.NoError(t, err)
+		require.Len(t, result.LogEntries, 1)
+		assert.Equal(t, "sidecar up", result.LogEntries[0].Log)
+		assert.Equal(t, "sidecar", result.LogEntries[0].Container)
+	})
+
+	t.Run("aggregate surfaces a forbidden container instead of a partial result", func(t *testing.T) {
+		objs := dataPlaneRelease()
+		fc := newFakeClient(objs...)
+
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/log") {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, podWithContainers("main", "sidecar")))
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "", nil)
+		require.Error(t, err)
+		require.NotErrorIs(t, err, ErrResourceNotFound)
+	})
 }
 
 // podWithContainers builds a minimal pod object (as decoded JSON) with the given container names.

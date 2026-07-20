@@ -11213,6 +11213,7 @@ components:
       required:
         - timestamp
         - log
+        - container
       properties:
         timestamp:
           type: string
