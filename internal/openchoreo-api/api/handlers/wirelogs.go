@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -120,6 +121,18 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "authorization not configured", http.StatusInternalServerError)
 		return
 	}
+
+	if component != "" {
+		ownerProject, err := h.resolveComponentProject(ctx, logger, namespace, component, project)
+		if err != nil {
+			logger.Warn("Failed to resolve component for wirelogs", "error", err)
+			http.Error(w, fmt.Sprintf("failed to resolve component: %v", err), http.StatusBadRequest)
+			return
+		}
+		project = ownerProject
+		logger = logger.With("project", project)
+	}
+
 	if err := h.authzChecker.Check(ctx, wirelogsCheckRequest(namespace, environment, project, component)); err != nil {
 		if errors.Is(err, svcpkg.ErrForbidden) {
 			http.Error(w, "you do not have permission to view wirelogs for this scope", http.StatusForbidden)
@@ -259,6 +272,26 @@ func wirelogsCheckRequest(namespace, environment, project, component string) svc
 			Context:      authzCtx,
 		}
 	}
+}
+
+// resolveComponentProject returns the owning project of the named component.
+func (h *WirelogsHandler) resolveComponentProject(ctx context.Context, logger *slog.Logger, namespace, component, requestedProject string) (string, error) {
+	comp := &openchoreov1alpha1.Component{}
+	if err := h.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: component}, comp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return "", fmt.Errorf("component %q not found in namespace %q", component, namespace)
+		}
+		return "", fmt.Errorf("failed to look up component %q: %w", component, err)
+	}
+	owner := comp.Spec.Owner.ProjectName
+	if owner == "" {
+		return "", fmt.Errorf("component %q has no owning project", component)
+	}
+	if requestedProject != "" && requestedProject != owner {
+		logger.Warn("requested project does not own the target component; authorizing against the component's owner",
+			"requestedProject", requestedProject, "ownerProject", owner)
+	}
+	return owner, nil
 }
 
 // resolvePlane resolves the data plane for an environment.

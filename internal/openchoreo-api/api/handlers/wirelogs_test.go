@@ -103,6 +103,7 @@ func TestWirelogsHandler_Forbidden(t *testing.T) {
 		Return(&authz.Decision{Decision: false, Context: &authz.DecisionContext{Reason: "no wirelogs:view"}}, nil)
 
 	h := &WirelogsHandler{
+		k8sClient:    newWirelogsK8sClient(t, wirelogsComponent("ns-a", "checkout", "demo")),
 		authzChecker: svcpkg.NewAuthzChecker(pdp, slog.Default()),
 		logger:       slog.Default(),
 	}
@@ -113,9 +114,21 @@ func TestWirelogsHandler_Forbidden(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
 
+// wirelogsComponent builds a minimal Component owned by the given project, enough
+// for the handler to resolve the component's owning project before authorizing.
+func wirelogsComponent(namespace, name, project string) *openchoreov1alpha1.Component {
+	return &openchoreov1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+		Spec: openchoreov1alpha1.ComponentSpec{
+			Owner: openchoreov1alpha1.ComponentOwner{ProjectName: project},
+		},
+	}
+}
+
 // captureAuthzRequest runs ServeHTTP with a PDP that records the EvaluateRequest
 // and denies, so the handler returns 403 before doing any data-plane lookups.
-func captureAuthzRequest(t *testing.T, path string) *authz.EvaluateRequest {
+// Seed any Component objects a component-filtered request needs to resolve.
+func captureAuthzRequest(t *testing.T, path string, objs ...client.Object) *authz.EvaluateRequest {
 	t.Helper()
 
 	var captured *authz.EvaluateRequest
@@ -128,6 +141,7 @@ func captureAuthzRequest(t *testing.T, path string) *authz.EvaluateRequest {
 		})
 
 	h := &WirelogsHandler{
+		k8sClient:    newWirelogsK8sClient(t, objs...),
 		authzChecker: svcpkg.NewAuthzChecker(pdp, slog.Default()),
 		logger:       slog.Default(),
 	}
@@ -141,7 +155,9 @@ func captureAuthzRequest(t *testing.T, path string) *authz.EvaluateRequest {
 }
 
 func TestWirelogsHandler_AuthzScope_Component(t *testing.T) {
-	req := captureAuthzRequest(t, "/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=checkout")
+	req := captureAuthzRequest(t,
+		"/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=checkout",
+		wirelogsComponent("ns-a", "checkout", "demo"))
 
 	assert.Equal(t, authz.ActionViewWirelogs, req.Action, "wirelogs must check its own action, not logs:view")
 	assert.Equal(t, "component", req.Resource.Type)
@@ -151,6 +167,39 @@ func TestWirelogsHandler_AuthzScope_Component(t *testing.T) {
 	assert.Equal(t, "checkout", req.Resource.Hierarchy.Component)
 	assert.Equal(t, "ns-a/development", req.Context.Resource.Environment,
 		"resource.environment must always be set so CEL conditions can scope per env")
+}
+
+// A component filter must be authorized against the component's real owning
+// project, not the caller-supplied `project`.
+func TestWirelogsHandler_AuthzPinsComponentOwnerProject(t *testing.T) {
+	req := captureAuthzRequest(t,
+		"/api/v1/namespaces/ns-a/environments/development/wirelogs?project=team-a&component=checkout",
+		wirelogsComponent("ns-a", "checkout", "team-b"))
+
+	assert.Equal(t, authz.ActionViewWirelogs, req.Action)
+	assert.Equal(t, "component", req.Resource.Type)
+	assert.Equal(t, "checkout", req.Resource.ID)
+	assert.Equal(t, "ns-a", req.Resource.Hierarchy.Namespace)
+	assert.Equal(t, "team-b", req.Resource.Hierarchy.Project,
+		"authz must be scoped to the component's real owner, not the caller-supplied project")
+	assert.Equal(t, "checkout", req.Resource.Hierarchy.Component)
+}
+
+// A component filter naming a non-existent component must fail before authz.
+func TestWirelogsHandler_ComponentNotFound(t *testing.T) {
+	pdp := authzmocks.NewMockPDP(t)
+	h := &WirelogsHandler{
+		k8sClient:    newWirelogsK8sClient(t),
+		authzChecker: svcpkg.NewAuthzChecker(pdp, slog.Default()),
+		logger:       slog.Default(),
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, wirelogsRequest(t,
+		"/api/v1/namespaces/ns-a/environments/development/wirelogs?project=demo&component=ghost"))
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), `component "ghost" not found`)
 }
 
 func TestWirelogsHandler_AuthzScope_ProjectOnly(t *testing.T) {

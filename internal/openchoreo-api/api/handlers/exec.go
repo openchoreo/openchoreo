@@ -66,7 +66,7 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	componentName := parts[1]
 
 	query := r.URL.Query()
-	project := query.Get("project")
+	requestedProject := query.Get("project")
 	envName := query.Get("env")
 	container := query.Get("container")
 	podName := query.Get("pod")
@@ -77,6 +77,31 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := h.logger.With("namespace", namespace, "component", componentName)
 	logger.Info("Exec request received", "env", envName, "pod", podName, "container", container)
+
+	// Authorize: check that the caller has component:exec permission for this environment.
+	if h.authzChecker == nil {
+		logger.Error("Authorization checker not configured")
+		http.Error(w, "authorization not configured", http.StatusInternalServerError)
+		return
+	}
+
+	// Pin authorization and pod resolution to the component's real owning project
+	// rather than the caller-supplied `project`.
+	project, err := h.resolveComponentProject(ctx, namespace, componentName)
+	if err != nil {
+		status := http.StatusBadRequest
+		var infraErr *execInfraError
+		if errors.As(err, &infraErr) {
+			status = http.StatusServiceUnavailable
+		}
+		logger.Warn("Failed to resolve component for exec", "error", err)
+		http.Error(w, fmt.Sprintf("failed to resolve component: %v", err), status)
+		return
+	}
+	if requestedProject != "" && requestedProject != project {
+		logger.Warn("requested project does not own the target component; authorizing against the component's owner",
+			"requestedProject", requestedProject, "ownerProject", project)
+	}
 
 	// Resolve the target environment before authorizing so per-environment exec
 	// conditions are evaluated against it (`env` may be omitted by the client).
@@ -92,12 +117,6 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Authorize: check that the caller has component:exec permission for this environment.
-	if h.authzChecker == nil {
-		logger.Error("Authorization checker not configured")
-		http.Error(w, "authorization not configured", http.StatusInternalServerError)
-		return
-	}
 	if err := h.authzChecker.Check(ctx, svcpkg.CheckRequest{
 		Action:       authz.ActionExecComponent,
 		ResourceType: "component",
@@ -105,6 +124,7 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespace,
 			Project:   project,
+			Component: componentName,
 		},
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{
@@ -257,6 +277,21 @@ func (h *ExecHandler) resolveEnvName(ctx context.Context, namespace, project, en
 		return "", fmt.Errorf("--project or --env is required")
 	}
 	return h.resolveLowestEnvironment(ctx, namespace, project)
+}
+
+// resolveComponentProject returns the owning project of the named component.
+func (h *ExecHandler) resolveComponentProject(ctx context.Context, namespace, componentName string) (string, error) {
+	comp := &openchoreov1alpha1.Component{}
+	if err := h.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: componentName}, comp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return "", fmt.Errorf("component %q not found in namespace %q", componentName, namespace)
+		}
+		return "", infraErrorf("failed to look up component %q: %w", componentName, err)
+	}
+	if comp.Spec.Owner.ProjectName == "" {
+		return "", fmt.Errorf("component %q has no owning project", componentName)
+	}
+	return comp.Spec.Owner.ProjectName, nil
 }
 
 // resolvePod resolves the target pod for exec by traversing:
