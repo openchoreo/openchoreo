@@ -2193,6 +2193,10 @@ components:
             - daily
             - weekly
             - monthly
+          x-enum-varnames:
+            - DoraMetricsQueryRequestGranularityDaily
+            - DoraMetricsQueryRequestGranularityWeekly
+            - DoraMetricsQueryRequestGranularityMonthly
           default: daily
         startTime:
           type: string
@@ -2212,6 +2216,11 @@ components:
               - leadTime
               - changeFailureRate
               - mttr
+            x-enum-varnames:
+              - DoraMetricsQueryRequestMetricsDeploymentFrequency
+              - DoraMetricsQueryRequestMetricsLeadTime
+              - DoraMetricsQueryRequestMetricsChangeFailureRate
+              - DoraMetricsQueryRequestMetricsMttr
       required: [startTime, endTime, searchScope]
 
     DoraClassification:
@@ -2223,6 +2232,12 @@ components:
         - Medium
         - Low
         - Unknown
+      x-enum-varnames:
+        - DoraClassificationElite
+        - DoraClassificationHigh
+        - DoraClassificationMedium
+        - DoraClassificationLow
+        - DoraClassificationUnknown
 
     DoraMetricsQueryResponse:
       type: object
@@ -2235,6 +2250,10 @@ components:
             - daily
             - weekly
             - monthly
+          x-enum-varnames:
+            - DoraMetricsQueryResponseGranularityDaily
+            - DoraMetricsQueryResponseGranularityWeekly
+            - DoraMetricsQueryResponseGranularityMonthly
         window:
           type: object
           properties:
@@ -2410,6 +2429,9 @@ components:
           enum:
             - asc
             - desc
+          x-enum-varnames:
+            - DoraDeploymentsQueryRequestSortOrderAsc
+            - DoraDeploymentsQueryRequestSortOrderDesc
           default: desc
       required: [startTime, endTime, searchScope]
 
@@ -2443,6 +2465,10 @@ components:
                   - success
                   - failed
                   - in_progress
+                x-enum-varnames:
+                  - DoraDeploymentsOutcomeSuccess
+                  - DoraDeploymentsOutcomeFailed
+                  - DoraDeploymentsOutcomeInProgress
               failedBy:
                 type: string
                 description: rollout or incident; empty for successful deployments

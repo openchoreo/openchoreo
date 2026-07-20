@@ -273,17 +273,17 @@ func (s *DoraInsightsService) QueryDoraMetrics(
 	curTotals := sumRollups(current)
 	prevTotals := sumRollups(previous)
 
-	if wanted[string(gen.DeploymentFrequency)] {
+	if wanted[string(gen.DoraMetricsQueryRequestMetricsDeploymentFrequency)] {
 		payload.Summary.DeploymentFrequency = buildFrequencySummary(curTotals, prevTotals, windowMs)
 		points := buildFrequencySeries(current, granularity, bucketStart, endMs)
 		payload.Series.DeploymentFrequency = &points
 	}
-	if wanted[string(gen.ChangeFailureRate)] {
+	if wanted[string(gen.DoraMetricsQueryRequestMetricsChangeFailureRate)] {
 		payload.Summary.ChangeFailureRate = buildCFRSummary(curTotals, prevTotals)
 		points := buildCFRSeries(current, granularity, bucketStart, endMs)
 		payload.Series.ChangeFailureRate = &points
 	}
-	if wanted[string(gen.LeadTime)] {
+	if wanted[string(gen.DoraMetricsQueryRequestMetricsLeadTime)] {
 		summary, ltErr := s.buildLeadTimeSummary(ctx, rs, startMs, endMs, windowMs, curTotals)
 		if ltErr != nil {
 			return nil, ltErr
@@ -292,7 +292,7 @@ func (s *DoraInsightsService) QueryDoraMetrics(
 		points := buildLeadTimeSeries(current)
 		payload.Series.LeadTime = &points
 	}
-	if wanted[string(gen.Mttr)] {
+	if wanted[string(gen.DoraMetricsQueryRequestMetricsMttr)] {
 		summary, mttrErr := s.buildMTTRSummary(ctx, rs, startMs, endMs, windowMs)
 		if mttrErr != nil {
 			return nil, mttrErr
@@ -579,62 +579,62 @@ func buildMTTRSeries(byBucket map[int64]deliveryinsights.MetricRollup) []doraMTT
 func classifyDeploymentFrequency(total int, perDay float64) string {
 	switch {
 	case total == 0:
-		return string(gen.Unknown)
+		return string(gen.DoraClassificationUnknown)
 	case perDay >= 1:
-		return string(gen.Elite)
+		return string(gen.DoraClassificationElite)
 	case perDay >= 1.0/7:
-		return string(gen.High)
+		return string(gen.DoraClassificationHigh)
 	case perDay >= 1.0/30:
-		return string(gen.Medium)
+		return string(gen.DoraClassificationMedium)
 	default:
-		return string(gen.Low)
+		return string(gen.DoraClassificationLow)
 	}
 }
 
 func classifyLeadTime(p50Ms *int64) string {
 	if p50Ms == nil {
-		return string(gen.Unknown)
+		return string(gen.DoraClassificationUnknown)
 	}
 	switch {
 	case *p50Ms < 24*time.Hour.Milliseconds():
-		return string(gen.Elite)
+		return string(gen.DoraClassificationElite)
 	case *p50Ms < 7*24*time.Hour.Milliseconds():
-		return string(gen.High)
+		return string(gen.DoraClassificationHigh)
 	case *p50Ms < 30*24*time.Hour.Milliseconds():
-		return string(gen.Medium)
+		return string(gen.DoraClassificationMedium)
 	default:
-		return string(gen.Low)
+		return string(gen.DoraClassificationLow)
 	}
 }
 
 func classifyChangeFailureRate(total int, rate float64) string {
 	switch {
 	case total == 0:
-		return string(gen.Unknown)
+		return string(gen.DoraClassificationUnknown)
 	case rate <= 0.05:
-		return string(gen.Elite)
+		return string(gen.DoraClassificationElite)
 	case rate <= 0.10:
-		return string(gen.High)
+		return string(gen.DoraClassificationHigh)
 	case rate <= 0.15:
-		return string(gen.Medium)
+		return string(gen.DoraClassificationMedium)
 	default:
-		return string(gen.Low)
+		return string(gen.DoraClassificationLow)
 	}
 }
 
 func classifyMTTR(meanMs *int64) string {
 	if meanMs == nil {
-		return string(gen.Unknown)
+		return string(gen.DoraClassificationUnknown)
 	}
 	switch {
 	case *meanMs < time.Hour.Milliseconds():
-		return string(gen.Elite)
+		return string(gen.DoraClassificationElite)
 	case *meanMs < 24*time.Hour.Milliseconds():
-		return string(gen.High)
+		return string(gen.DoraClassificationHigh)
 	case *meanMs < 7*24*time.Hour.Milliseconds():
-		return string(gen.Medium)
+		return string(gen.DoraClassificationMedium)
 	default:
-		return string(gen.Low)
+		return string(gen.DoraClassificationLow)
 	}
 }
 
@@ -642,7 +642,7 @@ func wantedMetrics(metrics *[]gen.DoraMetricsQueryRequestMetrics) map[string]boo
 	wanted := make(map[string]bool, 4)
 	if metrics == nil || len(*metrics) == 0 {
 		for _, m := range []gen.DoraMetricsQueryRequestMetrics{
-			gen.DeploymentFrequency, gen.LeadTime, gen.ChangeFailureRate, gen.Mttr,
+			gen.DoraMetricsQueryRequestMetricsDeploymentFrequency, gen.DoraMetricsQueryRequestMetricsLeadTime, gen.DoraMetricsQueryRequestMetricsChangeFailureRate, gen.DoraMetricsQueryRequestMetricsMttr,
 		} {
 			wanted[string(m)] = true
 		}

@@ -115,11 +115,11 @@ const (
 
 // Defines values for DoraClassification.
 const (
-	Elite   DoraClassification = "Elite"
-	High    DoraClassification = "High"
-	Low     DoraClassification = "Low"
-	Medium  DoraClassification = "Medium"
-	Unknown DoraClassification = "Unknown"
+	DoraClassificationElite   DoraClassification = "Elite"
+	DoraClassificationHigh    DoraClassification = "High"
+	DoraClassificationLow     DoraClassification = "Low"
+	DoraClassificationMedium  DoraClassification = "Medium"
+	DoraClassificationUnknown DoraClassification = "Unknown"
 )
 
 // Defines values for DoraDeploymentsQueryRequestSortOrder.
@@ -130,9 +130,9 @@ const (
 
 // Defines values for DoraDeploymentsQueryResponseDeploymentsOutcome.
 const (
-	DoraDeploymentsQueryResponseDeploymentsOutcomeFailed     DoraDeploymentsQueryResponseDeploymentsOutcome = "failed"
-	DoraDeploymentsQueryResponseDeploymentsOutcomeInProgress DoraDeploymentsQueryResponseDeploymentsOutcome = "in_progress"
-	DoraDeploymentsQueryResponseDeploymentsOutcomeSuccess    DoraDeploymentsQueryResponseDeploymentsOutcome = "success"
+	DoraDeploymentsOutcomeFailed     DoraDeploymentsQueryResponseDeploymentsOutcome = "failed"
+	DoraDeploymentsOutcomeInProgress DoraDeploymentsQueryResponseDeploymentsOutcome = "in_progress"
+	DoraDeploymentsOutcomeSuccess    DoraDeploymentsQueryResponseDeploymentsOutcome = "success"
 )
 
 // Defines values for DoraMetricsQueryRequestGranularity.
@@ -144,10 +144,10 @@ const (
 
 // Defines values for DoraMetricsQueryRequestMetrics.
 const (
-	ChangeFailureRate   DoraMetricsQueryRequestMetrics = "changeFailureRate"
-	DeploymentFrequency DoraMetricsQueryRequestMetrics = "deploymentFrequency"
-	LeadTime            DoraMetricsQueryRequestMetrics = "leadTime"
-	Mttr                DoraMetricsQueryRequestMetrics = "mttr"
+	DoraMetricsQueryRequestMetricsChangeFailureRate   DoraMetricsQueryRequestMetrics = "changeFailureRate"
+	DoraMetricsQueryRequestMetricsDeploymentFrequency DoraMetricsQueryRequestMetrics = "deploymentFrequency"
+	DoraMetricsQueryRequestMetricsLeadTime            DoraMetricsQueryRequestMetrics = "leadTime"
+	DoraMetricsQueryRequestMetricsMttr                DoraMetricsQueryRequestMetrics = "mttr"
 )
 
 // Defines values for DoraMetricsQueryResponseGranularity.
@@ -242,15 +242,15 @@ const (
 
 // Defines values for SpanStatusCode.
 const (
-	Error SpanStatusCode = "error"
-	Ok    SpanStatusCode = "ok"
-	Unset SpanStatusCode = "unset"
+	SpanStatusCodeError SpanStatusCode = "error"
+	SpanStatusCodeOk    SpanStatusCode = "ok"
+	SpanStatusCodeUnset SpanStatusCode = "unset"
 )
 
 // Defines values for TracesQueryRequestSortOrder.
 const (
-	TracesQueryRequestSortOrderAsc  TracesQueryRequestSortOrder = "asc"
-	TracesQueryRequestSortOrderDesc TracesQueryRequestSortOrder = "desc"
+	Asc  TracesQueryRequestSortOrder = "asc"
+	Desc TracesQueryRequestSortOrder = "desc"
 )
 
 // AlertRuleRequest defines model for AlertRuleRequest.
