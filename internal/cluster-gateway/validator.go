@@ -6,6 +6,7 @@ package clustergateway
 import (
 	"fmt"
 	"net/http"
+	"path"
 	"strings"
 )
 
@@ -111,11 +112,14 @@ func (v *RequestValidator) ValidateRequest(r *http.Request, target, path string)
 	return nil
 }
 
-// pathTouchesSensitiveCoreResource reports whether path is a core/v1 request for
+// pathTouchesSensitiveCoreResource reports whether rawPath is a core/v1 request for
 // secrets or serviceaccounts (cluster or namespaced, including subresources).
 // Only /api/v1/... is matched so CRDs under /apis/... are not false-positive blocked.
-func pathTouchesSensitiveCoreResource(path string) bool {
-	parts := strings.Split(path, "/")
+//
+// path.Clean collapses //, /./, and trailing slashes. An optional "watch" segment
+// after /api/v1 is skipped so /api/v1/watch/... is handled the same as list/get.
+func pathTouchesSensitiveCoreResource(rawPath string) bool {
+	parts := strings.Split(path.Clean(rawPath), "/")
 	for i := 0; i < len(parts); i++ {
 		if parts[i] != "api" {
 			continue
@@ -123,15 +127,20 @@ func pathTouchesSensitiveCoreResource(path string) bool {
 		if i+1 >= len(parts) || parts[i+1] != "v1" {
 			continue
 		}
-		// /api/v1/<resource>/...
-		if i+2 < len(parts) {
-			if _, ok := sensitiveCoreResources[parts[i+2]]; ok {
+		// Resource index is right after /api/v1, or after optional /api/v1/watch.
+		resourceIdx := i + 2
+		if resourceIdx < len(parts) && parts[resourceIdx] == "watch" {
+			resourceIdx++
+		}
+		// /api/v1/[watch/]<resource>/...
+		if resourceIdx < len(parts) {
+			if _, ok := sensitiveCoreResources[parts[resourceIdx]]; ok {
 				return true
 			}
 		}
-		// /api/v1/namespaces/<ns>/<resource>/...
-		if i+4 < len(parts) && parts[i+2] == "namespaces" {
-			if _, ok := sensitiveCoreResources[parts[i+4]]; ok {
+		// /api/v1/[watch/]namespaces/<ns>/<resource>/...
+		if resourceIdx+2 < len(parts) && parts[resourceIdx] == "namespaces" {
+			if _, ok := sensitiveCoreResources[parts[resourceIdx+2]]; ok {
 				return true
 			}
 		}

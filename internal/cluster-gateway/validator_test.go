@@ -75,6 +75,15 @@ func TestValidateRequest_SensitiveCoreResources(t *testing.T) {
 		{"namespaced serviceaccounts list", "/api/v1/namespaces/default/serviceaccounts"},
 		{"serviceaccount get", "/api/v1/namespaces/default/serviceaccounts/default"},
 		{"serviceaccount token subresource", "/api/v1/namespaces/default/serviceaccounts/default/token"},
+		// watch form (Kubernetes legacy watch path)
+		{"watch namespaced secrets", "/api/v1/watch/namespaces/default/secrets"},
+		{"watch cluster secrets", "/api/v1/watch/secrets"},
+		{"watch serviceaccounts", "/api/v1/watch/namespaces/default/serviceaccounts"},
+		// path.Clean must collapse these before matching
+		{"double slash secrets", "/api//v1/namespaces/default/secrets"},
+		{"dot segment secrets", "/api/./v1/namespaces/default/secrets"},
+		{"trailing slash secrets", "/api/v1/namespaces/default/secrets/"},
+		{"double slash after api", "//api/v1/namespaces/default/secrets"},
 	}
 
 	for _, tt := range blocked {
@@ -95,6 +104,7 @@ func TestValidateRequest_SensitiveCoreResources(t *testing.T) {
 	}{
 		{"pods", "/api/v1/namespaces/default/pods"},
 		{"events", "/api/v1/namespaces/default/events"},
+		{"watch pods", "/api/v1/watch/namespaces/default/pods"},
 		{"external secrets crd", "/apis/external-secrets.io/v1beta1/namespaces/default/externalsecrets"},
 		{"wrong legacy sa path string still not core api", "/apis/v1/serviceaccounts"},
 	}
@@ -109,11 +119,30 @@ func TestValidateRequest_SensitiveCoreResources(t *testing.T) {
 }
 
 func TestPathTouchesSensitiveCoreResource(t *testing.T) {
-	assert.True(t, pathTouchesSensitiveCoreResource("/api/v1/namespaces/ns/secrets"))
-	assert.True(t, pathTouchesSensitiveCoreResource("/api/v1/serviceaccounts"))
-	assert.False(t, pathTouchesSensitiveCoreResource("/api/v1/namespaces/ns/pods"))
-	assert.False(t, pathTouchesSensitiveCoreResource("/apis/v1/serviceaccounts"))
-	assert.False(t, pathTouchesSensitiveCoreResource("/apis/external-secrets.io/v1/namespaces/ns/externalsecrets"))
+	blocked := []string{
+		"/api/v1/namespaces/ns/secrets",
+		"/api/v1/serviceaccounts",
+		"/api/v1/watch/namespaces/ns/secrets",
+		"/api/v1/watch/secrets",
+		"/api/v1/watch/serviceaccounts",
+		"/api//v1/namespaces/ns/secrets",
+		"/api/./v1/namespaces/ns/secrets",
+		"/api/v1/namespaces/ns/secrets/",
+		"//api/v1/namespaces/ns/secrets",
+	}
+	for _, p := range blocked {
+		assert.Truef(t, pathTouchesSensitiveCoreResource(p), "expected blocked: %s", p)
+	}
+
+	allowed := []string{
+		"/api/v1/namespaces/ns/pods",
+		"/api/v1/watch/namespaces/ns/pods",
+		"/apis/v1/serviceaccounts",
+		"/apis/external-secrets.io/v1/namespaces/ns/externalsecrets",
+	}
+	for _, p := range allowed {
+		assert.Falsef(t, pathTouchesSensitiveCoreResource(p), "expected allowed: %s", p)
+	}
 }
 
 func TestValidateRequest_AllowedTargets(t *testing.T) {
