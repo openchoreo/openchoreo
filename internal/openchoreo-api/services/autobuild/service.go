@@ -95,8 +95,10 @@ func (s *autobuildService) getWebhookSecret(ctx context.Context, secretKey strin
 
 	secretData, ok := secret.Data[secretKey]
 	if !ok || len(secretData) == 0 {
+		// The provider key name is intentionally not logged; the caller logs the provider
+		// for correlation, and CodeQL treats the secret-key identifier as sensitive.
 		s.logger.Error("Webhook secret key is missing or empty",
-			"namespace", webhookSecretNamespace, "name", webhookSecretName, "key", secretKey)
+			"namespace", webhookSecretNamespace, "name", webhookSecretName)
 		return "", ErrSecretNotConfigured
 	}
 
