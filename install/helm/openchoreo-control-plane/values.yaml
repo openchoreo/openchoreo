@@ -1369,6 +1369,7 @@ openchoreoApi:
                 - "alerts:view"
                 - "rcareport:view"
                 - "finopsreport:view"
+                - "finops:view"
                 - "portal-assistant:invoke"
 
             # SRE role - operations engineers focused on reliability and incident response.
@@ -1425,6 +1426,7 @@ openchoreoApi:
                 - "rcareport:update"
                 - "finopsreport:view"
                 - "finopsreport:update"
+                - "finops:view"
                 - "portal-assistant:invoke"
 
             # Platform engineer role - engineers managing the OpenChoreo platform infrastructure
@@ -1532,6 +1534,7 @@ openchoreoApi:
                 - "rcareport:update"
                 - "finopsreport:view"
                 - "finopsreport:update"
+                - "finops:view"
                 - "portal-assistant:invoke"
                 - "observabilityalertsnotificationchannel:view"
                 - "observabilityalertsnotificationchannel:create"

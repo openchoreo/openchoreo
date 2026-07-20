@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -545,6 +546,53 @@ func ValidateIncidentPutRequest(req *gen.IncidentPutRequest) error {
 		// valid
 	default:
 		return fmt.Errorf("status must be one of 'active', 'acknowledged', or 'resolved'")
+	}
+	return nil
+}
+
+// timeGranularityPattern matches the <count><unit> time granularity notation
+// (e.g. 1h, 2d, 3w).
+var timeGranularityPattern = regexp.MustCompile(`^[1-9][0-9]*[hdw]$`)
+
+// ValidateCostQueryRequest validates the CostQueryRequest.
+func ValidateCostQueryRequest(req *types.CostQueryRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+	if strings.TrimSpace(req.Namespace) == "" {
+		return fmt.Errorf("namespace is required")
+	}
+	if strings.TrimSpace(req.Environment) == "" {
+		return fmt.Errorf("environment is required")
+	}
+	if err := ValidateTimeRange(req.StartTime, req.EndTime); err != nil {
+		return err
+	}
+	if req.Component != "" && req.Project == "" {
+		return fmt.Errorf("component requires project to also be set")
+	}
+	if req.Granularity != "" && !timeGranularityPattern.MatchString(req.Granularity) {
+		return fmt.Errorf("granularity must match <count><unit> notation (e.g. 1h, 2d, 3w)")
+	}
+	return nil
+}
+
+// ValidateRecommendationQueryRequest validates the RecommendationQueryRequest.
+func ValidateRecommendationQueryRequest(req *types.RecommendationQueryRequest) error {
+	if req == nil {
+		return fmt.Errorf("request is required")
+	}
+	if strings.TrimSpace(req.Namespace) == "" {
+		return fmt.Errorf("namespace is required")
+	}
+	if strings.TrimSpace(req.Environment) == "" {
+		return fmt.Errorf("environment is required")
+	}
+	if err := ValidateTimeRange(req.StartTime, req.EndTime); err != nil {
+		return err
+	}
+	if req.Component != "" && req.Project == "" {
+		return fmt.Errorf("component requires project to also be set")
 	}
 	return nil
 }

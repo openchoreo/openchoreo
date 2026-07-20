@@ -142,6 +142,7 @@ packages:
       EventsQuerier:
       MetricsQuerier:
       TracesQuerier:
+      FinOpsQuerier:
       AlertsQuerier:
       IncidentsQuerier:
       IncidentsUpdater:

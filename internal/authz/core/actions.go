@@ -276,6 +276,9 @@ const (
 	// FinOps Report actions
 	ActionViewFinOpsReport   = "finopsreport:view"
 	ActionUpdateFinOpsReport = "finopsreport:update"
+
+	// FinOps cost insights actions
+	ActionViewFinOps = "finops:view"
 )
 
 // Action represents a system action with metadata
@@ -540,6 +543,9 @@ var systemActions = []Action{
 	// FinOps Report
 	{Name: ActionViewFinOpsReport, LowestScope: ScopeProject, IsInternal: false},
 	{Name: ActionUpdateFinOpsReport, LowestScope: ScopeProject, IsInternal: false},
+
+	// FinOps cost insights
+	{Name: ActionViewFinOps, LowestScope: ScopeProject, IsInternal: false},
 }
 
 // AllActions returns all system-defined actions

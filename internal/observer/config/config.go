@@ -43,6 +43,9 @@ type AdaptersConfig struct {
 
 	MetricsAdapterURL     string        `koanf:"metrics.adapter.url"`
 	MetricsAdapterTimeout time.Duration `koanf:"metrics.adapter.timeout"`
+
+	FinOpsAdapterURL     string        `koanf:"finops.adapter.url"`
+	FinOpsAdapterTimeout time.Duration `koanf:"finops.adapter.timeout"`
 }
 
 // ServerConfig holds HTTP server configuration
@@ -199,6 +202,8 @@ func Load() (*Config, error) {
 		"TRACING_ADAPTER_TIMEOUT":               "adapters.tracing.adapter.timeout",
 		"METRICS_ADAPTER_URL":                   "adapters.metrics.adapter.url",
 		"METRICS_ADAPTER_TIMEOUT":               "adapters.metrics.adapter.timeout",
+		"FINOPS_ADAPTER_URL":                    "adapters.finops.adapter.url",
+		"FINOPS_ADAPTER_TIMEOUT":                "adapters.finops.adapter.timeout",
 		"UID_RESOLVER_OPENCHOREO_API_URL":       "uid_resolver.openchoreo.api.url",
 		"UID_RESOLVER_OAUTH_TOKEN_URL":          "uid_resolver.oauth.token.url",
 		"UID_RESOLVER_OAUTH_CLIENT_ID":          "uid_resolver.oauth.client.id",
@@ -323,6 +328,8 @@ func getDefaults() map[string]interface{} {
 			"tracing.adapter.timeout": "30s",
 			"metrics.adapter.url":     "http://metrics-adapter:9099",
 			"metrics.adapter.timeout": "30s",
+			"finops.adapter.url":      "http://finops-adapter:9101",
+			"finops.adapter.timeout":  "30s",
 		},
 		"uid_resolver": map[string]interface{}{
 			"openchoreo.api.url":       "http://api.openchoreo.localhost:9099",

@@ -24,6 +24,19 @@ func TestLoad_WithDefaults(t *testing.T) {
 	assert.Equal(t, "http://logs-adapter:9098", cfg.Adapters.LogsAdapterURL)
 	assert.Equal(t, "http://tracing-adapter:9100", cfg.Adapters.TracingAdapterURL)
 	assert.Equal(t, "http://metrics-adapter:9099", cfg.Adapters.MetricsAdapterURL)
+	assert.Equal(t, "http://finops-adapter:9101", cfg.Adapters.FinOpsAdapterURL)
+	assert.Equal(t, 30*time.Second, cfg.Adapters.FinOpsAdapterTimeout)
+}
+
+func TestLoad_FinOpsAdapterEnvOverride(t *testing.T) {
+	t.Setenv("FINOPS_ADAPTER_URL", "http://custom-finops:1234")
+	t.Setenv("FINOPS_ADAPTER_TIMEOUT", "45s")
+
+	cfg, err := Load()
+	require.NoError(t, err, "Failed to load config")
+
+	assert.Equal(t, "http://custom-finops:1234", cfg.Adapters.FinOpsAdapterURL)
+	assert.Equal(t, 45*time.Second, cfg.Adapters.FinOpsAdapterTimeout)
 }
 
 func TestLoad_WithEnvironmentVariables(t *testing.T) {
