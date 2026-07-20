@@ -364,7 +364,7 @@ func TestTracesService_GetSpanDetails_Success(t *testing.T) {
 			StartTime:    now,
 			EndTime:      now.Add(time.Second),
 			DurationNs:   1000000000,
-			Status:       "OK",
+			Status:       &observability.SpanStatus{Code: "error", Message: "failed to initialize connection to database"},
 			Attributes:   map[string]interface{}{"http.method": "GET"},
 		},
 	}
@@ -381,6 +381,9 @@ func TestTracesService_GetSpanDetails_Success(t *testing.T) {
 	assert.Equal(t, "SERVER", resp.SpanKind)
 	assert.Equal(t, int64(1000000000), resp.DurationNs)
 	assert.Equal(t, "GET", resp.Attributes["http.method"])
+	require.NotNil(t, resp.Status)
+	assert.Equal(t, "error", resp.Status.Code)
+	assert.Equal(t, "failed to initialize connection to database", resp.Status.Message)
 }
 
 func TestTracesService_GetSpanDetails_NotFoundPassthrough(t *testing.T) {

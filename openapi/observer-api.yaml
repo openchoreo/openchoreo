@@ -1453,12 +1453,7 @@ components:
                 type: string
                 description: The parent span ID
               status:
-                type: string
-                enum:
-                  - ok
-                  - error
-                  - unset
-                description: The execution status of the span. One of "ok", "error", or "unset".
+                $ref: "#/components/schemas/SpanStatus"
               attributes:
                 type: object
                 description: The span attributes
@@ -1502,12 +1497,7 @@ components:
           type: string
           description: The parent span ID
         status:
-          type: string
-          enum:
-            - ok
-            - error
-            - unset
-          description: The execution status of the span. One of "ok", "error", or "unset".
+          $ref: "#/components/schemas/SpanStatus"
         attributes:
           type: object
           description: The span attributes
@@ -1516,6 +1506,26 @@ components:
           type: object
           description: The resource attributes
           additionalProperties: true
+
+    # OpenTelemetry span status (code + optional message)
+    SpanStatus:
+      type: object
+      description: >-
+        Execution status of the span, following the OpenTelemetry span Status
+        model.
+      properties:
+        code:
+          type: string
+          enum:
+            - ok
+            - error
+            - unset
+          description: The status code of the span. One of "ok", "error", or "unset".
+        message:
+          type: string
+          description: >-
+            Developer-facing human-readable status description. Typically set
+            only when code is "error".
 
     # Request schemas for alert rules
     AlertRuleRequest:

@@ -18,6 +18,13 @@ type TracingAdapter interface {
 	GetSpanDetails(ctx context.Context, traceID string, spanID string) (*SpanDetail, error)
 }
 
+// SpanStatus represents the execution status of a span, following the
+// OpenTelemetry span Status model (a status code plus an optional message).
+type SpanStatus struct {
+	Code    string `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
 // SpanDetail represents detailed information about a single span
 type SpanDetail struct {
 	SpanID             string                 `json:"spanId"`
@@ -27,7 +34,7 @@ type SpanDetail struct {
 	StartTime          time.Time              `json:"startTime"`
 	EndTime            time.Time              `json:"endTime"`
 	DurationNs         int64                  `json:"durationNs"`
-	Status             string                 `json:"status,omitempty"`
+	Status             *SpanStatus            `json:"status,omitempty"`
 	Attributes         map[string]interface{} `json:"attributes,omitempty"`
 	ResourceAttributes map[string]interface{} `json:"resourceAttributes,omitempty"`
 }
@@ -89,7 +96,7 @@ type TraceSpan struct {
 	StartTime          time.Time              `json:"startTime"`
 	EndTime            time.Time              `json:"endTime"`
 	DurationNs         int64                  `json:"durationNs"`
-	Status             string                 `json:"status,omitempty"`
+	Status             *SpanStatus            `json:"status,omitempty"`
 	Attributes         map[string]interface{} `json:"attributes,omitempty"`
 	ResourceAttributes map[string]interface{} `json:"resourceAttributes,omitempty"`
 }

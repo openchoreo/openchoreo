@@ -112,6 +112,10 @@ func TestConvertSpansAdapterResponse_WithAttributes(t *testing.T) {
 				"spanName":  "http.request",
 				"startTime": now.Format(time.RFC3339Nano),
 				"endTime":   now.Format(time.RFC3339Nano),
+				"status": map[string]interface{}{
+					"code":    "error",
+					"message": "upstream connection reset",
+				},
 				"attributes": map[string]interface{}{
 					"http.method":      "GET",
 					"http.status_code": float64(200),
@@ -134,6 +138,15 @@ func TestConvertSpansAdapterResponse_WithAttributes(t *testing.T) {
 	span := result.Spans[0]
 	if span.SpanID != "span-1" {
 		t.Errorf("Expected spanId=span-1, got %s", span.SpanID)
+	}
+	if span.Status == nil {
+		t.Fatal("Expected Status to be populated")
+	}
+	if span.Status.Code != "error" {
+		t.Errorf("Expected status code=error, got %s", span.Status.Code)
+	}
+	if span.Status.Message != "upstream connection reset" {
+		t.Errorf("Expected status message to propagate, got %q", span.Status.Message)
 	}
 	if span.Attributes == nil {
 		t.Fatal("Expected Attributes to be populated")
@@ -203,6 +216,10 @@ func TestConvertSpanDetailResponse_PreservesNativeTypes(t *testing.T) {
 	resp := buildGenSpanDetailsResponse(t, map[string]interface{}{
 		"spanId":   "span-1",
 		"spanName": "http.request",
+		"status": map[string]interface{}{
+			"code":    "error",
+			"message": "invalid request payload",
+		},
 		"attributes": map[string]interface{}{
 			"http.status_code":   200,
 			"http.response_size": 1856,
@@ -221,6 +238,12 @@ func TestConvertSpanDetailResponse_PreservesNativeTypes(t *testing.T) {
 
 	detail := convertSpanDetailResponse(resp)
 
+	if detail.Status == nil {
+		t.Fatal("Expected Status to be populated")
+	}
+	if detail.Status.Code != "error" || detail.Status.Message != "invalid request payload" {
+		t.Errorf("status not propagated: got %+v", detail.Status)
+	}
 	if detail.Attributes == nil {
 		t.Fatal("Expected Attributes to be populated")
 	}

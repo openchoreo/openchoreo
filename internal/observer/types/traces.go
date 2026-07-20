@@ -3,7 +3,11 @@
 
 package types
 
-import "time"
+import (
+	"time"
+
+	"github.com/openchoreo/openchoreo/pkg/observability"
+)
 
 // TracesQueryRequest represents the internal request for querying traces
 type TracesQueryRequest struct {
@@ -45,14 +49,14 @@ type SpansQueryResponse struct {
 
 // SpanInfo contains information about a span
 type SpanInfo struct {
-	SpanID             string                 `json:"spanId"`
-	SpanName           string                 `json:"spanName"`
-	SpanKind           string                 `json:"spanKind,omitempty"`
-	ParentSpanID       string                 `json:"parentSpanId,omitempty"`
-	StartTime          *time.Time             `json:"startTime,omitempty"`
-	EndTime            *time.Time             `json:"endTime,omitempty"`
-	DurationNs         int64                  `json:"durationNs,omitempty"`
-	Status             string                 `json:"status,omitempty"`
-	Attributes         map[string]interface{} `json:"attributes,omitempty"`
-	ResourceAttributes map[string]interface{} `json:"resourceAttributes,omitempty"`
+	SpanID             string                    `json:"spanId"`
+	SpanName           string                    `json:"spanName"`
+	SpanKind           string                    `json:"spanKind,omitempty"`
+	ParentSpanID       string                    `json:"parentSpanId,omitempty"`
+	StartTime          *time.Time                `json:"startTime,omitempty"`
+	EndTime            *time.Time                `json:"endTime,omitempty"`
+	DurationNs         int64                     `json:"durationNs,omitempty"`
+	Status             *observability.SpanStatus `json:"status,omitempty"`
+	Attributes         map[string]interface{}    `json:"attributes,omitempty"`
+	ResourceAttributes map[string]interface{}    `json:"resourceAttributes,omitempty"`
 }

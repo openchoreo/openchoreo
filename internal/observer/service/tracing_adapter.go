@@ -149,6 +149,21 @@ func (t *TracingAdapter) GetSpanDetails(ctx context.Context, traceID string, spa
 	return convertSpanDetailResponse(resp.JSON200), nil
 }
 
+// convertGenSpanStatus maps the generated span status object to the domain type.
+func convertGenSpanStatus(status *gen.SpanStatus) *observability.SpanStatus {
+	if status == nil {
+		return nil
+	}
+	result := &observability.SpanStatus{}
+	if status.Code != nil {
+		result.Code = string(*status.Code)
+	}
+	if status.Message != nil {
+		result.Message = *status.Message
+	}
+	return result
+}
+
 func convertSpanDetailResponse(resp *gen.TraceSpanDetailsResponse) *observability.SpanDetail {
 	detail := &observability.SpanDetail{}
 
@@ -174,7 +189,7 @@ func convertSpanDetailResponse(resp *gen.TraceSpanDetailsResponse) *observabilit
 		detail.SpanKind = *resp.SpanKind
 	}
 	if resp.Status != nil {
-		detail.Status = string(*resp.Status)
+		detail.Status = convertGenSpanStatus(resp.Status)
 	}
 
 	if resp.Attributes != nil {
@@ -222,7 +237,7 @@ func convertSpansAdapterResponse(resp *gen.TraceSpansQueryResponse) *observabili
 				span.SpanKind = *s.SpanKind
 			}
 			if s.Status != nil {
-				span.Status = string(*s.Status)
+				span.Status = convertGenSpanStatus(s.Status)
 			}
 			if s.Attributes != nil {
 				span.Attributes = *s.Attributes

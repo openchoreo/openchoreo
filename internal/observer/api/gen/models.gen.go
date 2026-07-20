@@ -196,18 +196,11 @@ const (
 	RuntimeTopologyNodeRefKindGateway   RuntimeTopologyNodeRefKind = "gateway"
 )
 
-// Defines values for TraceSpanDetailsResponseStatus.
+// Defines values for SpanStatusCode.
 const (
-	TraceSpanDetailsResponseStatusError TraceSpanDetailsResponseStatus = "error"
-	TraceSpanDetailsResponseStatusOk    TraceSpanDetailsResponseStatus = "ok"
-	TraceSpanDetailsResponseStatusUnset TraceSpanDetailsResponseStatus = "unset"
-)
-
-// Defines values for TraceSpansQueryResponseSpansStatus.
-const (
-	Error TraceSpansQueryResponseSpansStatus = "error"
-	Ok    TraceSpansQueryResponseSpansStatus = "ok"
-	Unset TraceSpansQueryResponseSpansStatus = "unset"
+	SpanStatusCodeError SpanStatusCode = "error"
+	SpanStatusCodeOk    SpanStatusCode = "ok"
+	SpanStatusCodeUnset SpanStatusCode = "unset"
 )
 
 // Defines values for TracesQueryRequestSortOrder.
@@ -1075,6 +1068,18 @@ type RuntimeTopologySummary struct {
 	StartTime   time.Time `json:"startTime"`
 }
 
+// SpanStatus Execution status of the span, following the OpenTelemetry span Status model.
+type SpanStatus struct {
+	// Code The status code of the span. One of "ok", "error", or "unset".
+	Code *SpanStatusCode `json:"code,omitempty"`
+
+	// Message Developer-facing human-readable status description. Typically set only when code is "error".
+	Message *string `json:"message,omitempty"`
+}
+
+// SpanStatusCode The status code of the span. One of "ok", "error", or "unset".
+type SpanStatusCode string
+
 // TraceSpanDetailsResponse defines model for TraceSpanDetailsResponse.
 type TraceSpanDetailsResponse struct {
 	// Attributes The span attributes
@@ -1104,12 +1109,9 @@ type TraceSpanDetailsResponse struct {
 	// StartTime The start time of the span
 	StartTime *time.Time `json:"startTime,omitempty"`
 
-	// Status The execution status of the span. One of "ok", "error", or "unset".
-	Status *TraceSpanDetailsResponseStatus `json:"status,omitempty"`
+	// Status Execution status of the span, following the OpenTelemetry span Status model.
+	Status *SpanStatus `json:"status,omitempty"`
 }
-
-// TraceSpanDetailsResponseStatus The execution status of the span. One of "ok", "error", or "unset".
-type TraceSpanDetailsResponseStatus string
 
 // TraceSpansQueryResponse defines model for TraceSpansQueryResponse.
 type TraceSpansQueryResponse struct {
@@ -1142,8 +1144,8 @@ type TraceSpansQueryResponse struct {
 		// StartTime The start time of the span
 		StartTime *time.Time `json:"startTime,omitempty"`
 
-		// Status The execution status of the span. One of "ok", "error", or "unset".
-		Status *TraceSpansQueryResponseSpansStatus `json:"status,omitempty"`
+		// Status Execution status of the span, following the OpenTelemetry span Status model.
+		Status *SpanStatus `json:"status,omitempty"`
 	} `json:"spans,omitempty"`
 
 	// TookMs The time taken to query the spans in milliseconds
@@ -1152,9 +1154,6 @@ type TraceSpansQueryResponse struct {
 	// Total The total number of matching spans, capped at 1000
 	Total *int `json:"total,omitempty"`
 }
-
-// TraceSpansQueryResponseSpansStatus The execution status of the span. One of "ok", "error", or "unset".
-type TraceSpansQueryResponseSpansStatus string
 
 // TracesQueryRequest defines model for TracesQueryRequest.
 type TracesQueryRequest struct {
