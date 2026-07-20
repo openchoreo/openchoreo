@@ -212,3 +212,82 @@ func TestGetWebhookSecret(t *testing.T) {
 		require.ErrorIs(t, err, ErrSecretNotConfigured)
 	})
 }
+
+// TestForgedBitbucketWebhookRejected exercises the scenario where an unauthenticated caller
+// selects the Bitbucket provider via request headers to reach a validation path that must not
+// accept a request without a valid HMAC signature. The forged payload targets a GitHub-hosted
+// repository (the provider is attacker-selected), and every variant must be rejected before any
+// build is triggered.
+func TestForgedBitbucketWebhookRejected(t *testing.T) {
+	ctx := context.Background()
+	forgedPayload := []byte(`{"push":{"changes":[{"new":{"name":"main","type":"branch"},` +
+		`"commits":[{"hash":"0123456789abcdef0123456789abcdef01234567"}]}]},` +
+		`"repository":{"links":{"html":{"href":"https://github.com/target-org/target-repo"}}}}`)
+
+	t.Run("deployment without bitbucket-secret fails closed", func(t *testing.T) {
+		// A GitHub-only deployment: only github-secret is configured, no bitbucket-secret.
+		secret := newWebhookSecret("github-secret", "gh-hmac-secret")
+		processor := &mockProcessor{components: []string{"must-not-trigger"}}
+		svc := newService(t, processor, secret)
+
+		result, err := svc.ProcessWebhook(ctx, &ProcessWebhookParams{
+			ProviderType:    git.ProviderBitbucket,
+			SignatureHeader: "X-Hub-Signature",
+			Signature:       "", // attacker sends no signature
+			SecretKey:       "bitbucket-secret",
+			Payload:         forgedPayload,
+		})
+
+		require.ErrorIs(t, err, ErrSecretNotConfigured)
+		require.Nil(t, result)
+	})
+
+	t.Run("bitbucket-secret configured but no signature fails closed", func(t *testing.T) {
+		secret := newWebhookSecret("bitbucket-secret", "bb-hmac-secret")
+		processor := &mockProcessor{components: []string{"must-not-trigger"}}
+		svc := newService(t, processor, secret)
+
+		_, err := svc.ProcessWebhook(ctx, &ProcessWebhookParams{
+			ProviderType:    git.ProviderBitbucket,
+			SignatureHeader: "X-Hub-Signature",
+			Signature:       "",
+			SecretKey:       "bitbucket-secret",
+			Payload:         forgedPayload,
+		})
+
+		require.ErrorIs(t, err, ErrInvalidSignature)
+	})
+
+	t.Run("bitbucket-secret configured with signature under a guessed secret fails closed", func(t *testing.T) {
+		secret := newWebhookSecret("bitbucket-secret", "bb-hmac-secret")
+		svc := newService(t, &mockProcessor{}, secret)
+
+		_, err := svc.ProcessWebhook(ctx, &ProcessWebhookParams{
+			ProviderType:    git.ProviderBitbucket,
+			SignatureHeader: "X-Hub-Signature",
+			Signature:       hmacSignature("attacker-guessed-secret", forgedPayload),
+			SecretKey:       "bitbucket-secret",
+			Payload:         forgedPayload,
+		})
+
+		require.ErrorIs(t, err, ErrInvalidSignature)
+	})
+}
+
+// TestGitHubWebhookSignatureEnforced is a control asserting the GitHub path rejects an invalid
+// signature, confirming Bitbucket is now held to the same standard rather than being a weaker path.
+func TestGitHubWebhookSignatureEnforced(t *testing.T) {
+	ctx := context.Background()
+	secret := newWebhookSecret("github-secret", "gh-hmac-secret")
+	svc := newService(t, &mockProcessor{}, secret)
+
+	_, err := svc.ProcessWebhook(ctx, &ProcessWebhookParams{
+		ProviderType:    git.ProviderGitHub,
+		SignatureHeader: "X-Hub-Signature-256",
+		Signature:       "sha256=deadbeef",
+		SecretKey:       "github-secret",
+		Payload:         []byte(`{"ref":"refs/heads/main"}`),
+	})
+
+	require.ErrorIs(t, err, ErrInvalidSignature)
+}
