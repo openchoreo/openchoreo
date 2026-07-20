@@ -6,12 +6,14 @@ package k8sresources
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"maps"
 	"net/http"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -138,8 +140,12 @@ func (s *k8sResourcesService) GetResourceEvents(ctx context.Context, namespaceNa
 }
 
 // GetResourceLogs returns logs for a specific pod in the release binding's resource tree.
-func (s *k8sResourcesService) GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName, podName string, sinceSeconds *int64) (*models.ResourcePodLogsResponse, error) {
-	s.logger.Debug("Getting k8s resource logs", "namespace", namespaceName, "releaseBinding", releaseBindingName, "pod", podName)
+// When container is empty, logs from every container in the pod are returned, each entry
+// tagged with its container name and merged into a single timeline ordered by timestamp.
+// When container is set, only that container's logs are returned.
+func (s *k8sResourcesService) GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName, podName, container string, sinceSeconds *int64) (*models.ResourcePodLogsResponse, error) {
+	s.logger.Debug("Getting k8s resource logs", "namespace", namespaceName, "releaseBinding", releaseBindingName,
+		"pod", podName, "container", container)
 
 	if s.gatewayClient == nil {
 		return nil, fmt.Errorf("gateway client is not configured")
@@ -163,25 +169,91 @@ func (s *k8sResourcesService) GetResourceLogs(ctx context.Context, namespaceName
 		return nil, ErrResourceNotFound
 	}
 
-	rawLogs, err := s.gatewayClient.GetPodLogsFromPlane(ctx, targetRC.plane.planeType, targetRC.plane.planeID,
-		targetRC.plane.crNamespace, targetRC.plane.crName,
-		&gateway.PodReference{
-			Namespace: targetRC.namespace,
-			Name:      podName,
-		},
-		&gateway.PodLogsOptions{
-			IncludeTimestamps: true,
-			SinceSeconds:      sinceSeconds,
-		})
-	if err != nil {
-		if gateway.IsPermanentError(err) {
-			return nil, ErrResourceNotFound
+	// Determine which containers to fetch logs from. A pod's Kubernetes log API requires an
+	// explicit container name once the pod has more than one container, so when the caller
+	// does not pick one we enumerate the pod's containers and aggregate their logs.
+	var containers []string
+	if container != "" {
+		containers = []string{container}
+	} else {
+		containers, err = s.resolvePodContainers(ctx, targetRC.plane, targetRC.namespace, podName)
+		if err != nil {
+			s.logger.Warn("Failed to resolve pod containers", "pod", podName, "error", err)
+			var statusErr *liveResourceStatusError
+			if errors.As(err, &statusErr) && statusErr.statusCode == http.StatusNotFound {
+				return nil, ErrResourceNotFound
+			}
+			// The pod is present but unreadable (transient/agent error) or the
+			// response was otherwise unexpected
+			return nil, fmt.Errorf("failed to resolve pod containers: %w", err)
 		}
-		return nil, fmt.Errorf("failed to fetch pod logs: %w", err)
 	}
 
-	logEntries := parseLogLines(rawLogs)
-	return &models.ResourcePodLogsResponse{LogEntries: logEntries}, nil
+	entries := make([]models.PodLogEntry, 0)
+	for _, containerName := range containers {
+		rawLogs, err := s.gatewayClient.GetPodLogsFromPlane(ctx, targetRC.plane.planeType, targetRC.plane.planeID,
+			targetRC.plane.crNamespace, targetRC.plane.crName,
+			&gateway.PodReference{
+				Namespace: targetRC.namespace,
+				Name:      podName,
+			},
+			&gateway.PodLogsOptions{
+				ContainerName:     containerName,
+				IncludeTimestamps: true,
+				SinceSeconds:      sinceSeconds,
+			})
+		if err != nil {
+			var permErr *gateway.PermanentError
+			if errors.As(err, &permErr) {
+				if container != "" {
+					switch permErr.StatusCode {
+					case http.StatusNotFound:
+						return nil, ErrResourceNotFound
+					case http.StatusBadRequest:
+						return nil, ErrInvalidContainer
+					default:
+						return nil, fmt.Errorf("failed to fetch logs for container %q: %w", containerName, err)
+					}
+				}
+				// Aggregating: a container that is still starting or already gone
+				// returns 400/404 and is safely skipped, but surface anything else
+				// (e.g. a 403 from a misconfigured agent) instead of returning a
+				// partial result.
+				if permErr.StatusCode == http.StatusBadRequest || permErr.StatusCode == http.StatusNotFound {
+					s.logger.Warn("Skipping container with no readable logs",
+						"pod", podName, "container", containerName, "status", permErr.StatusCode)
+					continue
+				}
+				return nil, fmt.Errorf("failed to fetch logs for container %q: %w", containerName, err)
+			}
+			return nil, fmt.Errorf("failed to fetch pod logs: %w", err)
+		}
+
+		for _, entry := range parseLogLines(rawLogs) {
+			entry.Container = containerName
+			entries = append(entries, entry)
+		}
+	}
+
+	// Merge per-container logs into a single timeline ordered by timestamp.
+	sortLogEntriesByTimestamp(entries)
+
+	return &models.ResourcePodLogsResponse{LogEntries: entries}, nil
+}
+
+// resolvePodContainers fetches the live pod and returns the names of its containers.
+func (s *k8sResourcesService) resolvePodContainers(ctx context.Context, pi planeInfo, namespace, podName string) ([]string, error) {
+	podPath := buildK8sGetPath("", "v1", "pods", namespace, podName)
+	pod, err := s.fetchLiveResource(ctx, pi, podPath)
+	if err != nil {
+		return nil, err
+	}
+
+	names := extractContainerNames(pod)
+	if len(names) == 0 {
+		return nil, fmt.Errorf("no containers found for pod %s", podName)
+	}
+	return names, nil
 }
 
 // resolveReleaseContexts fetches the ReleaseBinding, finds its owned Releases,
@@ -378,6 +450,19 @@ func (s *k8sResourcesService) findResourceRelease(contexts []releaseContext, gro
 
 // --- Fetching helpers ---
 
+// liveResourceStatusError is returned by fetchLiveResource when the proxied
+// Kubernetes GET responds with a non-200 status. It preserves the status code so
+// callers can tell a genuine 404 apart from transient or otherwise unexpected
+// failures instead of collapsing them all into "not found".
+type liveResourceStatusError struct {
+	statusCode int
+	path       string
+}
+
+func (e *liveResourceStatusError) Error() string {
+	return fmt.Sprintf("unexpected status %d for %s", e.statusCode, e.path)
+}
+
 func (s *k8sResourcesService) fetchLiveResource(ctx context.Context, pi planeInfo, k8sPath string) (map[string]any, error) {
 	resp, err := s.gatewayClient.ProxyK8sRequest(ctx, pi.planeType, pi.planeID, pi.crNamespace, pi.crName, k8sPath, "")
 	if err != nil {
@@ -386,7 +471,7 @@ func (s *k8sResourcesService) fetchLiveResource(ctx context.Context, pi planeInf
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status %d for %s", resp.StatusCode, k8sPath)
+		return nil, &liveResourceStatusError{statusCode: resp.StatusCode, path: k8sPath}
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
@@ -717,6 +802,59 @@ func parseLogLines(rawLogs string) []models.PodLogEntry {
 		}
 	}
 	return entries
+}
+
+// extractContainerNames returns the names of the containers defined in a pod's spec.
+func extractContainerNames(pod map[string]any) []string {
+	spec, ok := pod["spec"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	containers, ok := spec["containers"].([]any)
+	if !ok {
+		return nil
+	}
+	names := make([]string, 0, len(containers))
+	for _, c := range containers {
+		cm, ok := c.(map[string]any)
+		if !ok {
+			continue
+		}
+		if name, ok := cm["name"].(string); ok && name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// sortLogEntriesByTimestamp orders log entries chronologically. Timestamps are parsed once
+// each so entries aggregated from multiple containers interleave into a single timeline.
+func sortLogEntriesByTimestamp(entries []models.PodLogEntry) {
+	type keyed struct {
+		ts    time.Time
+		entry models.PodLogEntry
+	}
+	keyedEntries := make([]keyed, len(entries))
+	for i, e := range entries {
+		keyedEntries[i] = keyed{ts: parseLogTimestamp(e.Timestamp), entry: e}
+	}
+	sort.SliceStable(keyedEntries, func(i, j int) bool {
+		return keyedEntries[i].ts.Before(keyedEntries[j].ts)
+	})
+	for i := range keyedEntries {
+		entries[i] = keyedEntries[i].entry
+	}
+}
+
+// parseLogTimestamp parses an RFC3339(Nano) timestamp, returning the zero time on failure.
+func parseLogTimestamp(ts string) time.Time {
+	if t, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+		return t
+	}
+	if t, err := time.Parse(time.RFC3339, ts); err == nil {
+		return t
+	}
+	return time.Time{}
 }
 
 func hasOwnerReference(obj map[string]any, ownerUID string) bool {

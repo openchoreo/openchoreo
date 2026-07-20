@@ -96,6 +96,7 @@ type LogsParams struct {
 	Project     string
 	Component   string
 	Environment string
+	Container   string // optional — empty means logs from all containers
 	Follow      bool
 	Since       string // duration like "1h", "30m", "5m"
 	Tail        int    // number of lines to show from the end of logs (0 means no limit)

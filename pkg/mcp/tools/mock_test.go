@@ -692,9 +692,9 @@ func (m *MockCoreToolsetHandler) GetResourceEvents(
 }
 
 func (m *MockCoreToolsetHandler) GetResourceLogs(
-	ctx context.Context, namespaceName, releaseBindingName, podName string, sinceSeconds *int64,
+	ctx context.Context, namespaceName, releaseBindingName, podName, container string, sinceSeconds *int64,
 ) (any, error) {
-	m.recordCall("GetResourceLogs", namespaceName, releaseBindingName, podName, sinceSeconds)
+	m.recordCall("GetResourceLogs", namespaceName, releaseBindingName, podName, container, sinceSeconds)
 	return `{"logEntries":[]}`, nil
 }
 

@@ -103,16 +103,23 @@ func (h *Handler) GetReleaseBindingK8sResourceLogs(
 	ctx context.Context,
 	request gen.GetReleaseBindingK8sResourceLogsRequestObject,
 ) (gen.GetReleaseBindingK8sResourceLogsResponseObject, error) {
+	container := ""
+	if request.Params.Container != nil {
+		container = *request.Params.Container
+	}
+
 	h.logger.Debug("GetReleaseBindingK8sResourceLogs called",
 		"namespace", request.NamespaceName,
 		"releaseBinding", request.ReleaseBindingName,
-		"podName", request.Params.PodName)
+		"podName", request.Params.PodName,
+		"container", container)
 
 	resp, err := h.services.K8sResourcesService.GetResourceLogs(
 		ctx,
 		request.NamespaceName,
 		request.ReleaseBindingName,
 		request.Params.PodName,
+		container,
 		request.Params.SinceSeconds,
 	)
 	if err != nil {
@@ -180,6 +187,11 @@ func (h *Handler) handleK8sResourceLogsError(err error) (gen.GetReleaseBindingK8
 	}
 	if errors.Is(err, k8sresourcessvc.ErrResourceNotFound) {
 		return gen.GetReleaseBindingK8sResourceLogs404JSONResponse{NotFoundJSONResponse: notFound("Resource")}, nil
+	}
+	if errors.Is(err, k8sresourcessvc.ErrInvalidContainer) {
+		return gen.GetReleaseBindingK8sResourceLogs400JSONResponse{
+			BadRequestJSONResponse: badRequest("Container not found in pod"),
+		}, nil
 	}
 	h.logger.Error("Failed to get k8s resource logs", "error", err)
 	return gen.GetReleaseBindingK8sResourceLogs500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

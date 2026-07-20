@@ -21,10 +21,25 @@ type ObserverClient struct {
 
 // LogEntry represents a single log entry from observer
 type LogEntry struct {
-	Timestamp string `json:"timestamp"`
-	Log       string `json:"log"`
-	Level     string `json:"level,omitempty"`
-	Stream    string `json:"stream,omitempty"`
+	Timestamp string       `json:"timestamp"`
+	Log       string       `json:"log"`
+	Level     string       `json:"level,omitempty"`
+	Stream    string       `json:"stream,omitempty"`
+	Metadata  *LogMetadata `json:"metadata,omitempty"`
+}
+
+// LogMetadata carries per-entry metadata returned by the observer.
+type LogMetadata struct {
+	ContainerName string `json:"containerName,omitempty"`
+	PodName       string `json:"podName,omitempty"`
+}
+
+// ContainerName returns the container that produced the log entry, or "" if unknown.
+func (e LogEntry) ContainerName() string {
+	if e.Metadata != nil {
+		return e.Metadata.ContainerName
+	}
+	return ""
 }
 
 // LogResponse represents the response from the observer logs API

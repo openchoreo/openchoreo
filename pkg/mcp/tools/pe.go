@@ -484,6 +484,8 @@ func (t *Toolsets) RegisterGetResourceLogs(s *mcp.Server, perms map[string]ToolP
 			"release_binding_name": stringProperty(
 				"Name of the release binding (deployment). Use list_release_bindings to discover valid names"),
 			"pod_name": stringProperty("Name of the pod. Use get_resource_tree to discover pod names under the binding"),
+			"container": stringProperty(
+				"Optional container name. Defaults to logs from all containers in the pod, each tagged with its container"),
 			"since_seconds": map[string]any{
 				"type":        "integer",
 				"description": "Return logs from the last N seconds. Defaults to all available logs",
@@ -493,10 +495,11 @@ func (t *Toolsets) RegisterGetResourceLogs(s *mcp.Server, perms map[string]ToolP
 		NamespaceName      string `json:"namespace_name"`
 		ReleaseBindingName string `json:"release_binding_name"`
 		PodName            string `json:"pod_name"`
+		Container          string `json:"container"`
 		SinceSeconds       *int64 `json:"since_seconds"`
 	}) (*mcp.CallToolResult, any, error) {
 		result, err := t.PEToolset.GetResourceLogs(
-			ctx, args.NamespaceName, args.ReleaseBindingName, args.PodName, args.SinceSeconds)
+			ctx, args.NamespaceName, args.ReleaseBindingName, args.PodName, args.Container, args.SinceSeconds)
 		return handleToolResult(result, err)
 	})
 }

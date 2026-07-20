@@ -10,4 +10,5 @@ var (
 	ErrRenderedReleaseNotFound = errors.New("rendered release not found")
 	ErrEnvironmentNotFound     = errors.New("environment not found")
 	ErrResourceNotFound        = errors.New("resource not found in rendered release")
+	ErrInvalidContainer        = errors.New("container not found in pod")
 )

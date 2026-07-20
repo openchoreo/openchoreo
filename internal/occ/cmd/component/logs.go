@@ -115,11 +115,40 @@ func (cp *Component) fetchAndPrintLogs(
 		reverseLogs(logs)
 	}
 
-	for _, log := range logs {
-		fmt.Printf("%s %s\n", log.Timestamp, log.Log)
-	}
+	printLogs(logs, params.Container)
 
 	return nil
+}
+
+// printLogEntry prints a log entry, prefixing the container name when known so logs from
+// different containers of the same pod can be told apart.
+func printLogEntry(log client.LogEntry) {
+	if container := log.ContainerName(); container != "" {
+		fmt.Printf("%s [%s] %s\n", log.Timestamp, container, log.Log)
+		return
+	}
+	fmt.Printf("%s %s\n", log.Timestamp, log.Log)
+}
+
+// filterLogsByContainer keeps only entries produced by the named container.
+func filterLogsByContainer(logs []client.LogEntry, container string) []client.LogEntry {
+	filtered := make([]client.LogEntry, 0, len(logs))
+	for _, log := range logs {
+		if log.ContainerName() == container {
+			filtered = append(filtered, log)
+		}
+	}
+	return filtered
+}
+
+// printLogs prints the entries, restricting to a single container when requested.
+func printLogs(logs []client.LogEntry, container string) {
+	if container != "" {
+		logs = filterLogsByContainer(logs, container)
+	}
+	for _, log := range logs {
+		printLogEntry(log)
+	}
 }
 
 // reverseLogs reverses a slice of log entries in place
@@ -155,9 +184,7 @@ func (cp *Component) followLogs(
 	}
 
 	// Print initial logs
-	for _, log := range logs {
-		fmt.Printf("%s %s\n", log.Timestamp, log.Log)
-	}
+	printLogs(logs, params.Container)
 
 	// Update startTime to the last log timestamp or endTime
 	startTime = endTime // default
@@ -195,9 +222,7 @@ func (cp *Component) followLogs(
 			}
 
 			// Print new logs
-			for _, log := range logs {
-				fmt.Printf("%s %s\n", log.Timestamp, log.Log)
-			}
+			printLogs(logs, params.Container)
 
 			// Update startTime
 			if len(logs) > 0 {
@@ -250,6 +275,8 @@ func (cp *Component) fetchLogs(
 			params.Component, params.Project, params.Namespace, params.Environment, observerURL, err)
 	}
 
+	// Return the full pod-wide result; callers filter by container at print time so the
+	// follow poll can still advance startTime past every container's latest log.
 	return logResponse.Logs, nil
 }
 
