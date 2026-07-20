@@ -9,6 +9,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -174,9 +175,11 @@ func getDefaultDataPlane(ctx context.Context, c client.Client, namespace string)
 	}
 
 	if namespace != "" {
-		return nil, fmt.Errorf("no DataPlaneRef specified and neither default DataPlane nor ClusterDataPlane '%s' found in namespace '%s'", DefaultPlaneName, namespace)
+		return nil, defaultPlaneNotFound("clusterdataplanes",
+			fmt.Sprintf("no DataPlaneRef specified and neither default DataPlane nor ClusterDataPlane '%s' found in namespace '%s'", DefaultPlaneName, namespace))
 	}
-	return nil, fmt.Errorf("no DataPlaneRef specified and default ClusterDataPlane '%s' not found", DefaultPlaneName)
+	return nil, defaultPlaneNotFound("clusterdataplanes",
+		fmt.Sprintf("no DataPlaneRef specified and default ClusterDataPlane '%s' not found", DefaultPlaneName))
 }
 
 // ============================================================================
@@ -309,9 +312,11 @@ func getDefaultObservabilityPlane(ctx context.Context, c client.Client, namespac
 	}
 
 	if namespace != "" {
-		return nil, fmt.Errorf("no ObservabilityPlaneRef specified and neither default ObservabilityPlane nor ClusterObservabilityPlane '%s' found in namespace '%s'", DefaultPlaneName, namespace)
+		return nil, defaultPlaneNotFound("clusterobservabilityplanes",
+			fmt.Sprintf("no ObservabilityPlaneRef specified and neither default ObservabilityPlane nor ClusterObservabilityPlane '%s' found in namespace '%s'", DefaultPlaneName, namespace))
 	}
-	return nil, fmt.Errorf("no ObservabilityPlaneRef specified and default ClusterObservabilityPlane '%s' not found", DefaultPlaneName)
+	return nil, defaultPlaneNotFound("clusterobservabilityplanes",
+		fmt.Sprintf("no ObservabilityPlaneRef specified and default ClusterObservabilityPlane '%s' not found", DefaultPlaneName))
 }
 
 // clusterObsRefToObsRef converts a ClusterObservabilityPlaneRef to an ObservabilityPlaneRef.
@@ -457,9 +462,20 @@ func getDefaultWorkflowPlane(ctx context.Context, c client.Client, namespace str
 	}
 
 	if namespace != "" {
-		return nil, fmt.Errorf("no WorkflowPlaneRef specified and neither default WorkflowPlane nor ClusterWorkflowPlane '%s' found in namespace '%s'", DefaultPlaneName, namespace)
+		return nil, defaultPlaneNotFound("clusterworkflowplanes",
+			fmt.Sprintf("no WorkflowPlaneRef specified and neither default WorkflowPlane nor ClusterWorkflowPlane '%s' found in namespace '%s'", DefaultPlaneName, namespace))
 	}
-	return nil, fmt.Errorf("no WorkflowPlaneRef specified and default ClusterWorkflowPlane '%s' not found", DefaultPlaneName)
+	return nil, defaultPlaneNotFound("clusterworkflowplanes",
+		fmt.Sprintf("no WorkflowPlaneRef specified and default ClusterWorkflowPlane '%s' not found", DefaultPlaneName))
+}
+
+// defaultPlaneNotFound returns an error that satisfies apierrors.IsNotFound while
+// keeping a human readable message for callers that log err.Error().
+func defaultPlaneNotFound(resource, msg string) error {
+	return fmt.Errorf("%s: %w", msg, apierrors.NewNotFound(
+		schema.GroupResource{Group: openchoreov1alpha1.GroupVersion.Group, Resource: resource},
+		DefaultPlaneName,
+	))
 }
 
 // ============================================================================
