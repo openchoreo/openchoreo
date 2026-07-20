@@ -12,6 +12,11 @@ spec:
           - name: ruleset-path
       container:
         image: node:20-alpine
+        env:
+          - name: API_SPEC_PATH
+            value: '{{inputs.parameters.api-spec-path}}'
+          - name: RULESET_PATH
+            value: '{{inputs.parameters.ruleset-path}}'
         command:
           - sh
           - -c
@@ -20,8 +25,6 @@ spec:
             set -e
 
             WORKDIR="/mnt/vol/source"
-            API_SPEC_PATH="{{inputs.parameters.api-spec-path}}"
-            RULESET_PATH="{{inputs.parameters.ruleset-path}}"
 
             echo ">> Installing Spectral and OWASP ruleset"
             npm install -g @stoplight/spectral-cli @stoplight/spectral-owasp-ruleset

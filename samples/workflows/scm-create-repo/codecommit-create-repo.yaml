@@ -24,10 +24,6 @@ spec:
         args:
           - |
             set -e
-            REPO_NAME="{{workflow.parameters.repo-name}}"
-            DESCRIPTION="{{workflow.parameters.description}}"
-            REGION="{{workflow.parameters.region}}"
-
             echo "Creating CodeCommit repository ${REPO_NAME} in region ${REGION} ..."
             aws codecommit create-repository \
               --repository-name "$REPO_NAME" \
@@ -37,6 +33,12 @@ spec:
 
             echo "Repository creation request complete."
         env:
+          - name: REPO_NAME
+            value: '{{workflow.parameters.repo-name}}'
+          - name: DESCRIPTION
+            value: '{{workflow.parameters.description}}'
+          - name: REGION
+            value: '{{workflow.parameters.region}}'
           - name: AWS_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:

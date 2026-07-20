@@ -24,13 +24,6 @@ spec:
         args:
           - |
             set -e
-            OWNER="{{workflow.parameters.owner}}"
-            REPO_NAME="{{workflow.parameters.repo-name}}"
-            DESCRIPTION="{{workflow.parameters.description}}"
-            VISIBILITY="{{workflow.parameters.visibility}}"
-            AUTO_INIT="{{workflow.parameters.auto-init}}"
-            GITIGNORE_TEMPLATE="{{workflow.parameters.gitignore-template}}"
-            LICENSE_TEMPLATE="{{workflow.parameters.license-template}}"
 
             IS_PRIVATE="false"
             if [ "$VISIBILITY" = "private" ]; then
@@ -60,6 +53,20 @@ spec:
 
             echo "Repository creation request complete."
         env:
+          - name: OWNER
+            value: '{{workflow.parameters.owner}}'
+          - name: REPO_NAME
+            value: '{{workflow.parameters.repo-name}}'
+          - name: DESCRIPTION
+            value: '{{workflow.parameters.description}}'
+          - name: VISIBILITY
+            value: '{{workflow.parameters.visibility}}'
+          - name: AUTO_INIT
+            value: '{{workflow.parameters.auto-init}}'
+          - name: GITIGNORE_TEMPLATE
+            value: '{{workflow.parameters.gitignore-template}}'
+          - name: LICENSE_TEMPLATE
+            value: '{{workflow.parameters.license-template}}'
           - name: GITHUB_TOKEN
             valueFrom:
               secretKeyRef:

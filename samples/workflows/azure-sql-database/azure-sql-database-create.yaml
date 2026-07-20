@@ -303,6 +303,9 @@ spec:
     - name: report-step
       container:
         image: alpine:3
+        env:
+          - name: CREDENTIALS_SECRET
+            value: '{{workflow.parameters.credentials-secret}}'
         command: [sh, -c]
         args:
           - |
@@ -335,10 +338,10 @@ spec:
             echo "Connection String (template):"
             echo "  ${CONN_STRING}"
             echo ""
-            echo "NOTE: Password is stored in the '{{workflow.parameters.credentials-secret}}'"
+            echo "NOTE: Password is stored in the '${CREDENTIALS_SECRET}'"
             echo "      Kubernetes Secret under the 'adminPassword' key."
             echo "      Retrieve it with:"
-            echo "      kubectl get secret {{workflow.parameters.credentials-secret}} \\"
+            echo "      kubectl get secret ${CREDENTIALS_SECRET} \\"
             echo "        -o jsonpath='{.data.adminPassword}' | base64 -d"
             echo "================================================="
             echo ""
