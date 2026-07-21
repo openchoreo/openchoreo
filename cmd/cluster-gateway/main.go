@@ -41,18 +41,20 @@ func init() {
 
 func main() {
 	var (
-		port                 int
-		internalPort         int
-		serverCertPath       string
-		serverKeyPath        string
-		skipClientCertVerify bool
-		readTimeout          time.Duration
-		writeTimeout         time.Duration
-		idleTimeout          time.Duration
-		shutdownTimeout      time.Duration
-		heartbeatInterval    time.Duration
-		heartbeatTimeout     time.Duration
-		logLevel             string
+		port                  int
+		internalPort          int
+		serverCertPath        string
+		serverKeyPath         string
+		skipClientCertVerify  bool
+		readTimeout           time.Duration
+		writeTimeout          time.Duration
+		idleTimeout           time.Duration
+		shutdownTimeout       time.Duration
+		heartbeatInterval     time.Duration
+		heartbeatTimeout      time.Duration
+		logLevel              string
+		trustClientCertHeader bool
+		clientCertHeaderName  string
 	)
 
 	flag.IntVar(&port, "port", cmdutil.GetEnvInt("AGENT_SERVER_PORT", defaultPort),
@@ -76,6 +78,14 @@ func main() {
 	flag.DurationVar(&heartbeatInterval, "heartbeat-interval", defaultHeartbeatInterval, "Heartbeat ping interval")
 	flag.DurationVar(&heartbeatTimeout, "heartbeat-timeout", defaultHeartbeatTimeout, "Heartbeat timeout duration")
 	flag.StringVar(&logLevel, "log-level", cmdutil.GetEnv("LOG_LEVEL", "info"), "Log level (debug, info, warn, error)")
+	flag.BoolVar(&trustClientCertHeader, "trust-client-cert-header",
+		cmdutil.GetEnvBool("TRUST_CLIENT_CERT_HEADER", false),
+		"Fall back to a header for the agent client certificate when the TLS handshake carries none "+
+			"(for deployments behind a TLS-terminating L7 load balancer). Only enable this when the public "+
+			"listener is unreachable except through that load balancer.")
+	flag.StringVar(&clientCertHeaderName, "client-cert-header-name",
+		cmdutil.GetEnv("CLIENT_CERT_HEADER_NAME", "X-Client-Cert"),
+		"HTTP header carrying the base64-encoded PEM client certificate, used when -trust-client-cert-header is set")
 	flag.Parse()
 
 	logger := cmdutil.SetupLogger(logLevel)
@@ -89,6 +99,14 @@ func main() {
 		"heartbeatTimeout", heartbeatTimeout,
 		"note", "Client CA certificates are loaded dynamically from DataPlane/WorkflowPlane/ObservabilityPlane CRs",
 	)
+
+	if trustClientCertHeader {
+		logger.Warn("trust-client-cert-header is enabled: the public listener will accept a client "+
+			"certificate from an HTTP header when the TLS handshake carries none. Ensure the public "+
+			"listener is unreachable except through the trusted load balancer that sets this header.",
+			"header", clientCertHeaderName,
+		)
+	}
 
 	// Create Kubernetes client for querying DataPlane/WorkflowPlane/ObservabilityPlane CRs
 	k8sConfig, err := ctrl.GetConfig()
@@ -106,17 +124,19 @@ func main() {
 	logger.Info("Kubernetes client created successfully")
 
 	config := &clustergateway.Config{
-		Port:                 port,
-		InternalPort:         internalPort,
-		ServerCertPath:       serverCertPath,
-		ServerKeyPath:        serverKeyPath,
-		SkipClientCertVerify: skipClientCertVerify,
-		ReadTimeout:          readTimeout,
-		WriteTimeout:         writeTimeout,
-		IdleTimeout:          idleTimeout,
-		ShutdownTimeout:      shutdownTimeout,
-		HeartbeatInterval:    heartbeatInterval,
-		HeartbeatTimeout:     heartbeatTimeout,
+		Port:                  port,
+		InternalPort:          internalPort,
+		ServerCertPath:        serverCertPath,
+		ServerKeyPath:         serverKeyPath,
+		SkipClientCertVerify:  skipClientCertVerify,
+		ReadTimeout:           readTimeout,
+		WriteTimeout:          writeTimeout,
+		IdleTimeout:           idleTimeout,
+		ShutdownTimeout:       shutdownTimeout,
+		HeartbeatInterval:     heartbeatInterval,
+		HeartbeatTimeout:      heartbeatTimeout,
+		TrustClientCertHeader: trustClientCertHeader,
+		ClientCertHeaderName:  clientCertHeaderName,
 	}
 
 	srv := clustergateway.New(config, k8sClient, logger)

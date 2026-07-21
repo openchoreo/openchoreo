@@ -62,6 +62,8 @@ spec:
         - --heartbeat-interval={{ .Values.clusterGateway.heartbeatInterval }}
         - --heartbeat-timeout={{ .Values.clusterGateway.heartbeatTimeout }}
         - --skip-client-cert-verify={{ .Values.clusterGateway.tls.skipClientCertVerify }}
+        - --trust-client-cert-header={{ .Values.clusterGateway.tls.trustClientCertHeader }}
+        - --client-cert-header-name={{ .Values.clusterGateway.tls.clientCertHeaderName }}
         - --log-level={{ .Values.clusterGateway.logLevel }}
         ports:
         - name: websocket
