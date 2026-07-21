@@ -1803,6 +1803,18 @@ type CreateWorkflowRunRequest struct {
 	WorkflowName string `json:"workflowName"`
 }
 
+// CronJobTriggerResponse Response describing the Job created from a manual cronjob trigger
+type CronJobTriggerResponse struct {
+	// CronJobName Name of the CronJob the Job was created from
+	CronJobName string `json:"cronJobName"`
+
+	// JobName Name of the Job that was created from the CronJob's jobTemplate
+	JobName string `json:"jobName"`
+
+	// Namespace Data plane namespace where the Job was created
+	Namespace string `json:"namespace"`
+}
+
 // DataPlane DataPlane resource.
 // Represents a Kubernetes cluster for workload deployment.
 type DataPlane struct {

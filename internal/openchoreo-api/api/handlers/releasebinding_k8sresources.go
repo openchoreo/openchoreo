@@ -135,6 +135,63 @@ func (h *Handler) GetReleaseBindingK8sResourceLogs(
 	return gen.GetReleaseBindingK8sResourceLogs200JSONResponse(result), nil
 }
 
+// TriggerReleaseBindingCronJob creates a Job from the deployed CronJob's jobTemplate for a
+// cronjob workload component, matching `kubectl create job --from=cronjob/<name>`.
+func (h *Handler) TriggerReleaseBindingCronJob(
+	ctx context.Context,
+	request gen.TriggerReleaseBindingCronJobRequestObject,
+) (gen.TriggerReleaseBindingCronJobResponseObject, error) {
+	h.logger.Debug("TriggerReleaseBindingCronJob called",
+		"namespace", request.NamespaceName,
+		"releaseBinding", request.ReleaseBindingName)
+
+	resp, err := h.services.K8sResourcesService.TriggerCronJob(ctx, request.NamespaceName, request.ReleaseBindingName)
+	if err != nil {
+		return h.handleTriggerCronJobError(err)
+	}
+
+	result, err := convert[models.CronJobTriggerResponse, gen.CronJobTriggerResponse](*resp)
+	if err != nil {
+		h.logger.Error("Failed to convert cronjob trigger response", "error", err)
+		return gen.TriggerReleaseBindingCronJob500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.TriggerReleaseBindingCronJob200JSONResponse(result), nil
+}
+
+func (h *Handler) handleTriggerCronJobError(err error) (gen.TriggerReleaseBindingCronJobResponseObject, error) {
+	if errors.Is(err, services.ErrForbidden) {
+		return gen.TriggerReleaseBindingCronJob403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+	}
+	if errors.Is(err, k8sresourcessvc.ErrNotCronJobWorkload) {
+		return gen.TriggerReleaseBindingCronJob400JSONResponse{
+			BadRequestJSONResponse: badRequest("release binding component is not a cronjob workload"),
+		}, nil
+	}
+	if errors.Is(err, k8sresourcessvc.ErrTriggerConflict) {
+		return gen.TriggerReleaseBindingCronJob400JSONResponse{
+			BadRequestJSONResponse: badRequest("a job with the same name already exists, retry the trigger"),
+		}, nil
+	}
+	if errors.Is(err, k8sresourcessvc.ErrReleaseBindingNotFound) {
+		return gen.TriggerReleaseBindingCronJob404JSONResponse{NotFoundJSONResponse: notFound("ReleaseBinding")}, nil
+	}
+	if errors.Is(err, k8sresourcessvc.ErrComponentReleaseNotFound) {
+		return gen.TriggerReleaseBindingCronJob404JSONResponse{NotFoundJSONResponse: notFound("ComponentRelease")}, nil
+	}
+	if errors.Is(err, k8sresourcessvc.ErrRenderedReleaseNotFound) {
+		return gen.TriggerReleaseBindingCronJob404JSONResponse{NotFoundJSONResponse: notFound("RenderedRelease")}, nil
+	}
+	if errors.Is(err, k8sresourcessvc.ErrCronJobNotFound) {
+		return gen.TriggerReleaseBindingCronJob404JSONResponse{NotFoundJSONResponse: notFound("CronJob")}, nil
+	}
+	if errors.Is(err, k8sresourcessvc.ErrEnvironmentNotFound) {
+		return gen.TriggerReleaseBindingCronJob404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
+	}
+	h.logger.Error("Failed to trigger cronjob", "error", err)
+	return gen.TriggerReleaseBindingCronJob500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+}
+
 func (h *Handler) handleK8sResourceTreeError(err error) (gen.GetReleaseBindingK8sResourceTreeResponseObject, error) {
 	if errors.Is(err, services.ErrForbidden) {
 		return gen.GetReleaseBindingK8sResourceTree403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
