@@ -1,0 +1,32 @@
+{{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+# Client certificate for controller-manager to authenticate to the cluster
+# gateway internal API (mTLS). Signed by the gateway internal CA.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.controllerManager.name }}-cluster-gateway-client
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.componentLabels" (dict "context" . "component" .Values.controllerManager.name) | nindent 4 }}
+spec:
+  secretName: {{ .Values.controllerManager.clusterGateway.tls.clientSecret }}
+  commonName: openchoreo-controller-manager
+  subject:
+    organizations:
+      - OpenChoreo
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  usages:
+    - client auth
+  issuerRef:
+    kind: Issuer
+    name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}-internal-ca-issuer
+  {{- with .Values.clusterGateway.internalMtls.clientCertDuration }}
+  duration: {{ . }}
+  {{- end }}
+  {{- with .Values.clusterGateway.internalMtls.clientCertRenewBefore }}
+  renewBefore: {{ . }}
+  {{- end }}
+{{- end }}

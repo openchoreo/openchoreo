@@ -1,0 +1,48 @@
+{{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+---
+# CA Certificate for signing internal API client certificates (openchoreo-api,
+# controller-manager). Deliberately separate from the agent CA (cluster-gateway-ca)
+# so data-plane agent certificates cannot authenticate to the internal API.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}-internal-ca
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-gateway
+spec:
+  isCA: true
+  commonName: openchoreo-cluster-gateway-internal-ca
+  subject:
+    organizations:
+      - OpenChoreo
+  secretName: {{ .Values.clusterGateway.internalMtls.caSecretName }}
+  duration: 87600h # 10 years
+  renewBefore: 720h # 30 days
+  privateKey:
+    algorithm: RSA
+    size: 4096
+    # Keep the same CA key across renewals. There is no staged trust rollout, and
+    # the gateway trusts only the current CA bundle, so rotating the key would
+    # orphan already-issued internal client certs (controller-manager, openchoreo-api)
+    # until they are reissued and the gateway reloads the CA. Deliberate CA key
+    # rotation must be coordinated with client reissuance out of band.
+    rotationPolicy: Never
+  issuerRef:
+    name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}-ca-issuer
+    kind: Issuer
+---
+# Issuer backed by the internal CA, used to sign internal API client certificates
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}-internal-ca-issuer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-gateway
+spec:
+  ca:
+    secretName: {{ .Values.clusterGateway.internalMtls.caSecretName }}
+{{- end }}
