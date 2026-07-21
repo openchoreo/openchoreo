@@ -3579,6 +3579,21 @@ clusterGateway:
     # default: false
     # @schema
     skipClientCertVerify: false
+    # @schema
+    # type: boolean
+    # description: Trust a header for the agent's client certificate when the TLS handshake carries none, for
+    #   deployments where a TLS-terminating L7 load balancer sits in front of the public listener. Only enable
+    #   this when that listener is unreachable except through the trusted load balancer, since the header is
+    #   trusted verbatim.
+    # default: false
+    # @schema
+    trustClientCertHeader: false
+    # @schema
+    # type: string
+    # description: HTTP header carrying the base64-encoded PEM client certificate, used when trustClientCertHeader is true
+    # default: X-Client-Cert
+    # @schema
+    clientCertHeaderName: X-Client-Cert
     # type: object
     # description: cert-manager issuer reference
     # @schema

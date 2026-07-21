@@ -1439,6 +1439,12 @@
           "additionalProperties": true,
           "description": "TLS configuration using cert-manager",
           "properties": {
+            "clientCertHeaderName": {
+              "default": "X-Client-Cert",
+              "description": "HTTP header carrying the base64-encoded PEM client certificate, used when trustClientCertHeader is true",
+              "title": "clientCertHeaderName",
+              "type": "string"
+            },
             "dnsNames": {
               "description": "DNS names for the certificate",
               "items": {
@@ -1500,6 +1506,12 @@
               "default": false,
               "description": "Skip client certificate verification for agent connections (for single-cluster setups without mTLS)",
               "title": "skipClientCertVerify",
+              "type": "boolean"
+            },
+            "trustClientCertHeader": {
+              "default": false,
+              "description": "Trust a header for the agent's client certificate when the TLS handshake carries none, for deployments where a TLS-terminating L7 load balancer sits in front of the public listener. Only enable this when that listener is unreachable except through the trusted load balancer, since the header is trusted verbatim.",
+              "title": "trustClientCertHeader",
               "type": "boolean"
             }
           },

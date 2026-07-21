@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -553,6 +554,104 @@ func TestVerifyClientCertificatePerCR_WithIntermediates(t *testing.T) {
 	validCRs, err := s.verifyClientCertificatePerCR(clientCert, []*x509.Certificate{intermediateCert}, "dataplane", "prod")
 	require.NoError(t, err)
 	assert.Contains(t, validCRs, "ns/dp1")
+}
+
+// --- handleWebSocket header-fallback tests ---
+
+func TestHandleWebSocket_HeaderFallback_DisabledByDefault(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	headerValue := base64.StdEncoding.EncodeToString(encodeCertToPEM(t, clientCert))
+
+	scheme := testScheme()
+	dp := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp1", Namespace: "ns"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: string(encodeCertToPEM(t, caCert))},
+			},
+		},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp).Build()
+
+	// TrustClientCertHeader left unset (false): the header must be ignored even though it
+	// carries a certificate that would otherwise validate against the DataPlane's CA.
+	s := New(&Config{ClientCertHeaderName: "X-Client-Cert"}, fakeClient, testLogger())
+
+	r := httptest.NewRequest(http.MethodGet, "/ws?planeType=dataplane&planeID=prod", nil)
+	r.Header.Set("X-Client-Cert", headerValue)
+	w := httptest.NewRecorder()
+
+	s.handleWebSocket(w, r)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Contains(t, w.Body.String(), "no client certificate presented")
+}
+
+func TestHandleWebSocket_HeaderFallback_EnabledButNoHeader(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	s := New(&Config{TrustClientCertHeader: true, ClientCertHeaderName: "X-Client-Cert"}, fakeClient, testLogger())
+
+	r := httptest.NewRequest(http.MethodGet, "/ws?planeType=dataplane&planeID=prod", nil)
+	w := httptest.NewRecorder()
+
+	s.handleWebSocket(w, r)
+
+	// With TrustClientCertHeader enabled, an absent header is treated as an invalid header
+	// value (extractClientCertFromHeader errors on the empty header), not as "no cert at all".
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Contains(t, w.Body.String(), "no valid client certificate presented")
+}
+
+func TestHandleWebSocket_HeaderFallback_EnabledWithInvalidHeader(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	s := New(&Config{TrustClientCertHeader: true, ClientCertHeaderName: "X-Client-Cert"}, fakeClient, testLogger())
+
+	r := httptest.NewRequest(http.MethodGet, "/ws?planeType=dataplane&planeID=prod", nil)
+	r.Header.Set("X-Client-Cert", "not-valid-base64!!!")
+	w := httptest.NewRecorder()
+
+	s.handleWebSocket(w, r)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Contains(t, w.Body.String(), "no valid client certificate presented")
+}
+
+func TestHandleWebSocket_HeaderFallback_EnabledWithValidHeaderPassesCertGate(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	headerValue := base64.StdEncoding.EncodeToString(encodeCertToPEM(t, clientCert))
+
+	scheme := testScheme()
+	dp := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp1", Namespace: "ns"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: string(encodeCertToPEM(t, caCert))},
+			},
+		},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp).Build()
+	s := New(&Config{TrustClientCertHeader: true, ClientCertHeaderName: "X-Client-Cert"}, fakeClient, testLogger())
+
+	r := httptest.NewRequest(http.MethodGet, "/ws?planeType=dataplane&planeID=prod", nil)
+	r.Header.Set("X-Client-Cert", headerValue)
+	w := httptest.NewRecorder()
+
+	s.handleWebSocket(w, r)
+
+	// httptest.ResponseRecorder doesn't support hijacking, so the WebSocket upgrade itself
+	// cannot succeed here. What this asserts is that the certificate gate was passed and
+	// per-CR validation matched the DataPlane's CA — i.e. the request got past the
+	// "no client certificate presented" / "no valid client certificate presented" rejections
+	// that the two tests above cover.
+	require.NotEqual(t, http.StatusUnauthorized, w.Code)
+	assert.NotContains(t, w.Body.String(), "no client certificate presented")
+	assert.NotContains(t, w.Body.String(), "no valid client certificate presented")
 }
 
 // --- handleHTTPProxy expanded tests ---

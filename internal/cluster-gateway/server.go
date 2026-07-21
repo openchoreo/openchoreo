@@ -275,8 +275,34 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract client certificate for per-CR validation
-	if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
+	// Extract client certificate for per-CR validation. Ordinarily this comes from the TLS
+	// handshake. If the public listener sits behind a TLS-terminating L7 load balancer, the
+	// handshake the gateway sees is between it and the load balancer, not the agent, so
+	// r.TLS.PeerCertificates will be empty; in that case fall back to a header the load
+	// balancer is configured to forward the agent's certificate in.
+	var clientCert *x509.Certificate
+	var intermediates []*x509.Certificate
+
+	if r.TLS != nil && len(r.TLS.PeerCertificates) > 0 {
+		peerCerts := r.TLS.PeerCertificates
+		clientCert = peerCerts[0]
+		intermediates = peerCerts[1:]
+	} else if s.config.TrustClientCertHeader {
+		var err error
+		clientCert, intermediates, err = extractClientCertFromHeader(r, s.config.ClientCertHeaderName)
+		if err != nil {
+			s.logger.Warn("connection rejected: failed to extract client certificate from header",
+				"planeType", planeType,
+				"planeID", planeID,
+				"header", s.config.ClientCertHeaderName,
+				"error", err,
+			)
+			http.Error(w, "no valid client certificate presented", http.StatusUnauthorized)
+			return
+		}
+	}
+
+	if clientCert == nil {
 		s.logger.Warn("connection rejected: no client certificate presented",
 			"planeType", planeType,
 			"planeID", planeID,
@@ -284,10 +310,6 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no client certificate presented", http.StatusUnauthorized)
 		return
 	}
-
-	peerCerts := r.TLS.PeerCertificates
-	clientCert := peerCerts[0]
-	intermediates := peerCerts[1:]
 
 	// Per-CR certificate validation enforces security boundaries
 	// Each CR is validated independently to prevent cross-tenant access
