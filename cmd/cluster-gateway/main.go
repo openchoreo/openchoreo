@@ -46,6 +46,8 @@ func main() {
 		serverCertPath       string
 		serverKeyPath        string
 		skipClientCertVerify bool
+		internalMTLS         bool
+		internalClientCAPath string
 		readTimeout          time.Duration
 		writeTimeout         time.Duration
 		idleTimeout          time.Duration
@@ -68,7 +70,14 @@ func main() {
 		"Path to server private key")
 	flag.BoolVar(&skipClientCertVerify, "skip-client-cert-verify",
 		cmdutil.GetEnvBool("SKIP_CLIENT_CERT_VERIFY", false),
-		"Skip client certificate verification (for single-cluster setups without mTLS)")
+		"Deprecated: has no effect. Agent certificates are always verified per plane CR; "+
+			"use --internal-mtls to control internal API verification")
+	flag.BoolVar(&internalMTLS, "internal-mtls",
+		cmdutil.GetEnvBool("INTERNAL_MTLS_ENABLED", false),
+		"Require and verify client certificates on the internal API listener (/api/*)")
+	flag.StringVar(&internalClientCAPath, "internal-client-ca-cert",
+		cmdutil.GetEnv("INTERNAL_CLIENT_CA_PATH", ""),
+		"Path to the CA bundle used to verify internal API clients (required when --internal-mtls is enabled)")
 	flag.DurationVar(&readTimeout, "read-timeout", defaultReadTimeout, "HTTP read timeout")
 	flag.DurationVar(&writeTimeout, "write-timeout", defaultWriteTimeout, "HTTP write timeout")
 	flag.DurationVar(&idleTimeout, "idle-timeout", defaultIdleTimeout, "HTTP idle timeout")
@@ -85,10 +94,19 @@ func main() {
 		"internalPort", internalPort,
 		"serverCert", serverCertPath,
 		"serverKey", serverKeyPath,
+		"internalMTLS", internalMTLS,
+		"internalClientCA", internalClientCAPath,
 		"heartbeatInterval", heartbeatInterval,
 		"heartbeatTimeout", heartbeatTimeout,
 		"note", "Client CA certificates are loaded dynamically from DataPlane/WorkflowPlane/ObservabilityPlane CRs",
 	)
+
+	if skipClientCertVerify {
+		logger.Warn("--skip-client-cert-verify is deprecated and has no effect",
+			"note", "agent certificates are always verified per plane CR; "+
+				"use --internal-mtls=false to disable internal API verification",
+		)
+	}
 
 	// Create Kubernetes client for querying DataPlane/WorkflowPlane/ObservabilityPlane CRs
 	k8sConfig, err := ctrl.GetConfig()
@@ -111,6 +129,8 @@ func main() {
 		ServerCertPath:       serverCertPath,
 		ServerKeyPath:        serverKeyPath,
 		SkipClientCertVerify: skipClientCertVerify,
+		InternalMTLSEnabled:  internalMTLS,
+		InternalClientCAPath: internalClientCAPath,
 		ReadTimeout:          readTimeout,
 		WriteTimeout:         writeTimeout,
 		IdleTimeout:          idleTimeout,

@@ -1008,6 +1008,39 @@
           "title": "image",
           "type": "object"
         },
+        "internalMtls": {
+          "additionalProperties": false,
+          "description": "mTLS enforcement for the cluster gateway internal API (port 8444). When enabled, a dedicated internal CA is created via cert-manager, client certificates are issued for openchoreo-api and controller-manager, and the gateway requires and verifies client certificates on all internal /api/* endpoints.",
+          "properties": {
+            "caSecretName": {
+              "default": "cluster-gateway-internal-ca",
+              "description": "Name of the secret holding the internal CA used to sign and verify internal API client certificates",
+              "title": "caSecretName",
+              "type": "string"
+            },
+            "clientCertDuration": {
+              "default": "2160h",
+              "description": "Internal API client certificate validity duration (90 days)",
+              "title": "clientCertDuration",
+              "type": "string"
+            },
+            "clientCertRenewBefore": {
+              "default": "360h",
+              "description": "Internal API client certificate renewal threshold (15 days before expiry)",
+              "title": "clientCertRenewBefore",
+              "type": "string"
+            },
+            "enabled": {
+              "default": false,
+              "description": "Require and verify client certificates on the cluster gateway internal API. Disabled by default on this release branch to preserve upgrade compatibility; enable it to close unauthenticated access to the internal API.",
+              "title": "enabled",
+              "type": "boolean"
+            }
+          },
+          "required": [],
+          "title": "internalMtls",
+          "type": "object"
+        },
         "logLevel": {
           "default": "info",
           "description": "Log level",
@@ -1342,7 +1375,7 @@
             },
             "skipClientCertVerify": {
               "default": false,
-              "description": "Skip client certificate verification for agent connections (for single-cluster setups without mTLS)",
+              "description": "Deprecated: has no effect. Agent certificates are always verified per plane CR; use clusterGateway.internalMtls.enabled to control internal API verification. Will be removed in a future release.",
               "title": "skipClientCertVerify",
               "type": "boolean"
             }
@@ -1564,6 +1597,24 @@
                   "default": "cluster-gateway-ca",
                   "description": "Name of the secret containing the CA certificate",
                   "title": "caSecret",
+                  "type": "string"
+                },
+                "clientCertPath": {
+                  "default": "/etc/cluster-gateway-client/tls.crt",
+                  "description": "Path to the client certificate used for mTLS to the cluster gateway internal API",
+                  "title": "clientCertPath",
+                  "type": "string"
+                },
+                "clientKeyPath": {
+                  "default": "/etc/cluster-gateway-client/tls.key",
+                  "description": "Path to the client private key used for mTLS to the cluster gateway internal API",
+                  "title": "clientKeyPath",
+                  "type": "string"
+                },
+                "clientSecret": {
+                  "default": "controller-manager-cluster-gateway-client-tls",
+                  "description": "Name of the secret containing the controller-manager client certificate for the cluster gateway internal API",
+                  "title": "clientSecret",
                   "type": "string"
                 }
               },
@@ -2434,6 +2485,60 @@
           },
           "required": [],
           "title": "autoscaling",
+          "type": "object"
+        },
+        "clusterGateway": {
+          "additionalProperties": false,
+          "description": "Cluster gateway connection settings for agent-based plane communication",
+          "properties": {
+            "tls": {
+              "additionalProperties": false,
+              "description": "TLS settings for the cluster gateway connection",
+              "properties": {
+                "caPath": {
+                  "default": "/etc/cluster-gateway/ca.crt",
+                  "description": "Path inside the pod where the cluster gateway CA certificate is mounted",
+                  "title": "caPath",
+                  "type": "string"
+                },
+                "caSecret": {
+                  "default": "cluster-gateway-ca",
+                  "description": "Name of the secret holding the cluster gateway CA certificate",
+                  "title": "caSecret",
+                  "type": "string"
+                },
+                "clientCertPath": {
+                  "default": "/etc/cluster-gateway-client/tls.crt",
+                  "description": "Path inside the pod where the client certificate for the cluster gateway internal API is mounted",
+                  "title": "clientCertPath",
+                  "type": "string"
+                },
+                "clientKeyPath": {
+                  "default": "/etc/cluster-gateway-client/tls.key",
+                  "description": "Path inside the pod where the client private key for the cluster gateway internal API is mounted",
+                  "title": "clientKeyPath",
+                  "type": "string"
+                },
+                "clientSecret": {
+                  "default": "openchoreo-api-cluster-gateway-client-tls",
+                  "description": "Name of the secret containing the openchoreo-api client certificate for the cluster gateway internal API",
+                  "title": "clientSecret",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "title": "tls",
+              "type": "object"
+            },
+            "url": {
+              "default": "https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8444",
+              "description": "Cluster gateway service URL the API server connects to",
+              "title": "url",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "clusterGateway",
           "type": "object"
         },
         "config": {

@@ -704,6 +704,24 @@ controllerManager:
       # default: cluster-gateway-ca
       # @schema
       caSecret: cluster-gateway-ca
+      # @schema
+      # type: string
+      # description: Path to the client certificate used for mTLS to the cluster gateway internal API
+      # default: /etc/cluster-gateway-client/tls.crt
+      # @schema
+      clientCertPath: /etc/cluster-gateway-client/tls.crt
+      # @schema
+      # type: string
+      # description: Path to the client private key used for mTLS to the cluster gateway internal API
+      # default: /etc/cluster-gateway-client/tls.key
+      # @schema
+      clientKeyPath: /etc/cluster-gateway-client/tls.key
+      # @schema
+      # type: string
+      # description: Name of the secret containing the controller-manager client certificate for the cluster gateway internal API
+      # default: controller-manager-cluster-gateway-client-tls
+      # @schema
+      clientSecret: controller-manager-cluster-gateway-client-tls
 
 # @schema
 # type: string
@@ -835,6 +853,53 @@ openchoreoApi:
     # default: IfNotPresent
     # @schema
     pullPolicy: IfNotPresent
+
+  # @schema
+  # type: object
+  # description: Cluster gateway connection settings for agent-based plane communication
+  # @schema
+  clusterGateway:
+    # @schema
+    # type: string
+    # description: Cluster gateway service URL the API server connects to
+    # default: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8444
+    # @schema
+    url: https://cluster-gateway.openchoreo-control-plane.svc.cluster.local:8444
+    # @schema
+    # type: object
+    # description: TLS settings for the cluster gateway connection
+    # @schema
+    tls:
+      # @schema
+      # type: string
+      # description: Path inside the pod where the cluster gateway CA certificate is mounted
+      # default: /etc/cluster-gateway/ca.crt
+      # @schema
+      caPath: /etc/cluster-gateway/ca.crt
+      # @schema
+      # type: string
+      # description: Name of the secret holding the cluster gateway CA certificate
+      # default: cluster-gateway-ca
+      # @schema
+      caSecret: cluster-gateway-ca
+      # @schema
+      # type: string
+      # description: Path inside the pod where the client certificate for the cluster gateway internal API is mounted
+      # default: /etc/cluster-gateway-client/tls.crt
+      # @schema
+      clientCertPath: /etc/cluster-gateway-client/tls.crt
+      # @schema
+      # type: string
+      # description: Path inside the pod where the client private key for the cluster gateway internal API is mounted
+      # default: /etc/cluster-gateway-client/tls.key
+      # @schema
+      clientKeyPath: /etc/cluster-gateway-client/tls.key
+      # @schema
+      # type: string
+      # description: Name of the secret containing the openchoreo-api client certificate for the cluster gateway internal API
+      # default: openchoreo-api-cluster-gateway-client-tls
+      # @schema
+      clientSecret: openchoreo-api-cluster-gateway-client-tls
 
   # @schema
   # type: object
@@ -3168,7 +3233,7 @@ clusterGateway:
     secretName: cluster-gateway-tls
     # @schema
     # type: boolean
-    # description: Skip client certificate verification for agent connections (for single-cluster setups without mTLS)
+    # description: "Deprecated: has no effect. Agent certificates are always verified per plane CR; use clusterGateway.internalMtls.enabled to control internal API verification. Will be removed in a future release."
     # default: false
     # @schema
     skipClientCertVerify: false
@@ -3229,6 +3294,36 @@ clusterGateway:
     # default: 360h
     # @schema
     renewBefore: 360h
+
+  # @schema
+  # type: object
+  # description: mTLS enforcement for the cluster gateway internal API (port 8444). When enabled, a dedicated internal CA is created via cert-manager, client certificates are issued for openchoreo-api and controller-manager, and the gateway requires and verifies client certificates on all internal /api/* endpoints.
+  # @schema
+  internalMtls:
+    # @schema
+    # type: boolean
+    # description: Require and verify client certificates on the cluster gateway internal API. Disabled by default on this release branch to preserve upgrade compatibility; enable it to close unauthenticated access to the internal API.
+    # default: false
+    # @schema
+    enabled: false
+    # @schema
+    # type: string
+    # description: Name of the secret holding the internal CA used to sign and verify internal API client certificates
+    # default: cluster-gateway-internal-ca
+    # @schema
+    caSecretName: cluster-gateway-internal-ca
+    # @schema
+    # type: string
+    # description: Internal API client certificate validity duration (90 days)
+    # default: 2160h
+    # @schema
+    clientCertDuration: 2160h
+    # @schema
+    # type: string
+    # description: Internal API client certificate renewal threshold (15 days before expiry)
+    # default: 360h
+    # @schema
+    clientCertRenewBefore: 360h
 
   # type: object
   # description: Pod security context
