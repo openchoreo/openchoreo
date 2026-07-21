@@ -53,11 +53,11 @@ func (s *autobuildService) ProcessWebhook(ctx context.Context, params *ProcessWe
 		return nil, fmt.Errorf("failed to get git provider: %w", err)
 	}
 
-	allowEmpty := params.SignatureHeader == ""
-	webhookSecret, err := s.getWebhookSecret(ctx, params.SecretKey, allowEmpty)
+	// getWebhookSecret logs the specific failure reason internally and returns a sentinel;
+	// the raw error is not logged here to avoid any secret-derived value reaching the log.
+	webhookSecret, err := s.getWebhookSecret(ctx, params.SecretKey)
 	if err != nil {
-		s.logger.Error("Failed to get webhook secret", "error", err, "provider", params.ProviderType)
-		return nil, ErrSecretNotConfigured
+		return nil, err
 	}
 
 	if err := provider.ValidateWebhookPayload(params.Payload, params.Signature, webhookSecret); err != nil {
@@ -79,32 +79,27 @@ func (s *autobuildService) ProcessWebhook(ctx context.Context, params *ProcessWe
 }
 
 // getWebhookSecret retrieves the webhook secret value for the given key from the Kubernetes Secret.
-// When allowEmpty is true (e.g. Bitbucket, which has no HMAC header), a missing or empty key is not an error.
-func (s *autobuildService) getWebhookSecret(ctx context.Context, secretKey string, allowEmpty bool) (string, error) {
+// A missing key or empty value is treated as an error so that signature validation always fails
+// closed when no secret is configured for the provider. Failures are logged here (using only
+// non-sensitive metadata) and reported to callers as ErrSecretNotConfigured.
+func (s *autobuildService) getWebhookSecret(ctx context.Context, secretKey string) (string, error) {
 	secret := &corev1.Secret{}
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      webhookSecretName,
 		Namespace: webhookSecretNamespace,
 	}, secret); err != nil {
-		return "", fmt.Errorf("failed to get webhook secret %s/%s: %w",
-			webhookSecretNamespace, webhookSecretName, err)
+		s.logger.Error("Failed to fetch webhook secret from Kubernetes",
+			"namespace", webhookSecretNamespace, "name", webhookSecretName, "error", err)
+		return "", ErrSecretNotConfigured
 	}
 
 	secretData, ok := secret.Data[secretKey]
-	if !ok {
-		if allowEmpty {
-			return "", nil
-		}
-		return "", fmt.Errorf("secret %s/%s does not contain '%s' key",
-			webhookSecretNamespace, webhookSecretName, secretKey)
-	}
-
-	if len(secretData) == 0 {
-		if allowEmpty {
-			return "", nil
-		}
-		return "", fmt.Errorf("secret %s/%s has empty '%s' value",
-			webhookSecretNamespace, webhookSecretName, secretKey)
+	if !ok || len(secretData) == 0 {
+		// The provider key name is intentionally not logged; the caller logs the provider
+		// for correlation, and CodeQL treats the secret-key identifier as sensitive.
+		s.logger.Error("Webhook secret key is missing or empty",
+			"namespace", webhookSecretNamespace, "name", webhookSecretName)
+		return "", ErrSecretNotConfigured
 	}
 
 	return string(secretData), nil

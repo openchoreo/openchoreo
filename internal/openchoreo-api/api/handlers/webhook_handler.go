@@ -56,7 +56,7 @@ func detectGitProviderFromParams(params gen.HandleAutoBuildParams) (git.Provider
 	case params.XGitlabToken != nil && *params.XGitlabToken != "":
 		return git.ProviderGitLab, "X-Gitlab-Token", "gitlab-secret", true
 	case params.XEventKey != nil && *params.XEventKey != "":
-		return git.ProviderBitbucket, "", "bitbucket-secret", true
+		return git.ProviderBitbucket, "X-Hub-Signature", "bitbucket-secret", true
 	default:
 		return "", "", "", false
 	}
@@ -72,6 +72,10 @@ func signatureFromParams(params gen.HandleAutoBuildParams, signatureHeader strin
 	case "X-Gitlab-Token":
 		if params.XGitlabToken != nil {
 			return *params.XGitlabToken
+		}
+	case "X-Hub-Signature":
+		if params.XHubSignature != nil {
+			return *params.XHubSignature
 		}
 	}
 	return ""
