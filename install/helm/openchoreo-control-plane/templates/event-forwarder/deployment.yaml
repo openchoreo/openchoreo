@@ -45,6 +45,10 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.eventForwarder.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.eventForwarder.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}

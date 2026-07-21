@@ -3984,6 +3984,15 @@ eventForwarder:
   # @schema
   affinity: {}
 
+  # @schema
+  # type: array
+  # description: Topology spread constraints for pod distribution across failure domains
+  # items:
+  #   type: object
+  # default: []
+  # @schema
+  topologySpreadConstraints: []
+
 # @schema
 # type: object
 # description: Optional Portal Assistant chat agent. Disabled by default; enable to opt in.
