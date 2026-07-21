@@ -149,6 +149,12 @@ func (h *WirelogsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.proxyWirelogsStream(ctx, w, logger, namespace, environment, project, component)
+}
+
+// proxyWirelogsStream resolves the target data plane and proxies the gateway's
+// SSE stream to the client.
+func (h *WirelogsHandler) proxyWirelogsStream(ctx context.Context, w http.ResponseWriter, logger *slog.Logger, namespace, environment, project, component string) {
 	plane, err := h.resolvePlane(ctx, namespace, environment)
 	if err != nil {
 		logger.Error("Failed to resolve data plane for wirelogs", "error", err)
