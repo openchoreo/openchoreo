@@ -4,9 +4,6 @@
 package git
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -21,28 +18,10 @@ func NewGitHubProvider() *GitHubProvider {
 	return &GitHubProvider{}
 }
 
-// ValidateWebhookPayload validates the GitHub webhook signature
+// ValidateWebhookPayload validates the GitHub webhook HMAC-SHA256 signature.
+// GitHub sends the digest in the X-Hub-Signature-256 header as "sha256=<hex>".
 func (p *GitHubProvider) ValidateWebhookPayload(payload []byte, signature, secret string) error {
-	if signature == "" {
-		return fmt.Errorf("missing signature header")
-	}
-
-	// GitHub sends signature as "sha256=<hash>"
-	if !strings.HasPrefix(signature, "sha256=") {
-		return fmt.Errorf("invalid signature format")
-	}
-
-	signature = strings.TrimPrefix(signature, "sha256=")
-
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write(payload)
-	expectedMAC := hex.EncodeToString(mac.Sum(nil))
-
-	if !hmac.Equal([]byte(signature), []byte(expectedMAC)) {
-		return fmt.Errorf("invalid signature")
-	}
-
-	return nil
+	return verifyHMACSHA256(payload, signature, secret)
 }
 
 // ParseWebhookPayload parses GitHub webhook payload

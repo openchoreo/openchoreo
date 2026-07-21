@@ -72,7 +72,7 @@ func TestDetectGitProviderFromParams(t *testing.T) {
 			name:          "Bitbucket with X-Event-Key",
 			params:        gen.HandleAutoBuildParams{XEventKey: &eventKey},
 			wantProvider:  git.ProviderBitbucket,
-			wantSigHeader: "",
+			wantSigHeader: "X-Hub-Signature",
 			wantSecretKey: "bitbucket-secret",
 			wantOK:        true,
 		},
@@ -118,6 +118,7 @@ func TestDetectGitProviderFromParams(t *testing.T) {
 func TestSignatureFromParams(t *testing.T) {
 	sig := "sha256=abc123"
 	tok := "my-token"
+	bbSig := "sha256=bitbucketdigest"
 
 	tests := []struct {
 		name            string
@@ -138,9 +139,15 @@ func TestSignatureFromParams(t *testing.T) {
 			wantSig:         tok,
 		},
 		{
-			name:            "Bitbucket has no signature header",
+			name:            "Bitbucket X-Hub-Signature header",
+			params:          gen.HandleAutoBuildParams{XHubSignature: &bbSig},
+			signatureHeader: "X-Hub-Signature",
+			wantSig:         bbSig,
+		},
+		{
+			name:            "nil XHubSignature returns empty",
 			params:          gen.HandleAutoBuildParams{},
-			signatureHeader: "",
+			signatureHeader: "X-Hub-Signature",
 			wantSig:         "",
 		},
 		{

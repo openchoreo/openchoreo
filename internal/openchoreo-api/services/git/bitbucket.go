@@ -17,20 +17,12 @@ func NewBitbucketProvider() *BitbucketProvider {
 	return &BitbucketProvider{}
 }
 
-// ValidateWebhookPayload validates the Bitbucket webhook.
-// When token is empty (Bitbucket does not send a signature header), validation is skipped.
-// TODO: implement HMAC-based signature validation once Bitbucket webhook signing is supported.
-func (p *BitbucketProvider) ValidateWebhookPayload(payload []byte, token, secret string) error {
-	// Bitbucket does not include a signature header in webhook requests, so the
-	// handler always forwards an empty token. Skip validation in that case.
-	if token == "" {
-		return nil
-	}
-	// Token-based validation: if a token was somehow provided, it must match the secret.
-	if token != secret {
-		return fmt.Errorf("invalid webhook token")
-	}
-	return nil
+// ValidateWebhookPayload validates the Bitbucket webhook HMAC-SHA256 signature.
+// Bitbucket signs webhooks with the configured secret and sends the digest in the
+// X-Hub-Signature header as "sha256=<hex>". Validation fails closed: a missing secret
+// or a missing/invalid signature is rejected.
+func (p *BitbucketProvider) ValidateWebhookPayload(payload []byte, signature, secret string) error {
+	return verifyHMACSHA256(payload, signature, secret)
 }
 
 // ParseWebhookPayload parses Bitbucket webhook payload
