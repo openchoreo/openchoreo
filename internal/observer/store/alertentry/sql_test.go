@@ -166,6 +166,24 @@ func TestGetRecentAlert(t *testing.T) {
 		ComponentID:          "comp-uid-1",
 	})
 	require.NoError(t, err)
+	latestID, err := store.WriteAlertEntry(ctx, &AlertEntry{
+		Timestamp:            now.Add(-20 * time.Minute).Format(time.RFC3339Nano),
+		AlertRuleName:        "high-error-rate",
+		AlertRuleCRName:      "rule-cr-1",
+		AlertRuleCRNamespace: "obs-plane",
+		AlertValue:           "84",
+		NamespaceName:        "ns-1",
+		ComponentName:        "payments",
+		ComponentID:          "comp-uid-1",
+		IncidentEnabled:      true,
+	})
+	require.NoError(t, err)
+
+	latest, err := store.GetRecentAlert(ctx, "rule-cr-1", "obs-plane", "comp-uid-1", now.Add(-time.Hour))
+	require.NoError(t, err)
+	require.NotNil(t, latest)
+	assert.Equal(t, latestID, latest.ID)
+	assert.True(t, latest.IncidentEnabled)
 
 	tests := []struct {
 		name         string

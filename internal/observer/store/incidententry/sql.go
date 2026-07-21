@@ -70,6 +70,9 @@ func (s *sqlStore) Initialize(ctx context.Context) error {
 	if _, err := s.db.ExecContext(initCtx, createProjectEnvTimestampIndexQuery); err != nil {
 		return fmt.Errorf("failed to create incident_entries index: %w", err)
 	}
+	if _, err := s.db.ExecContext(initCtx, createAlertTimestampIndexQuery); err != nil {
+		return fmt.Errorf("failed to create incident_entries alert index: %w", err)
+	}
 
 	// Run schema migrations
 	if err := s.runSchemaMigrations(initCtx); err != nil {
@@ -770,6 +773,10 @@ CREATE TABLE IF NOT EXISTS incident_entries (
 const createProjectEnvTimestampIndexQuery = `
 CREATE INDEX IF NOT EXISTS idx_incident_entries_project_env_ts
 ON incident_entries(project_id, environment_id, timestamp_ns);`
+
+const createAlertTimestampIndexQuery = `
+CREATE INDEX IF NOT EXISTS idx_incident_entries_alert_ts
+ON incident_entries(alert_id, timestamp_ns);`
 
 const insertIncidentEntrySQLiteQuery = `
 INSERT INTO incident_entries (

@@ -98,18 +98,27 @@ func TestGetIncidentStatusByAlertID(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
 	require.NoError(t, store.Initialize(context.Background()))
 
-	_, err = store.WriteIncidentEntry(context.Background(), &IncidentEntry{
-		AlertID: "alert-1",
-		Status:  StatusAcknowledged,
+	ctx := context.Background()
+	now := time.Now().UTC()
+	_, err = store.WriteIncidentEntry(ctx, &IncidentEntry{
+		AlertID:   "alert-1",
+		Timestamp: now.Add(-2 * time.Minute).Format(time.RFC3339Nano),
+		Status:    StatusActive,
+	})
+	require.NoError(t, err)
+	_, err = store.WriteIncidentEntry(ctx, &IncidentEntry{
+		AlertID:   "alert-1",
+		Timestamp: now.Add(-time.Minute).Format(time.RFC3339Nano),
+		Status:    StatusAcknowledged,
 	})
 	require.NoError(t, err)
 
-	status, found, err := store.GetIncidentStatusByAlertID(context.Background(), "alert-1")
+	status, found, err := store.GetIncidentStatusByAlertID(ctx, "alert-1")
 	require.NoError(t, err)
 	assert.True(t, found)
 	assert.Equal(t, StatusAcknowledged, status)
 
-	_, found, err = store.GetIncidentStatusByAlertID(context.Background(), "missing")
+	_, found, err = store.GetIncidentStatusByAlertID(ctx, "missing")
 	require.NoError(t, err)
 	assert.False(t, found)
 }
