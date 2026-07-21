@@ -169,20 +169,24 @@ func TestWirelogsHandler_AuthzScope_Component(t *testing.T) {
 		"resource.environment must always be set so CEL conditions can scope per env")
 }
 
-// A component filter must be authorized against the component's real owning
-// project, not the caller-supplied `project`.
-func TestWirelogsHandler_AuthzPinsComponentOwnerProject(t *testing.T) {
-	req := captureAuthzRequest(t,
-		"/api/v1/namespaces/ns-a/environments/development/wirelogs?project=team-a&component=checkout",
-		wirelogsComponent("ns-a", "checkout", "team-b"))
+// A component filter naming a project that does not own the component must be
+// denied before authorization runs (GHSA-52gf-6rpq-fgmx). checkout is owned by
+// team-b; the caller claims team-a.
+func TestWirelogsHandler_DeniesComponentProjectMismatch(t *testing.T) {
+	// No Evaluate expectation → the mock fails the test if authz is reached.
+	pdp := authzmocks.NewMockPDP(t)
+	h := &WirelogsHandler{
+		k8sClient:    newWirelogsK8sClient(t, wirelogsComponent("ns-a", "checkout", "team-b")),
+		authzChecker: svcpkg.NewAuthzChecker(pdp, slog.Default()),
+		logger:       slog.Default(),
+	}
 
-	assert.Equal(t, authz.ActionViewWirelogs, req.Action)
-	assert.Equal(t, "component", req.Resource.Type)
-	assert.Equal(t, "checkout", req.Resource.ID)
-	assert.Equal(t, "ns-a", req.Resource.Hierarchy.Namespace)
-	assert.Equal(t, "team-b", req.Resource.Hierarchy.Project,
-		"authz must be scoped to the component's real owner, not the caller-supplied project")
-	assert.Equal(t, "checkout", req.Resource.Hierarchy.Component)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, wirelogsRequest(t,
+		"/api/v1/namespaces/ns-a/environments/development/wirelogs?project=team-a&component=checkout"))
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	assert.Contains(t, rec.Body.String(), "you do not have permission")
 }
 
 // A component filter naming a non-existent component must fail before authz.

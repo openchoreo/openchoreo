@@ -98,9 +98,13 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("failed to resolve component: %v", err), status)
 		return
 	}
+	// Fail closed if the caller named a project that does not own the component.
+	// The generic forbidden message avoids disclosing the component's real owner.
 	if requestedProject != "" && requestedProject != project {
-		logger.Warn("requested project does not own the target component; authorizing against the component's owner",
+		logger.Warn("requested project does not own the target component; denying exec",
 			"requestedProject", requestedProject, "ownerProject", project)
+		http.Error(w, "you do not have permission to exec into this component", http.StatusForbidden)
+		return
 	}
 
 	// Resolve the target environment before authorizing so per-environment exec

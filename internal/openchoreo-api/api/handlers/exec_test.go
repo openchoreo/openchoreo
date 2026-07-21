@@ -98,10 +98,11 @@ func TestExecHandler_AuthzEnvironmentContext_DerivedEnv(t *testing.T) {
 		"pipeline-derived environment must reach the ABAC context when env is omitted")
 }
 
-// A caller that names a component owned by another project must be authorized
-// against the component's real owner, not the project supplied in the query
-func TestExecHandler_AuthzPinsComponentOwnerProject(t *testing.T) {
-	pdp := testutil.DenyPDP()
+// A caller that names a component owned by another project must be denied before
+// authorization runs — even under an allowing policy (GHSA-52gf-6rpq-fgmx).
+// victim-svc is owned by team-b; the caller claims team-a.
+func TestExecHandler_DeniesComponentProjectMismatch(t *testing.T) {
+	pdp := testutil.AllowPDP()
 	h := newExecHandler(t, pdp, execComponent("default", "victim-svc", "team-b"))
 
 	req := httptest.NewRequest(http.MethodGet,
@@ -111,10 +112,7 @@ func TestExecHandler_AuthzPinsComponentOwnerProject(t *testing.T) {
 	h.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusForbidden, rec.Code)
-	require.Len(t, pdp.Captured, 1)
-	testutil.RequireEvalRequest(t, pdp.Captured[0],
-		authz.ActionExecComponent, "component", "victim-svc",
-		authz.ResourceHierarchy{Namespace: "default", Project: "team-b", Component: "victim-svc"})
+	require.Empty(t, pdp.Captured, "authz must not run when the requested project does not own the component")
 }
 
 // Exec must fail before authorization when the target component does not exist,
