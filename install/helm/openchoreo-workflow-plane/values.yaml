@@ -464,3 +464,12 @@ clusterAgent:
   # description: Affinity rules for cluster agent pods
   # @schema
   affinity: {}
+
+  # @schema
+  # type: array
+  # description: Topology spread constraints for cluster agent pods
+  # items:
+  #   type: object
+  #   additionalProperties: true
+  # @schema
+  topologySpreadConstraints: []

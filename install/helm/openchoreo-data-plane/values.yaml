@@ -781,7 +781,17 @@ clusterAgent:
 
   # @schema
   # type: object
+  # additionalProperties: true
   # description: Affinity rules for pod scheduling
   # default: {}
   # @schema
   affinity: {}
+
+  # @schema
+  # type: array
+  # description: Topology spread constraints for pod distribution across failure domains
+  # items:
+  #   type: object
+  # default: []
+  # @schema
+  topologySpreadConstraints: []

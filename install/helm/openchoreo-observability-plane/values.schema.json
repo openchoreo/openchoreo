@@ -7,7 +7,7 @@
       "description": "Cluster Agent configuration for WebSocket-based communication with the control plane's cluster gateway",
       "properties": {
         "affinity": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "default": {},
           "description": "Affinity rules for pod scheduling",
           "required": [],
@@ -441,6 +441,16 @@
           },
           "title": "tolerations",
           "type": "array"
+        },
+        "topologySpreadConstraints": {
+          "default": [],
+          "description": "Topology spread constraints for pod distribution across failure domains",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "topologySpreadConstraints",
+          "type": "array"
         }
       },
       "required": [],
@@ -452,7 +462,7 @@
       "description": "Configuration for the observability plane controller manager that reconciles ObservabilityAlertRules and other CRDs",
       "properties": {
         "affinity": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "default": {},
           "description": "Affinity rules for pod scheduling",
           "required": [],
@@ -788,6 +798,14 @@
       "additionalProperties": false,
       "description": "FinOps Agent Configuration",
       "properties": {
+        "affinity": {
+          "additionalProperties": true,
+          "default": {},
+          "description": "Affinity rules for pod scheduling",
+          "required": [],
+          "title": "affinity",
+          "type": "object"
+        },
         "analysisTimeoutSeconds": {
           "default": 600,
           "description": "Analysis timeout in seconds",
@@ -931,6 +949,16 @@
           "minimum": 1,
           "title": "maxConcurrentAnalyses",
           "type": "integer"
+        },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Node selector for pod scheduling",
+          "required": [],
+          "title": "nodeSelector",
+          "type": "object"
         },
         "oauth": {
           "additionalProperties": false,
@@ -1090,6 +1118,26 @@
           "description": "Skip TLS certificate verification for MCP server connections (use for self-signed certs)",
           "title": "tlsInsecureSkipVerify",
           "type": "boolean"
+        },
+        "tolerations": {
+          "default": [],
+          "description": "Tolerations for pod scheduling",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "tolerations",
+          "type": "array"
+        },
+        "topologySpreadConstraints": {
+          "default": [],
+          "description": "Topology spread constraints for pod distribution across failure domains",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "topologySpreadConstraints",
+          "type": "array"
         }
       },
       "required": [],
@@ -1265,6 +1313,14 @@
       "additionalProperties": true,
       "description": "OpenChoreo Observer service configuration - REST API that abstracts observability backends for logging, metrics, and tracing via adapters",
       "properties": {
+        "affinity": {
+          "additionalProperties": true,
+          "default": {},
+          "description": "Affinity rules for pod scheduling",
+          "required": [],
+          "title": "affinity",
+          "type": "object"
+        },
         "alertStoreBackend": {
           "default": "sqlite",
           "description": "Alert entry storage backend for fired alerts",
@@ -1440,6 +1496,16 @@
           "title": "logsAdapter",
           "type": "object"
         },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Node selector for pod scheduling",
+          "required": [],
+          "title": "nodeSelector",
+          "type": "object"
+        },
         "oauthClientId": {
           "default": "openchoreo-observer-resource-reader-client",
           "description": "OAuth2 client ID used by the Observer when calling the control plane API",
@@ -1603,6 +1669,26 @@
           "title": "service",
           "type": "object"
         },
+        "tolerations": {
+          "default": [],
+          "description": "Tolerations for pod scheduling",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "tolerations",
+          "type": "array"
+        },
+        "topologySpreadConstraints": {
+          "default": [],
+          "description": "Topology spread constraints for pod distribution across failure domains",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "topologySpreadConstraints",
+          "type": "array"
+        },
         "tracingAdapter": {
           "additionalProperties": false,
           "description": "Configurations for tracing adapter connectivity",
@@ -1633,6 +1719,14 @@
       "additionalProperties": false,
       "description": "AI-powered Root Cause Analysis agent configuration",
       "properties": {
+        "affinity": {
+          "additionalProperties": true,
+          "default": {},
+          "description": "Affinity rules for pod scheduling",
+          "required": [],
+          "title": "affinity",
+          "type": "object"
+        },
         "authz": {
           "additionalProperties": false,
           "description": "Authorization configuration for RCA agent",
@@ -1777,6 +1871,16 @@
           "description": "Name of the RCA agent deployment",
           "title": "name",
           "type": "string"
+        },
+        "nodeSelector": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Node selector for pod scheduling",
+          "required": [],
+          "title": "nodeSelector",
+          "type": "object"
         },
         "oauth": {
           "additionalProperties": false,
@@ -1924,6 +2028,26 @@
           "description": "PVC storage size for SQLite (only used when reportBackend is sqlite)",
           "title": "sqliteStorageSize",
           "type": "string"
+        },
+        "tolerations": {
+          "default": [],
+          "description": "Tolerations for pod scheduling",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "tolerations",
+          "type": "array"
+        },
+        "topologySpreadConstraints": {
+          "default": [],
+          "description": "Topology spread constraints for pod distribution across failure domains",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "topologySpreadConstraints",
+          "type": "array"
         }
       },
       "required": [],
