@@ -1,0 +1,16 @@
+{{- if .Values.security.authz.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openchoreo-control-plane.authz.bootstrapName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+data:
+  manifests.yaml: |
+{{ include "openchoreo-control-plane.authz.allManifests" . | indent 4 }}
+{{- end }}
