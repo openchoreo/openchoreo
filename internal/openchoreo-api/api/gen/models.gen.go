@@ -4132,6 +4132,9 @@ type HandleAutoBuildParams struct {
 
 	// XEventKey Bitbucket webhook event-key header used to detect Bitbucket events.
 	XEventKey *string `json:"X-Event-Key,omitempty"`
+
+	// XHubSignature Bitbucket webhook HMAC-SHA256 signature (`sha256=<hex>`) used to validate Bitbucket events.
+	XHubSignature *string `json:"X-Hub-Signature,omitempty"`
 }
 
 // EvaluatesJSONRequestBody defines body for Evaluates for application/json ContentType.
