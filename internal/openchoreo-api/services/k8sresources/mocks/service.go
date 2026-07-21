@@ -211,6 +211,66 @@ func (_c *MockService_GetResourceTree_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// TriggerCronJob provides a mock function with given fields: ctx, namespaceName, releaseBindingName
+func (_m *MockService) TriggerCronJob(ctx context.Context, namespaceName string, releaseBindingName string) (*models.CronJobTriggerResponse, error) {
+	ret := _m.Called(ctx, namespaceName, releaseBindingName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for TriggerCronJob")
+	}
+
+	var r0 *models.CronJobTriggerResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*models.CronJobTriggerResponse, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *models.CronJobTriggerResponse); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.CronJobTriggerResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_TriggerCronJob_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TriggerCronJob'
+type MockService_TriggerCronJob_Call struct {
+	*mock.Call
+}
+
+// TriggerCronJob is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - releaseBindingName string
+func (_e *MockService_Expecter) TriggerCronJob(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}) *MockService_TriggerCronJob_Call {
+	return &MockService_TriggerCronJob_Call{Call: _e.mock.On("TriggerCronJob", ctx, namespaceName, releaseBindingName)}
+}
+
+func (_c *MockService_TriggerCronJob_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string)) *MockService_TriggerCronJob_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_TriggerCronJob_Call) Return(_a0 *models.CronJobTriggerResponse, _a1 error) *MockService_TriggerCronJob_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_TriggerCronJob_Call) RunAndReturn(run func(context.Context, string, string) (*models.CronJobTriggerResponse, error)) *MockService_TriggerCronJob_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockService creates a new instance of MockService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockService(t interface {

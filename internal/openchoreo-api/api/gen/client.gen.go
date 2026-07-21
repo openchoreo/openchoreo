@@ -847,6 +847,9 @@ type ClientInterface interface {
 	// DeleteGitSecret request
 	DeleteGitSecret(ctx context.Context, namespaceName NamespaceNameParam, gitSecretName GitSecretNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// TriggerReleaseBindingCronJob request
+	TriggerReleaseBindingCronJob(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListSecrets request
 	ListSecrets(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -4193,6 +4196,18 @@ func (c *Client) CreateGitSecret(ctx context.Context, namespaceName NamespaceNam
 
 func (c *Client) DeleteGitSecret(ctx context.Context, namespaceName NamespaceNameParam, gitSecretName GitSecretNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteGitSecretRequest(c.Server, namespaceName, gitSecretName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TriggerReleaseBindingCronJob(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTriggerReleaseBindingCronJobRequest(c.Server, namespaceName, releaseBindingName)
 	if err != nil {
 		return nil, err
 	}
@@ -15016,6 +15031,47 @@ func NewDeleteGitSecretRequest(server string, namespaceName NamespaceNameParam, 
 	return req, nil
 }
 
+// NewTriggerReleaseBindingCronJobRequest generates requests for TriggerReleaseBindingCronJob
+func NewTriggerReleaseBindingCronJobRequest(server string, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "releaseBindingName", runtime.ParamLocationPath, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/namespaces/%s/releasebindings/%s/trigger", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListSecretsRequest generates requests for ListSecrets
 func NewListSecretsRequest(server string, namespaceName NamespaceNameParam, params *ListSecretsParams) (*http.Request, error) {
 	var err error
@@ -16179,6 +16235,9 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteGitSecretWithResponse request
 	DeleteGitSecretWithResponse(ctx context.Context, namespaceName NamespaceNameParam, gitSecretName GitSecretNameParam, reqEditors ...RequestEditorFn) (*DeleteGitSecretResp, error)
+
+	// TriggerReleaseBindingCronJobWithResponse request
+	TriggerReleaseBindingCronJobWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*TriggerReleaseBindingCronJobResp, error)
 
 	// ListSecretsWithResponse request
 	ListSecretsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretsParams, reqEditors ...RequestEditorFn) (*ListSecretsResp, error)
@@ -21632,6 +21691,33 @@ func (r DeleteGitSecretResp) StatusCode() int {
 	return 0
 }
 
+type TriggerReleaseBindingCronJobResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CronJobTriggerResponse
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r TriggerReleaseBindingCronJobResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TriggerReleaseBindingCronJobResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListSecretsResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -24276,6 +24362,15 @@ func (c *ClientWithResponses) DeleteGitSecretWithResponse(ctx context.Context, n
 		return nil, err
 	}
 	return ParseDeleteGitSecretResp(rsp)
+}
+
+// TriggerReleaseBindingCronJobWithResponse request returning *TriggerReleaseBindingCronJobResp
+func (c *ClientWithResponses) TriggerReleaseBindingCronJobWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*TriggerReleaseBindingCronJobResp, error) {
+	rsp, err := c.TriggerReleaseBindingCronJob(ctx, namespaceName, releaseBindingName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTriggerReleaseBindingCronJobResp(rsp)
 }
 
 // ListSecretsWithResponse request returning *ListSecretsResp
@@ -36170,6 +36265,67 @@ func ParseDeleteGitSecretResp(rsp *http.Response) (*DeleteGitSecretResp, error) 
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTriggerReleaseBindingCronJobResp parses an HTTP response from a TriggerReleaseBindingCronJobWithResponse call
+func ParseTriggerReleaseBindingCronJobResp(rsp *http.Response) (*TriggerReleaseBindingCronJobResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TriggerReleaseBindingCronJobResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CronJobTriggerResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
