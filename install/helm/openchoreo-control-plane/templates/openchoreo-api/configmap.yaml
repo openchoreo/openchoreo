@@ -70,6 +70,10 @@ data:
         {{- if .Values.clusterGateway.tls.enabled }}
         ca_cert_path: {{ .Values.openchoreoApi.clusterGateway.tls.caPath | quote }}
         {{- end }}
+        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        client_cert_path: {{ .Values.openchoreoApi.clusterGateway.tls.clientCertPath | quote }}
+        client_key_path: {{ .Values.openchoreoApi.clusterGateway.tls.clientKeyPath | quote }}
+        {{- end }}
         insecure: {{ .Values.openchoreoApi.clusterGateway.tls.insecure }}
 
     logging:
