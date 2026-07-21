@@ -89,6 +89,31 @@ func TestWriteIncidentEntryWithMissingAlertID(t *testing.T) {
 	require.Error(t, err, "expected error for missing alert id")
 }
 
+func TestGetIncidentStatusByAlertID(t *testing.T) {
+	t.Parallel()
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	store, err := New(BackendSQLite, dsn, slog.Default())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, store.Close()) })
+	require.NoError(t, store.Initialize(context.Background()))
+
+	_, err = store.WriteIncidentEntry(context.Background(), &IncidentEntry{
+		AlertID: "alert-1",
+		Status:  StatusAcknowledged,
+	})
+	require.NoError(t, err)
+
+	status, found, err := store.GetIncidentStatusByAlertID(context.Background(), "alert-1")
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, StatusAcknowledged, status)
+
+	_, found, err = store.GetIncidentStatusByAlertID(context.Background(), "missing")
+	require.NoError(t, err)
+	assert.False(t, found)
+}
+
 func TestQueryIncidentEntries(t *testing.T) {
 	t.Parallel()
 

@@ -253,6 +253,34 @@ func TestWebhook_DuplicateWithinWindow_Suppressed(t *testing.T) {
 	assert.Equal(t, int32(1), f.rcaCallCount.Load(), "suppressed alert should not trigger RCA")
 }
 
+func TestWebhook_AcknowledgedIncident_RetriggersWithinSuppressionWindow(t *testing.T) {
+	rule := testAlertRule("rule-cr-1", true, false)
+	f := newWebhookTestFixture(t, time.Hour, rule, false)
+
+	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+	assert.Eventually(t, func() bool { return f.incidentCount(t) == 1 }, 2*time.Second, 50*time.Millisecond)
+
+	incidents, _, err := f.incidentStore.QueryIncidentEntries(context.Background(), incidententry.QueryParams{
+		StartTime: "2000-01-01T00:00:00Z",
+		EndTime:   "2099-01-01T00:00:00Z",
+		Limit:     100,
+	})
+	require.NoError(t, err)
+	require.Len(t, incidents, 1)
+	_, err = f.incidentStore.UpdateIncidentEntry(
+		context.Background(), incidents[0].ID, incidententry.StatusAcknowledged, nil, nil, time.Now().UTC(),
+	)
+	require.NoError(t, err)
+
+	resp, err = f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+	assert.Equal(t, 2, f.alertCount(t), "acknowledgement should end suppression for the prior occurrence")
+	assert.Eventually(t, func() bool { return f.incidentCount(t) == 2 }, 2*time.Second, 50*time.Millisecond)
+}
+
 func TestWebhook_DifferentRule_NotSuppressed(t *testing.T) {
 	rule1 := testAlertRule("rule-cr-1", false, false)
 	rule2 := testAlertRule("rule-cr-2", false, false)

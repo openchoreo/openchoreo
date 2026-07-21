@@ -427,6 +427,27 @@ func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams)
 	return entries, total, nil
 }
 
+func (s *sqlStore) GetIncidentStatusByAlertID(ctx context.Context, alertID string) (string, bool, error) {
+	alertID = strings.TrimSpace(alertID)
+	if alertID == "" {
+		return "", false, fmt.Errorf("alert id is required")
+	}
+
+	var status string
+	query := `SELECT status FROM incident_entries WHERE alert_id = ? ORDER BY timestamp_ns DESC LIMIT 1`
+	if s.backend == BackendPostgreSQL {
+		query = `SELECT status FROM incident_entries WHERE alert_id = $1 ORDER BY timestamp_ns DESC LIMIT 1`
+	}
+	err := s.db.QueryRowContext(ctx, query, alertID).Scan(&status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("failed to get incident status for alert %q: %w", alertID, err)
+	}
+	return status, true, nil
+}
+
 func (s *sqlStore) UpdateIncidentEntry(ctx context.Context, id string, status string, notes, description *string, now time.Time) (IncidentEntry, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {

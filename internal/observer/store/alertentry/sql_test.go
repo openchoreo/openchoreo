@@ -142,7 +142,7 @@ func TestQueryAlertEntries(t *testing.T) {
 	assert.Equal(t, "rule-b", got[0].AlertRuleName)
 }
 
-func TestHasRecentAlert(t *testing.T) {
+func TestGetRecentAlert(t *testing.T) {
 	t.Parallel()
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
@@ -219,9 +219,9 @@ func TestHasRecentAlert(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := store.HasRecentAlert(ctx, tt.crName, tt.crNamespace, tt.componentUID, tt.since)
+			got, err := store.GetRecentAlert(ctx, tt.crName, tt.crNamespace, tt.componentUID, tt.since)
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, got != nil)
 		})
 	}
 }
