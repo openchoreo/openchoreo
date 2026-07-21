@@ -32,10 +32,22 @@ The gate runs at two points, both keyed to the exact commit:
   branch creation), in which case the earlier green gate is reused instead of
   re-run.
 
-Reuse is tracked by a `release-e2e-gate` commit status, so it applies only when
-the tag points at the identical commit. Any new commit on the branch — a fix or
-a backported patch — is gated afresh, and only passing gates are recorded, so a
+Reuse is tracked by an `e2e-gate` commit status, which `e2e-gate.yml` stamps on
+its own tested commit whenever every leg passes — regardless of what triggered
+that run. So it also picks up a manual pre-flight dispatch or a nightly
+schedule run, not just ones run by the orchestrator itself, as long as it
+lands on the identical commit. Any new commit on the branch — a fix or a
+backported patch — is gated afresh, and only passing gates are recorded, so a
 failed gate is never reused.
+
+Reuse also requires the same Helm chart version and Backstage image tag, not
+just the same commit: the status description encodes both, and the
+orchestrator only reuses a prior gate when that description matches the
+versions it just resolved for the current run. This matters because the
+Backstage image tag tracks the `backstage-plugins` release branch tip rather
+than anything in this repo's history, so it can change between two gate
+checks at the same openchoreo commit. When the description doesn't match, the
+gate is re-run even though the commit already has a passing status.
 
 The gate shards the suite into five parallel legs, each on its own runner
 and k3d cluster:
