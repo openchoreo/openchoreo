@@ -32,6 +32,10 @@ type TLSConfig struct {
 	CAFile             string
 	CAData             []byte
 	ServerName         string
+	// ClientCertFile and ClientKeyFile enable mTLS to the cluster gateway.
+	// Both must be set together.
+	ClientCertFile string
+	ClientKeyFile  string
 }
 
 type Client struct {
@@ -218,10 +222,7 @@ func buildTLSConfig(config *TLSConfig) (*tls.Config, error) {
 	if config.InsecureSkipVerify {
 		// #nosec G402 -- InsecureSkipVerify is configurable and should only be used in development
 		tlsConfig.InsecureSkipVerify = true
-		return tlsConfig, nil
-	}
-
-	if config.CAFile != "" || len(config.CAData) > 0 {
+	} else if config.CAFile != "" || len(config.CAData) > 0 {
 		caCertPool := x509.NewCertPool()
 
 		var caData []byte
@@ -241,6 +242,17 @@ func buildTLSConfig(config *TLSConfig) (*tls.Config, error) {
 		}
 
 		tlsConfig.RootCAs = caCertPool
+	}
+
+	if config.ClientCertFile != "" || config.ClientKeyFile != "" {
+		if config.ClientCertFile == "" || config.ClientKeyFile == "" {
+			return nil, fmt.Errorf("both ClientCertFile and ClientKeyFile must be set for mTLS")
+		}
+		cert, err := tls.LoadX509KeyPair(config.ClientCertFile, config.ClientKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client key pair: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
 	}
 
 	return tlsConfig, nil

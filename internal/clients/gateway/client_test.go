@@ -5,11 +5,21 @@ package gateway
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"io"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestProxyK8sRequest(t *testing.T) {
@@ -301,4 +311,263 @@ func TestProxyK8sRequest_CallerMustCloseBody(t *testing.T) {
 
 	// Now close it (caller's responsibility)
 	resp.Body.Close()
+}
+
+// writeTestKeyPairFiles generates a self-signed certificate and its EC private
+// key, writes both to PEM files in a temp dir, and returns their paths. The pair
+// is valid for tls.LoadX509KeyPair.
+func writeTestKeyPairFiles(t *testing.T) (certFile, keyFile string) {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "test-client"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create cert: %v", err)
+	}
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		t.Fatalf("marshal key: %v", err)
+	}
+
+	dir := t.TempDir()
+	certFile = filepath.Join(dir, "tls.crt")
+	keyFile = filepath.Join(dir, "tls.key")
+	if err := os.WriteFile(certFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0o600); err != nil {
+		t.Fatalf("write cert: %v", err)
+	}
+	if err := os.WriteFile(keyFile, pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER}), 0o600); err != nil {
+		t.Fatalf("write key: %v", err)
+	}
+	return certFile, keyFile
+}
+
+// caPEM returns a self-signed CA certificate encoded as PEM.
+func caPEM(t *testing.T) []byte {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate CA key: %v", err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(2),
+		Subject:               pkix.Name{CommonName: "test-ca"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create CA cert: %v", err)
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+}
+
+func TestBuildTLSConfig(t *testing.T) {
+	certFile, keyFile := writeTestKeyPairFiles(t)
+
+	caFile := filepath.Join(t.TempDir(), "ca.crt")
+	if err := os.WriteFile(caFile, caPEM(t), 0o600); err != nil {
+		t.Fatalf("write CA file: %v", err)
+	}
+
+	badPairDir := t.TempDir()
+	badCert := filepath.Join(badPairDir, "bad.crt")
+	badKey := filepath.Join(badPairDir, "bad.key")
+	if err := os.WriteFile(badCert, []byte("not a certificate"), 0o600); err != nil {
+		t.Fatalf("write bad cert: %v", err)
+	}
+	if err := os.WriteFile(badKey, []byte("not a key"), 0o600); err != nil {
+		t.Fatalf("write bad key: %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		config     *TLSConfig
+		wantErr    bool
+		wantErrMsg string
+		verify     func(t *testing.T, c *tlsConfigResult)
+	}{
+		{
+			name:   "mTLS with both cert and key loads client certificate",
+			config: &TLSConfig{ClientCertFile: certFile, ClientKeyFile: keyFile},
+			verify: func(t *testing.T, c *tlsConfigResult) {
+				if c.numCertificates != 1 {
+					t.Errorf("expected 1 client certificate, got %d", c.numCertificates)
+				}
+			},
+		},
+		{
+			name:       "mTLS with only cert file returns error",
+			config:     &TLSConfig{ClientCertFile: certFile},
+			wantErr:    true,
+			wantErrMsg: "both ClientCertFile and ClientKeyFile must be set",
+		},
+		{
+			name:       "mTLS with only key file returns error",
+			config:     &TLSConfig{ClientKeyFile: keyFile},
+			wantErr:    true,
+			wantErrMsg: "both ClientCertFile and ClientKeyFile must be set",
+		},
+		{
+			name:       "mTLS with invalid cert/key pair returns error",
+			config:     &TLSConfig{ClientCertFile: badCert, ClientKeyFile: badKey},
+			wantErr:    true,
+			wantErrMsg: "failed to load client key pair",
+		},
+		{
+			name:   "insecure skip verify",
+			config: &TLSConfig{InsecureSkipVerify: true},
+			verify: func(t *testing.T, c *tlsConfigResult) {
+				if !c.insecureSkipVerify {
+					t.Error("expected InsecureSkipVerify to be true")
+				}
+			},
+		},
+		{
+			name:   "CA data populates root pool",
+			config: &TLSConfig{CAData: caPEM(t)},
+			verify: func(t *testing.T, c *tlsConfigResult) {
+				if !c.hasRootCAs {
+					t.Error("expected RootCAs to be set from CAData")
+				}
+			},
+		},
+		{
+			name:   "CA file populates root pool",
+			config: &TLSConfig{CAFile: caFile},
+			verify: func(t *testing.T, c *tlsConfigResult) {
+				if !c.hasRootCAs {
+					t.Error("expected RootCAs to be set from CAFile")
+				}
+			},
+		},
+		{
+			name:       "missing CA file returns error",
+			config:     &TLSConfig{CAFile: filepath.Join(t.TempDir(), "missing.crt")},
+			wantErr:    true,
+			wantErrMsg: "failed to read CA file",
+		},
+		{
+			name:       "invalid CA data returns error",
+			config:     &TLSConfig{CAData: []byte("not a certificate")},
+			wantErr:    true,
+			wantErrMsg: "failed to parse CA certificate",
+		},
+		{
+			name:   "server name is set and TLS 1.2 enforced",
+			config: &TLSConfig{ServerName: "gateway.example.com"},
+			verify: func(t *testing.T, c *tlsConfigResult) {
+				if c.serverName != "gateway.example.com" {
+					t.Errorf("expected serverName gateway.example.com, got %q", c.serverName)
+				}
+			},
+		},
+		{
+			name:   "mTLS combined with CA verification",
+			config: &TLSConfig{CAData: caPEM(t), ClientCertFile: certFile, ClientKeyFile: keyFile},
+			verify: func(t *testing.T, c *tlsConfigResult) {
+				if !c.hasRootCAs {
+					t.Error("expected RootCAs to be set")
+				}
+				if c.numCertificates != 1 {
+					t.Errorf("expected 1 client certificate, got %d", c.numCertificates)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := buildTLSConfig(tt.config)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tt.wantErrMsg)
+				}
+				if !strings.Contains(err.Error(), tt.wantErrMsg) {
+					t.Errorf("error = %q, want it to contain %q", err.Error(), tt.wantErrMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			// MinVersion must always be enforced.
+			if cfg.MinVersion == 0 {
+				t.Error("expected MinVersion to be set (TLS 1.2)")
+			}
+			if tt.verify != nil {
+				tt.verify(t, &tlsConfigResult{
+					numCertificates:    len(cfg.Certificates),
+					hasRootCAs:         cfg.RootCAs != nil,
+					insecureSkipVerify: cfg.InsecureSkipVerify,
+					serverName:         cfg.ServerName,
+				})
+			}
+		})
+	}
+}
+
+// tlsConfigResult flattens the fields of a *tls.Config asserted by the tests so
+// the table stays readable.
+type tlsConfigResult struct {
+	numCertificates    int
+	hasRootCAs         bool
+	insecureSkipVerify bool
+	serverName         string
+}
+
+func TestNewClientWithConfig(t *testing.T) {
+	certFile, keyFile := writeTestKeyPairFiles(t)
+
+	t.Run("empty baseURL returns error", func(t *testing.T) {
+		_, err := NewClientWithConfig(&Config{})
+		if err == nil {
+			t.Fatal("expected error for empty baseURL, got nil")
+		}
+		if !strings.Contains(err.Error(), "baseURL is required") {
+			t.Errorf("error = %q, want it to mention baseURL", err.Error())
+		}
+	})
+
+	t.Run("valid config with mTLS returns client", func(t *testing.T) {
+		client, err := NewClientWithConfig(&Config{
+			BaseURL: "https://gateway.example.com",
+			TLS:     TLSConfig{ClientCertFile: certFile, ClientKeyFile: keyFile},
+			Timeout: 5 * time.Second,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if client == nil {
+			t.Fatal("expected non-nil client")
+		}
+	})
+
+	t.Run("invalid TLS config surfaces build error", func(t *testing.T) {
+		_, err := NewClientWithConfig(&Config{
+			BaseURL: "https://gateway.example.com",
+			TLS:     TLSConfig{ClientCertFile: certFile}, // key missing
+		})
+		if err == nil {
+			t.Fatal("expected error for incomplete mTLS config, got nil")
+		}
+		if !strings.Contains(err.Error(), "failed to build TLS config") {
+			t.Errorf("error = %q, want it to wrap the TLS build failure", err.Error())
+		}
+	})
 }

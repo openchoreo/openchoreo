@@ -52,6 +52,10 @@ spec:
         args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
         - --cluster-gateway-url={{ .Values.controllerManager.clusterGateway.url }}
         - --cluster-gateway-ca-cert={{ .Values.controllerManager.clusterGateway.tls.caPath }}
+        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        - --cluster-gateway-client-cert={{ .Values.controllerManager.clusterGateway.tls.clientCertPath }}
+        - --cluster-gateway-client-key={{ .Values.controllerManager.clusterGateway.tls.clientKeyPath }}
+        {{- end }}
         env:
         - name: ENABLE_WEBHOOKS
           value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}
@@ -97,6 +101,11 @@ spec:
         - mountPath: /etc/cluster-gateway
           name: cluster-gateway-ca
           readOnly: true
+        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        - mountPath: /etc/cluster-gateway-client
+          name: cluster-gateway-client-tls
+          readOnly: true
+        {{- end }}
       volumes:
       {{- if eq (toString .Values.controllerManager.manager.env.enableWebhooks) "true" }}
       - name: cert
@@ -107,3 +116,8 @@ spec:
       - name: cluster-gateway-ca
         secret:
           secretName: {{ .Values.controllerManager.clusterGateway.tls.caSecret | default "cluster-gateway-ca" }}
+      {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+      - name: cluster-gateway-client-tls
+        secret:
+          secretName: {{ .Values.controllerManager.clusterGateway.tls.clientSecret }}
+      {{- end }}

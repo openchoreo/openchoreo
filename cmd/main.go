@@ -95,12 +95,25 @@ func setupControlPlaneControllers(
 	mgr ctrl.Manager,
 	k8sClientMgr *kubernetesClient.KubeMultiClientManager,
 	clusterGatewayURL string,
+	gwTLS gatewayClient.TLSConfig,
 ) error {
 	// Create gateway client for plane lifecycle notifications
 	var gwClient *gatewayClient.Client
 	if clusterGatewayURL != "" {
-		gwClient = gatewayClient.NewClient(clusterGatewayURL)
-		setupLog.Info("gateway client initialized", "url", clusterGatewayURL)
+		var err error
+		gwClient, err = gatewayClient.NewClientWithConfig(&gatewayClient.Config{
+			BaseURL: clusterGatewayURL,
+			TLS:     gwTLS,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create cluster gateway client: %w", err)
+		}
+		setupLog.Info("gateway client initialized",
+			"url", clusterGatewayURL,
+			"caCert", gwTLS.CAFile != "",
+			"clientCert", gwTLS.ClientCertFile != "",
+			"insecure", gwTLS.InsecureSkipVerify,
+		)
 	}
 
 	// Setup shared field indexes before controllers are initialized.
@@ -454,6 +467,17 @@ func main() {
 		}
 	}
 
+	// TLS for the gateway notification client. Without a configured CA the
+	// gateway is reached over unverified TLS, matching the previous NewClient
+	// behavior; once internal mTLS is enabled the CA is pinned and the client
+	// certificate is presented on every request.
+	gwTLS := gatewayClient.TLSConfig{
+		CAFile:         clusterGatewayCACert,
+		ClientCertFile: clusterGatewayClientCert,
+		ClientKeyFile:  clusterGatewayClientKey,
+	}
+	gwTLS.InsecureSkipVerify = gwTLS.CAFile == ""
+
 	// -----------------------------------------------------------------------------
 	// Setup controllers with the controller manager
 	// -----------------------------------------------------------------------------
@@ -461,7 +485,7 @@ func main() {
 	switch deploymentPlane {
 	// Control plane controllers
 	case deploymentPlaneControlPlane:
-		err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL)
+		err = setupControlPlaneControllers(mgr, k8sClientMgr, clusterGatewayURL, gwTLS)
 		if err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)

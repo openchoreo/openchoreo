@@ -145,9 +145,32 @@ func main() {
 			logger.Error("No cluster gateway URL provided", "clusterGateway", cfg.ClusterGateway)
 			os.Exit(1)
 		}
-		gwClient = gatewayClient.NewClient(gatewayURL)
+		// Without any configured certificates the gateway is reached over
+		// unverified TLS, matching the previous NewClient behavior. Once
+		// cluster_gateway.tls is configured (internal mTLS), the CA is pinned
+		// and the client certificate is presented on every request.
+		gwTLS := gatewayClient.TLSConfig{
+			CAFile:         cfg.ClusterGateway.TLS.CACertPath,
+			ClientCertFile: cfg.ClusterGateway.TLS.ClientCertPath,
+			ClientKeyFile:  cfg.ClusterGateway.TLS.ClientKeyPath,
+		}
+		gwTLS.InsecureSkipVerify = gwTLS.CAFile == ""
+
+		var err error
+		gwClient, err = gatewayClient.NewClientWithConfig(&gatewayClient.Config{
+			BaseURL: gatewayURL,
+			TLS:     gwTLS,
+		})
+		if err != nil {
+			logger.Error("Failed to create cluster gateway client", slog.Any("error", err))
+			os.Exit(1)
+		}
+		logger.Info("gateway client initialized",
+			"url", gatewayURL,
+			"caCert", gwTLS.CAFile != "",
+			"clientCert", gwTLS.ClientCertFile != "",
+			"insecure", gwTLS.InsecureSkipVerify)
 	}
-	logger.Info("gateway client initialized", "url", gatewayURL)
 
 	// Start background processes (manager + cache sync when authz enabled)
 	if err := runtime.start(ctx); err != nil {
