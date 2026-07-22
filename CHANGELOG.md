@@ -2,6 +2,18 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.0.3
+Changes since [v1.0.2](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.2).
+
+### Security
+
+- **(Cluster Gateway)** Communication from internal components to the cluster gateway is now secured with mTLS. ([#4259](https://github.com/openchoreo/openchoreo/pull/4259))
+- **(API)** Webhook signature verification is now enforced across all git providers. Bitbucket webhooks are validated with HMAC-SHA256 via the `X-Hub-Signature` header, all providers fail closed when no webhook secret is configured, and a webhook authenticated for one provider can no longer trigger builds for components hosted on a different provider. ([#4252](https://github.com/openchoreo/openchoreo/pull/4252))
+
+### Breaking Changes
+
+- Bitbucket webhook integrations must now have a `bitbucket-secret` configured in the `git-webhook-secrets` Secret and send a valid `X-Hub-Signature` header; requests without a valid signature are rejected. GitHub and GitLab behavior is unchanged. ([#4252](https://github.com/openchoreo/openchoreo/pull/4252))
+
 ## v1.0.2
 Changes since [v1.0.1](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.1).
 
