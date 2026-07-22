@@ -57,6 +57,8 @@ func TestNamespacesHandler_GetCurrentState(t *testing.T) {
 		cli := fake.NewClientBuilder().WithScheme(s).WithObjects(
 			dpNS("dp-acme-my-project-development-abc", "development", "acme"),
 			dpNS("dp-acme-other-staging-xyz", "staging", "acme"),
+			// Same env name under a different org namespace must not match.
+			dpNS("dp-other-my-project-development-zzz", "development", "other-org"),
 		).Build()
 		h := NewNamespacesHandler(cli)
 

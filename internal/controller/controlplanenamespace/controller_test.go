@@ -202,3 +202,61 @@ func TestWorkflowsNamespaceName(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+// Label can be stripped after the finalizer is set (mislabel / operator edit).
+// Finalization must still run so deletion does not hang forever.
+func TestFinalize_AfterControlPlaneLabelRemoved(t *testing.T) {
+	s := testScheme(t)
+	ctx := context.Background()
+
+	now := metav1.Now()
+	cpNS := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "acme",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{CleanupFinalizer},
+			// No control-plane label — only the finalizer remains.
+		},
+	}
+	cwp := &openchoreov1alpha1.ClusterWorkflowPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "default"},
+	}
+	wfNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "workflows-acme"}}
+
+	cpClient := fake.NewClientBuilder().WithScheme(s).WithObjects(cpNS, cwp).Build()
+	wpClient := fake.NewClientBuilder().WithScheme(s).WithObjects(wfNS).Build()
+	r := &Reconciler{
+		Client:              cpClient,
+		Scheme:              s,
+		PlaneClientProvider: &staticWPProvider{cli: wpClient},
+	}
+
+	result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "acme"}})
+	if err != nil {
+		t.Fatalf("first reconcile: %v", err)
+	}
+	if result.RequeueAfter == 0 {
+		t.Fatal("expected requeue while workflows namespace is terminating")
+	}
+
+	// Workflows ns gone
+	wpClient = fake.NewClientBuilder().WithScheme(s).Build()
+	r.PlaneClientProvider = &staticWPProvider{cli: wpClient}
+
+	_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "acme"}})
+	if err != nil {
+		t.Fatalf("second reconcile: %v", err)
+	}
+
+	got := &corev1.Namespace{}
+	err = cpClient.Get(ctx, types.NamespacedName{Name: "acme"}, got)
+	if apierrors.IsNotFound(err) {
+		return
+	}
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if controllerutil.ContainsFinalizer(got, CleanupFinalizer) {
+		t.Fatal("expected finalizer removed after unlabeled finalize")
+	}
+}
