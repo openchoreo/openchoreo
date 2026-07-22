@@ -65,6 +65,10 @@ spec:
         {{- if .Values.clusterGateway.tls.enabled }}
         - --cluster-gateway-ca-cert={{ .Values.controllerManager.clusterGateway.tls.caPath }}
         {{- end }}
+        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        - --cluster-gateway-client-cert={{ .Values.controllerManager.clusterGateway.tls.clientCertPath }}
+        - --cluster-gateway-client-key={{ .Values.controllerManager.clusterGateway.tls.clientKeyPath }}
+        {{- end }}
         {{- if .Values.controllerManager.clusterGateway.tls.insecure }}
         - --cluster-gateway-insecure
         {{- end }}
@@ -123,6 +127,11 @@ spec:
           name: cluster-gateway-ca
           readOnly: true
         {{- end }}
+        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        - mountPath: /etc/cluster-gateway-client
+          name: cluster-gateway-client-tls
+          readOnly: true
+        {{- end }}
       volumes:
       {{- if eq (toString .Values.controllerManager.manager.env.enableWebhooks) "true" }}
       - name: cert
@@ -134,4 +143,9 @@ spec:
       - name: cluster-gateway-ca
         secret:
           secretName: {{ .Values.controllerManager.clusterGateway.tls.caSecret }}
+      {{- end }}
+      {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+      - name: cluster-gateway-client-tls
+        secret:
+          secretName: {{ .Values.controllerManager.clusterGateway.tls.clientSecret }}
       {{- end }}

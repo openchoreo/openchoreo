@@ -61,7 +61,12 @@ spec:
         - --server-key=/certs/tls.key
         - --heartbeat-interval={{ .Values.clusterGateway.heartbeatInterval }}
         - --heartbeat-timeout={{ .Values.clusterGateway.heartbeatTimeout }}
-        - --skip-client-cert-verify={{ .Values.clusterGateway.tls.skipClientCertVerify }}
+        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        - --internal-mtls=true
+        - --internal-client-ca-cert=/internal-ca/ca.crt
+        {{- else }}
+        - --internal-mtls=false
+        {{- end }}
         - --log-level={{ .Values.clusterGateway.logLevel }}
         ports:
         - name: websocket
@@ -95,7 +100,21 @@ spec:
         - name: server-certs
           mountPath: /certs
           readOnly: true
+        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        - name: internal-client-ca
+          mountPath: /internal-ca
+          readOnly: true
+        {{- end }}
       volumes:
       - name: server-certs
         secret:
           secretName: {{ .Values.clusterGateway.tls.secretName }}
+      {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+      # Only ca.crt is mounted; the internal CA private key stays out of the pod
+      - name: internal-client-ca
+        secret:
+          secretName: {{ .Values.clusterGateway.internalMtls.caSecretName }}
+          items:
+          - key: ca.crt
+            path: ca.crt
+      {{- end }}
