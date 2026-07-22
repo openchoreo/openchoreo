@@ -70,6 +70,11 @@ spec:
           mountPath: /etc/cluster-gateway
           readOnly: true
         {{- end }}
+        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        - name: cluster-gateway-client-tls
+          mountPath: /etc/cluster-gateway-client
+          readOnly: true
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /health
@@ -98,5 +103,10 @@ spec:
       - name: cluster-gateway-ca
         secret:
           secretName: {{ .Values.openchoreoApi.clusterGateway.tls.caSecret }}
+      {{- end }}
+      {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+      - name: cluster-gateway-client-tls
+        secret:
+          secretName: {{ .Values.openchoreoApi.clusterGateway.tls.clientSecret }}
       {{- end }}
 {{- end }}
