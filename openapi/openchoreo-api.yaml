@@ -3712,7 +3712,11 @@ paths:
         The git provider is automatically detected from the request headers:
         - GitHub: `X-Hub-Signature-256`
         - GitLab: `X-Gitlab-Token`
-        - Bitbucket: `X-Event-Key`
+        - Bitbucket: `X-Event-Key` (signed with `X-Hub-Signature`)
+
+        Every provider is authenticated: GitHub and Bitbucket via HMAC-SHA256 signature
+        verification against the configured webhook secret, GitLab via its shared token.
+        Requests without a valid signature/token for the detected provider are rejected.
       tags: [AutoBuild]
       security: []
       parameters:
@@ -3734,6 +3738,12 @@ paths:
           schema:
             type: string
           description: Bitbucket webhook event-key header used to detect Bitbucket events.
+        - in: header
+          name: X-Hub-Signature
+          required: false
+          schema:
+            type: string
+          description: Bitbucket webhook HMAC-SHA256 signature (`sha256=<hex>`) used to validate Bitbucket events.
       requestBody:
         required: true
         content:

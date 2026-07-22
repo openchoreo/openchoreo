@@ -13347,6 +13347,17 @@ func NewHandleAutoBuildRequestWithBody(server string, params *HandleAutoBuildPar
 			req.Header.Set("X-Event-Key", headerParam2)
 		}
 
+		if params.XHubSignature != nil {
+			var headerParam3 string
+
+			headerParam3, err = runtime.StyleParamWithLocation("simple", false, "X-Hub-Signature", runtime.ParamLocationHeader, *params.XHubSignature)
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Hub-Signature", headerParam3)
+		}
+
 	}
 
 	return req, nil
