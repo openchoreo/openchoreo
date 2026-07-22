@@ -121,6 +121,24 @@ func TestGetIncidentStatusByAlertID(t *testing.T) {
 	_, found, err = store.GetIncidentStatusByAlertID(ctx, "missing")
 	require.NoError(t, err)
 	assert.False(t, found)
+
+	_, _, err = store.GetIncidentStatusByAlertID(ctx, "  ")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "alert id is required")
+}
+
+func TestGetIncidentStatusByAlertID_StoreError(t *testing.T) {
+	t.Parallel()
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	store, err := New(BackendSQLite, dsn, slog.Default())
+	require.NoError(t, err)
+	require.NoError(t, store.Initialize(context.Background()))
+	require.NoError(t, store.Close())
+
+	_, _, err = store.GetIncidentStatusByAlertID(context.Background(), "alert-1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get incident status")
 }
 
 func TestQueryIncidentEntries(t *testing.T) {

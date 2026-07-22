@@ -253,6 +253,22 @@ func TestWebhook_DuplicateWithinWindow_Suppressed(t *testing.T) {
 	assert.Equal(t, int32(1), f.rcaCallCount.Load(), "suppressed alert should not trigger RCA")
 }
 
+func TestWebhook_IncidentStatusStoreError_RemainsSuppressed(t *testing.T) {
+	rule := testAlertRule("rule-cr-1", true, false)
+	f := newWebhookTestFixture(t, time.Hour, rule, false)
+
+	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+	assert.Eventually(t, func() bool { return f.incidentCount(t) == 1 }, 2*time.Second, 50*time.Millisecond)
+
+	require.NoError(t, f.incidentStore.Close())
+	resp, err = f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "suppressed",
+		"incident status lookup errors should preserve duplicate suppression")
+}
+
 func TestWebhook_AcknowledgedIncident_RetriggersWithinSuppressionWindow(t *testing.T) {
 	rule := testAlertRule("rule-cr-1", true, false)
 	f := newWebhookTestFixture(t, time.Hour, rule, false)

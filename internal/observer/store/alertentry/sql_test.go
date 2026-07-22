@@ -243,3 +243,17 @@ func TestGetRecentAlert(t *testing.T) {
 		})
 	}
 }
+
+func TestGetRecentAlert_StoreError(t *testing.T) {
+	t.Parallel()
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	store, err := New(BackendSQLite, dsn, slog.Default())
+	require.NoError(t, err)
+	require.NoError(t, store.Initialize(context.Background()))
+	require.NoError(t, store.Close())
+
+	_, err = store.GetRecentAlert(context.Background(), "rule-cr-1", "obs-plane", "comp-uid-1", time.Now())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get recent alert")
+}
