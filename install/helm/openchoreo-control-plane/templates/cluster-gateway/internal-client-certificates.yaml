@@ -1,0 +1,58 @@
+# Client certificates for in-cluster callers of the cluster gateway's
+# internal listener (:8444). Issued by the same CA as the gateway's server
+# certificate so the gateway can verify callers against /certs/ca.crt.
+{{- if .Values.clusterGateway.internalMtls.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: controller-manager-gateway-client
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller-manager
+spec:
+  secretName: controller-manager-gateway-client-tls
+  commonName: controller-manager.openchoreo.internal
+  usages:
+    - client auth
+  issuerRef:
+    {{- if .Values.clusterGateway.tls.issuerRef.kind }}
+    kind: {{ .Values.clusterGateway.tls.issuerRef.kind }}
+    {{- else }}
+    kind: Issuer
+    {{- end }}
+    name: {{ .Values.clusterGateway.tls.issuerRef.name }}
+  {{- with .Values.clusterGateway.internalMtls.duration }}
+  duration: {{ . }}
+  {{- end }}
+  {{- with .Values.clusterGateway.internalMtls.renewBefore }}
+  renewBefore: {{ . }}
+  {{- end }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: openchoreo-api-gateway-client
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-server
+spec:
+  secretName: openchoreo-api-gateway-client-tls
+  commonName: openchoreo-api.openchoreo.internal
+  usages:
+    - client auth
+  issuerRef:
+    {{- if .Values.clusterGateway.tls.issuerRef.kind }}
+    kind: {{ .Values.clusterGateway.tls.issuerRef.kind }}
+    {{- else }}
+    kind: Issuer
+    {{- end }}
+    name: {{ .Values.clusterGateway.tls.issuerRef.name }}
+  {{- with .Values.clusterGateway.internalMtls.duration }}
+  duration: {{ . }}
+  {{- end }}
+  {{- with .Values.clusterGateway.internalMtls.renewBefore }}
+  renewBefore: {{ . }}
+  {{- end }}
+{{- end }}

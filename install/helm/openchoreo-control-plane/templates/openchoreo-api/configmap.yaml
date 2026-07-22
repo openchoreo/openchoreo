@@ -72,6 +72,10 @@ data:
         {{- if .Values.clusterGateway.tls.enabled }}
         ca_cert_path: {{ .Values.openchoreoApi.clusterGateway.tls.caPath | quote }}
         {{- end }}
+        {{- if .Values.clusterGateway.internalMtls.enabled }}
+        client_cert_path: /etc/cluster-gateway-client/tls.crt
+        client_key_path: /etc/cluster-gateway-client/tls.key
+        {{- end }}
         insecure: {{ .Values.openchoreoApi.clusterGateway.tls.insecure }}
 
     logging:

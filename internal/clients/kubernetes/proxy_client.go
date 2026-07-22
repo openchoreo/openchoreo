@@ -817,11 +817,20 @@ func buildProxyTLSConfig(tlsConfig *ProxyTLSConfig) (*tls.Config, error) {
 		if tlsConfig.ClientCertPath == "" || tlsConfig.ClientKeyPath == "" {
 			return nil, fmt.Errorf("both ClientCertPath and ClientKeyPath must be set for mTLS")
 		}
-		clientCert, err := tls.LoadX509KeyPair(tlsConfig.ClientCertPath, tlsConfig.ClientKeyPath)
-		if err != nil {
+		// Eagerly load once to fail fast on misconfiguration.
+		if _, err := tls.LoadX509KeyPair(tlsConfig.ClientCertPath, tlsConfig.ClientKeyPath); err != nil {
 			return nil, fmt.Errorf("failed to load client certificate and key: %w", err)
 		}
-		cfg.Certificates = []tls.Certificate{clientCert}
+		certPath, keyPath := tlsConfig.ClientCertPath, tlsConfig.ClientKeyPath
+		// Reload from disk on each handshake so cert-manager renewals are
+		// picked up without restarting the pod.
+		cfg.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			clientCert, err := tls.LoadX509KeyPair(certPath, keyPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load client certificate and key: %w", err)
+			}
+			return &clientCert, nil
+		}
 	}
 
 	return cfg, nil

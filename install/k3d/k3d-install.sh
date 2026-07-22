@@ -34,6 +34,7 @@ OPENCHOREO_VERSION="${OPENCHOREO_VERSION:-}"
 
 WITH_BUILD=false
 WITH_OBSERVABILITY=false
+WITH_INTERNAL_MTLS=false
 
 usage() {
     cat <<EOF
@@ -42,6 +43,7 @@ Usage: k3d-install.sh [OPTIONS]
 Options:
   --with-build             Also install the workflow plane (Argo Workflows + registry)
   --with-observability     Also install the observability plane (OpenSearch logs/traces + metrics)
+  --with-internal-mtls     Require client certificates (mTLS) on the cluster-gateway internal listener
   --version VER            OpenChoreo version to install, e.g. 1.1.1 or latest-dev
                            (required when not running from a checkout)
   --cluster-name NAME     k3d cluster name (default: openchoreo)
@@ -55,6 +57,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --with-build) WITH_BUILD=true; shift ;;
         --with-observability) WITH_OBSERVABILITY=true; shift ;;
+        --with-internal-mtls) WITH_INTERNAL_MTLS=true; shift ;;
         --version) need_arg "$@"; OPENCHOREO_VERSION="$2"; shift 2 ;;
         --cluster-name) need_arg "$@"; CLUSTER_NAME="$2"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
@@ -257,11 +260,16 @@ EOF
         --for=condition=Ready externalsecret/backstage-secrets --timeout=120s
 
     step "Installing the control plane"
-    # shellcheck disable=SC2046
+    local internal_mtls_args=""
+    if [[ "$WITH_INTERNAL_MTLS" == true ]]; then
+        internal_mtls_args="--set clusterGateway.internalMtls.enabled=true"
+    fi
+    # shellcheck disable=SC2046,SC2086
     $HELM upgrade --install openchoreo-control-plane "$HELM_REPO/openchoreo-control-plane" \
         $(chart_version_args) \
         --namespace "$CONTROL_PLANE_NS" --create-namespace \
-        --values "$(asset install/k3d/single-cluster/values-cp.yaml)"
+        --values "$(asset install/k3d/single-cluster/values-cp.yaml)" \
+        $internal_mtls_args
     $KUBECTL wait -n "$CONTROL_PLANE_NS" \
         --for=condition=available --timeout=300s deployment --all
 

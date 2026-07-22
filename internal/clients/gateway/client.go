@@ -238,11 +238,20 @@ func BuildTLSConfig(config *TLSConfig) (*tls.Config, error) {
 		if config.ClientCertFile == "" || config.ClientKeyFile == "" {
 			return nil, fmt.Errorf("both ClientCertFile and ClientKeyFile must be set for mTLS")
 		}
-		cert, err := tls.LoadX509KeyPair(config.ClientCertFile, config.ClientKeyFile)
-		if err != nil {
+		// Eagerly load once to fail fast on misconfiguration.
+		if _, err := tls.LoadX509KeyPair(config.ClientCertFile, config.ClientKeyFile); err != nil {
 			return nil, fmt.Errorf("failed to load client key pair: %w", err)
 		}
-		tlsConfig.Certificates = []tls.Certificate{cert}
+		certFile, keyFile := config.ClientCertFile, config.ClientKeyFile
+		// Reload from disk on each handshake so cert-manager renewals are
+		// picked up without restarting the pod.
+		tlsConfig.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load client key pair: %w", err)
+			}
+			return &cert, nil
+		}
 	}
 
 	return tlsConfig, nil
