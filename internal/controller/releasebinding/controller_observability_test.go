@@ -156,4 +156,10 @@ func TestReconcileObservabilityRelease_cleanupGetFailureRequeues(t *testing.T) {
 
 	require.Error(t, err, "a transient failure reading the existing Release for cleanup must requeue")
 	assert.ErrorIs(t, err, transientErr)
+
+	// The cleanup failure is surfaced on the status too, so Ready does not stay stale-True.
+	cond := apimeta.FindStatusCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
+	require.NotNil(t, cond, "ReleaseSynced condition must be set on a cleanup lookup failure")
+	assert.Equal(t, metav1.ConditionFalse, cond.Status)
+	assert.Equal(t, string(ReasonReleaseUpdateFailed), cond.Reason)
 }
