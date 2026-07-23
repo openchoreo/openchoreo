@@ -48,5 +48,7 @@ data:
   LOGS_ADAPTER_TIMEOUT: {{ .Values.observer.logsAdapter.timeout | default "30s" | quote }}
   TRACING_ADAPTER_URL: {{ .Values.observer.tracingAdapter.url | default "http://tracing-adapter:9100" | quote }}
   TRACING_ADAPTER_TIMEOUT: {{ .Values.observer.tracingAdapter.timeout | default "30s" | quote }}
+  FINOPS_ADAPTER_URL: {{ .Values.observer.finOpsAdapter.url | default "http://finops-adapter:9101" | quote }}
+  FINOPS_ADAPTER_TIMEOUT: {{ .Values.observer.finOpsAdapter.timeout | default "30s" | quote }}
   FINOPS_AGENT_ENABLED: {{ .Values.finOpsAgent.enabled | default false | quote }}
   FINOPS_AGENT_URL: "http://finops-agent:{{ .Values.finOpsAgent.service.port | default 8080 }}"
