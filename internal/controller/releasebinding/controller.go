@@ -876,6 +876,11 @@ func (r *Reconciler) reconcileObservabilityRelease(
 		// observability Release (see the cleanup below) and leave it absent until an unrelated reconcile.
 		if _, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client); err != nil {
 			if !apierrors.IsNotFound(err) {
+				// Surface the transient failure on the status the same way the create/update path
+				// below does, then return so the item requeues with backoff.
+				msg := fmt.Sprintf("Failed to resolve ObservabilityPlane: %v", err)
+				controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+					ReasonReleaseUpdateFailed, msg)
 				return observabilityReleaseResult{}, fmt.Errorf("failed to resolve ObservabilityPlane: %w", err)
 			}
 			skipReason = fmt.Sprintf("ObservabilityPlane not found: %v", err)
@@ -961,20 +966,27 @@ func (r *Reconciler) reconcileObservabilityRelease(
 	// Clean up existing observability Release if it exists but we no longer need it
 	// (e.g., ObservabilityPlaneRef was removed or no more observability resources)
 	existingObsRelease := &openchoreov1alpha1.RenderedRelease{}
-	if err := r.Get(ctx, types.NamespacedName{
+	switch err := r.Get(ctx, types.NamespacedName{
 		Name:      releaseName,
 		Namespace: releaseBinding.Namespace,
-	}, existingObsRelease); err == nil {
-		// Check if we own this release before deleting
+	}, existingObsRelease); {
+	case apierrors.IsNotFound(err):
+		// Nothing to clean up.
+	case err != nil:
+		// A transient read failure must requeue rather than silently leave a stale Release behind.
+		return result, fmt.Errorf("failed to get observability Release %q for cleanup: %w", releaseName, err)
+	default:
+		// Only delete a Release this ReleaseBinding owns.
 		hasOwner, ownerErr := controllerutil.HasOwnerReference(existingObsRelease.GetOwnerReferences(), releaseBinding, r.Scheme)
-		if ownerErr == nil && hasOwner {
+		if ownerErr != nil {
+			return result, fmt.Errorf("failed to check owner reference for observability Release %q: %w", releaseName, ownerErr)
+		}
+		if hasOwner {
 			if deleteErr := r.Delete(ctx, existingObsRelease); deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
 				logger.Error(deleteErr, "Failed to delete stale observability Release", "release", releaseName)
 				return result, deleteErr
 			}
-			logger.Info("Deleted stale observability Release",
-				"release", releaseName,
-				"reason", "no ObservabilityPlaneRef configured or no observability resources")
+			logger.Info("Deleted stale observability Release", "release", releaseName, "reason", skipReason)
 		}
 	}
 

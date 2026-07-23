@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -102,6 +103,13 @@ func TestReconcileObservabilityRelease_transientFailureRequeuesAndKeepsRelease(t
 	require.NoError(t,
 		c.Get(context.Background(), types.NamespacedName{Name: releaseName, Namespace: rb.Namespace}, got),
 		"an existing observability Release must survive a transient lookup failure")
+
+	// The transient failure must be surfaced on the status so Ready does not stay stale-True,
+	// matching the create/update error path in the same reconcile.
+	cond := apimeta.FindStatusCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
+	require.NotNil(t, cond, "ReleaseSynced condition must be set on a transient failure")
+	assert.Equal(t, metav1.ConditionFalse, cond.Status)
+	assert.Equal(t, string(ReasonReleaseUpdateFailed), cond.Reason)
 }
 
 // A genuinely absent ObservabilityPlane is a real skip, not a transient failure, so the reconcile
@@ -119,4 +127,33 @@ func TestReconcileObservabilityRelease_notFoundSkipsWithoutRequeue(t *testing.T)
 	require.NoError(t, err, "a genuinely absent ObservabilityPlane is a skip, not a retry")
 	assert.False(t, res.managed)
 	assert.NotEmpty(t, res.skipReason)
+}
+
+// A transient failure reading the existing observability Release during cleanup must requeue,
+// otherwise a stale Release could be left behind with no retry.
+func TestReconcileObservabilityRelease_cleanupGetFailureRequeues(t *testing.T) {
+	scheme := obsSchemeForTest(t)
+	rb, cr, dp, _ := obsFixtures()
+
+	transientErr := errors.New("etcd unavailable")
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, cl client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if _, ok := obj.(*openchoreov1alpha1.RenderedRelease); ok {
+					return transientErr
+				}
+				return cl.Get(ctx, key, obj, opts...)
+			},
+		}).
+		Build()
+
+	r := &Reconciler{Client: c, Scheme: scheme}
+	dpResult := &controller.DataPlaneResult{DataPlane: dp}
+
+	// No observability resources routes into the cleanup path, where the Release lookup fails.
+	_, err := r.reconcileObservabilityRelease(context.Background(), rb, cr, dpResult, nil)
+
+	require.Error(t, err, "a transient failure reading the existing Release for cleanup must requeue")
+	assert.ErrorIs(t, err, transientErr)
 }
