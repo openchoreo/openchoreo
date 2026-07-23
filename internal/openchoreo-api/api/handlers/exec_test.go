@@ -30,13 +30,25 @@ func newExecHandler(t *testing.T, pdp *testutil.CapturingPDP, objs ...client.Obj
 	}
 }
 
+// execComponent builds a minimal Component owned by the given project, enough for
+// the handler to resolve the component's owning project before authorizing.
+func execComponent(namespace, name, project string) *openchoreov1alpha1.Component {
+	return &openchoreov1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+		Spec: openchoreov1alpha1.ComponentSpec{
+			Owner: openchoreov1alpha1.ComponentOwner{ProjectName: project},
+		},
+	}
+}
+
 // These tests assert the exec authz check carries the target environment in its
-// ABAC context. The fake client has no Component, so the request fails right
-// after the check — but by then the PDP has captured the evaluate request.
+// ABAC context. The component is owned by project "default"; after the authz
+// check the request fails during pod resolution (no Environment/DataPlane
+// seeded) — but by then the PDP has captured the evaluate request.
 
 func TestExecHandler_AuthzEnvironmentContext_ExplicitEnv(t *testing.T) {
 	pdp := testutil.AllowPDP()
-	h := newExecHandler(t, pdp)
+	h := newExecHandler(t, pdp, execComponent("default", "greeter-service", "default"))
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/exec/namespaces/default/components/greeter-service?env=development&project=default",
@@ -46,7 +58,7 @@ func TestExecHandler_AuthzEnvironmentContext_ExplicitEnv(t *testing.T) {
 	require.Len(t, pdp.Captured, 1, "authz check should run before pod resolution")
 	testutil.RequireEvalRequest(t, pdp.Captured[0],
 		authz.ActionExecComponent, "component", "greeter-service",
-		authz.ResourceHierarchy{Namespace: "default", Project: "default"})
+		authz.ResourceHierarchy{Namespace: "default", Project: "default", Component: "greeter-service"})
 	require.Equal(t,
 		services.FormatDualScopedResourceName("default", "development", false),
 		pdp.Captured[0].Context.Resource.Environment)
@@ -72,7 +84,7 @@ func TestExecHandler_AuthzEnvironmentContext_DerivedEnv(t *testing.T) {
 			}},
 		},
 	}
-	h := newExecHandler(t, pdp, proj, pipeline)
+	h := newExecHandler(t, pdp, proj, pipeline, execComponent("default", "greeter-service", "default"))
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/exec/namespaces/default/components/greeter-service?project=default",
@@ -84,4 +96,38 @@ func TestExecHandler_AuthzEnvironmentContext_DerivedEnv(t *testing.T) {
 		services.FormatDualScopedResourceName("default", "development", false),
 		pdp.Captured[0].Context.Resource.Environment,
 		"pipeline-derived environment must reach the ABAC context when env is omitted")
+}
+
+// A caller that names a component owned by another project must be denied before
+// authorization runs — even under an allowing policy (GHSA-52gf-6rpq-fgmx).
+// victim-svc is owned by team-b; the caller claims team-a.
+func TestExecHandler_DeniesComponentProjectMismatch(t *testing.T) {
+	pdp := testutil.AllowPDP()
+	h := newExecHandler(t, pdp, execComponent("default", "victim-svc", "team-b"))
+
+	req := httptest.NewRequest(http.MethodGet,
+		"/exec/namespaces/default/components/victim-svc?env=development&project=team-a",
+		nil).WithContext(testutil.AuthzContext())
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.Empty(t, pdp.Captured, "authz must not run when the requested project does not own the component")
+}
+
+// Exec must fail before authorization when the target component does not exist,
+// so component existence — not a caller-supplied project — drives the decision.
+func TestExecHandler_ComponentNotFound(t *testing.T) {
+	pdp := testutil.AllowPDP()
+	h := newExecHandler(t, pdp) // no component seeded
+
+	req := httptest.NewRequest(http.MethodGet,
+		"/exec/namespaces/default/components/ghost?env=development&project=default",
+		nil).WithContext(testutil.AuthzContext())
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(t, rec.Body.String(), `component "ghost" not found`)
+	require.Empty(t, pdp.Captured, "authz must not run for a non-existent component")
 }
