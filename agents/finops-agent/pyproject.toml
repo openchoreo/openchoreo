@@ -5,7 +5,7 @@ description = "FinOps agent for analyzing component budget overruns"
 requires-python = ">=3.14"
 dependencies = [
     "authlib>=1.7.2",
-    "fastapi>=0.139.0",
+    "fastapi>=0.139.2",
     "httpx>=0.28.0",
     "jinja2>=3.1.0",
     "langchain>=1.3.13",
