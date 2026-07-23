@@ -35,6 +35,9 @@ from typing import Any
 USER_AGENT = "openchoreo-external-compatibility-scan/1.0 (+https://github.com/openchoreo/openchoreo)"
 MAX_FINDINGS_PER_SLACK_MESSAGE = 10
 MAX_SEEN_ITEMS = 2000
+# Cap response buffering so a huge or endless body from an external source
+# cannot exhaust the runner's memory. Feeds/pages/JSON here are well under this.
+MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 RETRYABLE_HTTP_STATUS = {403, 429, 500, 502, 503, 504}
 # Hostnames permitted to receive an Authorization token. Kept as an explicit
 # allowlist so a misconfigured or redirected URL cannot exfiltrate a secret
@@ -150,19 +153,25 @@ def validate_path_patterns(root: Path | None, owner: str, patterns: list[Any], e
 
 def validate_config(config: dict[str, Any], root: Path | None = None) -> list[str]:
     errors: list[str] = []
-    source_ids: set[str] = set()
+    # One shared identifier namespace across every registry section: source,
+    # probe, and manifest-scan IDs must be globally unique because downstream
+    # dedupe (finding_id), checked_ids, and source_health all key on the bare id.
+    seen_ids: set[str] = set()
     for key in ("sources", "header_probes", "manifest_scans"):
         if key in config and not isinstance(config[key], list):
             errors.append(f"{key} must be a list")
+            # Normalize to an empty list so the loops below (and main's scan
+            # loops) never call dict methods on an invalid non-list value.
+            config[key] = []
 
     for source in config.get("sources", []):
         source_id = source.get("id")
         if not source_id:
             errors.append("source is missing id")
-        elif source_id in source_ids:
+        elif source_id in seen_ids:
             errors.append(f"duplicate source id: {source_id}")
         else:
-            source_ids.add(source_id)
+            seen_ids.add(source_id)
         if source.get("type") not in {
             "feed",
             "github_api_versions",
@@ -203,15 +212,14 @@ def validate_config(config: dict[str, Any], root: Path | None = None) -> list[st
             if not isinstance(source.get("warn_within_days", 180), int):
                 errors.append(f"{source_id}: warn_within_days must be an integer")
 
-    probe_ids: set[str] = set()
     for probe in config.get("header_probes", []):
         probe_id = probe.get("id")
         if not probe_id:
             errors.append("header probe is missing id")
-        elif probe_id in probe_ids:
+        elif probe_id in seen_ids:
             errors.append(f"duplicate header probe id: {probe_id}")
         else:
-            probe_ids.add(probe_id)
+            seen_ids.add(probe_id)
         if not probe.get("url"):
             errors.append(f"{probe_id}: missing url")
         if not probe.get("watched_headers"):
@@ -223,15 +231,14 @@ def validate_config(config: dict[str, Any], root: Path | None = None) -> list[st
         if not probe.get("action"):
             errors.append(f"{probe_id}: missing action")
 
-    manifest_ids: set[str] = set()
     for scan in config.get("manifest_scans", []):
         scan_id = scan.get("id")
         if not scan_id:
             errors.append("manifest scan is missing id")
-        elif scan_id in manifest_ids:
+        elif scan_id in seen_ids:
             errors.append(f"duplicate manifest scan id: {scan_id}")
         else:
-            manifest_ids.add(scan_id)
+            seen_ids.add(scan_id)
         if scan.get("type") != "kubernetes_api_versions":
             errors.append(f"{scan_id}: type must be kubernetes_api_versions")
         if not scan.get("paths"):
@@ -276,7 +283,7 @@ def fetch_url(
         request = urllib.request.Request(url, method=method, headers=headers)
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
-                raw = response.read()
+                raw = read_capped(response, url)
                 charset = response.headers.get_content_charset() or "utf-8"
                 body = raw.decode(charset, errors="replace")
                 return FetchResult(
@@ -287,7 +294,7 @@ def fetch_url(
                 )
         except urllib.error.HTTPError as exc:
             if exc.code not in RETRYABLE_HTTP_STATUS or attempt == attempts - 1:
-                raw = exc.read()
+                raw = read_capped(exc, url)
                 charset = exc.headers.get_content_charset() or "utf-8"
                 return FetchResult(
                     url=url,
@@ -313,6 +320,18 @@ def retry_delay_seconds(retry_after: str | None, attempt: int) -> float:
         except ValueError:
             pass
     return min(0.5 * (2 ** attempt), 4.0)
+
+
+def read_capped(reader: Any, url: str) -> bytes:
+    """Read at most MAX_RESPONSE_BYTES, rejecting anything larger.
+
+    Reads one byte past the limit so an over-size body is detected without
+    buffering the whole thing.
+    """
+    raw = reader.read(MAX_RESPONSE_BYTES + 1)
+    if len(raw) > MAX_RESPONSE_BYTES:
+        raise ValueError(f"{url} response exceeded {MAX_RESPONSE_BYTES} byte limit")
+    return raw
 
 
 def require_success(result: FetchResult) -> None:
@@ -597,7 +616,7 @@ def scan_github_api_versions(source: dict[str, Any], timeout: float) -> tuple[li
     }
 
 
-def scan_page_terms(source: dict[str, Any], timeout: float) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def scan_page_terms(config: dict[str, Any], source: dict[str, Any], timeout: float) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Alert when a monitored term appears on a page near a change keyword.
 
     A term only produces a finding if a deprecation/removal keyword also occurs
@@ -607,7 +626,11 @@ def scan_page_terms(source: dict[str, Any], timeout: float) -> tuple[list[dict[s
     require_success(result)
     text = normalized_text_from_html(result.body)
     lowered = text.lower()
-    keywords = source_keywords({"defaults": {"keywords": source.get("keywords", [])}}, source)
+    keywords = source_keywords(config, source)
+    if not keywords:
+        # Without lifecycle keywords the scan would flag every term occurrence,
+        # so require at least one (from the source or the global defaults).
+        raise ValueError("page_terms sources require keywords (set them or configure defaults.keywords)")
     context_chars = int(source.get("context_chars", 500))
     findings: list[dict[str, Any]] = []
     matched_terms: list[str] = []
@@ -626,13 +649,16 @@ def scan_page_terms(source: dict[str, Any], timeout: float) -> tuple[list[dict[s
             end = min(len(text), index + len(term_text) + context_chars)
             context = text[start:end].strip()
             search_from = index + max(1, len(term_text))
-            if keywords and not matches_keywords(context, keywords):
+            if not matches_keywords(context, keywords):
                 continue
             matched_terms.append(term_text)
             findings.append(
                 {
                     **common_finding_fields(source),
-                    "id": finding_id(source["id"], source["url"], term_text),
+                    # Fingerprint the keyword-adjacent context so two distinct
+                    # announcements for the same term dedupe separately, while
+                    # re-seeing the same notice keeps a stable id.
+                    "id": finding_id(source["id"], source["url"], term_text, stable_hash(context)),
                     "title": f"{source['name']} mentions monitored term: {term_text}",
                     "url": source["url"],
                     "summary": context[:700],
@@ -1037,6 +1063,7 @@ def slack_finding_attachment(finding: dict[str, Any]) -> dict[str, Any]:
     action = slack_mrkdwn_escape(finding.get("action", "Review the source and assess impact."))
     owner = slack_mrkdwn_escape(finding.get("owner", "unassigned"))
     url = str(finding.get("url", ""))
+    summary = slack_mrkdwn_escape(str(finding.get("summary", ""))[:700])
     first_block: dict[str, Any] = {
         "type": "section",
         "text": {
@@ -1054,11 +1081,19 @@ def slack_finding_attachment(finding: dict[str, Any]) -> dict[str, Any]:
             "url": url,
         }
 
-    return {
-        "color": slack_severity_color(str(finding.get("severity", "medium"))),
-        "fallback": f"{severity} - {finding.get('source_name', 'Unknown source')}: {finding.get('title', 'Untitled finding')}",
-        "blocks": [
-            first_block,
+    blocks: list[dict[str, Any]] = [first_block]
+    if summary:
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"*Summary*\n{summary}",
+                },
+            }
+        )
+    blocks.extend(
+        [
             {
                 "type": "section",
                 "fields": [
@@ -1087,7 +1122,13 @@ def slack_finding_attachment(finding: dict[str, Any]) -> dict[str, Any]:
                     "text": f"*Action*\n{action}",
                 },
             },
-        ],
+        ]
+    )
+
+    return {
+        "color": slack_severity_color(str(finding.get("severity", "medium"))),
+        "fallback": f"{severity} - {finding.get('source_name', 'Unknown source')}: {finding.get('title', 'Untitled finding')}",
+        "blocks": blocks,
     }
 
 
@@ -1180,6 +1221,7 @@ def slack_payload(
                     "",
                     f"*{finding['severity'].upper()}* - {finding['source_name']}",
                     finding["title"],
+                    f"Summary: {str(finding.get('summary', ''))[:700]}",
                     f"Source: {finding['url']}",
                     f"Affected: {affected}",
                     f"Owner: {finding.get('owner', 'unassigned')}",
@@ -1290,7 +1332,7 @@ def main() -> int:
             elif source["type"] == "page_contains":
                 findings, source_report = scan_page_contains(source, args.timeout)
             elif source["type"] == "page_terms":
-                findings, source_report = scan_page_terms(source, args.timeout)
+                findings, source_report = scan_page_terms(config, source, args.timeout)
             elif source["type"] == "reference_page":
                 findings, source_report = scan_reference_page(source, args.timeout)
             elif source["type"] == "eol_api":

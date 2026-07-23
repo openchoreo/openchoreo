@@ -212,6 +212,7 @@ class ExternalCompatibilityScanTests(unittest.TestCase):
         scanner.fetch_url = lambda url, timeout: scanner.FetchResult(url, 200, {}, body)
         try:
             findings, report = scanner.scan_page_terms(
+                {},
                 {
                     "id": "openai",
                     "name": "OpenAI deprecations",
@@ -430,10 +431,13 @@ class ExternalCompatibilityScanTests(unittest.TestCase):
         self.assertIn("attachments", payload)
         self.assertEqual(payload["blocks"][0]["type"], "header")
         self.assertEqual(payload["attachments"][0]["color"], "#fb8500")
-        self.assertEqual(payload["attachments"][0]["blocks"][0]["accessory"]["text"]["text"], "View notice")
-        self.assertIn("*Severity*\nHIGH", payload["attachments"][0]["blocks"][1]["fields"][0]["text"])
-        self.assertIn("|Notice link>", payload["attachments"][0]["blocks"][1]["fields"][3]["text"])
-        self.assertIn("*Action*", payload["attachments"][0]["blocks"][2]["text"]["text"])
+        attachment_blocks = payload["attachments"][0]["blocks"]
+        self.assertEqual(attachment_blocks[0]["accessory"]["text"]["text"], "View notice")
+        self.assertIn("*Summary*\nA deprecated API was found.", attachment_blocks[1]["text"]["text"])
+        self.assertIn("*Severity*\nHIGH", attachment_blocks[2]["fields"][0]["text"])
+        self.assertIn("|Notice link>", attachment_blocks[2]["fields"][3]["text"])
+        self.assertIn("*Action*", attachment_blocks[3]["text"]["text"])
+        self.assertIn("Summary: A deprecated API was found.", payload["text"])
 
     def test_validate_config_rejects_dead_affected_file_paths(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
