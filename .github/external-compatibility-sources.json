@@ -1,0 +1,441 @@
+{
+  "version": 1,
+  "defaults": {
+    "keywords": [
+      "breaking change",
+      "deprecated",
+      "deprecation",
+      "end of support",
+      "end-of-support",
+      "removed",
+      "removal",
+      "retired",
+      "retirement",
+      "sunset"
+    ]
+  },
+  "sources": [
+    {
+      "id": "github-rest-api-versions",
+      "name": "GitHub REST API versions",
+      "type": "github_api_versions",
+      "url": "https://api.github.com/versions",
+      "severity": "high",
+      "owner": "control-plane",
+      "affected_files": [
+        "samples/workflows/github-stats-report/cluster-workflow-template-github-stats-report.yaml",
+        "samples/workflows/scm-create-repo/github-create-repo.yaml",
+        "install/helm/openchoreo-control-plane/values.yaml",
+        "docs/integrations/github-actions.md"
+      ],
+      "action": "The pinned X-GitHub-Api-Version may no longer be supported or may be approaching its support deadline. Review direct GitHub API calls and update before any sunset date.",
+      "pinned_version": "2022-11-28",
+      "supported_until": "2028-03-10",
+      "warn_within_days": 180,
+      "request_headers": {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2026-03-10"
+      }
+    },
+    {
+      "id": "github-rest-breaking-changes",
+      "name": "GitHub REST API breaking changes",
+      "type": "reference_page",
+      "url": "https://docs.github.com/en/rest/about-the-rest-api/breaking-changes",
+      "severity": "high",
+      "owner": "control-plane",
+      "affected_files": [
+        "samples/workflows/github-stats-report/cluster-workflow-template-github-stats-report.yaml",
+        "samples/workflows/scm-create-repo/github-create-repo.yaml",
+        "internal/openchoreo-api/services/git/github.go"
+      ],
+      "action": "Use this as a reference page when GitHub Changelog or REST response headers report an API compatibility notice."
+    },
+    {
+      "id": "github-webhooks",
+      "name": "GitHub webhook contract documentation",
+      "type": "reference_page",
+      "url": "https://docs.github.com/en/webhooks",
+      "severity": "high",
+      "owner": "control-plane",
+      "affected_files": [
+        "internal/openchoreo-api/services/git/github.go"
+      ],
+      "action": "Use this as a reference page when GitHub Changelog reports webhook signature, header, event, or payload changes.",
+      "keywords": [
+        "breaking change",
+        "deprecated",
+        "payload",
+        "removed",
+        "signature",
+        "webhook",
+        "x-hub-signature"
+      ]
+    },
+    {
+      "id": "github-changelog-feed",
+      "name": "GitHub Changelog feed",
+      "type": "feed",
+      "url": "https://github.blog/changelog/feed/",
+      "severity": "high",
+      "owner": "control-plane",
+      "affected_files": [
+        "samples/workflows/github-stats-report/cluster-workflow-template-github-stats-report.yaml",
+        "samples/workflows/scm-create-repo/github-create-repo.yaml",
+        "internal/openchoreo-api/services/git/github.go"
+      ],
+      "action": "Check whether direct GitHub API calls or GitHub webhook parsing need updates.",
+      "keywords": [
+        "breaking change",
+        "deprecated",
+        "deprecation",
+        "removed",
+        "removal",
+        "retired",
+        "retirement",
+        "sunset"
+      ],
+      "required_terms": [
+        "api version",
+        "payload",
+        "REST API",
+        "signature",
+        "webhook",
+        "X-GitHub-Api-Version",
+        "x-hub-signature"
+      ]
+    },
+    {
+      "id": "gitlab-breaking-changes-feed",
+      "name": "GitLab breaking changes feed",
+      "type": "feed",
+      "url": "https://docs.gitlab.com/releases/breaking-changes.xml",
+      "severity": "high",
+      "owner": "control-plane",
+      "affected_files": [
+        "internal/openchoreo-api/services/git/gitlab.go"
+      ],
+      "action": "Check whether GitLab webhook token/header or push payload parsing needs updates.",
+      "keywords": [
+        "breaking change",
+        "deprecated",
+        "deprecation",
+        "removed",
+        "removal",
+        "retired",
+        "retirement",
+        "sunset"
+      ],
+      "required_terms": [
+        "payload",
+        "push event",
+        "secret token",
+        "signature",
+        "webhook",
+        "x-gitlab-token"
+      ]
+    },
+    {
+      "id": "gitlab-webhooks",
+      "name": "GitLab webhook contract documentation",
+      "type": "reference_page",
+      "url": "https://docs.gitlab.com/user/project/integrations/webhooks/",
+      "severity": "high",
+      "owner": "control-plane",
+      "affected_files": [
+        "internal/openchoreo-api/services/git/gitlab.go"
+      ],
+      "action": "Use this as a reference page when GitLab release notes report webhook authentication or push payload changes."
+    },
+    {
+      "id": "bitbucket-cloud-changelog",
+      "name": "Bitbucket Cloud changelog",
+      "type": "reference_page",
+      "url": "https://developer.atlassian.com/cloud/bitbucket/changelog/",
+      "severity": "medium",
+      "owner": "control-plane",
+      "affected_files": [
+        "internal/openchoreo-api/services/git/bitbucket.go"
+      ],
+      "action": "Use this as a reference page when Atlassian reports Bitbucket webhook event or push payload changes."
+    },
+    {
+      "id": "aws-codecommit-docs",
+      "name": "AWS CodeCommit documentation",
+      "type": "reference_page",
+      "url": "https://docs.aws.amazon.com/codecommit/latest/userguide/welcome.html",
+      "severity": "high",
+      "owner": "control-plane",
+      "affected_files": [
+        "samples/getting-started/workflow-templates/checkout-source.yaml",
+        "samples/workflows/scm-create-repo/codecommit-create-repo.yaml",
+        "internal/openchoreo-api/models/request.go"
+      ],
+      "action": "Use this as a reference page when AWS What's New or AWS Health reports a CodeCommit lifecycle, availability, auth, or CLI notice."
+    },
+    {
+      "id": "aws-whats-new",
+      "name": "AWS What's New feed",
+      "type": "feed",
+      "url": "https://aws.amazon.com/new/feed/",
+      "severity": "high",
+      "owner": "control-plane",
+      "affected_files": [
+        "samples/getting-started/workflow-templates/checkout-source.yaml",
+        "samples/workflows/scm-create-repo/codecommit-create-repo.yaml"
+      ],
+      "action": "Review AWS service lifecycle or CLI/auth changes that affect CodeCommit workflows.",
+      "keywords": [
+        "deprecated",
+        "discontinued",
+        "end of support",
+        "end-of-support",
+        "removed",
+        "removal",
+        "retired",
+        "retirement",
+        "sunset"
+      ],
+      "required_terms": [
+        "CodeCommit"
+      ]
+    },
+    {
+      "id": "kubernetes-1-36-eol",
+      "name": "Kubernetes 1.36 end-of-life",
+      "type": "eol_api",
+      "url": "https://endoflife.date/api/kubernetes.json",
+      "severity": "medium",
+      "owner": "platform",
+      "cycle": "1.36",
+      "warn_within_days": 180,
+      "affected_files": [
+        "config/crd/bases/*.yaml",
+        "install/helm/**/templates/*.yaml",
+        "install/helm/**/crds/*.yaml"
+      ],
+      "action": "Plan Kubernetes target-version upgrade and run rendered manifest compatibility checks before the 1.36 support window closes."
+    },
+    {
+      "id": "kubernetes-deprecation-guide",
+      "name": "Kubernetes Deprecated API Migration Guide",
+      "type": "reference_page",
+      "url": "https://kubernetes.io/docs/reference/using-api/deprecation-guide/",
+      "severity": "medium",
+      "owner": "platform",
+      "affected_files": [
+        "config/crd/bases/*.yaml",
+        "install/helm/**/templates/*.yaml",
+        "install/helm/**/crds/*.yaml"
+      ],
+      "action": "Use this as a reference page during Kubernetes upgrade planning or if rendered manifests start using deprecated API versions."
+    },
+    {
+      "id": "argo-workflows-releases",
+      "name": "Argo Workflows releases",
+      "type": "feed",
+      "url": "https://github.com/argoproj/argo-workflows/releases.atom",
+      "severity": "medium",
+      "owner": "workflow-plane",
+      "affected_files": [
+        "install/helm/openchoreo-workflow-plane/Chart.yaml",
+        "samples/getting-started/workflow-templates/*.yaml",
+        "internal/dataplane/kubernetes/types"
+      ],
+      "action": "Review Argo Workflows API or CRD compatibility before chart/app upgrades.",
+      "keywords": [
+        "breaking change:",
+        "deprecated",
+        "deprecation",
+        "removed",
+        "removal"
+      ],
+      "required_terms": [
+        "apiVersion",
+        "ClusterWorkflowTemplate",
+        "CRD",
+        "WorkflowTemplate"
+      ]
+    },
+    {
+      "id": "external-secrets-releases",
+      "name": "External Secrets releases",
+      "type": "feed",
+      "url": "https://github.com/external-secrets/external-secrets/releases.atom",
+      "severity": "medium",
+      "owner": "platform",
+      "affected_files": [
+        "internal/dataplane/kubernetes/types",
+        "internal/openchoreo-api/services/git"
+      ],
+      "action": "Review External Secrets CRD/API compatibility for secret integration paths.",
+      "keywords": [
+        "breaking change:",
+        "deprecated",
+        "deprecation",
+        "removed",
+        "removal"
+      ],
+      "required_terms": [
+        "apiVersion",
+        "CRD",
+        "ClusterExternalSecret",
+        "ExternalSecret",
+        "SecretStore"
+      ]
+    },
+    {
+      "id": "gateway-api-releases",
+      "name": "Gateway API releases",
+      "type": "feed",
+      "url": "https://github.com/kubernetes-sigs/gateway-api/releases.atom",
+      "severity": "medium",
+      "owner": "platform",
+      "affected_files": [
+        "install/helm/**/templates/*.yaml",
+        "samples/getting-started"
+      ],
+      "action": "Review Gateway API compatibility for Gateway, HTTPRoute, and TLSRoute usage.",
+      "keywords": [
+        "breaking change:",
+        "deprecated",
+        "deprecation",
+        "removed",
+        "removal"
+      ],
+      "required_terms": [
+        "GatewayClass",
+        "GRPCRoute",
+        "HTTPRoute",
+        "TLSRoute",
+        "v1alpha",
+        "v1beta"
+      ]
+    },
+    {
+      "id": "opencost-releases",
+      "name": "OpenCost releases",
+      "type": "feed",
+      "url": "https://github.com/opencost/opencost/releases.atom",
+      "severity": "medium",
+      "owner": "agents",
+      "affected_files": [
+        "agents/finops-agent"
+      ],
+      "action": "Review OpenCost query/API compatibility for FinOps agent behavior.",
+      "keywords": [
+        "breaking change:",
+        "deprecated",
+        "deprecation",
+        "removed",
+        "removal"
+      ],
+      "required_terms": [
+        "allocation",
+        "API",
+        "query"
+      ]
+    },
+    {
+      "id": "opensearch-operator-releases",
+      "name": "OpenSearch Kubernetes Operator releases",
+      "type": "feed",
+      "url": "https://github.com/opensearch-project/opensearch-k8s-operator/releases.atom",
+      "severity": "medium",
+      "owner": "observability-plane",
+      "affected_files": [
+        "internal/observer/service/*",
+        "install/helm/openchoreo-observability-plane"
+      ],
+      "action": "Review OpenSearch operator/API compatibility for observability install and query paths.",
+      "keywords": [
+        "breaking change:",
+        "deprecated",
+        "deprecation",
+        "removed",
+        "removal"
+      ],
+      "required_terms": [
+        "apiVersion",
+        "CRD",
+        "OpenSearchCluster",
+        "OpenSearchDashboards"
+      ]
+    },
+    {
+      "id": "prometheus-releases",
+      "name": "Prometheus releases",
+      "type": "feed",
+      "url": "https://github.com/prometheus/prometheus/releases.atom",
+      "severity": "medium",
+      "owner": "observability-plane",
+      "affected_files": [
+        "internal/observer/service/*",
+        "install/helm/openchoreo-observability-plane"
+      ],
+      "action": "Review Prometheus query/API compatibility for observer behavior.",
+      "keywords": [
+        "breaking change:",
+        "deprecated",
+        "deprecation",
+        "removed",
+        "removal"
+      ],
+      "required_terms": [
+        "metadata",
+        "PromQL",
+        "query",
+        "remote read",
+        "remote write",
+        "service discovery"
+      ]
+    }
+  ],
+  "manifest_scans": [
+    {
+      "id": "kubernetes-static-api-versions",
+      "name": "Kubernetes static manifest API versions",
+      "type": "kubernetes_api_versions",
+      "severity": "high",
+      "owner": "platform",
+      "paths": [
+        "config/crd/bases/*.yaml",
+        "install/helm/**/*.yaml",
+        "install/k3d/**/*.yaml",
+        "samples/getting-started/workflow-templates/*.yaml"
+      ],
+      "affected_files": [
+        "config/crd/bases/*.yaml",
+        "install/helm/**/*.yaml",
+        "install/k3d/**/*.yaml",
+        "samples/getting-started/workflow-templates/*.yaml"
+      ],
+      "action": "Migrate removed Kubernetes API versions before installing or upgrading against the target Kubernetes version."
+    }
+  ],
+  "header_probes": [
+    {
+      "id": "github-rest-api-version-header",
+      "name": "GitHub REST API version response headers",
+      "url": "https://api.github.com/repos/openchoreo/openchoreo",
+      "method": "GET",
+      "auth_env": "GITHUB_TOKEN",
+      "request_headers": {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28"
+      },
+      "watched_headers": [
+        "Deprecation",
+        "Sunset",
+        "Warning"
+      ],
+      "severity": "high",
+      "owner": "control-plane",
+      "affected_files": [
+        "samples/workflows/github-stats-report/cluster-workflow-template-github-stats-report.yaml",
+        "samples/workflows/scm-create-repo/github-create-repo.yaml"
+      ],
+      "action": "If GitHub returns Deprecation or Sunset headers, migrate pinned REST API version usage before the indicated date."
+    }
+  ]
+}
