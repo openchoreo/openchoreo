@@ -19,26 +19,37 @@ spec:
     # Step 1: Create the repository via the GitHub API
     - name: create-step
       container:
-        image: curlimages/curl:8.8.0
+        image: alpine:3
         command: [sh, -c]
         args:
           - |
             set -e
+            apk add --no-cache curl jq -q
 
             IS_PRIVATE="false"
             if [ "$VISIBILITY" = "private" ]; then
               IS_PRIVATE="true"
             fi
 
-            BODY="{\"name\":\"${REPO_NAME}\",\"description\":\"${DESCRIPTION}\",\"private\":${IS_PRIVATE},\"auto_init\":${AUTO_INIT}"
-
-            if [ -n "$GITIGNORE_TEMPLATE" ]; then
-              BODY="${BODY},\"gitignore_template\":\"${GITIGNORE_TEMPLATE}\""
-            fi
-            if [ -n "$LICENSE_TEMPLATE" ]; then
-              BODY="${BODY},\"license_template\":\"${LICENSE_TEMPLATE}\""
-            fi
-            BODY="${BODY}}"
+            BODY=$(jq -nc \
+              --arg name "$REPO_NAME" \
+              --arg description "$DESCRIPTION" \
+              --argjson private "$IS_PRIVATE" \
+              --argjson auto_init "$AUTO_INIT" \
+              --arg gitignore_template "$GITIGNORE_TEMPLATE" \
+              --arg license_template "$LICENSE_TEMPLATE" \
+              '{
+                name: $name,
+                description: $description,
+                private: $private,
+                auto_init: $auto_init
+              }
+              + if $gitignore_template != "" then
+                  {gitignore_template: $gitignore_template}
+                else {} end
+              + if $license_template != "" then
+                  {license_template: $license_template}
+                else {} end')
 
             echo "Creating repository ${OWNER}/${REPO_NAME} (visibility: ${VISIBILITY}) ..."
             curl -sf \
