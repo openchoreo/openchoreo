@@ -973,7 +973,11 @@ func (r *Reconciler) reconcileObservabilityRelease(
 	case apierrors.IsNotFound(err):
 		// Nothing to clean up.
 	case err != nil:
-		// A transient read failure must requeue rather than silently leave a stale Release behind.
+		// A transient read failure must requeue rather than silently leave a stale Release behind,
+		// and it is surfaced on the status the same way the resolution path above is.
+		msg := fmt.Sprintf("Failed to get observability Release for cleanup: %v", err)
+		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
+			ReasonReleaseUpdateFailed, msg)
 		return result, fmt.Errorf("failed to get observability Release %q for cleanup: %w", releaseName, err)
 	default:
 		// Only delete a Release this ReleaseBinding owns.
