@@ -16,6 +16,8 @@ import (
 // test package.
 const templatesDir = "../../samples/getting-started/workflow-templates"
 
+const buildCacheTemplatesDir = "../../install/k3d/build-cache/workflow-templates"
+
 const ciWorkflowsDir = "../../samples/getting-started/ci-workflows"
 
 // workflowTemplate is a minimal view of an Argo ClusterWorkflowTemplate — just
@@ -150,7 +152,12 @@ type argoStep struct {
 // loadTemplate parses a template YAML by file name (e.g. "checkout-source.yaml").
 func loadTemplate(t *testing.T, filename string) workflowTemplate {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(templatesDir, filename))
+	return loadTemplateFromDir(t, templatesDir, filename)
+}
+
+func loadTemplateFromDir(t *testing.T, dir, filename string) workflowTemplate {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(dir, filename))
 	require.NoError(t, err, "reading template %s", filename)
 
 	var wt workflowTemplate
@@ -171,7 +178,12 @@ func loadCIWorkflow(t *testing.T, filename string) clusterWorkflow {
 // scriptForTemplate returns container.args[0] for the named Argo template.
 func scriptForTemplate(t *testing.T, filename, templateName string) string {
 	t.Helper()
-	tmpl := workflowTemplateByName(t, filename, templateName)
+	return scriptForTemplateFromDir(t, templatesDir, filename, templateName)
+}
+
+func scriptForTemplateFromDir(t *testing.T, dir, filename, templateName string) string {
+	t.Helper()
+	tmpl := workflowTemplateByNameFromDir(t, dir, filename, templateName)
 	args := tmpl.Container.Args
 	require.NotEmpty(t, args, "template %s/%s has no container.args", filename, templateName)
 	return args[0]
@@ -179,13 +191,23 @@ func scriptForTemplate(t *testing.T, filename, templateName string) string {
 
 func envForTemplate(t *testing.T, filename, templateName string) []envVar {
 	t.Helper()
-	tmpl := workflowTemplateByName(t, filename, templateName)
+	return envForTemplateFromDir(t, templatesDir, filename, templateName)
+}
+
+func envForTemplateFromDir(t *testing.T, dir, filename, templateName string) []envVar {
+	t.Helper()
+	tmpl := workflowTemplateByNameFromDir(t, dir, filename, templateName)
 	return tmpl.Container.Env
 }
 
 func workflowTemplateByName(t *testing.T, filename, templateName string) workflowTemplateStep {
 	t.Helper()
-	wt := loadTemplate(t, filename)
+	return workflowTemplateByNameFromDir(t, templatesDir, filename, templateName)
+}
+
+func workflowTemplateByNameFromDir(t *testing.T, dir, filename, templateName string) workflowTemplateStep {
+	t.Helper()
+	wt := loadTemplateFromDir(t, dir, filename)
 	for _, tmpl := range wt.Spec.Templates {
 		if tmpl.Name != templateName {
 			continue
