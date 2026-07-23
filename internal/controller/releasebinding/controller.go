@@ -870,9 +870,15 @@ func (r *Reconciler) reconcileObservabilityRelease(
 	if len(observabilityPlaneReleaseResources) == 0 {
 		skipReason = "no observability resources to deploy"
 	} else {
-		// Try to resolve the ObservabilityPlane - this will use "default" if not explicitly specified
+		// Resolve the ObservabilityPlane (falls back to the default when not explicitly specified).
+		// Only a genuine not-found means there is nothing to attach to, so skipping is correct. A
+		// transient lookup failure must requeue instead: skipping it would tear down an already-deployed
+		// observability Release (see the cleanup below) and leave it absent until an unrelated reconcile.
 		if _, err := dataPlaneResult.GetObservabilityPlane(ctx, r.Client); err != nil {
-			skipReason = fmt.Sprintf("failed to resolve ObservabilityPlane: %v", err)
+			if !apierrors.IsNotFound(err) {
+				return observabilityReleaseResult{}, fmt.Errorf("failed to resolve ObservabilityPlane: %w", err)
+			}
+			skipReason = fmt.Sprintf("ObservabilityPlane not found: %v", err)
 			logger.Info("Skipping observability Release reconciliation", "reason", skipReason)
 		} else {
 			shouldManage = true
