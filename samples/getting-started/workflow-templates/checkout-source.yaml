@@ -17,6 +17,13 @@ spec:
             optional: true
       container:
         image: alpine/git
+        env:
+          - name: BRANCH
+            value: '{{workflow.parameters.branch}}'
+          - name: REPO
+            value: '{{workflow.parameters.git-repo}}'
+          - name: COMMIT
+            value: '{{workflow.parameters.commit}}'
         command:
           - sh
           - -c
@@ -24,9 +31,6 @@ spec:
           - |-
             set -e
 
-            BRANCH={{workflow.parameters.branch}}
-            REPO={{workflow.parameters.git-repo}}
-            COMMIT={{workflow.parameters.commit}}
             GIT_SECRET_PATH="/etc/secrets/git-secret"
 
             # --- Parameter Validation ---
@@ -135,7 +139,7 @@ spec:
             fi
 
             if [ -n "$COMMIT" ]; then
-                git clone --no-checkout --depth 1 "$REPO" /mnt/vol/source
+                git clone --no-checkout --depth 1 -- "$REPO" /mnt/vol/source
                 cd /mnt/vol/source
                 git config --global advice.detachedHead false
                 git fetch --depth 1 origin "$COMMIT"
@@ -143,7 +147,7 @@ spec:
                 echo -n "$COMMIT" | cut -c1-8 > /tmp/git-revision.txt
                 echo ">> Checked out commit: $COMMIT"
             else
-                git clone --single-branch --branch $BRANCH --depth 1 "$REPO" /mnt/vol/source
+                git clone --single-branch --branch "$BRANCH" --depth 1 -- "$REPO" /mnt/vol/source
                 cd /mnt/vol/source
                 COMMIT_SHA=$(git rev-parse HEAD)
                 echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
