@@ -5,12 +5,24 @@ metadata:
 spec:
   templates:
     - name: build-image
+      podSpecPatch: '{"hostUsers": false}'
       inputs:
         parameters:
           - name: git-revision
           - name: build-env
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.0
+        image: ghcr.io/openchoreo/podman-runner:v1.2
+        env:
+          - name: IMAGE_NAME
+            value: '{{workflow.parameters.image-name}}'
+          - name: IMAGE_TAG
+            value: '{{workflow.parameters.image-tag}}'
+          - name: GIT_REVISION
+            value: '{{inputs.parameters.git-revision}}'
+          - name: APP_PATH
+            value: '{{workflow.parameters.app-path}}'
+          - name: BUILD_ENV_JSON
+            value: '{{inputs.parameters.build-env}}'
         command:
           - sh
           - -c
@@ -20,9 +32,7 @@ spec:
 
             WORKDIR=/mnt/vol/source
 
-            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
-            APP_PATH="{{workflow.parameters.app-path}}"
-            BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
+            IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
 
             # --- Parameter Validation ---
             echo ">> Image: $IMAGE"
@@ -53,12 +63,23 @@ spec:
             BUILDER="ghcr.io/openchoreo/buildpack/ballerina:18"
             RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina:18-run"
 
-            # Build --env flags from the buildEnv JSON array
-            ENV_ARGS=""
+            # Build --env flags as argv entries, not shell fragments.
+            # Base64 keeps embedded newlines within a single argv entry.
+            set --
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--env \(.name)=\(.value)"' | \
-                tr '\n' ' ')
+              encoded_env_entries=$(printf '%s' "$BUILD_ENV_JSON" |
+                jq -r '.[] | "\(.name)=\(.value)" | @base64')
+              while IFS= read -r encoded_kv; do
+                [ -n "$encoded_kv" ] || continue
+                kv_with_sentinel=$(
+                  printf '%s' "$encoded_kv" | base64 -d
+                  printf '.'
+                )
+                kv=${kv_with_sentinel%?}
+                set -- "$@" --env "$kv"
+              done <<EOF
+            $encoded_env_entries
+            EOF
             fi
 
             echo ">> Building image with Ballerina buildpack"
@@ -69,7 +90,7 @@ spec:
               --path "$WORKDIR/$APP_PATH" \
               --volume "/mnt/vol:/app/generated-artifacts:rw" \
               --pull-policy always \
-              $ENV_ARGS
+              "$@"
 
             echo ">> Image built successfully"
             echo ">> Saving image"
