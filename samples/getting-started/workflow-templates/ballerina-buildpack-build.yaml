@@ -56,9 +56,22 @@ spec:
             mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
+            cat > /etc/containers/containers.conf <<EOF
+            [containers]
+            netns = "host"
+            cgroups = "disabled"
+            log_driver = "k8s-file"
+            [engine]
+            cgroup_manager = "cgroupfs"
+            events_logger = "file"
+            runtime = "crun"
+            EOF
+
             echo ">> Initializing build environment"
-            podman system service --time=0 &
+            mkdir -p /run/podman
+            podman system service --time=0 unix:///run/podman/podman.sock &
             until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
+            export DOCKER_HOST=unix:///run/podman/podman.sock
 
             BUILDER="ghcr.io/openchoreo/buildpack/ballerina:18"
             RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina:18-run"
