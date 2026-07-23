@@ -50,6 +50,13 @@ spec:
               exit 1
             fi
 
+            case "$COMMIT" in
+              -*)
+                echo ">> Error: Commit must not start with a hyphen."
+                exit 1
+                ;;
+            esac
+
             # Check if git secret exists (for private repositories)
             if [ -d "$GIT_SECRET_PATH" ] && [ "$(ls $GIT_SECRET_PATH 2>/dev/null)" ]; then
                 echo ">> Configuring repository authentication"
