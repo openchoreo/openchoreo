@@ -389,6 +389,103 @@ func TestHasTransitioningResources(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// hasResurrectableWorkload
+// ─────────────────────────────────────────────────────────────
+
+func TestHasResurrectableWorkload(t *testing.T) {
+	// desired is a rendered manifest carrying its GVK + resource-ID label; live is the object
+	// fetched back from the plane (no GVK on list items) sharing the same resource-ID label.
+	desired := func(resID string, gvk schema.GroupVersionKind) *unstructured.Unstructured {
+		u := &unstructured.Unstructured{}
+		u.SetGroupVersionKind(gvk)
+		u.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseResourceID: resID})
+		return u
+	}
+	deploymentGVK := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
+	statefulSetGVK := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}
+	liveDeployment := func(resID string, replicas *int32, paused bool) *unstructured.Unstructured {
+		u := toUnstructured(t, &appsv1.Deployment{Spec: appsv1.DeploymentSpec{Replicas: replicas, Paused: paused}})
+		u.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseResourceID: resID})
+		return u
+	}
+	liveStatefulSet := func(resID string, replicas *int32) *unstructured.Unstructured {
+		u := toUnstructured(t, &appsv1.StatefulSet{Spec: appsv1.StatefulSetSpec{Replicas: replicas}})
+		u.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseResourceID: resID})
+		return u
+	}
+	serviceGVK := schema.GroupVersionKind{Version: "v1", Kind: "Service"}
+
+	tests := []struct {
+		name    string
+		desired []*unstructured.Unstructured
+		live    []*unstructured.Unstructured
+		want    bool
+	}{
+		{
+			name: "empty resources returns false",
+			want: false,
+		},
+		{
+			name:    "deployment scaled to zero returns true",
+			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK)},
+			live:    []*unstructured.Unstructured{liveDeployment("d1", int32Ptr(0), false)},
+			want:    true,
+		},
+		{
+			name:    "paused deployment at zero returns false",
+			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK)},
+			live:    []*unstructured.Unstructured{liveDeployment("d1", int32Ptr(0), true)},
+			want:    false,
+		},
+		{
+			name:    "deployment with replicas returns false",
+			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK)},
+			live:    []*unstructured.Unstructured{liveDeployment("d1", int32Ptr(2), false)},
+			want:    false,
+		},
+		{
+			name:    "deployment without replicas field returns false",
+			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK)},
+			live:    []*unstructured.Unstructured{liveDeployment("d1", nil, false)},
+			want:    false,
+		},
+		{
+			name:    "statefulset scaled to zero returns true",
+			desired: []*unstructured.Unstructured{desired("s1", statefulSetGVK)},
+			live:    []*unstructured.Unstructured{liveStatefulSet("s1", int32Ptr(0))},
+			want:    true,
+		},
+		{
+			name:    "non-workload kind at zero returns false",
+			desired: []*unstructured.Unstructured{desired("svc", serviceGVK)},
+			live:    nil,
+			want:    false,
+		},
+		{
+			name:    "no matching live resource returns false",
+			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK)},
+			live:    nil,
+			want:    false,
+		},
+		{
+			name:    "mix with a scaled-to-zero deployment returns true",
+			desired: []*unstructured.Unstructured{desired("d1", deploymentGVK), desired("d2", deploymentGVK)},
+			live:    []*unstructured.Unstructured{liveDeployment("d1", int32Ptr(1), false), liveDeployment("d2", int32Ptr(0), false)},
+			want:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := hasResurrectableWorkload(tt.desired, tt.live)
+			if got != tt.want {
+				t.Errorf("expected %v, got %v", tt.want, got)
+			}
+		})
+	}
+}
+
+// ─────────────────────────────────────────────────────────────
 // GetHealthCheckFunc
 // ─────────────────────────────────────────────────────────────
 
