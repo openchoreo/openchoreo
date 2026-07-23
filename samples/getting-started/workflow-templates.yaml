@@ -22,11 +22,23 @@ metadata:
 spec:
   templates:
     - name: build-image
+      podSpecPatch: '{"hostUsers": false}'
       inputs:
         parameters:
           - name: git-revision
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.1
+        image: ghcr.io/openchoreo/podman-runner:v1.2
+        env:
+          - name: IMAGE_NAME
+            value: '{{workflow.parameters.image-name}}'
+          - name: IMAGE_TAG
+            value: '{{workflow.parameters.image-tag}}'
+          - name: GIT_REVISION
+            value: '{{inputs.parameters.git-revision}}'
+          - name: APP_PATH
+            value: '{{workflow.parameters.app-path}}'
+          - name: BUILD_ENV_JSON
+            value: '{{workflow.parameters.build-env}}'
         command:
           - sh
           - -c
@@ -36,9 +48,7 @@ spec:
 
             WORKDIR=/mnt/vol/source
 
-            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
-            APP_PATH="{{workflow.parameters.app-path}}"
-            BUILD_ENV_JSON='{{workflow.parameters.build-env}}'
+            IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
 
             # --- Parameter Validation ---
             echo ">> Image: $IMAGE"
@@ -62,19 +72,43 @@ spec:
             mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
+            cat > /etc/containers/containers.conf <<EOF
+            [containers]
+            netns = "host"
+            cgroups = "disabled"
+            log_driver = "k8s-file"
+            [engine]
+            cgroup_manager = "cgroupfs"
+            events_logger = "file"
+            runtime = "crun"
+            EOF
+
             echo ">> Initializing build environment"
-            podman system service --time=0 &
+            mkdir -p /run/podman
+            podman system service --time=0 unix:///run/podman/podman.sock &
             until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
+            export DOCKER_HOST=unix:///run/podman/podman.sock
 
             BUILDER="docker.io/paketobuildpacks/builder-jammy-full:0.3.603"
             RUN_IMG="docker.io/paketobuildpacks/run-jammy-full:0.1.130"
 
-            # Build --env flags from the buildEnv JSON array (e.g. [{"name":"BP_NODE_RUN_SCRIPTS","value":"build"}])
-            ENV_ARGS=""
+            # Build --env flags as argv entries, not shell fragments.
+            # Base64 keeps embedded newlines within a single argv entry.
+            set --
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--env \(.name)=\(.value)"' | \
-                tr '\n' ' ')
+              encoded_env_entries=$(printf '%s' "$BUILD_ENV_JSON" |
+                jq -r '.[] | "\(.name)=\(.value)" | @base64')
+              while IFS= read -r encoded_kv; do
+                [ -n "$encoded_kv" ] || continue
+                kv_with_sentinel=$(
+                  printf '%s' "$encoded_kv" | base64 -d
+                  printf '.'
+                )
+                kv=${kv_with_sentinel%?}
+                set -- "$@" --env "$kv"
+              done <<EOF
+            $encoded_env_entries
+            EOF
             fi
 
             echo ">> Building image with Paketo buildpacks"
@@ -84,7 +118,7 @@ spec:
               --docker-host inherit \
               --path "$WORKDIR/$APP_PATH" \
               --pull-policy always \
-              $ENV_ARGS
+              "$@"
 
             echo ">> Image built successfully"
             echo ">> Saving image"
@@ -103,11 +137,23 @@ metadata:
 spec:
   templates:
     - name: build-image
+      podSpecPatch: '{"hostUsers": false}'
       inputs:
         parameters:
           - name: git-revision
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.1
+        image: ghcr.io/openchoreo/podman-runner:v1.2
+        env:
+          - name: IMAGE_NAME
+            value: '{{workflow.parameters.image-name}}'
+          - name: IMAGE_TAG
+            value: '{{workflow.parameters.image-tag}}'
+          - name: GIT_REVISION
+            value: '{{inputs.parameters.git-revision}}'
+          - name: APP_PATH
+            value: '{{workflow.parameters.app-path}}'
+          - name: BUILD_ENV_JSON
+            value: '{{workflow.parameters.build-env}}'
         command:
           - sh
           - -c
@@ -117,9 +163,7 @@ spec:
 
             WORKDIR=/mnt/vol/source
 
-            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
-            APP_PATH="{{workflow.parameters.app-path}}"
-            BUILD_ENV_JSON='{{workflow.parameters.build-env}}'
+            IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
 
             # --- Parameter Validation ---
             echo ">> Image: $IMAGE"
@@ -143,19 +187,43 @@ spec:
             mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
+            cat > /etc/containers/containers.conf <<EOF
+            [containers]
+            netns = "host"
+            cgroups = "disabled"
+            log_driver = "k8s-file"
+            [engine]
+            cgroup_manager = "cgroupfs"
+            events_logger = "file"
+            runtime = "crun"
+            EOF
+
             echo ">> Initializing build environment"
-            podman system service --time=0 &
+            mkdir -p /run/podman
+            podman system service --time=0 unix:///run/podman/podman.sock &
             until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
+            export DOCKER_HOST=unix:///run/podman/podman.sock
 
             BUILDER="gcr.io/buildpacks/builder@sha256:5977b4bd47d3e9ff729eefe9eb99d321d4bba7aa3b14986323133f40b622aef1"
             RUN_IMG="gcr.io/buildpacks/google-22/run:latest"
 
-            # Build --env flags from the buildEnv JSON array (e.g. [{"name":"GOOGLE_RUNTIME_VERSION","value":"21"}])
-            ENV_ARGS=""
+            # Build --env flags as argv entries, not shell fragments.
+            # Base64 keeps embedded newlines within a single argv entry.
+            set --
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--env \(.name)=\(.value)"' | \
-                tr '\n' ' ')
+              encoded_env_entries=$(printf '%s' "$BUILD_ENV_JSON" |
+                jq -r '.[] | "\(.name)=\(.value)" | @base64')
+              while IFS= read -r encoded_kv; do
+                [ -n "$encoded_kv" ] || continue
+                kv_with_sentinel=$(
+                  printf '%s' "$encoded_kv" | base64 -d
+                  printf '.'
+                )
+                kv=${kv_with_sentinel%?}
+                set -- "$@" --env "$kv"
+              done <<EOF
+            $encoded_env_entries
+            EOF
             fi
 
             echo ">> Building image with GCP buildpacks"
@@ -165,7 +233,7 @@ spec:
               --docker-host inherit \
               --path "$WORKDIR/$APP_PATH" \
               --pull-policy always \
-              $ENV_ARGS
+              "$@"
 
             echo ">> Image built successfully"
             echo ">> Saving image"
@@ -184,12 +252,24 @@ metadata:
 spec:
   templates:
     - name: build-image
+      podSpecPatch: '{"hostUsers": false}'
       inputs:
         parameters:
           - name: git-revision
           - name: build-env
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.1
+        image: ghcr.io/openchoreo/podman-runner:v1.2
+        env:
+          - name: IMAGE_NAME
+            value: '{{workflow.parameters.image-name}}'
+          - name: IMAGE_TAG
+            value: '{{workflow.parameters.image-tag}}'
+          - name: GIT_REVISION
+            value: '{{inputs.parameters.git-revision}}'
+          - name: APP_PATH
+            value: '{{workflow.parameters.app-path}}'
+          - name: BUILD_ENV_JSON
+            value: '{{inputs.parameters.build-env}}'
         command:
           - sh
           - -c
@@ -199,9 +279,7 @@ spec:
 
             WORKDIR=/mnt/vol/source
 
-            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
-            APP_PATH="{{workflow.parameters.app-path}}"
-            BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
+            IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
 
             # --- Parameter Validation ---
             echo ">> Image: $IMAGE"
@@ -225,19 +303,43 @@ spec:
             mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
+            cat > /etc/containers/containers.conf <<EOF
+            [containers]
+            netns = "host"
+            cgroups = "disabled"
+            log_driver = "k8s-file"
+            [engine]
+            cgroup_manager = "cgroupfs"
+            events_logger = "file"
+            runtime = "crun"
+            EOF
+
             echo ">> Initializing build environment"
-            podman system service --time=0 &
+            mkdir -p /run/podman
+            podman system service --time=0 unix:///run/podman/podman.sock &
             until podman info --format '{{.Host.RemoteSocket.Exists}}' 2>/dev/null | grep -q true; do sleep 1; done
+            export DOCKER_HOST=unix:///run/podman/podman.sock
 
             BUILDER="ghcr.io/openchoreo/buildpack/ballerina:18"
             RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina:18-run"
 
-            # Build --env flags from the buildEnv JSON array
-            ENV_ARGS=""
+            # Build --env flags as argv entries, not shell fragments.
+            # Base64 keeps embedded newlines within a single argv entry.
+            set --
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--env \(.name)=\(.value)"' | \
-                tr '\n' ' ')
+              encoded_env_entries=$(printf '%s' "$BUILD_ENV_JSON" |
+                jq -r '.[] | "\(.name)=\(.value)" | @base64')
+              while IFS= read -r encoded_kv; do
+                [ -n "$encoded_kv" ] || continue
+                kv_with_sentinel=$(
+                  printf '%s' "$encoded_kv" | base64 -d
+                  printf '.'
+                )
+                kv=${kv_with_sentinel%?}
+                set -- "$@" --env "$kv"
+              done <<EOF
+            $encoded_env_entries
+            EOF
             fi
 
             echo ">> Building image with Ballerina buildpack"
@@ -248,7 +350,7 @@ spec:
               --path "$WORKDIR/$APP_PATH" \
               --volume "/mnt/vol:/app/generated-artifacts:rw" \
               --pull-policy always \
-              $ENV_ARGS
+              "$@"
 
             echo ">> Image built successfully"
             echo ">> Saving image"
@@ -267,13 +369,29 @@ metadata:
 spec:
   templates:
     - name: build-image
+      podSpecPatch: '{"hostUsers": false}'
       inputs:
         parameters:
           - name: git-revision
           - name: build-env
           - name: build-args
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.1
+        image: ghcr.io/openchoreo/podman-runner:v1.2
+        env:
+          - name: IMAGE_NAME
+            value: '{{workflow.parameters.image-name}}'
+          - name: IMAGE_TAG
+            value: '{{workflow.parameters.image-tag}}'
+          - name: GIT_REVISION
+            value: '{{inputs.parameters.git-revision}}'
+          - name: DOCKER_CONTEXT
+            value: '{{workflow.parameters.docker-context}}'
+          - name: DOCKERFILE_PATH
+            value: '{{workflow.parameters.dockerfile-path}}'
+          - name: BUILD_ENV_JSON
+            value: '{{inputs.parameters.build-env}}'
+          - name: BUILD_ARGS_JSON
+            value: '{{inputs.parameters.build-args}}'
         command:
           - sh
           - -c
@@ -282,11 +400,7 @@ spec:
             set -e
 
             WORKDIR="/mnt/vol/source"
-            IMAGE="{{workflow.parameters.image-name}}:{{workflow.parameters.image-tag}}-{{inputs.parameters.git-revision}}"
-            DOCKER_CONTEXT="{{workflow.parameters.docker-context}}"
-            DOCKERFILE_PATH="{{workflow.parameters.dockerfile-path}}"
-            BUILD_ENV_JSON='{{inputs.parameters.build-env}}'
-            BUILD_ARGS_JSON='{{inputs.parameters.build-args}}'
+            IMAGE="${IMAGE_NAME}:${IMAGE_TAG}-${GIT_REVISION}"
 
             # --- Parameter Validation ---
             echo ">> Image: $IMAGE"
@@ -319,27 +433,46 @@ spec:
             mount_program = "/usr/bin/fuse-overlayfs"
             EOF
 
-            # Build --env flags
-            ENV_ARGS=""
+            # Build --env and --build-arg flags as argv entries, not shell fragments.
+            # Base64 keeps embedded newlines within a single argv entry.
+            set --
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-              ENV_ARGS=$(echo "$BUILD_ENV_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--env \(.name)=\(.value)"' | \
-                tr '\n' ' ')
+              encoded_env_entries=$(printf '%s' "$BUILD_ENV_JSON" |
+                jq -r '.[] | "\(.name)=\(.value)" | @base64')
+              while IFS= read -r encoded_kv; do
+                [ -n "$encoded_kv" ] || continue
+                kv_with_sentinel=$(
+                  printf '%s' "$encoded_kv" | base64 -d
+                  printf '.'
+                )
+                kv=${kv_with_sentinel%?}
+                set -- "$@" --env "$kv"
+              done <<EOF
+            $encoded_env_entries
+            EOF
             fi
 
-            # Build --build-arg flags
-            BUILD_ARG_ARGS=""
             if [ -n "$BUILD_ARGS_JSON" ] && [ "$BUILD_ARGS_JSON" != "[]" ]; then
-              BUILD_ARG_ARGS=$(echo "$BUILD_ARGS_JSON" | \
-                podman run --rm -i ghcr.io/jqlang/jq:1.7.1 -r '.[] | "--build-arg \(.name)=\(.value)"' | \
-                tr '\n' ' ')
+              encoded_build_arg_entries=$(printf '%s' "$BUILD_ARGS_JSON" |
+                jq -r '.[] | "\(.name)=\(.value)" | @base64')
+              while IFS= read -r encoded_kv; do
+                [ -n "$encoded_kv" ] || continue
+                kv_with_sentinel=$(
+                  printf '%s' "$encoded_kv" | base64 -d
+                  printf '.'
+                )
+                kv=${kv_with_sentinel%?}
+                set -- "$@" --build-arg "$kv"
+              done <<EOF
+            $encoded_build_arg_entries
+            EOF
             fi
 
             echo ">> Building image"
-            podman build -t $IMAGE -f $WORKDIR/$DOCKERFILE_PATH $ENV_ARGS $BUILD_ARG_ARGS $WORKDIR/$DOCKER_CONTEXT
+            podman build -t "$IMAGE" -f "$WORKDIR/$DOCKERFILE_PATH" "$@" -- "$WORKDIR/$DOCKER_CONTEXT"
             echo ">> Image built successfully"
             echo ">> Saving image"
-            podman save -o /mnt/vol/app-image.tar $IMAGE
+            podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:
           privileged: true
         volumeMounts:
