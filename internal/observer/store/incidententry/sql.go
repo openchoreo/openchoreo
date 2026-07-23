@@ -70,6 +70,9 @@ func (s *sqlStore) Initialize(ctx context.Context) error {
 	if _, err := s.db.ExecContext(initCtx, createProjectEnvTimestampIndexQuery); err != nil {
 		return fmt.Errorf("failed to create incident_entries index: %w", err)
 	}
+	if _, err := s.db.ExecContext(initCtx, createAlertTimestampIndexQuery); err != nil {
+		return fmt.Errorf("failed to create incident_entries alert index: %w", err)
+	}
 
 	// Run schema migrations
 	if err := s.runSchemaMigrations(initCtx); err != nil {
@@ -427,6 +430,27 @@ func (s *sqlStore) QueryIncidentEntries(ctx context.Context, params QueryParams)
 	return entries, total, nil
 }
 
+func (s *sqlStore) GetIncidentStatusByAlertID(ctx context.Context, alertID string) (string, bool, error) {
+	alertID = strings.TrimSpace(alertID)
+	if alertID == "" {
+		return "", false, fmt.Errorf("alert id is required")
+	}
+
+	var status string
+	query := `SELECT status FROM incident_entries WHERE alert_id = ? ORDER BY timestamp_ns DESC LIMIT 1`
+	if s.backend == BackendPostgreSQL {
+		query = `SELECT status FROM incident_entries WHERE alert_id = $1 ORDER BY timestamp_ns DESC LIMIT 1`
+	}
+	err := s.db.QueryRowContext(ctx, query, alertID).Scan(&status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("failed to get incident status for alert %q: %w", alertID, err)
+	}
+	return status, true, nil
+}
+
 func (s *sqlStore) UpdateIncidentEntry(ctx context.Context, id string, status string, notes, description *string, now time.Time) (IncidentEntry, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
@@ -749,6 +773,10 @@ CREATE TABLE IF NOT EXISTS incident_entries (
 const createProjectEnvTimestampIndexQuery = `
 CREATE INDEX IF NOT EXISTS idx_incident_entries_project_env_ts
 ON incident_entries(project_id, environment_id, timestamp_ns);`
+
+const createAlertTimestampIndexQuery = `
+CREATE INDEX IF NOT EXISTS idx_incident_entries_alert_ts
+ON incident_entries(alert_id, timestamp_ns);`
 
 const insertIncidentEntrySQLiteQuery = `
 INSERT INTO incident_entries (

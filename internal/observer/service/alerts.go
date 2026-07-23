@@ -296,25 +296,39 @@ func (s *AlertService) checkAlertSuppression(ctx context.Context, ruleName, rule
 		return false, nil
 	}
 
-	isDuplicate, err := s.alertEntryStore.HasRecentAlert(ctx, ruleName, ruleNamespace, componentUID, since)
+	recentAlert, err := s.alertEntryStore.GetRecentAlert(ctx, ruleName, ruleNamespace, componentUID, since)
 	if err != nil {
 		s.logger.Warn("Failed to check alert suppression", "error", err, "ruleName", ruleName)
 		return false, nil
 	}
 
-	if isDuplicate {
-		s.logger.Info("Alert suppressed (duplicate within suppression window)",
-			"ruleName", ruleName, "ruleNamespace", ruleNamespace,
-			"suppressionWindow", s.config.Alerting.AlertSuppressionWindow)
-		suppressedStatus := gen.AlertWebhookResponseStatusSuccess
-		msg := "alert suppressed: duplicate within suppression window"
-		return true, &gen.AlertWebhookResponse{
-			Status:  &suppressedStatus,
-			Message: &msg,
+	if recentAlert == nil {
+		return false, nil
+	}
+
+	// An acknowledged or resolved incident represents a completed alert occurrence.
+	// A later webhook must create a new occurrence even if it arrives within the
+	// suppression window. If the incident has not been persisted yet, keep
+	// suppressing to avoid a race creating duplicate incidents.
+	if recentAlert.IncidentEnabled && s.incidentEntryStore != nil {
+		status, found, statusErr := s.incidentEntryStore.GetIncidentStatusByAlertID(ctx, recentAlert.ID)
+		if statusErr != nil {
+			s.logger.Warn("Failed to check incident status for alert suppression",
+				"error", statusErr, "alertID", recentAlert.ID, "ruleName", ruleName)
+		} else if found && status != incidententry.StatusActive {
+			return false, nil
 		}
 	}
 
-	return false, nil
+	s.logger.Info("Alert suppressed (duplicate within suppression window)",
+		"ruleName", ruleName, "ruleNamespace", ruleNamespace,
+		"suppressionWindow", s.config.Alerting.AlertSuppressionWindow)
+	suppressedStatus := gen.AlertWebhookResponseStatusSuccess
+	msg := "alert suppressed: duplicate within suppression window"
+	return true, &gen.AlertWebhookResponse{
+		Status:  &suppressedStatus,
+		Message: &msg,
+	}
 }
 
 // buildAlertDetails enriches alert details from the webhook request and alert rule CR.

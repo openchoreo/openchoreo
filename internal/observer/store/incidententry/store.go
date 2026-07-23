@@ -68,6 +68,7 @@ type IncidentEntryStore interface {
 	Initialize(ctx context.Context) error
 	WriteIncidentEntry(ctx context.Context, entry *IncidentEntry) (id string, err error)
 	QueryIncidentEntries(ctx context.Context, params QueryParams) ([]IncidentEntry, int, error)
+	GetIncidentStatusByAlertID(ctx context.Context, alertID string) (status string, found bool, err error)
 	UpdateIncidentEntry(ctx context.Context, id string, status string, notes, description *string, now time.Time) (IncidentEntry, error)
 	Close() error
 }
