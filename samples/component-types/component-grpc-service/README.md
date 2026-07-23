@@ -61,7 +61,7 @@ The resolved `externalURLs` host (and the `:authority` clients dial) is this uni
 ## Deploy the sample
 
 ```bash
-kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-grpc-service/grpc-service-component.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/release-v1.2.0-rc.2/samples/component-types/component-grpc-service/grpc-service-component.yaml
 ```
 
 ## Check the ReleaseBinding status
@@ -145,7 +145,7 @@ Expected response:
 ## Cleanup
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/main/samples/component-types/component-grpc-service/grpc-service-component.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/refs/heads/release-v1.2.0-rc.2/samples/component-types/component-grpc-service/grpc-service-component.yaml
 ```
 
 ## Troubleshooting

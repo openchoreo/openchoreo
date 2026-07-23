@@ -42,7 +42,7 @@ https://github.com/openchoreo/sample-workloads/tree/main/service-ballerina-patie
 The following command will create the relevant resources in OpenChoreo. It will also trigger a workflow by creating a workflow resource.
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
+kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.2/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
 ```
 
 > [!NOTE]
@@ -186,5 +186,5 @@ If the application is not accessible:
 Remove all resources:
 
 ```bash
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
+kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/release-v1.2.0-rc.2/samples/from-source/services/ballerina-buildpack-patient-management/patient-management-service.yaml
 ```
