@@ -39,6 +39,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/component"
 	"github.com/openchoreo/openchoreo/internal/controller/componentrelease"
 	"github.com/openchoreo/openchoreo/internal/controller/componenttype"
+	"github.com/openchoreo/openchoreo/internal/controller/controlplanenamespace"
 	"github.com/openchoreo/openchoreo/internal/controller/dataplane"
 	"github.com/openchoreo/openchoreo/internal/controller/deploymentpipeline"
 	"github.com/openchoreo/openchoreo/internal/controller/environment"
@@ -154,6 +155,7 @@ func setupControlPlaneControllers(
 		&deploymentpipeline.Reconciler{Client: c, Scheme: s},
 		&workload.Reconciler{Client: c, Scheme: s},
 		&environment.Reconciler{Client: c, PlaneClientProvider: planeClientProvider, Scheme: s},
+		&controlplanenamespace.Reconciler{Client: c, PlaneClientProvider: planeClientProvider, Scheme: s},
 		&dataplane.Reconciler{
 			Client:        c,
 			Scheme:        s,
