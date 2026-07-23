@@ -957,6 +957,16 @@ func TestMakeRole(t *testing.T) {
 	if len(rule.Resources) != 1 || rule.Resources[0] != "workflowtaskresults" {
 		t.Errorf("expected resource 'workflowtaskresults', got %v", rule.Resources)
 	}
+	wantVerbs := []string{"create", "patch"}
+	if len(rule.Verbs) != len(wantVerbs) {
+		t.Fatalf("expected verbs %v, got %v", wantVerbs, rule.Verbs)
+	}
+	for i, v := range wantVerbs {
+		if rule.Verbs[i] != v {
+			t.Errorf("expected verbs %v, got %v", wantVerbs, rule.Verbs)
+			break
+		}
+	}
 }
 
 func TestMakeRoleBinding(t *testing.T) {
