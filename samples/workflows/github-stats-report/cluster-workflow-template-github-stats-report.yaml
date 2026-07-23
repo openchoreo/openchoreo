@@ -22,13 +22,15 @@ spec:
     - name: fetch-step
       container:
         image: curlimages/curl:8.8.0
+        env:
+          - name: ORG
+            value: '{{workflow.parameters.org}}'
+          - name: REPO
+            value: '{{workflow.parameters.repo}}'
         command: [sh, -c]
         args:
           - |
             set -e
-            ORG="{{workflow.parameters.org}}"
-            REPO="{{workflow.parameters.repo}}"
-
             echo "Fetching stats for ${ORG}/${REPO} ..."
             curl -sf \
               -H "Accept: application/vnd.github+json" \
@@ -76,12 +78,14 @@ spec:
           - name: output-format
       container:
         image: alpine:3
+        env:
+          - name: FORMAT
+            value: '{{inputs.parameters.output-format}}'
         command: [sh, -c]
         args:
           - |
             set -e
             apk add --no-cache jq -q
-            FORMAT="{{inputs.parameters.output-format}}"
 
             if [ "$FORMAT" = "json" ]; then
               cat /mnt/data/stats.json

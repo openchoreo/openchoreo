@@ -24,8 +24,45 @@ spec:
           # Update these when the API server URL or host changes.
           - name: api-server-url
             default: "http://host.k3d.internal:8080"
+      volumes:
+        - name: tools
+          emptyDir: {}
+      initContainers:
+        - name: copy-occ
+          image: ghcr.io/openchoreo/openchoreo-cli:v1.0.0
+          command: [sh, -c, "mkdir -p /tools/bin && cp /usr/local/bin/occ /tools/bin/occ"]
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+          volumeMounts:
+            - name: tools
+              mountPath: /tools
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.0
+        image: ghcr.io/openchoreo/podman-runner:v1.2
+        env:
+          - name: IMAGE
+            value: '{{inputs.parameters.image}}'
+          - name: RUN_NAME
+            value: '{{inputs.parameters.run-name}}'
+          - name: PROJECT_NAME
+            value: '{{workflow.parameters.project-name}}'
+          - name: COMPONENT_NAME
+            value: '{{workflow.parameters.component-name}}'
+          - name: NAMESPACE_NAME
+            value: '{{workflow.parameters.namespace-name}}'
+          - name: APP_PATH
+            value: '{{workflow.parameters.app-path}}'
+          - name: OAUTH_URL
+            value: '{{inputs.parameters.oauth-token-url}}'
+          - name: CLIENT_ID
+            value: '{{inputs.parameters.oauth-client-id}}'
+          - name: CLIENT_SECRET
+            value: '{{inputs.parameters.oauth-client-secret}}'
+          - name: OAUTH_SCOPE
+            value: '{{inputs.parameters.oauth-scope}}'
+          - name: API_URL
+            value: '{{inputs.parameters.api-server-url}}'
         command:
           - sh
           - -c
@@ -33,17 +70,16 @@ spec:
           - |-
             set -e
 
-            IMAGE={{inputs.parameters.image}}
-            RUN_NAME={{inputs.parameters.run-name}}
-            PROJECT_NAME={{workflow.parameters.project-name}}
-            COMPONENT_NAME={{workflow.parameters.component-name}}
-            NAMESPACE_NAME={{workflow.parameters.namespace-name}}
-            APP_PATH="{{workflow.parameters.app-path}}"
+            export PATH="/tools/bin:${PATH}"
+            export HOME="/tmp/openchoreo"
+            mkdir -p "${HOME}"
 
             DESCRIPTOR_PATH="/mnt/vol/source${APP_PATH:+/${APP_PATH#/}}"
             OUTPUT_PATH="/mnt/vol/workload-cr.yaml"
+            WORKLOAD_JSON="/mnt/vol/workload-cr.json"
 
             echo ">> Image: ${IMAGE}"
+            echo ">> occ version: $(occ version 2>/dev/null || echo 'unknown')"
             echo ">> Descriptor path: ${DESCRIPTOR_PATH}"
             echo ">> Namespace: ${NAMESPACE_NAME}, Project: ${PROJECT_NAME}, Component: ${COMPONENT_NAME}"
             if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
@@ -60,65 +96,39 @@ spec:
               exit 1
             fi
 
-            mkdir -p /etc/containers
-            cat <<EOF > /etc/containers/storage.conf
-            [storage]
-            driver = "overlay"
-            runroot = "/run/containers/storage"
-            graphroot = "/var/lib/containers/storage"
-            [storage.options.overlay]
-            mount_program = "/usr/bin/fuse-overlayfs"
-            EOF
-
             # --- Step 1: Generate workload CR using occ ---
             WORKLOAD_FROM_SOURCE="false"
             if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
               WORKLOAD_FROM_SOURCE="true"
               echo ">> Generating workload CR from descriptor"
-              podman run --rm --network=none \
-              -v $DESCRIPTOR_PATH:/app:rw -w /app \
-              ghcr.io/openchoreo/openchoreo-cli:v1.0.0 \
-                workload create \
+              cd "${DESCRIPTOR_PATH}"
+              occ workload create \
                 --namespace "${NAMESPACE_NAME}" \
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
                 --image "${IMAGE}" \
                 --descriptor "workload.yaml" \
-                -o "workload-cr.yaml"
+                -o "${OUTPUT_PATH}"
             else
               echo ">> Generating default workload CR"
-              podman run --rm --network=none \
-              -v $DESCRIPTOR_PATH:/app:rw -w /app \
-              ghcr.io/openchoreo/openchoreo-cli:v1.0.0 \
-                workload create \
+              cd "${DESCRIPTOR_PATH}"
+              occ workload create \
                 --namespace "${NAMESPACE_NAME}" \
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
                 --image "${IMAGE}" \
-                -o "workload-cr.yaml"
+                -o "${OUTPUT_PATH}"
             fi
 
-            cp -f "${DESCRIPTOR_PATH}/workload-cr.yaml" "${OUTPUT_PATH}"
-
             # --- Step 2: Convert workload CR YAML to JSON (strip apiVersion and kind) ---
-            # Use yq to convert YAML to JSON, then jq -c to produce valid compact single-line JSON
-             podman run --rm \
-               -v /mnt/vol:/data:rw \
-               mikefarah/yq -o=json 'del(.apiVersion) | del(.kind)' /data/workload-cr.yaml \
-               > /mnt/vol/workload-cr-raw.json
-             podman run --rm \
-               -v /mnt/vol:/data:rw \
-               ghcr.io/jqlang/jq:1.7.1 -c '.' /data/workload-cr-raw.json \
-               > /mnt/vol/workload-cr.json
+            yq -o=json 'del(.apiVersion) | del(.kind)' "${OUTPUT_PATH}" \
+              > /mnt/vol/workload-cr-raw.json
+            jq -c '.' /mnt/vol/workload-cr-raw.json \
+              > "${WORKLOAD_JSON}"
             echo ">> Generated workload JSON payload:"
-            cat /mnt/vol/workload-cr.json
+            cat "${WORKLOAD_JSON}"
 
             # --- Step 3: Get OAuth token ---
-            OAUTH_URL="{{inputs.parameters.oauth-token-url}}"
-            CLIENT_ID="{{inputs.parameters.oauth-client-id}}"
-            CLIENT_SECRET="{{inputs.parameters.oauth-client-secret}}"
-            OAUTH_SCOPE="{{inputs.parameters.oauth-scope}}"
-
             echo ">> Requesting OAuth token from ${OAUTH_URL}"
             if [ -n "${OAUTH_SCOPE}" ]; then
               TOKEN_RESPONSE=$(curl -sk --fail-with-body \
@@ -145,17 +155,15 @@ spec:
             echo ">> Successfully obtained access token"
 
             # --- Step 4: Create or update workload via API server ---
-            API_URL="{{inputs.parameters.api-server-url}}"
-
             # Extract workload name from the JSON payload for potential update
-            WORKLOAD_NAME=$(podman run --rm -v /mnt/vol:/data:ro mikefarah/yq -r '.metadata.name' /data/workload-cr.json)
+            WORKLOAD_NAME=$(yq -r '.metadata.name' "${WORKLOAD_JSON}")
 
             echo ">> Creating workload via ${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads"
             RESPONSE=$(curl -sk -w "\n%{http_code}" \
               -X POST "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-              -d @/mnt/vol/workload-cr.json)
+              -d @"${WORKLOAD_JSON}")
 
             HTTP_CODE=$(echo "${RESPONSE}" | tail -1)
             BODY=$(echo "${RESPONSE}" | sed '$d')
@@ -169,7 +177,7 @@ spec:
                   -X PUT "${API_URL}/api/v1/namespaces/${NAMESPACE_NAME}/workloads/${WORKLOAD_NAME}" \
                   -H "Content-Type: application/json" \
                   -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-                  -d @/mnt/vol/workload-cr.json)
+                  -d @"${WORKLOAD_JSON}")
               else
                 echo ">> Workload already exists, updating only container image (auto-generated)"
                 # GET the existing workload
@@ -187,17 +195,13 @@ spec:
 
                 # Extract the new image from the generated workload and merge into existing
                 echo "${GET_BODY}" > /mnt/vol/workload-existing.json
-                NEW_IMAGE=$(podman run --rm \
-                  -v /mnt/vol:/data:ro \
-                  ghcr.io/jqlang/jq:1.7.1 -r '.spec.container.image' /data/workload-cr.json)
+                NEW_IMAGE=$(jq -r '.spec.container.image' "${WORKLOAD_JSON}")
 
                 echo ">> Updating container image to: ${NEW_IMAGE}"
-                podman run --rm \
-                  -v /mnt/vol:/data:rw \
-                  ghcr.io/jqlang/jq:1.7.1 \
+                jq \
                   --arg img "${NEW_IMAGE}" \
                   '.spec.container.image = $img' \
-                  /data/workload-existing.json \
+                  /mnt/vol/workload-existing.json \
                   > /mnt/vol/workload-merged.json
 
                 RESPONSE=$(curl -sk -w "\n%{http_code}" \
@@ -241,20 +245,14 @@ spec:
             # If workload is source-defined, also add the workload-from-source annotation
             echo "${WF_RUN_BODY}" > /mnt/vol/workflowrun-get.json
             if [ "${WORKLOAD_FROM_SOURCE}" = "true" ]; then
-              podman run --rm \
-                -v /mnt/vol:/data:rw \
-                ghcr.io/jqlang/jq:1.7.1 \
-                --rawfile wl /data/workload-cr.json \
+              jq --rawfile wl "${WORKLOAD_JSON}" \
                 '.metadata.annotations["openchoreo.dev/workload"] = ($wl | rtrimstr("\n")) | .metadata.annotations["openchoreo.dev/workload-from-source"] = "true"' \
-                /data/workflowrun-get.json \
+                /mnt/vol/workflowrun-get.json \
                 > /mnt/vol/workflowrun-updated.json
             else
-              podman run --rm \
-                -v /mnt/vol:/data:rw \
-                ghcr.io/jqlang/jq:1.7.1 \
-                --rawfile wl /data/workload-cr.json \
+              jq --rawfile wl "${WORKLOAD_JSON}" \
                 '.metadata.annotations["openchoreo.dev/workload"] = ($wl | rtrimstr("\n")) | .metadata.annotations["openchoreo.dev/workload-from-source"] = "false"' \
-                /data/workflowrun-get.json \
+                /mnt/vol/workflowrun-get.json \
                 > /mnt/vol/workflowrun-updated.json
             fi
 
@@ -277,5 +275,5 @@ spec:
         volumeMounts:
           - name: workspace
             mountPath: /mnt/vol
-        securityContext:
-          privileged: true
+          - name: tools
+            mountPath: /tools
