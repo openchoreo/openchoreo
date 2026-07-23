@@ -168,11 +168,44 @@ func (r *Reconciler) hasTransitioningResources(resources []openchoreov1alpha1.Re
 	return false
 }
 
+// hasResurrectableWorkload reports whether any managed Deployment or StatefulSet is scaled to
+// zero without being paused, so an autoscaler (HPA/KEDA scale-from-zero) could bring it back
+// up at any time. Replicas are read from the live object, not the rendered spec: the control
+// plane strips spec.replicas from autoscaled workloads, so only the live object reflects what
+// the autoscaler set. Live items carry no GVK, so workloads are matched by the desired GVK and
+// paired to the live object by resource ID.
+func hasResurrectableWorkload(desiredResources, liveResources []*unstructured.Unstructured) bool {
+	liveByID := make(map[string]*unstructured.Unstructured, len(liveResources))
+	for _, live := range liveResources {
+		if id := live.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]; id != "" {
+			liveByID[id] = live
+		}
+	}
+
+	for _, desired := range desiredResources {
+		gvk := desired.GroupVersionKind()
+		if gvk.Group != appsAPIGroup || (gvk.Kind != deploymentKind && gvk.Kind != statefulSetKind) {
+			continue
+		}
+		live, ok := liveByID[desired.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]]
+		if !ok {
+			continue
+		}
+		if paused, _, _ := unstructured.NestedBool(live.Object, "spec", "paused"); paused {
+			continue
+		}
+		if replicas, found, err := unstructured.NestedInt64(live.Object, "spec", "replicas"); err == nil && found && replicas == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unstructured) (openchoreov1alpha1.HealthStatus, error) {
 	switch {
-	case gvk.Group == "apps" && gvk.Kind == "Deployment":
+	case gvk.Group == appsAPIGroup && gvk.Kind == deploymentKind:
 		return getDeploymentHealth
-	case gvk.Group == "apps" && gvk.Kind == "StatefulSet":
+	case gvk.Group == appsAPIGroup && gvk.Kind == statefulSetKind:
 		return getStatefulSetHealth
 	case gvk.Group == "" && gvk.Kind == "Pod":
 		return getPodHealth
