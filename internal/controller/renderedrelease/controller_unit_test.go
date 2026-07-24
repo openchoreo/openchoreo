@@ -578,11 +578,83 @@ func TestGetDeploymentHealth(t *testing.T) {
 			want: openchoreov1alpha1.HealthStatusSuspended,
 		},
 		{
-			name: "zero replicas is Suspended",
+			name: "zero replicas with no running pods is Suspended",
 			deployment: appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{Generation: 1},
 				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(0)},
 				Status:     appsv1.DeploymentStatus{ObservedGeneration: 1},
+			},
+			want: openchoreov1alpha1.HealthStatusSuspended,
+		},
+		{
+			// When an autoscaler scales to zero, spec.replicas reads 0 before the pods
+			// are actually gone (scale-down in flight). Pods that still exist and are
+			// ready must not be reported as Suspended.
+			name: "zero desired replicas but pods running and ready is Healthy",
+			deployment: appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(0)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration:  1,
+					Replicas:            2,
+					UpdatedReplicas:     2,
+					ReadyReplicas:       2,
+					AvailableReplicas:   2,
+					UnavailableReplicas: 0,
+				},
+			},
+			want: openchoreov1alpha1.HealthStatusHealthy,
+		},
+		{
+			name: "zero desired replicas with pods partially ready is Progressing",
+			deployment: appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(0)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration:  1,
+					Replicas:            2,
+					UpdatedReplicas:     2,
+					ReadyReplicas:       1,
+					AvailableReplicas:   1,
+					UnavailableReplicas: 1,
+				},
+			},
+			want: openchoreov1alpha1.HealthStatusProgressing,
+		},
+		{
+			// The observed-count fallback must not hide a genuinely broken rollout:
+			// spec scaled to zero, pods present but none available and progressing
+			// stalled -> Degraded, not Healthy/Suspended.
+			name: "zero desired replicas with pods present but none available is Degraded",
+			deployment: appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(0)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Replicas:           2,
+					UpdatedReplicas:    2,
+					AvailableReplicas:  0,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionFalse},
+					},
+				},
+			},
+			want: openchoreov1alpha1.HealthStatusDegraded,
+		},
+		{
+			// Paused halts rollouts while pods keep serving; it is deliberately
+			// suspended regardless of running, ready pods.
+			name: "paused deployment with running pods is Suspended",
+			deployment: appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Paused: true, Replicas: int32Ptr(2)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Replicas:           2,
+					UpdatedReplicas:    2,
+					ReadyReplicas:      2,
+					AvailableReplicas:  2,
+				},
 			},
 			want: openchoreov1alpha1.HealthStatusSuspended,
 		},
