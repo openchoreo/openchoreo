@@ -104,6 +104,7 @@ func networkPolicyProviderFromDataPlane(dp *controller.DataPlaneResult) networkp
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=observabilityplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterobservabilityplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=renderedreleases,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=secretreferences,verbs=get;list;watch
@@ -1573,6 +1574,19 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&openchoreov1alpha1.ClusterDataPlane{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForClusterDataPlane),
 			builder.WithPredicates(dataPlaneRenderInputsChangedPredicate()),
+		).
+		// Observability plane availability determines whether the observability
+		// RenderedRelease is managed. Reconcile dependent bindings when a plane is
+		// created, deleted, or its spec changes instead of waiting for periodic resync.
+		Watches(
+			&openchoreov1alpha1.ObservabilityPlane{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForObservabilityPlane),
+			builder.WithPredicates(observabilityPlaneChangedPredicate()),
+		).
+		Watches(
+			&openchoreov1alpha1.ClusterObservabilityPlane{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForClusterObservabilityPlane),
+			builder.WithPredicates(observabilityPlaneChangedPredicate()),
 		).
 		Named("releasebinding").
 		Complete(r)
