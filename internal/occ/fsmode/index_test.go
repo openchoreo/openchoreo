@@ -100,8 +100,11 @@ func TestExtractOwnerRef(t *testing.T) {
 	}
 }
 
-func addClusterComponentTypeEntry(t *testing.T, idx *index.Index, name string) {
+// addClusterComponentTypeEntry adds a cluster-scoped ComponentType named "service". Cluster
+// resources resolve by bare name, so the name has no reason to vary across the callers.
+func addClusterComponentTypeEntry(t *testing.T, idx *index.Index) {
 	t.Helper()
+	const name = "service"
 	entry := &index.ResourceEntry{
 		Resource: &unstructured.Unstructured{
 			Object: map[string]any{
@@ -119,8 +122,11 @@ func addClusterComponentTypeEntry(t *testing.T, idx *index.Index, name string) {
 	require.NoError(t, idx.Add(entry))
 }
 
-func addClusterTraitEntry(t *testing.T, idx *index.Index, name string) {
+// addClusterTraitEntry adds a cluster-scoped Trait named "global-ingress". Cluster resources
+// resolve by bare name, so the name has no reason to vary across the callers.
+func addClusterTraitEntry(t *testing.T, idx *index.Index) {
 	t.Helper()
+	const name = "global-ingress"
 	entry := &index.ResourceEntry{
 		Resource: &unstructured.Unstructured{
 			Object: map[string]any{
@@ -137,7 +143,7 @@ func addClusterTraitEntry(t *testing.T, idx *index.Index, name string) {
 
 func TestGetClusterComponentType(t *testing.T) {
 	idx := index.New("/repo")
-	addClusterComponentTypeEntry(t, idx, "service")
+	addClusterComponentTypeEntry(t, idx)
 	ocIndex := WrapIndex(idx)
 
 	t.Run("found", func(t *testing.T) {
@@ -154,7 +160,7 @@ func TestGetClusterComponentType(t *testing.T) {
 
 func TestGetClusterTrait(t *testing.T) {
 	idx := index.New("/repo")
-	addClusterTraitEntry(t, idx, "global-ingress")
+	addClusterTraitEntry(t, idx)
 	ocIndex := WrapIndex(idx)
 
 	t.Run("found", func(t *testing.T) {
@@ -171,7 +177,7 @@ func TestGetClusterTrait(t *testing.T) {
 
 func TestGetTypedClusterComponentType(t *testing.T) {
 	idx := index.New("/repo")
-	addClusterComponentTypeEntry(t, idx, "service")
+	addClusterComponentTypeEntry(t, idx)
 	ocIndex := WrapIndex(idx)
 
 	t.Run("found", func(t *testing.T) {
@@ -190,7 +196,7 @@ func TestGetTypedClusterComponentType(t *testing.T) {
 
 func TestGetTypedClusterTrait(t *testing.T) {
 	idx := index.New("/repo")
-	addClusterTraitEntry(t, idx, "global-ingress")
+	addClusterTraitEntry(t, idx)
 	ocIndex := WrapIndex(idx)
 
 	t.Run("found", func(t *testing.T) {
@@ -303,8 +309,11 @@ func addWorkloadEntry(t *testing.T, idx *index.Index, namespace, name, projectNa
 	require.NoError(t, idx.Add(entry))
 }
 
-func addComponentReleaseEntry(t *testing.T, idx *index.Index, namespace, name, projectName, componentName string) {
+// addComponentReleaseEntry adds a ComponentRelease owned by component "web-app". Every caller
+// exercises the same owning component across projects/namespaces, so componentName is fixed here.
+func addComponentReleaseEntry(t *testing.T, idx *index.Index, namespace, name, projectName string) {
 	t.Helper()
+	const componentName = "web-app"
 	entry := &index.ResourceEntry{
 		Resource: &unstructured.Unstructured{
 			Object: map[string]any{
@@ -327,8 +336,11 @@ func addComponentReleaseEntry(t *testing.T, idx *index.Index, namespace, name, p
 	require.NoError(t, idx.Add(entry))
 }
 
-func addReleaseBindingEntry(t *testing.T, idx *index.Index, namespace, name, projectName, componentName, envName string) {
+// addReleaseBindingEntry adds a ReleaseBinding owned by component "web-app". Every caller
+// exercises the same owning component across projects/namespaces, so componentName is fixed here.
+func addReleaseBindingEntry(t *testing.T, idx *index.Index, namespace, name, projectName, envName string) {
 	t.Helper()
+	const componentName = "web-app"
 	entry := &index.ResourceEntry{
 		Resource: &unstructured.Unstructured{
 			Object: map[string]any{
@@ -414,19 +426,19 @@ func buildFullIndex(t *testing.T) *Index {
 	addTraitEntry(t, idx, "ns1", "autoscaler")
 
 	// ClusterComponentTypes & ClusterTraits (already have helpers)
-	addClusterComponentTypeEntry(t, idx, "service")
-	addClusterTraitEntry(t, idx, "global-ingress")
+	addClusterComponentTypeEntry(t, idx)
+	addClusterTraitEntry(t, idx)
 
 	// Workloads
 	addWorkloadEntry(t, idx, "ns1", "web-app-workload", "proj-a", "web-app")
 
 	// ComponentReleases
-	addComponentReleaseEntry(t, idx, "ns1", "web-app-20260401-v1", "proj-a", "web-app")
-	addComponentReleaseEntry(t, idx, "ns1", "web-app-20260401-v2", "proj-a", "web-app")
+	addComponentReleaseEntry(t, idx, "ns1", "web-app-20260401-v1", "proj-a")
+	addComponentReleaseEntry(t, idx, "ns1", "web-app-20260401-v2", "proj-a")
 
 	// ReleaseBindings
-	addReleaseBindingEntry(t, idx, "ns1", "web-app-dev-binding", "proj-a", "web-app", "dev")
-	addReleaseBindingEntry(t, idx, "ns1", "web-app-staging-binding", "proj-a", "web-app", "staging")
+	addReleaseBindingEntry(t, idx, "ns1", "web-app-dev-binding", "proj-a", "dev")
+	addReleaseBindingEntry(t, idx, "ns1", "web-app-staging-binding", "proj-a", "staging")
 
 	// Projects
 	addProjectEntry(t, idx, "ns1", "proj-a")
@@ -456,13 +468,13 @@ func TestGetComponentType(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("found", func(t *testing.T) {
-		entry, ok := ocIndex.GetComponentType("http-service")
+		entry, ok := ocIndex.GetComponentType("ns1", "http-service")
 		require.True(t, ok)
 		assert.Equal(t, "http-service", entry.Name())
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		_, ok := ocIndex.GetComponentType("nonexistent")
+		_, ok := ocIndex.GetComponentType("ns1", "nonexistent")
 		assert.False(t, ok)
 	})
 }
@@ -471,13 +483,13 @@ func TestGetTrait(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("found", func(t *testing.T) {
-		entry, ok := ocIndex.GetTrait("autoscaler")
+		entry, ok := ocIndex.GetTrait("ns1", "autoscaler")
 		require.True(t, ok)
 		assert.Equal(t, "autoscaler", entry.Name())
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		_, ok := ocIndex.GetTrait("nonexistent")
+		_, ok := ocIndex.GetTrait("ns1", "nonexistent")
 		assert.False(t, ok)
 	})
 }
@@ -486,13 +498,13 @@ func TestGetWorkloadForComponent(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("found", func(t *testing.T) {
-		entry, ok := ocIndex.GetWorkloadForComponent("proj-a", "web-app")
+		entry, ok := ocIndex.GetWorkloadForComponent("ns1", "proj-a", "web-app")
 		require.True(t, ok)
 		assert.Equal(t, "web-app-workload", entry.Name())
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		_, ok := ocIndex.GetWorkloadForComponent("proj-a", "nonexistent")
+		_, ok := ocIndex.GetWorkloadForComponent("ns1", "proj-a", "nonexistent")
 		assert.False(t, ok)
 	})
 }
@@ -501,13 +513,13 @@ func TestGetTypedWorkloadForComponent(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("found", func(t *testing.T) {
-		wl, err := ocIndex.GetTypedWorkloadForComponent("proj-a", "web-app")
+		wl, err := ocIndex.GetTypedWorkloadForComponent("ns1", "proj-a", "web-app")
 		require.NoError(t, err)
 		require.NotNil(t, wl)
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		_, err := ocIndex.GetTypedWorkloadForComponent("proj-a", "nonexistent")
+		_, err := ocIndex.GetTypedWorkloadForComponent("ns1", "proj-a", "nonexistent")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "nonexistent")
 	})
@@ -523,12 +535,12 @@ func TestListComponentsForProject(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("project with components", func(t *testing.T) {
-		components := ocIndex.ListComponentsForProject("proj-a")
+		components := ocIndex.ListComponentsForProject("ns1", "proj-a")
 		assert.Len(t, components, 2)
 	})
 
 	t.Run("project with no components", func(t *testing.T) {
-		components := ocIndex.ListComponentsForProject("nonexistent")
+		components := ocIndex.ListComponentsForProject("ns1", "nonexistent")
 		assert.Empty(t, components)
 	})
 }
@@ -543,12 +555,12 @@ func TestListReleasesForComponent(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("component with releases", func(t *testing.T) {
-		releases := ocIndex.ListReleasesForComponent("proj-a", "web-app")
+		releases := ocIndex.ListReleasesForComponent("ns1", "proj-a", "web-app")
 		assert.Len(t, releases, 2)
 	})
 
 	t.Run("component with no releases", func(t *testing.T) {
-		releases := ocIndex.ListReleasesForComponent("proj-b", "worker")
+		releases := ocIndex.ListReleasesForComponent("ns2", "proj-b", "worker")
 		assert.Empty(t, releases)
 	})
 }
@@ -573,13 +585,13 @@ func TestGetTypedComponentType(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("found", func(t *testing.T) {
-		ct, err := ocIndex.GetTypedComponentType("http-service")
+		ct, err := ocIndex.GetTypedComponentType("ns1", "http-service")
 		require.NoError(t, err)
 		assert.Equal(t, "deployment", ct.Spec.WorkloadType)
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		_, err := ocIndex.GetTypedComponentType("nonexistent")
+		_, err := ocIndex.GetTypedComponentType("ns1", "nonexistent")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "nonexistent")
 	})
@@ -589,13 +601,13 @@ func TestGetTypedTrait(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("found", func(t *testing.T) {
-		trait, err := ocIndex.GetTypedTrait("autoscaler")
+		trait, err := ocIndex.GetTypedTrait("ns1", "autoscaler")
 		require.NoError(t, err)
 		require.NotNil(t, trait)
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		_, err := ocIndex.GetTypedTrait("nonexistent")
+		_, err := ocIndex.GetTypedTrait("ns1", "nonexistent")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "nonexistent")
 	})
@@ -620,13 +632,13 @@ func TestGetDeploymentPipeline(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("found", func(t *testing.T) {
-		entry, ok := ocIndex.GetDeploymentPipeline("default-pipeline")
+		entry, ok := ocIndex.GetDeploymentPipeline("ns1", "default-pipeline")
 		require.True(t, ok)
 		assert.Equal(t, "default-pipeline", entry.Name())
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		_, ok := ocIndex.GetDeploymentPipeline("nonexistent")
+		_, ok := ocIndex.GetDeploymentPipeline("ns1", "nonexistent")
 		assert.False(t, ok)
 	})
 }
@@ -641,20 +653,193 @@ func TestGetReleaseBindingForEnv(t *testing.T) {
 	ocIndex := buildFullIndex(t)
 
 	t.Run("found", func(t *testing.T) {
-		entry, ok := ocIndex.GetReleaseBindingForEnv("proj-a", "web-app", "dev")
+		entry, ok := ocIndex.GetReleaseBindingForEnv("ns1", "proj-a", "web-app", "dev")
 		require.True(t, ok)
 		assert.Equal(t, "web-app-dev-binding", entry.Name())
 	})
 
 	t.Run("different environment", func(t *testing.T) {
-		entry, ok := ocIndex.GetReleaseBindingForEnv("proj-a", "web-app", "staging")
+		entry, ok := ocIndex.GetReleaseBindingForEnv("ns1", "proj-a", "web-app", "staging")
 		require.True(t, ok)
 		assert.Equal(t, "web-app-staging-binding", entry.Name())
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		_, ok := ocIndex.GetReleaseBindingForEnv("proj-a", "web-app", "prod")
+		_, ok := ocIndex.GetReleaseBindingForEnv("ns1", "proj-a", "web-app", "prod")
 		assert.False(t, ok)
+	})
+}
+
+// addComponentTypeEntryWithMarker adds a ComponentType whose spec carries a marker
+// value so tests can assert which namespace's resource was resolved.
+func addComponentTypeEntryWithMarker(t *testing.T, idx *index.Index, namespace, name, marker string) {
+	t.Helper()
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "ComponentType",
+				"metadata": map[string]any{
+					"name":      name,
+					"namespace": namespace,
+				},
+				"spec": map[string]any{
+					"workloadType": marker,
+					"resources":    []any{},
+				},
+			},
+		},
+		FilePath: "/repo/" + namespace + "/component-types/" + name + ".yaml",
+	}
+	require.NoError(t, idx.Add(entry))
+}
+
+func addTraitEntryWithMarker(t *testing.T, idx *index.Index, namespace, name, marker string) {
+	t.Helper()
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "Trait",
+				"metadata": map[string]any{
+					"name":      name,
+					"namespace": namespace,
+				},
+				"spec": map[string]any{
+					"marker": marker,
+				},
+			},
+		},
+		FilePath: "/repo/" + namespace + "/traits/" + name + ".yaml",
+	}
+	require.NoError(t, idx.Add(entry))
+}
+
+func addDeploymentPipelineEntryWithMarker(t *testing.T, idx *index.Index, namespace, name, marker string) {
+	t.Helper()
+	entry := &index.ResourceEntry{
+		Resource: &unstructured.Unstructured{
+			Object: map[string]any{
+				"apiVersion": "openchoreo.dev/v1alpha1",
+				"kind":       "DeploymentPipeline",
+				"metadata": map[string]any{
+					"name":      name,
+					"namespace": namespace,
+				},
+				"spec": map[string]any{
+					"marker": marker,
+				},
+			},
+		},
+		FilePath: "/repo/" + namespace + "/pipelines/" + name + ".yaml",
+	}
+	require.NoError(t, idx.Add(entry))
+}
+
+// TestNamespaceCollisionIsolation verifies that namespace-scoped specialized
+// lookups isolate resources that share a name across namespaces (issue #4148).
+func TestNamespaceCollisionIsolation(t *testing.T) {
+	idx := index.New("/repo")
+
+	// Same-named namespace-scoped resources with distinct specs in two namespaces.
+	addComponentTypeEntryWithMarker(t, idx, "team-a", "http-service", "deployment")
+	addComponentTypeEntryWithMarker(t, idx, "team-b", "http-service", "statefulset")
+	addTraitEntryWithMarker(t, idx, "team-a", "logging", "marker-a")
+	addTraitEntryWithMarker(t, idx, "team-b", "logging", "marker-b")
+	addDeploymentPipelineEntryWithMarker(t, idx, "team-a", "pipe", "pipe-a")
+	addDeploymentPipelineEntryWithMarker(t, idx, "team-b", "pipe", "pipe-b")
+
+	// Cluster-scoped resources resolve by bare name.
+	addClusterComponentTypeEntry(t, idx)
+	addClusterTraitEntry(t, idx)
+
+	// Same project/component owners across namespaces.
+	addWorkloadEntry(t, idx, "team-a", "web-app-wl", "proj", "web-app")
+	addWorkloadEntry(t, idx, "team-b", "web-app-wl", "proj", "web-app")
+	addComponentEntry(t, idx, "team-a", "web-app", "proj")
+	addComponentEntry(t, idx, "team-b", "web-app", "proj")
+	addComponentReleaseEntry(t, idx, "team-a", "web-app-20260401-1", "proj")
+	addComponentReleaseEntry(t, idx, "team-b", "web-app-20260401-9", "proj")
+	addReleaseBindingEntry(t, idx, "team-a", "web-app-dev-a", "proj", "dev")
+	addReleaseBindingEntry(t, idx, "team-b", "web-app-dev-b", "proj", "dev")
+
+	ocIndex := WrapIndex(idx)
+
+	t.Run("component type isolated by namespace", func(t *testing.T) {
+		ctA, err := ocIndex.GetTypedComponentType("team-a", "http-service")
+		require.NoError(t, err)
+		assert.Equal(t, "deployment", ctA.Spec.WorkloadType)
+
+		ctB, err := ocIndex.GetTypedComponentType("team-b", "http-service")
+		require.NoError(t, err)
+		assert.Equal(t, "statefulset", ctB.Spec.WorkloadType)
+	})
+
+	t.Run("trait isolated by namespace", func(t *testing.T) {
+		entryA, ok := ocIndex.GetTrait("team-a", "logging")
+		require.True(t, ok)
+		assert.Equal(t, "marker-a", entryA.GetNestedString("spec", "marker"))
+
+		entryB, ok := ocIndex.GetTrait("team-b", "logging")
+		require.True(t, ok)
+		assert.Equal(t, "marker-b", entryB.GetNestedString("spec", "marker"))
+	})
+
+	t.Run("deployment pipeline isolated by namespace", func(t *testing.T) {
+		entryA, ok := ocIndex.GetDeploymentPipeline("team-a", "pipe")
+		require.True(t, ok)
+		assert.Equal(t, "pipe-a", entryA.GetNestedString("spec", "marker"))
+
+		entryB, ok := ocIndex.GetDeploymentPipeline("team-b", "pipe")
+		require.True(t, ok)
+		assert.Equal(t, "pipe-b", entryB.GetNestedString("spec", "marker"))
+	})
+
+	t.Run("cluster-scoped still resolve by bare name", func(t *testing.T) {
+		_, ok := ocIndex.GetClusterComponentType("service")
+		assert.True(t, ok)
+		_, ok = ocIndex.GetClusterTrait("global-ingress")
+		assert.True(t, ok)
+	})
+
+	t.Run("owner-based workload isolated by namespace", func(t *testing.T) {
+		entryA, ok := ocIndex.GetWorkloadForComponent("team-a", "proj", "web-app")
+		require.True(t, ok)
+		assert.Equal(t, "team-a", entryA.Namespace())
+
+		entryB, ok := ocIndex.GetWorkloadForComponent("team-b", "proj", "web-app")
+		require.True(t, ok)
+		assert.Equal(t, "team-b", entryB.Namespace())
+	})
+
+	t.Run("owner-based releases isolated by namespace", func(t *testing.T) {
+		relA := ocIndex.ListReleasesForComponent("team-a", "proj", "web-app")
+		require.Len(t, relA, 1)
+		assert.Equal(t, "web-app-20260401-1", relA[0].Name())
+
+		relB := ocIndex.ListReleasesForComponent("team-b", "proj", "web-app")
+		require.Len(t, relB, 1)
+		assert.Equal(t, "web-app-20260401-9", relB[0].Name())
+	})
+
+	t.Run("owner-based bindings isolated by namespace", func(t *testing.T) {
+		bindA, ok := ocIndex.GetReleaseBindingForEnv("team-a", "proj", "web-app", "dev")
+		require.True(t, ok)
+		assert.Equal(t, "web-app-dev-a", bindA.Name())
+
+		bindB, ok := ocIndex.GetReleaseBindingForEnv("team-b", "proj", "web-app", "dev")
+		require.True(t, ok)
+		assert.Equal(t, "web-app-dev-b", bindB.Name())
+	})
+
+	t.Run("components listed per namespace", func(t *testing.T) {
+		compsA := ocIndex.ListComponentsForProject("team-a", "proj")
+		require.Len(t, compsA, 1)
+		assert.Equal(t, "team-a", compsA[0].Namespace())
+
+		compsB := ocIndex.ListComponentsForProject("team-b", "proj")
+		require.Len(t, compsB, 1)
+		assert.Equal(t, "team-b", compsB[0].Namespace())
 	})
 }
 
@@ -681,7 +866,7 @@ func TestAddToSpecializedIndexesUnsafe(t *testing.T) {
 		}
 		require.NoError(t, idx.Add(entry))
 		ocIndex.rebuildSpecializedIndexes()
-		comps := ocIndex.ListComponentsForProject("proj-x")
+		comps := ocIndex.ListComponentsForProject("ns1", "proj-x")
 		assert.Len(t, comps, 1)
 	})
 
@@ -699,7 +884,7 @@ func TestAddToSpecializedIndexesUnsafe(t *testing.T) {
 		}
 		require.NoError(t, idx.Add(entry))
 		ocIndex.rebuildSpecializedIndexes()
-		_, ok := ocIndex.GetDeploymentPipeline("my-pipeline")
+		_, ok := ocIndex.GetDeploymentPipeline("ns1", "my-pipeline")
 		assert.True(t, ok)
 	})
 }

@@ -73,6 +73,28 @@ func TestBuildBindingOutputDirResolver(t *testing.T) {
 
 		assert.Empty(t, resolver("nonexistent-proj", "nonexistent-comp"))
 	})
+
+	// Regression test for issue #4148: a duplicate owner (same project/component) exists in two
+	// namespaces with bindings in distinct directories. The resolver must return the ACTIVE
+	// namespace's binding directory. Both namespaces are populated so the namespace-filtered
+	// binding lookup cannot pass by Go map-iteration order.
+	t.Run("namespace isolation: resolves active namespace's bindings dir", func(t *testing.T) {
+		idx := index.New("/repo")
+
+		addComponent(t, idx, "team-a", "dup-comp", "dup-proj",
+			"/repo/team-a/projects/dup-proj/components/dup-comp/component.yaml")
+		addBinding(t, idx, "team-a", "dup-comp-dev", "dup-proj", "dup-comp", "dev",
+			"/repo/team-a/projects/dup-proj/components/dup-comp/release-bindings/dup-comp-dev.yaml")
+		addComponent(t, idx, "team-b", "dup-comp", "dup-proj",
+			"/repo/team-b/projects/dup-proj/components/dup-comp/component.yaml")
+		addBinding(t, idx, "team-b", "dup-comp-dev", "dup-proj", "dup-comp", "dev",
+			"/repo/team-b/projects/dup-proj/components/dup-comp/release-bindings/dup-comp-dev.yaml")
+
+		ocIndex := fsmode.WrapIndex(idx)
+		resolver := buildBindingOutputDirResolver(ocIndex, "team-a")
+
+		assert.Equal(t, "/repo/team-a/projects/dup-proj/components/dup-comp/release-bindings", resolver("dup-proj", "dup-comp"))
+	})
 }
 
 // addComponent adds a Component resource entry to the index.
