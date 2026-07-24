@@ -250,3 +250,24 @@ func TestReconcileObservabilityRelease_cleanupDeleteFailureRequeues(t *testing.T
 	require.Error(t, err, "a failed delete of a stale owned Release must requeue")
 	assert.ErrorIs(t, err, transientErr)
 }
+
+// If the owner's GVK cannot be resolved, cleanup surfaces the error rather than guessing ownership.
+func TestReconcileObservabilityRelease_cleanupOwnerCheckError(t *testing.T) {
+	scheme := obsSchemeForTest(t)
+	rb, cr, dp, _ := obsFixtures()
+	releaseName := makeObservabilityReleaseName(cr, rb)
+
+	existing := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: releaseName, Namespace: rb.Namespace},
+	}
+	require.NoError(t, controllerutil.SetControllerReference(rb, existing, scheme))
+
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
+	// A Scheme without ReleaseBinding registered makes HasOwnerReference fail to resolve the owner GVK.
+	r := &Reconciler{Client: c, Scheme: runtime.NewScheme()}
+	dpResult := &controller.DataPlaneResult{DataPlane: dp}
+
+	_, err := r.reconcileObservabilityRelease(context.Background(), rb, cr, dpResult, nil)
+	require.Error(t, err, "an unresolvable owner reference must surface as an error, not a silent skip")
+	assert.Contains(t, err.Error(), "failed to check owner reference")
+}
