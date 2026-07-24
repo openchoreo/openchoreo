@@ -983,12 +983,16 @@ func (r *Reconciler) reconcileObservabilityRelease(
 		// Only delete a Release this ReleaseBinding owns.
 		hasOwner, ownerErr := controllerutil.HasOwnerReference(existingObsRelease.GetOwnerReferences(), releaseBinding, r.Scheme)
 		if ownerErr != nil {
+			msg := fmt.Sprintf("Failed to check owner reference for observability Release %q: %v", releaseName, ownerErr)
+			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseUpdateFailed, msg)
 			return result, fmt.Errorf("failed to check owner reference for observability Release %q: %w", releaseName, ownerErr)
 		}
 		if hasOwner {
 			if deleteErr := r.Delete(ctx, existingObsRelease); deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
+				msg := fmt.Sprintf("Failed to delete stale observability Release %q: %v", releaseName, deleteErr)
+				controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, ReasonReleaseUpdateFailed, msg)
 				logger.Error(deleteErr, "Failed to delete stale observability Release", "release", releaseName)
-				return result, deleteErr
+				return result, fmt.Errorf("failed to delete stale observability Release %q: %w", releaseName, deleteErr)
 			}
 			logger.Info("Deleted stale observability Release", "release", releaseName, "reason", skipReason)
 		}

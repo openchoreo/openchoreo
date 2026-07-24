@@ -218,6 +218,22 @@ func TestReconcileObservabilityRelease_cleanupLeavesUnownedRelease(t *testing.T)
 		"a Release owned by another resource must be left in place")
 }
 
+func seedReleaseSyncedTrue(rb *openchoreov1alpha1.ReleaseBinding) {
+	apimeta.SetStatusCondition(&rb.Status.Conditions, metav1.Condition{
+		Type:    string(ConditionReleaseSynced),
+		Status:  metav1.ConditionTrue,
+		Reason:  "Seeded",
+		Message: "stale True from a prior successful reconcile",
+	})
+}
+
+func assertReleaseSyncedFalse(t *testing.T, rb *openchoreov1alpha1.ReleaseBinding) {
+	t.Helper()
+	cond := apimeta.FindStatusCondition(rb.Status.Conditions, string(ConditionReleaseSynced))
+	require.NotNil(t, cond, "ReleaseSynced condition must be set")
+	assert.Equal(t, metav1.ConditionFalse, cond.Status, "a cleanup error must clear a stale Ready-True")
+}
+
 // A transient failure deleting a stale owned Release must requeue, not silently succeed.
 func TestReconcileObservabilityRelease_cleanupDeleteFailureRequeues(t *testing.T) {
 	scheme := obsSchemeForTest(t)
@@ -246,9 +262,12 @@ func TestReconcileObservabilityRelease_cleanupDeleteFailureRequeues(t *testing.T
 	r := &Reconciler{Client: c, Scheme: scheme}
 	dpResult := &controller.DataPlaneResult{DataPlane: dp}
 
+	seedReleaseSyncedTrue(rb)
 	_, err := r.reconcileObservabilityRelease(context.Background(), rb, cr, dpResult, nil)
 	require.Error(t, err, "a failed delete of a stale owned Release must requeue")
 	assert.ErrorIs(t, err, transientErr)
+	assert.Contains(t, err.Error(), "failed to delete stale observability Release", "the delete error should carry context")
+	assertReleaseSyncedFalse(t, rb)
 }
 
 // If the owner's GVK cannot be resolved, cleanup surfaces the error rather than guessing ownership.
@@ -267,7 +286,9 @@ func TestReconcileObservabilityRelease_cleanupOwnerCheckError(t *testing.T) {
 	r := &Reconciler{Client: c, Scheme: runtime.NewScheme()}
 	dpResult := &controller.DataPlaneResult{DataPlane: dp}
 
+	seedReleaseSyncedTrue(rb)
 	_, err := r.reconcileObservabilityRelease(context.Background(), rb, cr, dpResult, nil)
 	require.Error(t, err, "an unresolvable owner reference must surface as an error, not a silent skip")
 	assert.Contains(t, err.Error(), "failed to check owner reference")
+	assertReleaseSyncedFalse(t, rb)
 }
