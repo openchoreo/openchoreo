@@ -1188,4 +1188,70 @@ var _ = Describe("ComponentRelease Webhook", func() {
 		})
 	})
 
+	Context("Post-Render Validation in Embedded Resources", func() {
+		It("should admit valid postRenderValidations in frozen ComponentType", func() {
+			obj = validComponentRelease()
+			obj.Spec.ComponentType.Spec.PostRenderValidations = []openchoreodevv1alpha1.PostRenderValidation{
+				{
+					Target: openchoreodevv1alpha1.PostRenderTarget{
+						PatchTarget: openchoreodevv1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"},
+					},
+					Rule:    "${resource.spec.replicas == 1}",
+					Message: "single replica",
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should reject malformed postRenderValidations rule in frozen ComponentType", func() {
+			obj = validComponentRelease()
+			obj.Spec.ComponentType.Spec.PostRenderValidations = []openchoreodevv1alpha1.PostRenderValidation{
+				{
+					Target: openchoreodevv1alpha1.PostRenderTarget{
+						PatchTarget: openchoreodevv1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"},
+					},
+					Rule:    "${resource.spec.replicas ==}",
+					Message: "single replica",
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			// Assert the componentType field path so the failure is attributable to the
+			// frozen ComponentType spec, not the trait path.
+			Expect(err.Error()).To(ContainSubstring("spec.componentType.spec.postRenderValidations"))
+			Expect(err.Error()).To(ContainSubstring("rule must return boolean"))
+		})
+
+		It("should reject malformed postRenderValidations rule in frozen Trait spec", func() {
+			obj = validComponentRelease()
+			obj.Spec.Traits = []openchoreodevv1alpha1.ComponentReleaseTrait{
+				{
+					Kind: openchoreodevv1alpha1.TraitRefKindTrait,
+					Name: "storage",
+					Spec: openchoreodevv1alpha1.TraitSpec{
+						PostRenderValidations: []openchoreodevv1alpha1.PostRenderValidation{
+							{
+								Target: openchoreodevv1alpha1.PostRenderTarget{
+									PatchTarget: openchoreodevv1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"},
+								},
+								Rule:    "${resource.spec.replicas ==}",
+								Message: "single replica",
+							},
+						},
+					},
+				},
+			}
+
+			_, err := validator.ValidateCreate(ctx, obj)
+			Expect(err).To(HaveOccurred())
+			// Assert the traits field path so the failure is attributable to the frozen
+			// trait spec (ValidateTraitSpec).
+			Expect(err.Error()).To(ContainSubstring("spec.traits[0].spec.postRenderValidations"))
+			Expect(err.Error()).To(ContainSubstring("rule must return boolean"))
+		})
+	})
+
 })
