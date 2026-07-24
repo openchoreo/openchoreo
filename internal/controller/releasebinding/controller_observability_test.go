@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -162,4 +163,90 @@ func TestReconcileObservabilityRelease_cleanupGetFailureRequeues(t *testing.T) {
 	require.NotNil(t, cond, "ReleaseSynced condition must be set on a cleanup lookup failure")
 	assert.Equal(t, metav1.ConditionFalse, cond.Status)
 	assert.Equal(t, string(ReasonReleaseUpdateFailed), cond.Reason)
+}
+
+// When observability is no longer needed, an existing Release this ReleaseBinding owns is deleted.
+func TestReconcileObservabilityRelease_cleanupDeletesOwnedStaleRelease(t *testing.T) {
+	scheme := obsSchemeForTest(t)
+	rb, cr, dp, _ := obsFixtures()
+	releaseName := makeObservabilityReleaseName(cr, rb)
+
+	existing := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: releaseName, Namespace: rb.Namespace},
+	}
+	require.NoError(t, controllerutil.SetControllerReference(rb, existing, scheme))
+
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
+	r := &Reconciler{Client: c, Scheme: scheme}
+	dpResult := &controller.DataPlaneResult{DataPlane: dp}
+
+	// No observability resources means the owned Release is now stale and must be removed.
+	res, err := r.reconcileObservabilityRelease(context.Background(), rb, cr, dpResult, nil)
+	require.NoError(t, err)
+	assert.False(t, res.managed)
+
+	got := &openchoreov1alpha1.RenderedRelease{}
+	err = c.Get(context.Background(), types.NamespacedName{Name: releaseName, Namespace: rb.Namespace}, got)
+	assert.True(t, apierrors.IsNotFound(err), "an owned stale observability Release must be deleted")
+}
+
+// A Release with the same name but owned by another resource must be left untouched.
+func TestReconcileObservabilityRelease_cleanupLeavesUnownedRelease(t *testing.T) {
+	scheme := obsSchemeForTest(t)
+	rb, cr, dp, _ := obsFixtures()
+	releaseName := makeObservabilityReleaseName(cr, rb)
+
+	existing := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: releaseName, Namespace: rb.Namespace},
+	}
+	otherOwner := &openchoreov1alpha1.ReleaseBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "other", Namespace: rb.Namespace, UID: "other-uid"},
+	}
+	require.NoError(t, controllerutil.SetControllerReference(otherOwner, existing, scheme))
+
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
+	r := &Reconciler{Client: c, Scheme: scheme}
+	dpResult := &controller.DataPlaneResult{DataPlane: dp}
+
+	res, err := r.reconcileObservabilityRelease(context.Background(), rb, cr, dpResult, nil)
+	require.NoError(t, err)
+	assert.False(t, res.managed)
+
+	got := &openchoreov1alpha1.RenderedRelease{}
+	require.NoError(t,
+		c.Get(context.Background(), types.NamespacedName{Name: releaseName, Namespace: rb.Namespace}, got),
+		"a Release owned by another resource must be left in place")
+}
+
+// A transient failure deleting a stale owned Release must requeue, not silently succeed.
+func TestReconcileObservabilityRelease_cleanupDeleteFailureRequeues(t *testing.T) {
+	scheme := obsSchemeForTest(t)
+	rb, cr, dp, _ := obsFixtures()
+	releaseName := makeObservabilityReleaseName(cr, rb)
+
+	existing := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: releaseName, Namespace: rb.Namespace},
+	}
+	require.NoError(t, controllerutil.SetControllerReference(rb, existing, scheme))
+
+	transientErr := errors.New("etcd unavailable")
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(existing).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Delete: func(ctx context.Context, cl client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+				if _, ok := obj.(*openchoreov1alpha1.RenderedRelease); ok {
+					return transientErr
+				}
+				return cl.Delete(ctx, obj, opts...)
+			},
+		}).
+		Build()
+
+	r := &Reconciler{Client: c, Scheme: scheme}
+	dpResult := &controller.DataPlaneResult{DataPlane: dp}
+
+	_, err := r.reconcileObservabilityRelease(context.Background(), rb, cr, dpResult, nil)
+	require.Error(t, err, "a failed delete of a stale owned Release must requeue")
+	assert.ErrorIs(t, err, transientErr)
 }
