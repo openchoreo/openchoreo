@@ -38,3 +38,6 @@ their training data, so by signing off you are certifying that you have the righ
 to submit the content under the project's license. If you're unsure where
 something came from, don't submit it. Refer to the Linux Foundation [Guidance
 Regarding Use of Generative AI Tools](https://www.linuxfoundation.org/legal/generative-ai) for additional details.
+
+Listing AI tooling as a co-author, co-signing commits using an AI tool, or using
+the assisted-by, co-developed or similar commit trailer is not allowed.
