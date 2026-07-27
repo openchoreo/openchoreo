@@ -89,7 +89,7 @@ func makeRole(namespace, roleName string) *rbacv1.Role {
 			{
 				APIGroups: []string{"argoproj.io"},
 				Resources: []string{"workflowtaskresults"},
-				Verbs:     []string{"create", "get", "list", "watch", "update", "patch"},
+				Verbs:     []string{"create", "patch"},
 			},
 		},
 	}

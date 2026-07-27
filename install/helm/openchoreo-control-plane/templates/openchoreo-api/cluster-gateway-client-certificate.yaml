@@ -1,0 +1,33 @@
+{{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+# Client certificate for openchoreo-api to authenticate to the cluster gateway
+# internal API (mTLS). Signed by the gateway internal CA.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-cluster-gateway-client
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: openchoreo-api
+spec:
+  secretName: {{ .Values.openchoreoApi.clusterGateway.tls.clientSecret }}
+  commonName: openchoreo-api
+  subject:
+    organizations:
+      - OpenChoreo
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    size: 2048
+  usages:
+    - client auth
+  issuerRef:
+    kind: Issuer
+    name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}-internal-ca-issuer
+  {{- with .Values.clusterGateway.internalMtls.clientCertDuration }}
+  duration: {{ . }}
+  {{- end }}
+  {{- with .Values.clusterGateway.internalMtls.clientCertRenewBefore }}
+  renewBefore: {{ . }}
+  {{- end }}
+{{- end }}

@@ -2,7 +2,7 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
-## v1.2.0-rc.1
+## v1.2.0
 
 Changes since [v1.1.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.0).
 
@@ -28,6 +28,11 @@ Changes since [v1.1.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.
 - **(Install)** Single-command k3d install script, with console login shown in the install summary. ([#4096](https://github.com/openchoreo/openchoreo/pull/4096), [#4183](https://github.com/openchoreo/openchoreo/pull/4183))
 - **(Helm)** Global image registry and pull secret overrides, in support of air-gapped installs. ([#4182](https://github.com/openchoreo/openchoreo/pull/4182))
 - **(CI)** GitHub Actions external CI integration. ([#3641](https://github.com/openchoreo/openchoreo/pull/3641))
+- **(Autoscaling)** Scaled-to-zero workloads polled more frequently to detect scale-up sooner. ([#4308](https://github.com/openchoreo/openchoreo/pull/4308))
+- **(Controller)** mTLS added to internal cluster gateway communication. ([#4256](https://github.com/openchoreo/openchoreo/pull/4256))
+- **(API)** Manual trigger support added for cronjob release bindings. ([#4254](https://github.com/openchoreo/openchoreo/pull/4254))
+- **(Helm)** Affinity and topology spread constraint support added. ([#4232](https://github.com/openchoreo/openchoreo/pull/4232))
+- **(Observability)** Span status message added to span API responses. ([#4233](https://github.com/openchoreo/openchoreo/pull/4233))
 
 ### Enhancements
 
@@ -48,6 +53,10 @@ Changes since [v1.1.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.
 - **(CRD)** `oneOf`/`anyOf`/`allOf` values now preserved in component and trait rendering. ([#3816](https://github.com/openchoreo/openchoreo/pull/3816))
 - **(API)** OAuth scopes now advertised in `WWW-Authenticate` and protected-resource metadata. ([#3223](https://github.com/openchoreo/openchoreo/pull/3223))
 - **(Portal Assistant)** Fixed to pick up the latest logs when identifying and verifying fixes. ([#4177](https://github.com/openchoreo/openchoreo/pull/4177), [#4190](https://github.com/openchoreo/openchoreo/pull/4190))
+- **(Security)** Workflow executor role scoped to least privilege. ([#4311](https://github.com/openchoreo/openchoreo/pull/4311))
+- **(Controller)** Missing default plane errors now reported as `IsNotFound`. ([#4196](https://github.com/openchoreo/openchoreo/pull/4196))
+- **(API)** Endpoint schema type now derived from protocol on workload create. ([#4266](https://github.com/openchoreo/openchoreo/pull/4266))
+- **(API)** Logs now returned from all containers of a multi-container pod. ([#4236](https://github.com/openchoreo/openchoreo/pull/4236))
 
 ## v1.1.0
 

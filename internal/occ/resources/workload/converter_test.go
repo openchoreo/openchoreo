@@ -773,7 +773,7 @@ info:
 			{
 				Name:       "api",
 				Port:       8080,
-				Type:       "REST",
+				Type:       "HTTP",
 				SchemaFile: "openapi.yaml",
 				Visibility: []string{"external"},
 			},
@@ -784,9 +784,55 @@ info:
 	require.Contains(t, w.Spec.Endpoints, "api")
 	ep := w.Spec.Endpoints["api"]
 	require.NotNil(t, ep.Schema)
-	assert.Equal(t, "REST", ep.Schema.Type)
+	// Schema type is derived from the endpoint protocol (HTTP -> openapi),
+	// not copied from the endpoint type verbatim.
+	assert.Equal(t, "openapi", ep.Schema.Type)
 	assert.Equal(t, schemaContent, ep.Schema.Content)
 }
+
+func TestAddEndpointsFromDescriptorSchemaTypeDerivation(t *testing.T) {
+	tests := []struct {
+		name         string
+		endpointType string
+		wantSchema   string // "" means no schema.Type set
+	}{
+		{name: "HTTP maps to openapi", endpointType: "HTTP", wantSchema: "openapi"},
+		{name: "gRPC maps to proto", endpointType: "gRPC", wantSchema: "proto"},
+		{name: "GraphQL maps to graphql", endpointType: "GraphQL", wantSchema: "graphql"},
+		{name: "TCP has no schema format", endpointType: "TCP", wantSchema: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			descriptorPath := filepath.Join(dir, "workload.yaml")
+			schemaContent := "schema-body"
+			testutil.WriteYAML(t, dir, "schema.txt", schemaContent)
+			w := &openchoreov1alpha1.Workload{
+				Spec: openchoreov1alpha1.WorkloadSpec{
+					WorkloadTemplateSpec: openchoreov1alpha1.WorkloadTemplateSpec{},
+				},
+			}
+			desc := &WorkloadDescriptor{
+				Endpoints: []WorkloadDescriptorEndpoint{
+					{
+						Name:       "api",
+						Port:       8080,
+						Type:       tt.endpointType,
+						SchemaFile: "schema.txt",
+						Visibility: []string{"external"},
+					},
+				},
+			}
+			err := addEndpointsFromDescriptor(w, desc, descriptorPath)
+			require.NoError(t, err)
+			ep := w.Spec.Endpoints["api"]
+			require.NotNil(t, ep.Schema)
+			assert.Equal(t, tt.wantSchema, ep.Schema.Type)
+			assert.Equal(t, schemaContent, ep.Schema.Content)
+		})
+	}
+}
+
 func TestAddEndpointsFromDescriptorSchemaFileMissing(t *testing.T) {
 	dir := t.TempDir()
 	descriptorPath := filepath.Join(dir, "workload.yaml")
@@ -1000,7 +1046,7 @@ metadata:
 endpoints:
   - name: http
     port: 8080
-    type: REST
+    type: HTTP
     basePath: /api
     visibility:
       - external
@@ -1055,10 +1101,10 @@ spec:
   endpoints:
     http:
       port: 8080
-      type: REST
+      type: HTTP
       basePath: /api
       schema:
-        type: REST
+        type: openapi
         content: 'openapi: "3.0.0"'
       visibility:
         - external

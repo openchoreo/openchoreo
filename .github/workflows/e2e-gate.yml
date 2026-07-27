@@ -137,8 +137,28 @@ env:
   YQ_SHA256: b96de04645707e14a12f52c37e6266832e03c29e95b9b139cddcae7314466e69
 
 jobs:
+  # Pins `inputs.ref` (which may be a branch or tag) to a single commit SHA up
+  # front, so every leg and the final status recording test/reference the
+  # exact same commit even if the ref moves later in the run.
+  resolve-ref:
+    name: Resolve tested commit
+    runs-on: ubuntu-24.04
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Resolve to a commit SHA
+        id: resolve
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   tier1:
     name: E2E (Tier 1)
+    needs: [resolve-ref]
     # On `schedule` inputs is empty (the nightly runs every leg); dispatch/call honor the toggle.
     if: ${{ github.event_name == 'schedule' || inputs.run_tier1 }}
     runs-on: ubuntu-24.04
@@ -147,7 +167,7 @@ jobs:
       - name: Clone the code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ needs.resolve-ref.outputs.sha }}
           persist-credentials: false
 
       - name: Clone workflow actions
@@ -203,6 +223,7 @@ jobs:
 
   tier2:
     name: E2E (Tier 2)
+    needs: [resolve-ref]
     if: ${{ github.event_name == 'schedule' || inputs.run_tier2 }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -210,7 +231,7 @@ jobs:
       - name: Clone the code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ needs.resolve-ref.outputs.sha }}
           persist-credentials: false
 
       - name: Clone workflow actions
@@ -266,6 +287,7 @@ jobs:
 
   tier3:
     name: E2E (Tier 3 — Multi-cluster)
+    needs: [resolve-ref]
     if: ${{ github.event_name == 'schedule' || inputs.run_tier3 }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -273,7 +295,7 @@ jobs:
       - name: Clone the code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ needs.resolve-ref.outputs.sha }}
           persist-credentials: false
 
       - name: Clone workflow actions
@@ -337,6 +359,7 @@ jobs:
 
   ui:
     name: E2E (UI / Playwright)
+    needs: [resolve-ref]
     if: ${{ github.event_name == 'schedule' || inputs.run_ui }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -359,7 +382,7 @@ jobs:
       - name: Clone the code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ needs.resolve-ref.outputs.sha }}
           persist-credentials: false
 
       - name: Check UI suite presence
@@ -503,6 +526,7 @@ jobs:
 
   ext-idp:
     name: E2E (External IdP / Dex)
+    needs: [resolve-ref]
     if: ${{ github.event_name == 'schedule' || inputs.run_ext_idp }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -516,7 +540,7 @@ jobs:
       - name: Clone the code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ needs.resolve-ref.outputs.sha }}
           persist-credentials: false
 
       - name: Check UI suite presence
@@ -654,3 +678,44 @@ jobs:
       # already default it), so the nested quick-start workflow always receives
       # a real chart version.
       helm_chart_version: ${{ inputs.helm_chart_version || '0.0.0-latest-dev' }}
+
+  record-status:
+    name: Record e2e gate status
+    # Stamps `e2e-gate` on the commit resolve-ref pinned (not a re-resolved
+    # ref), so a moving branch that advanced during the run can't get credit
+    # for a pass it never earned.
+    needs: [resolve-ref, tier1, tier2, tier3, ui, ext-idp, quick-start]
+    if: always()
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - name: Record gate status on the tested commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BACKSTAGE_IMAGE_TAG: ${{ inputs.backstage_image_tag }}
+          SHA: ${{ needs.resolve-ref.outputs.sha }}
+        run: |
+          if [[ "${{ needs.tier1.result }}" != "success" || "${{ needs.tier2.result }}" != "success" || \
+                "${{ needs.tier3.result }}" != "success" || "${{ needs.ui.result }}" != "success" || \
+                "${{ needs['ext-idp'].result }}" != "success" || "${{ needs['quick-start'].result }}" != "success" ]]; then
+            echo "Not every e2e gate leg succeeded; not recording gate status for ${SHA}."
+            exit 0
+          fi
+          # Encodes the tested artifact versions so reuse checks can match on them.
+          DESCRIPTION="e2e gate passed (helm=${HELM_CHART_VERSION}, backstage=${BACKSTAGE_IMAGE_TAG:-none})"
+          for attempt in 1 2 3; do
+            if gh api --method POST "repos/${{ github.repository }}/statuses/${SHA}" \
+              -f state=success \
+              -f context=e2e-gate \
+              -f description="${DESCRIPTION}" >/dev/null; then
+              echo "Recorded e2e-gate=success on ${SHA}: ${DESCRIPTION}"
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Attempt ${attempt}/3 to record the e2e gate status failed; retrying in $((attempt * 5))s..."
+              sleep $((attempt * 5))
+            fi
+          done
+          echo "::warning::Could not record e2e-gate status on ${SHA} after 3 attempts."

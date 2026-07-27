@@ -72,20 +72,37 @@ spec:
             EOF
 
             # Build --env and --build-arg flags as argv entries, not shell fragments.
+            # Base64 keeps embedded newlines within a single argv entry.
             set --
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-              while IFS= read -r kv; do
-                [ -n "$kv" ] && set -- "$@" --env "$kv"
+              encoded_env_entries=$(printf '%s' "$BUILD_ENV_JSON" |
+                jq -r '.[] | "\(.name)=\(.value)" | @base64')
+              while IFS= read -r encoded_kv; do
+                [ -n "$encoded_kv" ] || continue
+                kv_with_sentinel=$(
+                  printf '%s' "$encoded_kv" | base64 -d
+                  printf '.'
+                )
+                kv=${kv_with_sentinel%?}
+                set -- "$@" --env "$kv"
               done <<EOF
-            $(printf '%s' "$BUILD_ENV_JSON" | jq -r '.[] | "\(.name)=\(.value)"')
+            $encoded_env_entries
             EOF
             fi
 
             if [ -n "$BUILD_ARGS_JSON" ] && [ "$BUILD_ARGS_JSON" != "[]" ]; then
-              while IFS= read -r kv; do
-                [ -n "$kv" ] && set -- "$@" --build-arg "$kv"
+              encoded_build_arg_entries=$(printf '%s' "$BUILD_ARGS_JSON" |
+                jq -r '.[] | "\(.name)=\(.value)" | @base64')
+              while IFS= read -r encoded_kv; do
+                [ -n "$encoded_kv" ] || continue
+                kv_with_sentinel=$(
+                  printf '%s' "$encoded_kv" | base64 -d
+                  printf '.'
+                )
+                kv=${kv_with_sentinel%?}
+                set -- "$@" --build-arg "$kv"
               done <<EOF
-            $(printf '%s' "$BUILD_ARGS_JSON" | jq -r '.[] | "\(.name)=\(.value)"')
+            $encoded_build_arg_entries
             EOF
             fi
 

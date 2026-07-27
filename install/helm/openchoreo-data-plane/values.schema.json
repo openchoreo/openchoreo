@@ -7,7 +7,7 @@
       "description": "Cluster Agent configuration for WebSocket connection to control plane cluster gateway",
       "properties": {
         "affinity": {
-          "additionalProperties": false,
+          "additionalProperties": true,
           "default": {},
           "description": "Affinity rules for pod scheduling",
           "required": [],
@@ -506,6 +506,16 @@
             "type": "object"
           },
           "title": "tolerations",
+          "type": "array"
+        },
+        "topologySpreadConstraints": {
+          "default": [],
+          "description": "Topology spread constraints for pod distribution across failure domains",
+          "items": {
+            "required": [],
+            "type": "object"
+          },
+          "title": "topologySpreadConstraints",
           "type": "array"
         }
       },

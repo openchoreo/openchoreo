@@ -116,6 +116,21 @@ func (s *Server) Start() error {
 		"note", "Client certificate verification performed at application level per DataPlane/WorkflowPlane CR",
 	)
 
+	internalTLSConfig, err := buildInternalTLSConfig(tlsConfig, s.config)
+	if err != nil {
+		return fmt.Errorf("failed to configure internal listener TLS: %w", err)
+	}
+	if s.config.InternalMTLSEnabled {
+		s.logger.Info("internal API mTLS enabled",
+			"clientAuth", "RequireAndVerifyClientCert",
+			"clientCA", s.config.InternalClientCAPath,
+		)
+	} else {
+		s.logger.Warn("internal API mTLS disabled",
+			"note", "internal /api/* endpoints accept unauthenticated callers; enable with --internal-mtls",
+		)
+	}
+
 	// Public listener: agent WebSocket only (reached by remote data planes).
 	publicMux := http.NewServeMux()
 	publicMux.HandleFunc("/ws", s.handleWebSocket)
@@ -150,7 +165,7 @@ func (s *Server) Start() error {
 	s.internalServer = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.config.InternalPort),
 		Handler:      internalMux,
-		TLSConfig:    tlsConfig.Clone(),
+		TLSConfig:    internalTLSConfig,
 		ReadTimeout:  s.config.ReadTimeout,
 		WriteTimeout: s.config.WriteTimeout,
 		IdleTimeout:  s.config.IdleTimeout,
@@ -241,6 +256,38 @@ func (s *Server) Start() error {
 		s.logger.Info("server shutdown completed")
 		return nil
 	}
+}
+
+// buildInternalTLSConfig derives the TLS configuration for the internal API
+// listener from the shared base config. When internal mTLS is enabled, callers
+// must present a certificate signed by the internal client CA
+// (RequireAndVerifyClientCert); the internal CA is distinct from the per-plane
+// agent CAs verified on the public listener, so agent certificates cannot
+// authenticate to the internal API.
+func buildInternalTLSConfig(base *tls.Config, cfg *Config) (*tls.Config, error) {
+	tlsConfig := base.Clone()
+	if !cfg.InternalMTLSEnabled {
+		return tlsConfig, nil
+	}
+
+	if cfg.InternalClientCAPath == "" {
+		return nil, fmt.Errorf("internal mTLS is enabled but no client CA is configured: " +
+			"set --internal-client-ca-cert (helm: clusterGateway.internalMtls) or disable with --internal-mtls=false")
+	}
+
+	caData, err := os.ReadFile(cfg.InternalClientCAPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read internal client CA %s: %w", cfg.InternalClientCAPath, err)
+	}
+
+	caPool := x509.NewCertPool()
+	if !caPool.AppendCertsFromPEM(caData) {
+		return nil, fmt.Errorf("failed to parse internal client CA %s: no valid certificates found", cfg.InternalClientCAPath)
+	}
+
+	tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+	tlsConfig.ClientCAs = caPool
+	return tlsConfig, nil
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

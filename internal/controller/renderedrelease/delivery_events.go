@@ -43,9 +43,7 @@ const (
 	// more specific reason.
 	failureReasonDegraded = "Degraded"
 
-	kindDeployment  = "Deployment"
-	kindStatefulSet = "StatefulSet"
-	kindCronJob     = "CronJob"
+	cronJobKind = "CronJob"
 
 	// reasonProgressDeadlineExceeded is the Deployment Progressing condition
 	// reason for a rollout that never became available.
@@ -86,9 +84,9 @@ type deliveryContext struct {
 // primaryWorkloadGVKs are the resource kinds whose health defines rollout
 // outcome and which delivery events anchor to, mirroring GetHealthCheckFunc.
 var primaryWorkloadGVKs = map[schema.GroupVersionKind]bool{
-	{Group: "apps", Version: "v1", Kind: kindDeployment}:  true,
-	{Group: "apps", Version: "v1", Kind: kindStatefulSet}: true,
-	{Group: "batch", Version: "v1", Kind: kindCronJob}:    true,
+	{Group: appsAPIGroup, Version: "v1", Kind: deploymentKind}:  true,
+	{Group: appsAPIGroup, Version: "v1", Kind: statefulSetKind}: true,
+	{Group: "batch", Version: "v1", Kind: cronJobKind}:          true,
 }
 
 // deliveryContextFor resolves the delivery context, or nil when this release
@@ -253,7 +251,7 @@ func degradedFailureReason(resourceID string, liveResources []*unstructured.Unst
 
 	gvk := live.GroupVersionKind()
 	switch {
-	case gvk.Group == appsAPIGroup && gvk.Kind == kindDeployment:
+	case gvk.Group == appsAPIGroup && gvk.Kind == deploymentKind:
 		var deployment appsv1.Deployment
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(live.Object, &deployment); err != nil {
 			return failureReasonDegraded

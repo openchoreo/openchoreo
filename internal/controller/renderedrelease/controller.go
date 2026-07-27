@@ -33,7 +33,9 @@ const (
 	targetPlaneDataPlane          = "dataplane"
 	targetPlaneObservabilityPlane = "observabilityplane"
 
-	appsAPIGroup = "apps"
+	appsAPIGroup    = "apps"
+	deploymentKind  = "Deployment"
+	statefulSetKind = "StatefulSet"
 
 	// ConditionResourcesApplied indicates whether resources were successfully applied to the target plane.
 	// When False, it contains the error message from the failed apply operation.
@@ -218,6 +220,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{RequeueAfter: requeueAfter}, nil
 	}
 
+	// Poll workloads scaled to zero faster so an autoscaler-driven scale-up is noticed promptly.
+	if hasResurrectableWorkload(desiredResources, liveResources) {
+		requeueAfter := getResurrectableRequeueInterval()
+		logger.Info("Workload is scaled to zero, requeuing to detect autoscaler-driven scale-up",
+			"requeueAfter", requeueAfter)
+		return ctrl.Result{RequeueAfter: requeueAfter}, nil
+	}
+
 	requeueAfter := getStableRequeueInterval(release)
 	logger.Info("Successfully applied the Release resources to the target plane",
 		"targetPlane", targetPlane, "requeueAfter", requeueAfter)
@@ -329,7 +339,7 @@ func (r *Reconciler) makeDesiredResources(release *openchoreov1alpha1.RenderedRe
 // can surface it instead of silently dropping the restart trigger.
 func injectRestartedAt(obj *unstructured.Unstructured, value string) error {
 	gvk := obj.GroupVersionKind()
-	if gvk.Group != appsAPIGroup || gvk.Kind != kindDeployment {
+	if gvk.Group != appsAPIGroup || gvk.Kind != deploymentKind {
 		return nil
 	}
 	annotations, _, err := unstructured.NestedStringMap(obj.Object, "spec", "template", "metadata", "annotations")
@@ -466,8 +476,8 @@ var wellKnownDataPlaneGVKs = []schema.GroupVersionKind{
 	{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
 
 	// Apps
-	{Group: "apps", Version: "v1", Kind: "Deployment"},
-	{Group: "apps", Version: "v1", Kind: "StatefulSet"},
+	{Group: appsAPIGroup, Version: "v1", Kind: deploymentKind},
+	{Group: appsAPIGroup, Version: "v1", Kind: statefulSetKind},
 
 	// Batch
 	{Group: "batch", Version: "v1", Kind: "Job"},
@@ -625,6 +635,15 @@ func getStableRequeueInterval(release *openchoreov1alpha1.RenderedRelease) time.
 	}
 
 	// Add 20% jitter
+	jitterMax := time.Duration(float64(baseInterval) * 0.2)
+	return addJitter(baseInterval, jitterMax)
+}
+
+// getResurrectableRequeueInterval returns the requeue interval for workloads scaled to zero
+// that an autoscaler may resurrect: faster than the stable cadence so a scale-up is noticed
+// promptly, but slow enough not to hammer the plane agent when many workloads sit idle.
+func getResurrectableRequeueInterval() time.Duration {
+	baseInterval := 1 * time.Minute
 	jitterMax := time.Duration(float64(baseInterval) * 0.2)
 	return addJitter(baseInterval, jitterMax)
 }

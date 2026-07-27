@@ -1395,5 +1395,50 @@ var _ = Describe("ComponentType Webhook", func() {
 			Expect(created.Spec.PostRenderValidations[0].Target.MustMatch).ToNot(BeNil())
 			Expect(*created.Spec.PostRenderValidations[0].Target.MustMatch).To(BeTrue())
 		})
+
+		It("rejects a ComponentType with a malformed post-render CEL rule (webhook CEL compile check)", func() {
+			if k8sClient == nil {
+				Skip("envtest apiserver not available")
+			}
+			spec := validSpec()
+			spec.PostRenderValidations = []openchoreodevv1alpha1.PostRenderValidation{{
+				Target: openchoreodevv1alpha1.PostRenderTarget{
+					PatchTarget: openchoreodevv1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"},
+				},
+				Rule:    "${resource.spec.replicas +}",
+				Message: "malformed rule",
+			}}
+			ct := &openchoreodevv1alpha1.ComponentType{
+				ObjectMeta: metav1.ObjectMeta{GenerateName: "postr-bad-", Namespace: "default"},
+				Spec:       spec,
+			}
+			err := k8sClient.Create(ctx, ct)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("postRenderValidations"))
+			Expect(err.Error()).To(ContainSubstring("rule must return boolean"))
+		})
+
+		It("rejects a ComponentType postRenderValidation that sets forEach without var", func() {
+			if k8sClient == nil {
+				Skip("envtest apiserver not available")
+			}
+			spec := validSpec()
+			spec.PostRenderValidations = []openchoreodevv1alpha1.PostRenderValidation{{
+				ForEach: "${parameters.routes}",
+				Target: openchoreodevv1alpha1.PostRenderTarget{
+					PatchTarget: openchoreodevv1alpha1.PatchTarget{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute"},
+				},
+				Rule:    "${resource.spec.rules.size() > 0}",
+				Message: "route lost its rules",
+			}}
+			ct := &openchoreodevv1alpha1.ComponentType{
+				ObjectMeta: metav1.ObjectMeta{GenerateName: "postr-foreach-", Namespace: "default"},
+				Spec:       spec,
+			}
+			err := k8sClient.Create(ctx, ct)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("postRenderValidations"))
+			Expect(err.Error()).To(ContainSubstring("var is required when forEach is specified"))
+		})
 	})
 })

@@ -450,6 +450,30 @@ func (c *Client) ProxyK8sRequest(ctx context.Context, planeType, planeID, crName
 	return resp, nil
 }
 
+// PostK8sRequest proxies a mutating (POST) K8s API request through the gateway.
+// Returns the raw HTTP response for the caller to inspect.
+// For cluster-scoped CRs, pass crNamespace as "_cluster".
+func (c *Client) PostK8sRequest(ctx context.Context, planeType, planeID, crNamespace, crName, k8sPath string, body []byte) (*http.Response, error) {
+	proxyURL := fmt.Sprintf("%s/api/proxy/%s/%s/%s/%s/k8s/%s", c.baseURL, planeType, planeID, crNamespace, crName, k8sPath)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", proxyURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, &TransientError{
+			Message: "failed to proxy K8s request",
+			Err:     err,
+		}
+	}
+
+	return resp, nil
+}
+
 // GetPodEventsFromPlane retrieves pod events through the gateway proxy
 // This method makes direct Kubernetes API calls through the gateway proxy to fetch events
 // for a specific pod using field selectors

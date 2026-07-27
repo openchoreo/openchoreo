@@ -108,12 +108,21 @@ spec:
             RUN_IMAGE="ghcr.io/openchoreo/buildpack/ballerina@sha256:121499416443e19dcb43a22e7acfa246d29427a978a43b29b5b4e7a8385b222c"
 
             # Build --env flags as argv entries, not shell fragments.
+            # Base64 keeps embedded newlines within a single argv entry.
             set --
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
-              while IFS= read -r kv; do
-                [ -n "$kv" ] && set -- "$@" --env "$kv"
+              encoded_env_entries=$(printf '%s' "$BUILD_ENV_JSON" |
+                jq -r '.[] | "\(.name)=\(.value)" | @base64')
+              while IFS= read -r encoded_kv; do
+                [ -n "$encoded_kv" ] || continue
+                kv_with_sentinel=$(
+                  printf '%s' "$encoded_kv" | base64 -d
+                  printf '.'
+                )
+                kv=${kv_with_sentinel%?}
+                set -- "$@" --env "$kv"
               done <<EOF
-            $(printf '%s' "$BUILD_ENV_JSON" | jq -r '.[] | "\(.name)=\(.value)"')
+            $encoded_env_entries
             EOF
             fi
 

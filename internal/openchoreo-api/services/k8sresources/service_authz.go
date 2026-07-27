@@ -60,8 +60,21 @@ func (s *k8sResourcesServiceWithAuthz) GetResourceLogs(ctx context.Context, name
 	return s.internal.GetResourceLogs(ctx, namespaceName, releaseBindingName, podName, container, sinceSeconds)
 }
 
-// checkReleaseBindingAuthz fetches the release binding and checks authorization.
+func (s *k8sResourcesServiceWithAuthz) TriggerCronJob(ctx context.Context, namespaceName, releaseBindingName string) (*models.CronJobTriggerResponse, error) {
+	// Triggering mutates the data plane, so it requires the update action rather than view.
+	if err := s.checkReleaseBindingAuthzWithAction(ctx, namespaceName, releaseBindingName, authz.ActionUpdateReleaseBinding); err != nil {
+		return nil, err
+	}
+	return s.internal.TriggerCronJob(ctx, namespaceName, releaseBindingName)
+}
+
+// checkReleaseBindingAuthz fetches the release binding and checks view authorization.
 func (s *k8sResourcesServiceWithAuthz) checkReleaseBindingAuthz(ctx context.Context, namespaceName, releaseBindingName string) error {
+	return s.checkReleaseBindingAuthzWithAction(ctx, namespaceName, releaseBindingName, authz.ActionViewReleaseBinding)
+}
+
+// checkReleaseBindingAuthzWithAction fetches the release binding and checks the given action.
+func (s *k8sResourcesServiceWithAuthz) checkReleaseBindingAuthzWithAction(ctx context.Context, namespaceName, releaseBindingName, action string) error {
 	var rb openchoreov1alpha1.ReleaseBinding
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespaceName, Name: releaseBindingName}, &rb); err != nil {
 		if client.IgnoreNotFound(err) == nil {
@@ -71,7 +84,7 @@ func (s *k8sResourcesServiceWithAuthz) checkReleaseBindingAuthz(ctx context.Cont
 	}
 
 	return s.authz.Check(ctx, services.CheckRequest{
-		Action:       authz.ActionViewReleaseBinding,
+		Action:       action,
 		ResourceType: resourceTypeReleaseBinding,
 		ResourceID:   releaseBindingName,
 		Hierarchy: authz.ResourceHierarchy{
