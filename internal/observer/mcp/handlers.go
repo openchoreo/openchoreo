@@ -20,6 +20,7 @@ type MCPHandler struct {
 	metricsService       service.MetricsQuerier
 	alertIncidentService service.AlertIncidentService
 	tracesService        service.TracesQuerier
+	insightsService      service.InsightsService
 	logger               *slog.Logger
 }
 
@@ -30,6 +31,7 @@ func NewMCPHandler(
 	metricsService service.MetricsQuerier,
 	alertIncidentService service.AlertIncidentService,
 	tracesService service.TracesQuerier,
+	insightsService service.InsightsService,
 	logger *slog.Logger,
 ) (*MCPHandler, error) {
 	if healthService == nil {
@@ -50,6 +52,9 @@ func NewMCPHandler(
 	if tracesService == nil {
 		return nil, fmt.Errorf("missing tracesService")
 	}
+	if insightsService == nil {
+		return nil, fmt.Errorf("missing insightsService")
+	}
 	if logger == nil {
 		return nil, fmt.Errorf("missing logger")
 	}
@@ -60,6 +65,7 @@ func NewMCPHandler(
 		metricsService:       metricsService,
 		alertIncidentService: alertIncidentService,
 		tracesService:        tracesService,
+		insightsService:      insightsService,
 		logger:               logger,
 	}, nil
 }
@@ -287,4 +293,40 @@ func (h *MCPHandler) QueryIncidents(ctx context.Context, namespace, project, com
 		},
 	}
 	return h.alertIncidentService.QueryIncidents(ctx, req)
+}
+
+func (h *MCPHandler) QueryDoraMetrics(ctx context.Context, namespace, project, component, environment,
+	granularity, startTime, endTime string, metrics []string) (any, error) {
+	start, err := parseRFC3339Time(startTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid start_time: %w", err)
+	}
+	end, err := parseRFC3339Time(endTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid end_time: %w", err)
+	}
+
+	req := gen.DoraMetricsQueryRequest{
+		StartTime: start,
+		EndTime:   end,
+		SearchScope: gen.ComponentSearchScope{
+			Namespace:   namespace,
+			Project:     strPtr(project),
+			Component:   strPtr(component),
+			Environment: strPtr(environment),
+		},
+	}
+	if granularity != "" {
+		g := gen.DoraMetricsQueryRequestGranularity(granularity)
+		req.Granularity = &g
+	}
+	if len(metrics) > 0 {
+		typed := make([]gen.DoraMetricsQueryRequestMetrics, len(metrics))
+		for i, m := range metrics {
+			typed[i] = gen.DoraMetricsQueryRequestMetrics(m)
+		}
+		req.Metrics = &typed
+	}
+
+	return h.insightsService.QueryDoraMetrics(ctx, req)
 }
