@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -124,7 +125,8 @@ func TestCreateBaseWorkload(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			w := createBaseWorkload(tt.workloadName, tt.params)
+			w, err := createBaseWorkload(tt.workloadName, tt.params)
+			require.NoError(t, err)
 			require.NotNil(t, w)
 			assert.Equal(t, "openchoreo.dev/v1alpha1", w.APIVersion)
 			assert.Equal(t, "Workload", w.Kind)
@@ -138,6 +140,56 @@ func TestCreateBaseWorkload(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateBaseWorkload_WithSource(t *testing.T) {
+	params := CreateWorkloadParams{
+		NamespaceName:    "test-ns",
+		ProjectName:      "test-project",
+		ComponentName:    "test-component",
+		ImageURL:         "gcr.io/test/image:v1",
+		SourceCommit:     "7f01217e694993f0e12cbc74f104ba1a97e6048b",
+		SourceBranch:     "main",
+		SourceRepository: "https://github.com/my-org/my-repo",
+		SourceAuthoredAt: "2026-07-20T06:12:14Z",
+	}
+
+	w, err := createBaseWorkload("my-workload", params)
+	require.NoError(t, err)
+	require.NotNil(t, w.Spec.Source)
+	assert.Equal(t, "7f01217e694993f0e12cbc74f104ba1a97e6048b", w.Spec.Source.Commit)
+	assert.Equal(t, "main", w.Spec.Source.Branch)
+	assert.Equal(t, "https://github.com/my-org/my-repo", w.Spec.Source.Repository)
+	require.NotNil(t, w.Spec.Source.AuthoredAt)
+	assert.True(t, w.Spec.Source.AuthoredAt.Time.Equal(time.Date(2026, 7, 20, 6, 12, 14, 0, time.UTC)))
+}
+
+func TestCreateBaseWorkload_NoSourceFields(t *testing.T) {
+	params := CreateWorkloadParams{
+		NamespaceName: "test-ns",
+		ProjectName:   "test-project",
+		ComponentName: "test-component",
+		ImageURL:      "gcr.io/test/image:v1",
+	}
+
+	w, err := createBaseWorkload("my-workload", params)
+	require.NoError(t, err)
+	assert.Nil(t, w.Spec.Source)
+}
+
+func TestCreateBaseWorkload_InvalidSourceAuthoredAt(t *testing.T) {
+	params := CreateWorkloadParams{
+		NamespaceName:    "test-ns",
+		ProjectName:      "test-project",
+		ComponentName:    "test-component",
+		ImageURL:         "gcr.io/test/image:v1",
+		SourceAuthoredAt: "not-a-timestamp",
+	}
+
+	_, err := createBaseWorkload("my-workload", params)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "source-authored-at")
+}
+
 func TestAddDependenciesFromDescriptor(t *testing.T) {
 	baseWorkload := func() *openchoreov1alpha1.Workload {
 		return &openchoreov1alpha1.Workload{

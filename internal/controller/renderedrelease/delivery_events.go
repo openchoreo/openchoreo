@@ -300,6 +300,8 @@ func (r *Reconciler) emitDeliveryEvent(
 		ProjectUID:           dc.primary.GetLabels()[labels.LabelKeyProjectUID],
 		ComponentUID:         dc.primary.GetLabels()[labels.LabelKeyComponentUID],
 		EnvironmentUID:       dc.primary.GetLabels()[labels.LabelKeyEnvironmentUID],
+		Commit:               dc.primary.GetAnnotations()[labels.AnnotationKeyCommit],
+		CommitAuthoredAt:     dc.primary.GetAnnotations()[labels.AnnotationKeyCommitAuthoredAt],
 		Phase:                strings.TrimPrefix(reason, "Deployment"),
 		FailureReason:        failureReason,
 	}
