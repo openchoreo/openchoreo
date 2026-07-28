@@ -35,6 +35,8 @@ from typing import Any
 USER_AGENT = "openchoreo-external-compatibility-scan/1.0 (+https://github.com/openchoreo/openchoreo)"
 MAX_FINDINGS_PER_SLACK_MESSAGE = 10
 MAX_SEEN_ITEMS = 2000
+MAX_NOTIFIED_ITEMS = 2000
+PENDING_HIGH_WATER_MARK = 200
 # Cap response buffering so a huge or endless body from an external source
 # cannot exhaust the runner's memory. Feeds/pages/JSON here are well under this.
 MAX_RESPONSE_BYTES = 10 * 1024 * 1024
@@ -749,7 +751,7 @@ def scan_feed(config: dict[str, Any], source: dict[str, Any], timeout: float) ->
     items = parse_feed_items(result.body)
     if not items:
         raise ValueError(f"{source['url']} contained no RSS/Atom items")
-    for item in items[:50]:
+    for item in items:
         haystack = " ".join([item.get("title", ""), item.get("summary", "")])
         if required_terms:
             if not matches_keywords_near_required_terms(
@@ -881,13 +883,33 @@ def scan_kubernetes_api_versions(scan: dict[str, Any], root: Path | None = None)
     }
 
 
+def clear_pending_source_health_findings(state: dict[str, Any], source_id: str) -> int:
+    """Drop undelivered failure alerts once their source has recovered."""
+    pending = state.get("pending", {})
+    if not isinstance(pending, dict):
+        return 0
+
+    health_source_id = f"{source_id}-source-health"
+    cleared = 0
+    for finding_id_value, finding in list(pending.items()):
+        if (
+            isinstance(finding, dict)
+            and finding.get("kind") == "source_error"
+            and finding.get("source_id") == health_source_id
+        ):
+            del pending[finding_id_value]
+            cleared += 1
+    return cleared
+
+
 def source_health_findings(state: dict[str, Any], errors: list[dict[str, str]], checked_ids: set[str]) -> list[dict[str, Any]]:
     """Track per-source failures and alert once they persist.
 
     A source that succeeds has its failure counter reset. A failing source only
     raises a finding at escalating thresholds (2, 3, 7, 14, 30 consecutive
     failures, then every 30) so a single transient outage stays quiet while a
-    genuinely dark source is surfaced.
+    genuinely dark source is surfaced. Each failure incident after a recovery
+    gets a new generation so it is not deduped against an older incident.
     """
     health = state.setdefault("source_health", {})
     by_id = {str(error.get("id") or "unknown-source"): error for error in errors}
@@ -897,16 +919,25 @@ def source_health_findings(state: dict[str, Any], errors: list[dict[str, str]], 
             if source_id in health:
                 health[source_id]["consecutive_failures"] = 0
                 health[source_id]["last_success_at"] = now_iso()
+                clear_pending_source_health_findings(state, source_id)
             continue
 
         error = by_id[source_id]
         url = str(error.get("url") or "")
         message = str(error.get("error") or "unknown error")
         previous = health.get(source_id, {})
-        previous_message = previous.get("last_error")
-        consecutive = int(previous.get("consecutive_failures", 0)) + 1
+        previous_consecutive = int(previous.get("consecutive_failures", 0))
+        incident_generation = int(previous.get("incident_generation", 0))
+        if previous and "incident_generation" not in previous:
+            # Migrate active and recovered legacy records away from finding IDs
+            # that may already belong to an older incident.
+            incident_generation = 1
+        elif previous and previous_consecutive == 0:
+            incident_generation += 1
+        consecutive = previous_consecutive + 1
         health[source_id] = {
             "consecutive_failures": consecutive,
+            "incident_generation": incident_generation,
             "last_error": message,
             "last_failure_at": now_iso(),
             "url": url,
@@ -915,6 +946,12 @@ def source_health_findings(state: dict[str, Any], errors: list[dict[str, str]], 
         alert_counts = {2, 3, 7, 14, 30}
         if consecutive not in alert_counts and consecutive % 30 != 0:
             continue
+
+        finding_id_parts = ["source_error", source_id, url, message, str(consecutive)]
+        if incident_generation:
+            # Post-recovery and migrated incidents need a generation to bypass
+            # finding IDs retained in notification history.
+            finding_id_parts.append(str(incident_generation))
 
         findings.append(
             {
@@ -927,7 +964,7 @@ def source_health_findings(state: dict[str, Any], errors: list[dict[str, str]], 
                     ".github/workflows/external-compatibility-scan.yaml",
                 ],
                 "action": "Fix or remove the monitored source so external compatibility coverage does not silently go dark.",
-                "id": finding_id("source_error", source_id, url, message, str(consecutive)),
+                "id": finding_id(*finding_id_parts),
                 "title": "External compatibility scan source failed",
                 "url": url,
                 "summary": f"{message}; consecutive_failures={consecutive}",
@@ -944,11 +981,37 @@ def now_iso() -> str:
 
 def trim_state(state: dict[str, Any]) -> dict[str, Any]:
     seen = state.get("seen", {})
-    if len(seen) <= MAX_SEEN_ITEMS:
-        return state
-    ordered = sorted(seen.items(), key=lambda item: item[1].get("last_seen_at", ""))
-    state["seen"] = dict(ordered[-MAX_SEEN_ITEMS:])
+    if len(seen) > MAX_SEEN_ITEMS:
+        ordered = sorted(seen.items(), key=lambda item: item[1].get("last_seen_at", ""))
+        state["seen"] = dict(ordered[-MAX_SEEN_ITEMS:])
+
+    notified = state.get("notified", {})
+    if len(notified) > MAX_NOTIFIED_ITEMS:
+        def notification_recency(item: tuple[str, dict[str, Any]]) -> tuple[str, str]:
+            finding_id_value, notification = item
+            observation = seen.get(finding_id_value, {})
+            timestamp = (
+                observation.get("last_seen_at")
+                or notification.get("notified_at")
+                or notification.get("baselined_at")
+                or ""
+            )
+            return str(timestamp), finding_id_value
+
+        ordered = sorted(notified.items(), key=notification_recency)
+        state["notified"] = dict(ordered[-MAX_NOTIFIED_ITEMS:])
     return state
+
+
+def pending_queue_warning(state: dict[str, Any]) -> str | None:
+    count = len(pending_findings(state))
+    if count <= PENDING_HIGH_WATER_MARK:
+        return None
+    return (
+        f"pending notification queue contains {count} undelivered findings, "
+        f"above the high-water mark of {PENDING_HIGH_WATER_MARK}; "
+        "investigate Slack delivery without discarding compatibility notices"
+    )
 
 
 def update_state_and_filter(
@@ -1306,6 +1369,7 @@ def main() -> int:
         if args.mark_notified_ids:
             finding_ids = {str(finding_id_value) for finding_id_value in load_json(Path(args.mark_notified_ids), [])}
         marked = mark_pending_notified(state, finding_ids=finding_ids)
+        trim_state(state)
         state["last_notification_at"] = now_iso()
         write_json(state_out_path, state)
         print(f"marked {marked} pending finding(s) as notified")
@@ -1320,6 +1384,7 @@ def main() -> int:
         "manifest_results": [],
         "probe_results": [],
         "errors": [],
+        "warnings": [],
     }
 
     all_findings: list[dict[str, Any]] = []
@@ -1382,6 +1447,10 @@ def main() -> int:
     )
     new_findings.extend(new_error_findings)
     trim_state(state)
+    warning = pending_queue_warning(state)
+    if warning:
+        report["warnings"].append(warning)
+        print(f"::warning::{warning}")
 
     report.update(
         {

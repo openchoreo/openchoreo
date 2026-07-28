@@ -8,6 +8,8 @@ The scan is intentionally high-signal:
 
 - It posts feed notices matching configured deprecation, sunset, retirement,
   removal, end-of-support, or breaking-change keywords.
+- It scans every RSS/Atom item returned within the 10 MiB response safety cap;
+  feed order does not determine whether an item is checked.
 - It checks static Kubernetes manifests and Helm templates for API versions that
   are already removed in supported Kubernetes releases.
 - It does not create Slack findings from generic page keyword snippets. Static
@@ -20,12 +22,17 @@ The scan is intentionally high-signal:
   Slack message.
 - It keeps new findings pending until a Slack POST succeeds. If Slack delivery
   fails or the webhook secret is missing, the same pending findings are retried
-  on the next run instead of being marked delivered.
+  on the next run instead of being marked delivered. Pending source-health
+  failures are removed if that source recovers before delivery, because posting
+  them later would describe stale health.
 - It splits Slack notices into multiple payloads when more than 10 findings are
   pending, and only marks them delivered after all payloads post successfully.
 - It deduplicates future notices using the previous successful run's
   `external-compatibility-scan-state` artifact, with separate observed and
   notified state.
+- It retains at most 2,000 observed and 2,000 notified records, preferring
+  recently observed records. General pending compatibility notices are never
+  silently trimmed; a warning is reported if that queue exceeds 200 findings.
 - It does not report routine Dependabot updates, normal Docker image refreshes,
   normal Helm chart bumps, or e2e failures.
 

@@ -144,6 +144,40 @@ class ExternalCompatibilityScanTests(unittest.TestCase):
         finally:
             scanner.fetch_url = original_fetch
 
+    def test_feed_scans_items_after_the_first_fifty(self) -> None:
+        original_fetch = scanner.fetch_url
+        ordinary_items = "".join(
+            f"<item><title>Routine release {index}</title><link>https://example.com/{index}</link></item>"
+            for index in range(50)
+        )
+        body = (
+            "<?xml version=\"1.0\"?><rss><channel>"
+            f"{ordinary_items}"
+            "<item><title>Deprecated webhook contract</title>"
+            "<link>https://example.com/important</link></item>"
+            "</channel></rss>"
+        )
+        scanner.fetch_url = lambda url, timeout: scanner.FetchResult(url, 200, {}, body)
+        try:
+            findings, report = scanner.scan_feed(
+                {"defaults": {"keywords": ["deprecated"]}},
+                {
+                    "id": "feed",
+                    "name": "Feed",
+                    "type": "feed",
+                    "url": "https://example.com/feed.xml",
+                    "affected_files": ["x"],
+                    "action": "Review.",
+                },
+                1,
+            )
+        finally:
+            scanner.fetch_url = original_fetch
+
+        self.assertEqual(report["items"], 51)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0]["url"], "https://example.com/important")
+
     def test_pending_findings_are_retried_until_marked_notified(self) -> None:
         state: dict[str, object] = {"initialized": True, "seen": {}}
         first = scanner.update_state_and_filter(
@@ -497,6 +531,159 @@ class ExternalCompatibilityScanTests(unittest.TestCase):
 
         self.assertEqual(len(findings), 1)
         self.assertIn("consecutive_failures=60", findings[0]["summary"])
+
+    def test_source_health_notifies_again_after_recovery(self) -> None:
+        state: dict[str, object] = {"initialized": True, "seen": {}}
+        errors = [{"id": "feed", "url": "https://example.com/feed", "error": "timeout"}]
+
+        scanner.source_health_findings(state, errors, {"feed"})
+        first_incident = scanner.source_health_findings(state, errors, {"feed"})
+        first_notifications = scanner.update_state_and_filter(
+            state,
+            first_incident,
+            first_run=False,
+            notify_on_first_run=True,
+        )
+        scanner.mark_pending_notified(state)
+
+        scanner.source_health_findings(state, [], {"feed"})
+        scanner.source_health_findings(state, errors, {"feed"})
+        second_incident = scanner.source_health_findings(state, errors, {"feed"})
+        second_notifications = scanner.update_state_and_filter(
+            state,
+            second_incident,
+            first_run=False,
+            notify_on_first_run=True,
+        )
+
+        self.assertEqual(len(first_notifications), 1)
+        self.assertEqual(len(second_notifications), 1)
+        self.assertNotEqual(first_notifications[0]["id"], second_notifications[0]["id"])
+        self.assertEqual(state["source_health"]["feed"]["incident_generation"], 1)
+
+    def test_source_health_migrates_active_legacy_incident(self) -> None:
+        state: dict[str, object] = {
+            "source_health": {
+                "feed": {
+                    "consecutive_failures": 1,
+                    "last_error": "timeout",
+                    "url": "https://example.com/feed",
+                }
+            }
+        }
+        errors = [{"id": "feed", "url": "https://example.com/feed", "error": "timeout"}]
+
+        findings = scanner.source_health_findings(state, errors, {"feed"})
+
+        self.assertEqual(len(findings), 1)
+        self.assertNotEqual(
+            findings[0]["id"],
+            scanner.finding_id(
+                "source_error",
+                "feed",
+                "https://example.com/feed",
+                "timeout",
+                "2",
+            ),
+        )
+        self.assertEqual(state["source_health"]["feed"]["incident_generation"], 1)
+
+    def test_source_health_migrates_recovered_legacy_incident(self) -> None:
+        state: dict[str, object] = {
+            "source_health": {
+                "feed": {
+                    "consecutive_failures": 0,
+                    "last_error": "timeout",
+                    "last_success_at": "2026-07-28T00:00:00Z",
+                    "url": "https://example.com/feed",
+                }
+            }
+        }
+        errors = [{"id": "feed", "url": "https://example.com/feed", "error": "timeout"}]
+
+        scanner.source_health_findings(state, errors, {"feed"})
+        findings = scanner.source_health_findings(state, errors, {"feed"})
+
+        self.assertEqual(len(findings), 1)
+        self.assertNotEqual(
+            findings[0]["id"],
+            scanner.finding_id(
+                "source_error",
+                "feed",
+                "https://example.com/feed",
+                "timeout",
+                "2",
+            ),
+        )
+        self.assertEqual(state["source_health"]["feed"]["incident_generation"], 1)
+
+    def test_source_health_recovery_clears_only_its_pending_failures(self) -> None:
+        compatibility_finding = finding("compatibility-finding")
+        source_health_finding = {
+            **finding("source-health-finding"),
+            "source_id": "feed-source-health",
+            "kind": "source_error",
+        }
+        other_source_health_finding = {
+            **finding("other-source-health-finding"),
+            "source_id": "other-source-health",
+            "kind": "source_error",
+        }
+        state: dict[str, object] = {
+            "pending": {
+                compatibility_finding["id"]: compatibility_finding,
+                source_health_finding["id"]: source_health_finding,
+                other_source_health_finding["id"]: other_source_health_finding,
+            },
+            "source_health": {
+                "feed": {
+                    "consecutive_failures": 2,
+                    "incident_generation": 1,
+                }
+            },
+        }
+
+        scanner.source_health_findings(state, [], {"feed"})
+
+        self.assertNotIn(source_health_finding["id"], state["pending"])
+        self.assertIn(compatibility_finding["id"], state["pending"])
+        self.assertIn(other_source_health_finding["id"], state["pending"])
+
+    def test_trim_state_caps_notified_by_observation_recency_without_dropping_pending(self) -> None:
+        notified = {
+            f"finding-{index}": {"notified_at": f"{index:04d}"}
+            for index in range(scanner.MAX_NOTIFIED_ITEMS + 1)
+        }
+        pending = {"pending-finding": finding("pending-finding")}
+        state: dict[str, object] = {
+            "seen": {
+                "finding-0": {
+                    "last_seen_at": "9999",
+                }
+            },
+            "notified": notified,
+            "pending": pending,
+        }
+
+        scanner.trim_state(state)
+
+        self.assertEqual(len(state["notified"]), scanner.MAX_NOTIFIED_ITEMS)
+        self.assertIn("finding-0", state["notified"])
+        self.assertNotIn("finding-1", state["notified"])
+        self.assertEqual(state["pending"], pending)
+
+    def test_pending_queue_warning_does_not_drop_findings(self) -> None:
+        pending = {
+            f"finding-{index}": finding(f"finding-{index}")
+            for index in range(scanner.PENDING_HIGH_WATER_MARK + 1)
+        }
+        state: dict[str, object] = {"pending": pending}
+
+        warning = scanner.pending_queue_warning(state)
+
+        self.assertIsNotNone(warning)
+        self.assertIn(str(scanner.PENDING_HIGH_WATER_MARK), warning)
+        self.assertEqual(state["pending"], pending)
 
 
 if __name__ == "__main__":

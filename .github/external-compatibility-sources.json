@@ -244,7 +244,7 @@
       ],
       "action": "Review Argo Workflows API or CRD compatibility before chart/app upgrades.",
       "keywords": [
-        "breaking change:",
+        "breaking change",
         "deprecated",
         "deprecation",
         "removed",
@@ -270,7 +270,7 @@
       ],
       "action": "Review External Secrets CRD/API compatibility for secret integration paths.",
       "keywords": [
-        "breaking change:",
+        "breaking change",
         "deprecated",
         "deprecation",
         "removed",
@@ -297,7 +297,7 @@
       ],
       "action": "Review Gateway API compatibility for Gateway, HTTPRoute, and TLSRoute usage.",
       "keywords": [
-        "breaking change:",
+        "breaking change",
         "deprecated",
         "deprecation",
         "removed",
@@ -324,7 +324,7 @@
       ],
       "action": "Review OpenCost query/API compatibility for FinOps agent behavior.",
       "keywords": [
-        "breaking change:",
+        "breaking change",
         "deprecated",
         "deprecation",
         "removed",
@@ -349,7 +349,7 @@
       ],
       "action": "Review OpenSearch operator/API compatibility for observability install and query paths.",
       "keywords": [
-        "breaking change:",
+        "breaking change",
         "deprecated",
         "deprecation",
         "removed",
@@ -375,7 +375,7 @@
       ],
       "action": "Review Prometheus query/API compatibility for observer behavior.",
       "keywords": [
-        "breaking change:",
+        "breaking change",
         "deprecated",
         "deprecation",
         "removed",
