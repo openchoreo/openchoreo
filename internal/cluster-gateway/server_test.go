@@ -1079,6 +1079,94 @@ func TestInternalListener_MTLSDisabled_AcceptsNoClientCert(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
+// --- handleWebSocket tests ---
+
+func TestHandleWebSocket_ParamValidation(t *testing.T) {
+	s := New(&Config{}, nil, testLogger())
+
+	tests := []struct {
+		name    string
+		target  string
+		wantMsg string
+	}{
+		{name: "missing planeType", target: "/ws?planeID=prod", wantMsg: "missing planeType"},
+		{name: "missing planeID", target: "/ws?planeType=dataplane", wantMsg: "missing planeID"},
+		{name: "invalid planeType", target: "/ws?planeType=bogus&planeID=prod", wantMsg: "invalid planeType"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			s.handleWebSocket(w, httptest.NewRequest(http.MethodGet, tt.target, nil))
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+			assert.Contains(t, w.Body.String(), tt.wantMsg)
+		})
+	}
+}
+
+// TestHandleWebSocket_NoClientCertificate covers the nil-authenticator fallback:
+// a Server constructed without New (agentAuth nil) must still default to mTLS
+// extraction and reject a request that carries no TLS client certificate.
+func TestHandleWebSocket_NoClientCertificate(t *testing.T) {
+	s := &Server{logger: testLogger()}
+
+	w := httptest.NewRecorder()
+	s.handleWebSocket(w, httptest.NewRequest(http.MethodGet, "/ws?planeType=dataplane&planeID=prod", nil))
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Contains(t, w.Body.String(), "no client certificate presented")
+}
+
+// TestHandleWebSocket_ForwardedHeader_CRVerificationFailed proves the forwarded
+// certificate feeds the same per-CR verification as mTLS mode: a cert extracted
+// from the header is still rejected when no plane CR trusts its CA.
+func TestHandleWebSocket_ForwardedHeader_CRVerificationFailed(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+	s.agentAuth = forwardedHeaderAuthenticator{header: DefaultForwardedHeaderName}
+
+	req := httptest.NewRequest(http.MethodGet, "/ws?planeType=dataplane&planeID=prod", nil)
+	req.Header.Set(DefaultForwardedHeaderName, albHeaderValue(t, clientCert))
+
+	w := httptest.NewRecorder()
+	s.handleWebSocket(w, req)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Contains(t, w.Body.String(), "client certificate verification failed")
+}
+
+// TestHandleWebSocket_ForwardedHeader_UpgradeFailed authenticates successfully
+// via the forwarded header against a matching DataPlane CR, then fails only at
+// the WebSocket upgrade because the request is not a websocket handshake.
+func TestHandleWebSocket_ForwardedHeader_UpgradeFailed(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+
+	dp := &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp1", Namespace: "ns"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: string(encodeCertToPEM(t, caCert))},
+			},
+		},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(dp).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+	s.agentAuth = forwardedHeaderAuthenticator{header: DefaultForwardedHeaderName}
+
+	req := httptest.NewRequest(http.MethodGet, "/ws?planeType=dataplane&planeID=prod", nil)
+	req.Header.Set(DefaultForwardedHeaderName, albHeaderValue(t, clientCert))
+
+	w := httptest.NewRecorder()
+	s.handleWebSocket(w, req)
+	// Auth and per-CR verification passed; the plain HTTP request fails the
+	// websocket handshake, which the upgrader reports as 400.
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.NotContains(t, w.Body.String(), "certificate")
+}
+
 // --- Server.Start tests ---
 
 // writeServerKeyPairFiles generates a self-signed server certificate and its EC
@@ -1140,6 +1228,23 @@ func TestStart_InternalTLSConfigError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to configure internal listener TLS")
 }
 
+// TestStart_AgentAuthConfigError verifies that an unrecognized agent auth mode is
+// surfaced from Start (fail loud) before any port is bound, rather than silently
+// falling back to a default.
+func TestStart_AgentAuthConfigError(t *testing.T) {
+	certPath, keyPath := writeServerKeyPairFiles(t)
+
+	s := New(&Config{
+		ServerCertPath: certPath,
+		ServerKeyPath:  keyPath,
+		AgentAuthMode:  "not-a-real-mode",
+	}, nil, testLogger())
+
+	err := s.Start()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to configure agent authentication")
+}
+
 // waitForHealth polls the fixed health endpoint until it returns 200. It returns
 // true once healthy. If Start returns early (e.g. the fixed :8080 health port is
 // already bound), the test is skipped rather than failed, since that is an
@@ -1193,11 +1298,13 @@ func skipOrFailOnStartErr(t *testing.T, err error) {
 // the internal-mTLS-enabled and disabled logging/config branches in Start.
 func TestStart_Lifecycle(t *testing.T) {
 	tests := []struct {
-		name string
-		mtls bool
+		name            string
+		mtls            bool
+		forwardedHeader bool
 	}{
 		{name: "internal mTLS enabled", mtls: true},
 		{name: "internal mTLS disabled", mtls: false},
+		{name: "forwarded-header agent auth", forwardedHeader: true},
 	}
 
 	for _, tt := range tests {
@@ -1214,6 +1321,9 @@ func TestStart_Lifecycle(t *testing.T) {
 				caCert, _ := generateTestCA(t)
 				cfg.InternalMTLSEnabled = true
 				cfg.InternalClientCAPath = writeTestCAFile(t, caCert)
+			}
+			if tt.forwardedHeader {
+				cfg.AgentAuthMode = AgentAuthModeForwardedHeader
 			}
 
 			s := New(cfg, nil, testLogger())

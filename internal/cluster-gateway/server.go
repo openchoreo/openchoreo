@@ -59,7 +59,8 @@ type Server struct {
 	streamSessionsMu      sync.RWMutex
 	validator             *RequestValidator
 	logger                *slog.Logger
-	k8sClient             client.Client // Kubernetes client for querying DataPlane/WorkflowPlane CRs
+	k8sClient             client.Client      // Kubernetes client for querying DataPlane/WorkflowPlane CRs
+	agentAuth             AgentAuthenticator // How the public listener extracts the agent client certificate
 }
 
 func New(config *Config, k8sClient client.Client, logger *slog.Logger) *Server {
@@ -76,6 +77,9 @@ func New(config *Config, k8sClient client.Client, logger *slog.Logger) *Server {
 		validator:             NewRequestValidator(),
 		logger:                logger.With("component", "agent-server"),
 		k8sClient:             k8sClient,
+		// Safe default; Start replaces this with the configured mode (and
+		// surfaces an invalid mode as an error).
+		agentAuth: mtlsAuthenticator{},
 	}
 }
 
@@ -115,6 +119,26 @@ func (s *Server) Start() error {
 		"clientAuth", "RequestClientCert",
 		"note", "Client certificate verification performed at application level per DataPlane/WorkflowPlane CR",
 	)
+
+	// Resolve how the public listener obtains the agent client certificate. An
+	// invalid mode fails startup rather than silently falling back.
+	agentAuth, err := buildAgentAuthenticator(s.config)
+	if err != nil {
+		return fmt.Errorf("failed to configure agent authentication: %w", err)
+	}
+	s.agentAuth = agentAuth
+	if fh, ok := agentAuth.(forwardedHeaderAuthenticator); ok {
+		s.logger.Warn("agent authentication using forwarded header",
+			"mode", AgentAuthModeForwardedHeader,
+			"header", fh.header,
+			"note", "the gateway trusts this header for agent identity; the public listener MUST be reachable only from the trusted TLS-terminating proxy, "+
+				"and every other ingress path must strip it",
+		)
+	} else {
+		s.logger.Info("agent authentication using client certificate from TLS handshake",
+			"mode", AgentAuthModeMTLS,
+		)
+	}
 
 	internalTLSConfig, err := buildInternalTLSConfig(tlsConfig, s.config)
 	if err != nil {
@@ -322,19 +346,27 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract client certificate for per-CR validation
-	if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
+	// Extract the client certificate for per-CR validation. Where the chain
+	// comes from (TLS handshake vs a header set by a trusted TLS-terminating
+	// proxy) depends on the configured agent auth mode; the per-CR verification
+	// below is identical in every mode.
+	authenticator := s.agentAuth
+	if authenticator == nil {
+		authenticator = mtlsAuthenticator{}
+	}
+	creds, err := authenticator.Authenticate(r)
+	if err != nil {
 		s.logger.Warn("connection rejected: no client certificate presented",
 			"planeType", planeType,
 			"planeID", planeID,
+			"error", err,
 		)
 		http.Error(w, "no client certificate presented", http.StatusUnauthorized)
 		return
 	}
 
-	peerCerts := r.TLS.PeerCertificates
-	clientCert := peerCerts[0]
-	intermediates := peerCerts[1:]
+	clientCert := creds.clientCert
+	intermediates := creds.intermediates
 
 	// Per-CR certificate validation enforces security boundaries
 	// Each CR is validated independently to prevent cross-tenant access
