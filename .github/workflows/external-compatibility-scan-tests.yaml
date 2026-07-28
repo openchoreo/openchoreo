@@ -1,0 +1,38 @@
+name: External Compatibility Scanner Tests
+
+on:
+  pull_request:
+    paths:
+      - ".github/external-compatibility-sources.json"
+      - ".github/external-compatibility-sources.md"
+      - ".github/scripts/external_compatibility_scan.py"
+      - ".github/scripts/test_external_compatibility_scan.py"
+      - ".github/workflows/external-compatibility-scan.yaml"
+      - ".github/workflows/external-compatibility-scan-tests.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Validate scanner config and tests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Validate source configuration
+        run: |
+          python3 .github/scripts/external_compatibility_scan.py \
+            --config .github/external-compatibility-sources.json \
+            --state /tmp/external-compatibility-state.json \
+            --state-out /tmp/external-compatibility-state.json \
+            --slack-payload /tmp/external-compatibility-slack.json \
+            --report /tmp/external-compatibility-report.json \
+            --validate-only
+
+      - name: Run scanner unit tests
+        run: python3 -m unittest discover .github/scripts -p "test_*.py"
