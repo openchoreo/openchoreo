@@ -1,6 +1,7 @@
 // Copyright 2026 The OpenChoreo Authors
 // SPDX-License-Identifier: Apache-2.0
 
+import { type Page } from '@playwright/test';
 import { test, expect, storageStateFor, ROLES } from '../../fixtures/auth';
 import { kApplyYAML, kDelete, kubectl } from '../../fixtures/kube';
 import { SidebarPO } from '../../po/sidebar';
@@ -165,6 +166,33 @@ test.skip(
   'abac storage state not minted (abac user not seeded in this Thunder install — see test/ui/scripts/seed-idp-users.sh)',
 );
 
+// Sign out and back in as the abac user, driving the same redirect-based
+// consent flow as fixtures/auth.ts. Relogin is the supported way to pick up
+// authz changes: the Backstage backend caches each user's OpenChoreo
+// capability profile at sign-in with a JWT-lifetime TTL, so bindings seeded
+// in beforeAll — which runs *after* global-setup already signed abac in and
+// pre-cached the profile — are invisible to the stored session until it
+// re-authenticates (see backstage-plugins#549).
+async function reloginAsAbac(page: Page): Promise<void> {
+  await page.goto('/');
+  await new SidebarPO(page).signOut();
+  await page
+    .getByRole('button', { name: 'Sign In', exact: true })
+    .first()
+    .waitFor({ state: 'visible', timeout: 30_000 });
+  await page
+    .getByRole('button', { name: 'Sign In', exact: true })
+    .first()
+    .click();
+  await page.getByPlaceholder('Enter your username').fill(ROLES.abac.username);
+  await page.getByPlaceholder('Enter your password').fill(ROLES.abac.password);
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+  await page
+    .getByRole('link', { name: 'Home' })
+    .first()
+    .waitFor({ state: 'visible', timeout: 60_000 });
+}
+
 test.describe('abac-ui: env-restricted bindings, promote deny, cache eviction on relogin', () => {
   test.beforeAll(async () => {
     kApplyYAML(seedYAML);
@@ -192,7 +220,11 @@ test.describe('abac-ui: env-restricted bindings, promote deny, cache eviction on
     const component = new ComponentPO(page);
     const release = new ReleasePO(page);
 
-    await page.goto('/');
+    // The stored abac session was minted in global-setup, before beforeAll
+    // seeded the ClusterAuthzRoleBinding that grants this user the developer
+    // role (and thus component:create). Relogin so the backend re-fetches the
+    // capability profile and the Create page's Component card is enabled.
+    await reloginAsAbac(page);
     await component.create({
       name: COMPONENT_NAME,
       project: PROJECT_NAME,
@@ -269,38 +301,13 @@ test.describe('abac-ui: env-restricted bindings, promote deny, cache eviction on
     page,
   }) => {
     test.setTimeout(300_000);
-    const sidebar = new SidebarPO(page);
     const component = new ComponentPO(page);
     const release = new ReleasePO(page);
 
     // Sign out, then sign back in. Even though we already have a stored
-    // session, sign-out → sign-in is what reproduces the cache-eviction bug.
-    await page.goto('/');
-    await sidebar.signOut();
-    await page
-      .getByRole('button', { name: 'Sign In', exact: true })
-      .first()
-      .waitFor({ state: 'visible', timeout: 30_000 });
-
-    // Drive the same redirect-based consent flow used in fixtures/auth.ts.
-    // We intentionally do NOT reuse the persisted state — the whole point of
-    // this test is to walk through the full re-auth path so the Casbin
-    // evaluation cache gets cleared.
-    await page
-      .getByRole('button', { name: 'Sign In', exact: true })
-      .first()
-      .click();
-    await page
-      .getByPlaceholder('Enter your username')
-      .fill(ROLES.abac.username);
-    await page
-      .getByPlaceholder('Enter your password')
-      .fill(ROLES.abac.password);
-    await page.getByRole('button', { name: 'Sign In', exact: true }).click();
-    await page
-      .getByRole('link', { name: 'Home' })
-      .first()
-      .waitFor({ state: 'visible', timeout: 60_000 });
+    // session, walking the full sign-out → sign-in path is what reproduces the
+    // cache-eviction bug this regression guards against.
+    await reloginAsAbac(page);
 
     // Same permission shape must apply post-relogin: staging's Promote
     // (whose target is production) must still render denied.
