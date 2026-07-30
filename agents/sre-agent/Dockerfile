@@ -7,17 +7,19 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 ENV UV_PYTHON_INSTALL_DIR=/python
 ENV UV_PYTHON_PREFERENCE=only-managed
 
-COPY .python-version /tmp/.python-version
+COPY sre-agent/.python-version /tmp/.python-version
 RUN uv python install $(cat /tmp/.python-version)
 
 WORKDIR /app
 
 RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache-${TARGETPLATFORM} \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev --no-editable
+    --mount=type=bind,source=sre-agent/uv.lock,target=uv.lock \
+    --mount=type=bind,source=sre-agent/pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=common,target=/common \
+    uv sync --frozen --no-install-workspace --no-dev --no-editable
 
-COPY . /app
+COPY common /common
+COPY sre-agent /app
 
 RUN --mount=type=cache,target=/root/.cache/uv,id=uv-cache-${TARGETPLATFORM} \
     uv sync --frozen --no-dev --no-editable
