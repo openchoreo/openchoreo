@@ -58,6 +58,7 @@ class Settings(BaseSettings):
 
     log_level: str = "INFO"
     tls_insecure_skip_verify: bool = False
+    openai_debug_logs: bool = False
     cors_allowed_origins: str = ""
 
     @model_validator(mode="after")
