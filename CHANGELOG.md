@@ -2,6 +2,14 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.0.4
+Changes since [v1.0.3](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.3).
+
+### Security
+
+- **(Build)** Shell injection in workflow templates is now prevented, privileged build pods are isolated via pod user namespaces, and GitHub repository payloads are safely encoded. ([#4277](https://github.com/openchoreo/openchoreo/pull/4277))
+- **(Backstage UI)** Backstage portal no longer serves its backend API unauthenticated: the `dangerouslyDisableDefaultAuthPolicy` and guest `dangerouslyAllowOutsideDevelopment` flags are now derived from the auth feature flag instead of hardcoded on, so the default auth policy is enforced and guest sign-in refused unless guest mode is explicitly enabled. ([#709](https://github.com/openchoreo/backstage-plugins/pull/709))
+
 ## v1.0.3
 Changes since [v1.0.2](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.2).
 
