@@ -8,17 +8,17 @@ from typing import Annotated, Any
 import yaml
 from fastapi import Depends, HTTPException, Request
 
+from common.auth.authz_client import AuthzClient
+from common.auth.authz_errors import (
+    AuthzForbidden,
+    AuthzServiceUnavailable,
+    AuthzUnauthorized,
+)
 from common.auth.authz_models import (
     EvaluateRequest,
     Resource,
     ResourceHierarchy,
     SubjectContext,
-)
-from src.auth.authz_client import AuthzClient
-from src.auth.authz_errors import (
-    AuthzForbidden,
-    AuthzServiceUnavailable,
-    AuthzUnauthorized,
 )
 from src.auth.jwt import DisabledJWTValidator, JWTValidationError, get_jwt_validator
 from src.config import settings

@@ -8,10 +8,9 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from src.api import agent_router, report_router
-from src.auth import check_oauth2_connection, get_oauth2_auth
+from src.auth import check_oauth2_connection, get_jwt_validator, get_oauth2_auth
 from src.auth.dependencies import _load_auth_config
 from src.clients import MCPClient, get_model, get_report_backend
-from src.auth import get_jwt_validator
 from src.config import settings
 from src.logging_config import setup_logging
 from src.mcp_server import drain_background_tasks, make_mcp_app, mcp_server

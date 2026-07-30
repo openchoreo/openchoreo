@@ -7,8 +7,8 @@ The client used to raise ``fastapi.HTTPException`` directly, which made
 ``AuthzClient`` depend on the web framework and forced any non-FastAPI
 caller (tests, future workers, scripts) to import HTTPException to
 handle authz failures. These domain exceptions keep the client
-framework-agnostic; ``src/auth/dependencies.py`` maps them to HTTP
-responses at the FastAPI seam.
+framework-agnostic; each agent's ``src/auth/dependencies.py`` maps them
+to HTTP responses at the FastAPI seam.
 """
 
 

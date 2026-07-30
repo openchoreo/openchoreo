@@ -1,17 +1,18 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import logging
 
 import httpx
 
-from common.auth.authz_models import Decision, EvaluateRequest
-from src.auth.authz_errors import (
+from common.auth.authz_errors import (
     AuthzForbidden,
     AuthzServiceUnavailable,
     AuthzUnauthorized,
 )
-from src.logging_config import request_id_context
+from common.auth.authz_models import Decision, EvaluateRequest
+from common.logging_config import request_id_context
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,10 @@ async def _inject_request_id(request: httpx.Request) -> None:
         return
     if not any(k.lower() == "x-request-id" for k in request.headers.keys()):
         request.headers["X-Request-Id"] = rid
+
+
+_RETRY_ATTEMPTS = 3
+_RETRY_BACKOFF_SECONDS = 0.1
 
 
 class AuthzClient:
@@ -79,13 +84,27 @@ class AuthzClient:
             raise RuntimeError("AuthzClient has been closed")
         client = self._client
 
-        try:
-            response = await client.post(url, json=body, headers=headers)
-        except httpx.RequestError as e:
-            logger.error("Authz service unavailable", extra={"url": url, "error": str(e)})
+        # evaluate is a read-only check, so transient connection failures are
+        # safe to retry; HTTP-level errors are not retried.
+        last_error: httpx.RequestError | None = None
+        response = None
+        for attempt in range(_RETRY_ATTEMPTS):
+            try:
+                response = await client.post(url, json=body, headers=headers)
+                break
+            except httpx.RequestError as e:
+                last_error = e
+                if attempt < _RETRY_ATTEMPTS - 1:
+                    await asyncio.sleep(_RETRY_BACKOFF_SECONDS * (2**attempt))
+        if response is None:
+            logger.error(
+                "Authz service unavailable after %d attempts",
+                _RETRY_ATTEMPTS,
+                extra={"url": url, "error": str(last_error)},
+            )
             raise AuthzServiceUnavailable(
                 "Authorization service unavailable",
-            ) from e
+            ) from last_error
 
         if response.status_code == 401:
             logger.warning("Authz service returned unauthorized", extra={"status": 401})

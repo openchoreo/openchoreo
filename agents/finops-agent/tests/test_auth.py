@@ -14,6 +14,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
+from common.auth.authz_client import AuthzClient
+from common.auth.authz_errors import (
+    AuthzForbidden,
+    AuthzServiceUnavailable,
+    AuthzUnauthorized,
+)
 from common.auth.authz_models import (
     Decision,
     EvaluateRequest,
@@ -22,7 +28,6 @@ from common.auth.authz_models import (
     SubjectContext,
 )
 from src.auth import dependencies as deps
-from src.auth.authz_client import AuthzClient
 from src.auth.dependencies import (
     AuthorizationChecker,
     ReportAuthorizationChecker,
@@ -276,9 +281,8 @@ async def test_authz_client_maps_401():
     client = _make_authz_client()
     client._client.post = AsyncMock(return_value=_http_response(401))
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(AuthzUnauthorized):
         await client.evaluate(_eval_request(), "tok")
-    assert exc.value.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -286,16 +290,14 @@ async def test_authz_client_maps_403():
     client = _make_authz_client()
     client._client.post = AsyncMock(return_value=_http_response(403))
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(AuthzForbidden):
         await client.evaluate(_eval_request(), "tok")
-    assert exc.value.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_authz_client_empty_decisions_is_500():
+async def test_authz_client_empty_decisions_is_unavailable():
     client = _make_authz_client()
     client._client.post = AsyncMock(return_value=_http_response(200, []))
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(AuthzServiceUnavailable):
         await client.evaluate(_eval_request(), "tok")
-    assert exc.value.status_code == 500

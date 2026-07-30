@@ -7,7 +7,6 @@ from common.auth.jwt import (  # noqa: F401
     JWTValidator,
     create_jwt_validator,
 )
-
 from src.config import settings
 
 _jwt_validator: JWTValidator | DisabledJWTValidator | None = None

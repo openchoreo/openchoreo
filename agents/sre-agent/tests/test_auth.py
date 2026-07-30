@@ -10,9 +10,15 @@ import jwt as pyjwt
 import pytest
 from fastapi import HTTPException
 
-import src.auth.dependencies as deps
 import common.auth.jwt as common_jwt
+import src.auth.dependencies as deps
 import src.auth.jwt as jwt_module
+from common.auth.authz_client import AuthzClient
+from common.auth.authz_errors import (
+    AuthzForbidden,
+    AuthzServiceUnavailable,
+    AuthzUnauthorized,
+)
 from common.auth.authz_models import (
     Decision,
     EvaluateRequest,
@@ -20,7 +26,6 @@ from common.auth.authz_models import (
     ResourceHierarchy,
     SubjectContext,
 )
-from src.auth.authz_client import AuthzClient
 from src.auth.dependencies import (
     AuthorizationChecker,
     ReportAuthorizationChecker,
@@ -246,57 +251,51 @@ async def test_authz_evaluate_returns_decision_on_200():
 
 
 @pytest.mark.asyncio
-async def test_authz_evaluate_401_maps_to_http_401():
+async def test_authz_evaluate_401_raises_unauthorized():
     client = _authz_client_with_response(_response(401))
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(AuthzUnauthorized):
         await client.evaluate(_eval_request())
-    assert exc.value.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_authz_evaluate_403_maps_to_http_403():
+async def test_authz_evaluate_403_raises_forbidden():
     client = _authz_client_with_response(_response(403))
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(AuthzForbidden):
         await client.evaluate(_eval_request())
-    assert exc.value.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_authz_evaluate_500_maps_to_503():
+async def test_authz_evaluate_500_raises_unavailable():
     client = _authz_client_with_response(_response(500, text="boom"))
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(AuthzServiceUnavailable):
         await client.evaluate(_eval_request())
-    assert exc.value.status_code == 503
 
 
 @pytest.mark.asyncio
-async def test_authz_evaluate_empty_decisions_maps_to_503():
+async def test_authz_evaluate_empty_decisions_raises_unavailable():
     client = _authz_client_with_response(_response(200, []))
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(AuthzServiceUnavailable):
         await client.evaluate(_eval_request())
-    assert exc.value.status_code == 503
 
 
 @pytest.mark.asyncio
-async def test_authz_evaluate_malformed_payload_maps_to_503():
+async def test_authz_evaluate_malformed_payload_raises_unavailable():
     # Decision.model_validate fails on a decision missing the required field.
     client = _authz_client_with_response(_response(200, [{"not_a_decision": True}]))
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(AuthzServiceUnavailable):
         await client.evaluate(_eval_request())
-    assert exc.value.status_code == 503
 
 
 @pytest.mark.asyncio
-async def test_authz_evaluate_connect_error_maps_to_503():
+async def test_authz_evaluate_connect_error_raises_unavailable():
     import httpx
 
     client = AuthzClient(base_url="http://authz", timeout=5)
     fake = MagicMock()
     fake.post = AsyncMock(side_effect=httpx.ConnectError("down"))
     client._client = fake
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(AuthzServiceUnavailable):
         await client.evaluate(_eval_request())
-    assert exc.value.status_code == 503
 
 
 # --------------------------------------------------------------- jwt

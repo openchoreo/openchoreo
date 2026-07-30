@@ -1,6 +1,7 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
+from common.auth.authz_client import AuthzClient
 from common.auth.authz_models import (
     Decision,
     EvaluateRequest,
@@ -9,7 +10,6 @@ from common.auth.authz_models import (
     SubjectContext,
 )
 from common.auth.bearer import BearerTokenAuth
-from src.auth.authz_client import AuthzClient
 from src.auth.dependencies import require_authn, require_invoke_authz
 from src.auth.jwt import JWTValidationError, JWTValidator, get_jwt_validator
 
