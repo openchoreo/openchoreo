@@ -11,6 +11,7 @@ import pytest
 from fastapi import HTTPException
 
 import src.auth.dependencies as deps
+import common.auth.jwt as common_jwt
 import src.auth.jwt as jwt_module
 from common.auth.authz_models import (
     Decision,
@@ -152,7 +153,7 @@ async def test_require_authn_401_when_validate_fails(monkeypatch):
 @pytest.mark.asyncio
 async def test_require_authn_success_returns_subject(monkeypatch):
     validator = MagicMock()
-    validator.validate.return_value = {"sub": "u1"}
+    validator.validate = AsyncMock(return_value={"sub": "u1"})
     monkeypatch.setattr(deps, "get_jwt_validator", lambda: validator)
     monkeypatch.setattr(deps, "_auth_config", {})
     req = _request({"Authorization": "Bearer tok"})
@@ -301,55 +302,63 @@ async def test_authz_evaluate_connect_error_maps_to_503():
 # --------------------------------------------------------------- jwt
 
 
-def test_disabled_validator_returns_empty_claims():
-    assert DisabledJWTValidator().validate("anything") == {}
+async def test_disabled_validator_returns_empty_claims():
+    assert await DisabledJWTValidator().validate("anything") == {}
 
 
 def test_get_jwt_validator_disabled_without_jwks_url(monkeypatch):
     monkeypatch.setattr(jwt_module, "_jwt_validator", None)
     monkeypatch.setattr(jwt_module.settings, "jwt_jwks_url", "")
+    monkeypatch.setattr(jwt_module.settings, "jwt_insecure_allow_unverified", True)
     assert isinstance(get_jwt_validator(), DisabledJWTValidator)
+
+
+def test_get_jwt_validator_fails_closed_without_jwks_url(monkeypatch):
+    monkeypatch.setattr(jwt_module, "_jwt_validator", None)
+    monkeypatch.setattr(jwt_module.settings, "jwt_jwks_url", "")
+    monkeypatch.setattr(jwt_module.settings, "jwt_insecure_allow_unverified", False)
+    with pytest.raises(RuntimeError, match="JWT_JWKS_URL is required"):
+        get_jwt_validator()
 
 
 def test_get_jwt_validator_real_with_jwks_url(monkeypatch):
     monkeypatch.setattr(jwt_module, "_jwt_validator", None)
     monkeypatch.setattr(jwt_module.settings, "jwt_jwks_url", "https://idp/jwks")
+    monkeypatch.setattr(jwt_module.settings, "jwt_issuer", "https://idp")
     assert isinstance(get_jwt_validator(), JWTValidator)
 
 
 def _validator_with_mocked_jwks(monkeypatch):
-    v = JWTValidator(jwks_url="https://idp/jwks")
+    v = JWTValidator(jwks_url="https://idp/jwks", issuer="https://idp")
     signing = MagicMock()
     signing.key = "key"
     jwks_client = MagicMock()
     jwks_client.get_signing_key_from_jwt.return_value = signing
-    monkeypatch.setattr(v, "_get_jwks_client", lambda: jwks_client)
+    monkeypatch.setattr(v, "_jwks_client", jwks_client)
     return v
 
 
-def test_jwt_validate_success(monkeypatch):
+async def test_jwt_validate_success(monkeypatch):
     v = _validator_with_mocked_jwks(monkeypatch)
-    monkeypatch.setattr(jwt_module.jwt, "decode", lambda *a, **k: {"sub": "u1"})
-    assert v.validate("tok") == {"sub": "u1"}
+    monkeypatch.setattr(common_jwt.jwt, "decode", lambda *a, **k: {"sub": "u1"})
+    assert await v.validate("tok") == {"sub": "u1"}
 
 
-def test_jwt_validate_expired_raises(monkeypatch):
+async def test_jwt_validate_expired_raises(monkeypatch):
     v = _validator_with_mocked_jwks(monkeypatch)
 
     def boom(*a, **k):
         raise pyjwt.ExpiredSignatureError()
 
-    monkeypatch.setattr(jwt_module.jwt, "decode", boom)
+    monkeypatch.setattr(common_jwt.jwt, "decode", boom)
     with pytest.raises(JWTValidationError, match="expired"):
-        v.validate("tok")
+        await v.validate("tok")
 
 
-def test_jwt_validate_jwks_fetch_error(monkeypatch):
-    v = JWTValidator(jwks_url="https://idp/jwks")
-
-    def boom():
-        raise jwt_module.PyJWKClientError("no keys")
-
-    monkeypatch.setattr(v, "_get_jwks_client", boom)
+async def test_jwt_validate_jwks_fetch_error(monkeypatch):
+    v = JWTValidator(jwks_url="https://idp/jwks", issuer="https://idp")
+    jwks_client = MagicMock()
+    jwks_client.get_signing_key_from_jwt.side_effect = common_jwt.PyJWKClientError("no keys")
+    monkeypatch.setattr(v, "_jwks_client", jwks_client)
     with pytest.raises(JWTValidationError, match="Failed to fetch signing key"):
-        v.validate("tok")
+        await v.validate("tok")

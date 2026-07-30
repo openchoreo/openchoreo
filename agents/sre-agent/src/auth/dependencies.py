@@ -134,7 +134,7 @@ async def require_authn(request: Request) -> SubjectContext:
         )
 
     try:
-        claims = validator.validate(token)
+        claims = await validator.validate(token)
         request.state.bearer_token = token
         logger.debug("Authentication successful", extra={"sub": claims.get("sub")})
         return extract_subject_context_from_claims(claims)

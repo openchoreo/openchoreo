@@ -22,6 +22,7 @@ data:
   {{- end }}
   TLS_INSECURE_SKIP_VERIFY: {{ or .Values.security.oidc.jwksUrlTlsInsecureSkipVerify .Values.security.oidc.uidResolverTlsInsecureSkipVerify | quote }}
   JWT_JWKS_URL: {{ .Values.security.oidc.jwksUrl | quote }}
+  JWT_INSECURE_ALLOW_UNVERIFIED: {{ .Values.security.oidc.insecureAllowUnverified | default "false" | quote }}
   JWT_ISSUER: {{ .Values.security.oidc.issuer | quote }}
   JWT_AUDIENCE: {{ .Values.security.jwt.audience | quote }}
   AUTH_CONFIG_PATH: /etc/openchoreo/auth-config.yaml

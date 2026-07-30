@@ -111,7 +111,7 @@ async def test_require_authn_invalid_token_is_401():
 @pytest.mark.asyncio
 async def test_require_authn_valid_token_returns_subject_and_stashes_token():
     validator = MagicMock()
-    validator.validate = MagicMock(return_value={"sub": "user-9"})
+    validator.validate = AsyncMock(return_value={"sub": "user-9"})
     req = _request({"Authorization": "Bearer tok"})
 
     with (

@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     jwt_issuer: str = ""
     jwt_audience: str = ""
     jwt_jwks_refresh_interval: int = 3600
+    # Explicit dev-only opt-in: allow booting without a JWKS URL,
+    # with JWT validation disabled.
+    jwt_insecure_allow_unverified: bool = False
     authz_timeout_seconds: int = 30
     auth_config_path: str = "auth-config.yaml"
     openchoreo_api_url: str = "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
