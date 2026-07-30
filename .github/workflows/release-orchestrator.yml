@@ -475,6 +475,7 @@ jobs:
       backstage_image_tag: ${{ needs.resolve-target.outputs.backstage-image-tag }}
     secrets:
       E2E_GITHUB_PAT: ${{ secrets.E2E_GITHUB_PAT }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   # ----------------------------------------------------------------
   # Tag: create and push the annotated release tag at the gated commit.

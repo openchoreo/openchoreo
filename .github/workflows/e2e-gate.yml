@@ -122,7 +122,9 @@ on:
       E2E_GITHUB_PAT:
         description: "GitHub PAT with read access to the private build-test repo. When empty, the private-repo build spec self-skips."
         required: false
-
+      SLACK_WEBHOOK_URL:
+        description: "Slack Incoming Webhook URL for failure notifications. When empty, notifications are skipped."
+        required: false
 
 permissions:
   contents: read
@@ -719,3 +721,85 @@ jobs:
             fi
           done
           echo "::warning::Could not record e2e-gate status on ${SHA} after 3 attempts."
+  # Fires once if any enabled leg above failed. failure() ignores skipped legs
+  # (toggled off via run_*), so a single alert covers whichever shards ran —
+  # every leg on the nightly schedule, or a subset on dispatch/the release gate.
+  # quick-start failures are covered here too (the nested test-quick-start
+  # suppresses its own notify when called with a version). SLACK_WEBHOOK_URL
+  # resolves from repo secrets on the schedule/dispatch triggers; on the
+  # workflow_call path the caller passes it via the secrets mapping above.
+  notify:
+    name: Notify on failure
+    needs: [resolve-ref, tier1, tier2, tier3, ui, ext-idp, quick-start]
+    if: ${{ failure() }}
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      - name: Check Slack webhook is configured
+        id: guard
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "${SLACK_WEBHOOK_URL}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::SLACK_WEBHOOK_URL is not set; skipping Slack failure notification."
+          fi
+
+      - name: Render Slack payload
+        if: steps.guard.outputs.enabled == 'true'
+        env:
+          SUITE: "End-to-End Tests"
+          REF: ${{ inputs.ref || github.ref_name }}
+          SHA: ${{ needs.resolve-ref.outputs.sha }}
+          WORKFLOW: ${{ github.workflow }}
+          EVENT_NAME: ${{ github.event_name }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.resolve-ref.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          jq -n \
+            --arg suite "$SUITE" \
+            --arg ref "$REF" \
+            --arg sha "$SHA" \
+            --arg workflow "$WORKFLOW" \
+            --arg event_name "$EVENT_NAME" \
+            --arg commit_url "$COMMIT_URL" \
+            --arg run_url "$RUN_URL" \
+            '{
+              text: ":red_circle: \($suite) failed on \($ref) (\($workflow))",
+              blocks: [
+                {
+                  type: "header",
+                  text: { type: "plain_text", text: ":red_circle: \($suite) failed", emoji: true }
+                },
+                {
+                  type: "section",
+                  fields: [
+                    { type: "mrkdwn", text: "*Workflow:*\n\($workflow)" },
+                    { type: "mrkdwn", text: "*Branch / ref:*\n`\($ref)`" },
+                    { type: "mrkdwn", text: "*Trigger:*\n\($event_name)" },
+                    { type: "mrkdwn", text: "*Commit:*\n<\($commit_url)|`\($sha)`>" }
+                  ]
+                },
+                {
+                  type: "actions",
+                  elements: [
+                    {
+                      type: "button",
+                      text: { type: "plain_text", text: "View failed run", emoji: true },
+                      url: $run_url,
+                      style: "danger"
+                    }
+                  ]
+                }
+              ]
+            }' > "$RUNNER_TEMP/slack-payload.json"
+
+      - name: Post failure alert to Slack
+        if: steps.guard.outputs.enabled == 'true'
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload-file-path: "${{ runner.temp }}/slack-payload.json"
