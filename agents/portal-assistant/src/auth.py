@@ -1,7 +1,6 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-from common.auth.authz_models import SubjectContext  # noqa: F401
 from common.auth.runtime import AuthRuntime
 from src.config import settings
 

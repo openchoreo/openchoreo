@@ -27,10 +27,12 @@ from common.auth.authz_models import (
 )
 from common.auth.dependencies import extract_bearer_token
 from common.auth.dependencies import extract_entitlements as _extract_entitlements
-from src.auth import (
+from common.auth.jwt import (
     DisabledJWTValidator,
     JWTValidationError,
     JWTValidator,
+)
+from src.auth import (
     auth,
     get_jwt_validator,
     require_authn,

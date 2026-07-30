@@ -29,8 +29,9 @@ from common.auth.authz_models import (
     SubjectContext,
 )
 from common.auth.dependencies import extract_bearer_token
+from common.auth.jwt import DisabledJWTValidator, JWTValidationError
 from common.auth.runtime import hierarchy_from_query
-from src.auth import DisabledJWTValidator, JWTValidationError, auth, require_authn
+from src.auth import auth, require_authn
 
 
 def _request(headers=None, query_params=None):

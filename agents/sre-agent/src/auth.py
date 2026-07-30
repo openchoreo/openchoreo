@@ -1,11 +1,6 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-from common.auth.jwt import (  # noqa: F401
-    DisabledJWTValidator,
-    JWTValidationError,
-    JWTValidator,
-)
 from common.auth.runtime import (
     AuthRuntime,
     hierarchy_from_body,
