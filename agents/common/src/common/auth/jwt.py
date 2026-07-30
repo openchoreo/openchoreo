@@ -45,10 +45,7 @@ class JWTValidator:
             ssl_context.verify_mode = ssl.CERT_NONE
             logger.debug("SSL verification disabled for JWKS client")
 
-        # PyJWKClient handles its own TTL'd key cache via ``lifespan``; we
-        # construct it once and let it refresh signing keys in-place.
-        # Recreating the client per refresh interval would discard the cached
-        # keys and force a fresh HTTPS handshake on the next request.
+        # One long-lived client; PyJWKClient TTLs its own key cache via lifespan.
         self._jwks_client = PyJWKClient(
             self.jwks_url,
             cache_keys=True,
@@ -122,10 +119,7 @@ class JWTValidator:
             raise JWTValidationError(f"Invalid token: {e}") from e
 
     async def validate(self, token: str) -> dict[str, Any]:
-        # PyJWKClient + jwt.decode are synchronous and can block the event
-        # loop for hundreds of ms on JWKS misses (network I/O + RS256
-        # verify). Punt to a worker thread so the loop keeps serving other
-        # requests while one validation is in flight.
+        # JWKS fetch + signature verify are blocking; keep them off the event loop.
         return await asyncio.to_thread(self._validate_sync, token)
 
 
@@ -145,9 +139,8 @@ def create_jwt_validator(
     allow_unverified: bool = False,
     service_name: str = "openchoreo-agent",
 ) -> JWTValidator | DisabledJWTValidator:
-    """Fail-closed factory: a missing JWKS URL aborts startup unless the
-    dev-only allow_unverified flag is set, in which case validation is
-    disabled (authenticated routes still reject; the pod merely boots)."""
+    """Fail closed: a missing JWKS URL aborts startup unless allow_unverified
+    (dev-only) is set, which disables validation but keeps the pod booting."""
     if allow_unverified and not jwks_url:
         logger.warning(
             "JWT_INSECURE_ALLOW_UNVERIFIED is set and JWT_JWKS_URL is empty — "

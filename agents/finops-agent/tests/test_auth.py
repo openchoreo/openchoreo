@@ -144,12 +144,12 @@ def test_extract_entitlements_missing_claim_is_none():
     assert deps._extract_entitlements({}, "groups") is None
 
 
-def test_extract_entitlements_empty_list_is_none():
-    assert deps._extract_entitlements({"groups": []}, "groups") is None
+def test_extract_entitlements_empty_list_is_empty():
+    assert deps._extract_entitlements({"groups": []}, "groups") == []
 
 
-def test_extract_entitlements_empty_scalar_is_none():
-    assert deps._extract_entitlements({"groups": ""}, "groups") is None
+def test_extract_entitlements_empty_scalar_is_empty():
+    assert deps._extract_entitlements({"groups": ""}, "groups") == []
 
 
 def test_get_jwt_claim_finds_jwt_mechanism():

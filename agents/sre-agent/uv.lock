@@ -187,14 +187,22 @@ name = "common"
 version = "0.1.0"
 source = { editable = "../common" }
 dependencies = [
+    { name = "fastapi" },
+    { name = "httpx" },
     { name = "jinja2" },
     { name = "pydantic" },
+    { name = "pyjwt", extra = ["crypto"] },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", specifier = ">=0.139.2" },
+    { name = "httpx", specifier = ">=0.23.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.13.0" },
+    { name = "pyyaml", specifier = ">=6.0.0" },
 ]
 
 [[package]]

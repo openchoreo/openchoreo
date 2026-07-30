@@ -34,18 +34,8 @@ class TemplateManager:
         return template.render(**context)
 
     def preload(self, template_paths: list[str]) -> None:
-        """Resolve and parse the given templates eagerly.
-
-        Called from the FastAPI lifespan so a missing or malformed prompt
-        template fails the deploy at startup rather than emitting a 500 the
-        first time a user sends a chat. ``Environment.get_template`` raises
-        ``TemplateNotFound`` (or ``TemplateSyntaxError`` on parse errors) —
-        let the caller log + re-raise so uvicorn aborts the process.
-        """
+        """Parse templates eagerly so a broken template fails at startup,
+        not on the first request."""
         env = self._get_env()
         for path in template_paths:
-            # get_template loads, parses, and compiles the template — raises
-            # TemplateNotFound / TemplateSyntaxError on any problem. The
-            # compiled result is cached on the Environment, so the first
-            # request-time render() doesn't pay this cost again.
             env.get_template(path)

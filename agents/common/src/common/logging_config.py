@@ -11,9 +11,7 @@ request_id_context: ContextVar[str | None] = ContextVar("request_id", default=No
 
 
 _HEALTH_PATHS = ("/health", "/healthz")
-# uvicorn.access formats request lines as: METHOD PATH HTTP/x.y
-# Match the path exactly (allowing an optional query string) so unrelated URLs
-# like /api/healthchecks or /health-report aren't suppressed.
+# Exact-path match so URLs like /health-report aren't suppressed.
 _HEALTH_REQUEST_RE = re.compile(
     rf"\b[A-Z]+ ({'|'.join(re.escape(p) for p in _HEALTH_PATHS)})(\?\S*)? HTTP/"
 )
@@ -21,8 +19,7 @@ _HEALTH_REQUEST_RE = re.compile(
 
 class HealthcheckFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        # uvicorn.access passes the request path in record.args[2] when using
-        # %-style formatting; prefer the structured field, fall back to regex.
+        # Prefer uvicorn.access's structured args; fall back to regex.
         args = record.args
         if isinstance(args, tuple) and len(args) >= 3 and isinstance(args[2], str):
             path = args[2].split("?", 1)[0]
