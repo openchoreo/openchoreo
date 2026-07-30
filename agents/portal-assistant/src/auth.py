@@ -2,11 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from common.auth.authz_models import SubjectContext  # noqa: F401
-from common.auth.jwt import (  # noqa: F401
-    DisabledJWTValidator,
-    JWTValidationError,
-    JWTValidator,
-)
 from common.auth.runtime import AuthRuntime
 from src.config import settings
 
