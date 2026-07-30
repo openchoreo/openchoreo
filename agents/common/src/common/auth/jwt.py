@@ -139,8 +139,6 @@ def create_jwt_validator(
     allow_unverified: bool = False,
     service_name: str = "openchoreo-agent",
 ) -> JWTValidator | DisabledJWTValidator:
-    """Fail closed: a missing JWKS URL aborts startup unless allow_unverified
-    (dev-only) is set, which disables validation but keeps the pod booting."""
     if allow_unverified and not jwks_url:
         logger.warning(
             "JWT_INSECURE_ALLOW_UNVERIFIED is set and JWT_JWKS_URL is empty — "

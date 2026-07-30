@@ -11,8 +11,7 @@ import pytest
 from fastapi import HTTPException
 
 import common.auth.jwt as common_jwt
-import src.auth.dependencies as deps
-import src.auth.jwt as jwt_module
+from common.auth import dependencies as common_deps
 from common.auth.authz_client import AuthzClient
 from common.auth.authz_errors import (
     AuthzForbidden,
@@ -26,20 +25,18 @@ from common.auth.authz_models import (
     ResourceHierarchy,
     SubjectContext,
 )
-from src.auth.dependencies import (
-    AuthorizationChecker,
-    ReportAuthorizationChecker,
-    _extract_entitlements,
-    extract_bearer_token,
-    extract_subject_context_from_claims,
-    require_authn,
-)
-from src.auth.jwt import (
+from common.auth.dependencies import extract_bearer_token
+from common.auth.dependencies import extract_entitlements as _extract_entitlements
+from src.auth import (
     DisabledJWTValidator,
     JWTValidationError,
     JWTValidator,
+    auth,
     get_jwt_validator,
+    require_authn,
+    require_reports_authz,
 )
+from src.config import settings
 
 
 def _request(headers=None, path_params=None, body=None):
@@ -98,7 +95,7 @@ def test_extract_entitlements_empty_value_returns_empty_list():
 
 def test_subject_context_uses_configured_claim(monkeypatch):
     monkeypatch.setattr(
-        deps,
+        auth,
         "_auth_config",
         {
             "auth": {
@@ -112,15 +109,15 @@ def test_subject_context_uses_configured_claim(monkeypatch):
             }
         },
     )
-    ctx = extract_subject_context_from_claims({"sub": "u1", "groups": ["g1"]})
+    ctx = auth.extract_subject_context({"sub": "u1", "groups": ["g1"]})
     assert ctx.type == "group"
     assert ctx.entitlement_claim == "groups"
     assert ctx.entitlement_values == ["g1"]
 
 
 def test_subject_context_falls_back_to_sub(monkeypatch):
-    monkeypatch.setattr(deps, "_auth_config", {})
-    ctx = extract_subject_context_from_claims({"sub": "u1"})
+    monkeypatch.setattr(auth, "_auth_config", {})
+    ctx = auth.extract_subject_context({"sub": "u1"})
     assert ctx.type == "user"
     assert ctx.entitlement_claim == "sub"
     assert ctx.entitlement_values == ["u1"]
@@ -131,7 +128,7 @@ def test_subject_context_falls_back_to_sub(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_require_authn_500_when_jwt_disabled(monkeypatch):
-    monkeypatch.setattr(deps, "get_jwt_validator", lambda: DisabledJWTValidator())
+    monkeypatch.setattr(auth, "get_jwt_validator", lambda: DisabledJWTValidator())
     with pytest.raises(HTTPException) as exc:
         await require_authn(_request({"Authorization": "Bearer t"}))
     assert exc.value.status_code == 500
@@ -139,7 +136,7 @@ async def test_require_authn_500_when_jwt_disabled(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_require_authn_401_when_token_missing(monkeypatch):
-    monkeypatch.setattr(deps, "get_jwt_validator", lambda: MagicMock())
+    monkeypatch.setattr(auth, "get_jwt_validator", lambda: MagicMock())
     with pytest.raises(HTTPException) as exc:
         await require_authn(_request({}))
     assert exc.value.status_code == 401
@@ -149,7 +146,7 @@ async def test_require_authn_401_when_token_missing(monkeypatch):
 async def test_require_authn_401_when_validate_fails(monkeypatch):
     validator = MagicMock()
     validator.validate.side_effect = JWTValidationError("bad")
-    monkeypatch.setattr(deps, "get_jwt_validator", lambda: validator)
+    monkeypatch.setattr(auth, "get_jwt_validator", lambda: validator)
     with pytest.raises(HTTPException) as exc:
         await require_authn(_request({"Authorization": "Bearer t"}))
     assert exc.value.status_code == 401
@@ -159,8 +156,8 @@ async def test_require_authn_401_when_validate_fails(monkeypatch):
 async def test_require_authn_success_returns_subject(monkeypatch):
     validator = MagicMock()
     validator.validate = AsyncMock(return_value={"sub": "u1"})
-    monkeypatch.setattr(deps, "get_jwt_validator", lambda: validator)
-    monkeypatch.setattr(deps, "_auth_config", {})
+    monkeypatch.setattr(auth, "get_jwt_validator", lambda: validator)
+    monkeypatch.setattr(auth, "_auth_config", {})
     req = _request({"Authorization": "Bearer tok"})
     ctx = await require_authn(req)
     assert ctx.entitlement_values == ["u1"]
@@ -174,8 +171,8 @@ async def test_require_authn_success_returns_subject(monkeypatch):
 async def test_authorization_checker_allows(monkeypatch):
     client = MagicMock()
     client.evaluate = AsyncMock(return_value=Decision(decision=True))
-    monkeypatch.setattr(deps, "get_authz_client", lambda: client)
-    checker = AuthorizationChecker(action="rcareport:view", resource_type="rcareport")
+    monkeypatch.setattr(auth, "get_authz_client", lambda: client)
+    checker = auth.checker("rcareport:view", "rcareport")
     subject = SubjectContext(type="user", entitlementClaim="sub", entitlementValues=["u1"])
     result = await checker(
         _request({"Authorization": "Bearer t"}, body={"projectUid": "p"}), subject
@@ -187,8 +184,8 @@ async def test_authorization_checker_allows(monkeypatch):
 async def test_authorization_checker_denies(monkeypatch):
     client = MagicMock()
     client.evaluate = AsyncMock(return_value=Decision(decision=False))
-    monkeypatch.setattr(deps, "get_authz_client", lambda: client)
-    checker = AuthorizationChecker(action="rcareport:view", resource_type="rcareport")
+    monkeypatch.setattr(auth, "get_authz_client", lambda: client)
+    checker = auth.checker("rcareport:view", "rcareport")
     subject = SubjectContext(type="user", entitlementClaim="sub", entitlementValues=["u1"])
     with pytest.raises(HTTPException) as exc:
         await checker(_request({"Authorization": "Bearer t"}, body={}), subject)
@@ -205,8 +202,8 @@ async def test_report_checker_extracts_project_from_path(monkeypatch):
 
     client = MagicMock()
     client.evaluate = AsyncMock(side_effect=fake_eval)
-    monkeypatch.setattr(deps, "get_authz_client", lambda: client)
-    checker = ReportAuthorizationChecker(action="rcareport:view", resource_type="rcareport")
+    monkeypatch.setattr(auth, "get_authz_client", lambda: client)
+    checker = require_reports_authz
     subject = SubjectContext(type="user", entitlementClaim="sub", entitlementValues=["u1"])
     await checker(
         _request({"Authorization": "Bearer t"}, path_params={"project_id": "proj-9"}), subject
@@ -306,24 +303,24 @@ async def test_disabled_validator_returns_empty_claims():
 
 
 def test_get_jwt_validator_disabled_without_jwks_url(monkeypatch):
-    monkeypatch.setattr(jwt_module, "_jwt_validator", None)
-    monkeypatch.setattr(jwt_module.settings, "jwt_jwks_url", "")
-    monkeypatch.setattr(jwt_module.settings, "jwt_insecure_allow_unverified", True)
+    monkeypatch.setattr(auth, "_validator", None)
+    monkeypatch.setattr(settings, "jwt_jwks_url", "")
+    monkeypatch.setattr(settings, "jwt_insecure_allow_unverified", True)
     assert isinstance(get_jwt_validator(), DisabledJWTValidator)
 
 
 def test_get_jwt_validator_fails_closed_without_jwks_url(monkeypatch):
-    monkeypatch.setattr(jwt_module, "_jwt_validator", None)
-    monkeypatch.setattr(jwt_module.settings, "jwt_jwks_url", "")
-    monkeypatch.setattr(jwt_module.settings, "jwt_insecure_allow_unverified", False)
+    monkeypatch.setattr(auth, "_validator", None)
+    monkeypatch.setattr(settings, "jwt_jwks_url", "")
+    monkeypatch.setattr(settings, "jwt_insecure_allow_unverified", False)
     with pytest.raises(RuntimeError, match="JWT_JWKS_URL is required"):
         get_jwt_validator()
 
 
 def test_get_jwt_validator_real_with_jwks_url(monkeypatch):
-    monkeypatch.setattr(jwt_module, "_jwt_validator", None)
-    monkeypatch.setattr(jwt_module.settings, "jwt_jwks_url", "https://idp/jwks")
-    monkeypatch.setattr(jwt_module.settings, "jwt_issuer", "https://idp")
+    monkeypatch.setattr(auth, "_validator", None)
+    monkeypatch.setattr(settings, "jwt_jwks_url", "https://idp/jwks")
+    monkeypatch.setattr(settings, "jwt_issuer", "https://idp")
     assert isinstance(get_jwt_validator(), JWTValidator)
 
 
@@ -361,3 +358,58 @@ async def test_jwt_validate_jwks_fetch_error(monkeypatch):
     monkeypatch.setattr(v, "_jwks_client", jwks_client)
     with pytest.raises(JWTValidationError, match="Failed to fetch signing key"):
         await v.validate("tok")
+
+
+def test_load_auth_config_rejects_non_mapping(tmp_path):
+    p = tmp_path / "auth-config.yaml"
+    p.write_text("- just\n- a\n- list\n")
+    with pytest.raises(ValueError, match="must be a YAML mapping"):
+        common_deps.load_auth_config(str(p))
+
+
+def test_load_auth_config_rejects_malformed_subject_types(tmp_path):
+    p = tmp_path / "auth-config.yaml"
+    p.write_text("auth:\n  subject_types:\n    - not-a-mapping\n")
+    with pytest.raises(ValueError, match="list of mappings"):
+        common_deps.load_auth_config(str(p))
+
+
+def test_hierarchy_from_path_keeps_falsy_values():
+    from common.auth.runtime import hierarchy_from_path
+
+    extract = hierarchy_from_path(project="project_id")
+    req = _request({}, path_params={"project_id": 0})
+    assert extract(req).project == "0"
+
+
+@pytest.mark.asyncio
+async def test_authz_evaluate_retries_transient_connect_errors(monkeypatch):
+    import httpx
+
+    from common.auth import authz_client as ac
+
+    monkeypatch.setattr(ac, "_RETRY_BACKOFF_SECONDS", 0)
+    client = AuthzClient(base_url="http://authz", timeout=5)
+    ok = _response(200, [{"decision": True}])
+    fake = MagicMock()
+    fake.post = AsyncMock(side_effect=[httpx.ConnectError("down"), httpx.ConnectError("down"), ok])
+    client._client = fake
+    decision = await client.evaluate(_eval_request())
+    assert decision.decision is True
+    assert fake.post.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_authz_evaluate_gives_up_after_bounded_retries(monkeypatch):
+    import httpx
+
+    from common.auth import authz_client as ac
+
+    monkeypatch.setattr(ac, "_RETRY_BACKOFF_SECONDS", 0)
+    client = AuthzClient(base_url="http://authz", timeout=5)
+    fake = MagicMock()
+    fake.post = AsyncMock(side_effect=httpx.ConnectError("down"))
+    client._client = fake
+    with pytest.raises(AuthzServiceUnavailable):
+        await client.evaluate(_eval_request())
+    assert fake.post.await_count == 3

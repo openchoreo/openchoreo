@@ -1,9 +1,6 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shared authn/authz plumbing, settings-free: each agent's dependencies
-shim passes in its validator, authz client, and auth-config path."""
-
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -113,7 +110,6 @@ async def require_authn_with(
     validator: JWTValidator | DisabledJWTValidator,
     extract_subject: Callable[[dict[str, Any]], SubjectContext],
 ) -> SubjectContext:
-    """Validate the JWT; stash bearer token and sub on request.state."""
     if isinstance(validator, DisabledJWTValidator):
         logger.error("JWT authentication not configured - JWT_JWKS_URL is required")
         raise HTTPException(
@@ -154,7 +150,6 @@ async def enforce_authz(
     resource_type: str,
     hierarchy: ResourceHierarchy,
 ) -> SubjectContext:
-    """Evaluate one authz decision; map domain errors and denies to HTTP."""
     logger.info(
         "Authorization check: action=%s, resource_type=%s, subject_type=%s",
         action,

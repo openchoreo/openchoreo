@@ -6,10 +6,12 @@ from __future__ import annotations
 from urllib.parse import urlparse
 
 from pydantic import model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
+
+from common.config import CommonSettings
 
 
-class Settings(BaseSettings):
+class Settings(CommonSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False,
@@ -25,25 +27,7 @@ class Settings(BaseSettings):
         "http://opencost.openchoreo-observability-plane.svc.cluster.local:8081"
     )
 
-    oauth_token_url: str = ""
-    oauth_client_id: str = ""
-    oauth_client_secret: str = ""
-    oauth_scope: str = ""
 
-    jwt_jwks_url: str = ""
-    jwt_issuer: str = ""
-    jwt_audience: str = ""
-    jwt_jwks_refresh_interval: int = 3600
-    # Explicit dev-only opt-in: allow booting without a JWKS URL,
-    # with JWT validation disabled.
-    jwt_insecure_allow_unverified: bool = False
-    authz_timeout_seconds: int = 30
-    auth_config_path: str = "auth-config.yaml"
-    openchoreo_api_url: str = "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080"
-
-    @property
-    def authz_service_url(self) -> str:
-        return self.openchoreo_api_url.rstrip("/")
 
     report_backend: str = "sqlite"
     sql_backend_uri: str = ""
@@ -56,10 +40,6 @@ class Settings(BaseSettings):
 
     remediation_enabled: bool = False
 
-    log_level: str = "INFO"
-    tls_insecure_skip_verify: bool = False
-    openai_debug_logs: bool = False
-    cors_allowed_origins: str = ""
 
     @model_validator(mode="after")
     def _validate_backend_config(self) -> Settings:

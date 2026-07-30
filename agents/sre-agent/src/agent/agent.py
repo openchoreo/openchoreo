@@ -31,7 +31,7 @@ from src.agent.tool_registry import (
     TOOL_ACTIVE_FORMS,
     TOOLS,
 )
-from src.auth.oauth_client import get_oauth2_auth
+from src.auth import get_oauth2_auth
 from src.clients import MCPClient, get_model, get_report_backend
 from src.config import settings
 from src.helpers import AlertScope

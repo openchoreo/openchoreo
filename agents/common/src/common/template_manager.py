@@ -34,8 +34,6 @@ class TemplateManager:
         return template.render(**context)
 
     def preload(self, template_paths: list[str]) -> None:
-        """Parse templates eagerly so a broken template fails at startup,
-        not on the first request."""
         env = self._get_env()
         for path in template_paths:
             env.get_template(path)

@@ -52,7 +52,7 @@ from common.auth.authz_models import (
     SubjectContext,
 )
 from src.agent import run_analysis
-from src.auth.dependencies import get_authz_client, require_authn
+from src.auth import get_authz_client, require_authn
 from src.clients import get_report_backend
 from src.helpers import resolve_component_scope, resolve_project_scope, validate_time_range
 

@@ -1,42 +1,28 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-from common.auth.authz_client import AuthzClient
-from common.auth.authz_models import (
-    Decision,
-    EvaluateRequest,
-    Resource,
-    ResourceHierarchy,
-    SubjectContext,
+from common.auth.authz_models import SubjectContext  # noqa: F401
+from common.auth.jwt import (  # noqa: F401
+    DisabledJWTValidator,
+    JWTValidationError,
+    JWTValidator,
 )
-from common.auth.bearer import BearerTokenAuth
-from src.auth.dependencies import require_authn, require_reports_authz, require_reports_update_authz
-from src.auth.jwt import JWTValidationError, JWTValidator, get_jwt_validator
-from src.auth.oauth_client import (
-    OAuth2ClientCredentialsAuth,
-    check_oauth2_connection,
-    get_oauth2_auth,
-)
+from common.auth.oauth_client import OAuth2ClientCredentialsAuth  # noqa: F401
+from common.auth.runtime import AuthRuntime, hierarchy_from_query
+from src.config import settings
 
-__all__ = [
-    # JWT
-    "JWTValidator",
-    "JWTValidationError",
-    "get_jwt_validator",
-    # OAuth2 / Auth strategies
-    "BearerTokenAuth",
-    "OAuth2ClientCredentialsAuth",
-    "get_oauth2_auth",
-    "check_oauth2_connection",
-    # Authz
-    "AuthzClient",
-    "Decision",
-    "EvaluateRequest",
-    "Resource",
-    "ResourceHierarchy",
-    "SubjectContext",
-    # Dependencies
-    "require_authn",
-    "require_reports_authz",
-    "require_reports_update_authz",
-]
+auth = AuthRuntime(settings, service_name="finops-agent")
+
+get_jwt_validator = auth.get_jwt_validator
+get_authz_client = auth.get_authz_client
+get_oauth2_auth = auth.get_oauth2_auth
+check_oauth2_connection = auth.check_oauth2_connection
+require_authn = auth.require_authn
+
+_report_hierarchy = hierarchy_from_query(project="project", namespace="namespace")
+require_reports_authz = auth.checker(
+    "finopsreport:view", "finopsreport", hierarchy=_report_hierarchy
+)
+require_reports_update_authz = auth.checker(
+    "finopsreport:update", "finopsreport", hierarchy=_report_hierarchy
+)

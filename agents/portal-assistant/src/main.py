@@ -10,8 +10,8 @@ from fastapi import FastAPI
 from common.auth.bearer import BearerTokenAuth
 from src.agent.tool_registry import log_classification_summary
 from src.api import agent_router
-from src.auth.dependencies import _load_auth_config, get_authz_client
-from src.auth.jwt import get_jwt_validator
+from src.auth import auth as _auth
+from src.auth import get_authz_client, get_jwt_validator
 from src.clients import MCPClient, get_model
 from src.config import settings
 from src.logging_config import setup_logging
@@ -90,7 +90,7 @@ async def lifespan(_app: FastAPI):
 
     logger.info("Loading auth config...")
     try:
-        _load_auth_config()
+        _auth.get_auth_config()
     except Exception as e:
         logger.error("Auth config loading failed: %s", e)
         raise RuntimeError(f"Auth config loading failed: {e}") from e

@@ -1,10 +1,6 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Framework-agnostic exceptions raised by AuthzClient; each agent maps
-them to HTTP responses at its FastAPI seam."""
-
-
 class AuthzError(Exception):
     pass
 
