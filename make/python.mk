@@ -4,12 +4,15 @@
 
 # Discover agents as any directory under agents/ that has a pyproject.toml.
 PYTHON_AGENTS := $(sort $(notdir $(patsubst %/,%,$(dir $(wildcard agents/*/pyproject.toml)))))
+# The shared library has no test suite of its own; it is exercised through the
+# agents' suites (each installs it as a path dependency).
+PYTHON_TEST_AGENTS := $(filter-out common,$(PYTHON_AGENTS))
 
 ##@ Python Agents
 
 .PHONY: python.test
 python.test: ## Run tests for all Python agents.
-	@for agent in $(PYTHON_AGENTS); do \
+	@for agent in $(PYTHON_TEST_AGENTS); do \
 		$(call log_info, "Testing agents/$$agent"); \
 		(cd agents/$$agent && uv run --frozen --group dev pytest -q) || exit 1; \
 	done

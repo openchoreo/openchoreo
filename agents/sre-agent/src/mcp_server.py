@@ -44,13 +44,13 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from src.agent import run_analysis
-from src.auth.authz_models import (
+from common.auth.authz_models import (
     EvaluateRequest,
     Resource,
     ResourceHierarchy,
     SubjectContext,
 )
+from src.agent import run_analysis
 from src.auth.dependencies import get_authz_client, require_authn
 from src.clients import get_report_backend
 from src.helpers import resolve_component_scope, resolve_project_scope, validate_time_range

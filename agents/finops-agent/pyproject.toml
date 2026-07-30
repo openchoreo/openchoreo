@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "FinOps agent for analyzing component budget overruns"
 requires-python = ">=3.14"
 dependencies = [
+    "common",
     "authlib>=1.7.2",
     "fastapi>=0.141.1",
     "httpx>=0.28.0",
@@ -18,6 +19,9 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.51",
     "uvicorn>=0.52.1",
 ]
+
+[tool.uv.sources]
+common = { path = "../common", editable = true }
 
 [dependency-groups]
 dev = [
@@ -55,6 +59,9 @@ ignore = [
     "B008",  # do not perform function calls in argument defaults
     "B904",  # raise from
 ]
+
+[tool.ruff.lint.isort]
+known-first-party = ["common", "src"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]

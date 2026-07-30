@@ -17,6 +17,7 @@ from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel
 
+from common.auth.bearer import BearerTokenAuth
 from src.agent.middleware import (
     LoggingMiddleware,
     OutputTransformerMiddleware,
@@ -30,7 +31,6 @@ from src.agent.tool_registry import (
     TOOL_ACTIVE_FORMS,
     TOOLS,
 )
-from src.auth.bearer import BearerTokenAuth
 from src.auth.oauth_client import get_oauth2_auth
 from src.clients import MCPClient, get_model, get_report_backend
 from src.config import settings

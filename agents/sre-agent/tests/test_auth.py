@@ -12,14 +12,14 @@ from fastapi import HTTPException
 
 import src.auth.dependencies as deps
 import src.auth.jwt as jwt_module
-from src.auth.authz_client import AuthzClient
-from src.auth.authz_models import (
+from common.auth.authz_models import (
     Decision,
     EvaluateRequest,
     Resource,
     ResourceHierarchy,
     SubjectContext,
 )
+from src.auth.authz_client import AuthzClient
 from src.auth.dependencies import (
     AuthorizationChecker,
     ReportAuthorizationChecker,

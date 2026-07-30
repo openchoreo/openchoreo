@@ -6,11 +6,11 @@ import pytest
 from pydantic import ValidationError
 
 from src.api.agent_routes import (
+    _TOTAL_CONTENT_LIMIT,
     ChatMessage,
     ChatRequest,
     ChatScope,
     PrefetchedLogEntry,
-    _TOTAL_CONTENT_LIMIT,
 )
 
 

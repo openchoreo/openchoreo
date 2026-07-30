@@ -11,9 +11,9 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import Field, field_validator, model_validator
 
+from common.auth.bearer import BearerTokenAuth
 from src.agent import stream_chat
 from src.auth import SubjectContext, require_authn, require_invoke_authz
-from src.auth.bearer import BearerTokenAuth
 from src.clients import get_tools_for_user
 from src.models import BaseModel
 

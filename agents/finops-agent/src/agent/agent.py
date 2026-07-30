@@ -24,7 +24,7 @@ from src.auth import get_oauth2_auth
 from src.clients import MCPClient, get_model, get_report_backend
 from src.config import settings
 from src.logging_config import request_id_context
-from src.models import CostBreakdown, FinOpsReport, FieldChange, RemediationAction, ResourceChange
+from src.models import CostBreakdown, FieldChange, FinOpsReport, RemediationAction, ResourceChange
 from src.template_manager import render
 
 if TYPE_CHECKING:

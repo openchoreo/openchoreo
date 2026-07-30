@@ -14,15 +14,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from src.auth import dependencies as deps
-from src.auth.authz_client import AuthzClient
-from src.auth.authz_models import (
+from common.auth.authz_models import (
     Decision,
     EvaluateRequest,
     Resource,
     ResourceHierarchy,
     SubjectContext,
 )
+from src.auth import dependencies as deps
+from src.auth.authz_client import AuthzClient
 from src.auth.dependencies import (
     AuthorizationChecker,
     ReportAuthorizationChecker,
