@@ -3,8 +3,8 @@
 
 from pathlib import Path
 
-from common.template_manager import TemplateManager, _match_test  # noqa: F401
+from common.template_manager import TemplateManager
 
-_manager = TemplateManager(Path(__file__).parent / "templates")
+_manager = TemplateManager(Path(__file__).parent)
 render = _manager.render
 preload = _manager.preload

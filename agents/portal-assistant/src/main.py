@@ -15,7 +15,7 @@ from src.auth import get_authz_client, get_jwt_validator
 from src.clients import MCPClient, get_model
 from src.config import settings
 from src.logging_config import setup_logging
-from src.template_manager import preload as preload_templates
+from src.templates import preload as preload_templates
 
 load_dotenv()
 setup_logging()

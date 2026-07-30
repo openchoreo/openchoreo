@@ -5,8 +5,8 @@
 
 from jinja2 import DictLoader, Environment
 
-import src.template_manager as tm
-from src.template_manager import _match_test
+import src.templates as tm
+from common.template_manager import _match_test
 
 
 def test_match_test_matches_prefix():

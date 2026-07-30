@@ -25,7 +25,7 @@ from src.clients import MCPClient, get_model, get_report_backend
 from src.config import settings
 from src.logging_config import request_id_context
 from src.models import CostBreakdown, FieldChange, FinOpsReport, RemediationAction, ResourceChange
-from src.template_manager import render
+from src.templates import render
 
 if TYPE_CHECKING:
     from src.api.agent_routes import SearchScope

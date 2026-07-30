@@ -13,7 +13,7 @@ from langchain.tools.tool_node import ToolCallRequest
 from langgraph.types import Command
 
 from src.agent.tool_registry import TOOLS
-from src.template_manager import render
+from src.templates import render
 
 logger = logging.getLogger(__name__)
 

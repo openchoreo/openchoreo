@@ -40,7 +40,7 @@ from src.agent.tool_registry import is_mutating
 from src.clients import get_model, get_tools_for_user
 from src.config import settings
 from src.models import ChatResponse
-from src.template_manager import render
+from src.templates import render
 
 logger = logging.getLogger(__name__)
 

@@ -39,7 +39,7 @@ from src.logging_config import request_id_context
 from src.models import ChatResponse, RCAReport
 from src.models.rca_report import RootCauseIdentified
 from src.models.remediation_result import RemediationResult
-from src.template_manager import render
+from src.templates import render
 
 logger = logging.getLogger(__name__)
 
