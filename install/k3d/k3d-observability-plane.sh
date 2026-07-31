@@ -15,7 +15,7 @@ OPENCHOREO_REF="${OPENCHOREO_REF:-main}"           # overridable via env; defaul
 OPENCHOREO_OP_VERSION="${OPENCHOREO_OP_VERSION:-0.0.0-latest-dev}"  # overridable via env
 LOGS_OPENSEARCH_VERSION="0.5.3"
 TRACES_OPENSEARCH_VERSION="0.5.0"
-METRICS_PROMETHEUS_VERSION="0.6.1"
+METRICS_PROMETHEUS_VERSION="0.7.0"
 EVENTS_OTEL_COLLECTOR_VERSION="0.1.1"
 
 # -- derived constants --
@@ -58,6 +58,25 @@ helm upgrade --install observability-metrics-prometheus \
   --create-namespace \
   --namespace "$OP_NS" \
   --version "$METRICS_PROMETHEUS_VERSION"
+
+# The prometheus-operator, not Helm, creates the metrics module's StatefulSets,
+# pods and PVCs from the custom resources the chart applies — so helm returns
+# successfully long before those workloads exist. The module persists Prometheus
+# and Alertmanager data on PVCs, so a volume that never binds (no default
+# StorageClass, or an exhausted one) would otherwise pass as a clean install and
+# only surface later as missing metrics. Wait for the operator to create each
+# StatefulSet, then for it to actually roll out.
+for sts in prometheus-openchoreo-observability alertmanager-openchoreo-observability; do
+  for i in $(seq 1 30); do
+    kubectl get statefulset "$sts" -n "$OP_NS" >/dev/null 2>&1 && break
+    if [ "$i" -eq 30 ]; then
+      echo "ERROR: prometheus-operator did not create StatefulSet $sts within 60s" >&2
+      exit 1
+    fi
+    sleep 2
+  done
+  kubectl rollout status "statefulset/$sts" -n "$OP_NS" --timeout=5m
+done
 
 step "Enabling logs collection in the configured logs module..."
 helm upgrade observability-logs-opensearch \

@@ -1115,6 +1115,28 @@ install_observability_plane() {
     install_helm_chart "observability-metrics-prometheus" "$modules_repo/observability-metrics-prometheus" "$OBSERVABILITY_NS" "true" "true" "true" "600" \
         "--version" "$METRICS_PROMETHEUS_VERSION"
 
+    # The prometheus-operator, not Helm, creates the metrics module's StatefulSets,
+    # pods and PVCs from the custom resources the chart applies, so install_helm_chart's
+    # --wait returns successfully long before those workloads exist. The module
+    # persists Prometheus and Alertmanager data on PVCs, so a volume that never binds
+    # (no default StorageClass, or an exhausted one) would otherwise pass as a clean
+    # install and only surface later as missing metrics.
+    local sts i
+    for sts in prometheus-openchoreo-observability alertmanager-openchoreo-observability; do
+        for i in $(seq 1 30); do
+            kubectl get statefulset "$sts" -n "$OBSERVABILITY_NS" >/dev/null 2>&1 && break
+            if [ "$i" -eq 30 ]; then
+                log_error "StatefulSet $sts was not created in $OBSERVABILITY_NS within 60s"
+                return 1
+            fi
+            sleep 2
+        done
+        if ! kubectl rollout status "statefulset/$sts" -n "$OBSERVABILITY_NS" --timeout=5m; then
+            log_error "StatefulSet $sts did not become ready. Check for unbound PersistentVolumeClaims: kubectl get pvc -n $OBSERVABILITY_NS"
+            return 1
+        fi
+    done
+
     # Enable fluent-bit after opensearch is installed and ready
     log_info "Enabling fluent-bit for log collection..."
     install_helm_chart "observability-logs-opensearch" "$modules_repo/observability-logs-opensearch" "$OBSERVABILITY_NS" "true" "true" "true" "600" \

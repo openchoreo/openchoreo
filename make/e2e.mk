@@ -96,7 +96,7 @@ THUNDER_VERSION        ?= 0.28.0
 DEX_VERSION            ?= 0.24.1
 OBSERVABILITY_LOGS_OPENSEARCH_VERSION     ?= 0.5.3
 OBSERVABILITY_TRACES_OPENSEARCH_VERSION   ?= 0.5.0
-OBSERVABILITY_METRICS_PROMETHEUS_VERSION  ?= 0.6.1
+OBSERVABILITY_METRICS_PROMETHEUS_VERSION  ?= 0.7.0
 # Tier3 multi-cluster e2e only (see _e2e.mc.install-op / _e2e.mc.install-fluent-bit):
 # logs use the OpenObserve community module there instead of OpenSearch.
 OBSERVABILITY_LOGS_OPENOBSERVE_VERSION    ?= 0.5.1
@@ -275,6 +275,29 @@ define e2e_mc_op_settle
 		fi; \
 		if [ $$i -eq $(E2E_SETTLE_ATTEMPTS) ]; then echo "OP API server did not stabilize before $(1) (likely CPU/memory overcommit on the runner)"; exit 1; fi; \
 		sleep $(E2E_SETTLE_INTERVAL); \
+	done
+endef
+
+# ---------------------------------------------------------------------------
+# The Prometheus and Alertmanager StatefulSets, their pods and their PVCs are
+# created by the prometheus-operator from the Prometheus/Alertmanager
+# custom resources, not by Helm, so helm returns as soon as the CRs are applied.
+# Since the module persists both on PVCs, a volume that never binds
+# (no default StorageClass, or an exhausted one) would pass through installation
+# and only surface much later as "no metrics". This helper waits for the operator
+# to create each StatefulSet before asking for rollout status,
+# since `rollout status` errors out on a not-yet-created object.
+# Usage: $(call e2e_wait_metrics_prometheus,<kubectl-cmd>,<namespace>,<statefulsets>)
+# ---------------------------------------------------------------------------
+define e2e_wait_metrics_prometheus
+	@$(call log_info, Waiting for metrics module StatefulSets to roll out: $(3))
+	@for sts in $(3); do \
+		for i in $$(seq 1 30); do \
+			$(1) -n $(2) get statefulset $$sts >/dev/null 2>&1 && break; \
+			if [ $$i -eq 30 ]; then echo "prometheus-operator did not create StatefulSet $$sts within 60s"; exit 1; fi; \
+			sleep 2; \
+		done; \
+		$(1) -n $(2) rollout status statefulset/$$sts --timeout=$(E2E_SETUP_TIMEOUT) || exit 1; \
 	done
 endef
 
@@ -614,6 +637,7 @@ _e2e.install-op:
 		--version $(OBSERVABILITY_METRICS_PROMETHEUS_VERSION) \
 		--namespace $(E2E_OP_NS) \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
+	$(call e2e_wait_metrics_prometheus,$(E2E_KUBECTL),$(E2E_OP_NS),prometheus-openchoreo-observability alertmanager-openchoreo-observability)
 	$(E2E_KUBECTL) wait -n $(E2E_OP_NS) \
 		--for=condition=available --timeout=$(E2E_SETUP_TIMEOUT) deployment --all
 
@@ -1076,6 +1100,7 @@ _e2e.mc.install-op:
 		--set global.installationMode="multiClusterReceiver" \
 		--set-json 'prometheusCustomizations.http.hostnames=["host.k3d.internal"]' \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
+	$(call e2e_wait_metrics_prometheus,$(E2E_MC_OP_KUBECTL),$(E2E_OP_NS),prometheus-openchoreo-observability alertmanager-openchoreo-observability)
 	$(E2E_MC_OP_KUBECTL) wait -n $(E2E_OP_NS) \
 		--for=condition=available --timeout=$(E2E_SETUP_TIMEOUT) deployment --all
 
@@ -1142,6 +1167,7 @@ _e2e.mc.install-fluent-bit:
 		--set kube-prometheus-stack.prometheus.enabled=false \
 		--set kube-prometheus-stack.alertmanager.enabled=false \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
+	$(call e2e_wait_metrics_prometheus,$(E2E_MC_DP_KUBECTL),$(E2E_OP_NS),prom-agent-openchoreo-prometheus-agent)
 	@$(call log_info, Installing metrics exporter in WP cluster)
 	$(E2E_MC_WP_HELM) upgrade --install observability-metrics-prometheus \
 		oci://ghcr.io/openchoreo/helm-charts/observability-metrics-prometheus \
@@ -1152,6 +1178,7 @@ _e2e.mc.install-fluent-bit:
 		--set kube-prometheus-stack.prometheus.enabled=false \
 		--set kube-prometheus-stack.alertmanager.enabled=false \
 		--wait --timeout $(E2E_SETUP_TIMEOUT)
+	$(call e2e_wait_metrics_prometheus,$(E2E_MC_WP_KUBECTL),$(E2E_OP_NS),prom-agent-openchoreo-prometheus-agent)
 	@# Install tracing exporter in DP and WP clusters — per observability-tracing-opensearch README.
 	@# Deploys OTel collector in exporter mode forwarding traces to OP cluster's receiver
 	@# via host.k3d.internal:31080 (OP kgateway HTTP port in e2e).
