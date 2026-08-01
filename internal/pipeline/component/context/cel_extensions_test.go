@@ -611,7 +611,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 				},
 			}),
 			want: []any{
-				map[string]any{"name": "http", "port": float64(8080), "targetPort": float64(8080), "protocol": "TCP"},
+				map[string]any{"name": "http", "port": float64(8080), "targetPort": "http", "protocol": "TCP"},
 			},
 		},
 		{
@@ -623,8 +623,8 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 				},
 			}),
 			want: []any{
-				map[string]any{"name": "admin", "port": float64(9091), "targetPort": float64(9091), "protocol": "TCP"},
-				map[string]any{"name": "grpc", "port": float64(9090), "targetPort": float64(9090), "protocol": "TCP"},
+				map[string]any{"name": "admin", "port": float64(9091), "targetPort": "admin", "protocol": "TCP"},
+				map[string]any{"name": "grpc", "port": float64(9090), "targetPort": "grpc", "protocol": "TCP"},
 			},
 		},
 		{
@@ -635,7 +635,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 				},
 			}),
 			want: []any{
-				map[string]any{"name": "dns", "port": float64(53), "targetPort": float64(53), "protocol": "UDP"},
+				map[string]any{"name": "dns", "port": float64(53), "targetPort": "dns", "protocol": "UDP"},
 			},
 		},
 		{
@@ -647,7 +647,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 				},
 			}),
 			want: []any{
-				map[string]any{"name": "api", "port": float64(8080), "targetPort": float64(8080), "protocol": "TCP"},
+				map[string]any{"name": "api", "port": float64(8080), "targetPort": "api", "protocol": "TCP"},
 			},
 		},
 		{
@@ -663,7 +663,7 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 				},
 			}),
 			want: []any{
-				map[string]any{"name": "http", "port": float64(8080), "targetPort": float64(8080), "protocol": "TCP"},
+				map[string]any{"name": "http", "port": float64(8080), "targetPort": "http", "protocol": "TCP"},
 			},
 		},
 		{
@@ -674,7 +674,42 @@ func TestWorkloadEndpointsToServicePortsMacro(t *testing.T) {
 				},
 			}),
 			want: []any{
-				map[string]any{"name": "my-http-endpoin", "port": float64(8080), "targetPort": float64(8080), "protocol": "TCP"},
+				map[string]any{"name": "my-http-endpoin", "port": float64(8080), "targetPort": "my-http-endpoin", "protocol": "TCP"},
+			},
+		},
+		{
+			name: "targetPort differs from port",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"http": {Port: 80, TargetPort: 8080, Type: "HTTP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "http", "port": float64(80), "targetPort": "http", "protocol": "TCP"},
+			},
+		},
+		{
+			name: "UDP endpoint with distinct target port",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"dns": {Port: 53, TargetPort: 5353, Type: "UDP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "dns", "port": float64(53), "targetPort": "dns", "protocol": "UDP"},
+			},
+		},
+		{
+			name: "multiple endpoint names sanitizing to same value with collision handling",
+			inputs: workloadInputs(WorkloadData{
+				Endpoints: map[string]EndpointData{
+					"api-v1": {Port: 8081, TargetPort: 9091, Type: "HTTP"},
+					"api_v1": {Port: 8080, TargetPort: 9090, Type: "HTTP"},
+				},
+			}),
+			want: []any{
+				map[string]any{"name": "api-v1", "port": float64(8081), "targetPort": "api-v1", "protocol": "TCP"},
+				map[string]any{"name": "api-v1-2", "port": float64(8080), "targetPort": "api-v1-2", "protocol": "TCP"},
 			},
 		},
 	}
@@ -704,6 +739,22 @@ func TestToServicePortsMacroOnlyExpandsForWorkloadEndpoints(t *testing.T) {
 	inputs := workloadInputs(WorkloadData{})
 	inputs["other"] = map[string]any{}
 	_, err = engine.Render(`${other.toServicePorts()}`, inputs)
+	if err == nil {
+		t.Error("expected error for non-workload receiver")
+	}
+}
+
+func TestToContainerPortsMacroOnlyExpandsForWorkloadEndpoints(t *testing.T) {
+	engine := template.NewEngineWithOptions(template.WithCELExtensions(CELExtensions()...))
+
+	_, err := engine.Render(`${workload.toContainerPorts()}`, workloadInputs(WorkloadData{}))
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	inputs := workloadInputs(WorkloadData{})
+	inputs["other"] = map[string]any{}
+	_, err = engine.Render(`${other.toContainerPorts()}`, inputs)
 	if err == nil {
 		t.Error("expected error for non-workload receiver")
 	}
@@ -879,6 +930,9 @@ func TestBuildDerivedContext_EmptyInputs(t *testing.T) {
 	}
 	if derived.ServicePorts == nil {
 		t.Error("ServicePorts should be non-nil")
+	}
+	if derived.ContainerPorts == nil {
+		t.Error("ContainerPorts should be non-nil")
 	}
 	if derived.DependencyEnvVars == nil {
 		t.Error("DependencyEnvVars should be non-nil")
