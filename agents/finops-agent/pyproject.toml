@@ -18,6 +18,7 @@ dependencies = [
     "asyncpg>=0.31.0",
     "sqlalchemy[asyncio]>=2.0.51",
     "uvicorn>=0.52.1",
+    "mcp>=1.28.1,<2",
 ]
 
 [tool.uv.sources]

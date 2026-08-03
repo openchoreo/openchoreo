@@ -16,6 +16,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pyyaml>=6.0.0",
     "uvicorn>=0.52.1",
+    "mcp>=1.28.1,<2",
 ]
 
 [tool.uv.sources]
