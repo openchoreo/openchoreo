@@ -247,9 +247,9 @@ controllerManager:
     # @schema
     # description: Image pull policy
     # enum: [Always, IfNotPresent, Never]
-    # default: Always
+    # default: IfNotPresent
     # @schema
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
 
   # @schema
   # type: object

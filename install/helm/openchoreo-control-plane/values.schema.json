@@ -1888,7 +1888,7 @@
           "description": "Container image configuration",
           "properties": {
             "pullPolicy": {
-              "default": "Always",
+              "default": "IfNotPresent",
               "description": "Image pull policy",
               "enum": [
                 "Always",
