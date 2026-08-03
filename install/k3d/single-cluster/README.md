@@ -356,7 +356,7 @@ kubectl create configmap cluster-gateway-ca \
 
 ### Observability Plane Secrets
 
-`opensearch-admin-credentials` is required by the logs and tracing modules installed below — without it, their setup/adapter pods fail with `CreateContainerConfigError`.
+Create the `opensearch-admin-credentials` secret needed by the logs and tracing modules, together with the existing `observer-secret`:
 
 ```bash
 kubectl apply -f - <<EOF
