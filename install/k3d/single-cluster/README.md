@@ -356,8 +356,32 @@ kubectl create configmap cluster-gateway-ca \
 
 ### Observability Plane Secrets
 
+`opensearch-admin-credentials` is required by the logs and tracing modules installed below — without it, their setup/adapter pods fail with `CreateContainerConfigError`.
+
 ```bash
 kubectl apply -f - <<EOF
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: opensearch-admin-credentials
+  namespace: openchoreo-observability-plane
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: default
+  target:
+    name: opensearch-admin-credentials
+  data:
+    - secretKey: username
+      remoteRef:
+        key: opensearch-username
+        property: value
+    - secretKey: password
+      remoteRef:
+        key: opensearch-password
+        property: value
+---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
@@ -378,7 +402,7 @@ spec:
 EOF
 
 kubectl wait -n openchoreo-observability-plane \
-  --for=condition=Ready externalsecret/observer-secret --timeout=60s
+  --for=condition=Ready externalsecret/opensearch-admin-credentials externalsecret/observer-secret --timeout=60s
 ```
 
 ### Install Observability Plane
