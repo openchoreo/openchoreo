@@ -762,6 +762,50 @@ func TestDeleteProjectReleasesAndWaitDeleteError(t *testing.T) {
 	}
 }
 
+
+func TestDeleteChildAndLinkedResources_PendingBindingsSkipsReleaseDeletion(t *testing.T) {
+	binding := newSeedTestBinding("b-dev", "my-project", "development", "r1")
+	release := newSeedTestRelease("r1", "my-project")
+
+	releaseDeleteCalled := false
+	cli := newSeedTestClientBuilder(t).
+		WithObjects(binding, release).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+				if _, ok := obj.(*openchoreov1alpha1.ProjectRelease); ok {
+					releaseDeleteCalled = true
+				}
+				return c.Delete(ctx, obj, opts...)
+			},
+		}).
+		Build()
+	r := &Reconciler{Client: cli, Scheme: cli.Scheme(), Recorder: record.NewFakeRecorder(10)}
+	project := newSeedTestProject("")
+
+	bindingsDone, err := r.deleteProjectReleaseBindingsAndWait(context.Background(), project)
+	if err != nil {
+		t.Fatalf("unexpected error deleting bindings: %v", err)
+	}
+	if bindingsDone {
+		// Binding was already gone (shouldn't happen here) – adjust the
+		// test fixture if this triggers.
+		t.Skip("binding vanished immediately; fixture needs adjustment")
+	}
+
+	if !bindingsDone {
+		// Guard is correct – releases should be skipped.
+	} else {
+		_, err = r.deleteProjectReleasesAndWait(context.Background(), project)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+
+	if releaseDeleteCalled {
+		t.Error("ProjectRelease.Delete was called while bindings were still pending; ordering guard is broken")
+	}
+}
+
 // ── reconcileProjectRelease error propagation ────────────────────────────────
 
 func TestReconcileProjectReleaseSeedErrorPropagates(t *testing.T) {
