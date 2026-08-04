@@ -1043,6 +1043,103 @@ var _ = Describe("Project Controller", func() {
 		})
 	})
 
+	Context("Finalization cascades ProjectReleases", func() {
+		const (
+			nsName   = "it-cascade-pr-ns"
+			dpName   = "it-cascade-pr-dp"
+			envName  = "it-cascade-pr-env"
+			pipName  = "it-cascade-pr-pip"
+			ptName   = "it-cascade-pr-pt"
+			projName = "it-cascade-pr-proj"
+		)
+
+		nn := types.NamespacedName{Name: projName, Namespace: nsName}
+
+		BeforeEach(func() {
+			setupDependencies(nsName, dpName, envName, pipName)
+			createProjectType(nsName, ptName)
+		})
+
+		It("should delete the project's releases and isolate releases belonging to other projects", func() {
+			project := &openchoreov1alpha1.Project{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      projName,
+					Namespace: nsName,
+				},
+				Spec: openchoreov1alpha1.ProjectSpec{
+					DeploymentPipelineRef: openchoreov1alpha1.DeploymentPipelineRef{
+						Name: pipName,
+					},
+					Type: openchoreov1alpha1.ProjectTypeRef{
+						Name: ptName,
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, project)).To(Succeed())
+
+			r := itReconciler()
+
+			// Reconcile until finalizer is added and a ProjectRelease is cut.
+			var cutReleaseName string
+			Eventually(func(g Gomega) {
+				_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				g.Expect(err).NotTo(HaveOccurred())
+
+				fetchedProj := &openchoreov1alpha1.Project{}
+				g.Expect(k8sClient.Get(ctx, nn, fetchedProj)).To(Succeed())
+				g.Expect(fetchedProj.Status.LatestRelease).NotTo(BeNil())
+				cutReleaseName = fetchedProj.Status.LatestRelease.Name
+			}, itTimeout, itInterval).Should(Succeed())
+
+			// Create a ProjectRelease belonging to another project in the same namespace.
+			otherRelease := &openchoreov1alpha1.ProjectRelease{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "it-other-project-release",
+					Namespace: nsName,
+				},
+				Spec: openchoreov1alpha1.ProjectReleaseSpec{
+					Owner: openchoreov1alpha1.ProjectReleaseOwner{
+						ProjectName: "other-project",
+					},
+					ProjectType: openchoreov1alpha1.ProjectReleaseProjectType{
+						Kind: openchoreov1alpha1.ProjectTypeRefKindProjectType,
+						Name: ptName,
+						Spec: openchoreov1alpha1.ProjectTypeSpec{
+							Resources: []openchoreov1alpha1.ResourceTemplate{
+								{
+									ID: "ns",
+									Template: &runtime.RawExtension{
+										Raw: []byte(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"foo"}}`),
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, otherRelease)).To(Succeed())
+
+			// Delete the project and drive finalization to completion.
+			Expect(k8sClient.Delete(ctx, project)).To(Succeed())
+
+			Eventually(func() bool {
+				_, _ = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
+				return errors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.Project{}))
+			}, itTimeout, itInterval).Should(BeTrue())
+
+			// The cut ProjectRelease is deleted.
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: cutReleaseName, Namespace: nsName},
+					&openchoreov1alpha1.ProjectRelease{})
+				return errors.IsNotFound(err)
+			}, itTimeout, itInterval).Should(BeTrue())
+
+			// The other project's release remains untouched.
+			gotOther := &openchoreov1alpha1.ProjectRelease{}
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: otherRelease.Name, Namespace: nsName}, gotOther)).To(Succeed())
+		})
+	})
+
 	Context("Finalization with owned Resources", func() {
 		const (
 			nsName   = "it-finalize-res-ns"

@@ -501,6 +501,20 @@ func newSeedTestScheme(t *testing.T) *runtime.Scheme {
 	return s
 }
 
+func newSeedTestRelease(name, projectName string) *openchoreov1alpha1.ProjectRelease {
+	return &openchoreov1alpha1.ProjectRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "test-ns",
+		},
+		Spec: openchoreov1alpha1.ProjectReleaseSpec{
+			Owner: openchoreov1alpha1.ProjectReleaseOwner{
+				ProjectName: projectName,
+			},
+		},
+	}
+}
+
 func newSeedTestBinding(name, projectName, env, pin string) *openchoreov1alpha1.ProjectReleaseBinding {
 	return &openchoreov1alpha1.ProjectReleaseBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -538,7 +552,9 @@ func newSeedTestClientBuilder(t *testing.T) *fake.ClientBuilder {
 	return fake.NewClientBuilder().
 		WithScheme(newSeedTestScheme(t)).
 		WithIndex(&openchoreov1alpha1.ProjectReleaseBinding{},
-			controller.IndexKeyProjectReleaseBindingOwner, controller.IndexProjectReleaseBindingOwner)
+			controller.IndexKeyProjectReleaseBindingOwner, controller.IndexProjectReleaseBindingOwner).
+		WithIndex(&openchoreov1alpha1.ProjectRelease{},
+			controller.IndexKeyProjectReleaseOwner, controller.IndexProjectReleaseOwner)
 }
 
 func TestSeedBindingPinsSkipsWithoutLatestRelease(t *testing.T) {
@@ -683,6 +699,64 @@ func TestDeleteProjectReleaseBindingsAndWaitDeleteError(t *testing.T) {
 	r := &Reconciler{Client: cli, Scheme: cli.Scheme(), Recorder: record.NewFakeRecorder(10)}
 
 	_, err := r.deleteProjectReleaseBindingsAndWait(context.Background(), newSeedTestProject(""))
+	if err == nil {
+		t.Fatal("expected delete error to propagate")
+	}
+}
+
+// ── deleteProjectReleasesAndWait ──────────────────────────────────────────────
+
+func TestDeleteProjectReleasesAndWait(t *testing.T) {
+	cli := newSeedTestClientBuilder(t).
+		WithObjects(
+			newSeedTestRelease("r1", "my-project"),
+			newSeedTestRelease("r2", "my-project"),
+			newSeedTestRelease("r-other", "other-project"),
+		).
+		Build()
+	r := &Reconciler{Client: cli, Scheme: cli.Scheme(), Recorder: record.NewFakeRecorder(10)}
+	project := newSeedTestProject("")
+
+	// First pass issues the deletes and reports not-done.
+	done, err := r.deleteProjectReleasesAndWait(context.Background(), project)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if done {
+		t.Error("expected done=false while releases were being deleted")
+	}
+
+	// Second pass sees them gone.
+	done, err = r.deleteProjectReleasesAndWait(context.Background(), project)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if !done {
+		t.Error("expected done=true once the project's releases are gone")
+	}
+
+	// The other project's release must be untouched.
+	got := &openchoreov1alpha1.ProjectRelease{}
+	if err := cli.Get(context.Background(), types.NamespacedName{Name: "r-other", Namespace: "test-ns"}, got); err != nil {
+		t.Errorf("expected other project's release to survive, got %v", err)
+	}
+}
+
+func TestDeleteProjectReleasesAndWaitDeleteError(t *testing.T) {
+	cli := newSeedTestClientBuilder(t).
+		WithObjects(newSeedTestRelease("r1", "my-project")).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+				if _, ok := obj.(*openchoreov1alpha1.ProjectRelease); ok {
+					return errors.New("simulated delete error")
+				}
+				return c.Delete(ctx, obj, opts...)
+			},
+		}).
+		Build()
+	r := &Reconciler{Client: cli, Scheme: cli.Scheme(), Recorder: record.NewFakeRecorder(10)}
+
+	_, err := r.deleteProjectReleasesAndWait(context.Background(), newSeedTestProject(""))
 	if err == nil {
 		t.Fatal("expected delete error to propagate")
 	}
