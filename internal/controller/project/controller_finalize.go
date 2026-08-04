@@ -111,19 +111,19 @@ func (r *Reconciler) deleteChildAndLinkedResources(ctx context.Context, project 
 		return false, err
 	}
 
-	bindingsDeleted, err := r.deleteProjectReleaseBindingsAndWait(ctx, project)
-	if err != nil {
-		logger.Error(err, "Failed to delete project release bindings")
-		return false, err
-	}
 	if !bindingsDeleted {
-		logger.Info("Project release bindings are still being deleted", "name", project.Name)
+		logger.Info("Waiting for ProjectReleaseBindings to be deleted before removing ProjectReleases", "name", project.Name)
 		return false, nil
 	}
 
 	// Clean up project releases
 	releasesDeleted, err := r.deleteProjectReleasesAndWait(ctx, project)
 	if err != nil {
+		logger.Error(err, "Failed to delete project releases")
+		return false, err
+	}
+
+	if !componentsDeleted || !resourcesDeleted || !releasesDeleted {
 		logger.Error(err, "Failed to delete project releases")
 		return false, err
 	}
