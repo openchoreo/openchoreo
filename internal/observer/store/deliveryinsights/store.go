@@ -154,6 +154,15 @@ type FactQuery struct {
 	SortOrder      string
 }
 
+// DeploymentCounts are deployment tallies over an exact window, matching the
+// semantics BuildRollups uses per bucket: in-progress deployments are excluded,
+// and anything finished that did not succeed counts as failed.
+type DeploymentCounts struct {
+	Total   int
+	Success int
+	Failed  int
+}
+
 // AttributionResult reports the deployment an incident was matched against.
 type AttributionResult struct {
 	// ReleaseUID of the deployment live when the incident triggered; empty when no
@@ -179,6 +188,10 @@ type Store interface {
 		ctx context.Context, componentUID, environmentUID, incidentID string,
 		triggeredMs, windowMs int64) (AttributionResult, error)
 	QueryRollups(ctx context.Context, q RollupQuery) ([]MetricRollup, error)
+	// CountDeployments tallies deployments in exactly [StartMs, EndMs). Summary
+	// metrics use this rather than summing rollup buckets, which would include
+	// whichever part of the edge buckets falls outside the window.
+	CountDeployments(ctx context.Context, q FactQuery) (DeploymentCounts, error)
 	QueryDeploymentFacts(ctx context.Context, q FactQuery) ([]DeploymentFact, int, error)
 	QueryRecoveryFacts(ctx context.Context, q FactQuery) ([]RecoveryFact, error)
 	QueryLeadTimes(ctx context.Context, q FactQuery) ([]int64, error)

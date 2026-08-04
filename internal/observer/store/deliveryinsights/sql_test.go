@@ -501,3 +501,144 @@ func TestBuildRollups(t *testing.T) {
 	assert.Equal(t, duration, *componentDaily.MTTRMeanMs)
 	assert.Equal(t, BucketStartMs(GranularityDaily, day.UnixMilli()), componentDaily.BucketStartMs)
 }
+
+func TestCountDeploymentsUsesExactWindow(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	// Three days of one deployment each, at midday UTC.
+	day := func(d int) int64 {
+		return time.Date(2026, 7, d, 12, 0, 0, 0, time.UTC).UnixMilli()
+	}
+	facts := []DeploymentFact{
+		testFact("rel-1", day(1)),
+		testFact("rel-2", day(2)),
+		testFact("rel-3", day(3)),
+	}
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, facts))
+
+	base := FactQuery{OrgNamespace: "default"}
+
+	// A window starting after day 1 must not include it, even though day 1 shares a
+	// week/month bucket with the rest — this is what rollup summing got wrong.
+	q := base
+	q.StartMs = time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC).UnixMilli()
+	q.EndMs = time.Date(2026, 7, 4, 0, 0, 0, 0, time.UTC).UnixMilli()
+	counts, err := store.CountDeployments(ctx, q)
+	require.NoError(t, err)
+	assert.Equal(t, 2, counts.Total, "only days 2 and 3 fall inside the window")
+	assert.Equal(t, 2, counts.Success)
+	assert.Equal(t, 0, counts.Failed)
+
+	// The window end is exclusive.
+	q.EndMs = day(3)
+	counts, err = store.CountDeployments(ctx, q)
+	require.NoError(t, err)
+	assert.Equal(t, 1, counts.Total, "day 3 at midday is outside an end of day-3 midnight")
+}
+
+func TestCountDeploymentsSplitsOutcomes(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	at := time.Date(2026, 7, 10, 9, 0, 0, 0, time.UTC).UnixMilli()
+
+	success := testFact("rel-ok", at)
+	failed := testFact("rel-bad", at+1000)
+	failed.Outcome = OutcomeFailed
+	inProgress := testFact("rel-live", at+2000)
+	inProgress.Outcome = OutcomeInProgress
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{success, failed, inProgress}))
+
+	counts, err := store.CountDeployments(ctx, FactQuery{
+		OrgNamespace: "default",
+		StartMs:      at - time.Hour.Milliseconds(),
+		EndMs:        at + time.Hour.Milliseconds(),
+	})
+	require.NoError(t, err)
+	// In-progress deployments are excluded, matching BuildRollups.
+	assert.Equal(t, 2, counts.Total)
+	assert.Equal(t, 1, counts.Success)
+	assert.Equal(t, 1, counts.Failed)
+}
+
+func TestCountDeploymentsHonoursScope(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	at := time.Date(2026, 7, 12, 9, 0, 0, 0, time.UTC).UnixMilli()
+
+	mine := testFact("rel-mine", at)
+	other := testFact("rel-other", at+1000)
+	other.ProjectUID = "proj-2"
+	other.ComponentUID = "comp-2"
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{mine, other}))
+
+	q := FactQuery{
+		OrgNamespace: "default",
+		StartMs:      at - time.Hour.Milliseconds(),
+		EndMs:        at + time.Hour.Milliseconds(),
+	}
+	nsCounts, err := store.CountDeployments(ctx, q)
+	require.NoError(t, err)
+	assert.Equal(t, 2, nsCounts.Total, "namespace scope sees both projects")
+
+	q.ProjectUID = "proj-1"
+	projCounts, err := store.CountDeployments(ctx, q)
+	require.NoError(t, err)
+	assert.Equal(t, 1, projCounts.Total, "project scope sees only its own")
+}
+
+// The defect this guards: summary totals were summed from whole rollup buckets, so
+// the same window reported different totals depending on the presentation
+// granularity (a mid-bucket start pulled in the pre-window part of the edge bucket).
+func TestCountDeploymentsIsIndependentOfRollupGranularity(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	// One deployment per day across a month boundary, so daily/weekly/monthly
+	// buckets all straddle the window edges differently.
+	var facts []DeploymentFact
+	for d := 1; d <= 31; d++ {
+		facts = append(facts, testFact(fmt.Sprintf("rel-jul-%d", d),
+			time.Date(2026, 7, d, 12, 0, 0, 0, time.UTC).UnixMilli()))
+	}
+	for d := 1; d <= 10; d++ {
+		facts = append(facts, testFact(fmt.Sprintf("rel-aug-%d", d),
+			time.Date(2026, 8, d, 12, 0, 0, 0, time.UTC).UnixMilli()))
+	}
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, facts))
+	require.NoError(t, store.UpsertRollups(ctx, BuildRollups(facts, nil, 0)))
+
+	// A window deliberately starting mid-week and mid-month.
+	start := time.Date(2026, 7, 9, 0, 0, 0, 0, time.UTC).UnixMilli()
+	end := time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC).UnixMilli()
+
+	counts, err := store.CountDeployments(ctx, FactQuery{
+		OrgNamespace: "default", StartMs: start, EndMs: end,
+	})
+	require.NoError(t, err)
+	// Jul 9..31 = 23 days, Aug 1..4 = 4 days.
+	assert.Equal(t, 27, counts.Total)
+
+	// Summing rollup buckets whose start lies in the window gives a different,
+	// granularity-dependent answer — which is why summaries no longer do that.
+	for _, g := range []string{GranularityDaily, GranularityWeekly, GranularityMonthly} {
+		rollups, err := store.QueryRollups(ctx, RollupQuery{
+			ScopeType:   ScopeTypeOrg,
+			ScopeUID:    "default",
+			Granularity: g,
+			StartMs:     BucketStartMs(g, start),
+			EndMs:       end,
+		})
+		require.NoError(t, err)
+		bucketSum := 0
+		for _, r := range rollups {
+			bucketSum += r.DeployTotal
+		}
+		if g == GranularityDaily {
+			assert.Equal(t, counts.Total, bucketSum, "day-aligned window: bucket sum happens to agree")
+		} else {
+			assert.Greater(t, bucketSum, counts.Total,
+				"%s buckets overhang the window start, so their sum exceeds it", g)
+		}
+	}
+}

@@ -247,15 +247,25 @@ func (s *DoraInsightsService) QueryDoraMetrics(
 	endMs := req.EndTime.UTC().UnixMilli()
 	windowMs := endMs - startMs
 
-	// Snap the window start down to its bucket boundary so a mid-bucket start still
-	// includes that bucket; the preceding window (for deltas) ends where this one starts.
-	bucketStart := deliveryinsights.BucketStartMs(granularity, startMs)
-	current, err := s.queryRollupsByBucket(ctx, rs, granularity, bucketStart, endMs)
+	// Summary totals are counted over the exact window from the facts, not summed
+	// from rollup buckets. A bucket that straddles the window start would otherwise
+	// be added in full, which both inflated totals by however much of that bucket
+	// preceded the window (so the same window reported different totals per
+	// granularity) and double-counted that bucket into the preceding window's
+	// comparison. Lead time and MTTR already read the facts directly.
+	curTotals, err := s.countDeployments(ctx, rs, startMs, endMs)
 	if err != nil {
 		return nil, err
 	}
-	prevBucketStart := deliveryinsights.BucketStartMs(granularity, startMs-windowMs)
-	previous, err := s.queryRollupsByBucket(ctx, rs, granularity, prevBucketStart, startMs)
+	prevTotals, err := s.countDeployments(ctx, rs, startMs-windowMs, startMs)
+	if err != nil {
+		return nil, err
+	}
+
+	// The series stays bucket-based: it is a presentation of the requested
+	// granularity, so the bucket containing the window start is shown whole.
+	bucketStart := deliveryinsights.BucketStartMs(granularity, startMs)
+	current, err := s.queryRollupsByBucket(ctx, rs, granularity, bucketStart, endMs)
 	if err != nil {
 		return nil, err
 	}
@@ -269,9 +279,6 @@ func (s *DoraInsightsService) QueryDoraMetrics(
 			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 		},
 	}
-
-	curTotals := sumRollups(current)
-	prevTotals := sumRollups(previous)
 
 	if wanted[string(gen.DoraMetricsQueryRequestMetricsDeploymentFrequency)] {
 		payload.Summary.DeploymentFrequency = buildFrequencySummary(curTotals, prevTotals, windowMs)
@@ -410,14 +417,19 @@ type rollupTotals struct {
 	failed  int
 }
 
-func sumRollups(byBucket map[int64]deliveryinsights.MetricRollup) rollupTotals {
-	var t rollupTotals
-	for _, r := range byBucket {
-		t.total += r.DeployTotal
-		t.success += r.DeploySuccess
-		t.failed += r.DeployFailed
+// countDeployments tallies deployments over exactly [startMs, endMs) for the scope.
+func (s *DoraInsightsService) countDeployments(
+	ctx context.Context, rs resolvedInsightsScope, startMs, endMs int64,
+) (rollupTotals, error) {
+	counts, err := s.store.CountDeployments(ctx, rs.factQuery(startMs, endMs))
+	if err != nil {
+		return rollupTotals{}, fmt.Errorf("count deployments: %w", err)
 	}
-	return t
+	return rollupTotals{
+		total:   counts.Total,
+		success: counts.Success,
+		failed:  counts.Failed,
+	}, nil
 }
 
 func buildFrequencySummary(cur, prev rollupTotals, windowMs int64) *doraFrequencySummaryPayload {

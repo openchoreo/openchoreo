@@ -591,6 +591,33 @@ FROM recovery_fact WHERE ` + strings.Join(conditions, " AND ") +
 	return facts, nil
 }
 
+func (s *sqlStore) CountDeployments(ctx context.Context, q FactQuery) (DeploymentCounts, error) {
+	conditions, args := s.factScopeConditions(q)
+	// Same predicates BuildRollups applies per bucket, but over the exact window:
+	// skip in-progress deployments and bucket on the best-known deployment moment.
+	conditions = append(conditions,
+		"outcome <> ?",
+		occurredMsExpr+" >= ?",
+		occurredMsExpr+" < ?")
+	args = append(args, OutcomeInProgress, q.StartMs, q.EndMs)
+
+	query := s.rebind(`SELECT
+	COUNT(*),
+	COALESCE(SUM(CASE WHEN outcome = ? THEN 1 ELSE 0 END), 0)
+FROM deployment_fact WHERE ` + strings.Join(conditions, " AND ") + ";")
+	// The success-case argument precedes the WHERE args in the statement.
+	args = append([]any{OutcomeSuccess}, args...)
+
+	var counts DeploymentCounts
+	err := s.db.QueryRowContext(ctx, query, args...).Scan(&counts.Total, &counts.Success)
+	if err != nil {
+		return DeploymentCounts{}, fmt.Errorf("failed to count deployments: %w", err)
+	}
+	// Anything finished that did not succeed is a failure, mirroring BuildRollups.
+	counts.Failed = counts.Total - counts.Success
+	return counts, nil
+}
+
 func (s *sqlStore) QueryLeadTimes(ctx context.Context, q FactQuery) ([]int64, error) {
 	conditions, args := s.factScopeConditions(q)
 	conditions = append(conditions,
