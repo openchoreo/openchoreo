@@ -35,7 +35,7 @@ For a fresh install the test identities (PE, Dev, ABAC-restricted) are seeded au
 
 | Suite | What it covers |
 |---|---|
-| `auth/` | Thunder OIDC sign-in lands in the portal and the backend's capability pre-cache succeeds (log-verified — regression guard for the 1.2.1 silent-401 class); `occ login` completes a PKCE round-trip driven through the browser consent form |
+| `auth/` | Thunder OIDC sign-in lands in the portal; `occ login` completes a PKCE round-trip driven through the browser consent form |
 | `catalog/` | A Component applied with kubectl appears in the Backstage catalog |
 | `lifecycle/` | Full UI-driven journey: create project + component → deploy → delete, verified against the cluster at each step |
 | `config/` | Component configuration edits through the UI: env vars, secret env vars, file mounts, and per-environment overrides, including form validation |
@@ -65,15 +65,14 @@ It also needs the `occ` binary (`make go.build.occ`, auto-resolved from `bin/dis
 The exact steps each spec performs. Click a spec to expand; the source link points at its `test.describe`.
 
 <details>
-<summary><b>sign-in</b> — navigate home → OIDC redirect to Thunder → credentials → post-login sidebar → backend pre-cache log check</summary>
+<summary><b>sign-in</b> — navigate home → OIDC redirect to Thunder → credentials → post-login sidebar</summary>
 
-Source: [`specs/auth/sign-in.spec.ts:17`](specs/auth/sign-in.spec.ts#L17)
+Source: [`specs/auth/sign-in.spec.ts:14`](specs/auth/sign-in.spec.ts#L14)
 
 1. Navigate to `/` and click the on-page `Sign In` button (OpenChoreo OIDC provider)
 2. Fill the Thunder login gate with the platform-engineer credentials and submit
 3. Wait for the `Home` link in the Backstage sidebar — proof the OIDC redirect round-tripped and a session exists
 4. Assert the page title matches the portal
-5. Scan the Backstage backend log (bounded to this test's start) for `Pre-cached capabilities for` and assert `Failed to pre-cache capabilities` never appears — the resolver's capability pre-cache is a backend→backend call whose failure is swallowed while sign-in still succeeds, so the log is the only observable (regression guard for backstage-plugins#725)
 
 </details>
 
