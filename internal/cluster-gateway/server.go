@@ -336,9 +336,13 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	clientCert := peerCerts[0]
 	intermediates := peerCerts[1:]
 
+	// Build the handshake intermediate pool once; reused for connect-time validation
+	// and later incremental re-validation (see AgentConnection.UpdateCRValidity).
+	intermediatePool := buildIntermediatePool(intermediates)
+
 	// Per-CR certificate validation enforces security boundaries
 	// Each CR is validated independently to prevent cross-tenant access
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, intermediates, planeType, planeID)
+	validCRs, err := s.verifyClientCertificatePerCR(clientCert, intermediatePool, planeType, planeID)
 	if err != nil {
 		s.logger.Warn("per-CR certificate verification failed",
 			"planeType", planeType,
@@ -359,7 +363,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Register the connection with validated CR list and client certificate
 	// Multiple agent replicas for the same plane will share the same identifier for HA
-	connID, err := s.connMgr.Register(planeType, planeID, conn, validCRs, clientCert)
+	connID, err := s.connMgr.Register(planeType, planeID, conn, validCRs, clientCert, intermediatePool)
 	if err != nil {
 		s.logger.Error("failed to register connection", "error", err)
 		conn.Close()
@@ -747,12 +751,25 @@ func (s *Server) GetConnectionManager() *ConnectionManager {
 	return s.connMgr
 }
 
+// buildIntermediatePool builds an x509 cert pool from the intermediate certificates
+// presented during the TLS handshake. Returns nil when there are no intermediates.
+func buildIntermediatePool(intermediates []*x509.Certificate) *x509.CertPool {
+	if len(intermediates) == 0 {
+		return nil
+	}
+	pool := x509.NewCertPool()
+	for _, ic := range intermediates {
+		pool.AddCert(ic)
+	}
+	return pool
+}
+
 // verifyClientCertificatePerCR validates the client certificate against EACH CR individually
 // and returns a list of CRs (namespace/name) that the certificate is valid for.
 // This enforces per-CR security boundaries in multi-tenant scenarios.
 func (s *Server) verifyClientCertificatePerCR(
 	clientCert *x509.Certificate,
-	intermediates []*x509.Certificate,
+	intermediatePool *x509.CertPool,
 	planeType, planeID string,
 ) (validCRs []string, err error) {
 	clientCN := clientCert.Subject.CommonName
@@ -777,14 +794,6 @@ func (s *Server) verifyClientCertificatePerCR(
 			"planeID", planeID,
 		)
 		return nil, fmt.Errorf("no %s CRs found with planeID '%s'", planeType, planeID)
-	}
-
-	var intermediatePool *x509.CertPool
-	if len(intermediates) > 0 {
-		intermediatePool = x509.NewCertPool()
-		for _, ic := range intermediates {
-			intermediatePool.AddCert(ic)
-		}
 	}
 
 	validCRs = []string{}
