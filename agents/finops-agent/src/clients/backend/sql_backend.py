@@ -5,11 +5,10 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
-from collections.abc import Callable
 
 from sqlalchemy import Column, Index, MetaData, String, Table, Text, func, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert

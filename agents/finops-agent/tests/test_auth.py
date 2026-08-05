@@ -14,23 +14,24 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from src.auth import dependencies as deps
-from src.auth.authz_client import AuthzClient
-from src.auth.authz_models import (
+from common.auth import dependencies as common_deps
+from common.auth.authz_client import AuthzClient
+from common.auth.authz_errors import (
+    AuthzForbidden,
+    AuthzServiceUnavailable,
+    AuthzUnauthorized,
+)
+from common.auth.authz_models import (
     Decision,
     EvaluateRequest,
     Resource,
     ResourceHierarchy,
     SubjectContext,
 )
-from src.auth.dependencies import (
-    AuthorizationChecker,
-    ReportAuthorizationChecker,
-    extract_bearer_token,
-    extract_subject_context_from_claims,
-    require_authn,
-)
-from src.auth.jwt import DisabledJWTValidator, JWTValidationError
+from common.auth.dependencies import extract_bearer_token
+from common.auth.jwt import DisabledJWTValidator, JWTValidationError
+from common.auth.runtime import hierarchy_from_query
+from src.auth import auth, require_authn
 
 
 def _request(headers=None, query_params=None):
@@ -78,7 +79,7 @@ def test_extract_bearer_token_malformed_single_part():
 @pytest.mark.asyncio
 async def test_require_authn_disabled_validator_is_500():
     with (
-        patch.object(deps, "get_jwt_validator", return_value=DisabledJWTValidator()),
+        patch.object(auth, "get_jwt_validator", return_value=DisabledJWTValidator()),
         pytest.raises(HTTPException) as exc,
     ):
         await require_authn(_request({"Authorization": "Bearer tok"}))
@@ -89,7 +90,7 @@ async def test_require_authn_disabled_validator_is_500():
 async def test_require_authn_missing_token_is_401():
     validator = MagicMock()  # not a DisabledJWTValidator
     with (
-        patch.object(deps, "get_jwt_validator", return_value=validator),
+        patch.object(auth, "get_jwt_validator", return_value=validator),
         pytest.raises(HTTPException) as exc,
     ):
         await require_authn(_request({}))
@@ -101,7 +102,7 @@ async def test_require_authn_invalid_token_is_401():
     validator = MagicMock()
     validator.validate = MagicMock(side_effect=JWTValidationError("bad"))
     with (
-        patch.object(deps, "get_jwt_validator", return_value=validator),
+        patch.object(auth, "get_jwt_validator", return_value=validator),
         pytest.raises(HTTPException) as exc,
     ):
         await require_authn(_request({"Authorization": "Bearer tok"}))
@@ -111,12 +112,12 @@ async def test_require_authn_invalid_token_is_401():
 @pytest.mark.asyncio
 async def test_require_authn_valid_token_returns_subject_and_stashes_token():
     validator = MagicMock()
-    validator.validate = MagicMock(return_value={"sub": "user-9"})
+    validator.validate = AsyncMock(return_value={"sub": "user-9"})
     req = _request({"Authorization": "Bearer tok"})
 
     with (
-        patch.object(deps, "get_jwt_validator", return_value=validator),
-        patch.object(deps, "_get_subject_types", return_value=[]),
+        patch.object(auth, "get_jwt_validator", return_value=validator),
+        patch.object(auth, "_auth_config", {}),
     ):
         subject = await require_authn(req)
 
@@ -128,32 +129,32 @@ async def test_require_authn_valid_token_returns_subject_and_stashes_token():
 
 
 def test_extract_entitlements_list_filters_falsy():
-    assert deps._extract_entitlements({"groups": ["a", "b", ""]}, "groups") == ["a", "b"]
+    assert common_deps.extract_entitlements({"groups": ["a", "b", ""]}, "groups") == ["a", "b"]
 
 
 def test_extract_entitlements_scalar_is_wrapped():
-    assert deps._extract_entitlements({"sub": "u1"}, "sub") == ["u1"]
+    assert common_deps.extract_entitlements({"sub": "u1"}, "sub") == ["u1"]
 
 
 def test_extract_entitlements_missing_claim_is_none():
-    assert deps._extract_entitlements({}, "groups") is None
+    assert common_deps.extract_entitlements({}, "groups") is None
 
 
-def test_extract_entitlements_empty_list_is_none():
-    assert deps._extract_entitlements({"groups": []}, "groups") is None
+def test_extract_entitlements_empty_list_is_empty():
+    assert common_deps.extract_entitlements({"groups": []}, "groups") == []
 
 
-def test_extract_entitlements_empty_scalar_is_none():
-    assert deps._extract_entitlements({"groups": ""}, "groups") is None
+def test_extract_entitlements_empty_scalar_is_empty():
+    assert common_deps.extract_entitlements({"groups": ""}, "groups") == []
 
 
 def test_get_jwt_claim_finds_jwt_mechanism():
     cfg = {"auth_mechanisms": [{"type": "jwt", "entitlement": {"claim": "groups"}}]}
-    assert deps._get_jwt_claim(cfg) == "groups"
+    assert common_deps.get_jwt_claim(cfg) == "groups"
 
 
 def test_get_jwt_claim_returns_none_without_jwt_mechanism():
-    assert deps._get_jwt_claim({"auth_mechanisms": [{"type": "apikey"}]}) is None
+    assert common_deps.get_jwt_claim({"auth_mechanisms": [{"type": "apikey"}]}) is None
 
 
 def test_extract_subject_context_matches_configured_type():
@@ -163,8 +164,7 @@ def test_extract_subject_context_matches_configured_type():
             "auth_mechanisms": [{"type": "jwt", "entitlement": {"claim": "groups"}}],
         }
     ]
-    with patch.object(deps, "_get_subject_types", return_value=subject_types):
-        ctx = extract_subject_context_from_claims({"groups": ["team-a", "team-b"]})
+    ctx = common_deps.extract_subject_context({"groups": ["team-a", "team-b"]}, subject_types)
 
     assert ctx.type == "group"
     assert ctx.entitlement_claim == "groups"
@@ -172,8 +172,7 @@ def test_extract_subject_context_matches_configured_type():
 
 
 def test_extract_subject_context_falls_back_to_sub():
-    with patch.object(deps, "_get_subject_types", return_value=[]):
-        ctx = extract_subject_context_from_claims({"sub": "user-9"})
+    ctx = common_deps.extract_subject_context({"sub": "user-9"}, [])
 
     assert ctx.type == "user"
     assert ctx.entitlement_claim == "sub"
@@ -187,11 +186,11 @@ def test_extract_subject_context_falls_back_to_sub():
 async def test_authorization_checker_allows_and_forwards_request():
     client = AsyncMock()
     client.evaluate = AsyncMock(return_value=Decision(decision=True))
-    checker = AuthorizationChecker(action="finopsreport:view", resource_type="finopsreport")
+    checker = auth.checker("finopsreport:view", "finopsreport")
     subject = _subject()
     req = _request({"Authorization": "Bearer tok"})
 
-    with patch.object(deps, "get_authz_client", return_value=client):
+    with patch.object(auth, "get_authz_client", return_value=client):
         result = await checker(req, subject)
 
     assert result is subject
@@ -205,10 +204,10 @@ async def test_authorization_checker_allows_and_forwards_request():
 async def test_authorization_checker_denies_with_403():
     client = AsyncMock()
     client.evaluate = AsyncMock(return_value=Decision(decision=False))
-    checker = AuthorizationChecker(action="finopsreport:view", resource_type="finopsreport")
+    checker = auth.checker("finopsreport:view", "finopsreport")
 
     with (
-        patch.object(deps, "get_authz_client", return_value=client),
+        patch.object(auth, "get_authz_client", return_value=client),
         pytest.raises(HTTPException) as exc,
     ):
         await checker(_request({"Authorization": "Bearer tok"}), _subject())
@@ -217,11 +216,11 @@ async def test_authorization_checker_denies_with_403():
 
 
 @pytest.mark.asyncio
-async def test_report_checker_extracts_hierarchy_from_query_params():
-    checker = ReportAuthorizationChecker(action="x", resource_type="y")
+async def test_report_hierarchy_from_query_params():
+    extract = hierarchy_from_query(project="project", namespace="namespace")
     req = _request(query_params={"project": "p1", "namespace": "n1"})
 
-    hierarchy = await checker._extract_hierarchy(req)
+    hierarchy = extract(req)
 
     assert hierarchy.project == "p1"
     assert hierarchy.namespace == "n1"
@@ -276,9 +275,8 @@ async def test_authz_client_maps_401():
     client = _make_authz_client()
     client._client.post = AsyncMock(return_value=_http_response(401))
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(AuthzUnauthorized):
         await client.evaluate(_eval_request(), "tok")
-    assert exc.value.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -286,16 +284,14 @@ async def test_authz_client_maps_403():
     client = _make_authz_client()
     client._client.post = AsyncMock(return_value=_http_response(403))
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(AuthzForbidden):
         await client.evaluate(_eval_request(), "tok")
-    assert exc.value.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_authz_client_empty_decisions_is_500():
+async def test_authz_client_empty_decisions_is_unavailable():
     client = _make_authz_client()
     client._client.post = AsyncMock(return_value=_http_response(200, []))
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(AuthzServiceUnavailable):
         await client.evaluate(_eval_request(), "tok")
-    assert exc.value.status_code == 500

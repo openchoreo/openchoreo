@@ -27,11 +27,10 @@ from src.agent.middleware.output_transformer import (
     OutputTransformerMiddleware,
     _extract_content,
     _process_logs,
-    _process_traces,
     _process_trace_spans,
+    _process_traces,
     _unwrap_envelope,
 )
-
 
 # ── Helpers ────────────────────────────────────────────────────────
 

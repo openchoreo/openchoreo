@@ -7,15 +7,15 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
+from common.auth.bearer import BearerTokenAuth
 from src.agent.tool_registry import log_classification_summary
 from src.api import agent_router
-from src.auth.bearer import BearerTokenAuth
-from src.auth.dependencies import _load_auth_config, get_authz_client
-from src.auth.jwt import get_jwt_validator
+from src.auth import auth as _auth
+from src.auth import get_authz_client, get_jwt_validator
 from src.clients import MCPClient, get_model
 from src.config import settings
 from src.logging_config import setup_logging
-from src.template_manager import preload as preload_templates
+from src.templates import preload as preload_templates
 
 load_dotenv()
 setup_logging()
@@ -90,7 +90,7 @@ async def lifespan(_app: FastAPI):
 
     logger.info("Loading auth config...")
     try:
-        _load_auth_config()
+        _auth.get_auth_config()
     except Exception as e:
         logger.error("Auth config loading failed: %s", e)
         raise RuntimeError(f"Auth config loading failed: {e}") from e
@@ -111,7 +111,7 @@ async def lifespan(_app: FastAPI):
         settings.observer_mcp_url,
     )
     try:
-        probe = MCPClient(auth=BearerTokenAuth(""))
+        probe = MCPClient(auth=BearerTokenAuth("", allow_empty=True))
         tools = await probe.get_tools()
         logger.info("MCP probe succeeded (%d tools)", len(tools))
         # Surface mutating-vs-read split so ops can spot a misclassified

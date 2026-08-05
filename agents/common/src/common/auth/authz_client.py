@@ -5,23 +5,18 @@ import logging
 
 import httpx
 
-from src.auth.authz_errors import (
+from common.auth.authz_errors import (
     AuthzForbidden,
     AuthzServiceUnavailable,
     AuthzUnauthorized,
 )
-from src.auth.authz_models import Decision, EvaluateRequest
-from src.logging_config import request_id_context
+from common.auth.authz_models import Decision, EvaluateRequest
+from common.logging_config import request_id_context
 
 logger = logging.getLogger(__name__)
 
 
 async def _inject_request_id(request: httpx.Request) -> None:
-    """Stamp X-Request-Id on every outbound authz call.
-
-    Mirrors the MCP client's request-id hook so authz decisions can
-    be correlated against the chat turn that triggered them.
-    """
     rid = request_id_context.get()
     if not rid:
         return
@@ -34,10 +29,7 @@ class AuthzClient:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.verify_ssl = verify_ssl
-        # Construct the HTTP client eagerly so the first request doesn't race
-        # to populate it (and there's no chance of building two pools under
-        # concurrent first hits). httpx.AsyncClient doesn't need an event
-        # loop for construction, only for I/O.
+        # Eager construction: no race to build the pool on first use.
         self._client: httpx.AsyncClient | None = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout),
             verify=verify_ssl,
@@ -75,7 +67,6 @@ class AuthzClient:
         )
 
         if self._client is None:
-            # Defensive: only reachable if evaluate() is called after close().
             raise RuntimeError("AuthzClient has been closed")
         client = self._client
 

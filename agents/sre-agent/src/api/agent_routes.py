@@ -8,9 +8,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import Field
 
+from common.auth.authz_models import SubjectContext
 from src.agent import run_analysis, stream_chat
 from src.auth import require_authn, require_chat_authz
-from src.auth.authz_models import SubjectContext
 from src.clients import get_report_backend
 from src.helpers import resolve_component_scope, resolve_project_scope
 from src.models import BaseModel, get_current_utc

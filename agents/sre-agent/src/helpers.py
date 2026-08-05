@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 
-from src.auth.oauth_client import get_oauth2_auth
+from src.auth import get_oauth2_auth
 from src.clients.openchoreo_api import get
 
 logger = logging.getLogger(__name__)

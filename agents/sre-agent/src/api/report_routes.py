@@ -7,8 +7,8 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import ConfigDict, Field
 
+from common.auth.authz_models import SubjectContext
 from src.auth import require_authn, require_reports_authz, require_reports_update_authz
-from src.auth.authz_models import SubjectContext
 from src.clients import get_report_backend
 from src.helpers import resolve_project_scope, validate_time_range
 from src.models import BaseModel

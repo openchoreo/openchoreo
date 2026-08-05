@@ -27,7 +27,12 @@ to work — this is a server-side typing exercise, not a wire change.
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, Union  # noqa: UP007 — Pydantic discriminated unions don't accept PEP-604 `X | Y` here
+from typing import (  # noqa: UP007 — Pydantic discriminated unions don't accept PEP-604 `X | Y` here
+    Annotated,
+    Any,
+    Literal,
+    Union,
+)
 
 from pydantic import BaseModel, Field
 
