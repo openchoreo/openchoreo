@@ -2,6 +2,15 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.2.2
+
+Changes since [v1.2.1](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.1).
+
+### Bug Fixes
+
+- **(Backstage UI)** Backend-to-backend calls in the portal now authenticate with a service identity, fixing `401 Unauthorized` failures that surfaced once the default auth policy was enforced in v1.2.1: the scaffolder's component-create catalog lookups (namespace resolution, duplicate-name check, workflow annotation lookup) and the sign-in capability pre-cache that warms a user's permissions now succeed. ([#725](https://github.com/openchoreo/backstage-plugins/pull/725))
+- **(Backstage UI)** The Jenkins frontend plugin is now explicitly registered so its `jenkinsApiRef` resolves; because the plugin is surfaced only through entity cards and tabs (not routes) it was previously never discovered and the API had no factory. ([#734](https://github.com/openchoreo/backstage-plugins/pull/734))
+
 ## v1.2.1
 
 Changes since [v1.2.0](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.0).
