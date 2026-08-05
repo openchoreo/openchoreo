@@ -46,7 +46,7 @@ func TestHandlePlaneNotification_Deleted(t *testing.T) {
 	// Register a connection so there's something to disconnect
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
 
 	notification := PlaneNotification{
@@ -218,7 +218,7 @@ func TestHandleReconnect(t *testing.T) {
 
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/planes/dataplane/prod/reconnect", nil)
@@ -238,7 +238,7 @@ func TestHandleGetPlaneStatus(t *testing.T) {
 
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/planes/dataplane/prod/status", nil)
@@ -260,7 +260,7 @@ func TestHandleGetPlaneStatus_CRSpecific(t *testing.T) {
 
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/planes/dataplane/prod/status?namespace=ns&name=dp1", nil)
@@ -281,7 +281,7 @@ func TestHandleGetPlaneStatus_ClusterScoped(t *testing.T) {
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
 	// Cluster-scoped CR key format: "/name"
-	_, err := cm.Register("dataplane", "prod", conn, []string{"/global-dp"}, nil)
+	_, err := cm.Register("dataplane", "prod", conn, []string{"/global-dp"}, nil, nil)
 	require.NoError(t, err)
 
 	// Cluster-scoped: name only, no namespace
@@ -305,9 +305,9 @@ func TestHandleGetAllPlaneStatus(t *testing.T) {
 	conn2, cleanup2 := newTestWSConn(t)
 	defer cleanup2()
 
-	_, err := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
+	_, err := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
-	_, err = cm.Register("workflowplane", "ci", conn2, []string{"ns/wp1"}, nil)
+	_, err = cm.Register("workflowplane", "ci", conn2, []string{"ns/wp1"}, nil, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/planes/status", nil)
@@ -441,7 +441,7 @@ func TestHandlePlaneNotification_RevalidationError(t *testing.T) {
 	// Register a connection so RevalidateCR is actually called (with no client cert → will fail)
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
 
 	notification := PlaneNotification{
