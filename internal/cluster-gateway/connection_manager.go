@@ -31,6 +31,7 @@ type AgentConnection struct {
 	LastSeen        time.Time
 	ValidCRs        []string          // List of CRs (namespace/name) this connection is authorized for
 	clientCert      *x509.Certificate // Client certificate for re-validation on CR updates
+	intermediates   *x509.CertPool    // Handshake intermediate CAs, used to chain the client cert on re-validation
 	mu              sync.Mutex
 }
 
@@ -105,10 +106,15 @@ func (ac *AgentConnection) UpdateCRValidity(crKey string, certPool *x509.CertPoo
 
 	wasValid := slices.Contains(ac.ValidCRs, crKey)
 
-	// Verify connection's client cert against CA pool
+	// Verify against the CA pool, including the handshake intermediates so a cert
+	// issued by an intermediate can still chain to the CR's CA (mirrors connect-time
+	// verification; without it, CRs created after connect are never authorized).
 	opts := x509.VerifyOptions{
 		Roots:     certPool,
 		KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	if ac.intermediates != nil {
+		opts.Intermediates = ac.intermediates
 	}
 
 	_, verifyErr := ac.clientCert.Verify(opts)
@@ -161,6 +167,7 @@ func (cm *ConnectionManager) Register(
 	conn Connection,
 	validCRs []string,
 	clientCert *x509.Certificate,
+	intermediates *x509.CertPool,
 ) (string, error) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
@@ -179,6 +186,7 @@ func (cm *ConnectionManager) Register(
 		LastSeen:        now,
 		ValidCRs:        validCRs,
 		clientCert:      clientCert,
+		intermediates:   intermediates,
 	}
 
 	// Store by planeIdentifier (supports HA - multiple replicas)
