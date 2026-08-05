@@ -161,3 +161,28 @@ func TestIndexProjectReleaseBindingOwner(t *testing.T) {
 		assert.Nil(t, idxFunc(prb))
 	})
 }
+
+func TestIndexProjectReleaseOwner(t *testing.T) {
+	mgr := &mockManager{indexer: &mockIndexer{}}
+	err := SetupSharedIndexes(context.Background(), mgr)
+	require.NoError(t, err)
+
+	idxFunc := mgr.indexer.indexFuncs[IndexKeyProjectReleaseOwner]
+	require.NotNil(t, idxFunc)
+
+	t.Run("with_owner_project_name", func(t *testing.T) {
+		pr := &openchoreov1alpha1.ProjectRelease{
+			Spec: openchoreov1alpha1.ProjectReleaseSpec{
+				Owner: openchoreov1alpha1.ProjectReleaseOwner{ProjectName: "my-project"},
+			},
+		}
+		got := idxFunc(pr)
+		require.Len(t, got, 1)
+		assert.Equal(t, "my-project", got[0])
+	})
+
+	t.Run("empty_owner_returns_nil", func(t *testing.T) {
+		pr := &openchoreov1alpha1.ProjectRelease{}
+		assert.Nil(t, idxFunc(pr))
+	})
+}
