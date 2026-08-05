@@ -10,6 +10,7 @@ Changes since [v1.2.1](https://github.com/openchoreo/openchoreo/releases/tag/v1.
 
 - **(Backstage UI)** Backend-to-backend calls in the portal now authenticate with a service identity, fixing `401 Unauthorized` failures that surfaced once the default auth policy was enforced in v1.2.1: the scaffolder's component-create catalog lookups (namespace resolution, duplicate-name check, workflow annotation lookup) and the sign-in capability pre-cache that warms a user's permissions now succeed. ([#725](https://github.com/openchoreo/backstage-plugins/pull/725))
 - **(Backstage UI)** The Jenkins frontend plugin is now explicitly registered so its `jenkinsApiRef` resolves; because the plugin is surfaced only through entity cards and tabs (not routes) it was previously never discovered and the API had no factory. ([#734](https://github.com/openchoreo/backstage-plugins/pull/734))
+- **(Cluster Gateway)**  Fixed cluster gateway failing to authorize plane CRs created after an agent connects when the agent's client certificate is issued by an intermediate CA: incremental re-validation now includes the TLS handshake intermediates, matching connect-time verification ([#4411](https://github.com/openchoreo/openchoreo/pull/4417))
 
 ## v1.2.1
 
