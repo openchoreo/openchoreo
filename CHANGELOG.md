@@ -2,6 +2,13 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.0.5
+Changes since [v1.0.4](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.4).
+
+### Bug Fixes
+
+- **(Backstage UI)** Backend-to-backend calls in the portal now authenticate with a service identity, fixing `401 Unauthorized` failures that surfaced once the default auth policy was enforced in v1.0.4: the scaffolder's component-create catalog lookups (namespace resolution, duplicate-name check, workflow annotation lookup) and the sign-in capability pre-cache that warms a user's permissions now succeed. ([#725](https://github.com/openchoreo/backstage-plugins/pull/725))
+
 ## v1.0.4
 Changes since [v1.0.3](https://github.com/openchoreo/openchoreo/releases/tag/v1.0.3).
 
