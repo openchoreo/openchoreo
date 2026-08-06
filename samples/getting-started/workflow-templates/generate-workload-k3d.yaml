@@ -9,6 +9,14 @@ spec:
         parameters:
           - name: image
           - name: run-name
+          - name: source-commit
+            default: ""
+          - name: source-branch
+            default: ""
+          - name: source-repository
+            default: ""
+          - name: source-authored-at
+            default: ""
           - name: openchoreo-cli-image
             default: "ghcr.io/openchoreo/openchoreo-cli:latest-dev"
           # --- IDP / OAuth Configuration ---
@@ -51,6 +59,14 @@ spec:
             value: '{{inputs.parameters.image}}'
           - name: RUN_NAME
             value: '{{inputs.parameters.run-name}}'
+          - name: SOURCE_COMMIT
+            value: '{{inputs.parameters.source-commit}}'
+          - name: SOURCE_BRANCH
+            value: '{{inputs.parameters.source-branch}}'
+          - name: SOURCE_REPOSITORY
+            value: '{{inputs.parameters.source-repository}}'
+          - name: SOURCE_AUTHORED_AT
+            value: '{{inputs.parameters.source-authored-at}}'
           - name: PROJECT_NAME
             value: '{{workflow.parameters.project-name}}'
           - name: COMPONENT_NAME
@@ -120,6 +136,10 @@ spec:
                 --component "${COMPONENT_NAME}" \
                 --image "${IMAGE}" \
                 --descriptor "workload.yaml" \
+                --source-commit "${SOURCE_COMMIT}" \
+                --source-branch "${SOURCE_BRANCH}" \
+                --source-repository "${SOURCE_REPOSITORY}" \
+                --source-authored-at "${SOURCE_AUTHORED_AT}" \
                 -o "${OUTPUT_PATH}"
             else
               echo ">> Generating default workload CR"
@@ -129,6 +149,10 @@ spec:
                 --project "${PROJECT_NAME}" \
                 --component "${COMPONENT_NAME}" \
                 --image "${IMAGE}" \
+                --source-commit "${SOURCE_COMMIT}" \
+                --source-branch "${SOURCE_BRANCH}" \
+                --source-repository "${SOURCE_REPOSITORY}" \
+                --source-authored-at "${SOURCE_AUTHORED_AT}" \
                 -o "${OUTPUT_PATH}"
             fi
 

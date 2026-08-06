@@ -13,6 +13,7 @@ const (
 	ActionViewAlerts      Action = "alerts:view"
 	ActionViewIncidents   Action = "incidents:view"
 	ActionUpdateIncidents Action = "incidents:update"
+	ActionViewInsights    Action = "insights:view"
 )
 
 type ResourceType string

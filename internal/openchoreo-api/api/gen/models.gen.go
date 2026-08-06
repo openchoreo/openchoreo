@@ -4504,6 +4504,26 @@ type WorkloadResourceDependency struct {
 	Ref string `json:"ref"`
 }
 
+// WorkloadSource Commit provenance of the image in container. Populated by the producer
+// (native CI's push-workload step, or an external CI calling this API or occ
+// directly) alongside the image, enabling Delivery Insights to compute Lead
+// Time for Changes from real deployments. Optional: DF/CFR/MTTR compute
+// without it; Lead Time reports unavailable when absent.
+type WorkloadSource struct {
+	// AuthoredAt When the commit was authored, not when it was committed or built.
+	// This is the timestamp Lead Time for Changes measures from.
+	AuthoredAt *time.Time `json:"authoredAt,omitempty"`
+
+	// Branch VCS branch the commit was built from
+	Branch *string `json:"branch,omitempty"`
+
+	// Commit VCS commit SHA the running image was built from
+	Commit *string `json:"commit,omitempty"`
+
+	// Repository VCS repository URL the commit belongs to
+	Repository *string `json:"repository,omitempty"`
+}
+
 // WorkloadSpec Desired state of a Workload
 type WorkloadSpec struct {
 	// Container Container specification
@@ -4531,6 +4551,13 @@ type WorkloadSpec struct {
 		// ProjectName Name of the owning project
 		ProjectName string `json:"projectName"`
 	} `json:"owner,omitempty"`
+
+	// Source Commit provenance of the image in container. Populated by the producer
+	// (native CI's push-workload step, or an external CI calling this API or occ
+	// directly) alongside the image, enabling Delivery Insights to compute Lead
+	// Time for Changes from real deployments. Optional: DF/CFR/MTTR compute
+	// without it; Lead Time reports unavailable when absent.
+	Source *WorkloadSource `json:"source,omitempty"`
 }
 
 // WorkloadStatus Observed state of a Workload

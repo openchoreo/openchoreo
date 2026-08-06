@@ -385,3 +385,69 @@ func TestQueryWorkflowEvents(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
+
+func TestQueryDoraMetrics(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("maps scope, granularity, and metrics to gen request", func(t *testing.T) {
+		insightsSvc := mocks.NewMockInsightsService(t)
+		insightsSvc.EXPECT().
+			QueryDoraMetrics(mock.Anything, mock.MatchedBy(func(req obsgen.DoraMetricsQueryRequest) bool {
+				if req.SearchScope.Namespace != testNamespace {
+					return false
+				}
+				if req.SearchScope.Project == nil || *req.SearchScope.Project != testProject {
+					return false
+				}
+				if req.Granularity == nil || string(*req.Granularity) != "weekly" {
+					return false
+				}
+				if req.Metrics == nil || len(*req.Metrics) != 1 || string((*req.Metrics)[0]) != "leadTime" {
+					return false
+				}
+				wantStart, _ := time.Parse(time.RFC3339, testStartTime)
+				wantEnd, _ := time.Parse(time.RFC3339, testEndTime)
+				return req.StartTime.Equal(wantStart) && req.EndTime.Equal(wantEnd)
+			})).
+			Return(&obsgen.DoraMetricsQueryResponse{}, nil)
+
+		h := newTestMCPHandler(t, withInsightsService(insightsSvc))
+		_, err := h.QueryDoraMetrics(ctx, testNamespace, testProject, testComponent, testEnvironment,
+			"weekly", testStartTime, testEndTime, []string{"leadTime"})
+		require.NoError(t, err)
+	})
+
+	t.Run("empty optional strings become nil pointers, no granularity or metrics filter", func(t *testing.T) {
+		insightsSvc := mocks.NewMockInsightsService(t)
+		insightsSvc.EXPECT().
+			QueryDoraMetrics(mock.Anything, mock.MatchedBy(func(req obsgen.DoraMetricsQueryRequest) bool {
+				return req.SearchScope.Project == nil &&
+					req.SearchScope.Component == nil &&
+					req.SearchScope.Environment == nil &&
+					req.Granularity == nil &&
+					req.Metrics == nil
+			})).
+			Return(&obsgen.DoraMetricsQueryResponse{}, nil)
+
+		h := newTestMCPHandler(t, withInsightsService(insightsSvc))
+		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "",
+			"", testStartTime, testEndTime, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("invalid start_time", func(t *testing.T) {
+		h := newTestMCPHandler(t)
+		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "",
+			"", "not-a-time", testEndTime, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid start_time")
+	})
+
+	t.Run("invalid end_time", func(t *testing.T) {
+		h := newTestMCPHandler(t)
+		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "",
+			"", testStartTime, "not-a-time", nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid end_time")
+	})
+}

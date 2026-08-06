@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
@@ -193,7 +194,12 @@ func validateConversionParams(params CreateWorkloadParams) error {
 }
 
 // createBaseWorkload creates the basic workload structure with common fields
-func createBaseWorkload(workloadName string, params CreateWorkloadParams) *openchoreov1alpha1.Workload {
+func createBaseWorkload(workloadName string, params CreateWorkloadParams) (*openchoreov1alpha1.Workload, error) {
+	source, err := sourceFromParams(params)
+	if err != nil {
+		return nil, err
+	}
+
 	workload := &openchoreov1alpha1.Workload{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "openchoreo.dev/v1alpha1",
@@ -212,11 +218,38 @@ func createBaseWorkload(workloadName string, params CreateWorkloadParams) *openc
 				Container: openchoreov1alpha1.Container{
 					Image: params.ImageURL,
 				},
+				Source: source,
 			},
 		},
 	}
 
-	return workload
+	return workload, nil
+}
+
+// sourceFromParams builds the workload's commit provenance from CLI flags, or
+// nil when none were given (Source is optional: DF/CFR/MTTR compute without
+// it; only Lead Time for Changes needs it).
+func sourceFromParams(params CreateWorkloadParams) (*openchoreov1alpha1.WorkloadSource, error) {
+	if params.SourceCommit == "" && params.SourceBranch == "" &&
+		params.SourceRepository == "" && params.SourceAuthoredAt == "" {
+		return nil, nil
+	}
+
+	source := &openchoreov1alpha1.WorkloadSource{
+		Commit:     params.SourceCommit,
+		Branch:     params.SourceBranch,
+		Repository: params.SourceRepository,
+	}
+	if params.SourceAuthoredAt != "" {
+		authoredAt, err := time.Parse(time.RFC3339, params.SourceAuthoredAt)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --source-authored-at %q: must be RFC3339 (e.g. from "+
+				"'git show -s --format=%%aI <sha>'): %w", params.SourceAuthoredAt, err)
+		}
+		metaTime := metav1.NewTime(authoredAt)
+		source.AuthoredAt = &metaTime
+	}
+	return source, nil
 }
 
 func convertDescriptorToWorkload(descriptor *WorkloadDescriptor, params CreateWorkloadParams, descriptorPath string) (*openchoreov1alpha1.Workload, error) {
@@ -227,7 +260,10 @@ func convertDescriptorToWorkload(descriptor *WorkloadDescriptor, params CreateWo
 	}
 
 	// Create the base workload structure
-	workload := createBaseWorkload(workloadName, params)
+	workload, err := createBaseWorkload(workloadName, params)
+	if err != nil {
+		return nil, err
+	}
 
 	// Add endpoints from descriptor if present
 	if err := addEndpointsFromDescriptor(workload, descriptor, descriptorPath); err != nil {
@@ -503,7 +539,10 @@ func CreateBasicWorkload(params CreateWorkloadParams) (*openchoreov1alpha1.Workl
 	workloadName := params.ComponentName + "-workload"
 
 	// Create the basic workload using shared function
-	workload := createBaseWorkload(workloadName, params)
+	workload, err := createBaseWorkload(workloadName, params)
+	if err != nil {
+		return nil, err
+	}
 
 	return workload, nil
 }
@@ -524,6 +563,7 @@ func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, err
 			Container    openchoreov1alpha1.Container                   `json:"container" yaml:"container"`
 			Endpoints    map[string]openchoreov1alpha1.WorkloadEndpoint `json:"endpoints,omitempty" yaml:"endpoints,omitempty"`
 			Dependencies *openchoreov1alpha1.WorkloadDependencies       `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`
+			Source       *openchoreov1alpha1.WorkloadSource             `json:"source,omitempty" yaml:"source,omitempty"`
 		} `json:"spec" yaml:"spec"`
 	}
 
@@ -538,6 +578,7 @@ func ConvertWorkloadCRToYAML(workload *openchoreov1alpha1.Workload) ([]byte, err
 	ordered.Spec.Container = workload.Spec.Container
 	ordered.Spec.Endpoints = workload.Spec.Endpoints
 	ordered.Spec.Dependencies = workload.Spec.Dependencies
+	ordered.Spec.Source = workload.Spec.Source
 
 	// Marshal with sigs.k8s.io/yaml for JSON tag support
 	return yaml.Marshal(ordered)

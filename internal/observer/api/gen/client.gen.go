@@ -140,6 +140,16 @@ type ClientInterface interface {
 
 	UpdateIncident(ctx context.Context, incidentId string, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// QueryDoraDeploymentsWithBody request with any body
+	QueryDoraDeploymentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	QueryDoraDeployments(ctx context.Context, body QueryDoraDeploymentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryDoraMetricsWithBody request with any body
+	QueryDoraMetricsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	QueryDoraMetrics(ctx context.Context, body QueryDoraMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// QueryRuntimeTopologyWithBody request with any body
 	QueryRuntimeTopologyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -392,6 +402,54 @@ func (c *Client) UpdateIncidentWithBody(ctx context.Context, incidentId string, 
 
 func (c *Client) UpdateIncident(ctx context.Context, incidentId string, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateIncidentRequest(c.Server, incidentId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryDoraDeploymentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryDoraDeploymentsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryDoraDeployments(ctx context.Context, body QueryDoraDeploymentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryDoraDeploymentsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryDoraMetricsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryDoraMetricsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryDoraMetrics(ctx context.Context, body QueryDoraMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryDoraMetricsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -968,6 +1026,86 @@ func NewUpdateIncidentRequestWithBody(server string, incidentId string, contentT
 	return req, nil
 }
 
+// NewQueryDoraDeploymentsRequest calls the generic QueryDoraDeployments builder with application/json body
+func NewQueryDoraDeploymentsRequest(server string, body QueryDoraDeploymentsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryDoraDeploymentsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewQueryDoraDeploymentsRequestWithBody generates requests for QueryDoraDeployments with any type of body
+func NewQueryDoraDeploymentsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/insights/dora/deployments/query")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewQueryDoraMetricsRequest calls the generic QueryDoraMetrics builder with application/json body
+func NewQueryDoraMetricsRequest(server string, body QueryDoraMetricsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryDoraMetricsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewQueryDoraMetricsRequestWithBody generates requests for QueryDoraMetrics with any type of body
+func NewQueryDoraMetricsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/insights/dora/query")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewQueryRuntimeTopologyRequest calls the generic QueryRuntimeTopology builder with application/json body
 func NewQueryRuntimeTopologyRequest(server string, body QueryRuntimeTopologyJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1256,6 +1394,16 @@ type ClientWithResponsesInterface interface {
 	UpdateIncidentWithBodyWithResponse(ctx context.Context, incidentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIncidentResp, error)
 
 	UpdateIncidentWithResponse(ctx context.Context, incidentId string, body UpdateIncidentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIncidentResp, error)
+
+	// QueryDoraDeploymentsWithBodyWithResponse request with any body
+	QueryDoraDeploymentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDoraDeploymentsResp, error)
+
+	QueryDoraDeploymentsWithResponse(ctx context.Context, body QueryDoraDeploymentsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDoraDeploymentsResp, error)
+
+	// QueryDoraMetricsWithBodyWithResponse request with any body
+	QueryDoraMetricsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDoraMetricsResp, error)
+
+	QueryDoraMetricsWithResponse(ctx context.Context, body QueryDoraMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDoraMetricsResp, error)
 
 	// QueryRuntimeTopologyWithBodyWithResponse request with any body
 	QueryRuntimeTopologyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryRuntimeTopologyResp, error)
@@ -1554,6 +1702,58 @@ func (r UpdateIncidentResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateIncidentResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type QueryDoraDeploymentsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DoraDeploymentsQueryResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryDoraDeploymentsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryDoraDeploymentsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type QueryDoraMetricsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DoraMetricsQueryResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryDoraMetricsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryDoraMetricsResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1861,6 +2061,40 @@ func (c *ClientWithResponses) UpdateIncidentWithResponse(ctx context.Context, in
 		return nil, err
 	}
 	return ParseUpdateIncidentResp(rsp)
+}
+
+// QueryDoraDeploymentsWithBodyWithResponse request with arbitrary body returning *QueryDoraDeploymentsResp
+func (c *ClientWithResponses) QueryDoraDeploymentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDoraDeploymentsResp, error) {
+	rsp, err := c.QueryDoraDeploymentsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryDoraDeploymentsResp(rsp)
+}
+
+func (c *ClientWithResponses) QueryDoraDeploymentsWithResponse(ctx context.Context, body QueryDoraDeploymentsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDoraDeploymentsResp, error) {
+	rsp, err := c.QueryDoraDeployments(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryDoraDeploymentsResp(rsp)
+}
+
+// QueryDoraMetricsWithBodyWithResponse request with arbitrary body returning *QueryDoraMetricsResp
+func (c *ClientWithResponses) QueryDoraMetricsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryDoraMetricsResp, error) {
+	rsp, err := c.QueryDoraMetricsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryDoraMetricsResp(rsp)
+}
+
+func (c *ClientWithResponses) QueryDoraMetricsWithResponse(ctx context.Context, body QueryDoraMetricsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryDoraMetricsResp, error) {
+	rsp, err := c.QueryDoraMetrics(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryDoraMetricsResp(rsp)
 }
 
 // QueryRuntimeTopologyWithBodyWithResponse request with arbitrary body returning *QueryRuntimeTopologyResp
@@ -2478,6 +2712,114 @@ func ParseUpdateIncidentResp(rsp *http.Response) (*UpdateIncidentResp, error) {
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryDoraDeploymentsResp parses an HTTP response from a QueryDoraDeploymentsWithResponse call
+func ParseQueryDoraDeploymentsResp(rsp *http.Response) (*QueryDoraDeploymentsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryDoraDeploymentsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DoraDeploymentsQueryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryDoraMetricsResp parses an HTTP response from a QueryDoraMetricsWithResponse call
+func ParseQueryDoraMetricsResp(rsp *http.Response) (*QueryDoraMetricsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryDoraMetricsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DoraMetricsQueryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse

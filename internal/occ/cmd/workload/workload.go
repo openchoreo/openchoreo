@@ -222,15 +222,19 @@ func (w *Workload) Delete(params DeleteParams) error {
 // toSynthParams converts CreateParams to synth.CreateWorkloadParams.
 func toSynthParams(p CreateParams) synth.CreateWorkloadParams {
 	return synth.CreateWorkloadParams{
-		FilePath:      p.FilePath,
-		NamespaceName: p.NamespaceName,
-		ProjectName:   p.ProjectName,
-		ComponentName: p.ComponentName,
-		ImageURL:      p.ImageURL,
-		OutputPath:    p.OutputPath,
-		DryRun:        p.DryRun,
-		Mode:          p.Mode,
-		RootDir:       p.RootDir,
+		FilePath:         p.FilePath,
+		NamespaceName:    p.NamespaceName,
+		ProjectName:      p.ProjectName,
+		ComponentName:    p.ComponentName,
+		ImageURL:         p.ImageURL,
+		OutputPath:       p.OutputPath,
+		DryRun:           p.DryRun,
+		Mode:             p.Mode,
+		RootDir:          p.RootDir,
+		SourceCommit:     p.SourceCommit,
+		SourceBranch:     p.SourceBranch,
+		SourceRepository: p.SourceRepository,
+		SourceAuthoredAt: p.SourceAuthoredAt,
 	}
 }
 

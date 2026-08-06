@@ -15,11 +15,12 @@ import (
 
 // handlerTestDeps holds dependencies for building an MCPHandler in unit tests.
 type handlerTestDeps struct {
-	logs    service.LogsQuerier
-	events  service.EventsQuerier
-	metrics service.MetricsQuerier
-	alerts  service.AlertIncidentService
-	traces  service.TracesQuerier
+	logs     service.LogsQuerier
+	events   service.EventsQuerier
+	metrics  service.MetricsQuerier
+	alerts   service.AlertIncidentService
+	traces   service.TracesQuerier
+	insights service.InsightsService
 }
 
 // newTestMCPHandler builds an MCPHandler with mockery mocks by default; options override individual deps.
@@ -27,11 +28,12 @@ func newTestMCPHandler(t *testing.T, opts ...func(*handlerTestDeps)) *MCPHandler
 	t.Helper()
 
 	d := handlerTestDeps{
-		logs:    servicemocks.NewMockLogsQuerier(t),
-		events:  servicemocks.NewMockEventsQuerier(t),
-		metrics: servicemocks.NewMockMetricsQuerier(t),
-		alerts:  servicemocks.NewMockAlertIncidentService(t),
-		traces:  servicemocks.NewMockTracesQuerier(t),
+		logs:     servicemocks.NewMockLogsQuerier(t),
+		events:   servicemocks.NewMockEventsQuerier(t),
+		metrics:  servicemocks.NewMockMetricsQuerier(t),
+		alerts:   servicemocks.NewMockAlertIncidentService(t),
+		traces:   servicemocks.NewMockTracesQuerier(t),
+		insights: servicemocks.NewMockInsightsService(t),
 	}
 	for _, o := range opts {
 		o(&d)
@@ -41,7 +43,7 @@ func newTestMCPHandler(t *testing.T, opts ...func(*handlerTestDeps)) *MCPHandler
 	healthSvc, err := service.NewHealthService(logger)
 	require.NoError(t, err)
 
-	h, err := NewMCPHandler(healthSvc, d.logs, d.events, d.metrics, d.alerts, d.traces, logger)
+	h, err := NewMCPHandler(healthSvc, d.logs, d.events, d.metrics, d.alerts, d.traces, d.insights, logger)
 	require.NoError(t, err)
 	return h
 }
@@ -64,4 +66,8 @@ func withAlertIncidentService(s service.AlertIncidentService) func(*handlerTestD
 
 func withTracesService(s service.TracesQuerier) func(*handlerTestDeps) {
 	return func(d *handlerTestDeps) { d.traces = s }
+}
+
+func withInsightsService(s service.InsightsService) func(*handlerTestDeps) {
+	return func(d *handlerTestDeps) { d.insights = s }
 }
