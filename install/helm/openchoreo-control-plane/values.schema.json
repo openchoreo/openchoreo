@@ -1945,6 +1945,13 @@
               "required": [],
               "title": "env",
               "type": "object"
+            },
+            "maxConcurrentReconciles": {
+              "default": 0,
+              "description": "Max concurrent reconciles per controller (manager-wide). 0 uses the controller-runtime default (1); raise (e.g. 10) to increase reconcile throughput at scale.",
+              "minimum": 0,
+              "title": "maxConcurrentReconciles",
+              "type": "integer"
             }
           },
           "required": [],

@@ -757,6 +757,13 @@ controllerManager:
       - --leader-elect
       - --health-probe-bind-address=:8081
     # @schema
+    # type: integer
+    # minimum: 0
+    # description: Max concurrent reconciles per controller (manager-wide). 0 uses the controller-runtime default (1); raise (e.g. 10) to increase reconcile throughput at scale.
+    # default: 0
+    # @schema
+    maxConcurrentReconciles: 0
+    # @schema
     # type: object
     # description: Environment variables for the controller-manager
     # @schema

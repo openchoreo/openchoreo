@@ -18,6 +18,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	ctrl "sigs.k8s.io/controller-runtime"
+	crconfig "sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -194,7 +195,11 @@ func setupControlPlaneControllers(
 		&resourcerelease.Reconciler{Client: c, Scheme: s},
 		&resourcereleasebinding.Reconciler{Client: c, Scheme: s},
 		&releasebinding.Reconciler{Client: c, Scheme: s, Pipeline: componentpipeline.NewPipeline()},
-		&renderedrelease.Reconciler{Client: c, PlaneClientProvider: planeClientProvider, Scheme: s},
+		&renderedrelease.Reconciler{
+			Client:              c,
+			PlaneClientProvider: planeClientProvider,
+			Scheme:              s,
+		},
 		&workflow.Reconciler{Client: c, Scheme: s},
 		&clusterworkflow.Reconciler{Client: c, Scheme: s},
 		&workflowrun.Reconciler{
@@ -277,6 +282,7 @@ func main() {
 	var clusterGatewayClientKey string
 	var clusterGatewayInsecure bool
 	var deploymentPlane string
+	var maxConcurrentReconciles int
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -306,6 +312,9 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.StringVar(&deploymentPlane, "deployment-plane", deploymentPlaneControlPlane,
 		"The deployment plane this manager should serve. Supported values: controlplane, observabilityplane")
+	flag.IntVar(&maxConcurrentReconciles, "max-concurrent-reconciles", 0,
+		"Max concurrent reconciles per controller (manager-wide). "+
+			"0 uses the controller-runtime default (1).")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -369,6 +378,8 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "43500532.openchoreo.dev",
+		// Applied to every controller; 0 uses controller-runtime's default (1).
+		Controller: crconfig.Controller{MaxConcurrentReconciles: maxConcurrentReconciles},
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
