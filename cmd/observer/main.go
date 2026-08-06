@@ -131,6 +131,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize runs service (scheduled-task runs/retries derived from the same events stream)
+	runsService, runsServiceErr := service.NewRunsService(
+		concreteLogsAdapter, uidResolver, cfg, logger.With("component", "runs-service"),
+	)
+	if runsServiceErr != nil {
+		logger.Error("Failed to initialize runs service", "error", runsServiceErr)
+		os.Exit(1)
+	}
+
 	// Use the metrics adapter as the MetricsQuerier (forwards to external metrics-adapter service)
 	var metricsService service.MetricsQuerier = metricsAdapter
 
@@ -208,6 +217,8 @@ func main() {
 	authzLogsService := service.NewLogsServiceWithAuthz(logsService, authzClient, logger.With("component", "authz-logs"))
 	authzEventsService := service.NewEventsServiceWithAuthz(
 		eventsService, authzClient, logger.With("component", "authz-events"))
+	authzRunsService := service.NewRunsServiceWithAuthz(
+		runsService, authzClient, logger.With("component", "authz-runs"))
 	authzMetricsService := service.NewMetricsServiceWithAuthz(
 		metricsService, authzClient, logger.With("component", "authz-metrics"))
 	authzTracesService := service.NewTracesServiceWithAuthz(
@@ -220,6 +231,7 @@ func main() {
 		healthService,
 		authzLogsService,
 		authzEventsService,
+		authzRunsService,
 		authzMetricsService,
 		authzAlertIncidentService,
 		authzTracesService,
@@ -260,6 +272,8 @@ func main() {
 	// ===== New API Routes (v1) =====
 	api.HandleFunc("POST /api/v1/logs/query", newAPIHandler.QueryLogs)
 	api.HandleFunc("POST /api/v1/events/query", newAPIHandler.QueryEvents)
+	api.HandleFunc("POST /api/v1/scheduled-tasks/runs/query", newAPIHandler.QueryRuns)
+	api.HandleFunc("POST /api/v1/scheduled-tasks/runs/{jobName}/retries/query", newAPIHandler.QueryRetries)
 	api.HandleFunc("POST /api/v1/metrics/query", newAPIHandler.QueryMetrics)
 
 	// ===== New API Routes (v1alpha1) Traces, Incidents & Runtime topology =====
