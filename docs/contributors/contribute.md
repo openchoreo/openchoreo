@@ -25,6 +25,82 @@ After cloning the repository following the [github_workflow.md](github_workflow.
 make help
 ```
 
+### Codebase Architecture
+
+Understanding the project layout helps you find where to make changes. OpenChoreo is a multi-binary Kubernetes controller project built with [Kubebuilder](https://book.kubebuilder.io/).
+
+#### Directory Map
+
+```text
+openchoreo/
+├── api/v1alpha1/              # CRD type definitions (Go structs + markers)
+├── cmd/
+│   ├── manager/               # Control-plane controller-manager entrypoint
+│   ├── openchoreo-api/        # API server + MCP server entrypoint
+│   └── occ/                   # CLI tool entrypoint
+├── config/                    # Kubebuilder-generated Kustomize manifests & CRD bases
+├── docs/                      # Documentation (you are here)
+├── install/
+│   ├── helm/                  # Helm charts for all planes
+│   ├── k3d/                   # k3d cluster configuration
+│   └── quick-start/           # Quick-start container and scripts
+├── internal/
+│   ├── controller/            # Reconciler implementations (one package per CRD kind)
+│   │   ├── component/         # Component reconciler
+│   │   ├── build/             # Build reconciler + pluggable engine framework
+│   │   ├── releasebinding/    # ReleaseBinding reconciler (renders manifests)
+│   │   └── ...                # Other reconcilers
+│   └── openchoreo-api/        # API server handlers, MCP handlers, config
+├── pkg/
+│   ├── mcp/                   # MCP server tools, registration, and helpers
+│   └── ...                    # Shared library packages
+├── samples/                   # Sample YAMLs and demo applications
+└── test/                      # E2E and integration test suites
+```
+
+#### Key Concepts
+
+| Concept | Location | Description |
+|---------|----------|-------------|
+| CRD Types | `api/v1alpha1/` | Go struct definitions with Kubebuilder markers that generate CRD manifests |
+| Reconcilers | `internal/controller/<kind>/` | Each CRD kind has its own reconciler package with `controller.go` |
+| Build Engines | `internal/controller/build/engines/` | Pluggable build engine interface (Argo is the reference implementation) |
+| MCP Tools | `pkg/mcp/tools/` | MCP server tool definitions grouped by toolset |
+| MCP Handlers | `internal/openchoreo-api/mcphandlers/` | Business logic behind MCP tools |
+| Helm Charts | `install/helm/` | One chart per plane (control-plane, data-plane, workflow-plane, observability-plane) |
+
+#### How the Controller Works
+
+```mermaid
+flowchart LR
+    A[User applies YAML] --> B[Kubernetes API Server]
+    B --> C[Reconciler watches CRD]
+    C --> D{Reconcile Loop}
+    D --> E[Read desired state from Spec]
+    D --> F[Compute diff with current state]
+    D --> G[Create/Update child resources]
+    D --> H[Update Status + Conditions]
+    H --> D
+```
+
+Each reconciler follows the standard Kubebuilder pattern:
+1. **Watch** — Registers watches on owned CRDs and dependent resources
+2. **Reconcile** — Called on every change; reads spec, computes desired state, creates/updates children
+3. **Status** — Updates `.status.conditions` to reflect current state
+
+#### Where Do I Make Changes?
+
+| I want to… | Start here |
+|------------|-----------|
+| Add a new CRD | See [Adding New CRDs](adding-new-crd.md) |
+| Modify an existing CRD's behavior | `internal/controller/<kind>/controller.go` |
+| Change CRD fields or validation | `api/v1alpha1/<kind>_types.go`, then run `make generate manifests` |
+| Add a new MCP tool | See [Adding New MCP Tools](adding-new-mcp-tools.md) |
+| Modify Helm chart values | `install/helm/<plane>/values.yaml` |
+| Add a new build engine | See [Build Engines](build-engines.md) |
+| Add or modify E2E tests | `test/e2e/` |
+| Change CLI commands | `cmd/occ/` |
+
 ### Setting Up the k3d Kubernetes Cluster
 
 For testing and development, we recommend using k3d (Kubernetes in Docker). The k3d development environment provides a multi-node cluster (1 server + 2 agents) that closely mimics production workload distribution.
