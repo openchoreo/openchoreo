@@ -130,6 +130,12 @@ type ClientInterface interface {
 
 	HandleAlertWebhook(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetComponentCosts request
+	GetComponentCosts(ctx context.Context, namespace FinOpsNamespace, environment FinOpsEnvironment, params *GetComponentCostsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRecommendations request
+	GetRecommendations(ctx context.Context, namespace FinOpsNamespace, environment FinOpsEnvironment, params *GetRecommendationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// QueryIncidentsWithBody request with any body
 	QueryIncidentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -344,6 +350,30 @@ func (c *Client) HandleAlertWebhookWithBody(ctx context.Context, contentType str
 
 func (c *Client) HandleAlertWebhook(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewHandleAlertWebhookRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetComponentCosts(ctx context.Context, namespace FinOpsNamespace, environment FinOpsEnvironment, params *GetComponentCostsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetComponentCostsRequest(c.Server, namespace, environment, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetRecommendations(ctx context.Context, namespace FinOpsNamespace, environment FinOpsEnvironment, params *GetRecommendationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRecommendationsRequest(c.Server, namespace, environment, params)
 	if err != nil {
 		return nil, err
 	}
@@ -881,6 +911,228 @@ func NewHandleAlertWebhookRequestWithBody(server string, contentType string, bod
 	return req, nil
 }
 
+// NewGetComponentCostsRequest generates requests for GetComponentCosts
+func NewGetComponentCostsRequest(server string, namespace FinOpsNamespace, environment FinOpsEnvironment, params *GetComponentCostsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespace", runtime.ParamLocationPath, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "environment", runtime.ParamLocationPath, environment)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/costs/namespaces/%s/environments/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "project", runtime.ParamLocationQuery, *params.Project); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Component != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "component", runtime.ParamLocationQuery, *params.Component); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "startTime", runtime.ParamLocationQuery, params.StartTime); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "endTime", runtime.ParamLocationQuery, params.EndTime); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Granularity != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "granularity", runtime.ParamLocationQuery, *params.Granularity); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetRecommendationsRequest generates requests for GetRecommendations
+func NewGetRecommendationsRequest(server string, namespace FinOpsNamespace, environment FinOpsEnvironment, params *GetRecommendationsParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespace", runtime.ParamLocationPath, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "environment", runtime.ParamLocationPath, environment)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/costs/namespaces/%s/environments/%s/recommendations", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Project != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "project", runtime.ParamLocationQuery, *params.Project); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Component != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "component", runtime.ParamLocationQuery, *params.Component); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "startTime", runtime.ParamLocationQuery, params.StartTime); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "endTime", runtime.ParamLocationQuery, params.EndTime); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewQueryIncidentsRequest calls the generic QueryIncidents builder with application/json body
 func NewQueryIncidentsRequest(server string, body QueryIncidentsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1247,6 +1499,12 @@ type ClientWithResponsesInterface interface {
 
 	HandleAlertWebhookWithResponse(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleAlertWebhookResp, error)
 
+	// GetComponentCostsWithResponse request
+	GetComponentCostsWithResponse(ctx context.Context, namespace FinOpsNamespace, environment FinOpsEnvironment, params *GetComponentCostsParams, reqEditors ...RequestEditorFn) (*GetComponentCostsResp, error)
+
+	// GetRecommendationsWithResponse request
+	GetRecommendationsWithResponse(ctx context.Context, namespace FinOpsNamespace, environment FinOpsEnvironment, params *GetRecommendationsParams, reqEditors ...RequestEditorFn) (*GetRecommendationsResp, error)
+
 	// QueryIncidentsWithBodyWithResponse request with any body
 	QueryIncidentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryIncidentsResp, error)
 
@@ -1501,6 +1759,60 @@ func (r HandleAlertWebhookResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r HandleAlertWebhookResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetComponentCostsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CostResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetComponentCostsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetComponentCostsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetRecommendationsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RecommendationResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON404      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRecommendationsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRecommendationsResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1827,6 +2139,24 @@ func (c *ClientWithResponses) HandleAlertWebhookWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseHandleAlertWebhookResp(rsp)
+}
+
+// GetComponentCostsWithResponse request returning *GetComponentCostsResp
+func (c *ClientWithResponses) GetComponentCostsWithResponse(ctx context.Context, namespace FinOpsNamespace, environment FinOpsEnvironment, params *GetComponentCostsParams, reqEditors ...RequestEditorFn) (*GetComponentCostsResp, error) {
+	rsp, err := c.GetComponentCosts(ctx, namespace, environment, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetComponentCostsResp(rsp)
+}
+
+// GetRecommendationsWithResponse request returning *GetRecommendationsResp
+func (c *ClientWithResponses) GetRecommendationsWithResponse(ctx context.Context, namespace FinOpsNamespace, environment FinOpsEnvironment, params *GetRecommendationsParams, reqEditors ...RequestEditorFn) (*GetRecommendationsResp, error) {
+	rsp, err := c.GetRecommendations(ctx, namespace, environment, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRecommendationsResp(rsp)
 }
 
 // QueryIncidentsWithBodyWithResponse request with arbitrary body returning *QueryIncidentsResp
@@ -2363,6 +2693,128 @@ func ParseHandleAlertWebhookResp(rsp *http.Response) (*HandleAlertWebhookResp, e
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetComponentCostsResp parses an HTTP response from a GetComponentCostsWithResponse call
+func ParseGetComponentCostsResp(rsp *http.Response) (*GetComponentCostsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetComponentCostsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CostResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetRecommendationsResp parses an HTTP response from a GetRecommendationsWithResponse call
+func ParseGetRecommendationsResp(rsp *http.Response) (*GetRecommendationsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRecommendationsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RecommendationResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
