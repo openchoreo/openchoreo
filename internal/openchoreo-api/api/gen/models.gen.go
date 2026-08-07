@@ -452,12 +452,12 @@ const (
 	WorkloadEndpointVisibilityProject   WorkloadEndpointVisibility = "project"
 )
 
-// ActionCapability Capabilities for a specific action
+// ActionCapability Capabilities for a specific action. Entries are hierarchical resource paths that cover everything beneath them ("ns/acme" covers "ns/acme/project/p1/component/c1"), and "*" covers everything. An entry applies to a resource when its path covers that resource and its constraints, if any, are satisfied. A resource is allowed when some allowed entry applies to it and no denied entry that applies to it is at least as specific (as deep or deeper in the hierarchy) as that allowed entry — so a denial carves out of a broader grant, while a narrower grant survives a broader denial. Entries are already resolved per entitlement value the same way enforcement resolves them, so a path is listed as denied only while no entitlement of the caller grants it unconditionally. A path that another entitlement grants only while a constraint holds stays listed as denied, because a single entry cannot express "allowed while the constraint holds, denied otherwise". The profile under-reports access in that case; use /api/v1/authz/evaluates for the authoritative decision.
 type ActionCapability struct {
-	// Allowed Resources where action is allowed
+	// Allowed Resource paths under which the action is allowed
 	Allowed *[]CapabilityResource `json:"allowed,omitempty"`
 
-	// Denied Resources where action is denied
+	// Denied Resource paths under which the action is denied, unless an allowed path at least as deep applies
 	Denied *[]CapabilityResource `json:"denied,omitempty"`
 }
 
