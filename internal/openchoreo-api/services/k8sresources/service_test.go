@@ -829,3 +829,34 @@ func TestResolveDataPlaneInfo_BothNil(t *testing.T) {
 	pi := resolveDataPlaneInfo(dpResult)
 	assert.Equal(t, planeInfo{}, pi)
 }
+
+func TestMapNamespaceEventItem_PrefixesInvolvedObject(t *testing.T) {
+	event := mapNamespaceEventItem(map[string]any{
+		"type":    "Warning",
+		"reason":  "FailedCreate",
+		"message": "pods \"web-abc\" is forbidden: exceeded quota: team-quota, requested: requests.cpu=1, used: 0, limited: 0",
+		"involvedObject": map[string]any{
+			"kind": "ReplicaSet",
+			"name": "web-7b987fd964",
+		},
+		"lastTimestamp": "2026-08-06T19:10:02Z",
+	})
+	assert.Equal(t, "Warning", event.Type)
+	assert.Equal(t, "FailedCreate", event.Reason)
+	assert.Contains(t, event.Message, "[ReplicaSet/web-7b987fd964]")
+	assert.Contains(t, event.Message, "exceeded quota")
+}
+
+func TestSelectDataplaneNamespaceContext_SkipsObservability(t *testing.T) {
+	obs := &openchoreov1alpha1.RenderedRelease{}
+	obs.Spec.TargetPlane = planeTypeObservabilityPlane
+	dp := &openchoreov1alpha1.RenderedRelease{}
+	dp.Spec.TargetPlane = planeTypeDataPlane
+	contexts := []releaseContext{
+		{release: obs, namespace: "obs-ns"},
+		{release: dp, namespace: "app-ns"},
+	}
+	rc, ns := selectDataplaneNamespaceContext(contexts)
+	require.NotNil(t, rc)
+	assert.Equal(t, "app-ns", ns)
+}

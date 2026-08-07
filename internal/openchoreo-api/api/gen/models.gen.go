@@ -452,6 +452,12 @@ const (
 	WorkloadEndpointVisibilityProject   WorkloadEndpointVisibility = "project"
 )
 
+// Defines values for GetReleaseBindingNamespaceEventsParamsType.
+const (
+	Normal  GetReleaseBindingNamespaceEventsParamsType = "Normal"
+	Warning GetReleaseBindingNamespaceEventsParamsType = "Warning"
+)
+
 // ActionCapability Capabilities for a specific action
 type ActionCapability struct {
 	// Allowed Resources where action is allowed
@@ -5190,6 +5196,18 @@ type GetReleaseBindingK8sResourceLogsParams struct {
 	// SinceSeconds Number of seconds since which to show logs
 	SinceSeconds *int64 `form:"sinceSeconds,omitempty" json:"sinceSeconds,omitempty"`
 }
+
+// GetReleaseBindingNamespaceEventsParams defines parameters for GetReleaseBindingNamespaceEvents.
+type GetReleaseBindingNamespaceEventsParams struct {
+	// Type Filter by event type (Warning or Normal). Omit for all types.
+	Type *GetReleaseBindingNamespaceEventsParamsType `form:"type,omitempty" json:"type,omitempty"`
+
+	// Limit Maximum number of events to return (default 200, max 500)
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetReleaseBindingNamespaceEventsParamsType defines parameters for GetReleaseBindingNamespaceEvents.
+type GetReleaseBindingNamespaceEventsParamsType string
 
 // ListResourceReleaseBindingsParams defines parameters for ListResourceReleaseBindings.
 type ListResourceReleaseBindingsParams struct {

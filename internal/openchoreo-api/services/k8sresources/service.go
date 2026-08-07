@@ -139,6 +139,111 @@ func (s *k8sResourcesService) GetResourceEvents(ctx context.Context, namespaceNa
 	return &models.ResourceEventsResponse{Events: events}, nil
 }
 
+// GetNamespaceEvents lists Kubernetes Events in the ReleaseBinding's dataplane
+// workload namespace. Unlike GetResourceEvents, this does not require a live
+// object name — Events for deleted ReplicaSets/Pods remain queryable while the
+// API server retains them. Uses namespaced Event LIST only (never cluster-scoped).
+func (s *k8sResourcesService) GetNamespaceEvents(ctx context.Context, namespaceName, releaseBindingName string, eventType string, limit int) (*models.ResourceEventsResponse, error) {
+	s.logger.Debug("Getting namespace k8s events", "namespace", namespaceName, "releaseBinding", releaseBindingName,
+		"type", eventType, "limit", limit)
+
+	if s.gatewayClient == nil {
+		return nil, fmt.Errorf("gateway client is not configured")
+	}
+
+	if limit <= 0 {
+		limit = 200
+	}
+	if limit > 500 {
+		limit = 500
+	}
+
+	releaseContexts, err := s.resolveReleaseContexts(ctx, namespaceName, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	if len(releaseContexts) == 0 {
+		return &models.ResourceEventsResponse{Events: []models.ResourceEvent{}}, nil
+	}
+
+	rc, workloadNS := selectDataplaneNamespaceContext(releaseContexts)
+	if rc == nil || workloadNS == "" {
+		return &models.ResourceEventsResponse{Events: []models.ResourceEvent{}}, nil
+	}
+
+	rawQuery := ""
+	switch eventType {
+	case "Warning", "Normal":
+		rawQuery = "type=" + eventType
+	}
+
+	eventsPath := fmt.Sprintf("api/v1/namespaces/%s/events", workloadNS)
+	items, err := s.fetchK8sList(ctx, rc.plane, eventsPath, rawQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch namespace events: %w", err)
+	}
+
+	events := make([]models.ResourceEvent, 0, len(items))
+	for _, item := range items {
+		events = append(events, mapNamespaceEventItem(item))
+	}
+
+	sort.SliceStable(events, func(i, j int) bool {
+		ti, tj := eventSortTime(events[i]), eventSortTime(events[j])
+		return ti.After(tj)
+	})
+	if len(events) > limit {
+		events = events[:limit]
+	}
+
+	return &models.ResourceEventsResponse{Events: events}, nil
+}
+
+// selectDataplaneNamespaceContext picks a dataplane release context with a known
+// workload namespace for namespaced Event LIST.
+func selectDataplaneNamespaceContext(contexts []releaseContext) (*releaseContext, string) {
+	for i := range contexts {
+		rc := &contexts[i]
+		if rc.release != nil && rc.release.Spec.TargetPlane == planeTypeObservabilityPlane {
+			continue
+		}
+		if rc.namespace != "" {
+			return rc, rc.namespace
+		}
+	}
+	for i := range contexts {
+		if contexts[i].namespace != "" {
+			return &contexts[i], contexts[i].namespace
+		}
+	}
+	return nil, ""
+}
+
+func eventSortTime(event models.ResourceEvent) time.Time {
+	if event.LastTimestamp != nil {
+		return *event.LastTimestamp
+	}
+	if event.FirstTimestamp != nil {
+		return *event.FirstTimestamp
+	}
+	return time.Time{}
+}
+
+// mapNamespaceEventItem maps a raw Event and prefixes the message with
+// involvedObject kind/name so callers can identify deleted resources.
+func mapNamespaceEventItem(item map[string]any) models.ResourceEvent {
+	event := mapEventItem(item)
+	kind := getNestedString(item, "involvedObject", "kind")
+	name := getNestedString(item, "involvedObject", "name")
+	if kind != "" && name != "" {
+		prefix := fmt.Sprintf("[%s/%s] ", kind, name)
+		if !strings.HasPrefix(event.Message, prefix) {
+			event.Message = prefix + event.Message
+		}
+	}
+	return event
+}
+
 // GetResourceLogs returns logs for a specific pod in the release binding's resource tree.
 // When container is empty, logs from every container in the pod are returned, each entry
 // tagged with its container name and merged into a single timeline ordered by timestamp.

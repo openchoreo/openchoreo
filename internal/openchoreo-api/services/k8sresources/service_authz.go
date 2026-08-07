@@ -46,6 +46,13 @@ func (s *k8sResourcesServiceWithAuthz) GetResourceTree(ctx context.Context, name
 	return s.internal.GetResourceTree(ctx, namespaceName, releaseBindingName)
 }
 
+func (s *k8sResourcesServiceWithAuthz) GetNamespaceEvents(ctx context.Context, namespaceName, releaseBindingName string, eventType string, limit int) (*models.ResourceEventsResponse, error) {
+	if err := s.checkReleaseBindingAuthz(ctx, namespaceName, releaseBindingName); err != nil {
+		return nil, err
+	}
+	return s.internal.GetNamespaceEvents(ctx, namespaceName, releaseBindingName, eventType, limit)
+}
+
 func (s *k8sResourcesServiceWithAuthz) GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName, group, version, kind, name string) (*models.ResourceEventsResponse, error) {
 	if err := s.checkReleaseBindingAuthz(ctx, namespaceName, releaseBindingName); err != nil {
 		return nil, err

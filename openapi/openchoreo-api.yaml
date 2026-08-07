@@ -4342,6 +4342,54 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/namespaces/{namespaceName}/releasebindings/{releaseBindingName}/k8sresources/namespace-events:
+    get:
+      operationId: getReleaseBindingNamespaceEvents
+      summary: List Kubernetes events in the release binding workload namespace
+      description: |
+        Returns Kubernetes Events from the dataplane workload namespace owned by
+        the ReleaseBinding. Unlike per-resource k8sresources/events, this does not
+        require a live object name — Events for deleted ReplicaSets/Pods (for example
+        after Helm uninstall remediation) remain visible while retained by the API
+        server. Scoped to a single namespace (namespaced LIST only; never cluster-scoped).
+      tags: [ReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/ReleaseBindingNameParam'
+        - name: type
+          in: query
+          required: false
+          description: Filter by event type (Warning or Normal). Omit for all types.
+          schema:
+            type: string
+            enum: [Warning, Normal]
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of events to return (default 200, max 500)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 200
+      responses:
+        '200':
+          description: Namespace events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceEventsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/namespaces/{namespaceName}/releasebindings/{releaseBindingName}/k8sresources/events:
     get:
       operationId: getReleaseBindingK8sResourceEvents

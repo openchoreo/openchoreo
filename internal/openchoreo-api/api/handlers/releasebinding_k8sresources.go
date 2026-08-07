@@ -59,6 +59,61 @@ func (h *Handler) GetReleaseBindingK8sResourceTree(
 	}, nil
 }
 
+// GetReleaseBindingNamespaceEvents returns Kubernetes Events from the ReleaseBinding
+// dataplane workload namespace (namespaced LIST; works after uninstall remediation).
+func (h *Handler) GetReleaseBindingNamespaceEvents(
+	ctx context.Context,
+	request gen.GetReleaseBindingNamespaceEventsRequestObject,
+) (gen.GetReleaseBindingNamespaceEventsResponseObject, error) {
+	h.logger.Debug("GetReleaseBindingNamespaceEvents called",
+		"namespace", request.NamespaceName,
+		"releaseBinding", request.ReleaseBindingName)
+
+	eventType := ""
+	if request.Params.Type != nil {
+		eventType = string(*request.Params.Type)
+	}
+	limit := 200
+	if request.Params.Limit != nil {
+		limit = *request.Params.Limit
+	}
+
+	resp, err := h.services.K8sResourcesService.GetNamespaceEvents(
+		ctx,
+		request.NamespaceName,
+		request.ReleaseBindingName,
+		eventType,
+		limit,
+	)
+	if err != nil {
+		return h.handleK8sNamespaceEventsError(err)
+	}
+
+	result, err := convert[models.ResourceEventsResponse, gen.ResourceEventsResponse](*resp)
+	if err != nil {
+		h.logger.Error("Failed to convert namespace events response", "error", err)
+		return gen.GetReleaseBindingNamespaceEvents500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+
+	return gen.GetReleaseBindingNamespaceEvents200JSONResponse(result), nil
+}
+
+func (h *Handler) handleK8sNamespaceEventsError(err error) (gen.GetReleaseBindingNamespaceEventsResponseObject, error) {
+	switch {
+	case errors.Is(err, services.ErrForbidden):
+		return gen.GetReleaseBindingNamespaceEvents403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+	case errors.Is(err, k8sresourcessvc.ErrReleaseBindingNotFound):
+		return gen.GetReleaseBindingNamespaceEvents404JSONResponse{NotFoundJSONResponse: notFound("ReleaseBinding")}, nil
+	case errors.Is(err, k8sresourcessvc.ErrRenderedReleaseNotFound):
+		return gen.GetReleaseBindingNamespaceEvents404JSONResponse{NotFoundJSONResponse: notFound("RenderedRelease")}, nil
+	case errors.Is(err, k8sresourcessvc.ErrEnvironmentNotFound):
+		return gen.GetReleaseBindingNamespaceEvents404JSONResponse{NotFoundJSONResponse: notFound("Environment")}, nil
+	default:
+		h.logger.Error("Failed to get namespace k8s events", "error", err)
+		return gen.GetReleaseBindingNamespaceEvents500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
+}
+
 // GetReleaseBindingK8sResourceEvents returns Kubernetes events for a specific resource
 // in the release binding's resource tree.
 func (h *Handler) GetReleaseBindingK8sResourceEvents(

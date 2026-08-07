@@ -88,6 +88,64 @@ func (_c *MockService_GetResourceEvents_Call) RunAndReturn(run func(context.Cont
 	return _c
 }
 
+
+// GetNamespaceEvents provides a mock function with given fields: ctx, namespaceName, releaseBindingName, eventType, limit
+func (_m *MockService) GetNamespaceEvents(ctx context.Context, namespaceName string, releaseBindingName string, eventType string, limit int) (*models.ResourceEventsResponse, error) {
+	ret := _m.Called(ctx, namespaceName, releaseBindingName, eventType, limit)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetNamespaceEvents")
+	}
+
+	var r0 *models.ResourceEventsResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, int) (*models.ResourceEventsResponse, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName, eventType, limit)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, int) *models.ResourceEventsResponse); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName, eventType, limit)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.ResourceEventsResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, int) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName, eventType, limit)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_GetNamespaceEvents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetNamespaceEvents'
+type MockService_GetNamespaceEvents_Call struct {
+	*mock.Call
+}
+
+// GetNamespaceEvents is a helper method to define mock.On call
+func (_e *MockService_Expecter) GetNamespaceEvents(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}, eventType interface{}, limit interface{}) *MockService_GetNamespaceEvents_Call {
+	return &MockService_GetNamespaceEvents_Call{Call: _e.mock.On("GetNamespaceEvents", ctx, namespaceName, releaseBindingName, eventType, limit)}
+}
+
+func (_c *MockService_GetNamespaceEvents_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string, eventType string, limit int)) *MockService_GetNamespaceEvents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(int))
+	})
+	return _c
+}
+
+func (_c *MockService_GetNamespaceEvents_Call) Return(_a0 *models.ResourceEventsResponse, _a1 error) *MockService_GetNamespaceEvents_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_GetNamespaceEvents_Call) RunAndReturn(run func(context.Context, string, string, string, int) (*models.ResourceEventsResponse, error)) *MockService_GetNamespaceEvents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetResourceLogs provides a mock function with given fields: ctx, namespaceName, releaseBindingName, podName, container, sinceSeconds
 func (_m *MockService) GetResourceLogs(ctx context.Context, namespaceName string, releaseBindingName string, podName string, container string, sinceSeconds *int64) (*models.ResourcePodLogsResponse, error) {
 	ret := _m.Called(ctx, namespaceName, releaseBindingName, podName, container, sinceSeconds)
