@@ -257,3 +257,39 @@ func TestGetRecentAlert_StoreError(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get recent alert")
 }
+
+func TestGetRecentAlert_PostgreSQL(t *testing.T) {
+	t.Parallel()
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	s, err := New(BackendSQLite, dsn, slog.Default())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, s.Close()) })
+	require.NoError(t, s.Initialize(context.Background()))
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	latestID, err := s.WriteAlertEntry(ctx, &AlertEntry{
+		Timestamp:            now.Add(-20 * time.Minute).Format(time.RFC3339Nano),
+		AlertRuleName:        "high-error-rate",
+		AlertRuleCRName:      "rule-cr-pg",
+		AlertRuleCRNamespace: "obs-plane",
+		AlertValue:           "84",
+		NamespaceName:        "ns-1",
+		ComponentName:        "payments",
+		ComponentID:          "comp-uid-pg",
+		IncidentEnabled:      true,
+	})
+	require.NoError(t, err)
+
+	// Force PostgreSQL backend query path
+	sqlSt := s.(*sqlStore)
+	sqlSt.backend = BackendPostgreSQL
+
+	latest, err := s.GetRecentAlert(ctx, "rule-cr-pg", "obs-plane", "comp-uid-pg", now.Add(-time.Hour))
+	require.NoError(t, err)
+	require.NotNil(t, latest)
+	assert.Equal(t, latestID, latest.ID)
+	assert.True(t, latest.IncidentEnabled)
+}
+

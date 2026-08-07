@@ -141,6 +141,35 @@ func TestGetIncidentStatusByAlertID_StoreError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to get incident status")
 }
 
+func TestGetIncidentStatusByAlertID_PostgreSQL(t *testing.T) {
+	t.Parallel()
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	s, err := New(BackendSQLite, dsn, slog.Default())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, s.Close()) })
+	require.NoError(t, s.Initialize(context.Background()))
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	_, err = s.WriteIncidentEntry(ctx, &IncidentEntry{
+		AlertID:   "alert-pg-1",
+		Timestamp: now.Add(-time.Minute).Format(time.RFC3339Nano),
+		Status:    StatusAcknowledged,
+	})
+	require.NoError(t, err)
+
+	// Force PostgreSQL backend query path
+	sqlSt := s.(*sqlStore)
+	sqlSt.backend = BackendPostgreSQL
+
+	status, found, err := s.GetIncidentStatusByAlertID(ctx, "alert-pg-1")
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, StatusAcknowledged, status)
+}
+
+
 func TestQueryIncidentEntries(t *testing.T) {
 	t.Parallel()
 
