@@ -297,6 +297,83 @@ func TestWebhook_AcknowledgedIncident_RetriggersWithinSuppressionWindow(t *testi
 	assert.Eventually(t, func() bool { return f.incidentCount(t) == 2 }, 2*time.Second, 50*time.Millisecond)
 }
 
+func TestWebhook_ResolvedIncident_RetriggersWithinSuppressionWindow(t *testing.T) {
+	rule := testAlertRule("rule-cr-1", true, false)
+	f := newWebhookTestFixture(t, time.Hour, rule, false)
+
+	resp, err := f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+	assert.Eventually(t, func() bool { return f.incidentCount(t) == 1 }, 2*time.Second, 50*time.Millisecond)
+
+	incidents, _, err := f.incidentStore.QueryIncidentEntries(context.Background(), incidententry.QueryParams{
+		StartTime: "2000-01-01T00:00:00Z",
+		EndTime:   "2099-01-01T00:00:00Z",
+		Limit:     100,
+	})
+	require.NoError(t, err)
+	require.Len(t, incidents, 1)
+	_, err = f.incidentStore.UpdateIncidentEntry(
+		context.Background(), incidents[0].ID, incidententry.StatusResolved, nil, nil, time.Now().UTC(),
+	)
+	require.NoError(t, err)
+
+	resp, err = f.svc.HandleAlertWebhook(context.Background(), webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "alert acknowledged")
+	assert.Equal(t, 2, f.alertCount(t), "resolution should end suppression for the prior occurrence")
+	assert.Eventually(t, func() bool { return f.incidentCount(t) == 2 }, 2*time.Second, 50*time.Millisecond)
+}
+
+func TestWebhook_EqualTimestamp_ActiveIncidentSuppresses(t *testing.T) {
+	rule := testAlertRule("rule-cr-1", true, false)
+	f := newWebhookTestFixture(t, time.Hour, rule, false)
+	ctx := context.Background()
+
+	fixedTime := time.Now().UTC().Format(time.RFC3339Nano)
+
+	// 1. Insert alert 1 (acknowledged) with fixedTime
+	alertID1, err := f.alertStore.WriteAlertEntry(ctx, &alertentry.AlertEntry{
+		Timestamp:            fixedTime,
+		AlertRuleName:        "rule-1",
+		AlertRuleCRName:      "rule-cr-1",
+		AlertRuleCRNamespace: "obs-plane",
+		ComponentID:          "comp-uid-1",
+		IncidentEnabled:      true,
+	})
+	require.NoError(t, err)
+	incID1, err := f.incidentStore.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
+		AlertID:   alertID1,
+		Timestamp: fixedTime,
+		Status:    incidententry.StatusActive,
+	})
+	require.NoError(t, err)
+	_, err = f.incidentStore.UpdateIncidentEntry(ctx, incID1, incidententry.StatusAcknowledged, nil, nil, time.Now().UTC())
+	require.NoError(t, err)
+
+	// 2. Insert alert 2 (active) with the EXACT SAME fixedTime
+	alertID2, err := f.alertStore.WriteAlertEntry(ctx, &alertentry.AlertEntry{
+		Timestamp:            fixedTime,
+		AlertRuleName:        "rule-1",
+		AlertRuleCRName:      "rule-cr-1",
+		AlertRuleCRNamespace: "obs-plane",
+		ComponentID:          "comp-uid-1",
+		IncidentEnabled:      true,
+	})
+	require.NoError(t, err)
+	_, err = f.incidentStore.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
+		AlertID:   alertID2,
+		Timestamp: fixedTime,
+		Status:    incidententry.StatusActive,
+	})
+	require.NoError(t, err)
+
+	// 3. Trigger webhook. Since the latest inserted alert (alert 2) is active, it must be suppressed!
+	resp, err := f.svc.HandleAlertWebhook(ctx, webhookReq("rule-cr-1"))
+	require.NoError(t, err)
+	assert.Contains(t, *resp.Message, "suppressed", "active incident on latest equal-timestamp alert must suppress new alert")
+}
+
 func TestWebhook_DifferentRule_NotSuppressed(t *testing.T) {
 	rule1 := testAlertRule("rule-cr-1", false, false)
 	rule2 := testAlertRule("rule-cr-2", false, false)

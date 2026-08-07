@@ -437,9 +437,9 @@ func (s *sqlStore) GetIncidentStatusByAlertID(ctx context.Context, alertID strin
 	}
 
 	var status string
-	query := `SELECT status FROM incident_entries WHERE alert_id = ? ORDER BY timestamp_ns DESC LIMIT 1`
+	query := `SELECT status FROM incident_entries WHERE alert_id = ? ORDER BY timestamp_ns DESC, rowid DESC LIMIT 1`
 	if s.backend == BackendPostgreSQL {
-		query = `SELECT status FROM incident_entries WHERE alert_id = $1 ORDER BY timestamp_ns DESC LIMIT 1`
+		query = `SELECT status FROM incident_entries WHERE alert_id = $1 ORDER BY timestamp_ns DESC, id DESC LIMIT 1`
 	}
 	err := s.db.QueryRowContext(ctx, query, alertID).Scan(&status)
 	if errors.Is(err, sql.ErrNoRows) {

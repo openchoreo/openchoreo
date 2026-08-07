@@ -424,12 +424,12 @@ ON alert_entries(alert_rule_cr_name, alert_rule_cr_namespace, component_id, time
 const getRecentAlertSQLiteQuery = `
 SELECT id, incident_enabled FROM alert_entries
 WHERE alert_rule_cr_name = ? AND alert_rule_cr_namespace = ? AND component_id = ? AND timestamp_ns >= ?
-ORDER BY timestamp_ns DESC LIMIT 1;`
+ORDER BY timestamp_ns DESC, rowid DESC LIMIT 1;`
 
 const getRecentAlertPostgresQuery = `
 SELECT id, incident_enabled FROM alert_entries
 WHERE alert_rule_cr_name = $1 AND alert_rule_cr_namespace = $2 AND component_id = $3 AND timestamp_ns >= $4
-ORDER BY timestamp_ns DESC LIMIT 1;`
+ORDER BY timestamp_ns DESC, id DESC LIMIT 1;`
 
 const insertAlertEntryPostgresQuery = `
 INSERT INTO alert_entries (
