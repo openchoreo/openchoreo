@@ -193,7 +193,7 @@ Rules for the body of each section:
   - pinned message, no trace_id, no prefetched logs: `query_component_logs(searchPhrase)` + `query_traces` parallel; optional `query_trace_spans` next turn for any token surfaced.
   - no pin, prefetched logs: `query_traces` only on turn 1; widen the log window only on a follow-up turn.
   - no pin, no prefetched logs: `query_component_logs` + `query_traces` parallel; optional `query_trace_spans` next turn.
-  - no anchor (deployment-health): `list_release_bindings` + `get_resource_tree` on turn 1; `get_resource_events` / `get_resource_logs` on the unhealthy resource next turn; logs/traces only to complement once a pod is running.
+  - no anchor (deployment-health): `list_release_bindings` + `get_resource_tree` on turn 1; `get_resource_events` (or `query_component_events` fallback when live K8s events are empty/expired) / `get_resource_logs` on the unhealthy resource next turn; logs/traces only to complement once a pod is running.
   - **Connection-refused exception** (any of the above): when prefetched or fetched rows contain a connection-refused pattern (see "Connection-refused pattern" above), `list_components` is allowed on the same turn as the log/trace fetch; `get_release_binding` for one candidate sibling is allowed on the follow-up turn.
 - **Never** ask for time ranges / RFC3339 / log windows — `scope.logs_start_time` / `logs_end_time` are authoritative when set; otherwise default to 30 min.
 - **Verification override**: for "is it fixed / resolved / still happening / did my change work" follow-ups, `logs_start_time`, `logs_end_time` and `prefetched_logs` are ALL STALE — ignore them and re-fetch a fresh window ending at the `[current server time]` stamp and starting 15 min before it (NOT `logs_start_time`), scoped to `environment`, then judge by error *recency* (see "Verifying a fix").
@@ -284,9 +284,9 @@ For each blocking target dependency:
    - `endpoint … not yet resolved` → transient: the dependency is still coming up. Check its readiness next.
 2. **If the target is deployed but NotReady** (crashlooping / erroring, so its endpoint never publishes), find the root cause. Unlike the pending dependent, the target's Release *is* rendered, so inspect its actual data-plane resources directly — prefer this over observability when you need the live deployment picture:
    - `get_resource_tree` (namespace + the target's release-binding name) → the **rendered release** (rendered manifests + per-resource `health`) and the live K8s nodes. Read it to spot the unhealthy resource (Degraded/Progressing Deployment, CrashLoopBackOff Pod, etc.) and to discover exact group/version/kind/name and pod names for the next calls.
-   - `get_resource_events` (pass the group/version/kind/name from the tree) → scheduling / image-pull / startup failures on that specific resource.
+   - `get_resource_events` (pass the group/version/kind/name from the tree) → live scheduling / image-pull / startup failures on that specific resource. If empty or if the deployment failure occurred in the past (live K8s events expire), call `query_component_events(namespace, project, component, environment, start_time, end_time)` to fetch historical events from the observability plane.
    - `get_resource_logs` (pass a pod name from the tree) → the crashing container's own output, available even before observability has indexed anything.
-   - `query_component_logs` / `query_incidents` for the *target* remain the fallback when the rendered resources look healthy but the component still misbehaves, or when you need history beyond the live pod.
+   - `query_component_events` / `query_component_logs` / `query_incidents` for the *target* remain the fallback when live resource events/logs are empty or expired, or when you need history beyond the live pod.
 
    Quote the decisive error line.
 3. Stop as soon as the cause is clear. Don't browse unrelated components.
@@ -431,12 +431,12 @@ Each evidence bullet: step name in backticks, time as `HH:MM:SS` only (no date),
 
 Variants:
 - **Partial data, no smoking gun** (logs/events returned data but no clear error line): keep the **Evidence** label but use 1-3 short bullets that summarise what you saw (top phases, durations) rather than quoting a single line — there isn't one. **What to do** then becomes *"re-run + watch live tail (`kubectl -n <ns> logs -f <pod>`)"*, registry-credentials check if it's a `publish-image` step, etc. **Never** ask the user to share more logs — you already have the slice.
-- **Fully empty** (all of `get_workflow_run_logs`, `get_workflow_run_events`, `query_workflow_logs` empty): **What happened** notes the pod was probably GC'd; **Evidence** lists *Pod logs / Pod events / Archived logs — empty*; **What to do**: re-run watching live, check build-plane pod retention, escalate if it keeps happening.
+- **Fully empty** (all of `get_workflow_run_logs`, `get_workflow_run_events`, `query_workflow_events`, `query_workflow_logs` empty): **What happened** notes the pod was probably GC'd; **Evidence** lists *Pod logs / Pod events / Archived events / Archived logs — empty*; **What to do**: re-run watching live, check build-plane pod retention, escalate if it keeps happening.
 - **Run not found** from `get_workflow_run`: *"I couldn't find run `<name>` in ns `<ns>` — it may have been deleted."* One action bullet: "verify the run name". Do NOT pivot to asking for help.
 - **Run actually Succeeded** (user opened a failed-build panel but the run passed): say so politely, offer to look at a different run.
 
 ### Hard rules
-- ≤5 read-tool calls total. Turn 1 fires `get_workflow_run` + `get_(cluster_)workflow` in **parallel** (both mandatory for failed runs). Phase B may call up to all three log/event tools when fallback is needed — order is `get_workflow_run_logs` → `get_workflow_run_events` → `query_workflow_logs`, stopping as soon as one yields the error. Two parallel Phase-A calls + three sequential Phase-B fallbacks = the ≤5 budget.
+- ≤5 read-tool calls total. Turn 1 fires `get_workflow_run` + `get_(cluster_)workflow` in **parallel** (both mandatory for failed runs). Phase B may call up to all four log/event tools when fallback is needed — order is `get_workflow_run_logs` → `get_workflow_run_events` → `query_workflow_events` → `query_workflow_logs`, stopping as soon as one yields the error. Two parallel Phase-A calls + up to three sequential Phase-B fallbacks = the ≤5 budget.
 {% if scope.run_name -%}
 - Do NOT call any `list_*` — you have the run + workflow names already.
 {% else -%}
@@ -444,7 +444,7 @@ Variants:
 {% endif -%}
 - **Never** ask the user for time ranges / RFC3339 — derive from the failed task's `startedAt`/`finishedAt`.
 - **Never** invent contents of an Argo `ClusterWorkflowTemplate` referenced by `templateRef` — surface the name and tell the user to `kubectl` it.
-- If `get_workflow_run_logs` is empty → try events; if events empty → try `query_workflow_logs` once; if all three empty → use the "fully empty" shape, suggest checking pod retention, stop.
+- If `get_workflow_run_logs` is empty → try events (`get_workflow_run_events`, then `query_workflow_events` if empty/expired); if events empty → try `query_workflow_logs` once; if all four empty → use the "fully empty" shape, suggest checking pod retention, stop.
 - **Never** end a reply with offers like "If you want, I can also inspect the workflow spec / runtime config / events". You already fetched the workflow spec on turn 1 — state findings (drift or clean), don't propose follow-ups the user has to ask for.
 - No marketing language. No "Hopefully this helps!" / "Feel free to ask!". No restating the user's question. Do NOT mention tool names in the user-facing message.
 

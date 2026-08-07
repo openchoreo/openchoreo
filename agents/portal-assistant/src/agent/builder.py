@@ -162,7 +162,7 @@ _TOOLS_FOR_CASE: dict[str, set[str]] = {
         "list_release_bindings",
         "get_release_binding",
         # Why is the dependency down? — when the target IS deployed but not
-        # ready (crashlooping, erroring), its logs / active incidents carry
+        # ready (crashlooping, erroring), its events / logs / active incidents carry
         # the root cause behind the unresolved connection.
         "query_component_logs",
         "query_component_events",
