@@ -174,7 +174,8 @@ func (s *k8sResourcesService) GetNamespaceEvents(ctx context.Context, namespaceN
 	rawQuery := ""
 	switch eventType {
 	case "Warning", "Normal":
-		rawQuery = "type=" + eventType
+		// Kubernetes Event LIST filters via fieldSelector, not a top-level "type" query.
+		rawQuery = "fieldSelector=type=" + eventType
 	}
 
 	eventsPath := fmt.Sprintf("api/v1/namespaces/%s/events", workloadNS)

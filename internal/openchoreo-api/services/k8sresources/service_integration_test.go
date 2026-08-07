@@ -479,6 +479,138 @@ func TestGetResourceEvents(t *testing.T) {
 	})
 }
 
+// --- GetNamespaceEvents ---
+
+func TestGetNamespaceEvents(t *testing.T) {
+	t.Run("nil gateway client returns error", func(t *testing.T) {
+		fc := newFakeClient()
+		svc := NewService(fc, nil, testLogger())
+
+		_, err := svc.GetNamespaceEvents(context.Background(), testNamespace, "rb-1", "Warning", 50)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "gateway client is not configured")
+	})
+
+	t.Run("no owned releases returns empty events", func(t *testing.T) {
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		fc := newFakeClient(rb, env, dp)
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			t.Fatalf("unexpected gateway call: %s", r.URL.String())
+		})
+		svc := NewService(fc, gc, testLogger())
+
+		result, err := svc.GetNamespaceEvents(context.Background(), testNamespace, "rb-1", "Warning", 50)
+		require.NoError(t, err)
+		assert.Empty(t, result.Events)
+	})
+
+	t.Run("success uses namespaced path and fieldSelector type", func(t *testing.T) {
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
+			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
+		})
+		fc := newFakeClient(rb, env, dp, rr)
+
+		var capturedPath, capturedQuery string
+		eventList := k8sList(map[string]any{
+			"type":          "Warning",
+			"reason":        "FailedCreate",
+			"message":       "exceeded quota: team-quota",
+			"lastTimestamp": "2024-01-15T10:05:00Z",
+			"involvedObject": map[string]any{
+				"kind": "ReplicaSet",
+				"name": "web-abc",
+			},
+		})
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			capturedPath = r.URL.Path
+			capturedQuery = r.URL.RawQuery
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, eventList))
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		result, err := svc.GetNamespaceEvents(context.Background(), testNamespace, "rb-1", "Warning", 50)
+		require.NoError(t, err)
+		require.Len(t, result.Events, 1)
+		assert.Equal(t, "FailedCreate", result.Events[0].Reason)
+		assert.Contains(t, result.Events[0].Message, "[ReplicaSet/web-abc]")
+		assert.Contains(t, result.Events[0].Message, "exceeded quota")
+		assert.Contains(t, capturedPath, "api/v1/namespaces/dp-ns/events")
+		assert.Equal(t, "fieldSelector=type=Warning", capturedQuery)
+	})
+
+	t.Run("orders by lastTimestamp descending and caps limit", func(t *testing.T) {
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
+			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
+		})
+		fc := newFakeClient(rb, env, dp, rr)
+
+		eventList := k8sList(
+			map[string]any{
+				"type": "Warning", "reason": "Older", "message": "old",
+				"lastTimestamp": "2024-01-15T10:00:00Z",
+			},
+			map[string]any{
+				"type": "Warning", "reason": "Newer", "message": "new",
+				"lastTimestamp": "2024-01-15T11:00:00Z",
+			},
+			map[string]any{
+				"type": "Warning", "reason": "Middle", "message": "mid",
+				"lastTimestamp": "2024-01-15T10:30:00Z",
+			},
+		)
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, eventList))
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		result, err := svc.GetNamespaceEvents(context.Background(), testNamespace, "rb-1", "", 2)
+		require.NoError(t, err)
+		require.Len(t, result.Events, 2)
+		assert.Equal(t, "Newer", result.Events[0].Reason)
+		assert.Equal(t, "Middle", result.Events[1].Reason)
+	})
+
+	t.Run("limit above max is capped at 500", func(t *testing.T) {
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
+			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
+		})
+		fc := newFakeClient(rb, env, dp, rr)
+
+		items := make([]map[string]any, 0, 510)
+		for i := 0; i < 510; i++ {
+			items = append(items, map[string]any{
+				"type": "Warning", "reason": "R", "message": "m",
+				"lastTimestamp": "2024-01-15T10:00:00Z",
+			})
+		}
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, k8sList(items...)))
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		result, err := svc.GetNamespaceEvents(context.Background(), testNamespace, "rb-1", "Warning", 9999)
+		require.NoError(t, err)
+		assert.Len(t, result.Events, 500)
+	})
+}
+
 // --- GetResourceLogs ---
 
 func TestGetResourceLogs(t *testing.T) {
