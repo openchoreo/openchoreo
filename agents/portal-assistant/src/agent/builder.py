@@ -113,10 +113,12 @@ _TOOLS_FOR_CASE: dict[str, set[str]] = {
         "get_workflow_run_logs",
         "get_workflow_run_events",
         "query_workflow_logs",
+        "query_workflow_events",
     },
     "runtime_debug": {
         # Tier 1 — direct observer queries (logs side)
         "query_component_logs",
+        "query_component_events",
         "query_resource_metrics",
         "query_http_metrics",
         "query_alerts",
@@ -163,6 +165,7 @@ _TOOLS_FOR_CASE: dict[str, set[str]] = {
         # ready (crashlooping, erroring), its logs / active incidents carry
         # the root cause behind the unresolved connection.
         "query_component_logs",
+        "query_component_events",
         "query_incidents",
         # Deployment status — when the target dependency IS deployed, drill
         # into its rendered release + live data-plane resources directly.

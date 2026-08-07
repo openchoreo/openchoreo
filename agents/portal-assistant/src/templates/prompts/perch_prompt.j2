@@ -119,7 +119,7 @@ No log/trace anchor — this is a **deployment-health** investigation (opened fr
 
 When a component + environment are in scope, inspect the deployment directly (you need the release-binding name first — `list_release_bindings(component=…, environment=…)`, then use its `name`):
 1. `get_resource_tree(namespace, release_binding_name)` → the **rendered release** (rendered manifests + per-resource `health`) and the live K8s nodes. Find the unhealthy resource (Degraded/Progressing Deployment, `CrashLoopBackOff` / `ImagePullBackOff` / `Pending` Pod) and read its group/version/kind/name + pod names for the next calls.
-2. `get_resource_events(namespace, release_binding_name, group, version, kind, resource_name)` → scheduling / image-pull / startup failures (`FailedScheduling`, `ErrImagePull`, `BackOff`, quota/OOM) — the decisive evidence for most failed deploys.
+2. `get_resource_events(namespace, release_binding_name, group, version, kind, resource_name)` → live scheduling / image-pull / startup failures (`FailedScheduling`, `ErrImagePull`, `BackOff`, quota/OOM) — decisive evidence for recent deploys. If empty or if the deployment failure occurred in the past (live K8s events expire), call `query_component_events(namespace, project, component, environment, start_time, end_time)` to fetch historical events from the observability plane.
 3. `get_resource_logs(namespace, release_binding_name, pod_name)` → the crashing container's own output, available even before observability indexes anything.
 4. `query_component_logs` / `query_traces` project-wide are the **complement**, not the first stop — most useful once a pod is actually running and logging an app-level error.
 
@@ -394,7 +394,7 @@ If `list_workflow_runs` is empty: say so plainly and stop.
 **Phase B — logs/events (only if Phase A is inconclusive).** Try in order; stop as soon as one yields the error.
 
 a. **`get_workflow_run_logs`** — live pod logs, build-plane direct. Args: `namespace_name`, `run_name`, `task_name` (failed step), `since_seconds` (omit; 3600 if run is old). Look for stack trace, non-zero exit, missing file, dependency error, test/lint error.
-b. **`get_workflow_run_events`** — pod events; smoking gun for `ImagePullBackOff`, `ErrImagePull`, registry auth, `FailedScheduling`, `OOMKilled` (exit 137 with empty logs), `FailedMount`. Same args.
+b. **`get_workflow_run_events`** — pod events; smoking gun for `ImagePullBackOff`, `ErrImagePull`, registry auth, `FailedScheduling`, `OOMKilled` (exit 137 with empty logs), `FailedMount`. Same args. If empty or expired, try **`query_workflow_events`** from the observability plane (`namespace`, `workflow_run_name`, `start_time`, `end_time`).
 c. **`query_workflow_logs`** — OpenSearch fallback, slowest. ONLY if (a) and (b) empty. Args: `namespace`, `workflow_run_name`, `task_name`, `start_time` (failed task's `startedAt` − 60 s, fall back to run's `createdAt`), `end_time` (`finishedAt` + 60 s, fall back to now), `limit: 200`, `sort_order: "asc"`. **Never** ask the user for a time range — derive from step 1.
 
 ### Symptom → cause cheat sheet
