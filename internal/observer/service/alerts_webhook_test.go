@@ -332,7 +332,7 @@ func TestWebhook_EqualTimestamp_ActiveIncidentSuppresses(t *testing.T) {
 
 	fixedTime := time.Now().UTC().Format(time.RFC3339Nano)
 
-	// 1. Insert alert 1 (acknowledged) with fixedTime
+	// 1. Insert two alerts with identical timestamp
 	alertID1, err := f.alertStore.WriteAlertEntry(ctx, &alertentry.AlertEntry{
 		Timestamp:            fixedTime,
 		AlertRuleName:        "rule-1",
@@ -342,16 +342,7 @@ func TestWebhook_EqualTimestamp_ActiveIncidentSuppresses(t *testing.T) {
 		IncidentEnabled:      true,
 	})
 	require.NoError(t, err)
-	incID1, err := f.incidentStore.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
-		AlertID:   alertID1,
-		Timestamp: fixedTime,
-		Status:    incidententry.StatusActive,
-	})
-	require.NoError(t, err)
-	_, err = f.incidentStore.UpdateIncidentEntry(ctx, incID1, incidententry.StatusAcknowledged, nil, nil, time.Now().UTC())
-	require.NoError(t, err)
 
-	// 2. Insert alert 2 (active) with the EXACT SAME fixedTime
 	alertID2, err := f.alertStore.WriteAlertEntry(ctx, &alertentry.AlertEntry{
 		Timestamp:            fixedTime,
 		AlertRuleName:        "rule-1",
@@ -361,17 +352,38 @@ func TestWebhook_EqualTimestamp_ActiveIncidentSuppresses(t *testing.T) {
 		IncidentEnabled:      true,
 	})
 	require.NoError(t, err)
+
+	// 2. Identify which alert is selected by the store's tie-breaker
+	latestAlert, err := f.alertStore.GetRecentAlert(ctx, "rule-cr-1", "obs-plane", "comp-uid-1", time.Time{})
+	require.NoError(t, err)
+	require.NotNil(t, latestAlert)
+
+	otherID := alertID1
+	if latestAlert.ID == alertID1 {
+		otherID = alertID2
+	}
+
+	// 3. Set an acknowledged incident on the non-selected alert, and an active incident on the selected alert
+	incIDOther, err := f.incidentStore.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
+		AlertID:   otherID,
+		Timestamp: fixedTime,
+		Status:    incidententry.StatusActive,
+	})
+	require.NoError(t, err)
+	_, err = f.incidentStore.UpdateIncidentEntry(ctx, incIDOther, incidententry.StatusAcknowledged, nil, nil, time.Now().UTC())
+	require.NoError(t, err)
+
 	_, err = f.incidentStore.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
-		AlertID:   alertID2,
+		AlertID:   latestAlert.ID,
 		Timestamp: fixedTime,
 		Status:    incidententry.StatusActive,
 	})
 	require.NoError(t, err)
 
-	// 3. Trigger webhook. Since the latest inserted alert (alert 2) is active, it must be suppressed!
+	// 4. Trigger webhook. The tie-breaker alert's incident is active, so it must suppress!
 	resp, err := f.svc.HandleAlertWebhook(ctx, webhookReq("rule-cr-1"))
 	require.NoError(t, err)
-	assert.Contains(t, *resp.Message, "suppressed", "active incident on latest equal-timestamp alert must suppress new alert")
+	assert.Contains(t, *resp.Message, "suppressed", "active incident on tie-breaker alert must suppress new alert")
 }
 
 func TestWebhook_DifferentRule_NotSuppressed(t *testing.T) {
