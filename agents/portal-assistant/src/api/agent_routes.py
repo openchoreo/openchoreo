@@ -136,7 +136,7 @@ class ChatScope(BaseModel):
     # Optional case discriminator set by purpose-built launchers
     # (e.g. failed-build snackbar). The base prompt branches on this to
     # layer in case-specific guidance — see perch_prompt.j2 case_type
-    # blocks. Allowed values today: "build_failure", "runtime_debug".
+    # blocks. Allowed values today: "build_failure", "runtime_debug", "dependency_pending".
     # Unknown values fall back to the base prompt (no extra guidance).
     case_type: str | None = Field(default=None, alias="caseType", max_length=64)
 

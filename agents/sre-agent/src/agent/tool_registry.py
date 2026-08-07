@@ -30,8 +30,14 @@ class TOOLS:
     QUERY_COMPONENT_LOGS = Tool(
         "query_component_logs", server=OBSERVABILITY, active_form="Fetching component logs..."
     )
+    QUERY_COMPONENT_EVENTS = Tool(
+        "query_component_events", server=OBSERVABILITY, active_form="Fetching component events..."
+    )
     QUERY_WORKFLOW_LOGS = Tool(
         "query_workflow_logs", server=OBSERVABILITY, active_form="Fetching workflow logs..."
+    )
+    QUERY_WORKFLOW_EVENTS = Tool(
+        "query_workflow_events", server=OBSERVABILITY, active_form="Fetching workflow events..."
     )
     QUERY_RESOURCE_METRICS = Tool(
         "query_resource_metrics",

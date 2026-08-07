@@ -113,10 +113,12 @@ _TOOLS_FOR_CASE: dict[str, set[str]] = {
         "get_workflow_run_logs",
         "get_workflow_run_events",
         "query_workflow_logs",
+        "query_workflow_events",
     },
     "runtime_debug": {
         # Tier 1 — direct observer queries (logs side)
         "query_component_logs",
+        "query_component_events",
         "query_resource_metrics",
         "query_http_metrics",
         "query_alerts",
@@ -160,15 +162,17 @@ _TOOLS_FOR_CASE: dict[str, set[str]] = {
         "list_release_bindings",
         "get_release_binding",
         # Why is the dependency down? — when the target IS deployed but not
-        # ready (crashlooping, erroring), its logs / active incidents carry
+        # ready (crashlooping, erroring), its events / logs / active incidents carry
         # the root cause behind the unresolved connection.
         "query_component_logs",
+        "query_component_events",
         "query_incidents",
         # Deployment status — when the target dependency IS deployed, drill
         # into its rendered release + live data-plane resources directly.
         # get_resource_tree returns the RenderedRelease (rendered manifests +
         # per-resource health) alongside the live K8s nodes; get_resource_events
-        # surfaces scheduling/startup failures on a specific rendered resource;
+        # surfaces scheduling/startup failures on a specific rendered resource
+        # (with query_component_events fallback when live K8s events are empty/expired);
         # get_resource_logs pulls a pod's container logs straight from the data
         # plane (works before observability has indexed anything).
         "get_resource_tree",

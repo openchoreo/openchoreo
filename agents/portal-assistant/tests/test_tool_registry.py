@@ -50,7 +50,9 @@ def test_query_prefix_is_read():
     # two ~30 s LLM round-trips per turn.
     for name in (
         "query_component_logs",
+        "query_component_events",
         "query_workflow_logs",
+        "query_workflow_events",
         "query_resource_metrics",
         "query_http_metrics",
         "query_alerts",
