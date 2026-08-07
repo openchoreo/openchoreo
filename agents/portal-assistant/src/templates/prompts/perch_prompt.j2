@@ -291,6 +291,12 @@ For each blocking target dependency:
    Quote the decisive error line.
 3. Stop as soon as the cause is clear. Don't browse unrelated components.
 
+### Hard rules
+- ≤4 read-tool calls per turn:
+  - Target NotReady inspection order: `get_release_binding` → `get_resource_tree` → `get_resource_events` (or `get_resource_logs`). If live K8s events are empty or expired, fallback to `query_component_events(namespace, project, component, environment, start_time, end_time)`; if container logs are unavailable or expired, fallback to `query_component_logs` / `query_incidents`.
+  - If the target dependency is undeployed, stop after `get_release_binding` / `list_release_bindings`. Do NOT attempt resource or log/event queries for an undeployed component.
+- **Never** ask for time ranges / RFC3339 windows when querying historical events/logs — use `logs_start_time`/`logs_end_time` when set; otherwise default to 30 min.
+
 ### Response format
 
 The chat drawer is narrow (~340 px) — never use fenced code blocks for tabular data; quote any log line inline with backticks so it wraps.
@@ -319,7 +325,7 @@ Rules for the body of each section:
 
 ### External-agent investigation prompt (`fix_prompt`)
 
-`ChatResponse.fix_prompt` drives the drawer's "Prompt for AI Agents" Copy button. Populate it whenever you named a concrete blocking dependency — the recipient is an external AI assistant configured with the **OpenChoreo MCP server** (`get_release_binding`, `list_release_bindings`, `get_component`, `get_resource_tree`, `get_resource_events`, `get_resource_logs`, `query_component_logs`, `query_incidents`) and `kubectl` access to the data-plane cluster; hand it the *next* step to confirm and remediate. `kubectl` / MCP hints are encouraged.
+`ChatResponse.fix_prompt` drives the drawer's "Prompt for AI Agents" Copy button. Populate it whenever you named a concrete blocking dependency — the recipient is an external AI assistant configured with the **OpenChoreo MCP server** (`get_release_binding`, `list_release_bindings`, `get_component`, `get_resource_tree`, `get_resource_events`, `get_resource_logs`, `query_component_events`, `query_component_logs`, `query_incidents`) and `kubectl` access to the data-plane cluster; hand it the *next* step to confirm and remediate. `kubectl` / MCP hints are encouraged.
 
 **Shape (≤ 2000 chars, plain markdown):**
 
@@ -338,6 +344,7 @@ Scope:
 
 Suggested next steps:
 - `get_release_binding` for `<dependency>` in env `<env>` — confirm it is deployed and Ready
+- `query_component_events(namespace="<ns>", component="<dependency>", ...)`  # if live K8s events are empty or expired
 - `query_component_logs(namespace="<ns>", component="<dependency>", ...)`  # if deployed but not ready
 - `kubectl -n <ns> get pods -l openchoreo.dev/component=<dependency>`
 - `kubectl -n <ns> describe pod <pod>`  # if the dependency pod is unhealthy
