@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"maps"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -417,9 +418,14 @@ func (s *k8sResourcesService) buildResourceTreeNodes(ctx context.Context, rc *re
 
 		childNodes := s.fetchChildResources(ctx, rc.plane, obj, rs)
 		allNodes = append(allNodes, childNodes...)
+
+		if rs.Kind == "HelmRelease" {
+			inventoryNodes := s.fetchHelmInventoryWorkloadNodes(ctx, rc.plane, obj)
+			allNodes = append(allNodes, inventoryNodes...)
+		}
 	}
 
-	return allNodes
+	return dedupeResourceNodes(allNodes)
 }
 
 // findResourceRelease finds which release context contains the requested resource
@@ -431,6 +437,24 @@ func (s *k8sResourcesService) findResourceRelease(contexts []releaseContext, gro
 		for _, rs := range rc.release.Status.Resources {
 			if rs.Group == group && rs.Version == version && rs.Kind == kind && rs.Name == name {
 				return rc, rs.Namespace
+			}
+		}
+	}
+
+	// Match resources referenced from HelmRelease inventory when RenderedRelease
+	// status.resources tracks the HelmRelease but not child Deployments/Pods.
+	for i := range contexts {
+		rc := &contexts[i]
+		for j := range rc.release.Status.Resources {
+			rs := &rc.release.Status.Resources[j]
+			if rs.Kind != "HelmRelease" {
+				continue
+			}
+			if ns, ok := helmInventoryResourceMatch(rs, group, version, kind, name); ok {
+				if ns != "" {
+					return rc, ns
+				}
+				return rc, rc.namespace
 			}
 		}
 	}
@@ -521,6 +545,162 @@ func (s *k8sResourcesService) fetchK8sList(ctx context.Context, pi planeInfo, k8
 	}
 
 	return result, nil
+}
+
+func helmReleaseResourceRef(helmObj map[string]any) *models.ResourceRef {
+	uid := getNestedString(helmObj, "metadata", "uid")
+	name := getNestedString(helmObj, "metadata", "name")
+	if uid == "" || name == "" {
+		return nil
+	}
+	return &models.ResourceRef{
+		Group:     getAPIGroup(helmObj),
+		Version:   getAPIVersion(helmObj),
+		Kind:      "HelmRelease",
+		Namespace: getNestedString(helmObj, "metadata", "namespace"),
+		Name:      name,
+		UID:       uid,
+	}
+}
+
+func (s *k8sResourcesService) appendWorkloadSubtree(
+	ctx context.Context,
+	pi planeInfo,
+	parentRef *models.ResourceRef,
+	obj map[string]any,
+	group, version, kind, namespace, name string,
+) []models.ResourceNode {
+	var nodes []models.ResourceNode
+	if node, ok := buildResourceNode(obj, parentRef, ""); ok {
+		nodes = append(nodes, node)
+	}
+	status := &openchoreov1alpha1.RenderedManifestStatus{
+		Group:     group,
+		Version:   version,
+		Kind:      kind,
+		Namespace: namespace,
+		Name:      name,
+	}
+	nodes = append(nodes, s.fetchChildResources(ctx, pi, obj, status)...)
+	return nodes
+}
+
+func (s *k8sResourcesService) fetchHelmInventoryWorkloadNodes(ctx context.Context, pi planeInfo, helmObj map[string]any) []models.ResourceNode {
+	parentRef := helmReleaseResourceRef(helmObj)
+	var nodes []models.ResourceNode
+	seenDeployments := map[string]bool{}
+
+	for _, id := range inventoryEntryIDsFromObject(helmObj) {
+		parsed := parseFluxHelmInventoryEntryID(id)
+		if parsed == nil {
+			continue
+		}
+
+		switch parsed.Kind {
+		case "Deployment", "StatefulSet", "DaemonSet":
+			plural, err := s.resolveResourcePlural(parsed.Group, parsed.Version, parsed.Kind)
+			if err != nil {
+				s.logger.Warn("Failed to resolve workload plural from Helm inventory", "id", id, "error", err)
+				continue
+			}
+			k8sPath := buildK8sGetPath(parsed.Group, parsed.Version, plural, parsed.Namespace, parsed.Name)
+			obj, err := s.fetchLiveResource(ctx, pi, k8sPath)
+			if err != nil {
+				s.logger.Warn("Failed to fetch workload from Helm inventory", "id", id, "error", err)
+				continue
+			}
+			key := parsed.Namespace + "/" + parsed.Kind + "/" + parsed.Name
+			seenDeployments[key] = true
+			nodes = append(nodes, s.appendWorkloadSubtree(
+				ctx, pi, parentRef, obj,
+				parsed.Group, parsed.Version, parsed.Kind, parsed.Namespace, parsed.Name,
+			)...)
+		case "PersistentVolumeClaim":
+			plural, err := s.resolveResourcePlural(parsed.Group, parsed.Version, parsed.Kind)
+			if err != nil {
+				continue
+			}
+			k8sPath := buildK8sGetPath(parsed.Group, parsed.Version, plural, parsed.Namespace, parsed.Name)
+			pvcObj, err := s.fetchLiveResource(ctx, pi, k8sPath)
+			if err != nil {
+				continue
+			}
+			if pvcNode, ok := buildResourceNode(pvcObj, parentRef, ""); ok {
+				nodes = append(nodes, pvcNode)
+			}
+		}
+	}
+
+	// When Flux inventory is empty/stale (Progressing / remediating), fall back to
+	// namespaced LIST of Deployments owned by this HelmRelease via Flux labels.
+	if !hasWorkloadKind(nodes, "Deployment") && !hasWorkloadKind(nodes, "StatefulSet") {
+		nodes = append(nodes, s.fetchHelmLabeledWorkloadNodes(ctx, pi, helmObj, parentRef, seenDeployments)...)
+	}
+
+	return nodes
+}
+
+func hasWorkloadKind(nodes []models.ResourceNode, kind string) bool {
+	for _, n := range nodes {
+		if n.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *k8sResourcesService) fetchHelmLabeledWorkloadNodes(
+	ctx context.Context,
+	pi planeInfo,
+	helmObj map[string]any,
+	parentRef *models.ResourceRef,
+	seen map[string]bool,
+) []models.ResourceNode {
+	hrName := getNestedString(helmObj, "metadata", "name")
+	hrNS := getNestedString(helmObj, "metadata", "namespace")
+	if hrName == "" || hrNS == "" {
+		return nil
+	}
+
+	// Workloads land in HelmRelease targetNamespace when set; otherwise HR namespace.
+	targetNS := hrNS
+	if spec, _ := helmObj["spec"].(map[string]any); spec != nil {
+		if tn := strings.TrimSpace(getStringField(spec, "targetNamespace")); tn != "" {
+			targetNS = tn
+		}
+	}
+
+	plural, err := s.resolveResourcePlural("apps", "v1", "Deployment")
+	if err != nil {
+		return nil
+	}
+	k8sPath := buildK8sListPath("apps", "v1", plural, targetNS)
+	rawQuery := "labelSelector=" + url.QueryEscape(
+		"helm.toolkit.fluxcd.io/name="+hrName+",helm.toolkit.fluxcd.io/namespace="+hrNS,
+	)
+	items, err := s.fetchK8sList(ctx, pi, k8sPath, rawQuery)
+	if err != nil {
+		s.logger.Warn("Failed to list Deployments by HelmRelease labels",
+			"helmRelease", hrName, "namespace", targetNS, "error", err)
+		return nil
+	}
+
+	var nodes []models.ResourceNode
+	for _, item := range items {
+		item["kind"] = "Deployment"
+		item["apiVersion"] = "apps/v1"
+		name := getNestedString(item, "metadata", "name")
+		ns := getNestedString(item, "metadata", "namespace")
+		key := ns + "/Deployment/" + name
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		nodes = append(nodes, s.appendWorkloadSubtree(
+			ctx, pi, parentRef, item, "apps", "v1", "Deployment", ns, name,
+		)...)
+	}
+	return nodes
 }
 
 func (s *k8sResourcesService) fetchChildResources(ctx context.Context, pi planeInfo, parentObj map[string]any, rs *openchoreov1alpha1.RenderedManifestStatus) []models.ResourceNode {
@@ -935,6 +1115,18 @@ func hasParentResourceInRelease(childKind string, resources []openchoreov1alpha1
 	for i := range resources {
 		if slices.Contains(parentKinds, resources[i].Kind) {
 			return true
+		}
+	}
+	// HelmRelease inventory lists Deployments helm waits on even when RR inventory
+	// omits them (namespace-scoped / identity inventory profiles).
+	if childKind == "Pod" || childKind == "ReplicaSet" {
+		for i := range resources {
+			if resources[i].Kind != "HelmRelease" {
+				continue
+			}
+			if helmManifestStatusHasInventoryKind(&resources[i], "Deployment") {
+				return true
+			}
 		}
 	}
 	return false
