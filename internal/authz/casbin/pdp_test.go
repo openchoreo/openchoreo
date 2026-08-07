@@ -5,9 +5,11 @@ package casbin
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -916,6 +918,7 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 		{"group:group1", "ns/other-namespace", "viewer", "*", "allow", "{}", "group1-viewer-other"},
 		{"group:group1", "ns/acme", "editor", "acme", "allow", "{}", "group1-editor-acme"},
 		{"group:group1", "ns/acme/project/p2", "viewer", "*", "allow", condJSON, "group1-viewer-cond"},
+		{"group:group2", "ns/acme/project/p1", "viewer", "*", "deny", "{}", "group2-viewer-deny"},
 	})
 
 	tests := []struct {
@@ -926,6 +929,8 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 		// conditionsForPath checks that the policyInfo for the given resource path carries the expected conditions string.
 		// Empty string means "don't check".
 		conditionsForPath map[string]string
+		// subjectsForPath checks which entitlements the policies for a resource path were bound to.
+		subjectsForPath map[string][]string
 	}{
 		{
 			name: "filter policies within scope",
@@ -971,6 +976,20 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 				"ns/acme":            "{}",
 			},
 		},
+		{
+			name: "each policy records the entitlement it was bound to",
+			subjectCtx: &authzcore.SubjectContext{
+				Type:              user,
+				EntitlementClaim:  "group",
+				EntitlementValues: []string{"group1", "group2"},
+			},
+			scopePath:       "ns/acme",
+			wantPolicyCount: 5,
+			subjectsForPath: map[string][]string{
+				"ns/acme/project/p1": {"group:group1", "group:group2"},
+				"ns/acme/project/p2": {"group:group1"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -990,6 +1009,17 @@ func TestCasbinEnforcer_filterPoliciesBySubjectAndScope(t *testing.T) {
 					}
 				}
 				require.True(t, found, "no policyInfo found for path %q", path)
+			}
+
+			for path, wantSubjects := range tt.subjectsForPath {
+				var gotSubjects []string
+				for _, p := range policies {
+					if p.resourcePath == path {
+						gotSubjects = append(gotSubjects, p.subject)
+					}
+				}
+				require.ElementsMatch(t, wantSubjects, gotSubjects,
+					"policyInfo subjects for path %q", path)
 			}
 		})
 	}
@@ -1055,6 +1085,160 @@ func TestCasbinEnforcer_buildCapabilitiesFromPolicies(t *testing.T) {
 				"component:create": {allowedCount: 1, deniedCount: 1},
 				"component:update": {allowedCount: 1, deniedCount: 1},
 				"component:delete": {allowedCount: 1, deniedCount: 1},
+			},
+		},
+		{
+			// Enforcement evaluates one entitlement at a time, so a deny bound to
+			// "group:b" cannot suppress a grant bound to "group:a".
+			name: "deny from another entitlement leaves the allow intact and is dropped",
+			policies: []policyInfo{
+				{subject: "group:a", resourcePath: "ns/acme", roleName: "viewer", roleNamespace: "*", effect: "allow"},
+				{subject: "group:b", resourcePath: "ns/acme/project/pci", roleName: "viewer", roleNamespace: "*", effect: "deny"},
+			},
+			expectedCapabilities: map[string]capExpectation{
+				"component:view": {allowedCount: 1, deniedCount: 0},
+				"project:view":   {allowedCount: 1, deniedCount: 0},
+			},
+		},
+		{
+			name: "deny is kept when only the entitlement it is bound to grants the path",
+			policies: []policyInfo{
+				{subject: "group:a", resourcePath: "ns/acme", roleName: "viewer", roleNamespace: "*", effect: "allow"},
+				{subject: "group:a", resourcePath: "ns/acme/project/pci", roleName: "viewer", roleNamespace: "*", effect: "deny"},
+			},
+			expectedCapabilities: map[string]capExpectation{
+				"component:view": {allowedCount: 1, deniedCount: 1},
+				"project:view":   {allowedCount: 1, deniedCount: 1},
+			},
+		},
+		{
+			name: "allow is dropped when its own entitlement denies a covering path",
+			policies: []policyInfo{
+				{subject: "group:a", resourcePath: "ns/acme/project/p1", roleName: "viewer", roleNamespace: "*", effect: "allow"},
+				{subject: "group:a", resourcePath: "ns/acme", roleName: "viewer", roleNamespace: "*", effect: "deny"},
+			},
+			expectedCapabilities: map[string]capExpectation{
+				"component:view": {allowedCount: 0, deniedCount: 1},
+				"project:view":   {allowedCount: 0, deniedCount: 1},
+			},
+		},
+		{
+			name: "same path allowed by one entitlement and denied by another resolves to allowed",
+			policies: []policyInfo{
+				{subject: "group:a", resourcePath: "ns/acme", roleName: "viewer", roleNamespace: "*", effect: "allow"},
+				{subject: "group:b", resourcePath: "ns/acme", roleName: "viewer", roleNamespace: "*", effect: "deny"},
+			},
+			expectedCapabilities: map[string]capExpectation{
+				"component:view": {allowedCount: 1, deniedCount: 0},
+				"project:view":   {allowedCount: 1, deniedCount: 0},
+			},
+		},
+		{
+			// The allow only grants component:view when its expression holds, so it
+			// cannot neutralize the other entitlement's deny for that action.
+			// project:view is unconditional under the same binding, so there it does.
+			name: "conditional allow neutralizes another entitlement's deny only where it is unconditional",
+			policies: []policyInfo{
+				{
+					subject:       "group:a",
+					resourcePath:  "ns/acme",
+					roleName:      "viewer",
+					roleNamespace: "*",
+					effect:        "allow",
+					conditions: mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+						{Actions: []string{"component:view"}, Expression: `resource.environment == "prod"`},
+					}),
+				},
+				{subject: "group:b", resourcePath: "ns/acme/project/pci", roleName: "viewer", roleNamespace: "*", effect: "deny"},
+			},
+			expectedCapabilities: map[string]capExpectation{
+				"component:view": {
+					allowedCount: 1,
+					deniedCount:  1,
+					constraintsByPath: map[string][]string{
+						"ns/acme": {`resource.environment == "prod"`},
+					},
+				},
+				"project:view": {
+					allowedCount: 1,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme": nil,
+					},
+				},
+			},
+		},
+		{
+			name: "same path granted by two entitlements merges into one resource with OR'd expressions",
+			policies: []policyInfo{
+				{
+					subject:       "group:a",
+					resourcePath:  "ns/acme",
+					roleName:      "viewer",
+					roleNamespace: "*",
+					effect:        "allow",
+					conditions: mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+						{Actions: []string{"component:view"}, Expression: `resource.environment == "prod"`},
+					}),
+				},
+				{
+					subject:       "group:b",
+					resourcePath:  "ns/acme",
+					roleName:      "viewer",
+					roleNamespace: "*",
+					effect:        "allow",
+					conditions: mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+						{Actions: []string{"component:view"}, Expression: `resource.environment == "staging"`},
+					}),
+				},
+			},
+			expectedCapabilities: map[string]capExpectation{
+				"component:view": {
+					allowedCount: 1,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme": {`resource.environment == "prod"`, `resource.environment == "staging"`},
+					},
+				},
+				"project:view": {
+					allowedCount: 1,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme": nil,
+					},
+				},
+			},
+		},
+		{
+			name: "unconditional grant on one entitlement wins over a conditional grant on another",
+			policies: []policyInfo{
+				{
+					subject:       "group:a",
+					resourcePath:  "ns/acme",
+					roleName:      "viewer",
+					roleNamespace: "*",
+					effect:        "allow",
+					conditions: mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+						{Actions: []string{"component:view"}, Expression: `resource.environment == "prod"`},
+					}),
+				},
+				{subject: "group:b", resourcePath: "ns/acme", roleName: "viewer", roleNamespace: "*", effect: "allow"},
+			},
+			expectedCapabilities: map[string]capExpectation{
+				"component:view": {
+					allowedCount: 1,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme": nil,
+					},
+				},
+				"project:view": {
+					allowedCount: 1,
+					deniedCount:  0,
+					constraintsByPath: map[string][]string{
+						"ns/acme": nil,
+					},
+				},
 			},
 		},
 		{
@@ -1625,6 +1809,581 @@ func TestCasbinEnforcer_GetSubjectProfile(t *testing.T) {
 			}
 		})
 	}
+}
+
+// pathDepth ranks how specific a capability entry is. Entries that cover the same
+// resource are prefixes of one another, so segment count orders them by depth, and the
+// global wildcard is the least specific entry there is.
+func pathDepth(entryPath string) int {
+	if entryPath == "*" {
+		return 0
+	}
+	return len(strings.Split(entryPath, "/"))
+}
+
+// entryApplies reports whether a capability entry covers the resource path and, when it
+// carries constraints, whether any of them holds for the request context. The
+// expressions are OR'd, mirroring how the enforcement matcher evaluates conditions.
+func entryApplies(t *testing.T, entry *authzcore.CapabilityResource, path, action string, reqCtx authzcore.Context) bool {
+	t.Helper()
+	if !resourceMatch(path, entry.Path) {
+		return false
+	}
+	if entry.Constraints == nil {
+		return true
+	}
+
+	activation, err := buildCelActivation(reqCtx, authzcore.LookupConditions(action))
+	require.NoError(t, err, "building the CEL activation for action %q", action)
+	for _, expression := range entry.Constraints.Expressions {
+		program, err := compileCEL(expression)
+		require.NoError(t, err, "compiling capability expression %q", expression)
+		out, _, err := program.Eval(activation)
+		if err != nil {
+			continue
+		}
+		if result, ok := out.Value().(bool); ok && result {
+			return true
+		}
+	}
+	return false
+}
+
+// profileAllows resolves a request against a reported capability using the semantics the
+// profile is documented with: the action is allowed when some allowed entry applies and
+// no applicable denied entry sits at least as deep in the hierarchy as that entry.
+func profileAllows(t *testing.T, capability *authzcore.ActionCapability, path, action string, reqCtx authzcore.Context) bool {
+	t.Helper()
+	if capability == nil {
+		return false
+	}
+
+	deepestDeny := -1
+	for _, denied := range capability.Denied {
+		if entryApplies(t, denied, path, action, reqCtx) && pathDepth(denied.Path) > deepestDeny {
+			deepestDeny = pathDepth(denied.Path)
+		}
+	}
+	for _, allowed := range capability.Allowed {
+		if entryApplies(t, allowed, path, action, reqCtx) && pathDepth(allowed.Path) > deepestDeny {
+			return true
+		}
+	}
+	return false
+}
+
+// TestCasbinEnforcer_ProfileAgreesWithEvaluate drives the same fixtures through both
+// Evaluate and GetSubjectProfile and asserts the two paths reach the same decision.
+// Enforcement resolves allow/deny per entitlement value and unions the results, so the
+// profile has to do the same (issue #4447).
+func TestCasbinEnforcer_ProfileAgreesWithEvaluate(t *testing.T) {
+	ctx := context.Background()
+	const action = "component:view"
+
+	groupingPolicies := [][]string{
+		{"developer", "component:view", "*"},
+		{"developer", "component:create", "*"},
+	}
+
+	type probe struct {
+		resource authzcore.ResourceHierarchy
+		want     bool
+	}
+
+	tests := []struct {
+		name              string
+		policies          [][]string
+		entitlementValues []string
+		scope             authzcore.ResourceHierarchy
+		probes            []probe
+		wantNoDenied      bool
+		wantNoAllowed     bool
+	}{
+		{
+			// The scenario reported in the issue: the deny belongs to a different
+			// entitlement than the allow, so it must not suppress anything.
+			name: "deny on one entitlement does not cancel an allow on another",
+			policies: [][]string{
+				{"groups:developers", "ns/acme", "developer", "*", "allow", "{}", "developers-allow"},
+				{"groups:pci-restricted", "ns/acme/project/pci", "developer", "*", "deny", "{}", "pci-deny"},
+			},
+			entitlementValues: []string{"developers", "pci-restricted"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			probes: []probe{
+				{resource: authzcore.ResourceHierarchy{Namespace: "acme", Project: "pci", Component: "c1"}, want: true},
+				{resource: authzcore.ResourceHierarchy{Namespace: "acme", Project: "public", Component: "c2"}, want: true},
+			},
+			wantNoDenied: true,
+		},
+		{
+			// Same-entitlement carve-out: the deny still suppresses its own grant.
+			name: "deny carves out of an allow on the same entitlement",
+			policies: [][]string{
+				{"groups:developers", "ns/acme", "developer", "*", "allow", "{}", "developers-allow"},
+				{"groups:developers", "ns/acme/project/secret", "developer", "*", "deny", "{}", "developers-deny"},
+			},
+			entitlementValues: []string{"developers"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			probes: []probe{
+				{resource: authzcore.ResourceHierarchy{Namespace: "acme", Project: "secret", Component: "c1"}, want: false},
+				{resource: authzcore.ResourceHierarchy{Namespace: "acme", Project: "public", Component: "c2"}, want: true},
+			},
+		},
+		{
+			// The other entitlement grants only part of what the deny covers, so the
+			// deny stays and the narrower allow wins where it applies.
+			name: "second entitlement grants part of a denied subtree",
+			policies: [][]string{
+				{"groups:developers", "ns/acme", "developer", "*", "allow", "{}", "developers-allow"},
+				{"groups:developers", "ns/acme/project/pci", "developer", "*", "deny", "{}", "developers-deny"},
+				{"groups:pci-oncall", "ns/acme/project/pci/component/c1", "developer", "*", "allow", "{}", "oncall-allow"},
+			},
+			entitlementValues: []string{"developers", "pci-oncall"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			probes: []probe{
+				{resource: authzcore.ResourceHierarchy{Namespace: "acme", Project: "pci", Component: "c1"}, want: true},
+				{resource: authzcore.ResourceHierarchy{Namespace: "acme", Project: "pci", Component: "c2"}, want: false},
+				{resource: authzcore.ResourceHierarchy{Namespace: "acme", Project: "public", Component: "c3"}, want: true},
+			},
+		},
+		{
+			// Allow and deny on the same path but different entitlements: the allow
+			// grants access, so nothing should be reported as denied.
+			name: "allow and deny on the same path from different entitlements",
+			policies: [][]string{
+				{"groups:developers", "ns/acme/project/p1", "developer", "*", "allow", "{}", "developers-allow"},
+				{"groups:contractors", "ns/acme/project/p1", "developer", "*", "deny", "{}", "contractors-deny"},
+			},
+			entitlementValues: []string{"developers", "contractors"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			probes: []probe{
+				{resource: authzcore.ResourceHierarchy{Namespace: "acme", Project: "p1", Component: "c1"}, want: true},
+			},
+			wantNoDenied: true,
+		},
+		{
+			// A deny that fully covers its own entitlement's allow removes the grant
+			// entirely - it must not surface in Allowed.
+			name: "deny covering its own allow removes the grant",
+			policies: [][]string{
+				{"groups:developers", "ns/acme/project/p1", "developer", "*", "allow", "{}", "developers-allow"},
+				{"groups:developers", "ns/acme", "developer", "*", "deny", "{}", "developers-deny"},
+			},
+			entitlementValues: []string{"developers"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			probes: []probe{
+				{resource: authzcore.ResourceHierarchy{Namespace: "acme", Project: "p1", Component: "c1"}, want: false},
+			},
+			wantNoAllowed: true,
+		},
+		{
+			// A cluster-wide allow on another entitlement neutralizes the deny.
+			name: "wildcard allow on another entitlement neutralizes a deny",
+			policies: [][]string{
+				{"groups:platform-admins", "*", "developer", "*", "allow", "{}", "admins-allow"},
+				{"groups:contractors", "ns/acme/project/p1", "developer", "*", "deny", "{}", "contractors-deny"},
+			},
+			entitlementValues: []string{"platform-admins", "contractors"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			probes: []probe{
+				{resource: authzcore.ResourceHierarchy{Namespace: "acme", Project: "p1", Component: "c1"}, want: true},
+			},
+			wantNoDenied: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			enforcer := setupTestEnforcer(t)
+			syncGroupingPolicies(t, enforcer, groupingPolicies)
+			syncPolicies(t, enforcer, tt.policies)
+
+			subjectCtx := &authzcore.SubjectContext{
+				Type:              user,
+				EntitlementClaim:  "groups",
+				EntitlementValues: tt.entitlementValues,
+			}
+
+			profile, err := enforcer.GetSubjectProfile(ctx, &authzcore.ProfileRequest{
+				SubjectContext: subjectCtx,
+				Scope:          tt.scope,
+			})
+			require.NoError(t, err)
+
+			capability := profile.Capabilities[action]
+			require.NotNil(t, capability, "expected a capability for action %q", action)
+			if tt.wantNoDenied {
+				require.Empty(t, capability.Denied, "expected no denied resources for action %q", action)
+			}
+			if tt.wantNoAllowed {
+				require.Empty(t, capability.Allowed, "expected no allowed resources for action %q", action)
+			}
+
+			for _, p := range tt.probes {
+				path := resourceHierarchyToPath(p.resource)
+
+				decision, err := enforcer.Evaluate(ctx, &authzcore.EvaluateRequest{
+					SubjectContext: subjectCtx,
+					Resource: authzcore.Resource{
+						Type:      "component",
+						Hierarchy: p.resource,
+					},
+					Action: action,
+				})
+				require.NoError(t, err)
+				require.Equal(t, p.want, decision.Decision,
+					"Evaluate() disagrees with the expected decision for %q", path)
+
+				require.Equal(t, decision.Decision, profileAllows(t, capability, path, action, authzcore.Context{}),
+					"profile disagrees with Evaluate for %q: allowed=%+v denied=%+v",
+					path, capability.Allowed, capability.Denied)
+			}
+		})
+	}
+}
+
+// TestCasbinEnforcer_ProfileEvaluateAgreementMatrix cross-checks the two decision paths
+// exhaustively. For every fixture it asks Evaluate and GetSubjectProfile about every
+// combination of resource, action and request context in the grid and requires the two to
+// return the same answer, so neither path can drift from the other unnoticed.
+func TestCasbinEnforcer_ProfileEvaluateAgreementMatrix(t *testing.T) {
+	ctx := context.Background()
+
+	// Shared roles: concrete actions, a verb wildcard, the full wildcard, and a
+	// namespace-scoped role, so the grid exercises every action-matching path.
+	groupingPolicies := [][]string{
+		{"viewer", "component:view", "*"},
+		{"viewer", "project:view", "*"},
+		{"viewer", "releasebinding:view", "*"},
+		{"editor", "component:*", "*"},
+		{"admin", "*", "*"},
+		{"ns-editor", "component:*", "acme"},
+	}
+
+	resources := []authzcore.ResourceHierarchy{
+		{Namespace: "acme"},
+		{Namespace: "acme", Project: "p1"},
+		{Namespace: "acme", Project: "p1", Component: "c1"},
+		{Namespace: "acme", Project: "p1", Component: "c2"},
+		{Namespace: "acme", Project: "pci"},
+		{Namespace: "acme", Project: "pci", Component: "c1"},
+		{Namespace: "acme", Project: "pci", Resource: "r1"},
+		{Namespace: "other", Project: "p1", Component: "c1"},
+	}
+
+	// Actions the shared roles can grant, plus one (component:delete) that only the
+	// wildcard roles reach.
+	actions := []string{
+		"component:view",
+		"component:create",
+		"component:delete",
+		"project:view",
+		"releasebinding:view",
+	}
+
+	// Contexts cover the attributes registered for the conditioned actions, including
+	// the empty context a caller sends when it has nothing to declare.
+	requestContexts := []authzcore.Context{
+		{},
+		{Resource: authzcore.ResourceAttribute{Environment: "prod"}},
+		{Resource: authzcore.ResourceAttribute{Environment: "staging", ComponentType: "service"}},
+		{Resource: authzcore.ResourceAttribute{ComponentType: "web-app"}},
+	}
+
+	actionCondition := func(action, expression string) string {
+		return mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+			{Actions: []string{action}, Expression: expression},
+		})
+	}
+
+	// outcomes describes the coarse shape a fixture is expected to produce across the
+	// grid, so a fixture cannot silently degenerate into "everything denied" and keep
+	// passing the agreement assertion.
+	const (
+		mixedOutcomes = "mixed"
+		allAllowed    = "all-allowed"
+		noneAllowed   = "none-allowed"
+	)
+
+	fixtures := []struct {
+		name              string
+		policies          [][]string
+		entitlementValues []string
+		scope             authzcore.ResourceHierarchy
+		outcomes          string
+	}{
+		{
+			name: "allow and deny bound to different entitlements",
+			policies: [][]string{
+				{"groups:developers", "ns/acme", "editor", "*", "allow", "{}", "developers-allow"},
+				{"groups:pci-restricted", "ns/acme/project/pci", "editor", "*", "deny", "{}", "pci-deny"},
+			},
+			entitlementValues: []string{"developers", "pci-restricted"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			outcomes:          mixedOutcomes,
+		},
+		{
+			name: "allow and deny bound to the same entitlement",
+			policies: [][]string{
+				{"groups:developers", "ns/acme", "editor", "*", "allow", "{}", "developers-allow"},
+				{"groups:developers", "ns/acme/project/pci", "editor", "*", "deny", "{}", "developers-deny"},
+			},
+			entitlementValues: []string{"developers"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			outcomes:          mixedOutcomes,
+		},
+		{
+			name: "narrower grant on a second entitlement inside a denied subtree",
+			policies: [][]string{
+				{"groups:developers", "ns/acme", "editor", "*", "allow", "{}", "developers-allow"},
+				{"groups:developers", "ns/acme/project/pci", "editor", "*", "deny", "{}", "developers-deny"},
+				{"groups:pci-oncall", "ns/acme/project/pci/component/c1", "editor", "*", "allow", "{}", "oncall-allow"},
+			},
+			entitlementValues: []string{"developers", "pci-oncall"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			outcomes:          mixedOutcomes,
+		},
+		{
+			name: "cluster wildcard grant alongside an unrelated deny",
+			policies: [][]string{
+				{"groups:platform-admins", "*", "admin", "*", "allow", "{}", "admins-allow"},
+				{"groups:contractors", "ns/acme/project/pci", "editor", "*", "deny", "{}", "contractors-deny"},
+			},
+			entitlementValues: []string{"platform-admins", "contractors"},
+			scope:             authzcore.ResourceHierarchy{},
+			// The cluster-wide grant covers every action on every resource.
+			outcomes: allAllowed,
+		},
+		{
+			name: "namespace-scoped and cluster-scoped roles on the same entitlement",
+			policies: [][]string{
+				{"groups:developers", "ns/acme", "viewer", "*", "allow", "{}", "developers-viewer"},
+				{"groups:developers", "ns/acme/project/p1", "ns-editor", "acme", "allow", "{}", "developers-ns-editor"},
+				{"groups:developers", "ns/acme/project/p1/component/c2", "ns-editor", "acme", "deny", "{}", "developers-ns-deny"},
+			},
+			entitlementValues: []string{"developers"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			outcomes:          mixedOutcomes,
+		},
+		{
+			name: "grant conditioned on the request environment",
+			policies: [][]string{
+				{"groups:developers", "ns/acme", "viewer", "*", "allow",
+					actionCondition("releasebinding:view", `resource.environment != "prod"`), "developers-env-allow"},
+			},
+			entitlementValues: []string{"developers"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			outcomes:          mixedOutcomes,
+		},
+		{
+			name: "conditional deny carving out of an unconditional grant",
+			policies: [][]string{
+				{"groups:developers", "ns/acme", "viewer", "*", "allow", "{}", "developers-allow"},
+				{"groups:developers", "ns/acme/project/pci", "viewer", "*", "deny",
+					actionCondition("releasebinding:view", `resource.environment == "prod"`), "developers-cond-deny"},
+			},
+			entitlementValues: []string{"developers"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			outcomes:          mixedOutcomes,
+		},
+		{
+			name: "conditional grant on one entitlement and unconditional grant on another",
+			policies: [][]string{
+				{"groups:developers", "ns/acme", "viewer", "*", "allow",
+					actionCondition("releasebinding:view", `resource.environment == "prod"`), "developers-cond-allow"},
+				{"groups:release-managers", "ns/acme/project/p1", "viewer", "*", "allow", "{}", "release-allow"},
+			},
+			entitlementValues: []string{"developers", "release-managers"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			outcomes:          mixedOutcomes,
+		},
+		{
+			name: "grant conditioned on the component type",
+			policies: [][]string{
+				{"groups:developers", "ns/acme", "editor", "*", "allow",
+					actionCondition("component:create", `resource.componentType == "service"`), "developers-type-allow"},
+			},
+			entitlementValues: []string{"developers"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			outcomes:          mixedOutcomes,
+		},
+		{
+			name: "deny covering the grant it shares an entitlement with",
+			policies: [][]string{
+				{"groups:developers", "ns/acme/project/p1", "editor", "*", "allow", "{}", "developers-allow"},
+				{"groups:developers", "ns/acme", "editor", "*", "deny", "{}", "developers-deny"},
+			},
+			entitlementValues: []string{"developers"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			// The deny covers the grant, so nothing is reachable.
+			outcomes: noneAllowed,
+		},
+		{
+			name: "profile scoped to a single project",
+			policies: [][]string{
+				{"groups:developers", "ns/acme", "editor", "*", "allow", "{}", "developers-allow"},
+				{"groups:pci-restricted", "ns/acme/project/pci", "editor", "*", "deny", "{}", "pci-deny"},
+				{"groups:developers", "ns/acme/project/p1/component/c2", "editor", "*", "deny", "{}", "developers-c2-deny"},
+			},
+			entitlementValues: []string{"developers", "pci-restricted"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme", Project: "p1"},
+			outcomes:          mixedOutcomes,
+		},
+		{
+			name:              "entitlement with no bindings at all",
+			policies:          [][]string{},
+			entitlementValues: []string{"strangers"},
+			scope:             authzcore.ResourceHierarchy{Namespace: "acme"},
+			outcomes:          noneAllowed,
+		},
+	}
+
+	for _, fixture := range fixtures {
+		t.Run(fixture.name, func(t *testing.T) {
+			enforcer := setupTestEnforcer(t)
+			syncGroupingPolicies(t, enforcer, groupingPolicies)
+			syncPolicies(t, enforcer, fixture.policies)
+
+			subjectCtx := &authzcore.SubjectContext{
+				Type:              user,
+				EntitlementClaim:  "groups",
+				EntitlementValues: fixture.entitlementValues,
+			}
+
+			profile, err := enforcer.GetSubjectProfile(ctx, &authzcore.ProfileRequest{
+				SubjectContext: subjectCtx,
+				Scope:          fixture.scope,
+			})
+			require.NoError(t, err)
+
+			scopePath := resourceHierarchyToPath(fixture.scope)
+			compared, granted := 0, 0
+
+			for _, resource := range resources {
+				path := resourceHierarchyToPath(resource)
+				// The profile only describes its requested scope, so a resource outside
+				// it is not something the two paths can be compared on.
+				if !resourceMatch(path, scopePath) {
+					continue
+				}
+
+				for _, action := range actions {
+					for _, reqCtx := range requestContexts {
+						decision, err := enforcer.Evaluate(ctx, &authzcore.EvaluateRequest{
+							SubjectContext: subjectCtx,
+							Resource: authzcore.Resource{
+								Type:      "test-resource",
+								Hierarchy: resource,
+							},
+							Action:  action,
+							Context: reqCtx,
+						})
+						require.NoError(t, err)
+
+						fromProfile := profileAllows(t, profile.Capabilities[action], path, action, reqCtx)
+						require.Equal(t, decision.Decision, fromProfile,
+							"profile and Evaluate disagree\nresource: %s\naction: %s\ncontext: %+v\ncapability: %s",
+							path, action, reqCtx, formatCapability(profile.Capabilities[action]))
+						compared++
+						if decision.Decision {
+							granted++
+						}
+					}
+				}
+			}
+
+			require.NotZero(t, compared, "fixture compared no decisions")
+			switch fixture.outcomes {
+			case allAllowed:
+				require.Equal(t, compared, granted, "expected every combination in the grid to be granted")
+			case noneAllowed:
+				require.Zero(t, granted, "expected no combination in the grid to be granted")
+			default:
+				require.NotZero(t, granted, "grid granted nothing - the fixture is not exercising the allow path")
+				require.NotEqual(t, compared, granted, "grid granted everything - the fixture is not exercising the deny path")
+			}
+		})
+	}
+}
+
+// formatCapability renders a capability for assertion messages.
+func formatCapability(capability *authzcore.ActionCapability) string {
+	if capability == nil {
+		return "<none>"
+	}
+	format := func(resources []*authzcore.CapabilityResource) string {
+		parts := make([]string, 0, len(resources))
+		for _, res := range resources {
+			if res.Constraints == nil {
+				parts = append(parts, res.Path)
+				continue
+			}
+			parts = append(parts, fmt.Sprintf("%s[%s]", res.Path, strings.Join(res.Constraints.Expressions, " || ")))
+		}
+		if len(parts) == 0 {
+			return "-"
+		}
+		return strings.Join(parts, ", ")
+	}
+	return fmt.Sprintf("allowed{%s} denied{%s}", format(capability.Allowed), format(capability.Denied))
+}
+
+// TestCasbinEnforcer_ProfileFailsClosedForConditionalCrossEntitlementGrant pins the one
+// case the flat allowed/denied shape cannot express: a deny on one entitlement whose
+// resources are granted by another entitlement only while a CEL expression holds. There is
+// no way to say "allowed when the expression holds, denied otherwise" for a single path, so
+// the deny is kept and the profile under-reports access. Enforcement is unaffected; this is
+// the profile failing closed, consistent with the rest of the PDP.
+func TestCasbinEnforcer_ProfileFailsClosedForConditionalCrossEntitlementGrant(t *testing.T) {
+	ctx := context.Background()
+	const action = "releasebinding:view"
+
+	enforcer := setupTestEnforcer(t)
+	syncGroupingPolicies(t, enforcer, [][]string{
+		{"viewer", "releasebinding:view", "*"},
+	})
+	syncPolicies(t, enforcer, [][]string{
+		{"groups:oncall", "ns/acme", "viewer", "*", "allow",
+			mustCondsJSON(t, []openchoreov1alpha1.AuthzCondition{
+				{Actions: []string{action}, Expression: `resource.environment == "prod"`},
+			}), "oncall-cond-allow"},
+		{"groups:contractors", "ns/acme/project/pci", "viewer", "*", "deny", "{}", "contractors-deny"},
+	})
+
+	subjectCtx := &authzcore.SubjectContext{
+		Type:              user,
+		EntitlementClaim:  "groups",
+		EntitlementValues: []string{"oncall", "contractors"},
+	}
+	resource := authzcore.ResourceHierarchy{Namespace: "acme", Project: "pci", Component: "c1"}
+	reqCtx := authzcore.Context{Resource: authzcore.ResourceAttribute{Environment: "prod"}}
+
+	decision, err := enforcer.Evaluate(ctx, &authzcore.EvaluateRequest{
+		SubjectContext: subjectCtx,
+		Resource:       authzcore.Resource{Type: "test-resource", Hierarchy: resource},
+		Action:         action,
+		Context:        reqCtx,
+	})
+	require.NoError(t, err)
+	require.True(t, decision.Decision, "the conditional grant on 'oncall' should authorize the request")
+
+	profile, err := enforcer.GetSubjectProfile(ctx, &authzcore.ProfileRequest{
+		SubjectContext: subjectCtx,
+		Scope:          authzcore.ResourceHierarchy{Namespace: "acme"},
+	})
+	require.NoError(t, err)
+
+	capability := profile.Capabilities[action]
+	require.NotNil(t, capability)
+	// The invariant this pins is directional: where the flat shape cannot express the
+	// per-entitlement result, the profile must under-report access, never over-report it.
+	require.False(t, profileAllows(t, capability, resourceHierarchyToPath(resource), action, reqCtx),
+		"the profile must never report access the enforcement path would refuse; under-reporting here is the accepted gap")
+	// The conditional grant itself is still reported, so the deny is the only reason
+	// the resource reads as unavailable.
+	require.Len(t, capability.Allowed, 1)
+	require.NotNil(t, capability.Allowed[0].Constraints)
+	require.Len(t, capability.Denied, 1)
 }
 
 // TestCasbinEnforcer_Evaluate_ScopedClusterBinding tests enforcement with scoped cluster role bindings
