@@ -1187,6 +1187,58 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			}, time.Second*10, time.Millisecond*500).Should(BeTrue())
 		})
 	})
+
+	Context("When creating a resource with an invalid email address", func() {
+		newEmailChannel := func(name, from string, to []string) *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel {
+			return &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+				},
+				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
+					Environment: "development",
+					Type:        openchoreodevv1alpha1.NotificationChannelTypeEmail,
+					EmailConfig: &openchoreodevv1alpha1.EmailConfig{
+						From: from,
+						To:   to,
+						SMTP: openchoreodevv1alpha1.SMTPConfig{
+							Host: "smtp.example.com",
+							Port: 587,
+							Auth: &openchoreodevv1alpha1.SMTPAuth{
+								Username: &openchoreodevv1alpha1.SecretValueFrom{},
+								Password: &openchoreodevv1alpha1.SecretValueFrom{},
+							},
+							TLS: &openchoreodevv1alpha1.SMTPTLSConfig{},
+						},
+						Template: &openchoreodevv1alpha1.EmailTemplate{
+							Subject: "Test Subject",
+							Body:    "Test Body",
+						},
+					},
+				},
+			}
+		}
+
+		It("should reject a malformed From address", func() {
+			channel := newEmailChannel("invalid-from-email", "not-an-email", []string{"valid@example.com"})
+
+			err := k8sClient.Create(testCtx, channel)
+
+			Expect(err).To(HaveOccurred())
+			Expect(apierrors.IsInvalid(err)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("spec.emailConfig.from"))
+		})
+
+		It("should reject a malformed To address", func() {
+			channel := newEmailChannel("invalid-to-email", "valid@example.com", []string{"also-not-an-email"})
+
+			err := k8sClient.Create(testCtx, channel)
+
+			Expect(err).To(HaveOccurred())
+			Expect(apierrors.IsInvalid(err)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("spec.emailConfig.to"))
+		})
+	})
 })
 
 // Helper function to check if a slice contains a string
