@@ -327,13 +327,28 @@ func buildBaseContext(input *RenderInput) (map[string]any, error) {
 		md.Annotations = map[string]string{}
 	}
 
+	// The top-level gateway alias must always be present in the rendered
+	// map, even when no gateway is configured anywhere: buildEnv (see
+	// internal/template/engine.go) declares CEL variables only for keys
+	// actually present after the JSON round-trip, so a nil (omitempty)
+	// pointer here makes the bare "gateway" identifier undeclared and any
+	// expression referencing it fails to *compile* rather than safely
+	// evaluating has(gateway...) to false. environment.gateway and
+	// dataplane.gateway are unaffected: those stay nil so
+	// has(environment.gateway) / has(dataplane.gateway) keep working as
+	// documented.
+	gateway := input.Environment.Gateway
+	if gateway == nil {
+		gateway = &GatewayData{}
+	}
+
 	return structToMap(BaseContext{
 		Metadata:           md,
 		Parameters:         parameters,
 		EnvironmentConfigs: envConfigs,
 		DataPlane:          input.DataPlane,
 		Environment:        input.Environment,
-		Gateway:            input.Environment.Gateway,
+		Gateway:            gateway,
 	})
 }
 

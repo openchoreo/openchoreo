@@ -40,16 +40,20 @@ func loadValkeySampleSpec(t *testing.T) v1alpha1.ResourceTypeSpec {
 }
 
 // TestValkeySample_RendersWithoutGateway is a regression test for a
-// getting-started sample bug: the valkey ClusterResourceType referenced the
+// getting-started sample bug: the valkey ClusterResourceType references the
 // top-level ${gateway.*} alias directly. When a DataPlane has no gateway
-// configured (spec.gateway: {}), the "gateway" key is entirely absent from
-// the CEL context (it's an omitempty pointer), so the top-level "gateway"
-// CEL variable is never declared and any expression mentioning it fails to
-// *compile* -- regardless of which branch would actually run, since
-// adminEnabled=false only short-circuits at evaluation time, after CEL has
-// already type-checked the whole expression. This reproduces that scenario
-// (both DataPlane and Environment left zero-valued, i.e. no gateway) and
-// asserts the sample renders cleanly with the admin resources skipped.
+// configured (spec.gateway: {}), Environment.Gateway is nil; previously
+// buildBaseContext passed that nil straight through, so the "gateway" key
+// was entirely absent from the CEL context (it's an omitempty pointer) and
+// the "gateway" CEL variable was never declared -- any expression mentioning
+// it failed to *compile*, regardless of which branch would actually run,
+// since adminEnabled=false only short-circuits at evaluation time, after CEL
+// has already type-checked the whole expression. buildBaseContext (see
+// pipeline.go) now substitutes an empty &GatewayData{} so "gateway" is
+// always declared and has(gateway.ingress...) safely evaluates to false.
+// This test reproduces the no-gateway scenario (both DataPlane and
+// Environment left zero-valued) and asserts the sample renders cleanly with
+// the admin resources skipped.
 func TestValkeySample_RendersWithoutGateway(t *testing.T) {
 	spec := loadValkeySampleSpec(t)
 
