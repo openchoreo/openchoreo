@@ -236,6 +236,95 @@ func TestAgentConnection_UpdateCRValidity(t *testing.T) {
 	})
 }
 
+// Regression test: when the client cert is issued by an intermediate CA and the CR's CA
+// is the root only, incremental re-validation must use the handshake intermediates to
+// chain to the root, otherwise CRs created after the agent connects are never authorized.
+func TestAgentConnection_UpdateCRValidity_WithIntermediates(t *testing.T) {
+	// root CA -> intermediate CA -> client cert
+	rootCA, rootKey := generateTestCA(t)
+
+	intermediateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	intermediateTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(20),
+		Subject:               pkix.Name{CommonName: "Intermediate CA"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+	}
+	intermediateDER, err := x509.CreateCertificate(rand.Reader, intermediateTemplate, rootCA, &intermediateKey.PublicKey, rootKey)
+	require.NoError(t, err)
+	intermediateCert, err := x509.ParseCertificate(intermediateDER)
+	require.NoError(t, err)
+
+	clientCert := generateTestClientCert(t, intermediateCert, intermediateKey)
+
+	// The CR's CA pool contains only the root (single cert, no chain).
+	rootPool := x509.NewCertPool()
+	rootPool.AddCert(rootCA)
+
+	t.Run("without intermediates - cannot chain, not granted (the bug)", func(t *testing.T) {
+		ac := &AgentConnection{
+			ValidCRs:   []string{},
+			clientCert: clientCert,
+			// intermediates deliberately nil
+		}
+
+		granted, revoked, err := ac.UpdateCRValidity("ns/dp1", rootPool)
+		assert.False(t, granted)
+		assert.False(t, revoked)
+		assert.NoError(t, err)
+		assert.NotContains(t, ac.GetValidCRs(), "ns/dp1")
+	})
+
+	t.Run("with intermediates - chains to root, authorization granted (the fix)", func(t *testing.T) {
+		ac := &AgentConnection{
+			ValidCRs:      []string{},
+			clientCert:    clientCert,
+			intermediates: buildIntermediatePool([]*x509.Certificate{intermediateCert}),
+		}
+
+		granted, revoked, err := ac.UpdateCRValidity("ns/dp1", rootPool)
+		assert.True(t, granted)
+		assert.False(t, revoked)
+		assert.NoError(t, err)
+		assert.Contains(t, ac.GetValidCRs(), "ns/dp1")
+	})
+
+	t.Run("no intermediates - client signed directly by CR CA, still granted", func(t *testing.T) {
+		// Common case: client cert issued directly by the CR's CA, no handshake
+		// intermediates. Behavior must be unchanged by the fix.
+		directCA, directKey := generateTestCA(t)
+		directClient := generateTestClientCert(t, directCA, directKey)
+
+		directPool := x509.NewCertPool()
+		directPool.AddCert(directCA)
+
+		ac := &AgentConnection{
+			ValidCRs:      []string{},
+			clientCert:    directClient,
+			intermediates: buildIntermediatePool(nil), // nil - no handshake intermediates
+		}
+		require.Nil(t, ac.intermediates)
+
+		granted, revoked, err := ac.UpdateCRValidity("ns/dp1", directPool)
+		assert.True(t, granted)
+		assert.False(t, revoked)
+		assert.NoError(t, err)
+		assert.Contains(t, ac.GetValidCRs(), "ns/dp1")
+	})
+}
+
+func TestBuildIntermediatePool(t *testing.T) {
+	assert.Nil(t, buildIntermediatePool(nil), "nil slice should yield a nil pool")
+	assert.Nil(t, buildIntermediatePool([]*x509.Certificate{}), "empty slice should yield a nil pool")
+
+	caCert, _ := generateTestCA(t)
+	assert.NotNil(t, buildIntermediatePool([]*x509.Certificate{caCert}), "non-empty slice should yield a non-nil pool")
+}
+
 // --- ConnectionManager Tests ---
 
 func TestConnectionManager_Register(t *testing.T) {
@@ -243,7 +332,7 @@ func TestConnectionManager_Register(t *testing.T) {
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
 
-	connID, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	connID, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
 	assert.NotEmpty(t, connID)
 	assert.Equal(t, 1, cm.Count())
@@ -257,9 +346,9 @@ func TestConnectionManager_Register_HA(t *testing.T) {
 	conn2, cleanup2 := newTestWSConn(t)
 	defer cleanup2()
 
-	id1, err := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
+	id1, err := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
-	id2, err := cm.Register("dataplane", "prod", conn2, []string{"ns/dp1"}, nil)
+	id2, err := cm.Register("dataplane", "prod", conn2, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
 
 	assert.NotEqual(t, id1, id2)
@@ -271,7 +360,7 @@ func TestConnectionManager_Unregister(t *testing.T) {
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
 
-	connID, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	connID, err := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, 1, cm.Count())
 
@@ -295,8 +384,8 @@ func TestConnectionManager_Get_RoundRobin(t *testing.T) {
 	conn2, cleanup2 := newTestWSConn(t)
 	defer cleanup2()
 
-	id1, _ := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
-	id2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp1"}, nil)
+	id1, _ := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
+	id2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp1"}, nil, nil)
 
 	// Round-robin should alternate between connections
 	got1, err := cm.Get("dataplane/prod")
@@ -328,8 +417,8 @@ func TestConnectionManager_GetForCR(t *testing.T) {
 	defer cleanup2()
 
 	// conn1 is authorized for ns/dp1, conn2 for ns/dp2
-	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
-	id2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp2"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
+	id2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp2"}, nil, nil)
 
 	got, err := cm.GetForCR("dataplane/prod", "ns/dp2")
 	require.NoError(t, err)
@@ -342,7 +431,7 @@ func TestConnectionManager_GetForCR_NoneAuthorized(t *testing.T) {
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
 
-	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 
 	_, err := cm.GetForCR("dataplane/prod", "ns/dp99")
 	assert.Error(t, err)
@@ -357,8 +446,8 @@ func TestConnectionManager_GetAll(t *testing.T) {
 	conn2, cleanup2 := newTestWSConn(t)
 	defer cleanup2()
 
-	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
-	_, _ = cm.Register("workflowplane", "ci", conn2, []string{"ns/wp1"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
+	_, _ = cm.Register("workflowplane", "ci", conn2, []string{"ns/wp1"}, nil, nil)
 
 	all := cm.GetAll()
 	assert.Len(t, all, 2)
@@ -373,10 +462,10 @@ func TestConnectionManager_Count(t *testing.T) {
 	conn2, cleanup2 := newTestWSConn(t)
 	defer cleanup2()
 
-	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
 	assert.Equal(t, 1, cm.Count())
 
-	_, _ = cm.Register("workflowplane", "ci", conn2, []string{"ns/wp1"}, nil)
+	_, _ = cm.Register("workflowplane", "ci", conn2, []string{"ns/wp1"}, nil, nil)
 	assert.Equal(t, 2, cm.Count())
 }
 
@@ -386,7 +475,7 @@ func TestConnectionManager_UpdateConnectionLastSeen(t *testing.T) {
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
 
-	connID, _ := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	connID, _ := cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 
 	beforeUpdate, err := cm.Get("dataplane/prod")
 	require.NoError(t, err)
@@ -412,9 +501,9 @@ func TestConnectionManager_DisconnectAllForPlane(t *testing.T) {
 	conn3, cleanup3 := newTestWSConn(t)
 	defer cleanup3()
 
-	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
-	_, _ = cm.Register("dataplane", "prod", conn2, []string{"ns/dp2"}, nil)
-	_, _ = cm.Register("workflowplane", "ci", conn3, []string{"ns/wp1"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
+	_, _ = cm.Register("dataplane", "prod", conn2, []string{"ns/dp2"}, nil, nil)
+	_, _ = cm.Register("workflowplane", "ci", conn3, []string{"ns/wp1"}, nil, nil)
 
 	disconnected := cm.DisconnectAllForPlane("dataplane", "prod")
 	assert.Equal(t, 2, disconnected)
@@ -431,7 +520,7 @@ func TestConnectionManager_GetPlaneStatus(t *testing.T) {
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
 
-	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 
 	status := cm.GetPlaneStatus("dataplane", "prod")
 	assert.True(t, status.Connected)
@@ -458,8 +547,8 @@ func TestConnectionManager_GetCRAuthorizationStatus(t *testing.T) {
 	defer cleanup2()
 
 	// conn1 authorized for ns/dp1, conn2 authorized for ns/dp2
-	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
-	_, _ = cm.Register("dataplane", "prod", conn2, []string{"ns/dp2"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
+	_, _ = cm.Register("dataplane", "prod", conn2, []string{"ns/dp2"}, nil, nil)
 
 	// Check authorization for ns/dp1 - only 1 agent authorized
 	status := cm.GetCRAuthorizationStatus("dataplane", "prod", "ns", "dp1")
@@ -480,8 +569,8 @@ func TestConnectionManager_GetAllPlaneStatuses(t *testing.T) {
 	conn2, cleanup2 := newTestWSConn(t)
 	defer cleanup2()
 
-	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
-	_, _ = cm.Register("workflowplane", "ci", conn2, []string{"ns/wp1"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
+	_, _ = cm.Register("workflowplane", "ci", conn2, []string{"ns/wp1"}, nil, nil)
 
 	statuses := cm.GetAllPlaneStatuses()
 	assert.Len(t, statuses, 2)
@@ -525,7 +614,7 @@ func TestConnectionManager_RevalidateCR(t *testing.T) {
 		defer cleanup()
 
 		// Register with no valid CRs, but with a client cert signed by the CA
-		_, _ = cm.Register("dataplane", "prod", conn, []string{}, clientCert)
+		_, _ = cm.Register("dataplane", "prod", conn, []string{}, clientCert, nil)
 
 		updated, removed, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", caPEM)
 		require.NoError(t, err)
@@ -539,7 +628,7 @@ func TestConnectionManager_RevalidateCR(t *testing.T) {
 		defer cleanup()
 
 		// Register with valid CR
-		_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, clientCert)
+		_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, clientCert, nil)
 
 		// Generate a different CA
 		otherCACert, _ := generateTestCA(t)
@@ -565,7 +654,7 @@ func TestConnectionManager_RevalidateCR(t *testing.T) {
 		conn, cleanup := newTestWSConn(t)
 		defer cleanup()
 
-		_, _ = cm.Register("dataplane", "prod", conn, []string{}, clientCert)
+		_, _ = cm.Register("dataplane", "prod", conn, []string{}, clientCert, nil)
 
 		_, _, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", []byte("not-valid-pem"))
 		assert.Error(t, err)
@@ -594,8 +683,8 @@ func TestConnectionManager_CleanupOrphanedCRKeys(t *testing.T) {
 	defer cleanup2()
 
 	// Register two connections: conn1 for dp1+dp2, conn2 for dp2 only
-	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1", "ns/dp2"}, nil)
-	id2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp2"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1", "ns/dp2"}, nil, nil)
+	id2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp2"}, nil, nil)
 
 	// Do a GetForCR to create per-CR round-robin keys
 	_, _ = cm.GetForCR("dataplane/prod", "ns/dp1")
@@ -619,8 +708,8 @@ func TestConnectionManager_Unregister_PartialCleanup(t *testing.T) {
 	defer cleanup2()
 
 	// conn1 authorized for dp1 only, conn2 authorized for dp1 + dp2
-	id1, _ := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
-	_, _ = cm.Register("dataplane", "prod", conn2, []string{"ns/dp1", "ns/dp2"}, nil)
+	id1, _ := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
+	_, _ = cm.Register("dataplane", "prod", conn2, []string{"ns/dp1", "ns/dp2"}, nil, nil)
 
 	// Access dp1 via GetForCR to create round-robin key
 	_, _ = cm.GetForCR("dataplane/prod", "ns/dp1")
@@ -649,11 +738,11 @@ func TestConnectionManager_GetPlaneStatus_MultipleConnections(t *testing.T) {
 	conn2, cleanup2 := newTestWSConn(t)
 	defer cleanup2()
 
-	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
 
 	// Small delay so conn2 has a later LastSeen
 	time.Sleep(10 * time.Millisecond)
-	connID2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp1"}, nil)
+	connID2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp1"}, nil, nil)
 
 	// Update conn2 LastSeen to be newer
 	time.Sleep(10 * time.Millisecond)
@@ -673,10 +762,10 @@ func TestConnectionManager_GetAllPlaneStatuses_MultipleConnsPerPlane(t *testing.
 	conn2, cleanup2 := newTestWSConn(t)
 	defer cleanup2()
 
-	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
 
 	time.Sleep(10 * time.Millisecond)
-	connID2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp2"}, nil)
+	connID2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp2"}, nil, nil)
 	time.Sleep(10 * time.Millisecond)
 	cm.UpdateConnectionLastSeen("dataplane/prod", connID2)
 
@@ -707,8 +796,8 @@ func TestConnectionManager_Unregister_CleansUpOrphanedCRKeys(t *testing.T) {
 	defer cleanup2()
 
 	// conn1 has unique CR "ns/dp-unique", conn2 has shared CR "ns/dp-shared"
-	id1, _ := cm.Register("dataplane", "prod", conn1, []string{"ns/dp-unique", "ns/dp-shared"}, nil)
-	_, _ = cm.Register("dataplane", "prod", conn2, []string{"ns/dp-shared"}, nil)
+	id1, _ := cm.Register("dataplane", "prod", conn1, []string{"ns/dp-unique", "ns/dp-shared"}, nil, nil)
+	_, _ = cm.Register("dataplane", "prod", conn2, []string{"ns/dp-shared"}, nil, nil)
 
 	// Access both CRs to create round-robin keys
 	_, _ = cm.GetForCR("dataplane/prod", "ns/dp-unique")
@@ -736,8 +825,8 @@ func TestConnectionManager_GetForCR_RoundRobin(t *testing.T) {
 	defer cleanup2()
 
 	// Both connections authorized for the same CR
-	id1, _ := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil)
-	id2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp1"}, nil)
+	id1, _ := cm.Register("dataplane", "prod", conn1, []string{"ns/dp1"}, nil, nil)
+	id2, _ := cm.Register("dataplane", "prod", conn2, []string{"ns/dp1"}, nil, nil)
 
 	got1, err := cm.GetForCR("dataplane/prod", "ns/dp1")
 	require.NoError(t, err)
@@ -756,7 +845,7 @@ func TestConnectionManager_Unregister_LastConnection_CleansRRKeys(t *testing.T) 
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
 
-	connID, _ := cm.Register("dataplane", "prod", conn, []string{"ns/dp1", "ns/dp2"}, nil)
+	connID, _ := cm.Register("dataplane", "prod", conn, []string{"ns/dp1", "ns/dp2"}, nil, nil)
 
 	// Access CRs to create per-CR round-robin keys
 	_, _ = cm.GetForCR("dataplane/prod", "ns/dp1")
@@ -778,7 +867,7 @@ func TestConnectionManager_DisconnectAllForPlane_CleansRRKeys(t *testing.T) {
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
 
-	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 
 	// Create per-CR round-robin key
 	_, _ = cm.GetForCR("dataplane/prod", "ns/dp1")
@@ -799,7 +888,7 @@ func TestConnectionManager_RevalidateCR_UnchangedStatus(t *testing.T) {
 	defer cleanup()
 
 	// Register with CR already valid
-	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, clientCert)
+	_, _ = cm.Register("dataplane", "prod", conn, []string{"ns/dp1"}, clientCert, nil)
 
 	// Revalidate with same CA — should be unchanged (still valid)
 	updated, removed, err := cm.RevalidateCR("dataplane", "prod", "ns", "dp1", caPEM)

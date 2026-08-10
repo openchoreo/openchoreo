@@ -76,6 +76,19 @@ func main() {
 	)
 	logger.Info("Metrics adapter initialized", "adapter_url", sanitizeURL(cfg.Adapters.MetricsAdapterURL))
 
+	// Initialize FinOps adapter (forwards cost-insights queries to external adapter)
+	finopsAdapter, err := service.NewFinOpsAdapter(
+		cfg.Adapters.FinOpsAdapterURL,
+		cfg.Adapters.FinOpsAdapterTimeout,
+		uidResolver,
+		logger.With("component", "finops-adapter"),
+	)
+	if err != nil {
+		logger.Error("Failed to create finops adapter", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("FinOps adapter initialized", "adapter_url", sanitizeURL(cfg.Adapters.FinOpsAdapterURL))
+
 	// Initialize metrics adapter HTTP client for alert CRUD forwarding
 	metricsAdapterClient := &http.Client{
 		Timeout: cfg.Adapters.MetricsAdapterTimeout,
@@ -250,6 +263,8 @@ func main() {
 		metricsService, pdp, logger.With("component", "authz-metrics"))
 	authzTracesService := service.NewTracesServiceWithAuthz(
 		tracesService, pdp, logger.With("component", "authz-traces"))
+	authzFinOpsService := service.NewFinOpsServiceWithAuthz(
+		finopsAdapter, pdp, logger.With("component", "authz-finops"))
 	authzAlertIncidentService := service.NewAlertIncidentServiceWithAuthz(
 		alertService, pdp, logger.With("component", "authz-alerts-incidents"))
 	authzInsightsService := service.NewInsightsServiceWithAuthz(
@@ -263,6 +278,7 @@ func main() {
 		authzMetricsService,
 		authzAlertIncidentService,
 		authzTracesService,
+		authzFinOpsService,
 		authzInsightsService,
 		logger.With("component", "api-handler"),
 	)
@@ -311,6 +327,14 @@ func main() {
 	api.HandleFunc("POST /api/v1alpha1/alerts/query", newAPIHandler.QueryAlerts)
 	api.HandleFunc("POST /api/v1alpha1/incidents/query", newAPIHandler.QueryIncidents)
 	api.HandleFunc("PUT /api/v1alpha1/incidents/{incidentId}", newAPIHandler.UpdateIncident)
+
+	// ===== New API Routes (v1alpha1) FinOps cost insights =====
+	api.HandleFunc(
+		"GET /api/v1alpha1/costs/namespaces/{namespace}/environments/{environment}",
+		newAPIHandler.GetComponentCosts)
+	api.HandleFunc(
+		"GET /api/v1alpha1/costs/namespaces/{namespace}/environments/{environment}/recommendations",
+		newAPIHandler.GetRecommendations)
 
 	// ===== Delivery Insights (DORA metrics) =====
 	api.HandleFunc("POST /api/v1alpha1/insights/dora/query", newAPIHandler.QueryDoraMetrics)
@@ -375,36 +399,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Start the DORA aggregator: folds incidents (and delivery events, once the
-	// controllers emit them and a source is wired) into the delivery insights store.
-	var backgroundWG sync.WaitGroup
-	if cfg.Insights.AggregationEnabled {
-		// The events source needs a logs adapter with the reasons filter and
-		// searchAfter pagination; keep it opt-in until the deployed adapter has them.
-		var eventsSource aggregator.EventsSource
-		if cfg.Insights.EventsSourceEnabled {
-			eventsSource = concreteLogsAdapter
-		}
-		doraAggregator := aggregator.New(
-			deliveryInsightsStore,
-			incidentEntryStore,
-			eventsSource,
-			aggregator.Config{
-				Interval:          cfg.Insights.AggregationInterval,
-				Overlap:           cfg.Insights.AggregationOverlap,
-				AttributionWindow: cfg.Insights.AttributionWindow,
-				IncidentLookback:  cfg.Insights.IncidentLookback,
-			},
-			logger.With("component", "dora-aggregator"),
-		)
-		backgroundWG.Add(1)
-		go func() {
-			defer backgroundWG.Done()
-			doraAggregator.Run(ctx)
-		}()
-	} else {
-		logger.Info("DORA aggregator is disabled (INSIGHTS_AGGREGATION_ENABLED=false)")
-	}
+	// Start the DORA aggregator, which folds delivery signals into the insights store.
+	backgroundWG := startDoraAggregator(
+		ctx, cfg, deliveryInsightsStore, incidentEntryStore, concreteLogsAdapter, logger)
 
 	// Start main server
 	go func() {
@@ -424,7 +421,6 @@ func main() {
 
 	// Wait for interrupt signal
 	<-ctx.Done()
-	backgroundWG.Wait()
 
 	logger.Info("Shutting down server...")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
@@ -447,8 +443,79 @@ func main() {
 		}
 	}()
 
+	// Drain background workers alongside server shutdown rather than before it, and
+	// bound the wait by the same timeout: an in-flight aggregator tick must not hold
+	// the process past the deadline, or the pod is SIGKILLed before connections drain.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if !waitForGroup(shutdownCtx, backgroundWG) {
+			logger.Warn("Background workers did not finish before the shutdown timeout")
+		}
+	}()
+
 	wg.Wait()
 	logger.Info("Server shutdown complete")
+}
+
+// startDoraAggregator starts the DORA aggregator, which folds incidents and delivery
+// events into the delivery insights store. It returns a WaitGroup that completes once
+// the aggregator has stopped; when aggregation is disabled the group is already done.
+func startDoraAggregator(
+	ctx context.Context,
+	cfg *config.Config,
+	store deliveryinsights.Store,
+	incidents incidententry.IncidentEntryStore,
+	logsAdapter aggregator.EventsSource,
+	logger *slog.Logger,
+) *sync.WaitGroup {
+	var wg sync.WaitGroup
+	if !cfg.Insights.AggregationEnabled {
+		logger.Info("DORA aggregator is disabled (INSIGHTS_AGGREGATION_ENABLED=false)")
+		return &wg
+	}
+
+	// The events source needs a logs adapter with the reasons filter and
+	// searchAfter pagination; keep it opt-in until the deployed adapter has them.
+	var eventsSource aggregator.EventsSource
+	if cfg.Insights.EventsSourceEnabled {
+		eventsSource = logsAdapter
+	}
+
+	doraAggregator := aggregator.New(
+		store,
+		incidents,
+		eventsSource,
+		aggregator.Config{
+			Interval:          cfg.Insights.AggregationInterval,
+			Overlap:           cfg.Insights.AggregationOverlap,
+			AttributionWindow: cfg.Insights.AttributionWindow,
+			IncidentLookback:  cfg.Insights.IncidentLookback,
+		},
+		logger.With("component", "dora-aggregator"),
+	)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		doraAggregator.Run(ctx)
+	}()
+	return &wg
+}
+
+// waitForGroup waits for wg, returning false if ctx is done first.
+func waitForGroup(ctx context.Context, wg *sync.WaitGroup) bool {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return true
+	case <-ctx.Done():
+		return false
+	}
 }
 
 // sanitizeURL strips userinfo (user:password) from a URL so it can be safely logged.

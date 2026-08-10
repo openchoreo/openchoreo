@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -50,6 +51,9 @@ type AdaptersConfig struct {
 
 	MetricsAdapterURL     string        `koanf:"metrics.adapter.url"`
 	MetricsAdapterTimeout time.Duration `koanf:"metrics.adapter.timeout"`
+
+	FinOpsAdapterURL     string        `koanf:"finops.adapter.url"`
+	FinOpsAdapterTimeout time.Duration `koanf:"finops.adapter.timeout"`
 }
 
 // ServerConfig holds HTTP server configuration
@@ -254,6 +258,8 @@ func Load() (*Config, error) {
 		"TRACING_ADAPTER_TIMEOUT":               "adapters.tracing.adapter.timeout",
 		"METRICS_ADAPTER_URL":                   "adapters.metrics.adapter.url",
 		"METRICS_ADAPTER_TIMEOUT":               "adapters.metrics.adapter.timeout",
+		"FINOPS_ADAPTER_URL":                    "adapters.finops.adapter.url",
+		"FINOPS_ADAPTER_TIMEOUT":                "adapters.finops.adapter.timeout",
 		"UID_RESOLVER_OPENCHOREO_API_URL":       "uid_resolver.openchoreo.api.url",
 		"UID_RESOLVER_OAUTH_TOKEN_URL":          "uid_resolver.oauth.token.url",
 		"UID_RESOLVER_OAUTH_CLIENT_ID":          "uid_resolver.oauth.client.id",
@@ -389,6 +395,8 @@ func getDefaults() map[string]interface{} {
 			"tracing.adapter.timeout": "30s",
 			"metrics.adapter.url":     "http://metrics-adapter:9099",
 			"metrics.adapter.timeout": "30s",
+			"finops.adapter.url":      "http://finops-adapter:9101",
+			"finops.adapter.timeout":  "30s",
 		},
 		"uid_resolver": map[string]interface{}{
 			"openchoreo.api.url":       "http://api.openchoreo.localhost:9099",
@@ -401,6 +409,51 @@ func getDefaults() map[string]interface{} {
 		},
 		"loglevel": "info",
 	}
+}
+
+// validateInsightsStore normalizes the delivery insights store backend and DSN. The
+// insights store defaults to sharing the alert store database so that
+// incident↔deployment attribution stays a local SQL join.
+func (c *Config) validateInsightsStore() error {
+	c.Insights.StoreBackend = strings.ToLower(strings.TrimSpace(c.Insights.StoreBackend))
+	if c.Insights.StoreBackend == "" {
+		c.Insights.StoreBackend = c.Alerting.AlertStoreBackend
+	}
+	switch c.Insights.StoreBackend {
+	case storeBackendSQLite, storeBackendPostgreSQL:
+	default:
+		return fmt.Errorf("insights.store.backend must be 'sqlite' or 'postgresql'")
+	}
+	if strings.TrimSpace(c.Insights.StoreDSN) == "" {
+		if c.Insights.StoreBackend != c.Alerting.AlertStoreBackend {
+			return fmt.Errorf(
+				"insights.store.dsn is required when insights.store.backend differs from alert.store.backend")
+		}
+		c.Insights.StoreDSN = c.Alerting.AlertStoreDSN
+	}
+	if c.Insights.StoreBackend == storeBackendSQLite {
+		c.Insights.StoreDSN = ensureSQLiteBusyTimeout(c.Insights.StoreDSN)
+	}
+	return nil
+}
+
+// sqliteBusyTimeoutMs is how long a SQLite writer waits for a competing writer's lock
+// before giving up with SQLITE_BUSY. By default the insights store and the alert store
+// open separate handles to the same file, and SQLite permits only one writer at a time,
+// so without a busy timeout a write from either handle can fail outright.
+const sqliteBusyTimeoutMs = 5000
+
+// ensureSQLiteBusyTimeout appends a busy_timeout pragma to a SQLite DSN that lacks one,
+// leaving an explicitly configured timeout untouched.
+func ensureSQLiteBusyTimeout(dsn string) string {
+	if strings.Contains(dsn, "busy_timeout") {
+		return dsn
+	}
+	separator := "?"
+	if strings.Contains(dsn, "?") {
+		separator = "&"
+	}
+	return fmt.Sprintf("%s%s_pragma=busy_timeout(%d)", dsn, separator, sqliteBusyTimeoutMs)
 }
 
 // validateInsights normalizes and validates the delivery insights section.
@@ -481,6 +534,9 @@ func (c *Config) validate() error {
 		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
 			c.Alerting.AlertStoreDSN = "file:/data/alerts.db?_journal=WAL"
 		}
+		// The insights store shares this file by default, so both handles need to
+		// wait on each other's write lock rather than failing with SQLITE_BUSY.
+		c.Alerting.AlertStoreDSN = ensureSQLiteBusyTimeout(c.Alerting.AlertStoreDSN)
 	case storeBackendPostgreSQL:
 		if strings.TrimSpace(c.Alerting.AlertStoreDSN) == "" {
 			return fmt.Errorf("alert.store.dsn is required when alert.store.backend=postgresql")
@@ -489,23 +545,8 @@ func (c *Config) validate() error {
 		return fmt.Errorf("alert.store.backend must be 'sqlite' or 'postgresql'")
 	}
 
-	// The insights store defaults to sharing the alert store database so that
-	// incident↔deployment attribution stays a local SQL join.
-	c.Insights.StoreBackend = strings.ToLower(strings.TrimSpace(c.Insights.StoreBackend))
-	if c.Insights.StoreBackend == "" {
-		c.Insights.StoreBackend = c.Alerting.AlertStoreBackend
-	}
-	switch c.Insights.StoreBackend {
-	case storeBackendSQLite, storeBackendPostgreSQL:
-	default:
-		return fmt.Errorf("insights.store.backend must be 'sqlite' or 'postgresql'")
-	}
-	if strings.TrimSpace(c.Insights.StoreDSN) == "" {
-		if c.Insights.StoreBackend != c.Alerting.AlertStoreBackend {
-			return fmt.Errorf(
-				"insights.store.dsn is required when insights.store.backend differs from alert.store.backend")
-		}
-		c.Insights.StoreDSN = c.Alerting.AlertStoreDSN
+	if err := c.validateInsightsStore(); err != nil {
+		return err
 	}
 	if err := c.validateInsights(); err != nil {
 		return err
@@ -520,6 +561,26 @@ func (c *Config) validate() error {
 
 	if c.Adapters.MetricsAdapterTimeout <= 0 {
 		return fmt.Errorf("metrics adapter timeout must be positive")
+	}
+
+	// Validate and normalize FinOpsAdapter configuration
+	// Strip surrounding whitespace and trailing slashes first, then reject empty,
+	// so whitespace-only or slash-only URLs cannot pass validation.
+	c.Adapters.FinOpsAdapterURL = strings.TrimRight(strings.TrimSpace(c.Adapters.FinOpsAdapterURL), "/")
+	if c.Adapters.FinOpsAdapterURL == "" {
+		return fmt.Errorf("FinOps adapter URL is required")
+	}
+	parsedFinOpsURL, err := url.Parse(c.Adapters.FinOpsAdapterURL)
+	if err != nil {
+		return fmt.Errorf("FinOps adapter URL is invalid: %w", err)
+	}
+	if !parsedFinOpsURL.IsAbs() || parsedFinOpsURL.Host == "" ||
+		(parsedFinOpsURL.Scheme != "http" && parsedFinOpsURL.Scheme != "https") {
+		return fmt.Errorf("FinOps adapter URL must be an absolute http(s) URL with a host")
+	}
+
+	if c.Adapters.FinOpsAdapterTimeout <= 0 {
+		return fmt.Errorf("FinOps adapter timeout must be positive")
 	}
 
 	return nil

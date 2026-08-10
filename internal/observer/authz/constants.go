@@ -14,6 +14,7 @@ const (
 	ActionViewIncidents   Action = "incidents:view"
 	ActionUpdateIncidents Action = "incidents:update"
 	ActionViewInsights    Action = "insights:view"
+	ActionViewFinOps      Action = "finops:view"
 )
 
 type ResourceType string
