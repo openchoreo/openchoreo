@@ -189,8 +189,10 @@ func run(
 		}
 	}
 
+	// Log the backend, never the DSN: -backend postgresql means -dsn can carry a
+	// password in its connection string.
 	logger.Info("Seeded delivery insights store",
-		"dsn", dsn,
+		"backend", backend,
 		"days", days,
 		"deploymentFacts", len(facts),
 		"recoveryFacts", len(recoveries),

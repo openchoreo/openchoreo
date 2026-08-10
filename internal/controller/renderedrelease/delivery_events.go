@@ -169,9 +169,11 @@ func (r *Reconciler) reconcileDeliveryEvents(
 	switch {
 	case degradedID != "" && !openEpisode:
 		reason := degradedFailureReason(degradedID, liveResources)
-		suffix := fmt.Sprintf("%d", now.Unix())
-		if err := r.emitDeliveryEvent(ctx, planeClient, dc, reasonDeploymentFailed, reason, suffix); err == nil {
+		episode := d.FailureEpisode + 1
+		if err := r.emitDeliveryEvent(
+			ctx, planeClient, dc, reasonDeploymentFailed, reason, episodeSuffix(episode)); err == nil {
 			d.FailedAt = &now
+			d.FailureEpisode = episode
 		}
 	case allHealthy:
 		if d.SucceededAt == nil {
@@ -180,12 +182,21 @@ func (r *Reconciler) reconcileDeliveryEvents(
 			}
 		}
 		if openEpisode {
-			suffix := fmt.Sprintf("%d", now.Unix())
-			if err := r.emitDeliveryEvent(ctx, planeClient, dc, reasonDeploymentRecovered, "", suffix); err == nil {
+			// Same episode number as the failure it closes.
+			if err := r.emitDeliveryEvent(
+				ctx, planeClient, dc, reasonDeploymentRecovered, "",
+				episodeSuffix(d.FailureEpisode)); err == nil {
 				d.RecoveredAt = &now
 			}
 		}
 	}
+}
+
+// episodeSuffix names the events of one failure episode. Derived from the persisted
+// counter rather than the clock, so a re-emission after a lost status update produces
+// the same event name and collapses via AlreadyExists.
+func episodeSuffix(episode int32) string {
+	return fmt.Sprintf("e%d", episode)
 }
 
 // markDeliveryApplyFailure emits DeploymentFailed for a rollout whose resources
@@ -203,11 +214,14 @@ func (r *Reconciler) markDeliveryApplyFailure(
 		return before != release.Status.Delivery
 	}
 	now := metav1.Now()
-	suffix := fmt.Sprintf("%d", now.Unix())
-	if err := r.emitDeliveryEvent(ctx, planeClient, dc, reasonDeploymentFailed, failureReasonApplyFailed, suffix); err != nil {
+	episode := d.FailureEpisode + 1
+	if err := r.emitDeliveryEvent(
+		ctx, planeClient, dc, reasonDeploymentFailed, failureReasonApplyFailed,
+		episodeSuffix(episode)); err != nil {
 		return before != release.Status.Delivery
 	}
 	d.FailedAt = &now
+	d.FailureEpisode = episode
 	return true
 }
 
@@ -332,12 +346,17 @@ func (r *Reconciler) emitDeliveryEvent(
 			Namespace:  dc.primary.GetNamespace(),
 			Name:       dc.primary.GetName(),
 		},
-		Type:                eventType,
-		Reason:              reason,
-		Action:              reason,
-		Message:             string(message),
-		FirstTimestamp:      now,
-		LastTimestamp:       now,
+		Type:           eventType,
+		Reason:         reason,
+		Action:         reason,
+		Message:        string(message),
+		FirstTimestamp: now,
+		LastTimestamp:  now,
+		// EventTime is the events.k8s.io/v1 timestamp. Setting it alongside
+		// ReportingController/ReportingInstance/Action satisfies the stricter
+		// validation path, and gives consumers reading through the newer API a
+		// populated occurrence time instead of a zero value.
+		EventTime:           metav1.MicroTime(now),
 		Count:               1,
 		Source:              corev1.EventSource{Component: deliveryReportingController},
 		ReportingController: deliveryReportingController,

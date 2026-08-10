@@ -207,16 +207,24 @@ func TestRunOnceResolvesIncidentOnLaterTick(t *testing.T) {
 
 type fakeEventsSource struct {
 	events []DeliveryEvent
+	// pageCap simulates the adapter's page cap: when >0 the sweep returns at most
+	// this many events and reports itself incomplete.
+	pageCap int
 }
 
-func (f *fakeEventsSource) FetchDeliveryEvents(_ context.Context, fromMs, toMs int64) ([]DeliveryEvent, error) {
+func (f *fakeEventsSource) FetchDeliveryEvents(
+	_ context.Context, fromMs, toMs int64,
+) ([]DeliveryEvent, bool, error) {
 	var out []DeliveryEvent
 	for _, e := range f.events {
 		if e.TimestampMs >= fromMs && e.TimestampMs < toMs {
 			out = append(out, e)
 		}
 	}
-	return out, nil
+	if f.pageCap > 0 && len(out) > f.pageCap {
+		return out[:f.pageCap], false, nil
+	}
+	return out, true, nil
 }
 
 func deliveryEvent(reason, releaseUID string, ts time.Time, extra map[string]string) DeliveryEvent {
@@ -344,4 +352,92 @@ func TestRunOnceSkipsMalformedEvents(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 0, total)
+}
+
+// The incident lookback window starts from the tick time, not from the watermark, so a
+// read that stopped at its row limit would re-read the same first page on every tick and
+// never attribute the remainder. Paging is what makes the window drain.
+func TestProcessIncidentsPagesThroughTheWindow(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+
+	const incidentCount = 7
+	for i := 0; i < incidentCount; i++ {
+		triggered := now.Add(-time.Duration(incidentCount-i) * time.Hour)
+		_, err := incidents.WriteIncidentEntry(ctx, &incidententry.IncidentEntry{
+			AlertID:         fmt.Sprintf("alert-%d", i),
+			Timestamp:       triggered.Format(time.RFC3339Nano),
+			Status:          incidententry.StatusResolved,
+			TriggeredAt:     triggered.Format(time.RFC3339Nano),
+			ResolvedAt:      triggered.Add(10 * time.Minute).Format(time.RFC3339Nano),
+			NamespaceName:   "default",
+			ProjectName:     "checkout",
+			ComponentName:   "checkout-api",
+			EnvironmentName: "production",
+			ProjectID:       "checkout",
+			ComponentID:     "checkout-api",
+			EnvironmentID:   "production",
+		})
+		require.NoError(t, err)
+	}
+
+	agg := newTestAggregator(store, incidents, nil, now)
+	agg.incidentPageSize = 2 // force several pages
+	require.NoError(t, agg.RunOnce(ctx))
+
+	recoveries, err := store.QueryRecoveryFacts(ctx, deliveryinsights.FactQuery{
+		OrgNamespace: "default",
+		StartMs:      now.Add(-24 * time.Hour).UnixMilli(),
+		EndMs:        now.UnixMilli() + 1,
+	})
+	require.NoError(t, err)
+	assert.Len(t, recoveries, incidentCount,
+		"every incident in the window must be folded, not just the first page")
+}
+
+// A capped delivery-event sweep must leave the watermark where it actually got to.
+// Advancing it to the tick time would narrow the next window past the unread
+// remainder, silently dropping those events.
+func TestRunOnceHoldsEventsWatermarkBackOnCappedSweep(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	first := now.Add(-3 * time.Hour)
+	second := now.Add(-2 * time.Hour)
+	third := now.Add(-time.Hour)
+
+	source := &fakeEventsSource{
+		events: []DeliveryEvent{
+			deliveryEvent(ReasonDeploymentSucceeded, "rel-1", first, nil),
+			deliveryEvent(ReasonDeploymentSucceeded, "rel-2", second, nil),
+			deliveryEvent(ReasonDeploymentSucceeded, "rel-3", third, nil),
+		},
+		pageCap: 2,
+	}
+
+	agg := newTestAggregator(store, incidents, source, now)
+	require.NoError(t, agg.RunOnce(ctx))
+
+	watermark, err := store.Watermark(ctx, watermarkSourceEvents)
+	require.NoError(t, err)
+	assert.Equal(t, second.UnixMilli(), watermark,
+		"watermark must stop at the last swept event, not jump to the tick time")
+
+	// The next tick, now uncapped, must still see the event the cap left behind.
+	source.pageCap = 0
+	require.NoError(t, agg.RunOnce(ctx))
+
+	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
+		OrgNamespace: "default",
+		StartMs:      first.Add(-time.Hour).UnixMilli(),
+		EndMs:        now.UnixMilli() + 1,
+		SortOrder:    "ASC",
+	})
+	require.NoError(t, err)
+	require.Len(t, facts, 3, "the event skipped by the cap must be picked up next tick")
 }

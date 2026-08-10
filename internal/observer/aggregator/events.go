@@ -37,14 +37,18 @@ type DeliveryEvent struct {
 	Message string
 }
 
-// EventsSource reads delivery lifecycle events from the observability event
-// store. There is no implementation yet: the controllers do not emit delivery
-// events, and reading them efficiently needs the logs-adapter `reasons` filter
-// (implementation design §5.4). The aggregator skips the events path while nil.
+// EventsSource reads delivery lifecycle events from the observability event store.
+// service.LogsAdapter implements it via FetchDeliveryEvents, which sweeps the event
+// index using the logs-adapter `reasons` filter and `searchAfter` cursor. A deployed
+// adapter without those extensions cannot serve the sweep, so the source stays behind
+// INSIGHTS_EVENTS_SOURCE_ENABLED; the aggregator skips the events path while nil.
 type EventsSource interface {
 	// FetchDeliveryEvents returns delivery lifecycle events in [fromMs, toMs),
 	// ordered by timestamp ascending (phase merges assume chronological folding).
-	FetchDeliveryEvents(ctx context.Context, fromMs, toMs int64) ([]DeliveryEvent, error)
+	// complete reports whether the sweep reached the end of the window; a false
+	// value means the page cap cut it short and the caller must not treat toMs as
+	// swept, or the unread remainder is skipped forever.
+	FetchDeliveryEvents(ctx context.Context, fromMs, toMs int64) (events []DeliveryEvent, complete bool, err error)
 }
 
 // deliveryEventPayload is the JSON the emitting controller embeds in the event
@@ -63,10 +67,12 @@ type deliveryEventPayload struct {
 
 // processEvents reads delivery events since the events watermark and folds them
 // into deployment/recovery facts. Returns the touched rollup moments.
-func (a *Aggregator) processEvents(ctx context.Context, tickStart time.Time) ([]int64, error) {
+func (a *Aggregator) processEvents(
+	ctx context.Context, tickStart time.Time,
+) (touchedMs []int64, sweptToMs int64, err error) {
 	watermark, err := a.store.Watermark(ctx, watermarkSourceEvents)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	fromMs := watermark - a.cfg.Overlap.Milliseconds()
 	if watermark == 0 {
@@ -75,12 +81,20 @@ func (a *Aggregator) processEvents(ctx context.Context, tickStart time.Time) ([]
 		fromMs = tickStart.AddDate(0, 0, -14).UnixMilli()
 	}
 
-	events, err := a.events.FetchDeliveryEvents(ctx, fromMs, tickStart.UnixMilli())
+	events, complete, err := a.events.FetchDeliveryEvents(ctx, fromMs, tickStart.UnixMilli())
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
+	// A complete sweep covered the whole window; a capped one only covered up to its
+	// last event, and reporting that keeps the next tick from skipping the remainder.
+	sweptToMs = tickStart.UnixMilli()
 	if len(events) == 0 {
-		return nil, nil
+		return nil, sweptToMs, nil
+	}
+	if !complete {
+		sweptToMs = events[len(events)-1].TimestampMs
+		a.logger.Warn("Delivery event sweep hit its page cap; remainder processed on later ticks",
+			"events", len(events), "sweptToMs", sweptToMs, "windowEndMs", tickStart.UnixMilli())
 	}
 
 	var touched []int64
@@ -104,17 +118,17 @@ func (a *Aggregator) processEvents(ctx context.Context, tickStart time.Time) ([]
 
 	if len(facts) > 0 {
 		if err := a.store.UpsertDeploymentFacts(ctx, facts); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 	if len(recoveries) > 0 {
 		if err := a.store.UpsertRecoveryFacts(ctx, recoveries); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 	a.logger.Debug("Processed delivery events",
 		"events", len(events), "facts", len(facts), "recoveries", len(recoveries))
-	return touched, nil
+	return touched, sweptToMs, nil
 }
 
 // foldEvent turns one delivery event into its fact writes. The store's upsert
@@ -163,7 +177,8 @@ func (a *Aggregator) foldEvent(
 		fact.FailedBy = deliveryinsights.FailedByRollout
 		fact.FailureReason = payload.FailureReason
 		// The failure moment anchors the fact in time when no Started event was
-		// folded (the merge keeps an earlier started_ms when one exists).
+		// folded. The store's merge keeps whichever started_ms is earliest, so this
+		// never moves a fact that already has its true start.
 		fact.StartedMs = &eventMs
 		// Open a health-sourced recovery episode; DeploymentRecovered closes it.
 		return &fact, &deliveryinsights.RecoveryFact{

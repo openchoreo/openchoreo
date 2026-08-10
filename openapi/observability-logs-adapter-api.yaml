@@ -547,10 +547,14 @@ components:
           type: array
           items:
             type: string
+          uniqueItems: true
+          minItems: 1
+          maxItems: 32
           description: >
             Optional server-side filter on the event reason field (terms match).
             Used by machine consumers such as the delivery insights aggregator
             to sweep specific controller-emitted events (e.g. DeploymentSucceeded).
+            Bounded because the value feeds a backend terms filter.
         searchAfter:
           type: string
           description: >
@@ -564,6 +568,12 @@ components:
             Scope of the query. May be omitted only for reason-filtered sweeps
             (machine consumers reading controller-emitted events across all
             namespaces); interactive queries must always be scoped.
+      # A request carrying neither searchScope nor reasons asks for every event in
+      # every namespace, and must be rejected. The rule is deliberately NOT expressed
+      # as `anyOf: [required: [searchScope], required: [reasons]]`: oapi-codegen turns
+      # a schema-level anyOf into a union type with a custom marshaller on this request,
+      # and since this spec generates a client only, that buys no validation here. The
+      # adapter implementation is the enforcement point.
       required: [startTime, endTime]
 
     # Response schemas for events

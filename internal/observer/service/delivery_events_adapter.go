@@ -34,7 +34,9 @@ var deliveryEventReasons = []string{
 // an unscoped, reason-filtered sweep of controller-emitted delivery lifecycle
 // events in [fromMs, toMs), paged with the adapter's searchAfter cursor and
 // returned in timestamp-ascending order.
-func (p *LogsAdapter) FetchDeliveryEvents(ctx context.Context, fromMs, toMs int64) ([]aggregator.DeliveryEvent, error) {
+func (p *LogsAdapter) FetchDeliveryEvents(
+	ctx context.Context, fromMs, toMs int64,
+) ([]aggregator.DeliveryEvent, bool, error) {
 	reasons := deliveryEventReasons
 	limit := deliveryEventsPageSize
 	sortOrder := logsadapterclientgen.EventsQueryRequestSortOrderAsc
@@ -53,7 +55,7 @@ func (p *LogsAdapter) FetchDeliveryEvents(ctx context.Context, fromMs, toMs int6
 
 		resp, err := p.adapterClient.QueryEvents(ctx, adapterReq)
 		if err != nil {
-			return nil, fmt.Errorf("failed to call logs adapter delivery events query: %w", err)
+			return nil, false, fmt.Errorf("failed to call logs adapter delivery events query: %w", err)
 		}
 		result, err := func() (*logsadapterclientgen.EventsQueryResponse, error) {
 			defer resp.Body.Close()
@@ -63,7 +65,7 @@ func (p *LogsAdapter) FetchDeliveryEvents(ctx context.Context, fromMs, toMs int6
 			return decodeEventsResponse(resp)
 		}()
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		if result.Events != nil {
@@ -86,10 +88,12 @@ func (p *LogsAdapter) FetchDeliveryEvents(ctx context.Context, fromMs, toMs int6
 		}
 
 		if result.NextCursor == nil || *result.NextCursor == "" {
-			break
+			return out, true, nil // no more pages: the window is fully swept
 		}
 		cursor = result.NextCursor
 	}
 
-	return out, nil
+	// The page cap stopped the sweep with a cursor still outstanding, so the caller
+	// must not treat toMs as covered.
+	return out, false, nil
 }

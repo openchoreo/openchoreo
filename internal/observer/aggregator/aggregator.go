@@ -3,10 +3,12 @@
 
 // Package aggregator implements the DORA aggregator: a background worker in the
 // observer that folds delivery signals into the durable delivery insights store.
-// Each tick it reads incidents (and, once the controllers emit them, delivery
-// lifecycle events) since its per-source watermark, normalizes them into
-// deployment/recovery facts, attributes incidents to the deployment live at
-// trigger time, and recomputes the metric rollups for every bucket it touched.
+// Each tick it reads incidents and delivery lifecycle events since its per-source
+// watermark, normalizes them into deployment/recovery facts, attributes incidents to
+// the deployment live at trigger time, and recomputes the metric rollups for every
+// bucket it touched. The events source is opt-in
+// (INSIGHTS_EVENTS_SOURCE_ENABLED) because it needs a logs adapter carrying the
+// reasons filter and searchAfter cursor; without it only the incident path runs.
 //
 // Correctness rests on the store's semantics, not on tick bookkeeping: facts
 // upsert on stable keys with sticky-failure merge rules, rollups are recomputed
@@ -29,10 +31,15 @@ const (
 	watermarkSourceIncidents = "incidents"
 	watermarkSourceEvents    = "events"
 
-	// incidentQueryLimit bounds one tick's incident read. The store caps reads at
-	// this value; a tick that hits it logs the truncation and catches up on the
-	// next ticks because the watermark only advances past what was processed.
+	// incidentQueryLimit bounds a single incident read. The lookback window is paged
+	// through at this size rather than truncated: the window start is derived from the
+	// tick time, not from the watermark, so a truncated read would re-read the same
+	// first page every tick and never attribute the remainder.
 	incidentQueryLimit = 10000
+
+	// incidentMaxPages bounds one tick's paging so a pathological window cannot spin
+	// the tick forever. Hitting it is logged, and the remainder is picked up next tick.
+	incidentMaxPages = 50
 )
 
 // Config tunes the aggregator loop.
@@ -58,14 +65,19 @@ type Config struct {
 type Aggregator struct {
 	store     deliveryinsights.Store
 	incidents incidententry.IncidentEntryStore
-	events    EventsSource // nil until a source exists (controllers do not emit delivery events yet)
-	cfg       Config
-	logger    *slog.Logger
-	now       func() time.Time // injectable for tests
+	// events is nil when the deployed logs adapter lacks the reasons filter and
+	// searchAfter cursor the sweep needs, which is why it stays behind
+	// INSIGHTS_EVENTS_SOURCE_ENABLED. The events path is skipped when nil.
+	events           EventsSource
+	cfg              Config
+	logger           *slog.Logger
+	now              func() time.Time // injectable for tests
+	incidentPageSize int              // overridable for tests
 }
 
-// New creates an aggregator. events may be nil — the events path is skipped
-// until a source is wired (delivery lifecycle events are not emitted yet).
+// New creates an aggregator. events may be nil, in which case only the incident path
+// runs: MTTR stays live from incidents while deployment frequency, lead time and change
+// failure rate wait on the delivery events source.
 func New(
 	store deliveryinsights.Store,
 	incidents incidententry.IncidentEntryStore,
@@ -74,12 +86,13 @@ func New(
 	logger *slog.Logger,
 ) *Aggregator {
 	return &Aggregator{
-		store:     store,
-		incidents: incidents,
-		events:    events,
-		cfg:       cfg,
-		logger:    logger,
-		now:       time.Now,
+		store:            store,
+		incidents:        incidents,
+		events:           events,
+		cfg:              cfg,
+		logger:           logger,
+		now:              time.Now,
+		incidentPageSize: incidentQueryLimit,
 	}
 }
 
@@ -123,12 +136,16 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 	}
 	touched = append(touched, incidentTouched...)
 
+	// eventsSweptToMs is how far the events sweep actually got, which is short of
+	// tickStart when the page cap cut it off.
+	eventsSweptToMs := tickStart.UnixMilli()
 	if a.events != nil {
-		eventTouched, eventsErr := a.processEvents(ctx, tickStart)
+		eventTouched, sweptToMs, eventsErr := a.processEvents(ctx, tickStart)
 		if eventsErr != nil {
 			return fmt.Errorf("events: %w", eventsErr)
 		}
 		touched = append(touched, eventTouched...)
+		eventsSweptToMs = sweptToMs
 	}
 
 	if len(touched) > 0 {
@@ -142,7 +159,9 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 		return err
 	}
 	if a.events != nil {
-		if err := a.store.SetWatermark(ctx, watermarkSourceEvents, tickStart.UnixMilli()); err != nil {
+		// Advance only as far as the sweep reached, so a capped sweep resumes from
+		// where it stopped rather than jumping the unread remainder.
+		if err := a.store.SetWatermark(ctx, watermarkSourceEvents, eventsSweptToMs); err != nil {
 			return err
 		}
 	}
@@ -176,24 +195,68 @@ func (a *Aggregator) processIncidents(ctx context.Context, tickStart time.Time) 
 	// Moments newer than this are considered changed since the last tick.
 	changedSinceMs := watermark - a.cfg.Overlap.Milliseconds()
 
-	entries, total, err := a.incidents.QueryIncidentEntries(ctx, incidententry.QueryParams{
-		StartTime: time.UnixMilli(fromMs).UTC().Format(time.RFC3339Nano),
-		EndTime:   tickStart.Format(time.RFC3339Nano),
-		Limit:     incidentQueryLimit,
-		SortOrder: "ASC",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("query incident entries: %w", err)
-	}
-	if total > len(entries) {
-		a.logger.Warn("Incident window truncated; remainder processed on later ticks",
-			"total", total, "processed", len(entries))
-	}
-	if len(entries) == 0 {
-		return nil, nil
+	// Page forward through the window. seen guards against re-processing an entry that
+	// straddles a page boundary, since the cursor is inclusive of its own timestamp.
+	var touched []int64
+	seen := make(map[string]struct{})
+	cursorMs := fromMs
+	processed := 0
+
+	for page := 0; page < incidentMaxPages; page++ {
+		entries, _, queryErr := a.incidents.QueryIncidentEntries(ctx, incidententry.QueryParams{
+			StartTime: time.UnixMilli(cursorMs).UTC().Format(time.RFC3339Nano),
+			EndTime:   tickStart.Format(time.RFC3339Nano),
+			Limit:     a.incidentPageSize,
+			SortOrder: "ASC",
+		})
+		if queryErr != nil {
+			return nil, fmt.Errorf("query incident entries: %w", queryErr)
+		}
+		if len(entries) == 0 {
+			break
+		}
+
+		pageTouched, count, lastTriggeredMs, foldErr := a.foldIncidentPage(
+			ctx, entries, seen, changedSinceMs, tickStart)
+		if foldErr != nil {
+			return nil, foldErr
+		}
+		touched = append(touched, pageTouched...)
+		processed += count
+
+		if len(entries) < a.incidentPageSize {
+			break // short page: the window is exhausted
+		}
+		if lastTriggeredMs <= cursorMs {
+			// A full page sharing one trigger timestamp cannot be paged past without
+			// skipping entries. Practically unreachable at this page size; bail out
+			// rather than spin.
+			a.logger.Warn("Incident page did not advance the cursor; stopping this tick",
+				"cursorMs", cursorMs, "pageSize", len(entries))
+			break
+		}
+		cursorMs = lastTriggeredMs
+
+		if page == incidentMaxPages-1 {
+			a.logger.Warn("Incident window paging hit its page cap; remainder processed on later ticks",
+				"pages", incidentMaxPages, "processed", processed)
+		}
 	}
 
-	var touched []int64
+	a.logger.Debug("Processed incidents", "incidents", processed)
+	return touched, nil
+}
+
+// foldIncidentPage attributes one page of incidents and upserts their recovery facts.
+// It returns the moments whose rollup buckets were touched, how many entries it folded,
+// and the newest trigger time in the page, which becomes the next page's cursor.
+func (a *Aggregator) foldIncidentPage(
+	ctx context.Context,
+	entries []incidententry.IncidentEntry,
+	seen map[string]struct{},
+	changedSinceMs int64,
+	tickStart time.Time,
+) (touched []int64, processed int, lastTriggeredMs int64, err error) {
 	var recoveries []deliveryinsights.RecoveryFact
 	attributedCount := 0
 	for i := range entries {
@@ -204,12 +267,20 @@ func (a *Aggregator) processIncidents(ctx context.Context, tickStart time.Time) 
 				"incident", entry.ID, "triggeredAt", entry.TriggeredAt)
 			continue
 		}
+		if triggeredMs > lastTriggeredMs {
+			lastTriggeredMs = triggeredMs
+		}
+		if _, done := seen[entry.ID]; done {
+			continue // already folded earlier in this tick
+		}
+		seen[entry.ID] = struct{}{}
+		processed++
 
 		attribution, attrErr := a.store.AttributeIncident(ctx,
 			entry.ComponentID, entry.EnvironmentID, entry.ID,
 			triggeredMs, a.cfg.AttributionWindow.Milliseconds())
 		if attrErr != nil {
-			return nil, attrErr
+			return nil, 0, 0, attrErr
 		}
 		if attribution.Attributed {
 			attributedCount++
@@ -245,12 +316,12 @@ func (a *Aggregator) processIncidents(ctx context.Context, tickStart time.Time) 
 
 	if len(recoveries) > 0 {
 		if err := a.store.UpsertRecoveryFacts(ctx, recoveries); err != nil {
-			return nil, err
+			return nil, 0, 0, err
 		}
 	}
-	a.logger.Debug("Processed incidents",
+	a.logger.Debug("Folded incident page",
 		"incidents", len(recoveries), "attributedDeployments", attributedCount)
-	return touched, nil
+	return touched, processed, lastTriggeredMs, nil
 }
 
 // recomputeRollups rebuilds every rollup bucket containing a touched moment.

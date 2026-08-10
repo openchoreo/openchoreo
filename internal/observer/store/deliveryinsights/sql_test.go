@@ -185,6 +185,63 @@ func TestUpsertDeploymentFactMergesPhases(t *testing.T) {
 	assert.Equal(t, ready, *facts[0].ReadyMs)
 }
 
+// The phase merge has to be order-independent, because overlapping sweeps re-fold the
+// same events and a fold is not transactional across pages. Both properties asserted
+// here keep a re-fold from moving a deployment into a different rollup bucket, or
+// dropping it from the metrics entirely.
+func TestUpsertDeploymentFactMergeIsOrderIndependent(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t)
+	ctx := context.Background()
+	started := time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC).UnixMilli()
+	ready := started + time.Minute.Milliseconds()
+	later := started + time.Hour.Milliseconds()
+
+	base := DeploymentFact{
+		ReleaseUID:     "rel-1",
+		OrgNamespace:   "default",
+		ProjectUID:     "proj-1",
+		ComponentUID:   "comp-1",
+		EnvironmentUID: "env-prod",
+	}
+
+	started1 := base
+	started1.StartedMs = &started
+	started1.Outcome = OutcomeInProgress
+	started1.UpdatedAtMs = started
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{started1}))
+
+	succeeded := base
+	succeeded.ReadyMs = &ready
+	succeeded.Outcome = OutcomeSuccess
+	succeeded.UpdatedAtMs = ready
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{succeeded}))
+
+	// A re-folded Started event carrying a later timestamp must not move the fact,
+	// and must not reopen a finished outcome.
+	restarted := base
+	restarted.StartedMs = &later
+	restarted.Outcome = OutcomeInProgress
+	restarted.UpdatedAtMs = later
+	require.NoError(t, store.UpsertDeploymentFacts(ctx, []DeploymentFact{restarted}))
+
+	facts, _, err := store.QueryDeploymentFacts(ctx, FactQuery{
+		OrgNamespace: "default",
+		StartMs:      started - 1000,
+		EndMs:        later + 1000,
+	})
+	require.NoError(t, err)
+	require.Len(t, facts, 1)
+
+	require.NotNil(t, facts[0].StartedMs)
+	assert.Equal(t, started, *facts[0].StartedMs, "earliest started_ms must win")
+	require.NotNil(t, facts[0].ReadyMs)
+	assert.Equal(t, ready, *facts[0].ReadyMs, "ready_ms must not move")
+	assert.Equal(t, OutcomeSuccess, facts[0].Outcome,
+		"a late in_progress write must not reopen a finished deployment")
+}
+
 func TestQueryDeploymentFactsScopeFilters(t *testing.T) {
 	t.Parallel()
 

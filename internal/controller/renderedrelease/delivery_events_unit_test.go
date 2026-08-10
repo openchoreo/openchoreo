@@ -6,6 +6,7 @@ package renderedrelease
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -358,6 +359,58 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 		}
 	})
 
+	// Failure and recovery events are named from a persisted episode counter, not the
+	// clock. A wall-clock suffix would give the re-emission a different name, so
+	// AlreadyExists could not collapse it and the aggregator would fold the episode twice.
+	t.Run("episode names come from the counter, not the clock", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, desired)
+		degraded := []openchoreov1alpha1.RenderedManifestStatus{
+			manifestStatus("deployment", openchoreov1alpha1.HealthStatusDegraded),
+		}
+		healthy := []openchoreov1alpha1.RenderedManifestStatus{
+			manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
+		}
+
+		r.reconcileDeliveryEvents(ctx, cl, release, dc, degraded, nil)
+		if got := release.Status.Delivery.FailureEpisode; got != 1 {
+			t.Fatalf("FailureEpisode = %d, want 1 for the first episode", got)
+		}
+		failed := findEventByReason(listDeliveryEvents(t, cl), reasonDeploymentFailed)
+		if failed == nil || !strings.HasSuffix(failed.Name, "-e1") {
+			t.Fatalf("Failed event name = %q, want an -e1 episode suffix", eventName(failed))
+		}
+
+		// The status update is lost, so the next reconcile must derive the same episode
+		// number and collapse rather than open a second episode.
+		release.Status.Delivery = nil
+		r.reconcileDeliveryEvents(ctx, cl, release, dc, degraded, nil)
+		if got := countEventsByReason(listDeliveryEvents(t, cl), reasonDeploymentFailed); got != 1 {
+			t.Errorf("Failed events = %d, want 1 (re-emission must collapse)", got)
+		}
+		if got := release.Status.Delivery.FailureEpisode; got != 1 {
+			t.Errorf("FailureEpisode = %d, want the counter restored to 1", got)
+		}
+
+		// Heal: the recovery closes episode 1 and carries its number.
+		r.reconcileDeliveryEvents(ctx, cl, release, dc, healthy, nil)
+		recovered := findEventByReason(listDeliveryEvents(t, cl), reasonDeploymentRecovered)
+		if recovered == nil || !strings.HasSuffix(recovered.Name, "-e1") {
+			t.Fatalf("Recovered event name = %q, want the -e1 suffix of the episode it closes",
+				eventName(recovered))
+		}
+
+		// A second failure opens episode 2 with its own name.
+		r.reconcileDeliveryEvents(ctx, cl, release, dc, degraded, nil)
+		if got := release.Status.Delivery.FailureEpisode; got != 2 {
+			t.Errorf("FailureEpisode = %d, want 2 for a new episode", got)
+		}
+		if got := countEventsByReason(listDeliveryEvents(t, cl), reasonDeploymentFailed); got != 2 {
+			t.Errorf("Failed events = %d, want 2 across two distinct episodes", got)
+		}
+	})
+
 	t.Run("pre-existing event is treated as emitted", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
 		release := makeDeliveryRelease()
@@ -415,4 +468,23 @@ func TestMarkDeliveryApplyFailure(t *testing.T) {
 			t.Errorf("failureReason = %q, want %q", payload.FailureReason, failureReasonApplyFailed)
 		}
 	})
+}
+
+// countEventsByReason counts emitted events carrying the given reason.
+func countEventsByReason(events []corev1.Event, reason string) int {
+	n := 0
+	for i := range events {
+		if events[i].Reason == reason {
+			n++
+		}
+	}
+	return n
+}
+
+// eventName renders an event's name for failure messages, tolerating nil.
+func eventName(e *corev1.Event) string {
+	if e == nil {
+		return "<no event>"
+	}
+	return e.Name
 }

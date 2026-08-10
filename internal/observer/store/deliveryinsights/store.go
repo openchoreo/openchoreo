@@ -150,8 +150,12 @@ type FactQuery struct {
 	EnvironmentUID string
 	StartMs        int64
 	EndMs          int64
-	Limit          int
-	SortOrder      string
+	// Limit caps every fact read (deployments, recoveries, lead times, recovery
+	// durations), normalized through normalizeLimit. A read that returns exactly
+	// Limit rows logs a truncation warning, because the distribution reads feed
+	// means and percentiles where a silent cut would quietly skew a metric.
+	Limit     int
+	SortOrder string
 }
 
 // DeploymentCounts are deployment tallies over an exact window, matching the

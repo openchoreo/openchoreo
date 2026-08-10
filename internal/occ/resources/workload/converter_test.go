@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
@@ -161,6 +162,30 @@ func TestCreateBaseWorkload_WithSource(t *testing.T) {
 	assert.Equal(t, "https://github.com/my-org/my-repo", w.Spec.Source.Repository)
 	require.NotNil(t, w.Spec.Source.AuthoredAt)
 	assert.True(t, w.Spec.Source.AuthoredAt.Time.Equal(time.Date(2026, 7, 20, 6, 12, 14, 0, time.UTC)))
+
+	// The in-memory object is not what reaches the API server: the CI templates
+	// serialize this to YAML, convert it to JSON and POST it. Assert provenance
+	// survives that path, since a marshaling regression would silently drop the
+	// commit and leave Lead Time for Changes unavailable.
+	out, err := ConvertWorkloadCRToYAML(w)
+	require.NoError(t, err)
+
+	// sigs.k8s.io/yaml round-trips through JSON, so these are json tags.
+	var serialized struct {
+		Spec struct {
+			Source struct {
+				Commit     string `json:"commit"`
+				Branch     string `json:"branch"`
+				Repository string `json:"repository"`
+				AuthoredAt string `json:"authoredAt"`
+			} `json:"source"`
+		} `json:"spec"`
+	}
+	require.NoError(t, yaml.Unmarshal(out, &serialized))
+	assert.Equal(t, "7f01217e694993f0e12cbc74f104ba1a97e6048b", serialized.Spec.Source.Commit)
+	assert.Equal(t, "main", serialized.Spec.Source.Branch)
+	assert.Equal(t, "https://github.com/my-org/my-repo", serialized.Spec.Source.Repository)
+	assert.Equal(t, "2026-07-20T06:12:14Z", serialized.Spec.Source.AuthoredAt)
 }
 
 func TestCreateBaseWorkload_NoSourceFields(t *testing.T) {

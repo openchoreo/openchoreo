@@ -24,7 +24,10 @@ func TestFetchDeliveryEvents(t *testing.T) {
 				t.Errorf("unexpected path %q", r.URL.Path)
 			}
 			if err := json.NewDecoder(r.Body).Decode(&gotRequest); err != nil {
-				t.Fatalf("decode request: %v", err)
+				// t.Fatalf would Goexit this handler goroutine, leaving the client with
+				// an empty body and surfacing as a confusing decode error instead.
+				t.Errorf("decode request: %v", err)
+				return
 			}
 			response := map[string]any{
 				"events": []map[string]any{
@@ -52,9 +55,12 @@ func TestFetchDeliveryEvents(t *testing.T) {
 			t.Fatalf("NewLogsAdapter: %v", err)
 		}
 
-		events, err := adapter.FetchDeliveryEvents(ctx, 0, 2000)
+		events, complete, err := adapter.FetchDeliveryEvents(ctx, 0, 2000)
 		if err != nil {
 			t.Fatalf("FetchDeliveryEvents: %v", err)
+		}
+		if !complete {
+			t.Error("a single-page sweep must report itself complete")
 		}
 
 		if _, hasScope := gotRequest["searchScope"]; hasScope {
@@ -116,7 +122,7 @@ func TestFetchDeliveryEvents(t *testing.T) {
 			t.Fatalf("NewLogsAdapter: %v", err)
 		}
 
-		events, err := adapter.FetchDeliveryEvents(ctx, 0, 10000)
+		events, complete, err := adapter.FetchDeliveryEvents(ctx, 0, 10000)
 		if err != nil {
 			t.Fatalf("FetchDeliveryEvents: %v", err)
 		}
@@ -125,6 +131,9 @@ func TestFetchDeliveryEvents(t *testing.T) {
 		}
 		if len(cursors) != 3 || cursors[0] != "" || cursors[1] == "" || cursors[2] == "" {
 			t.Errorf("cursor sequence wrong: %v", cursors)
+		}
+		if !complete {
+			t.Error("a sweep that exhausted the cursor must report itself complete")
 		}
 	})
 
@@ -138,7 +147,7 @@ func TestFetchDeliveryEvents(t *testing.T) {
 		if err != nil {
 			t.Fatalf("NewLogsAdapter: %v", err)
 		}
-		if _, err := adapter.FetchDeliveryEvents(ctx, 0, 1000); err == nil {
+		if _, _, err := adapter.FetchDeliveryEvents(ctx, 0, 1000); err == nil {
 			t.Fatal("expected error from failing adapter")
 		}
 	})

@@ -389,10 +389,25 @@ func TestGenerateWorkload_SourceProvenance(t *testing.T) {
 				`--source-repository "${SOURCE_REPOSITORY}"`,
 				`--source-authored-at "${SOURCE_AUTHORED_AT}"`,
 			)
-			// Both the source-descriptor and default-generated occ invocations
-			// must forward source provenance, not just one of them.
-			requireEqualContract(t, strings.Count(s, `--source-commit "${SOURCE_COMMIT}"`), 2,
-				"both occ workload create invocations (source-descriptor and default) must forward source-commit")
+			// Both the source-descriptor and default-generated occ invocations must
+			// forward every provenance flag, not just one invocation and not just the
+			// commit: dropping any one of the four silently degrades Lead Time.
+			for _, flag := range []string{
+				`--source-commit "${SOURCE_COMMIT}"`,
+				`--source-branch "${SOURCE_BRANCH}"`,
+				`--source-repository "${SOURCE_REPOSITORY}"`,
+				`--source-authored-at "${SOURCE_AUTHORED_AT}"`,
+			} {
+				requireEqualContract(t, strings.Count(s, flag), 2,
+					"both occ workload create invocations (source-descriptor and default) must forward "+flag)
+			}
+
+			// The 409 path merges into an existing Workload; provenance must travel with
+			// the image or the previous build's commit stays attached to the new one.
+			requireContains(t, s,
+				`NEW_SOURCE=$(jq -c '.spec.source // null' "${WORKLOAD_JSON}")`,
+				`.spec.source = $src`,
+			)
 		})
 	}
 }

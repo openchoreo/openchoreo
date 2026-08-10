@@ -347,7 +347,7 @@ type EventsQueryRequest struct {
 	// Limit The maximum number of items to return
 	Limit *int `json:"limit,omitempty"`
 
-	// Reasons Optional server-side filter on the event reason field (terms match). Used by machine consumers such as the delivery insights aggregator to sweep specific controller-emitted events (e.g. DeploymentSucceeded).
+	// Reasons Optional server-side filter on the event reason field (terms match). Used by machine consumers such as the delivery insights aggregator to sweep specific controller-emitted events (e.g. DeploymentSucceeded). Bounded because the value feeds a backend terms filter.
 	Reasons *[]string `json:"reasons,omitempty"`
 
 	// SearchAfter Opaque pagination cursor from a previous response's nextCursor. Enables deep pagination beyond the limit cap for machine consumers.

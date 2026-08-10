@@ -117,6 +117,18 @@ const createSchemaVersionTableQuery = `CREATE TABLE IF NOT EXISTS delivery_insig
 // Write/read statements below use '?' placeholders; rebind converts them to $N for
 // PostgreSQL. 'excluded' upsert references are supported by both SQLite (>=3.24) and
 // PostgreSQL, so a single statement serves both dialects.
+//
+// The deployment-fact merge rules make re-processing order-independent, which is what
+// lets any window be swept twice (or backfilled) without moving a number:
+//   - started_ms / ready_ms: earliest value wins. Both anchor the fact in a rollup
+//     bucket, so a re-fold — or a Failed event folded before its Started event — must
+//     not move the deployment into a different bucket. Written as a CASE rather than
+//     MIN/LEAST because those spell differently across dialects.
+//   - outcome: 'failed' is sticky, and 'in_progress' never overwrites a finished
+//     outcome. Without the second guard a Started event folded after its Succeeded
+//     event would reopen the fact, and BuildRollups excludes in-progress deployments,
+//     so the deployment would vanish from every bucket.
+//   - descriptor columns: a non-empty incoming value wins over a stored one.
 const upsertDeploymentFactQuery = `INSERT INTO deployment_fact (
 	release_uid, org_namespace, project_uid, component_uid, environment_uid,
 	project_name, component_name, environment_name, component_release,
@@ -136,10 +148,20 @@ ON CONFLICT (release_uid) DO UPDATE SET
 	commit_sha = CASE WHEN excluded.commit_sha <> ''
 		THEN excluded.commit_sha ELSE deployment_fact.commit_sha END,
 	commit_authored_ms = COALESCE(excluded.commit_authored_ms, deployment_fact.commit_authored_ms),
-	started_ms = COALESCE(excluded.started_ms, deployment_fact.started_ms),
-	ready_ms = COALESCE(excluded.ready_ms, deployment_fact.ready_ms),
-	outcome = CASE WHEN deployment_fact.outcome = 'failed'
-		THEN deployment_fact.outcome ELSE excluded.outcome END,
+	started_ms = CASE
+		WHEN deployment_fact.started_ms IS NULL THEN excluded.started_ms
+		WHEN excluded.started_ms IS NULL THEN deployment_fact.started_ms
+		WHEN excluded.started_ms < deployment_fact.started_ms THEN excluded.started_ms
+		ELSE deployment_fact.started_ms END,
+	ready_ms = CASE
+		WHEN deployment_fact.ready_ms IS NULL THEN excluded.ready_ms
+		WHEN excluded.ready_ms IS NULL THEN deployment_fact.ready_ms
+		WHEN excluded.ready_ms < deployment_fact.ready_ms THEN excluded.ready_ms
+		ELSE deployment_fact.ready_ms END,
+	outcome = CASE
+		WHEN deployment_fact.outcome = 'failed' THEN deployment_fact.outcome
+		WHEN excluded.outcome = 'in_progress' THEN deployment_fact.outcome
+		ELSE excluded.outcome END,
 	failed_by = CASE WHEN excluded.failed_by <> ''
 		THEN excluded.failed_by ELSE deployment_fact.failed_by END,
 	failure_reason = CASE WHEN excluded.failure_reason <> ''
@@ -292,7 +314,12 @@ func (s *sqlStore) applyMigration(ctx context.Context, tx *sql.Tx, m migration) 
 			return fmt.Errorf("failed to apply migration %d: %w", m.version, err)
 		}
 	}
-	record := s.rebind("INSERT INTO delivery_insights_schema_version (version, applied_at_ms) VALUES (?, ?);")
+	// DO NOTHING on conflict: two replicas starting together both read the same
+	// MAX(version) and both apply this migration. The DDL is guarded with
+	// IF NOT EXISTS, so without this the loser would fail its version insert on the
+	// primary key and the replica would refuse to start.
+	record := s.rebind(`INSERT INTO delivery_insights_schema_version (version, applied_at_ms)
+	VALUES (?, ?) ON CONFLICT (version) DO NOTHING;`)
 	if _, err := tx.ExecContext(ctx, record, m.version, time.Now().UnixMilli()); err != nil {
 		return fmt.Errorf("failed to record migration %d: %w", m.version, err)
 	}
@@ -556,15 +583,16 @@ WHERE release_uid = ? AND failed_by = '';`)
 }
 
 func (s *sqlStore) QueryRecoveryFacts(ctx context.Context, q FactQuery) ([]RecoveryFact, error) {
+	limit := normalizeLimit(q.Limit)
 	conditions, args := s.factScopeConditions(q)
 	conditions = append(conditions, "failure_started_ms >= ?", "failure_started_ms < ?")
-	args = append(args, q.StartMs, q.EndMs)
+	args = append(args, q.StartMs, q.EndMs, limit)
 
 	query := s.rebind(`SELECT id, org_namespace, project_uid, component_uid, environment_uid,
 	release_uid, incident_id, severity, source,
 	failure_started_ms, recovered_ms, duration_ms, updated_at_ms
 FROM recovery_fact WHERE ` + strings.Join(conditions, " AND ") +
-		" ORDER BY failure_started_ms ASC;")
+		" ORDER BY failure_started_ms ASC LIMIT ?;")
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -588,7 +616,19 @@ FROM recovery_fact WHERE ` + strings.Join(conditions, " AND ") +
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("failed to iterate recovery facts: %w", err)
 	}
+	s.warnIfTruncated("recovery facts", len(facts), limit)
 	return facts, nil
+}
+
+// warnIfTruncated logs when a read returned exactly its limit, meaning rows may have
+// been dropped. Callers derive means and percentiles from these rows, so a silent
+// truncation would skew a metric with nothing in the logs to explain it.
+func (s *sqlStore) warnIfTruncated(what string, got, limit int) {
+	if got < limit {
+		return
+	}
+	s.logger.Warn("Delivery insights query hit its row limit; results may be truncated",
+		"query", what, "limit", limit)
 }
 
 func (s *sqlStore) CountDeployments(ctx context.Context, q FactQuery) (DeploymentCounts, error) {
@@ -619,26 +659,40 @@ FROM deployment_fact WHERE ` + strings.Join(conditions, " AND ") + ";")
 }
 
 func (s *sqlStore) QueryLeadTimes(ctx context.Context, q FactQuery) ([]int64, error) {
+	limit := normalizeLimit(q.Limit)
 	conditions, args := s.factScopeConditions(q)
 	conditions = append(conditions,
 		"ready_ms IS NOT NULL", "ready_ms >= ?", "ready_ms < ?",
 		"lead_time_ms IS NOT NULL", "lead_time_ms >= 0")
-	args = append(args, q.StartMs, q.EndMs)
+	args = append(args, q.StartMs, q.EndMs, limit)
 
+	// ORDER BY makes the truncation deterministic: the same window always yields the
+	// same sample, so a percentile does not drift between ticks.
 	query := s.rebind("SELECT lead_time_ms FROM deployment_fact WHERE " +
-		strings.Join(conditions, " AND ") + ";")
-	return s.queryInt64s(ctx, query, args, "lead times")
+		strings.Join(conditions, " AND ") + " ORDER BY ready_ms ASC LIMIT ?;")
+	values, err := s.queryInt64s(ctx, query, args, "lead times")
+	if err != nil {
+		return nil, err
+	}
+	s.warnIfTruncated("lead times", len(values), limit)
+	return values, nil
 }
 
 func (s *sqlStore) QueryRecoveryDurations(ctx context.Context, q FactQuery) ([]int64, error) {
+	limit := normalizeLimit(q.Limit)
 	conditions, args := s.factScopeConditions(q)
 	conditions = append(conditions,
 		"failure_started_ms >= ?", "failure_started_ms < ?", "duration_ms IS NOT NULL")
-	args = append(args, q.StartMs, q.EndMs)
+	args = append(args, q.StartMs, q.EndMs, limit)
 
 	query := s.rebind("SELECT duration_ms FROM recovery_fact WHERE " +
-		strings.Join(conditions, " AND ") + ";")
-	return s.queryInt64s(ctx, query, args, "recovery durations")
+		strings.Join(conditions, " AND ") + " ORDER BY failure_started_ms ASC LIMIT ?;")
+	values, err := s.queryInt64s(ctx, query, args, "recovery durations")
+	if err != nil {
+		return nil, err
+	}
+	s.warnIfTruncated("recovery durations", len(values), limit)
+	return values, nil
 }
 
 func (s *sqlStore) Watermark(ctx context.Context, source string) (int64, error) {

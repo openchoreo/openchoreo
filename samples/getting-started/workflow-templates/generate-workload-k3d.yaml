@@ -235,10 +235,15 @@ spec:
 
                 echo "${GET_BODY}" > "${WORK_DIR}/workload-existing.json"
                 NEW_IMAGE=$(jq -r '.spec.container.image' "${WORKLOAD_JSON}")
+                NEW_SOURCE=$(jq -c '.spec.source // null' "${WORKLOAD_JSON}")
 
+                # spec.source must move with spec.container.image. Updating the image
+                # alone would leave the previous build's commit attached to the new
+                # one, which silently reports a wrong Lead Time for Changes; dropping
+                # it when this build has no provenance reports no lead time instead.
                 echo ">> Updating container image to: ${NEW_IMAGE}"
-                jq --arg img "${NEW_IMAGE}" \
-                  '.spec.container.image = $img' \
+                jq --arg img "${NEW_IMAGE}" --argjson src "${NEW_SOURCE}" \
+                  '.spec.container.image = $img | if $src == null then del(.spec.source) else .spec.source = $src end' \
                   "${WORK_DIR}/workload-existing.json" \
                   > "${WORK_DIR}/workload-merged.json"
 

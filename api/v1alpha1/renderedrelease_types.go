@@ -88,6 +88,15 @@ type DeliveryStatus struct {
 	// RecoveredAt is when DeploymentRecovered was last emitted.
 	// +optional
 	RecoveredAt *metav1.Time `json:"recoveredAt,omitempty"`
+
+	// FailureEpisode counts the failure episodes seen for this rollout, and names the
+	// DeploymentFailed/DeploymentRecovered events of the current one. It exists so
+	// those event names are deterministic per episode: if an event reaches the data
+	// plane but the status update that records it is lost, the next reconcile derives
+	// the same episode number, so the re-emission collapses via AlreadyExists instead
+	// of creating a duplicate the aggregator would fold twice.
+	// +optional
+	FailureEpisode int32 `json:"failureEpisode,omitempty"`
 }
 
 // +kubebuilder:object:root=true
