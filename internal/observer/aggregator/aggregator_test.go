@@ -441,3 +441,53 @@ func TestRunOnceHoldsEventsWatermarkBackOnCappedSweep(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, facts, 3, "the event skipped by the cap must be picked up next tick")
 }
+
+// The livelock case: more capped events than fit in one sweep, all inside the Overlap
+// window. Resuming at watermark - Overlap would refill the page cap before reaching the
+// previous stop point, so every tick would re-read the same events and the sweep would
+// never reach the later ones. Successive ticks must drain the window.
+func TestRunOnceCappedSweepInsideOverlapStillDrains(t *testing.T) {
+	t.Parallel()
+
+	store, incidents := newTestStores(t)
+	ctx := context.Background()
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+
+	// Six events packed into one minute, well inside the 10-minute Overlap.
+	const eventCount = 6
+	events := make([]DeliveryEvent, 0, eventCount)
+	for i := 0; i < eventCount; i++ {
+		ts := now.Add(-5*time.Minute + time.Duration(i)*10*time.Second)
+		events = append(events, deliveryEvent(
+			ReasonDeploymentSucceeded, fmt.Sprintf("rel-%d", i), ts, nil))
+	}
+	source := &fakeEventsSource{events: events, pageCap: 2}
+
+	// Each tick is capped at 2 events, so draining 6 needs several ticks. Bound the
+	// loop so a regression fails the test instead of hanging it.
+	tick := now
+	for i := 0; i < 10; i++ {
+		agg := newTestAggregator(store, incidents, source, tick)
+		require.NoError(t, agg.RunOnce(ctx))
+
+		facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
+			OrgNamespace: "default",
+			StartMs:      now.Add(-time.Hour).UnixMilli(),
+			EndMs:        tick.UnixMilli() + 1,
+		})
+		require.NoError(t, err)
+		if len(facts) == eventCount {
+			return // drained
+		}
+		tick = tick.Add(5 * time.Minute)
+	}
+
+	facts, _, err := store.QueryDeploymentFacts(ctx, deliveryinsights.FactQuery{
+		OrgNamespace: "default",
+		StartMs:      now.Add(-time.Hour).UnixMilli(),
+		EndMs:        tick.UnixMilli() + 1,
+	})
+	require.NoError(t, err)
+	t.Fatalf("capped sweep never drained the overlap window: folded %d of %d events",
+		len(facts), eventCount)
+}

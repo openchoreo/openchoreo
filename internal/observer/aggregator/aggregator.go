@@ -30,6 +30,10 @@ import (
 const (
 	watermarkSourceIncidents = "incidents"
 	watermarkSourceEvents    = "events"
+	// watermarkSourceEventsResume holds the exact position a page-capped event sweep
+	// stopped at, so the next tick resumes there instead of re-reading from
+	// watermark - Overlap. Zero means the last sweep covered its whole window.
+	watermarkSourceEventsResume = "events_resume"
 
 	// incidentQueryLimit bounds a single incident read. The lookback window is paged
 	// through at this size rather than truncated: the window start is derived from the
@@ -136,16 +140,16 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 	}
 	touched = append(touched, incidentTouched...)
 
-	// eventsSweptToMs is how far the events sweep actually got, which is short of
-	// tickStart when the page cap cut it off.
-	eventsSweptToMs := tickStart.UnixMilli()
+	// eventsProgress records how far the events sweep got, which is short of tickStart
+	// when the page cap cut it off.
+	eventsProg := eventsProgress{watermarkMs: tickStart.UnixMilli()}
 	if a.events != nil {
-		eventTouched, sweptToMs, eventsErr := a.processEvents(ctx, tickStart)
+		eventTouched, progress, eventsErr := a.processEvents(ctx, tickStart)
 		if eventsErr != nil {
 			return fmt.Errorf("events: %w", eventsErr)
 		}
 		touched = append(touched, eventTouched...)
-		eventsSweptToMs = sweptToMs
+		eventsProg = progress
 	}
 
 	if len(touched) > 0 {
@@ -161,7 +165,11 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 	if a.events != nil {
 		// Advance only as far as the sweep reached, so a capped sweep resumes from
 		// where it stopped rather than jumping the unread remainder.
-		if err := a.store.SetWatermark(ctx, watermarkSourceEvents, eventsSweptToMs); err != nil {
+		if err := a.store.SetWatermark(ctx, watermarkSourceEvents, eventsProg.watermarkMs); err != nil {
+			return err
+		}
+		// Zero when the window was fully swept, which re-arms the ingest-lag overlap.
+		if err := a.store.SetWatermark(ctx, watermarkSourceEventsResume, eventsProg.resumeMs); err != nil {
 			return err
 		}
 	}

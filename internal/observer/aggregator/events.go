@@ -65,36 +65,69 @@ type deliveryEventPayload struct {
 	FailureReason        string `json:"failureReason"`
 }
 
-// processEvents reads delivery events since the events watermark and folds them
-// into deployment/recovery facts. Returns the touched rollup moments.
+// eventsProgress is where the next events sweep must start from, recorded after a tick.
+type eventsProgress struct {
+	// watermarkMs is how far the sweep covered. A completed sweep covers the whole
+	// window up to the tick time.
+	watermarkMs int64
+	// resumeMs is the exact position a capped sweep stopped at, or 0 when the window
+	// was fully swept. It exists because the overlap that absorbs ingest lag would
+	// otherwise eat the progress a capped sweep made: resuming at
+	// watermark - Overlap can refill the page cap before reaching the stop point, so
+	// the sweep would re-read the same pages every tick and never move past it.
+	resumeMs int64
+}
+
+// processEvents reads delivery events since the events watermark and folds them into
+// deployment/recovery facts. Returns the touched rollup moments and the progress to
+// persist.
 func (a *Aggregator) processEvents(
 	ctx context.Context, tickStart time.Time,
-) (touchedMs []int64, sweptToMs int64, err error) {
+) (touchedMs []int64, progress eventsProgress, err error) {
 	watermark, err := a.store.Watermark(ctx, watermarkSourceEvents)
 	if err != nil {
-		return nil, 0, err
+		return nil, eventsProgress{}, err
 	}
-	fromMs := watermark - a.cfg.Overlap.Milliseconds()
-	if watermark == 0 {
+	priorResumeMs, err := a.store.Watermark(ctx, watermarkSourceEventsResume)
+	if err != nil {
+		return nil, eventsProgress{}, err
+	}
+
+	var fromMs int64
+	switch {
+	case priorResumeMs > 0:
+		// Resuming a capped sweep: we know exactly where it stopped, and we are behind
+		// rather than caught up, so the ingest-lag overlap does not apply.
+		fromMs = priorResumeMs
+	case watermark == 0:
 		// First run: raw events only live for the retention window; reach back a
 		// generous-but-bounded slice of it rather than asking for all time.
 		fromMs = tickStart.AddDate(0, 0, -14).UnixMilli()
+	default:
+		fromMs = watermark - a.cfg.Overlap.Milliseconds()
 	}
 
 	events, complete, err := a.events.FetchDeliveryEvents(ctx, fromMs, tickStart.UnixMilli())
 	if err != nil {
-		return nil, 0, err
+		return nil, eventsProgress{}, err
 	}
-	// A complete sweep covered the whole window; a capped one only covered up to its
-	// last event, and reporting that keeps the next tick from skipping the remainder.
-	sweptToMs = tickStart.UnixMilli()
+	progress = eventsProgress{watermarkMs: tickStart.UnixMilli()}
 	if len(events) == 0 {
-		return nil, sweptToMs, nil
+		return nil, progress, nil
 	}
 	if !complete {
-		sweptToMs = events[len(events)-1].TimestampMs
-		a.logger.Warn("Delivery event sweep hit its page cap; remainder processed on later ticks",
-			"events", len(events), "sweptToMs", sweptToMs, "windowEndMs", tickStart.UnixMilli())
+		stoppedAtMs := events[len(events)-1].TimestampMs
+		progress.watermarkMs = stoppedAtMs
+		progress.resumeMs = stoppedAtMs
+		if stoppedAtMs <= priorResumeMs {
+			// A full sweep's worth of events sharing one millisecond cannot be paged
+			// past on timestamp alone. Nothing is skipped, but the sweep is stuck and
+			// needs a bigger cap, so say so rather than looping quietly.
+			a.logger.Error("Delivery event sweep cannot advance past its stop position",
+				"stoppedAtMs", stoppedAtMs, "events", len(events))
+		}
+		a.logger.Warn("Delivery event sweep hit its page cap; remainder resumes next tick",
+			"events", len(events), "resumeFromMs", stoppedAtMs, "windowEndMs", tickStart.UnixMilli())
 	}
 
 	var touched []int64
@@ -118,17 +151,17 @@ func (a *Aggregator) processEvents(
 
 	if len(facts) > 0 {
 		if err := a.store.UpsertDeploymentFacts(ctx, facts); err != nil {
-			return nil, 0, err
+			return nil, eventsProgress{}, err
 		}
 	}
 	if len(recoveries) > 0 {
 		if err := a.store.UpsertRecoveryFacts(ctx, recoveries); err != nil {
-			return nil, 0, err
+			return nil, eventsProgress{}, err
 		}
 	}
 	a.logger.Debug("Processed delivery events",
 		"events", len(events), "facts", len(facts), "recoveries", len(recoveries))
-	return touched, sweptToMs, nil
+	return touched, progress, nil
 }
 
 // foldEvent turns one delivery event into its fact writes. The store's upsert
