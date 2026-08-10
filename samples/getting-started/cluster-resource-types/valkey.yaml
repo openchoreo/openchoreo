@@ -58,10 +58,10 @@ spec:
     - name: adminURL
       value: >-
         ${environmentConfigs.adminEnabled
-          ? (has(gateway.ingress.external.https)
-              ? "https://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.https.host + ":" + string(gateway.ingress.external.https.port) + "/"
-              : has(gateway.ingress.external.http)
-                  ? "http://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + gateway.ingress.external.http.host + ":" + string(gateway.ingress.external.http.port) + "/"
+          ? (has(environment.gateway) && has(environment.gateway.ingress.external.https)
+              ? "https://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + environment.gateway.ingress.external.https.host + ":" + string(environment.gateway.ingress.external.https.port) + "/"
+              : has(environment.gateway) && has(environment.gateway.ingress.external.http)
+                  ? "http://" + metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + environment.gateway.ingress.external.http.host + ":" + string(environment.gateway.ingress.external.http.port) + "/"
                   : "no-gateway-configured")
           : "disabled"}
 
@@ -173,7 +173,7 @@ spec:
                       name: valkey
 
     - id: admin-deployment
-      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway) && has(environment.gateway.ingress.external)}"
       template:
         apiVersion: apps/v1
         kind: Deployment
@@ -213,7 +213,7 @@ spec:
                       name: http
 
     - id: admin-service
-      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway) && has(environment.gateway.ingress.external)}"
       template:
         apiVersion: v1
         kind: Service
@@ -230,7 +230,7 @@ spec:
               targetPort: 8081
 
     - id: admin-route
-      includeWhen: "${environmentConfigs.adminEnabled && has(gateway.ingress.external)}"
+      includeWhen: "${environmentConfigs.adminEnabled && has(environment.gateway) && has(environment.gateway.ingress.external)}"
       template:
         apiVersion: gateway.networking.k8s.io/v1
         kind: HTTPRoute
@@ -240,10 +240,10 @@ spec:
           labels: ${metadata.labels}
         spec:
           parentRefs:
-            - name: ${gateway.ingress.external.name}
-              namespace: ${gateway.ingress.external.namespace}
+            - name: ${environment.gateway.ingress.external.name}
+              namespace: ${environment.gateway.ingress.external.namespace}
           hostnames: |
-            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+            ${[environment.gateway.ingress.external.?http, environment.gateway.ingress.external.?https]
               .filter(g, g.hasValue()).map(g, g.value().host).distinct()
               .map(h, metadata.resourceName + "-admin-" + metadata.environmentName + "-" + metadata.resourceNamespace + "." + h)}
           rules:
