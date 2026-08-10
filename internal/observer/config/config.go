@@ -5,6 +5,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -43,6 +44,9 @@ type AdaptersConfig struct {
 
 	MetricsAdapterURL     string        `koanf:"metrics.adapter.url"`
 	MetricsAdapterTimeout time.Duration `koanf:"metrics.adapter.timeout"`
+
+	FinOpsAdapterURL     string        `koanf:"finops.adapter.url"`
+	FinOpsAdapterTimeout time.Duration `koanf:"finops.adapter.timeout"`
 }
 
 // ServerConfig holds HTTP server configuration
@@ -199,6 +203,8 @@ func Load() (*Config, error) {
 		"TRACING_ADAPTER_TIMEOUT":               "adapters.tracing.adapter.timeout",
 		"METRICS_ADAPTER_URL":                   "adapters.metrics.adapter.url",
 		"METRICS_ADAPTER_TIMEOUT":               "adapters.metrics.adapter.timeout",
+		"FINOPS_ADAPTER_URL":                    "adapters.finops.adapter.url",
+		"FINOPS_ADAPTER_TIMEOUT":                "adapters.finops.adapter.timeout",
 		"UID_RESOLVER_OPENCHOREO_API_URL":       "uid_resolver.openchoreo.api.url",
 		"UID_RESOLVER_OAUTH_TOKEN_URL":          "uid_resolver.oauth.token.url",
 		"UID_RESOLVER_OAUTH_CLIENT_ID":          "uid_resolver.oauth.client.id",
@@ -323,6 +329,8 @@ func getDefaults() map[string]interface{} {
 			"tracing.adapter.timeout": "30s",
 			"metrics.adapter.url":     "http://metrics-adapter:9099",
 			"metrics.adapter.timeout": "30s",
+			"finops.adapter.url":      "http://finops-adapter:9101",
+			"finops.adapter.timeout":  "30s",
 		},
 		"uid_resolver": map[string]interface{}{
 			"openchoreo.api.url":       "http://api.openchoreo.localhost:9099",
@@ -404,6 +412,26 @@ func (c *Config) validate() error {
 
 	if c.Adapters.MetricsAdapterTimeout <= 0 {
 		return fmt.Errorf("metrics adapter timeout must be positive")
+	}
+
+	// Validate and normalize FinOpsAdapter configuration
+	// Strip surrounding whitespace and trailing slashes first, then reject empty,
+	// so whitespace-only or slash-only URLs cannot pass validation.
+	c.Adapters.FinOpsAdapterURL = strings.TrimRight(strings.TrimSpace(c.Adapters.FinOpsAdapterURL), "/")
+	if c.Adapters.FinOpsAdapterURL == "" {
+		return fmt.Errorf("FinOps adapter URL is required")
+	}
+	parsedFinOpsURL, err := url.Parse(c.Adapters.FinOpsAdapterURL)
+	if err != nil {
+		return fmt.Errorf("FinOps adapter URL is invalid: %w", err)
+	}
+	if !parsedFinOpsURL.IsAbs() || parsedFinOpsURL.Host == "" ||
+		(parsedFinOpsURL.Scheme != "http" && parsedFinOpsURL.Scheme != "https") {
+		return fmt.Errorf("FinOps adapter URL must be an absolute http(s) URL with a host")
+	}
+
+	if c.Adapters.FinOpsAdapterTimeout <= 0 {
+		return fmt.Errorf("FinOps adapter timeout must be positive")
 	}
 
 	return nil

@@ -73,6 +73,19 @@ func main() {
 	)
 	logger.Info("Metrics adapter initialized", "adapter_url", sanitizeURL(cfg.Adapters.MetricsAdapterURL))
 
+	// Initialize FinOps adapter (forwards cost-insights queries to external adapter)
+	finopsAdapter, err := service.NewFinOpsAdapter(
+		cfg.Adapters.FinOpsAdapterURL,
+		cfg.Adapters.FinOpsAdapterTimeout,
+		uidResolver,
+		logger.With("component", "finops-adapter"),
+	)
+	if err != nil {
+		logger.Error("Failed to create finops adapter", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("FinOps adapter initialized", "adapter_url", sanitizeURL(cfg.Adapters.FinOpsAdapterURL))
+
 	// Initialize metrics adapter HTTP client for alert CRUD forwarding
 	metricsAdapterClient := &http.Client{
 		Timeout: cfg.Adapters.MetricsAdapterTimeout,
@@ -212,6 +225,8 @@ func main() {
 		metricsService, authzClient, logger.With("component", "authz-metrics"))
 	authzTracesService := service.NewTracesServiceWithAuthz(
 		tracesService, authzClient, logger.With("component", "authz-traces"))
+	authzFinOpsService := service.NewFinOpsServiceWithAuthz(
+		finopsAdapter, authzClient, logger.With("component", "authz-finops"))
 	authzAlertIncidentService := service.NewAlertIncidentServiceWithAuthz(
 		alertService, authzClient, logger.With("component", "authz-alerts-incidents"))
 
@@ -223,6 +238,7 @@ func main() {
 		authzMetricsService,
 		authzAlertIncidentService,
 		authzTracesService,
+		authzFinOpsService,
 		logger.With("component", "api-handler"),
 	)
 
@@ -270,6 +286,14 @@ func main() {
 	api.HandleFunc("POST /api/v1alpha1/alerts/query", newAPIHandler.QueryAlerts)
 	api.HandleFunc("POST /api/v1alpha1/incidents/query", newAPIHandler.QueryIncidents)
 	api.HandleFunc("PUT /api/v1alpha1/incidents/{incidentId}", newAPIHandler.UpdateIncident)
+
+	// ===== New API Routes (v1alpha1) FinOps cost insights =====
+	api.HandleFunc(
+		"GET /api/v1alpha1/costs/namespaces/{namespace}/environments/{environment}",
+		newAPIHandler.GetComponentCosts)
+	api.HandleFunc(
+		"GET /api/v1alpha1/costs/namespaces/{namespace}/environments/{environment}/recommendations",
+		newAPIHandler.GetRecommendations)
 
 	// Initialize new MCP handler backed by the authz-wrapped service layer
 	newMCPHandler, err := observermcp.NewMCPHandler(

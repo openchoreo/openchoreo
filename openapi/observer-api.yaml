@@ -22,6 +22,8 @@ tags:
     description: Log retrieval endpoints
   - name: Events
     description: Kubernetes event retrieval endpoints
+  - name: FinOps
+    description: Cost insights and right-sizing recommendation endpoints
   - name: Health
     description: Health check endpoints
 
@@ -231,6 +233,121 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # FinOps cost insights endpoints
+  /api/v1alpha1/costs/namespaces/{namespace}/environments/{environment}:
+    get:
+      tags:
+        - FinOps
+      summary: Component cost records for a namespace+environment
+      description: |
+        Returns a flat list of per-component cost records for the namespace
+        within the given environment. Use `project` and `component` to narrow
+        the scope, and `granularity` to split each component into time buckets.
+      operationId: getComponentCosts
+      parameters:
+        - $ref: "#/components/parameters/FinOpsNamespace"
+        - $ref: "#/components/parameters/FinOpsEnvironment"
+        - $ref: "#/components/parameters/FinOpsProject"
+        - $ref: "#/components/parameters/FinOpsComponent"
+        - $ref: "#/components/parameters/FinOpsStartTime"
+        - $ref: "#/components/parameters/FinOpsEndTime"
+        - $ref: "#/components/parameters/FinOpsGranularity"
+      responses:
+        "200":
+          description: A list of component cost records.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1alpha1/costs/namespaces/{namespace}/environments/{environment}/recommendations:
+    get:
+      tags:
+        - FinOps
+      summary: Right-sizing recommendations for a project or single component
+      description: |
+        Returns right-sizing recommendations for components in the specified
+        environment. Each recommendation compares current resource requests and
+        limits against recommended values derived from observed usage. The
+        `project` and `component` query params filter the result the same way
+        they do on the costs endpoint; `component` may only be set when
+        `project` is also set.
+      operationId: getRecommendations
+      parameters:
+        - $ref: "#/components/parameters/FinOpsNamespace"
+        - $ref: "#/components/parameters/FinOpsEnvironment"
+        - $ref: "#/components/parameters/FinOpsProject"
+        - $ref: "#/components/parameters/FinOpsComponent"
+        - $ref: "#/components/parameters/FinOpsStartTime"
+        - $ref: "#/components/parameters/FinOpsEndTime"
+      responses:
+        "200":
+          description: A list of right-sizing recommendations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecommendationResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
           content:
             application/json:
               schema:
@@ -790,6 +907,70 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
 components:
+  parameters:
+    FinOpsNamespace:
+      name: namespace
+      in: path
+      required: true
+      description: Namespace name.
+      schema:
+        type: string
+        example: default
+    FinOpsEnvironment:
+      name: environment
+      in: path
+      required: true
+      description: Environment name.
+      schema:
+        type: string
+        example: production
+    FinOpsProject:
+      name: project
+      in: query
+      required: false
+      description: Project name. When set, narrows the response to components in this project.
+      schema:
+        type: string
+        example: gcp-microservices
+    FinOpsComponent:
+      name: component
+      in: query
+      required: false
+      description: Component name. When set, narrows the response to this single component. Requires `project`.
+      schema:
+        type: string
+        example: checkout-service
+    FinOpsStartTime:
+      name: startTime
+      in: query
+      required: true
+      description: Inclusive lower bound of the cost window (RFC 3339, second precision).
+      schema:
+        type: string
+        format: date-time
+        example: "2026-05-23T10:00:01Z"
+    FinOpsEndTime:
+      name: endTime
+      in: query
+      required: true
+      description: Exclusive upper bound of the cost window (RFC 3339). Must be strictly greater than startTime.
+      schema:
+        type: string
+        format: date-time
+        example: "2026-05-24T10:00:01Z"
+    FinOpsGranularity:
+      name: granularity
+      in: query
+      required: false
+      description: |
+        When present, each component is split into one record per time bucket of
+        this size. Uses `<count><unit>` notation where unit is one of `h`
+        (hours), `d` (days), or `w` (weeks). For example `1h`, `2d`, `3w`.
+      schema:
+        type: string
+        pattern: '^[1-9][0-9]*[hdw]$'
+        example: 1d
+
   schemas:
     # Request schemas for logs
     ComponentSearchScope:
@@ -2084,6 +2265,162 @@ components:
               type: string
               description: The UID of the project
               format: uuid
+
+    # FinOps cost insights schemas
+    CostResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: |
+            Flat list of per-component cost records. Without `granularity`, one
+            record per component. With `granularity`, one record per component
+            per time bucket.
+          items:
+            $ref: "#/components/schemas/ComponentCost"
+
+    ComponentCost:
+      type: object
+      required:
+        - componentUid
+        - component
+        - startTime
+        - endTime
+        - environmentUid
+        - environment
+        - projectUid
+        - project
+        - namespace
+        - cpuCost
+        - memoryCost
+        - efficiency
+      properties:
+        componentUid:
+          type: string
+          format: uuid
+          description: UID of the component this record belongs to.
+        component:
+          type: string
+          description: Human-readable component name.
+        startTime:
+          type: string
+          format: date-time
+          description: Inclusive start of the window this record covers.
+        endTime:
+          type: string
+          format: date-time
+          description: Exclusive end of the window this record covers.
+        environmentUid:
+          type: string
+          format: uuid
+        environment:
+          type: string
+          description: Human-readable environment name.
+        projectUid:
+          type: string
+          format: uuid
+        project:
+          type: string
+          description: Human-readable project name.
+        namespace:
+          type: string
+          description: Namespace name.
+        cpuCost:
+          type: number
+          format: float
+          description: CPU cost for this record's window.
+        memoryCost:
+          type: number
+          format: float
+          description: Memory cost for this record's window.
+        efficiency:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: |
+            Cost-weighted blend of CPU and memory utilization for this record's
+            window. A value of 0.85 means 85% of what was paid for was used.
+
+    RecommendationResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: |
+            One recommendation per component in scope. A single element when
+            `component` is specified; one per component in the project otherwise.
+          items:
+            $ref: "#/components/schemas/ComponentRecommendation"
+
+    ComponentRecommendation:
+      type: object
+      required:
+        - componentUid
+        - component
+        - environmentUid
+        - environment
+        - projectUid
+        - project
+        - namespace
+        - current
+        - recommendation
+      properties:
+        componentUid:
+          type: string
+          format: uuid
+        component:
+          type: string
+          description: Human-readable component name.
+        environmentUid:
+          type: string
+          format: uuid
+        environment:
+          type: string
+          description: Human-readable environment name.
+        projectUid:
+          type: string
+          format: uuid
+        project:
+          type: string
+          description: Human-readable project name.
+        namespace:
+          type: string
+        current:
+          $ref: "#/components/schemas/ResourceProfile"
+        recommendation:
+          $ref: "#/components/schemas/ResourceProfile"
+
+    ResourceProfile:
+      type: object
+      description: |
+        Resource requests, limits, and resulting cost. Resource fields use
+        Kubernetes quantity notation as strings (e.g. `"230m"` for CPU
+        millicores, `"250Mi"` for memory).
+      required: [cpuRequest, cpuLimit, memoryRequest, memoryLimit, cpuCost, memoryCost]
+      properties:
+        cpuRequest:
+          type: string
+          example: "230m"
+        cpuLimit:
+          type: string
+          example: "530m"
+        memoryRequest:
+          type: string
+          example: "250Mi"
+        memoryLimit:
+          type: string
+          example: "500Mi"
+        cpuCost:
+          type: number
+          format: float
+          description: CPU cost for the selected time window at these resource settings.
+        memoryCost:
+          type: number
+          format: float
+          description: Memory cost for the selected time window at these resource settings.
 
     # New error response schema
     ErrorResponse:

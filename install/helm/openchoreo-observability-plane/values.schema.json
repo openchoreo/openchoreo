@@ -1391,6 +1391,27 @@
           "title": "extraEnvs",
           "type": "array"
         },
+        "finOpsAdapter": {
+          "additionalProperties": false,
+          "description": "Configurations for FinOps adapter connectivity",
+          "properties": {
+            "timeout": {
+              "default": "30s",
+              "description": "Timeout for FinOps adapter requests",
+              "title": "timeout",
+              "type": "string"
+            },
+            "url": {
+              "default": "http://finops-adapter:9101",
+              "description": "URL of the FinOps adapter service",
+              "title": "url",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "finOpsAdapter",
+          "type": "object"
+        },
         "http": {
           "additionalProperties": false,
           "description": "HTTPRoute configuration for the Observer service",

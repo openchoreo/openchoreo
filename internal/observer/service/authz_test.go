@@ -373,3 +373,74 @@ func TestMetricsAuthz_QueryRuntimeTopology_Denied(t *testing.T) {
 	_, err := svc.QueryRuntimeTopology(authedCtx(), req)
 	assert.ErrorIs(t, err, observerAuthz.ErrAuthzForbidden)
 }
+
+// --- FinOpsQuerier Authz Tests ---
+
+func finopsCostReq() *types.CostQueryRequest {
+	return &types.CostQueryRequest{
+		Namespace:   "ns",
+		Environment: "env",
+		Project:     "proj",
+		Component:   "comp",
+		StartTime:   "2026-05-23T10:00:01Z",
+		EndTime:     "2026-05-24T10:00:01Z",
+	}
+}
+
+func TestFinOpsAuthz_GetComponentCosts_NilPDP(t *testing.T) {
+	inner := mocks.NewMockFinOpsQuerier(t)
+	inner.EXPECT().GetComponentCosts(mock.Anything, mock.Anything).Return("result", nil)
+
+	svc := NewFinOpsServiceWithAuthz(inner, nil, testLogger())
+
+	resp, err := svc.GetComponentCosts(context.Background(), finopsCostReq())
+	require.NoError(t, err)
+	assert.Equal(t, "result", resp)
+}
+
+func TestFinOpsAuthz_GetComponentCosts_Allowed(t *testing.T) {
+	inner := mocks.NewMockFinOpsQuerier(t)
+	inner.EXPECT().GetComponentCosts(mock.Anything, mock.Anything).Return("result", nil)
+
+	svc := NewFinOpsServiceWithAuthz(inner, mockPDPAllow(t), testLogger())
+
+	resp, err := svc.GetComponentCosts(authedCtx(), finopsCostReq())
+	require.NoError(t, err)
+	assert.Equal(t, "result", resp)
+}
+
+func TestFinOpsAuthz_GetComponentCosts_Denied(t *testing.T) {
+	inner := mocks.NewMockFinOpsQuerier(t)
+
+	svc := NewFinOpsServiceWithAuthz(inner, mockPDPDeny(t), testLogger())
+
+	_, err := svc.GetComponentCosts(authedCtx(), finopsCostReq())
+	assert.ErrorIs(t, err, observerAuthz.ErrAuthzForbidden)
+}
+
+func TestFinOpsAuthz_GetComponentCosts_NilRequest(t *testing.T) {
+	inner := mocks.NewMockFinOpsQuerier(t)
+
+	svc := NewFinOpsServiceWithAuthz(inner, nil, testLogger())
+
+	_, err := svc.GetComponentCosts(context.Background(), nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "FinOps cost query request is required")
+}
+
+func TestFinOpsAuthz_GetRecommendations_Denied(t *testing.T) {
+	inner := mocks.NewMockFinOpsQuerier(t)
+
+	svc := NewFinOpsServiceWithAuthz(inner, mockPDPDeny(t), testLogger())
+	req := &types.RecommendationQueryRequest{
+		Namespace:   "ns",
+		Environment: "env",
+		Project:     "proj",
+		Component:   "comp",
+		StartTime:   "2026-05-23T10:00:01Z",
+		EndTime:     "2026-05-24T10:00:01Z",
+	}
+
+	_, err := svc.GetRecommendations(authedCtx(), req)
+	assert.ErrorIs(t, err, observerAuthz.ErrAuthzForbidden)
+}
