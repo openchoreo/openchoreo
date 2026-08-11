@@ -451,7 +451,7 @@ Variants:
 {% endif -%}
 - **Never** ask the user for time ranges / RFC3339 — derive from the failed task's `startedAt`/`finishedAt`.
 - **Never** invent contents of an Argo `ClusterWorkflowTemplate` referenced by `templateRef` — surface the name and tell the user to `kubectl` it.
-- If `get_workflow_run_logs` is empty → try events (`get_workflow_run_events`, then `query_workflow_events` if empty/expired); if no live or historical event source yields a decisive error → try `query_workflow_logs` once, even when events contain non-diagnostic rows; only if all four sources are empty → use the "fully empty" shape, suggest checking pod retention, stop.
+- If `get_workflow_run_logs` yields no decisive error — whether empty or containing only routine output — try events (`get_workflow_run_events`, then `query_workflow_events` if empty/expired); if no live or historical event source yields a decisive error → try `query_workflow_logs` once, even when events contain non-diagnostic rows; only if all four sources are empty → use the "fully empty" shape, suggest checking pod retention, stop.
 - **Never** end a reply with offers like "If you want, I can also inspect the workflow spec / runtime config / events". You already fetched the workflow spec on turn 1 — state findings (drift or clean), don't propose follow-ups the user has to ask for.
 - No marketing language. No "Hopefully this helps!" / "Feel free to ask!". No restating the user's question. Do NOT mention tool names in the user-facing message.
 
