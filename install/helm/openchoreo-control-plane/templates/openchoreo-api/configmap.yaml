@@ -62,6 +62,13 @@ data:
       toolsets:
         {{- toYaml .Values.openchoreoApi.config.mcp.toolsets | nindent 8 }}
 
+    audit:
+      enabled: {{ .Values.openchoreoApi.config.audit.enabled }}
+      defaults:
+        {{- toYaml .Values.openchoreoApi.config.audit.defaults | nindent 8 }}
+      policies:
+        {{- toYaml .Values.openchoreoApi.config.audit.policies | nindent 8 }}
+
     secret_management:
       enabled: {{ .Values.features.secretManagement.enabled }}
 

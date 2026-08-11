@@ -6,6 +6,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -19,6 +20,21 @@ const (
 	methodCallTool = "tools/call"
 	// methodListTools is the MCP method name for listing tools.
 	methodListTools = "tools/list"
+)
+
+// Sentinel errors wrapped into filterCallTool's denial errors so a caller
+// (the audit middleware) can classify why a call was rejected via errors.Is,
+// rather than string-matching an error message. ErrPDPFailure is deliberately
+// distinct from the other two: it means the PDP could not be reached or
+// evaluated — an infrastructure failure, not a policy decision — and must not
+// be recorded as if the user had been denied by policy.
+var (
+	// ErrNoSubject means the request carried no authenticated subject.
+	ErrNoSubject = errors.New("no authenticated user")
+	// ErrForbidden means the PDP evaluated the request and denied it.
+	ErrForbidden = errors.New("missing required permission")
+	// ErrPDPFailure means the PDP could not be reached or evaluated.
+	ErrPDPFailure = errors.New("could not evaluate permissions")
 )
 
 // NewToolFilterMiddleware returns an MCP receiving middleware that filters
@@ -152,7 +168,7 @@ func filterCallTool(
 
 	subjectCtx, _ := auth.GetSubjectContextFromContext(ctx)
 	if subjectCtx == nil {
-		return nil, fmt.Errorf("not authorized to call tool %q: no authenticated user", toolName)
+		return nil, fmt.Errorf("not authorized to call tool %q: %w", toolName, ErrNoSubject)
 	}
 
 	requiredAction := perm.ActionForScope(callToolScopeArg(req))
@@ -167,11 +183,12 @@ func filterCallTool(
 		Scope:          callToolScope(req),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("not authorized to call tool %q: could not evaluate permissions", toolName)
+		return nil, fmt.Errorf("not authorized to call tool %q: %w", toolName, ErrPDPFailure)
 	}
 
 	if !hasActionCapability(requiredAction, profile) {
-		return nil, fmt.Errorf("not authorized to call tool %q: missing permission %q", toolName, requiredAction)
+		return nil, fmt.Errorf("not authorized to call tool %q: missing permission %q: %w",
+			toolName, requiredAction, ErrForbidden)
 	}
 
 	return next(ctx, method, req)
