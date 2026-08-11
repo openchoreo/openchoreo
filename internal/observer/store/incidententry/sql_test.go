@@ -89,6 +89,24 @@ func TestWriteIncidentEntryWithMissingAlertID(t *testing.T) {
 	require.Error(t, err, "expected error for missing alert id")
 }
 
+func TestInitializeAlertTimestampIndexError(t *testing.T) {
+	t.Parallel()
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	store, err := New(BackendSQLite, dsn, slog.Default())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, store.Close()) })
+
+	sqlStore := store.(*sqlStore)
+	_, err = sqlStore.db.ExecContext(context.Background(),
+		"CREATE TABLE idx_incident_entries_alert_ts (id TEXT)")
+	require.NoError(t, err)
+
+	err = store.Initialize(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create incident_entries alert index")
+}
+
 func TestGetIncidentStatusByAlertID(t *testing.T) {
 	t.Parallel()
 
@@ -168,7 +186,6 @@ func TestGetIncidentStatusByAlertID_PostgreSQL(t *testing.T) {
 	assert.True(t, found)
 	assert.Equal(t, StatusAcknowledged, status)
 }
-
 
 func TestQueryIncidentEntries(t *testing.T) {
 	t.Parallel()

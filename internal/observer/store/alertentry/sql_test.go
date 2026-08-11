@@ -292,4 +292,3 @@ func TestGetRecentAlert_PostgreSQL(t *testing.T) {
 	assert.Equal(t, latestID, latest.ID)
 	assert.True(t, latest.IncidentEnabled)
 }
-
