@@ -34,14 +34,14 @@ type EmailConfig struct {
 	// From is the sender email address
 	// Required when type is "email"
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9.!#$%&'*+/=?^_~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$`
+	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9!#$%&'*+/=?^_~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_~-]+)*@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$`
 	From string `json:"from"`
 
 	// To is the list of recipient email addresses
 	// Required when type is "email"
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:items:Pattern=`^[a-zA-Z0-9.!#$%&'*+/=?^_~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$`
+	// +kubebuilder:validation:items:Pattern=`^[a-zA-Z0-9!#$%&'*+/=?^_~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_~-]+)*@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$`
 	To []string `json:"to"`
 
 	// SMTP configuration for sending emails

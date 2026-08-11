@@ -1238,6 +1238,36 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(apierrors.IsInvalid(err)).To(BeTrue())
 			Expect(err.Error()).To(ContainSubstring("spec.emailConfig.to"))
 		})
+
+		DescribeTable("should reject a From address with invalid dot placement",
+			func(name, from string) {
+				channel := newEmailChannel(name, from, []string{"valid@example.com"})
+
+				err := k8sClient.Create(testCtx, channel)
+
+				Expect(err).To(HaveOccurred())
+				Expect(apierrors.IsInvalid(err)).To(BeTrue())
+				Expect(err.Error()).To(ContainSubstring("spec.emailConfig.from"))
+			},
+			Entry("leading dot", "invalid-from-leading-dot", ".user@example.com"),
+			Entry("consecutive dots", "invalid-from-consecutive-dots", "user..name@example.com"),
+			Entry("trailing dot", "invalid-from-trailing-dot", "user.@example.com"),
+		)
+
+		DescribeTable("should reject a To address with invalid dot placement",
+			func(name, to string) {
+				channel := newEmailChannel(name, "valid@example.com", []string{to})
+
+				err := k8sClient.Create(testCtx, channel)
+
+				Expect(err).To(HaveOccurred())
+				Expect(apierrors.IsInvalid(err)).To(BeTrue())
+				Expect(err.Error()).To(ContainSubstring("spec.emailConfig.to"))
+			},
+			Entry("leading dot", "invalid-to-leading-dot", ".user@example.com"),
+			Entry("consecutive dots", "invalid-to-consecutive-dots", "user..name@example.com"),
+			Entry("trailing dot", "invalid-to-trailing-dot", "user.@example.com"),
+		)
 	})
 })
 

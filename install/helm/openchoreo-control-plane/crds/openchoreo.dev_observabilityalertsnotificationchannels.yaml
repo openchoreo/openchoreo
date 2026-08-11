@@ -60,7 +60,7 @@ spec:
                     description: |-
                       From is the sender email address
                       Required when type is "email"
-                    pattern: ^[a-zA-Z0-9.!#$%&'*+/=?^_~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$
+                    pattern: ^[a-zA-Z0-9!#$%&'*+/=?^_~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_~-]+)*@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$
                     type: string
                   smtp:
                     description: |-
@@ -166,7 +166,7 @@ spec:
                       To is the list of recipient email addresses
                       Required when type is "email"
                     items:
-                      pattern: ^[a-zA-Z0-9.!#$%&'*+/=?^_~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$
+                      pattern: ^[a-zA-Z0-9!#$%&'*+/=?^_~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_~-]+)*@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$
                       type: string
                     minItems: 1
                     type: array
