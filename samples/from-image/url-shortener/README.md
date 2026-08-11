@@ -98,7 +98,7 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 After the alert fires, revert by applying the fix from the UI if suggested, or manually via:
 
 ```bash
-kubectl patch resourcereleasebinding snip-postgres-development --type=json -p '[{"op":"remove","path":"/spec/resourceTypeEnvironmentConfigs"}]'
+kubectl patch resourcereleasebinding snip-postgres-development -n default --type=json -p '[{"op":"remove","path":"/spec/resourceTypeEnvironmentConfigs"}]'
 ```
 
 ## Cleanup
