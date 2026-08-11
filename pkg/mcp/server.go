@@ -11,6 +11,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
+	"github.com/openchoreo/openchoreo/pkg/mcp/mcpaudit"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
@@ -53,13 +54,31 @@ const (
 // nil (authz disabled) all registered tools are visible and callable — the
 // service layer still enforces authz independently. The toolset filter is
 // always applied when the client requests it, regardless of pdp.
-func NewHTTPServer(toolsets *tools.Toolsets, pdp authzcore.PDP) http.Handler {
+//
+// auditOpts is passed straight through to mcpaudit.NewMiddleware. Its Emitter
+// is the same *audit.Emitter the REST adapter uses, so one policy applies
+// identically on both surfaces; its Bindings should come from the same
+// operation table the REST adapter defines (e.g. apiaudit.MCPBindings()).
+//
+// This function is the single place the MCP receiving-middleware chain is
+// composed. A wiring test drives exactly this AddReceivingMiddleware call;
+// rebuilding the chain elsewhere risks silently un-guarding MCP audit (#2588).
+func NewHTTPServer(toolsets *tools.Toolsets, pdp authzcore.PDP, auditOpts mcpaudit.MiddlewareOptions) http.Handler {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "openchoreo-api",
 		Version: "1.0.0",
 	}, nil)
 	perms, toolToToolsets := toolsets.Register(server)
-	server.AddReceivingMiddleware(tools.NewToolFilterMiddleware(pdp, perms, toolToToolsets))
+
+	auditMw := mcpaudit.NewMiddleware(auditOpts)
+	filterMw := tools.NewToolFilterMiddleware(pdp, perms, toolToToolsets)
+
+	// go-sdk wraps middleware[0] outermost in AddReceivingMiddleware — the
+	// opposite of APIMiddlewares' last-is-outermost convention. Audit goes
+	// first so it observes the authz filter's denials as well as tool
+	// successes and failures.
+	server.AddReceivingMiddleware(auditMw, filterMw)
+
 	streamable := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return server
 	}, nil)

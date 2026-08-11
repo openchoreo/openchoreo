@@ -726,3 +726,48 @@ func TestToolFilterMiddlewareToolsetNarrowingDoesNotGateCall(t *testing.T) {
 		t.Error("expected tool handler to be called — toolset narrowing only applies to tools/list")
 	}
 }
+
+// TestFilterCallTool_SentinelClassification exercises filterCallTool directly
+// (bypassing the JSON-RPC transport, which would erase the Go error chain) to
+// confirm its three denial sites wrap distinct sentinels: a PDP outage
+// (ErrPDPFailure) must be classifiable as an infrastructure failure, never as
+// if the user had actually been denied by policy (ErrForbidden).
+func TestFilterCallTool_SentinelClassification(t *testing.T) {
+	perms := map[string]ToolPermission{
+		"create_namespace": {ToolName: "create_namespace", Action: "namespace:create"},
+	}
+	req := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+		Params: &mcp.CallToolParamsRaw{Name: "create_namespace"},
+	}
+	next := func(_ context.Context, _ string, _ mcp.Request) (mcp.Result, error) {
+		t.Fatal("next should not be called when the call is denied")
+		return nil, nil
+	}
+
+	t.Run("no subject wraps ErrNoSubject", func(t *testing.T) {
+		pdp := &mockPDP{profile: allowAllProfile("namespace:create")}
+		_, err := filterCallTool(context.Background(), next, methodCallTool, req, pdp, perms)
+		if !errors.Is(err, ErrNoSubject) {
+			t.Errorf("err = %v, want it to wrap ErrNoSubject", err)
+		}
+	})
+
+	t.Run("PDP failure wraps ErrPDPFailure, not ErrForbidden", func(t *testing.T) {
+		pdp := &mockPDP{err: errors.New("pdp unavailable")}
+		_, err := filterCallTool(ctxWithSubject(context.Background()), next, methodCallTool, req, pdp, perms)
+		if !errors.Is(err, ErrPDPFailure) {
+			t.Errorf("err = %v, want it to wrap ErrPDPFailure", err)
+		}
+		if errors.Is(err, ErrForbidden) {
+			t.Errorf("err = %v, a PDP outage must not be classified as ErrForbidden", err)
+		}
+	})
+
+	t.Run("denied permission wraps ErrForbidden", func(t *testing.T) {
+		pdp := &mockPDP{profile: denyAllProfile()}
+		_, err := filterCallTool(ctxWithSubject(context.Background()), next, methodCallTool, req, pdp, perms)
+		if !errors.Is(err, ErrForbidden) {
+			t.Errorf("err = %v, want it to wrap ErrForbidden", err)
+		}
+	})
+}

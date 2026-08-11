@@ -18,7 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
@@ -28,12 +30,33 @@ import (
 // chain, and serialization — rather than calling handler methods directly.
 func newTestHTTPHandler(t *testing.T, services *handlerservices.Services) http.Handler {
 	t.Helper()
-	h := &Handler{services: services, logger: slog.Default()}
+	return newTestHTTPHandlerWithLogger(t, services, slog.Default())
+}
+
+// newTestHTTPHandlerWithLogger is like newTestHTTPHandler but lets the caller supply
+// the logger, so a test can capture emitted log records (e.g. audit events).
+//
+// Builds its chain via APIMiddlewares, the same constructor production uses,
+// so tests exercise the real middleware ordering rather than a hand-assembled
+// stand-in — do not rebuild the chain here instead (see #2588).
+func newTestHTTPHandlerWithLogger(t *testing.T, services *handlerservices.Services, logger *slog.Logger) http.Handler {
+	t.Helper()
+	auditCfg := config.AuditDefaults()
+	policies, err := auditCfg.BuildPolicySet()
+	require.NoError(t, err, "test audit defaults must build a valid PolicySet")
+	emitter := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(logger))
+
+	h := &Handler{services: services, logger: logger}
 	strictHandler := gen.NewStrictHandler(h, nil)
 	mux := http.NewServeMux()
 	gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
-		BaseRouter:  mux,
-		Middlewares: []gen.MiddlewareFunc{injectTestSubject},
+		BaseRouter: mux,
+		Middlewares: APIMiddlewares(APIMiddlewareOptions{
+			Logger:         logger,
+			AuthMiddleware: injectTestSubject,
+			AuditEmitter:   emitter,
+			AuditEnabled:   auditCfg.Enabled,
+		}),
 	})
 	return mux
 }

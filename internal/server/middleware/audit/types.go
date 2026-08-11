@@ -9,18 +9,23 @@ import (
 
 // Actor represents who performed the action
 type Actor struct {
-	Type         string                 `json:"type"`                   // e.g., "user", "service_account", "anonymous"
-	ID           string                 `json:"id"`                     // User ID, service account ID, or "anonymous"
-	Entitlements map[string]interface{} `json:"entitlements,omitempty"` // Optional entitlements associated with the actor
+	Type         string              `json:"type"`                   // e.g., "user", "service_account", "anonymous"
+	ID           string              `json:"id"`                     // User ID, service account ID, or "anonymous"
+	Entitlements map[string][]string `json:"entitlements,omitempty"` // Optional entitlements associated with the actor
 }
 
-// ActionCategory represents the category of audit action
-type ActionCategory string
+// Category represents the category of audit action
+type Category string
 
 const (
-	CategoryResource      ActionCategory = "resource"
-	CategoryAuth          ActionCategory = "auth"
-	CategoryObservability ActionCategory = "observability"
+	// CategoryManagement covers create/update/delete on managed platform
+	// resources (projects, dataplanes, environments, secrets today; more as
+	// P1 coverage expands).
+	CategoryManagement Category = "management"
+	// CategoryAuthorization covers authorization-change operations (authzroles,
+	// authzrolebindings). No Operation uses it yet (P1 coverage work), but
+	// policy.go's selector grammar already validates against it.
+	CategoryAuthorization Category = "authorization"
 )
 
 // Resource represents the target resource of an action
@@ -39,32 +44,29 @@ const (
 	ResultDenied  Result = "denied"
 )
 
+// Origin identifies which surface produced an audit event.
+type Origin string
+
+const (
+	OriginAPI Origin = "api"
+	OriginMCP Origin = "mcp"
+)
+
 // Event represents a complete audit log event
 type Event struct {
-	EventID   string         `json:"event_id"`           // Unique identifier (UUID v7)
-	Timestamp time.Time      `json:"timestamp"`          // When the action occurred
-	Actor     Actor          `json:"actor"`              // Who performed the action
-	Action    string         `json:"action"`             // Semantic action name (e.g., "create_project")
-	Category  ActionCategory `json:"category"`           // Action category
-	Resource  *Resource      `json:"resource"`           // Target resource (can be nil for non-resource actions)
-	Result    Result         `json:"result"`             // Outcome
-	RequestID string         `json:"request_id"`         // Correlation ID linking to access log
-	SourceIP  string         `json:"source_ip"`          // Client IP address
-	Service   string         `json:"service"`            // Emitting service (e.g., "openchoreo-api")
-	Metadata  map[string]any `json:"metadata,omitempty"` // Additional context (optional)
-}
-
-// ActionDefinition defines how to map an HTTP route to an audit action
-type ActionDefinition struct {
-	// Method is the HTTP method (GET, POST, PUT, DELETE, etc.)
-	Method string
-	// Pattern is the route pattern to match (using Go 1.22+ ServeMux patterns)
-	// Examples: "/api/v1/namespaces/{namespace}/projects", "POST /api/v1/components/{id}"
-	Pattern string
-	// Action is the semantic action name for audit logging
-	Action string
-	// Category is the action category
-	Category ActionCategory
+	EventID     string         `json:"event_id"`               // Unique identifier (UUID v7)
+	Timestamp   time.Time      `json:"timestamp"`              // When the action occurred
+	Actor       Actor          `json:"actor"`                  // Who performed the action
+	Action      string         `json:"action"`                 // Semantic action name (e.g., "create_project")
+	Category    Category       `json:"category"`               // Action category
+	Origin      Origin         `json:"origin,omitempty"`       // Surface that produced the event: api | mcp
+	OperationID string         `json:"operation_id,omitempty"` // OpenAPI operationId, e.g. "createProject"
+	Resource    *Resource      `json:"resource"`               // Target resource (can be nil for non-resource actions)
+	Result      Result         `json:"result"`                 // Outcome
+	RequestID   string         `json:"request_id"`             // Correlation ID linking to access log
+	SourceIP    string         `json:"source_ip"`              // Client IP address
+	Service     string         `json:"service"`                // Emitting service (e.g., "openchoreo-api")
+	Metadata    map[string]any `json:"metadata,omitempty"`     // Additional context (optional)
 }
 
 // AuditData is a mutable container for audit information set by handlers

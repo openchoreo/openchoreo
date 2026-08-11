@@ -5,59 +5,32 @@ package audit
 
 import (
 	"log/slog"
-	"time"
-
-	"github.com/google/uuid"
 )
 
-// Logger handles emitting audit log events using structured logging
+// Logger handles emitting audit log events using structured logging. It is a
+// pure reader of Event — EventID/Timestamp/Service are stamped once by
+// buildEvent (emitter.go), not here, so a second sink can't see a different
+// identity for the same event (see Emitter's doc comment).
 type Logger struct {
-	slogger     *slog.Logger
-	serviceName string
+	slogger *slog.Logger
 }
 
 // NewLogger creates a new audit logger
-func NewLogger(slogger *slog.Logger, serviceName string) *Logger {
-	return &Logger{
-		slogger:     slogger,
-		serviceName: serviceName,
-	}
+func NewLogger(slogger *slog.Logger) *Logger {
+	return &Logger{slogger: slogger}
 }
 
 // LogEvent emits an audit log event using slog
 func (l *Logger) LogEvent(event *Event) {
-	// Generate UUID v7 for event ID if not set
-	if event.EventID == "" {
-		if id, err := uuid.NewV7(); err == nil {
-			event.EventID = id.String()
-		} else {
-			// Fallback to v4 if v7 generation fails
-			event.EventID = uuid.New().String()
-		}
-	}
-
-	// Set timestamp if not already set
-	if event.Timestamp.IsZero() {
-		event.Timestamp = time.Now()
-	}
-
-	// Set service name if not already set
-	if event.Service == "" {
-		event.Service = l.serviceName
-	}
-
-	// Build slog attributes
 	attrs := []any{
 		slog.String("event_id", event.EventID),
 		slog.Time("timestamp", event.Timestamp),
 	}
 
-	// Build actor attributes
 	actorAttrs := []any{
 		slog.String("type", event.Actor.Type),
 		slog.String("id", event.Actor.ID),
 	}
-	// Add entitlements if present
 	if len(event.Actor.Entitlements) > 0 {
 		entitlementAttrs := make([]any, 0, len(event.Actor.Entitlements))
 		for k, v := range event.Actor.Entitlements {
@@ -67,7 +40,6 @@ func (l *Logger) LogEvent(event *Event) {
 	}
 	attrs = append(attrs, slog.Group("actor", actorAttrs...))
 
-	// Add remaining attributes
 	attrs = append(attrs,
 		slog.String("action", event.Action),
 		slog.String("category", string(event.Category)),
@@ -76,8 +48,13 @@ func (l *Logger) LogEvent(event *Event) {
 		slog.String("source_ip", event.SourceIP),
 		slog.String("service", event.Service),
 	)
+	if event.Origin != "" {
+		attrs = append(attrs, slog.String("origin", string(event.Origin)))
+	}
+	if event.OperationID != "" {
+		attrs = append(attrs, slog.String("operation_id", event.OperationID))
+	}
 
-	// Add resource if present
 	if event.Resource != nil {
 		resourceAttrs := []any{
 			slog.String("type", event.Resource.Type),
@@ -91,7 +68,6 @@ func (l *Logger) LogEvent(event *Event) {
 		attrs = append(attrs, slog.Group("resource", resourceAttrs...))
 	}
 
-	// Add metadata if present
 	if len(event.Metadata) > 0 {
 		metadataAttrs := make([]any, 0, len(event.Metadata))
 		for k, v := range event.Metadata {
@@ -100,6 +76,5 @@ func (l *Logger) LogEvent(event *Event) {
 		attrs = append(attrs, slog.Group("metadata", metadataAttrs...))
 	}
 
-	// Emit the audit log
 	l.slogger.Info("AUDIT-LOG", attrs...)
 }
