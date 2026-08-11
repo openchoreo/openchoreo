@@ -421,6 +421,7 @@ const createAlertRuleCRTimestampIndexQuery = `
 CREATE INDEX IF NOT EXISTS idx_alert_entries_cr_ts
 ON alert_entries(alert_rule_cr_name, alert_rule_cr_namespace, component_id, timestamp_ns);`
 
+// Use a backend-specific stable key to break ties between alerts with identical timestamps.
 const getRecentAlertSQLiteQuery = `
 SELECT id, incident_enabled FROM alert_entries
 WHERE alert_rule_cr_name = ? AND alert_rule_cr_namespace = ? AND component_id = ? AND timestamp_ns >= ?
