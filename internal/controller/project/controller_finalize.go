@@ -155,6 +155,9 @@ func (r *Reconciler) deleteComponentsAndWait(ctx context.Context, project *openc
 	logger.Info("Deleting owned Components", "count", len(componentsList.Items))
 	for i := range componentsList.Items {
 		component := &componentsList.Items[i]
+		if !component.DeletionTimestamp.IsZero() {
+			continue
+		}
 		if err := client.IgnoreNotFound(r.Delete(ctx, component)); err != nil {
 			return false, fmt.Errorf("failed to delete component %s: %w", component.Name, err)
 		}
@@ -185,6 +188,9 @@ func (r *Reconciler) deleteResourcesAndWait(ctx context.Context, project *opench
 	logger.Info("Deleting owned Resources", "count", len(resourcesList.Items))
 	for i := range resourcesList.Items {
 		resource := &resourcesList.Items[i]
+		if !resource.DeletionTimestamp.IsZero() {
+			continue
+		}
 		if err := client.IgnoreNotFound(r.Delete(ctx, resource)); err != nil {
 			return false, fmt.Errorf("failed to delete resource %s: %w", resource.Name, err)
 		}
@@ -218,6 +224,9 @@ func (r *Reconciler) deleteProjectReleaseBindingsAndWait(ctx context.Context, pr
 	logger.Info("Deleting ProjectReleaseBindings", "count", len(bindingsList.Items))
 	for i := range bindingsList.Items {
 		binding := &bindingsList.Items[i]
+		if !binding.DeletionTimestamp.IsZero() {
+			continue
+		}
 		if err := client.IgnoreNotFound(r.Delete(ctx, binding)); err != nil {
 			return false, fmt.Errorf("failed to delete project release binding %s: %w", binding.Name, err)
 		}

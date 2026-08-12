@@ -118,6 +118,9 @@ func (r *Reconciler) hasOwnedComponentReleases(ctx context.Context, comp *opench
 	logger.Info("Deleting owned ComponentReleases", "count", len(releaseList.Items))
 	for i := range releaseList.Items {
 		release := &releaseList.Items[i]
+		if !release.DeletionTimestamp.IsZero() {
+			continue
+		}
 		if err := client.IgnoreNotFound(r.Delete(ctx, release)); err != nil {
 			return false, fmt.Errorf("failed to delete component release %s: %w", release.Name, err)
 		}
@@ -148,6 +151,9 @@ func (r *Reconciler) hasOwnedReleaseBindings(ctx context.Context, comp *openchor
 	logger.Info("Deleting owned ReleaseBindings", "count", len(bindingList.Items))
 	for i := range bindingList.Items {
 		binding := &bindingList.Items[i]
+		if !binding.DeletionTimestamp.IsZero() {
+			continue
+		}
 		if err := client.IgnoreNotFound(r.Delete(ctx, binding)); err != nil {
 			return false, fmt.Errorf("failed to delete release binding %s: %w", binding.Name, err)
 		}
@@ -180,6 +186,9 @@ func (r *Reconciler) hasOwnedWorkloads(ctx context.Context, comp *openchoreov1al
 	logger.Info("Deleting owned Workloads", "count", len(workloadList.Items))
 	for i := range workloadList.Items {
 		workload := &workloadList.Items[i]
+		if !workload.DeletionTimestamp.IsZero() {
+			continue
+		}
 		if err := client.IgnoreNotFound(r.Delete(ctx, workload)); err != nil {
 			return false, fmt.Errorf("failed to delete workload %s: %w", workload.Name, err)
 		}
@@ -213,6 +222,9 @@ func (r *Reconciler) hasOwnedWorkflowRuns(ctx context.Context, comp *openchoreov
 	logger.Info("Deleting owned WorkflowRuns", "count", len(workflowRunList.Items))
 	for i := range workflowRunList.Items {
 		workflowRun := &workflowRunList.Items[i]
+		if !workflowRun.DeletionTimestamp.IsZero() {
+			continue
+		}
 		if err := client.IgnoreNotFound(r.Delete(ctx, workflowRun)); err != nil {
 			return false, fmt.Errorf("failed to delete workflow run %s: %w", workflowRun.Name, err)
 		}
