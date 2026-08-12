@@ -111,7 +111,19 @@ func (r *Reconciler) deleteChildAndLinkedResources(ctx context.Context, project 
 		return false, err
 	}
 
-	if !componentsDeleted || !resourcesDeleted || !bindingsDeleted {
+	if !bindingsDeleted {
+		logger.Info("Waiting for ProjectReleaseBindings to be deleted before removing ProjectReleases", "name", project.Name)
+		return false, nil
+	}
+
+	// Clean up project releases
+	releasesDeleted, err := r.deleteProjectReleasesAndWait(ctx, project)
+	if err != nil {
+		logger.Error(err, "Failed to delete project releases")
+		return false, err
+	}
+
+	if !componentsDeleted || !resourcesDeleted || !releasesDeleted {
 		logger.Info("Children are still being deleted", "name", project.Name)
 		return false, nil
 	}
@@ -229,6 +241,39 @@ func (r *Reconciler) deleteProjectReleaseBindingsAndWait(ctx context.Context, pr
 		}
 		if err := client.IgnoreNotFound(r.Delete(ctx, binding)); err != nil {
 			return false, fmt.Errorf("failed to delete project release binding %s: %w", binding.Name, err)
+		}
+	}
+
+	return false, nil
+}
+
+// deleteProjectReleasesAndWait checks if any ProjectReleases owned by this Project
+// still exist, and deletes them if they exist. ProjectReleases are deleted after
+// ProjectReleaseBindings have been successfully deleted, since a live binding pins
+// a ProjectRelease by name via spec.projectRelease.
+func (r *Reconciler) deleteProjectReleasesAndWait(ctx context.Context, project *openchoreov1alpha1.Project) (bool, error) {
+	logger := log.FromContext(ctx).WithValues("project", project.Name)
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	releasesList := &openchoreov1alpha1.ProjectReleaseList{}
+	if err := r.List(timeoutCtx, releasesList,
+		client.InNamespace(project.Namespace),
+		client.MatchingFields{controller.IndexKeyProjectReleaseOwner: project.Name}); err != nil {
+		return false, fmt.Errorf("failed to list project releases: %w", err)
+	}
+
+	if len(releasesList.Items) == 0 {
+		logger.Info("All project releases are deleted")
+		return true, nil
+	}
+
+	logger.Info("Deleting ProjectReleases", "count", len(releasesList.Items))
+	for i := range releasesList.Items {
+		release := &releasesList.Items[i]
+		if err := client.IgnoreNotFound(r.Delete(timeoutCtx, release)); err != nil {
+			return false, fmt.Errorf("failed to delete project release %s: %w", release.Name, err)
 		}
 	}
 
