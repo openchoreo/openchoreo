@@ -306,22 +306,26 @@ var _ = Describe("RenderedRelease Controller", func() {
 			Expect(cond.Reason).To(Equal(string(ReasonCleanupInProgress)))
 		})
 
-		It("should return error on second finalize reconcile when environment does not exist", func() {
+		It("should remove finalizer when environment does not exist", func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 
 			By("first reconcile: sets Finalizing condition")
 			_, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
 
-			By("second reconcile: Finalizing condition already set, tries to get DP client")
+			By("second reconcile: environment missing, skip remote cleanup and drop finalizer")
 			_, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("my-env"))
+			Expect(err).NotTo(HaveOccurred())
+
+			By("release is fully deleted once the finalizer is gone")
+			Eventually(func() bool {
+				return apierrors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{}))
+			}, "5s", "100ms").Should(BeTrue())
 		})
 
-		It("should keep the finalizer while cleanup is pending", func() {
+		It("should keep the finalizer after first reconcile while Finalizing is set", func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
-			// After one reconcile the finalizer should still be present (cleanup didn't succeed)
+			// First reconcile only persists the Finalizing condition and returns early.
 			_, _ = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 
 			got := &openchoreov1alpha1.RenderedRelease{}
