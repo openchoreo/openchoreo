@@ -72,6 +72,9 @@ spec:
         {{- if .Values.controllerManager.clusterGateway.tls.insecure }}
         - --cluster-gateway-insecure
         {{- end }}
+        {{- if .Values.controllerManager.manager.maxConcurrentReconciles }}
+        - --max-concurrent-reconciles={{ .Values.controllerManager.manager.maxConcurrentReconciles }}
+        {{- end }}
         env:
         - name: ENABLE_WEBHOOKS
           value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}
