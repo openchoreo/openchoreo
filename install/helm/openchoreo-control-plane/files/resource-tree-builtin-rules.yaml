@@ -1,0 +1,64 @@
+# Built-in resource tree traversal rules.
+#
+# GENERATED FILE — DO NOT EDIT. Generated from config.ResourceTreeDefaults()
+# in internal/openchoreo-api/config by hack/resource-tree-builtin-rules.
+# Regenerate with: make helm-generate.openchoreo-control-plane
+#
+# These are product behavior, not an operator setting. The chart renders this
+# list into the API server's config.yaml and no Helm value can edit it. To run
+# a different set entirely, set
+# openchoreoApi.config.resourceTree.disableBuiltInRules to true in values.yaml
+# and supply the complete set through openchoreoApi.config.resourceTree.rules.
+- root:
+    group: apps
+    version: v1
+    kind: Deployment
+    resource: deployments
+  children:
+    - kind:
+        group: apps
+        version: v1
+        kind: ReplicaSet
+        resource: replicasets
+      hide: true
+      children:
+        - kind:
+            version: v1
+            kind: Pod
+            resource: pods
+- root:
+    group: batch
+    version: v1
+    kind: CronJob
+    resource: cronjobs
+  children:
+    - kind:
+        group: batch
+        version: v1
+        kind: Job
+        resource: jobs
+      children:
+        - kind:
+            version: v1
+            kind: Pod
+            resource: pods
+- root:
+    group: batch
+    version: v1
+    kind: Job
+    resource: jobs
+  children:
+    - kind:
+        version: v1
+        kind: Pod
+        resource: pods
+- root:
+    group: external-secrets.io
+    version: v1
+    kind: ExternalSecret
+    resource: externalsecrets
+  children:
+    - kind:
+        version: v1
+        kind: Secret
+        resource: secrets

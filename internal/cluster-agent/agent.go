@@ -16,11 +16,19 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
+	"github.com/openchoreo/openchoreo/internal/resourcetree/protocol"
 )
+
+// resourceTreeRequestTimeout bounds one resource tree match request. It is the
+// bottom rung of protocol's timeout ladder, which owns the ordering against the
+// gateway's tunnel timeout and the caller's client timeout: the agent answers —
+// with whatever it has — before either gives up on it.
+const resourceTreeRequestTimeout = protocol.AgentRequestTimeout
 
 // Connection abstracts a WebSocket connection for testability.
 // *websocket.Conn satisfies this interface.
@@ -40,9 +48,13 @@ type Agent struct {
 	k8sClient  client.Client
 	k8sConfig  *rest.Config
 	router     *Router
-	mu         sync.Mutex
-	logger     *slog.Logger
-	stopChan   chan struct{}
+	// resourceTree answers resource tree match queries locally. It is nil when
+	// the agent was built without a dynamic client, in which case those
+	// requests fall through to the router and get its unknown-target 404.
+	resourceTree *resourceTreeHandler
+	mu           sync.Mutex
+	logger       *slog.Logger
+	stopChan     chan struct{}
 	// activeStreams tracks active exec streaming sessions indexed by requestID
 	activeStreams   map[string]*execSession
 	activeStreamsMu sync.Mutex
@@ -51,7 +63,7 @@ type Agent struct {
 	hubbleStreamsMu sync.Mutex
 }
 
-func New(cfg *Config, k8sClient client.Client, k8sConfig *rest.Config, logger *slog.Logger) (*Agent, error) {
+func New(cfg *Config, k8sClient client.Client, k8sConfig *rest.Config, dyn dynamic.Interface, logger *slog.Logger) (*Agent, error) {
 	var cert tls.Certificate
 	var serverCertPool *x509.CertPool
 
@@ -92,6 +104,13 @@ func New(cfg *Config, k8sClient client.Client, k8sConfig *rest.Config, logger *s
 		return nil, fmt.Errorf("failed to create router: %w", err)
 	}
 
+	var resourceTree *resourceTreeHandler
+	if dyn != nil {
+		resourceTree = newResourceTreeHandler(dyn, logger)
+	} else {
+		logger.Warn("no dynamic client provided; resource tree child discovery is disabled")
+	}
+
 	return &Agent{
 		config:        cfg,
 		clientCert:    cert,
@@ -99,6 +118,7 @@ func New(cfg *Config, k8sClient client.Client, k8sConfig *rest.Config, logger *s
 		k8sClient:     k8sClient,
 		k8sConfig:     k8sConfig,
 		router:        router,
+		resourceTree:  resourceTree,
 		logger:        logger.With("component", "agent", "planeID", cfg.PlaneID),
 		stopChan:      make(chan struct{}),
 		activeStreams: make(map[string]*execSession),
@@ -287,6 +307,22 @@ func (a *Agent) handleHTTPTunnelRequest(req *messaging.HTTPTunnelRequest) {
 		"path", req.Path,
 		"requestID", req.RequestID,
 	)
+
+	// Resource tree matching is answered by the agent itself rather than
+	// proxied to a backend: it needs many list calls the tunnel should not pay
+	// a round trip for each of.
+	if req.Target == protocol.Target && a.resourceTree != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), resourceTreeRequestTimeout)
+		defer cancel()
+
+		if err := a.sendHTTPTunnelResponse(a.resourceTree.Handle(ctx, req)); err != nil {
+			a.logger.Error("failed to send resource tree response",
+				"requestID", req.RequestID,
+				"error", err,
+			)
+		}
+		return
+	}
 
 	// Route the request to the appropriate backend service
 	response := a.router.Route(req)

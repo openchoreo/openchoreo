@@ -120,6 +120,13 @@ func (l *Loader) Raw() map[string]any {
 	return l.k.Raw()
 }
 
+// RawAt returns the loaded configuration under key as a nested value, or nil if
+// the key is not set. Use it to inspect a section before it is unmarshaled, for
+// example to reject unknown keys that unmarshaling would silently drop.
+func (l *Loader) RawAt(key string) any {
+	return l.k.Get(key)
+}
+
 // DumpYAML writes the loaded configuration as YAML to the provided writer.
 func (l *Loader) DumpYAML(w io.Writer) error {
 	return yaml.NewEncoder(w).Encode(l.k.Raw())

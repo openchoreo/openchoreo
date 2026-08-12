@@ -42,9 +42,15 @@ type TLSConfig struct {
 }
 
 type Client struct {
-	baseURL        string
-	httpClient     *http.Client
-	maxPodLogBytes int64
+	baseURL    string
+	httpClient *http.Client
+	// resourceTreeClient serves MatchResourceTreeChildren only. It shares
+	// httpClient's transport (and therefore its TLS config and connection pool)
+	// but carries its own, longer timeout, because the cluster agent budgets 25s
+	// for a match batch and the shared client's default would abort first.
+	// Its Timeout is a field so a test can shrink it.
+	resourceTreeClient *http.Client
+	maxPodLogBytes     int64
 }
 
 type PlaneNotification struct {
@@ -194,6 +200,10 @@ func NewClientWithConfig(config *Config) (*Client, error) {
 		baseURL: config.BaseURL,
 		httpClient: &http.Client{
 			Timeout:   timeout,
+			Transport: transport,
+		},
+		resourceTreeClient: &http.Client{
+			Timeout:   DefaultResourceTreeTimeout,
 			Transport: transport,
 		},
 		maxPodLogBytes: maxPodLogBytes,

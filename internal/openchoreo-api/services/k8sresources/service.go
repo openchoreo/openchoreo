@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"maps"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	renderedreleasecontroller "github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -53,14 +55,24 @@ type releaseContext struct {
 type k8sResourcesService struct {
 	k8sClient     client.Client
 	gatewayClient *gateway.Client
-	logger        *slog.Logger
+	// rules is never nil: NewService is the only way to build this type outside
+	// the package and always compiles it, and compileRules always returns an
+	// allocated value. Methods therefore dereference it without guarding — a nil
+	// here is an in-package literal that forgot to set it, and panicking on that
+	// is better than silently walking a tree with no rules and reporting a
+	// release whose children merely appear to be gone.
+	rules  *compiledRules
+	logger *slog.Logger
 }
 
-// NewService creates a new k8s resources service.
-func NewService(k8sClient client.Client, gatewayClient *gateway.Client, logger *slog.Logger) Service {
+// NewService creates a new k8s resources service. The traversal rules are
+// compiled once here: they were validated at startup, so compilation cannot
+// fail.
+func NewService(k8sClient client.Client, gatewayClient *gateway.Client, treeCfg config.ResourceTreeConfig, logger *slog.Logger) Service {
 	return &k8sResourcesService{
 		k8sClient:     k8sClient,
 		gatewayClient: gatewayClient,
+		rules:         compileRules(treeCfg),
 		logger:        logger,
 	}
 }
@@ -74,14 +86,14 @@ func (s *k8sResourcesService) GetResourceTree(ctx context.Context, namespaceName
 		return nil, fmt.Errorf("gateway client is not configured")
 	}
 
-	releaseContexts, err := s.resolveReleaseContexts(ctx, namespaceName, releaseBindingName)
+	releaseContexts, _, err := s.resolveReleaseContexts(ctx, namespaceName, releaseBindingName)
 	if err != nil {
 		return nil, err
 	}
 
 	renderedReleases := make([]ReleaseResourceTree, 0, len(releaseContexts))
 	for _, rc := range releaseContexts {
-		nodes := s.buildResourceTreeNodes(ctx, &rc)
+		nodes, _ := s.buildResourceTreeNodes(ctx, &rc)
 		renderedReleases = append(renderedReleases, ReleaseResourceTree{
 			Name:        rc.release.Name,
 			TargetPlane: rc.release.Spec.TargetPlane,
@@ -102,15 +114,16 @@ func (s *k8sResourcesService) GetResourceEvents(ctx context.Context, namespaceNa
 		return nil, fmt.Errorf("gateway client is not configured")
 	}
 
-	releaseContexts, err := s.resolveReleaseContexts(ctx, namespaceName, releaseBindingName)
+	releaseContexts, dropped, err := s.resolveReleaseContexts(ctx, namespaceName, releaseBindingName)
 	if err != nil {
 		return nil, err
 	}
 
-	// Find which release context contains the requested resource
-	rc, resourceNS := s.findResourceRelease(releaseContexts, group, version, kind, name)
-	if rc == nil {
-		return nil, ErrResourceNotFound
+	// Events can name a resource in any plane, so any dropped release leaves the
+	// search incomplete.
+	rc, resourceNS, err := s.resolveTreeResource(ctx, releaseContexts, group, version, kind, name, len(dropped) > 0)
+	if err != nil {
+		return nil, err
 	}
 
 	// Build field selector to filter events
@@ -151,22 +164,24 @@ func (s *k8sResourcesService) GetResourceLogs(ctx context.Context, namespaceName
 		return nil, fmt.Errorf("gateway client is not configured")
 	}
 
-	releaseContexts, err := s.resolveReleaseContexts(ctx, namespaceName, releaseBindingName)
+	releaseContexts, dropped, err := s.resolveReleaseContexts(ctx, namespaceName, releaseBindingName)
 	if err != nil {
 		return nil, err
 	}
 
-	// Find a release context with a dataplane target that has parent resources for pods
-	var targetRC *releaseContext
-	for i := range releaseContexts {
-		rc := &releaseContexts[i]
-		if rc.release.Spec.TargetPlane == planeTypeDataPlane && hasParentResourceInRelease("Pod", rc.release.Status.Resources) {
-			targetRC = rc
-			break
-		}
-	}
-	if targetRC == nil {
-		return nil, ErrResourceNotFound
+	// Pods live in the data plane, so filter to data-plane releases before
+	// resolving. Otherwise a same-named member in an observability-plane release
+	// ordered first would shadow the real pod and produce a false 404, and every
+	// non-data-plane tree would be walked needlessly.
+	dataPlaneContexts := contextsForPlane(releaseContexts, planeTypeDataPlane)
+	// Only a dropped data-plane release could have held the pod, so only that
+	// leaves the pod search incomplete.
+	dataPlaneDropped := slices.ContainsFunc(dropped, func(r *openchoreov1alpha1.RenderedRelease) bool {
+		return r.Spec.TargetPlane == planeTypeDataPlane
+	})
+	targetRC, podNamespace, err := s.resolveTreeResource(ctx, dataPlaneContexts, "", "v1", "Pod", podName, dataPlaneDropped)
+	if err != nil {
+		return nil, err
 	}
 
 	// Determine which containers to fetch logs from. A pod's Kubernetes log API requires an
@@ -176,7 +191,7 @@ func (s *k8sResourcesService) GetResourceLogs(ctx context.Context, namespaceName
 	if container != "" {
 		containers = []string{container}
 	} else {
-		containers, err = s.resolvePodContainers(ctx, targetRC.plane, targetRC.namespace, podName)
+		containers, err = s.resolvePodContainers(ctx, targetRC.plane, podNamespace, podName)
 		if err != nil {
 			s.logger.Warn("Failed to resolve pod containers", "pod", podName, "error", err)
 			var statusErr *liveResourceStatusError
@@ -194,7 +209,7 @@ func (s *k8sResourcesService) GetResourceLogs(ctx context.Context, namespaceName
 		rawLogs, err := s.gatewayClient.GetPodLogsFromPlane(ctx, targetRC.plane.planeType, targetRC.plane.planeID,
 			targetRC.plane.crNamespace, targetRC.plane.crName,
 			&gateway.PodReference{
-				Namespace: targetRC.namespace,
+				Namespace: podNamespace,
 				Name:      podName,
 			},
 			&gateway.PodLogsOptions{
@@ -257,21 +272,24 @@ func (s *k8sResourcesService) resolvePodContainers(ctx context.Context, pi plane
 }
 
 // resolveReleaseContexts fetches the ReleaseBinding, finds its owned Releases,
-// and resolves plane info for each.
-func (s *k8sResourcesService) resolveReleaseContexts(ctx context.Context, namespaceName, releaseBindingName string) ([]releaseContext, error) {
+// and resolves plane info for each. The second return lists releases whose plane
+// could not be resolved and were therefore dropped: a membership check must treat
+// that as an incomplete search rather than proof the resource is absent, so it is
+// surfaced rather than only logged.
+func (s *k8sResourcesService) resolveReleaseContexts(ctx context.Context, namespaceName, releaseBindingName string) ([]releaseContext, []*openchoreov1alpha1.RenderedRelease, error) {
 	// 1. Fetch the ReleaseBinding
 	var rb openchoreov1alpha1.ReleaseBinding
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespaceName, Name: releaseBindingName}, &rb); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			return nil, ErrReleaseBindingNotFound
+			return nil, nil, ErrReleaseBindingNotFound
 		}
-		return nil, fmt.Errorf("failed to get release binding: %w", err)
+		return nil, nil, fmt.Errorf("failed to get release binding: %w", err)
 	}
 
 	// 2. List Releases in the same namespace, filter by owner
 	var releaseList openchoreov1alpha1.RenderedReleaseList
 	if err := s.k8sClient.List(ctx, &releaseList, client.InNamespace(namespaceName)); err != nil {
-		return nil, fmt.Errorf("failed to list releases: %w", err)
+		return nil, nil, fmt.Errorf("failed to list releases: %w", err)
 	}
 
 	var ownedReleases []*openchoreov1alpha1.RenderedRelease
@@ -285,29 +303,31 @@ func (s *k8sResourcesService) resolveReleaseContexts(ctx context.Context, namesp
 	if len(ownedReleases) == 0 {
 		// ReleaseBinding exists but has no owned releases yet (e.g. not reconciled).
 		// Return an empty list so the caller can return an empty tree.
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// 3. Resolve environment and plane info
 	env := &openchoreov1alpha1.Environment{}
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespaceName, Name: rb.Spec.Environment}, env); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			return nil, ErrEnvironmentNotFound
+			return nil, nil, ErrEnvironmentNotFound
 		}
-		return nil, fmt.Errorf("failed to get environment: %w", err)
+		return nil, nil, fmt.Errorf("failed to get environment: %w", err)
 	}
 
 	dpResult, err := controller.GetDataPlaneFromRef(ctx, s.k8sClient, env.Namespace, env.Spec.DataPlaneRef)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve data plane: %w", err)
+		return nil, nil, fmt.Errorf("failed to resolve data plane: %w", err)
 	}
 
 	contexts := make([]releaseContext, 0, len(ownedReleases))
+	var dropped []*openchoreov1alpha1.RenderedRelease
 	for _, release := range ownedReleases {
 		pi, err := s.resolvePlaneInfo(ctx, release, dpResult)
 		if err != nil {
 			s.logger.Warn("Failed to resolve plane info for release, skipping",
 				"release", release.Name, "targetPlane", release.Spec.TargetPlane, "error", err)
+			dropped = append(dropped, release)
 			continue
 		}
 
@@ -320,7 +340,7 @@ func (s *k8sResourcesService) resolveReleaseContexts(ctx context.Context, namesp
 		})
 	}
 
-	return contexts, nil
+	return contexts, dropped, nil
 }
 
 // resolvePlaneInfo resolves gateway proxy coordinates for a release based on its target plane.
@@ -388,16 +408,26 @@ func deriveNamespace(release *openchoreov1alpha1.RenderedRelease) string {
 	return ""
 }
 
-// buildResourceTreeNodes builds resource nodes for a single release.
-func (s *k8sResourcesService) buildResourceTreeNodes(ctx context.Context, rc *releaseContext) []models.ResourceNode {
-	allNodes := make([]models.ResourceNode, 0, len(rc.release.Status.Resources))
+// buildResourceTreeNodes builds resource nodes for a single release. The
+// accumulator is created once here and shared by every root, because dedupe is
+// release-wide: the same Pod can be reachable from two roots and must surface as
+// one node carrying both parents.
+//
+// The second return reports whether the walk was incomplete: a root that could
+// not be resolved or fetched, or any child edge that came back forbidden, errored
+// or truncated. A membership check must not read absence from an incomplete walk
+// as proof the target does not exist.
+func (s *k8sResourcesService) buildResourceTreeNodes(ctx context.Context, rc *releaseContext) ([]models.ResourceNode, bool) {
+	acc := newNodeAccumulator(len(rc.release.Status.Resources))
+	incomplete := false
 
 	for i := range rc.release.Status.Resources {
 		rs := &rc.release.Status.Resources[i]
 
-		plural, err := s.resolveResourcePlural(rs.Group, rs.Version, rs.Kind)
+		plural, err := s.rootResourcePlural(rs)
 		if err != nil {
 			s.logger.Warn("Failed to resolve resource plural, skipping", "kind", rs.Kind, "name", rs.Name, "error", err)
+			incomplete = true
 			continue
 		}
 
@@ -405,47 +435,144 @@ func (s *k8sResourcesService) buildResourceTreeNodes(ctx context.Context, rc *re
 		obj, err := s.fetchLiveResource(ctx, rc.plane, k8sPath)
 		if err != nil {
 			s.logger.Warn("Failed to fetch live resource, skipping", "kind", rs.Kind, "name", rs.Name, "error", err)
+			incomplete = true
 			continue
 		}
 
-		node, ok := buildResourceNode(obj, nil, rs.HealthStatus)
+		rootGVR := schema.GroupVersionResource{Group: rs.Group, Version: rs.Version, Resource: plural}
+		node, ok := buildResourceNode(obj, rootGVR, nil, rs.HealthStatus)
 		if !ok {
 			s.logger.Warn("Skipping resource node with missing required fields", "kind", rs.Kind, "name", rs.Name)
+			incomplete = true
 			continue
 		}
-		allNodes = append(allNodes, node)
+		acc.add(node)
 
-		childNodes := s.fetchChildResources(ctx, rc.plane, obj, rs)
-		allNodes = append(allNodes, childNodes...)
+		s.expandChildren(ctx, rc.plane, acc, node.UID, obj, rs)
 	}
 
-	return allNodes
+	// A child edge that came back forbidden, errored or truncated is recorded as a
+	// ChildDiscoveryStatus on its parent; any such status means the descendant set
+	// under that node is incomplete.
+	for i := range acc.nodes {
+		if len(acc.nodes[i].ChildrenStatus) > 0 {
+			incomplete = true
+			break
+		}
+	}
+
+	return acc.nodes, incomplete
 }
 
-// findResourceRelease finds which release context contains the requested resource
-// and returns its namespace.
-func (s *k8sResourcesService) findResourceRelease(contexts []releaseContext, group, version, kind, name string) (*releaseContext, string) {
-	// First try exact match in release status resources
+// rootResourcePlural resolves a root's REST plural from its traversal rule when
+// one is configured, and only otherwise from the RESTMapper. The RESTMapper is
+// the CONTROL plane's, so a CRD that exists only in the data plane cannot be
+// resolved through it — the rule carries the exact plural for that case.
+func (s *k8sResourcesService) rootResourcePlural(rs *openchoreov1alpha1.RenderedManifestStatus) (string, error) {
+	for _, rule := range s.rules.roots[groupKind{Group: rs.Group, Kind: rs.Kind}] {
+		if rule.Kind.Resource != "" {
+			return rule.Kind.Resource, nil
+		}
+	}
+	return s.resolveResourcePlural(rs.Group, rs.Version, rs.Kind)
+}
+
+// resolveTreeResource keeps exact rendered-root lookup behavior, then resolves
+// actual live descendants. Reachability of a kind alone does not authorize a
+// resource name.
+//
+// It returns a typed error rather than a bare nil so the caller can tell three
+// outcomes apart: ErrResourceNotFound (the walks completed and no live member
+// matched), ErrResourceTreeIncomplete (a walk failed, so absence is not
+// authoritative — fail closed but do not claim the resource is gone), and
+// ErrResourceMatchAmbiguous (more than one live member matched the identity).
+// searchIncomplete seeds resolveTreeResource with incompleteness that happened
+// before the walk — a release dropped because its plane could not be resolved is
+// part of the search that did not happen, so absence cannot be authoritative.
+func (s *k8sResourcesService) resolveTreeResource(ctx context.Context, contexts []releaseContext,
+	group, version, kind, name string, searchIncomplete bool) (*releaseContext, string, error) {
+	// An exact rendered root is authoritative on its own and needs no walk.
+	// A rendered root is declared in its release's status, so it is authoritative
+	// that the resource exists and is owned there, independent of any live child
+	// walk. Count across all releases rather than taking the first: two releases
+	// declaring the same identity is ambiguous, and a single root cannot be proven
+	// unique while a dropped release (whose status we could not resolve a plane
+	// for) might declare it too.
+	exactMatches := 0
+	var exactRC *releaseContext
+	var exactNamespace string
 	for i := range contexts {
 		rc := &contexts[i]
 		for _, rs := range rc.release.Status.Resources {
 			if rs.Group == group && rs.Version == version && rs.Kind == kind && rs.Name == name {
-				return rc, rs.Namespace
+				exactMatches++
+				exactRC = rc
+				exactNamespace = rs.Namespace
+			}
+		}
+	}
+	switch {
+	case exactMatches > 1:
+		return nil, "", ErrResourceMatchAmbiguous
+	case exactMatches == 1 && searchIncomplete:
+		return nil, "", ErrResourceTreeIncomplete
+	case exactMatches == 1:
+		return exactRC, exactNamespace, nil
+	}
+
+	var (
+		matchRC        *releaseContext
+		matchNamespace string
+		matches        int
+		anyIncomplete  = searchIncomplete
+	)
+	for i := range contexts {
+		rc := &contexts[i]
+		nodes, incomplete := s.buildResourceTreeNodes(ctx, rc)
+		if incomplete {
+			anyIncomplete = true
+		}
+		// Count every matching node, not just the first: a single release can hold
+		// two distinct live members of the same group/version/kind/name (different
+		// namespaces, different UIDs), and that is an ambiguous identity just as
+		// much as a collision across releases.
+		for _, node := range nodes {
+			if node.Group == group && node.Version == version && node.Kind == kind && node.Name == name {
+				matches++
+				matchRC = rc
+				matchNamespace = node.Namespace
 			}
 		}
 	}
 
-	// For child resource kinds (Pod, ReplicaSet, Job), check if a parent exists
-	if isChildResourceKind(kind) {
-		for i := range contexts {
-			rc := &contexts[i]
-			if hasParentResourceInRelease(kind, rc.release.Status.Resources) {
-				return rc, rc.namespace
-			}
+	switch {
+	case matches > 1:
+		return nil, "", ErrResourceMatchAmbiguous
+	case anyIncomplete:
+		// A failed walk means absence is not proof of non-membership, and a lone
+		// match cannot be proven unique while another candidate tree is incomplete.
+		// Fail closed on the operational error rather than authorize from a partial
+		// view.
+		return nil, "", ErrResourceTreeIncomplete
+	case matches == 1:
+		return matchRC, matchNamespace, nil
+	default:
+		return nil, "", ErrResourceNotFound
+	}
+}
+
+// contextsForPlane returns only the release contexts whose release targets the
+// given plane. Filtering before resolution keeps a member from another plane
+// from shadowing the intended one and avoids walking trees that cannot hold the
+// requested resource.
+func contextsForPlane(contexts []releaseContext, plane string) []releaseContext {
+	filtered := make([]releaseContext, 0, len(contexts))
+	for _, rc := range contexts {
+		if rc.release.Spec.TargetPlane == plane {
+			filtered = append(filtered, rc)
 		}
 	}
-
-	return nil, ""
+	return filtered
 }
 
 // --- Fetching helpers ---
@@ -495,7 +622,9 @@ func (s *k8sResourcesService) fetchK8sList(ctx context.Context, pi planeInfo, k8
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status %d for %s", resp.StatusCode, k8sPath)
+		// The status code is preserved so the tree walk's fallback can tell a
+		// missing RBAC grant apart from a genuine failure.
+		return nil, &liveResourceStatusError{statusCode: resp.StatusCode, path: k8sPath}
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
@@ -523,98 +652,73 @@ func (s *k8sResourcesService) fetchK8sList(ctx context.Context, pi planeInfo, k8
 	return result, nil
 }
 
-func (s *k8sResourcesService) fetchChildResources(ctx context.Context, pi planeInfo, parentObj map[string]any, rs *openchoreov1alpha1.RenderedManifestStatus) []models.ResourceNode {
-	var nodes []models.ResourceNode
-
-	parentUID := getNestedString(parentObj, "metadata", "uid")
-	parentRef := models.ResourceRef{
-		Group:     rs.Group,
-		Version:   rs.Version,
-		Kind:      rs.Kind,
-		Namespace: rs.Namespace,
-		Name:      rs.Name,
-		UID:       parentUID,
-	}
-
-	switch rs.Kind {
-	case "Deployment":
-		replicaSets := s.fetchOwnedResources(ctx, pi, "apps", "ReplicaSet", rs.Namespace, parentUID)
-		for _, rsObj := range replicaSets {
-			rsUID := getNestedString(rsObj, "metadata", "uid")
-			pods := s.fetchOwnedResources(ctx, pi, "", "Pod", rs.Namespace, rsUID)
-			for _, podObj := range pods {
-				if podNode, ok := buildResourceNode(podObj, &parentRef, ""); ok {
-					nodes = append(nodes, podNode)
-				}
-			}
-		}
-
-	case "CronJob":
-		jobs := s.fetchOwnedResources(ctx, pi, "batch", "Job", rs.Namespace, parentUID)
-		for _, jobObj := range jobs {
-			jobNode, ok := buildResourceNode(jobObj, &parentRef, "")
-			if !ok {
-				continue
-			}
-			nodes = append(nodes, jobNode)
-
-			jobUID := getNestedString(jobObj, "metadata", "uid")
-			jobRef := models.ResourceRef{
-				Group:     "batch",
-				Version:   "v1",
-				Kind:      "Job",
-				Namespace: getNestedString(jobObj, "metadata", "namespace"),
-				Name:      getNestedString(jobObj, "metadata", "name"),
-				UID:       jobUID,
-			}
-			pods := s.fetchOwnedResources(ctx, pi, "", "Pod", rs.Namespace, jobUID)
-			for _, podObj := range pods {
-				if podNode, ok := buildResourceNode(podObj, &jobRef, ""); ok {
-					nodes = append(nodes, podNode)
-				}
-			}
-		}
-
-	case "Job":
-		pods := s.fetchOwnedResources(ctx, pi, "", "Pod", rs.Namespace, parentUID)
-		for _, podObj := range pods {
-			if podNode, ok := buildResourceNode(podObj, &parentRef, ""); ok {
-				nodes = append(nodes, podNode)
-			}
-		}
-	}
-
-	return nodes
-}
-
-func (s *k8sResourcesService) fetchOwnedResources(ctx context.Context, pi planeInfo, group, kind, namespace, ownerUID string) []map[string]any {
-	plural, err := s.resolveResourcePlural(group, "v1", kind)
+// fetchOwnedResources lists one child kind in one namespace and keeps the items
+// owned by ownerUID. It is the control-plane half of the ownerRef matcher, used
+// only when the cluster agent cannot match server-side.
+//
+// A list failure is returned rather than logged away: "forbidden" and "no
+// children" look identical to the caller otherwise, and the tree reports the
+// difference.
+func (s *k8sResourcesService) fetchOwnedResources(ctx context.Context, pi planeInfo,
+	group, version, kind, resource, namespace, ownerUID string) ([]map[string]any, error) {
+	items, err := s.fetchChildKindList(ctx, pi, group, version, kind, resource, namespace, "")
 	if err != nil {
-		s.logger.Warn("Failed to resolve resource plural", "kind", kind, "group", group, "error", err)
-		return nil
-	}
-	k8sPath := buildK8sListPath(group, "v1", plural, namespace)
-	items, err := s.fetchK8sList(ctx, pi, k8sPath, "")
-	if err != nil {
-		s.logger.Warn("Failed to fetch child resources", "kind", kind, "namespace", namespace, "error", err)
-		return nil
+		return nil, err
 	}
 
-	apiVersion := "v1"
-	if group != "" {
-		apiVersion = group + "/v1"
-	}
-
-	var owned []map[string]any
+	owned := make([]map[string]any, 0, len(items))
 	for _, item := range items {
 		if hasOwnerReference(item, ownerUID) {
-			item["kind"] = kind
-			item["apiVersion"] = apiVersion
 			owned = append(owned, item)
 		}
 	}
+	return owned, nil
+}
 
-	return owned
+// fetchLabelSelectedResources is the control-plane half of the labelSelector
+// matcher: the same proxied list, scoped by an already substituted server-side
+// selector and with no owner filtering, because a label match has no ownership
+// to check.
+func (s *k8sResourcesService) fetchLabelSelectedResources(ctx context.Context, pi planeInfo,
+	group, version, kind, resource, namespace, selector string) ([]map[string]any, error) {
+	rawQuery := url.Values{"labelSelector": []string{selector}}.Encode()
+	return s.fetchChildKindList(ctx, pi, group, version, kind, resource, namespace, rawQuery)
+}
+
+// fetchChildKindList lists one child kind in one namespace. The plural comes
+// from the rule when it carries one — a dataplane-only CRD is not in the control
+// plane's RESTMapper — and apiVersion/kind are backfilled, since list items are
+// commonly served without them.
+func (s *k8sResourcesService) fetchChildKindList(ctx context.Context, pi planeInfo,
+	group, version, kind, resource, namespace, rawQuery string) ([]map[string]any, error) {
+	plural := resource
+	if plural == "" {
+		var err error
+		plural, err = s.resolveResourcePlural(group, version, kind)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	items, err := s.fetchK8sList(ctx, pi, buildK8sListPath(group, version, plural, namespace), rawQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	apiVersion := version
+	if group != "" {
+		apiVersion = group + "/" + version
+	}
+	for _, item := range items {
+		if getStringField(item, "kind") == "" {
+			item["kind"] = kind
+		}
+		if getStringField(item, "apiVersion") == "" {
+			item["apiVersion"] = apiVersion
+		}
+	}
+
+	return items, nil
 }
 
 func (s *k8sResourcesService) resolveResourcePlural(group, version, kind string) (string, error) {
@@ -654,7 +758,11 @@ func buildK8sListPath(group, version, plural, namespace string) string {
 	return fmt.Sprintf("%s/%s", basePath, plural)
 }
 
-func buildResourceNode(obj map[string]any, parentRef *models.ResourceRef, healthStatus openchoreov1alpha1.HealthStatus) (models.ResourceNode, bool) {
+// buildResourceNode turns a live object into a tree node. gvr is the resource
+// the object was actually listed or fetched through, which is what the
+// sanitizer keys its Secret strip off — see sanitizeObject.
+func buildResourceNode(obj map[string]any, gvr schema.GroupVersionResource,
+	parentRef *models.ResourceRef, healthStatus openchoreov1alpha1.HealthStatus) (models.ResourceNode, bool) {
 	metadata, _ := obj["metadata"].(map[string]any)
 
 	group := getAPIGroup(obj)
@@ -675,7 +783,7 @@ func buildResourceNode(obj map[string]any, parentRef *models.ResourceRef, health
 		Name:            name,
 		UID:             uid,
 		ResourceVersion: getNestedString(obj, "metadata", "resourceVersion"),
-		Object:          sanitizeObject(obj, kind),
+		Object:          sanitizeObject(obj, gvr),
 	}
 
 	if createdStr, ok := metadata["creationTimestamp"].(string); ok {
@@ -713,7 +821,13 @@ func computeHealthFromObject(obj map[string]any, group, kind string) *models.Hea
 	return &models.HealthInfo{Status: string(health)}
 }
 
-func sanitizeObject(obj map[string]any, kind string) map[string]any {
+// sanitizeObject trims an object before it leaves this API. gvr is the resource
+// the object was selected through, never the object's own kind field: on the
+// legacy fallback path a list item arrives without a kind and gets one
+// backfilled from the operator's rule text, so a rule saying `kind: secret`
+// would spell the strip away. The GVR is what the list call was built from and
+// cannot be misspelled without the list failing outright.
+func sanitizeObject(obj map[string]any, gvr schema.GroupVersionResource) map[string]any {
 	sanitized := make(map[string]any, len(obj))
 	maps.Copy(sanitized, obj)
 
@@ -724,9 +838,17 @@ func sanitizeObject(obj map[string]any, kind string) map[string]any {
 		sanitized["metadata"] = metaCopy
 	}
 
-	if kind == "Secret" {
+	if isCoreSecretResource(gvr.Group, gvr.Resource) {
 		delete(sanitized, "data")
 		delete(sanitized, "stringData")
+		// The deletes above are only half the strip: kubectl's last-applied
+		// annotation holds the whole serialized Secret, data block and all, so a
+		// Secret that was ever applied with kubectl would carry its own contents
+		// past them. This branch exists to keep Secret data out of the response,
+		// and that is not true of applied Secrets without this.
+		if metadata, ok := sanitized["metadata"].(map[string]any); ok {
+			sanitized["metadata"] = withoutLastAppliedConfig(metadata)
+		}
 	}
 
 	return sanitized
@@ -919,21 +1041,29 @@ func getAPIVersion(obj map[string]any) string {
 	return apiVersion
 }
 
-var childResourceParentKinds = map[string][]string{
-	"Pod":        {"Deployment", "Job", "CronJob"},
-	"ReplicaSet": {"Deployment"},
-	"Job":        {"CronJob"},
-}
-
-func isChildResourceKind(kind string) bool {
-	_, ok := childResourceParentKinds[kind]
+// isChildResourceKind reports whether the traversal rules reach this kind
+// through some parent. Such a kind is never listed in a release's own status,
+// so events and logs for it have to be attributed through that parent. The
+// lookup is group aware: a CRD reusing a built-in Kind name is a different kind
+// and no rule reaches it.
+func (s *k8sResourcesService) isChildResourceKind(group, kind string) bool {
+	_, ok := s.rules.childParents[groupKind{Group: group, Kind: kind}]
 	return ok
 }
 
-func hasParentResourceInRelease(childKind string, resources []openchoreov1alpha1.RenderedManifestStatus) bool {
-	parentKinds := childResourceParentKinds[childKind]
+// hasParentResourceInRelease reports whether the release owns any root the
+// child kind is reachable from, which is what attributes the child to that
+// release. How the rule matches the child — owner reference or label selector —
+// does not enter into it. The parent slice belongs to the compiled rules and is
+// only read here.
+func (s *k8sResourcesService) hasParentResourceInRelease(group, childKind string,
+	resources []openchoreov1alpha1.RenderedManifestStatus) bool {
+	parents := s.rules.childParents[groupKind{Group: group, Kind: childKind}]
+	if len(parents) == 0 {
+		return false
+	}
 	for i := range resources {
-		if slices.Contains(parentKinds, resources[i].Kind) {
+		if slices.Contains(parents, groupKind{Group: resources[i].Group, Kind: resources[i].Kind}) {
 			return true
 		}
 	}

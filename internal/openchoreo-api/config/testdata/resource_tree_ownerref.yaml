@@ -1,0 +1,19 @@
+# A rule for a kind this binary has never heard of, matched by owner reference.
+resource_tree:
+  rules:
+    - root:
+        group: serving.knative.dev
+        version: v1
+        kind: Service
+        resource: services
+      children:
+        - kind:
+            group: serving.knative.dev
+            version: v1
+            kind: Revision
+            resource: revisions
+          children:
+            - kind:
+                version: v1
+                kind: Pod
+                resource: pods

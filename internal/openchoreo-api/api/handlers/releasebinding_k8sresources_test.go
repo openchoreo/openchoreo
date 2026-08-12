@@ -4,6 +4,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"io"
 	"log/slog"
 	"testing"
@@ -98,6 +99,87 @@ func TestGetReleaseBindingK8sResourceTreeHandler_ConvertsReleasesAndOptionalRend
 
 	assert.Equal(t, gen.ReleaseResourceTreeTargetPlaneObservabilityplane, typed.RenderedReleases[1].TargetPlane)
 	assert.Nil(t, typed.RenderedReleases[1].RenderedRelease)
+}
+
+func TestGetReleaseBindingK8sResourceTreeHandler_SurfacesChildDiscoveryFields(t *testing.T) {
+	ctx := testContext()
+
+	svc := k8sresourcesmocks.NewMockService(t)
+	svc.EXPECT().GetResourceTree(mock.Anything, mock.Anything, mock.Anything).Return(&k8sresourcessvc.K8sResourceTreeResult{
+		RenderedReleases: []k8sresourcessvc.ReleaseResourceTree{
+			{
+				Name:        "rel-a",
+				TargetPlane: "dataplane",
+				Nodes: []models.ResourceNode{
+					{
+						Kind:         "Deployment",
+						Name:         "dep-a",
+						MetadataOnly: true,
+						MatchedBy:    "labelSelector",
+						ChildrenStatus: []models.ChildDiscoveryStatus{
+							{Group: "apps", Version: "v1", Kind: "ReplicaSet", State: "forbidden", Message: "no list permission"},
+						},
+					},
+					{Kind: "Service", Name: "svc-a"},
+				},
+			},
+		},
+	}, nil)
+	h := &Handler{
+		services: &handlerservices.Services{K8sResourcesService: svc},
+		logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+
+	resp, err := h.GetReleaseBindingK8sResourceTree(ctx, gen.GetReleaseBindingK8sResourceTreeRequestObject{
+		NamespaceName:      "test-ns",
+		ReleaseBindingName: "rb-1",
+	})
+	require.NoError(t, err)
+
+	typed, ok := resp.(gen.GetReleaseBindingK8sResourceTree200JSONResponse)
+	require.True(t, ok, "expected 200 response, got %T", resp)
+	require.Len(t, typed.RenderedReleases, 1)
+	require.Len(t, typed.RenderedReleases[0].Nodes, 2)
+
+	// The generated model must carry the three fields, not just the internal one.
+	annotated := typed.RenderedReleases[0].Nodes[0]
+	require.NotNil(t, annotated.MetadataOnly)
+	assert.True(t, *annotated.MetadataOnly)
+	require.NotNil(t, annotated.MatchedBy)
+	assert.Equal(t, "labelSelector", *annotated.MatchedBy)
+	require.NotNil(t, annotated.ChildrenStatus)
+	require.Len(t, *annotated.ChildrenStatus, 1)
+	status := (*annotated.ChildrenStatus)[0]
+	require.NotNil(t, status.Group)
+	assert.Equal(t, "apps", *status.Group)
+	assert.Equal(t, "v1", status.Version)
+	assert.Equal(t, "ReplicaSet", status.Kind)
+	assert.Equal(t, "forbidden", status.State)
+	require.NotNil(t, status.Message)
+	assert.Equal(t, "no list permission", *status.Message)
+
+	// Wire names, since the console reads JSON and not the Go type.
+	wire, err := json.Marshal(annotated)
+	require.NoError(t, err)
+	assert.Contains(t, string(wire), `"metadataOnly":true`)
+	assert.Contains(t, string(wire), `"matchedBy":"labelSelector"`)
+	assert.Contains(t, string(wire), `"childrenStatus":[`)
+	assert.Contains(t, string(wire), `"state":"forbidden"`)
+
+	// An exact ownerRef match carries no badge and no status, and the three
+	// fields stay off the wire entirely so existing clients see no change.
+	plain := typed.RenderedReleases[0].Nodes[1]
+	assert.Nil(t, plain.MatchedBy)
+	assert.Nil(t, plain.MetadataOnly)
+	assert.Nil(t, plain.ChildrenStatus)
+	plainWire, err := json.Marshal(plain)
+	require.NoError(t, err)
+	assert.NotContains(t, string(plainWire), "matchedBy")
+	assert.NotContains(t, string(plainWire), "metadataOnly")
+	assert.NotContains(t, string(plainWire), "childrenStatus")
+
+	// object stays required: it is always emitted, even when the node carries none.
+	assert.Contains(t, string(plainWire), `"object"`)
 }
 
 func TestGetReleaseBindingK8sResourceEventsHandler_DefaultsGroupToEmptyString(t *testing.T) {

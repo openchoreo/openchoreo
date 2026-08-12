@@ -197,6 +197,42 @@ func TestLoader_Raw(t *testing.T) {
 	}
 }
 
+func TestLoader_RawAt(t *testing.T) {
+	configPath := filepath.Join("testdata", "resource_tree_config.yaml")
+
+	loader := NewLoader("OC_TEST")
+	if err := loader.LoadWithDefaults(testDefaults(), configPath); err != nil {
+		t.Fatalf("LoadWithDefaults failed: %v", err)
+	}
+
+	section, ok := loader.RawAt("resource_tree").(map[string]any)
+	if !ok {
+		t.Fatalf("expected resource_tree to be a map, got: %v", loader.RawAt("resource_tree"))
+	}
+	rules, ok := section["rules"].([]any)
+	if !ok {
+		t.Fatalf("expected resource_tree.rules to be a list, got: %v", section["rules"])
+	}
+	if len(rules) != 1 {
+		t.Fatalf("expected 1 rule, got %d", len(rules))
+	}
+	rule, ok := rules[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected the rule to be a map, got: %v", rules[0])
+	}
+	root, ok := rule["root"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected the rule root to be a map, got: %v", rule["root"])
+	}
+	if root["kind"] != "Deployment" {
+		t.Errorf("expected root kind Deployment, got %v", root["kind"])
+	}
+
+	if got := loader.RawAt("does_not_exist"); got != nil {
+		t.Errorf("expected nil for an absent key, got %v", got)
+	}
+}
+
 func TestLoader_FlagsOverrideEnvVars(t *testing.T) {
 	configPath := filepath.Join("testdata", "test_config.yaml")
 

@@ -48,7 +48,7 @@ func (s *k8sResourcesService) TriggerCronJob(ctx context.Context, namespaceName,
 	}
 
 	// Resolve the data plane release contexts owned by the binding.
-	releaseContexts, err := s.resolveReleaseContexts(ctx, namespaceName, releaseBindingName)
+	releaseContexts, _, err := s.resolveReleaseContexts(ctx, namespaceName, releaseBindingName)
 	if err != nil {
 		return nil, err
 	}
