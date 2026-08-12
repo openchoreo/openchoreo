@@ -83,7 +83,7 @@ func (p *LogsAdapter) queryEvents(
 	adapterReq := logsadapterclientgen.EventsQueryRequest{
 		StartTime:   startTime,
 		EndTime:     endTime,
-		SearchScope: scope,
+		SearchScope: &scope,
 	}
 	if limit > 0 {
 		adapterReq.Limit = &limit

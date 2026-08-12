@@ -402,6 +402,45 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		)
 		return handleToolResult(result, err)
 	})
+
+	// Tool 10: query_dora_metrics
+	mcpsdk.AddTool(s, &mcpsdk.Tool{
+		Name: "query_dora_metrics",
+		Description: "Query DORA (DevOps Research and Assessment) delivery performance metrics for " +
+			"OpenChoreo components: Deployment Frequency, Lead Time for Changes, Change Failure Rate, and " +
+			"Mean Time to Recovery (MTTR). Returns a summary (value, Elite/High/Medium/Low classification, " +
+			"trend vs the previous window of equal length) plus a time-bucketed series for each requested " +
+			"metric. Use this to answer questions like 'how often do we deploy', 'what's our lead time for " +
+			"changes', 'what's our change failure rate', or 'how long does it take to recover from failures'.",
+		InputSchema: createSchema(map[string]any{
+			"namespace":   stringProperty("Organization namespace (required)"),
+			"project":     stringProperty("Project name to scope the metrics to"),
+			"component":   stringProperty("Component name to scope the metrics to (requires project)"),
+			"environment": stringProperty("Environment name to scope the metrics to (e.g., 'development', 'production')"),
+			"granularity": granularityProperty(),
+			"start_time":  stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":    stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"metrics":     doraMetricsProperty(),
+		}, []string{"namespace", "start_time", "end_time"}),
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
+		Namespace   string   `json:"namespace"`
+		Project     string   `json:"project"`
+		Component   string   `json:"component"`
+		Environment string   `json:"environment"`
+		Granularity string   `json:"granularity"`
+		StartTime   string   `json:"start_time"`
+		EndTime     string   `json:"end_time"`
+		Metrics     []string `json:"metrics"`
+	}) (*mcpsdk.CallToolResult, any, error) {
+		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
+			return nil, nil, err
+		}
+		result, err := handler.QueryDoraMetrics(ctx,
+			args.Namespace, args.Project, args.Component, args.Environment,
+			args.Granularity, args.StartTime, args.EndTime, args.Metrics,
+		)
+		return handleToolResult(result, err)
+	})
 }
 
 // Helper functions for schema creation
@@ -438,6 +477,26 @@ func limitProperty() map[string]any {
 	return map[string]any{
 		"type":        "number",
 		"description": "Maximum number of entries to return. Default: 100",
+	}
+}
+
+func granularityProperty() map[string]any {
+	return map[string]any{
+		"type":        "string",
+		"description": "Time bucket size for the series: 'daily', 'weekly', or 'monthly'. Default: 'daily'",
+		"enum":        []string{"daily", "weekly", "monthly"},
+	}
+}
+
+func doraMetricsProperty() map[string]any {
+	return map[string]any{
+		"type": "array",
+		"description": "Which DORA metrics to compute: 'deploymentFrequency', 'leadTime', " +
+			"'changeFailureRate', 'mttr'. Default: all four",
+		"items": map[string]any{
+			"type": "string",
+			"enum": []string{"deploymentFrequency", "leadTime", "changeFailureRate", "mttr"},
+		},
 	}
 }
 

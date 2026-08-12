@@ -52,6 +52,7 @@ type Handler struct {
 	alertIncidentService service.AlertIncidentService
 	tracesService        service.TracesQuerier
 	finOpsService        service.FinOpsQuerier
+	insightsService      service.InsightsService
 }
 
 // NewHandler creates a new public Handler instance.
@@ -63,6 +64,7 @@ func NewHandler(
 	alertIncidentService service.AlertIncidentService,
 	tracesService service.TracesQuerier,
 	finOpsService service.FinOpsQuerier,
+	insightsService service.InsightsService,
 	logger *slog.Logger,
 ) *Handler {
 	return &Handler{
@@ -74,6 +76,7 @@ func NewHandler(
 		alertIncidentService: alertIncidentService,
 		tracesService:        tracesService,
 		finOpsService:        finOpsService,
+		insightsService:      insightsService,
 	}
 }
 
