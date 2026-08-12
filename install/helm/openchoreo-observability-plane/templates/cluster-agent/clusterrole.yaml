@@ -12,6 +12,24 @@ rules:
   resources:
   - deployments
   verbs: ["get", "list", "patch"]
+# Resource tree traversal. The built-in traversal rules are plane-independent,
+# so an observability-plane release rooted at a Deployment, Job, CronJob or
+# ExternalSecret must be walkable here too; without these the walk stops at the
+# root with a permanent forbidden status and descendant logs/events resolution
+# fails incomplete. Read-only: the agent only lists and gets these kinds.
+- apiGroups: ["apps"]
+  resources:
+  - replicasets
+  verbs: ["get", "list"]
+- apiGroups: ["batch"]
+  resources:
+  - jobs
+  - cronjobs
+  verbs: ["get", "list"]
+- apiGroups: ["external-secrets.io"]
+  resources:
+  - externalsecrets
+  verbs: ["get", "list"]
 # Deployment scale subresource (required for kubectl scale)
 - apiGroups: ["apps"]
   resources:
