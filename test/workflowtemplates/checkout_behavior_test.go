@@ -73,6 +73,8 @@ type checkoutResult struct {
 	gitCalls  []string
 	cloneRepo string // the repo URL passed to `git clone`, after transformation
 	root      string
+	askpass   string // path to the GIT_ASKPASS helper the script wrote
+	secretDir string // the mounted git-secret dir the helper reads from
 }
 
 // runCheckout prepares an isolated environment and runs the checkout script.
@@ -89,6 +91,7 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 	stubDir := filepath.Join(root, "bin")
 	revFile := filepath.Join(root, "git-revision.txt")
 	gitCalls := filepath.Join(root, "git-calls.log")
+	askpass := filepath.Join(root, "git-askpass.sh")
 	require.NoError(t, os.MkdirAll(home, 0o755))
 	require.NoError(t, os.MkdirAll(stubDir, 0o755))
 
@@ -115,6 +118,7 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 		"/etc/secrets/git-secret", secretDir,
 		"/mnt/vol/source", source,
 		"/tmp/git-revision.txt", revFile,
+		"/tmp/git-askpass.sh", askpass,
 	}
 	script = strings.NewReplacer(replacements...).Replace(script)
 
@@ -132,7 +136,7 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 
-	res := checkoutResult{output: string(out), root: root}
+	res := checkoutResult{output: string(out), root: root, askpass: askpass, secretDir: secretDir}
 	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
@@ -342,7 +346,18 @@ func TestCheckout_SSH_CodeCommitNotRewrittenToScpSyntax(t *testing.T) {
 
 // --- Basic auth: credential percent-encoding (scenario 1) ---
 
-func TestCheckout_BasicAuth_PercentEncodesCredentials(t *testing.T) {
+// runAskpass invokes the GIT_ASKPASS helper the script wrote, the way git
+// would: prompt text as the sole argument, answer read from stdout.
+func runAskpass(t *testing.T, res checkoutResult, prompt string) string {
+	t.Helper()
+	cmd := exec.Command("sh", res.askpass, prompt)
+	cmd.Env = append(os.Environ(), "GIT_SECRET_PATH="+res.secretDir)
+	out, err := cmd.Output()
+	require.NoError(t, err, "askpass helper should be executable and succeed")
+	return strings.TrimSpace(string(out))
+}
+
+func TestCheckout_BasicAuth_KeepsCredentialsOutOfCloneURL(t *testing.T) {
 	res := runCheckout(t, checkoutInput{
 		repo:   "https://github.com/org/repo.git",
 		branch: "main",
@@ -351,11 +366,16 @@ func TestCheckout_BasicAuth_PercentEncodesCredentials(t *testing.T) {
 			"password": "p@ss:w0rd",
 		},
 	})
-	requireCheckoutSuccess(t, res, "Basic auth should percent-encode credentials before clone")
-	requireCloneRepo(t, res, "https://my-user:p%40ss%3Aw0rd@github.com/org/repo.git",
-		"basic auth should embed percent-encoded credentials in the HTTPS clone URL")
+	requireCheckoutSuccess(t, res, "Basic auth should clone without rewriting the repo URL")
+	requireCloneRepo(t, res, "https://github.com/org/repo.git",
+		"basic auth should leave the clone URL unmodified, since git persists it into .git/config")
 	requireCheckoutOutputContains(t, res, "Basic Authentication",
 		"checkout output should report basic authentication path")
+
+	require.Equal(t, "my-user", runAskpass(t, res, "Username for 'https://github.com': "),
+		"askpass helper should return the username from the mounted secret")
+	require.Equal(t, "p@ss:w0rd", runAskpass(t, res, "Password for 'https://my-user@github.com': "),
+		"askpass helper should return the password verbatim, with no encoding applied")
 }
 
 func TestCheckout_BasicAuth_DefaultsUsernameToGit(t *testing.T) {
@@ -364,9 +384,13 @@ func TestCheckout_BasicAuth_DefaultsUsernameToGit(t *testing.T) {
 		branch:      "main",
 		secretFiles: map[string]string{"password": "token123"},
 	})
-	requireCheckoutSuccess(t, res, "Basic auth should default username to git before clone")
-	requireCloneRepo(t, res, "https://git:token123@github.com/org/repo.git",
-		"basic auth should default username to git when username secret is absent")
+	requireCheckoutSuccess(t, res, "Basic auth should default username to git")
+	requireCloneRepo(t, res, "https://github.com/org/repo.git",
+		"basic auth should leave the clone URL unmodified")
+	require.Equal(t, "git", runAskpass(t, res, "Username for 'https://github.com': "),
+		"askpass helper should default the username to git when the secret has no username key")
+	require.Equal(t, "token123", runAskpass(t, res, "Password for 'https://git@github.com': "),
+		"askpass helper should still return the password when the username is defaulted")
 }
 
 // --- Auth-type precedence and edge cases (scenario 5) ---
