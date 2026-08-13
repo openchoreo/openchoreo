@@ -280,6 +280,57 @@ func (m *MockAlertIncidentService) reset() {
 	m.incidentsRequests = nil
 }
 
+type MockFinOpsQuerier struct {
+	costsRequests           []*types.CostQueryRequest
+	recommendationsRequests []*types.RecommendationQueryRequest
+	costsResponse           any
+	recommendationsResponse any
+	getCostsErr             error
+	getRecommendationsErr   error
+}
+
+func NewMockFinOpsQuerier() *MockFinOpsQuerier {
+	return &MockFinOpsQuerier{
+		costsResponse:           map[string]any{"items": []any{}},
+		recommendationsResponse: map[string]any{"items": []any{}},
+	}
+}
+
+func (m *MockFinOpsQuerier) GetComponentCosts(_ context.Context, req *types.CostQueryRequest) (any, error) {
+	m.costsRequests = append(m.costsRequests, req)
+	if m.getCostsErr != nil {
+		return nil, m.getCostsErr
+	}
+	return m.costsResponse, nil
+}
+
+func (m *MockFinOpsQuerier) GetRecommendations(_ context.Context, req *types.RecommendationQueryRequest) (any, error) {
+	m.recommendationsRequests = append(m.recommendationsRequests, req)
+	if m.getRecommendationsErr != nil {
+		return nil, m.getRecommendationsErr
+	}
+	return m.recommendationsResponse, nil
+}
+
+func (m *MockFinOpsQuerier) lastCostsRequest() *types.CostQueryRequest {
+	if len(m.costsRequests) == 0 {
+		return nil
+	}
+	return m.costsRequests[len(m.costsRequests)-1]
+}
+
+func (m *MockFinOpsQuerier) lastRecommendationsRequest() *types.RecommendationQueryRequest {
+	if len(m.recommendationsRequests) == 0 {
+		return nil
+	}
+	return m.recommendationsRequests[len(m.recommendationsRequests)-1]
+}
+
+func (m *MockFinOpsQuerier) reset() {
+	m.costsRequests = nil
+	m.recommendationsRequests = nil
+}
+
 // ---- Test harness ----
 
 type testServices struct {
@@ -288,6 +339,7 @@ type testServices struct {
 	metrics         *MockMetricsQuerier
 	traces          *MockTracesQuerier
 	alertsIncidents *MockAlertIncidentService
+	finops          *MockFinOpsQuerier
 }
 
 func newTestServices() *testServices {
@@ -297,6 +349,7 @@ func newTestServices() *testServices {
 		metrics:         NewMockMetricsQuerier(),
 		traces:          NewMockTracesQuerier(),
 		alertsIncidents: NewMockAlertIncidentService(),
+		finops:          NewMockFinOpsQuerier(),
 	}
 }
 
@@ -306,6 +359,7 @@ func (s *testServices) resetAll() {
 	s.metrics.reset()
 	s.traces.reset()
 	s.alertsIncidents.reset()
+	s.finops.reset()
 }
 
 func buildMCPHandler(svcs *testServices) (*MCPHandler, error) {
@@ -314,7 +368,7 @@ func buildMCPHandler(svcs *testServices) (*MCPHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewMCPHandler(healthSvc, svcs.logs, svcs.events, svcs.metrics, svcs.alertsIncidents, svcs.traces, logger)
+	return NewMCPHandler(healthSvc, svcs.logs, svcs.events, svcs.metrics, svcs.alertsIncidents, svcs.traces, svcs.finops, logger)
 }
 
 func setupTestServer(t *testing.T) (*mcpsdk.ClientSession, *testServices) {
@@ -710,6 +764,60 @@ var allToolSpecs = []toolTestSpec{
 			assert.Equal(t, sortOrderDesc, string(*req.SortOrder))
 		},
 	},
+	{
+		name:                "query_costs",
+		descriptionKeywords: []string{"cost"},
+		descriptionMinLen:   20,
+		requiredParams:      []string{"namespace", "environment", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component", "granularity"},
+		testArgs: map[string]any{
+			"namespace":   testNamespace,
+			"environment": testEnvironment,
+			"project":     testProject,
+			"component":   testComponent,
+			"start_time":  testStartTime,
+			"end_time":    testEndTime,
+			"granularity": "1d",
+		},
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.finops.lastCostsRequest()
+			require.NotNil(t, req, "Expected GetComponentCosts to be called")
+			assert.Equal(t, testNamespace, req.Namespace)
+			assert.Equal(t, testEnvironment, req.Environment)
+			assert.Equal(t, testProject, req.Project)
+			assert.Equal(t, testComponent, req.Component)
+			assert.Equal(t, testStartTime, req.StartTime)
+			assert.Equal(t, testEndTime, req.EndTime)
+			assert.Equal(t, "1d", req.Granularity)
+		},
+	},
+	{
+		name:                "query_recommendations",
+		descriptionKeywords: []string{"recommendation"},
+		descriptionMinLen:   20,
+		requiredParams:      []string{"namespace", "environment", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component"},
+		testArgs: map[string]any{
+			"namespace":   testNamespace,
+			"environment": testEnvironment,
+			"project":     testProject,
+			"component":   testComponent,
+			"start_time":  testStartTime,
+			"end_time":    testEndTime,
+		},
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.finops.lastRecommendationsRequest()
+			require.NotNil(t, req, "Expected GetRecommendations to be called")
+			assert.Equal(t, testNamespace, req.Namespace)
+			assert.Equal(t, testEnvironment, req.Environment)
+			assert.Equal(t, testProject, req.Project)
+			assert.Equal(t, testComponent, req.Component)
+			assert.Equal(t, testStartTime, req.StartTime)
+			assert.Equal(t, testEndTime, req.EndTime)
+		},
+	},
 }
 
 // ---- Tests ----
@@ -723,6 +831,7 @@ func TestNewMCPHandlerValidation(t *testing.T) {
 	events := NewMockEventsQuerier()
 	metrics := NewMockMetricsQuerier()
 	traces := NewMockTracesQuerier()
+	finops := NewMockFinOpsQuerier()
 
 	tests := []struct {
 		name                 string
@@ -732,20 +841,22 @@ func TestNewMCPHandlerValidation(t *testing.T) {
 		metrics              service.MetricsQuerier
 		alertIncidentService service.AlertIncidentService
 		traces               service.TracesQuerier
+		finops               service.FinOpsQuerier
 		log                  *slog.Logger
 	}{
-		{"nil healthService", nil, logs, events, metrics, alertIncidentSvc, traces, logger},
-		{"nil logsService", healthSvc, nil, events, metrics, alertIncidentSvc, traces, logger},
-		{"nil eventsService", healthSvc, logs, nil, metrics, alertIncidentSvc, traces, logger},
-		{"nil metricsService", healthSvc, logs, events, nil, alertIncidentSvc, traces, logger},
-		{"nil alertIncidentService", healthSvc, logs, events, metrics, nil, traces, logger},
-		{"nil tracesService", healthSvc, logs, events, metrics, alertIncidentSvc, nil, logger},
-		{"nil logger", healthSvc, logs, events, metrics, alertIncidentSvc, traces, nil},
+		{"nil healthService", nil, logs, events, metrics, alertIncidentSvc, traces, finops, logger},
+		{"nil logsService", healthSvc, nil, events, metrics, alertIncidentSvc, traces, finops, logger},
+		{"nil eventsService", healthSvc, logs, nil, metrics, alertIncidentSvc, traces, finops, logger},
+		{"nil metricsService", healthSvc, logs, events, nil, alertIncidentSvc, traces, finops, logger},
+		{"nil alertIncidentService", healthSvc, logs, events, metrics, nil, traces, finops, logger},
+		{"nil tracesService", healthSvc, logs, events, metrics, alertIncidentSvc, nil, finops, logger},
+		{"nil finopsService", healthSvc, logs, events, metrics, alertIncidentSvc, traces, nil, logger},
+		{"nil logger", healthSvc, logs, events, metrics, alertIncidentSvc, traces, finops, nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewMCPHandler(tt.health, tt.logs, tt.events, tt.metrics, tt.alertIncidentService, tt.traces, tt.log)
+			_, err := NewMCPHandler(tt.health, tt.logs, tt.events, tt.metrics, tt.alertIncidentService, tt.traces, tt.finops, tt.log)
 			require.Error(t, err, "Expected error for %s", tt.name)
 		})
 	}

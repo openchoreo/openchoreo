@@ -20,6 +20,7 @@ type handlerTestDeps struct {
 	metrics service.MetricsQuerier
 	alerts  service.AlertIncidentService
 	traces  service.TracesQuerier
+	finops  service.FinOpsQuerier
 }
 
 // newTestMCPHandler builds an MCPHandler with mockery mocks by default; options override individual deps.
@@ -32,6 +33,7 @@ func newTestMCPHandler(t *testing.T, opts ...func(*handlerTestDeps)) *MCPHandler
 		metrics: servicemocks.NewMockMetricsQuerier(t),
 		alerts:  servicemocks.NewMockAlertIncidentService(t),
 		traces:  servicemocks.NewMockTracesQuerier(t),
+		finops:  servicemocks.NewMockFinOpsQuerier(t),
 	}
 	for _, o := range opts {
 		o(&d)
@@ -41,7 +43,7 @@ func newTestMCPHandler(t *testing.T, opts ...func(*handlerTestDeps)) *MCPHandler
 	healthSvc, err := service.NewHealthService(logger)
 	require.NoError(t, err)
 
-	h, err := NewMCPHandler(healthSvc, d.logs, d.events, d.metrics, d.alerts, d.traces, logger)
+	h, err := NewMCPHandler(healthSvc, d.logs, d.events, d.metrics, d.alerts, d.traces, d.finops, logger)
 	require.NoError(t, err)
 	return h
 }
@@ -64,4 +66,8 @@ func withAlertIncidentService(s service.AlertIncidentService) func(*handlerTestD
 
 func withTracesService(s service.TracesQuerier) func(*handlerTestDeps) {
 	return func(d *handlerTestDeps) { d.traces = s }
+}
+
+func withFinOpsService(s service.FinOpsQuerier) func(*handlerTestDeps) {
+	return func(d *handlerTestDeps) { d.finops = s }
 }

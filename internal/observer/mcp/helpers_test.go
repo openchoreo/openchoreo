@@ -145,3 +145,59 @@ func TestValidateComponentScope(t *testing.T) {
 		}
 	})
 }
+
+func TestValidateFinOpsScope(t *testing.T) {
+	t.Run("empty namespace returns error", func(t *testing.T) {
+		if err := validateFinOpsScope("", "dev", "", ""); err == nil {
+			t.Error("expected error for empty namespace, got nil")
+		}
+	})
+
+	t.Run("empty environment returns error", func(t *testing.T) {
+		if err := validateFinOpsScope("ns", "", "", ""); err == nil {
+			t.Error("expected error for empty environment, got nil")
+		}
+	})
+
+	t.Run("component without project returns error", func(t *testing.T) {
+		if err := validateFinOpsScope("ns", "dev", "", "comp"); err == nil {
+			t.Error("expected error when component is set but project is empty, got nil")
+		}
+	})
+
+	t.Run("namespace and environment is valid", func(t *testing.T) {
+		if err := validateFinOpsScope("ns", "dev", "", ""); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("all fields set is valid", func(t *testing.T) {
+		if err := validateFinOpsScope("ns", "dev", "proj", "comp"); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestValidateGranularity(t *testing.T) {
+	t.Run("empty is valid", func(t *testing.T) {
+		if err := validateGranularity(""); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("valid units accepted", func(t *testing.T) {
+		for _, g := range []string{"1h", "2d", "3w", "24h"} {
+			if err := validateGranularity(g); err != nil {
+				t.Errorf("expected %q to be valid, got %v", g, err)
+			}
+		}
+	})
+
+	t.Run("invalid values rejected", func(t *testing.T) {
+		for _, g := range []string{"5x", "0h", "h", "1", "1m", "-1d"} {
+			if err := validateGranularity(g); err == nil {
+				t.Errorf("expected %q to be rejected, got nil", g)
+			}
+		}
+	})
+}
