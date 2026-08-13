@@ -6,14 +6,18 @@ package clustergateway
 import (
 	"fmt"
 	"net/http"
+	"path"
 	"strings"
 )
 
 type RequestValidator struct {
 	maxRequestBodySize int64
 	allowedMethods     map[string]bool
-	blockedPaths       []string
-	allowedTargets     map[string]bool
+	// blockedPaths are optional extra substrings blocked by BlockPath.
+	// Sensitive core resources (secrets, serviceaccounts) are blocked via
+	// pathTouchesSensitiveCoreResource so real /api/v1 paths are matched.
+	blockedPaths   []string
+	allowedTargets map[string]bool
 }
 
 type ValidationError struct {
@@ -23,6 +27,13 @@ type ValidationError struct {
 
 func (e *ValidationError) Error() string {
 	return e.Message
+}
+
+// sensitiveCoreResources are core/v1 resource names that must not be reachable
+// through the k8s HTTP proxy (any namespace, including subresources like token).
+var sensitiveCoreResources = map[string]struct{}{
+	"secrets":         {},
+	"serviceaccounts": {},
 }
 
 func NewRequestValidator() *RequestValidator {
@@ -37,10 +48,7 @@ func NewRequestValidator() *RequestValidator {
 			http.MethodHead:    true,
 			http.MethodOptions: true,
 		},
-		blockedPaths: []string{
-			"/api/v1/namespaces/kube-system/secrets",
-			"/apis/v1/serviceaccounts", // Cluster-wide service accounts
-		},
+		blockedPaths: nil,
 		allowedTargets: map[string]bool{
 			"k8s":        true,
 			"monitoring": true,
@@ -61,6 +69,13 @@ func (v *RequestValidator) ValidateRequest(r *http.Request, target, path string)
 		return &ValidationError{
 			Code:    http.StatusForbidden,
 			Message: fmt.Sprintf("Target not allowed: %s", target),
+		}
+	}
+
+	if pathTouchesSensitiveCoreResource(path) {
+		return &ValidationError{
+			Code:    http.StatusForbidden,
+			Message: fmt.Sprintf("Access to path is blocked: %s", path),
 		}
 	}
 
@@ -95,6 +110,42 @@ func (v *RequestValidator) ValidateRequest(r *http.Request, target, path string)
 	}
 
 	return nil
+}
+
+// pathTouchesSensitiveCoreResource reports whether rawPath is a core/v1 request for
+// secrets or serviceaccounts (cluster or namespaced, including subresources).
+// Only /api/v1/... is matched so CRDs under /apis/... are not false-positive blocked.
+//
+// path.Clean collapses //, /./, and trailing slashes. An optional "watch" segment
+// after /api/v1 is skipped so /api/v1/watch/... is handled the same as list/get.
+func pathTouchesSensitiveCoreResource(rawPath string) bool {
+	parts := strings.Split(path.Clean(rawPath), "/")
+	for i := 0; i < len(parts); i++ {
+		if parts[i] != "api" {
+			continue
+		}
+		if i+1 >= len(parts) || parts[i+1] != "v1" {
+			continue
+		}
+		// Resource index is right after /api/v1, or after optional /api/v1/watch.
+		resourceIdx := i + 2
+		if resourceIdx < len(parts) && parts[resourceIdx] == "watch" {
+			resourceIdx++
+		}
+		// /api/v1/[watch/]<resource>/...
+		if resourceIdx < len(parts) {
+			if _, ok := sensitiveCoreResources[parts[resourceIdx]]; ok {
+				return true
+			}
+		}
+		// /api/v1/[watch/]namespaces/<ns>/<resource>/...
+		if resourceIdx+2 < len(parts) && parts[resourceIdx] == "namespaces" {
+			if _, ok := sensitiveCoreResources[parts[resourceIdx+2]]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (v *RequestValidator) AllowTarget(target string) {
