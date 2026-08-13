@@ -25,13 +25,60 @@ def test_get_model_caches_by_args(monkeypatch):
 
     monkeypatch.setattr(llm, "init_chat_model", fake_init)
 
-    a = llm.get_model("openai:gpt-4o-mini", "k1")
-    b = llm.get_model("openai:gpt-4o-mini", "k1")
-    c = llm.get_model("openai:gpt-4o-mini", "k2")
+    a = llm.get_model("openai:gpt-4o-mini", api_key="k1")
+    b = llm.get_model("openai:gpt-4o-mini", api_key="k1")
+    c = llm.get_model("openai:gpt-4o-mini", api_key="k2")
 
     assert a is b
     assert a is not c
     assert calls == [("openai:gpt-4o-mini", "k1"), ("openai:gpt-4o-mini", "k2")]
+
+
+def test_get_model_forwards_explicit_provider(monkeypatch):
+    calls = []
+
+    def fake_init(model, api_key, **kwargs):
+        calls.append((model, api_key, kwargs.get("model_provider")))
+        return object()
+
+    monkeypatch.setattr(llm, "init_chat_model", fake_init)
+
+    llm.get_model("gemini-3.6-flash", model_provider="google_genai", api_key="k1")
+
+    assert calls == [("gemini-3.6-flash", "k1", "google_genai")]
+
+
+def test_get_model_drops_api_key_for_vertex(monkeypatch):
+    # ChatVertexAI has no api_key field, so langchain would move the key into
+    # model_kwargs and send it as a generation parameter. Vertex uses ADC.
+    calls = []
+
+    def fake_init(model, **kwargs):
+        calls.append("api_key" in kwargs)
+        return object()
+
+    monkeypatch.setattr(llm, "init_chat_model", fake_init)
+
+    llm.get_model("gemini-3.1-pro", model_provider="google_vertexai", api_key="secret-key")
+
+    assert calls == [False]
+
+
+def test_get_model_omits_provider_when_unset(monkeypatch):
+    # An unset provider must not be forwarded at all, so langchain falls
+    # back to inferring it from the model name.
+    calls = []
+
+    def fake_init(model, api_key, **kwargs):
+        calls.append("model_provider" in kwargs)
+        return object()
+
+    monkeypatch.setattr(llm, "init_chat_model", fake_init)
+    monkeypatch.setattr(llm.settings, "rca_model_provider", "")
+
+    llm.get_model("openai:gpt-4o-mini", api_key="k-unset-provider")
+
+    assert calls == [False]
 
 
 def test_sync_auth_flow_sets_bearer_header():
