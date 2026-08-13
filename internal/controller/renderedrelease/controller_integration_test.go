@@ -785,10 +785,10 @@ var _ = Describe("RenderedRelease Controller", func() {
 	})
 
 	// ─────────────────────────────────────────────────────────────
-	// Finalization: CleanupFailed condition on DP client error
+	// Finalization: Environment already gone
 	// ─────────────────────────────────────────────────────────────
 
-	Context("Finalization sets CleanupFailed condition when DP client cannot be obtained", func() {
+	Context("Finalization when Environment is missing", func() {
 		const (
 			releaseName = "release-finalize-dpfail"
 			envName     = "env-finalize-dpfail"
@@ -799,8 +799,8 @@ var _ = Describe("RenderedRelease Controller", func() {
 			forceDelete(ctx, nn)
 		})
 
-		It("sets CleanupFailed condition and returns error when environment is missing", func() {
-			By("Creating a RenderedRelease with the finalizer and Finalizing condition pre-set")
+		It("removes the finalizer without error when environment is missing", func() {
+			By("Creating a RenderedRelease with the finalizer set")
 			release := makeMinimalRelease(releaseName, envName)
 			release.Finalizers = []string{DataPlaneCleanupFinalizer}
 			Expect(k8sClient.Create(ctx, release)).To(Succeed())
@@ -819,19 +819,13 @@ var _ = Describe("RenderedRelease Controller", func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			mustReconcile(r, reconcileRequest(releaseName))
 
-			By("Second reconcile: environment does not exist → error + CleanupFailed condition")
-			_, err := r.Reconcile(ctx, reconcileRequest(releaseName))
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(envName))
+			By("Second reconcile: environment does not exist, skip remote cleanup and drop finalizer")
+			mustReconcile(r, reconcileRequest(releaseName))
 
-			By("Verifying the CleanupFailed condition is set")
-			updated := fetchRelease(releaseName)
-			cond := apimeta.FindStatusCondition(updated.Status.Conditions, string(ConditionFinalizing))
-			Expect(cond).NotTo(BeNil())
-			Expect(cond.Reason).To(Equal(string(ReasonCleanupFailed)))
-
-			By("Verifying the finalizer is still present (cleanup did not complete)")
-			Expect(updated.Finalizers).To(ContainElement(DataPlaneCleanupFinalizer))
+			By("Release is fully deleted once the finalizer is gone")
+			Eventually(func() bool {
+				return apierrors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{}))
+			}, testTimeout, testInterval).Should(BeTrue())
 		})
 	})
 
