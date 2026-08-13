@@ -3,7 +3,7 @@
 
 from typing import Any
 
-from src.models.base import BaseModel
+from common.models.base import BaseModel
 
 
 class ChatResponse(BaseModel):

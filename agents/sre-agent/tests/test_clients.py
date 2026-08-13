@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 import src.clients.llm as llm
-from src.auth.bearer import BearerTokenAuth
+from common.auth.bearer import BearerTokenAuth
 from src.clients import openchoreo_api
 from src.clients.mcp import MCPClient
 

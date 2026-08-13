@@ -5,7 +5,7 @@
 
 from dataclasses import dataclass
 
-from src.auth.bearer import BearerTokenAuth
+from common.auth.bearer import BearerTokenAuth
 from src.clients import mcp as mcp_module
 
 

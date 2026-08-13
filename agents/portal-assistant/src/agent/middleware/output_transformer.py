@@ -43,7 +43,7 @@ from langchain.messages import ToolMessage
 from langchain.tools.tool_node import ToolCallRequest
 from langgraph.types import Command
 
-from src.template_manager import render
+from src.templates import render
 
 logger = logging.getLogger(__name__)
 

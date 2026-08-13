@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from src.api import agent_router, report_router
-from src.auth import check_oauth2_connection, get_oauth2_auth
-from src.auth.dependencies import _load_auth_config
+from src.auth import auth as _auth
+from src.auth import check_oauth2_connection, get_jwt_validator, get_oauth2_auth
 from src.clients import MCPClient, get_model, get_report_backend
 from src.config import settings
 from src.logging_config import setup_logging
@@ -26,6 +26,9 @@ if settings.tls_insecure_skip_verify:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    logger.info("Initialising JWT validator...")
+    get_jwt_validator()
+
     logger.info("Starting up: Testing LLM connection...")
     try:
         model = get_model()
@@ -53,7 +56,7 @@ async def lifespan(_app: FastAPI):
 
     logger.info("Loading auth config...")
     try:
-        _load_auth_config()
+        _auth.get_auth_config()
         logger.info("Auth config loaded successfully")
     except Exception as e:
         logger.error("Auth config loading failed: %s", e)

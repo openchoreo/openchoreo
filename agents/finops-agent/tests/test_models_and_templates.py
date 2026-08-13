@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.api.agent_routes import AnalyzeRequest
-from src.template_manager import render
+from src.templates import render
 
 from .factories import make_cost_breakdown, make_report, make_request_context
 

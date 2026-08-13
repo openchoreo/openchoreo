@@ -44,14 +44,15 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from src.agent import run_analysis
-from src.auth.authz_models import (
+from common.auth.authz_errors import AuthzError, AuthzForbidden, AuthzUnauthorized
+from common.auth.authz_models import (
     EvaluateRequest,
     Resource,
     ResourceHierarchy,
     SubjectContext,
 )
-from src.auth.dependencies import get_authz_client, require_authn
+from src.agent import run_analysis
+from src.auth import get_authz_client, require_authn
 from src.clients import get_report_backend
 from src.helpers import resolve_component_scope, resolve_project_scope, validate_time_range
 
@@ -167,15 +168,22 @@ async def _authorize(
         hierarchy.project,
     )
     client = get_authz_client()
-    decision = await client.evaluate(
-        EvaluateRequest(
-            subjectContext=subject,
-            resource=Resource(type=resource_type, id="", hierarchy=hierarchy),
-            action=action,
-            context={},
-        ),
-        token,
-    )
+    try:
+        decision = await client.evaluate(
+            EvaluateRequest(
+                subjectContext=subject,
+                resource=Resource(type=resource_type, id="", hierarchy=hierarchy),
+                action=action,
+                context={},
+            ),
+            token,
+        )
+    except AuthzUnauthorized as e:
+        raise _MCPAuthzError(f"UNAUTHORIZED: {e}") from e
+    except AuthzForbidden as e:
+        raise _MCPAuthzError(f"FORBIDDEN: {e}") from e
+    except AuthzError as e:
+        raise RuntimeError(f"Authorization check failed: {e}") from e
     if not decision.decision:
         logger.warning(
             "MCP authz denied rid=%s subject_type=%s action=%s resource=%s project=%s",

@@ -20,6 +20,7 @@ data:
   JWT_AUDIENCE: {{ .Values.security.jwt.audience | quote }}
   JWT_ISSUER: {{ .Values.security.oidc.issuer | quote }}
   JWT_JWKS_URL: {{ .Values.security.oidc.jwksUrl | quote }}
+  JWT_INSECURE_ALLOW_UNVERIFIED: {{ .Values.security.oidc.insecureAllowUnverified | default "false" | quote }}
   LOG_LEVEL: {{ .Values.finOpsAgent.logLevel | quote }}
   MAX_CONCURRENT_ANALYSES: {{ .Values.finOpsAgent.maxConcurrentAnalyses | quote }}
   OAUTH_CLIENT_ID: {{ .Values.finOpsAgent.oauth.clientId | quote }}

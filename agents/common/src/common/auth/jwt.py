@@ -9,8 +9,6 @@ from typing import Any
 import jwt
 from jwt import PyJWKClient, PyJWKClientError
 
-from src.config import settings
-
 logger = logging.getLogger(__name__)
 
 
@@ -27,19 +25,13 @@ class JWTValidator:
         refresh_interval: int = 3600,
         verify_ssl: bool = True,
         allow_unverified: bool = False,
+        service_name: str = "openchoreo-agent",
     ):
-        if not allow_unverified:
-            missing = [
-                name
-                for name, value in (("jwks_url", jwks_url), ("issuer", issuer))
-                if not value
-            ]
-            if missing:
-                raise ValueError(
-                    "JWTValidator misconfigured: missing required settings "
-                    f"{missing}. Set JWT_JWKS_URL and JWT_ISSUER, "
-                    "or enable JWT_INSECURE_ALLOW_UNVERIFIED for dev-only use."
-                )
+        if not allow_unverified and not jwks_url:
+            raise ValueError(
+                "JWTValidator misconfigured: jwks_url is required. Set JWT_JWKS_URL, "
+                "or enable JWT_INSECURE_ALLOW_UNVERIFIED for dev-only use."
+            )
         self.jwks_url = jwks_url
         self.issuer = issuer
         self.audience = audience
@@ -53,16 +45,12 @@ class JWTValidator:
             ssl_context.verify_mode = ssl.CERT_NONE
             logger.debug("SSL verification disabled for JWKS client")
 
-        # PyJWKClient handles its own TTL'd key cache via ``lifespan``; we
-        # construct it once and let it refresh signing keys in-place.
-        # Previously we recreated the client on every ``refresh_interval``,
-        # which discarded the cached keys and forced a fresh HTTPS handshake
-        # on the next request — pure overhead.
+        # One long-lived client; PyJWKClient TTLs its own key cache via lifespan.
         self._jwks_client = PyJWKClient(
             self.jwks_url,
             cache_keys=True,
             lifespan=self.refresh_interval,
-            headers={"User-Agent": "portal-assistant/1.0"},
+            headers={"User-Agent": f"{service_name}/1.0"},
             ssl_context=ssl_context,
         )
 
@@ -110,10 +98,7 @@ class JWTValidator:
                 **decode_kwargs,
             )
 
-            logger.debug(
-                "JWT validation successful",
-                extra={"sub": claims.get("sub"), "iss": claims.get("iss")},
-            )
+            logger.debug("JWT validation successful", extra={"iss": claims.get("iss")})
 
             return claims
 
@@ -134,10 +119,7 @@ class JWTValidator:
             raise JWTValidationError(f"Invalid token: {e}") from e
 
     async def validate(self, token: str) -> dict[str, Any]:
-        # PyJWKClient + jwt.decode are synchronous and can block the event
-        # loop for hundreds of ms on JWKS misses (network I/O + RS256
-        # verify). Punt to a worker thread so the loop keeps serving other
-        # requests while one validation is in flight.
+        # JWKS fetch + signature verify are blocking; keep them off the event loop.
         return await asyncio.to_thread(self._validate_sync, token)
 
 
@@ -147,32 +129,35 @@ class DisabledJWTValidator:
         return {}
 
 
-_jwt_validator: JWTValidator | DisabledJWTValidator | None = None
+def create_jwt_validator(
+    *,
+    jwks_url: str,
+    issuer: str = "",
+    audience: str = "",
+    refresh_interval: int = 3600,
+    verify_ssl: bool = True,
+    allow_unverified: bool = False,
+    service_name: str = "openchoreo-agent",
+) -> JWTValidator | DisabledJWTValidator:
+    if allow_unverified and not jwks_url:
+        logger.warning(
+            "JWT_INSECURE_ALLOW_UNVERIFIED is set and JWT_JWKS_URL is empty — "
+            "JWT validation is disabled. Do not use this in production."
+        )
+        return DisabledJWTValidator()
 
+    if not jwks_url:
+        raise RuntimeError(
+            "JWT_JWKS_URL is required. Set it, or enable "
+            "JWT_INSECURE_ALLOW_UNVERIFIED for dev-only use."
+        )
 
-def get_jwt_validator() -> JWTValidator | DisabledJWTValidator:
-    global _jwt_validator
-
-    if _jwt_validator is None:
-        if settings.jwt_insecure_allow_unverified and not settings.jwt_jwks_url:
-            logger.warning(
-                "JWT_INSECURE_ALLOW_UNVERIFIED is set and JWT_JWKS_URL is empty — "
-                "JWT validation is disabled. Do not use this in production."
-            )
-            _jwt_validator = DisabledJWTValidator()
-        else:
-            if not settings.jwt_jwks_url:
-                raise RuntimeError(
-                    "JWT_JWKS_URL is required. Set it, or enable "
-                    "JWT_INSECURE_ALLOW_UNVERIFIED for dev-only use."
-                )
-            _jwt_validator = JWTValidator(
-                jwks_url=settings.jwt_jwks_url,
-                issuer=settings.jwt_issuer,
-                audience=settings.jwt_audience,
-                refresh_interval=settings.jwt_jwks_refresh_interval,
-                verify_ssl=not settings.jwks_url_tls_insecure_skip_verify,
-                allow_unverified=settings.jwt_insecure_allow_unverified,
-            )
-
-    return _jwt_validator
+    return JWTValidator(
+        jwks_url=jwks_url,
+        issuer=issuer,
+        audience=audience,
+        refresh_interval=refresh_interval,
+        verify_ssl=verify_ssl,
+        allow_unverified=allow_unverified,
+        service_name=service_name,
+    )

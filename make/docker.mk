@@ -31,9 +31,9 @@ DOCKER_BUILD_IMAGES := \
 	openchoreo-api:$(PROJECT_DIR)/cmd/openchoreo-api/Dockerfile:$(PROJECT_DIR) \
 	observer:$(PROJECT_DIR)/cmd/observer/Dockerfile:$(PROJECT_DIR) \
 	event-forwarder:$(PROJECT_DIR)/cmd/event-forwarder/Dockerfile:$(PROJECT_DIR) \
-	sre-agent:$(PROJECT_DIR)/agents/sre-agent/Dockerfile:$(PROJECT_DIR)/agents/sre-agent \
-	finops-agent:$(PROJECT_DIR)/agents/finops-agent/Dockerfile:$(PROJECT_DIR)/agents/finops-agent \
-	portal-assistant:$(PROJECT_DIR)/agents/portal-assistant/Dockerfile:$(PROJECT_DIR)/agents/portal-assistant \
+	sre-agent:$(PROJECT_DIR)/agents/sre-agent/Dockerfile:$(PROJECT_DIR)/agents \
+	finops-agent:$(PROJECT_DIR)/agents/finops-agent/Dockerfile:$(PROJECT_DIR)/agents \
+	portal-assistant:$(PROJECT_DIR)/agents/portal-assistant/Dockerfile:$(PROJECT_DIR)/agents \
 	openchoreo-cli:$(PROJECT_DIR)/cmd/occ/Dockerfile:$(PROJECT_DIR) \
 	cluster-gateway:$(PROJECT_DIR)/cmd/cluster-gateway/Dockerfile:$(PROJECT_DIR) \
 	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent/Dockerfile:$(PROJECT_DIR)

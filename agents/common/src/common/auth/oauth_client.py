@@ -10,8 +10,6 @@ from urllib.parse import urlparse, urlunparse
 import httpx
 from authlib.integrations.httpx_client import AsyncOAuth2Client, OAuth2Client
 
-from src.config import settings
-
 logger = logging.getLogger(__name__)
 
 
@@ -24,12 +22,20 @@ def _sanitize_url(url: str) -> str:
 
 
 class OAuth2ClientCredentialsAuth(httpx.Auth):
-    def __init__(self, token_url: str, client_id: str, client_secret: str, scope: str = ""):
+    def __init__(
+        self,
+        token_url: str,
+        client_id: str,
+        client_secret: str,
+        scope: str = "",
+        verify_ssl: bool = True,
+    ):
         self.token_url = token_url
         self.client_id = client_id
         self.client_secret = client_secret
         self.scope = scope
         self._token: dict | None = None
+        self.verify_ssl = verify_ssl
         self._sync_lock = threading.Lock()
         self._async_lock = asyncio.Lock()
 
@@ -77,13 +83,11 @@ class OAuth2ClientCredentialsAuth(httpx.Auth):
             if self._is_token_valid():
                 token = self._token
             else:
-                # Create client in context manager so it gets closed
-                verify = not settings.tls_insecure_skip_verify
                 with OAuth2Client(
                     client_id=self.client_id,
                     client_secret=self.client_secret,
                     token_endpoint_auth_method="client_secret_post",
-                    verify=verify,
+                    verify=self.verify_ssl,
                 ) as client:
                     client.token = self._token
                     token = self._ensure_token(client)
@@ -105,13 +109,11 @@ class OAuth2ClientCredentialsAuth(httpx.Auth):
             if self._is_token_valid():
                 token = self._token
             else:
-                # Create client in context manager so it gets closed
-                verify = not settings.tls_insecure_skip_verify
                 async with AsyncOAuth2Client(
                     client_id=self.client_id,
                     client_secret=self.client_secret,
                     token_endpoint_auth_method="client_secret_post",
-                    verify=verify,
+                    verify=self.verify_ssl,
                 ) as client:
                     client.token = self._token
                     token = await self._async_ensure_token(client)
@@ -121,46 +123,32 @@ class OAuth2ClientCredentialsAuth(httpx.Auth):
         yield request
 
 
-def get_oauth2_auth() -> OAuth2ClientCredentialsAuth:
-    if not all([settings.oauth_token_url, settings.oauth_client_id, settings.oauth_client_secret]):
-        raise RuntimeError(
-            "OAuth2 credentials not configured. "
-            "Set OAUTH_TOKEN_URL, OAUTH_CLIENT_ID, and OAUTH_CLIENT_SECRET."
-        )
-
-    logger.debug("OAuth2 authentication enabled: %s", _sanitize_url(settings.oauth_token_url))
-    return OAuth2ClientCredentialsAuth(
-        token_url=settings.oauth_token_url,
-        client_id=settings.oauth_client_id,
-        client_secret=settings.oauth_client_secret,
-        scope=settings.oauth_scope,
-    )
-
-
-async def check_oauth2_connection() -> bool:
-    if not all([settings.oauth_token_url, settings.oauth_client_id, settings.oauth_client_secret]):
-        raise RuntimeError(
-            "OAuth2 credentials not configured. "
-            "Set OAUTH_TOKEN_URL, OAUTH_CLIENT_ID, and OAUTH_CLIENT_SECRET."
-        )
-
-    verify = not settings.tls_insecure_skip_verify
+async def check_oauth2_connection(
+    *,
+    token_url: str,
+    client_id: str,
+    client_secret: str,
+    scope: str = "",
+    verify_ssl: bool = True,
+) -> bool:
     client = AsyncOAuth2Client(
-        client_id=settings.oauth_client_id,
-        client_secret=settings.oauth_client_secret,
+        client_id=client_id,
+        client_secret=client_secret,
         token_endpoint_auth_method="client_secret_post",
-        verify=verify,
+        verify=verify_ssl,
     )
 
     try:
         kwargs = {"grant_type": "client_credentials"}
-        if settings.oauth_scope:
-            kwargs["scope"] = settings.oauth_scope
-        token = await client.fetch_token(settings.oauth_token_url, **kwargs)
+        if scope:
+            kwargs["scope"] = scope
+        token = await client.fetch_token(token_url, **kwargs)
         logger.debug("OAuth2 token fetch successful, expires in %s", token.get("expires_in"))
         return True
     except Exception as e:
-        logger.error("Failed to fetch OAuth2 token from %s", _sanitize_url(settings.oauth_token_url))
-        raise RuntimeError("Failed to fetch OAuth2 token. Check credentials and token endpoint configuration.") from e
+        logger.error("Failed to fetch OAuth2 token from %s", _sanitize_url(token_url))
+        raise RuntimeError(
+            "Failed to fetch OAuth2 token. Check credentials and token endpoint configuration."
+        ) from e
     finally:
         await client.aclose()

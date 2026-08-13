@@ -14,9 +14,9 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
+from common.auth.authz_models import SubjectContext
 from src.api.agent_routes import router as agent_router
 from src.auth import require_authn, require_chat_authz
-from src.auth.authz_models import SubjectContext
 from src.helpers import AlertScope
 
 SCOPE = AlertScope(

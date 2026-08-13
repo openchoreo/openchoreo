@@ -1,27 +1,23 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import logging
 
 import httpx
 
-from src.auth.authz_errors import (
+from common.auth.authz_errors import (
     AuthzForbidden,
     AuthzServiceUnavailable,
     AuthzUnauthorized,
 )
-from src.auth.authz_models import Decision, EvaluateRequest
-from src.logging_config import request_id_context
+from common.auth.authz_models import Decision, EvaluateRequest
+from common.logging_config import request_id_context
 
 logger = logging.getLogger(__name__)
 
 
 async def _inject_request_id(request: httpx.Request) -> None:
-    """Stamp X-Request-Id on every outbound authz call.
-
-    Mirrors the MCP client's request-id hook so authz decisions can
-    be correlated against the chat turn that triggered them.
-    """
     rid = request_id_context.get()
     if not rid:
         return
@@ -29,15 +25,16 @@ async def _inject_request_id(request: httpx.Request) -> None:
         request.headers["X-Request-Id"] = rid
 
 
+_RETRY_ATTEMPTS = 3
+_RETRY_BACKOFF_SECONDS = 0.1
+
+
 class AuthzClient:
     def __init__(self, base_url: str, timeout: float, verify_ssl: bool = True):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.verify_ssl = verify_ssl
-        # Construct the HTTP client eagerly so the first request doesn't race
-        # to populate it (and there's no chance of building two pools under
-        # concurrent first hits). httpx.AsyncClient doesn't need an event
-        # loop for construction, only for I/O.
+        # Eager construction: no race to build the pool on first use.
         self._client: httpx.AsyncClient | None = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout),
             verify=verify_ssl,
@@ -75,17 +72,30 @@ class AuthzClient:
         )
 
         if self._client is None:
-            # Defensive: only reachable if evaluate() is called after close().
             raise RuntimeError("AuthzClient has been closed")
         client = self._client
 
-        try:
-            response = await client.post(url, json=body, headers=headers)
-        except httpx.RequestError as e:
-            logger.error("Authz service unavailable", extra={"url": url, "error": str(e)})
+        # evaluate is a read-only check, so transient connection failures are
+        # safe to retry; HTTP-level errors are not retried.
+        last_error: httpx.RequestError | None = None
+        response = None
+        for attempt in range(_RETRY_ATTEMPTS):
+            try:
+                response = await client.post(url, json=body, headers=headers)
+                break
+            except httpx.RequestError as e:
+                last_error = e
+                if attempt < _RETRY_ATTEMPTS - 1:
+                    await asyncio.sleep(_RETRY_BACKOFF_SECONDS * (2**attempt))
+        if response is None:
+            logger.error(
+                "Authz service unavailable after %d attempts",
+                _RETRY_ATTEMPTS,
+                extra={"url": url, "error": str(last_error)},
+            )
             raise AuthzServiceUnavailable(
                 "Authorization service unavailable",
-            ) from e
+            ) from last_error
 
         if response.status_code == 401:
             logger.warning("Authz service returned unauthorized", extra={"status": 401})
