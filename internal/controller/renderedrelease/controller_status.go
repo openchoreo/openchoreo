@@ -423,8 +423,38 @@ func getCronJobHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Health
 }
 
 func getUnknownResourceHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.HealthStatus, error) {
-	// For unknown resources, we can't determine health status reliably
+	// For unknown resources, we can't determine health status reliably in general.
 	// Resources like ConfigMaps, Secrets, Services, etc. don't have meaningful health states
-	// They are either present or not, so if we got here, they exist
+	// They are either present or not, so if we got here, they exist.
+	//
+	// However, many foreign CRDs (e.g. ExternalSecret, cert-manager Certificate) follow the
+	// Kubernetes API convention of publishing a "Ready" status condition. When one is present,
+	// use it instead of unconditionally reporting Healthy, so a foreign resource that is still
+	// provisioning is classified as transitioning and re-checked on the faster progressing
+	// requeue interval rather than the 5 minute stable one.
+	conditions, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
+	if err != nil || !found {
+		return openchoreov1alpha1.HealthStatusHealthy, nil
+	}
+
+	for _, c := range conditions {
+		condition, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if condType, _, _ := unstructured.NestedString(condition, "type"); condType != "Ready" {
+			continue
+		}
+		status, _, _ := unstructured.NestedString(condition, "status")
+		switch corev1.ConditionStatus(status) {
+		case corev1.ConditionTrue:
+			return openchoreov1alpha1.HealthStatusHealthy, nil
+		case corev1.ConditionFalse:
+			return openchoreov1alpha1.HealthStatusProgressing, nil
+		default:
+			return openchoreov1alpha1.HealthStatusUnknown, nil
+		}
+	}
+
 	return openchoreov1alpha1.HealthStatusHealthy, nil
 }
