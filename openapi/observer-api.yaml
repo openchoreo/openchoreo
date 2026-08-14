@@ -1283,6 +1283,22 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        networkReceiveBytes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        networkTransmitBytes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        diskReadBytes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
+        diskWriteBytes:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetricsTimeSeriesItem"
 
     HttpMetricsTimeSeries:
       type: object

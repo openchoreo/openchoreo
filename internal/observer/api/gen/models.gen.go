@@ -975,12 +975,16 @@ type RecommendationResponse struct {
 
 // ResourceMetricsTimeSeries defines model for ResourceMetricsTimeSeries.
 type ResourceMetricsTimeSeries struct {
-	CpuLimits      *[]MetricsTimeSeriesItem `json:"cpuLimits,omitempty"`
-	CpuRequests    *[]MetricsTimeSeriesItem `json:"cpuRequests,omitempty"`
-	CpuUsage       *[]MetricsTimeSeriesItem `json:"cpuUsage,omitempty"`
-	MemoryLimits   *[]MetricsTimeSeriesItem `json:"memoryLimits,omitempty"`
-	MemoryRequests *[]MetricsTimeSeriesItem `json:"memoryRequests,omitempty"`
-	MemoryUsage    *[]MetricsTimeSeriesItem `json:"memoryUsage,omitempty"`
+	CpuLimits            *[]MetricsTimeSeriesItem `json:"cpuLimits,omitempty"`
+	CpuRequests          *[]MetricsTimeSeriesItem `json:"cpuRequests,omitempty"`
+	CpuUsage             *[]MetricsTimeSeriesItem `json:"cpuUsage,omitempty"`
+	DiskReadBytes        *[]MetricsTimeSeriesItem `json:"diskReadBytes,omitempty"`
+	DiskWriteBytes       *[]MetricsTimeSeriesItem `json:"diskWriteBytes,omitempty"`
+	MemoryLimits         *[]MetricsTimeSeriesItem `json:"memoryLimits,omitempty"`
+	MemoryRequests       *[]MetricsTimeSeriesItem `json:"memoryRequests,omitempty"`
+	MemoryUsage          *[]MetricsTimeSeriesItem `json:"memoryUsage,omitempty"`
+	NetworkReceiveBytes  *[]MetricsTimeSeriesItem `json:"networkReceiveBytes,omitempty"`
+	NetworkTransmitBytes *[]MetricsTimeSeriesItem `json:"networkTransmitBytes,omitempty"`
 }
 
 // ResourceProfile Resource requests, limits, and resulting cost. Resource fields use
