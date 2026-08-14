@@ -764,6 +764,14 @@ controllerManager:
     # @schema
     maxConcurrentReconciles: 1
     # @schema
+    # description: |
+    #   Log verbosity level for the controller-manager, passed as --zap-log-level.
+    #   Empty string leaves controller-runtime's zap default (info) in place.
+    # enum: ["", "debug", "info", "error", "panic"]
+    # default: ""
+    # @schema
+    logLevel: ""
+    # @schema
     # type: object
     # description: Environment variables for the controller-manager
     # @schema
