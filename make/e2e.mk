@@ -397,8 +397,7 @@ _e2e.prepare-backstage-secret:
 		BACKEND_SECRET=$$(head -c 32 /dev/urandom | base64 | tr -d '\n'); \
 		$(E2E_KUBECTL) -n $(E2E_CP_NS) create secret generic backstage-secrets \
 			--from-literal=backend-secret="$$BACKEND_SECRET" \
-			--from-literal=client-secret="backstage-portal-secret" \
-			--from-literal=jenkins-api-key="placeholder-not-in-use"; \
+			--from-literal=client-secret="backstage-portal-secret"; \
 	else \
 		echo "backstage-secrets already exists, leaving in place"; \
 	fi
