@@ -1,3 +1,23 @@
-# Please refer https://help.github.com/articles/about-codeowners for the CODEOWNERS documentation
+# CODEOWNERS — idp-openchoreo (espejo de openchoreo/openchoreo)
+#
+# Reemplaza al CODEOWNERS del upstream, que apunta a equipos `@openchoreo/*` inexistentes en esta
+# organización. Registrado como parche #0 en PATCHES.md.
+#
+# ⚠️ PENDIENTE DE DECISIÓN (T00): no hay equipos creados en `fondomp-production`, así que el owner
+# es una persona. Cuando exista el equipo de plataforma, reemplazar por
+# `@fondomp-production/idp-platform-engineers`.
 
-*  @akila-i @binoyPeries @chalindukodikara @chathuranga95 @ChathurangaKCD @isala404 @JanakaSandaruwan @LakshanSS @mevan-karu @Mirage20 @nilushancosta @NomadXD @sameerajayasoma @VajiraPrabuddhaka @yashodgayashan
+* @fondomp
+
+# Superficie de parches: todo cambio acá difiere del upstream y necesita fila en PATCHES.md.
+/PATCHES.md                     @fondomp
+/.github/CODEOWNERS             @fondomp
+/internal/cluster-gateway/      @fondomp
+/agents/sre-agent/              @fondomp
+
+# Los CRDs son la superficie más peligrosa del bump de upstream: no hay conversion webhooks y Helm
+# nunca actualiza `crds/` en `upgrade`.
+/config/crd/bases/              @fondomp
+
+# Charts: los values productivos viven en `idp-platform`, pero un cambio de template acá los rompe.
+/install/                       @fondomp
