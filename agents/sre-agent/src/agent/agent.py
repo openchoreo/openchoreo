@@ -145,6 +145,7 @@ REMED_AGENT = Agent(
     ],
     response_format=RemediationResult,
     recursion_limit=50,
+    use_summarization=True,
 )
 
 CHAT_AGENT = Agent(
