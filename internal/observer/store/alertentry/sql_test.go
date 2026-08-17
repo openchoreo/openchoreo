@@ -142,7 +142,7 @@ func TestQueryAlertEntries(t *testing.T) {
 	assert.Equal(t, "rule-b", got[0].AlertRuleName)
 }
 
-func TestHasRecentAlert(t *testing.T) {
+func TestGetRecentAlert(t *testing.T) {
 	t.Parallel()
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
@@ -166,6 +166,24 @@ func TestHasRecentAlert(t *testing.T) {
 		ComponentID:          "comp-uid-1",
 	})
 	require.NoError(t, err)
+	latestID, err := store.WriteAlertEntry(ctx, &AlertEntry{
+		Timestamp:            now.Add(-20 * time.Minute).Format(time.RFC3339Nano),
+		AlertRuleName:        "high-error-rate",
+		AlertRuleCRName:      "rule-cr-1",
+		AlertRuleCRNamespace: "obs-plane",
+		AlertValue:           "84",
+		NamespaceName:        "ns-1",
+		ComponentName:        "payments",
+		ComponentID:          "comp-uid-1",
+		IncidentEnabled:      true,
+	})
+	require.NoError(t, err)
+
+	latest, err := store.GetRecentAlert(ctx, "rule-cr-1", "obs-plane", "comp-uid-1", now.Add(-time.Hour))
+	require.NoError(t, err)
+	require.NotNil(t, latest)
+	assert.Equal(t, latestID, latest.ID)
+	assert.True(t, latest.IncidentEnabled)
 
 	tests := []struct {
 		name         string
@@ -219,9 +237,58 @@ func TestHasRecentAlert(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := store.HasRecentAlert(ctx, tt.crName, tt.crNamespace, tt.componentUID, tt.since)
+			got, err := store.GetRecentAlert(ctx, tt.crName, tt.crNamespace, tt.componentUID, tt.since)
 			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, got != nil)
 		})
 	}
+}
+
+func TestGetRecentAlert_StoreError(t *testing.T) {
+	t.Parallel()
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	store, err := New(BackendSQLite, dsn, slog.Default())
+	require.NoError(t, err)
+	require.NoError(t, store.Initialize(context.Background()))
+	require.NoError(t, store.Close())
+
+	_, err = store.GetRecentAlert(context.Background(), "rule-cr-1", "obs-plane", "comp-uid-1", time.Now())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get recent alert")
+}
+
+func TestGetRecentAlert_PostgreSQL(t *testing.T) {
+	t.Parallel()
+
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	s, err := New(BackendSQLite, dsn, slog.Default())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, s.Close()) })
+	require.NoError(t, s.Initialize(context.Background()))
+
+	ctx := context.Background()
+	now := time.Now().UTC()
+	latestID, err := s.WriteAlertEntry(ctx, &AlertEntry{
+		Timestamp:            now.Add(-20 * time.Minute).Format(time.RFC3339Nano),
+		AlertRuleName:        "high-error-rate",
+		AlertRuleCRName:      "rule-cr-pg",
+		AlertRuleCRNamespace: "obs-plane",
+		AlertValue:           "84",
+		NamespaceName:        "ns-1",
+		ComponentName:        "payments",
+		ComponentID:          "comp-uid-pg",
+		IncidentEnabled:      true,
+	})
+	require.NoError(t, err)
+
+	// Force PostgreSQL backend query path
+	sqlSt := s.(*sqlStore)
+	sqlSt.backend = BackendPostgreSQL
+
+	latest, err := s.GetRecentAlert(ctx, "rule-cr-pg", "obs-plane", "comp-uid-pg", now.Add(-time.Hour))
+	require.NoError(t, err)
+	require.NotNil(t, latest)
+	assert.Equal(t, latestID, latest.ID)
+	assert.True(t, latest.IncidentEnabled)
 }
