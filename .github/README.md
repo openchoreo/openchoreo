@@ -45,10 +45,18 @@ en repos propios sin upstream.
 |---|---|
 | Upstream | `openchoreo/openchoreo` |
 | Tag | **`v1.2.2`** (release del 2026-08-06) |
-| Commit | `58758d662fa07bf885acc22045c6919f4aa2e8c1` |
+| Commit | `e4a3e0351851c8a980634e9ee91146110bc235aa` |
 
 **Se sigue tags de release, nunca `main`.** El upstream mueve ~100 commits cada 2,5 meses con
-refactors estructurales, no tiene umbral de coverage y su e2e no corre en CI.
+refactors estructurales, no tiene umbral de coverage y su e2e no corre en CI. (La única excepción
+es `idp-kira-portal`, que se pinnea a un commit de `main` por D9.0 y lo documenta en su
+`PATCHES.md`.)
+
+⚠️ **El sha del pin es el del commit, no el del objeto tag.** Los tags del upstream son **anotados**:
+`git rev-parse v1.2.2` devuelve el objeto tag (`58758d66…`), no el commit (`e4a3e035…`). Usá
+`git rev-parse 'v1.2.2^{commit}'`. Esta tabla tuvo el sha equivocado hasta 2026-08-17; la rama
+`upstream-main` siempre apuntó al commit correcto, era la documentación la que mentía. Lo verifica
+`.github/scripts/verify-fork.sh`.
 
 ## Cómo sincronizar con el upstream
 

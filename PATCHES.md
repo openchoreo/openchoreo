@@ -1,13 +1,14 @@
 # PATCHES — idp-openchoreo
 
-Registro de **todo lo que este espejo difiere del upstream**. Si un archivo del upstream cambió y no
-está en la tabla, es un bug: o falta la fila, o el cambio no debió existir.
+Registro de **todo lo que este espejo difiere del upstream**. Si `git diff upstream-main main`
+muestra un archivo que no está en alguna de las tablas de abajo, es un bug: o falta la fila, o el
+cambio no debió existir.
 
 | | |
 |---|---|
 | Upstream | [`openchoreo/openchoreo`](https://github.com/openchoreo/openchoreo) |
 | Tag fijado | **`v1.2.2`** |
-| Commit | `58758d662fa07bf885acc22045c6919f4aa2e8c1` |
+| Commit | `e4a3e0351851c8a980634e9ee91146110bc235aa` |
 | Diff objetivo | **2 parches de seguridad** + higiene de fork |
 
 ## Reglas
@@ -22,12 +23,51 @@ está en la tabla, es un bug: o falta la fila, o el cambio no debió existir.
 5. **Nunca** reformatear, renombrar ni reorganizar archivos del upstream.
 6. Al rebasear a un tag nuevo, revisá esta tabla archivo por archivo: si upstream tocó un archivo
    parcheado, resolvé a mano y dejá constancia.
+7. **El sha del pin es el del commit, no el del objeto tag.** Los tags del upstream son
+   **anotados**, así que `git rev-parse v1.2.2` devuelve el objeto tag
+   (`58758d662fa07bf885acc22045c6919f4aa2e8c1`) y no el commit
+   (`e4a3e0351851c8a980634e9ee91146110bc235aa`). Usá siempre:
+
+   ```bash
+   git rev-parse 'v1.2.2^{commit}'
+   ```
+
+   Verificación: `git cat-file -t <tag>` responde `tag` si es anotado, `commit` si es liviano.
+   Esta fila existe porque la tabla de arriba tuvo el sha del objeto tag hasta 2026-08-17 (T00b);
+   `upstream-main` siempre apuntó al commit correcto, era la documentación la que mentía.
 
 ## Parches vigentes
 
 | # | Parche | Archivos | Motivo | Issue / PR upstream | Condición de retiro |
 |---|---|---|---|---|---|
-| 0 | Higiene de fork | `.github/CODEOWNERS` | El CODEOWNERS del upstream apunta a equipos `@openchoreo/*` que no existen en `fondomp-production`; GitHub lo marca inválido y no asigna revisores. `.github/` tiene precedencia sobre la raíz, así que no alcanza con agregar uno nuevo | — (no aplica: es governance del fork, no código) | Permanente mientras exista el fork |
+| 0 | Higiene de fork · CODEOWNERS | `.github/CODEOWNERS` (**modifica** un archivo del upstream) | El CODEOWNERS del upstream apunta a equipos `@openchoreo/*` que no existen en `fondomp-production`; GitHub lo marca inválido y no asigna revisores. `.github/` tiene precedencia sobre la raíz, así que no alcanza con agregar uno nuevo | — (no aplica: es governance del fork, no código) | Permanente mientras exista el fork |
+| 0b | Scaffolding del fork | `.github/README.md`, `PATCHES.md`, `.github/scripts/verify-fork.sh` (**archivos nuevos**, el upstream no los tiene) | `.github/README.md` documenta el fork sin tocar el `README.md` del upstream (GitHub le da precedencia para la portada). `PATCHES.md` es este archivo. `verify-fork.sh` es la verificación mínima del espejo — ver abajo | — (governance del fork, no código) | Permanente mientras exista el fork |
+
+**Por qué 0b tiene fila.** Son archivos nuevos: no generan conflicto en el rebase y no consumen
+presupuesto de diff. Pero la regla de arriba dice **todo** lo que difiere del upstream, y
+`git diff upstream-main main` los lista. Sin fila, el próximo que corra ese diff no puede distinguir
+"esto está registrado" de "esto se coló". Falta detectada por T08 sobre el trabajo de T00.
+
+## Verificación
+
+```bash
+.github/scripts/verify-fork.sh              # el espejo esta como dice este archivo
+.github/scripts/verify-fork.sh --self-test  # ¿el verificador detecta lo que dice detectar?
+```
+
+Sin dependencias (bash + git). Contesta las preguntas que este archivo afirma y que hasta ahora
+nadie hacía cumplir:
+
+1. El sha del pin que dice este archivo, ¿es el mismo al que apunta `upstream-main`? **Éste es el
+   check que hubiera cazado el sha del objeto tag.**
+2. Ese sha, ¿es un **commit** o el objeto de un tag anotado? (regla 7).
+3. `v1.2.2^{commit}`, ¿coincide con el sha registrado?
+4. Todo archivo con diff contra `upstream-main`, ¿tiene fila en **Parches vigentes**?
+
+Es el **piso**, y es el mismo script en los tres espejos. En este repo, `idp-sync` (T08) hace la
+versión completa y mucho más profunda de la pregunta 4, más los diffs de CRDs, `values.schema.json`,
+CHANGELOG y `helm template`. Este script no lo reemplaza: corre en 200 ms, sin Python ni red, y sirve
+como pre-commit y como sanity check del propio `idp-sync`.
 
 ## Parches planificados
 
