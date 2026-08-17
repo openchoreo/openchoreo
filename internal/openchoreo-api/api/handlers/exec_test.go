@@ -46,7 +46,7 @@ func TestExecHandler_AuthzEnvironmentContext_ExplicitEnv(t *testing.T) {
 	require.Len(t, pdp.Captured, 1, "authz check should run before pod resolution")
 	testutil.RequireEvalRequest(t, pdp.Captured[0],
 		authz.ActionExecComponent, "component", "greeter-service",
-		authz.ResourceHierarchy{Namespace: "default", Project: "default"})
+		authz.ResourceHierarchy{Namespace: "default", Project: "default", Component: "greeter-service"})
 	require.Equal(t,
 		services.FormatDualScopedResourceName("default", "development", false),
 		pdp.Captured[0].Context.Resource.Environment)
