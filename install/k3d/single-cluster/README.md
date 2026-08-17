@@ -201,6 +201,18 @@ helm upgrade --install openchoreo-data-plane install/helm/openchoreo-data-plane 
   --values install/k3d/single-cluster/values-dp.yaml
 ```
 
+### Local Development Tunnels (`occ local`)
+
+Enabled by the k3d values files: the dep-connect SNI router on NodePort 30443 (`values-dp.yaml`), mapped to the host in `config.yaml`, and `depConnect` on the control plane (`values-cp.yaml`). Both are off in the charts by default.
+
+No key or certificate setup is needed — the control-plane chart generates the capability signing key, and each dep-agent's TLS cert is generated on first use.
+
+```bash
+kubectl get svc openchoreo-dep-connect-router -n openchoreo-data-plane
+```
+
+Expect `NodePort` and `8443:30443/TCP`. See [samples/local-development](../../../samples/local-development/README.md).
+
 ### Register Data Plane
 
 ```bash
@@ -442,6 +454,7 @@ All ports are mapped 1:1 (host:container) unless noted.
 | 8443  | Control       | Gateway HTTPS          |
 | 19080 | Data          | Gateway HTTP           |
 | 19443 | Data          | Gateway HTTPS          |
+| 30443 | Data          | dep-connect SNI router |
 | 10081 | Build         | Argo Workflows UI      |
 | 10082 | Build         | Container Registry     |
 | 11080 | Observability | Observer API (HTTP)    |

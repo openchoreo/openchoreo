@@ -18,7 +18,9 @@ GO_BUILD_BINARIES := \
 	observer:$(PROJECT_DIR)/cmd/observer/main.go \
 	event-forwarder:$(PROJECT_DIR)/cmd/event-forwarder/main.go \
 	cluster-gateway:$(PROJECT_DIR)/cmd/cluster-gateway \
-	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent
+	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent \
+	dep-agent:$(PROJECT_DIR)/cmd/dep-agent \
+	dep-connect-router:$(PROJECT_DIR)/cmd/dep-connect-router
 
 GO_BUILD_BINARY_NAMES := $(foreach b,$(GO_BUILD_BINARIES),$(word 1,$(subst :, ,$(b))))
 

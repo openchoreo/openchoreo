@@ -6,3 +6,10 @@ gateway:
   httpsPort: 19443
   tls:
     enabled: false
+
+# `occ local` SNI router. NodePort must match the config.yaml host port mapping.
+depConnectRouter:
+  enabled: true
+  service:
+    type: NodePort
+    nodePort: 30443
