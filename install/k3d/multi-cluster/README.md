@@ -215,6 +215,8 @@ kubectl --context k3d-openchoreo-dp wait -n openchoreo-data-plane \
   --for=condition=available --timeout=300s deployment --all
 ```
 
+Local development tunnels (`occ local`) need no extra steps — the k3d values files already enable the dep-connect SNI router on NodePort 30443 (`values-dp.yaml`, mapped to the host in `config-dp.yaml`) and `depConnect` on the control plane (`values-cp.yaml`, with `authorizeUrl` pointed at `api.openchoreo.localhost` so the dep-agent can reach the control plane from this cluster). See [samples/local-development](../../../samples/local-development/README.md).
+
 ### Register Data Plane
 
 ```bash
@@ -867,6 +869,7 @@ All ports are mapped 1:1 (host:container) unless noted.
 | 8443  | Control       | Gateway HTTPS           |
 | 19080 | Data          | Gateway HTTP            |
 | 19443 | Data          | Gateway HTTPS           |
+| 30443 | Data          | dep-connect SNI router  |
 | 10081 | Build         | Argo Workflows UI       |
 | 10082 | Build         | Container Registry      |
 | 11080 | Observability | Observer API (HTTP)     |

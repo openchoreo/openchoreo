@@ -1,0 +1,71 @@
+# The endpoint-dependency provider lives in its own `greeter` project (separate
+# from the consumer) to exercise a cross-project endpoint dependency. This file is
+# self-contained: it creates the project, its development binding, and the component.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Project
+metadata:
+  name: greeter
+  namespace: default
+  labels:
+    openchoreo.dev/name: greeter
+spec:
+  deploymentPipelineRef:
+    name: default
+  type:
+    kind: ClusterProjectType
+    name: default
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ProjectReleaseBinding
+metadata:
+  name: greeter-development
+  namespace: default
+  labels:
+    openchoreo.dev/project: greeter
+    openchoreo.dev/environment: development
+spec:
+  owner:
+    projectName: greeter
+  environment: development
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: greeter-service
+  namespace: default
+spec:
+  owner:
+    projectName: greeter
+
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: greeter-service-workload
+  namespace: default
+spec:
+  owner:
+    componentName: greeter-service
+    projectName: greeter
+  endpoints:
+    http:
+      type: HTTP
+      port: 9090
+      # namespace-visible so service-test (a different project) can depend on it
+      visibility: [namespace]
+  container:
+    image: "ghcr.io/openchoreo/samples/greeter-service:latest"
+    command:
+      - ./go-greeter
+    args:
+      - --port
+      - "9090"
+    env:
+      - key: LOG_LEVEL
+        value: "info"

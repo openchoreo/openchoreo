@@ -1403,6 +1403,7 @@ openchoreoApi:
                 - "component:update"
                 - "component:delete"
                 - "component:exec"
+                - "component:connect"
                 - "componentrelease:view"
                 - "componentrelease:create"
                 - "releasebinding:view"
@@ -1518,6 +1519,7 @@ openchoreoApi:
                 - "component:update"
                 - "component:delete"
                 - "component:exec"
+                - "component:connect"
                 - "componentrelease:view"
                 - "componentrelease:create"
                 - "releasebinding:view"
@@ -1899,6 +1901,127 @@ openchoreoApi:
       # default: []
       # @schema
       policies: []
+    # @schema
+    # type: object
+    # description: "`occ local` dep-connect: resolve/authorize endpoints + the per-project+env dep-agent the control plane provisions into the data plane."
+    # @schema
+    depConnect:
+      # @schema
+      # type: boolean
+      # description: |
+      #   Enable the dep-connect resolve/authorize endpoints and dep-agent provisioning.
+      #   Requires depConnectRouter.enabled on each data plane and a reachable
+      #   entrypointAddress; off by default because both are deployment-specific.
+      # default: false
+      # @schema
+      enabled: false
+      # @schema
+      # type: string
+      # description: PEM Ed25519 signing key mount path (from the secret below) used to sign/verify capabilities.
+      # default: "/etc/dep-connect/signing.pem"
+      # @schema
+      signingKeyPath: "/etc/dep-connect/signing.pem"
+      # @schema
+      # type: string
+      # description: Secret holding signing.pem, mounted at signingKeyPath. Created by the chart unless generateSigningKey is false.
+      # default: "dep-connect-signing-key"
+      # @schema
+      signingKeySecretName: "dep-connect-signing-key"
+      # @schema
+      # type: boolean
+      # description: |
+      #   Generate the Ed25519 capability signing key into signingKeySecretName, reusing
+      #   an existing secret on upgrade. Set false to manage the secret yourself; it must
+      #   then already exist, or openchoreo-api will not start.
+      #   Reuse relies on a cluster lookup, which is unavailable to client-side renderers
+      #   (helm template, Argo CD without server-side lookup) — those regenerate the key on
+      #   every render, invalidating live `occ local` sessions. Manage the secret yourself
+      #   in those setups.
+      # default: true
+      # @schema
+      generateSigningKey: true
+      # @schema
+      # type: string
+      # description: JWT kid header for capability signing-key rotation.
+      # default: "dep-connect-1"
+      # @schema
+      keyId: "dep-connect-1"
+      # @schema
+      # type: string
+      # description: Capability JWT issuer (iss) claim.
+      # default: "openchoreo-control-plane"
+      # @schema
+      issuer: "openchoreo-control-plane"
+      # @schema
+      # type: integer
+      # description: Capability lifetime in seconds.
+      # default: 1800
+      # @schema
+      ttlSeconds: 1800
+      # @schema
+      # description: Container image for the provisioned dep-agent Deployment
+      # @schema
+      agentImage:
+        # @schema
+        # type: string
+        # description: Dep-agent image repository
+        # default: ghcr.io/openchoreo/dep-agent
+        # @schema
+        repository: ghcr.io/openchoreo/dep-agent
+
+        # @schema
+        # type: string
+        # description: Image tag. Empty uses Chart.AppVersion.
+        # default: ""
+        # @schema
+        tag: ""
+      # @schema
+      # type: integer
+      # description: TLS tunnel port the provisioned dep-agent listens on.
+      # default: 8443
+      # minimum: 1
+      # maximum: 65535
+      # @schema
+      agentListenPort: 8443
+      # @schema
+      # type: string
+      # description: |
+      #   host:port of the shared dep-connect SNI router that occ dials, as reachable from a
+      #   developer machine (one per data plane; see the openchoreo-data-plane chart's
+      #   depConnectRouter). Required when enabled; no default, as it is site-specific.
+      # default: ""
+      # @schema
+      entrypointAddress: ""
+      # @schema
+      # type: string
+      # description: Suffix appended to the data-plane namespace to form each agent's SNI host.
+      # default: "dep-connect"
+      # @schema
+      sniSuffix: "dep-connect"
+      # @schema
+      # type: string
+      # description: Control-plane authorize endpoint the dep-agent calls per stream, as reachable from the DP.
+      # default: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080/api/v1/dep-connect:authorize"
+      # @schema
+      authorizeUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080/api/v1/dep-connect:authorize"
+      # @schema
+      # type: boolean
+      # description: Skip TLS verification when the dep-agent calls the control plane (development only).
+      # default: false
+      # @schema
+      authorizeInsecure: false
+      # @schema
+      # type: integer
+      # description: How often the idle-dep-agent reaper runs, in seconds.
+      # default: 300
+      # @schema
+      reaperIntervalSeconds: 300
+      # @schema
+      # type: integer
+      # description: How long a dep-agent may be idle before the reaper deletes it, in seconds.
+      # default: 1800
+      # @schema
+      reaperTtlSeconds: 1800
     # @schema
     # type: object
     # description: Logging configuration

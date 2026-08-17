@@ -7,6 +7,12 @@ openchoreoApi:
   config:
     server:
       publicUrl: "http://api.openchoreo.localhost:8080"
+    depConnect:
+      # `occ local` tunnels. Router NodePort 30443 is mapped to the host in config.yaml.
+      enabled: true
+      entrypointAddress: "127.0.0.1:30443"
+      agentImage:
+        tag: latest-dev
 
 backstage:
   secretName: backstage-secrets
