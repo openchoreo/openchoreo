@@ -1,0 +1,90 @@
+{
+  "_comment": [
+    "Fuente de verdad MAQUINABLE de a que release del upstream esta fijado este espejo.",
+    "PATCHES.md es la fuente de verdad HUMANA; idp-sync verifica que las dos coincidan y",
+    "reporta la divergencia como hallazgo. Al rebasear a un tag nuevo se actualizan LAS DOS.",
+    "OJO: 'commit' es el commit al que apunta el tag (git rev-parse <tag>^{commit}), no el sha",
+    "del objeto tag anotado."
+  ],
+
+  "upstream": {
+    "slug": "openchoreo/openchoreo",
+    "url": "https://github.com/openchoreo/openchoreo.git",
+    "remote": "upstream",
+    "mirror_branch": "upstream-main",
+    "release_tag_pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+  },
+
+  "pinned": {
+    "tag": "v1.2.2",
+    "commit": "e4a3e0351851c8a980634e9ee91146110bc235aa"
+  },
+
+  "crd_dirs": [
+    "config/crd/bases",
+    "install/helm/openchoreo-control-plane/crds",
+    "install/helm/openchoreo-observability-plane/crds"
+  ],
+  "expected_crd_count": 37,
+
+  "charts": [
+    "install/helm/openchoreo-control-plane",
+    "install/helm/openchoreo-data-plane",
+    "install/helm/openchoreo-observability-plane",
+    "install/helm/openchoreo-workflow-plane"
+  ],
+
+  "_owned_paths_comment": [
+    "Archivos que son NUESTROS por construccion (no parches sobre archivos del upstream).",
+    "Sin esta lista el check de colisiones se reporta a si mismo como drift no documentado."
+  ],
+  "owned_paths": [
+    "PATCHES.md",
+    "idp-sync/**",
+    ".github/workflows/idp-upstream-sync.yml"
+  ],
+
+  "platform": {
+    "_comment": [
+      "Repo idp-platform: de ahi salen los values productivos (check 5) y los CRs a",
+      "revalidar (check 6). Si el checkout no esta disponible los dos checks reportan",
+      "AMARILLO por falta de insumo; nunca VERDE en silencio."
+    ],
+    "slug": "fondomp-production/idp-platform",
+    "values": {
+      "install/helm/openchoreo-control-plane": "control-plane/values/control-plane.yaml",
+      "install/helm/openchoreo-data-plane": "control-plane/values/data-plane.yaml",
+      "install/helm/openchoreo-observability-plane": "observability/values/observability-plane.yaml",
+      "install/helm/openchoreo-workflow-plane": "control-plane/values/workflow-plane.yaml"
+    },
+    "cr_dirs": [
+      "abstractions",
+      "environments",
+      "networking",
+      "policies"
+    ]
+  },
+
+  "helm_render": {
+    "_comment": "Sustrings que marcan un recurso renderizado como sensible a seguridad.",
+    "sensitive_kinds": [
+      "ClusterRole",
+      "ClusterRoleBinding",
+      "Role",
+      "RoleBinding",
+      "ServiceAccount",
+      "NetworkPolicy",
+      "ValidatingWebhookConfiguration",
+      "MutatingWebhookConfiguration",
+      "Secret"
+    ],
+    "sensitive_fields": [
+      "privileged",
+      "hostPath",
+      "hostNetwork",
+      "allowPrivilegeEscalation",
+      "runAsUser",
+      "automountServiceAccountToken"
+    ]
+  }
+}

@@ -1,0 +1,377 @@
+# Copyright 2026 fondomp-production
+# SPDX-License-Identifier: Apache-2.0
+#
+# Agente de sincronizacion con el upstream (track T08).
+#
+# Corre ante un tag de release nuevo de `openchoreo/openchoreo` y abre un PR con un
+# semaforo. NO rebasea ni mergea nada: contesta "que se rompe si tomamos este tag".
+# El rebase sigue siendo humano.
+#
+# Estructura en tres jobs a proposito:
+#
+#   detect  →  analyze (checks 0-5, minutos, sin cluster)  ─┐
+#          →  k3d     (check 6, decenas de minutos)        ─┴→  report
+#
+# `analyze` y `k3d` van separados porque el k3d es lo mas fragil del pipeline y no
+# puede llevarse puesto el reporte. `report` corre con `always()`: si el k3d se cae o
+# se pasa de timeout, el check 6 sale AMARILLO ("no pude mirar") y el resto se publica
+# igual. Un check salteado nunca cuenta como verde.
+#
+# Archivo NUEVO: no toca nada del upstream, asi que no genera conflicto de rebase.
+
+name: idp · sync upstream
+
+on:
+  schedule:
+    # Lunes 06:15 UTC. El upstream releasea cada ~2,5 meses; la guardia normal es
+    # semanal y cualquier bump urgente se evalua con workflow_dispatch.
+    - cron: "15 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      target_tag:
+        description: "Tag del upstream a evaluar. Vacio = ultimo release."
+        required: false
+        type: string
+      base_tag:
+        description: "Tag base. Vacio = el fijado en idp-sync/upstream.json."
+        required: false
+        type: string
+      skip_k3d:
+        description: "Saltear el check 6 (revalidacion de CRs en k3d)."
+        required: false
+        type: boolean
+        default: false
+      force:
+        description: "Correr aunque no haya tag nuevo (util para probar el agente)."
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: idp-upstream-sync
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_URL: https://github.com/openchoreo/openchoreo.git
+  # Mismos pines que usa el e2e del upstream, para no introducir una version distinta.
+  K3D_VERSION: v5.8.3
+  K3D_SHA256: dbaa79a76ace7f4ca230a1ff41dc7d8a5036a8ad0309e9c54f9bf3836dbe853e
+  HELM_VERSION: "3.16.4"
+  HELM_SHA256: fc307327959aa38ed8f9f7e66d45492bb022a66c3e5da6063958254b9767d179
+
+jobs:
+  # ── Hay tag nuevo? ────────────────────────────────────────────────────────────────
+  detect:
+    name: Detectar release nuevo
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      should_run: ${{ steps.resolve.outputs.should_run }}
+      target: ${{ steps.resolve.outputs.target }}
+      base: ${{ steps.resolve.outputs.base }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Traer los tags del upstream
+        run: |
+          git remote add upstream "${UPSTREAM_URL}" 2>/dev/null || git remote set-url upstream "${UPSTREAM_URL}"
+          git fetch --quiet upstream --tags --force
+
+      - name: Resolver base y target
+        id: resolve
+        env:
+          # Nunca se expanden los inputs dentro del cuerpo del shell: van por env, para
+          # que un tag con backticks no ejecute nada.
+          IN_TARGET: ${{ inputs.target_tag }}
+          IN_BASE: ${{ inputs.base_tag }}
+          IN_FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/venv && /tmp/venv/bin/pip install --quiet -r idp-sync/requirements.txt
+          latest_json="$(PYTHONPATH=idp-sync /tmp/venv/bin/python -m idp_sync \
+            --repo-root . --sync-dir idp-sync latest-tag)"
+          echo "upstream: ${latest_json}"
+
+          pinned="$(python3 -c 'import json,sys; print(json.load(open("idp-sync/upstream.json"))["pinned"]["tag"])')"
+          latest="$(printf '%s' "${latest_json}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["latest"])')"
+          is_new="$(printf '%s' "${latest_json}" | python3 -c 'import json,sys; print(str(json.load(sys.stdin)["is_new"]).lower())')"
+
+          target="${IN_TARGET:-$latest}"
+          base="${IN_BASE:-$pinned}"
+
+          should_run=false
+          if [[ -n "${IN_TARGET}" || "${IN_FORCE}" == "true" || "${is_new}" == "true" ]]; then
+            should_run=true
+          fi
+
+          if ! git rev-parse --quiet --verify "refs/tags/${target}" >/dev/null; then
+            echo "::error::el tag '${target}' no existe en el upstream"
+            exit 1
+          fi
+
+          {
+            echo "should_run=${should_run}"
+            echo "target=${target}"
+            echo "base=${base}"
+          } >>"$GITHUB_OUTPUT"
+
+          {
+            echo "### Sync upstream"
+            echo ""
+            echo "- fijado: \`${pinned}\`"
+            echo "- ultimo release: \`${latest}\`"
+            echo "- evaluar: \`${base}\` → \`${target}\` (correr: ${should_run})"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+  # ── Tests del propio agente ───────────────────────────────────────────────────────
+  # El agente decide si un bump entra a produccion. Si el agente esta roto, su verde no
+  # vale nada — asi que su suite corre antes que sus resultados.
+  self-test:
+    name: Tests de idp-sync
+    needs: detect
+    if: needs.detect.outputs.should_run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: pytest
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/venv
+          /tmp/venv/bin/pip install --quiet -r idp-sync/requirements-dev.txt
+          cd idp-sync && /tmp/venv/bin/python -m pytest tests -q
+
+  # ── Checks 0-5 ────────────────────────────────────────────────────────────────────
+  analyze:
+    name: "Checks 0-5 · CRDs, schema, changelog, parches, helm"
+    needs: [detect, self-test]
+    if: needs.detect.outputs.should_run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Traer los tags del upstream
+        run: |
+          git remote add upstream "${UPSTREAM_URL}" 2>/dev/null || git remote set-url upstream "${UPSTREAM_URL}"
+          git fetch --quiet upstream --tags --force
+
+      # Sin este checkout los checks 2 y 5 no pueden cruzar contra nuestros values y
+      # reportan AMARILLO diciendo exactamente eso. El secreto es opcional a proposito:
+      # el agente tiene que poder correr aunque falte.
+      - name: Checkout de idp-platform (opcional)
+        id: platform
+        continue-on-error: true
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: fondomp-production/idp-platform
+          token: ${{ secrets.IDP_PLATFORM_TOKEN }}
+          path: .idp-platform
+          persist-credentials: false
+
+      - name: Instalar helm
+        # Descarga directa con checksum en vez de una action de terceros: una dependencia
+        # menos que auditar y que pinear en un repo que ya vive de un fork.
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/helm.tgz "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+          echo "${HELM_SHA256}  /tmp/helm.tgz" | sha256sum -c -
+          tar -xzf /tmp/helm.tgz -C /tmp
+          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          helm version
+
+      - name: Correr los checks
+        env:
+          BASE: ${{ needs.detect.outputs.base }}
+          TARGET: ${{ needs.detect.outputs.target }}
+          PLATFORM_OK: ${{ steps.platform.outcome }}
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/venv
+          /tmp/venv/bin/pip install --quiet -r idp-sync/requirements.txt
+          missing_reason="Falta configurar el secret IDP_PLATFORM_TOKEN con lectura sobre fondomp-production/idp-platform; por eso este check queda amarillo y no se inventa un verde."
+          args=(--repo-root . --sync-dir idp-sync analyze --target "${TARGET}" --base "${BASE}" -o static.json)
+          if [[ "${PLATFORM_OK}" == "success" ]]; then
+            args+=(--platform-root .idp-platform)
+          else
+            args+=(--platform-missing-reason "${missing_reason}")
+          fi
+          PYTHONPATH=idp-sync /tmp/venv/bin/python -m idp_sync "${args[@]}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v5.0.0
+        with:
+          name: idp-sync-static
+          path: static.json
+          retention-days: 14
+
+  # ── Check 6 ───────────────────────────────────────────────────────────────────────
+  k3d:
+    name: "Check 6 · revalidacion de CRs en k3d"
+    needs: [detect, self-test]
+    if: needs.detect.outputs.should_run == 'true' && inputs.skip_k3d != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Traer los tags del upstream
+        run: |
+          git remote add upstream "${UPSTREAM_URL}" 2>/dev/null || git remote set-url upstream "${UPSTREAM_URL}"
+          git fetch --quiet upstream --tags --force
+
+      - name: Checkout de idp-platform (opcional)
+        id: platform
+        continue-on-error: true
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: fondomp-production/idp-platform
+          token: ${{ secrets.IDP_PLATFORM_TOKEN }}
+          path: .idp-platform
+          persist-credentials: false
+
+      - name: Instalar helm
+        # Descarga directa con checksum en vez de una action de terceros: una dependencia
+        # menos que auditar y que pinear en un repo que ya vive de un fork.
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/helm.tgz "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+          echo "${HELM_SHA256}  /tmp/helm.tgz" | sha256sum -c -
+          tar -xzf /tmp/helm.tgz -C /tmp
+          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          helm version
+
+      - name: Instalar k3d
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/k3d "https://github.com/k3d-io/k3d/releases/download/${K3D_VERSION}/k3d-linux-amd64"
+          echo "${K3D_SHA256}  /tmp/k3d" | sha256sum -c -
+          sudo install /tmp/k3d /usr/local/bin/k3d
+          k3d version
+
+      - name: Revalidar los CRs
+        env:
+          BASE: ${{ needs.detect.outputs.base }}
+          TARGET: ${{ needs.detect.outputs.target }}
+          PLATFORM_OK: ${{ steps.platform.outcome }}
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/venv
+          /tmp/venv/bin/pip install --quiet -r idp-sync/requirements.txt
+          missing_reason="Falta configurar el secret IDP_PLATFORM_TOKEN con lectura sobre fondomp-production/idp-platform; por eso este check queda amarillo y no se inventa un verde."
+          args=(--repo-root . --sync-dir idp-sync validate --target "${TARGET}" --base "${BASE}" -o k3d.json)
+          if [[ "${PLATFORM_OK}" == "success" ]]; then
+            args+=(--platform-root .idp-platform)
+          else
+            args+=(--platform-missing-reason "${missing_reason}")
+          fi
+          PYTHONPATH=idp-sync /tmp/venv/bin/python -m idp_sync "${args[@]}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v5.0.0
+        if: always()
+        with:
+          name: idp-sync-k3d
+          path: k3d.json
+          retention-days: 14
+
+  # ── Semaforo y PR ─────────────────────────────────────────────────────────────────
+  report:
+    name: Reporte y PR
+    needs: [detect, analyze, k3d]
+    # `always()` + chequeo explicito de `analyze`: el k3d puede fallar y el reporte
+    # sale igual, con el check 6 en amarillo.
+    if: always() && needs.detect.outputs.should_run == 'true' && needs.analyze.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v6.0.0
+        with:
+          name: idp-sync-static
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v6.0.0
+        continue-on-error: true
+        with:
+          name: idp-sync-k3d
+
+      - name: Renderizar el semaforo
+        id: render
+        env:
+          TARGET: ${{ needs.detect.outputs.target }}
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/venv
+          /tmp/venv/bin/pip install --quiet -r idp-sync/requirements.txt
+          mkdir -p "idp-sync/reports"
+          json_path="/tmp/idp-sync-report-${TARGET}.json"
+          PYTHONPATH=idp-sync /tmp/venv/bin/python -m idp_sync --sync-dir idp-sync render \
+            -i static.json -i k3d.json \
+            -m "idp-sync/reports/${TARGET}.md" \
+            -j "${json_path}" \
+            -t /tmp/pr-title.txt >/tmp/severity.txt
+          echo "severity=$(cat /tmp/severity.txt)" >>"$GITHUB_OUTPUT"
+          echo "json_path=${json_path}" >>"$GITHUB_OUTPUT"
+          cat "idp-sync/reports/${TARGET}.md" >>"$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v5.0.0
+        with:
+          name: idp-sync-report-${{ needs.detect.outputs.target }}-json
+          path: ${{ steps.render.outputs.json_path }}
+          retention-days: 30
+
+      - name: Abrir o actualizar el PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET: ${{ needs.detect.outputs.target }}
+          BASE: ${{ needs.detect.outputs.base }}
+          SEVERITY: ${{ steps.render.outputs.severity }}
+        run: |
+          set -euo pipefail
+          branch="idp/upstream-sync/${TARGET}"
+          git config user.name  "idp-sync[bot]"
+          git config user.email "idp-sync@users.noreply.github.com"
+          git checkout -B "${branch}"
+          git add "idp-sync/reports/${TARGET}.md"
+
+          if git diff --cached --quiet; then
+            echo "El reporte no cambio; no hay nada que empujar."
+            exit 0
+          fi
+
+          git commit -m "chore(sync): reporte de upstream ${BASE} → ${TARGET} (${SEVERITY})"
+          git push --force-with-lease origin "${branch}"
+
+          body="$(cat "idp-sync/reports/${TARGET}.md")"
+          title="$(cat /tmp/pr-title.txt)"
+          if existing="$(gh pr list --head "${branch}" --state open --json number --jq '.[0].number')" && [[ -n "${existing}" ]]; then
+            gh pr edit "${existing}" --title "${title}" --body "${body}"
+          else
+            gh pr create --base main --head "${branch}" --title "${title}" --body "${body}"
+          fi
+
+      - name: Rojo = el workflow falla
+        # El PR queda abierto igual; lo que falla es el check, para que el rojo sea
+        # visible en la lista de Actions y no solo dentro del cuerpo del PR.
+        if: steps.render.outputs.severity == 'rojo'
+        run: |
+          echo "::error::semaforo ROJO: el bump a ${{ needs.detect.outputs.target }} no se puede tomar tal cual"
+          exit 1
