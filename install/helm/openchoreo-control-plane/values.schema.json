@@ -1946,6 +1946,19 @@
               "title": "env",
               "type": "object"
             },
+            "logLevel": {
+              "default": "",
+              "description": "Log verbosity level for the controller-manager, passed as --zap-log-level.\nEmpty string leaves controller-runtime's zap default (debug) in place.\n",
+              "enum": [
+                "",
+                "debug",
+                "info",
+                "error",
+                "panic"
+              ],
+              "required": [],
+              "title": "logLevel"
+            },
             "maxConcurrentReconciles": {
               "default": 1,
               "description": "Max concurrent reconciles per controller (manager-wide); raise (e.g. 10) to increase reconcile throughput at scale.",

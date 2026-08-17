@@ -75,6 +75,9 @@ spec:
         {{- if .Values.controllerManager.manager.maxConcurrentReconciles }}
         - --max-concurrent-reconciles={{ .Values.controllerManager.manager.maxConcurrentReconciles }}
         {{- end }}
+        {{- if .Values.controllerManager.manager.logLevel }}
+        - --zap-log-level={{ .Values.controllerManager.manager.logLevel }}
+        {{- end }}
         env:
         - name: ENABLE_WEBHOOKS
           value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}
