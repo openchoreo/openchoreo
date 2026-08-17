@@ -1948,7 +1948,7 @@
             },
             "logLevel": {
               "default": "",
-              "description": "Log verbosity level for the controller-manager, passed as --zap-log-level.\nEmpty string leaves controller-runtime's zap default (info) in place.\n",
+              "description": "Log verbosity level for the controller-manager, passed as --zap-log-level.\nEmpty string leaves controller-runtime's zap default (debug) in place.\n",
               "enum": [
                 "",
                 "debug",

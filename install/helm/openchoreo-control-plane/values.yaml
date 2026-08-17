@@ -766,7 +766,7 @@ controllerManager:
     # @schema
     # description: |
     #   Log verbosity level for the controller-manager, passed as --zap-log-level.
-    #   Empty string leaves controller-runtime's zap default (info) in place.
+    #   Empty string leaves controller-runtime's zap default (debug) in place.
     # enum: ["", "debug", "info", "error", "panic"]
     # default: ""
     # @schema
