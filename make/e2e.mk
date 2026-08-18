@@ -36,6 +36,11 @@ E2E_SETTLE_PROBE_TIMEOUT ?= 5s
 E2E_SETTLE_STABLE_HITS   ?= 3
 # Retries for prerequisite helm installs, see e2e_helm_retry.
 E2E_HELM_RETRY_ATTEMPTS  ?= 3
+# Probes for the API-server gate after cluster create, see e2e_wait_nodes_ready.
+E2E_NODE_READY_ATTEMPTS  ?= 30
+# Lines of pod log kept per container by the diagnostics targets. A UI leg runs
+# for ~an hour, so a small tail captures only the last few seconds of it.
+E2E_DIAGNOSTICS_LOG_TAIL ?= 20000
 # Ginkgo label-filter expression to select which specs run. Empty = run everything.
 # Suites are labeled `tier1`, `tier2`, … on their top-level Describe; see proposal #3509.
 # Examples: `tier1`, `tier1 || tier2`, `tier1 && !tier2`.
@@ -301,16 +306,20 @@ define e2e_wait_metrics_prometheus
 	done
 endef
 
-# Retries kubectl wait for node-Ready, since a just-created k3s API server can
-# briefly return ServiceUnavailable and kubectl wait won't retry that itself.
-# Usage: $(call e2e_mc_wait_nodes_ready,<kubectl-context-flags>,<cluster-label>)
-define e2e_mc_wait_nodes_ready
-	@for i in $$(seq 1 $(E2E_SETTLE_STABLE_HITS)); do \
-		if kubectl $(1) wait --for=condition=Ready nodes --all --timeout=120s; then exit 0; fi; \
-		if [ $$i -eq $(E2E_SETTLE_STABLE_HITS) ]; then echo "$(2) API server did not become ready in time"; exit 1; fi; \
-		$(call log_info, $(2) API server not ready yet, retrying node-ready wait); \
+# Gates on the API server answering, then on node readiness. The probe loop is
+# needed because a just-created k3s API server returns ServiceUnavailable and
+# kubectl won't retry that itself. Probing /readyz rather than re-running the
+# node wait keeps the worst case bounded to ATTEMPTS x (PROBE_TIMEOUT +
+# INTERVAL) plus one node wait, instead of ATTEMPTS full node waits.
+# Usage: $(call e2e_wait_nodes_ready,<kubectl-context-flags>,<cluster-label>)
+define e2e_wait_nodes_ready
+	@for i in $$(seq 1 $(E2E_NODE_READY_ATTEMPTS)); do \
+		if kubectl $(1) get --raw='/readyz' --request-timeout=$(E2E_SETTLE_PROBE_TIMEOUT) >/dev/null 2>&1; then break; fi; \
+		if [ $$i -eq $(E2E_NODE_READY_ATTEMPTS) ]; then echo "$(2) API server did not become ready in time"; exit 1; fi; \
+		$(call log_info, $(2) API server not ready yet); \
 		sleep $(E2E_SETTLE_INTERVAL); \
 	done
+	kubectl $(1) wait --for=condition=Ready nodes --all --timeout=120s
 endef
 
 # Retries a full helm command up to E2E_HELM_RETRY_ATTEMPTS times, since a
@@ -412,7 +421,7 @@ e2e.setup-cluster: ## Create k3d cluster
 	@# OpenAPI/aggregation layer, which a client-side `apply` needs ("failed
 	@# to download openapi: the server is currently unable to handle the
 	@# request"). Mirrors the multi-cluster setup.
-	$(E2E_KUBECTL) wait --for=condition=Ready nodes --all --timeout=120s
+	$(call e2e_wait_nodes_ready,--context $(E2E_KUBECONTEXT),cluster)
 	@$(call log_info, Applying CoreDNS rewrite for e2e domains)
 	$(E2E_KUBECTL) apply -f $(E2E_K3D_DIR)/coredns-custom.yaml
 	@$(call log_success, k3d cluster '$(E2E_CLUSTER_NAME)' created)
@@ -734,7 +743,7 @@ e2e.diagnostics: ## Collect logs, events, and resource dumps from all namespaces
 		$(E2E_KUBECTL) get pods -n $$ns -o wide > $(E2E_DIAGNOSTICS_DIR)/pods-$$ns.txt 2>&1 || true; \
 		$(E2E_KUBECTL) get events -n $$ns --sort-by=.lastTimestamp > $(E2E_DIAGNOSTICS_DIR)/events-$$ns.txt 2>&1 || true; \
 		for pod in $$($(E2E_KUBECTL) get pods -n $$ns -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do \
-			$(E2E_KUBECTL) logs $$pod -n $$ns --all-containers --tail=200 > $(E2E_DIAGNOSTICS_DIR)/logs-$$ns-$$pod.txt 2>&1 || true; \
+			$(E2E_KUBECTL) logs $$pod -n $$ns --all-containers --tail=$(E2E_DIAGNOSTICS_LOG_TAIL) > $(E2E_DIAGNOSTICS_DIR)/logs-$$ns-$$pod.txt 2>&1 || true; \
 		done; \
 	done
 	@$(E2E_KUBECTL) get clusterdataplane,workflowplane,observabilityplane -n default -o yaml > $(E2E_DIAGNOSTICS_DIR)/plane-resources.yaml 2>&1 || true
@@ -784,16 +793,16 @@ e2e.multi.setup: ## All setup: clusters + prerequisites + install + configure
 e2e.multi.setup-clusters: ## Create all four k3d clusters (CP, DP, WP, OP)
 	@$(call log_info, Creating CP cluster '$(E2E_MC_CP_CLUSTER_NAME)')
 	k3d cluster create --config $(E2E_MC_K3D_DIR)/config-cp.yaml
-	$(call e2e_mc_wait_nodes_ready,--context $(E2E_MC_CP_KUBECONTEXT),CP)
+	$(call e2e_wait_nodes_ready,--context $(E2E_MC_CP_KUBECONTEXT),CP)
 	@$(call log_info, Creating DP cluster '$(E2E_MC_DP_CLUSTER_NAME)')
 	k3d cluster create --config $(E2E_MC_K3D_DIR)/config-dp.yaml
-	$(call e2e_mc_wait_nodes_ready,--context $(E2E_MC_DP_KUBECONTEXT),DP)
+	$(call e2e_wait_nodes_ready,--context $(E2E_MC_DP_KUBECONTEXT),DP)
 	@$(call log_info, Creating WP cluster '$(E2E_MC_WP_CLUSTER_NAME)')
 	k3d cluster create --config $(E2E_MC_K3D_DIR)/config-wp.yaml
-	$(call e2e_mc_wait_nodes_ready,--context $(E2E_MC_WP_KUBECONTEXT),WP)
+	$(call e2e_wait_nodes_ready,--context $(E2E_MC_WP_KUBECONTEXT),WP)
 	@$(call log_info, Creating OP cluster '$(E2E_MC_OP_CLUSTER_NAME)')
 	k3d cluster create --config $(E2E_MC_K3D_DIR)/config-op.yaml
-	$(call e2e_mc_wait_nodes_ready,--context $(E2E_MC_OP_KUBECONTEXT),OP)
+	$(call e2e_wait_nodes_ready,--context $(E2E_MC_OP_KUBECONTEXT),OP)
 	@$(call log_info, Applying CoreDNS rewrites)
 	$(E2E_MC_CP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/coredns-custom-cp.yaml
 	$(E2E_MC_DP_KUBECTL) apply -f $(E2E_MC_K3D_DIR)/coredns-custom-dp.yaml
@@ -1312,7 +1321,7 @@ e2e.multi.diagnostics: ## Collect logs, events, and resource dumps from all four
 		$(E2E_MC_CP_KUBECTL) get pods -n $$ns -o wide > $(E2E_MC_DIAGNOSTICS_DIR)/cp-pods-$$ns.txt 2>&1 || true; \
 		$(E2E_MC_CP_KUBECTL) get events -n $$ns --sort-by=.lastTimestamp > $(E2E_MC_DIAGNOSTICS_DIR)/cp-events-$$ns.txt 2>&1 || true; \
 		for pod in $$($(E2E_MC_CP_KUBECTL) get pods -n $$ns -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do \
-			$(E2E_MC_CP_KUBECTL) logs $$pod -n $$ns --all-containers --tail=200 > $(E2E_MC_DIAGNOSTICS_DIR)/cp-logs-$$ns-$$pod.txt 2>&1 || true; \
+			$(E2E_MC_CP_KUBECTL) logs $$pod -n $$ns --all-containers --tail=$(E2E_DIAGNOSTICS_LOG_TAIL) > $(E2E_MC_DIAGNOSTICS_DIR)/cp-logs-$$ns-$$pod.txt 2>&1 || true; \
 		done; \
 	done
 	@for plane_ctx in $(E2E_MC_DP_KUBECONTEXT):dp:$(E2E_DP_NS) \
@@ -1326,7 +1335,7 @@ e2e.multi.diagnostics: ## Collect logs, events, and resource dumps from all four
 		kubectl --context $$ctx describe nodes > $(E2E_MC_DIAGNOSTICS_DIR)/$$prefix-nodes.txt 2>&1 || true; \
 		kubectl --context $$ctx top nodes > $(E2E_MC_DIAGNOSTICS_DIR)/$$prefix-top-nodes.txt 2>&1 || true; \
 		for pod in $$(kubectl --context $$ctx get pods -n $$ns -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do \
-			kubectl --context $$ctx logs $$pod -n $$ns --all-containers --tail=200 > $(E2E_MC_DIAGNOSTICS_DIR)/$$prefix-logs-$$pod.txt 2>&1 || true; \
+			kubectl --context $$ctx logs $$pod -n $$ns --all-containers --tail=$(E2E_DIAGNOSTICS_LOG_TAIL) > $(E2E_MC_DIAGNOSTICS_DIR)/$$prefix-logs-$$pod.txt 2>&1 || true; \
 		done; \
 	done
 	@$(E2E_MC_CP_KUBECTL) get clusterdataplane,clusterworkflowplane,clusterobservabilityplane -o yaml > $(E2E_MC_DIAGNOSTICS_DIR)/plane-resources.yaml 2>&1 || true
@@ -1341,7 +1350,7 @@ e2e.multi.diagnostics: ## Collect logs, events, and resource dumps from all four
 		kubectl --context $(E2E_MC_WP_KUBECONTEXT) get events -n $$ns --sort-by=.lastTimestamp > $(E2E_MC_DIAGNOSTICS_DIR)/wp-$$ns-events.txt 2>&1 || true; \
 		kubectl --context $(E2E_MC_WP_KUBECONTEXT) describe pods -n $$ns > $(E2E_MC_DIAGNOSTICS_DIR)/wp-$$ns-describe.txt 2>&1 || true; \
 		for pod in $$(kubectl --context $(E2E_MC_WP_KUBECONTEXT) get pods -n $$ns -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do \
-			kubectl --context $(E2E_MC_WP_KUBECONTEXT) logs $$pod -n $$ns --all-containers --tail=200 > $(E2E_MC_DIAGNOSTICS_DIR)/wp-$$ns-logs-$$pod.txt 2>&1 || true; \
+			kubectl --context $(E2E_MC_WP_KUBECONTEXT) logs $$pod -n $$ns --all-containers --tail=$(E2E_DIAGNOSTICS_LOG_TAIL) > $(E2E_MC_DIAGNOSTICS_DIR)/wp-$$ns-logs-$$pod.txt 2>&1 || true; \
 		done; \
 	done
 	@# Host-level resource usage of the k3d node containers. Captured from the
