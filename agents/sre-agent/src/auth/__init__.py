@@ -15,6 +15,7 @@ from src.auth.dependencies import (
     require_chat_authz,
     require_reports_authz,
     require_reports_update_authz,
+    require_service_identity,
 )
 from src.auth.jwt import JWTValidationError, JWTValidator, get_jwt_validator
 from src.auth.oauth_client import check_oauth2_connection, get_oauth2_auth
@@ -40,4 +41,5 @@ __all__ = [
     "require_chat_authz",
     "require_reports_authz",
     "require_reports_update_authz",
+    "require_service_identity",
 ]

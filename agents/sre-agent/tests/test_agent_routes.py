@@ -15,7 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from src.api.agent_routes import router as agent_router
-from src.auth import require_authn, require_chat_authz
+from src.auth import require_authn, require_chat_authz, require_service_identity
 from src.auth.authz_models import SubjectContext
 from src.helpers import AlertScope
 
@@ -62,7 +62,16 @@ def _subject():
     return SubjectContext(type="user", entitlementClaim="sub", entitlementValues=["u1"])
 
 
+def _service_subject():
+    return SubjectContext(
+        type="service_account", entitlementClaim="sub", entitlementValues=["rca-agent"]
+    )
+
+
 def test_analyze_returns_pending_and_schedules_task(app):
+    app.dependency_overrides[require_authn] = _service_subject
+    app.dependency_overrides[require_service_identity] = _service_subject
+
     backend = MagicMock()
     backend.upsert_rca_report = AsyncMock()
 
@@ -91,6 +100,9 @@ def test_analyze_returns_pending_and_schedules_task(app):
 
 
 def test_analyze_returns_500_when_backend_fails(app):
+    app.dependency_overrides[require_authn] = _service_subject
+    app.dependency_overrides[require_service_identity] = _service_subject
+
     backend = MagicMock()
     backend.upsert_rca_report = AsyncMock(side_effect=RuntimeError("db down"))
 
@@ -106,8 +118,19 @@ def test_analyze_returns_500_when_backend_fails(app):
 
 
 def test_analyze_rejects_malformed_body(app):
+    app.dependency_overrides[require_authn] = _service_subject
+    app.dependency_overrides[require_service_identity] = _service_subject
+
     resp = TestClient(app).post("/api/v1alpha1/rca-agent/analyze", json={"namespace": "ns"})
     assert resp.status_code == 422
+
+
+def test_analyze_rejects_non_service_identity(app):
+    app.dependency_overrides[require_authn] = _subject
+
+    resp = TestClient(app).post("/api/v1alpha1/rca-agent/analyze", json=ANALYZE_BODY)
+
+    assert resp.status_code == 403
 
 
 def test_chat_streams_when_report_exists(app):

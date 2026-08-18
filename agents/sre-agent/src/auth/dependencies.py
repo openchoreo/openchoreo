@@ -146,6 +146,20 @@ async def require_authn(request: Request) -> SubjectContext:
         )
 
 
+async def require_service_identity(
+    subject: Annotated[SubjectContext, Depends(require_authn)],
+) -> SubjectContext:
+    if subject.type != "service_account":
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "FORBIDDEN",
+                "message": "Service account identity required",
+            },
+        )
+    return subject
+
+
 async def extract_request_body(request: Request) -> dict[str, Any]:
     if hasattr(request.state, "_parsed_body"):
         return request.state._parsed_body

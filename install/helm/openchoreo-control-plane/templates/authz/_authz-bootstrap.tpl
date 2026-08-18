@@ -17,6 +17,20 @@ Bootstrap resource name prefix (cluster-scoped and namespaced hook resources).
 {{- end }}
 
 {{/*
+Label applied to every authorization CR managed by the bootstrap Job.
+*/}}
+{{- define "openchoreo-control-plane.authz.bootstrapManagedBy" -}}
+{{- include "openchoreo-control-plane.authz.bootstrapName" . }}
+{{- end }}
+
+{{/*
+Kubectl label selector for pruning authorization CRs managed by the bootstrap Job.
+*/}}
+{{- define "openchoreo-control-plane.authz.bootstrapPruneSelector" -}}
+openchoreo.io/managed-by={{ include "openchoreo-control-plane.authz.bootstrapManagedBy" . }}
+{{- end }}
+
+{{/*
 Render a single AuthzRole/ClusterAuthzRole document.
 Usage: include "openchoreo-control-plane.authz.roleManifest" (dict "role" $role "root" $root)
 */}}
@@ -31,6 +45,7 @@ metadata:
   labels:
     {{- include "openchoreo-control-plane.labels" $root | nindent 4 }}
     openchoreo.io/bootstrap: "true"
+    openchoreo.io/managed-by: {{ include "openchoreo-control-plane.authz.bootstrapManagedBy" $root | quote }}
     {{- if $role.system }}
     openchoreo.io/system: "true"
     {{- end }}
@@ -51,6 +66,7 @@ metadata:
   labels:
     {{- include "openchoreo-control-plane.labels" $root | nindent 4 }}
     openchoreo.io/bootstrap: "true"
+    openchoreo.io/managed-by: {{ include "openchoreo-control-plane.authz.bootstrapManagedBy" $root | quote }}
     {{- if $role.system }}
     openchoreo.io/system: "true"
     {{- end }}
@@ -81,6 +97,7 @@ metadata:
   labels:
     {{- include "openchoreo-control-plane.labels" $root | nindent 4 }}
     openchoreo.io/bootstrap: "true"
+    openchoreo.io/managed-by: {{ include "openchoreo-control-plane.authz.bootstrapManagedBy" $root | quote }}
     {{- if $m.system }}
     openchoreo.io/system: "true"
     {{- end }}
@@ -116,6 +133,7 @@ metadata:
   labels:
     {{- include "openchoreo-control-plane.labels" $root | nindent 4 }}
     openchoreo.io/bootstrap: "true"
+    openchoreo.io/managed-by: {{ include "openchoreo-control-plane.authz.bootstrapManagedBy" $root | quote }}
     {{- if $m.system }}
     openchoreo.io/system: "true"
     {{- end }}
