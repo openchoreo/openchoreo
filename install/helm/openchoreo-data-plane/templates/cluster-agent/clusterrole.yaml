@@ -7,107 +7,24 @@ metadata:
     {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-agent
 rules:
-# Core Kubernetes workload resources
-- apiGroups: ["apps"]
-  resources:
-  - deployments
-  - statefulsets
-  - daemonsets
-  - replicasets
-  verbs: ["*"]
-# Deployment scale subresource (required for kubectl scale)
-- apiGroups: ["apps"]
-  resources:
-  - deployments/scale
-  - statefulsets/scale
-  - replicasets/scale
-  verbs: ["get", "update", "patch"]
+# Cluster-scoped resources only. Namespaced workload permissions live in role.yaml.
 - apiGroups: [""]
   resources:
-  - pods
-  - services
-  - configmaps
-  - secrets
-  - persistentvolumeclaims
-  - serviceaccounts
   - namespaces
-  - endpoints
   verbs: ["*"]
-- apiGroups: [""]
-  resources:
-  - pods/log
-  - pods/status
-  - events
-  verbs: ["get", "list"]
-# Pod exec (required for occ component exec / interactive shell into pods)
-- apiGroups: [""]
-  resources:
-  - pods/exec
-  verbs: ["create", "get"]
-# Batch jobs
-- apiGroups: ["batch"]
-  resources:
-  - jobs
-  - cronjobs
-  verbs: ["*"]
-# Networking
-- apiGroups: ["networking.k8s.io"]
-  resources:
-  - ingresses
-  - networkpolicies
-  verbs: ["*"]
-# RBAC (for service account management)
-- apiGroups: ["rbac.authorization.k8s.io"]
-  resources:
-  - roles
-  - rolebindings
-  - clusterroles
-  - clusterrolebindings
-  verbs: ["*"]
-# Autoscaling
-- apiGroups: ["autoscaling"]
-  resources:
-  - horizontalpodautoscalers
-  verbs: ["*"]
-# Policy
-- apiGroups: ["policy"]
-  resources:
-  - poddisruptionbudgets
-  verbs: ["*"]
-# Cilium network policies (if using Cilium)
+# Cluster-scoped Cilium network policies (if using Cilium)
 - apiGroups: ["cilium.io"]
   resources:
-  - ciliumnetworkpolicies
   - ciliumclusterwidenetworkpolicies
   verbs: ["*"]
-# Gateway API resources (if using Gateway API)
-- apiGroups: ["gateway.networking.k8s.io"]
-  resources:
-  - gateways
-  - httproutes
-  - tcproutes
-  - grpcroutes
-  - tlsroutes
-  - referencegrants
-  verbs: ["*"]
-# External Secrets Operator
+# Cluster-scoped External Secrets Operator resources
 - apiGroups: ["external-secrets.io"]
   resources:
-  - externalsecrets
-  - secretstores
   - clustersecretstores
-  - pushsecrets
-  verbs: ["*"]
-# External Secrets Operator generators
-- apiGroups: ["generators.external-secrets.io"]
-  resources:
-  - passwords
   verbs: ["*"]
 # KGateway resources (if using KGateway)
 - apiGroups: ["gateway.kgateway.dev"]
   resources:
-  - backends
   - gatewayparameters
-  - trafficpolicies
   verbs: ["*"]
 {{- end }}

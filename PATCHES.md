@@ -42,6 +42,7 @@ cambio no debió existir.
 |---|---|---|---|---|---|
 | 0 | Higiene de fork · CODEOWNERS | `.github/CODEOWNERS` (**modifica** un archivo del upstream) | El CODEOWNERS del upstream apunta a equipos `@openchoreo/*` que no existen en `fondomp-production`; GitHub lo marca inválido y no asigna revisores. `.github/` tiene precedencia sobre la raíz, así que no alcanza con agregar uno nuevo | — (no aplica: es governance del fork, no código) | Permanente mientras exista el fork |
 | 0b | Scaffolding del fork | `.github/README.md`, `PATCHES.md`, `.github/scripts/verify-fork.sh` (**archivos nuevos**, el upstream no los tiene) | `.github/README.md` documenta el fork sin tocar el `README.md` del upstream (GitHub le da precedencia para la portada). `PATCHES.md` es este archivo. `verify-fork.sh` es la verificación mínima del espejo — ver abajo | — (governance del fork, no código) | Permanente mientras exista el fork |
+| 2 | **CRITICAL** · RBAC del `cluster-agent` | `install/helm/openchoreo-data-plane/templates/cluster-agent/clusterrole.yaml`, `install/helm/openchoreo-data-plane/templates/cluster-agent/role.yaml`, `install/helm/openchoreo-data-plane/templates/cluster-agent/rolebinding.yaml`, `install/helm/openchoreo-observability-plane/templates/cluster-agent/clusterrole.yaml`, `install/helm/openchoreo-observability-plane/templates/cluster-agent/role.yaml`, `install/helm/openchoreo-observability-plane/templates/cluster-agent/rolebinding.yaml`, `install/helm/openchoreo-workflow-plane/templates/cluster-agent/clusterrole.yaml`, `install/helm/openchoreo-workflow-plane/templates/cluster-agent/role.yaml`, `install/helm/openchoreo-workflow-plane/templates/cluster-agent/rolebinding.yaml`, `.github/scripts/verify-cluster-agent-rbac.sh` | El `cluster-agent` proxya requests al API server con su ServiceAccount. `clusterroles`/`clusterrolebindings` con verbo `*` vuelven esa identidad `cluster-admin` de facto y eluden la prevención de escalación basada en `escalate`/`bind`; `secrets` y `serviceaccounts` no necesitan quedar en ClusterRole. El parche elimina todo `rbac.authorization.k8s.io` del ClusterRole de los agentes y mueve permisos namespaced a Role | [openchoreo/openchoreo#4510](https://github.com/openchoreo/openchoreo/pull/4510) | Retirar cuando upstream tenga ClusterRole sin `rbac.authorization.k8s.io` y sin `secrets`/`serviceaccounts`, con Role/RoleBinding namespaced equivalente |
 | 3 | **HIGH** · `POST /rca-agent/analyze` requiere authn + identidad de servicio | `agents/sre-agent/openapi.yaml`, `agents/sre-agent/src/api/agent_routes.py`, `agents/sre-agent/src/auth/__init__.py`, `agents/sre-agent/src/auth/dependencies.py`, `agents/sre-agent/tests/test_agent_routes.py`, `agents/sre-agent/tests/test_auth.py` | Endpoint de análisis aceptaba requests sin autenticación. Ahora exige JWT con `require_authn` y subject type `service_account` según `auth-config.yaml` | [openchoreo/openchoreo#4509](https://github.com/openchoreo/openchoreo/pull/4509) | Retirar cuando el PR upstream esté mergeado y el pin upstream contenga el fix |
 | 4 | **HIGH** · bootstrap de authz revoca CRs removidos | `install/helm/openchoreo-control-plane/templates/authz/_authz-bootstrap.tpl`, `install/helm/openchoreo-control-plane/templates/authz/bootstrap-job.yaml`, `install/helm/openchoreo-control-plane/templates/authz/bootstrap-rbac.yaml`, `install/helm/openchoreo-control-plane/tests/verify-authz-bootstrap-prune.sh` | Sacar un binding/rol de `values.yaml` no revocaba acceso porque el bootstrap sólo hacía apply. Ahora los CRs generados tienen `openchoreo.io/managed-by` y el Job usa `kubectl apply --prune` con selector y allowlists de los cuatro CRDs de authz | [openchoreo/openchoreo#4508](https://github.com/openchoreo/openchoreo/pull/4508) | Retirar cuando el PR upstream esté mergeado y el pin upstream contenga el fix |
 
@@ -55,10 +56,11 @@ presupuesto de diff. Pero la regla de arriba dice **todo** lo que difiere del up
 ```bash
 .github/scripts/verify-fork.sh              # el espejo esta como dice este archivo
 .github/scripts/verify-fork.sh --self-test  # ¿el verificador detecta lo que dice detectar?
+.github/scripts/verify-cluster-agent-rbac.sh # requiere helm + yq; RBAC del cluster-agent acotado en los 3 charts
 ```
 
-Sin dependencias (bash + git). Contesta las preguntas que este archivo afirma y que hasta ahora
-nadie hacía cumplir:
+Los dos comandos `verify-fork.sh` no tienen dependencias (bash + git). Contestan las preguntas que
+este archivo afirma y que hasta ahora nadie hacía cumplir:
 
 1. El sha del pin que dice este archivo, ¿es el mismo al que apunta `upstream-main`? **Éste es el
    check que hubiera cazado el sha del objeto tag.**
@@ -78,7 +80,6 @@ Reservados por el plan de agentes. **No implementados todavía** — no borres l
 | # | Parche | Archivos previstos | Motivo | Track |
 |---|---|---|---|---|
 | 1 | **CRITICAL** · denylist del proxy del `cluster-gateway` | `internal/cluster-gateway/validator.go` (+ su test) | Tres defectos: `/apis/v1/serviceaccounts` **nunca matchea** (el core API va bajo `/api/v1`, no `/apis/<group>/<version>`); el commit `28e0338` **eliminó** `/api/v1/secrets` en un PR no relacionado; y el subrecurso **TokenRequest** (`POST …/serviceaccounts/{name}/token`) no está contemplado — emite un JWT vivo para cualquier ServiceAccount. El test hoy valida el string equivocado y por eso pasa | T11 (issue upstream #4237) |
-| 2 | **CRITICAL** · RBAC del `cluster-agent` | ClusterRole en los 3 charts (data, observability, workflow plane) | `clusterroles`/`clusterrolebindings` con verbo `*` → auto-escalación de privilegios, **cluster-admin de facto**: el comodín elude la prevención que exige `escalate`/`bind` | T12 |
 | 5 | *(reservado)* resolver de JWT para Auth0 | — | Presupuestado en D2 por si el control plane rechaza el token por algo imprevisto. **Puede no hacer falta**: el resolver es configurable | T06 / D2 |
 
 ## Parches retirados
