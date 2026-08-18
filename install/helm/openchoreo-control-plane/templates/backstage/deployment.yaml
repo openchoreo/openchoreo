@@ -284,7 +284,7 @@ spec:
           readOnly: true
         {{- end }}
         {{- with .Values.backstage.extraVolumeMounts }}
-        {{- toYaml . | nindent 12 }}
+        {{- toYaml . | nindent 8 }}
         {{- end }}
       volumes:
       {{- if eq .Values.backstage.database.type "sqlite" }}
@@ -310,6 +310,6 @@ spec:
           name: {{ include "openchoreo-control-plane.backstage.name" . }}-extra-config
       {{- end }}
       {{- with .Values.backstage.extraVolumes }}
-      {{- toYaml . | nindent 10 }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
 {{- end }}
