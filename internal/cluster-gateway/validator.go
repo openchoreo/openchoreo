@@ -39,7 +39,8 @@ func NewRequestValidator() *RequestValidator {
 		},
 		blockedPaths: []string{
 			"/api/v1/namespaces/kube-system/secrets",
-			"/apis/v1/serviceaccounts", // Cluster-wide service accounts
+			"/api/v1/secrets",         // Cluster-wide secrets
+			"/api/v1/serviceaccounts", // Cluster-wide service accounts
 		},
 		allowedTargets: map[string]bool{
 			"k8s":        true,
@@ -64,12 +65,10 @@ func (v *RequestValidator) ValidateRequest(r *http.Request, target, path string)
 		}
 	}
 
-	for _, blockedPath := range v.blockedPaths {
-		if strings.Contains(path, blockedPath) {
-			return &ValidationError{
-				Code:    http.StatusForbidden,
-				Message: fmt.Sprintf("Access to path is blocked: %s", path),
-			}
+	if v.isBlockedPath(r.Method, path) {
+		return &ValidationError{
+			Code:    http.StatusForbidden,
+			Message: fmt.Sprintf("Access to path is blocked: %s", path),
 		}
 	}
 
@@ -95,6 +94,40 @@ func (v *RequestValidator) ValidateRequest(r *http.Request, target, path string)
 	}
 
 	return nil
+}
+
+func (v *RequestValidator) isBlockedPath(method, requestPath string) bool {
+	for _, blockedPath := range v.blockedPaths {
+		if pathMatchesPrefix(requestPath, blockedPath) {
+			return true
+		}
+	}
+	return isServiceAccountTokenRequest(method, requestPath)
+}
+
+func pathMatchesPrefix(requestPath, blockedPath string) bool {
+	requestPath = strings.TrimRight(requestPath, "/")
+	blockedPath = strings.TrimRight(blockedPath, "/")
+	return requestPath == blockedPath || strings.HasPrefix(requestPath, blockedPath+"/")
+}
+
+func isServiceAccountTokenRequest(method, requestPath string) bool {
+	if method != http.MethodPost {
+		return false
+	}
+
+	segments := strings.Split(strings.Trim(requestPath, "/"), "/")
+	if len(segments) != 7 {
+		return false
+	}
+
+	return segments[0] == "api" &&
+		segments[1] == "v1" &&
+		segments[2] == "namespaces" &&
+		segments[3] != "" &&
+		segments[4] == "serviceaccounts" &&
+		segments[5] != "" &&
+		segments[6] == "token"
 }
 
 func (v *RequestValidator) AllowTarget(target string) {
