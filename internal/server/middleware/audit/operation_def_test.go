@@ -39,14 +39,18 @@ func TestMCPBindings_DerivedFromDefs(t *testing.T) {
 		},
 	}
 
-	bindings := MCPBindings(defs)
+	bindings, err := MCPBindings(defs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if len(bindings) != 1 {
 		t.Fatalf("len(MCPBindings(defs)) = %d, want 1 (only defs with MCPToolName set)", len(bindings))
 	}
 
-	b, ok := bindings["create_project"]
+	key := MCPBindingKey{ToolName: "create_project"}
+	b, ok := bindings[key]
 	if !ok {
-		t.Fatal(`MCPBindings(defs)["create_project"] missing`)
+		t.Fatal(`MCPBindings(defs)[{ToolName: "create_project"}] missing`)
 	}
 	if b.ResourceArg != "name" {
 		t.Errorf("ResourceArg = %q, want %q", b.ResourceArg, "name")
@@ -55,7 +59,98 @@ func TestMCPBindings_DerivedFromDefs(t *testing.T) {
 		t.Errorf("Operation = %+v, want ID CreateProject", b.Operation)
 	}
 
-	if _, ok := bindings[""]; ok {
-		t.Error(`MCPBindings(defs) has a spurious entry under the empty-string key for the def with no MCPToolName`)
+	if _, ok := bindings[MCPBindingKey{}]; ok {
+		t.Error(`MCPBindings(defs) has a spurious entry under the empty-key for the def with no MCPToolName`)
+	}
+}
+
+// TestMCPBindings_ScopeCollapsedFanOut is the 0.10e proof: two OperationDefs
+// sharing one MCPToolName but distinguished by MCPScope (a scope-collapsed
+// tool, e.g. create_component_type routing to either a namespace-scoped or a
+// cluster-scoped REST operation) must resolve to two distinct entries, not
+// one silently overwriting the other.
+func TestMCPBindings_ScopeCollapsedFanOut(t *testing.T) {
+	defs := []OperationDef{
+		{
+			ID: "CreateComponentType", Action: "create_component_type", ResourceType: "componenttype",
+			Category: CategoryManagement, MCPToolName: "create_component_type", MCPScope: "namespace", MCPResourceArg: "name",
+		},
+		{
+			ID: "CreateClusterComponentType", Action: "create_cluster_component_type", ResourceType: "clustercomponenttype",
+			Category: CategoryManagement, MCPToolName: "create_component_type", MCPScope: "cluster", MCPResourceArg: "name",
+		},
+	}
+
+	bindings, err := MCPBindings(defs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(bindings) != 2 {
+		t.Fatalf("len(MCPBindings(defs)) = %d, want 2 (one per scope)", len(bindings))
+	}
+
+	ns, ok := bindings[MCPBindingKey{ToolName: "create_component_type", Scope: "namespace"}]
+	if !ok || ns.Operation == nil || ns.Operation.ID != "CreateComponentType" {
+		t.Errorf("namespace-scope binding = %+v, want Operation.ID CreateComponentType", ns)
+	}
+	cluster, ok := bindings[MCPBindingKey{ToolName: "create_component_type", Scope: "cluster"}]
+	if !ok || cluster.Operation == nil || cluster.Operation.ID != "CreateClusterComponentType" {
+		t.Errorf("cluster-scope binding = %+v, want Operation.ID CreateClusterComponentType", cluster)
+	}
+}
+
+// TestMCPBindings_DuplicateKeyErrors guards the failure mode a bare map
+// write used to allow silently: two defs resolving to the same
+// (MCPToolName, MCPScope) key, where the second would overwrite the first
+// with no signal — misattributing every call routed to the first def's tool
+// to the second def's action/category/resource type instead.
+func TestMCPBindings_DuplicateKeyErrors(t *testing.T) {
+	defs := []OperationDef{
+		{ID: "CreateComponentType", Action: "create_component_type", Category: CategoryManagement, MCPToolName: "create_component_type"},
+		{ID: "CreateClusterComponentType", Action: "create_cluster_component_type", Category: CategoryManagement, MCPToolName: "create_component_type"},
+	}
+
+	_, err := MCPBindings(defs)
+	if err == nil {
+		t.Fatal("expected an error for two defs colliding on the same (MCPToolName, MCPScope) key, got nil")
+	}
+}
+
+// TestMCPBindings_RejectsMixedScopedAndUnscoped guards a defect that doesn't
+// collide on (MCPToolName, MCPScope) — {tool, ""} and {tool, "cluster"} are
+// distinct map entries — but is still wrong: the adapter's resolveBinding
+// always tries the unscoped key first, so the scoped binding would be
+// silently unreachable and every call to the tool would resolve to the
+// unscoped operation regardless of its actual scope argument.
+func TestMCPBindings_RejectsMixedScopedAndUnscoped(t *testing.T) {
+	defs := []OperationDef{
+		{ID: "CreateComponentType", Action: "create_component_type", Category: CategoryManagement, MCPToolName: "create_component_type"},
+		{
+			ID: "CreateClusterComponentType", Action: "create_cluster_component_type", Category: CategoryManagement,
+			MCPToolName: "create_component_type", MCPScope: "cluster",
+		},
+	}
+
+	_, err := MCPBindings(defs)
+	if err == nil {
+		t.Fatal("expected an error for a tool mixing an unscoped and a scoped binding, got nil")
+	}
+}
+
+// TestMCPBindings_RejectsMixedScopedAndUnscoped_ScopedFirst is the same
+// defect with the unscoped def appearing second — the check must catch it
+// regardless of which def in the slice declares the empty scope.
+func TestMCPBindings_RejectsMixedScopedAndUnscoped_ScopedFirst(t *testing.T) {
+	defs := []OperationDef{
+		{
+			ID: "CreateClusterComponentType", Action: "create_cluster_component_type", Category: CategoryManagement,
+			MCPToolName: "create_component_type", MCPScope: "cluster",
+		},
+		{ID: "CreateComponentType", Action: "create_component_type", Category: CategoryManagement, MCPToolName: "create_component_type"},
+	}
+
+	_, err := MCPBindings(defs)
+	if err == nil {
+		t.Fatal("expected an error for a tool mixing a scoped and an unscoped binding, got nil")
 	}
 }

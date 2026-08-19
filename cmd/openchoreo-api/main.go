@@ -229,9 +229,14 @@ func main() {
 		mcpLoggerMw := apilogger.LoggerMiddleware(mcpLogger)
 		resourceMetadataURL := cfg.Server.PublicURL + "/.well-known/oauth-protected-resource"
 		mcpAuth401Mw := mcpmiddleware.Auth401Interceptor(resourceMetadataURL, cfg.Identity.MCPOAuthScopes)
+		mcpBindings, err := apiaudit.MCPBindings()
+		if err != nil {
+			logger.Error("Failed to build MCP audit bindings", slog.Any("error", err))
+			os.Exit(1)
+		}
 		mcpServer, err := mcp.NewHTTPServer(toolsets, runtime.pdp, mcpaudit.MiddlewareOptions{
 			Emitter:  auditEmitter,
-			Bindings: apiaudit.MCPBindings(),
+			Bindings: mcpBindings,
 			Enabled:  cfg.Audit.Enabled,
 		})
 		if err != nil {

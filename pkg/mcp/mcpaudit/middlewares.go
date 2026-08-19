@@ -19,8 +19,9 @@ type MiddlewareOptions struct {
 	// Must not be nil.
 	Emitter *audit.Emitter
 	// Bindings declares which MCP tools map onto which audited operations,
-	// keyed by tool name. apiaudit.MCPBindings() in production.
-	Bindings map[string]audit.MCPBinding
+	// keyed by (tool name, scope) — see audit.MCPBindingKey. apiaudit.MCPBindings()
+	// in production.
+	Bindings map[audit.MCPBindingKey]audit.MCPBinding
 	// Enabled mirrors config.AuditConfig.Enabled. When false, the returned
 	// middleware skips all audit-related work and passes straight through,
 	// exactly like an unbound tool.
@@ -38,9 +39,9 @@ func NewMiddleware(opts MiddlewareOptions) (mcp.Middleware, error) {
 	if opts.Emitter == nil {
 		return nil, errors.New("audit: MiddlewareOptions.Emitter must not be nil")
 	}
-	for tool, b := range opts.Bindings {
+	for key, b := range opts.Bindings {
 		if b.Operation == nil {
-			return nil, fmt.Errorf("audit: MCP binding for tool %q has a nil Operation", tool)
+			return nil, fmt.Errorf("audit: MCP binding for tool %q scope %q has a nil Operation", key.ToolName, key.Scope)
 		}
 	}
 	return newAuditMiddleware(opts.Emitter, opts.Bindings, opts.Enabled), nil

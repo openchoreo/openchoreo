@@ -58,11 +58,18 @@ func ExtractActor(ctx context.Context) Actor {
 	return actor
 }
 
+// maxRequestIDLen bounds the client-supplied X-Request-ID recorded in audit
+// events. Without a cap, a client can send an oversized header value (up to
+// the server's MaxHeaderBytes limit) and inflate every audit record — and
+// every sink — for that request. 128 comfortably fits a UUID (36 chars) or a
+// typical trace ID with room for prefixes.
+const maxRequestIDLen = 128
+
 // RequestIDFromHeader returns the X-Request-ID header value, generating a
-// fresh UUID v7 if absent. Shared by every surface adapter.
+// fresh UUID v7 if absent or too long. Shared by every surface adapter.
 func RequestIDFromHeader(h http.Header) string {
 	requestID := h.Get("X-Request-ID")
-	if requestID == "" {
+	if requestID == "" || len(requestID) > maxRequestIDLen {
 		if id, err := uuid.NewV7(); err == nil {
 			requestID = id.String()
 		} else {

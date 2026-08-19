@@ -17,3 +17,20 @@ type MCPBinding struct {
 	Operation   *Operation
 	ResourceArg string
 }
+
+// MCPBindingKey identifies one entry in the MCP binding table: a tool name,
+// plus an opaque scope discriminator for a tool that routes to different
+// operations based on a call argument (a "scope-collapsed" tool — e.g. one
+// MCP tool fanning out to both a namespace-scoped and a cluster-scoped REST
+// operation). Scope is the empty string for the common case of a tool bound
+// to exactly one operation.
+//
+// Scope is deliberately opaque here: core has no MCP-SDK or pkg/mcp/tools
+// dependency, so it doesn't know what a valid scope value is or what it
+// means — only that two OperationDefs sharing a tool name must be
+// distinguished by *something*. The adapter (pkg/mcp/mcpaudit) is the layer
+// that knows the real scope values and how to resolve one from a call.
+type MCPBindingKey struct {
+	ToolName string
+	Scope    string
+}

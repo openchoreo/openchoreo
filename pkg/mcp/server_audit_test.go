@@ -128,22 +128,23 @@ func denyAllAuditProfile() *authzcore.UserCapabilitiesResponse {
 // internal/openchoreo-api/audit here so this test's fixture doesn't depend on
 // that package's exact contents, only on the 6 tool bindings NewHTTPServer is
 // expected to wire.
-func auditBindingsForTest() map[string]audit.MCPBinding {
+func auditBindingsForTest() map[audit.MCPBindingKey]audit.MCPBinding {
 	op := func(id, action, resourceType string) *audit.Operation {
 		return &audit.Operation{ID: id, Action: action, ResourceType: resourceType, Category: audit.CategoryManagement}
 	}
-	return map[string]audit.MCPBinding{
-		"create_project": {Operation: op("CreateProject", "create_project", "projects"), ResourceArg: "name"},
-		"update_project": {Operation: op("UpdateProject", "update_project", "projects"), ResourceArg: "project_name"},
-		"delete_project": {Operation: op("DeleteProject", "delete_project", "projects"), ResourceArg: "project_name"},
+	key := func(toolName string) audit.MCPBindingKey { return audit.MCPBindingKey{ToolName: toolName} }
+	return map[audit.MCPBindingKey]audit.MCPBinding{
+		key("create_project"): {Operation: op("CreateProject", "create_project", "projects"), ResourceArg: "name"},
+		key("update_project"): {Operation: op("UpdateProject", "update_project", "projects"), ResourceArg: "project_name"},
+		key("delete_project"): {Operation: op("DeleteProject", "delete_project", "projects"), ResourceArg: "project_name"},
 
-		"create_environment": {
+		key("create_environment"): {
 			Operation: op("CreateEnvironment", "create_environment", "environments"), ResourceArg: "name",
 		},
-		"update_environment": {
+		key("update_environment"): {
 			Operation: op("UpdateEnvironment", "update_environment", "environments"), ResourceArg: "name",
 		},
-		"delete_environment": {
+		key("delete_environment"): {
 			Operation: op("DeleteEnvironment", "delete_environment", "environments"), ResourceArg: "name",
 		},
 	}
