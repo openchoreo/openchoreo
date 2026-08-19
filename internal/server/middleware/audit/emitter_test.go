@@ -29,7 +29,7 @@ func TestEmitter_FansOutToEverySink(t *testing.T) {
 	sinkB := &recordingSink{}
 	emitter := NewEmitter("test-service", policies, sinkA, sinkB)
 
-	op := &Operation{ID: "CreateProject", Action: "create_project", ResourceType: "projects", Category: CategoryManagement}
+	op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "projects", Category: CategoryManagement}
 	emitter.Emit(context.Background(), op, Envelope{Origin: OriginAPI, Result: ResultSuccess})
 
 	if len(sinkA.events) != 1 || len(sinkB.events) != 1 {
@@ -57,7 +57,7 @@ func TestEmitter_StampsIdentityForEverySink(t *testing.T) {
 	sinkB := &recordingSink{}
 	emitter := NewEmitter("test-service", policies, sinkA, sinkB)
 
-	op := &Operation{ID: "CreateProject", Action: "create_project", ResourceType: "projects", Category: CategoryManagement}
+	op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "projects", Category: CategoryManagement}
 	emitter.Emit(context.Background(), op, Envelope{Origin: OriginAPI, Result: ResultSuccess})
 
 	for name, sink := range map[string]*recordingSink{"sinkA": sinkA, "sinkB": sinkB} {
@@ -86,7 +86,7 @@ func TestEmitter_SkipsAllSinksWhenPolicyDenies(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := NewEmitter("test-service", policies, sink)
 
-	op := &Operation{ID: "CreateProject", Action: "create_project", ResourceType: "projects", Category: CategoryManagement}
+	op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "projects", Category: CategoryManagement}
 	emitter.Emit(context.Background(), op, Envelope{Origin: OriginAPI, Result: ResultSuccess})
 
 	if len(sink.events) != 0 {

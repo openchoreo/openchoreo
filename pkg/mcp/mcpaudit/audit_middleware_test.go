@@ -5,12 +5,16 @@ package mcpaudit
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
+	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
 // recordingSink is a test double that records every Event it receives.
@@ -70,32 +74,226 @@ func TestNewMiddleware_EmitsOnPanic(t *testing.T) {
 	}
 }
 
-// TestNewMiddleware_DisabledSkipsAllAuditLogic guards against a repeat of the
-// bug where audit.enabled=false silenced REST but MCP kept emitting: with
-// Enabled: false, a bound tool call must pass straight through with no event
-// emitted.
-func TestNewMiddleware_DisabledSkipsAllAuditLogic(t *testing.T) {
+// TestNewMiddleware_PassesThroughWithoutAuditing covers the two reasons a
+// tools/call can skip audit entirely: the middleware is disabled (guards
+// against a repeat of the bug where audit.enabled=false silenced REST but
+// MCP kept emitting), or the tool isn't in the binding table. Either way,
+// next must still run and no event must be emitted.
+func TestNewMiddleware_PassesThroughWithoutAuditing(t *testing.T) {
+	tests := []struct {
+		name     string
+		enabled  bool
+		toolName string
+	}{
+		{name: "disabled", enabled: false, toolName: "create_project"},
+		{name: "unbound tool", enabled: true, toolName: "some_unbound_tool"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sink := &recordingSink{}
+			emitter := testEmitter(t, sink)
+			mw := NewMiddleware(MiddlewareOptions{Emitter: emitter, Bindings: testBindings(), Enabled: tt.enabled})
+
+			called := false
+			next := func(context.Context, string, mcp.Request) (mcp.Result, error) {
+				called = true
+				return &mcp.CallToolResult{}, nil
+			}
+
+			req := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{Params: &mcp.CallToolParamsRaw{Name: tt.toolName}}
+
+			if _, err := mw(next)(context.Background(), methodCallTool, req); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !called {
+				t.Fatal("expected next to be called")
+			}
+			if len(sink.events) != 0 {
+				t.Errorf("expected no audit events, got %d", len(sink.events))
+			}
+		})
+	}
+}
+
+func TestNewMiddleware_NonCallToolMethodPassesThrough(t *testing.T) {
 	sink := &recordingSink{}
 	emitter := testEmitter(t, sink)
-	mw := NewMiddleware(MiddlewareOptions{Emitter: emitter, Bindings: testBindings(), Enabled: false})
+	mw := NewMiddleware(MiddlewareOptions{Emitter: emitter, Bindings: testBindings(), Enabled: true})
 
 	called := false
 	next := func(context.Context, string, mcp.Request) (mcp.Result, error) {
 		called = true
+		return nil, nil
+	}
+
+	req := &mcp.ServerRequest[*mcp.PingParams]{Params: &mcp.PingParams{}}
+
+	if _, err := mw(next)(context.Background(), "ping", req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !called {
+		t.Fatal("expected next to be called for a non-tools/call method")
+	}
+	if len(sink.events) != 0 {
+		t.Errorf("expected no audit events for a non-tools/call method, got %d", len(sink.events))
+	}
+}
+
+// TestNewMiddleware_SuccessEmitsSuccessResult exercises the non-panicking,
+// non-disabled, bound-tool path end to end — the one classifyResult branch
+// (nil error, non-error result) none of the other tests reach.
+func TestNewMiddleware_SuccessEmitsSuccessResult(t *testing.T) {
+	sink := &recordingSink{}
+	emitter := testEmitter(t, sink)
+	mw := NewMiddleware(MiddlewareOptions{Emitter: emitter, Bindings: testBindings(), Enabled: true})
+
+	next := func(context.Context, string, mcp.Request) (mcp.Result, error) {
 		return &mcp.CallToolResult{}, nil
 	}
 
 	req := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
-		Params: &mcp.CallToolParamsRaw{Name: "create_project"},
+		Params: &mcp.CallToolParamsRaw{Name: "create_project", Arguments: json.RawMessage(`{"name":"proj-1"}`)},
 	}
 
 	if _, err := mw(next)(context.Background(), methodCallTool, req); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !called {
-		t.Fatal("expected next to be called even when audit is disabled")
+	if len(sink.events) != 1 {
+		t.Fatalf("expected exactly one audit event, got %d", len(sink.events))
 	}
-	if len(sink.events) != 0 {
-		t.Errorf("expected no audit events when disabled, got %d", len(sink.events))
+	if sink.events[0].Result != audit.ResultSuccess {
+		t.Errorf("Result = %v, want success", sink.events[0].Result)
+	}
+	if sink.events[0].Resource == nil || sink.events[0].Resource.Name != "proj-1" {
+		t.Errorf("Resource = %+v, want Name proj-1 (seeded from the resource arg)", sink.events[0].Resource)
+	}
+}
+
+func TestClassifyResult(t *testing.T) {
+	tests := []struct {
+		name string
+		res  mcp.Result
+		err  error
+		want audit.Result
+	}{
+		{name: "no error, non-error result is success", res: &mcp.CallToolResult{}, err: nil, want: audit.ResultSuccess},
+		{name: "no error, nil result is success", res: nil, err: nil, want: audit.ResultSuccess},
+		{
+			name: "no error, IsError result is failure",
+			res:  &mcp.CallToolResult{IsError: true}, err: nil, want: audit.ResultFailure,
+		},
+		{name: "ErrNoSubject is denied", res: nil, err: tools.ErrNoSubject, want: audit.ResultDenied},
+		{name: "ErrForbidden is denied", res: nil, err: tools.ErrForbidden, want: audit.ResultDenied},
+		{name: "ErrPDPFailure is failure, not denied", res: nil, err: tools.ErrPDPFailure, want: audit.ResultFailure},
+		{
+			name: "wrapped ErrForbidden is still denied", res: nil,
+			err: errors.Join(errors.New("ctx"), tools.ErrForbidden), want: audit.ResultDenied,
+		},
+		{name: "unrelated error is failure", res: nil, err: errors.New("boom"), want: audit.ResultFailure},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := classifyResult(tt.res, tt.err); got != tt.want {
+				t.Errorf("classifyResult(%v, %v) = %v, want %v", tt.res, tt.err, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCallToolName(t *testing.T) {
+	if got := callToolName(nil); got != "" {
+		t.Errorf("callToolName(nil) = %q, want empty", got)
+	}
+
+	wrongParams := &mcp.ServerRequest[*mcp.PingParams]{Params: &mcp.PingParams{}}
+	if got := callToolName(wrongParams); got != "" {
+		t.Errorf("callToolName(non-CallTool request) = %q, want empty", got)
+	}
+
+	req := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{Params: &mcp.CallToolParamsRaw{Name: "create_project"}}
+	if got := callToolName(req); got != "create_project" {
+		t.Errorf("callToolName(req) = %q, want create_project", got)
+	}
+}
+
+func TestExtractResourceArg(t *testing.T) {
+	tests := []struct {
+		name    string
+		req     mcp.Request
+		argName string
+		want    string
+	}{
+		{name: "nil request", req: nil, argName: "name", want: ""},
+		{
+			name: "empty argName", req: &mcp.ServerRequest[*mcp.CallToolParamsRaw]{Params: &mcp.CallToolParamsRaw{}},
+			argName: "", want: "",
+		},
+		{
+			name: "wrong params type", req: &mcp.ServerRequest[*mcp.PingParams]{Params: &mcp.PingParams{}},
+			argName: "name", want: "",
+		},
+		{
+			name: "no arguments", req: &mcp.ServerRequest[*mcp.CallToolParamsRaw]{Params: &mcp.CallToolParamsRaw{}},
+			argName: "name", want: "",
+		},
+		{
+			name: "malformed JSON arguments",
+			req: &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+				Params: &mcp.CallToolParamsRaw{Arguments: json.RawMessage(`{not json`)},
+			},
+			argName: "name", want: "",
+		},
+		{
+			name: "arg present but not a string",
+			req: &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+				Params: &mcp.CallToolParamsRaw{Arguments: json.RawMessage(`{"name":123}`)},
+			},
+			argName: "name", want: "",
+		},
+		{
+			name: "arg absent",
+			req: &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+				Params: &mcp.CallToolParamsRaw{Arguments: json.RawMessage(`{"other":"x"}`)},
+			},
+			argName: "name", want: "",
+		},
+		{
+			name: "arg present as string",
+			req: &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+				Params: &mcp.CallToolParamsRaw{Arguments: json.RawMessage(`{"name":"proj-1"}`)},
+			},
+			argName: "name", want: "proj-1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := extractResourceArg(tt.req, tt.argName); got != tt.want {
+				t.Errorf("extractResourceArg() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRequestHeader(t *testing.T) {
+	if got := requestHeader(nil); got != nil {
+		t.Errorf("requestHeader(nil) = %v, want nil", got)
+	}
+
+	noExtra := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{Params: &mcp.CallToolParamsRaw{}}
+	if got := requestHeader(noExtra); got != nil {
+		t.Errorf("requestHeader(no Extra) = %v, want nil", got)
+	}
+
+	want := http.Header{}
+	want.Set("X-Request-ID", "abc")
+	withExtra := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+		Params: &mcp.CallToolParamsRaw{},
+		Extra:  &mcp.RequestExtra{Header: want},
+	}
+	if got := requestHeader(withExtra); got.Get("X-Request-ID") != "abc" {
+		t.Errorf("requestHeader(withExtra) = %v, want header carrying X-Request-ID=abc", got)
 	}
 }

@@ -107,6 +107,101 @@ audit:
 	}
 }
 
+func TestAuditConfig_RejectsInvalidCategoryValue(t *testing.T) {
+	cfg := loadAuditTestConfig(t, `
+audit:
+  policies:
+    - match:
+        categories: [bogus]
+      set:
+        publish: false
+`)
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want an error for an unrecognized category value")
+	}
+	if !strings.Contains(err.Error(), "must be one of") {
+		t.Errorf("Validate() error = %q, want it to mention the allowed values", err.Error())
+	}
+}
+
+func TestAuditConfig_RejectsInvalidOriginValue(t *testing.T) {
+	cfg := loadAuditTestConfig(t, `
+audit:
+  policies:
+    - match:
+        origins: [bogus]
+      set:
+        publish: false
+`)
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want an error for an unrecognized origin value")
+	}
+	if !strings.Contains(err.Error(), "must be one of") {
+		t.Errorf("Validate() error = %q, want it to mention the allowed values", err.Error())
+	}
+}
+
+func TestAuditConfig_RejectsInvalidResultValue(t *testing.T) {
+	cfg := loadAuditTestConfig(t, `
+audit:
+  policies:
+    - match:
+        results: [bogus]
+      set:
+        publish: false
+`)
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want an error for an unrecognized result value")
+	}
+	if !strings.Contains(err.Error(), "must be one of") {
+		t.Errorf("Validate() error = %q, want it to mention the allowed values", err.Error())
+	}
+}
+
+func TestAuditConfig_RejectsNonBooleanPublish(t *testing.T) {
+	cfg := loadAuditTestConfig(t, `
+audit:
+  policies:
+    - match:
+        actions: [create_project]
+      set:
+        publish: "yes"
+`)
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want an error for a non-boolean publish value")
+	}
+	if !strings.Contains(err.Error(), "must be a boolean") {
+		t.Errorf("Validate() error = %q, want it to mention 'must be a boolean'", err.Error())
+	}
+}
+
+func TestAuditConfig_RejectsUnknownSettingKey(t *testing.T) {
+	cfg := loadAuditTestConfig(t, `
+audit:
+  policies:
+    - match:
+        actions: [create_project]
+      set:
+        bogus_setting: true
+`)
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want an error for an unrecognized set key")
+	}
+	if !strings.Contains(err.Error(), "bogus_setting") {
+		t.Errorf("Validate() error = %q, want it to name the unrecognized key bogus_setting", err.Error())
+	}
+}
+
 func loadAuditTestConfig(t *testing.T, yamlContent string) Config {
 	t.Helper()
 	dir := t.TempDir()
