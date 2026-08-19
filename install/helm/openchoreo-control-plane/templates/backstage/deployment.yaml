@@ -99,6 +99,10 @@ spec:
           value: {{ .Values.security.oidc.authorizationUrl | quote }}
         - name: OPENCHOREO_AUTH_TOKEN_URL
           value: {{ .Values.security.oidc.tokenUrl | quote }}
+        {{- if .Values.backstage.auth.audience }}
+        - name: OPENCHOREO_AUTH_AUDIENCE
+          value: {{ .Values.backstage.auth.audience | quote }}
+        {{- end }}
         - name: OPENCHOREO_AUTH_CLIENT_ID
           value: {{ .Values.backstage.auth.clientId | quote }}
         - name: OPENCHOREO_AUTH_CLIENT_SECRET

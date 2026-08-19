@@ -2800,6 +2800,12 @@ backstage:
     oidcScope: "openid profile email"
     # @schema
     # type: string
+    # description: OAuth/OIDC audience requested by the Backstage sign-in client. Set this for providers that require an API audience to issue JWT access tokens.
+    # default: ""
+    # @schema
+    audience: ""
+    # @schema
+    # type: string
     # description: Space-separated scopes for the OpenChoreo service token authenticator (e.g. 'openid' or 'api://client-id/.default openid')
     # default: ""
     # @schema
