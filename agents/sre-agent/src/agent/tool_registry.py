@@ -137,6 +137,17 @@ class _ListComponentsInput(BaseModel):
     project: str = Field(..., description="Project name")
 
 
+_K8S_NOISE_KEYS = {"managedFields", "resourceVersion", "uid", "generation", "creationTimestamp"}
+
+
+def _strip_k8s_noise(obj):
+    if isinstance(obj, dict):
+        return {k: _strip_k8s_noise(v) for k, v in obj.items() if k not in _K8S_NOISE_KEYS}
+    if isinstance(obj, list):
+        return [_strip_k8s_noise(item) for item in obj]
+    return obj
+
+
 def create_list_release_bindings_tool(auth: httpx.Auth) -> StructuredTool:
     async def _run(namespace: str, component: str) -> str:
         result = await get(
@@ -144,7 +155,7 @@ def create_list_release_bindings_tool(auth: httpx.Auth) -> StructuredTool:
             auth,
             params={"component": component},
         )
-        return json.dumps(result)
+        return json.dumps(_strip_k8s_noise(result))
 
     return StructuredTool.from_function(
         coroutine=_run,
