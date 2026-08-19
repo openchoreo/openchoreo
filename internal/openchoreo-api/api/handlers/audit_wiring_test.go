@@ -244,3 +244,17 @@ func TestAuditMiddlewareWired_AllOperations(t *testing.T) {
 		})
 	}
 }
+
+// TestAPIMiddlewares_PanicsOnNilEmitter guards the loud-failure guard
+// itself: a nil AuditEmitter must panic at wiring time rather than let audit
+// silently disappear from the chain.
+func TestAPIMiddlewares_PanicsOnNilEmitter(t *testing.T) {
+	assert.Panics(t, func() {
+		APIMiddlewares(APIMiddlewareOptions{
+			Logger:         slog.Default(),
+			AuthMiddleware: injectTestSubject,
+			AuditEmitter:   nil,
+			AuditEnabled:   true,
+		})
+	}, "expected APIMiddlewares to panic when AuditEmitter is nil")
+}

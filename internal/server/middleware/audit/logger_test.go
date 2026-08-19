@@ -23,7 +23,7 @@ func TestLogEvent_IncludesOriginAndOperationID(t *testing.T) {
 		Action:      "create_project",
 		Category:    CategoryManagement,
 		Origin:      OriginMCP,
-		OperationID: "CreateProject",
+		OperationID: testProjectOpID,
 		Result:      ResultSuccess,
 	})
 
@@ -35,7 +35,7 @@ func TestLogEvent_IncludesOriginAndOperationID(t *testing.T) {
 	if record["origin"] != "mcp" {
 		t.Errorf("origin = %v, want mcp", record["origin"])
 	}
-	if record["operation_id"] != "CreateProject" {
+	if record["operation_id"] != testProjectOpID {
 		t.Errorf("operation_id = %v, want CreateProject", record["operation_id"])
 	}
 }
