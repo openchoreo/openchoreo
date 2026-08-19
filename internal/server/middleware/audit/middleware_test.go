@@ -4,11 +4,13 @@
 package audit
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -61,6 +63,19 @@ func TestExtractActor(t *testing.T) {
 			wantID:   "unknown",
 		},
 		{
+			// Defense-in-depth: not reachable via jwt/resolver.go today (it
+			// reads sub explicitly rather than through fmt.Sprintf), but a
+			// fabricated actor identity is undetectable downstream if some
+			// other SubjectContext constructor ever reintroduces it.
+			name: "subject with ID literally \"<nil>\"",
+			subjectCtx: &auth.SubjectContext{
+				ID:   "<nil>",
+				Type: "user",
+			},
+			wantType: "user",
+			wantID:   "unknown",
+		},
+		{
 			name: "subject with no entitlement claim configured",
 			subjectCtx: &auth.SubjectContext{
 				ID:   "user-456",
@@ -103,8 +118,11 @@ func TestMiddleware_Handler_EmitsOnPanic(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("unexpected validation errors: %v", errs)
 	}
-	emitter := NewEmitter("test-service", policies, sink)
-	op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "projects", Category: CategoryManagement}
+	emitter, err := NewEmitter("test-service", policies, sink)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}
 	patternMap := map[string]*Operation{testProjectPattern: op}
 	mw := newMiddleware(slog.Default(), patternMap, emitter, true)
 
@@ -139,7 +157,10 @@ func TestMiddleware_Handler_DisabledSkipsAllAuditLogic(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("unexpected validation errors: %v", errs)
 	}
-	emitter := NewEmitter("test-service", policies, sink)
+	emitter, err := NewEmitter("test-service", policies, sink)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	patternMap := map[string]*Operation{testProjectPattern: {ID: testProjectOpID, Category: CategoryManagement}}
 	mw := newMiddleware(slog.Default(), patternMap, emitter, false)
 
@@ -169,7 +190,10 @@ func TestMiddleware_Handler_UnmatchedPatternPassesThrough(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("unexpected validation errors: %v", errs)
 	}
-	emitter := NewEmitter("test-service", policies, sink)
+	emitter, err := NewEmitter("test-service", policies, sink)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	// Empty pattern map: no route is audited, so every request must pass
 	// straight through with no event.
 	mw := newMiddleware(slog.Default(), map[string]*Operation{}, emitter, true)
@@ -194,27 +218,44 @@ func TestMiddleware_Handler_UnmatchedPatternPassesThrough(t *testing.T) {
 	}
 }
 
-// TestMiddleware_Handler_EmptyPatternPanics guards the loud-failure path: an
-// empty r.Pattern should be unreachable (routing always runs first), so
-// Handler panics rather than silently skipping the audit record.
-func TestMiddleware_Handler_EmptyPatternPanics(t *testing.T) {
+// TestMiddleware_Handler_EmptyPatternLogsAndPassesThrough guards against an
+// empty r.Pattern (e.g. a non-Go-1.22-ServeMux BaseRouter that never sets it)
+// taking down the whole API: it must log loudly for operational visibility
+// but still call next and emit no audit event, rather than panicking and
+// turning every request — not just audited ones — into a 500.
+func TestMiddleware_Handler_EmptyPatternLogsAndPassesThrough(t *testing.T) {
 	policies, errs := NewPolicySet(coreconfig.NewPath("audit"), Settings{Publish: true}, nil)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected validation errors: %v", errs)
 	}
-	emitter := NewEmitter("test-service", policies, &recordingSink{})
-	mw := newMiddleware(slog.Default(), map[string]*Operation{}, emitter, true)
+	sink := &recordingSink{}
+	emitter, err := NewEmitter("test-service", policies, sink)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+	mw := newMiddleware(logger, map[string]*Operation{}, emitter, true)
 
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	called := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	})
 	req := httptest.NewRequest(http.MethodGet, "/whatever", nil) // req.Pattern left empty
 	rw := httptest.NewRecorder()
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected Handler to panic on an empty r.Pattern, got none")
-		}
-	}()
 	mw.Handler(next).ServeHTTP(rw, req)
+
+	if !called {
+		t.Fatal("expected next to be called despite the empty r.Pattern")
+	}
+	if len(sink.events) != 0 {
+		t.Errorf("expected no audit events for an empty r.Pattern, got %d", len(sink.events))
+	}
+	if !strings.Contains(buf.String(), "r.Pattern is empty") {
+		t.Errorf("expected an error to be logged for the empty r.Pattern, got:\n%s", buf.String())
+	}
 }
 
 func TestMiddleware_Handler_ResultClassification(t *testing.T) {
@@ -236,8 +277,11 @@ func TestMiddleware_Handler_ResultClassification(t *testing.T) {
 			if len(errs) != 0 {
 				t.Fatalf("unexpected validation errors: %v", errs)
 			}
-			emitter := NewEmitter("test-service", policies, sink)
-			op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "projects", Category: CategoryManagement}
+			emitter, err := NewEmitter("test-service", policies, sink)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}
 			patternMap := map[string]*Operation{testProjectPattern: op}
 			mw := newMiddleware(slog.Default(), patternMap, emitter, true)
 
@@ -275,8 +319,11 @@ func TestMiddleware_Handler_WriteWithoutExplicitWriteHeader(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("unexpected validation errors: %v", errs)
 	}
-	emitter := NewEmitter("test-service", policies, sink)
-	op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "projects", Category: CategoryManagement}
+	emitter, err := NewEmitter("test-service", policies, sink)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	op := &Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}
 	patternMap := map[string]*Operation{testProjectPattern: op}
 	mw := newMiddleware(slog.Default(), patternMap, emitter, true)
 
@@ -298,13 +345,47 @@ func TestMiddleware_Handler_WriteWithoutExplicitWriteHeader(t *testing.T) {
 	}
 }
 
+// flushRecorder wraps httptest.ResponseRecorder to additionally implement
+// http.Flusher, so this test can prove http.ResponseController reaches
+// through responseWriter to it — httptest.ResponseRecorder already has a
+// Flush method, but it isn't itself asserted against http.Flusher anywhere
+// this test relies on, so wrapping it here keeps the intent explicit.
+type flushRecorder struct {
+	*httptest.ResponseRecorder
+	flushed bool
+}
+
+func (f *flushRecorder) Flush() {
+	f.flushed = true
+	f.ResponseRecorder.Flush()
+}
+
+// TestResponseWriter_UnwrapReachesFlusher guards against responseWriter
+// hiding optional interfaces (Flusher, Hijacker, the deadline setters) that
+// the real ResponseWriter implements — without Unwrap, http.ResponseController
+// can't see past this wrapper to reach them.
+func TestResponseWriter_UnwrapReachesFlusher(t *testing.T) {
+	rec := &flushRecorder{ResponseRecorder: httptest.NewRecorder()}
+	rw := &responseWriter{ResponseWriter: rec}
+
+	if err := (http.NewResponseController(rw)).Flush(); err != nil {
+		t.Fatalf("ResponseController.Flush() through responseWriter failed: %v", err)
+	}
+	if !rec.flushed {
+		t.Error("expected the underlying ResponseWriter's Flush to be called via Unwrap")
+	}
+}
+
 func TestNewMiddleware_Success(t *testing.T) {
-	ops := []Operation{{ID: testProjectOpID, Action: "create_project", ResourceType: "projects", Category: CategoryManagement}}
+	ops := []Operation{{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}}
 	policies, errs := NewPolicySet(coreconfig.NewPath("audit"), Settings{Publish: true}, nil)
 	if len(errs) != 0 {
 		t.Fatalf("unexpected validation errors: %v", errs)
 	}
-	emitter := NewEmitter("test-service", policies, &recordingSink{})
+	emitter, err := NewEmitter("test-service", policies, &recordingSink{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	mw, err := NewMiddleware(slog.Default(), ops, func() (*openapi3.T, error) { return loadTestSpec(t), nil }, emitter, true)
 	if err != nil {
@@ -320,10 +401,13 @@ func TestNewMiddleware_GetSwaggerError(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("unexpected validation errors: %v", errs)
 	}
-	emitter := NewEmitter("test-service", policies, &recordingSink{})
+	emitter, err := NewEmitter("test-service", policies, &recordingSink{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	wantErr := errors.New("spec load failed")
 
-	_, err := NewMiddleware(slog.Default(), nil, func() (*openapi3.T, error) { return nil, wantErr }, emitter, true)
+	_, err = NewMiddleware(slog.Default(), nil, func() (*openapi3.T, error) { return nil, wantErr }, emitter, true)
 	if err == nil {
 		t.Fatal("expected an error when getSwagger fails, got nil")
 	}
@@ -341,9 +425,12 @@ func TestNewMiddleware_BuildPatternMapError(t *testing.T) {
 	if len(errs) != 0 {
 		t.Fatalf("unexpected validation errors: %v", errs)
 	}
-	emitter := NewEmitter("test-service", policies, &recordingSink{})
+	emitter, err := NewEmitter("test-service", policies, &recordingSink{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
-	_, err := NewMiddleware(slog.Default(), ops, func() (*openapi3.T, error) { return loadTestSpec(t), nil }, emitter, true)
+	_, err = NewMiddleware(slog.Default(), ops, func() (*openapi3.T, error) { return loadTestSpec(t), nil }, emitter, true)
 	if err == nil {
 		t.Fatal("expected a BuildPatternMap error to propagate, got nil")
 	}

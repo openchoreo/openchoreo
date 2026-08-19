@@ -89,7 +89,7 @@ func (h *MCPHandler) CreateProject(
 	if err != nil {
 		return nil, err
 	}
-	audit.SetResource(ctx, &audit.Resource{Type: "project", ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
 	return mutationResult(created, "created"), nil
 }
 
@@ -133,7 +133,7 @@ func (h *MCPHandler) UpdateProject(
 			namespaceName, projectName, deploymentPipeline, err,
 		)
 	}
-	audit.SetResource(ctx, &audit.Resource{Type: "project", ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 	return mutationResult(updated, "updated", map[string]any{
 		"deploymentPipelineRef": updated.Spec.DeploymentPipelineRef.Name,
 	}), nil
@@ -145,7 +145,7 @@ func (h *MCPHandler) DeleteProject(ctx context.Context, namespaceName, projectNa
 	}
 	// No UID here: ProjectService.DeleteProject returns only an error, not the
 	// deleted object, so the identifier that survives the deletion is the name.
-	audit.SetResource(ctx, &audit.Resource{Type: "project", Name: projectName})
+	audit.SetResource(ctx, &audit.Resource{Name: projectName})
 	return map[string]any{
 		"name":      projectName,
 		"namespace": namespaceName,

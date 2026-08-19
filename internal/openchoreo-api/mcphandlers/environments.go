@@ -60,7 +60,7 @@ func (h *MCPHandler) CreateEnvironment(ctx context.Context, namespaceName string
 	if err != nil {
 		return nil, err
 	}
-	audit.SetResource(ctx, &audit.Resource{Type: "environment", ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
 	return mutationResult(created, "created"), nil
 }
 
@@ -86,7 +86,7 @@ func (h *MCPHandler) UpdateEnvironment(ctx context.Context, namespaceName string
 	if err != nil {
 		return nil, err
 	}
-	audit.SetResource(ctx, &audit.Resource{Type: "environment", ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 	return mutationResult(updated, "updated"), nil
 }
 
@@ -97,7 +97,7 @@ func (h *MCPHandler) DeleteEnvironment(ctx context.Context, namespaceName, envNa
 	// No UID here: EnvironmentService.DeleteEnvironment returns only an error,
 	// not the deleted object, so the identifier that survives the deletion is
 	// the name.
-	audit.SetResource(ctx, &audit.Resource{Type: "environment", Name: envName})
+	audit.SetResource(ctx, &audit.Resource{Name: envName})
 	return map[string]any{
 		"name":      envName,
 		"namespace": namespaceName,

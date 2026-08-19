@@ -5,6 +5,7 @@ package audit
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,8 +33,14 @@ type Emitter struct {
 // sinks. serviceName identifies the emitting process (e.g. "openchoreo-api")
 // and is stamped onto every event by buildEvent, once, rather than by each
 // sink — so multiple sinks can't disagree about one event's identity.
-func NewEmitter(serviceName string, policies *PolicySet, sinks ...Sink) *Emitter {
-	return &Emitter{serviceName: serviceName, sinks: append([]Sink(nil), sinks...), policies: policies}
+//
+// policies must not be nil: Emit calls policies.Resolve on every event, so a
+// nil PolicySet would return an error.
+func NewEmitter(serviceName string, policies *PolicySet, sinks ...Sink) (*Emitter, error) {
+	if policies == nil {
+		return nil, errors.New("audit: NewEmitter requires a non-nil *PolicySet")
+	}
+	return &Emitter{serviceName: serviceName, sinks: append([]Sink(nil), sinks...), policies: policies}, nil
 }
 
 // Emit builds the audit Event from op and env, resolves the publish setting
@@ -86,6 +93,7 @@ func buildEvent(op *Operation, env Envelope, serviceName string) *Event {
 		event.Action = op.Action
 		event.Category = op.Category
 		event.OperationID = op.ID
+		event.ResourceType = op.ResourceType
 	}
 	return event
 }

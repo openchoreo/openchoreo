@@ -8,10 +8,10 @@ import "testing"
 func TestOperations(t *testing.T) {
 	defs := []OperationDef{
 		{
-			ID: testProjectOpID, Action: "create_project", ResourceType: "projects", Category: CategoryManagement,
+			ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement,
 			MCPToolName: "create_project", MCPResourceArg: "name",
 		},
-		{ID: "CreateDataPlane", Action: "create_dataplane", ResourceType: "dataplanes", Category: CategoryManagement},
+		{ID: "CreateDataPlane", Action: "create_dataplane", ResourceType: "dataplane", Category: CategoryManagement},
 	}
 
 	ops := Operations(defs)
@@ -19,7 +19,7 @@ func TestOperations(t *testing.T) {
 		t.Fatalf("len(Operations(defs)) = %d, want %d", len(ops), len(defs))
 	}
 
-	want := Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "projects", Category: CategoryManagement}
+	want := Operation{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement}
 	if ops[0] != want {
 		t.Errorf("Operations(defs)[0] = %+v, want %+v (MCP fields must not leak into Operation)", ops[0], want)
 	}
@@ -28,14 +28,14 @@ func TestOperations(t *testing.T) {
 func TestMCPBindings_DerivedFromDefs(t *testing.T) {
 	defs := []OperationDef{
 		{
-			ID: testProjectOpID, Action: "create_project", ResourceType: "projects", Category: CategoryManagement,
+			ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement,
 			MCPToolName: "create_project", MCPResourceArg: "name",
 		},
 		{
 			// No MCPToolName: DataPlane has no MCP tool, so this must be
 			// absent from the result rather than appearing under an empty
 			// tool-name key.
-			ID: "CreateDataPlane", Action: "create_dataplane", ResourceType: "dataplanes", Category: CategoryManagement,
+			ID: "CreateDataPlane", Action: "create_dataplane", ResourceType: "dataplane", Category: CategoryManagement,
 		},
 	}
 

@@ -63,14 +63,23 @@ const (
 // This function is the single place the MCP receiving-middleware chain is
 // composed. A wiring test drives exactly this AddReceivingMiddleware call;
 // rebuilding the chain elsewhere risks silently un-guarding MCP audit (#2588).
-func NewHTTPServer(toolsets *tools.Toolsets, pdp authzcore.PDP, auditOpts mcpaudit.MiddlewareOptions) http.Handler {
+//
+// Returns an error rather than panicking if auditOpts is misconfigured (e.g.
+// a nil Emitter, or a binding with a nil Operation), so the caller can fail
+// startup cleanly instead.
+func NewHTTPServer(
+	toolsets *tools.Toolsets, pdp authzcore.PDP, auditOpts mcpaudit.MiddlewareOptions,
+) (http.Handler, error) {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "openchoreo-api",
 		Version: "1.0.0",
 	}, nil)
 	perms, toolToToolsets := toolsets.Register(server)
 
-	auditMw := mcpaudit.NewMiddleware(auditOpts)
+	auditMw, err := mcpaudit.NewMiddleware(auditOpts)
+	if err != nil {
+		return nil, err
+	}
 	filterMw := tools.NewToolFilterMiddleware(pdp, perms, toolToToolsets)
 
 	// go-sdk wraps middleware[0] outermost in AddReceivingMiddleware — the
@@ -82,7 +91,7 @@ func NewHTTPServer(toolsets *tools.Toolsets, pdp authzcore.PDP, auditOpts mcpaud
 	streamable := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
 		return server
 	}, nil)
-	return withSessionQueryParams(streamable)
+	return withSessionQueryParams(streamable), nil
 }
 
 // NewSTDIO creates an MCP server for STDIO transport (local CLI usage).

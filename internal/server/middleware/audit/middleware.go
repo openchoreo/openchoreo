@@ -14,7 +14,8 @@ import (
 // Middleware handles audit logging for HTTP requests. It is service-agnostic:
 // patternMap is built from the caller's own Operations and its own OpenAPI
 // spec (see BuildPatternMap), so any REST service can construct one of these
-// from its own data — openchoreo-api and observer both use it.
+// from its own data. openchoreo-api is the only one that does today —
+// observer has its own unrelated NewHTTPServer and no audit middleware.
 type Middleware struct {
 	logger     *slog.Logger // pre-flight "should never happen" logging only, see Handler
 	patternMap map[string]*Operation
@@ -79,6 +80,14 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	return rw.ResponseWriter.Write(b)
 }
 
+// Unwrap exposes the underlying ResponseWriter to http.ResponseController, so
+// a handler behind this middleware can still reach optional interfaces
+// (Flusher, Hijacker, the deadline setters) implemented by the real
+// ResponseWriter but not by this wrapper.
+func (rw *responseWriter) Unwrap() http.ResponseWriter {
+	return rw.ResponseWriter
+}
+
 // Handler returns the HTTP middleware handler
 func (m *Middleware) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -88,13 +97,20 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 		}
 
 		if r.Pattern == "" {
-			// Should be unreachable — routing always runs before this
-			// middleware. If it does fire, panic loudly rather than silently
-			// skip auditing; there's no recover() in this chain, so net/http
-			// aborts just this one response, not the process.
-			m.logger.Error("audit: request has no matched route pattern (r.Pattern is empty)",
-				"method", r.Method, "path", r.URL.Path)
-			panic("audit: request has no matched route pattern (r.Pattern is empty)")
+			// Should be unreachable when BaseRouter is a Go 1.22+ ServeMux —
+			// routing always runs before this middleware. But BaseRouter is
+			// declared as an interface (gen.StdHTTPServerOptions.BaseRouter),
+			// so a caller could wire in a router that never sets r.Pattern; this
+			// fires for every one of the 102+ unaudited routes too, not just
+			// audited ones. Panicking here would turn a dropped-connection-style
+			// router mismatch into a 500 on the entire API. Log loudly and pass
+			// through instead — construction time (BuildPatternMap) is where an
+			// audit-config problem should fail loudly; this is a request-time
+			// signal, not a place to sever the response.
+			m.logger.Error("audit: request has no matched route pattern (r.Pattern is empty); "+
+				"skipping audit for this request", "method", r.Method, "path", r.URL.Path)
+			next.ServeHTTP(w, r)
+			return
 		}
 
 		op, ok := m.patternMap[r.Pattern]
@@ -103,7 +119,17 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 			return
 		}
 
-		ctx, auditData := NewAuditContext(r.Context(), nil)
+		// Seed a placeholder resource (path-derived name, where the operation
+		// has a path parameter) before calling next: a PDP denial raised
+		// inside the handler never reaches the SetResource call that would
+		// otherwise set it, so this is the only source of resource.name on a
+		// denied or failed request. resource.type needs no seed here — it is
+		// stamped from op.ResourceType at emit time regardless of whether a
+		// resource was ever set (see buildEvent). Mirrors the MCP adapter's
+		// pre-call seed (see mcpaudit.newAuditMiddleware).
+		ctx, auditData := NewAuditContext(r.Context(), &Resource{
+			Name: r.PathValue(op.RESTResourceParam),
+		})
 
 		rw := &responseWriter{
 			ResponseWriter: w,

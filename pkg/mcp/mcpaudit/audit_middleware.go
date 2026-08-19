@@ -44,8 +44,10 @@ func newAuditMiddleware(emitter *audit.Emitter, bindings map[string]audit.MCPBin
 			// Seed a placeholder resource (name only) before calling next: a
 			// denial never reaches the handler that would set the real UID, so
 			// this is the only source of resource.name on a denied call.
+			// resource.type needs no seed here — it is stamped from
+			// op.ResourceType at emit time regardless (see buildEvent).
 			resourceName := extractResourceArg(req, binding.ResourceArg)
-			ctx, auditData := audit.NewAuditContext(ctx, &audit.Resource{Type: op.ResourceType, Name: resourceName})
+			ctx, auditData := audit.NewAuditContext(ctx, &audit.Resource{Name: resourceName})
 
 			// A panic in next must still produce an audit record — recover just
 			// long enough to emit as a failure, then re-panic. Named returns let
@@ -72,6 +74,19 @@ func newAuditMiddleware(emitter *audit.Emitter, bindings map[string]audit.MCPBin
 // (ErrNoSubject, ErrForbidden) is distinguished from failure (ErrPDPFailure,
 // any other protocol error, or a tool-execution error) so a PDP outage is
 // never recorded as if the user had actually been denied by policy.
+//
+// This only recognizes denials raised by the MCP-layer authz filter (the
+// default: every session unless it opts out via ?filterByAuthz=false — see
+// server.QueryParamFilterByAuthz). A denial raised by the service layer
+// itself — reachable in a filterByAuthz=false session, where the service
+// layer is the only authz enforcement left — surfaces as a tool execution
+// error and is recorded as "failure", not "denied": the go-sdk's tools/call
+// dispatch converts a handler-returned error into CallToolResult.IsError
+// before this middleware ever sees it, discarding the original error's
+// identity (e.g. services.ErrForbidden) along the way. There is no local
+// hook to recover it without wrapping every MCP tool handler, so this is
+// documented as a known asymmetry with REST (which classifies purely by
+// status code, see middleware.go's determineResult) rather than fixed.
 func classifyResult(res mcp.Result, err error) audit.Result {
 	switch {
 	case errors.Is(err, tools.ErrNoSubject), errors.Is(err, tools.ErrForbidden):

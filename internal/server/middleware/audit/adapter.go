@@ -37,9 +37,15 @@ func ExtractActor(ctx context.Context) Actor {
 	}
 
 	// Identity is the token's validated sub claim. An absent sub falls back
-	// to "unknown" rather than being recorded as a real identity.
+	// to "unknown" rather than being recorded as a real identity. The "<nil>"
+	// check is defense-in-depth: jwt/resolver.go (the only production
+	// constructor of SubjectContext today) already reads sub explicitly
+	// rather than through fmt.Sprintf, so it never produces the literal
+	// string "<nil>" — but a fabricated actor identity in an audit trail is
+	// undetectable downstream, so this stays belt-and-braces against some
+	// other future constructor reintroducing that failure mode.
 	actorID := "unknown"
-	if subjectCtx.ID != "" {
+	if subjectCtx.ID != "" && subjectCtx.ID != "<nil>" {
 		actorID = subjectCtx.ID
 	}
 
@@ -69,6 +75,14 @@ func RequestIDFromHeader(h http.Header) string {
 // SourceIPFromHeader extracts the client IP from proxy headers
 // (X-Forwarded-For, X-Real-IP). Returns "" if neither is present — a caller
 // with a more specific fallback (e.g. REST's r.RemoteAddr) should apply it.
+//
+// Trusted-proxy assumption: both headers are taken at face value with no
+// check that the immediate peer is a trusted proxy that overwrites them. A
+// caller not behind such a proxy — or behind one that forwards an
+// untouched client-supplied X-Forwarded-For/X-Real-IP — lets the client
+// choose its own recorded source_ip. Deploy this behind a proxy that
+// strips or overwrites both headers before they reach this service if
+// source_ip needs to be forensically trustworthy.
 func SourceIPFromHeader(h http.Header) string {
 	if xff := h.Get("X-Forwarded-For"); xff != "" {
 		if first, _, found := strings.Cut(xff, ","); found {
