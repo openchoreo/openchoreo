@@ -4,6 +4,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -240,10 +241,30 @@ func parseFinOpsWindow(startTime, endTime string) (time.Time, time.Time, error) 
 	return start, end, nil
 }
 
+// emptyAllocationErrorSignature is the message OpenCost returns when a cost
+// query's window contains no allocation data (e.g. an environment with no
+// workloads, or a window before OpenCost started collecting metrics).
+// OpenCost answers that case with a 500 instead of an empty result, and the
+// adapter propagates it verbatim. Since "no data" is an expected outcome
+// reachable through normal use, it is treated as an empty result here rather
+// than surfaced as a retrieval failure.
+const emptyAllocationErrorSignature = "AllocationSetRange has empty AssetSet"
+
+// emptyFinOpsItems is the empty-result body returned in place of an
+// emptyAllocationErrorSignature 500, matching the `items` envelope shared by
+// the costs and recommendations responses.
+var emptyFinOpsItems = json.RawMessage(`{"items":[]}`)
+
 // rawFinOpsResponse returns the adapter body verbatim on a 2xx, or an error
-// carrying the status and body otherwise.
+// carrying the status and body otherwise. A 500 caused by an empty cost
+// window is treated as a successful empty result instead of an error. This
+// applies to both the costs and recommendations responses, since both use
+// the same `items`-array envelope where an empty list is a valid response.
 func rawFinOpsResponse(statusCode int, body []byte) (any, error) {
 	if statusCode < 200 || statusCode >= 300 {
+		if statusCode == http.StatusInternalServerError && bytes.Contains(body, []byte(emptyAllocationErrorSignature)) {
+			return emptyFinOpsItems, nil
+		}
 		return nil, fmt.Errorf("%w: finops adapter returned HTTP %d: %s", ErrFinOpsRetrieval, statusCode, string(body))
 	}
 	return json.RawMessage(body), nil

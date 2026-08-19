@@ -288,6 +288,38 @@ func TestFinOpsAdapter_AdapterErrorStatus(t *testing.T) {
 	assert.ErrorIs(t, err, ErrFinOpsRetrieval)
 }
 
+func TestFinOpsAdapter_EmptyAllocationWindow(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"code":500,"data":null,"message":"error accumulating by all: ` +
+			`error accumulating all:AllocationSetRange has empty AssetSet in accumulation"}`))
+	}))
+	defer server.Close()
+
+	resolver, closeResolver := newMockUIDResolver(testProjectUID, testComponentUID, testEnvironmentUID, nil)
+	defer closeResolver()
+
+	adapter, err := NewFinOpsAdapter(server.URL, 30*time.Second, resolver, newTestFinOpsLogger())
+	require.NoError(t, err)
+
+	req := &types.CostQueryRequest{
+		Namespace:   "default",
+		Environment: "production",
+		StartTime:   "2026-05-23T10:00:01Z",
+		EndTime:     "2026-05-24T10:00:01Z",
+	}
+	result, err := adapter.GetComponentCosts(context.Background(), req)
+	require.NoError(t, err, "an empty allocation window is a valid, empty result, not a retrieval failure")
+
+	raw, ok := result.(json.RawMessage)
+	require.True(t, ok, "result should be raw JSON passthrough")
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(raw, &got))
+	assert.Equal(t, []any{}, got["items"])
+}
+
 func TestFinOpsAdapter_NetworkError(t *testing.T) {
 	t.Parallel()
 
