@@ -337,7 +337,7 @@ def _extract_content(content: Any) -> dict[str, Any] | None:
                     parsed = json.loads(block["text"])
                     if isinstance(parsed, dict):
                         return parsed
-                except json.JSONDecodeError, KeyError, TypeError:
+                except (json.JSONDecodeError, KeyError, TypeError):
                     continue
 
     return None

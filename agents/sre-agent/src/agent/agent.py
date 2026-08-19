@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 from langchain.agents import create_agent
 from langchain.agents.middleware import SummarizationMiddleware, TodoListMiddleware
-from langchain.agents.structured_output import ProviderStrategy, StructuredOutputValidationError
+from langchain.agents.structured_output import ProviderStrategy, StructuredOutputValidationError, ToolStrategy
 from langchain_core.callbacks import BaseCallbackHandler, UsageMetadataCallbackHandler
 from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_core.tools import BaseTool
@@ -103,7 +103,7 @@ class Agent:
             tools=tools,
             system_prompt=render(self.template, template_context),
             middleware=middleware,
-            response_format=ProviderStrategy(self.response_format),
+            response_format=ToolStrategy(self.response_format),
         )
 
         runnable_config: RunnableConfig = {"recursion_limit": self.recursion_limit}
@@ -128,7 +128,6 @@ RCA_AGENT = Agent(
         LoggingMiddleware,
         ToolErrorHandlerMiddleware,
         OutputTransformerMiddleware,
-        TodoListMiddleware,
     ],
     response_format=RCAReport,
     recursion_limit=200,
@@ -145,6 +144,7 @@ REMED_AGENT = Agent(
     ],
     response_format=RemediationResult,
     recursion_limit=50,
+    use_summarization=True,
 )
 
 CHAT_AGENT = Agent(
