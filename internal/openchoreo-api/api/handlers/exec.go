@@ -105,6 +105,7 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespace,
 			Project:   project,
+			Component: componentName,
 		},
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{
