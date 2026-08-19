@@ -4,6 +4,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -78,16 +79,20 @@ type APIMiddlewareOptions struct {
 //
 // This is the single definition of the chain — main.go supplies dependencies
 // but owns no ordering, and TestAuditMiddlewareWired drives exactly this
-// function. Rebuilding the chain anywhere else risks silently un-guarding
-// audit (see #2588).
-func APIMiddlewares(opts APIMiddlewareOptions) []gen.MiddlewareFunc {
+// function.
+//
+// Returns an error rather than panicking on a misconfiguration (nil emitter,
+// or audit.NewMiddleware failing to build its pattern map) so main can report
+// it through the same logger.Error + os.Exit(1) path as every other startup
+// failure, instead of an unhandled panic's stack trace.
+func APIMiddlewares(opts APIMiddlewareOptions) ([]gen.MiddlewareFunc, error) {
 	if opts.AuditEmitter == nil {
-		panic("audit: APIMiddlewareOptions.AuditEmitter must not be nil")
+		return nil, errors.New("audit: APIMiddlewareOptions.AuditEmitter must not be nil")
 	}
 
 	auditMw, err := audit.NewMiddleware(opts.Logger, apiaudit.GetOperations(), gen.GetSwagger, opts.AuditEmitter, opts.AuditEnabled)
 	if err != nil {
-		panic(fmt.Sprintf("audit: %v", err))
+		return nil, fmt.Errorf("audit: %w", err)
 	}
 
 	loggerMw := apilogger.LoggerMiddleware(opts.Logger.With("component", "openapi"))
@@ -97,5 +102,5 @@ func APIMiddlewares(opts APIMiddlewareOptions) []gen.MiddlewareFunc {
 		auditMw.Handler,
 		opts.AuthMiddleware,
 		loggerMw,
-	}
+	}, nil
 }

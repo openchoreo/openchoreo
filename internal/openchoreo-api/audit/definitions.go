@@ -20,44 +20,58 @@ import (
 // SecretReferenceService — a different resource — so they're not bound here.
 func operationDefs() []audit.OperationDef {
 	return []audit.OperationDef{
-		// Project operations
+		// Project operations.
 		{
-			ID: "CreateProject", Action: "create_project", ResourceType: "projects", Category: audit.CategoryManagement,
+			ID: "CreateProject", Action: "create_project", ResourceType: "project", Category: audit.CategoryManagement,
 			MCPToolName: "create_project", MCPResourceArg: "name",
 		},
 		{
-			ID: "UpdateProject", Action: "update_project", ResourceType: "projects", Category: audit.CategoryManagement,
-			MCPToolName: "update_project", MCPResourceArg: "project_name",
+			ID: "UpdateProject", Action: "update_project", ResourceType: "project", Category: audit.CategoryManagement,
+			MCPToolName: "update_project", MCPResourceArg: "project_name", RESTResourceParam: "projectName",
 		},
 		{
-			ID: "DeleteProject", Action: "delete_project", ResourceType: "projects", Category: audit.CategoryManagement,
-			MCPToolName: "delete_project", MCPResourceArg: "project_name",
+			ID: "DeleteProject", Action: "delete_project", ResourceType: "project", Category: audit.CategoryManagement,
+			MCPToolName: "delete_project", MCPResourceArg: "project_name", RESTResourceParam: "projectName",
 		},
 
 		// DataPlane operations — no MCP tool reaches DataPlaneService's
 		// create/update/delete methods.
-		{ID: "CreateDataPlane", Action: "create_dataplane", ResourceType: "dataplanes", Category: audit.CategoryManagement},
-		{ID: "UpdateDataPlane", Action: "update_dataplane", ResourceType: "dataplanes", Category: audit.CategoryManagement},
-		{ID: "DeleteDataPlane", Action: "delete_dataplane", ResourceType: "dataplanes", Category: audit.CategoryManagement},
+		{ID: "CreateDataPlane", Action: "create_dataplane", ResourceType: "dataplane", Category: audit.CategoryManagement},
+		{
+			ID: "UpdateDataPlane", Action: "update_dataplane", ResourceType: "dataplane",
+			Category: audit.CategoryManagement, RESTResourceParam: "dpName",
+		},
+		{
+			ID: "DeleteDataPlane", Action: "delete_dataplane", ResourceType: "dataplane",
+			Category: audit.CategoryManagement, RESTResourceParam: "dpName",
+		},
 
 		// Environment operations
 		{
-			ID: "CreateEnvironment", Action: "create_environment", ResourceType: "environments",
+			ID: "CreateEnvironment", Action: "create_environment", ResourceType: "environment",
 			Category: audit.CategoryManagement, MCPToolName: "create_environment", MCPResourceArg: "name",
 		},
 		{
-			ID: "UpdateEnvironment", Action: "update_environment", ResourceType: "environments",
+			ID: "UpdateEnvironment", Action: "update_environment", ResourceType: "environment",
 			Category: audit.CategoryManagement, MCPToolName: "update_environment", MCPResourceArg: "name",
+			RESTResourceParam: "envName",
 		},
 		{
-			ID: "DeleteEnvironment", Action: "delete_environment", ResourceType: "environments",
+			ID: "DeleteEnvironment", Action: "delete_environment", ResourceType: "environment",
 			Category: audit.CategoryManagement, MCPToolName: "delete_environment", MCPResourceArg: "name",
+			RESTResourceParam: "envName",
 		},
 
 		// Secret operations — no MCP binding; see the doc comment above.
-		{ID: "CreateSecret", Action: "create_secret", ResourceType: "secrets", Category: audit.CategoryManagement},
-		{ID: "UpdateSecret", Action: "update_secret", ResourceType: "secrets", Category: audit.CategoryManagement},
-		{ID: "DeleteSecret", Action: "delete_secret", ResourceType: "secrets", Category: audit.CategoryManagement},
+		{ID: "CreateSecret", Action: "create_secret", ResourceType: "secret", Category: audit.CategoryManagement},
+		{
+			ID: "UpdateSecret", Action: "update_secret", ResourceType: "secret",
+			Category: audit.CategoryManagement, RESTResourceParam: "secretName",
+		},
+		{
+			ID: "DeleteSecret", Action: "delete_secret", ResourceType: "secret",
+			Category: audit.CategoryManagement, RESTResourceParam: "secretName",
+		},
 	}
 }
 

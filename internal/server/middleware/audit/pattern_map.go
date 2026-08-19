@@ -5,6 +5,7 @@ package audit
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -21,8 +22,10 @@ import (
 // match r.Pattern and audit silently stops for that service (not a wrong
 // record) until a baseURL parameter is added back here.
 //
-// Returns an error if an operationId has no match in the spec, or if two
-// operations collide on the same pattern — never silently skips.
+// Returns an error if an operationId has no match in the spec, if two
+// operations collide on the same pattern, or if an operation's
+// RESTResourceParam names a path parameter the resolved pattern doesn't
+// have — never silently skips.
 func BuildPatternMap(ops []Operation, swagger *openapi3.T) (map[string]*Operation, error) {
 	byOperationID := make(map[string]string, len(swagger.Paths.InMatchingOrder())*4)
 	for _, path := range swagger.Paths.InMatchingOrder() {
@@ -45,6 +48,17 @@ func BuildPatternMap(ops []Operation, swagger *openapi3.T) (map[string]*Operatio
 		if existing, collides := result[pattern]; collides {
 			return nil, fmt.Errorf("audit: operations %q and %q both resolve to pattern %q",
 				existing.ID, op.ID, pattern)
+		}
+		// RESTResourceParam must name an actual {wildcard} in the resolved
+		// pattern — r.PathValue(op.RESTResourceParam) silently returns "" for
+		// a name the route doesn't have, so a typo here would surface as a
+		// silently empty resource.name on exactly the denied/failed events
+		// the middleware seeds it for, not a construction-time error. Empty
+		// RESTResourceParam (a Create route with no path parameter) is valid
+		// and skips this check.
+		if op.RESTResourceParam != "" && !strings.Contains(pattern, "{"+op.RESTResourceParam+"}") {
+			return nil, fmt.Errorf("audit: operation %q declares RESTResourceParam %q, "+
+				"but pattern %q has no such path parameter", op.ID, op.RESTResourceParam, pattern)
 		}
 		result[pattern] = op
 	}

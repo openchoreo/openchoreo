@@ -42,21 +42,24 @@ func newTestHTTPHandler(t *testing.T, services *handlerservices.Services) http.H
 func newTestHTTPHandlerWithLogger(t *testing.T, services *handlerservices.Services, logger *slog.Logger) http.Handler {
 	t.Helper()
 	auditCfg := config.AuditDefaults()
-	policies, err := auditCfg.BuildPolicySet()
+	policies, err := auditCfg.BuildPolicySet(nil)
 	require.NoError(t, err, "test audit defaults must build a valid PolicySet")
-	emitter := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(logger))
+	emitter, err := audit.NewEmitter("openchoreo-api", policies, audit.NewLogger(logger))
+	require.NoError(t, err, "test audit defaults must build a valid Emitter")
 
 	h := &Handler{services: services, logger: logger}
 	strictHandler := gen.NewStrictHandler(h, nil)
 	mux := http.NewServeMux()
+	middlewares, err := APIMiddlewares(APIMiddlewareOptions{
+		Logger:         logger,
+		AuthMiddleware: injectTestSubject,
+		AuditEmitter:   emitter,
+		AuditEnabled:   auditCfg.Enabled,
+	})
+	require.NoError(t, err, "test APIMiddlewareOptions must build a valid middleware chain")
 	gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
-		BaseRouter: mux,
-		Middlewares: APIMiddlewares(APIMiddlewareOptions{
-			Logger:         logger,
-			AuthMiddleware: injectTestSubject,
-			AuditEmitter:   emitter,
-			AuditEnabled:   auditCfg.Enabled,
-		}),
+		BaseRouter:  mux,
+		Middlewares: middlewares,
 	})
 	return mux
 }

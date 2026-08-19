@@ -4,6 +4,7 @@
 package mcpaudit
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -30,14 +31,17 @@ type MiddlewareOptions struct {
 // tools/call on a bound tool. This package only builds the middleware — the
 // caller (pkg/mcp's NewHTTPServer) owns composing it into the receiving chain
 // and must list it first so it wraps outermost (see that file for why).
-func NewMiddleware(opts MiddlewareOptions) mcp.Middleware {
+//
+// Returns an error rather than panicking on a misconfigured MiddlewareOptions
+// so the caller can fail startup cleanly instead.
+func NewMiddleware(opts MiddlewareOptions) (mcp.Middleware, error) {
 	if opts.Emitter == nil {
-		panic("audit: MiddlewareOptions.Emitter must not be nil")
+		return nil, errors.New("audit: MiddlewareOptions.Emitter must not be nil")
 	}
 	for tool, b := range opts.Bindings {
 		if b.Operation == nil {
-			panic(fmt.Sprintf("audit: MCP binding for tool %q has a nil Operation", tool))
+			return nil, fmt.Errorf("audit: MCP binding for tool %q has a nil Operation", tool)
 		}
 	}
-	return newAuditMiddleware(opts.Emitter, opts.Bindings, opts.Enabled)
+	return newAuditMiddleware(opts.Emitter, opts.Bindings, opts.Enabled), nil
 }

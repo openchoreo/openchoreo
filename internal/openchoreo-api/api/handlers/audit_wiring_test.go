@@ -24,6 +24,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	apiaudit "github.com/openchoreo/openchoreo/internal/openchoreo-api/audit"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	dataplanemocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/dataplane/mocks"
 	environmentmocks "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/environment/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
@@ -245,16 +246,51 @@ func TestAuditMiddlewareWired_AllOperations(t *testing.T) {
 	}
 }
 
-// TestAPIMiddlewares_PanicsOnNilEmitter guards the loud-failure guard
-// itself: a nil AuditEmitter must panic at wiring time rather than let audit
-// silently disappear from the chain.
-func TestAPIMiddlewares_PanicsOnNilEmitter(t *testing.T) {
-	assert.Panics(t, func() {
-		APIMiddlewares(APIMiddlewareOptions{
-			Logger:         slog.Default(),
-			AuthMiddleware: injectTestSubject,
-			AuditEmitter:   nil,
-			AuditEnabled:   true,
-		})
-	}, "expected APIMiddlewares to panic when AuditEmitter is nil")
+// TestAuditMiddlewareWired_DeniedRequestCarriesResource guards against a PDP
+// denial shipping with resource: null. UpdateProject's ErrForbidden branch
+// returns before the handler ever calls audit.SetResource, so resource.type
+// and resource.name must come from the pre-handler seed the audit middleware
+// builds from the Operation and the request's path value (see
+// middleware.go's Handler) — not from the handler.
+func TestAuditMiddlewareWired_DeniedRequestCarriesResource(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+
+	projectSvc := projectmocks.NewMockService(t)
+	projectSvc.EXPECT().UpdateProject(mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, services.ErrForbidden)
+
+	services := &handlerservices.Services{ProjectService: projectSvc}
+	handler := newTestHTTPHandlerWithLogger(t, services, logger)
+
+	body, _ := json.Marshal(gen.Project{Metadata: gen.ObjectMeta{Name: "denied-proj"}})
+	_, rec := doRequest(t, handler, http.MethodPut,
+		"/api/v1/namespaces/"+testNS+"/projects/denied-proj", body)
+	require.Equal(t, http.StatusForbidden, rec.Code)
+
+	records := auditRecords(t, &buf)
+	require.Len(t, records, 1, "expected exactly one AUDIT-LOG record, got:\n%s", buf.String())
+	record := records[0]
+
+	assert.Equal(t, "denied", record["result"])
+
+	resource, ok := record["resource"].(map[string]any)
+	require.True(t, ok, "resource must be populated even though the handler never called SetResource")
+	assert.Equal(t, "project", resource["type"])
+	assert.Equal(t, "denied-proj", resource["name"], "name must come from the path value, not the handler")
+}
+
+// TestAPIMiddlewares_ErrorsOnNilEmitter guards the loud-failure guard itself:
+// a nil AuditEmitter must fail at wiring time — as an error main.go turns
+// into a clean startup-failure log line, not a panic's stack trace — rather
+// than let audit silently disappear from the chain.
+func TestAPIMiddlewares_ErrorsOnNilEmitter(t *testing.T) {
+	middlewares, err := APIMiddlewares(APIMiddlewareOptions{
+		Logger:         slog.Default(),
+		AuthMiddleware: injectTestSubject,
+		AuditEmitter:   nil,
+		AuditEnabled:   true,
+	})
+	require.Error(t, err, "expected APIMiddlewares to error when AuditEmitter is nil")
+	assert.Nil(t, middlewares)
 }

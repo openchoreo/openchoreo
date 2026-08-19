@@ -183,7 +183,7 @@ func filterCallTool(
 		Scope:          callToolScope(req),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("not authorized to call tool %q: %w", toolName, ErrPDPFailure)
+		return nil, fmt.Errorf("not authorized to call tool %q: %w: %w", toolName, ErrPDPFailure, err)
 	}
 
 	if !hasActionCapability(requiredAction, profile) {

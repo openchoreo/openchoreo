@@ -202,12 +202,16 @@ func main() {
 	// a policy applies identically regardless of which one produced the event.
 	// cfg.Validate() (above) already ran the same conversion and would have
 	// failed startup on an invalid policy; a non-nil error here is defensive.
-	auditPolicies, err := cfg.Audit.BuildPolicySet()
+	auditPolicies, err := cfg.Audit.BuildPolicySet(cfg.Security.KnownActorTypes())
 	if err != nil {
 		logger.Error("Failed to build audit policy set", slog.Any("error", err))
 		os.Exit(1)
 	}
-	auditEmitter := audit.NewEmitter("openchoreo-api", auditPolicies, audit.NewLogger(logger))
+	auditEmitter, err := audit.NewEmitter("openchoreo-api", auditPolicies, audit.NewLogger(logger))
+	if err != nil {
+		logger.Error("Failed to build audit emitter", slog.Any("error", err))
+		os.Exit(1)
+	}
 
 	// Create base mux for the OpenAPI router.
 	// Non-OpenAPI routes (e.g. /mcp) are registered here before the generated
@@ -225,13 +229,16 @@ func main() {
 		mcpLoggerMw := apilogger.LoggerMiddleware(mcpLogger)
 		resourceMetadataURL := cfg.Server.PublicURL + "/.well-known/oauth-protected-resource"
 		mcpAuth401Mw := mcpmiddleware.Auth401Interceptor(resourceMetadataURL, cfg.Identity.MCPOAuthScopes)
-		mcpHandler := middleware.Chain(mcpLoggerMw, mcpAuth401Mw, jwtMiddleware)(
-			mcp.NewHTTPServer(toolsets, runtime.pdp, mcpaudit.MiddlewareOptions{
-				Emitter:  auditEmitter,
-				Bindings: apiaudit.MCPBindings(),
-				Enabled:  cfg.Audit.Enabled,
-			}),
-		)
+		mcpServer, err := mcp.NewHTTPServer(toolsets, runtime.pdp, mcpaudit.MiddlewareOptions{
+			Emitter:  auditEmitter,
+			Bindings: apiaudit.MCPBindings(),
+			Enabled:  cfg.Audit.Enabled,
+		})
+		if err != nil {
+			logger.Error("Failed to build MCP HTTP server", slog.Any("error", err))
+			os.Exit(1)
+		}
+		mcpHandler := middleware.Chain(mcpLoggerMw, mcpAuth401Mw, jwtMiddleware)(mcpServer)
 
 		baseMux.Handle("/mcp", mcpHandler)
 	}
@@ -239,14 +246,19 @@ func main() {
 	// Create OpenAPI handler with middleware chain. The chain's ordering rationale
 	// lives in openapihandlers.APIMiddlewares, the single place route middleware is
 	// composed. The generated routes are registered on the baseMux alongside /mcp.
+	apiMiddlewares, err := openapihandlers.APIMiddlewares(openapihandlers.APIMiddlewareOptions{
+		Logger:         logger,
+		AuthMiddleware: authMiddleware,
+		AuditEmitter:   auditEmitter,
+		AuditEnabled:   cfg.Audit.Enabled,
+	})
+	if err != nil {
+		logger.Error("Failed to build API middlewares", slog.Any("error", err))
+		os.Exit(1)
+	}
 	handler := gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
-		BaseRouter: baseMux,
-		Middlewares: openapihandlers.APIMiddlewares(openapihandlers.APIMiddlewareOptions{
-			Logger:         logger,
-			AuthMiddleware: authMiddleware,
-			AuditEmitter:   auditEmitter,
-			AuditEnabled:   cfg.Audit.Enabled,
-		}),
+		BaseRouter:  baseMux,
+		Middlewares: apiMiddlewares,
 	})
 
 	// Exec WebSocket endpoint is registered on a top-level mux that wraps the

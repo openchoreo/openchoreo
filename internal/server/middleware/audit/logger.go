@@ -4,6 +4,7 @@
 package audit
 
 import (
+	"context"
 	"log/slog"
 )
 
@@ -15,9 +16,41 @@ type Logger struct {
 	slogger *slog.Logger
 }
 
-// NewLogger creates a new audit logger
+// forceLevelHandler wraps a slog.Handler so every record is treated as
+// enabled, regardless of the minimum level the wrapped handler was
+// constructed with. Audit events must not be silently dropped by the
+// application's log-level configuration (e.g. logging.level: warn), since
+// audit.enabled is meant to be the only kill switch for audit output.
+type forceLevelHandler struct {
+	slog.Handler
+}
+
+// Enabled always returns true so the wrapped handler's level filter never
+// suppresses an audit record.
+func (h *forceLevelHandler) Enabled(context.Context, slog.Level) bool {
+	return true
+}
+
+// WithAttrs and WithGroup re-wrap the result in a forceLevelHandler. Without
+// these, the embedded slog.Handler's own WithAttrs/WithGroup would return the
+// *inner* handler directly — silently dropping the always-enabled override on
+// any derived logger, the same silent-drop failure mode this handler exists
+// to close. Unreachable today (LogEvent never derives a logger via .With),
+// but left un-implemented it is a landmine for the next caller that does.
+func (h *forceLevelHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &forceLevelHandler{Handler: h.Handler.WithAttrs(attrs)}
+}
+
+func (h *forceLevelHandler) WithGroup(name string) slog.Handler {
+	return &forceLevelHandler{Handler: h.Handler.WithGroup(name)}
+}
+
+// NewLogger creates a new audit logger. It reuses the given logger's handler
+// (output stream, format, and any attrs already attached, e.g. "component")
+// but forces every record through regardless of the handler's configured
+// minimum level.
 func NewLogger(slogger *slog.Logger) *Logger {
-	return &Logger{slogger: slogger}
+	return &Logger{slogger: slog.New(&forceLevelHandler{Handler: slogger.Handler()})}
 }
 
 // LogEvent emits an audit log event using slog
@@ -55,15 +88,25 @@ func (l *Logger) LogEvent(event *Event) {
 		attrs = append(attrs, slog.String("operation_id", event.OperationID))
 	}
 
-	if event.Resource != nil {
-		resourceAttrs := []any{
-			slog.String("type", event.Resource.Type),
+	if event.ResourceType != "" || event.Resource != nil {
+		var resourceAttrs []any
+		if event.ResourceType != "" {
+			resourceAttrs = append(resourceAttrs, slog.String("type", event.ResourceType))
 		}
-		if event.Resource.ID != "" {
-			resourceAttrs = append(resourceAttrs, slog.String("id", event.Resource.ID))
-		}
-		if event.Resource.Name != "" {
-			resourceAttrs = append(resourceAttrs, slog.String("name", event.Resource.Name))
+		if event.Resource != nil {
+			if event.Resource.ID != "" {
+				resourceAttrs = append(resourceAttrs, slog.String("id", event.Resource.ID))
+			}
+			if event.Resource.Name != "" {
+				resourceAttrs = append(resourceAttrs, slog.String("name", event.Resource.Name))
+			}
+			if len(event.Resource.Metadata) > 0 {
+				metadataAttrs := make([]any, 0, len(event.Resource.Metadata))
+				for k, v := range event.Resource.Metadata {
+					metadataAttrs = append(metadataAttrs, slog.Any(k, v))
+				}
+				resourceAttrs = append(resourceAttrs, slog.Group("metadata", metadataAttrs...))
+			}
 		}
 		attrs = append(attrs, slog.Group("resource", resourceAttrs...))
 	}

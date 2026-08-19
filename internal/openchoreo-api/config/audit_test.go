@@ -22,8 +22,8 @@ audit:
       set:
         publish: false
     - match:
-        actions: [create_workflow_run]
-        actor_types: [service_account]
+        actions: [create_project]
+        actor_types: [user]
       set:
         publish: false
 `)
@@ -32,7 +32,7 @@ audit:
 		t.Fatalf("Validate() error = %v, want none", err)
 	}
 
-	ps, err := cfg.Audit.BuildPolicySet()
+	ps, err := cfg.Audit.BuildPolicySet(cfg.Security.KnownActorTypes())
 	if err != nil {
 		t.Fatalf("BuildPolicySet() error = %v", err)
 	}
@@ -158,6 +158,94 @@ audit:
 	err := cfg.Validate()
 	if err == nil {
 		t.Fatal("Validate() = nil, want an error for an unrecognized result value")
+	}
+	if !strings.Contains(err.Error(), "must be one of") {
+		t.Errorf("Validate() error = %q, want it to mention the allowed values", err.Error())
+	}
+}
+
+// TestAuditConfig_RejectsInvalidResourceValue guards against a selector
+// naming a resource type no Operation actually produces (e.g. a typo, or a
+// resource kind that was renamed) from silently matching nothing forever.
+func TestAuditConfig_RejectsInvalidResourceValue(t *testing.T) {
+	cfg := loadAuditTestConfig(t, `
+audit:
+  policies:
+    - match:
+        resources: [projct]
+      set:
+        publish: false
+`)
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want an error for an unrecognized resource value")
+	}
+	if !strings.Contains(err.Error(), "must be one of") {
+		t.Errorf("Validate() error = %q, want it to mention the allowed values", err.Error())
+	}
+}
+
+// TestAuditConfig_RejectsInvalidOperationValue guards the operations selector
+// the same way — it must key on a real OpenAPI operationId from
+// apiaudit.GetOperations(), not an arbitrary string.
+func TestAuditConfig_RejectsInvalidOperationValue(t *testing.T) {
+	cfg := loadAuditTestConfig(t, `
+audit:
+  policies:
+    - match:
+        operations: [CreateProjct]
+      set:
+        publish: false
+`)
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want an error for an unrecognized operation value")
+	}
+	if !strings.Contains(err.Error(), "must be one of") {
+		t.Errorf("Validate() error = %q, want it to mention the allowed values", err.Error())
+	}
+}
+
+// TestAuditConfig_RejectsInvalidActionValue is the actions-selector
+// equivalent of item 8's report: `actions: [create_projct]` used to build a
+// rule that silently never matched instead of failing at startup.
+func TestAuditConfig_RejectsInvalidActionValue(t *testing.T) {
+	cfg := loadAuditTestConfig(t, `
+audit:
+  policies:
+    - match:
+        actions: [create_projct]
+      set:
+        publish: false
+`)
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want an error for an unrecognized action value")
+	}
+	if !strings.Contains(err.Error(), "must be one of") {
+		t.Errorf("Validate() error = %q, want it to mention the allowed values", err.Error())
+	}
+}
+
+// TestAuditConfig_RejectsInvalidActorTypeValue guards actor_types against the
+// same set audit.ExtractActor actually produces (anonymous, user, and any
+// configured security.subjects key) — see SecurityConfig.KnownActorTypes.
+func TestAuditConfig_RejectsInvalidActorTypeValue(t *testing.T) {
+	cfg := loadAuditTestConfig(t, `
+audit:
+  policies:
+    - match:
+        actor_types: [bogus]
+      set:
+        publish: false
+`)
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want an error for an unrecognized actor_type value")
 	}
 	if !strings.Contains(err.Error(), "must be one of") {
 		t.Errorf("Validate() error = %q, want it to mention the allowed values", err.Error())

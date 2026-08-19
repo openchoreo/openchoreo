@@ -23,8 +23,9 @@ func getAuditData(ctx context.Context) *AuditData {
 	return nil
 }
 
-// SetResource stores resource information for audit logging
-// Handlers should call this to specify which resource is being acted upon
+// SetResource stores resource information for audit logging. Handlers should
+// call this once they know the resource's real identity (typically from the
+// object a create/update returned).
 func SetResource(ctx context.Context, resource *Resource) {
 	if data := getAuditData(ctx); data != nil {
 		data.Resource = resource

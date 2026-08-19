@@ -26,6 +26,10 @@ type OperationDef struct {
 	// MCPToolName is set — declared per operation since MCP argument names
 	// don't mechanically align with REST path parameters.
 	MCPResourceArg string
+	// RESTResourceParam is the REST path parameter carrying the resource's
+	// identifying name, e.g. "projectName". Empty for operations with no
+	// resource name in the path (e.g. Create routes).
+	RESTResourceParam string
 }
 
 // Operations returns every audited Operation in the surface-neutral shape the
@@ -33,7 +37,10 @@ type OperationDef struct {
 func Operations(defs []OperationDef) []Operation {
 	ops := make([]Operation, len(defs))
 	for i, d := range defs {
-		ops[i] = Operation{ID: d.ID, Action: d.Action, ResourceType: d.ResourceType, Category: d.Category}
+		ops[i] = Operation{
+			ID: d.ID, Action: d.Action, ResourceType: d.ResourceType, Category: d.Category,
+			RESTResourceParam: d.RESTResourceParam,
+		}
 	}
 	return ops
 }
@@ -48,7 +55,10 @@ func MCPBindings(defs []OperationDef) map[string]MCPBinding {
 			continue
 		}
 		bindings[d.MCPToolName] = MCPBinding{
-			Operation:   &Operation{ID: d.ID, Action: d.Action, ResourceType: d.ResourceType, Category: d.Category},
+			Operation: &Operation{
+				ID: d.ID, Action: d.Action, ResourceType: d.ResourceType, Category: d.Category,
+				RESTResourceParam: d.RESTResourceParam,
+			},
 			ResourceArg: d.MCPResourceArg,
 		}
 	}

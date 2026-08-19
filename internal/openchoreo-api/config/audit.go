@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/openchoreo/openchoreo/internal/config"
+	apiaudit "github.com/openchoreo/openchoreo/internal/openchoreo-api/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
@@ -25,6 +26,18 @@ type AuditConfig struct {
 // PolicyDefaultsConfig is the koanf-decoded shape of audit.defaults. Publish
 // is the only field today; pre_action and delivery/retries are reserved for
 // P10a/P10b and not modeled until those phases act on them.
+//
+// Setting Publish: false here is deliberate allowlist mode: nothing publishes
+// except what an explicit policies rule turns back on with set.publish: true.
+// This is intentionally not subject to the same guard validatePolicy applies
+// to an individual policy rule (a rule with an empty match and
+// set.publish: false is rejected as "would silence every event") — that
+// guard exists to catch an accidental blanket-suppress rule buried in a long
+// policies list, not to forbid deliberately starting from "publish nothing."
+// If allowlist mode is in use, every selector value in policies[].match
+// should be exact (see the resources/operations/actions/actor_types
+// validation in toSelector) — an unvalidated typo there would silently leak
+// through the fail-safe direction it normally has under Publish: true.
 type PolicyDefaultsConfig struct {
 	Publish bool `koanf:"publish"`
 }
@@ -68,15 +81,40 @@ var (
 	}
 	validOrigins = []string{string(audit.OriginAPI), string(audit.OriginMCP)}
 	validResults = []string{string(audit.ResultSuccess), string(audit.ResultFailure), string(audit.ResultDenied)}
+
+	// validResources, validOperationIDs and validActions are derived from
+	// apiaudit.GetOperations() — the same table BuildPatternMap cross-checks
+	// REST routes against — so a selector naming a resource/operation/action
+	// that no Operation actually produces fails at startup instead of quietly
+	// matching nothing. Package-level since operationDefs() is a static table,
+	// computed once rather than per validation call.
+	validResources, validOperationIDs, validActions = collectSelectorValues(apiaudit.GetOperations())
 )
+
+// collectSelectorValues extracts the distinct ResourceType, ID and Action
+// values from ops, for validating audit.policies[].match's resources,
+// operations and actions selectors.
+func collectSelectorValues(ops []audit.Operation) (resources, operationIDs, actions []string) {
+	seenResources := make(map[string]bool)
+	for _, op := range ops {
+		if !seenResources[op.ResourceType] {
+			seenResources[op.ResourceType] = true
+			resources = append(resources, op.ResourceType)
+		}
+		operationIDs = append(operationIDs, op.ID)
+		actions = append(actions, op.Action)
+	}
+	return resources, operationIDs, actions
+}
 
 // buildPolicySet converts the koanf-decoded config into the core audit types
 // and runs them through audit.NewPolicySet, which owns the selector
 // admissibility gate. Validate calls this and discards the *PolicySet,
 // keeping only the errors; BuildPolicySet calls it and keeps the *PolicySet.
 // This is the single conversion — there is no second, independently
-// maintained path from config to core types.
-func (c *AuditConfig) buildPolicySet(path *config.Path) (*audit.PolicySet, config.ValidationErrors) {
+// maintained path from config to core types. knownActorTypes validates
+// match.actor_types — see SecurityConfig.KnownActorTypes.
+func (c *AuditConfig) buildPolicySet(path *config.Path, knownActorTypes []string) (*audit.PolicySet, config.ValidationErrors) {
 	var errs config.ValidationErrors
 
 	defaults := audit.Settings{
@@ -88,7 +126,7 @@ func (c *AuditConfig) buildPolicySet(path *config.Path) (*audit.PolicySet, confi
 	for i, rule := range c.Policies {
 		rulePath := policiesPath.Index(i)
 
-		selector, selErrs := rule.Match.toSelector(rulePath.Child("match"))
+		selector, selErrs := rule.Match.toSelector(rulePath.Child("match"), knownActorTypes)
 		errs = append(errs, selErrs...)
 
 		set, setErrs := parsePartialSettings(rulePath.Child("set"), rule.Set)
@@ -109,21 +147,23 @@ func (c *AuditConfig) buildPolicySet(path *config.Path) (*audit.PolicySet, confi
 }
 
 // Validate validates the audit configuration, including every policy's
-// selector admissibility.
-func (c *AuditConfig) Validate(path *config.Path) config.ValidationErrors {
-	_, errs := c.buildPolicySet(path)
+// selector admissibility. knownActorTypes validates match.actor_types — see
+// SecurityConfig.KnownActorTypes.
+func (c *AuditConfig) Validate(path *config.Path, knownActorTypes []string) config.ValidationErrors {
+	_, errs := c.buildPolicySet(path, knownActorTypes)
 	return errs
 }
 
 // BuildPolicySet is the production entry point used at wiring time. Startup
 // should already have failed via Validate before this runs; a non-nil error
-// here is a defensive second check, not the primary gate.
-func (c *AuditConfig) BuildPolicySet() (*audit.PolicySet, error) {
-	ps, errs := c.buildPolicySet(config.NewPath("audit"))
+// here is a defensive second check, not the primary gate. knownActorTypes
+// validates match.actor_types — see SecurityConfig.KnownActorTypes.
+func (c *AuditConfig) BuildPolicySet(knownActorTypes []string) (*audit.PolicySet, error) {
+	ps, errs := c.buildPolicySet(config.NewPath("audit"), knownActorTypes)
 	return ps, errs.OrNil()
 }
 
-func (sc SelectorConfig) toSelector(path *config.Path) (audit.Selector, config.ValidationErrors) {
+func (sc SelectorConfig) toSelector(path *config.Path, knownActorTypes []string) (audit.Selector, config.ValidationErrors) {
 	var errs config.ValidationErrors
 
 	categories := make([]audit.Category, 0, len(sc.Categories))
@@ -151,6 +191,30 @@ func (sc SelectorConfig) toSelector(path *config.Path) (audit.Selector, config.V
 			continue
 		}
 		results = append(results, audit.Result(r))
+	}
+
+	for i, r := range sc.Resources {
+		if fe := config.MustBeOneOf(path.Child("resources").Index(i), r, validResources); fe != nil {
+			errs = append(errs, fe)
+		}
+	}
+
+	for i, op := range sc.Operations {
+		if fe := config.MustBeOneOf(path.Child("operations").Index(i), op, validOperationIDs); fe != nil {
+			errs = append(errs, fe)
+		}
+	}
+
+	for i, a := range sc.Actions {
+		if fe := config.MustBeOneOf(path.Child("actions").Index(i), a, validActions); fe != nil {
+			errs = append(errs, fe)
+		}
+	}
+
+	for i, at := range sc.ActorTypes {
+		if fe := config.MustBeOneOf(path.Child("actor_types").Index(i), at, knownActorTypes); fe != nil {
+			errs = append(errs, fe)
+		}
 	}
 
 	if len(errs) > 0 {

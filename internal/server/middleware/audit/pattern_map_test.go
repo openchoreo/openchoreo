@@ -47,8 +47,11 @@ func loadTestSpec(t *testing.T) *openapi3.T {
 func TestBuildPatternMap_Success(t *testing.T) {
 	swagger := loadTestSpec(t)
 	ops := []Operation{
-		{ID: testProjectOpID, Action: "create_project", ResourceType: "projects", Category: CategoryManagement},
-		{ID: "UpdateProject", Action: "update_project", ResourceType: "projects", Category: CategoryManagement},
+		{ID: testProjectOpID, Action: "create_project", ResourceType: "project", Category: CategoryManagement},
+		{
+			ID: "UpdateProject", Action: "update_project", ResourceType: "project", Category: CategoryManagement,
+			RESTResourceParam: "name",
+		},
 	}
 
 	patternMap, err := BuildPatternMap(ops, swagger)
@@ -91,6 +94,29 @@ func TestBuildPatternMap_UnknownOperationID(t *testing.T) {
 	}
 }
 
+// TestBuildPatternMap_RESTResourceParamMismatch guards against a typo'd
+// RESTResourceParam surfacing as a silently empty resource.name on denied or
+// failed events, instead of a construction-time error — the same class of
+// protection BuildPatternMap already gives operationId and pattern
+// collisions.
+func TestBuildPatternMap_RESTResourceParamMismatch(t *testing.T) {
+	swagger := loadTestSpec(t)
+	ops := []Operation{
+		{
+			ID: "UpdateProject", Action: "update_project", ResourceType: "project", Category: CategoryManagement,
+			RESTResourceParam: "projectName", // route param is actually "name"
+		},
+	}
+
+	_, err := BuildPatternMap(ops, swagger)
+	if err == nil {
+		t.Fatal("expected an error for a RESTResourceParam with no matching path parameter, got nil")
+	}
+	if !strings.Contains(err.Error(), "projectName") {
+		t.Errorf("error = %q, want it to name the mismatched RESTResourceParam projectName", err.Error())
+	}
+}
+
 // TestBuildPatternMap_PatternCollision covers the realistic way this fires:
 // a caller's own ops table lists the same operationId twice (e.g. a
 // copy-pasted OperationDef entry with a forgotten ID change), so both
@@ -98,8 +124,8 @@ func TestBuildPatternMap_UnknownOperationID(t *testing.T) {
 func TestBuildPatternMap_PatternCollision(t *testing.T) {
 	swagger := loadTestSpec(t)
 	ops := []Operation{
-		{ID: "DeleteProject", Action: "delete_project", ResourceType: "projects", Category: CategoryManagement},
-		{ID: "DeleteProject", Action: "delete_project_dup", ResourceType: "projects", Category: CategoryManagement},
+		{ID: "DeleteProject", Action: "delete_project", ResourceType: "project", Category: CategoryManagement},
+		{ID: "DeleteProject", Action: "delete_project_dup", ResourceType: "project", Category: CategoryManagement},
 	}
 
 	_, err := BuildPatternMap(ops, swagger)
