@@ -26,11 +26,13 @@ func (s *recordingSink) LogEvent(event *audit.Event) {
 	s.events = append(s.events, event)
 }
 
-func testBindings() map[string]audit.MCPBinding {
+func testBindings() map[audit.MCPBindingKey]audit.MCPBinding {
 	op := &audit.Operation{
 		ID: "CreateProject", Action: "create_project", ResourceType: "projects", Category: audit.CategoryManagement,
 	}
-	return map[string]audit.MCPBinding{"create_project": {Operation: op, ResourceArg: "name"}}
+	return map[audit.MCPBindingKey]audit.MCPBinding{
+		{ToolName: "create_project"}: {Operation: op, ResourceArg: "name"},
+	}
 }
 
 func testEmitter(t *testing.T, sink audit.Sink) *audit.Emitter {
@@ -56,6 +58,75 @@ func testMiddleware(t *testing.T, opts MiddlewareOptions) mcp.Middleware {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	return mw
+}
+
+// TestResolveBinding covers the 0.10c scope-resolution logic: an unscoped
+// tool resolves on the first (fast-path) lookup with no scope argument
+// needed; a scope-collapsed tool resolves on the second lookup, keyed by the
+// call's "scope" argument, defaulting an absent or empty value to
+// tools.ScopeNamespace to match resolveScope's own default in pkg/mcp/tools.
+func TestResolveBinding(t *testing.T) {
+	unscopedOp := &audit.Operation{ID: "CreateProject", Action: "create_project", Category: audit.CategoryManagement}
+	nsOp := &audit.Operation{
+		ID: "CreateComponentType", Action: "create_component_type", Category: audit.CategoryManagement,
+	}
+	clusterOp := &audit.Operation{
+		ID: "CreateClusterComponentType", Action: "create_cluster_component_type", Category: audit.CategoryManagement,
+	}
+	bindings := map[audit.MCPBindingKey]audit.MCPBinding{
+		{ToolName: "create_project"}:                                     {Operation: unscopedOp, ResourceArg: "name"},
+		{ToolName: "create_component_type", Scope: tools.ScopeNamespace}: {Operation: nsOp, ResourceArg: "name"},
+		{ToolName: "create_component_type", Scope: tools.ScopeCluster}:   {Operation: clusterOp, ResourceArg: "name"},
+	}
+
+	reqWithScope := func(toolName, scope string) mcp.Request {
+		args := map[string]any{}
+		if scope != "" {
+			args["scope"] = scope
+		}
+		raw, _ := json.Marshal(args)
+		return &mcp.ServerRequest[*mcp.CallToolParamsRaw]{Params: &mcp.CallToolParamsRaw{Name: toolName, Arguments: raw}}
+	}
+
+	tests := []struct {
+		name      string
+		req       mcp.Request
+		wantBound bool
+		wantOpID  string
+	}{
+		{
+			name: "unscoped tool resolves on the fast path", req: reqWithScope("create_project", ""),
+			wantBound: true, wantOpID: "CreateProject",
+		},
+		{
+			name: "scope-collapsed tool, explicit namespace scope", req: reqWithScope("create_component_type", "namespace"),
+			wantBound: true, wantOpID: "CreateComponentType",
+		},
+		{
+			name: "scope-collapsed tool, explicit cluster scope", req: reqWithScope("create_component_type", "cluster"),
+			wantBound: true, wantOpID: "CreateClusterComponentType",
+		},
+		{
+			name: "scope-collapsed tool, absent scope defaults to namespace", req: reqWithScope("create_component_type", ""),
+			wantBound: true, wantOpID: "CreateComponentType",
+		},
+		{name: "unbound tool", req: reqWithScope("some_other_tool", ""), wantBound: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b, bound := resolveBinding(bindings, callToolName(tt.req), tt.req)
+			if bound != tt.wantBound {
+				t.Fatalf("bound = %v, want %v", bound, tt.wantBound)
+			}
+			if !tt.wantBound {
+				return
+			}
+			if b.Operation == nil || b.Operation.ID != tt.wantOpID {
+				t.Errorf("Operation.ID = %v, want %q", b.Operation, tt.wantOpID)
+			}
+		})
+	}
 }
 
 // TestNewMiddleware_EmitsOnPanic mirrors REST's TestMiddleware_Handler_EmitsOnPanic:

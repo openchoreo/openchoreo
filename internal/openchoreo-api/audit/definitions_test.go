@@ -43,7 +43,10 @@ func TestGetOperations(t *testing.T) {
 // has no MCP tool at all, and Secret's MCP tools hit SecretReferenceService,
 // a different resource) — see the doc comment on operationDefs.
 func TestMCPBindings(t *testing.T) {
-	bindings := MCPBindings()
+	bindings, err := MCPBindings()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	wantToolResourceArg := map[string]string{
 		"create_project":     "name",
@@ -58,8 +61,12 @@ func TestMCPBindings(t *testing.T) {
 		t.Fatalf("len(MCPBindings()) = %d, want %d (got tools: %v)", len(bindings), len(wantToolResourceArg), toolNames(bindings))
 	}
 
+	// None of the P0 operations are scope-collapsed, so every key's Scope is
+	// empty — see TestMCPBindings_ScopeCollapsedFanOut in the core package
+	// for the scoped case.
 	for tool, wantArg := range wantToolResourceArg {
-		b, ok := bindings[tool]
+		key := audit.MCPBindingKey{ToolName: tool}
+		b, ok := bindings[key]
 		if !ok {
 			t.Errorf("MCPBindings() missing entry for tool %q", tool)
 			continue
@@ -81,16 +88,16 @@ func TestMCPBindings(t *testing.T) {
 		"create_dataplane", "update_dataplane", "delete_dataplane",
 		"create_secret", "update_secret", "delete_secret",
 	} {
-		if _, ok := bindings[unbound]; ok {
+		if _, ok := bindings[audit.MCPBindingKey{ToolName: unbound}]; ok {
 			t.Errorf("MCPBindings() unexpectedly has an entry for %q (DataPlane/Secret have no MCP tool)", unbound)
 		}
 	}
 }
 
-func toolNames(bindings map[string]audit.MCPBinding) []string {
+func toolNames(bindings map[audit.MCPBindingKey]audit.MCPBinding) []string {
 	names := make([]string, 0, len(bindings))
-	for name := range bindings {
-		names = append(names, name)
+	for key := range bindings {
+		names = append(names, key.ToolName)
 	}
 	return names
 }

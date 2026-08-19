@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -102,7 +103,7 @@ func TestExtractActor(t *testing.T) {
 			if actor.ID != tt.wantID {
 				t.Errorf("ID = %q, want %q", actor.ID, tt.wantID)
 			}
-			if len(actor.Entitlements) != len(tt.wantEntitlements) {
+			if !reflect.DeepEqual(actor.Entitlements, tt.wantEntitlements) {
 				t.Errorf("Entitlements = %#v, want %#v", actor.Entitlements, tt.wantEntitlements)
 			}
 		})

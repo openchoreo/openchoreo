@@ -5,6 +5,7 @@ package audit
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -17,6 +18,23 @@ func TestRequestIDFromHeader(t *testing.T) {
 
 	if got := RequestIDFromHeader(http.Header{}); got == "" {
 		t.Error("RequestIDFromHeader(no header) = empty, want a generated UUID")
+	}
+}
+
+// TestRequestIDFromHeader_BoundsOversizedValue guards against a client
+// inflating every audit record for its request by sending an oversized
+// X-Request-ID — the value is attacker-controlled and reaches Event.RequestID
+// verbatim otherwise.
+func TestRequestIDFromHeader_BoundsOversizedValue(t *testing.T) {
+	h := http.Header{}
+	h.Set("X-Request-ID", strings.Repeat("a", maxRequestIDLen+1))
+
+	got := RequestIDFromHeader(h)
+	if len(got) > maxRequestIDLen {
+		t.Errorf("RequestIDFromHeader(oversized) = %q (len %d), want a generated value within maxRequestIDLen", got, len(got))
+	}
+	if got == strings.Repeat("a", maxRequestIDLen+1) {
+		t.Error("RequestIDFromHeader(oversized) returned the oversized value verbatim, want a generated UUID")
 	}
 }
 

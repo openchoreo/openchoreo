@@ -40,10 +40,14 @@ func TestMCPBindings_MatchRegisteredTools(t *testing.T) {
 	server := mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.0.0"}, nil)
 	perms, _ := toolsets.Register(server)
 
-	for tool := range apiaudit.MCPBindings() {
-		if _, ok := perms[tool]; !ok {
+	bindings, err := apiaudit.MCPBindings()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for key := range bindings {
+		if _, ok := perms[key.ToolName]; !ok {
 			t.Errorf("MCPBindings() has an entry for tool %q, but no RegisterFunc registers a tool "+
-				"by that name (typo or renamed tool in operationDefs' MCPToolName?)", tool)
+				"by that name (typo or renamed tool in operationDefs' MCPToolName?)", key.ToolName)
 		}
 	}
 }

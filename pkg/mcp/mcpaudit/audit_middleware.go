@@ -27,7 +27,9 @@ const methodCallTool = "tools/call"
 // bindings is read-only from here on — required because concurrent
 // tools/call invocations on one MCP session run in parallel goroutines
 // (verified: mcp/server.go calls jsonrpc2.Async for every tools/call).
-func newAuditMiddleware(emitter *audit.Emitter, bindings map[string]audit.MCPBinding, enabled bool) mcp.Middleware {
+func newAuditMiddleware(
+	emitter *audit.Emitter, bindings map[audit.MCPBindingKey]audit.MCPBinding, enabled bool,
+) mcp.Middleware {
 	return func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (res mcp.Result, err error) {
 			if !enabled || method != methodCallTool {
@@ -35,7 +37,7 @@ func newAuditMiddleware(emitter *audit.Emitter, bindings map[string]audit.MCPBin
 			}
 
 			toolName := callToolName(req)
-			binding, bound := bindings[toolName]
+			binding, bound := resolveBinding(bindings, toolName, req)
 			if !bound {
 				return next(ctx, method, req)
 			}
@@ -98,6 +100,32 @@ func classifyResult(res mcp.Result, err error) audit.Result {
 		return audit.ResultFailure
 	}
 	return audit.ResultSuccess
+}
+
+// resolveBinding looks up toolName's binding, resolving scope for a
+// scope-collapsed tool (one MCP tool fanning out to more than one audited
+// operation, e.g. a namespace-scoped and a cluster-scoped REST operation)
+// before the lookup that needs it — see audit.MCPBindingKey's doc comment.
+//
+// The unscoped key (Scope: "") is tried first: it's the common case (a tool
+// bound to exactly one operation), so no scope argument needs extracting for
+// the vast majority of bound tools. Only a tool with no unscoped binding
+// falls through to resolving scope, defaulting an absent or unrecognized
+// value to tools.ScopeNamespace — matching resolveScope's own default in
+// pkg/mcp/tools, so a scope-collapsed tool called without an explicit scope
+// resolves to the same operation the tool itself would have run.
+func resolveBinding(
+	bindings map[audit.MCPBindingKey]audit.MCPBinding, toolName string, req mcp.Request,
+) (audit.MCPBinding, bool) {
+	if b, ok := bindings[audit.MCPBindingKey{ToolName: toolName}]; ok {
+		return b, true
+	}
+	scope := tools.ScopeNamespace
+	if extractResourceArg(req, "scope") == tools.ScopeCluster {
+		scope = tools.ScopeCluster
+	}
+	b, ok := bindings[audit.MCPBindingKey{ToolName: toolName, Scope: scope}]
+	return b, ok
 }
 
 // callToolName extracts the tool name from a tools/call Request. Mirrors

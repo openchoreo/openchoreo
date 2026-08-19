@@ -81,8 +81,12 @@ func GetOperations() []audit.Operation {
 	return audit.Operations(operationDefs())
 }
 
-// MCPBindings returns the MCP tool-to-operation binding table, keyed by tool
-// name — operationDefs run through the generic audit.MCPBindings derivation.
-func MCPBindings() map[string]audit.MCPBinding {
+// MCPBindings returns the MCP tool-to-operation binding table, keyed by
+// (tool name, scope) — operationDefs run through the generic
+// audit.MCPBindings derivation. The error return is defensive: operationDefs
+// is a static compile-time table, so a collision here is a bug caught by
+// TestMCPBindings_DerivedFromDefs / TestMCPBindings_MatchRegisteredTools long
+// before this runs in production, not a runtime condition.
+func MCPBindings() (map[audit.MCPBindingKey]audit.MCPBinding, error) {
 	return audit.MCPBindings(operationDefs())
 }
