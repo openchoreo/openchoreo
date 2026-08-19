@@ -267,7 +267,7 @@ func TestSendHTTPTunnelRequest_Timeout(t *testing.T) {
 	// Register a connection
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 
 	req := &messaging.HTTPTunnelRequest{
 		Target: "k8s",
@@ -311,7 +311,7 @@ func TestSendHTTPTunnelRequestForCR_NoAuthorizedAgent(t *testing.T) {
 
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 
 	req := &messaging.HTTPTunnelRequest{
 		Target: "k8s",
@@ -332,7 +332,7 @@ func TestSendHTTPTunnelRequestForCR_Success(t *testing.T) {
 
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 
 	req := &messaging.HTTPTunnelRequest{
 		Target: "k8s",
@@ -556,7 +556,7 @@ func TestVerifyClientCertificatePerCR_WithIntermediates(t *testing.T) {
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
 	// Pass intermediate cert chain
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, []*x509.Certificate{intermediateCert}, "dataplane", "prod")
+	validCRs, err := s.verifyClientCertificatePerCR(clientCert, buildIntermediatePool([]*x509.Certificate{intermediateCert}), "dataplane", "prod")
 	require.NoError(t, err)
 	assert.Contains(t, validCRs, "ns/dp1")
 }
@@ -586,7 +586,7 @@ func TestHandleHTTPProxy_CRAuthorizationFailed(t *testing.T) {
 	// Register agent but only for ns/dp1
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 
 	// Request for a different CR
 	req := httptest.NewRequest(http.MethodGet, "/api/proxy/dataplane/prod/ns/dp-other/k8s/api/v1/pods", nil)
@@ -606,7 +606,7 @@ func TestHandleHTTPProxy_ClusterScopedCRNamespace(t *testing.T) {
 	// Register agent for cluster-scoped CR only (key format: "/crName")
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"/global-dp"}, nil)
+	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"/global-dp"}, nil, nil)
 
 	// Request with _cluster namespace but a different CR name → should get 403 (not found)
 	// This verifies _cluster is mapped to empty namespace forming key "/wrong-dp"
@@ -627,7 +627,7 @@ func TestHandleHTTPProxy_Success(t *testing.T) {
 
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 
 	// Run proxy request in goroutine (it blocks waiting for tunnel response)
 	req := httptest.NewRequest(http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/pods", nil)
@@ -678,7 +678,7 @@ func TestSendHTTPTunnelRequestForCR_Timeout(t *testing.T) {
 
 	conn, cleanup := newTestWSConn(t)
 	defer cleanup()
-	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil)
+	_, _ = s.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
 
 	req := &messaging.HTTPTunnelRequest{
 		Target: "k8s",
@@ -786,7 +786,7 @@ func TestHandleConnection_ProcessesMessages(t *testing.T) {
 	s.requestsMu.Unlock()
 
 	// Register the mock connection in connMgr
-	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil)
+	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
 
 	s.handleConnection("dataplane/prod", connID, mock)
@@ -810,7 +810,7 @@ func TestHandleConnection_InvalidMessage(t *testing.T) {
 		readMessages: [][]byte{[]byte("not json")},
 	}
 
-	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil)
+	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
 
 	// Should not panic — skips invalid message and exits when no more messages
@@ -833,7 +833,7 @@ func TestHandleConnection_MissingRequestID(t *testing.T) {
 		readMessages: [][]byte{data},
 	}
 
-	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil)
+	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
 
 	// Should skip message and exit
@@ -853,7 +853,7 @@ func TestHandleConnection_UnexpectedClose(t *testing.T) {
 		},
 	}
 
-	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil)
+	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
 
 	// Should log "websocket error" and return
@@ -873,7 +873,7 @@ func TestHandleConnection_NormalClose(t *testing.T) {
 		},
 	}
 
-	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil)
+	connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil, nil)
 	require.NoError(t, err)
 
 	// Should log "agent disconnected" and return
