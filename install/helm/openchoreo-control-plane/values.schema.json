@@ -17,7 +17,7 @@
         "appConfig": {
           "additionalProperties": true,
           "default": {},
-          "description": "Arbitrary Backstage app-config YAML injected as an additional config overlay. When non-empty the chart renders a ConfigMap named \u003crelease\u003e-backstage-extra-config, mounts it at /app/app-config.extra.yaml, and appends --config app-config.extra.yaml to the startup args automatically. This is the preferred mechanism for operator-specific Backstage configuration (auth, integrations, etc.) without requiring a custom container image. WARNING: Do not store secrets here — this value is rendered into a ConfigMap (plaintext). Use Kubernetes Secrets or existing Secret refs (e.g. via extraEnv secretKeyRef) instead.\n",
+          "description": "Arbitrary Backstage app-config YAML injected as an additional config overlay. When non-empty the chart renders a ConfigMap named <release>-backstage-extra-config, mounts it at /app/app-config.extra.yaml, and appends --config app-config.extra.yaml to the startup args automatically. This is the preferred mechanism for operator-specific Backstage configuration (auth, integrations, etc.) without requiring a custom container image. WARNING: Do not store secrets here — this value is rendered into a ConfigMap (plaintext). Use Kubernetes Secrets or existing Secret refs (e.g. via extraEnv secretKeyRef) instead.\n",
           "required": [],
           "title": "appConfig",
           "type": "object"
@@ -410,7 +410,7 @@
               "properties": {
                 "apiBaseUrl": {
                   "default": "",
-                  "description": "GitHub API base URL. Leave empty for public GitHub (Backstage will derive `https://api.github.com` from the host). For GitHub Enterprise Server, set to `https://\u003chost\u003e/api/v3`.",
+                  "description": "GitHub API base URL. Leave empty for public GitHub (Backstage will derive `https://api.github.com` from the host). For GitHub Enterprise Server, set to `https://<host>/api/v3`.",
                   "title": "apiBaseUrl",
                   "type": "string"
                 },
@@ -480,7 +480,7 @@
         },
         "extraArgs": {
           "default": [],
-          "description": "Extra arguments appended to the Backstage node startup command after the built-in --config flags. Typically used to add additional --config \u003cfile\u003e arguments for operator-provided app-config overlays.\n",
+          "description": "Extra arguments appended to the Backstage node startup command after the built-in --config flags. Typically used to add additional --config <file> arguments for operator-provided app-config overlays.\n",
           "items": {
             "type": "string"
           },
@@ -3374,6 +3374,38 @@
                             "type": "object"
                           },
                           "title": "mappings",
+                          "type": "array"
+                        },
+                        "extraRoles": {
+                          "default": [],
+                          "description": "Organisation-specific authorization roles, APPENDED to `roles` instead of replacing it. Helm replaces lists, it does not merge them, so adding one role through `roles` means copying every default role into your values and silently inheriting none of the upstream changes on the next upgrade.",
+                          "items": {
+                            "properties": {
+                              "actions": {
+                                "description": "List of actions this role can perform",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "type": "array"
+                              },
+                              "name": {
+                                "description": "Role name",
+                                "type": "string"
+                              },
+                              "namespace": {
+                                "description": "Namespace for role (empty string for cluster-scoped)",
+                                "type": "string"
+                              },
+                              "system": {
+                                "default": false,
+                                "description": "Whether this is a system-managed role (adds openchoreo.io/system label when true, omitted when false)",
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [],
+                            "type": "object"
+                          },
+                          "title": "extraRoles",
                           "type": "array"
                         },
                         "roles": {

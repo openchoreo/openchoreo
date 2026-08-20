@@ -1609,6 +1609,30 @@ openchoreoApi:
 
           # @schema
           # type: array
+          # description: Organisation-specific authorization roles, APPENDED to `roles` instead of replacing it. Helm replaces lists, it does not merge them, so adding one role through `roles` means copying every default role into your values and silently inheriting none of the upstream changes on the next upgrade.
+          # items:
+          #   type: object
+          #   properties:
+          #     name:
+          #       type: string
+          #       description: Role name
+          #     namespace:
+          #       type: string
+          #       description: Namespace for role (empty string for cluster-scoped)
+          #     system:
+          #       type: boolean
+          #       description: Whether this is a system-managed role (adds openchoreo.io/system label when true, omitted when false)
+          #       default: false
+          #     actions:
+          #       type: array
+          #       items:
+          #         type: string
+          #       description: List of actions this role can perform
+          # default: []
+          # @schema
+          extraRoles: []
+          # @schema
+          # type: array
           # description: Default role-to-entitlement mappings to create at installation
           # items:
           #   type: object
