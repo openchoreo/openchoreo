@@ -89,6 +89,7 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Hierarchy: authz.ResourceHierarchy{
 				Namespace: namespace,
 				Project:   project,
+				Component: componentName,
 			},
 		}); err != nil {
 			if errors.Is(err, svcpkg.ErrForbidden) {
