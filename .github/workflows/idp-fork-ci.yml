@@ -23,6 +23,19 @@ on:
 permissions:
   contents: read
 
+env:
+  # Mismos pines que `idp-upstream-sync.yml`, para no introducir dos versiones de la
+  # misma herramienta en el mismo repo. Descarga directa con checksum en vez de una
+  # action de terceros: una dependencia menos con permiso de ejecutar codigo.
+  HELM_VERSION: "3.16.4"
+  HELM_SHA256: fc307327959aa38ed8f9f7e66d45492bb022a66c3e5da6063958254b9767d179
+  # SHA-256 del asset `yq_linux_amd64`, tomado del archivo `checksums` del propio
+  # release (columna SHA-256 segun `checksums_hashes_order`). Para refrescarlo:
+  #   curl -fsSL .../vX.Y.Z/checksums_hashes_order   -> indice de "SHA-256"
+  #   curl -fsSL .../vX.Y.Z/checksums | grep '^yq_linux_amd64 '
+  YQ_VERSION: v4.44.6
+  YQ_SHA256: 0c2b24e645b57d8e7c0566d18643a6d4f5580feeea3878127354a46f2a1e4598
+
 concurrency:
   group: idp-fork-ci-${{ github.ref }}
   cancel-in-progress: true
@@ -59,22 +72,20 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
-        with:
-          version: v3.16.4
+      - name: Instalar helm
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/helm.tgz "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+          echo "${HELM_SHA256}  /tmp/helm.tgz" | sha256sum -c -
+          tar -xzf /tmp/helm.tgz -C /tmp
+          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          helm version
 
       - name: Instalar yq
         run: |
           set -euo pipefail
-          # Descarga directa con checksum en vez de una action de terceros, igual que
-          # el agente de sync: una dependencia menos con permiso de ejecutar codigo.
-          version=v4.44.6
-          sha=e3b52e4a72a1e6c0da8ee61c0b1e1a2d31e2c2f8f0f6ff98e02c3b5eb28e18a4
-          curl -fsSL -o /tmp/yq "https://github.com/mikefarah/yq/releases/download/${version}/yq_linux_amd64"
-          echo "${sha}  /tmp/yq" | sha256sum -c - || {
-            echo "checksum de yq no coincide: reviselo antes de tocar el pin" >&2
-            exit 1
-          }
+          curl -fsSL -o /tmp/yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+          echo "${YQ_SHA256}  /tmp/yq" | sha256sum -c -
           sudo install /tmp/yq /usr/local/bin/yq
           yq --version
 
@@ -87,9 +98,14 @@ jobs:
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
-        with:
-          version: v3.16.4
+      - name: Instalar helm
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/helm.tgz "https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
+          echo "${HELM_SHA256}  /tmp/helm.tgz" | sha256sum -c -
+          tar -xzf /tmp/helm.tgz -C /tmp
+          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          helm version
 
       - name: verify-authz-bootstrap-prune
         run: install/helm/openchoreo-control-plane/tests/verify-authz-bootstrap-prune.sh

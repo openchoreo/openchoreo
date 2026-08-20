@@ -93,23 +93,54 @@ EOF
   esac
 
   if [ "$chart" = "openchoreo-workflow-plane" ]; then
+    # `helm dependency build` resuelve el Chart.lock contra repos YA declarados; en
+    # una maquina limpia no hay ninguno y falla con "no repository definition for
+    # https://argoproj.github.io/argo-helm". Funcionaba solo en maquinas donde
+    # alguien habia corrido `helm repo add` alguna vez — encontrado en T08b, la
+    # primera vez que este script corrio en CI.
+    dep_repo=$(yq -r '.dependencies[]? | select(.name == "argo-workflows") | .repository' \
+      "install/helm/$chart/Chart.yaml" | head -1)
+    if [ -n "$dep_repo" ]; then
+      helm repo add argo-helm-verify "$dep_repo" >/dev/null 2>&1 || true
+      helm repo update argo-helm-verify >/dev/null 2>&1 || true
+    fi
     helm dependency build "install/helm/$chart" >/dev/null
   fi
 
   helm template "verify-$chart" "install/helm/$chart" --namespace "$namespace" -f "$values" > "$rendered"
 
   # Any verb outside get/list/watch on the RBAC apiGroup is a finding.
+  # En Python sobre el YAML renderizado y no con una expresion de yq: la version
+  # anterior emitia un hallazgo VACIO ("grants  on ") para los charts que no tienen
+  # ninguna regla RBAC, porque el encadenado de `select` sobre una secuencia vacia
+  # no se comporta igual entre versiones de yq. Un verificador que inventa un rojo
+  # se desactiva solo: el proximo lo ignora. Encontrado en T08b al correr en CI con
+  # el yq pinneado, contra una maquina de desarrollo con otro.
   bad_cluster_rbac=$(
-    yq -r '
-      select(.kind == "ClusterRole" or .kind == "Role") |
-      select(.metadata.labels."app.kubernetes.io/component" == "cluster-agent") |
-      .kind as $kind |
-      .metadata.name as $name |
-      .rules[]? |
-      select(.apiGroups[]? == "rbac.authorization.k8s.io") |
-      select([.verbs[]? | select(. != "get" and . != "list" and . != "watch")] | length > 0) |
-      $kind + "/" + $name + " grants " + (.verbs // [] | join(",")) + " on " + (.resources // [] | join(","))
-    ' "$rendered"
+    python3 - "$rendered" <<'PYEOF'
+import sys, yaml
+
+WRITE_OK = {"get", "list", "watch"}
+findings = []
+for doc in yaml.safe_load_all(open(sys.argv[1])):
+    if not doc or doc.get("kind") not in ("ClusterRole", "Role"):
+        continue
+    labels = (doc.get("metadata") or {}).get("labels") or {}
+    if labels.get("app.kubernetes.io/component") != "cluster-agent":
+        continue
+    for rule in doc.get("rules") or []:
+        if "rbac.authorization.k8s.io" not in (rule.get("apiGroups") or []):
+            continue
+        verbs = rule.get("verbs") or []
+        bad = [v for v in verbs if v not in WRITE_OK]
+        if bad:
+            findings.append(
+                "%s/%s grants %s on %s"
+                % (doc["kind"], doc["metadata"]["name"],
+                   ",".join(verbs), ",".join(rule.get("resources") or []))
+            )
+print("\n".join(findings))
+PYEOF
   )
   check_empty "$chart: cluster-agent RBAC grants are read-only (no write verbs)" "$bad_cluster_rbac"
 
