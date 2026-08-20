@@ -32,7 +32,7 @@ REQUIRED_CONTENT_NEEDLE=""
 # Archivos nuestros por construccion: no son parches sobre archivos del upstream.
 # Un item terminado en "/" cubre todo el subarbol. `idp-sync/` es el agente de
 # sincronizacion (T08); su upstream.json lleva la misma lista.
-OWNED=".github/scripts/verify-fork.sh idp-sync/ .github/workflows/idp-upstream-sync.yml"
+OWNED=".github/scripts/verify-fork.sh .github/scripts/verify-cluster-agent-rbac.sh .github/scripts/sync-actions-allowlist.sh idp-sync/ .github/workflows/idp-upstream-sync.yml .github/workflows/idp-fork-ci.yml"
 
 # Forma que tiene que conservar el ClusterRole del cluster-agent (check 6).
 # El agente aplica dentro de Cells creadas en runtime (dp-<ns>-<proj>-<env>-<hash>),
@@ -94,6 +94,16 @@ check_agent_clusterrole() {
 # solo como `origin/upstream-main`; sin esto los checks 4 y 5 revientan con "ambiguous
 # argument" y el self-test lee ese crash como si hubiera detectado el fallo inyectado.
 resolve() {
+  # HEAD se resuelve ANTES del DWIM a origin/<nombre>, y no es un detalle:
+  # `refs/remotes/origin/HEAD` EXISTE en un clon normal y apunta a la rama por
+  # defecto. Sin este caso, `resolve HEAD` devolvia origin/main y el verificador
+  # chequeaba main en vez de la rama que se le pidio, en silencio y en verde.
+  # Encontrado en T08b: el CI del fork corre `verify-fork.sh HEAD upstream-main`
+  # para verificar la rama de un PR, y habria verificado main en todos los PRs.
+  if [ "$1" = "HEAD" ]; then
+    git rev-parse -q --verify 'HEAD^{commit}' 2>/dev/null && return 0
+    return 1
+  fi
   git rev-parse -q --verify "refs/heads/$1^{commit}" 2>/dev/null && return 0
   git rev-parse -q --verify "refs/remotes/origin/$1^{commit}" 2>/dev/null && return 0
   git rev-parse -q --verify "$1^{commit}" 2>/dev/null && return 0
@@ -154,6 +164,15 @@ if [ "${1:-}" = "--self-test" ]; then
     check_agent_clusterrole "$DP_CR" "$mutated" >/dev/null 2>&1
     if [ "$fail" = 0 ]; then fail="$before"; bad "un ClusterRole con verbo '*' sobre RBAC paso como valido"
     else fail="$before"; ok "detectado"; fi
+  fi
+
+  say "== self-test 5: 'HEAD' tiene que resolver al commit chequeado, no a origin/HEAD"
+  head_real=$(git rev-parse HEAD)
+  head_resolved=$(resolve HEAD || echo "")
+  if [ "$head_resolved" = "$head_real" ]; then
+    ok "detectado (resolve HEAD = $(git rev-parse --short HEAD))"
+  else
+    bad "resolve HEAD devolvio '$head_resolved' y HEAD es '$head_real': el CI verificaria la rama equivocada"
   fi
 
   say ""

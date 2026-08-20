@@ -1,0 +1,111 @@
+# Copyright 2026 fondomp-production
+# SPDX-License-Identifier: Apache-2.0
+#
+# idp · fork CI — lo unico que corre en los PRs de este espejo.
+#
+# Los workflows del upstream quedan DESHABILITADOS por API
+# (`.github/scripts/sync-actions-allowlist.sh`): publican imagenes y firman releases,
+# y no pueden hacerlo con nuestra identidad. Este es el reemplazo: corre nuestras
+# verificaciones de fork, que hasta T08b no corrian en ningun lado.
+#
+# Archivo NUEVO: no toca nada del upstream, asi que no consume presupuesto de diff.
+# Va en la fila 0b de PATCHES.md y en la lista OWNED de verify-fork.sh.
+
+name: idp · fork CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: idp-fork-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-fork:
+    name: verify-fork
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          # El check 4 diffea contra `upstream-main`, asi que hace falta el historial
+          # completo y la rama del espejo, que un checkout de PR no trae.
+          fetch-depth: 0
+
+      - name: Traer upstream-main
+        run: |
+          git fetch --no-tags origin '+refs/heads/upstream-main:refs/heads/upstream-main'
+          git rev-parse --short upstream-main
+
+      - name: verify-fork
+        run: |
+          # HEAD y no `main`: en un PR lo que hay que verificar es la rama del PR.
+          .github/scripts/verify-fork.sh HEAD upstream-main
+
+      - name: verify-fork --self-test
+        # Un verificador que nunca vio un rojo no es un verificador. El self-test
+        # inyecta las mutaciones que ya nos mordieron y exige que las detecte.
+        run: .github/scripts/verify-fork.sh --self-test
+
+  verify-cluster-agent-rbac:
+    name: verify-cluster-agent-rbac
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
+        with:
+          version: v3.16.4
+
+      - name: Instalar yq
+        run: |
+          set -euo pipefail
+          # Descarga directa con checksum en vez de una action de terceros, igual que
+          # el agente de sync: una dependencia menos con permiso de ejecutar codigo.
+          version=v4.44.6
+          sha=e3b52e4a72a1e6c0da8ee61c0b1e1a2d31e2c2f8f0f6ff98e02c3b5eb28e18a4
+          curl -fsSL -o /tmp/yq "https://github.com/mikefarah/yq/releases/download/${version}/yq_linux_amd64"
+          echo "${sha}  /tmp/yq" | sha256sum -c - || {
+            echo "checksum de yq no coincide: reviselo antes de tocar el pin" >&2
+            exit 1
+          }
+          sudo install /tmp/yq /usr/local/bin/yq
+          yq --version
+
+      - name: verify-cluster-agent-rbac
+        run: .github/scripts/verify-cluster-agent-rbac.sh
+
+  verify-authz-bootstrap-prune:
+    name: verify-authz-bootstrap-prune
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
+        with:
+          version: v3.16.4
+
+      - name: verify-authz-bootstrap-prune
+        run: install/helm/openchoreo-control-plane/tests/verify-authz-bootstrap-prune.sh
+
+  go-test-patched:
+    name: go test (paquetes parcheados)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: go test
+        # Solo los paquetes que tocan nuestros parches. El build-and-test del upstream
+        # queda deshabilitado a proposito; esto no lo reemplaza, cubre lo nuestro.
+        run: go test ./internal/cluster-gateway/... ./internal/cluster-agent/...
