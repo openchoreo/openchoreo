@@ -7,24 +7,96 @@ metadata:
     {{- include "openchoreo-workflow-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-agent
 rules:
-# Cluster-scoped resources only. Namespaced workload permissions live in role.yaml.
+# The workflow-plane agent applies WorkflowRuns into workflows-<controlPlaneNs>
+# namespaces, which are derived at runtime and validated by the workflow webhook.
+# A namespaced Role in the release namespace cannot cover them. What stays out is
+# the actual privilege-escalation vector: apiGroup rbac.authorization.k8s.io.
 - apiGroups: [""]
   resources:
   - namespaces
   verbs: ["*"]
-# Cluster-scoped Cilium network policies (if using Cilium)
+# Core Kubernetes workload resources
+- apiGroups: ["apps"]
+  resources:
+  - deployments
+  - statefulsets
+  - daemonsets
+  - replicasets
+  verbs: ["*"]
+# Deployment scale subresource (required for kubectl scale)
+- apiGroups: ["apps"]
+  resources:
+  - deployments/scale
+  - statefulsets/scale
+  - replicasets/scale
+  verbs: ["get", "update", "patch"]
+- apiGroups: [""]
+  resources:
+  - pods
+  - services
+  - configmaps
+  - secrets
+  - persistentvolumeclaims
+  - serviceaccounts
+  - endpoints
+  verbs: ["*"]
+- apiGroups: [""]
+  resources:
+  - pods/log
+  - pods/status
+  - events
+  verbs: ["get", "list"]
+# Batch jobs
+- apiGroups: ["batch"]
+  resources:
+  - jobs
+  - cronjobs
+  verbs: ["*"]
+# Networking
+- apiGroups: ["networking.k8s.io"]
+  resources:
+  - ingresses
+  - networkpolicies
+  verbs: ["*"]
+# Autoscaling
+- apiGroups: ["autoscaling"]
+  resources:
+  - horizontalpodautoscalers
+  verbs: ["*"]
+# Policy
+- apiGroups: ["policy"]
+  resources:
+  - poddisruptionbudgets
+  verbs: ["*"]
+# Cilium network policies (if using Cilium)
 - apiGroups: ["cilium.io"]
   resources:
+  - ciliumnetworkpolicies
   - ciliumclusterwidenetworkpolicies
   verbs: ["*"]
-# Cluster-scoped External Secrets Operator resources
+# Gateway API resources (if using Gateway API)
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources:
+  - gateways
+  - httproutes
+  - tcproutes
+  - grpcroutes
+  verbs: ["*"]
+# External Secrets Operator
 - apiGroups: ["external-secrets.io"]
   resources:
+  - externalsecrets
+  - secretstores
   - clustersecretstores
+  - pushsecrets
   verbs: ["*"]
-# Cluster-scoped Argo Workflows resources
+# Argo Workflows (for CI/CD pipelines)
 - apiGroups: ["argoproj.io"]
   resources:
+  - workflows
+  - workflowtemplates
+  - cronworkflows
+  - workflowtaskresults
   - clusterworkflowtemplates
   verbs: ["*"]
 {{- end }}
