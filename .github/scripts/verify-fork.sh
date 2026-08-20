@@ -33,6 +33,17 @@ REQUIRED_CONTENT_NEEDLE=""
 # Un item terminado en "/" cubre todo el subarbol. `idp-sync/` es el agente de
 # sincronizacion (T08); su upstream.json lleva la misma lista.
 OWNED=".github/scripts/verify-fork.sh idp-sync/ .github/workflows/idp-upstream-sync.yml"
+
+# Forma que tiene que conservar el ClusterRole del cluster-agent (check 6).
+# El agente aplica dentro de Cells creadas en runtime (dp-<ns>-<proj>-<env>-<hash>),
+# asi que estos permisos NO pueden vivir en un Role namespaced. T12 los movio a un
+# Role y dejo la plataforma sin poder desplegar nada; lo encontro T73 con el primer
+# workload real. Este check existe para que un rebase no lo reintroduzca en silencio.
+AGENT_CLUSTERROLES="install/helm/openchoreo-data-plane/templates/cluster-agent/clusterrole.yaml install/helm/openchoreo-workflow-plane/templates/cluster-agent/clusterrole.yaml"
+# Kinds sin los cuales no se puede materializar una Cell ni desplegar un componente.
+AGENT_REQUIRED_KINDS="deployments services configmaps secrets networkpolicies"
+# Los emite ClusterProjectType/idp-default (T28). Upstream nunca los otorgo.
+AGENT_REQUIRED_KINDS_DATAPLANE="resourcequotas limitranges"
 # -----------------------------------------------------------------------------
 
 fail=0
@@ -42,6 +53,42 @@ bad()  { printf '  FAIL  %s\n' "$*"; fail=1; }
 skip() { printf '  SKIP  %s\n' "$*"; }
 
 cd "$(git rev-parse --show-toplevel)"
+
+# check_agent_clusterrole <ruta> <contenido> — usada por el check 6 y por su self-test.
+# Toma el contenido por parametro y no por ruta para que el self-test pueda pasarle una
+# mutacion sin tocar el arbol ni el indice de git.
+check_agent_clusterrole() {
+  _cr="$1"; _body="$2"
+
+  _required="$AGENT_REQUIRED_KINDS"
+  case "$_cr" in *openchoreo-data-plane*) _required="$_required $AGENT_REQUIRED_KINDS_DATAPLANE" ;; esac
+
+  _missing=""
+  for _kind in $_required; do
+    printf '%s\n' "$_body" | grep -Eq "^[[:space:]]*-[[:space:]]+${_kind}[[:space:]]*$" || _missing="$_missing $_kind"
+  done
+  if [ -n "$_missing" ]; then
+    bad "$_cr no otorga:$_missing (¿volvieron a un Role namespaced? las Cells se crean en runtime)"
+  else
+    ok "$_cr otorga los kinds de una Cell"
+  fi
+
+  # Verbos del bloque `- apiGroups: ["rbac.authorization.k8s.io"]`, hasta el proximo
+  # `- apiGroups:`. Sin leer los verbos solo se podria afirmar que la cadena aparece.
+  _rbac_verbs=$(printf '%s\n' "$_body" | awk '
+    /^- apiGroups:/ { inblock = ($0 ~ /rbac\.authorization\.k8s\.io/) }
+    inblock && /^[[:space:]]*verbs:/ { print; inblock = 0 }
+  ')
+  if [ -z "$_rbac_verbs" ]; then
+    # Sin lectura de RBAC, el read-back de RenderedRelease aborta con 403 y TODO
+    # componente queda NotReady para siempre, con el pod 1/1 sirviendo. Rojo, no skip.
+    bad "$_cr no otorga lectura de rbac.authorization.k8s.io (el status de todo componente queda NotReady)"
+  elif printf '%s\n' "$_rbac_verbs" | grep -Eq '"\*"|create|update|patch|delete|bind|escalate|deletecollection'; then
+    bad "$_cr otorga escritura sobre RBAC ($_rbac_verbs) — es la escalacion que cerro T12"
+  else
+    ok "$_cr lee RBAC sin poder escribirlo ($_rbac_verbs)"
+  fi
+}
 
 # Resolver las dos ramas UNA vez. En un clon fresco la rama del espejo puede existir
 # solo como `origin/upstream-main`; sin esto los checks 4 y 5 revientan con "ambiguous
@@ -84,6 +131,29 @@ if [ "${1:-}" = "--self-test" ]; then
     if PATCHES_FILE="$tmp" "$0" >/dev/null 2>&1; then
       bad "un archivo con diff y sin fila paso como valido"
     else ok "detectado"; fi
+  fi
+
+  # Los dos modos de falla del check 6, inyectados sobre el archivo real. Son
+  # exactamente las dos formas que tuvo el parche de T12 antes de T73/T12b.
+  DP_CR="install/helm/openchoreo-data-plane/templates/cluster-agent/clusterrole.yaml"
+  if [ ! -f "$DP_CR" ]; then
+    say "== self-test 3 y 4: SKIP"
+    skip "no existe $DP_CR en este arbol"
+  else
+    say "== self-test 3: mover los permisos de Cell a un Role debe dar ROJO"
+    # La forma de T12: el ClusterRole se queda solo con recursos cluster-scoped.
+    mutated=$(awk '/^- apiGroups: \["apps"\]/{exit} {print}' "$DP_CR")
+    before="$fail"; fail=0
+    check_agent_clusterrole "$DP_CR" "$mutated" >/dev/null 2>&1
+    if [ "$fail" = 0 ]; then fail="$before"; bad "un ClusterRole sin los kinds de una Cell paso como valido"
+    else fail="$before"; ok "detectado"; fi
+
+    say "== self-test 4: devolver escritura sobre RBAC debe dar ROJO"
+    mutated=$(sed 's/^  verbs: \["get", "list", "watch"\]$/  verbs: ["*"]/' "$DP_CR")
+    before="$fail"; fail=0
+    check_agent_clusterrole "$DP_CR" "$mutated" >/dev/null 2>&1
+    if [ "$fail" = 0 ]; then fail="$before"; bad "un ClusterRole con verbo '*' sobre RBAC paso como valido"
+    else fail="$before"; ok "detectado"; fi
   fi
 
   say ""
@@ -209,6 +279,23 @@ else
     fi
   fi
 fi
+
+say "== 6. El ClusterRole del cluster-agent conserva su forma"
+# Por que este check vive aca y no solo en verify-cluster-agent-rbac.sh: ese script
+# necesita helm + yq y NO lo corre nadie automaticamente — Actions esta deshabilitado
+# a nivel repo en los tres espejos, asi que ningun workflow se dispara en un PR. Este
+# es bash + git y corre en el mismo comando que ya es convencion correr en cada PR.
+#
+# Los dos modos de falla que reintroduce un rebase descuidado:
+#   a) los permisos de workload vuelven a un Role namespaced -> no se despliega nada;
+#   b) RBAC vuelve con verbos de escritura -> vuelve la escalacion que cerro T12.
+for cr in $AGENT_CLUSTERROLES; do
+  if ! git cat-file -e "$MAIN_SHA:$cr" 2>/dev/null; then
+    bad "falta $cr en $MAIN_REF"
+    continue
+  fi
+  check_agent_clusterrole "$cr" "$(git show "$MAIN_SHA:$cr")"
+done
 
 say ""
 if [ "$fail" = 0 ]; then say "verify-fork: VERDE"; else say "verify-fork: ROJO"; fi

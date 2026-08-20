@@ -15,6 +15,17 @@ rules:
   resources:
   - namespaces
   verbs: ["*"]
+# RBAC, READ ONLY. Same reason as the data plane: the release status read-back
+# enumerates every known GVK, RBAC kinds included, and aborts on the first 403 —
+# which leaves status.resources empty and the binding NotReady forever. Read verbs
+# are not the escalation vector; create/update/patch/bind/escalate stay denied.
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources:
+  - roles
+  - rolebindings
+  - clusterroles
+  - clusterrolebindings
+  verbs: ["get", "list", "watch"]
 # Core Kubernetes workload resources
 - apiGroups: ["apps"]
   resources:
