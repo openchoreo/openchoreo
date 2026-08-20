@@ -30,7 +30,7 @@ func TestNewRequestValidator(t *testing.T) {
 		assert.True(t, v.allowedTargets[tgt], "target %s should be allowed", tgt)
 	}
 
-	assert.Len(t, v.blockedPaths, 2)
+	assert.Len(t, v.blockedPaths, 3)
 }
 
 func TestValidateRequest_AllowedMethods(t *testing.T) {
@@ -65,17 +65,22 @@ func TestValidateRequest_BlockedPaths(t *testing.T) {
 	v := NewRequestValidator()
 
 	tests := []struct {
-		name string
-		path string
+		name   string
+		method string
+		path   string
 	}{
-		{"kube-system secrets", "/api/v1/namespaces/kube-system/secrets"},
-		{"cluster-wide service accounts", "/apis/v1/serviceaccounts"},
-		{"kube-system secrets subpath", "/api/v1/namespaces/kube-system/secrets/my-secret"},
+		{"kube-system secrets", http.MethodGet, "/api/v1/namespaces/kube-system/secrets"},
+		{"kube-system secrets subpath", http.MethodGet, "/api/v1/namespaces/kube-system/secrets/my-secret"},
+		{"cluster-wide secrets", http.MethodGet, "/api/v1/secrets"},
+		{"cluster-wide secrets subpath", http.MethodGet, "/api/v1/secrets/my-secret"},
+		{"cluster-wide service accounts", http.MethodGet, "/api/v1/serviceaccounts"},
+		{"cluster-wide service accounts subpath", http.MethodGet, "/api/v1/serviceaccounts/default"},
+		{"service account token request", http.MethodPost, "/api/v1/namespaces/default/serviceaccounts/default/token"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			req := httptest.NewRequest(tt.method, "/test", nil)
 			err := v.ValidateRequest(req, "k8s", tt.path)
 			require.Error(t, err)
 			var valErr *ValidationError
@@ -83,6 +88,44 @@ func TestValidateRequest_BlockedPaths(t *testing.T) {
 			assert.Equal(t, http.StatusForbidden, valErr.Code)
 		})
 	}
+}
+
+func TestValidateRequest_BlockedPathsDoNotUseDeadAPIGroupPath(t *testing.T) {
+	v := NewRequestValidator()
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	err := v.ValidateRequest(req, "k8s", "/apis/v1/serviceaccounts")
+	assert.NoError(t, err)
+}
+
+func TestValidateRequest_AllowsNamespacedServiceAccountReads(t *testing.T) {
+	v := NewRequestValidator()
+
+	tests := []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{"list namespaced service accounts", http.MethodGet, "/api/v1/namespaces/default/serviceaccounts"},
+		{"get namespaced service account", http.MethodGet, "/api/v1/namespaces/default/serviceaccounts/default"},
+		{"non-token service account subresource", http.MethodGet, "/api/v1/namespaces/default/serviceaccounts/default/token"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, "/test", nil)
+			err := v.ValidateRequest(req, "k8s", tt.path)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestValidateRequest_BlockedPathBoundary(t *testing.T) {
+	v := NewRequestValidator()
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	err := v.ValidateRequest(req, "k8s", "/api/v1/secretsuffix")
+	assert.NoError(t, err)
 }
 
 func TestValidateRequest_AllowedTargets(t *testing.T) {
