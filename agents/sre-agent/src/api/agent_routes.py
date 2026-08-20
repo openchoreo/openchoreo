@@ -10,7 +10,7 @@ from pydantic import Field
 
 from common.auth.authz_models import SubjectContext
 from src.agent import run_analysis, stream_chat
-from src.auth import require_authn, require_chat_authz
+from src.auth import require_authn, require_chat_authz, require_service_identity
 from src.clients import get_report_backend
 from src.helpers import resolve_component_scope, resolve_project_scope
 from src.models import BaseModel, get_current_utc
@@ -76,6 +76,8 @@ class ChatRequest(BaseModel):
 async def analyze(
     request: AnalyzeRequest,
     background_tasks: BackgroundTasks,
+    _auth: Annotated[SubjectContext, Depends(require_authn)],
+    _service_identity: Annotated[SubjectContext, Depends(require_service_identity)],
 ):
     if logger.isEnabledFor(logging.DEBUG):
         body = request.model_dump_json(by_alias=True)

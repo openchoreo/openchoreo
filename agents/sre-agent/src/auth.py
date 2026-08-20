@@ -1,6 +1,11 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
+from typing import Annotated
+
+from fastapi import Depends, HTTPException
+
+from common.auth.authz_models import SubjectContext
 from common.auth.runtime import (
     AuthRuntime,
     hierarchy_from_body,
@@ -15,6 +20,21 @@ get_authz_client = auth.get_authz_client
 get_oauth2_auth = auth.get_oauth2_auth
 check_oauth2_connection = auth.check_oauth2_connection
 require_authn = auth.require_authn
+
+
+async def require_service_identity(
+    subject: Annotated[SubjectContext, Depends(require_authn)],
+) -> SubjectContext:
+    if subject.type != "service_account":
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "FORBIDDEN",
+                "message": "Service account identity required",
+            },
+        )
+    return subject
+
 
 require_chat_authz = auth.checker(
     "rcareport:view",

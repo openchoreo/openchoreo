@@ -37,6 +37,7 @@ from src.auth import (
     get_jwt_validator,
     require_authn,
     require_reports_authz,
+    require_service_identity,
 )
 from src.config import settings
 
@@ -164,6 +165,22 @@ async def test_require_authn_success_returns_subject(monkeypatch):
     ctx = await require_authn(req)
     assert ctx.entitlement_values == ["u1"]
     assert req.state.bearer_token == "tok"
+
+
+@pytest.mark.asyncio
+async def test_require_service_identity_allows_service_account():
+    subject = SubjectContext(
+        type="service_account", entitlementClaim="sub", entitlementValues=["agent-client"]
+    )
+    assert await require_service_identity(subject) is subject
+
+
+@pytest.mark.asyncio
+async def test_require_service_identity_rejects_user():
+    subject = SubjectContext(type="user", entitlementClaim="sub", entitlementValues=["u1"])
+    with pytest.raises(HTTPException) as exc:
+        await require_service_identity(subject)
+    assert exc.value.status_code == 403
 
 
 # ----------------------------------------------- authorization checker
