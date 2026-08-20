@@ -2,8 +2,22 @@
 # Copyright 2026 fondomp-production
 # SPDX-License-Identifier: Apache-2.0
 #
-# Verifies that the cluster-agent Helm charts do not regain cluster-wide RBAC
-# powers for Kubernetes RBAC objects, Secrets, or ServiceAccounts.
+# Verifies the cluster-agent Helm charts keep the two invariants that matter:
+#
+#   1. No cluster-agent Role or ClusterRole gets WRITE access to apiGroup
+#      rbac.authorization.k8s.io. The wildcard over clusterroles /
+#      clusterrolebindings is the privilege-escalation vector T12 closed, and it
+#      is the one thing that must never come back. Read verbs are required and
+#      allowed: without get/list/watch the RenderedRelease status read-back
+#      aborts and every component reports NotReady forever (T73).
+#
+#   2. The data-plane agent CAN write the objects a Cell is made of, cluster-wide.
+#      Cells (dp-<ns>-<project>-<environment>-<hash>) are created at runtime, so a
+#      namespaced Role in the release namespace can never cover them. T12 moved
+#      those grants into such a Role and silently bricked every deployment; T73
+#      found it with the first real workload. resourcequotas/limitranges are
+#      asserted explicitly because ClusterProjectType/idp-default emits them and
+#      upstream never granted them at all.
 
 set -euo pipefail
 
@@ -84,6 +98,7 @@ EOF
 
   helm template "verify-$chart" "install/helm/$chart" --namespace "$namespace" -f "$values" > "$rendered"
 
+  # Any verb outside get/list/watch on the RBAC apiGroup is a finding.
   bad_cluster_rbac=$(
     yq -r '
       select(.kind == "ClusterRole" or .kind == "Role") |
@@ -92,22 +107,26 @@ EOF
       .metadata.name as $name |
       .rules[]? |
       select(.apiGroups[]? == "rbac.authorization.k8s.io") |
-      $kind + "/" + $name + " grants " + (.resources // [] | join(","))
+      select([.verbs[]? | select(. != "get" and . != "list" and . != "watch")] | length > 0) |
+      $kind + "/" + $name + " grants " + (.verbs // [] | join(",")) + " on " + (.resources // [] | join(","))
     ' "$rendered"
   )
-  check_empty "$chart: cluster-agent Role/ClusterRole has no rbac.authorization.k8s.io rules" "$bad_cluster_rbac"
+  check_empty "$chart: cluster-agent RBAC grants are read-only (no write verbs)" "$bad_cluster_rbac"
 
-  bad_cluster_core=$(
-    yq -r '
-      select(.kind == "ClusterRole") |
-      select(.metadata.labels."app.kubernetes.io/component" == "cluster-agent") |
-      .metadata.name as $name |
-      .rules[]? |
-      select((.apiGroups[]? == "") and ((.resources[]? == "secrets") or (.resources[]? == "serviceaccounts"))) |
-      $name + " grants " + (.resources // [] | join(","))
-    ' "$rendered"
-  )
-  check_empty "$chart: ClusterRole has no secrets/serviceaccounts" "$bad_cluster_core"
+  if [ "$chart" = "openchoreo-data-plane" ]; then
+    for cell_resource in resourcequotas limitranges deployments services configmaps secrets networkpolicies; do
+      granted=$(
+        CELL_RESOURCE="$cell_resource" yq -r '
+          select(.kind == "ClusterRole") |
+          select(.metadata.labels."app.kubernetes.io/component" == "cluster-agent") |
+          .rules[]? |
+          select(.resources[]? == strenv(CELL_RESOURCE)) |
+          strenv(CELL_RESOURCE)
+        ' "$rendered"
+      )
+      check_present "$chart: ClusterRole grants $cell_resource (Cell namespaces are runtime-created)" "$granted"
+    done
+  fi
 
   role=$(
     yq -r '
