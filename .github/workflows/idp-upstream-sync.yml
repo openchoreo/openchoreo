@@ -299,6 +299,8 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      # Fallback cuando la organizacion no permite que Actions abra PRs.
+      issues: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -360,12 +362,46 @@ jobs:
           git commit -m "chore(sync): reporte de upstream ${BASE} → ${TARGET} (${SEVERITY})"
           git push --force-with-lease origin "${branch}"
 
-          body="$(cat "idp-sync/reports/${TARGET}.md")"
+          report="idp-sync/reports/${TARGET}.md"
           title="$(cat /tmp/pr-title.txt)"
+
+          # El reporte va SIEMPRE al job summary. Es el unico canal que no depende de
+          # permisos ni de politicas de la organizacion, y hasta T08b el agente nunca
+          # habia corrido, asi que nadie sabia si el reporte era legible.
+          cat "${report}" >> "${GITHUB_STEP_SUMMARY}"
+          printf '\n---\n\nRama con el reporte: `%s`\n' "${branch}" >> "${GITHUB_STEP_SUMMARY}"
+
           if existing="$(gh pr list --head "${branch}" --state open --json number --jq '.[0].number')" && [[ -n "${existing}" ]]; then
-            gh pr edit "${existing}" --title "${title}" --body "${body}"
+            gh pr edit "${existing}" --title "${title}" --body-file "${report}"
+            exit 0
+          fi
+
+          # La organizacion puede prohibir que Actions abra PRs ("The organization does
+          # not allow GitHub Actions to create or approve pull requests"). Es politica
+          # de organizacion, no algo que este repo pueda cambiar. En ese caso el analisis
+          # NO se tira: la rama ya esta empujada, el summary ya lo tiene, y se abre o
+          # actualiza un issue con el mismo cuerpo. Un agente que se cae en el ultimo
+          # paso y pierde el reporte es peor que uno que no corre.
+          if gh pr create --base main --head "${branch}" --title "${title}" --body-file "${report}"; then
+            exit 0
+          fi
+
+          echo "::warning::no se pudo abrir el PR (politica de la organizacion); se reporta por issue"
+          marker="<!-- idp-sync:${TARGET} -->"
+          issue_file="$(mktemp)"
+          {
+            cat "${report}"
+            printf '\n%s\n\n' "${marker}"
+            printf '> Abrir el PR a mano desde la rama `%s`. Actions no puede crearlo: la\n' "${branch}"
+            printf '> organizacion tiene deshabilitado "Allow GitHub Actions to create and\n'
+            printf '> approve pull requests".\n'
+          } > "${issue_file}"
+
+          existing_issue="$(gh issue list --state open --search "${marker}" --json number --jq '.[0].number' || true)"
+          if [[ -n "${existing_issue}" ]]; then
+            gh issue edit "${existing_issue}" --title "${title}" --body-file "${issue_file}"
           else
-            gh pr create --base main --head "${branch}" --title "${title}" --body "${body}"
+            gh issue create --title "${title}" --body-file "${issue_file}"
           fi
 
       - name: Rojo = el workflow falla
