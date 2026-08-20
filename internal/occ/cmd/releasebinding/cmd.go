@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -28,6 +29,7 @@ func NewReleaseBindingCmd(f client.NewClientFunc) *cobra.Command {
 		newListCmd(f),
 		newGetCmd(f),
 		newDeleteCmd(f),
+		newTreeCmd(f),
 	)
 	return cmd
 }
@@ -169,6 +171,56 @@ func newDeleteCmd(f client.NewClientFunc) *cobra.Command {
 		},
 	}
 	flags.AddNamespace(cmd)
+	return cmd
+}
+
+func newTreeCmd(f client.NewClientFunc) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "tree [RELEASE_BINDING_NAME]",
+		Short: "Show the resource tree for a release binding",
+		Long: `Show the Kubernetes resources created by a release binding's releases,
+including child resources discovered in the target planes (for example the
+Pods running under a Deployment).
+
+A line starting with ⚠ means children of that kind could not be discovered
+under that node — the tree there is incomplete, not empty.`,
+		Example: `  # Show the resource tree
+  occ releasebinding tree checkout-dev --namespace acme-corp
+
+  # Refresh continuously
+  occ releasebinding tree checkout-dev --namespace acme-corp --watch
+
+  # Watch for half an hour, then stop
+  occ releasebinding tree checkout-dev --namespace acme-corp --watch --timeout 30m
+
+  # Only branches containing Pods
+  occ releasebinding tree checkout-dev --namespace acme-corp --kind Pod`,
+		Args:    cmdutil.ExactOneArgWithUsage(),
+		PreRunE: auth.RequireLogin(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cl, err := f()
+			if err != nil {
+				return err
+			}
+			watch, _ := cmd.Flags().GetBool("watch")
+			interval, _ := cmd.Flags().GetDuration("interval")
+			timeout, _ := cmd.Flags().GetDuration("timeout")
+			kind, _ := cmd.Flags().GetString("kind")
+			return New(cl).Tree(TreeParams{
+				Namespace:          flags.GetNamespace(cmd),
+				ReleaseBindingName: args[0],
+				Watch:              watch,
+				Interval:           interval,
+				Timeout:            timeout,
+				Kind:               kind,
+			})
+		},
+	}
+	flags.AddNamespace(cmd)
+	cmd.Flags().Bool("watch", false, "Continuously refresh the tree; on a terminal it redraws in place and leaves the last tree behind on exit")
+	cmd.Flags().Duration("interval", 10*time.Second, "Refresh interval used with --watch")
+	cmd.Flags().Duration("timeout", 10*time.Minute, "Stop watching after this duration (0 = never); used with --watch")
+	cmd.Flags().String("kind", "", "Only show branches containing this kind (optionally group/Kind)")
 	return cmd
 }
 
