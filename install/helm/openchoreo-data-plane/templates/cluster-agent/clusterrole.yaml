@@ -128,6 +128,25 @@ rules:
   resources:
   - passwords
   verbs: ["*"]
+# Config Connector. D4 ya lo pedia ("extender el ClusterRole del cluster-agent con
+# networking.gke.io y *.cnrm.cloud.google.com") y no se habia hecho. Los
+# ResourceTypes de la plataforma emiten objetos de KCC dentro de las Cells
+# (SQLUser, StorageBucket, PubSubTopic, IAMPolicyMember) y el ClusterProjectType
+# emite el ConfigConnectorContext sin el cual KCC ni siquiera mira el namespace.
+# Sin estas reglas la Cell no se materializa y el error habla de RBAC, no de KCC.
+- apiGroups:
+  - core.cnrm.cloud.google.com
+  - iam.cnrm.cloud.google.com
+  - sql.cnrm.cloud.google.com
+  - storage.cnrm.cloud.google.com
+  - pubsub.cnrm.cloud.google.com
+  - serviceusage.cnrm.cloud.google.com
+  resources: ["*"]
+  verbs: ["*"]
+# GKE networking (GCPBackendPolicy, HealthCheckPolicy) emitido por los Traits.
+- apiGroups: ["networking.gke.io"]
+  resources: ["*"]
+  verbs: ["*"]
 # KGateway resources (if using KGateway)
 - apiGroups: ["gateway.kgateway.dev"]
   resources:

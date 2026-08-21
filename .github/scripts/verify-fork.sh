@@ -44,6 +44,11 @@ AGENT_CLUSTERROLES="install/helm/openchoreo-data-plane/templates/cluster-agent/c
 AGENT_REQUIRED_KINDS="deployments services configmaps secrets networkpolicies"
 # Los emite ClusterProjectType/idp-default (T28). Upstream nunca los otorgo.
 AGENT_REQUIRED_KINDS_DATAPLANE="resourcequotas limitranges"
+# ApiGroups que los ResourceTypes y el ClusterProjectType emiten dentro de una Cell.
+# Sin ellos la Cell no se materializa y el error habla de RBAC, no de la abstraccion
+# que lo necesita. D4 ya lo pedia; se hizo recien en T83, despues de que un
+# IAMPolicyMember quedara inerte.
+AGENT_REQUIRED_APIGROUPS_DATAPLANE="core.cnrm.cloud.google.com iam.cnrm.cloud.google.com sql.cnrm.cloud.google.com networking.gke.io"
 # -----------------------------------------------------------------------------
 
 fail=0
@@ -62,6 +67,25 @@ check_agent_clusterrole() {
 
   _required="$AGENT_REQUIRED_KINDS"
   case "$_cr" in *openchoreo-data-plane*) _required="$_required $AGENT_REQUIRED_KINDS_DATAPLANE" ;; esac
+
+  _missing_groups=""
+  case "$_cr" in
+    *openchoreo-data-plane*)
+      for _group in $AGENT_REQUIRED_APIGROUPS_DATAPLANE; do
+        # Tolera las dos formas de YAML: lista en bloque (`- grupo`) y array inline
+        # (`apiGroups: ["grupo"]`). Afirmar solo una hace que el check falle por como
+        # esta escrito el template y no por lo que otorga.
+        printf '%s\n' "$_body" \
+          | grep -Eq -- "(^|[[:space:]]|\")${_group//./\\.}(\"|[[:space:]]*$|,)" \
+          || _missing_groups="$_missing_groups $_group"
+      done
+      if [ -n "$_missing_groups" ]; then
+        bad "$_cr no otorga apiGroups:$_missing_groups (los emiten los ResourceTypes dentro de la Cell)"
+      else
+        ok "$_cr otorga los apiGroups de Config Connector y GKE networking"
+      fi
+      ;;
+  esac
 
   _missing=""
   for _kind in $_required; do
