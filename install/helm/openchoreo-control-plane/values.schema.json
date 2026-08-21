@@ -297,6 +297,12 @@
               "additionalProperties": false,
               "description": "PostgreSQL settings (only used when type is postgresql)",
               "properties": {
+                "host": {
+                  "default": "",
+                  "description": "Literal PostgreSQL host override. When empty, POSTGRES_HOST is read from backstage.secretName key postgres-host. Set to 127.0.0.1 when a local Cloud SQL Auth Proxy sidecar terminates the database connection.\n",
+                  "title": "host",
+                  "type": "string"
+                },
                 "ssl": {
                   "default": false,
                   "description": "Enable SSL for the PostgreSQL connection (sets PGSSLMODE=require)",
@@ -504,6 +510,17 @@
             "type": "object"
           },
           "title": "extraEnv",
+          "type": "array"
+        },
+        "extraContainers": {
+          "default": [],
+          "description": "Extra sidecar containers to add to the Backstage Pod. Use for local connectivity helpers such as Cloud SQL Auth Proxy.\n",
+          "items": {
+            "additionalProperties": true,
+            "required": [],
+            "type": "object"
+          },
+          "title": "extraContainers",
           "type": "array"
         },
         "extraVolumeMounts": {

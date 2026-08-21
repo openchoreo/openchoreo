@@ -221,10 +221,14 @@ spec:
         - name: DATABASE_CLIENT
           value: "pg"
         - name: POSTGRES_HOST
+          {{- if .Values.backstage.database.postgresql.host }}
+          value: {{ .Values.backstage.database.postgresql.host | quote }}
+          {{- else }}
           valueFrom:
             secretKeyRef:
               name: {{ .Values.backstage.secretName }}
               key: postgres-host
+          {{- end }}
         - name: POSTGRES_PORT
           valueFrom:
             secretKeyRef:
@@ -292,6 +296,12 @@ spec:
         {{- with .Values.backstage.extraVolumeMounts }}
         {{- toYaml . | nindent 12 }}
         {{- end }}
+      # Additional sidecars for local connectivity helpers such as Cloud SQL
+      # Auth Proxy. This lets the workload connect to 127.0.0.1 without
+      # patching the Deployment outside Helm.
+      {{- with .Values.backstage.extraContainers }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
       volumes:
       {{- if eq .Values.backstage.database.type "sqlite" }}
       - name: backstage-db
