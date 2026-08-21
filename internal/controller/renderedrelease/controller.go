@@ -37,6 +37,9 @@ const (
 	deploymentKind  = "Deployment"
 	statefulSetKind = "StatefulSet"
 
+	fluxHelmAPIGroup = "helm.toolkit.fluxcd.io"
+	helmReleaseKind  = "HelmRelease"
+
 	// ConditionResourcesApplied indicates whether resources were successfully applied to the target plane.
 	// When False, it contains the error message from the failed apply operation.
 	ConditionResourcesApplied = "ResourcesApplied"

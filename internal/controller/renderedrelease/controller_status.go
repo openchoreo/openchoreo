@@ -211,6 +211,8 @@ func GetHealthCheckFunc(gvk schema.GroupVersionKind) func(obj *unstructured.Unst
 		return getPodHealth
 	case gvk.Group == "batch" && gvk.Kind == "CronJob":
 		return getCronJobHealth
+	case gvk.Group == fluxHelmAPIGroup && gvk.Kind == helmReleaseKind:
+		return getHelmReleaseHealth
 		// TODO: Add gateway http route health check, and other resources as needed
 	}
 	return getUnknownResourceHealth
@@ -419,6 +421,50 @@ func getCronJobHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Health
 	}
 
 	// CronJob hasn't run yet - could be newly created or waiting for schedule
+	return openchoreov1alpha1.HealthStatusProgressing, nil
+}
+
+// getHelmReleaseHealth evaluates the health of a Flux HelmRelease based on its status
+// conditions. Flux surfaces the outcome of the underlying Helm install/upgrade through the
+// "Ready" and "Stalled" conditions, so a HelmRelease that has stalled (e.g. install failed and
+// remediation exhausted its retries) or currently reports Ready=False must be reported as
+// Degraded instead of falling through to the default "Healthy" for unknown kinds. A Stalled=True
+// condition always wins over Ready, since Flux keeps Stalled set once remediation gives up even
+// if Ready briefly flips back.
+func getHelmReleaseHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.HealthStatus, error) {
+	conditions, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
+	if err != nil {
+		return openchoreov1alpha1.HealthStatusUnknown, fmt.Errorf("failed to read helmrelease status.conditions: %w", err)
+	}
+	if !found {
+		// No status observed yet -> still progressing
+		return openchoreov1alpha1.HealthStatusProgressing, nil
+	}
+
+	var readyStatus, stalledStatus string
+	for _, c := range conditions {
+		condition, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		condType, _ := condition["type"].(string)
+		condStatus, _ := condition["status"].(string)
+		switch condType {
+		case "Ready":
+			readyStatus = condStatus
+		case "Stalled":
+			stalledStatus = condStatus
+		}
+	}
+
+	// Stalled (e.g. remediation retries exceeded) or a terminal Ready=False -> Degraded
+	if stalledStatus == string(metav1.ConditionTrue) || readyStatus == string(metav1.ConditionFalse) {
+		return openchoreov1alpha1.HealthStatusDegraded, nil
+	}
+	if readyStatus == string(metav1.ConditionTrue) {
+		return openchoreov1alpha1.HealthStatusHealthy, nil
+	}
+	// Ready condition not yet reported -> reconciliation still in progress
 	return openchoreov1alpha1.HealthStatusProgressing, nil
 }
 
