@@ -186,3 +186,14 @@ logging:
 
   # Include source file and line number in log entries.
   add_source: false
+
+audit:
+  # Enable audit event emission for state-modifying API requests.
+  enabled: true
+
+  # Settings applied when no policy below matches.
+  defaults:
+    publish: true
+
+  # Ordered, first-match-wins policy overrides. Empty by default.
+  policies: []

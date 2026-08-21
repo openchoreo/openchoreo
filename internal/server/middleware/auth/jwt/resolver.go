@@ -87,8 +87,11 @@ func (d *Resolver) ResolveUserType(jwtToken string) (*auth.SubjectContext, error
 
 		// Check if claims match this user type with the JWT mechanism's entitlement config
 		if matches, entitlements := detectUserTypeFromClaims(claims, jwtMechanism.Entitlement); matches {
+			// sub isn't guaranteed present — leave ID empty rather than
+			// rendering "<nil>", which would look like a real identity.
+			subject, _ := claims["sub"].(string)
 			return &auth.SubjectContext{
-				ID:                fmt.Sprintf("%v", claims["sub"]),
+				ID:                subject,
 				Type:              userTypeConfig.Type,
 				EntitlementClaim:  jwtMechanism.Entitlement.Claim,
 				EntitlementValues: entitlements,

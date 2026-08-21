@@ -14,6 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	secretsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secret"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 const secretsDisabledMessage = "Secret API is disabled on this server"
@@ -95,6 +96,9 @@ func (h *Handler) CreateSecret(
 		h.logger.Error("Failed to convert created secret", "error", err)
 		return gen.CreateSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{ID: string(result.UID), Name: result.Name})
+
 	return gen.CreateSecret201JSONResponse(out), nil
 }
 
@@ -150,6 +154,9 @@ func (h *Handler) UpdateSecret(
 		h.logger.Error("Failed to convert updated secret", "error", err)
 		return gen.UpdateSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{ID: string(result.UID), Name: result.Name})
+
 	return gen.UpdateSecret200JSONResponse(out), nil
 }
 
@@ -166,6 +173,10 @@ func (h *Handler) DeleteSecret(
 	if err := h.services.SecretService.DeleteSecret(ctx, request.NamespaceName, request.SecretName); err != nil {
 		return mapDeleteSecretError(h, err)
 	}
+
+	// No UID here: SecretService.DeleteSecret returns only an error, not the deleted
+	// object, so the identifier that survives the deletion is the name.
+	audit.SetResource(ctx, &audit.Resource{Name: request.SecretName})
 
 	return gen.DeleteSecret204Response{}, nil
 }
