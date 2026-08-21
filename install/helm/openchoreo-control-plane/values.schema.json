@@ -3217,6 +3217,65 @@
               "title": "mcp",
               "type": "object"
             },
+            "resourceTree": {
+              "additionalProperties": false,
+              "description": "How the release resource tree walks from a root workload resource down to its children. The built-in rules live in the chart file files/resource-tree-builtin-rules.yaml and are not settable here; rules below are appended to them.",
+              "properties": {
+                "disableBuiltInRules": {
+                  "default": false,
+                  "description": "Drop the chart's built-in traversal rules from the rendered config. When true, rules below becomes the complete rule set, and leaving it empty disables child discovery entirely.",
+                  "title": "disableBuiltInRules",
+                  "type": "boolean"
+                },
+                "rules": {
+                  "default": [],
+                  "description": "Additional traversal rules, appended after the chart's built-in rules. A rule whose root duplicates a built-in root fails API server startup validation - to run a different set, set disableBuiltInRules to true and supply the complete set here.",
+                  "items": {
+                    "properties": {
+                      "children": {
+                        "description": "Child edges walked from the root. Each entry is {kind, matcher, label_selector, metadata_only, hide, children}; children nest recursively, which JSON Schema generation cannot express, so nested levels are unconstrained here and validated by the API server at startup.",
+                        "items": {
+                          "additionalProperties": true,
+                          "required": [],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "root": {
+                        "description": "Root workload kind the rule applies to",
+                        "properties": {
+                          "group": {
+                            "description": "API group, omitted or empty for the core group",
+                            "type": "string"
+                          },
+                          "kind": {
+                            "description": "Kind name",
+                            "type": "string"
+                          },
+                          "resource": {
+                            "description": "Plural REST resource name, required because it is not derivable for arbitrary CRDs",
+                            "type": "string"
+                          },
+                          "version": {
+                            "description": "API version",
+                            "type": "string"
+                          }
+                        },
+                        "required": [],
+                        "type": "object"
+                      }
+                    },
+                    "required": [],
+                    "type": "object"
+                  },
+                  "title": "rules",
+                  "type": "array"
+                }
+              },
+              "required": [],
+              "title": "resourceTree",
+              "type": "object"
+            },
             "security": {
               "additionalProperties": false,
               "description": "Security configuration for authentication, subjects, and authorization",

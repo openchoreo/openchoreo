@@ -4,6 +4,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/pflag"
@@ -27,6 +28,9 @@ type Config struct {
 	Logging LoggingConfig `koanf:"logging"`
 	// ClusterGateway defines cluster gateway connection settings.
 	ClusterGateway ClusterGatewayConfig `koanf:"cluster_gateway"`
+	// ResourceTree defines how the release resource tree walks from a root
+	// workload resource down to its children.
+	ResourceTree ResourceTreeConfig `koanf:"resource_tree"`
 }
 
 // Defaults returns the default configuration.
@@ -39,6 +43,7 @@ func Defaults() Config {
 		SecretManagement: SecretManagementDefaults(),
 		Logging:          LoggingDefaults(),
 		ClusterGateway:   ClusterGatewayDefaults(),
+		ResourceTree:     ResourceTreeDefaults(),
 	}
 }
 
@@ -74,6 +79,25 @@ func NewLoader(configPath string, flags *pflag.FlagSet) (*coreconfig.Loader, err
 	return loader, nil
 }
 
+// ValidateWithRaw reports every configuration defect in one pass: the checks on
+// the unmarshaled config, plus the resource_tree unknown-key check that has to
+// read the raw config, since unmarshaling silently drops keys this binary does
+// not know and a typo would otherwise take effect as its default.
+//
+// This is the entry point a binary calls at startup; Validate alone cannot see
+// the raw section, so which sections need a raw pass — and how the two error
+// sets merge — is decided here rather than in wiring code.
+func (c *Config) ValidateWithRaw(loader *coreconfig.Loader) error {
+	errs := c.ResourceTree.validateRawKeys(loader.RawAt("resource_tree"))
+
+	err := c.Validate()
+	var validationErrs coreconfig.ValidationErrors
+	if errors.As(err, &validationErrs) {
+		return append(errs, validationErrs...)
+	}
+	return errors.Join(errs.OrNil(), err)
+}
+
 // Validate validates the configuration.
 func (c *Config) Validate() error {
 	var errs coreconfig.ValidationErrors
@@ -84,6 +108,7 @@ func (c *Config) Validate() error {
 	errs = append(errs, c.MCP.ValidateMCPConfig(coreconfig.NewPath("mcp"))...)
 	errs = append(errs, c.Logging.Validate(coreconfig.NewPath("logging"))...)
 	errs = append(errs, c.ClusterGateway.Validate(coreconfig.NewPath("cluster_gateway"))...)
+	errs = append(errs, c.ResourceTree.Validate(coreconfig.NewPath("resource_tree"))...)
 
 	return errs.OrNil()
 }

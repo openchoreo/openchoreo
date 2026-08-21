@@ -6803,6 +6803,19 @@ components:
   # ===========================================================================
   # Schemas
   # ===========================================================================
+  #
+  # Adding an `enum` here can rename constants elsewhere in the generated code.
+  # oapi-codegen resolves enum constant names in a single global namespace and
+  # only prefixes them with their schema name when two collide, so introducing an
+  # enum whose values are all unique makes an existing prefixed constant lose its
+  # prefix. This has already broken the build once: a new enum renamed
+  # `WorkflowStepStatusPhaseError` to `Error`, which hand-written code in
+  # internal/openchoreo-api/api/handlers/workflows.go refers to by name.
+  #
+  # Prefer a plain `type: string` whose description lists the values and tells
+  # clients how to treat an unrecognized one. If an enum is genuinely needed, run
+  # `make generate` and read the whole diff of the generated files, not just the
+  # schema you added.
   schemas:
     # -------------------------------------------------------------------------
     # Error Response
@@ -11152,6 +11165,44 @@ components:
           type: string
           description: Optional human-readable message explaining the health status
 
+    ChildDiscoveryStatus:
+      type: object
+      description: >-
+        Reports that children of one kind could not be discovered under a node.
+        It is attached to the nearest node the client can see, so a failure while
+        expanding a hidden intermediate resource still surfaces somewhere. Its
+        presence means the node's children of that kind are incomplete, not that
+        there are none.
+      required:
+        - version
+        - kind
+        - state
+      properties:
+        group:
+          type: string
+          description: API group of the child kind that could not be discovered (empty for core)
+          example: apps
+        version:
+          type: string
+          description: API version of the child kind that could not be discovered
+          example: v1
+        kind:
+          type: string
+          description: Kind of the child resources that could not be discovered
+          example: ReplicaSet
+        state:
+          type: string
+          description: >-
+            Why discovery of this child kind did not complete. Currently `forbidden`,
+            meaning the platform is not permitted to list that kind, or `error`,
+            which covers every other failure including a truncated result. Left open
+            rather than enumerated so a new state does not break existing clients;
+            treat an unrecognized value as `error`.
+          example: forbidden
+        message:
+          type: string
+          description: Optional human-readable detail about the failure
+
     ResourceNode:
       type: object
       description: A single resource in the resource tree
@@ -11195,9 +11246,34 @@ components:
         object:
           type: object
           additionalProperties: true
-          description: Full Kubernetes resource object
+          description: >-
+            The Kubernetes resource object. Reduced to `apiVersion`, `kind` and
+            `metadata` when `metadataOnly` is true.
         health:
           $ref: '#/components/schemas/HealthInfo'
+        metadataOnly:
+          type: boolean
+          description: >-
+            True when `object` has been projected down to `apiVersion`, `kind` and
+            `metadata` and therefore carries no spec, status or data. This is how
+            the contents of sensitive resources such as Secrets are kept out of the
+            response. Absent means the full object is present.
+        matchedBy:
+          type: string
+          description: >-
+            How this node was attributed to its parent, when the attribution was not
+            exact. Set to `labelSelector` when the node was matched heuristically by
+            labels, which can over-match; absent for exact ownerRef matches. Consoles
+            should badge nodes that carry it.
+          example: labelSelector
+        childrenStatus:
+          type: array
+          description: >-
+            Per-kind child-discovery failures under this node. Present only when at
+            least one kind of child could not be discovered; absent means discovery
+            completed for every kind configured under this node.
+          items:
+            $ref: '#/components/schemas/ChildDiscoveryStatus'
 
     ResourceEvent:
       type: object
