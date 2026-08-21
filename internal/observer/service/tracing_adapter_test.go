@@ -4,11 +4,15 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
 func TestNewTracingAdapter_DefaultTimeout(t *testing.T) {
@@ -80,6 +84,55 @@ func TestNewTracingAdapter_ClientInitialized(t *testing.T) {
 	}
 	if adapter.client == nil {
 		t.Fatal("Expected non-nil client")
+	}
+}
+
+func TestTracingAdapter_QuerySpanDetails_ForwardsScopeAndConverts(t *testing.T) {
+	var gotPath, gotMethod string
+	var gotBody map[string]interface{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotMethod = r.Method
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"spanId":"span-1","spanName":"http.request"}`))
+	}))
+	defer srv.Close()
+
+	adapter, err := NewTracingAdapter(TracingAdapterConfig{BaseURL: srv.URL, Timeout: 5 * time.Second})
+	if err != nil {
+		t.Fatalf("failed to create adapter: %v", err)
+	}
+
+	detail, err := adapter.QuerySpanDetails(context.Background(), "trace-1", "span-1",
+		observability.TracesQueryParams{Namespace: "ns", ProjectID: "proj-uid", ComponentID: "comp-uid", EnvironmentID: "env-uid"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("expected POST, got %s", gotMethod)
+	}
+	if gotPath != "/api/v1alpha1/traces/trace-1/spans/span-1" {
+		t.Errorf("unexpected path: %s", gotPath)
+	}
+	scope, _ := gotBody["searchScope"].(map[string]interface{})
+	if scope == nil {
+		t.Fatalf("expected searchScope in body, got %v", gotBody)
+	}
+	if scope["namespace"] != "ns" {
+		t.Errorf("expected namespace=ns, got %v", scope["namespace"])
+	}
+	if scope["project"] != "proj-uid" {
+		t.Errorf("expected project=proj-uid, got %v", scope["project"])
+	}
+	if scope["component"] != "comp-uid" {
+		t.Errorf("expected component=comp-uid, got %v", scope["component"])
+	}
+	if scope["environment"] != "env-uid" {
+		t.Errorf("expected environment=env-uid, got %v", scope["environment"])
+	}
+	if detail.SpanID != "span-1" {
+		t.Errorf("expected spanId=span-1, got %s", detail.SpanID)
 	}
 }
 
