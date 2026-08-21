@@ -7,31 +7,9 @@ metadata:
     {{- include "openchoreo-observability-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-agent
 rules:
-# Core Kubernetes workload resources
-- apiGroups: ["apps"]
-  resources:
-  - deployments
-  verbs: ["get", "list", "patch"]
-# Deployment scale subresource (required for kubectl scale)
-- apiGroups: ["apps"]
-  resources:
-  - deployments/scale
-  verbs: ["get", "update", "patch"]
-# Core Kubernetes resources
+# Cluster-scoped resources only. Namespaced observability permissions live in role.yaml.
 - apiGroups: [""]
   resources:
-  - secrets
-  - configmaps
   - namespaces
-  verbs: ["*"]
-- apiGroups: [""]
-  resources:
-  - pods
-  - events
-  verbs: ["get", "list"]
-# OpenChoreo Observability Plane resources
-- apiGroups: ["openchoreo.dev"]
-  resources:
-  - observabilityalertrules
   verbs: ["*"]
 {{- end }}

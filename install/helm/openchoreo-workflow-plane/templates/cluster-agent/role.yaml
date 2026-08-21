@@ -1,31 +1,12 @@
 {{- if .Values.clusterAgent.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
   name: {{ include "openchoreo-workflow-plane.clusterAgent.name" . }}
   labels:
     {{- include "openchoreo-workflow-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-agent
 rules:
-# The workflow-plane agent applies WorkflowRuns into workflows-<controlPlaneNs>
-# namespaces, which are derived at runtime and validated by the workflow webhook.
-# A namespaced Role in the release namespace cannot cover them. What stays out is
-# the actual privilege-escalation vector: apiGroup rbac.authorization.k8s.io.
-- apiGroups: [""]
-  resources:
-  - namespaces
-  verbs: ["*"]
-# RBAC, read only. Same reason as the data plane: the release status read-back
-# enumerates every known GVK, RBAC kinds included, and aborts on the first 403 —
-# which leaves status.resources empty and the binding NotReady forever. Read verbs
-# are not the escalation vector; create/update/patch/bind/escalate stay denied.
-- apiGroups: ["rbac.authorization.k8s.io"]
-  resources:
-  - roles
-  - rolebindings
-  - clusterroles
-  - clusterrolebindings
-  verbs: ["get", "list", "watch"]
 # Core Kubernetes workload resources
 - apiGroups: ["apps"]
   resources:
@@ -83,7 +64,6 @@ rules:
 - apiGroups: ["cilium.io"]
   resources:
   - ciliumnetworkpolicies
-  - ciliumclusterwidenetworkpolicies
   verbs: ["*"]
 # Gateway API resources (if using Gateway API)
 - apiGroups: ["gateway.networking.k8s.io"]
@@ -98,7 +78,6 @@ rules:
   resources:
   - externalsecrets
   - secretstores
-  - clustersecretstores
   - pushsecrets
   verbs: ["*"]
 # Argo Workflows (for CI/CD pipelines)
@@ -107,7 +86,5 @@ rules:
   - workflows
   - workflowtemplates
   - cronworkflows
-  - workflowtaskresults
-  - clusterworkflowtemplates
   verbs: ["*"]
 {{- end }}

@@ -1,39 +1,12 @@
 {{- if .Values.clusterAgent.rbac.create }}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
   name: {{ include "openchoreo-data-plane.clusterAgent.name" . }}
   labels:
     {{- include "openchoreo-data-plane.labels" . | nindent 4 }}
     app.kubernetes.io/component: cluster-agent
 rules:
-# The data-plane agent applies rendered releases into Cell namespaces
-# (dp-<ns>-<project>-<environment>-<hash>) that are created at runtime, one per
-# Project x Environment. A namespaced Role cannot cover a namespace that does
-# not exist yet, so these grants have to be cluster-wide. What stays out is the
-# actual privilege-escalation vector: write access to apiGroup
-# rbac.authorization.k8s.io.
-- apiGroups: [""]
-  resources:
-  - namespaces
-  verbs: ["*"]
-# RBAC, READ ONLY. The RenderedRelease controller reads the live state of every
-# GVK it knows about to build `status.resources`, and that list includes
-# Role/RoleBinding/ClusterRole/ClusterRoleBinding. The whole read-back aborts on
-# the first 403, `status.resources` stays empty, and ReleaseBinding then reports
-# `Ready=False / ResourcesProgressing` forever, for a Deployment that is 1/1 and
-# serving traffic. See internal/controller/renderedrelease/controller_status.go
-# and internal/controller/releasebinding/controller_status.go:95.
-#
-# get/list/watch is not the escalation vector: escalating needs
-# create/update/patch/bind/escalate, which stay denied. Do not widen these verbs.
-- apiGroups: ["rbac.authorization.k8s.io"]
-  resources:
-  - roles
-  - rolebindings
-  - clusterroles
-  - clusterrolebindings
-  verbs: ["get", "list", "watch"]
 # Core Kubernetes workload resources
 - apiGroups: ["apps"]
   resources:
@@ -58,13 +31,6 @@ rules:
   - persistentvolumeclaims
   - serviceaccounts
   - endpoints
-  verbs: ["*"]
-# Cell governance objects. A ProjectType template is free to emit a ResourceQuota
-# or a LimitRange for the Cell namespace, and the agent is what applies them.
-- apiGroups: [""]
-  resources:
-  - resourcequotas
-  - limitranges
   verbs: ["*"]
 - apiGroups: [""]
   resources:
@@ -103,7 +69,6 @@ rules:
 - apiGroups: ["cilium.io"]
   resources:
   - ciliumnetworkpolicies
-  - ciliumclusterwidenetworkpolicies
   verbs: ["*"]
 # Gateway API resources (if using Gateway API)
 - apiGroups: ["gateway.networking.k8s.io"]
@@ -120,7 +85,6 @@ rules:
   resources:
   - externalsecrets
   - secretstores
-  - clustersecretstores
   - pushsecrets
   verbs: ["*"]
 # External Secrets Operator generators
@@ -132,7 +96,6 @@ rules:
 - apiGroups: ["gateway.kgateway.dev"]
   resources:
   - backends
-  - gatewayparameters
   - trafficpolicies
   verbs: ["*"]
 {{- end }}
