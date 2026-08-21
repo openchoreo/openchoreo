@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/websocket"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -65,7 +66,7 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	componentName := parts[1]
 
 	query := r.URL.Query()
-	project := query.Get("project")
+	requestedProject := query.Get("project")
 	envName := query.Get("env")
 	container := query.Get("container")
 	commands := query["command"]
@@ -75,12 +76,31 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := h.logger.With("namespace", namespace, "component", componentName)
 
-	// Authorize: check that the caller has component:exec permission.
+	// Authorization must be configured before any access decision is made.
 	if h.authzChecker == nil {
 		logger.Error("Authorization checker not configured")
 		http.Error(w, "authorization not configured", http.StatusInternalServerError)
 		return
 	}
+
+	// Pin authorization and pod resolution to the component's real owning project
+	// rather than the caller-supplied `project`.
+	project, err := h.resolveComponentProject(ctx, namespace, componentName)
+	if err != nil {
+		logger.Warn("Failed to resolve component for exec", "error", err)
+		http.Error(w, fmt.Sprintf("failed to resolve component: %v", err), http.StatusBadRequest)
+		return
+	}
+	// Fail closed if the caller named a project that does not own the component.
+	// The generic forbidden message avoids disclosing the component's real owner.
+	if requestedProject != "" && requestedProject != project {
+		logger.Warn("requested project does not own the target component; denying exec",
+			"requestedProject", requestedProject, "ownerProject", project)
+		http.Error(w, "you do not have permission to exec into this component", http.StatusForbidden)
+		return
+	}
+
+	// Authorize: check that the caller has component:exec permission.
 	{
 		if err := h.authzChecker.Check(ctx, svcpkg.CheckRequest{
 			Action:       authz.ActionExecComponent,
@@ -200,6 +220,21 @@ type execPodInfo struct {
 	podNamespace string
 	podName      string
 	plane        execPlaneInfo
+}
+
+// resolveComponentProject returns the owning project of the named component.
+func (h *ExecHandler) resolveComponentProject(ctx context.Context, namespace, componentName string) (string, error) {
+	comp := &openchoreov1alpha1.Component{}
+	if err := h.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: componentName}, comp); err != nil {
+		if apierrors.IsNotFound(err) {
+			return "", fmt.Errorf("component %q not found in namespace %q", componentName, namespace)
+		}
+		return "", fmt.Errorf("failed to look up component %q: %w", componentName, err)
+	}
+	if comp.Spec.Owner.ProjectName == "" {
+		return "", fmt.Errorf("component %q has no owning project", componentName)
+	}
+	return comp.Spec.Owner.ProjectName, nil
 }
 
 // resolvePod resolves the target pod for exec by traversing:

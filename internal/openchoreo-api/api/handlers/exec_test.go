@@ -11,9 +11,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/testutil"
 )
@@ -27,14 +29,26 @@ func newExecHandler(t *testing.T, pdp *testutil.CapturingPDP, objs ...client.Obj
 	}
 }
 
+// execComponent builds a minimal Component owned by the given project, enough for
+// the handler to resolve the component's owning project before authorizing.
+func execComponent(namespace, name, project string) *openchoreov1alpha1.Component {
+	return &openchoreov1alpha1.Component{
+		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+		Spec: openchoreov1alpha1.ComponentSpec{
+			Owner: openchoreov1alpha1.ComponentOwner{ProjectName: project},
+		},
+	}
+}
+
 // The exec authz check must carry the target component in its resource
 // hierarchy, otherwise a component-scoped role binding can never match the
-// request path and exec is denied. The fake client has no Component, so the
-// request fails right after the check — but by then the PDP has captured the
+// request path and exec is denied. The component is owned by project "default";
+// after the authz check the request fails during pod resolution (no
+// Environment/DataPlane seeded) — but by then the PDP has captured the
 // evaluate request.
 func TestExecHandler_AuthzHierarchyIncludesComponent(t *testing.T) {
 	pdp := testutil.AllowPDP()
-	h := newExecHandler(t, pdp)
+	h := newExecHandler(t, pdp, execComponent("default", "greeter-service", "default"))
 
 	req := httptest.NewRequest(http.MethodGet,
 		"/exec/namespaces/default/components/greeter-service?env=development&project=default",
@@ -45,4 +59,59 @@ func TestExecHandler_AuthzHierarchyIncludesComponent(t *testing.T) {
 	testutil.RequireEvalRequest(t, pdp.Captured[0],
 		authz.ActionExecComponent, "component", "greeter-service",
 		authz.ResourceHierarchy{Namespace: "default", Project: "default", Component: "greeter-service"})
+}
+
+// The authz hierarchy must carry the component's owning project, not the one the
+// caller supplied — including when `project` is omitted from the request.
+func TestExecHandler_AuthzUsesOwnerProject(t *testing.T) {
+	for _, tc := range []struct{ name, query string }{
+		{"project omitted", "?env=development"},
+		{"project matches owner", "?env=development&project=team-b"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pdp := testutil.AllowPDP()
+			h := newExecHandler(t, pdp, execComponent("default", "victim-svc", "team-b"))
+
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet,
+				"/exec/namespaces/default/components/victim-svc"+tc.query,
+				nil).WithContext(testutil.AuthzContext()))
+
+			require.NotEqual(t, http.StatusForbidden, rec.Code)
+			require.Len(t, pdp.Captured, 1)
+			require.Equal(t, "team-b", pdp.Captured[0].Resource.Hierarchy.Project)
+		})
+	}
+}
+
+// A caller that names a component owned by another project must be refused before
+// authorization runs, so the outcome cannot depend on their grants elsewhere.
+// victim-svc is owned by team-b; the caller claims team-a.
+func TestExecHandler_DeniesComponentProjectMismatch(t *testing.T) {
+	pdp := testutil.AllowPDP()
+	h := newExecHandler(t, pdp, execComponent("default", "victim-svc", "team-b"))
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet,
+		"/exec/namespaces/default/components/victim-svc?env=development&project=team-a",
+		nil).WithContext(testutil.AuthzContext()))
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.Empty(t, pdp.Captured, "authz must not run when the requested project does not own the component")
+}
+
+// Exec must fail before authorization when the target component does not exist,
+// so component existence — not a caller-supplied project — drives the decision.
+func TestExecHandler_ComponentNotFound(t *testing.T) {
+	pdp := testutil.AllowPDP()
+	h := newExecHandler(t, pdp) // no component seeded
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet,
+		"/exec/namespaces/default/components/ghost?env=development&project=default",
+		nil).WithContext(testutil.AuthzContext()))
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(t, rec.Body.String(), `component "ghost" not found`)
+	require.Empty(t, pdp.Captured, "authz must not run for a non-existent component")
 }
