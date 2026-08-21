@@ -708,8 +708,9 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	}
 
 	// Resource dependency stability guard: same shape as the connections guard above.
-	// Block ReleaseSynced when any provider ResourceReleaseBinding is missing, not Ready,
-	// or has not yet populated a referenced output.
+	// Block ReleaseSynced when any provider ResourceReleaseBinding is missing or
+	// has not yet populated a referenced output. Consumers can wire resolved
+	// outputs before the provider reaches full Ready.
 	resourceDeps = snapshotWorkload.Spec.GetDependencyResources()
 	resourceDepsResolved := allResourceDependenciesResolved(releaseBinding, resourceDeps)
 	setResourceDependenciesCondition(releaseBinding, resourceDepsResolved)

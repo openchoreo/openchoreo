@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -164,14 +165,14 @@ func TestMakeResourceReleaseBindingOwnerEnvKey(t *testing.T) {
 	assert.Equal(t, "proj1/orders-db/prod", got)
 }
 
-func TestIsResourceReleaseBindingReady(t *testing.T) {
-	makeRRB := func(generation int64, ready metav1.ConditionStatus, observedGen int64) *openchoreov1alpha1.ResourceReleaseBinding {
+func TestIsResourceReleaseBindingOutputsResolved(t *testing.T) {
+	makeRRB := func(generation int64, outputsResolved metav1.ConditionStatus, observedGen int64) *openchoreov1alpha1.ResourceReleaseBinding {
 		return &openchoreov1alpha1.ResourceReleaseBinding{
 			ObjectMeta: metav1.ObjectMeta{Generation: generation},
 			Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
 				Conditions: []metav1.Condition{{
-					Type:               string(resourcereleasebinding.ConditionReady),
-					Status:             ready,
+					Type:               string(resourcereleasebinding.ConditionOutputsResolved),
+					Status:             outputsResolved,
 					ObservedGeneration: observedGen,
 					LastTransitionTime: metav1.Now(),
 				}},
@@ -179,21 +180,21 @@ func TestIsResourceReleaseBindingReady(t *testing.T) {
 		}
 	}
 
-	t.Run("ready_for_current_generation", func(t *testing.T) {
-		assert.True(t, isResourceReleaseBindingReady(makeRRB(2, metav1.ConditionTrue, 2)))
+	t.Run("outputs_resolved_for_current_generation", func(t *testing.T) {
+		assert.True(t, isResourceReleaseBindingOutputsResolved(makeRRB(2, metav1.ConditionTrue, 2)))
 	})
-	t.Run("ready_for_stale_generation", func(t *testing.T) {
+	t.Run("outputs_resolved_for_stale_generation", func(t *testing.T) {
 		// Provider mid-reconcile: spec advanced to gen 3, status still reflects gen 2.
-		assert.False(t, isResourceReleaseBindingReady(makeRRB(3, metav1.ConditionTrue, 2)))
+		assert.False(t, isResourceReleaseBindingOutputsResolved(makeRRB(3, metav1.ConditionTrue, 2)))
 	})
-	t.Run("not_ready", func(t *testing.T) {
-		assert.False(t, isResourceReleaseBindingReady(makeRRB(2, metav1.ConditionFalse, 2)))
+	t.Run("outputs_not_resolved", func(t *testing.T) {
+		assert.False(t, isResourceReleaseBindingOutputsResolved(makeRRB(2, metav1.ConditionFalse, 2)))
 	})
 	t.Run("missing_condition", func(t *testing.T) {
 		rrb := &openchoreov1alpha1.ResourceReleaseBinding{
 			ObjectMeta: metav1.ObjectMeta{Generation: 1},
 		}
-		assert.False(t, isResourceReleaseBindingReady(rrb))
+		assert.False(t, isResourceReleaseBindingOutputsResolved(rrb))
 	})
 }
 
@@ -255,7 +256,7 @@ func TestResolveResourceDependency(t *testing.T) {
 		assert.Contains(t, pending.Reason, "multiple")
 	})
 
-	t.Run("provider_not_ready_returns_pending", func(t *testing.T) {
+	t.Run("provider_outputs_not_resolved_returns_pending", func(t *testing.T) {
 		rrb := newProviderRRB("orders-db", "rrb1", false, nil)
 		r := newResourceDepReconciler(t, rrb)
 		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
@@ -265,7 +266,34 @@ func TestResolveResourceDependency(t *testing.T) {
 		require.NoError(t, err)
 		assert.Nil(t, item)
 		require.NotNil(t, pending)
-		assert.Contains(t, pending.Reason, "not ready")
+		assert.Contains(t, pending.Reason, "outputs not resolved")
+	})
+
+	t.Run("provider_outputs_resolved_but_not_ready_returns_item", func(t *testing.T) {
+		rrb := newProviderRRB("orders-db", "rrb1", true,
+			[]openchoreov1alpha1.ResolvedResourceOutput{
+				{Name: "host", Value: "127.0.0.1"},
+			})
+		meta.SetStatusCondition(&rrb.Status.Conditions, metav1.Condition{
+			Type:               string(resourcereleasebinding.ConditionReady),
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: rrb.Generation,
+			Reason:             "ResourcesProgressing",
+			Message:            "provider resources still progressing",
+		})
+		r := newResourceDepReconciler(t, rrb)
+		rb := newRBForResourceDeps("ns", "proj", "comp", "dev")
+		dep := openchoreov1alpha1.WorkloadResourceDependency{
+			Ref:         "orders-db",
+			EnvBindings: map[string]string{"host": "DB_HOST"},
+		}
+
+		item, pending, err := r.resolveResourceDependency(context.Background(), rb, dep)
+		require.NoError(t, err)
+		assert.Nil(t, pending)
+		require.NotNil(t, item)
+		require.Len(t, item.EnvVars, 1)
+		assert.Equal(t, "DB_HOST", item.EnvVars[0].Name)
 	})
 
 	t.Run("provider_ready_but_referenced_output_missing_returns_pending", func(t *testing.T) {
@@ -599,24 +627,25 @@ func TestResourceReleaseBindingOutputsChangedPredicate(t *testing.T) {
 		assert.True(t, pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: new}))
 	})
 
-	t.Run("fires_on_ready_condition_flip", func(t *testing.T) {
+	t.Run("fires_on_outputs_resolved_condition_flip", func(t *testing.T) {
 		old := &openchoreov1alpha1.ResourceReleaseBinding{
 			Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
 				Conditions: []metav1.Condition{
-					{Type: "Ready", Status: metav1.ConditionFalse, Reason: "Pending", LastTransitionTime: metav1.Now()},
+					{Type: string(resourcereleasebinding.ConditionOutputsResolved), Status: metav1.ConditionFalse, Reason: "Pending", LastTransitionTime: metav1.Now()},
 				},
 			},
 		}
 		new := old.DeepCopy()
 		new.Status.Conditions[0].Status = metav1.ConditionTrue
-		new.Status.Conditions[0].Reason = "Ready"
+		new.Status.Conditions[0].Reason = "Resolved"
 		assert.True(t, pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: new}))
 	})
 
 	t.Run("fires_on_generation_change", func(t *testing.T) {
 		// PE edits the provider's spec → Generation advances. Even if the status hasn't
 		// caught up, consumers must re-evaluate (the new check in
-		// isResourceReleaseBindingReady will gate them off until ObservedGeneration matches).
+		// isResourceReleaseBindingOutputsResolved will gate them off until
+		// ObservedGeneration matches).
 		old := &openchoreov1alpha1.ResourceReleaseBinding{
 			ObjectMeta: metav1.ObjectMeta{Generation: 1},
 		}
@@ -625,14 +654,15 @@ func TestResourceReleaseBindingOutputsChangedPredicate(t *testing.T) {
 		assert.True(t, pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: new}))
 	})
 
-	t.Run("fires_on_ready_observed_generation_change", func(t *testing.T) {
-		// Provider catches up to a new generation: Ready=True stays, but ObservedGeneration
-		// advances. Consumers were gated off (stale OG) and must now re-evaluate.
+	t.Run("fires_on_outputs_resolved_observed_generation_change", func(t *testing.T) {
+		// Provider catches up to a new generation: OutputsResolved=True stays, but
+		// ObservedGeneration advances. Consumers were gated off (stale OG) and must now
+		// re-evaluate.
 		old := &openchoreov1alpha1.ResourceReleaseBinding{
 			ObjectMeta: metav1.ObjectMeta{Generation: 2},
 			Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
 				Conditions: []metav1.Condition{
-					{Type: "Ready", Status: metav1.ConditionTrue, ObservedGeneration: 1, Reason: "Ready", LastTransitionTime: metav1.Now()},
+					{Type: string(resourcereleasebinding.ConditionOutputsResolved), Status: metav1.ConditionTrue, ObservedGeneration: 1, Reason: "Resolved", LastTransitionTime: metav1.Now()},
 				},
 			},
 		}
@@ -642,13 +672,14 @@ func TestResourceReleaseBindingOutputsChangedPredicate(t *testing.T) {
 	})
 
 	t.Run("does_not_fire_on_unrelated_status_change", func(t *testing.T) {
-		// Same outputs, same Ready condition status. Some other condition (e.g., Synced)
-		// changed — predicate should NOT fire because consumers don't care about that.
+		// Same outputs, same OutputsResolved condition status. Some other condition
+		// (e.g., Synced) changed — predicate should NOT fire because consumers don't care
+		// about that.
 		old := &openchoreov1alpha1.ResourceReleaseBinding{
 			Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
 				Outputs: []openchoreov1alpha1.ResolvedResourceOutput{{Name: "host", Value: "1.1.1.1"}},
 				Conditions: []metav1.Condition{
-					{Type: "Ready", Status: metav1.ConditionTrue, Reason: "Ready", LastTransitionTime: metav1.Now()},
+					{Type: string(resourcereleasebinding.ConditionOutputsResolved), Status: metav1.ConditionTrue, Reason: "Resolved", LastTransitionTime: metav1.Now()},
 					{Type: "Synced", Status: metav1.ConditionTrue, Reason: "ReleaseSynced", LastTransitionTime: metav1.Now()},
 				},
 			},
@@ -658,7 +689,7 @@ func TestResourceReleaseBindingOutputsChangedPredicate(t *testing.T) {
 		assert.False(t, pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: new}))
 	})
 
-	t.Run("does_not_fire_when_ready_absent_on_both_sides", func(t *testing.T) {
+	t.Run("does_not_fire_when_outputs_resolved_absent_on_both_sides", func(t *testing.T) {
 		old := &openchoreov1alpha1.ResourceReleaseBinding{}
 		new := old.DeepCopy()
 		assert.False(t, pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: new}))
@@ -786,7 +817,14 @@ func newResourceDepReconciler(t *testing.T, objs ...client.Object) *Reconciler {
 // triple that the resolver tests share. Vary `resource` and `name` per test case.
 func newProviderRRB(resource, name string, ready bool,
 	outputs []openchoreov1alpha1.ResolvedResourceOutput) *openchoreov1alpha1.ResourceReleaseBinding {
-	cond := metav1.Condition{
+	outputsCond := metav1.Condition{
+		Type:               string(resourcereleasebinding.ConditionOutputsResolved),
+		Status:             metav1.ConditionFalse,
+		Reason:             "OutputsPending",
+		Message:            "outputs not yet resolved",
+		LastTransitionTime: metav1.Now(),
+	}
+	readyCond := metav1.Condition{
 		Type:               string(resourcereleasebinding.ConditionReady),
 		Status:             metav1.ConditionFalse,
 		Reason:             "Pending",
@@ -794,9 +832,12 @@ func newProviderRRB(resource, name string, ready bool,
 		LastTransitionTime: metav1.Now(),
 	}
 	if ready {
-		cond.Status = metav1.ConditionTrue
-		cond.Reason = "Ready"
-		cond.Message = "ResourceReleaseBinding is ready"
+		outputsCond.Status = metav1.ConditionTrue
+		outputsCond.Reason = "OutputsResolved"
+		outputsCond.Message = "Resolved outputs"
+		readyCond.Status = metav1.ConditionTrue
+		readyCond.Reason = "Ready"
+		readyCond.Message = "ResourceReleaseBinding is ready"
 	}
 	return &openchoreov1alpha1.ResourceReleaseBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"},
@@ -808,7 +849,7 @@ func newProviderRRB(resource, name string, ready bool,
 			Environment: "dev",
 		},
 		Status: openchoreov1alpha1.ResourceReleaseBindingStatus{
-			Conditions: []metav1.Condition{cond},
+			Conditions: []metav1.Condition{outputsCond, readyCond},
 			Outputs:    outputs,
 		},
 	}
