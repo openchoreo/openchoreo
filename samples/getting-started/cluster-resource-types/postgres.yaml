@@ -14,6 +14,9 @@ spec:
         database:
           type: string
           default: appdb
+        initSQL:
+          type: string
+          default: ""
 
   environmentConfigs:
     openAPIV3Schema:
@@ -109,6 +112,8 @@ spec:
               CREATE USER "$APPUSER" WITH PASSWORD '$APPUSER_PASSWORD';
               GRANT ALL ON DATABASE "$POSTGRES_DB" TO "$APPUSER";
               GRANT ALL ON SCHEMA public TO "$APPUSER";
+              ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO "$APPUSER";
+              ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO "$APPUSER";
             EOSQL
           02-create-demo-user.sh: |
             #!/bin/bash
@@ -116,6 +121,12 @@ spec:
             psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<EOSQL
               CREATE USER demo WITH SUPERUSER PASSWORD 'demo';
             EOSQL
+          # Optional app schema, supplied via parameters.initSQL. Runs after the
+          # app user exists (03, alphabetical) so it's a no-op when unset — the
+          # 01 script's ALTER DEFAULT PRIVILEGES above covers tables created
+          # here even though they're owned by the postgres superuser.
+          03-app-schema.sql: |
+            ${parameters.initSQL}
 
     # Postgres superuser password: generated on the data plane by ESO and
     # never written to the control plane. Used by initdb and by the init

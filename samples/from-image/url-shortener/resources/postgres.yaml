@@ -1,0 +1,54 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Resource
+metadata:
+  name: snip-postgres
+  namespace: default
+spec:
+  owner:
+    projectName: url-shortener
+  type:
+    kind: ClusterResourceType
+    name: postgres
+  parameters:
+    database: urlshortener
+    initSQL: |
+      CREATE TABLE IF NOT EXISTS urls (
+          id SERIAL PRIMARY KEY,
+          short_code VARCHAR(20) UNIQUE NOT NULL,
+          original_url TEXT NOT NULL,
+          title TEXT DEFAULT '',
+          favicon_url TEXT DEFAULT '',
+          username VARCHAR(100) NOT NULL,
+          click_count BIGINT DEFAULT 0,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_urls_username ON urls(username);
+      CREATE INDEX IF NOT EXISTS idx_urls_short_code ON urls(short_code);
+
+      CREATE TABLE IF NOT EXISTS clicks (
+          id SERIAL PRIMARY KEY,
+          short_code VARCHAR(20) NOT NULL REFERENCES urls(short_code) ON DELETE CASCADE,
+          clicked_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_clicks_short_code ON clicks(short_code);
+      CREATE INDEX IF NOT EXISTS idx_clicks_clicked_at ON clicks(clicked_at);
+
+---
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: ResourceReleaseBinding
+metadata:
+  name: snip-postgres-development
+  namespace: default
+spec:
+  owner:
+    projectName: url-shortener
+    resourceName: snip-postgres
+  environment: development
+  retainPolicy: Delete
+  # spec.resourceRelease intentionally unset. The Resource controller
+  # generates a ResourceRelease named ${resource}-${hash}; the README's
+  # follow-up step promotes this binding to that release via
+  # `occ resource promote --env development snip-postgres` or by patching
+  # this field directly.

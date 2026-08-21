@@ -1,18 +1,16 @@
 ---
-# Misconfigure the api-service Postgres DSN to point to a non-existent host
-# This causes all DB queries to fail, returning 500s that trigger the frontend log alert
+# Starve the Postgres StatefulSet of memory so it OOM-kills and crash-loops.
+# api-service stays up but every DB query fails while Postgres is down,
+# returning 500s that trigger the frontend log alert.
 apiVersion: openchoreo.dev/v1alpha1
-kind: ReleaseBinding
+kind: ResourceReleaseBinding
 metadata:
-  name: snip-api-service-development
+  name: snip-postgres-development
   namespace: default
 spec:
   owner:
     projectName: url-shortener
-    componentName: snip-api-service
+    resourceName: snip-postgres
   environment: development
-  workloadOverrides:
-    container:
-      env:
-        - key: POSTGRES_DSN
-          value: "postgres://postgres:postgres@snip-postgresss:5432/urlshortener?sslmode=disable"
+  resourceTypeEnvironmentConfigs:
+    memory: 8Mi
