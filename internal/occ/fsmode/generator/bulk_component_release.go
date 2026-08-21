@@ -101,13 +101,20 @@ func (g *ReleaseGenerator) GenerateBulkReleases(opts BulkReleaseOptions) (*BulkR
 // discoverComponents discovers which components to process based on options
 func (g *ReleaseGenerator) discoverComponents(opts BulkReleaseOptions) ([]*index.ResourceEntry, error) {
 	if opts.All {
-		// Return all components in the repository
-		return g.index.ListComponents(), nil
+		// Return all components in the active namespace
+		var components []*index.ResourceEntry
+		for _, comp := range g.index.ListComponents() {
+			if comp.Namespace() != opts.Namespace {
+				continue
+			}
+			components = append(components, comp)
+		}
+		return components, nil
 	}
 
 	if opts.ProjectName != "" {
 		// Return all components in the specified project
-		components := g.index.ListComponentsForProject(opts.ProjectName)
+		components := g.index.ListComponentsForProject(opts.Namespace, opts.ProjectName)
 		if len(components) == 0 {
 			return nil, fmt.Errorf("no components found for project %q", opts.ProjectName)
 		}
