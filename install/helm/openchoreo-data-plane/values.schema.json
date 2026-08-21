@@ -523,6 +523,204 @@
       "title": "clusterAgent",
       "type": "object"
     },
+    "depConnectRouter": {
+      "additionalProperties": false,
+      "description": "dep-connect SNI router: a single per-data-plane L4 entrypoint for `occ local`.\nIt SNI-routes each occ tunnel to the matching per-project+env dep-agent\n(TLS terminates at the agent, not here). One exposed port for all agents.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "description": "Enable the shared dep-connect SNI router.",
+          "title": "enabled",
+          "type": "boolean"
+        },
+        "image": {
+          "additionalProperties": false,
+          "description": "Container image configuration for the dep-connect SNI router",
+          "properties": {
+            "pullPolicy": {
+              "default": "IfNotPresent",
+              "description": "Image pull policy for the router container.",
+              "title": "pullPolicy",
+              "type": "string"
+            },
+            "repository": {
+              "default": "ghcr.io/openchoreo/dep-connect-router",
+              "description": "Dep-connect SNI router image repository",
+              "title": "repository",
+              "type": "string"
+            },
+            "tag": {
+              "default": "",
+              "description": "Image tag. Empty uses Chart.AppVersion.",
+              "title": "tag",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "image"
+        },
+        "listenPort": {
+          "default": 8443,
+          "description": "L4 port the router listens on (occ dials this via the Service below).",
+          "title": "listenPort",
+          "type": "integer"
+        },
+        "logLevel": {
+          "default": "info",
+          "description": "Router log level: debug, info, warn, error.",
+          "title": "logLevel",
+          "type": "string"
+        },
+        "podSecurityContext": {
+          "additionalProperties": false,
+          "description": "Pod security context for the router",
+          "properties": {
+            "fsGroup": {
+              "default": 1000,
+              "title": "fsGroup",
+              "type": "integer"
+            },
+            "runAsNonRoot": {
+              "default": true,
+              "title": "runAsNonRoot",
+              "type": "boolean"
+            },
+            "runAsUser": {
+              "default": 1000,
+              "title": "runAsUser",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "runAsNonRoot",
+            "runAsUser",
+            "fsGroup"
+          ],
+          "title": "podSecurityContext"
+        },
+        "resources": {
+          "additionalProperties": false,
+          "description": "Resource requests and limits for the router container",
+          "properties": {
+            "limits": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "200m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "128Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cpu",
+                "memory"
+              ],
+              "title": "limits",
+              "type": "object"
+            },
+            "requests": {
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "default": "50m",
+                  "title": "cpu",
+                  "type": "string"
+                },
+                "memory": {
+                  "default": "64Mi",
+                  "title": "memory",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "cpu",
+                "memory"
+              ],
+              "title": "requests",
+              "type": "object"
+            }
+          },
+          "required": [
+            "requests",
+            "limits"
+          ],
+          "title": "resources"
+        },
+        "securityContext": {
+          "additionalProperties": false,
+          "description": "Container security context for the router",
+          "properties": {
+            "allowPrivilegeEscalation": {
+              "default": false,
+              "title": "allowPrivilegeEscalation",
+              "type": "boolean"
+            },
+            "capabilities": {
+              "additionalProperties": false,
+              "properties": {
+                "drop": {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "required": []
+                  },
+                  "title": "drop",
+                  "type": "array"
+                }
+              },
+              "required": [
+                "drop"
+              ],
+              "title": "capabilities",
+              "type": "object"
+            },
+            "readOnlyRootFilesystem": {
+              "default": true,
+              "title": "readOnlyRootFilesystem",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "allowPrivilegeEscalation",
+            "capabilities",
+            "readOnlyRootFilesystem"
+          ],
+          "title": "securityContext"
+        },
+        "service": {
+          "additionalProperties": false,
+          "description": "Service exposing the router as the single per-data-plane entrypoint.",
+          "properties": {
+            "nodePort": {
+              "default": 30443,
+              "description": "Fixed nodePort when type is NodePort (must match the k3d host port mapping and\nopenchoreoApi.config.depConnect.entrypointAddress). Ignored for LoadBalancer.\n",
+              "title": "nodePort",
+              "type": "integer"
+            },
+            "type": {
+              "default": "LoadBalancer",
+              "description": "LoadBalancer for cloud (one internal LB), NodePort for k3d/bare-metal.",
+              "title": "type",
+              "type": "string"
+            }
+          },
+          "required": [],
+          "title": "service",
+          "type": "object"
+        }
+      },
+      "required": [],
+      "title": "depConnectRouter",
+      "type": "object"
+    },
     "gateway": {
       "additionalProperties": true,
       "description": "KGateway API gateway configuration. Provides HTTP/HTTPS traffic routing using Kubernetes Gateway API and Envoy proxy.",

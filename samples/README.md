@@ -74,3 +74,9 @@ Configuration samples targeted at Platform Engineers. Learn how to set up deploy
 **Available Configurations:**
 - **[Deployment Pipeline](./platform-config/new-deployment-pipeline/)** - Define promotion pipelines across environments
 - **[Environments](./platform-config/new-environments/)** - Configure development, QA, pre-production, and production environments
+
+### [Local Development](./local-development)
+Run your code on your machine against an environment's real upstreams with `occ local`. This self-contained sample seeds cross-project endpoint providers, then tunnels their endpoints to localhost.
+
+**Available Samples:**
+- **[Local Development with `occ local`](./local-development/)** - Tunnel endpoint dependencies to your machine for a fast inner loop

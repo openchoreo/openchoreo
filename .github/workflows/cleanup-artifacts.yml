@@ -27,6 +27,8 @@ jobs:
           - controller
           - cluster-gateway
           - cluster-agent
+          - dep-agent
+          - dep-connect-router
           - openchoreo-api
           - observer
           - event-forwarder

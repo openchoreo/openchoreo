@@ -1,0 +1,63 @@
+# The gRPC endpoint-dependency provider lives in its own `grpc-demo` project
+# (separate from both the consumer and the greeter provider) to exercise a
+# cross-project gRPC endpoint dependency. Self-contained: creates the project,
+# its development binding, and the component.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Project
+metadata:
+  name: grpc-demo
+  namespace: default
+  labels:
+    openchoreo.dev/name: grpc-demo
+spec:
+  deploymentPipelineRef:
+    name: default
+  type:
+    kind: ClusterProjectType
+    name: default
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ProjectReleaseBinding
+metadata:
+  name: grpc-demo-development
+  namespace: default
+  labels:
+    openchoreo.dev/project: grpc-demo
+    openchoreo.dev/environment: development
+spec:
+  owner:
+    projectName: grpc-demo
+  environment: development
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: grpc-greeter
+  namespace: default
+spec:
+  owner:
+    projectName: grpc-demo
+
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: grpc-greeter-workload
+  namespace: default
+spec:
+  owner:
+    componentName: grpc-greeter
+    projectName: grpc-demo
+  endpoints:
+    grpc:
+      type: gRPC
+      port: 9090
+      # namespace-visible so service-test (a different project) can depend on it
+      visibility: [namespace]
+  container:
+    # public gRPC server exposing greeter.Greeter/SayHello on :9090
+    image: "ghcr.io/openchoreo/samples/hello-world-grpc:latest"

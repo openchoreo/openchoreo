@@ -36,7 +36,9 @@ DOCKER_BUILD_IMAGES := \
 	portal-assistant:$(PROJECT_DIR)/agents/portal-assistant/Dockerfile:$(PROJECT_DIR)/agents \
 	openchoreo-cli:$(PROJECT_DIR)/cmd/occ/Dockerfile:$(PROJECT_DIR) \
 	cluster-gateway:$(PROJECT_DIR)/cmd/cluster-gateway/Dockerfile:$(PROJECT_DIR) \
-	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent/Dockerfile:$(PROJECT_DIR)
+	cluster-agent:$(PROJECT_DIR)/cmd/cluster-agent/Dockerfile:$(PROJECT_DIR) \
+	dep-agent:$(PROJECT_DIR)/cmd/dep-agent/Dockerfile:$(PROJECT_DIR) \
+	dep-connect-router:$(PROJECT_DIR)/cmd/dep-connect-router/Dockerfile:$(PROJECT_DIR)
 
 DOCKER_BUILD_IMAGE_NAMES := $(foreach b,$(DOCKER_BUILD_IMAGES),$(word 1,$(subst :, ,$(b))))
 
@@ -83,6 +85,8 @@ docker.build.finops-agent:  # Python project - no Go build dependency
 docker.build.portal-assistant:  # Python project - no Go build dependency
 docker.build.cluster-gateway: go.build-multiarch.cluster-gateway
 docker.build.cluster-agent: go.build-multiarch.cluster-agent
+docker.build.dep-agent: go.build-multiarch.dep-agent
+docker.build.dep-connect-router: go.build-multiarch.dep-connect-router
 
 # Set target architecture for the go build that is required for the docker image
 docker.build.%: GO_TARGET_PLATFORMS:=$(IMAGE_CURRENT_PLATFORM)
