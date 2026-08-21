@@ -2,6 +2,16 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.1.6
+
+Changes since [v1.1.5](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.5).
+
+### Bug Fixes
+
+- **(API)** The exec endpoint now resolves the target component first and takes its owning project from the component itself rather than from the request parameter, aligning it with the pattern used by other component operations. ([#4251](https://github.com/openchoreo/openchoreo/pull/4251))
+- **(API)** The exec authorization hierarchy now includes the component, so component-scoped exec grants resolve correctly. ([#4506](https://github.com/openchoreo/openchoreo/pull/4506))
+- **(Cluster Gateway)** Fixed cluster gateway failing to authorize plane CRs created after an agent connects when the agent's client certificate is issued by an intermediate CA: incremental re-validation now includes the TLS handshake intermediates, matching connect-time verification. ([#4417](https://github.com/openchoreo/openchoreo/pull/4417))
+
 ## v1.1.5
 
 Changes since [v1.1.4](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.4).
