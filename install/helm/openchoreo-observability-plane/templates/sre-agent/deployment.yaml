@@ -55,6 +55,9 @@ spec:
         runAsUser: 12000
         runAsGroup: 12000
         fsGroup: 12000
+      {{- with .Values.rca.serviceAccountName }}
+      serviceAccountName: {{ . }}
+      {{- end }}
       containers:
       - name: {{ .Values.rca.name }}
         image: "{{ include "openchoreo-observability-plane.image" (dict "context" . "image" .Values.rca.image) }}"
@@ -107,6 +110,14 @@ spec:
           readOnlyRootFilesystem: false
           runAsNonRoot: true
           runAsUser: 12000
+      # Sidecars adicionales. Existe para el Cloud SQL Auth Proxy: la instancia no es
+      # alcanzable por red desde este cluster (el peering de VPC no es transitivo y una
+      # instancia admite una sola red privada), asi que el patron soportado por GCP es
+      # un proxy local y el workload conectando a 127.0.0.1. Sin esto habia que
+      # parchear el Deployment a mano y el proximo `helm upgrade` lo borraba.
+      {{- with .Values.rca.extraContainers }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
       volumes:
       - name: auth-config
         configMap:
@@ -117,3 +128,6 @@ spec:
           claimName: {{ .Values.rca.name }}-data
       {{- end }}
 {{- end }}
+      {{- with .Values.rca.extraVolumes }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}

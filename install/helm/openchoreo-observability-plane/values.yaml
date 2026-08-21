@@ -353,6 +353,9 @@ controllerManager:
 # description: OpenChoreo Observer service configuration - REST API that abstracts observability backends for logging, metrics, and tracing via adapters
 # @schema
 observer:
+  serviceAccountAnnotations: {}
+  extraContainers: []
+  extraVolumes: []
   # @schema
   # type: string
   # description: Control plane API base URL used by observer
@@ -1306,6 +1309,9 @@ tls:
 # description: AI-powered Root Cause Analysis agent configuration
 # @schema
 rca:
+  extraContainers: []
+  extraVolumes: []
+  serviceAccountName: ""
   # @schema
   # type: boolean
   # description: Enable RCA agent deployment
@@ -1595,6 +1601,9 @@ rca:
 
 # FinOps Agent Configuration
 finOpsAgent:
+  extraContainers: []
+  extraVolumes: []
+  serviceAccountName: ""
   # @schema
   # type: boolean
   # description: Enable FinOps agent deployment

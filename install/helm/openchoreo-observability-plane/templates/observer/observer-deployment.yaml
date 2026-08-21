@@ -118,6 +118,14 @@ spec:
           readOnlyRootFilesystem: true
           runAsNonRoot: true
           runAsUser: 65532
+      # Sidecars adicionales. Existe para el Cloud SQL Auth Proxy: la instancia no es
+      # alcanzable por red desde este cluster (el peering de VPC no es transitivo y una
+      # instancia admite una sola red privada), asi que el patron soportado por GCP es
+      # un proxy local y el workload conectando a 127.0.0.1. Sin esto habia que
+      # parchear el Deployment a mano y el proximo `helm upgrade` lo borraba.
+      {{- with .Values.observer.extraContainers }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
       volumes:
       - name: auth-config
         configMap:
@@ -126,4 +134,7 @@ spec:
       - name: alert-store-data
         persistentVolumeClaim:
           claimName: observer-alerts-data
+      {{- end }}
+      {{- with .Values.observer.extraVolumes }}
+        {{- toYaml . | nindent 6 }}
       {{- end }}

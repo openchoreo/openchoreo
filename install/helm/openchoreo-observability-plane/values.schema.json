@@ -1138,6 +1138,32 @@
           },
           "title": "topologySpreadConstraints",
           "type": "array"
+        },
+        "extraContainers": {
+          "type": "array",
+          "title": "extraContainers",
+          "default": [],
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "description": "Additional sidecar containers appended to the pod. Added for the Cloud SQL Auth Proxy: the instance is not reachable over the network from this cluster, so the supported pattern is a local proxy and the workload connecting to 127.0.0.1."
+        },
+        "extraVolumes": {
+          "type": "array",
+          "title": "extraVolumes",
+          "default": [],
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "description": "Additional volumes for the pod, for sidecars that need to mount something."
+        },
+        "serviceAccountName": {
+          "type": "string",
+          "title": "serviceAccountName",
+          "default": "",
+          "description": "ServiceAccount for the pod. Empty keeps the namespace default. Required when a sidecar needs Workload Identity."
         }
       },
       "required": [],
@@ -1709,6 +1735,35 @@
           "required": [],
           "title": "tracingAdapter",
           "type": "object"
+        },
+        "extraContainers": {
+          "type": "array",
+          "title": "extraContainers",
+          "default": [],
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "description": "Additional sidecar containers appended to the pod. Added for the Cloud SQL Auth Proxy: the instance is not reachable over the network from this cluster, so the supported pattern is a local proxy and the workload connecting to 127.0.0.1."
+        },
+        "extraVolumes": {
+          "type": "array",
+          "title": "extraVolumes",
+          "default": [],
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "description": "Additional volumes for the pod, for sidecars that need to mount something."
+        },
+        "serviceAccountAnnotations": {
+          "type": "object",
+          "title": "serviceAccountAnnotations",
+          "default": {},
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Annotations for the observer ServiceAccount. Needed for iam.gke.io/gcp-service-account: Workload Identity requires both the binding on the GSA and this annotation on the KSA."
         }
       },
       "required": [],
@@ -2048,6 +2103,32 @@
           },
           "title": "topologySpreadConstraints",
           "type": "array"
+        },
+        "extraContainers": {
+          "type": "array",
+          "title": "extraContainers",
+          "default": [],
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "description": "Additional sidecar containers appended to the pod. Added for the Cloud SQL Auth Proxy: the instance is not reachable over the network from this cluster, so the supported pattern is a local proxy and the workload connecting to 127.0.0.1."
+        },
+        "extraVolumes": {
+          "type": "array",
+          "title": "extraVolumes",
+          "default": [],
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "description": "Additional volumes for the pod, for sidecars that need to mount something."
+        },
+        "serviceAccountName": {
+          "type": "string",
+          "title": "serviceAccountName",
+          "default": "",
+          "description": "ServiceAccount for the pod. Empty keeps the namespace default. Required when a sidecar needs Workload Identity."
         }
       },
       "required": [],
