@@ -41,6 +41,17 @@ spec:
           command:
             - kubectl
             - apply
+            - --prune
+            - --selector
+            - {{ include "openchoreo-control-plane.authz.bootstrapPruneSelector" . | quote }}
+            - --prune-allowlist
+            - openchoreo.dev/v1alpha1/ClusterAuthzRole
+            - --prune-allowlist
+            - openchoreo.dev/v1alpha1/ClusterAuthzRoleBinding
+            - --prune-allowlist
+            - openchoreo.dev/v1alpha1/AuthzRole
+            - --prune-allowlist
+            - openchoreo.dev/v1alpha1/AuthzRoleBinding
             - -f
             - /bootstrap/manifests.yaml
           env:
