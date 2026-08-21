@@ -121,7 +121,44 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: setup-envtest
+        # El suite de resourcereleasebinding levanta un apiserver de verdad.
+        # Sin estos binarios el BeforeSuite falla y los 45 specs quedan SKIPPED,
+        # que en el log se lee casi igual que "pasaron".
+        run: |
+          set -euo pipefail
+          make envtest
+          # OJO: la ruta tiene que ser ABSOLUTA. `setup-envtest -p path` la
+          # devuelve relativa al cwd, y `go test` corre cada paquete con el cwd
+          # puesto en su propio directorio: el binario de etcd queda inalcanzable
+          # y el BeforeSuite muere con "no such file or directory".
+          echo "KUBEBUILDER_ASSETS=$(cd "$(./bin/tools/setup-envtest use 1.36.0 --bin-dir ./bin/tools -p path)" && pwd)" >> "$GITHUB_ENV"
+
       - name: go test
         # Solo los paquetes que tocan nuestros parches. El build-and-test del upstream
         # queda deshabilitado a proposito; esto no lo reemplaza, cubre lo nuestro.
-        run: go test ./internal/cluster-gateway/... ./internal/cluster-agent/...
+        #
+        # resourcereleasebinding entra por T92: ahi vive el guard de que el borrado
+        # se reconcilia y de que el hold por retainPolicy=Retain se loguea. Un guard
+        # que no corre en CI no es un guard.
+        run: |
+          set -euo pipefail
+          go test ./internal/cluster-gateway/... ./internal/cluster-agent/... \
+                  ./internal/controller/resourcereleasebinding/...
+
+      - name: los dos guards de T92 se ejecutaron de verdad
+        # Contra-chequeo del paso anterior. Si envtest se rompe, el BeforeSuite
+        # falla y ginkgo reporta "Ran 0 of 45 Specs": los guards no corren, y en
+        # un log largo eso se lee casi igual que verde. Enfocamos los dos specs
+        # por nombre y exigimos que el contador diga exactamente 2. Si alguien
+        # los renombra o los borra, el focus matchea 0 y esto falla.
+        run: |
+          set -euo pipefail
+          out="$(go test -count=1 -v ./internal/controller/resourcereleasebinding/... -args \
+            -ginkgo.focus='(dispatches to the finalize path on DeletionTimestamp|logs why it is holding the finalizer when retainPolicy=Retain)' 2>&1)" || {
+              echo "$out"; echo "::error::los guards de borrado de T92 fallaron"; exit 1; }
+          echo "$out" | grep -qE "Ran 2 of [0-9]+ Specs" || {
+            echo "$out"
+            echo "::error::se esperaban 2 specs de guard ejecutados. O envtest no levanto, o los specs de T92 se renombraron/borraron en un rebase."
+            exit 1; }
+          echo "OK: los 2 guards de T92 corrieron"

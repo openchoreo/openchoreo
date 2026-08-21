@@ -6,7 +6,10 @@ package resourcereleasebinding
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -18,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -364,4 +368,85 @@ var _ = Describe("ResourceReleaseBinding controller — finalize", func() {
 		Expect(cli.Get(finCtx, client.ObjectKeyFromObject(rr), &openchoreov1alpha1.RenderedRelease{})).To(Succeed(),
 			"RenderedRelease must remain when retainPolicy=Retain")
 	})
+
+	// Guard. The Retain branch is correct, but it is the single most expensive
+	// thing to misread in this controller: `kubectl delete` blocks forever and
+	// the status condition that explains why is unreachable, because you cannot
+	// read the status of an object whose delete has not returned. The only
+	// channel that reaches an operator mid-hang is the controller log.
+	//
+	// This asserts the log line exists. Without it the symptom is
+	// indistinguishable from a controller that never reconciles deletions at
+	// all — a misdiagnosis that cost a full working session here.
+	It("logs why it is holding the finalizer when retainPolicy=Retain", func() {
+		b := newBinding("retain-log-binding", true, openchoreov1alpha1.ResourceRetainPolicyRetain)
+		rr := newRenderedRelease()
+		Expect(controllerutil.SetControllerReference(b, rr, scheme.Scheme)).To(Succeed())
+		cli := buildClient(b, rr)
+		r := newReconciler(cli)
+
+		sink := &recordingSink{}
+		logCtx := log.IntoContext(finCtx, logr.New(sink))
+
+		Expect(cli.Delete(logCtx, b)).To(Succeed())
+		req := reconcile.Request{NamespacedName: client.ObjectKeyFromObject(b)}
+
+		// 1st reconcile sets Finalizing; 2nd takes the Retain branch.
+		_, err := r.Reconcile(logCtx, req)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = r.Reconcile(logCtx, req)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(sink.messages()).To(ContainElement(ContainSubstring("retainPolicy=Retain")),
+			"the Retain hold must be logged: it is the only signal an operator can "+
+				"read while `kubectl delete` is blocked. Logged lines: "+
+				strings.Join(sink.messages(), " | "))
+	})
+
+	// Guard. Every deletion test above drives r.Reconcile rather than calling
+	// r.finalize directly, so they collectively assert that Reconcile still
+	// dispatches to the finalize path on DeletionTimestamp. This one states
+	// that contract explicitly so a rebase that drops the dispatch fails with
+	// a message that names the cause instead of eight unrelated red specs.
+	It("dispatches to the finalize path on DeletionTimestamp (deletion is reconciled at all)", func() {
+		b := newBinding("dispatch-binding", true, openchoreov1alpha1.ResourceRetainPolicyDelete)
+		rr := newRenderedRelease()
+		Expect(controllerutil.SetControllerReference(b, rr, scheme.Scheme)).To(Succeed())
+		cli := buildClient(b, rr)
+		r := newReconciler(cli)
+
+		Expect(cli.Delete(finCtx, b)).To(Succeed())
+		req := reconcile.Request{NamespacedName: client.ObjectKeyFromObject(b)}
+
+		_, err := r.Reconcile(finCtx, req)
+		Expect(err).NotTo(HaveOccurred())
+
+		updated := &openchoreov1alpha1.ResourceReleaseBinding{}
+		Expect(cli.Get(finCtx, client.ObjectKeyFromObject(b), updated)).To(Succeed())
+		Expect(meta.FindStatusCondition(updated.Status.Conditions, string(ConditionFinalizing))).NotTo(BeNil(),
+			"Reconcile must route objects with a DeletionTimestamp to finalize(); "+
+				"if this is nil the controller is ignoring deletions and every "+
+				"ResourceReleaseBinding will hang on its finalizer forever")
+	})
 })
+
+// recordingSink is a logr.LogSink that keeps the messages it is handed, so a
+// test can assert on what the controller logged.
+type recordingSink struct {
+	lines []string
+}
+
+func (s *recordingSink) Init(logr.RuntimeInfo)          {}
+func (s *recordingSink) Enabled(int) bool               { return true }
+func (s *recordingSink) WithValues(...any) logr.LogSink { return s }
+func (s *recordingSink) WithName(string) logr.LogSink   { return s }
+
+func (s *recordingSink) Info(_ int, msg string, kv ...any) {
+	s.lines = append(s.lines, msg+" "+fmt.Sprint(kv...))
+}
+
+func (s *recordingSink) Error(err error, msg string, kv ...any) {
+	s.lines = append(s.lines, msg+" "+fmt.Sprint(err)+" "+fmt.Sprint(kv...))
+}
+
+func (s *recordingSink) messages() []string { return s.lines }

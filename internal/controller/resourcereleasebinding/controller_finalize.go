@@ -73,6 +73,16 @@ func (r *Reconciler) finalize(ctx context.Context, old, binding *openchoreov1alp
 		return ctrl.Result{}, fmt.Errorf("resolve effective retainPolicy: %w", err)
 	}
 	if retain == openchoreov1alpha1.ResourceRetainPolicyRetain {
+		// Logged, not just surfaced as a condition. Holding the finalizer is correct
+		// here, but it makes `kubectl delete` block forever with no output, and the
+		// condition is unreachable while the command hangs: you cannot read the status
+		// of an object whose delete has not returned. Without this line the only
+		// symptom is a command that never comes back, which reads exactly like a
+		// broken controller - it cost a full working session to tell the two apart.
+		logger.Info("Holding finalizer: retainPolicy=Retain",
+			"resourceRelease", binding.Spec.ResourceRelease,
+			"hint", "clear the finalizer manually after reclaiming data-plane state, "+
+				"or set spec.retainPolicy=Delete on the binding to cascade")
 		if controller.MarkTrueCondition(binding, ConditionFinalizing, ReasonRetainHold,
 			"retainPolicy=Retain; finalizer held until cleared manually") {
 			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, old, binding)
