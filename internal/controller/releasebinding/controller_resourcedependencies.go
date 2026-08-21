@@ -103,7 +103,7 @@ func (r *Reconciler) populateResourceDependencyStatus(
 // ReleaseBinding. For each dep it looks up the matching provider ResourceReleaseBinding via
 // the (project, resource, environment) field index, reads its status.outputs, and dispatches
 // them through BuildResourceDependencyItem to produce a ResourceDependencyItem. Failure
-// modes (provider missing, provider not Ready, output not yet resolved) populate
+// modes (provider missing, outputs not resolved, requested output missing) populate
 // PendingResourceDependency entries instead.
 //
 // Transient API errors abort the entire orchestrator so the caller requeues without acting
@@ -180,12 +180,12 @@ func (r *Reconciler) resolveResourceDependency(
 
 	rrb := &rrbList.Items[0]
 
-	if !isResourceReleaseBindingReady(rrb) {
+	if !isResourceReleaseBindingOutputsResolved(rrb) {
 		return nil, &openchoreov1alpha1.PendingResourceDependency{
 			Namespace:    releaseBinding.Namespace,
 			Project:      releaseBinding.Spec.Owner.ProjectName,
 			ResourceName: dep.Ref,
-			Reason:       fmt.Sprintf("ResourceReleaseBinding %q not ready", rrb.Name),
+			Reason:       fmt.Sprintf("ResourceReleaseBinding %q outputs not resolved", rrb.Name),
 		}, nil
 	}
 
@@ -210,13 +210,14 @@ func (r *Reconciler) resolveResourceDependency(
 	return &item, nil, nil
 }
 
-// isResourceReleaseBindingReady reports whether the given binding's Ready condition is True
-// for the current generation. Ready aggregates Synced + ResourcesReady + OutputsResolved,
-// so consumers wait for full steady-state on the provider rather than wiring against a
-// half-applied state. The ObservedGeneration check ensures we don't accept a stale Ready
-// from a prior reconcile when the provider's spec has just changed.
-func isResourceReleaseBindingReady(rrb *openchoreov1alpha1.ResourceReleaseBinding) bool {
-	cond := meta.FindStatusCondition(rrb.Status.Conditions, string(resourcereleasebinding.ConditionReady))
+// isResourceReleaseBindingOutputsResolved reports whether the provider binding has
+// populated outputs for the current generation. Consumers can safely wire those
+// outputs before the provider reaches full Ready: Ready also waits for long-running
+// provider resources such as schema bootstrap Jobs, while the runtime contract
+// (Secret refs, ConfigMap refs, literal values) is already available once
+// OutputsResolved=True.
+func isResourceReleaseBindingOutputsResolved(rrb *openchoreov1alpha1.ResourceReleaseBinding) bool {
+	cond := meta.FindStatusCondition(rrb.Status.Conditions, string(resourcereleasebinding.ConditionOutputsResolved))
 	if cond == nil {
 		return false
 	}

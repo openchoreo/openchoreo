@@ -18,6 +18,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/resourcereleasebinding"
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 )
 
@@ -33,7 +34,7 @@ const (
 
 	// resourceDependencyTargetsIndex indexes ReleaseBindings by their resource dependency
 	// targets (namespace/project/resourceName/environment) for efficient reverse lookup
-	// when a provider ResourceReleaseBinding's outputs or Ready condition change.
+	// when a provider ResourceReleaseBinding's outputs or OutputsResolved condition change.
 	resourceDependencyTargetsIndex = "status.resourceDependencyTargets"
 )
 
@@ -173,10 +174,11 @@ func (r *Reconciler) setupResourceDependencyTargetsIndex(ctx context.Context, mg
 
 // resourceReleaseBindingOutputsChangedPredicate returns a predicate that passes when a
 // ResourceReleaseBinding update affects what consumers see: outputs change, generation
-// advances (spec edit by PE), or the Ready condition's Status / ObservedGeneration shift.
-// Other status changes (e.g., Synced reason updates) are filtered out. Tracking generation
-// and ObservedGeneration matches the consumer-side gate in isResourceReleaseBindingReady,
-// so a provider mid-reconcile re-enqueues consumers when it catches up.
+// advances (spec edit by PE), or the OutputsResolved condition's Status /
+// ObservedGeneration shift. Other status changes (e.g., Synced reason updates) are
+// filtered out. Tracking generation and ObservedGeneration matches the consumer-side
+// gate in isResourceReleaseBindingOutputsResolved, so a provider mid-reconcile
+// re-enqueues consumers when it catches up.
 func resourceReleaseBindingOutputsChangedPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(_ event.CreateEvent) bool {
@@ -197,7 +199,7 @@ func resourceReleaseBindingOutputsChangedPredicate() predicate.Predicate {
 			if !apiequality.Semantic.DeepEqual(oldRRB.Status.Outputs, newRRB.Status.Outputs) {
 				return true
 			}
-			return readyConditionChanged(oldRRB, newRRB)
+			return outputsResolvedConditionChanged(oldRRB, newRRB)
 		},
 		DeleteFunc: func(_ event.DeleteEvent) bool {
 			return true
@@ -208,24 +210,25 @@ func resourceReleaseBindingOutputsChangedPredicate() predicate.Predicate {
 	}
 }
 
-// readyConditionChanged reports whether the Ready condition's Status or ObservedGeneration
-// differs between two ResourceReleaseBindings. Absence on either side maps to "" / 0, so a
-// True ↔ absent transition still counts as a flip. The ObservedGeneration check matches the
-// consumer-side gate in isResourceReleaseBindingReady — a provider that updates Ready in
+// outputsResolvedConditionChanged reports whether the OutputsResolved condition's Status
+// or ObservedGeneration differs between two ResourceReleaseBindings. Absence on either
+// side maps to "" / 0, so a True ↔ absent transition still counts as a flip. The
+// ObservedGeneration check matches the consumer-side gate in
+// isResourceReleaseBindingOutputsResolved — a provider that updates OutputsResolved in
 // place to track a new generation must re-enqueue consumers even if Status stays True.
-func readyConditionChanged(oldRRB, newRRB *openchoreov1alpha1.ResourceReleaseBinding) bool {
-	const readyType = "Ready"
+func outputsResolvedConditionChanged(oldRRB, newRRB *openchoreov1alpha1.ResourceReleaseBinding) bool {
+	const outputsResolvedType = string(resourcereleasebinding.ConditionOutputsResolved)
 	var oldStatus, newStatus string
 	var oldObserved, newObserved int64
 	for i := range oldRRB.Status.Conditions {
-		if oldRRB.Status.Conditions[i].Type == readyType {
+		if oldRRB.Status.Conditions[i].Type == outputsResolvedType {
 			oldStatus = string(oldRRB.Status.Conditions[i].Status)
 			oldObserved = oldRRB.Status.Conditions[i].ObservedGeneration
 			break
 		}
 	}
 	for i := range newRRB.Status.Conditions {
-		if newRRB.Status.Conditions[i].Type == readyType {
+		if newRRB.Status.Conditions[i].Type == outputsResolvedType {
 			newStatus = string(newRRB.Status.Conditions[i].Status)
 			newObserved = newRRB.Status.Conditions[i].ObservedGeneration
 			break

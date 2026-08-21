@@ -268,6 +268,13 @@ var _ = Describe("ReleaseBinding resource dependencies", func() {
 				{Name: "host", Value: outputHost},
 			}
 			apimeta.SetStatusCondition(&rrb.Status.Conditions, metav1.Condition{
+				Type:               string(resourcereleasebinding.ConditionOutputsResolved),
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: rrb.Generation,
+				Reason:             "OutputsResolved",
+				Message:            "test fixture",
+			})
+			apimeta.SetStatusCondition(&rrb.Status.Conditions, metav1.Condition{
 				Type:               string(resourcereleasebinding.ConditionReady),
 				Status:             metav1.ConditionTrue,
 				ObservedGeneration: rrb.Generation,
@@ -383,6 +390,13 @@ var _ = Describe("ReleaseBinding resource dependencies", func() {
 				{Name: "password", SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: secretName, Key: "password"}},
 				{Name: "database", ConfigMapKeyRef: &openchoreov1alpha1.ConfigMapKeyRef{Name: configMapRef, Key: "name"}},
 			}
+			apimeta.SetStatusCondition(&rrb.Status.Conditions, metav1.Condition{
+				Type:               string(resourcereleasebinding.ConditionOutputsResolved),
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: rrb.Generation,
+				Reason:             "OutputsResolved",
+				Message:            "test fixture",
+			})
 			apimeta.SetStatusCondition(&rrb.Status.Conditions, metav1.Condition{
 				Type:               string(resourcereleasebinding.ConditionReady),
 				Status:             metav1.ConditionTrue,
