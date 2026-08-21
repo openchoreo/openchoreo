@@ -158,8 +158,8 @@ func (s *TracesService) QuerySpans(ctx context.Context, traceID string, req *typ
 	return s.convertAdapterSpansToResponse(spansResult), nil
 }
 
-// GetSpanDetails retrieves detailed information about a specific span.
-func (s *TracesService) GetSpanDetails(ctx context.Context, traceID string, spanID string) (*types.SpanInfo, error) {
+// QuerySpanDetails retrieves detailed information about a specific span within a scope.
+func (s *TracesService) QuerySpanDetails(ctx context.Context, traceID string, spanID string, scope types.ComponentSearchScope) (*types.SpanInfo, error) {
 	if traceID == "" {
 		return nil, fmt.Errorf("%w: traceId is required", ErrTracesInvalidRequest)
 	}
@@ -167,11 +167,24 @@ func (s *TracesService) GetSpanDetails(ctx context.Context, traceID string, span
 		return nil, fmt.Errorf("%w: spanId is required", ErrTracesInvalidRequest)
 	}
 
-	s.logger.Info("GetSpanDetails called",
+	s.logger.Info("QuerySpanDetails called",
 		"traceId", traceID,
 		"spanId", spanID)
 
-	detail, err := s.tracingAdapter.GetSpanDetails(ctx, traceID, spanID)
+	projectUID, componentUID, environmentUID, err := s.resolveSearchScope(ctx, &scope)
+	if err != nil {
+		s.logger.Error("Failed to resolve search scope", "error", err)
+		return nil, fmt.Errorf("%w: %w", ErrTracesResolveSearchScope, err)
+	}
+
+	params := observability.TracesQueryParams{
+		Namespace:     scope.Namespace,
+		ProjectID:     projectUID,
+		ComponentID:   componentUID,
+		EnvironmentID: environmentUID,
+	}
+
+	detail, err := s.tracingAdapter.QuerySpanDetails(ctx, traceID, spanID, params)
 	if err != nil {
 		s.logger.Error("Failed to retrieve span details", "error", err)
 		if errors.Is(err, ErrSpanNotFound) {
@@ -179,6 +192,10 @@ func (s *TracesService) GetSpanDetails(ctx context.Context, traceID string, span
 		}
 		return nil, fmt.Errorf("%w: %w", ErrTracesRetrieval, err)
 	}
+	return spanDetailToInfo(detail), nil
+}
+
+func spanDetailToInfo(detail *observability.SpanDetail) *types.SpanInfo {
 	return &types.SpanInfo{
 		SpanID:             detail.SpanID,
 		SpanName:           detail.SpanName,
@@ -190,7 +207,7 @@ func (s *TracesService) GetSpanDetails(ctx context.Context, traceID string, span
 		Status:             detail.Status,
 		Attributes:         detail.Attributes,
 		ResourceAttributes: detail.ResourceAttributes,
-	}, nil
+	}
 }
 
 func (s *TracesService) convertToResponse(result *observability.TracesQueryResult) *types.TracesQueryResponse {
