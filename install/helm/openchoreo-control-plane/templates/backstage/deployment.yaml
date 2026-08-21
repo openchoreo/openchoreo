@@ -168,6 +168,7 @@ spec:
           value: {{ .Values.backstage.observability.wirelogs.streamTimeoutSeconds | default 900 | quote }}
         # External CI Platform Integrations
         # Jenkins: requires jenkins.io/job-full-name annotation on entity
+        {{- if .Values.backstage.externalCI.jenkins.enabled }}
         - name: JENKINS_BASE_URL
           value: {{ .Values.backstage.externalCI.jenkins.baseUrl | quote }}
         - name: JENKINS_USERNAME
@@ -177,6 +178,7 @@ spec:
             secretKeyRef:
               name: {{ .Values.backstage.secretName }}
               key: jenkins-api-key
+        {{- end }}
         # GitHub Actions: requires github.com/project-slug annotation on entity.
         # Only injected when the integration is enabled, so a disabled provider
         # leaves no GitHub footprint in the Backstage config. GITHUB_TOKEN is
@@ -250,13 +252,13 @@ spec:
         {{- end }}
         livenessProbe:
           httpGet:
-            path: /healthcheck
+            path: /.backstage/health/v1/liveness
             port: http
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           httpGet:
-            path: /healthcheck
+            path: /.backstage/health/v1/readiness
             port: http
           initialDelaySeconds: 10
           periodSeconds: 5
