@@ -45,6 +45,10 @@ const (
 	ReasonApplySucceeded = "ApplySucceeded"
 	// ReasonApplyFailed indicates one or more resources failed to apply
 	ReasonApplyFailed = "ApplyFailed"
+
+	defaultStableRequeueInterval         = 5 * time.Minute
+	defaultStableServingWorkloadInterval = 30 * time.Second
+	defaultProgressingRequeueInterval    = 10 * time.Second
 )
 
 // Reconciler reconciles a RenderedRelease object
@@ -437,12 +441,6 @@ func (r *Reconciler) deleteResources(ctx context.Context, planeClient client.Cli
 	for _, obj := range staleResources {
 		resourceID := obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
 
-		// Skip resources already terminating on the target plane (re-deleting over
-		// the gateway tunnel is a wasted round-trip on the most expensive I/O path).
-		if obj.GetDeletionTimestamp() != nil {
-			continue
-		}
-
 		// Delete the resource from the target plane
 		if err := planeClient.Delete(ctx, obj); err != nil {
 			return fmt.Errorf("failed to delete stale resource %s: %w", resourceID, err)
@@ -613,19 +611,36 @@ func (r *Reconciler) listLiveResourcesByGVKs(ctx context.Context, planeClient cl
 // getStableRequeueInterval returns the requeue interval for stable resources
 // Returns zero duration if interval is set to 0 (no requeue)
 func getStableRequeueInterval(release *openchoreov1alpha1.RenderedRelease) time.Duration {
-	// Use configured interval or default to 5m
-	baseInterval := 5 * time.Minute
 	if release.Spec.Interval != nil {
-		baseInterval = release.Spec.Interval.Duration
+		baseInterval := release.Spec.Interval.Duration
 		// If set to 0, don't requeue
 		if baseInterval == 0 {
 			return 0
 		}
+		// Add 20% jitter
+		jitterMax := time.Duration(float64(baseInterval) * 0.2)
+		return addJitter(baseInterval, jitterMax)
+	}
+
+	baseInterval := defaultStableRequeueInterval
+	if hasServingWorkloadStatus(release.Status.Resources) {
+		baseInterval = defaultStableServingWorkloadInterval
 	}
 
 	// Add 20% jitter
 	jitterMax := time.Duration(float64(baseInterval) * 0.2)
 	return addJitter(baseInterval, jitterMax)
+}
+
+func hasServingWorkloadStatus(resources []openchoreov1alpha1.RenderedManifestStatus) bool {
+	for _, resource := range resources {
+		if resource.Group == appsAPIGroup &&
+			(resource.Kind == deploymentKind || resource.Kind == statefulSetKind) &&
+			resource.HealthStatus == openchoreov1alpha1.HealthStatusHealthy {
+			return true
+		}
+	}
+	return false
 }
 
 // getResurrectableRequeueInterval returns the requeue interval for workloads scaled to zero
@@ -640,8 +655,7 @@ func getResurrectableRequeueInterval() time.Duration {
 // getProgressingRequeueInterval returns the requeue interval for transitioning resources
 // Returns zero duration if progressingInterval is set to 0 (no requeue)
 func getProgressingRequeueInterval(release *openchoreov1alpha1.RenderedRelease) time.Duration {
-	// Use configured progressingInterval or default to 10s
-	baseInterval := 10 * time.Second
+	baseInterval := defaultProgressingRequeueInterval
 	if release.Spec.ProgressingInterval != nil {
 		baseInterval = release.Spec.ProgressingInterval.Duration
 		// If set to 0, don't requeue

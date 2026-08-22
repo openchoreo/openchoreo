@@ -1387,6 +1387,61 @@ func TestSetResourcesReadyStatus_DeploymentHealthy(t *testing.T) {
 	}
 }
 
+func TestSetResourcesReadyStatus_DeploymentDegradedClearsReady(t *testing.T) {
+	r := newTestReconciler()
+	rb := makeReleaseBindingForConditions()
+	setConditionOnRB(rb, string(ConditionReleaseSynced), metav1.ConditionTrue, string(ReasonReleaseSynced), "synced")
+	setConditionOnRB(rb, string(ConditionConnectionsResolved), metav1.ConditionTrue, string(ReasonNoConnections), "no connections")
+	setConditionOnRB(rb, string(ConditionResourceDependenciesReady), metav1.ConditionTrue, string(ReasonAllResourceDependenciesReady), "ready")
+
+	release := &openchoreov1alpha1.RenderedRelease{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-release"},
+		Status: openchoreov1alpha1.RenderedReleaseStatus{
+			Resources: []openchoreov1alpha1.RenderedManifestStatus{
+				{
+					Group:        "apps",
+					Version:      "v1",
+					Kind:         "Deployment",
+					Name:         "app",
+					HealthStatus: openchoreov1alpha1.HealthStatusDegraded,
+				},
+			},
+		},
+	}
+	comp := &openchoreov1alpha1.Component{
+		Spec: openchoreov1alpha1.ComponentSpec{
+			ComponentType: openchoreov1alpha1.ComponentTypeRef{Name: "deployment/my-svc"},
+		},
+	}
+
+	if err := r.setResourcesReadyStatus(testContext(), rb, release, comp); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	r.setReadyCondition(rb)
+
+	resCond := findCondition(rb.Status.Conditions, string(ConditionResourcesReady))
+	if resCond == nil {
+		t.Fatal("ResourcesReady condition should be set")
+	}
+	if resCond.Status != metav1.ConditionFalse {
+		t.Errorf("ResourcesReady Status = %q, want False", resCond.Status)
+	}
+	if resCond.Reason != string(ReasonResourcesDegraded) {
+		t.Errorf("ResourcesReady Reason = %q, want %q", resCond.Reason, ReasonResourcesDegraded)
+	}
+
+	readyCond := findCondition(rb.Status.Conditions, string(ConditionReady))
+	if readyCond == nil {
+		t.Fatal("Ready condition should be set")
+	}
+	if readyCond.Status != metav1.ConditionFalse {
+		t.Errorf("Ready Status = %q, want False", readyCond.Status)
+	}
+	if readyCond.Reason != string(ReasonResourcesDegraded) {
+		t.Errorf("Ready Reason = %q, want %q", readyCond.Reason, ReasonResourcesDegraded)
+	}
+}
+
 func TestSetResourcesReadyStatus_StatefulSetDegraded(t *testing.T) {
 	r := newTestReconciler()
 	rb := makeReleaseBindingForConditions()
