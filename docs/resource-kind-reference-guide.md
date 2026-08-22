@@ -331,7 +331,7 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `environmentName` | string | Yes | Target environment |
 | `resources[]` | Resource[] | No | Rendered K8s resources (id + raw object) |
 | `targetPlane` | string | No | `dataplane` (default) or `observabilityplane` |
-| `interval` | Duration | No | Stable-state watch interval (default 5m) |
+| `interval` | Duration | No | Stable-state watch interval. Defaults to 30s for healthy serving workloads and 5m for other stable resources. |
 | `progressingInterval` | Duration | No | Transitioning watch interval (default 10s) |
 
 **Status:**

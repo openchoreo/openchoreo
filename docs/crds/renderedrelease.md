@@ -240,7 +240,9 @@ The controller detects transitioning states to adjust reconciliation frequency:
 - **Other Resources**: Considered stable (ConfigMaps, Secrets, Services, etc.)
 
 **Reconciliation Intervals:**
-- **Stable Resources**: Uses `interval` field (default 5m) with 20% jitter
+- **Stable Resources**: Uses `interval` field when set. Without an explicit interval,
+  healthy serving workloads are checked every 30s with 20% jitter; other stable resources
+  default to 5m with 20% jitter.
 - **Transitioning Resources**: Uses `progressingInterval` field (default 10s) with 20% jitter
 - **Jitter**: Prevents thundering herd by adding random delay to requeue intervals
 - **Disable Requeue**: Set interval to 0 to disable automatic reconciliation

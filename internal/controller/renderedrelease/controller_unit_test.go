@@ -77,11 +77,28 @@ func TestAddJitter(t *testing.T) {
 // ─────────────────────────────────────────────────────────────
 
 func TestGetStableRequeueInterval(t *testing.T) {
-	t.Run("nil interval defaults to 5m with jitter", func(t *testing.T) {
+	t.Run("nil interval defaults to 5m with jitter for non-serving resources", func(t *testing.T) {
 		release := &openchoreov1alpha1.RenderedRelease{}
 		result := getStableRequeueInterval(release)
 		if result < 5*time.Minute || result >= 6*time.Minute {
 			t.Errorf("expected result in [5m, 6m), got %v", result)
+		}
+	})
+
+	t.Run("nil interval defaults to 30s with jitter for healthy serving workloads", func(t *testing.T) {
+		release := &openchoreov1alpha1.RenderedRelease{
+			Status: openchoreov1alpha1.RenderedReleaseStatus{
+				Resources: []openchoreov1alpha1.RenderedManifestStatus{{
+					Group:        "apps",
+					Version:      "v1",
+					Kind:         "Deployment",
+					HealthStatus: openchoreov1alpha1.HealthStatusHealthy,
+				}},
+			},
+		}
+		result := getStableRequeueInterval(release)
+		if result < 30*time.Second || result >= 36*time.Second {
+			t.Errorf("expected result in [30s, 36s), got %v", result)
 		}
 	})
 
@@ -737,6 +754,23 @@ func TestGetDeploymentHealth(t *testing.T) {
 					AvailableReplicas:  0,
 					Conditions: []appsv1.DeploymentCondition{
 						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionUnknown},
+					},
+				},
+			},
+			want: openchoreov1alpha1.HealthStatusDegraded,
+		},
+		{
+			name: "previously available deployment now 0 of 1 ready is Degraded",
+			deployment: appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 2},
+				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(1)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration:  2,
+					UpdatedReplicas:     1,
+					UnavailableReplicas: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+						{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionFalse, Reason: "MinimumReplicasUnavailable"},
 					},
 				},
 			},
