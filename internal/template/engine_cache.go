@@ -40,6 +40,60 @@ func DisableProgramCacheOnly() EngineOption {
 	}
 }
 
+// CEL evaluation guards - bound the work a single expression can do.
+const (
+	// Measured over the heaviest real samples driven with worst-case-legit inputs when
+	// this limit was derived: the costliest single expression came to 36,141. It is a
+	// transformMapEntry comprehension, which cel-go expands and meters natively, so adding
+	// runtime cost trackers for the oc_* custom functions left it unchanged. The limit is
+	// bounded by the headroom arm (36,141 x 100 = 3.6M) and the memory arm: a quarter of
+	// the controller-manager's 1Gi limit (268MB) divided by 10 concurrent reconciles x
+	// ~10 bytes per cost unit (cel-go StringTraversalCostFactor 0.1) = 2.68M, rounded down
+	// to 2,000,000. That leaves 55x headroom over the measured worst case and caps
+	// transient allocation at 20MB per evaluation at the default maxConcurrentReconciles
+	// of 1. The project, resource and workflow pipelines were measured afterwards: their
+	// heaviest whole reconcile is 4,351, three orders of magnitude below this limit, so
+	// none of them constrains it.
+	//
+	// The control-plane chart states this same number as its celCostLimit default rather
+	// than leaving it at 0, so the two have to be changed together: a chart that pins the
+	// old value would otherwise keep overriding a new default here.
+	defaultCELCostLimit     uint64 = 2_000_000
+	interruptCheckFrequency uint   = 100 // internal; how often ContextEval checks ctx. Not user-configurable.
+)
+
+// renderBudgetFactor scales the resolved per-expression cost limit into the
+// per-reconcile (or per-Render fallback) cumulative budget. An operator raising the
+// cost limit proportionally raises the budget.
+//
+// Sized so the budget leaves at least 10x headroom over the heaviest legitimate
+// reconcile measured across all four pipelines:
+// ceil((Rmax_global x 10) / defaultCELCostLimit) = ceil(694,370 / 2,000,000) = 1.
+// Rmax_global is 69,437, the component pipeline's heaviest whole render. Whole reconciles
+// of the other three pipelines, each driven through its real entry-point sequence on one
+// shared budget, top out at 4,351. The resulting budget of 2,000,000 leaves 28.8x headroom.
+//
+// Rmax_global rose from 68,966 when the oc_* custom functions gained runtime cost
+// trackers (see CustomFunctionCostOptions): the samples call oc_generate_name and
+// oc_dns_label throughout, and each call now charges for the bytes it walks instead of
+// a single unit. The factor is unchanged - 10x headroom needs only 694,370 of the
+// 2,000,000 budget.
+const renderBudgetFactor uint64 = 1
+
+// renderBudgetDefault is the fallback budget used when the caller's context carries none.
+// It bounds a single Render rather than a whole reconcile.
+func (e *Engine) renderBudgetDefault() uint64 {
+	return e.costLimit * renderBudgetFactor
+}
+
+// WithCostLimit sets the maximum accumulated cost for a single CEL expression evaluation.
+// 0 selects the built-in safe default; it never means "unlimited".
+func WithCostLimit(limit uint64) EngineOption {
+	return func(e *Engine) {
+		e.costLimit = limit
+	}
+}
+
 // Default cache sizes - limits memory usage while providing good hit rates
 const (
 	defaultEnvCacheSize = 100 // CEL environments (typically 2-10 unique contexts)

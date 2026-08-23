@@ -129,7 +129,7 @@ func TestNewEngineWithOptions_DisableCache(t *testing.T) {
 	tpl := map[string]any{"name": "${metadata.name}"}
 	inputs := map[string]any{"metadata": map[string]any{"name": "test"}}
 
-	result, err := engine.Render(tpl, inputs)
+	result, err := engine.Render(t.Context(), tpl, inputs)
 	require.NoError(t, err)
 
 	resultMap, ok := result.(map[string]any)
@@ -139,7 +139,7 @@ func TestNewEngineWithOptions_DisableCache(t *testing.T) {
 	assert.Equal(t, 0, engine.cache.ProgramCacheSize())
 
 	// Render again — should still work without cache
-	result2, err := engine.Render(tpl, inputs)
+	result2, err := engine.Render(t.Context(), tpl, inputs)
 	require.NoError(t, err)
 
 	resultMap2, ok := result2.(map[string]any)
@@ -157,7 +157,7 @@ func TestNewEngineWithOptions_DisableProgramCacheOnly(t *testing.T) {
 	tpl := map[string]any{"name": "${metadata.name}"}
 	inputs := map[string]any{"metadata": map[string]any{"name": "test"}}
 
-	result, err := engine.Render(tpl, inputs)
+	result, err := engine.Render(t.Context(), tpl, inputs)
 	require.NoError(t, err)
 
 	resultMap, ok := result.(map[string]any)
@@ -183,7 +183,7 @@ func TestNewEngineWithOptions_WithCELExtensions(t *testing.T) {
 	tpl := map[string]any{"result": "${oc_test_double(x)}"}
 	inputs := map[string]any{"x": int64(21)}
 
-	result, err := engine.Render(tpl, inputs)
+	result, err := engine.Render(t.Context(), tpl, inputs)
 	require.NoError(t, err)
 
 	resultMap, ok := result.(map[string]any)
@@ -200,7 +200,7 @@ func TestNewEngineWithOptions_NoOptions(t *testing.T) {
 	tpl := map[string]any{"val": "${x + y}"}
 	inputs := map[string]any{"x": int64(1), "y": int64(2)}
 
-	result, err := engine.Render(tpl, inputs)
+	result, err := engine.Render(t.Context(), tpl, inputs)
 	require.NoError(t, err)
 
 	resultMap, ok := result.(map[string]any)
@@ -222,7 +222,7 @@ func TestNewEngineWithOptions_BadExtensionCausesRenderError(t *testing.T) {
 	tpl := map[string]any{"val": "${x}"}
 	inputs := map[string]any{"x": int64(1)}
 
-	_, err := engine.Render(tpl, inputs)
+	_, err := engine.Render(t.Context(), tpl, inputs)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to build CEL environment")
 }
@@ -249,10 +249,10 @@ replicas: ${replicas}
 			"replicas":    int64(3),
 		}
 
-		result1, err := engine.Render(tpl, inputs)
+		result1, err := engine.Render(t.Context(), tpl, inputs)
 		require.NoError(t, err)
 
-		result2, err := engine.Render(tpl, inputs)
+		result2, err := engine.Render(t.Context(), tpl, inputs)
 		require.NoError(t, err)
 
 		yaml1, _ := yaml.Marshal(result1)
@@ -278,7 +278,7 @@ item2: ${metadata.name}-${item}
 				"item":     fmt.Sprintf("value-%d", i),
 			}
 
-			result, err := engine.Render(tpl, inputs)
+			result, err := engine.Render(t.Context(), tpl, inputs)
 			require.NoError(t, err, "iteration %d", i)
 
 			resultMap := result.(map[string]any)
@@ -300,11 +300,11 @@ item2: ${metadata.name}-${item}
 		inputs2Vars := map[string]any{"x": int64(10), "y": int64(20)}
 		inputs3Vars := map[string]any{"x": int64(5), "y": int64(15), "z": int64(100)}
 
-		result2, err := engine.Render(tpl, inputs2Vars)
+		result2, err := engine.Render(t.Context(), tpl, inputs2Vars)
 		require.NoError(t, err)
 		assert.Equal(t, int64(30), result2.(map[string]any)["value"])
 
-		result3, err := engine.Render(tpl, inputs3Vars)
+		result3, err := engine.Render(t.Context(), tpl, inputs3Vars)
 		require.NoError(t, err)
 		assert.Equal(t, int64(20), result3.(map[string]any)["value"])
 	})
@@ -315,7 +315,7 @@ item2: ${metadata.name}-${item}
 		engine := NewEngine()
 
 		tpl := map[string]any{"val": "${x}"}
-		_, err := engine.Render(tpl, map[string]any{"x": int64(1)})
+		_, err := engine.Render(t.Context(), tpl, map[string]any{"x": int64(1)})
 		require.NoError(t, err)
 
 		assert.Greater(t, engine.cache.ProgramCacheSize(), 0, "cache should have entries")

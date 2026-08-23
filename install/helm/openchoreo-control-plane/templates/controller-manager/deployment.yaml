@@ -78,6 +78,14 @@ spec:
         {{- if .Values.controllerManager.manager.logLevel }}
         - --zap-log-level={{ .Values.controllerManager.manager.logLevel }}
         {{- end }}
+        {{- if .Values.controllerManager.manager.celCostLimit }}
+        {{- /* int64: Helm decodes values.yaml numbers as float64, so a bare render emits
+               2e+06, which the controller's uint64 flag parser rejects at startup. */}}
+        - --cel-cost-limit={{ int64 .Values.controllerManager.manager.celCostLimit }}
+        {{- end }}
+        {{- if and .Values.controllerManager.manager.renderTimeout (ne .Values.controllerManager.manager.renderTimeout "0") }}
+        - --render-timeout={{ .Values.controllerManager.manager.renderTimeout }}
+        {{- end }}
         env:
         - name: ENABLE_WEBHOOKS
           value: {{ quote .Values.controllerManager.manager.env.enableWebhooks }}

@@ -8,6 +8,7 @@
 package renderer
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -51,14 +52,15 @@ type RenderedResource struct {
 //
 // Returns an error if any template fails to render.
 func (r *Renderer) RenderResources(
+	ctx context.Context,
 	templates []v1alpha1.ResourceTemplate,
-	context map[string]any,
+	celContext map[string]any,
 ) ([]RenderedResource, error) {
 	resources := make([]RenderedResource, 0, len(templates))
 
 	for _, tmpl := range templates {
 		// Check if resource should be included
-		include, err := ShouldInclude(r.templateEngine, tmpl.IncludeWhen, context)
+		include, err := ShouldInclude(ctx, r.templateEngine, tmpl.IncludeWhen, celContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate includeWhen for resource %s: %w", tmpl.ID, err)
 		}
@@ -68,7 +70,7 @@ func (r *Renderer) RenderResources(
 
 		// Handle forEach iteration
 		if tmpl.ForEach != "" {
-			rendered, err := r.renderWithForEach(tmpl, context)
+			rendered, err := r.renderWithForEach(ctx, tmpl, celContext)
 			if err != nil {
 				return nil, err
 			}
@@ -83,7 +85,7 @@ func (r *Renderer) RenderResources(
 		}
 
 		// Render single resource
-		rendered, err := r.renderSingleResource(tmpl, context)
+		rendered, err := r.renderSingleResource(ctx, tmpl, celContext)
 		if err != nil {
 			return nil, err
 		}
@@ -99,17 +101,18 @@ func (r *Renderer) RenderResources(
 // renderWithForEach handles ResourceTemplate.forEach iteration.
 // Delegates to the shared EvalForEach helper for iteration logic.
 func (r *Renderer) renderWithForEach(
+	ctx context.Context,
 	tmpl v1alpha1.ResourceTemplate,
-	context map[string]any,
+	celContext map[string]any,
 ) ([]map[string]any, error) {
-	itemContexts, err := EvalForEach(r.templateEngine, tmpl.ForEach, tmpl.Var, context)
+	itemContexts, err := EvalForEach(ctx, r.templateEngine, tmpl.ForEach, tmpl.Var, celContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate forEach for resource %s: %w", tmpl.ID, err)
 	}
 
 	resources := make([]map[string]any, 0, len(itemContexts))
 	for _, itemContext := range itemContexts {
-		rendered, err := r.renderSingleResource(tmpl, itemContext)
+		rendered, err := r.renderSingleResource(ctx, tmpl, itemContext)
 		if err != nil {
 			return nil, err
 		}
@@ -127,8 +130,9 @@ func (r *Renderer) renderWithForEach(
 //   - Remove omitted fields
 //   - Validate basic structure (kind, apiVersion, metadata.name)
 func (r *Renderer) renderSingleResource(
+	ctx context.Context,
 	tmpl v1alpha1.ResourceTemplate,
-	context map[string]any,
+	celContext map[string]any,
 ) (map[string]any, error) {
 	// Extract template structure
 	var templateData any
@@ -137,7 +141,7 @@ func (r *Renderer) renderSingleResource(
 	}
 
 	// Render template
-	rendered, err := r.templateEngine.Render(templateData, context)
+	rendered, err := r.templateEngine.Render(ctx, templateData, celContext)
 	if err != nil {
 		return nil, fmt.Errorf("failed to render template for resource %s: %w", tmpl.ID, err)
 	}

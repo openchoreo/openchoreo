@@ -124,7 +124,7 @@ func TestRenderManifests(t *testing.T) {
 			},
 		}))
 
-		got, err := NewPipeline().RenderManifests(input)
+		got, err := NewPipeline().RenderManifests(t.Context(), input)
 		require.NoError(t, err)
 		require.NotNil(t, got)
 		require.Len(t, got.Entries, 1)
@@ -157,7 +157,7 @@ func TestRenderManifests(t *testing.T) {
 		setParams(t, input, map[string]any{"version": "8.0"})
 		setEnvConfigs(t, input, map[string]any{"storageGB": 100})
 
-		got, err := NewPipeline().RenderManifests(input)
+		got, err := NewPipeline().RenderManifests(t.Context(), input)
 		require.NoError(t, err)
 
 		spec := got.Entries[0].Object["spec"].(map[string]any)
@@ -181,7 +181,7 @@ func TestRenderManifests(t *testing.T) {
 			},
 		)
 
-		got, err := NewPipeline().RenderManifests(input)
+		got, err := NewPipeline().RenderManifests(t.Context(), input)
 		require.NoError(t, err)
 		require.Equal(t, "kind-cluster-store", got.Entries[0].Object["value"])
 	})
@@ -205,7 +205,7 @@ func TestRenderManifests(t *testing.T) {
 				},
 			)
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.NoError(t, err)
 			require.Equal(t, "ObservabilityPlane", got.Entries[0].Object["kindRef"])
 			require.Equal(t, "primary-obs", got.Entries[0].Object["nameRef"])
@@ -222,7 +222,7 @@ func TestRenderManifests(t *testing.T) {
 				"value":      `${has(dataplane.observabilityPlaneRef) ? dataplane.observabilityPlaneRef.name : ""}`,
 			}))
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.NoError(t, err)
 			require.Equal(t, "", got.Entries[0].Object["value"])
 		})
@@ -274,7 +274,7 @@ func TestRenderManifests(t *testing.T) {
 				},
 			)
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.NoError(t, err)
 			require.Equal(t, "*.dp.example.com", got.Entries[0].Object["host"])
 		})
@@ -294,7 +294,7 @@ func TestRenderManifests(t *testing.T) {
 				},
 			)
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.NoError(t, err)
 			require.Equal(t, "*.dev.example.com", got.Entries[0].Object["host"])
 		})
@@ -316,7 +316,7 @@ func TestRenderManifests(t *testing.T) {
 				},
 			)
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.NoError(t, err)
 			require.Equal(t, "*.dev.example.com", got.Entries[0].Object["host"])
 			require.EqualValues(t, 443, got.Entries[0].Object["port"])
@@ -344,7 +344,7 @@ func TestRenderManifests(t *testing.T) {
 				},
 			)
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.NoError(t, err)
 			require.Equal(t, "*.dp.example.com", got.Entries[0].Object["envHost"])
 			require.Equal(t, "*.dp.example.com", got.Entries[0].Object["effectiveHost"])
@@ -365,7 +365,7 @@ func TestRenderManifests(t *testing.T) {
 				"envHost":    `${has(environment.gateway) ? environment.gateway.ingress.external.https.host : "no-env-gateway"}`,
 			}))
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.NoError(t, err)
 			require.Equal(t, "no-dp-gateway", got.Entries[0].Object["dpHost"])
 			require.Equal(t, "no-env-gateway", got.Entries[0].Object["envHost"])
@@ -389,7 +389,7 @@ func TestRenderManifests(t *testing.T) {
 		})
 		// Parameters RawExtension is nil; the default fills replicas.
 
-		got, err := NewPipeline().RenderManifests(input)
+		got, err := NewPipeline().RenderManifests(t.Context(), input)
 		require.NoError(t, err)
 		require.EqualValues(t, 3, got.Entries[0].Object["value"], "schema default fills the value")
 	})
@@ -410,7 +410,7 @@ func TestRenderManifests(t *testing.T) {
 			},
 		})
 
-		got, err := NewPipeline().RenderManifests(input)
+		got, err := NewPipeline().RenderManifests(t.Context(), input)
 		require.NoError(t, err)
 		require.Equal(t, "disabled", got.Entries[0].Object["value"])
 	})
@@ -432,7 +432,7 @@ func TestRenderManifests(t *testing.T) {
 		})
 		setParams(t, input, map[string]any{"replicas": 7})
 
-		got, err := NewPipeline().RenderManifests(input)
+		got, err := NewPipeline().RenderManifests(t.Context(), input)
 		require.NoError(t, err)
 		require.EqualValues(t, 7, got.Entries[0].Object["value"], "explicit input overrides default")
 	})
@@ -458,7 +458,7 @@ func TestRenderManifests(t *testing.T) {
 			},
 		})
 
-		got, err := NewPipeline().RenderManifests(input)
+		got, err := NewPipeline().RenderManifests(t.Context(), input)
 		require.NoError(t, err)
 		require.Len(t, got.Entries, 3)
 		require.Equal(t, "claim", got.Entries[0].ID)
@@ -501,7 +501,7 @@ func TestRenderManifests(t *testing.T) {
 			input := makeInput("${parameters.tlsEnabled}")
 			setParams(t, input, map[string]any{"tlsEnabled": true})
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.NoError(t, err)
 			require.Len(t, got.Entries, 2, "both entries rendered")
 			require.Equal(t, "optional", got.Entries[0].ID)
@@ -512,7 +512,7 @@ func TestRenderManifests(t *testing.T) {
 			input := makeInput("${parameters.tlsEnabled}")
 			setParams(t, input, map[string]any{"tlsEnabled": false})
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.NoError(t, err)
 			require.Len(t, got.Entries, 1, "only the unconditional entry survives")
 			require.Equal(t, "always", got.Entries[0].ID, "skipped entry leaves no gap; spec ordering of remaining entries preserved")
@@ -521,7 +521,7 @@ func TestRenderManifests(t *testing.T) {
 		t.Run("includes_entry_when_unset", func(t *testing.T) {
 			input := makeInput("")
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.NoError(t, err)
 			require.Len(t, got.Entries, 2, "empty includeWhen means always include")
 		})
@@ -531,7 +531,7 @@ func TestRenderManifests(t *testing.T) {
 			input := makeInput("${parameters.label}")
 			setParams(t, input, map[string]any{"label": "yes"})
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.Error(t, err)
 			require.Nil(t, got)
 			require.Contains(t, err.Error(), "includeWhen must evaluate to bool")
@@ -541,7 +541,7 @@ func TestRenderManifests(t *testing.T) {
 			// References applied.* which is not in scope at render time.
 			input := makeInput("${applied.foo.status.ready}")
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.Error(t, err)
 			require.Nil(t, got)
 			require.Contains(t, err.Error(), "evaluate includeWhen for resource \"optional\"")
@@ -559,7 +559,7 @@ func TestRenderManifests(t *testing.T) {
 		}))
 		setParams(t, input, map[string]any{"show": false})
 
-		got, err := NewPipeline().RenderManifests(input)
+		got, err := NewPipeline().RenderManifests(t.Context(), input)
 		require.NoError(t, err)
 
 		spec := got.Entries[0].Object["spec"].(map[string]any)
@@ -578,7 +578,7 @@ func TestRenderManifests(t *testing.T) {
 				},
 			}))
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.NoError(t, err)
 
 			meta := got.Entries[0].Object["metadata"].(map[string]any)
@@ -596,7 +596,7 @@ func TestRenderManifests(t *testing.T) {
 				},
 			}))
 
-			got, err := NewPipeline().RenderManifests(input)
+			got, err := NewPipeline().RenderManifests(t.Context(), input)
 			require.NoError(t, err)
 
 			meta := got.Entries[0].Object["metadata"].(map[string]any)
@@ -615,7 +615,7 @@ func TestRenderManifests(t *testing.T) {
 			"value":      "${applied.claim.status.host}",
 		}))
 
-		got, err := NewPipeline().RenderManifests(input)
+		got, err := NewPipeline().RenderManifests(t.Context(), input)
 		require.Error(t, err, "applied.* must not be available during manifest rendering")
 		require.Nil(t, got)
 	})
@@ -631,7 +631,7 @@ func TestRenderManifests(t *testing.T) {
 			"value":      "${metadata.componentName}",
 		}))
 
-		got, err := NewPipeline().RenderManifests(input)
+		got, err := NewPipeline().RenderManifests(t.Context(), input)
 		require.Error(t, err, "metadata.componentName must not be exposed in the base surface")
 		require.Nil(t, got)
 	})
@@ -673,7 +673,7 @@ func TestRenderManifests(t *testing.T) {
 					"kind":       "Probe",
 					"value":      tc.expr,
 				}))
-				got, err := NewPipeline().RenderManifests(input)
+				got, err := NewPipeline().RenderManifests(t.Context(), input)
 				require.NoError(t, err)
 				require.Equal(t, tc.want, got.Entries[0].Object["value"])
 			})
@@ -698,7 +698,7 @@ func TestRenderManifests(t *testing.T) {
 			},
 		)
 
-		got, err := NewPipeline().RenderManifests(input)
+		got, err := NewPipeline().RenderManifests(t.Context(), input)
 		require.NoError(t, err)
 		require.Equal(t, "yes", got.Entries[0].Object["labelsKey"])
 		require.Equal(t, "yes", got.Entries[0].Object["annotKey"])
@@ -715,7 +715,7 @@ func TestResolveOutputs(t *testing.T) {
 			"claim": {"host": "10.0.0.5"},
 		}
 
-		got, err := NewPipeline().ResolveOutputs(input, observed)
+		got, err := NewPipeline().ResolveOutputs(t.Context(), input, observed)
 		require.NoError(t, err)
 		require.Len(t, got, 1)
 		assert.Equal(t, "host", got[0].Name)
@@ -733,7 +733,7 @@ func TestResolveOutputs(t *testing.T) {
 			},
 		})
 
-		got, err := NewPipeline().ResolveOutputs(input, nil)
+		got, err := NewPipeline().ResolveOutputs(t.Context(), input, nil)
 		require.NoError(t, err)
 		require.Len(t, got, 1)
 		assert.Equal(t, "password", got[0].Name)
@@ -753,7 +753,7 @@ func TestResolveOutputs(t *testing.T) {
 			},
 		})
 
-		got, err := NewPipeline().ResolveOutputs(input, nil)
+		got, err := NewPipeline().ResolveOutputs(t.Context(), input, nil)
 		require.NoError(t, err)
 		require.Len(t, got, 1)
 		require.NotNil(t, got[0].ConfigMapKeyRef)
@@ -774,7 +774,7 @@ func TestResolveOutputs(t *testing.T) {
 			},
 		})
 
-		got, err := NewPipeline().ResolveOutputs(input, map[string]map[string]any{})
+		got, err := NewPipeline().ResolveOutputs(t.Context(), input, map[string]map[string]any{})
 		require.NoError(t, err)
 		require.Len(t, got, 1)
 		require.NotNil(t, got[0].SecretKeyRef)
@@ -802,7 +802,7 @@ func TestResolveOutputs(t *testing.T) {
 			},
 		})
 
-		got, err := NewPipeline().ResolveOutputs(input, map[string]map[string]any{})
+		got, err := NewPipeline().ResolveOutputs(t.Context(), input, map[string]map[string]any{})
 		require.Error(t, err, "missing applied.<id> reference must surface as an error")
 		require.Len(t, got, 1, "successfully-resolved outputs are still returned")
 		assert.Equal(t, "password", got[0].Name)
@@ -818,7 +818,7 @@ func TestEvaluateReadyWhen(t *testing.T) {
 	}
 
 	t.Run("returns_true_for_empty_expression", func(t *testing.T) {
-		ready, err := NewPipeline().EvaluateReadyWhen(emptyInput(), nil, "")
+		ready, err := NewPipeline().EvaluateReadyWhen(t.Context(), emptyInput(), nil, "")
 		require.NoError(t, err)
 		require.True(t, ready, "empty readyWhen falls back to per-Kind health inference; pipeline reports ready")
 	})
@@ -828,7 +828,7 @@ func TestEvaluateReadyWhen(t *testing.T) {
 			observed := map[string]map[string]any{
 				"claim": {"ready": true},
 			}
-			ready, err := NewPipeline().EvaluateReadyWhen(emptyInput(), observed, "${applied.claim.status.ready == true}")
+			ready, err := NewPipeline().EvaluateReadyWhen(t.Context(), emptyInput(), observed, "${applied.claim.status.ready == true}")
 			require.NoError(t, err)
 			require.True(t, ready)
 		})
@@ -837,7 +837,7 @@ func TestEvaluateReadyWhen(t *testing.T) {
 			observed := map[string]map[string]any{
 				"claim": {"ready": false},
 			}
-			ready, err := NewPipeline().EvaluateReadyWhen(emptyInput(), observed, "${applied.claim.status.ready == true}")
+			ready, err := NewPipeline().EvaluateReadyWhen(t.Context(), emptyInput(), observed, "${applied.claim.status.ready == true}")
 			require.NoError(t, err)
 			require.False(t, ready)
 		})
@@ -849,7 +849,7 @@ func TestEvaluateReadyWhen(t *testing.T) {
 		observed := map[string]map[string]any{
 			"claim": {"ready": "yes"},
 		}
-		ready, err := NewPipeline().EvaluateReadyWhen(emptyInput(), observed, "${applied.claim.status.ready}")
+		ready, err := NewPipeline().EvaluateReadyWhen(t.Context(), emptyInput(), observed, "${applied.claim.status.ready}")
 		require.Error(t, err)
 		require.False(t, ready)
 		require.Contains(t, err.Error(), "must evaluate to bool")
