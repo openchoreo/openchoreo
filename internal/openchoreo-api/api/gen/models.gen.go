@@ -678,6 +678,24 @@ type CapabilityResource struct {
 	Path *string `json:"path,omitempty"`
 }
 
+// ChildDiscoveryStatus Reports that children of one kind could not be discovered under a node. It is attached to the nearest node the client can see, so a failure while expanding a hidden intermediate resource still surfaces somewhere. Its presence means the node's children of that kind are incomplete, not that there are none.
+type ChildDiscoveryStatus struct {
+	// Group API group of the child kind that could not be discovered (empty for core)
+	Group *string `json:"group,omitempty"`
+
+	// Kind Kind of the child resources that could not be discovered
+	Kind string `json:"kind"`
+
+	// Message Optional human-readable detail about the failure
+	Message *string `json:"message,omitempty"`
+
+	// State Why discovery of this child kind did not complete. Currently `forbidden`, meaning the platform is not permitted to list that kind, or `error`, which covers every other failure including a truncated result. Left open rather than enumerated so a new state does not break existing clients; treat an unrecognized value as `error`.
+	State string `json:"state"`
+
+	// Version API version of the child kind that could not be discovered
+	Version string `json:"version"`
+}
+
 // ClusterAgentConfig Configuration for cluster agent-based communication
 type ClusterAgentConfig struct {
 	// ClientCA Reference to a secret or inline value
@@ -3383,6 +3401,9 @@ type ResourceInstanceStatus struct {
 
 // ResourceNode A single resource in the resource tree
 type ResourceNode struct {
+	// ChildrenStatus Per-kind child-discovery failures under this node. Present only when at least one kind of child could not be discovered; absent means discovery completed for every kind configured under this node.
+	ChildrenStatus *[]ChildDiscoveryStatus `json:"childrenStatus,omitempty"`
+
 	// CreatedAt Creation timestamp of the resource
 	CreatedAt *time.Time `json:"createdAt,omitempty"`
 
@@ -3395,13 +3416,19 @@ type ResourceNode struct {
 	// Kind Kind of the resource
 	Kind string `json:"kind"`
 
+	// MatchedBy How this node was attributed to its parent, when the attribution was not exact. Set to `labelSelector` when the node was matched heuristically by labels, which can over-match; absent for exact ownerRef matches. Consoles should badge nodes that carry it.
+	MatchedBy *string `json:"matchedBy,omitempty"`
+
+	// MetadataOnly True when `object` has been projected down to `apiVersion`, `kind` and `metadata` and therefore carries no spec, status or data. This is how the contents of sensitive resources such as Secrets are kept out of the response. Absent means the full object is present.
+	MetadataOnly *bool `json:"metadataOnly,omitempty"`
+
 	// Name Name of the resource
 	Name string `json:"name"`
 
 	// Namespace Namespace of the resource
 	Namespace *string `json:"namespace,omitempty"`
 
-	// Object Full Kubernetes resource object
+	// Object The Kubernetes resource object. Reduced to `apiVersion`, `kind` and `metadata` when `metadataOnly` is true.
 	Object map[string]interface{} `json:"object"`
 
 	// ParentRefs References to parent resources

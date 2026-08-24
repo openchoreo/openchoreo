@@ -225,6 +225,13 @@ func (h *Handler) handleK8sResourceEventsError(err error) (gen.GetReleaseBinding
 	if errors.Is(err, k8sresourcessvc.ErrResourceNotFound) {
 		return gen.GetReleaseBindingK8sResourceEvents404JSONResponse{NotFoundJSONResponse: notFound("Resource")}, nil
 	}
+	// An incomplete tree walk or an ambiguous identity is not a "resource does not
+	// exist": report a server error, never a 404, so an outage or a collision is
+	// distinguishable from genuine non-membership.
+	if errors.Is(err, k8sresourcessvc.ErrResourceTreeIncomplete) || errors.Is(err, k8sresourcessvc.ErrResourceMatchAmbiguous) {
+		h.logger.Warn("Cannot resolve resource for events", "error", err)
+		return gen.GetReleaseBindingK8sResourceEvents500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
+	}
 	h.logger.Error("Failed to get k8s resource events", "error", err)
 	return gen.GetReleaseBindingK8sResourceEvents500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 }
@@ -249,6 +256,13 @@ func (h *Handler) handleK8sResourceLogsError(err error) (gen.GetReleaseBindingK8
 		return gen.GetReleaseBindingK8sResourceLogs400JSONResponse{
 			BadRequestJSONResponse: badRequest("Container not found in pod"),
 		}, nil
+	}
+	// An incomplete tree walk or an ambiguous identity is not a "pod does not
+	// exist": report a server error, never a 404, so an outage or a collision is
+	// distinguishable from genuine non-membership.
+	if errors.Is(err, k8sresourcessvc.ErrResourceTreeIncomplete) || errors.Is(err, k8sresourcessvc.ErrResourceMatchAmbiguous) {
+		h.logger.Warn("Cannot resolve pod for logs", "error", err)
+		return gen.GetReleaseBindingK8sResourceLogs500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 	h.logger.Error("Failed to get k8s resource logs", "error", err)
 	return gen.GetReleaseBindingK8sResourceLogs500JSONResponse{InternalErrorJSONResponse: internalError()}, nil

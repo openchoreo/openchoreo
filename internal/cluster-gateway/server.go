@@ -137,9 +137,10 @@ func (s *Server) Start() error {
 
 	// Internal listener: caller-facing /api/* for in-cluster components only.
 	internalMux := http.NewServeMux()
-	internalMux.HandleFunc("/api/proxy/", s.handleHTTPProxy)   // HTTP proxy to data plane services
-	internalMux.HandleFunc("/api/exec/", s.handleExec)         // WebSocket exec proxy to data plane pods
-	internalMux.HandleFunc("/api/wirelogs/", s.handleWirelogs) // WebSocket wirelogs (Cilium Hubble flow) stream
+	internalMux.HandleFunc("/api/proxy/", s.handleHTTPProxy)                    // HTTP proxy to data plane services
+	internalMux.HandleFunc("/api/exec/", s.handleExec)                          // WebSocket exec proxy to data plane pods
+	internalMux.HandleFunc("/api/wirelogs/", s.handleWirelogs)                  // WebSocket wirelogs (Cilium Hubble flow) stream
+	internalMux.HandleFunc(resourceTreePathPrefix, s.handleResourceTreeMatches) // Resource tree child match queries
 
 	// Register plane lifecycle API (for controller notifications and status queries)
 	planeAPI := NewPlaneAPI(s.connMgr, s, s.logger)

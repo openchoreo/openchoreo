@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/openchoreo/openchoreo/internal/config"
+	"github.com/openchoreo/openchoreo/internal/resourcetree/protocol"
 	"github.com/openchoreo/openchoreo/internal/server"
 )
 
@@ -41,10 +42,18 @@ type TimeoutsConfig struct {
 }
 
 // TimeoutsDefaults returns the default timeout configuration.
+//
+// Write must outlast the slowest legitimate response. The resource tree endpoint
+// waits on the cluster agent through the gateway, whose ladder tops out at
+// protocol.ClientRequestTimeout; a shorter server write deadline would cut that
+// response off before any rung of the ladder fires, defeating it and hiding the
+// agent/gateway result. So the default is derived from that budget rather than
+// hardcoded — the two move together — with a margin for the handler's own
+// serialization. Read stays short because request bodies are small.
 func TimeoutsDefaults() TimeoutsConfig {
 	return TimeoutsConfig{
 		Read:     15 * time.Second,
-		Write:    15 * time.Second,
+		Write:    protocol.ClientRequestTimeout + 5*time.Second,
 		Idle:     60 * time.Second,
 		Shutdown: 30 * time.Second,
 	}

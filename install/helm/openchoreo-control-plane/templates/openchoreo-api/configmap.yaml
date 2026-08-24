@@ -62,6 +62,44 @@ data:
       toolsets:
         {{- toYaml .Values.openchoreoApi.config.mcp.toolsets | nindent 8 }}
 
+{{- /*
+Built-in traversal rules come from the chart file
+files/resource-tree-builtin-rules.yaml rather than from values, so no --set or
+-f can edit them. Operator rules from openchoreoApi.config.resourceTree.rules
+are appended after them. The API server replaces its compiled-in rules whenever
+config supplies any, so this rendered list is the complete rule set.
+
+The trailing `default list` is load-bearing: concat returns a nil slice when
+both inputs are empty, which would render as null rather than [].
+
+All three guards are required. fromYamlArray never fails a render: it returns an
+empty list for missing, empty, `null` and `[]` input, and a one-element list
+holding the parse error as a string for a map or scalar. A raw-emptiness check
+alone therefore lets a `null` or `[]` file through as zero rules.
+*/}}
+{{- $resourceTree := .Values.openchoreoApi.config.resourceTree }}
+{{- $builtInRules := list }}
+{{- if not $resourceTree.disableBuiltInRules }}
+{{- $rawBuiltInRules := .Files.Get "files/resource-tree-builtin-rules.yaml" }}
+{{- if not $rawBuiltInRules }}
+{{- fail "files/resource-tree-builtin-rules.yaml is missing or empty; the built-in resource tree rules cannot be rendered" }}
+{{- end }}
+{{- $builtInRules = fromYamlArray $rawBuiltInRules }}
+{{- if not $builtInRules }}
+{{- fail "files/resource-tree-builtin-rules.yaml parsed to an empty rule list; rendering it would switch child discovery off for the whole install" }}
+{{- end }}
+{{- range $rule := $builtInRules }}
+{{- if ne (kindOf $rule) "map" }}
+{{- fail (printf "files/resource-tree-builtin-rules.yaml is not a list of rules: %v" $rule) }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+    resource_tree:
+      # Built-in rules from files/resource-tree-builtin-rules.yaml, then openchoreoApi.config.resourceTree.rules.
+      rules:
+        {{- toYaml (concat $builtInRules ($resourceTree.rules | default list) | default list) | nindent 8 }}
+
     secret_management:
       enabled: {{ .Values.features.secretManagement.enabled }}
 

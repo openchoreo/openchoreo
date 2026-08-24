@@ -536,7 +536,7 @@ func TestAgent_New_TLSDisabled(t *testing.T) {
 	// NewRouter needs a rest.Config — provide a minimal one
 	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
 
-	agent, err := New(cfg, nil, k8sConfig, testLogger())
+	agent, err := New(cfg, nil, k8sConfig, nil, testLogger())
 	require.NoError(t, err)
 	assert.NotNil(t, agent)
 	assert.NotNil(t, agent.router)
@@ -556,7 +556,7 @@ func TestAgent_New_TLSEnabled_BadCert(t *testing.T) {
 
 	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
 
-	_, err := New(cfg, nil, k8sConfig, testLogger())
+	_, err := New(cfg, nil, k8sConfig, nil, testLogger())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load client certificate")
 }
@@ -638,7 +638,7 @@ func TestAgent_New_TLSEnabled_Success(t *testing.T) {
 
 	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
 
-	agent, err := New(cfg, nil, k8sConfig, testLogger())
+	agent, err := New(cfg, nil, k8sConfig, nil, testLogger())
 	require.NoError(t, err)
 	assert.NotNil(t, agent)
 	assert.NotNil(t, agent.serverCA)
@@ -664,7 +664,7 @@ func TestAgent_New_TLSEnabled_BadServerCA(t *testing.T) {
 
 	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
 
-	agent, err := New(cfg, nil, k8sConfig, testLogger())
+	agent, err := New(cfg, nil, k8sConfig, nil, testLogger())
 	// Should succeed but serverCA pool is nil (warn logged, not fatal)
 	require.NoError(t, err)
 	assert.NotNil(t, agent)
@@ -686,7 +686,7 @@ func TestAgent_New_TLSEnabled_MissingServerCA(t *testing.T) {
 
 	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
 
-	agent, err := New(cfg, nil, k8sConfig, testLogger())
+	agent, err := New(cfg, nil, k8sConfig, nil, testLogger())
 	// Should succeed (warn logged, continues without server verification)
 	require.NoError(t, err)
 	assert.NotNil(t, agent)

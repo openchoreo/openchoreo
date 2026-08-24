@@ -9,7 +9,26 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/openchoreo/openchoreo/internal/config"
+	"github.com/openchoreo/openchoreo/internal/resourcetree/protocol"
 )
+
+// TestTimeoutLadderIncludesServerWrite pins the full four-layer deadline ladder
+// the resource tree endpoint depends on: agent < gateway < client < server
+// write. If the server write deadline dropped at or below the client budget, a
+// legitimate tree response would be cut off before any lower rung fired.
+func TestTimeoutLadderIncludesServerWrite(t *testing.T) {
+	write := TimeoutsDefaults().Write
+	if protocol.AgentRequestTimeout >= protocol.GatewayTunnelTimeout {
+		t.Errorf("agent %v must be < gateway %v", protocol.AgentRequestTimeout, protocol.GatewayTunnelTimeout)
+	}
+	if protocol.GatewayTunnelTimeout >= protocol.ClientRequestTimeout {
+		t.Errorf("gateway %v must be < client %v", protocol.GatewayTunnelTimeout, protocol.ClientRequestTimeout)
+	}
+	if write <= protocol.ClientRequestTimeout {
+		t.Errorf("server write timeout %v must exceed the resource-tree client budget %v",
+			write, protocol.ClientRequestTimeout)
+	}
+}
 
 func TestTLSConfig_Validate(t *testing.T) {
 	tests := []struct {
