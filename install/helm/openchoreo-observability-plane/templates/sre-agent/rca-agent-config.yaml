@@ -20,6 +20,9 @@ data:
   {{- if .Values.rca.oauth.scope }}
   OAUTH_SCOPE: {{ .Values.rca.oauth.scope | quote }}
   {{- end }}
+  {{- if .Values.rca.oauth.clientAssertionFile }}
+  OAUTH_CLIENT_ASSERTION_FILE: {{ .Values.rca.oauth.clientAssertionFile | quote }}
+  {{- end }}
   TLS_INSECURE_SKIP_VERIFY: {{ or .Values.security.oidc.jwksUrlTlsInsecureSkipVerify .Values.security.oidc.uidResolverTlsInsecureSkipVerify | quote }}
   JWT_JWKS_URL: {{ .Values.security.oidc.jwksUrl | quote }}
   JWT_INSECURE_ALLOW_UNVERIFIED: {{ .Values.security.oidc.insecureAllowUnverified | default "false" | quote }}

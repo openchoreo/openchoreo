@@ -1500,7 +1500,7 @@ rca:
 
   # @schema
   # type: string
-  # description: Name of an existing Secret injected via envFrom into the RCA agent container. Required keys - RCA_LLM_API_KEY, OAUTH_CLIENT_SECRET. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).
+  # description: Name of an existing Secret injected via envFrom into the RCA agent container. Required keys - RCA_LLM_API_KEY, and OAUTH_CLIENT_SECRET unless oauth.clientAssertionFile is set. Optional keys - SQL_BACKEND_URI (when reportBackend is postgresql).
   # default: rca-agent-secret
   # @schema
   secretName: "rca-agent-secret"
@@ -1556,6 +1556,47 @@ rca:
     # default: ""
     # @schema
     scope: ""
+    # @schema
+    # type: string
+    # description: Path to a file holding a JWT client assertion (RFC 7523), presented to the token endpoint instead of a client secret. Set this to the identity token projected by a workload identity platform, for example /var/run/secrets/azure/tokens/azure-identity-token for Azure Workload Identity. When set, OAUTH_CLIENT_SECRET is not required.
+    # default: ""
+    # @schema
+    clientAssertionFile: ""
+
+  # @schema
+  # type: object
+  # description: Service account configuration for the RCA agent
+  # @schema
+  serviceAccount:
+    # @schema
+    # type: boolean
+    # description: Create a dedicated service account for the RCA agent and run the pod as it. Required for workload identity, which binds the projected identity token to a specific service account. When false, the pod uses the namespace default service account.
+    # default: false
+    # @schema
+    create: false
+    # @schema
+    # type: string
+    # description: Name of the service account. Defaults to rca-agent when create is true. Set together with create=false to run the pod as an externally managed service account.
+    # default: ""
+    # @schema
+    name: ""
+    # @schema
+    # type: object
+    # description: Annotations to add to the RCA agent service account, for example azure.workload.identity/client-id or eks.amazonaws.com/role-arn
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
+    annotations: {}
+
+  # @schema
+  # type: object
+  # description: Labels to add to RCA agent pods, for example azure.workload.identity/use to opt the pod into Azure Workload Identity token projection
+  # additionalProperties:
+  #   type: string
+  # default: {}
+  # @schema
+  podLabels: {}
 
   # @schema
   # type: object
