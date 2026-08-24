@@ -1527,6 +1527,12 @@
           "title": "nodeSelector",
           "type": "object"
         },
+        "oauthClientAssertionFile": {
+          "default": "",
+          "description": "Path to a file holding a JWT client assertion (RFC 7523), presented to the token endpoint instead of a client secret. Set this to the identity token projected by a workload identity platform, for example /var/run/secrets/azure/tokens/azure-identity-token for Azure Workload Identity. When set, UID_RESOLVER_OAUTH_CLIENT_SECRET is not required.",
+          "title": "oauthClientAssertionFile",
+          "type": "string"
+        },
         "oauthClientId": {
           "default": "openchoreo-observer-resource-reader-client",
           "description": "OAuth2 client ID used by the Observer when calling the control plane API",
@@ -1538,6 +1544,16 @@
           "description": "Optional OAuth2 scope to request in the client credentials token request",
           "title": "oauthScope",
           "type": "string"
+        },
+        "podLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Labels to add to Observer pods, for example azure.workload.identity/use to opt the pod into Azure Workload Identity token projection",
+          "required": [],
+          "title": "podLabels",
+          "type": "object"
         },
         "replicas": {
           "default": 1,
@@ -1599,7 +1615,7 @@
         },
         "secretName": {
           "default": "",
-          "description": "Name of an existing Secret injected via envFrom into the Observer container. Required keys - UID_RESOLVER_OAUTH_CLIENT_SECRET; ALERT_STORE_DSN is also required when alertStoreBackend=postgresql (Observer fails to start otherwise) and ignored for sqlite (a default DSN is used).",
+          "description": "Name of an existing Secret injected via envFrom into the Observer container. Required keys - UID_RESOLVER_OAUTH_CLIENT_SECRET, unless oauthClientAssertionFile is set; ALERT_STORE_DSN is also required when alertStoreBackend=postgresql (Observer fails to start otherwise) and ignored for sqlite (a default DSN is used).",
           "title": "secretName",
           "type": "string"
         },
@@ -1688,6 +1704,25 @@
           },
           "required": [],
           "title": "service",
+          "type": "object"
+        },
+        "serviceAccount": {
+          "additionalProperties": false,
+          "description": "Service account configuration for the Observer",
+          "properties": {
+            "annotations": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "default": {},
+              "description": "Annotations to add to the Observer service account, for example azure.workload.identity/client-id or eks.amazonaws.com/role-arn",
+              "required": [],
+              "title": "annotations",
+              "type": "object"
+            }
+          },
+          "required": [],
+          "title": "serviceAccount",
           "type": "object"
         },
         "tolerations": {

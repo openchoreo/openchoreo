@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -387,5 +389,162 @@ func TestFetchResourceUID_BadClientCredentialsAfterInvalidation(t *testing.T) {
 	// 1 API call then token refresh fails, so only 1 API call total.
 	if n := atomic.LoadInt32(&apiCalls); n != 1 {
 		t.Errorf("expected 1 API call, got %d", n)
+	}
+}
+
+// newCapturingTokenServer creates an httptest.Server that records the form parameters of
+// the most recent token request and always returns a valid token response.
+func newCapturingTokenServer(t *testing.T, captured *url.Values) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		params, _ := url.ParseQuery(string(body))
+		*captured = params
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"tok","expires_in":3600}`))
+	}))
+}
+
+// writeAssertionFile writes a client assertion to a file in a temp dir and returns its path.
+func writeAssertionFile(t *testing.T, contents string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "azure-identity-token")
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		t.Fatalf("failed to write assertion file: %v", err)
+	}
+	return path
+}
+
+// TestFetchAccessToken_UsesClientAssertion verifies that when a client assertion file is
+// configured, the token request carries the RFC 7523 assertion parameters and omits the
+// client secret even though one is set.
+func TestFetchAccessToken_UsesClientAssertion(t *testing.T) {
+	t.Parallel()
+
+	var captured url.Values
+
+	tokenSrv := newCapturingTokenServer(t, &captured)
+	defer tokenSrv.Close()
+
+	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(uidResponse("uid-1")))
+	}))
+	defer apiSrv.Close()
+
+	cfg := &config.UIDResolverConfig{
+		OAuthClientAssertionFile: writeAssertionFile(t, "header.payload.signature\n"),
+		MaxAuthRetry:             0,
+	}
+	resolver := newTestResolver(t, apiSrv, tokenSrv, cfg)
+
+	if _, err := resolver.GetNamespaceUID(context.Background(), "ns"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := captured.Get("client_assertion_type"); got != clientAssertionType {
+		t.Errorf("expected client_assertion_type %q, got %q", clientAssertionType, got)
+	}
+	if got := captured.Get("client_assertion"); got != "header.payload.signature" {
+		t.Errorf("expected trimmed assertion in token request, got %q", got)
+	}
+	if got := captured.Get("client_secret"); got != "" {
+		t.Errorf("expected no client_secret when an assertion file is configured, got %q", got)
+	}
+	if got := captured.Get("grant_type"); got != "client_credentials" {
+		t.Errorf("expected grant_type client_credentials, got %q", got)
+	}
+}
+
+// TestFetchAccessToken_RereadsClientAssertion verifies that the assertion file is read on
+// every token request, so a token rotated in place by the platform is picked up.
+func TestFetchAccessToken_RereadsClientAssertion(t *testing.T) {
+	t.Parallel()
+
+	var captured url.Values
+
+	tokenSrv := newCapturingTokenServer(t, &captured)
+	defer tokenSrv.Close()
+
+	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(uidResponse("uid-1")))
+	}))
+	defer apiSrv.Close()
+
+	assertionFile := writeAssertionFile(t, "first-assertion")
+	cfg := &config.UIDResolverConfig{OAuthClientAssertionFile: assertionFile, MaxAuthRetry: 0}
+	resolver := newTestResolver(t, apiSrv, tokenSrv, cfg)
+
+	if _, _, err := resolver.fetchAccessToken(context.Background()); err != nil {
+		t.Fatalf("unexpected error on first fetch: %v", err)
+	}
+	if got := captured.Get("client_assertion"); got != "first-assertion" {
+		t.Fatalf("expected first-assertion, got %q", got)
+	}
+
+	// Simulate the platform rotating the projected token in place.
+	if err := os.WriteFile(assertionFile, []byte("second-assertion"), 0o600); err != nil {
+		t.Fatalf("failed to rotate assertion file: %v", err)
+	}
+
+	if _, _, err := resolver.fetchAccessToken(context.Background()); err != nil {
+		t.Fatalf("unexpected error on second fetch: %v", err)
+	}
+	if got := captured.Get("client_assertion"); got != "second-assertion" {
+		t.Errorf("expected rotated assertion to be re-read, got %q", got)
+	}
+}
+
+// TestFetchAccessToken_ClientAssertionFileUnusable verifies that an unreadable or empty
+// assertion file fails the token request instead of silently falling back to the secret.
+func TestFetchAccessToken_ClientAssertionFileUnusable(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		assertionFile func(t *testing.T) string
+	}{
+		{
+			name: "missing file",
+			assertionFile: func(t *testing.T) string {
+				return filepath.Join(t.TempDir(), "does-not-exist")
+			},
+		},
+		{
+			name: "empty file",
+			assertionFile: func(t *testing.T) string {
+				return writeAssertionFile(t, "  \n")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tokenSrv := newAlwaysOKTokenServer(t)
+			defer tokenSrv.Close()
+
+			apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(uidResponse("uid-1")))
+			}))
+			defer apiSrv.Close()
+
+			cfg := &config.UIDResolverConfig{
+				OAuthClientAssertionFile: tt.assertionFile(t),
+				MaxAuthRetry:             0,
+			}
+			resolver := newTestResolver(t, apiSrv, tokenSrv, cfg)
+
+			_, err := resolver.GetNamespaceUID(context.Background(), "ns")
+			if err == nil {
+				t.Fatal("expected an error, got nil")
+			}
+			if !errors.Is(err, ErrScopeAuthFailed) {
+				t.Errorf("expected ErrScopeAuthFailed, got %v", err)
+			}
+		})
 	}
 }
