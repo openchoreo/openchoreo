@@ -170,6 +170,13 @@ features:
     # @schema
     enabled: false
 
+    # @schema
+    # type: string
+    # description: First segment of every key written to the external secret store, as in <prefix>/<namespace>/<type>/<name>. Set to an empty string to drop the segment. It must not equal the KV mount name that the ClusterSecretStore points at, otherwise external-secrets writes the value and its ownership metadata to two different paths and leaves a duplicate data-less entry per secret. This is an install-time setting, since changing it after secrets exist does not move existing entries.
+    # default: secret
+    # @schema
+    remoteKeyPrefix: "secret"
+
 # @schema
 # type: object
 # description: Controller Manager configuration - the main controller for OpenChoreo CRDs
