@@ -17,6 +17,10 @@ spec:
         initSQL:
           type: string
           default: ""
+          description: >-
+            SQL run once at initdb, on first boot when the data directory
+            is empty. Changing this after the database has already
+            initialized has no effect.
 
   environmentConfigs:
     openAPIV3Schema:
