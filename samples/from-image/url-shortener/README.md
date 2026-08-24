@@ -16,11 +16,9 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/project.yaml
 ```
 
-Applying the `Project` alone doesn't create its development-environment data-plane namespace — that's owned by a `ProjectReleaseBinding`, which nothing creates automatically for a project applied directly via `kubectl`. Apply it and wait for `Ready=True` before continuing, otherwise the Resource and Component steps below will fail to render with a `namespace ... not found` error:
+`project.yaml` also includes the `ProjectReleaseBinding`s for each pipeline environment, which own the project's data-plane namespaces. Wait for the development one to become `Ready=True` before continuing, otherwise the Resource and Component steps below will fail to render with a `namespace ... not found` error:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/project-release-binding.yaml
-
 kubectl get projectreleasebinding url-shortener-development -n default -w
 ```
 
@@ -111,7 +109,6 @@ kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/s
 kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/api-service.yaml
 kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/redis.yaml
 kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/resources/postgres.yaml
-kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/project-release-binding.yaml
 kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/project.yaml
 kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/alerting-demo/alert-notification-channels.yaml
 ```
