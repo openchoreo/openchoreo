@@ -94,6 +94,9 @@ func (l *Logger) LogEvent(event *Event) {
 			resourceAttrs = append(resourceAttrs, slog.String("type", event.ResourceType))
 		}
 		if event.Resource != nil {
+			if event.Resource.Namespace != "" {
+				resourceAttrs = append(resourceAttrs, slog.String("namespace", event.Resource.Namespace))
+			}
 			if event.Resource.ID != "" {
 				resourceAttrs = append(resourceAttrs, slog.String("id", event.Resource.ID))
 			}

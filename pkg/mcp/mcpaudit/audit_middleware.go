@@ -43,13 +43,17 @@ func newAuditMiddleware(
 			}
 			op := binding.Operation
 
-			// Seed a placeholder resource (name only) before calling next: a
-			// denial never reaches the handler that would set the real UID, so
-			// this is the only source of resource.name on a denied call.
-			// resource.type needs no seed here — it is stamped from
-			// op.ResourceType at emit time regardless (see buildEvent).
+			// Seed a placeholder resource (namespace and name) before calling
+			// next: a denial never reaches the handler that would set the
+			// real UID, so this is the only source of resource.namespace/name
+			// on a denied call. Every bound tool takes a namespace_name
+			// argument (the same convention pkg/mcp/tools' callToolScope
+			// relies on), so it needs no per-operation config. resource.type
+			// needs no seed here — it is stamped from op.ResourceType at emit
+			// time regardless (see buildEvent).
 			resourceName := extractResourceArg(req, binding.ResourceArg)
-			ctx, auditData := audit.NewAuditContext(ctx, &audit.Resource{Name: resourceName})
+			namespaceName := extractResourceArg(req, "namespace_name")
+			ctx, auditData := audit.NewAuditContext(ctx, &audit.Resource{Namespace: namespaceName, Name: resourceName})
 
 			// A panic in next must still produce an audit record — recover just
 			// long enough to emit as a failure, then re-panic. Named returns let

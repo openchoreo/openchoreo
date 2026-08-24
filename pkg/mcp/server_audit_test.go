@@ -81,12 +81,12 @@ type fakeCreateProjectWithUID struct {
 }
 
 func (f *fakeCreateProjectWithUID) CreateProject(
-	ctx context.Context, _ string, req *gen.CreateProjectJSONRequestBody,
+	ctx context.Context, namespaceName string, req *gen.CreateProjectJSONRequestBody,
 ) (any, error) {
 	created := &openchoreov1alpha1.Project{}
 	created.Name = req.Metadata.Name
 	created.UID = "uid-from-handler"
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: namespaceName, ID: string(created.UID), Name: created.Name})
 	return map[string]any{"name": created.Name}, nil
 }
 
@@ -180,7 +180,7 @@ func newTestMCPHandler(
 	t *testing.T, toolsets *tools.Toolsets, pdp authzcore.PDP, auditOpts mcpaudit.MiddlewareOptions,
 ) http.Handler {
 	t.Helper()
-	server, err := NewHTTPServer(toolsets, pdp, auditOpts)
+	server, err := NewHTTPServer(slog.Default(), toolsets, pdp, auditOpts)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -277,6 +277,9 @@ func TestNewHTTPServer_AuditWired(t *testing.T) {
 		if resource["id"] != "uid-from-handler" {
 			t.Errorf("resource.id = %v, want the handler-set UID, not just the placeholder name", resource["id"])
 		}
+		if resource["namespace"] != "test-ns" {
+			t.Errorf("resource.namespace = %v, want test-ns", resource["namespace"])
+		}
 	})
 
 	t.Run("PDP denial emits result=denied, distinguishable from failure", func(t *testing.T) {
@@ -329,6 +332,10 @@ func TestNewHTTPServer_AuditWired(t *testing.T) {
 		}
 		if _, hasID := resource["id"]; hasID {
 			t.Errorf("resource.id = %v, want absent on a denied call (handler never ran to set a real UID)", resource["id"])
+		}
+		if resource["namespace"] != "test-ns" {
+			t.Errorf("resource.namespace = %v, want test-ns from the placeholder seed (handler never ran)",
+				resource["namespace"])
 		}
 	})
 

@@ -5,6 +5,7 @@ package tools
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -32,7 +33,7 @@ func setupScopedTestServer(
 	}
 	server := mcp.NewServer(&mcp.Implementation{Name: "scoped-test"}, nil)
 	perms, toolToToolsets := toolsets.Register(server)
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, toolToToolsets))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), pdp, perms, toolToToolsets))
 
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
 	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {

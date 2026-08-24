@@ -161,6 +161,8 @@ func TestAuditMiddlewareWired_ProjectCRUD(t *testing.T) {
 	assert.Equal(t, "crud-test-proj", deleteResource["name"])
 	assert.NotContains(t, deleteResource, "id",
 		"DeleteProject returns no object, so no UID is available to record")
+	assert.Equal(t, testNS, deleteResource["namespace"],
+		"namespace must be recorded even without a UID, so identically-named projects in different namespaces stay distinguishable")
 
 	for _, r := range records {
 		assert.Equal(t, "success", r["result"])
@@ -278,6 +280,7 @@ func TestAuditMiddlewareWired_DeniedRequestCarriesResource(t *testing.T) {
 	require.True(t, ok, "resource must be populated even though the handler never called SetResource")
 	assert.Equal(t, "project", resource["type"])
 	assert.Equal(t, "denied-proj", resource["name"], "name must come from the path value, not the handler")
+	assert.Equal(t, testNS, resource["namespace"], "namespace must come from the path value, not the handler")
 }
 
 // TestAPIMiddlewares_ErrorsOnNilEmitter guards the loud-failure guard itself:

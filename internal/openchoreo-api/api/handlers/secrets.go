@@ -97,7 +97,7 @@ func (h *Handler) CreateSecret(
 		return gen.CreateSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(result.UID), Name: result.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(result.UID), Name: result.Name})
 
 	return gen.CreateSecret201JSONResponse(out), nil
 }
@@ -155,7 +155,7 @@ func (h *Handler) UpdateSecret(
 		return gen.UpdateSecret500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(result.UID), Name: result.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(result.UID), Name: result.Name})
 
 	return gen.UpdateSecret200JSONResponse(out), nil
 }
@@ -176,7 +176,7 @@ func (h *Handler) DeleteSecret(
 
 	// No UID here: SecretService.DeleteSecret returns only an error, not the deleted
 	// object, so the identifier that survives the deletion is the name.
-	audit.SetResource(ctx, &audit.Resource{Name: request.SecretName})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, Name: request.SecretName})
 
 	return gen.DeleteSecret204Response{}, nil
 }

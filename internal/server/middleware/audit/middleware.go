@@ -119,16 +119,20 @@ func (m *Middleware) Handler(next http.Handler) http.Handler {
 			return
 		}
 
-		// Seed a placeholder resource (path-derived name, where the operation
-		// has a path parameter) before calling next: a PDP denial raised
-		// inside the handler never reaches the SetResource call that would
-		// otherwise set it, so this is the only source of resource.name on a
-		// denied or failed request. resource.type needs no seed here — it is
-		// stamped from op.ResourceType at emit time regardless of whether a
-		// resource was ever set (see buildEvent). Mirrors the MCP adapter's
-		// pre-call seed (see mcpaudit.newAuditMiddleware).
+		// Seed a placeholder resource (path-derived namespace and name, where
+		// the operation has a path parameter) before calling next: a PDP
+		// denial raised inside the handler never reaches the SetResource call
+		// that would otherwise set it, so this is the only source of
+		// resource.namespace/name on a denied or failed request. Every
+		// audited route is nested under /namespaces/{namespaceName}/..., so
+		// the path parameter name is fixed across all of them. resource.type
+		// needs no seed here — it is stamped from op.ResourceType at emit
+		// time regardless of whether a resource was ever set (see
+		// buildEvent). Mirrors the MCP adapter's pre-call seed (see
+		// mcpaudit.newAuditMiddleware).
 		ctx, auditData := NewAuditContext(r.Context(), &Resource{
-			Name: r.PathValue(op.RESTResourceParam),
+			Namespace: r.PathValue("namespaceName"),
+			Name:      r.PathValue(op.RESTResourceParam),
 		})
 
 		rw := &responseWriter{

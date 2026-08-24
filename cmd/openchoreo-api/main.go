@@ -234,7 +234,7 @@ func main() {
 			logger.Error("Failed to build MCP audit bindings", slog.Any("error", err))
 			os.Exit(1)
 		}
-		mcpServer, err := mcp.NewHTTPServer(toolsets, runtime.pdp, mcpaudit.MiddlewareOptions{
+		mcpServer, err := mcp.NewHTTPServer(mcpLogger, toolsets, runtime.pdp, mcpaudit.MiddlewareOptions{
 			Emitter:  auditEmitter,
 			Bindings: mcpBindings,
 			Enabled:  cfg.Audit.Enabled,

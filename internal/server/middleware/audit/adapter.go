@@ -83,13 +83,20 @@ func RequestIDFromHeader(h http.Header) string {
 // (X-Forwarded-For, X-Real-IP). Returns "" if neither is present — a caller
 // with a more specific fallback (e.g. REST's r.RemoteAddr) should apply it.
 //
-// Trusted-proxy assumption: both headers are taken at face value with no
-// check that the immediate peer is a trusted proxy that overwrites them. A
-// caller not behind such a proxy — or behind one that forwards an
-// untouched client-supplied X-Forwarded-For/X-Real-IP — lets the client
-// choose its own recorded source_ip. Deploy this behind a proxy that
-// strips or overwrites both headers before they reach this service if
-// source_ip needs to be forensically trustworthy.
+// source_ip is a hint, not forensic evidence. X-Forwarded-For is read
+// leftmost-first, which is the client-supplied end of the chain, so a client
+// can choose its own recorded source_ip. A proxy that appends — the common
+// case, including the gateway shipped with OpenChoreo — does not prevent
+// that; only one that strips or overwrites both headers does.
+//
+// Left this way deliberately. Reading the chain right-to-left would instead
+// yield the address the edge proxy actually observed, but only given a
+// trusted-hop count, which is a property of each deployment rather than of
+// this code, and a count set one too high restores the spoof. Actor identity
+// comes from a validated JWT sub, so nothing forensically load-bearing rests
+// on source_ip today. Revisit if something downstream starts needing it to
+// be trustworthy; the fix then spans this function and the gateway's
+// xffNumTrustedHops together, not this function alone.
 func SourceIPFromHeader(h http.Header) string {
 	if xff := h.Get("X-Forwarded-For"); xff != "" {
 		if first, _, found := strings.Cut(xff, ","); found {

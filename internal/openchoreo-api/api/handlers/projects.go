@@ -86,7 +86,7 @@ func (h *Handler) CreateProject(
 		return gen.CreateProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Project created successfully", "namespaceName", request.NamespaceName, "project", created.Name)
 	return gen.CreateProject201JSONResponse(genProject), nil
@@ -164,7 +164,7 @@ func (h *Handler) UpdateProject(
 		return gen.UpdateProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Project updated successfully", "namespaceName", request.NamespaceName, "project", updated.Name)
 	return gen.UpdateProject200JSONResponse(genProject), nil
@@ -191,7 +191,7 @@ func (h *Handler) DeleteProject(
 
 	// No UID here: ProjectService.DeleteProject returns only an error, not the
 	// deleted object, so the identifier that survives the deletion is the name.
-	audit.SetResource(ctx, &audit.Resource{Name: request.ProjectName})
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, Name: request.ProjectName})
 
 	h.logger.Info("Project deleted successfully", "namespaceName", request.NamespaceName, "project", request.ProjectName)
 	return gen.DeleteProject204Response{}, nil

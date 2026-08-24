@@ -4,6 +4,7 @@
 package mcp
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -67,8 +68,13 @@ const (
 // Returns an error rather than panicking if auditOpts is misconfigured (e.g.
 // a nil Emitter, or a binding with a nil Operation), so the caller can fail
 // startup cleanly instead.
+//
+// logger is bound into the authz filter middleware at construction — it's
+// used only for server-side detail on a PDP failure that must not reach the
+// MCP client (see tools.NewToolFilterMiddleware). Pass the same logger used
+// for the rest of the service's application logs, not a one-off.
 func NewHTTPServer(
-	toolsets *tools.Toolsets, pdp authzcore.PDP, auditOpts mcpaudit.MiddlewareOptions,
+	logger *slog.Logger, toolsets *tools.Toolsets, pdp authzcore.PDP, auditOpts mcpaudit.MiddlewareOptions,
 ) (http.Handler, error) {
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "openchoreo-api",
@@ -80,7 +86,10 @@ func NewHTTPServer(
 	if err != nil {
 		return nil, err
 	}
-	filterMw := tools.NewToolFilterMiddleware(pdp, perms, toolToToolsets)
+	filterMw, err := tools.NewToolFilterMiddleware(logger, pdp, perms, toolToToolsets)
+	if err != nil {
+		return nil, err
+	}
 
 	// go-sdk wraps middleware[0] outermost in AddReceivingMiddleware — the
 	// opposite of APIMiddlewares' last-is-outermost convention. Audit goes

@@ -33,9 +33,10 @@ const (
 // handler via SetResource (or, pre-handler, by a surface adapter's seed —
 // see NewAuditContext).
 type Resource struct {
-	ID       string         `json:"id,omitempty"`       // Resource identifier
-	Name     string         `json:"name,omitempty"`     // Resource name (if different from ID)
-	Metadata map[string]any `json:"metadata,omitempty"` // Additional resource-scoped context (optional)
+	Namespace string         `json:"namespace,omitempty"` // Namespace the resource belongs to, if namespace-scoped
+	ID        string         `json:"id,omitempty"`        // Resource identifier
+	Name      string         `json:"name,omitempty"`      // Resource name (if different from ID)
+	Metadata  map[string]any `json:"metadata,omitempty"`  // Additional resource-scoped context (optional)
 }
 
 // Result represents the outcome of an action
@@ -94,10 +95,11 @@ type eventJSON struct {
 // resourceJSON is Resource with Type merged back in — the shape
 // Logger.LogEvent renders, and the shape MarshalJSON reproduces.
 type resourceJSON struct {
-	Type     string         `json:"type,omitempty"`
-	ID       string         `json:"id,omitempty"`
-	Name     string         `json:"name,omitempty"`
-	Metadata map[string]any `json:"metadata,omitempty"`
+	Type      string         `json:"type,omitempty"`
+	Namespace string         `json:"namespace,omitempty"`
+	ID        string         `json:"id,omitempty"`
+	Name      string         `json:"name,omitempty"`
+	Metadata  map[string]any `json:"metadata,omitempty"`
 }
 
 // MarshalJSON nests ResourceType inside "resource", matching what
@@ -124,6 +126,7 @@ func (e Event) MarshalJSON() ([]byte, error) {
 	if e.ResourceType != "" || e.Resource != nil {
 		out.Resource = &resourceJSON{Type: e.ResourceType}
 		if e.Resource != nil {
+			out.Resource.Namespace = e.Resource.Namespace
 			out.Resource.ID = e.Resource.ID
 			out.Resource.Name = e.Resource.Name
 			out.Resource.Metadata = e.Resource.Metadata

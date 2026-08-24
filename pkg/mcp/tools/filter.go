@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -57,23 +58,32 @@ var (
 // (carrying the required authz action). The toolToToolsets map is also
 // produced by Register(); it maps each tool name to the set of toolsets it
 // belongs to.
+//
+// logger is used only for server-side detail on a PDP failure that must not
+// reach the MCP client (see filterCallTool). Required — a nil logger fails
+// construction rather than silently falling back to slog.Default(), which
+// could route this detail somewhere nobody is watching.
 func NewToolFilterMiddleware(
+	logger *slog.Logger,
 	pdp authzcore.PDP,
 	perms map[string]ToolPermission,
 	toolToToolsets map[string]map[ToolsetType]bool,
-) mcp.Middleware {
+) (mcp.Middleware, error) {
+	if logger == nil {
+		return nil, errors.New("audit: NewToolFilterMiddleware requires a non-nil logger")
+	}
 	return func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 			switch method {
 			case methodListTools:
 				return filterListTools(ctx, next, req, pdp, perms, toolToToolsets)
 			case methodCallTool:
-				return filterCallTool(ctx, next, method, req, pdp, perms)
+				return filterCallTool(ctx, next, method, req, pdp, perms, logger)
 			default:
 				return next(ctx, method, req)
 			}
 		}
-	}
+	}, nil
 }
 
 // filterListTools calls the next handler, then narrows the returned tool list
@@ -154,9 +164,13 @@ func filterCallTool(
 	req mcp.Request,
 	pdp authzcore.PDP,
 	perms map[string]ToolPermission,
+	logger *slog.Logger,
 ) (mcp.Result, error) {
 	if !authzFilteringActive(ctx, pdp) {
 		return next(ctx, method, req)
+	}
+	if logger == nil {
+		return nil, errors.New("audit: filterCallTool requires a non-nil logger")
 	}
 
 	toolName := callToolName(req)
@@ -183,7 +197,15 @@ func filterCallTool(
 		Scope:          callToolScope(req),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("not authorized to call tool %q: %w: %w", toolName, ErrPDPFailure, err)
+		// The raw PDP error (network/connection detail, internal endpoint,
+		// etc.) must not reach the MCP client — go-sdk relays a returned
+		// error's text back as tool-call result content. Log it server-side
+		// and return only the sentinel-wrapped, sanitized message.
+		//
+		// Worded as a server-side evaluation failure, not "not authorized":
+		// the PDP never reached a decision here, so this isn't a denial.
+		logger.Error("audit: PDP failure while authorizing MCP tool call", "tool", toolName, "error", err)
+		return nil, fmt.Errorf("error evaluating authorization for tool %q: %w", toolName, ErrPDPFailure)
 	}
 
 	if !hasActionCapability(requiredAction, profile) {
