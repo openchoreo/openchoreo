@@ -67,6 +67,10 @@ spec:
         {{- else }}
         - --internal-mtls=false
         {{- end }}
+        - --agent-auth-mode={{ .Values.clusterGateway.agentAuth.mode }}
+        {{- if eq .Values.clusterGateway.agentAuth.mode "forwarded-header" }}
+        - --agent-auth-forwarded-header={{ .Values.clusterGateway.agentAuth.forwardedHeaderName }}
+        {{- end }}
         - --log-level={{ .Values.clusterGateway.logLevel }}
         ports:
         - name: websocket
