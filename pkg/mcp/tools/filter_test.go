@@ -4,8 +4,11 @@
 package tools
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -17,6 +20,21 @@ import (
 // ---------------------------------------------------------------------------
 // Helpers / mocks
 // ---------------------------------------------------------------------------
+
+// mustNewToolFilterMiddleware builds a middleware for tests that don't care
+// about the logger requirement itself (see TestNewToolFilterMiddleware_ErrorsOnNilLogger
+// for that case) and fails the test immediately on an unexpected error.
+func mustNewToolFilterMiddleware(
+	t *testing.T, logger *slog.Logger, pdp authzcore.PDP,
+	perms map[string]ToolPermission, toolToToolsets map[string]map[ToolsetType]bool,
+) mcp.Middleware {
+	t.Helper()
+	mw, err := NewToolFilterMiddleware(logger, pdp, perms, toolToToolsets)
+	if err != nil {
+		t.Fatalf("NewToolFilterMiddleware: %v", err)
+	}
+	return mw
+}
 
 // mockPDP is a test double for authzcore.PDP.
 type mockPDP struct {
@@ -72,6 +90,17 @@ func ctxWithSubject(ctx context.Context) context.Context {
 // Middleware unit tests
 // ---------------------------------------------------------------------------
 
+// TestNewToolFilterMiddleware_ErrorsOnNilLogger guards the fail-loudly
+// contract: a missing logger must fail construction, not silently fall back
+// to slog.Default() and risk routing PDP-failure detail somewhere nobody is
+// watching.
+func TestNewToolFilterMiddleware_ErrorsOnNilLogger(t *testing.T) {
+	_, err := NewToolFilterMiddleware(nil, nil, nil, nil)
+	if err == nil {
+		t.Fatal("expected an error for a nil logger, got nil")
+	}
+}
+
 // TestNewToolFilterMiddlewareNilPDP verifies that when pdp is nil all tools are
 // returned unfiltered (graceful degradation when authz is disabled).
 func TestNewToolFilterMiddlewareNilPDP(t *testing.T) {
@@ -82,7 +111,7 @@ func TestNewToolFilterMiddlewareNilPDP(t *testing.T) {
 		return &mcp.CallToolResult{}, nil, nil
 	})
 
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(nil, map[string]ToolPermission{
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), nil, map[string]ToolPermission{
 		"list_namespaces": {ToolName: "list_namespaces", Action: "namespace:view"},
 	}, nil))
 
@@ -126,7 +155,7 @@ func TestToolFilterMiddlewareFiltersListTools(t *testing.T) {
 
 	// User can only view namespaces and projects, not create namespace.
 	pdp := &mockPDP{profile: allowAllProfile("namespace:view", "project:view")}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), pdp, perms, nil))
 
 	ctx := ctxWithSubject(context.Background())
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -177,7 +206,7 @@ func TestToolFilterMiddlewareDenyAllProfile(t *testing.T) {
 	}
 
 	pdp := &mockPDP{profile: denyAllProfile()}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), pdp, perms, nil))
 
 	ctx := ctxWithSubject(context.Background())
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -215,7 +244,7 @@ func TestToolFilterMiddlewareNoSubjectInContext(t *testing.T) {
 	}
 
 	pdp := &mockPDP{profile: allowAllProfile("namespace:view")}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), pdp, perms, nil))
 
 	// Context WITHOUT a subject.
 	ctx := context.Background()
@@ -254,7 +283,7 @@ func TestToolFilterMiddlewarePDPError(t *testing.T) {
 	}
 
 	pdp := &mockPDP{err: errors.New("pdp unavailable")}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), pdp, perms, nil))
 
 	ctx := ctxWithSubject(context.Background())
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -298,7 +327,7 @@ func TestToolFilterMiddlewareCallToolAllowed(t *testing.T) {
 	}
 
 	pdp := &mockPDP{profile: allowAllProfile("namespace:view")}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), pdp, perms, nil))
 
 	ctx := ctxWithSubject(context.Background())
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -342,7 +371,7 @@ func TestToolFilterMiddlewareCallToolDenied(t *testing.T) {
 
 	// User only has view, not create.
 	pdp := &mockPDP{profile: allowAllProfile("namespace:view")}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), pdp, perms, nil))
 
 	ctx := ctxWithSubject(context.Background())
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -378,7 +407,7 @@ func TestToolFilterMiddlewareUnknownToolPassthrough(t *testing.T) {
 	perms := map[string]ToolPermission{}
 
 	pdp := &mockPDP{profile: denyAllProfile()}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), pdp, perms, nil))
 
 	ctx := ctxWithSubject(context.Background())
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -429,7 +458,7 @@ func TestToolFilterMiddlewareToolsetNarrowing(t *testing.T) {
 		"create_environment": {ToolsetPE: true},
 	}
 
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(nil, nil, toolToToolsets))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), nil, nil, toolToToolsets))
 
 	// Client requested only the namespace and pe toolsets.
 	ctx := WithRequestedToolsets(context.Background(), map[ToolsetType]bool{
@@ -482,7 +511,7 @@ func TestToolFilterMiddlewareToolsetNarrowingMultiOwner(t *testing.T) {
 		"list_namespaces":      {ToolsetNamespace: true},
 	}
 
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(nil, nil, toolToToolsets))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), nil, nil, toolToToolsets))
 
 	// Narrow to pe only — list_component_types is co-owned by pe so it should still appear.
 	ctx := WithRequestedToolsets(context.Background(), map[ToolsetType]bool{ToolsetPE: true})
@@ -525,7 +554,7 @@ func TestToolFilterMiddlewareToolsetNarrowingUnknownIgnored(t *testing.T) {
 		"list_namespaces": {ToolsetNamespace: true},
 	}
 
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(nil, nil, toolToToolsets))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), nil, nil, toolToToolsets))
 
 	// Request a toolset name that no registered tool belongs to.
 	ctx := WithRequestedToolsets(context.Background(), map[ToolsetType]bool{ToolsetType("does-not-exist"): true})
@@ -570,7 +599,7 @@ func TestToolFilterMiddlewareToolsetAndAuthzCombined(t *testing.T) {
 	}
 
 	pdp := &mockPDP{profile: allowAllProfile("namespace:view", "component:view")}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, toolToToolsets))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), pdp, perms, toolToToolsets))
 
 	// Narrow to namespace only — list_components must be hidden by toolset filter,
 	// and create_namespace must be hidden by authz filter.
@@ -623,7 +652,7 @@ func TestToolFilterMiddlewareFilterByAuthzFalseListTools(t *testing.T) {
 	}
 
 	pdp := &mockPDP{profile: denyAllProfile()}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), pdp, perms, nil))
 
 	ctx := WithFilterByAuthz(ctxWithSubject(context.Background()), false)
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -664,7 +693,7 @@ func TestToolFilterMiddlewareFilterByAuthzFalseAllowsCall(t *testing.T) {
 		"create_namespace": {ToolName: "create_namespace", Action: "namespace:create"},
 	}
 	pdp := &mockPDP{profile: denyAllProfile()}
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(pdp, perms, nil))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), pdp, perms, nil))
 
 	ctx := WithFilterByAuthz(ctxWithSubject(context.Background()), false)
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
@@ -704,7 +733,7 @@ func TestToolFilterMiddlewareToolsetNarrowingDoesNotGateCall(t *testing.T) {
 		"list_components": {ToolsetComponent: true},
 	}
 
-	server.AddReceivingMiddleware(NewToolFilterMiddleware(nil, nil, toolToToolsets))
+	server.AddReceivingMiddleware(mustNewToolFilterMiddleware(t, slog.Default(), nil, nil, toolToToolsets))
 
 	// Narrow to namespace toolset — list_components is component, but call should still succeed.
 	ctx := WithRequestedToolsets(context.Background(), map[ToolsetType]bool{ToolsetNamespace: true})
@@ -725,4 +754,76 @@ func TestToolFilterMiddlewareToolsetNarrowingDoesNotGateCall(t *testing.T) {
 	if !called {
 		t.Error("expected tool handler to be called — toolset narrowing only applies to tools/list")
 	}
+}
+
+// TestFilterCallTool_SentinelClassification exercises filterCallTool directly
+// (bypassing the JSON-RPC transport, which would erase the Go error chain) to
+// confirm its three denial sites wrap distinct sentinels: a PDP outage
+// (ErrPDPFailure) must be classifiable as an infrastructure failure, never as
+// if the user had actually been denied by policy (ErrForbidden).
+func TestFilterCallTool_SentinelClassification(t *testing.T) {
+	perms := map[string]ToolPermission{
+		"create_namespace": {ToolName: "create_namespace", Action: "namespace:create"},
+	}
+	req := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+		Params: &mcp.CallToolParamsRaw{Name: "create_namespace"},
+	}
+	next := func(_ context.Context, _ string, _ mcp.Request) (mcp.Result, error) {
+		t.Fatal("next should not be called when the call is denied")
+		return nil, nil
+	}
+
+	t.Run("no subject wraps ErrNoSubject", func(t *testing.T) {
+		pdp := &mockPDP{profile: allowAllProfile("namespace:create")}
+		_, err := filterCallTool(context.Background(), next, methodCallTool, req, pdp, perms, slog.Default())
+		if !errors.Is(err, ErrNoSubject) {
+			t.Errorf("err = %v, want it to wrap ErrNoSubject", err)
+		}
+	})
+
+	t.Run("PDP failure wraps ErrPDPFailure, not ErrForbidden", func(t *testing.T) {
+		pdp := &mockPDP{err: errors.New("pdp unavailable")}
+		_, err := filterCallTool(ctxWithSubject(context.Background()), next, methodCallTool, req, pdp, perms, slog.Default())
+		if !errors.Is(err, ErrPDPFailure) {
+			t.Errorf("err = %v, want it to wrap ErrPDPFailure", err)
+		}
+		if errors.Is(err, ErrForbidden) {
+			t.Errorf("err = %v, a PDP outage must not be classified as ErrForbidden", err)
+		}
+	})
+
+	// TestFilterCallTool_SentinelClassification/PDP failure does not leak the
+	// raw PDP error text guards against an internal error (network detail,
+	// internal endpoint, etc.) reaching the MCP client, which go-sdk would
+	// relay back as tool-call result content. Sanitization happens in
+	// NewToolFilterMiddleware's closure (where logger is bound), not in
+	// filterCallTool itself, so this goes through the full middleware rather
+	// than calling filterCallTool directly.
+	t.Run("PDP failure does not leak the raw PDP error text", func(t *testing.T) {
+		rawErr := "dial tcp 10.0.0.5:8443: connect: connection refused"
+		pdp := &mockPDP{err: errors.New(rawErr)}
+		var logBuf bytes.Buffer
+		logger := slog.New(slog.NewJSONHandler(&logBuf, nil))
+
+		mw := mustNewToolFilterMiddleware(t, logger, pdp, perms, nil)
+		_, err := mw(next)(ctxWithSubject(context.Background()), methodCallTool, req)
+		if err == nil {
+			t.Fatal("expected an error, got nil")
+		}
+		if strings.Contains(err.Error(), rawErr) {
+			t.Errorf("err = %q, must not contain the raw PDP error text %q", err.Error(), rawErr)
+		}
+		if !strings.Contains(logBuf.String(), rawErr) {
+			t.Errorf("server log = %q, want it to contain the raw PDP error text %q so operators can still debug it",
+				logBuf.String(), rawErr)
+		}
+	})
+
+	t.Run("denied permission wraps ErrForbidden", func(t *testing.T) {
+		pdp := &mockPDP{profile: denyAllProfile()}
+		_, err := filterCallTool(ctxWithSubject(context.Background()), next, methodCallTool, req, pdp, perms, slog.Default())
+		if !errors.Is(err, ErrForbidden) {
+			t.Errorf("err = %v, want it to wrap ErrForbidden", err)
+		}
+	})
 }

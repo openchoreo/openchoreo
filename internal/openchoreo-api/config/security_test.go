@@ -12,6 +12,28 @@ import (
 	"github.com/openchoreo/openchoreo/internal/config"
 )
 
+// TestSecurityConfig_KnownActorTypes_Deterministic guards against Subjects'
+// map iteration order leaking into the returned slice — the "must be one
+// of: ..." validation message audit.go builds from it (and any test
+// asserting that message) must not flake between runs.
+func TestSecurityConfig_KnownActorTypes_Deterministic(t *testing.T) {
+	cfg := &SecurityConfig{
+		Subjects: map[string]SubjectConfig{
+			"service_account": {},
+			"agent":           {},
+			"machine":         {},
+		},
+	}
+
+	want := []string{"anonymous", "user", "agent", "machine", "service_account"}
+	for i := range 20 {
+		got := cfg.KnownActorTypes()
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Fatalf("KnownActorTypes() mismatch on iteration %d (-want +got):\n%s", i, diff)
+		}
+	}
+}
+
 func TestSecurityConfig_ValidateSubjects_DuplicatePriorities(t *testing.T) {
 	tests := []struct {
 		name           string

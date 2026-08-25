@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -304,5 +305,49 @@ func TestLoader_UnmarshalAndValidate_Fails(t *testing.T) {
 	err := loader.UnmarshalAndValidate("", &cfg)
 	if err == nil {
 		t.Fatal("expected validation error")
+	}
+}
+
+func TestLoader_UnmarshalStrict_Succeeds(t *testing.T) {
+	loader := NewLoader("OC_TEST")
+	if err := loader.LoadWithDefaults(testDefaults(), ""); err != nil {
+		t.Fatalf("LoadWithDefaults failed: %v", err)
+	}
+
+	var cfg testConfig
+	if err := loader.UnmarshalStrict("", &cfg); err != nil {
+		t.Fatalf("UnmarshalStrict failed on an all-recognized-keys config: %v", err)
+	}
+	if cfg.Server.Port != 8080 {
+		t.Errorf("expected port 8080, got %d", cfg.Server.Port)
+	}
+}
+
+// TestLoader_UnmarshalStrict_RejectsUnknownKey guards the reason
+// UnmarshalStrict exists: a key with no matching struct field must fail
+// loudly instead of being silently dropped by the lenient Unmarshal.
+func TestLoader_UnmarshalStrict_RejectsUnknownKey(t *testing.T) {
+	loader := NewLoader("OC_TEST")
+	if err := loader.LoadWithDefaults(testDefaults(), ""); err != nil {
+		t.Fatalf("LoadWithDefaults failed: %v", err)
+	}
+	if err := loader.Set("server.bogus_key", "x"); err != nil {
+		t.Fatalf("loader.Set failed: %v", err)
+	}
+
+	var cfg testConfig
+	err := loader.UnmarshalStrict("", &cfg)
+	if err == nil {
+		t.Fatal("expected UnmarshalStrict to reject the unrecognized key, got nil error")
+	}
+	if !strings.Contains(err.Error(), "bogus_key") {
+		t.Errorf("error = %q, want it to name the unrecognized key bogus_key", err.Error())
+	}
+
+	// The lenient Unmarshal must still succeed on the exact same data —
+	// UnmarshalStrict's rejection is opt-in per call, not a global mode.
+	var lenientCfg testConfig
+	if err := loader.Unmarshal("", &lenientCfg); err != nil {
+		t.Errorf("Unmarshal (non-strict) unexpectedly failed on the same data: %v", err)
 	}
 }

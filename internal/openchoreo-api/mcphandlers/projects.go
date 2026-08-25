@@ -14,6 +14,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
@@ -88,6 +89,7 @@ func (h *MCPHandler) CreateProject(
 	if err != nil {
 		return nil, err
 	}
+	audit.SetResource(ctx, &audit.Resource{Namespace: namespaceName, ID: string(created.UID), Name: created.Name})
 	return mutationResult(created, "created"), nil
 }
 
@@ -131,6 +133,7 @@ func (h *MCPHandler) UpdateProject(
 			namespaceName, projectName, deploymentPipeline, err,
 		)
 	}
+	audit.SetResource(ctx, &audit.Resource{Namespace: namespaceName, ID: string(updated.UID), Name: updated.Name})
 	return mutationResult(updated, "updated", map[string]any{
 		"deploymentPipelineRef": updated.Spec.DeploymentPipelineRef.Name,
 	}), nil
@@ -140,6 +143,9 @@ func (h *MCPHandler) DeleteProject(ctx context.Context, namespaceName, projectNa
 	if err := h.services.ProjectService.DeleteProject(ctx, namespaceName, projectName); err != nil {
 		return nil, err
 	}
+	// No UID here: ProjectService.DeleteProject returns only an error, not the
+	// deleted object, so the identifier that survives the deletion is the name.
+	audit.SetResource(ctx, &audit.Resource{Namespace: namespaceName, Name: projectName})
 	return map[string]any{
 		"name":      projectName,
 		"namespace": namespaceName,
