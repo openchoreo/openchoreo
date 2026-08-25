@@ -32,6 +32,14 @@ func pemChain(t *testing.T, certs ...*x509.Certificate) string {
 	return b.String()
 }
 
+func getCertificatePoolFromCreds(creds *agentCredentials) *x509.CertPool {
+	certPool := x509.NewCertPool()
+	for _, cert := range creds.intermediates {
+		certPool.AddCert(cert)
+	}
+	return certPool
+}
+
 // albHeaderValue mimics the AWS ALB X-Amzn-Mtls-Clientcert value: a URL-encoded,
 // concatenated PEM chain.
 func albHeaderValue(t *testing.T, certs ...*x509.Certificate) string {
@@ -259,9 +267,14 @@ func TestBuildAgentAuthenticator(t *testing.T) {
 // per-CR verifier, so a given client certificate is accepted for exactly the same
 // CRs regardless of how it reached the gateway. If this parity ever breaks, the
 // forwarded-header path would silently diverge from the trusted mtls path.
+//
+// The certificate chains through an intermediate CA so both paths carry a
+// non-empty intermediates list: verification only succeeds if those intermediates
+// survive the conversion into the pool handed to the verifier.
 func TestForwardedHeaderMatchesHandshakeVerification(t *testing.T) {
 	caCert, caKey := generateTestCA(t)
-	leaf := generateTestClientCert(t, caCert, caKey)
+	interCert, interKey := generateTestIntermediateCA(t, caCert, caKey)
+	leaf := generateTestClientCert(t, interCert, interKey)
 	caPEM := encodeCertToPEM(t, caCert)
 
 	dp := &openchoreov1alpha1.DataPlane{
@@ -276,21 +289,23 @@ func TestForwardedHeaderMatchesHandshakeVerification(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(dp).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	// mtls path: certificate from the TLS handshake.
+	// mtls path: certificate chain from the TLS handshake.
 	mtlsReq := httptest.NewRequest(http.MethodGet, "/ws", nil)
-	mtlsReq.TLS = &tls.ConnectionState{PeerCertificates: []*x509.Certificate{leaf}}
+	mtlsReq.TLS = &tls.ConnectionState{PeerCertificates: []*x509.Certificate{leaf, interCert}}
 	mtlsCreds, err := mtlsAuthenticator{}.Authenticate(mtlsReq)
 	require.NoError(t, err)
+	require.Len(t, mtlsCreds.intermediates, 1)
 
-	// forwarded-header path: same certificate, forwarded by an ALB-style proxy.
+	// forwarded-header path: same chain, forwarded by an ALB-style proxy.
 	fwdReq := httptest.NewRequest(http.MethodGet, "/ws", nil)
-	fwdReq.Header.Set(DefaultForwardedHeaderName, albHeaderValue(t, leaf))
+	fwdReq.Header.Set(DefaultForwardedHeaderName, albHeaderValue(t, leaf, interCert))
 	fwdCreds, err := forwardedHeaderAuthenticator{header: DefaultForwardedHeaderName}.Authenticate(fwdReq)
 	require.NoError(t, err)
+	require.Len(t, fwdCreds.intermediates, 1)
 
-	mtlsValid, err := s.verifyClientCertificatePerCR(mtlsCreds.clientCert, mtlsCreds.intermediates, "dataplane", "prod")
+	mtlsValid, err := s.verifyClientCertificatePerCR(mtlsCreds.clientCert, getCertificatePoolFromCreds(mtlsCreds), "dataplane", "prod")
 	require.NoError(t, err)
-	fwdValid, err := s.verifyClientCertificatePerCR(fwdCreds.clientCert, fwdCreds.intermediates, "dataplane", "prod")
+	fwdValid, err := s.verifyClientCertificatePerCR(fwdCreds.clientCert, getCertificatePoolFromCreds(fwdCreds), "dataplane", "prod")
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"ns/dp1"}, mtlsValid)
