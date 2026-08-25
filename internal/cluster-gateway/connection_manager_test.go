@@ -72,6 +72,34 @@ func generateTestCA(t *testing.T) (*x509.Certificate, *ecdsa.PrivateKey) {
 	return caCert, caKey
 }
 
+// generateTestIntermediateCA creates an intermediate CA certificate signed by the
+// given parent CA, for building multi-level chains in testing.
+func generateTestIntermediateCA(t *testing.T, parentCert *x509.Certificate, parentKey *ecdsa.PrivateKey) (*x509.Certificate, *ecdsa.PrivateKey) {
+	t.Helper()
+	interKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	interTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(3),
+		Subject:               pkix.Name{CommonName: "Test Intermediate CA"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		MaxPathLen:            0,
+		MaxPathLenZero:        true,
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+	}
+
+	interDER, err := x509.CreateCertificate(rand.Reader, interTemplate, parentCert, &interKey.PublicKey, parentKey)
+	require.NoError(t, err)
+
+	interCert, err := x509.ParseCertificate(interDER)
+	require.NoError(t, err)
+
+	return interCert, interKey
+}
+
 // generateTestClientCert creates a client certificate signed by the given CA.
 func generateTestClientCert(t *testing.T, caCert *x509.Certificate, caKey *ecdsa.PrivateKey) *x509.Certificate {
 	t.Helper()
