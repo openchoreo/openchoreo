@@ -158,6 +158,42 @@ func TestJWTDetectorUserTypeDetection(t *testing.T) {
 	}
 }
 
+func TestJWTDetectorMissingSubClaim(t *testing.T) {
+	userTypes := []subject.UserTypeConfig{
+		{
+			Type:        user,
+			DisplayName: "Human User",
+			Priority:    1,
+			AuthMechanisms: []subject.AuthMechanismConfig{
+				{
+					Type: "jwt",
+					Entitlement: subject.EntitlementConfig{
+						Claim:       "group",
+						DisplayName: "User Group",
+					},
+				},
+			},
+		},
+	}
+
+	detector, err := NewResolver(userTypes)
+	if err != nil {
+		t.Fatalf("Failed to create detector: %v", err)
+	}
+
+	token := createTestJWT(jwt.MapClaims{"group": "admin"})
+	result, err := detector.ResolveUserType(token)
+	if err != nil {
+		t.Fatalf("ResolveUserType() error = %v", err)
+	}
+
+	// A token without a sub claim must yield an empty ID, never the string "<nil>"
+	// that fmt.Sprintf("%v", nil) would produce.
+	if result.ID != "" {
+		t.Errorf("ID = %q, want empty string for a token without a sub claim", result.ID)
+	}
+}
+
 func TestJWTDetectorWithoutJWTMechanism(t *testing.T) {
 	// User type without JWT mechanism (using API key instead)
 	userTypes := []subject.UserTypeConfig{

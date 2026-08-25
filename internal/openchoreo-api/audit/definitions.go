@@ -7,186 +7,86 @@ import (
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
-// GetActionDefinitions returns all audit action definitions for openchoreo-api
-// Only state-modifying operations (POST, PUT, PATCH, DELETE) are audited
-func GetActionDefinitions() []audit.ActionDefinition {
-	return []audit.ActionDefinition{
-		// Project operations
+// operationDefs is the single source of truth for every audited operation on
+// both surfaces. Only state-modifying operations (POST, PUT, PATCH, DELETE)
+// are audited.
+//
+// ID is the OpenAPI operationId, e.g. "CreateProject" — PascalCase, matching
+// the generated Go handler method names, not the source spec's lowerCamelCase.
+//
+// This covers 12 of 114 state-modifying routes; the rest (and a CI gate to
+// keep coverage honest) are P1 work. Only 6 of these 12 have an MCP tool: no
+// MCP tool reaches DataPlaneService, and the secret-shaped MCP tools call
+// SecretReferenceService — a different resource — so they're not bound here.
+func operationDefs() []audit.OperationDef {
+	return []audit.OperationDef{
+		// Project operations.
 		{
-			Method:   "POST",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/projects",
-			Action:   "create_project",
-			Category: audit.CategoryResource,
+			ID: "CreateProject", Action: "create_project", ResourceType: "project", Category: audit.CategoryManagement,
+			MCPToolName: "create_project", MCPResourceArg: "name",
+		},
+		{
+			ID: "UpdateProject", Action: "update_project", ResourceType: "project", Category: audit.CategoryManagement,
+			MCPToolName: "update_project", MCPResourceArg: "project_name", RESTResourceParam: "projectName",
+		},
+		{
+			ID: "DeleteProject", Action: "delete_project", ResourceType: "project", Category: audit.CategoryManagement,
+			MCPToolName: "delete_project", MCPResourceArg: "project_name", RESTResourceParam: "projectName",
 		},
 
-		// Component operations
+		// DataPlane operations — no MCP tool reaches DataPlaneService's
+		// create/update/delete methods.
+		{ID: "CreateDataPlane", Action: "create_dataplane", ResourceType: "dataplane", Category: audit.CategoryManagement},
 		{
-			Method:   "POST",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components",
-			Action:   "create_component",
-			Category: audit.CategoryResource,
+			ID: "UpdateDataPlane", Action: "update_dataplane", ResourceType: "dataplane",
+			Category: audit.CategoryManagement, RESTResourceParam: "dpName",
 		},
 		{
-			Method:   "PATCH",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}",
-			Action:   "update_component",
-			Category: audit.CategoryResource,
-		},
-
-		// DataPlane operations
-		{
-			Method:   "POST",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/dataplanes",
-			Action:   "create_dataplane",
-			Category: audit.CategoryResource,
+			ID: "DeleteDataPlane", Action: "delete_dataplane", ResourceType: "dataplane",
+			Category: audit.CategoryManagement, RESTResourceParam: "dpName",
 		},
 
 		// Environment operations
 		{
-			Method:   "POST",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/environments",
-			Action:   "create_environment",
-			Category: audit.CategoryResource,
+			ID: "CreateEnvironment", Action: "create_environment", ResourceType: "environment",
+			Category: audit.CategoryManagement, MCPToolName: "create_environment", MCPResourceArg: "name",
 		},
 		{
-			Method:   "POST",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/git-secrets",
-			Action:   "create_git_secret",
-			Category: audit.CategoryResource,
-		},
-
-		// Secret operations
-		{
-			Method:   "POST",
-			Pattern:  "/api/v1alpha1/namespaces/{namespaceName}/secrets",
-			Action:   "create_secret",
-			Category: audit.CategoryResource,
+			ID: "UpdateEnvironment", Action: "update_environment", ResourceType: "environment",
+			Category: audit.CategoryManagement, MCPToolName: "update_environment", MCPResourceArg: "name",
+			RESTResourceParam: "envName",
 		},
 		{
-			Method:   "PUT",
-			Pattern:  "/api/v1alpha1/namespaces/{namespaceName}/secrets/{secretName}",
-			Action:   "update_secret",
-			Category: audit.CategoryResource,
-		},
-		{
-			Method:   "DELETE",
-			Pattern:  "/api/v1alpha1/namespaces/{namespaceName}/secrets/{secretName}",
-			Action:   "delete_secret",
-			Category: audit.CategoryResource,
+			ID: "DeleteEnvironment", Action: "delete_environment", ResourceType: "environment",
+			Category: audit.CategoryManagement, MCPToolName: "delete_environment", MCPResourceArg: "name",
+			RESTResourceParam: "envName",
 		},
 
-		// Apply/Delete operations (kubectl-like)
+		// Secret operations — no MCP binding; see the doc comment above.
+		{ID: "CreateSecret", Action: "create_secret", ResourceType: "secret", Category: audit.CategoryManagement},
 		{
-			Method:   "POST",
-			Pattern:  "/api/v1/apply",
-			Action:   "apply_resource",
-			Category: audit.CategoryResource,
+			ID: "UpdateSecret", Action: "update_secret", ResourceType: "secret",
+			Category: audit.CategoryManagement, RESTResourceParam: "secretName",
 		},
 		{
-			Method:   "DELETE",
-			Pattern:  "/api/v1/delete",
-			Action:   "delete_resource",
-			Category: audit.CategoryResource,
-		},
-
-		// Component Release operations
-		{
-			Method:   "POST",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/component-releases",
-			Action:   "create_component_release",
-			Category: audit.CategoryResource,
-		},
-
-		// Deployment operations
-		{
-			Method:   "POST",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/deploy",
-			Action:   "deploy_component",
-			Category: audit.CategoryResource,
-		},
-		{
-			Method:   "POST",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/promote",
-			Action:   "promote_component",
-			Category: audit.CategoryResource,
-		},
-
-		// Trait operations
-		{
-			Method:   "PUT",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/traits",
-			Action:   "update_component_traits",
-			Category: audit.CategoryResource,
-		},
-
-		// Component Binding operations
-		{
-			Method:   "PATCH",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/bindings/{bindingName}",
-			Action:   "update_component_binding",
-			Category: audit.CategoryResource,
-		},
-
-		// Workflow operations
-		{
-			Method:   "PATCH",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-parameters",
-			Action:   "update_workflow_parameters",
-			Category: audit.CategoryResource,
-		},
-		{
-			Method:   "POST",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workflow-runs",
-			Action:   "create_workflow_run",
-			Category: audit.CategoryResource,
-		},
-
-		// Workload operations
-		{
-			Method:   "POST",
-			Pattern:  "/api/v1/namespaces/{namespaceName}/projects/{projectName}/components/{componentName}/workloads",
-			Action:   "create_workload",
-			Category: audit.CategoryResource,
-		},
-
-		// Authorization role operations
-		{
-			Method:   "POST",
-			Pattern:  "/api/v1/authz/roles",
-			Action:   "create_authz_role",
-			Category: audit.CategoryAuth,
-		},
-		{
-			Method:   "PUT",
-			Pattern:  "/api/v1/authz/roles/{roleName}",
-			Action:   "update_authz_role",
-			Category: audit.CategoryAuth,
-		},
-		{
-			Method:   "DELETE",
-			Pattern:  "/api/v1/authz/roles/{roleName}",
-			Action:   "delete_authz_role",
-			Category: audit.CategoryAuth,
-		},
-
-		// Authorization role mapping operations
-		{
-			Method:   "POST",
-			Pattern:  "/api/v1/authz/role-mappings",
-			Action:   "create_authz_role_mapping",
-			Category: audit.CategoryAuth,
-		},
-		{
-			Method:   "PUT",
-			Pattern:  "/api/v1/authz/role-mappings/{mappingId}",
-			Action:   "update_authz_role_mapping",
-			Category: audit.CategoryAuth,
-		},
-		{
-			Method:   "DELETE",
-			Pattern:  "/api/v1/authz/role-mappings/{mappingId}",
-			Action:   "delete_authz_role_mapping",
-			Category: audit.CategoryAuth,
+			ID: "DeleteSecret", Action: "delete_secret", ResourceType: "secret",
+			Category: audit.CategoryManagement, RESTResourceParam: "secretName",
 		},
 	}
+}
+
+// GetOperations returns every audited Operation the REST resolver consumes —
+// operationDefs run through the generic audit.Operations derivation.
+func GetOperations() []audit.Operation {
+	return audit.Operations(operationDefs())
+}
+
+// MCPBindings returns the MCP tool-to-operation binding table, keyed by
+// (tool name, scope) — operationDefs run through the generic
+// audit.MCPBindings derivation. The error return is defensive: operationDefs
+// is a static compile-time table, so a collision here is a bug caught by
+// TestMCPBindings_DerivedFromDefs / TestMCPBindings_MatchRegisteredTools long
+// before this runs in production, not a runtime condition.
+func MCPBindings() (map[audit.MCPBindingKey]audit.MCPBinding, error) {
+	return audit.MCPBindings(operationDefs())
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/logging"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	openapihandlers "github.com/openchoreo/openchoreo/internal/openchoreo-api/api/handlers"
+	apiaudit "github.com/openchoreo/openchoreo/internal/openchoreo-api/audit"
 	k8s "github.com/openchoreo/openchoreo/internal/openchoreo-api/clients"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/mcphandlers"
@@ -38,11 +39,13 @@ import (
 	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
 	"github.com/openchoreo/openchoreo/internal/server"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 	apilogger "github.com/openchoreo/openchoreo/internal/server/middleware/logger"
 	mcpmiddleware "github.com/openchoreo/openchoreo/internal/server/middleware/mcp"
 	"github.com/openchoreo/openchoreo/internal/version"
 	"github.com/openchoreo/openchoreo/pkg/mcp"
+	"github.com/openchoreo/openchoreo/pkg/mcp/mcpaudit"
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
@@ -193,8 +196,22 @@ func main() {
 	jwtMiddleware := openapihandlers.InitJWTMiddleware(&cfg, logger)
 
 	// Initialize middlewares for OpenAPI handler
-	loggerMiddleware := apilogger.LoggerMiddleware(logger.With("component", "openapi"))
 	authMiddleware := auth.OpenAPIAuth(jwtMiddleware, gen.BearerAuthScopes)
+
+	// Build the one audit Emitter shared by both the REST and MCP surfaces, so
+	// a policy applies identically regardless of which one produced the event.
+	// cfg.Validate() (above) already ran the same conversion and would have
+	// failed startup on an invalid policy; a non-nil error here is defensive.
+	auditPolicies, err := cfg.Audit.BuildPolicySet(cfg.Security.KnownActorTypes())
+	if err != nil {
+		logger.Error("Failed to build audit policy set", slog.Any("error", err))
+		os.Exit(1)
+	}
+	auditEmitter, err := audit.NewEmitter("openchoreo-api", auditPolicies, audit.NewLogger(logger))
+	if err != nil {
+		logger.Error("Failed to build audit emitter", slog.Any("error", err))
+		os.Exit(1)
+	}
 
 	// Create base mux for the OpenAPI router.
 	// Non-OpenAPI routes (e.g. /mcp) are registered here before the generated
@@ -212,21 +229,41 @@ func main() {
 		mcpLoggerMw := apilogger.LoggerMiddleware(mcpLogger)
 		resourceMetadataURL := cfg.Server.PublicURL + "/.well-known/oauth-protected-resource"
 		mcpAuth401Mw := mcpmiddleware.Auth401Interceptor(resourceMetadataURL, cfg.Identity.MCPOAuthScopes)
-		mcpHandler := middleware.Chain(mcpLoggerMw, mcpAuth401Mw, jwtMiddleware)(mcp.NewHTTPServer(toolsets, runtime.pdp))
+		mcpBindings, err := apiaudit.MCPBindings()
+		if err != nil {
+			logger.Error("Failed to build MCP audit bindings", slog.Any("error", err))
+			os.Exit(1)
+		}
+		mcpServer, err := mcp.NewHTTPServer(mcpLogger, toolsets, runtime.pdp, mcpaudit.MiddlewareOptions{
+			Emitter:  auditEmitter,
+			Bindings: mcpBindings,
+			Enabled:  cfg.Audit.Enabled,
+		})
+		if err != nil {
+			logger.Error("Failed to build MCP HTTP server", slog.Any("error", err))
+			os.Exit(1)
+		}
+		mcpHandler := middleware.Chain(mcpLoggerMw, mcpAuth401Mw, jwtMiddleware)(mcpServer)
 
 		baseMux.Handle("/mcp", mcpHandler)
 	}
 
-	// Create OpenAPI handler with middleware chain (order: logger → auth → webhookBody → handler)
-	// Middlewares are applied last-to-first (last entry becomes the outermost wrapper).
-	// Execution order: loggerMiddleware → authMiddleware → webhookRawBodyMiddleware → handler.
-	// loggerMiddleware must be outermost so it captures all responses, including 401s from auth.
-	// webhookRawBodyMiddleware must be innermost (before the strict handler decodes the body)
-	// so that HMAC signature validation can access the original raw bytes.
-	// The generated routes are registered on the baseMux alongside /mcp.
+	// Create OpenAPI handler with middleware chain. The chain's ordering rationale
+	// lives in openapihandlers.APIMiddlewares, the single place route middleware is
+	// composed. The generated routes are registered on the baseMux alongside /mcp.
+	apiMiddlewares, err := openapihandlers.APIMiddlewares(openapihandlers.APIMiddlewareOptions{
+		Logger:         logger,
+		AuthMiddleware: authMiddleware,
+		AuditEmitter:   auditEmitter,
+		AuditEnabled:   cfg.Audit.Enabled,
+	})
+	if err != nil {
+		logger.Error("Failed to build API middlewares", slog.Any("error", err))
+		os.Exit(1)
+	}
 	handler := gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
 		BaseRouter:  baseMux,
-		Middlewares: []gen.MiddlewareFunc{openapihandlers.WebhookRawBodyMiddleware, authMiddleware, loggerMiddleware},
+		Middlewares: apiMiddlewares,
 	})
 
 	// Exec WebSocket endpoint is registered on a top-level mux that wraps the
