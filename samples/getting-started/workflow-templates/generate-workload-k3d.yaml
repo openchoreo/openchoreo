@@ -5,6 +5,18 @@ metadata:
 spec:
   templates:
     - name: generate-workload-cr
+      # oauth-client-assertion-file expects a projected identity token whose audience
+      # matches the federated credential on the identity provider. Getting that token
+      # into the pod is platform specific:
+      #   AKS     - annotate the pod's ServiceAccount with azure.workload.identity/client-id
+      #             and uncomment the label below. The webhook then injects the token at
+      #             /var/run/secrets/azure/tokens/azure-identity-token
+      #   EKS/GKE - IRSA and GKE Workload Identity mint tokens for their own cloud APIs,
+      #             so add a projected serviceAccountToken volume with the audience the
+      #             identity provider expects
+      # metadata:
+      #   labels:
+      #     azure.workload.identity/use: "true"
       inputs:
         parameters:
           - name: image
