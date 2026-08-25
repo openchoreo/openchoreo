@@ -46,11 +46,12 @@ Wait for the binding to reach `Ready=True`:
 kubectl get resourcereleasebinding snip-postgres-development -n default
 ```
 
-`initSQL` only runs on Postgres's first boot (initdb), so if you already had a running Postgres pod before promoting the binding above, delete it to force a clean re-init against an empty `emptyDir` volume. Find the data-plane namespace and pod (named `r-snip-postgres-development-<hash>`, not `snip-postgres`) and delete it:
+`initSQL` only runs on Postgres's first boot (initdb), so if you already had a running Postgres pod before promoting the binding above, delete it — and its PVC, since `resources/postgres.yaml` enables `persistenceEnabled` — to force a clean re-init against an empty data volume. Find the data-plane namespace and pod (named `r-snip-postgres-development-<hash>`, not `snip-postgres`) and delete both:
 
 ```bash
 ns=$(kubectl get ns -o name | grep url-shortener-development | cut -d/ -f2)
 kubectl delete -n "$ns" $(kubectl get pods -n "$ns" -o name | grep snip-postgres)
+kubectl delete -n "$ns" $(kubectl get pvc -n "$ns" -o name | grep snip-postgres)
 ```
 
 The frontend component has a log-based alert rule attached (`observability-alert-rule` trait, triggers when `status=500` appears more than 5 times within 1 minute). The trait's `enabled` defaults to `true`, and a notification channel is mandatory for any enabled alert rule — so `enable-alert.yaml` (which wires the trait to the `webhook-notification-channel-development` channel) must be applied *before* `frontend.yaml`. Applying it first means `autoDeploy` finds this `ReleaseBinding` already in place when the frontend Component is created and only patches in the release name, leaving the trait config untouched. Applying it after leaves the frontend's first render permanently failing validation (`A notification channel is mandatory for alert rules`) until you apply it:
@@ -81,6 +82,8 @@ A log-based alert rule on the frontend triggers when `status=500` appears more t
 
 `failure-scenario.yaml` starves the Postgres StatefulSet of memory (via the `snip-postgres-development` ResourceReleaseBinding's `resourceTypeEnvironmentConfigs`), causing it to OOM-kill and crash-loop. The api-service stays up but every DB query fails while Postgres is down, returning 500s. This breaches the alert threshold. The RCA agent then traces from the frontend alert to api-service 500s to Postgres connection errors to the crash-looping Postgres pod.
 
+`resources/postgres.yaml` enables `persistenceEnabled` on the Postgres Resource, so its data volume is a PVC (via `volumeClaimTemplates`) rather than `emptyDir`. Reverting the memory override below still causes the StatefulSet to roll the Postgres pod, but the PVC survives that pod recreate, so the `urls`/`clicks` data created before the incident is still there afterward.
+
 Start generating traffic (auto-detects the frontend URL from the ReleaseBinding):
 
 ```bash
@@ -96,12 +99,14 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 After the alert fires, revert by applying the fix from the UI if suggested, or manually via:
 
 ```bash
-kubectl patch resourcereleasebinding snip-postgres-development -n default --type=json -p '[{"op":"remove","path":"/spec/resourceTypeEnvironmentConfigs"}]'
+kubectl patch resourcereleasebinding snip-postgres-development -n default --type=json -p '[{"op":"remove","path":"/spec/resourceTypeEnvironmentConfigs/memory"}]'
 ```
+
+Note this removes only the `memory` override, not the whole `resourceTypeEnvironmentConfigs` map — `persistenceEnabled: true` (set in `resources/postgres.yaml`) needs to stay in place, otherwise Postgres would fall back to `emptyDir` on the next pod recreate and the data would be lost anyway.
 
 ## Cleanup
 
-None of these objects use Kubernetes owner references, so deleting the `Project` alone leaves the Resource, bindings, and notification channel behind. Delete everything explicitly instead — this also tears down Postgres's `StatefulSet` (and its `emptyDir` data) via the `ResourceReleaseBinding`'s finalizer:
+None of these objects use Kubernetes owner references, so deleting the `Project` alone leaves the Resource, bindings, and notification channel behind. Delete everything explicitly instead — this also tears down Postgres's `StatefulSet` and its PVC (via `persistentVolumeClaimRetentionPolicy.whenDeleted: Delete`, set when `persistenceEnabled` is true) through the `ResourceReleaseBinding`'s finalizer:
 
 ```bash
 kubectl delete -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/components/frontend.yaml

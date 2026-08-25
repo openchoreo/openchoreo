@@ -5,7 +5,9 @@ metadata:
   annotations:
     openchoreo.dev/description: >-
       In-cluster PostgreSQL database backed by a single-replica StatefulSet.
-      Ephemeral storage (emptyDir); for demonstration purposes only.
+      Storage defaults to ephemeral (emptyDir), for demonstration purposes
+      only; set environmentConfigs.persistenceEnabled to back it with a PVC
+      instead.
 spec:
   parameters:
     openAPIV3Schema:
@@ -32,6 +34,24 @@ spec:
         adminEnabled:
           type: boolean
           default: false
+        persistenceEnabled:
+          type: boolean
+          default: false
+          description: >-
+            Back the data volume with a PVC (via volumeClaimTemplates)
+            instead of emptyDir. The PVC survives pod recreation (e.g. a
+            StatefulSet rolling update triggered by changing `memory`), so
+            data is not lost when the pod restarts or is rescheduled.
+        storageSize:
+          type: string
+          default: 1Gi
+          description: Only used when persistenceEnabled is true.
+        storageClassName:
+          type: string
+          default: ""
+          description: >-
+            Only used when persistenceEnabled is true. Empty string uses the
+            cluster's default StorageClass.
 
   retainPolicy: Delete
 
@@ -252,6 +272,24 @@ spec:
           selector:
             matchLabels:
               app: ${metadata.name}
+          # Only present when persistenceEnabled is true. A StatefulSet's
+          # volumeClaimTemplates-backed PVCs survive pod recreation (e.g. a
+          # rolling update triggered by changing `memory`), unlike emptyDir.
+          volumeClaimTemplates: |
+            ${environmentConfigs.persistenceEnabled
+              ? [{"metadata": {"name": "data"},
+                  "spec": {"accessModes": ["ReadWriteOnce"],
+                           "resources": {"requests": {"storage": environmentConfigs.storageSize}},
+                           "storageClassName": environmentConfigs.storageClassName != ""
+                             ? environmentConfigs.storageClassName
+                             : oc_omit()}}]
+              : oc_omit()}
+          # Delete the PVC when the StatefulSet itself is torn down (Resource
+          # deleted), but keep it across ordinary pod restarts/rolling updates.
+          persistentVolumeClaimRetentionPolicy: |
+            ${environmentConfigs.persistenceEnabled
+              ? {"whenDeleted": "Delete", "whenScaled": "Retain"}
+              : oc_omit()}
           template:
             metadata:
               labels:
@@ -297,8 +335,12 @@ spec:
                     - name: init-scripts
                       mountPath: /docker-entrypoint-initdb.d
               volumes:
-                - name: data
-                  emptyDir: {}
+                # Omitted when persistenceEnabled is true — the "data" volume
+                # is supplied by volumeClaimTemplates above instead.
+                - |
+                  ${environmentConfigs.persistenceEnabled
+                    ? oc_omit()
+                    : {"name": "data", "emptyDir": {}}}
                 - name: init-scripts
                   configMap:
                     name: ${metadata.name}-init

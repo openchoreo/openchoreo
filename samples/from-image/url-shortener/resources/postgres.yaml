@@ -47,6 +47,12 @@ spec:
     resourceName: snip-postgres
   environment: development
   retainPolicy: Delete
+  # PVC-backed storage so the alerting demo's failure-scenario.yaml (which
+  # OOM-kills and crash-loops Postgres, then reverts the memory override) can
+  # recover without losing data: the StatefulSet's PVC survives the pod
+  # recreate that reverting `memory` triggers, unlike emptyDir.
+  resourceTypeEnvironmentConfigs:
+    persistenceEnabled: true
   # spec.resourceRelease intentionally unset. The Resource controller
   # generates a ResourceRelease named ${resource}-${hash}; the README's
   # follow-up step promotes this binding to that release via
