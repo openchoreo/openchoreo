@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	projectsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/project"
 	resourcesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resource"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListResources returns a paginated list of resources within a namespace.
@@ -95,6 +96,8 @@ func (h *Handler) CreateResource(
 		return gen.CreateResource500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	h.logger.Info("Resource created successfully", "namespaceName", request.NamespaceName, "resource", created.Name)
 	return gen.CreateResource201JSONResponse(genR), nil
 }
@@ -167,6 +170,8 @@ func (h *Handler) UpdateResource(
 		h.logger.Error("Failed to convert updated resource", "error", err)
 		return gen.UpdateResource500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Resource updated successfully", "namespaceName", request.NamespaceName, "resource", updated.Name)
 	return gen.UpdateResource200JSONResponse(genR), nil

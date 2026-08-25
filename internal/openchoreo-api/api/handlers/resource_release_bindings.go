@@ -11,6 +11,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	resourcereleasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcereleasebinding"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListResourceReleaseBindings returns a paginated list of resource release bindings within a namespace.
@@ -91,6 +92,8 @@ func (h *Handler) CreateResourceReleaseBinding(
 		return gen.CreateResourceReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	h.logger.Info("ResourceReleaseBinding created successfully", "namespaceName", request.NamespaceName, "resourceReleaseBinding", created.Name)
 	return gen.CreateResourceReleaseBinding201JSONResponse(genRB), nil
 }
@@ -163,6 +166,8 @@ func (h *Handler) UpdateResourceReleaseBinding(
 		h.logger.Error("Failed to convert updated resource release binding", "error", err)
 		return gen.UpdateResourceReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("ResourceReleaseBinding updated successfully", "namespaceName", request.NamespaceName, "resourceReleaseBinding", updated.Name)
 	return gen.UpdateResourceReleaseBinding200JSONResponse(genRB), nil

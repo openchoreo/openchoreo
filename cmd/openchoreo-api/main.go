@@ -307,13 +307,20 @@ func main() {
 		Middlewares: apiMiddlewares,
 	})
 
-	// Exec WebSocket endpoint is registered on a top-level mux that wraps the
-	// OpenAPI handler. This keeps exec outside the OpenAPI middleware chain whose
-	// ResponseWriter wrappers break http.Hijacker (required for WebSocket upgrade).
+	// Exec WebSocket and wirelogs endpoints are registered on a top-level mux
+	// that wraps the OpenAPI handler: neither is in openapi.yaml, so neither
+	// has an operationId to cross-reference against a spec — they get their
+	// own hand-declared audit middleware instead (NewExecWirelogsAuditMiddleware).
 	// The JWT middleware is applied directly to the exec handler for authentication.
 	// Authorization is enforced inside the handler via AuthzChecker (component:exec).
 	var topHandler http.Handler = handler
 	if cfg.ClusterGateway.Enabled && gatewayURL != "" {
+		execWirelogsAuditMw, err := openapihandlers.NewExecWirelogsAuditMiddleware(logger, auditEmitter, cfg.Audit.Enabled)
+		if err != nil {
+			logger.Error("Failed to build exec/wirelogs audit middleware", slog.Any("error", err))
+			os.Exit(1)
+		}
+
 		execAuthzChecker := svcpkg.NewAuthzChecker(runtime.pdp, logger.With("component", "exec-authz"))
 		gwTLSConf, err := gatewayClient.BuildTLSConfig(&gatewayClient.TLSConfig{
 			CAFile:             cfg.ClusterGateway.TLS.CACertPath,
@@ -326,7 +333,7 @@ func main() {
 			os.Exit(1)
 		}
 		execHandler := openapihandlers.NewExecHandler(k8sClient, gwClient, gatewayURL, gwTLSConf, execAuthzChecker, logger)
-		authedExecHandler := jwtMiddleware(execHandler)
+		authedExecHandler := jwtMiddleware(execWirelogsAuditMw.Handler(execHandler))
 
 		// Wirelogs handler shares the same gateway TLS config and authz checker
 		// (authz reuses logs:view at the component scope).
@@ -334,11 +341,11 @@ func main() {
 		wirelogsHandler := openapihandlers.NewWirelogsHandler(
 			k8sClient, gwClient, gatewayURL, gwTLSConf, wirelogsAuthzChecker, logger,
 		)
-		authedWirelogsHandler := jwtMiddleware(wirelogsHandler)
+		authedWirelogsHandler := jwtMiddleware(execWirelogsAuditMw.Handler(wirelogsHandler))
 
 		topMux := http.NewServeMux()
-		topMux.Handle("/exec/", authedExecHandler)
-		topMux.Handle("GET /api/v1/namespaces/{namespace}/environments/{environment}/wirelogs", authedWirelogsHandler)
+		topMux.Handle(openapihandlers.ExecRoutePattern, authedExecHandler)
+		topMux.Handle(openapihandlers.WirelogsRoutePattern, authedWirelogsHandler)
 
 		// remote-connect is not served through this gateway mux: occ dials the
 		// per-project+env remote-agent's dedicated L4 Service directly. The control plane
@@ -396,43 +403,17 @@ type runtime struct {
 }
 
 // buildMCPToolsets creates the MCP toolsets from the configuration.
-// Each enabled toolset is backed by the handler services layer.
+// Each enabled toolset is backed by the handler services layer. An unknown
+// toolset name in cfg.MCP.Toolsets never reaches here — config.Validate
+// (config.MCPConfig.ValidateMCPConfig) already rejects it against the same
+// validToolsets set at startup.
 func buildMCPToolsets(cfg *config.Config, svc *handlerservices.Services, logger *slog.Logger) *tools.Toolsets {
 	toolsetsMap := cfg.MCP.ParseToolsets()
 
 	logger.Info("Initializing MCP server", slog.Any("enabled_toolsets", cfg.MCP.Toolsets))
 
 	handler := mcphandlers.NewMCPHandler(svc)
-
-	toolsets := &tools.Toolsets{}
-	for toolsetType := range toolsetsMap {
-		switch toolsetType {
-		case tools.ToolsetNamespace:
-			toolsets.NamespaceToolset = handler
-			logger.Debug("Enabled MCP toolset", slog.String("toolset", "namespace"))
-		case tools.ToolsetProject:
-			toolsets.ProjectToolset = handler
-			logger.Debug("Enabled MCP toolset", slog.String("toolset", "project"))
-		case tools.ToolsetComponent:
-			toolsets.ComponentToolset = handler
-			logger.Debug("Enabled MCP toolset", slog.String("toolset", "component"))
-		case tools.ToolsetDeployment:
-			toolsets.DeploymentToolset = handler
-			logger.Debug("Enabled MCP toolset", slog.String("toolset", "deployment"))
-		case tools.ToolsetBuild:
-			toolsets.BuildToolset = handler
-			logger.Debug("Enabled MCP toolset", slog.String("toolset", "build"))
-		case tools.ToolsetPE:
-			toolsets.PEToolset = handler
-			logger.Debug("Enabled MCP toolset", slog.String("toolset", "pe"))
-		case tools.ToolsetResource:
-			toolsets.ResourceToolset = handler
-			logger.Debug("Enabled MCP toolset", slog.String("toolset", "resource"))
-		default:
-			logger.Warn("Unknown toolset type", slog.String("toolset", string(toolsetType)))
-		}
-	}
-	return toolsets
+	return tools.NewToolsets(handler, toolsetsMap)
 }
 
 // setupRuntime bootstraps the authorization runtime. When authorization is

@@ -11,6 +11,7 @@ type Envelope struct {
 	Actor     Actor
 	Result    Result
 	Resource  *Resource
+	Hierarchy Hierarchy
 	RequestID string
 	SourceIP  string
 	Metadata  map[string]any

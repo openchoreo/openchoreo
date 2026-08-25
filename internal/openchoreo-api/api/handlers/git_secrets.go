@@ -11,6 +11,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	gitsecretsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/gitsecret"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListGitSecrets returns all git secrets in a namespace.
@@ -91,6 +92,11 @@ func (h *Handler) CreateGitSecret(
 	ns := result.Namespace
 	wpKind := result.WorkflowPlaneKind
 	wpName := result.WorkflowPlaneName
+
+	// GitSecretInfo carries no UID — it's a plain service-layer struct, not a
+	// K8s object — so only the namespace and name are available to record.
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, Name: result.Name})
+
 	return gen.CreateGitSecret201JSONResponse(gen.GitSecretResponse{
 		Name:              &name,
 		Namespace:         &ns,

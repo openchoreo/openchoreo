@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	secretreferencesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/secretreference"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListSecretReferences returns a paginated list of secret references within a namespace.
@@ -84,6 +85,8 @@ func (h *Handler) CreateSecretReference(
 		h.logger.Error("Failed to convert created secret reference", "error", err)
 		return gen.CreateSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Secret reference created successfully", "namespaceName", request.NamespaceName, "secretReference", created.Name)
 	return gen.CreateSecretReference201JSONResponse(genSR), nil
@@ -160,6 +163,8 @@ func (h *Handler) UpdateSecretReference(
 		h.logger.Error("Failed to convert updated secret reference", "error", err)
 		return gen.UpdateSecretReference500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Secret reference updated successfully", "namespaceName", request.NamespaceName, "secretReference", updated.Name)
 	return gen.UpdateSecretReference200JSONResponse(genSR), nil

@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	traitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/trait"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListTraits returns a paginated list of traits within a namespace.
@@ -84,6 +85,8 @@ func (h *Handler) CreateTrait(
 		h.logger.Error("Failed to convert created trait", "error", err)
 		return gen.CreateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Trait created successfully", "namespaceName", request.NamespaceName, "trait", created.Name)
 	return gen.CreateTrait201JSONResponse(genTrait), nil
@@ -160,6 +163,8 @@ func (h *Handler) UpdateTrait(
 		h.logger.Error("Failed to convert updated trait", "error", err)
 		return gen.UpdateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Trait updated successfully", "namespaceName", request.NamespaceName, "trait", updated.Name)
 	return gen.UpdateTrait200JSONResponse(genTrait), nil

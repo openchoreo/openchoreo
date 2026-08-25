@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clustertraitsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustertrait"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListClusterTraits returns a paginated list of cluster-scoped traits.
@@ -87,6 +88,8 @@ func (h *Handler) CreateClusterTrait(
 		return gen.CreateClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	h.logger.Info("Cluster trait created successfully", "clusterTrait", created.Name)
 	return gen.CreateClusterTrait201JSONResponse(genCT), nil
 }
@@ -133,6 +136,8 @@ func (h *Handler) UpdateClusterTrait(
 		h.logger.Error("Failed to convert updated cluster trait", "error", err)
 		return gen.UpdateClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Cluster trait updated successfully", "clusterTrait", updated.Name)
 	return gen.UpdateClusterTrait200JSONResponse(genCT), nil

@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	componenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/componenttype"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListComponentTypes returns a paginated list of component types within a namespace.
@@ -84,6 +85,8 @@ func (h *Handler) CreateComponentType(
 		h.logger.Error("Failed to convert created component type", "error", err)
 		return gen.CreateComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Component type created successfully", "namespaceName", request.NamespaceName, "componentType", created.Name)
 	return gen.CreateComponentType201JSONResponse(genCT), nil
@@ -160,6 +163,8 @@ func (h *Handler) UpdateComponentType(
 		h.logger.Error("Failed to convert updated component type", "error", err)
 		return gen.UpdateComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Component type updated successfully", "namespaceName", request.NamespaceName, "componentType", updated.Name)
 	return gen.UpdateComponentType200JSONResponse(genCT), nil

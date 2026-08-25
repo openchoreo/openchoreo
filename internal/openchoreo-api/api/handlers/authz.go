@@ -14,6 +14,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
@@ -366,6 +367,8 @@ func (h *Handler) CreateClusterRole(
 		return gen.CreateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	h.logger.Info("Cluster role created successfully", "name", created.Name)
 	return gen.CreateClusterRole201JSONResponse(genRole), nil
 }
@@ -440,6 +443,8 @@ func (h *Handler) UpdateClusterRole(
 		h.logger.Error("Failed to convert updated cluster role", "error", err)
 		return gen.UpdateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Cluster role updated successfully", "name", updated.Name)
 	return gen.UpdateClusterRole200JSONResponse(genRole), nil
@@ -546,6 +551,8 @@ func (h *Handler) CreateClusterRoleBinding(
 		return gen.CreateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	h.logger.Info("Cluster role binding created successfully", "name", created.Name)
 	return gen.CreateClusterRoleBinding201JSONResponse(genBinding), nil
 }
@@ -620,6 +627,8 @@ func (h *Handler) UpdateClusterRoleBinding(
 		h.logger.Error("Failed to convert updated cluster role binding", "error", err)
 		return gen.UpdateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Cluster role binding updated successfully", "name", updated.Name)
 	return gen.UpdateClusterRoleBinding200JSONResponse(genBinding), nil
@@ -720,6 +729,8 @@ func (h *Handler) CreateNamespaceRole(
 		return gen.CreateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	h.logger.Info("Namespace role created successfully", "namespace", request.NamespaceName, "name", created.Name)
 	return gen.CreateNamespaceRole201JSONResponse(genRole), nil
 }
@@ -794,6 +805,8 @@ func (h *Handler) UpdateNamespaceRole(
 		h.logger.Error("Failed to convert updated namespace role", "error", err)
 		return gen.UpdateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Namespace role updated successfully", "namespace", request.NamespaceName, "name", updated.Name)
 	return gen.UpdateNamespaceRole200JSONResponse(genRole), nil
@@ -897,6 +910,8 @@ func (h *Handler) CreateNamespaceRoleBinding(
 		return gen.CreateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	h.logger.Info("Namespace role binding created successfully", "namespace", request.NamespaceName, "name", created.Name)
 	return gen.CreateNamespaceRoleBinding201JSONResponse(genBinding), nil
 }
@@ -971,6 +986,8 @@ func (h *Handler) UpdateNamespaceRoleBinding(
 		h.logger.Error("Failed to convert updated namespace role binding", "error", err)
 		return gen.UpdateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Namespace role binding updated successfully", "namespace", request.NamespaceName, "name", updated.Name)
 	return gen.UpdateNamespaceRoleBinding200JSONResponse(genBinding), nil

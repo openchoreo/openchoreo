@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListClusterComponentTypes returns a paginated list of cluster-scoped component types.
@@ -87,6 +88,8 @@ func (h *Handler) CreateClusterComponentType(
 		return gen.CreateClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	h.logger.Info("Cluster component type created successfully", "clusterComponentType", created.Name)
 	return gen.CreateClusterComponentType201JSONResponse(genCCT), nil
 }
@@ -133,6 +136,8 @@ func (h *Handler) UpdateClusterComponentType(
 		h.logger.Error("Failed to convert updated cluster component type", "error", err)
 		return gen.UpdateClusterComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Cluster component type updated successfully", "clusterComponentType", updated.Name)
 	return gen.UpdateClusterComponentType200JSONResponse(genCCT), nil

@@ -108,6 +108,74 @@ func TestLogEvent_ResourceTypeIndependentOfResource(t *testing.T) {
 	}
 }
 
+// TestLogEvent_IncludesHierarchy guards that project, component, and the
+// hierarchy's resource field render as flat siblings of namespace inside
+// the "resource" group.
+func TestLogEvent_IncludesHierarchy(t *testing.T) {
+	var buf bytes.Buffer
+	logger := NewLogger(slog.New(slog.NewJSONHandler(&buf, nil)))
+
+	logger.LogEvent(&Event{
+		Actor:        Actor{Type: "user", ID: "u1"},
+		Action:       "update_workload",
+		Category:     CategoryManagement,
+		Result:       ResultSuccess,
+		ResourceType: "workload",
+		Resource:     &Resource{Namespace: "ns-1", ID: "uid-1", Name: "wl-1"},
+		Hierarchy:    Hierarchy{Namespace: "ns-1", Project: "p1", Component: "c1", Resource: "wl-1"},
+	})
+
+	var record map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &record); err != nil {
+		t.Fatalf("failed to unmarshal log line: %v", err)
+	}
+
+	resource, ok := record["resource"].(map[string]any)
+	if !ok {
+		t.Fatal("expected a resource group")
+	}
+	if resource["project"] != "p1" {
+		t.Errorf("resource.project = %v, want p1", resource["project"])
+	}
+	if resource["component"] != "c1" {
+		t.Errorf("resource.component = %v, want c1", resource["component"])
+	}
+	if resource["resource"] != "wl-1" {
+		t.Errorf("resource.resource = %v, want wl-1", resource["resource"])
+	}
+}
+
+// TestLogEvent_OmitsEmptyHierarchyFields guards that an operation with no
+// project/component (e.g. a cluster-scoped resource) doesn't grow empty
+// "project"/"component"/"resource" keys.
+func TestLogEvent_OmitsEmptyHierarchyFields(t *testing.T) {
+	var buf bytes.Buffer
+	logger := NewLogger(slog.New(slog.NewJSONHandler(&buf, nil)))
+
+	logger.LogEvent(&Event{
+		Actor:        Actor{Type: "user", ID: "u1"},
+		Action:       "create_dataplane",
+		Category:     CategoryManagement,
+		Result:       ResultSuccess,
+		ResourceType: "dataplane",
+	})
+
+	var record map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &record); err != nil {
+		t.Fatalf("failed to unmarshal log line: %v", err)
+	}
+
+	resource, ok := record["resource"].(map[string]any)
+	if !ok {
+		t.Fatal("expected a resource group (ResourceType is set)")
+	}
+	for _, key := range []string{"project", "component", "resource", "namespace", "id", "name"} {
+		if _, present := resource[key]; present {
+			t.Errorf("resource.%s = %v, want absent", key, resource[key])
+		}
+	}
+}
+
 // TestEvent_MarshalJSONMatchesLogEventShape guards against a future sink that
 // marshals *Event directly (e.g. a P5 webhook sink) publishing a different
 // wire shape than Logger.LogEvent — both must render resource.type nested
@@ -120,6 +188,7 @@ func TestEvent_MarshalJSONMatchesLogEventShape(t *testing.T) {
 		Result:       ResultSuccess,
 		ResourceType: "project",
 		Resource:     &Resource{ID: "uid-1", Name: "p1"},
+		Hierarchy:    Hierarchy{Project: "p1"},
 	}
 
 	var loggerRecord map[string]any
@@ -155,6 +224,9 @@ func TestEvent_MarshalJSONMatchesLogEventShape(t *testing.T) {
 	}
 	if marshalResource["name"] != loggerResource["name"] {
 		t.Errorf("resource.name = %v, want %v (matching LogEvent)", marshalResource["name"], loggerResource["name"])
+	}
+	if marshalResource["project"] != loggerResource["project"] {
+		t.Errorf("resource.project = %v, want %v (matching LogEvent)", marshalResource["project"], loggerResource["project"])
 	}
 	if _, present := marshalRecord["resource_type"]; present {
 		t.Error(`json.Marshal(event) must not emit a sibling "resource_type" field`)

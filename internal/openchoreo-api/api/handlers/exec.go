@@ -24,6 +24,7 @@ import (
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	svcpkg "github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ExecHandler handles WebSocket exec requests for component pods.
@@ -77,6 +78,12 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := h.logger.With("namespace", namespace, "component", componentName)
 	logger.Info("Exec request received", "env", envName, "pod", podName, "container", container)
+
+	// The exec route is a bare subtree pattern with no named wildcards, so
+	// there's no RESTResourceParam to seed resource.namespace/name
+	// pre-handler — this call is the only source, on both the success and
+	// the denied path.
+	audit.SetResource(ctx, &audit.Resource{Namespace: namespace, Name: componentName})
 
 	// Authorize: check that the caller has component:exec permission for this environment.
 	if h.authzChecker == nil {
@@ -193,6 +200,9 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	gwExecURL, err := h.buildGatewayExecURL(podInfo, container, commands, tty, stdin)
 	if err != nil {
 		logger.Error("Failed to build gateway exec URL", "error", err)
+		// Past the upgrade, nothing written to clientConn touches rw's status
+		// code, so the audit result would otherwise default to success.
+		audit.SetResult(ctx, audit.ResultFailure)
 		writeWSError(clientConn, fmt.Sprintf("internal error: %v", err))
 		return
 	}
@@ -204,6 +214,7 @@ func (h *ExecHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	gwConn, _, err := gwDialer.DialContext(ctx, gwExecURL, nil)
 	if err != nil {
 		logger.Error("Failed to connect to gateway exec endpoint", "error", err)
+		audit.SetResult(ctx, audit.ResultFailure)
 		writeWSError(clientConn, fmt.Sprintf("failed to connect to data plane: %v", err))
 		return
 	}
