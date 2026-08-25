@@ -35,7 +35,8 @@ Apply the Resource + binding, then promote the binding to the resource's latest 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/from-image/url-shortener/resources/postgres.yaml
 
-until release=$(kubectl get resource snip-postgres -n default -o jsonpath='{.status.latestRelease.name}') && [ -n "$release" ]; do sleep 2; done
+for i in $(seq 1 150); do release=$(kubectl get resource snip-postgres -n default -o jsonpath='{.status.latestRelease.name}') && [ -n "$release" ] && break; sleep 2; done
+[ -n "$release" ] || { echo "Timed out waiting for snip-postgres latestRelease name"; kubectl get resource snip-postgres -n default -o yaml; exit 1; }
 kubectl patch resourcereleasebinding snip-postgres-development -n default \
   --type=merge -p "{\"spec\":{\"resourceRelease\":\"$release\"}}"
 ```
@@ -43,7 +44,7 @@ kubectl patch resourcereleasebinding snip-postgres-development -n default \
 Wait for the binding to reach `Ready=True`:
 
 ```bash
-kubectl get resourcereleasebinding snip-postgres-development -n default
+kubectl wait --for=condition=Ready --timeout=5m resourcereleasebinding snip-postgres-development -n default
 ```
 
 `initSQL` only runs on Postgres's first boot (initdb), so if you already had a running Postgres pod before promoting the binding above, delete it — and its PVC, since `resources/postgres.yaml` enables `persistenceEnabled` — to force a clean re-init against an empty data volume. Find the data-plane namespace and pod (named `r-snip-postgres-development-<hash>`, not `snip-postgres`) and delete both:
