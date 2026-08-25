@@ -4,11 +4,17 @@
 package k8sresources
 
 import (
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
 const kindCronJob = "CronJob"
+
+// templateArg is the args value baked into the sample CronJob's jobTemplate.
+const templateArg = "--from-template"
 
 func sampleCronJob() map[string]any {
 	return map[string]any{
@@ -42,7 +48,7 @@ func sampleCronJob() map[string]any {
 }
 
 func TestBuildJobFromCronJob(t *testing.T) {
-	job, err := buildJobFromCronJob(sampleCronJob())
+	job, err := buildJobFromCronJob(sampleCronJob(), nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -112,7 +118,7 @@ func TestBuildJobFromCronJobMissingFields(t *testing.T) {
 	}
 	for name, cj := range cases {
 		t.Run(name, func(t *testing.T) {
-			if _, err := buildJobFromCronJob(cj); err == nil {
+			if _, err := buildJobFromCronJob(cj, nil); err == nil {
 				t.Fatalf("expected error for %q", name)
 			}
 		})
@@ -142,4 +148,164 @@ func TestMakeJobNameUnique(t *testing.T) {
 		}
 		seen[name] = struct{}{}
 	}
+}
+
+// containerFromJob returns the single container of a built Job manifest.
+func containerFromJob(t *testing.T, job map[string]any) map[string]any {
+	t.Helper()
+	spec := job["spec"].(map[string]any)
+	podSpec := spec["template"].(map[string]any)["spec"].(map[string]any)
+	containers := podSpec["containers"].([]any)
+	if len(containers) != 1 {
+		t.Fatalf("expected 1 container, got %d", len(containers))
+	}
+	return containers[0].(map[string]any)
+}
+
+// TestBuildJobFromCronJobArgsOverride covers the args override applied to the created Job.
+func TestBuildJobFromCronJobArgsOverride(t *testing.T) {
+	t.Run("nil overrides keeps template args", func(t *testing.T) {
+		cj := sampleCronJob()
+		container := cronJobContainer(t, cj)
+		container["args"] = []any{templateArg}
+
+		job, err := buildJobFromCronJob(cj, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		args := containerFromJob(t, job)["args"].([]any)
+		if len(args) != 1 || args[0] != templateArg {
+			t.Fatalf("template args should be preserved, got %v", args)
+		}
+	})
+
+	t.Run("nil Args field keeps template args", func(t *testing.T) {
+		cj := sampleCronJob()
+		cronJobContainer(t, cj)["args"] = []any{templateArg}
+
+		job, err := buildJobFromCronJob(cj, &models.CronJobTriggerRequest{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		args := containerFromJob(t, job)["args"].([]any)
+		if len(args) != 1 || args[0] != templateArg {
+			t.Fatalf("template args should be preserved, got %v", args)
+		}
+	})
+
+	t.Run("args replace template args", func(t *testing.T) {
+		cj := sampleCronJob()
+		cronJobContainer(t, cj)["args"] = []any{templateArg}
+
+		job, err := buildJobFromCronJob(cj, &models.CronJobTriggerRequest{
+			Args: []string{"--mode", "backfill"},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		args := containerFromJob(t, job)["args"].([]any)
+		if len(args) != 2 || args[0] != "--mode" || args[1] != "backfill" {
+			t.Fatalf("args not replaced, got %v", args)
+		}
+	})
+
+	t.Run("empty args clears template args", func(t *testing.T) {
+		cj := sampleCronJob()
+		cronJobContainer(t, cj)["args"] = []any{templateArg}
+
+		job, err := buildJobFromCronJob(cj, &models.CronJobTriggerRequest{Args: []string{}})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, ok := containerFromJob(t, job)["args"]; ok {
+			t.Fatal("args should be cleared so the image entrypoint applies")
+		}
+	})
+
+	// The override must not write back into the CronJob we fetched, or a later read of that
+	// object would report args the CronJob does not actually have.
+	t.Run("override does not mutate the source cronjob", func(t *testing.T) {
+		cj := sampleCronJob()
+		cronJobContainer(t, cj)["args"] = []any{templateArg}
+
+		if _, err := buildJobFromCronJob(cj, &models.CronJobTriggerRequest{
+			Args: []string{"--mode", "backfill"},
+		}); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		args := cronJobContainer(t, cj)["args"].([]any)
+		if len(args) != 1 || args[0] != templateArg {
+			t.Fatalf("source cronjob was mutated: %v", args)
+		}
+	})
+}
+
+// TestApplyArgsOverrideContainerSelection covers which container the args land on.
+func TestApplyArgsOverrideContainerSelection(t *testing.T) {
+	t.Run("targets the container named main", func(t *testing.T) {
+		cj := sampleCronJob()
+		podSpec := cronJobPodSpec(t, cj)
+		podSpec["containers"] = []any{
+			map[string]any{"name": "sidecar", "image": "proxy"},
+			map[string]any{"name": mainContainerName, "image": "busybox"},
+		}
+
+		job, err := buildJobFromCronJob(cj, &models.CronJobTriggerRequest{Args: []string{"--go"}})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		spec := job["spec"].(map[string]any)
+		containers := spec["template"].(map[string]any)["spec"].(map[string]any)["containers"].([]any)
+		sidecar := containers[0].(map[string]any)
+		main := containers[1].(map[string]any)
+		if _, ok := sidecar["args"]; ok {
+			t.Fatal("sidecar must not receive the args override")
+		}
+		if got := main["args"].([]any); len(got) != 1 || got[0] != "--go" {
+			t.Fatalf("main container did not receive args: %v", main["args"])
+		}
+	})
+
+	// Guessing here would silently run the wrong container, so this is an error instead.
+	t.Run("multiple containers without main is an error", func(t *testing.T) {
+		cj := sampleCronJob()
+		cronJobPodSpec(t, cj)["containers"] = []any{
+			map[string]any{"name": "one", "image": "busybox"},
+			map[string]any{"name": "two", "image": "busybox"},
+		}
+
+		_, err := buildJobFromCronJob(cj, &models.CronJobTriggerRequest{Args: []string{"--go"}})
+		if !errors.Is(err, ErrTriggerContainerAmbiguous) {
+			t.Fatalf("expected ErrTriggerContainerAmbiguous, got %v", err)
+		}
+	})
+
+	t.Run("no containers is an error", func(t *testing.T) {
+		cj := sampleCronJob()
+		cronJobPodSpec(t, cj)["containers"] = []any{}
+
+		_, err := buildJobFromCronJob(cj, &models.CronJobTriggerRequest{Args: []string{"--go"}})
+		if !errors.Is(err, ErrTriggerContainerAmbiguous) {
+			t.Fatalf("expected ErrTriggerContainerAmbiguous, got %v", err)
+		}
+	})
+}
+
+// cronJobPodSpec returns the pod spec inside a sample CronJob's jobTemplate.
+func cronJobPodSpec(t *testing.T, cj map[string]any) map[string]any {
+	t.Helper()
+	podSpec, ok := getNestedMap(cj, "spec", "jobTemplate", "spec", "template", "spec")
+	if !ok {
+		t.Fatal("sample cronjob has no pod spec")
+	}
+	return podSpec
+}
+
+// cronJobContainer returns the first container from a sample CronJob's jobTemplate.
+func cronJobContainer(t *testing.T, cj map[string]any) map[string]any {
+	t.Helper()
+	containers := cronJobPodSpec(t, cj)["containers"].([]any)
+	return containers[0].(map[string]any)
 }

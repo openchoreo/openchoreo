@@ -896,6 +896,19 @@ func getNestedString(obj map[string]any, keys ...string) string {
 	return ""
 }
 
+// getNestedMap walks a chain of map keys and returns the map at the end of the path.
+func getNestedMap(obj map[string]any, keys ...string) (map[string]any, bool) {
+	current := obj
+	for _, key := range keys {
+		next, ok := current[key].(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current = next
+	}
+	return current, true
+}
+
 func getStringField(obj map[string]any, key string) string {
 	if v, ok := obj[key].(string); ok {
 		return v
