@@ -27,10 +27,10 @@ spec:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/observer/observer-config.yaml") . | sha256sum }}
       labels:
-        {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "observer") | nindent 8 }}
         {{- with .Values.observer.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+        {{- include "openchoreo-observability-plane.componentSelectorLabels" (dict "context" . "component" "observer") | nindent 8 }}
     spec:
       serviceAccountName: observer
       {{- with .Values.global.imagePullSecrets }}
