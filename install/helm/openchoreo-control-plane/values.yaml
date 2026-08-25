@@ -1285,6 +1285,7 @@ openchoreoApi:
                 - "namespace:view"
                 - "componentrelease:view"
                 - "releasebinding:view"
+                - "resourcereleasebinding:view"
                 - "workflowrun:view"
                 - "environment:view"
                 - "workload:view"

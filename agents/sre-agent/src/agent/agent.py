@@ -30,6 +30,8 @@ from src.agent.tool_registry import (
     OPENCHOREO_TOOLS,
     TOOL_ACTIVE_FORMS,
     TOOLS,
+    create_get_resource_release_binding_tool,
+    create_list_resource_release_bindings_tool,
 )
 from src.auth import get_oauth2_auth
 from src.clients import MCPClient, get_model, get_report_backend
@@ -124,6 +126,14 @@ RCA_AGENT = Agent(
         TOOLS.LIST_COMPONENTS,
         TOOLS.GET_COMPONENT_RELEASE,
     },
+    # Resource-dependency inspection: a Component may depend on a Resource
+    # (e.g. Postgres) whose pods aren't observable as a component, so telemetry
+    # alone can't explain its failures. These let the agent read the Resource's
+    # ResourceReleaseBinding config to spot misconfiguration (e.g. starved memory).
+    tool_factories=[
+        create_list_resource_release_bindings_tool,
+        create_get_resource_release_binding_tool,
+    ],
     middleware=[
         LoggingMiddleware,
         ToolErrorHandlerMiddleware,
