@@ -41,20 +41,22 @@ func init() {
 
 func main() {
 	var (
-		port                 int
-		internalPort         int
-		serverCertPath       string
-		serverKeyPath        string
-		skipClientCertVerify bool
-		internalMTLS         bool
-		internalClientCAPath string
-		readTimeout          time.Duration
-		writeTimeout         time.Duration
-		idleTimeout          time.Duration
-		shutdownTimeout      time.Duration
-		heartbeatInterval    time.Duration
-		heartbeatTimeout     time.Duration
-		logLevel             string
+		port                     int
+		internalPort             int
+		serverCertPath           string
+		serverKeyPath            string
+		skipClientCertVerify     bool
+		internalMTLS             bool
+		internalClientCAPath     string
+		agentAuthMode            string
+		agentAuthForwardedHeader string
+		readTimeout              time.Duration
+		writeTimeout             time.Duration
+		idleTimeout              time.Duration
+		shutdownTimeout          time.Duration
+		heartbeatInterval        time.Duration
+		heartbeatTimeout         time.Duration
+		logLevel                 string
 	)
 
 	flag.IntVar(&port, "port", cmdutil.GetEnvInt("AGENT_SERVER_PORT", defaultPort),
@@ -78,6 +80,16 @@ func main() {
 	flag.StringVar(&internalClientCAPath, "internal-client-ca-cert",
 		cmdutil.GetEnv("INTERNAL_CLIENT_CA_PATH", ""),
 		"Path to the CA bundle used to verify internal API clients (required when --internal-mtls is enabled)")
+	flag.StringVar(&agentAuthMode, "agent-auth-mode",
+		cmdutil.GetEnv("AGENT_AUTH_MODE", string(clustergateway.AgentAuthModeMTLS)),
+		"How the public listener obtains the agent client certificate: "+
+			"'mtls' (from the TLS handshake) or 'forwarded-header' (from a header set by a trusted TLS-terminating proxy)")
+	flag.StringVar(&agentAuthForwardedHeader, "agent-auth-forwarded-header",
+		cmdutil.GetEnv("AGENT_AUTH_FORWARDED_HEADER", clustergateway.DefaultForwardedHeaderName),
+		"Request header carrying the URL-encoded client certificate chain when --agent-auth-mode=forwarded-header "+
+			"(e.g. X-Amzn-Mtls-Clientcert for AWS ALB in mTLS passthrough mode — "+
+			"ALB verify mode sends certificate-attribute headers instead, "+
+			"X-Forwarded-Client-Cert for Envoy/Istio)")
 	flag.DurationVar(&readTimeout, "read-timeout", defaultReadTimeout, "HTTP read timeout")
 	flag.DurationVar(&writeTimeout, "write-timeout", defaultWriteTimeout, "HTTP write timeout")
 	flag.DurationVar(&idleTimeout, "idle-timeout", defaultIdleTimeout, "HTTP idle timeout")
@@ -96,6 +108,7 @@ func main() {
 		"serverKey", serverKeyPath,
 		"internalMTLS", internalMTLS,
 		"internalClientCA", internalClientCAPath,
+		"agentAuthMode", agentAuthMode,
 		"heartbeatInterval", heartbeatInterval,
 		"heartbeatTimeout", heartbeatTimeout,
 		"note", "Client CA certificates are loaded dynamically from DataPlane/WorkflowPlane/ObservabilityPlane CRs",
@@ -124,19 +137,21 @@ func main() {
 	logger.Info("Kubernetes client created successfully")
 
 	config := &clustergateway.Config{
-		Port:                 port,
-		InternalPort:         internalPort,
-		ServerCertPath:       serverCertPath,
-		ServerKeyPath:        serverKeyPath,
-		SkipClientCertVerify: skipClientCertVerify,
-		InternalMTLSEnabled:  internalMTLS,
-		InternalClientCAPath: internalClientCAPath,
-		ReadTimeout:          readTimeout,
-		WriteTimeout:         writeTimeout,
-		IdleTimeout:          idleTimeout,
-		ShutdownTimeout:      shutdownTimeout,
-		HeartbeatInterval:    heartbeatInterval,
-		HeartbeatTimeout:     heartbeatTimeout,
+		Port:                     port,
+		InternalPort:             internalPort,
+		ServerCertPath:           serverCertPath,
+		ServerKeyPath:            serverKeyPath,
+		SkipClientCertVerify:     skipClientCertVerify,
+		InternalMTLSEnabled:      internalMTLS,
+		InternalClientCAPath:     internalClientCAPath,
+		AgentAuthMode:            clustergateway.AgentAuthMode(agentAuthMode),
+		AgentAuthForwardedHeader: agentAuthForwardedHeader,
+		ReadTimeout:              readTimeout,
+		WriteTimeout:             writeTimeout,
+		IdleTimeout:              idleTimeout,
+		ShutdownTimeout:          shutdownTimeout,
+		HeartbeatInterval:        heartbeatInterval,
+		HeartbeatTimeout:         heartbeatTimeout,
 	}
 
 	srv := clustergateway.New(config, k8sClient, logger)
