@@ -4455,6 +4455,12 @@ paths:
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ReleaseBindingNameParam'
+      requestBody:
+        description: Optional per-trigger overrides for the CronJob job template
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CronJobTriggerRequest'
       responses:
         '200':
           description: The Job created from the CronJob
@@ -11281,6 +11287,16 @@ components:
           description: Log entries from the pod
           items:
             $ref: '#/components/schemas/PodLogEntry'
+
+    CronJobTriggerRequest:
+      type: object
+      description: Optional per-trigger overrides for the CronJob job template
+      properties:
+        args:
+          type: array
+          description: Arguments to pass to the workload's primary container for this trigger
+          items:
+            type: string
 
     CronJobTriggerResponse:
       type: object

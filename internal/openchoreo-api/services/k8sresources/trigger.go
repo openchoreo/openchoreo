@@ -35,7 +35,7 @@ const (
 // TriggerCronJob creates a Job from the deployed CronJob's spec.jobTemplate with an owner
 // reference back to the CronJob, matching `kubectl create job --from=cronjob/<name>`.
 // It is only allowed when the release binding's component is a cronjob workload.
-func (s *k8sResourcesService) TriggerCronJob(ctx context.Context, namespaceName, releaseBindingName string) (*models.CronJobTriggerResponse, error) {
+func (s *k8sResourcesService) TriggerCronJob(ctx context.Context, namespaceName, releaseBindingName string, args *[]string) (*models.CronJobTriggerResponse, error) {
 	s.logger.Debug("Triggering cronjob", "namespace", namespaceName, "releaseBinding", releaseBindingName)
 
 	if s.gatewayClient == nil {
@@ -69,7 +69,7 @@ func (s *k8sResourcesService) TriggerCronJob(ctx context.Context, namespaceName,
 		return nil, fmt.Errorf("failed to fetch cronjob: %w", err)
 	}
 
-	job, err := buildJobFromCronJob(cronJob)
+	job, err := buildJobFromCronJob(cronJob, args)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,9 @@ func findCronJobResource(contexts []releaseContext) (*releaseContext, *openchore
 
 // buildJobFromCronJob builds a Job manifest from a CronJob's spec.jobTemplate, adding an owner
 // reference to the CronJob and the manual-instantiate annotation, mirroring kubectl behavior.
-func buildJobFromCronJob(cronJob map[string]any) (map[string]any, error) {
+// When args is provided (non-nil), it overrides the arguments for the primary container (index 0)
+// in spec.template.spec.containers for the triggered Job.
+func buildJobFromCronJob(cronJob map[string]any, args *[]string) (map[string]any, error) {
 	cronJobName := getNestedString(cronJob, "metadata", "name")
 	cronJobNamespace := getNestedString(cronJob, "metadata", "namespace")
 	cronJobUID := getNestedString(cronJob, "metadata", "uid")
@@ -152,9 +154,46 @@ func buildJobFromCronJob(cronJob map[string]any) (map[string]any, error) {
 	if !ok {
 		return nil, fmt.Errorf("cronjob has no spec.jobTemplate")
 	}
-	jobSpec, ok := jobTemplate["spec"].(map[string]any)
+	jobTemplateSpec, ok := jobTemplate["spec"].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("cronjob has no spec.jobTemplate.spec")
+	}
+
+	// Deep copy jobTemplate.spec to prevent mutating the source CronJob in-memory map.
+	jobSpecBytes, err := json.Marshal(jobTemplateSpec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal job template spec: %w", err)
+	}
+	var jobSpec map[string]any
+	if err := json.Unmarshal(jobSpecBytes, &jobSpec); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal job template spec: %w", err)
+	}
+
+	if args != nil {
+		template, ok := jobSpec["template"].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("cronjob has no spec.jobTemplate.spec.template")
+		}
+		podSpec, ok := template["spec"].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("cronjob has no spec.jobTemplate.spec.template.spec")
+		}
+		containers, ok := podSpec["containers"].([]any)
+		if !ok || len(containers) == 0 {
+			return nil, fmt.Errorf("cronjob has no spec.jobTemplate.spec.template.spec.containers")
+		}
+		primaryContainer, ok := containers[0].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("cronjob primary container is invalid")
+		}
+
+		// Set primary container arguments (index 0 by OpenChoreo workload convention).
+		// Sidecar containers (containers[1:]) and command remain untouched.
+		argsSlice := make([]any, len(*args))
+		for i, a := range *args {
+			argsSlice[i] = a
+		}
+		primaryContainer["args"] = argsSlice
 	}
 
 	metadata := map[string]any{

@@ -28,5 +28,5 @@ type Service interface {
 	GetResourceTree(ctx context.Context, namespaceName, releaseBindingName string) (*K8sResourceTreeResult, error)
 	GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName, group, version, kind, name string) (*models.ResourceEventsResponse, error)
 	GetResourceLogs(ctx context.Context, namespaceName, releaseBindingName, podName, container string, sinceSeconds *int64) (*models.ResourcePodLogsResponse, error)
-	TriggerCronJob(ctx context.Context, namespaceName, releaseBindingName string) (*models.CronJobTriggerResponse, error)
+	TriggerCronJob(ctx context.Context, namespaceName, releaseBindingName string, args *[]string) (*models.CronJobTriggerResponse, error)
 }

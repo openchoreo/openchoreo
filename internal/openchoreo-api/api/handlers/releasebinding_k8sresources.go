@@ -145,7 +145,12 @@ func (h *Handler) TriggerReleaseBindingCronJob(
 		"namespace", request.NamespaceName,
 		"releaseBinding", request.ReleaseBindingName)
 
-	resp, err := h.services.K8sResourcesService.TriggerCronJob(ctx, request.NamespaceName, request.ReleaseBindingName)
+	var args *[]string
+	if request.Body != nil && request.Body.Args != nil {
+		args = request.Body.Args
+	}
+
+	resp, err := h.services.K8sResourcesService.TriggerCronJob(ctx, request.NamespaceName, request.ReleaseBindingName, args)
 	if err != nil {
 		return h.handleTriggerCronJobError(err)
 	}

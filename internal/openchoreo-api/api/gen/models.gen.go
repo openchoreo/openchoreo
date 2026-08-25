@@ -1803,6 +1803,12 @@ type CreateWorkflowRunRequest struct {
 	WorkflowName string `json:"workflowName"`
 }
 
+// CronJobTriggerRequest Optional per-trigger overrides for the CronJob job template
+type CronJobTriggerRequest struct {
+	// Args Arguments to pass to the workload's primary container for this trigger
+	Args *[]string `json:"args,omitempty"`
+}
+
 // CronJobTriggerResponse Response describing the Job created from a manual cronjob trigger
 type CronJobTriggerResponse struct {
 	// CronJobName Name of the CronJob the Job was created from
@@ -5637,6 +5643,9 @@ type HandleAutoBuildJSONRequestBody HandleAutoBuildJSONBody
 
 // CreateGitSecretJSONRequestBody defines body for CreateGitSecret for application/json ContentType.
 type CreateGitSecretJSONRequestBody = CreateGitSecretRequest
+
+// TriggerReleaseBindingCronJobJSONRequestBody defines body for TriggerReleaseBindingCronJob for application/json ContentType.
+type TriggerReleaseBindingCronJobJSONRequestBody = CronJobTriggerRequest
 
 // CreateSecretJSONRequestBody defines body for CreateSecret for application/json ContentType.
 type CreateSecretJSONRequestBody = CreateSecretRequest

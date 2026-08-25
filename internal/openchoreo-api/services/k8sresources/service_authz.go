@@ -60,12 +60,12 @@ func (s *k8sResourcesServiceWithAuthz) GetResourceLogs(ctx context.Context, name
 	return s.internal.GetResourceLogs(ctx, namespaceName, releaseBindingName, podName, container, sinceSeconds)
 }
 
-func (s *k8sResourcesServiceWithAuthz) TriggerCronJob(ctx context.Context, namespaceName, releaseBindingName string) (*models.CronJobTriggerResponse, error) {
+func (s *k8sResourcesServiceWithAuthz) TriggerCronJob(ctx context.Context, namespaceName, releaseBindingName string, args *[]string) (*models.CronJobTriggerResponse, error) {
 	// Triggering mutates the data plane, so it requires the update action rather than view.
 	if err := s.checkReleaseBindingAuthzWithAction(ctx, namespaceName, releaseBindingName, authz.ActionUpdateReleaseBinding); err != nil {
 		return nil, err
 	}
-	return s.internal.TriggerCronJob(ctx, namespaceName, releaseBindingName)
+	return s.internal.TriggerCronJob(ctx, namespaceName, releaseBindingName, args)
 }
 
 // checkReleaseBindingAuthz fetches the release binding and checks view authorization.

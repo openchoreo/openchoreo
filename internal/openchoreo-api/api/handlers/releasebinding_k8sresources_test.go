@@ -246,3 +246,103 @@ func TestGetReleaseBindingK8sResourceLogsHandler_MapsErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestTriggerReleaseBindingCronJobHandler_Arguments(t *testing.T) {
+	ctx := testContext()
+	populatedArgs := []string{"--mode", "rebuild", "--count", "5"}
+	emptyArgs := []string{}
+
+	tests := []struct {
+		name     string
+		body     *gen.TriggerReleaseBindingCronJobJSONRequestBody
+		wantArgs *[]string
+	}{
+		{
+			name:     "nil body forwards nil args",
+			body:     nil,
+			wantArgs: nil,
+		},
+		{
+			name:     "empty object body forwards nil args",
+			body:     &gen.TriggerReleaseBindingCronJobJSONRequestBody{Args: nil},
+			wantArgs: nil,
+		},
+		{
+			name:     "populated body forwards exact args slice",
+			body:     &gen.TriggerReleaseBindingCronJobJSONRequestBody{Args: &populatedArgs},
+			wantArgs: &populatedArgs,
+		},
+		{
+			name:     "explicit empty args forwarded distinctly",
+			body:     &gen.TriggerReleaseBindingCronJobJSONRequestBody{Args: &emptyArgs},
+			wantArgs: &emptyArgs,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := k8sresourcesmocks.NewMockService(t)
+			svc.EXPECT().TriggerCronJob(mock.Anything, "test-ns", "rb-1", tt.wantArgs).
+				Return(&models.CronJobTriggerResponse{
+					JobName:     "job-1",
+					Namespace:   "dp-test-ns",
+					CronJobName: "cronjob-1",
+				}, nil)
+
+			h := &Handler{
+				services: &handlerservices.Services{K8sResourcesService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+
+			resp, err := h.TriggerReleaseBindingCronJob(ctx, gen.TriggerReleaseBindingCronJobRequestObject{
+				NamespaceName:      "test-ns",
+				ReleaseBindingName: "rb-1",
+				Body:               tt.body,
+			})
+			require.NoError(t, err)
+
+			typed, ok := resp.(gen.TriggerReleaseBindingCronJob200JSONResponse)
+			require.True(t, ok, "expected 200 response, got %T", resp)
+			assert.Equal(t, "job-1", typed.JobName)
+			assert.Equal(t, "dp-test-ns", typed.Namespace)
+			assert.Equal(t, "cronjob-1", typed.CronJobName)
+		})
+	}
+}
+
+func TestTriggerReleaseBindingCronJobHandler_MapsErrors(t *testing.T) {
+	ctx := testContext()
+
+	tests := []struct {
+		name    string
+		svcErr  error
+		wantTyp any
+	}{
+		{"forbidden -> 403", svcpkg.ErrForbidden, gen.TriggerReleaseBindingCronJob403JSONResponse{}},
+		{"not cronjob workload -> 400", k8sresourcessvc.ErrNotCronJobWorkload, gen.TriggerReleaseBindingCronJob400JSONResponse{}},
+		{"trigger conflict -> 400", k8sresourcessvc.ErrTriggerConflict, gen.TriggerReleaseBindingCronJob400JSONResponse{}},
+		{"releasebinding not found -> 404", k8sresourcessvc.ErrReleaseBindingNotFound, gen.TriggerReleaseBindingCronJob404JSONResponse{}},
+		{"component release not found -> 404", k8sresourcessvc.ErrComponentReleaseNotFound, gen.TriggerReleaseBindingCronJob404JSONResponse{}},
+		{"rendered release not found -> 404", k8sresourcessvc.ErrRenderedReleaseNotFound, gen.TriggerReleaseBindingCronJob404JSONResponse{}},
+		{"cronjob not found -> 404", k8sresourcessvc.ErrCronJobNotFound, gen.TriggerReleaseBindingCronJob404JSONResponse{}},
+		{"environment not found -> 404", k8sresourcessvc.ErrEnvironmentNotFound, gen.TriggerReleaseBindingCronJob404JSONResponse{}},
+		{"internal error -> 500", assert.AnError, gen.TriggerReleaseBindingCronJob500JSONResponse{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := k8sresourcesmocks.NewMockService(t)
+			svc.EXPECT().TriggerCronJob(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, tt.svcErr)
+			h := &Handler{
+				services: &handlerservices.Services{K8sResourcesService: svc},
+				logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+			}
+			resp, err := h.TriggerReleaseBindingCronJob(ctx, gen.TriggerReleaseBindingCronJobRequestObject{
+				NamespaceName:      "test-ns",
+				ReleaseBindingName: "rb-1",
+			})
+			require.NoError(t, err)
+			assert.IsType(t, tt.wantTyp, resp)
+		})
+	}
+}

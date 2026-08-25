@@ -4,10 +4,13 @@
 package handlers
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	apiaudit "github.com/openchoreo/openchoreo/internal/openchoreo-api/audit"
@@ -71,7 +74,7 @@ type APIMiddlewareOptions struct {
 //
 // oapi-codegen applies these last-to-first, so the last entry is outermost:
 //
-//	logger → auth → audit → webhookRawBody → handler
+//	logger → auth → audit → triggerEmptyBody → webhookRawBody → handler
 //
 // audit sits inside auth so SubjectContext is already populated; auditing
 // auth failures themselves needs a separate outer instance (P1).
@@ -99,8 +102,33 @@ func APIMiddlewares(opts APIMiddlewareOptions) ([]gen.MiddlewareFunc, error) {
 
 	return []gen.MiddlewareFunc{
 		WebhookRawBodyMiddleware,
+		TriggerEmptyBodyMiddleware,
 		auditMw.Handler,
 		opts.AuthMiddleware,
 		loggerMw,
 	}, nil
+}
+
+// TriggerEmptyBodyMiddleware supplies an empty JSON object body for CronJob trigger requests
+// sent without a request body or with an empty body, ensuring backwards compatibility with existing clients.
+func TriggerEmptyBodyMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/trigger") {
+			if r.Body == nil || r.Body == http.NoBody {
+				r.Body = io.NopCloser(bytes.NewReader([]byte("{}")))
+			} else {
+				buf, err := io.ReadAll(r.Body)
+				if err != nil {
+					http.Error(w, "failed to read request body", http.StatusBadRequest)
+					return
+				}
+				if len(bytes.TrimSpace(buf)) == 0 {
+					r.Body = io.NopCloser(bytes.NewReader([]byte("{}")))
+				} else {
+					r.Body = io.NopCloser(bytes.NewReader(buf))
+				}
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
