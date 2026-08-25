@@ -12,5 +12,10 @@ spec:
     projectName: url-shortener
     resourceName: snip-postgres
   environment: development
+  # kubectl apply's 3-way merge deletes keys missing from this manifest but
+  # present in the last-applied one, so omitting persistenceEnabled here
+  # would strip the `true` set by resources/postgres.yaml and make the
+  # StatefulSet update (incl. the memory change below) get rejected.
   resourceTypeEnvironmentConfigs:
     memory: 8Mi
+    persistenceEnabled: true
