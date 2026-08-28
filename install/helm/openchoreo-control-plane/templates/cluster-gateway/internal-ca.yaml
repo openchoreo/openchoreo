@@ -1,4 +1,4 @@
-{{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+{{- if .Values.clusterGateway.internalMtls.enabled }}
 ---
 # CA Certificate for signing internal API client certificates (openchoreo-api,
 # controller-manager). Deliberately separate from the agent CA (cluster-gateway-ca)

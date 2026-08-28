@@ -3337,15 +3337,13 @@ clusterGateway:
   name: cluster-gateway
 
   # type: integer
-  # description: Number of cluster gateway replicas. Must be 1 - the gateway holds cluster-agent WebSocket connections in process memory and cannot be horizontally scaled. Provide support in upcoming release.
+  # description: Number of cluster gateway replicas. Values above 1 require the gateway mesh (clusterGateway.mesh.enabled), which replicates the connection registry across replicas and forwards requests between them.
   # minimum: 1
-  # maximum: 1
   # default: 1
   # @schema
   # type: integer
-  # description: Number of cluster gateway replicas. Must be 1 - the gateway holds cluster-agent WebSocket connections in process memory and cannot be horizontally scaled. Provide support in upcoming release.
+  # description: Number of cluster gateway replicas. Values above 1 require the gateway mesh (clusterGateway.mesh.enabled), which replicates the connection registry across replicas and forwards requests between them.
   # minimum: 1
-  # maximum: 1
   # default: 1
   # @schema
   replicas: 1
@@ -3415,6 +3413,91 @@ clusterGateway:
   # default: 90s
   # @schema
   heartbeatTimeout: 90s
+
+  # type: object
+  # description: Gateway mesh fabric configuration. The mesh replicates the agent connection registry across gateway replicas and forwards requests between them, allowing the gateway to scale horizontally behind an ordinary Service.
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: Gateway mesh fabric configuration. The mesh replicates the agent connection registry across gateway replicas and forwards requests between them, allowing the gateway to scale horizontally behind an ordinary Service.
+  # @schema
+  mesh:
+    # type: boolean
+    # description: Enable the gateway mesh fabric. Required for replicas > 1. Peers discover each other via the headless mesh Service's EndpointSlices; links are secured with mTLS using the gateway serving certificate.
+    # default: false
+    # @schema
+    # type: boolean
+    # description: Enable the gateway mesh fabric. Required for replicas > 1. Peers discover each other via the headless mesh Service's EndpointSlices; links are secured with mTLS using the gateway serving certificate.
+    # default: false
+    # @schema
+    enabled: false
+
+    # type: integer
+    # description: Gateway-to-gateway mesh listener port
+    # default: 8445
+    # @schema
+    # type: integer
+    # description: Gateway-to-gateway mesh listener port
+    # default: 8445
+    # @schema
+    port: 8445
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: PodDisruptionBudget for the cluster gateway. Only created when replicas > 1, so a singleton gateway does not block node drains.
+  # @schema
+  podDisruptionBudget:
+    # @schema
+    # type: boolean
+    # description: Create a PodDisruptionBudget so voluntary disruptions (node drains, cluster upgrades) cannot evict every gateway replica at once.
+    # default: false
+    # @schema
+    enabled: false
+    # @schema
+    # type: [integer, string]
+    # description: Minimum gateway pods that must stay available during voluntary disruptions. Accepts a count or a percentage string.
+    # default: 1
+    # @schema
+    minAvailable: 1
+
+  # @schema
+  # type: string
+  # description: How long a draining gateway keeps agent connections open after sending GOAWAY, giving agents time to reconnect to a surviving replica before their sockets are closed. Must stay comfortably below terminationGracePeriodSeconds (30s).
+  # default: 10s
+  # @schema
+  drainWindow: 10s
+
+  # @schema
+  # type: object
+  # additionalProperties: false
+  # description: Readiness probe timing. /ready reports 503 while draining and until the mesh registry has converged, so the probe needs to react quickly in both directions - a slow probe keeps a draining pod in Service endpoints and admits a fresh pod before it can route.
+  # @schema
+  readinessProbe:
+    # @schema
+    # type: integer
+    # description: Delay before the first readiness check.
+    # default: 2
+    # @schema
+    initialDelaySeconds: 2
+    # @schema
+    # type: integer
+    # description: How often readiness is checked. Bounds how long a draining pod keeps receiving traffic.
+    # default: 5
+    # @schema
+    periodSeconds: 5
+    # @schema
+    # type: integer
+    # description: Per-check timeout.
+    # default: 2
+    # @schema
+    timeoutSeconds: 2
+    # @schema
+    # type: integer
+    # description: Consecutive failures before the pod leaves Service endpoints. Two avoids evicting a healthy pod on a single slow check while still reacting within ~10s.
+    # default: 2
+    # @schema
+    failureThreshold: 2
 
   # description: Log level
   # enum: [debug, info, warn, error]
@@ -3651,11 +3734,11 @@ clusterGateway:
   # @schema
   tls:
     # type: boolean
-    # description: Enable TLS
+    # description: "Deprecated: has no effect. The cluster gateway has no plaintext listener - it always loads a serving certificate - so TLS resources are created unconditionally. MIGRATION: if you previously set this to false and supplied the certificate secret yourself, set clusterGateway.tls.existingSecret to that secret name instead. Otherwise cert-manager now issues into clusterGateway.tls.secretName and will overwrite a secret of that name that you created by hand. Will be removed in a future release."
     # default: true
     # @schema
     # type: boolean
-    # description: Enable TLS
+    # description: "Deprecated: has no effect. The cluster gateway has no plaintext listener - it always loads a serving certificate - so TLS resources are created unconditionally. MIGRATION: if you previously set this to false and supplied the certificate secret yourself, set clusterGateway.tls.existingSecret to that secret name instead. Otherwise cert-manager now issues into clusterGateway.tls.secretName and will overwrite a secret of that name that you created by hand. Will be removed in a future release."
     # default: true
     # @schema
     enabled: true
@@ -3668,6 +3751,12 @@ clusterGateway:
     # default: cluster-gateway-tls
     # @schema
     secretName: cluster-gateway-tls
+    # @schema
+    # type: string
+    # description: "Bring your own serving certificate. When set, the chart creates no cert-manager Issuer, CA or Certificate for the gateway and uses this secret instead. It must contain tls.crt, tls.key and ca.crt, and the certificate must be valid for the gateway Service DNS names and - when the mesh is enabled - the headless mesh Service DNS names, since mesh peers verify each other against ca.crt. Leave empty to let cert-manager issue everything."
+    # default: ""
+    # @schema
+    existingSecret: ""
     # @schema
     # type: boolean
     # description: "Deprecated: has no effect. Agent certificates are always verified per plane CR; use clusterGateway.internalMtls.enabled to control internal API verification. Will be removed in a future release."
