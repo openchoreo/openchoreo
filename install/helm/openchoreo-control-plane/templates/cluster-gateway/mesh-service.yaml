@@ -1,0 +1,26 @@
+{{- if .Values.clusterGateway.mesh.enabled }}
+# Headless mesh service: peer discovery for the gateway mesh fabric.
+# Gateway replicas watch this Service's EndpointSlices to find each other and
+# form the full mesh of gateway-to-gateway links (registry deltas + forwarded
+# requests). Never exposed outside the cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}-mesh
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-gateway
+    app: cluster-gateway
+spec:
+  clusterIP: None
+  ports:
+  - name: mesh
+    port: {{ .Values.clusterGateway.mesh.port }}
+    targetPort: {{ .Values.clusterGateway.mesh.port }}
+    protocol: TCP
+  selector:
+    app: cluster-gateway
+    app.kubernetes.io/component: cluster-gateway
+    {{- include "openchoreo-control-plane.selectorLabels" . | nindent 4 }}
+{{- end }}

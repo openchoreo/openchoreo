@@ -1,0 +1,13 @@
+# Self-signed bootstrap issuer. Roots both the cluster gateway CA (created only
+# when the chart issues the serving certificate) and the internal mTLS CA
+# (always chart-managed), so it is rendered unconditionally.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}-ca-issuer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-gateway
+spec:
+  selfSigned: {}
