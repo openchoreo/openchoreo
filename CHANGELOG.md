@@ -2,6 +2,21 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.2.4
+
+Changes since [v1.2.3](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.3).
+
+### Features
+
+- **(Cluster Gateway)** The cluster gateway can now run multiple replicas behind an ordinary Service, via an opt-in gateway mesh that replicates the agent connection registry across replicas and forwards each request to the replica owning the connection. Pre-release and disabled by default (`clusterGateway.mesh.enabled`). ([#4580](https://github.com/openchoreo/openchoreo/pull/4580))
+- **(Cluster Gateway)** Cluster agents can now be authenticated from a client certificate forwarded in an `X-Forwarded-Client-Cert` header by a trusted TLS-terminating proxy, as an alternative to the TLS handshake, selected via `clusterGateway.agentAuth.mode`. ([#4340](https://github.com/openchoreo/openchoreo/pull/4340), [#4574](https://github.com/openchoreo/openchoreo/pull/4574))
+- **(API)** Manual cronjob triggers now accept argument overrides, so a one-off run can use different arguments than its schedule defines. ([#4572](https://github.com/openchoreo/openchoreo/pull/4572))
+
+### Bug Fixes
+
+- **(CRD)** CEL evaluation in ComponentType and Trait templates is now bounded by a per-expression cost limit and a per-reconcile cost budget, so a runaway expression can no longer consume unbounded controller time. ([#4567](https://github.com/openchoreo/openchoreo/pull/4567))
+- **(API)** The first segment of keys written to the external secret store is now configurable through `features.secretManagement.remoteKeyPrefix` (default `secret`). It must not equal the KV mount name the ClusterSecretStore points at, and is an install-time setting. ([#4565](https://github.com/openchoreo/openchoreo/pull/4565))
+
 ## v1.2.3
 
 Changes since [v1.2.2](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.2).
