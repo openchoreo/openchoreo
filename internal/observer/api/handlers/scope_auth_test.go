@@ -191,23 +191,23 @@ func TestQuerySpans_ScopeAuthFailed_Returns500WithCode(t *testing.T) {
 	assertScopeAuthFailedResponse(t, rr)
 }
 
-func TestGetSpanDetails_ScopeAuthFailed_Returns500WithCode(t *testing.T) {
+func TestQuerySpanDetails_ScopeAuthFailed_Returns500WithCode(t *testing.T) {
 	t.Parallel()
 
 	svc := servicemocks.NewMockTracesQuerier(t)
-	svc.On("GetSpanDetails", mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: token expired after idle", service.ErrScopeAuthFailed))
+	svc.On("QuerySpanDetails", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("%w: token expired after idle", service.ErrScopeAuthFailed))
 
 	h := &Handler{
 		baseHandler:   baseHandler{logger: noopLogger()},
 		tracesService: svc,
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/span-1", spanDetailsBody("test-ns"))
 	req.SetPathValue("traceId", "trace-1")
 	req.SetPathValue("spanId", "span-1")
 	rr := httptest.NewRecorder()
 
-	h.GetSpanDetailsForTrace(rr, req)
+	h.QuerySpanDetailsForTrace(rr, req)
 
 	assertScopeAuthFailedResponse(t, rr)
 }
