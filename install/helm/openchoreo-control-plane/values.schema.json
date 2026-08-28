@@ -2579,6 +2579,12 @@
               "description": "Enable the Secret management API and Backstage UI for managing data-plane secrets.",
               "title": "enabled",
               "type": "boolean"
+            },
+            "remoteKeyPrefix": {
+              "default": "secret",
+              "description": "First segment of every key written to the external secret store, as in \u003cprefix\u003e/\u003cnamespace\u003e/\u003ctype\u003e/\u003cname\u003e. Set to an empty string to drop the segment. It must not equal the KV mount name that the ClusterSecretStore points at, otherwise external-secrets writes the value and its ownership metadata to two different paths and leaves a duplicate data-less entry per secret. This is an install-time setting, since changing it after secrets exist does not move existing entries.",
+              "title": "remoteKeyPrefix",
+              "type": "string"
             }
           },
           "required": [],

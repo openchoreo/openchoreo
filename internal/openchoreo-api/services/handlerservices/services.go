@@ -11,6 +11,7 @@ import (
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/config"
 	authzsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/authz"
 	autobuildsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/autobuild"
 	clustercomponenttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/clustercomponenttype"
@@ -84,7 +85,7 @@ type Services struct {
 }
 
 // NewServices creates all K8s-native API services with authorization wrappers.
-func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, planeClientProvider kubernetesClient.PlaneClientProvider, logger *slog.Logger, gwClient *gatewayClient.Client, webhookProcessor autobuildsvc.WebhookProcessor) *Services {
+func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, planeClientProvider kubernetesClient.PlaneClientProvider, secretCfg config.SecretManagementConfig, logger *slog.Logger, gwClient *gatewayClient.Client, webhookProcessor autobuildsvc.WebhookProcessor) *Services {
 	return &Services{
 		AutoBuildService:                              autobuildsvc.NewService(k8sClient, webhookProcessor, logger.With("component", "autobuild-service")),
 		AuthzService:                                  authzsvc.NewServiceWithAuthz(pap, pdp, logger.With("component", "authz-service")),
@@ -113,7 +114,7 @@ func NewServices(k8sClient client.Client, pap authzcore.PAP, pdp authzcore.PDP, 
 		ResourceReleaseService:                        resourcereleasesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "resourcerelease-service")),
 		ResourceReleaseBindingService:                 resourcereleasebindingsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "resourcereleasebinding-service")),
 		ResourceTypeService:                           resourcetypesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "resourcetype-service")),
-		SecretService:                                 secretsvc.NewServiceWithAuthz(k8sClient, planeClientProvider, pdp, logger.With("component", "secret-service")),
+		SecretService:                                 secretsvc.NewServiceWithAuthz(k8sClient, planeClientProvider, secretCfg, pdp, logger.With("component", "secret-service")),
 		SecretReferenceService:                        secretreferencesvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "secretreference-service")),
 		TraitService:                                  traitsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "trait-service")),
 		WorkflowService:                               workflowsvc.NewServiceWithAuthz(k8sClient, pdp, logger.With("component", "workflow-service")),
