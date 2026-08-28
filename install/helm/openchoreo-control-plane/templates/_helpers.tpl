@@ -177,8 +177,8 @@ fail-fast (at `helm template`/`helm install` time) on an invalid value.
 */}}
 {{- define "openchoreo-control-plane.clusterGateway.validateReplicas" -}}
 {{- $replicas := int .Values.clusterGateway.replicas -}}
-{{- if ne $replicas 1 -}}
-{{- fail (printf "\n\nINVALID VALUE: clusterGateway.replicas=%d\n\nThe cluster gateway must run as a singleton (clusterGateway.replicas=1).\nIt holds cluster-agent WebSocket connections in process memory, so multiple\nreplicas would split that connection state across pods and break agent\nconnectivity. Set clusterGateway.replicas=1 (the default).\n" $replicas) -}}
+{{- if and (ne $replicas 1) (not .Values.clusterGateway.mesh.enabled) -}}
+{{- fail (printf "\n\nINVALID VALUE: clusterGateway.replicas=%d\n\nWith the gateway mesh disabled (clusterGateway.mesh.enabled=false) the cluster\ngateway must run as a singleton: it holds cluster-agent WebSocket connections in\nprocess memory, so multiple replicas would split that connection state across\npods and break agent connectivity. Either set clusterGateway.replicas=1 or\nenable the gateway mesh (clusterGateway.mesh.enabled=true), which replicates the\nconnection registry across replicas and forwards requests between them.\n" $replicas) -}}
 {{- end -}}
 {{- end }}
 
