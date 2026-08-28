@@ -146,7 +146,7 @@ func TestResolveEmbeddedTraitBindings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resolvedParams, resolvedEnvironmentConfigs, err := ResolveEmbeddedTraitBindings(
+			resolvedParams, resolvedEnvironmentConfigs, err := ResolveEmbeddedTraitBindings(t.Context(),
 				engine,
 				tt.embeddedTrait,
 				tt.componentContext,
@@ -201,7 +201,7 @@ func TestResolveEmbeddedTraitBindings_EnvConfigsError(t *testing.T) {
 		"parameters": map[string]any{},
 	}
 
-	_, _, err := ResolveEmbeddedTraitBindings(engine, embeddedTrait, componentContext)
+	_, _, err := ResolveEmbeddedTraitBindings(t.Context(), engine, embeddedTrait, componentContext)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "environmentConfigs")
 }
@@ -212,12 +212,12 @@ func TestResolveBindings_NilRaw(t *testing.T) {
 	)
 
 	// nil RawExtension
-	result, err := resolveBindings(engine, nil, map[string]any{})
+	result, err := resolveBindings(t.Context(), engine, nil, map[string]any{})
 	require.NoError(t, err)
 	assert.Nil(t, result)
 
 	// Non-nil RawExtension but nil Raw bytes
-	result, err = resolveBindings(engine, &runtime.RawExtension{Raw: nil}, map[string]any{})
+	result, err = resolveBindings(t.Context(), engine, &runtime.RawExtension{Raw: nil}, map[string]any{})
 	require.NoError(t, err)
 	assert.Nil(t, result)
 }
@@ -231,7 +231,7 @@ func TestResolveBindings_UnmarshalError(t *testing.T) {
 		Raw: []byte(`{invalid json`),
 	}
 
-	result, err := resolveBindings(engine, raw, map[string]any{})
+	result, err := resolveBindings(t.Context(), engine, raw, map[string]any{})
 	require.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "unmarshal")

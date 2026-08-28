@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -18,6 +19,12 @@ import (
 // For each ref whose name evaluates to a non-empty string, it fetches the
 // referenced CR from the cluster and returns its spec keyed by the ref's id.
 // Refs whose name evaluates to empty are silently skipped.
+//
+// ctx carries the reconcile's cost budget, so every name evaluation draws from the same
+// pool as the pipeline render that follows. Only the name evaluations get a deadline, one
+// per ref, derived inside evaluateExternalRefName; the cluster reads below stay on the
+// bare ctx. Putting the reads under a render deadline would let a slow API server surface
+// as DeadlineExceeded and be misread as a runaway template.
 func (r *Reconciler) resolveExternalRefs(
 	ctx context.Context,
 	externalRefs []openchoreodevv1alpha1.ExternalRef,
@@ -28,12 +35,12 @@ func (r *Reconciler) resolveExternalRefs(
 		return nil, nil
 	}
 
-	engine := template.NewEngine()
+	engine := template.NewEngineWithOptions(template.WithCostLimit(r.CELCostLimit))
 	resolved := make(map[string]any, len(externalRefs))
 
 	for _, ref := range externalRefs {
-		// Evaluate the name field which may contain CEL expressions
-		name, err := evaluateExternalRefName(engine, ref.Name, celContext)
+		// Evaluate the name field, which may contain CEL expressions.
+		name, err := evaluateExternalRefName(ctx, engine, r.RenderTimeout, ref.Name, celContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate name for externalRef %q: %w", ref.ID, err)
 		}
@@ -59,8 +66,24 @@ func (r *Reconciler) resolveExternalRefs(
 // evaluateExternalRefName renders an externalRef name string through the template engine.
 // The name may contain CEL expressions like ${parameters.repository.secretRef}.
 // Returns the evaluated string, or empty string if the expression evaluates to empty.
-func evaluateExternalRefName(engine *template.Engine, name string, celContext map[string]any) (string, error) {
-	result, err := engine.Render(name, celContext)
+//
+// The render deadline is derived here rather than by the caller, the same placement the
+// rendering pipelines use: it covers exactly this evaluation, and defer releases it when
+// the function returns, so nothing accumulates across a loop over many refs. One
+// expression is not automatically a cheap one - the per-expression cost limit bounds work
+// units, not wall-clock, and a single split() over a large parameter is measured in
+// seconds - so this path is bounded like every other render entry point.
+func evaluateExternalRefName(
+	ctx context.Context,
+	engine *template.Engine,
+	timeout time.Duration,
+	name string,
+	celContext map[string]any,
+) (string, error) {
+	ctx, cancel := template.WithRenderTimeout(ctx, timeout)
+	defer cancel()
+
+	result, err := engine.Render(ctx, name, celContext)
 	if err != nil {
 		return "", err
 	}

@@ -42,14 +42,10 @@ func UpdateCondition(
 ) error {
 	logger := log.FromContext(ctx)
 
-	condition := metav1.Condition{
-		Type:               conditionType,
-		Status:             status,
-		Reason:             reason,
-		Message:            message,
-		LastTransitionTime: metav1.Now(),
-		ObservedGeneration: resource.GetGeneration(),
-	}
+	// Built through NewCondition so the message bound applies here too - this helper is
+	// the other way a condition reaches a status write.
+	condition := NewCondition(ConditionType(conditionType), status, ConditionReason(reason),
+		message, resource.GetGeneration())
 
 	changed := meta.SetStatusCondition(conditions, condition)
 	if changed {

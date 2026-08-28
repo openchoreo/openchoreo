@@ -6,6 +6,7 @@ package projectreleasebinding
 import (
 	"context"
 	"fmt"
+	"time"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +34,16 @@ type Reconciler struct {
 	// single ProjectReleaseBinding. The instance holds CEL env and program
 	// caches; reuse it across reconciles to keep them warm.
 	Pipeline *projectpipeline.Pipeline
+
+	// CELCostLimit bounds the accumulated cost of a single CEL expression.
+	// Zero selects the template engine's built-in default.
+	CELCostLimit uint64
+
+	// RenderTimeout bounds each rendering step of a reconcile separately, not the
+	// reconcile as a whole: a reconcile that renders more than once spends the
+	// timeout again at each step. Zero disables the deadline. It is handed to the
+	// pipeline at construction; the pipeline derives the deadline per entry point.
+	RenderTimeout time.Duration
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projectreleasebindings,verbs=get;list;watch;create;update;patch;delete
@@ -207,7 +218,10 @@ func isTrue(c *metav1.Condition) bool {
 // those upstream resources lands after the binding is created.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.Pipeline == nil {
-		r.Pipeline = projectpipeline.NewPipeline()
+		r.Pipeline = projectpipeline.NewPipeline(
+			projectpipeline.WithCostLimit(r.CELCostLimit),
+			projectpipeline.WithRenderTimeout(r.RenderTimeout),
+		)
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ProjectReleaseBinding{}).

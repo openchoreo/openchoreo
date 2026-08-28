@@ -4,13 +4,17 @@
 package workflowpipeline
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 const (
@@ -209,7 +213,7 @@ func TestPipeline_Render(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPipeline()
-			output, err := p.Render(tt.input)
+			output, err := p.Render(t.Context(), tt.input)
 
 			if tt.wantErr {
 				if err == nil {
@@ -736,7 +740,7 @@ func TestPipeline_Render_SchemaWithDefaults(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPipeline()
-			output, err := p.Render(tt.input)
+			output, err := p.Render(t.Context(), tt.input)
 
 			if tt.wantErr {
 				if err == nil {
@@ -953,7 +957,7 @@ func TestPipeline_Render_ComplexParameters(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPipeline()
-			output, err := p.Render(tt.input)
+			output, err := p.Render(t.Context(), tt.input)
 
 			if tt.wantErr {
 				if err == nil {
@@ -1102,7 +1106,7 @@ func TestPipeline_Render_CELContextVariables(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPipeline()
-			output, err := p.Render(tt.input)
+			output, err := p.Render(t.Context(), tt.input)
 
 			if tt.wantErr {
 				if err == nil {
@@ -1174,7 +1178,7 @@ func TestPipeline_Render_ExternalRefVariables(t *testing.T) {
 			},
 		}
 
-		output, err := NewPipeline().Render(input)
+		output, err := NewPipeline().Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1240,7 +1244,7 @@ func TestPipeline_Render_ExternalRefVariables(t *testing.T) {
 			},
 		}
 
-		output, err := NewPipeline().Render(input)
+		output, err := NewPipeline().Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1290,7 +1294,7 @@ func TestPipeline_Render_ExternalRefVariables(t *testing.T) {
 			},
 		}
 
-		output, err := NewPipeline().Render(input)
+		output, err := NewPipeline().Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1331,7 +1335,7 @@ func TestPipeline_Render_ExternalRefVariables(t *testing.T) {
 			},
 		}
 
-		output, err := NewPipeline().Render(input)
+		output, err := NewPipeline().Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1376,7 +1380,7 @@ func TestPipeline_Render_WorkflowPlaneVariables(t *testing.T) {
 			},
 		}
 
-		output, err := NewPipeline().Render(input)
+		output, err := NewPipeline().Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1417,7 +1421,7 @@ func TestPipeline_Render_WorkflowPlaneVariables(t *testing.T) {
 			},
 		}
 
-		output, err := NewPipeline().Render(input)
+		output, err := NewPipeline().Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1512,7 +1516,7 @@ func TestPipeline_Render_EdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := NewPipeline()
-			_, err := p.Render(tt.input)
+			_, err := p.Render(t.Context(), tt.input)
 
 			if tt.wantErr {
 				if err == nil {
@@ -1606,7 +1610,7 @@ func TestPipeline_Render_DifferentResourceTypes(t *testing.T) {
 			}
 
 			p := NewPipeline()
-			output, err := p.Render(input)
+			output, err := p.Render(t.Context(), input)
 
 			if tt.wantErr {
 				if err == nil {
@@ -1685,7 +1689,7 @@ func TestPipeline_Render_ResourceNamespaceEnforcement(t *testing.T) {
 		})
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1716,7 +1720,7 @@ func TestPipeline_Render_ResourceNamespaceEnforcement(t *testing.T) {
 		})
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1746,7 +1750,7 @@ func TestPipeline_Render_ResourceNamespaceEnforcement(t *testing.T) {
 		})
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1788,7 +1792,7 @@ func TestPipeline_Render_ResourceNamespaceEnforcement(t *testing.T) {
 		})
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1889,7 +1893,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		}
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1980,7 +1984,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		}
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -2054,7 +2058,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		}
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -2121,7 +2125,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		}
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -2172,7 +2176,7 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 		}
 
 		p := NewPipeline()
-		output, err := p.Render(input)
+		output, err := p.Render(t.Context(), input)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -2186,4 +2190,54 @@ func TestPipeline_Render_OpenAPIV3Schema_Defaults(t *testing.T) {
 			t.Errorf("expected repo value, got %v", repoParam["value"])
 		}
 	})
+}
+
+// TestRenderTimeoutOptionInterruptsRender pins that the deadline configured with
+// WithRenderTimeout is derived inside Render itself: the caller passes an ordinary
+// context and still gets a DeadlineExceeded, classified as transient rather than as a
+// terminal cost breach.
+func TestRenderTimeoutOptionInterruptsRender(t *testing.T) {
+	input := &RenderInput{
+		WorkflowRun: &v1alpha1.WorkflowRun{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-run", Namespace: "default"},
+			Spec: v1alpha1.WorkflowRunSpec{
+				Workflow: v1alpha1.WorkflowRunConfig{Name: "test-workflow"},
+			},
+		},
+		Workflow: &v1alpha1.Workflow{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-workflow", Namespace: "default"},
+			Spec: v1alpha1.WorkflowSpec{
+				RunTemplate: mustRawExtension(t, map[string]interface{}{
+					"apiVersion": "argoproj.io/v1alpha1",
+					"kind":       "Workflow",
+					"metadata": map[string]interface{}{
+						"name": "${metadata.workflowRunName}",
+						// Long enough that the engine's periodic interrupt check runs,
+						// cheap enough to stay well under the per-expression cost limit.
+						"labels": map[string]interface{}{
+							"size": "${string(size(lists.range(5000).map(i, i + 1)))}",
+						},
+					},
+				}),
+			},
+		},
+		Context: WorkflowContext{NamespaceName: "default", WorkflowRunName: "test-run"},
+	}
+
+	// Control: with no deadline the same render succeeds, so the assertion below cannot
+	// pass merely because the template is broken.
+	if _, err := NewPipeline().Render(t.Context(), input); err != nil {
+		t.Fatalf("control render failed: %v", err)
+	}
+
+	_, err := NewPipeline(WithRenderTimeout(time.Nanosecond)).Render(t.Context(), input)
+	if err == nil {
+		t.Fatal("expected an expired render deadline to fail the render")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected DeadlineExceeded, got %v", err)
+	}
+	if template.IsTerminalRenderError(err) {
+		t.Fatalf("a deadline is load-dependent and must not classify as terminal: %v", err)
+	}
 }

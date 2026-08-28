@@ -28,6 +28,9 @@ import (
 // condition: if applying failed for the current generation, readiness is
 // false with Reason=ResourceApplyFailed regardless of per-entry health.
 // Stale-generation conditions are ignored.
+//
+// ctx carries the cost budget seeded in Reconcile, so the outputs and readyWhen
+// renders below draw from the same reconcile budget as manifest rendering.
 func (r *Reconciler) evaluateReadiness(
 	ctx context.Context,
 	binding *openchoreov1alpha1.ResourceReleaseBinding,
@@ -41,8 +44,8 @@ func (r *Reconciler) evaluateReadiness(
 	logger := log.FromContext(ctx)
 
 	observed := observedStatusByID(rr.Status.Resources, logger)
-	r.evaluateOutputs(binding, release, environment, dataPlane, resource, project, observed, logger)
-	r.evaluateResourcesReady(binding, release, environment, dataPlane, resource, project, rr, observed, logger)
+	r.evaluateOutputs(ctx, binding, release, environment, dataPlane, resource, project, observed, logger)
+	r.evaluateResourcesReady(ctx, binding, release, environment, dataPlane, resource, project, rr, observed, logger)
 }
 
 // observedStatusByID decodes RenderedRelease.status.resources[].status from
@@ -74,6 +77,7 @@ func observedStatusByID(resources []openchoreov1alpha1.RenderedManifestStatus, l
 // than clobbering it — wiping a successful prior result on a transient
 // pipeline failure is misleading.
 func (r *Reconciler) evaluateOutputs(
+	ctx context.Context,
 	binding *openchoreov1alpha1.ResourceReleaseBinding,
 	release *openchoreov1alpha1.ResourceRelease,
 	environment *openchoreov1alpha1.Environment,
@@ -85,7 +89,7 @@ func (r *Reconciler) evaluateOutputs(
 ) {
 	input := buildPipelineInput(binding, release, environment, dataPlane, resource, project)
 
-	resolved, err := r.Pipeline.ResolveOutputs(input, observed)
+	resolved, err := r.Pipeline.ResolveOutputs(ctx, input, observed)
 	if err == nil {
 		binding.Status.Outputs = mapResolvedOutputs(resolved)
 		controller.MarkTrueCondition(binding, ConditionOutputsResolved, ReasonOutputsResolved,
@@ -140,6 +144,7 @@ func mapResolvedOutputs(resolved []resourcepipeline.ResolvedOutput) []openchoreo
 // readyWhen takes precedence; the fallback uses the per-Kind health
 // inference written into RenderedRelease.status.resources[].healthStatus.
 func (r *Reconciler) evaluateResourcesReady(
+	ctx context.Context,
 	binding *openchoreov1alpha1.ResourceReleaseBinding,
 	release *openchoreov1alpha1.ResourceRelease,
 	environment *openchoreov1alpha1.Environment,
@@ -183,11 +188,14 @@ func (r *Reconciler) evaluateResourcesReady(
 		rendered++
 
 		if entry.ReadyWhen != "" {
-			ready, err := r.Pipeline.EvaluateReadyWhen(input, observed, entry.ReadyWhen)
+			// Each readyWhen gets its own deadline, derived inside EvaluateReadyWhen and
+			// released when it returns, so nothing accumulates across a long resource list.
+			ready, err := r.Pipeline.EvaluateReadyWhen(ctx, input, observed, entry.ReadyWhen)
 			if err != nil {
 				controller.MarkFalseCondition(binding, ConditionResourcesReady, ReasonResourcesProgressing,
 					fmt.Sprintf("readyWhen evaluation failed for %q: %v", entry.ID, err))
-				logger.Info("readyWhen evaluation failed", "id", entry.ID, "error", err)
+				logger.Info("readyWhen evaluation failed",
+					"id", entry.ID, "error", err)
 				return
 			}
 			if !ready {

@@ -101,7 +101,7 @@ func TestDataPlaneAnnotations_CELRead(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			inputs := map[string]any{"dataplane": dataPlaneCELMap(t, tc.dp)}
-			got, err := engine.Render(readAnnotationExpr(tc.key, "<default>"), inputs)
+			got, err := engine.Render(t.Context(), readAnnotationExpr(tc.key, "<default>"), inputs)
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, got)
 		})
@@ -109,7 +109,7 @@ func TestDataPlaneAnnotations_CELRead(t *testing.T) {
 
 	t.Run("direct_index_of_present_key", func(t *testing.T) {
 		inputs := map[string]any{"dataplane": dataPlaneCELMap(t, withAnnotations)}
-		got, err := engine.Render(`${dataplane.annotations["example.com/team"]}`, inputs)
+		got, err := engine.Render(t.Context(), `${dataplane.annotations["example.com/team"]}`, inputs)
 		require.NoError(t, err)
 		assert.Equal(t, "platform", got)
 	})

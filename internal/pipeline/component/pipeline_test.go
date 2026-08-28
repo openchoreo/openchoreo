@@ -953,7 +953,7 @@ spec:
 
 			// Create pipeline and render
 			pipeline := NewPipeline()
-			output, err := pipeline.Render(input)
+			output, err := pipeline.Render(t.Context(), input)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Render() error = %v, wantErr %v", err, tt.wantErr)
@@ -1250,7 +1250,7 @@ spec:
 				Metadata:       baseMetadata,
 			}
 
-			_, err := NewPipeline().Render(input)
+			_, err := NewPipeline().Render(t.Context(), input)
 			if err == nil {
 				t.Fatal("expected validation error, got nil")
 			}
@@ -1474,7 +1474,7 @@ spec:
 				Metadata:      baseMetadata,
 			}
 
-			_, err := NewPipeline().Render(input)
+			_, err := NewPipeline().Render(t.Context(), input)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -2145,7 +2145,7 @@ func renderPipelineYAML(t *testing.T, componentTypeYAML, componentYAML, traitsYA
 		DataPlane:     &v1alpha1.DataPlane{},
 		Metadata:      postRenderTestMetadata(),
 	}
-	return NewPipeline().Render(input)
+	return NewPipeline().Render(t.Context(), input)
 }
 
 // renderWithTraitPostValidation renders a ComponentType that emits a single Deployment

@@ -113,7 +113,7 @@ func TestEvaluateValidationRules(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := EvaluateValidationRules(engine, tt.rules, tt.context)
+			err := EvaluateValidationRules(t.Context(), engine, tt.rules, tt.context)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("expected error but got nil")
@@ -135,7 +135,7 @@ func TestEvaluateValidationRules(t *testing.T) {
 func TestEvalForEach_EvalError(t *testing.T) {
 	engine := template.NewEngine()
 
-	_, err := EvalForEach(engine, "${nonexistent.list}", "item", map[string]any{})
+	_, err := EvalForEach(t.Context(), engine, "${nonexistent.list}", "item", map[string]any{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nonexistent")
 }
@@ -144,7 +144,7 @@ func TestEvalForEach_ConversionError(t *testing.T) {
 	engine := template.NewEngine()
 
 	// forEach expression evaluates to an integer, which is not iterable
-	_, err := EvalForEach(engine, "${parameters.count}", "item", map[string]any{
+	_, err := EvalForEach(t.Context(), engine, "${parameters.count}", "item", map[string]any{
 		"parameters": map[string]any{
 			"count": 42,
 		},
@@ -160,26 +160,11 @@ func TestEvalForEach_DefaultVarName(t *testing.T) {
 		"items": []any{"a", "b"},
 	}
 	// Pass empty varName to use the default "item"
-	contexts, err := EvalForEach(engine, "${items}", "", ctx)
+	contexts, err := EvalForEach(t.Context(), engine, "${items}", "", ctx)
 	require.NoError(t, err)
 	require.Len(t, contexts, 2)
 
 	// Verify the default variable name "item" is used in the context
 	assert.Equal(t, "a", contexts[0]["item"])
 	assert.Equal(t, "b", contexts[1]["item"])
-}
-
-func TestTruncateRule_LongRule(t *testing.T) {
-	// Create a rule string longer than 120 characters
-	longRule := "${" + strings.Repeat("a", 200) + "}"
-	result := truncateRule(longRule, 120)
-	assert.Len(t, []rune(result), 123, "truncated result should be maxLen runes + 3 for '...'")
-	assert.True(t, strings.HasSuffix(result, "..."), "truncated result should end with '...'")
-	assert.True(t, strings.HasPrefix(result, "${"+strings.Repeat("a", 118)), "truncated result should preserve the original prefix")
-}
-
-func TestTruncateRule_ShortRule(t *testing.T) {
-	shortRule := "${parameters.replicas > 0}"
-	result := truncateRule(shortRule, 120)
-	assert.Equal(t, shortRule, result, "short rule should be returned as-is")
 }

@@ -226,7 +226,7 @@ func TestRenderResources(t *testing.T) {
 				t.Fatalf("Failed to parse templates YAML: %v", err)
 			}
 
-			got, err := renderer.RenderResources(templates, tt.context)
+			got, err := renderer.RenderResources(t.Context(), templates, tt.context)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("RenderResources() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -295,7 +295,7 @@ func TestShouldInclude(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ShouldInclude(engine, tt.includeWhen, tt.context)
+			got, err := ShouldInclude(t.Context(), engine, tt.includeWhen, tt.context)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ShouldInclude() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -575,7 +575,7 @@ template:
 				t.Fatalf("Failed to parse template YAML: %v", err)
 			}
 
-			got, err := renderer.renderWithForEach(template, tt.context)
+			got, err := renderer.renderWithForEach(t.Context(), template, tt.context)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("renderWithForEach() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -684,7 +684,7 @@ template:
 				t.Fatalf("Failed to parse template YAML: %v", err)
 			}
 
-			got, err := renderer.renderSingleResource(template, tt.context)
+			got, err := renderer.renderSingleResource(t.Context(), template, tt.context)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("renderSingleResource() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -784,7 +784,7 @@ func TestRenderResources_IncludeWhenError(t *testing.T) {
 	var templates []v1alpha1.ResourceTemplate
 	require.NoError(t, yaml.Unmarshal([]byte(templatesYAML), &templates))
 
-	_, err := r.RenderResources(templates, map[string]any{})
+	_, err := r.RenderResources(t.Context(), templates, map[string]any{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "my-service", "error should reference the resource ID")
 	assert.Contains(t, err.Error(), "includeWhen", "error should mention includeWhen")
@@ -807,7 +807,7 @@ func TestRenderResources_ForEachError(t *testing.T) {
 	var templates []v1alpha1.ResourceTemplate
 	require.NoError(t, yaml.Unmarshal([]byte(templatesYAML), &templates))
 
-	_, err := r.RenderResources(templates, map[string]any{})
+	_, err := r.RenderResources(t.Context(), templates, map[string]any{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "my-configmap", "error should reference the resource ID")
 }
@@ -827,7 +827,7 @@ func TestRenderResources_TemplateRenderError(t *testing.T) {
 	var templates []v1alpha1.ResourceTemplate
 	require.NoError(t, yaml.Unmarshal([]byte(templatesYAML), &templates))
 
-	_, err := r.RenderResources(templates, map[string]any{})
+	_, err := r.RenderResources(t.Context(), templates, map[string]any{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "my-deployment", "error should reference the resource ID")
 }
@@ -855,7 +855,7 @@ func TestRenderResources_TargetPlane(t *testing.T) {
 	var templates []v1alpha1.ResourceTemplate
 	require.NoError(t, yaml.Unmarshal([]byte(templatesYAML), &templates))
 
-	results, err := r.RenderResources(templates, map[string]any{})
+	results, err := r.RenderResources(t.Context(), templates, map[string]any{})
 	require.NoError(t, err)
 	require.Len(t, results, 2)
 	assert.Equal(t, "dataplane", results[0].TargetPlane)
@@ -883,7 +883,7 @@ func TestRenderResources_ForEachTargetPlane(t *testing.T) {
 	ctx := map[string]any{
 		"items": []any{"cfg1", "cfg2", "cfg3"},
 	}
-	results, err := r.RenderResources(templates, ctx)
+	results, err := r.RenderResources(t.Context(), templates, ctx)
 	require.NoError(t, err)
 	require.Len(t, results, 3)
 	for i, res := range results {
@@ -902,7 +902,7 @@ func TestRenderResources_ForEachTargetPlane(t *testing.T) {
 func TestShouldInclude_NonBooleanResult(t *testing.T) {
 	engine := template.NewEngine()
 
-	got, err := ShouldInclude(engine, "${parameters.name}", map[string]any{
+	got, err := ShouldInclude(t.Context(), engine, "${parameters.name}", map[string]any{
 		"parameters": map[string]any{
 			"name": "my-app",
 		},

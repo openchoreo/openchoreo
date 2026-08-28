@@ -61,7 +61,7 @@ func TestValkeySample_RendersWithoutGateway(t *testing.T) {
 	// anywhere, matching "spec.gateway: {}" from the issue.
 	input := makeRenderInput(spec)
 
-	got, err := NewPipeline().RenderManifests(input)
+	got, err := NewPipeline().RenderManifests(t.Context(), input)
 	require.NoError(t, err, "rendering must not fail with a CEL compile error when no gateway is configured")
 
 	gotIDs := make([]string, 0, len(got.Entries))
@@ -71,7 +71,7 @@ func TestValkeySample_RendersWithoutGateway(t *testing.T) {
 	require.ElementsMatch(t, []string{"password-generator", "creds", "service", "statefulset"}, gotIDs,
 		"admin-* resources must be excluded when adminEnabled defaults to false")
 
-	resolved, err := NewPipeline().ResolveOutputs(input, nil)
+	resolved, err := NewPipeline().ResolveOutputs(t.Context(), input, nil)
 	require.NoError(t, err)
 
 	outputs := make(map[string]any, len(resolved))

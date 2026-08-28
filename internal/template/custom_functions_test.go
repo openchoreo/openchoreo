@@ -4,6 +4,7 @@
 package template
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/cel-go/common/types"
@@ -163,4 +164,24 @@ func TestGenerateK8sDNSLabel_InputTypes(t *testing.T) {
 		val := result.Value().(string)
 		assert.LessOrEqual(t, len(val), 63)
 	})
+}
+
+// TestListsRangeCeiling verifies the lowered lists.range guard: a range within
+// maxListsRangeSize still materializes, while a larger one is refused by cel-go
+// before any allocation.
+func TestListsRangeCeiling(t *testing.T) {
+	t.Parallel()
+
+	e := NewEngine()
+	inputs := map[string]any{"spec": map[string]any{}}
+
+	got, err := e.Render(t.Context(), "${lists.range(10)}", inputs)
+	require.NoError(t, err)
+	require.Len(t, got, 10)
+
+	oversized := fmt.Sprintf("${lists.range(%d)}", maxListsRangeSize*2)
+	_, err = e.Render(t.Context(), oversized, inputs)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds maximum allowed")
+	assert.Contains(t, err.Error(), fmt.Sprintf("(%d)", maxListsRangeSize))
 }

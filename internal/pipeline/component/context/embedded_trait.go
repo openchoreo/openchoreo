@@ -4,6 +4,7 @@
 package context
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -24,17 +25,18 @@ import (
 // Counterpart to ExtractTraitInstanceBindings, which performs the equivalent step for
 // component-level traits (where no CEL evaluation is needed).
 func ResolveEmbeddedTraitBindings(
+	ctx context.Context,
 	engine *template.Engine,
 	embeddedTrait v1alpha1.ComponentTypeTrait,
 	componentContextMap map[string]any,
 ) (resolvedParams map[string]any, resolvedEnvConfigs map[string]any, err error) {
-	resolvedParams, err = resolveBindings(engine, embeddedTrait.Parameters, componentContextMap)
+	resolvedParams, err = resolveBindings(ctx, engine, embeddedTrait.Parameters, componentContextMap)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to resolve embedded trait %s/%s parameters: %w",
 			embeddedTrait.Name, embeddedTrait.InstanceName, err)
 	}
 
-	resolvedEnvConfigs, err = resolveBindings(engine, embeddedTrait.EnvironmentConfigs, componentContextMap)
+	resolvedEnvConfigs, err = resolveBindings(ctx, engine, embeddedTrait.EnvironmentConfigs, componentContextMap)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to resolve embedded trait %s/%s environmentConfigs: %w",
 			embeddedTrait.Name, embeddedTrait.InstanceName, err)
@@ -47,6 +49,7 @@ func ResolveEmbeddedTraitBindings(
 // evaluates all CEL expressions against the given context, and returns a map with all values
 // resolved to concrete types.
 func resolveBindings(
+	ctx context.Context,
 	engine *template.Engine,
 	raw *runtime.RawExtension,
 	contextMap map[string]any,
@@ -60,7 +63,7 @@ func resolveBindings(
 		return nil, fmt.Errorf("failed to unmarshal bindings: %w", err)
 	}
 
-	resolved, err := engine.Render(data, contextMap)
+	resolved, err := engine.Render(ctx, data, contextMap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate CEL bindings: %w", err)
 	}

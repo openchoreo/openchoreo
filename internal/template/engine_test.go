@@ -6,6 +6,8 @@ package template
 import (
 	"encoding/json"
 	"fmt"
+	"runtime"
+	"strings"
 	"sync"
 	"testing"
 
@@ -585,7 +587,7 @@ rule:
 			var input map[string]any
 			require.NoError(t, json.Unmarshal([]byte(tt.inputs), &input))
 
-			rendered, err := engine.Render(tpl, input)
+			rendered, err := engine.Render(t.Context(), tpl, input)
 			require.NoError(t, err)
 
 			cleaned := RemoveOmittedFields(rendered)
@@ -764,7 +766,7 @@ value: '${oc_merge({"a": 1})}'
 			var input map[string]any
 			require.NoError(t, json.Unmarshal([]byte(tt.inputs), &input))
 
-			_, err := engine.Render(tpl, input)
+			_, err := engine.Render(t.Context(), tpl, input)
 
 			if tt.wantErr {
 				require.Error(t, err, "expected error containing %q", tt.errContains)
@@ -1096,7 +1098,7 @@ func TestRenderString_InterpolationTypes(t *testing.T) {
 			var input map[string]any
 			require.NoError(t, json.Unmarshal([]byte(tt.inputs), &input))
 
-			rendered, err := engine.Render(tpl, input)
+			rendered, err := engine.Render(t.Context(), tpl, input)
 			require.NoError(t, err)
 
 			got, err := yaml.Marshal(rendered)
@@ -1148,7 +1150,7 @@ func TestRender_ErrorPropagation(t *testing.T) {
 			var input map[string]any
 			require.NoError(t, json.Unmarshal([]byte(tt.inputs), &input))
 
-			_, err := engine.Render(tpl, input)
+			_, err := engine.Render(t.Context(), tpl, input)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.errContains)
 		})
@@ -1167,7 +1169,7 @@ func TestRender_OmitSentinelExclusion(t *testing.T) {
 			"keep":   "value",
 			"remove": "${oc_omit()}",
 		}
-		result, err := engine.Render(tpl, map[string]any{})
+		result, err := engine.Render(t.Context(), tpl, map[string]any{})
 		require.NoError(t, err)
 
 		resultMap, ok := result.(map[string]any)
@@ -1181,7 +1183,7 @@ func TestRender_OmitSentinelExclusion(t *testing.T) {
 		t.Parallel()
 
 		tpl := []any{"first", "${oc_omit()}", "third"}
-		result, err := engine.Render(tpl, map[string]any{})
+		result, err := engine.Render(t.Context(), tpl, map[string]any{})
 		require.NoError(t, err)
 
 		resultSlice, ok := result.([]any)
@@ -1195,15 +1197,15 @@ func TestRender_DefaultPassthrough(t *testing.T) {
 
 	engine := NewEngine()
 
-	result, err := engine.Render(int64(42), map[string]any{})
+	result, err := engine.Render(t.Context(), int64(42), map[string]any{})
 	require.NoError(t, err)
 	assert.Equal(t, int64(42), result)
 
-	result, err = engine.Render(true, map[string]any{})
+	result, err = engine.Render(t.Context(), true, map[string]any{})
 	require.NoError(t, err)
 	assert.Equal(t, true, result)
 
-	result, err = engine.Render(nil, map[string]any{})
+	result, err = engine.Render(t.Context(), nil, map[string]any{})
 	require.NoError(t, err)
 	assert.Nil(t, result)
 }
@@ -1232,7 +1234,7 @@ replicas: ${spec.replicas}
 				"metadata": map[string]any{"name": "app"},
 				"spec":     map[string]any{"replicas": int64(idx)},
 			}
-			result, err := engine.Render(tpl, inputs)
+			result, err := engine.Render(t.Context(), tpl, inputs)
 			if err != nil {
 				errs <- err
 				return
@@ -1256,5 +1258,87 @@ replicas: ${spec.replicas}
 
 	for err := range errs {
 		t.Errorf("concurrent render error: %v", err)
+	}
+}
+
+// Interpolation substitutes at each expression's own position. The previous implementation
+// called strings.Replace(rendered, fullExpr, replacement, 1) per match, which replaces the
+// first REMAINING occurrence of the marker text rather than the one that was evaluated.
+// That coincides with position order only until a replacement value itself contains the
+// marker text — then the next expression substitutes into the injected text and the output
+// is wrong. This is the behavior the single-pass rewrite has to get right, and the only
+// input shape that tells the two implementations apart.
+func TestInterpolationSubstitutesAtEachPosition(t *testing.T) {
+	e := NewEngine()
+
+	// The value of ${a} is the literal text of a marker that appears LATER in the template,
+	// which is what tells the two implementations apart: a first-occurrence replace
+	// substitutes ${b} into the text it just injected at x, leaving the real ${b} at z
+	// untouched. It would produce "x=second y=${b} z=${b}"; substituting at each
+	// expression's own position produces the want below.
+	inputs := map[string]any{
+		"a": "${b}",
+		"b": "second",
+	}
+	got, err := e.Render(t.Context(), "x=${a} y=${a} z=${b}", inputs)
+	if err != nil {
+		t.Fatalf("render failed: %v", err)
+	}
+	want := "x=${b} y=${b} z=second"
+	if got != want {
+		t.Fatalf("interpolation substituted at the wrong positions:\n got %q\nwant %q", got, want)
+	}
+}
+
+// A template holding many expressions must cost one pass over the string, not one copy of
+// the whole string per expression.
+//
+// The test measures bytes allocated rather than elapsed time: allocation is what the
+// quadratic form actually spends, and it does not vary with how loaded the machine is.
+// Rebuilding a ~600KB string once per expression across 20,000 expressions allocates on the
+// order of 10GB; a single pass allocates a few times the template size. The threshold sits
+// two orders of magnitude below the quadratic figure and two above the linear one, so it
+// cannot be reached by ordinary variation in either direction.
+func TestInterpolationIsLinearInTemplateSize(t *testing.T) {
+	const (
+		expressions = 20_000
+		filler      = 25
+	)
+
+	var b strings.Builder
+	for range expressions {
+		b.WriteString(strings.Repeat("x", filler))
+		b.WriteString(`${"v"}`)
+	}
+	tmpl := b.String()
+
+	e := NewEngine()
+	// Compile and cache the program first: program construction allocates, and that cost
+	// belongs to neither implementation's substitution loop.
+	if _, err := e.Render(t.Context(), `${"v"}`, emptyInputs()); err != nil {
+		t.Fatalf("warmup render failed: %v", err)
+	}
+
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	got, err := e.Render(t.Context(), tmpl, emptyInputs())
+	runtime.ReadMemStats(&after)
+	if err != nil {
+		t.Fatalf("render failed: %v", err)
+	}
+
+	want := strings.Repeat(strings.Repeat("x", filler)+"v", expressions)
+	if got != want {
+		t.Fatalf("rendered output is wrong: got %d bytes, want %d bytes", len(got.(string)), len(want))
+	}
+
+	allocated := after.TotalAlloc - before.TotalAlloc
+	const budget = 100 << 20 // 100MB
+	t.Logf("template=%d bytes expressions=%d allocated=%d bytes", len(tmpl), expressions, allocated)
+	if allocated > budget {
+		t.Fatalf("interpolating %d expressions allocated %d bytes, over the %d-byte budget; "+
+			"substitution is copying the whole template per expression again",
+			expressions, allocated, budget)
 	}
 }
