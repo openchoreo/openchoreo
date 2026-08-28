@@ -1803,6 +1803,12 @@ type CreateWorkflowRunRequest struct {
 	WorkflowName string `json:"workflowName"`
 }
 
+// CronJobTriggerRequest Optional per-run overrides applied to the Job created from a manual cronjob trigger
+type CronJobTriggerRequest struct {
+	// Args Replaces the container args for this run only. An empty array clears the args inherited from the CronJob's jobTemplate; omitting the field or sending null keeps them. Applies to the container named `main`, or to the only container if the pod has exactly one.
+	Args *[]string `json:"args"`
+}
+
 // CronJobTriggerResponse Response describing the Job created from a manual cronjob trigger
 type CronJobTriggerResponse struct {
 	// CronJobName Name of the CronJob the Job was created from
@@ -5637,6 +5643,9 @@ type HandleAutoBuildJSONRequestBody HandleAutoBuildJSONBody
 
 // CreateGitSecretJSONRequestBody defines body for CreateGitSecret for application/json ContentType.
 type CreateGitSecretJSONRequestBody = CreateGitSecretRequest
+
+// TriggerReleaseBindingCronJobJSONRequestBody defines body for TriggerReleaseBindingCronJob for application/json ContentType.
+type TriggerReleaseBindingCronJobJSONRequestBody = CronJobTriggerRequest
 
 // CreateSecretJSONRequestBody defines body for CreateSecret for application/json ContentType.
 type CreateSecretJSONRequestBody = CreateSecretRequest
