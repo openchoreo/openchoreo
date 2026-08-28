@@ -3710,6 +3710,24 @@ clusterGateway:
     # @schema
     clientCertRenewBefore: 360h
 
+  # @schema
+  # type: object
+  # description: Agent client-certificate authentication for the public listener (port 8443). Controls where the gateway reads the agent's client certificate that is then verified per plane CR. Defaults to end-to-end mTLS; switch to forwarded-header only when a trusted L7 proxy (e.g. AWS ALB, Envoy/Istio) terminates the agent's TLS and forwards the certificate in a header.
+  # @schema
+  agentAuth:
+    # @schema
+    # description: Where the gateway reads the agent client certificate. 'mtls' takes it from the TLS handshake (requires TLS passthrough / L4 exposure to the gateway). 'forwarded-header' takes it from a header set by a trusted TLS-terminating proxy - only safe when the public listener is reachable exclusively from that proxy.
+    # enum: [mtls, forwarded-header]
+    # default: mtls
+    # @schema
+    mode: mtls
+    # @schema
+    # type: string
+    # description: Request header carrying the URL-encoded client certificate chain when mode is forwarded-header. Use X-Amzn-Mtls-Clientcert for AWS ALB mTLS passthrough, or X-Forwarded-Client-Cert for Envoy/Istio XFCC.
+    # default: X-Forwarded-Client-Cert
+    # @schema
+    forwardedHeaderName: X-Forwarded-Client-Cert
+
   # type: object
   # description: Pod security context
   # @schema
