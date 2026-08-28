@@ -559,3 +559,10 @@ func (req *CreateWorkflowRunRequest) Validate() error {
 func (req *CreateWorkflowRunRequest) Sanitize() {
 	req.WorkflowName = strings.TrimSpace(req.WorkflowName)
 }
+
+// CronJobTriggerRequest carries optional per-run overrides for a manual cronjob trigger.
+type CronJobTriggerRequest struct {
+	// Args replaces the container args for this run only. A non-nil empty slice clears the args
+	// inherited from the CronJob's jobTemplate; nil keeps them.
+	Args []string `json:"args,omitempty"`
+}

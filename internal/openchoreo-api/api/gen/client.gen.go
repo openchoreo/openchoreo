@@ -847,8 +847,10 @@ type ClientInterface interface {
 	// DeleteGitSecret request
 	DeleteGitSecret(ctx context.Context, namespaceName NamespaceNameParam, gitSecretName GitSecretNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// TriggerReleaseBindingCronJob request
-	TriggerReleaseBindingCronJob(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// TriggerReleaseBindingCronJobWithBody request with any body
+	TriggerReleaseBindingCronJobWithBody(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	TriggerReleaseBindingCronJob(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body TriggerReleaseBindingCronJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListSecrets request
 	ListSecrets(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -4206,8 +4208,20 @@ func (c *Client) DeleteGitSecret(ctx context.Context, namespaceName NamespaceNam
 	return c.Client.Do(req)
 }
 
-func (c *Client) TriggerReleaseBindingCronJob(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewTriggerReleaseBindingCronJobRequest(c.Server, namespaceName, releaseBindingName)
+func (c *Client) TriggerReleaseBindingCronJobWithBody(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTriggerReleaseBindingCronJobRequestWithBody(c.Server, namespaceName, releaseBindingName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TriggerReleaseBindingCronJob(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body TriggerReleaseBindingCronJobJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTriggerReleaseBindingCronJobRequest(c.Server, namespaceName, releaseBindingName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -15031,8 +15045,19 @@ func NewDeleteGitSecretRequest(server string, namespaceName NamespaceNameParam, 
 	return req, nil
 }
 
-// NewTriggerReleaseBindingCronJobRequest generates requests for TriggerReleaseBindingCronJob
-func NewTriggerReleaseBindingCronJobRequest(server string, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam) (*http.Request, error) {
+// NewTriggerReleaseBindingCronJobRequest calls the generic TriggerReleaseBindingCronJob builder with application/json body
+func NewTriggerReleaseBindingCronJobRequest(server string, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body TriggerReleaseBindingCronJobJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewTriggerReleaseBindingCronJobRequestWithBody(server, namespaceName, releaseBindingName, "application/json", bodyReader)
+}
+
+// NewTriggerReleaseBindingCronJobRequestWithBody generates requests for TriggerReleaseBindingCronJob with any type of body
+func NewTriggerReleaseBindingCronJobRequestWithBody(server string, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -15064,10 +15089,12 @@ func NewTriggerReleaseBindingCronJobRequest(server string, namespaceName Namespa
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -16236,8 +16263,10 @@ type ClientWithResponsesInterface interface {
 	// DeleteGitSecretWithResponse request
 	DeleteGitSecretWithResponse(ctx context.Context, namespaceName NamespaceNameParam, gitSecretName GitSecretNameParam, reqEditors ...RequestEditorFn) (*DeleteGitSecretResp, error)
 
-	// TriggerReleaseBindingCronJobWithResponse request
-	TriggerReleaseBindingCronJobWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*TriggerReleaseBindingCronJobResp, error)
+	// TriggerReleaseBindingCronJobWithBodyWithResponse request with any body
+	TriggerReleaseBindingCronJobWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TriggerReleaseBindingCronJobResp, error)
+
+	TriggerReleaseBindingCronJobWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body TriggerReleaseBindingCronJobJSONRequestBody, reqEditors ...RequestEditorFn) (*TriggerReleaseBindingCronJobResp, error)
 
 	// ListSecretsWithResponse request
 	ListSecretsWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListSecretsParams, reqEditors ...RequestEditorFn) (*ListSecretsResp, error)
@@ -24364,9 +24393,17 @@ func (c *ClientWithResponses) DeleteGitSecretWithResponse(ctx context.Context, n
 	return ParseDeleteGitSecretResp(rsp)
 }
 
-// TriggerReleaseBindingCronJobWithResponse request returning *TriggerReleaseBindingCronJobResp
-func (c *ClientWithResponses) TriggerReleaseBindingCronJobWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, reqEditors ...RequestEditorFn) (*TriggerReleaseBindingCronJobResp, error) {
-	rsp, err := c.TriggerReleaseBindingCronJob(ctx, namespaceName, releaseBindingName, reqEditors...)
+// TriggerReleaseBindingCronJobWithBodyWithResponse request with arbitrary body returning *TriggerReleaseBindingCronJobResp
+func (c *ClientWithResponses) TriggerReleaseBindingCronJobWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TriggerReleaseBindingCronJobResp, error) {
+	rsp, err := c.TriggerReleaseBindingCronJobWithBody(ctx, namespaceName, releaseBindingName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTriggerReleaseBindingCronJobResp(rsp)
+}
+
+func (c *ClientWithResponses) TriggerReleaseBindingCronJobWithResponse(ctx context.Context, namespaceName NamespaceNameParam, releaseBindingName ReleaseBindingNameParam, body TriggerReleaseBindingCronJobJSONRequestBody, reqEditors ...RequestEditorFn) (*TriggerReleaseBindingCronJobResp, error) {
+	rsp, err := c.TriggerReleaseBindingCronJob(ctx, namespaceName, releaseBindingName, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

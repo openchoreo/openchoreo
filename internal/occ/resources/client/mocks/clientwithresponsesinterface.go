@@ -16493,14 +16493,91 @@ func (_c *MockClientWithResponsesInterface_ListWorkloadsWithResponse_Call) RunAn
 	return _c
 }
 
-// TriggerReleaseBindingCronJobWithResponse provides a mock function with given fields: ctx, namespaceName, releaseBindingName, reqEditors
-func (_m *MockClientWithResponsesInterface) TriggerReleaseBindingCronJobWithResponse(ctx context.Context, namespaceName string, releaseBindingName string, reqEditors ...gen.RequestEditorFn) (*gen.TriggerReleaseBindingCronJobResp, error) {
+// TriggerReleaseBindingCronJobWithBodyWithResponse provides a mock function with given fields: ctx, namespaceName, releaseBindingName, contentType, body, reqEditors
+func (_m *MockClientWithResponsesInterface) TriggerReleaseBindingCronJobWithBodyWithResponse(ctx context.Context, namespaceName string, releaseBindingName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn) (*gen.TriggerReleaseBindingCronJobResp, error) {
 	_va := make([]interface{}, len(reqEditors))
 	for _i := range reqEditors {
 		_va[_i] = reqEditors[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, ctx, namespaceName, releaseBindingName)
+	_ca = append(_ca, ctx, namespaceName, releaseBindingName, contentType, body)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for TriggerReleaseBindingCronJobWithBodyWithResponse")
+	}
+
+	var r0 *gen.TriggerReleaseBindingCronJobResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.TriggerReleaseBindingCronJobResp, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName, contentType, body, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) *gen.TriggerReleaseBindingCronJobResp); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName, contentType, body, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.TriggerReleaseBindingCronJobResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName, contentType, body, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithBodyWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'TriggerReleaseBindingCronJobWithBodyWithResponse'
+type MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithBodyWithResponse_Call struct {
+	*mock.Call
+}
+
+// TriggerReleaseBindingCronJobWithBodyWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - releaseBindingName string
+//   - contentType string
+//   - body io.Reader
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) TriggerReleaseBindingCronJobWithBodyWithResponse(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}, contentType interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithBodyWithResponse_Call {
+	return &MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithBodyWithResponse_Call{Call: _e.mock.On("TriggerReleaseBindingCronJobWithBodyWithResponse",
+		append([]interface{}{ctx, namespaceName, releaseBindingName, contentType, body}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithBodyWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string, contentType string, body io.Reader, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithBodyWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-5)
+		for i, a := range args[5:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(io.Reader), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithBodyWithResponse_Call) Return(_a0 *gen.TriggerReleaseBindingCronJobResp, _a1 error) *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithBodyWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithBodyWithResponse_Call) RunAndReturn(run func(context.Context, string, string, string, io.Reader, ...gen.RequestEditorFn) (*gen.TriggerReleaseBindingCronJobResp, error)) *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithBodyWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// TriggerReleaseBindingCronJobWithResponse provides a mock function with given fields: ctx, namespaceName, releaseBindingName, body, reqEditors
+func (_m *MockClientWithResponsesInterface) TriggerReleaseBindingCronJobWithResponse(ctx context.Context, namespaceName string, releaseBindingName string, body gen.CronJobTriggerRequest, reqEditors ...gen.RequestEditorFn) (*gen.TriggerReleaseBindingCronJobResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, releaseBindingName, body)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
@@ -16510,19 +16587,19 @@ func (_m *MockClientWithResponsesInterface) TriggerReleaseBindingCronJobWithResp
 
 	var r0 *gen.TriggerReleaseBindingCronJobResp
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.TriggerReleaseBindingCronJobResp, error)); ok {
-		return rf(ctx, namespaceName, releaseBindingName, reqEditors...)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.CronJobTriggerRequest, ...gen.RequestEditorFn) (*gen.TriggerReleaseBindingCronJobResp, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName, body, reqEditors...)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.TriggerReleaseBindingCronJobResp); ok {
-		r0 = rf(ctx, namespaceName, releaseBindingName, reqEditors...)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.CronJobTriggerRequest, ...gen.RequestEditorFn) *gen.TriggerReleaseBindingCronJobResp); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName, body, reqEditors...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*gen.TriggerReleaseBindingCronJobResp)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
-		r1 = rf(ctx, namespaceName, releaseBindingName, reqEditors...)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.CronJobTriggerRequest, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName, body, reqEditors...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -16539,21 +16616,22 @@ type MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithResponse_C
 //   - ctx context.Context
 //   - namespaceName string
 //   - releaseBindingName string
+//   - body gen.CronJobTriggerRequest
 //   - reqEditors ...gen.RequestEditorFn
-func (_e *MockClientWithResponsesInterface_Expecter) TriggerReleaseBindingCronJobWithResponse(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithResponse_Call {
+func (_e *MockClientWithResponsesInterface_Expecter) TriggerReleaseBindingCronJobWithResponse(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}, body interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithResponse_Call {
 	return &MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithResponse_Call{Call: _e.mock.On("TriggerReleaseBindingCronJobWithResponse",
-		append([]interface{}{ctx, namespaceName, releaseBindingName}, reqEditors...)...)}
+		append([]interface{}{ctx, namespaceName, releaseBindingName, body}, reqEditors...)...)}
 }
 
-func (_c *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithResponse_Call {
+func (_c *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string, body gen.CronJobTriggerRequest, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithResponse_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
-		for i, a := range args[3:] {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
 			if a != nil {
 				variadicArgs[i] = a.(gen.RequestEditorFn)
 			}
 		}
-		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.CronJobTriggerRequest), variadicArgs...)
 	})
 	return _c
 }
@@ -16563,7 +16641,7 @@ func (_c *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithRespo
 	return _c
 }
 
-func (_c *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.TriggerReleaseBindingCronJobResp, error)) *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithResponse_Call {
+func (_c *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithResponse_Call) RunAndReturn(run func(context.Context, string, string, gen.CronJobTriggerRequest, ...gen.RequestEditorFn) (*gen.TriggerReleaseBindingCronJobResp, error)) *MockClientWithResponsesInterface_TriggerReleaseBindingCronJobWithResponse_Call {
 	_c.Call.Return(run)
 	return _c
 }

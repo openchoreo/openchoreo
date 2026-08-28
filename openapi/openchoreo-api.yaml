@@ -4451,10 +4451,21 @@ paths:
         CronJob, the same behaviour as `kubectl create job --from=cronjob/<name>`. Only allowed when the
         component's workload type is cronjob. The triggered Job (and its pods) appear in the resource tree
         and logs like any other CronJob-owned Job.
+
+
+        An optional request body can override the container args for this run only. The override applies
+        to the created Job and does not change the CronJob, so scheduled runs are unaffected.
       tags: [ReleaseBindings]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
         - $ref: '#/components/parameters/ReleaseBindingNameParam'
+      requestBody:
+        required: false
+        description: Optional per-run overrides applied to the created Job
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CronJobTriggerRequest'
       responses:
         '200':
           description: The Job created from the CronJob
@@ -11281,6 +11292,21 @@ components:
           description: Log entries from the pod
           items:
             $ref: '#/components/schemas/PodLogEntry'
+
+    CronJobTriggerRequest:
+      type: object
+      description: Optional per-run overrides applied to the Job created from a manual cronjob trigger
+      properties:
+        args:
+          type: array
+          nullable: true
+          description: >-
+            Replaces the container args for this run only. An empty array clears the args inherited from
+            the CronJob's jobTemplate; omitting the field or sending null keeps them. Applies to the
+            container named `main`, or to the only container if the pod has exactly one.
+          items:
+            type: string
+          example: ["--mode", "backfill", "--date", "2026-08-25"]
 
     CronJobTriggerResponse:
       type: object

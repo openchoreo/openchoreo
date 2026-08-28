@@ -30,12 +30,18 @@ const (
 	// instantiateAnnotationKey mirrors the annotation kubectl adds when creating a Job from a CronJob.
 	instantiateAnnotationKey   = "cronjob.kubernetes.io/instantiate"
 	instantiateAnnotationValue = "manual"
+	// mainContainerName is the container the shipped cronjob ComponentTypes name for the workload.
+	// Args overrides target it by name so a sidecar cannot be patched by accident.
+	mainContainerName = "main"
 )
 
 // TriggerCronJob creates a Job from the deployed CronJob's spec.jobTemplate with an owner
 // reference back to the CronJob, matching `kubectl create job --from=cronjob/<name>`.
 // It is only allowed when the release binding's component is a cronjob workload.
-func (s *k8sResourcesService) TriggerCronJob(ctx context.Context, namespaceName, releaseBindingName string) (*models.CronJobTriggerResponse, error) {
+//
+// A non-nil overrides.Args replaces the container args for this Job only. The CronJob is not
+// modified, so scheduled runs keep using the args baked into the rendered release.
+func (s *k8sResourcesService) TriggerCronJob(ctx context.Context, namespaceName, releaseBindingName string, overrides *models.CronJobTriggerRequest) (*models.CronJobTriggerResponse, error) {
 	s.logger.Debug("Triggering cronjob", "namespace", namespaceName, "releaseBinding", releaseBindingName)
 
 	if s.gatewayClient == nil {
@@ -69,7 +75,7 @@ func (s *k8sResourcesService) TriggerCronJob(ctx context.Context, namespaceName,
 		return nil, fmt.Errorf("failed to fetch cronjob: %w", err)
 	}
 
-	job, err := buildJobFromCronJob(cronJob)
+	job, err := buildJobFromCronJob(cronJob, overrides)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +142,8 @@ func findCronJobResource(contexts []releaseContext) (*releaseContext, *openchore
 
 // buildJobFromCronJob builds a Job manifest from a CronJob's spec.jobTemplate, adding an owner
 // reference to the CronJob and the manual-instantiate annotation, mirroring kubectl behavior.
-func buildJobFromCronJob(cronJob map[string]any) (map[string]any, error) {
+// When overrides carries args, they replace the target container's args.
+func buildJobFromCronJob(cronJob map[string]any, overrides *models.CronJobTriggerRequest) (map[string]any, error) {
 	cronJobName := getNestedString(cronJob, "metadata", "name")
 	cronJobNamespace := getNestedString(cronJob, "metadata", "namespace")
 	cronJobUID := getNestedString(cronJob, "metadata", "uid")
@@ -155,6 +162,18 @@ func buildJobFromCronJob(cronJob map[string]any) (map[string]any, error) {
 	jobSpec, ok := jobTemplate["spec"].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("cronjob has no spec.jobTemplate.spec")
+	}
+
+	// Copy before mutating so an args override cannot write back into the fetched CronJob.
+	if overrides != nil && overrides.Args != nil {
+		copied, err := deepCopyJSON(jobSpec)
+		if err != nil {
+			return nil, err
+		}
+		jobSpec = copied
+		if err := applyArgsOverride(jobSpec, overrides.Args); err != nil {
+			return nil, err
+		}
 	}
 
 	metadata := map[string]any{
@@ -195,6 +214,72 @@ func buildJobFromCronJob(cronJob map[string]any) (map[string]any, error) {
 		"metadata":   metadata,
 		"spec":       jobSpec,
 	}, nil
+}
+
+// deepCopyJSON round-trips a manifest fragment through JSON to detach it from the fetched object.
+func deepCopyJSON(in map[string]any) (map[string]any, error) {
+	raw, err := json.Marshal(in)
+	if err != nil {
+		return nil, fmt.Errorf("failed to copy job spec: %w", err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("failed to copy job spec: %w", err)
+	}
+	return out, nil
+}
+
+// applyArgsOverride replaces the args of the workload container in jobSpec.
+//
+// The target is the container named "main" (the name used by the shipped cronjob ComponentTypes).
+// If no container carries that name, a single-container pod is unambiguous so that container is
+// used; anything else returns ErrTriggerContainerAmbiguous rather than guessing, since patching the
+// wrong container of a multi-container pod would silently run something the caller did not intend.
+func applyArgsOverride(jobSpec map[string]any, args []string) error {
+	podSpec, ok := getNestedMap(jobSpec, "template", "spec")
+	if !ok {
+		return ErrTriggerContainerAmbiguous
+	}
+	rawContainers, ok := podSpec["containers"].([]any)
+	if !ok || len(rawContainers) == 0 {
+		return ErrTriggerContainerAmbiguous
+	}
+
+	target := -1
+	for i, rc := range rawContainers {
+		c, ok := rc.(map[string]any)
+		if !ok {
+			continue
+		}
+		if name, ok := c["name"].(string); ok && name == mainContainerName {
+			target = i
+			break
+		}
+	}
+	if target == -1 {
+		if len(rawContainers) != 1 {
+			return ErrTriggerContainerAmbiguous
+		}
+		target = 0
+	}
+
+	container, ok := rawContainers[target].(map[string]any)
+	if !ok {
+		return ErrTriggerContainerAmbiguous
+	}
+
+	// An explicit empty array clears the template's args; K8s then falls back to the image
+	// ENTRYPOINT/CMD, which is what "run with no args" means here.
+	if len(args) == 0 {
+		delete(container, "args")
+		return nil
+	}
+	converted := make([]any, 0, len(args))
+	for _, a := range args {
+		converted = append(converted, a)
+	}
+	container["args"] = converted
+	return nil
 }
 
 // makeJobName builds a unique Job name from the CronJob name, the current unix timestamp, and a

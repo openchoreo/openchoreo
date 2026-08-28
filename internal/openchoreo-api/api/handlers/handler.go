@@ -99,6 +99,7 @@ func APIMiddlewares(opts APIMiddlewareOptions) ([]gen.MiddlewareFunc, error) {
 
 	return []gen.MiddlewareFunc{
 		WebhookRawBodyMiddleware,
+		OptionalTriggerBodyMiddleware,
 		auditMw.Handler,
 		opts.AuthMiddleware,
 		loggerMw,
