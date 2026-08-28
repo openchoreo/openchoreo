@@ -211,9 +211,9 @@ func (_c *MockService_GetResourceTree_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
-// TriggerCronJob provides a mock function with given fields: ctx, namespaceName, releaseBindingName
-func (_m *MockService) TriggerCronJob(ctx context.Context, namespaceName string, releaseBindingName string) (*models.CronJobTriggerResponse, error) {
-	ret := _m.Called(ctx, namespaceName, releaseBindingName)
+// TriggerCronJob provides a mock function with given fields: ctx, namespaceName, releaseBindingName, overrides
+func (_m *MockService) TriggerCronJob(ctx context.Context, namespaceName string, releaseBindingName string, overrides *models.CronJobTriggerRequest) (*models.CronJobTriggerResponse, error) {
+	ret := _m.Called(ctx, namespaceName, releaseBindingName, overrides)
 
 	if len(ret) == 0 {
 		panic("no return value specified for TriggerCronJob")
@@ -221,19 +221,19 @@ func (_m *MockService) TriggerCronJob(ctx context.Context, namespaceName string,
 
 	var r0 *models.CronJobTriggerResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*models.CronJobTriggerResponse, error)); ok {
-		return rf(ctx, namespaceName, releaseBindingName)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *models.CronJobTriggerRequest) (*models.CronJobTriggerResponse, error)); ok {
+		return rf(ctx, namespaceName, releaseBindingName, overrides)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) *models.CronJobTriggerResponse); ok {
-		r0 = rf(ctx, namespaceName, releaseBindingName)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *models.CronJobTriggerRequest) *models.CronJobTriggerResponse); ok {
+		r0 = rf(ctx, namespaceName, releaseBindingName, overrides)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*models.CronJobTriggerResponse)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
-		r1 = rf(ctx, namespaceName, releaseBindingName)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, *models.CronJobTriggerRequest) error); ok {
+		r1 = rf(ctx, namespaceName, releaseBindingName, overrides)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -250,13 +250,14 @@ type MockService_TriggerCronJob_Call struct {
 //   - ctx context.Context
 //   - namespaceName string
 //   - releaseBindingName string
-func (_e *MockService_Expecter) TriggerCronJob(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}) *MockService_TriggerCronJob_Call {
-	return &MockService_TriggerCronJob_Call{Call: _e.mock.On("TriggerCronJob", ctx, namespaceName, releaseBindingName)}
+//   - overrides *models.CronJobTriggerRequest
+func (_e *MockService_Expecter) TriggerCronJob(ctx interface{}, namespaceName interface{}, releaseBindingName interface{}, overrides interface{}) *MockService_TriggerCronJob_Call {
+	return &MockService_TriggerCronJob_Call{Call: _e.mock.On("TriggerCronJob", ctx, namespaceName, releaseBindingName, overrides)}
 }
 
-func (_c *MockService_TriggerCronJob_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string)) *MockService_TriggerCronJob_Call {
+func (_c *MockService_TriggerCronJob_Call) Run(run func(ctx context.Context, namespaceName string, releaseBindingName string, overrides *models.CronJobTriggerRequest)) *MockService_TriggerCronJob_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(*models.CronJobTriggerRequest))
 	})
 	return _c
 }
@@ -266,7 +267,7 @@ func (_c *MockService_TriggerCronJob_Call) Return(_a0 *models.CronJobTriggerResp
 	return _c
 }
 
-func (_c *MockService_TriggerCronJob_Call) RunAndReturn(run func(context.Context, string, string) (*models.CronJobTriggerResponse, error)) *MockService_TriggerCronJob_Call {
+func (_c *MockService_TriggerCronJob_Call) RunAndReturn(run func(context.Context, string, string, *models.CronJobTriggerRequest) (*models.CronJobTriggerResponse, error)) *MockService_TriggerCronJob_Call {
 	_c.Call.Return(run)
 	return _c
 }
