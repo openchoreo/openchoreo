@@ -318,12 +318,12 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /api/v1alpha1/traces/{traceId}/spans/{spanId}:
-    get:
+    post:
       tags:
         - Traces
       summary: Get details of a span for a trace
-      description: Get details of a span for a trace from the observer service
-      operationId: getSpanDetailsForTrace
+      description: Get details of a span for a trace
+      operationId: querySpanDetailsForTrace
       parameters:
         - name: traceId
           in: path
@@ -337,6 +337,12 @@ paths:
           description: The ID of the span
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TraceSpanDetailsRequest"
       responses:
         "200":
           description: Span details queried successfully
@@ -1196,6 +1202,13 @@ components:
           description: Whether to include span attributes in the response. Defaults to false.
           default: false
       required: [startTime, endTime, searchScope]
+
+    TraceSpanDetailsRequest:
+      type: object
+      properties:
+        searchScope:
+          $ref: "#/components/schemas/ComponentSearchScope"
+      required: [searchScope]
 
     # Response schemas for traces
     TracesQueryResponse:
