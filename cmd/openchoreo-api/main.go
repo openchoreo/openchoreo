@@ -217,16 +217,21 @@ func main() {
 		baseMux.Handle("/mcp", mcpHandler)
 	}
 
-	// Create OpenAPI handler with middleware chain (order: logger → auth → webhookBody → handler)
+	// Create OpenAPI handler with middleware chain (order: logger → auth → body middlewares → handler)
 	// Middlewares are applied last-to-first (last entry becomes the outermost wrapper).
-	// Execution order: loggerMiddleware → authMiddleware → webhookRawBodyMiddleware → handler.
 	// loggerMiddleware must be outermost so it captures all responses, including 401s from auth.
-	// webhookRawBodyMiddleware must be innermost (before the strict handler decodes the body)
-	// so that HMAC signature validation can access the original raw bytes.
+	// The body middlewares must be innermost (before the strict handler decodes the body): the
+	// webhook one so HMAC signature validation can access the original raw bytes, and the trigger
+	// one so a bodyless cronjob trigger is not rejected by the generated decode.
 	// The generated routes are registered on the baseMux alongside /mcp.
 	handler := gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
-		BaseRouter:  baseMux,
-		Middlewares: []gen.MiddlewareFunc{openapihandlers.WebhookRawBodyMiddleware, authMiddleware, loggerMiddleware},
+		BaseRouter: baseMux,
+		Middlewares: []gen.MiddlewareFunc{
+			openapihandlers.WebhookRawBodyMiddleware,
+			openapihandlers.OptionalTriggerBodyMiddleware,
+			authMiddleware,
+			loggerMiddleware,
+		},
 	})
 
 	// Exec WebSocket endpoint is registered on a top-level mux that wraps the
