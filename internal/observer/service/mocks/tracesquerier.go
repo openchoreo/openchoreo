@@ -23,29 +23,29 @@ func (_m *MockTracesQuerier) EXPECT() *MockTracesQuerier_Expecter {
 	return &MockTracesQuerier_Expecter{mock: &_m.Mock}
 }
 
-// GetSpanDetails provides a mock function with given fields: ctx, traceID, spanID
-func (_m *MockTracesQuerier) GetSpanDetails(ctx context.Context, traceID string, spanID string) (*types.SpanInfo, error) {
-	ret := _m.Called(ctx, traceID, spanID)
+// QuerySpanDetails provides a mock function with given fields: ctx, traceID, spanID, scope
+func (_m *MockTracesQuerier) QuerySpanDetails(ctx context.Context, traceID string, spanID string, scope types.ComponentSearchScope) (*types.SpanInfo, error) {
+	ret := _m.Called(ctx, traceID, spanID, scope)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetSpanDetails")
+		panic("no return value specified for QuerySpanDetails")
 	}
 
 	var r0 *types.SpanInfo
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*types.SpanInfo, error)); ok {
-		return rf(ctx, traceID, spanID)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, types.ComponentSearchScope) (*types.SpanInfo, error)); ok {
+		return rf(ctx, traceID, spanID, scope)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) *types.SpanInfo); ok {
-		r0 = rf(ctx, traceID, spanID)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, types.ComponentSearchScope) *types.SpanInfo); ok {
+		r0 = rf(ctx, traceID, spanID, scope)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.SpanInfo)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
-		r1 = rf(ctx, traceID, spanID)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, types.ComponentSearchScope) error); ok {
+		r1 = rf(ctx, traceID, spanID, scope)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -53,32 +53,33 @@ func (_m *MockTracesQuerier) GetSpanDetails(ctx context.Context, traceID string,
 	return r0, r1
 }
 
-// MockTracesQuerier_GetSpanDetails_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSpanDetails'
-type MockTracesQuerier_GetSpanDetails_Call struct {
+// MockTracesQuerier_QuerySpanDetails_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'QuerySpanDetails'
+type MockTracesQuerier_QuerySpanDetails_Call struct {
 	*mock.Call
 }
 
-// GetSpanDetails is a helper method to define mock.On call
+// QuerySpanDetails is a helper method to define mock.On call
 //   - ctx context.Context
 //   - traceID string
 //   - spanID string
-func (_e *MockTracesQuerier_Expecter) GetSpanDetails(ctx interface{}, traceID interface{}, spanID interface{}) *MockTracesQuerier_GetSpanDetails_Call {
-	return &MockTracesQuerier_GetSpanDetails_Call{Call: _e.mock.On("GetSpanDetails", ctx, traceID, spanID)}
+//   - scope types.ComponentSearchScope
+func (_e *MockTracesQuerier_Expecter) QuerySpanDetails(ctx interface{}, traceID interface{}, spanID interface{}, scope interface{}) *MockTracesQuerier_QuerySpanDetails_Call {
+	return &MockTracesQuerier_QuerySpanDetails_Call{Call: _e.mock.On("QuerySpanDetails", ctx, traceID, spanID, scope)}
 }
 
-func (_c *MockTracesQuerier_GetSpanDetails_Call) Run(run func(ctx context.Context, traceID string, spanID string)) *MockTracesQuerier_GetSpanDetails_Call {
+func (_c *MockTracesQuerier_QuerySpanDetails_Call) Run(run func(ctx context.Context, traceID string, spanID string, scope types.ComponentSearchScope)) *MockTracesQuerier_QuerySpanDetails_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(types.ComponentSearchScope))
 	})
 	return _c
 }
 
-func (_c *MockTracesQuerier_GetSpanDetails_Call) Return(_a0 *types.SpanInfo, _a1 error) *MockTracesQuerier_GetSpanDetails_Call {
+func (_c *MockTracesQuerier_QuerySpanDetails_Call) Return(_a0 *types.SpanInfo, _a1 error) *MockTracesQuerier_QuerySpanDetails_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockTracesQuerier_GetSpanDetails_Call) RunAndReturn(run func(context.Context, string, string) (*types.SpanInfo, error)) *MockTracesQuerier_GetSpanDetails_Call {
+func (_c *MockTracesQuerier_QuerySpanDetails_Call) RunAndReturn(run func(context.Context, string, string, types.ComponentSearchScope) (*types.SpanInfo, error)) *MockTracesQuerier_QuerySpanDetails_Call {
 	_c.Call.Return(run)
 	return _c
 }
