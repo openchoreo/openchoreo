@@ -21,6 +21,7 @@ import (
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	projectpipeline "github.com/openchoreo/openchoreo/internal/pipeline/project"
+	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 const ownershipConflictMarker = "RenderedRelease exists but is not owned by this binding"
@@ -52,7 +53,12 @@ func (r *Reconciler) renderAndEmit(
 		Environment:        projectpipeline.BuildEnvironmentContext(environment, dataPlane),
 	}
 
-	output, err := r.Pipeline.Render(input)
+	// One cost budget per reconcile, seeded here because this is the reconcile's only
+	// render entry point. The budget is an inert context value - no deadline of its own -
+	// so it can ride the reconcile's own ctx: the pipeline derives the render deadline
+	// internally, and the CreateOrUpdate that follows is unaffected by either.
+	ctx = template.WithReconcileBudget(ctx, r.CELCostLimit)
+	output, err := r.Pipeline.Render(ctx, input)
 	if err != nil {
 		markSyncedFalse(binding, ReasonRenderingFailed,
 			fmt.Sprintf("Failed to render manifests: %v", err))

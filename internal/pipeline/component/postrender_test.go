@@ -38,18 +38,23 @@ func replicaValidation(rule, msg string, mustMatch *bool, when string) v1alpha1.
 	}
 }
 
-func runPostRender(t *testing.T, resources []renderer.RenderedResource, v v1alpha1.PostRenderValidation, ctx map[string]any) error {
+func runPostRender(
+	t *testing.T,
+	resources []renderer.RenderedResource,
+	v v1alpha1.PostRenderValidation,
+	celContext map[string]any,
+) error {
 	t.Helper()
 	engine := template.NewEngine()
-	if ctx == nil {
-		ctx = map[string]any{}
+	if celContext == nil {
+		celContext = map[string]any{}
 	}
 	pending := []pendingPostRender{{
 		label:       "acme/inst",
-		context:     ctx,
+		context:     celContext,
 		validations: []v1alpha1.PostRenderValidation{v},
 	}}
-	return evaluatePostRenderValidations(engine, resources, pending)
+	return evaluatePostRenderValidations(t.Context(), engine, resources, pending)
 }
 
 func TestPostRender_RulePasses(t *testing.T) {
@@ -166,7 +171,7 @@ func TestPostRender_AggregatesAcrossTraits(t *testing.T) {
 		{label: "Trait b/b", context: map[string]any{}, validations: []v1alpha1.PostRenderValidation{
 			replicaValidation("${resource.spec.replicas < 2}", "B failed", nil, "")}},
 	}
-	err := evaluatePostRenderValidations(engine, resources, pending)
+	err := evaluatePostRenderValidations(t.Context(), engine, resources, pending)
 	if err == nil || !strings.Contains(err.Error(), "A failed") || !strings.Contains(err.Error(), "B failed") {
 		t.Fatalf("expected both failures aggregated, got %v", err)
 	}
@@ -225,7 +230,7 @@ func TestPostRender_ForEach_PerItemDistinctResource(t *testing.T) {
 		Message: "route ${route.name} lost its rules",
 	}
 	engine := template.NewEngine()
-	err := evaluatePostRenderValidations(engine, resources,
+	err := evaluatePostRenderValidations(t.Context(), engine, resources,
 		[]pendingPostRender{{label: "Trait r/r", context: ctx, validations: []v1alpha1.PostRenderValidation{v}}})
 	if err == nil || !strings.Contains(err.Error(), "no resource matched target") {
 		t.Fatalf("expected per-item mustMatch failure for the missing route, got %v", err)
@@ -274,6 +279,49 @@ func TestPostRender_ForEachNonIterableErrors(t *testing.T) {
 	err := runPostRender(t, []renderer.RenderedResource{deployment("web", 1)}, v, ctx)
 	if err == nil || !strings.Contains(err.Error(), "invalid forEach result") {
 		t.Fatalf("expected non-iterable forEach error, got %v", err)
+	}
+}
+
+// oversizedForEachList returns the smallest power-of-two sized list that the renderer's
+// forEach cap rejects. Probing keeps the test independent of the cap's exact value, which
+// lives unexported in the renderer package.
+func oversizedForEachList(t *testing.T) []any {
+	t.Helper()
+	for n := 1; n <= 1<<20; n *= 2 {
+		items := make([]any, n)
+		for i := range items {
+			items[i] = i
+		}
+		if _, err := renderer.ToIterableItems(t.Context(), items); err != nil {
+			return items
+		}
+	}
+	t.Fatal("no list size up to 2^20 tripped the forEach cap")
+	return nil
+}
+
+func TestPostRender_ForEachOverLimitErrors(t *testing.T) {
+	// The post-render validation forEach path must inherit the renderer's fan-out cap
+	// rather than expanding a tenant-supplied collection of unbounded size.
+	ctx := map[string]any{"parameters": map[string]any{"many": oversizedForEachList(t)}}
+	v := v1alpha1.PostRenderValidation{
+		ForEach: "${parameters.many}",
+		Var:     "x",
+		Target: v1alpha1.PostRenderTarget{
+			PatchTarget: v1alpha1.PatchTarget{Group: "apps", Version: "v1", Kind: "Deployment"},
+		},
+		Rule:    "${resource.spec.replicas == 1}",
+		Message: "unused",
+	}
+	err := runPostRender(t, []renderer.RenderedResource{deployment("web", 1)}, v, ctx)
+	if err == nil {
+		t.Fatal("expected oversized forEach to error, got nil")
+	}
+	// Both substrings matter: the first proves the failure came through the post-render
+	// route, the second proves it was the fan-out cap and not some other guard.
+	if !strings.Contains(err.Error(), "invalid forEach result") ||
+		!strings.Contains(err.Error(), "exceeding the limit of") {
+		t.Fatalf("expected forEach fan-out cap error from the post-render path, got %v", err)
 	}
 }
 

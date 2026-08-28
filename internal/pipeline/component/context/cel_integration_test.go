@@ -172,7 +172,7 @@ func TestCELMacroIntegration(t *testing.T) {
 
 	eval := func(t *testing.T, expr string, ctxMap map[string]any) any {
 		t.Helper()
-		result, err := engine.Render("${"+expr+"}", ctxMap)
+		result, err := engine.Render(t.Context(), "${"+expr+"}", ctxMap)
 		if err != nil {
 			t.Fatalf("CEL error for %q: %v", expr, err)
 		}
