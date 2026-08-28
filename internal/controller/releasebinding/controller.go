@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +34,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/networkpolicy"
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 const (
@@ -76,6 +78,16 @@ type Reconciler struct {
 	// Pipeline is the component rendering pipeline, shared across all reconciliations.
 	// This enables CEL environment caching across different component types and reconciliations.
 	Pipeline *componentpipeline.Pipeline
+
+	// CELCostLimit bounds the accumulated cost of a single CEL expression.
+	// Zero selects the template engine's built-in default.
+	CELCostLimit uint64
+
+	// RenderTimeout bounds each rendering step of a reconcile separately, not the
+	// reconcile as a whole: a reconcile that renders more than once spends the
+	// timeout again at each step. Zero disables the deadline. It is handed to the
+	// pipeline at construction; the pipeline derives the deadline per entry point.
+	RenderTimeout time.Duration
 }
 
 // networkPolicyProviderFromDataPlane reads the "openchoreo.dev/networkpolicyprovider" annotation
@@ -537,8 +549,14 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		ResourceDependencyItems:    resourceDepItems,
 	}
 
-	// Render resources using the shared pipeline instance
-	renderOutput, err := r.Pipeline.Render(renderInput)
+	// Seed one cost budget for this reconcile's rendering. The budget is an inert context
+	// value carrying no deadline, so nothing else in the reconcile is affected by it.
+	ctx = template.WithReconcileBudget(ctx, r.CELCostLimit)
+
+	// Render resources using the shared pipeline instance. The pipeline derives its own
+	// render deadline, so it bounds this call alone: the status writes below run without
+	// one and can still record a breach on the object.
+	renderOutput, err := r.Pipeline.Render(ctx, renderInput)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to render resources: %v", err)
 		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
@@ -1519,6 +1537,13 @@ func (r *Reconciler) getDefaultNotificationChannelName(ctx context.Context, name
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.Pipeline == nil {
+		r.Pipeline = componentpipeline.NewPipeline(
+			componentpipeline.WithCostLimit(r.CELCostLimit),
+			componentpipeline.WithRenderTimeout(r.RenderTimeout),
+		)
+	}
+
 	ctx := context.Background()
 
 	// Setup field index for SecretReferences (reads from status.secretReferenceNames)

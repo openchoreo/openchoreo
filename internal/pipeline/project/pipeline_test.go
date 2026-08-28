@@ -80,7 +80,7 @@ func TestRender_HappyPath(t *testing.T) {
 		Metadata: fixtureMetadata(),
 	}
 
-	out, err := p.Render(input)
+	out, err := p.Render(t.Context(), input)
 	require.NoError(t, err)
 	require.Len(t, out.Entries, 2)
 
@@ -119,7 +119,7 @@ func TestRender_IncludeWhenSkipsEntry(t *testing.T) {
 		Metadata:          fixtureMetadata(),
 	}
 
-	out, err := p.Render(input)
+	out, err := p.Render(t.Context(), input)
 	require.NoError(t, err)
 	require.Len(t, out.Entries, 1)
 	assert.Equal(t, "cell-namespace", out.Entries[0].ID)
@@ -152,7 +152,7 @@ func TestRender_ForEachExpansion(t *testing.T) {
 		Metadata: fixtureMetadata(),
 	}
 
-	out, err := p.Render(input)
+	out, err := p.Render(t.Context(), input)
 	require.NoError(t, err)
 	require.Len(t, out.Entries, 3)
 	assert.Equal(t, "cell-namespace", out.Entries[0].ID)
@@ -177,7 +177,7 @@ func TestRender_ValidationFailureAborts(t *testing.T) {
 		Metadata:          fixtureMetadata(),
 	}
 
-	_, err := p.Render(input)
+	_, err := p.Render(t.Context(), input)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "tier must be premium")
 }
@@ -192,7 +192,7 @@ func TestRender_MissingNamespaceRejected(t *testing.T) {
 		Metadata: MetadataContext{}, // Namespace empty
 	}
 
-	_, err := p.Render(input)
+	_, err := p.Render(t.Context(), input)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Namespace is empty")
 }
@@ -285,7 +285,7 @@ func TestRender_ExposesDataPlaneAndGatewayContext(t *testing.T) {
 		Environment: BuildEnvironmentContext(env, dp),
 	}
 
-	out, err := p.Render(input)
+	out, err := p.Render(t.Context(), input)
 	require.NoError(t, err)
 	require.Len(t, out.Entries, 2)
 
@@ -321,7 +321,7 @@ func TestRender_GatewayNilGuardFallsBack(t *testing.T) {
 		// DataPlane and Environment left zero-valued: no gateway, no secret store.
 	}
 
-	out, err := p.Render(input)
+	out, err := p.Render(t.Context(), input)
 	require.NoError(t, err)
 	require.Len(t, out.Entries, 2)
 

@@ -764,6 +764,20 @@ controllerManager:
       - --leader-elect
       - --health-probe-bind-address=:8081
     # @schema
+    # type: integer
+    # minimum: 0
+    # description: Maximum accumulated cost for a single CEL template expression. This is the controller's own built-in default, stated here so the bound is visible rather than implied; 0 also selects it. Raising it weakens the guard proportionally - the per-reconcile cost budget is derived from it - so treat it as an escape hatch for a legitimate template, not a tuning knob.
+    # default: 2000000
+    # @schema
+    celCostLimit: 2000000
+    # @schema
+    # type: string
+    # description: Deadline for each rendering step of a reconcile (Go duration, e.g. "30s"), applied to every step separately - a reconcile that renders more than once (manifests, outputs, each readyWhen) may spend it at each. "0" disables the deadline; CEL cost limits remain the primary bound. Invalid or negative durations are rejected.
+    # default: "0"
+    # pattern: ^(0|(([0-9]+([.][0-9]+)?|[.][0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$
+    # @schema
+    renderTimeout: "0"
+    # @schema
     # type: object
     # description: Environment variables for the controller-manager
     # @schema

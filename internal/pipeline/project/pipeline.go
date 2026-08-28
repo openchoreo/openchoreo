@@ -17,8 +17,10 @@
 package projectpipeline
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -28,13 +30,45 @@ import (
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
+// Option is a function that configures a Pipeline.
+type Option func(*Pipeline)
+
+// WithCostLimit sets the maximum accumulated cost for a single CEL expression
+// evaluated by this pipeline's template engine. Zero selects the engine's
+// built-in safe default; it never means unlimited.
+func WithCostLimit(limit uint64) Option {
+	return func(p *Pipeline) {
+		p.celCostLimit = limit
+	}
+}
+
+// WithRenderTimeout bounds the wall-clock duration of each call into this pipeline. The
+// deadline is derived inside every entry point rather than by the caller, so it covers
+// exactly one rendering step and never spans the work around it - an API read before, a
+// status write after. Zero or negative means no deadline; the CEL cost limits remain the
+// primary bound.
+func WithRenderTimeout(timeout time.Duration) Option {
+	return func(p *Pipeline) {
+		p.renderTimeout = timeout
+	}
+}
+
 // NewPipeline returns a Pipeline backed by a fresh template.Engine. The
 // engine's CEL env and program caches accumulate across calls; reuse the
 // Pipeline instance to keep them warm.
-func NewPipeline() *Pipeline {
-	return &Pipeline{
-		templateEngine: template.NewEngine(),
+func NewPipeline(opts ...Option) *Pipeline {
+	p := &Pipeline{}
+	for _, opt := range opts {
+		opt(p)
 	}
+	// Guarded so a future engine-injecting Option (as the component pipeline has for
+	// benchmarking) is not silently overwritten here.
+	if p.templateEngine == nil {
+		p.templateEngine = template.NewEngineWithOptions(
+			template.WithCostLimit(p.celCostLimit),
+		)
+	}
+	return p
 }
 
 // Render walks ProjectTypeSpec.Resources[] and returns one RenderedEntry per
@@ -51,18 +85,23 @@ func NewPipeline() *Pipeline {
 //
 // ProjectTypeSpec.Validations are evaluated against the same context before
 // rendering begins; any rule that returns false aborts the call.
-func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
+func (p *Pipeline) Render(ctx context.Context, input *RenderInput) (*RenderOutput, error) {
+	ctx, cancel := template.WithRenderTimeout(ctx, p.renderTimeout)
+	defer cancel()
+
+	ctx = renderer.WithForEachBudget(ctx)
+
 	if err := validateInput(input); err != nil {
 		return nil, err
 	}
 
-	ctx, err := buildBaseContext(input)
+	celContext, err := buildBaseContext(input)
 	if err != nil {
 		return nil, err
 	}
 
 	spec := input.ProjectTypeSpec
-	if err := renderer.EvaluateValidationRules(p.templateEngine, spec.Validations, ctx); err != nil {
+	if err := renderer.EvaluateValidationRules(ctx, p.templateEngine, spec.Validations, celContext); err != nil {
 		return nil, fmt.Errorf("project type validation failed: %w", err)
 	}
 
@@ -70,7 +109,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 	for i := range spec.Resources {
 		tmpl := &spec.Resources[i]
 
-		include, err := renderer.ShouldInclude(p.templateEngine, tmpl.IncludeWhen, ctx)
+		include, err := renderer.ShouldInclude(ctx, p.templateEngine, tmpl.IncludeWhen, celContext)
 		if err != nil {
 			return nil, fmt.Errorf("evaluate includeWhen for resource %q: %w", tmpl.ID, err)
 		}
@@ -79,7 +118,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 		}
 
 		if tmpl.ForEach != "" {
-			expanded, err := p.expandForEach(tmpl, ctx)
+			expanded, err := p.expandForEach(ctx, tmpl, celContext)
 			if err != nil {
 				return nil, err
 			}
@@ -87,7 +126,7 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 			continue
 		}
 
-		object, err := p.renderSingleTemplate(tmpl, ctx)
+		object, err := p.renderSingleTemplate(ctx, tmpl, celContext)
 		if err != nil {
 			return nil, err
 		}
@@ -101,15 +140,19 @@ func (p *Pipeline) Render(input *RenderInput) (*RenderOutput, error) {
 // once per item. The returned entries are tagged with "<id>-<index>" IDs so
 // the binding controller can correlate observed status to a specific
 // iteration without inspecting the rendered object.
-func (p *Pipeline) expandForEach(tmpl *v1alpha1.ResourceTemplate, ctx map[string]any) ([]RenderedEntry, error) {
-	itemContexts, err := renderer.EvalForEach(p.templateEngine, tmpl.ForEach, tmpl.Var, ctx)
+func (p *Pipeline) expandForEach(
+	ctx context.Context,
+	tmpl *v1alpha1.ResourceTemplate,
+	celContext map[string]any,
+) ([]RenderedEntry, error) {
+	itemContexts, err := renderer.EvalForEach(ctx, p.templateEngine, tmpl.ForEach, tmpl.Var, celContext)
 	if err != nil {
 		return nil, fmt.Errorf("evaluate forEach for resource %q: %w", tmpl.ID, err)
 	}
 
 	entries := make([]RenderedEntry, 0, len(itemContexts))
 	for idx, itemCtx := range itemContexts {
-		object, err := p.renderSingleTemplate(tmpl, itemCtx)
+		object, err := p.renderSingleTemplate(ctx, tmpl, itemCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +167,11 @@ func (p *Pipeline) expandForEach(tmpl *v1alpha1.ResourceTemplate, ctx map[string
 // renderSingleTemplate JSON-decodes a ResourceTemplate body, evaluates CEL
 // expressions against ctx, strips omit-sentinel keys, and asserts the
 // minimum {apiVersion, kind, metadata.name} surface.
-func (p *Pipeline) renderSingleTemplate(tmpl *v1alpha1.ResourceTemplate, ctx map[string]any) (map[string]any, error) {
+func (p *Pipeline) renderSingleTemplate(
+	ctx context.Context,
+	tmpl *v1alpha1.ResourceTemplate,
+	celContext map[string]any,
+) (map[string]any, error) {
 	if tmpl.Template == nil || len(tmpl.Template.Raw) == 0 {
 		return nil, fmt.Errorf("template is empty for resource %q", tmpl.ID)
 	}
@@ -134,7 +181,7 @@ func (p *Pipeline) renderSingleTemplate(tmpl *v1alpha1.ResourceTemplate, ctx map
 		return nil, fmt.Errorf("unmarshal template for resource %q: %w", tmpl.ID, err)
 	}
 
-	rendered, err := p.templateEngine.Render(data, ctx)
+	rendered, err := p.templateEngine.Render(ctx, data, celContext)
 	if err != nil {
 		return nil, fmt.Errorf("render template for resource %q: %w", tmpl.ID, err)
 	}
