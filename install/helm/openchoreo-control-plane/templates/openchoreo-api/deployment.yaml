@@ -71,12 +71,10 @@ spec:
         - name: config
           mountPath: /etc/openchoreo
           readOnly: true
-        {{- if .Values.clusterGateway.tls.enabled }}
         - name: cluster-gateway-ca
           mountPath: /etc/cluster-gateway
           readOnly: true
-        {{- end }}
-        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        {{- if .Values.clusterGateway.internalMtls.enabled }}
         - name: cluster-gateway-client-tls
           mountPath: /etc/cluster-gateway-client
           readOnly: true
@@ -105,12 +103,15 @@ spec:
       - name: config
         configMap:
           name: {{ include "openchoreo-control-plane.openchoreoApi.name" . }}-config
-      {{- if .Values.clusterGateway.tls.enabled }}
+      # Trust anchor for verifying the gateway. Only ca.crt is mounted; the
+      # signing key in that secret stays out of this pod.
       - name: cluster-gateway-ca
         secret:
-          secretName: {{ .Values.openchoreoApi.clusterGateway.tls.caSecret }}
-      {{- end }}
-      {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+          secretName: {{ .Values.clusterGateway.tls.existingSecret | default .Values.openchoreoApi.clusterGateway.tls.caSecret }}
+          items:
+          - key: ca.crt
+            path: ca.crt
+      {{- if .Values.clusterGateway.internalMtls.enabled }}
       - name: cluster-gateway-client-tls
         secret:
           secretName: {{ .Values.openchoreoApi.clusterGateway.tls.clientSecret }}

@@ -1144,6 +1144,12 @@
           "title": "agentAuth",
           "type": "object"
         },
+        "drainWindow": {
+          "default": "10s",
+          "description": "How long a draining gateway keeps agent connections open after sending GOAWAY, giving agents time to reconnect to a surviving replica before their sockets are closed. Must stay comfortably below terminationGracePeriodSeconds (30s).",
+          "title": "drainWindow",
+          "type": "string"
+        },
         "heartbeatInterval": {
           "default": "30s",
           "description": "Heartbeat interval for agent connections",
@@ -1233,6 +1239,27 @@
           "required": [],
           "title": "logLevel"
         },
+        "mesh": {
+          "additionalProperties": false,
+          "description": "Gateway mesh fabric configuration. The mesh replicates the agent connection registry across gateway replicas and forwards requests between them, allowing the gateway to scale horizontally behind an ordinary Service.",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Enable the gateway mesh fabric. Required for replicas \u003e 1. Peers discover each other via the headless mesh Service's EndpointSlices; links are secured with mTLS using the gateway serving certificate.",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "port": {
+              "default": 8445,
+              "description": "Gateway-to-gateway mesh listener port",
+              "title": "port",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "mesh",
+          "type": "object"
+        },
         "name": {
           "default": "cluster-gateway",
           "description": "Name of the cluster gateway deployment",
@@ -1247,6 +1274,31 @@
           "description": "Node selector",
           "required": [],
           "title": "nodeSelector",
+          "type": "object"
+        },
+        "podDisruptionBudget": {
+          "additionalProperties": false,
+          "description": "PodDisruptionBudget for the cluster gateway. Only created when replicas \u003e 1, so a singleton gateway does not block node drains.",
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "Create a PodDisruptionBudget so voluntary disruptions (node drains, cluster upgrades) cannot evict every gateway replica at once.",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "minAvailable": {
+              "default": 1,
+              "description": "Minimum gateway pods that must stay available during voluntary disruptions. Accepts a count or a percentage string.",
+              "required": [],
+              "title": "minAvailable",
+              "type": [
+                "integer",
+                "string"
+              ]
+            }
+          },
+          "required": [],
+          "title": "podDisruptionBudget",
           "type": "object"
         },
         "podSecurityContext": {
@@ -1309,10 +1361,42 @@
           "title": "priorityClass",
           "type": "object"
         },
+        "readinessProbe": {
+          "additionalProperties": false,
+          "description": "Readiness probe timing. /ready reports 503 while draining and until the mesh registry has converged, so the probe needs to react quickly in both directions - a slow probe keeps a draining pod in Service endpoints and admits a fresh pod before it can route.",
+          "properties": {
+            "failureThreshold": {
+              "default": 2,
+              "description": "Consecutive failures before the pod leaves Service endpoints. Two avoids evicting a healthy pod on a single slow check while still reacting within ~10s.",
+              "title": "failureThreshold",
+              "type": "integer"
+            },
+            "initialDelaySeconds": {
+              "default": 2,
+              "description": "Delay before the first readiness check.",
+              "title": "initialDelaySeconds",
+              "type": "integer"
+            },
+            "periodSeconds": {
+              "default": 5,
+              "description": "How often readiness is checked. Bounds how long a draining pod keeps receiving traffic.",
+              "title": "periodSeconds",
+              "type": "integer"
+            },
+            "timeoutSeconds": {
+              "default": 2,
+              "description": "Per-check timeout.",
+              "title": "timeoutSeconds",
+              "type": "integer"
+            }
+          },
+          "required": [],
+          "title": "readinessProbe",
+          "type": "object"
+        },
         "replicas": {
           "default": 1,
-          "description": "Number of cluster gateway replicas. Must be 1 - the gateway holds cluster-agent WebSocket connections in process memory and cannot be horizontally scaled. Provide support in upcoming release.",
-          "maximum": 1,
+          "description": "Number of cluster gateway replicas. Values above 1 require the gateway mesh (clusterGateway.mesh.enabled), which replicates the connection registry across replicas and forwards requests between them.",
           "minimum": 1,
           "title": "replicas",
           "type": "integer"
@@ -1513,9 +1597,15 @@
             },
             "enabled": {
               "default": true,
-              "description": "Enable TLS",
+              "description": "Deprecated: has no effect. The cluster gateway has no plaintext listener - it always loads a serving certificate - so TLS resources are created unconditionally. MIGRATION: if you previously set this to false and supplied the certificate secret yourself, set clusterGateway.tls.existingSecret to that secret name instead. Otherwise cert-manager now issues into clusterGateway.tls.secretName and will overwrite a secret of that name that you created by hand. Will be removed in a future release.",
               "title": "enabled",
               "type": "boolean"
+            },
+            "existingSecret": {
+              "default": "",
+              "description": "Bring your own serving certificate. When set, the chart creates no cert-manager Issuer, CA or Certificate for the gateway and uses this secret instead. It must contain tls.crt, tls.key and ca.crt, and the certificate must be valid for the gateway Service DNS names and - when the mesh is enabled - the headless mesh Service DNS names, since mesh peers verify each other against ca.crt. Leave empty to let cert-manager issue everything.",
+              "title": "existingSecret",
+              "type": "string"
             },
             "issuerRef": {
               "additionalProperties": true,

@@ -1,4 +1,4 @@
-{{- if .Values.clusterGateway.tls.enabled }}
+{{- if not .Values.clusterGateway.tls.existingSecret }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -19,6 +19,13 @@ spec:
   dnsNames:
     {{- range .Values.clusterGateway.tls.dnsNames }}
     - {{ . | quote }}
+    {{- end }}
+    {{- if .Values.clusterGateway.mesh.enabled }}
+    # Mesh peer identity: the serving certificate doubles as the mesh mTLS
+    # identity; peers dial each other expecting the headless mesh Service name
+    - {{ include "openchoreo-control-plane.clusterGateway.name" . }}-mesh
+    - {{ include "openchoreo-control-plane.clusterGateway.name" . }}-mesh.{{ .Release.Namespace }}.svc
+    - {{ include "openchoreo-control-plane.clusterGateway.name" . }}-mesh.{{ .Release.Namespace }}.svc.cluster.local
     {{- end }}
   {{- with .Values.clusterGateway.tls.duration }}
   duration: {{ . }}

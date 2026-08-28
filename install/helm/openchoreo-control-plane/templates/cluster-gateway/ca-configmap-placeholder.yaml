@@ -1,4 +1,4 @@
-{{- if .Values.clusterGateway.tls.enabled }}
+{{- if not .Values.clusterGateway.tls.existingSecret }}
 ---
 # Placeholder ConfigMap for cluster-gateway CA certificate
 # This is created as a regular resource so the controller manager can mount it

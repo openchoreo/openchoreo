@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"net/url"
 	"os"
 	"sync"
@@ -21,6 +22,11 @@ import (
 
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
 )
+
+// maxReconnectJitter spreads a herd of agents reconnecting after GOAWAY so
+// they do not all land on the same replica. Non-cryptographic randomness is
+// fine here: this only needs to break synchrony, not be unpredictable.
+const maxReconnectJitter = 750 * time.Millisecond
 
 // Connection abstracts a WebSocket connection for testability.
 // *websocket.Conn satisfies this interface.
@@ -56,32 +62,51 @@ func New(cfg *Config, k8sClient client.Client, k8sConfig *rest.Config, logger *s
 	var serverCertPool *x509.CertPool
 
 	if cfg.TLSEnabled {
+		// The URL scheme, not this flag, is what actually selects the
+		// transport: the websocket dialer speaks plaintext for ws:// and
+		// ignores TLSClientConfig entirely. Left unchecked, the agent would
+		// load its certificates, log that the CA was accepted, and then
+		// forward control-plane instructions to the plane's Kubernetes API
+		// over an unencrypted socket, presenting no client certificate and
+		// verifying no server - the same silent downgrade the CA checks below
+		// exist to prevent, so fail the same way.
+		u, err := url.Parse(cfg.ServerURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid server URL %q: %w", cfg.ServerURL, err)
+		}
+		if u.Scheme != "wss" {
+			return nil, fmt.Errorf("TLS is enabled but the server URL scheme is %q: "+
+				"use wss:// to connect over TLS, or --tls-enabled=false to disable TLS", u.Scheme)
+		}
+
 		// Load client certificate
-		var err error
 		cert, err = tls.LoadX509KeyPair(cfg.ClientCertPath, cfg.ClientKeyPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load client certificate: %w", err)
 		}
 
-		// Load server CA certificate
-		serverCertPool = x509.NewCertPool()
-		if cfg.ServerCAPath != "" {
-			serverCACert, err := os.ReadFile(cfg.ServerCAPath)
-			if err != nil {
-				logger.Warn("failed to read server CA certificate",
-					"path", cfg.ServerCAPath,
-					"error", err,
-				)
-				logger.Warn("agent will connect without server verification")
-			} else {
-				if !serverCertPool.AppendCertsFromPEM(serverCACert) {
-					logger.Warn("failed to parse server CA certificate")
-					serverCertPool = nil
-				} else {
-					logger.Info("server CA certificate loaded successfully")
-				}
-			}
+		// Load server CA certificate.
+		//
+		// Failures here are fatal rather than degraded: falling back to an
+		// unverified connection would silently turn the tunnel into something
+		// any host able to answer the gateway's address could impersonate,
+		// and the agent forwards control-plane instructions straight into the
+		// plane's Kubernetes API. A misconfigured CA path must be loud. Use
+		// --tls-enabled=false to opt out of TLS explicitly for dev.
+		if cfg.ServerCAPath == "" {
+			return nil, fmt.Errorf("TLS is enabled but no server CA is configured: " +
+				"set --server-ca to verify the gateway, or --tls-enabled=false to disable TLS")
 		}
+		serverCACert, err := os.ReadFile(cfg.ServerCAPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read server CA certificate %s: %w", cfg.ServerCAPath, err)
+		}
+		serverCertPool = x509.NewCertPool()
+		if !serverCertPool.AppendCertsFromPEM(serverCACert) {
+			return nil, fmt.Errorf("failed to parse server CA certificate %s: no valid certificates found",
+				cfg.ServerCAPath)
+		}
+		logger.Info("server CA certificate loaded successfully")
 	} else {
 		logger.Info("TLS disabled, connecting without mTLS")
 	}
@@ -113,6 +138,11 @@ func (a *Agent) Start(ctx context.Context) error {
 		"serverURL", a.config.ServerURL,
 	)
 
+	// The loop below is the only owner of a.conn, so it closes the socket on
+	// every way out. Several exits used to rely on the connection watcher
+	// started by handleConnection, which no longer outlives its connection.
+	defer a.closeConnection()
+
 	for {
 		// Check for cancellation before attempting connection
 		select {
@@ -126,6 +156,14 @@ func (a *Agent) Start(ctx context.Context) error {
 			return nil
 		default:
 		}
+
+		// Release the previous session's socket before dialing a new one.
+		// connect() overwrites a.conn, so anything still open here would never
+		// be closed. Deliberately not done when handleConnection returns: on a
+		// GOAWAY the gateway keeps serving for its drain window, and responses
+		// to requests already dispatched can still be delivered over the old
+		// socket while we wait out the jitter.
+		a.closeConnection()
 
 		// Attempt to connect
 		if err := a.connect(); err != nil {
@@ -147,7 +185,36 @@ func (a *Agent) Start(ctx context.Context) error {
 
 		// Handle messages on the established connection
 		// This will block until connection is lost or context is canceled
-		a.handleConnection(ctx)
+		graceful := a.handleConnection(ctx)
+
+		// A GOAWAY is a planned handover: the gateway replica told us it is
+		// draining and is still serving other agents. Waiting out the reconnect
+		// backoff here would leave this plane unroutable for the whole delay
+		// even though a healthy replica is ready right now — exactly what the
+		// drain choreography exists to avoid. Only back off when the
+		// connection dropped unexpectedly, where retrying immediately would
+		// risk hammering a gateway that is actually unhealthy.
+		if graceful {
+			// Reconnect promptly, but not in lockstep with every other agent
+			// that was just evicted. A whole replica's worth of agents receive
+			// GOAWAY together, and if they all redial at the same instant they
+			// tend to land on whichever replica is ready right then — the
+			// concentration that makes one pod's restart take every plane down
+			// at once. A brief random spread lets the load balancer place them
+			// independently. Kept well under a second so this stays far cheaper
+			// than the reconnect backoff it replaces.
+			//nolint:gosec // Breaking reconnect synchrony, not a security decision.
+			jitter := time.Duration(rand.Int64N(int64(maxReconnectJitter)))
+			a.logger.Info("reconnecting after GOAWAY", "jitter", jitter)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-a.stopChan:
+				return nil
+			case <-time.After(jitter):
+			}
+			continue
+		}
 
 		// Connection lost, wait before reconnecting
 		a.logger.Info("connection lost, reconnecting",
@@ -213,32 +280,79 @@ func (a *Agent) connect() error {
 	return nil
 }
 
-// handleConnection handles an established WebSocket connection
-func (a *Agent) handleConnection(ctx context.Context) {
+// handleConnection handles an established WebSocket connection. It reports
+// whether the connection ended gracefully — i.e. the gateway sent a GOAWAY
+// asking us to move to another replica — so the caller can reconnect
+// immediately instead of serving out the reconnect backoff.
+func (a *Agent) handleConnection(ctx context.Context) (graceful bool) {
+	// Bind this session's connection once. The watcher below clears a.conn to
+	// unblock the read, so re-reading the field on every loop turn would race
+	// with that write - and read from nil once it lands. Holding the socket
+	// locally keeps the unblock working: the close still makes ReadMessage
+	// return an error, which is what ends the loop.
+	a.mu.Lock()
+	conn := a.conn
+	a.mu.Unlock()
+	if conn == nil {
+		a.logger.Debug("no connection to handle")
+		return false
+	}
+
 	// Setup ping/pong handlers for connection health
-	a.conn.SetPingHandler(func(appData string) error {
+	conn.SetPingHandler(func(appData string) error {
 		a.logger.Debug("received ping from server")
-		return a.conn.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(time.Second))
+		return conn.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(time.Second))
 	})
 
-	// Handle context cancellation asynchronously by closing the connection
-	// This causes ReadMessage() to unblock with an error, terminating the loop
+	// Handle context cancellation asynchronously by closing the connection.
+	// This causes ReadMessage() to unblock with an error, terminating the loop.
+	//
+	// done retires the watcher when the connection ends for any other reason.
+	// Without it every reconnect leaves one behind, parked on a context that
+	// only fires at agent shutdown - and a long-lived agent reconnects on
+	// every gateway rollout. The stragglers are not just idle: each closes
+	// whatever connection is current when the context finally fires, so a
+	// healthy session inherits the closes owed to sessions long gone.
+	done := make(chan struct{})
+	defer close(done)
 	go func() {
-		<-ctx.Done()
+		select {
+		case <-done:
+			return
+		case <-ctx.Done():
+		}
+		// Both channels can be ready before this goroutine is first scheduled,
+		// and select would then pick between them at random. Re-check done so
+		// a retired watcher never closes a socket: past this point the
+		// connection has ended and Start owns what replaces it.
+		select {
+		case <-done:
+			return
+		default:
+		}
 		a.logger.Debug("context canceled, closing connection")
 		a.closeConnection()
 	}()
 
 	// Main message processing loop
 	for {
-		_, message, err := a.conn.ReadMessage()
+		_, message, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				a.logger.Error("websocket error", "error", err)
 			} else {
 				a.logger.Debug("connection closed", "error", err)
 			}
-			return
+			return false
+		}
+
+		// GOAWAY: the gateway replica is draining — return so the reconnect
+		// loop dials again through the load balancer and lands on a surviving
+		// replica. Reported as graceful so the caller skips the backoff.
+		var goAway messaging.GoAway
+		if err := json.Unmarshal(message, &goAway); err == nil && goAway.Type == messaging.MessageTypeGoAway {
+			a.logger.Info("received GOAWAY from gateway, reconnecting", "reason", goAway.Reason)
+			return true
 		}
 
 		// Try to parse as stream init (exec / hubble requests)

@@ -325,7 +325,7 @@ func (s *Server) getAllPlaneClientCAs(planeType, planeID string) (map[string][]b
 		s.logger.Warn("no CRs found for connecting agent",
 			"planeType", planeType,
 			"planeID", planeID,
-			"note", "agent will connect but without proper CA verification",
+			"note", "the connection will be rejected: with no CR there is no CA to verify the agent against",
 		)
 	}
 

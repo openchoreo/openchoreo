@@ -59,6 +59,12 @@ type Config struct {
 	ShutdownTimeout      time.Duration
 	HeartbeatInterval    time.Duration
 	HeartbeatTimeout     time.Duration
+	// DrainWindow is the period over which GOAWAY frames are spread across
+	// agent connections during shutdown, so agents re-land on surviving
+	// replicas without a reconnect stampede. Must be shorter than
+	// ShutdownTimeout. Zero disables the choreographed drain (connections are
+	// closed immediately).
+	DrainWindow time.Duration
 }
 
 // RemoteServerClientConfig holds configuration for RemoteServerClient

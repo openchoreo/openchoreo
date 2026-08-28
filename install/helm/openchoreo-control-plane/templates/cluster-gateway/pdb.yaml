@@ -1,0 +1,23 @@
+{{- if and (gt (int .Values.clusterGateway.replicas) 1) .Values.clusterGateway.podDisruptionBudget.enabled }}
+# Keeps voluntary disruptions (node drains, cluster upgrades) from taking every
+# gateway replica at once. Each eviction costs connected agents a reconnect, so
+# without this a drain can leave every plane briefly unroutable.
+# Only created for replicas > 1: a singleton gateway with minAvailable would
+# block node drains entirely.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-gateway
+    app: cluster-gateway
+spec:
+  minAvailable: {{ .Values.clusterGateway.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: cluster-gateway
+      app.kubernetes.io/component: cluster-gateway
+      {{- include "openchoreo-control-plane.selectorLabels" . | nindent 6 }}
+{{- end }}

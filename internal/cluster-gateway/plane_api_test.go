@@ -31,6 +31,7 @@ func newTestPlaneAPI(t *testing.T, objects ...client.Object) (*http.ServeMux, *C
 
 	cm := NewConnectionManager(testLogger())
 	server := &Server{
+		connMgr:   cm,
 		k8sClient: fakeClient,
 		logger:    testLogger(),
 	}

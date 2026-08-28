@@ -1,16 +1,4 @@
-{{- if .Values.clusterGateway.tls.enabled }}
----
-# Self-signed issuer for creating the cluster gateway CA
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: {{ include "openchoreo-control-plane.clusterGateway.name" . }}-ca-issuer
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "openchoreo-control-plane.labels" . | nindent 4 }}
-    app.kubernetes.io/component: cluster-gateway
-spec:
-  selfSigned: {}
+{{- if not .Values.clusterGateway.tls.existingSecret }}
 ---
 # CA Certificate for signing agent client certificates
 apiVersion: cert-manager.io/v1

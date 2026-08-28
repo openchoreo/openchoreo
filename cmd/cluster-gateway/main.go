@@ -5,29 +5,34 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	clustergateway "github.com/openchoreo/openchoreo/internal/cluster-gateway"
+	"github.com/openchoreo/openchoreo/internal/cluster-gateway/fabric"
 	"github.com/openchoreo/openchoreo/internal/cmdutil"
 )
 
 const (
 	defaultPort              = 8443
 	defaultInternalPort      = 8444
+	defaultMeshPort          = 8445
 	defaultReadTimeout       = 60 * time.Second
 	defaultWriteTimeout      = 60 * time.Second
 	defaultIdleTimeout       = 120 * time.Second
 	defaultShutdownTimeout   = 30 * time.Second
 	defaultHeartbeatInterval = 30 * time.Second
 	defaultHeartbeatTimeout  = 90 * time.Second
+	defaultDrainWindow       = 10 * time.Second
 )
 
 var (
@@ -57,6 +62,11 @@ func main() {
 		heartbeatInterval        time.Duration
 		heartbeatTimeout         time.Duration
 		logLevel                 string
+		meshEnabled              bool
+		meshPort                 int
+		meshCACertPath           string
+		meshServiceName          string
+		drainWindow              time.Duration
 	)
 
 	flag.IntVar(&port, "port", cmdutil.GetEnvInt("AGENT_SERVER_PORT", defaultPort),
@@ -96,6 +106,22 @@ func main() {
 	flag.DurationVar(&shutdownTimeout, "shutdown-timeout", defaultShutdownTimeout, "Graceful shutdown timeout")
 	flag.DurationVar(&heartbeatInterval, "heartbeat-interval", defaultHeartbeatInterval, "Heartbeat ping interval")
 	flag.DurationVar(&heartbeatTimeout, "heartbeat-timeout", defaultHeartbeatTimeout, "Heartbeat timeout duration")
+	flag.BoolVar(&meshEnabled, "mesh",
+		cmdutil.GetEnvBool("MESH_ENABLED", false),
+		"Enable the gateway mesh fabric: replicate the connection registry across gateway "+
+			"replicas and forward requests between them (required for clusterGateway.replicas > 1)")
+	flag.IntVar(&meshPort, "mesh-port", cmdutil.GetEnvInt("MESH_PORT", defaultMeshPort),
+		"Gateway-to-gateway mesh listener port")
+	flag.StringVar(&meshCACertPath, "mesh-ca-cert",
+		cmdutil.GetEnv("MESH_CA_PATH", ""),
+		"Path to the CA bundle used to verify mesh peer certificates in both directions "+
+			"(the gateway serving certificate doubles as the mesh identity)")
+	flag.StringVar(&meshServiceName, "mesh-service",
+		cmdutil.GetEnv("MESH_SERVICE_NAME", ""),
+		"Name of the headless Service whose EndpointSlices are watched for mesh peer discovery")
+	flag.DurationVar(&drainWindow, "drain-window",
+		cmdutil.GetEnvDuration("DRAIN_WINDOW", defaultDrainWindow),
+		"Period over which GOAWAY frames are spread across agent connections during shutdown")
 	flag.StringVar(&logLevel, "log-level", cmdutil.GetEnv("LOG_LEVEL", "info"), "Log level (debug, info, warn, error)")
 	flag.Parse()
 
@@ -152,9 +178,57 @@ func main() {
 		ShutdownTimeout:          shutdownTimeout,
 		HeartbeatInterval:        heartbeatInterval,
 		HeartbeatTimeout:         heartbeatTimeout,
+		DrainWindow:              drainWindow,
 	}
 
 	srv := clustergateway.New(config, k8sClient, logger)
+
+	// Gateway mesh fabric: replicate the connection registry across replicas
+	// and forward requests between them, so the gateway can scale horizontally
+	// behind an ordinary Service.
+	if meshEnabled {
+		podName := os.Getenv("POD_NAME")
+		podIP := os.Getenv("POD_IP")
+		podNamespace := os.Getenv("POD_NAMESPACE")
+
+		switch {
+		case podName == "" || podIP == "" || podNamespace == "":
+			logger.Warn("mesh disabled: pod identity not available",
+				"note", "set POD_NAME, POD_IP and POD_NAMESPACE (downward API) to enable the gateway mesh",
+			)
+		case meshServiceName == "":
+			logger.Warn("mesh disabled: no mesh service configured",
+				"note", "set --mesh-service to the headless mesh Service name to enable peer discovery",
+			)
+		default:
+			clientset, err := kubernetes.NewForConfig(k8sConfig)
+			if err != nil {
+				logger.Error("failed to create Kubernetes clientset for mesh discovery", "error", err)
+				os.Exit(1)
+			}
+
+			registry := fabric.NewRegistry(logger)
+			discovery := fabric.NewEndpointSliceDiscovery(
+				clientset, podNamespace, meshServiceName, meshPort, podName, logger)
+			mesh := fabric.NewMesh(fabric.MeshConfig{
+				Self:       fabric.Peer{ID: podName, Addr: fmt.Sprintf("%s:%d", podIP, meshPort)},
+				ListenPort: meshPort,
+				CertFile:   serverCertPath,
+				KeyFile:    serverKeyPath,
+				CAFile:     meshCACertPath,
+				ServerName: fmt.Sprintf("%s.%s.svc", meshServiceName, podNamespace),
+			}, registry, discovery, srv, logger)
+
+			srv.SetFabric(mesh, registry)
+			logger.Info("gateway mesh fabric enabled",
+				"pod", podName,
+				"meshPort", meshPort,
+				"meshService", meshServiceName,
+				"meshCA", meshCACertPath,
+			)
+		}
+	}
+
 	if err := srv.Start(); err != nil {
 		logger.Error("server failed", "error", err)
 		os.Exit(1)

@@ -21,3 +21,19 @@ Gateway:
 Components:
   Backstage:  {{ ternary "enabled" "disabled" .Values.backstage.enabled }}
   Security:   {{ ternary "enabled" "disabled" .Values.security.enabled }}
+
+{{- if .Values.clusterGateway.tls.existingSecret }}
+
+Cluster gateway TLS: using your certificate from secret "{{ .Values.clusterGateway.tls.existingSecret }}".
+  It must contain tls.crt, tls.key and ca.crt. The gateway and its clients will
+  fail to start or connect if ca.crt is absent.
+  The certificate must be valid for every name below. Agents dial the fully
+  qualified form, so a certificate covering only the short name will fail every
+  agent connection:
+    {{ include "openchoreo-control-plane.clusterGateway.name" . }}.{{ .Release.Namespace }}.svc
+    {{ include "openchoreo-control-plane.clusterGateway.name" . }}.{{ .Release.Namespace }}.svc.{{ .Values.kubernetesClusterDomain }}
+{{- if .Values.clusterGateway.mesh.enabled }}
+    {{ include "openchoreo-control-plane.clusterGateway.name" . }}-mesh.{{ .Release.Namespace }}.svc   (mesh peers verify each other against ca.crt)
+    {{ include "openchoreo-control-plane.clusterGateway.name" . }}-mesh.{{ .Release.Namespace }}.svc.{{ .Values.kubernetesClusterDomain }}
+{{- end }}
+{{- end }}

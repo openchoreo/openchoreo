@@ -6,6 +6,7 @@ package cmdutil
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 // GetEnv gets an environment variable or returns a default value
@@ -31,6 +32,17 @@ func GetEnvInt(key string, defaultValue int) int {
 		var intValue int
 		if _, err := fmt.Sscanf(value, "%d", &intValue); err == nil {
 			return intValue
+		}
+	}
+	return defaultValue
+}
+
+// GetEnvDuration gets a duration environment variable (Go duration syntax,
+// e.g. "10s") or returns a default value
+func GetEnvDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if d, err := time.ParseDuration(value); err == nil {
+			return d
 		}
 	}
 	return defaultValue

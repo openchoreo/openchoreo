@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+
+	"github.com/openchoreo/openchoreo/internal/cluster-gateway/fabric"
 )
 
 type PlaneAPI struct {
@@ -146,6 +148,17 @@ func (api *PlaneAPI) handlePlaneNotification(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// This notification landed on one replica behind the load balancer;
+	// propagate it so replicas owning other connections for the plane apply
+	// it too. Counts in the response cover only this replica's connections.
+	api.server.propagatePlaneEvent(fabric.PlaneEvent{
+		PlaneType: notification.PlaneType,
+		PlaneID:   notification.PlaneID,
+		Event:     notification.Event,
+		Namespace: notification.Namespace,
+		Name:      notification.Name,
+	})
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(result); err != nil {
@@ -168,6 +181,14 @@ func (api *PlaneAPI) handleReconnect(w http.ResponseWriter, r *http.Request) {
 	)
 
 	disconnectedCount := api.connMgr.DisconnectAllForPlane(planeType, planeID)
+
+	// Propagate so replicas owning other connections for this plane
+	// disconnect them too. The count covers only this replica.
+	api.server.propagatePlaneEvent(fabric.PlaneEvent{
+		PlaneType: planeType,
+		PlaneID:   planeID,
+		Event:     "reconnect",
+	})
 
 	api.logger.Info("manual reconnection processed",
 		"planeType", planeType,
@@ -212,10 +233,10 @@ func (api *PlaneAPI) handleGetPlaneStatus(w http.ResponseWriter, r *http.Request
 	if name != "" {
 		// CR-specific status (works for both namespace-scoped and cluster-scoped CRs)
 		// For cluster-scoped CRs, namespace is empty and CR key becomes "/name"
-		status = api.connMgr.GetCRAuthorizationStatus(planeType, planeID, namespace, name)
+		status = api.server.CRAuthorizationStatus(planeType, planeID, namespace, name)
 	} else {
 		// Plane-level status (all agents connected to the plane)
-		status = api.connMgr.GetPlaneStatus(planeType, planeID)
+		status = api.server.PlaneStatus(planeType, planeID)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -228,7 +249,7 @@ func (api *PlaneAPI) handleGetPlaneStatus(w http.ResponseWriter, r *http.Request
 // handleGetAllPlaneStatus returns connection status for all planes
 // This endpoint is called by the controller to get status of all planes at once
 func (api *PlaneAPI) handleGetAllPlaneStatus(w http.ResponseWriter, r *http.Request) {
-	statuses := api.connMgr.GetAllPlaneStatuses()
+	statuses := api.server.AllPlaneStatuses()
 
 	response := AllPlaneStatusResponse{
 		Planes: statuses,
@@ -245,24 +266,18 @@ func (api *PlaneAPI) handleGetAllPlaneStatus(w http.ResponseWriter, r *http.Requ
 // fetchCRClientCA fetches the client CA certificate for a specific CR
 // Uses the server's getAllPlaneClientCAs() method to query Kubernetes API
 func (api *PlaneAPI) fetchCRClientCA(notification PlaneNotification) ([]byte, error) {
-	// Use server's method to get CA data for all CRs with matching planeType/planeID
-	allCRs, err := api.server.getAllPlaneClientCAs(notification.PlaneType, notification.PlaneID)
+	caData, err := api.server.fetchCRClientCA(
+		notification.PlaneType,
+		notification.PlaneID,
+		notification.Namespace,
+		notification.Name,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get CRs: %w", err)
-	}
-
-	crKey := fmt.Sprintf("%s/%s", notification.Namespace, notification.Name)
-	caData, exists := allCRs[crKey]
-	if !exists {
-		return nil, fmt.Errorf("CR %s not found", crKey)
-	}
-
-	if caData == nil {
-		return nil, fmt.Errorf("CR %s has no CA configured", crKey)
+		return nil, err
 	}
 
 	api.logger.Debug("fetched CA for CR",
-		"cr", crKey,
+		"cr", fmt.Sprintf("%s/%s", notification.Namespace, notification.Name),
 		"caSize", len(caData),
 	)
 
