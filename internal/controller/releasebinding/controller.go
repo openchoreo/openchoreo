@@ -33,6 +33,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/networkpolicy"
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
+	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 const (
@@ -48,6 +49,10 @@ type Reconciler struct {
 	// Pipeline is the component rendering pipeline, shared across all reconciliations.
 	// This enables CEL environment caching across different component types and reconciliations.
 	Pipeline *componentpipeline.Pipeline
+
+	// CELCostLimit bounds the accumulated cost of a single CEL expression.
+	// Zero selects the template engine's built-in default.
+	CELCostLimit uint64
 }
 
 // networkPolicyProviderFromDataPlane reads the "openchoreo.dev/networkpolicyprovider" annotation
@@ -509,8 +514,14 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		ResourceDependencyItems:    resourceDepItems,
 	}
 
-	// Render resources using the shared pipeline instance
-	renderOutput, err := r.Pipeline.Render(renderInput)
+	// Seed one cost budget for this reconcile's rendering. The budget is an inert context
+	// value carrying no deadline, so nothing else in the reconcile is affected by it.
+	ctx = template.WithReconcileBudget(ctx, r.CELCostLimit)
+
+	// Render resources using the shared pipeline instance. What bounds this call is the
+	// per-expression cost limit and the budget seeded above, not a deadline: ctx carries
+	// only the caller's cancellation, which the engine checks as it walks the template.
+	renderOutput, err := r.Pipeline.Render(ctx, renderInput)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to render resources: %v", err)
 		controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
@@ -1384,6 +1395,12 @@ func (r *Reconciler) getDefaultNotificationChannelName(ctx context.Context, name
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.Pipeline == nil {
+		r.Pipeline = componentpipeline.NewPipeline(
+			componentpipeline.WithCostLimit(r.CELCostLimit),
+		)
+	}
+
 	ctx := context.Background()
 
 	// Setup field index for SecretReferences (reads from status.secretReferenceNames)

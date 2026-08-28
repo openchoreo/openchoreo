@@ -26,6 +26,7 @@ import (
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	resourcepipeline "github.com/openchoreo/openchoreo/internal/pipeline/resource"
+	"github.com/openchoreo/openchoreo/internal/template"
 )
 
 const ownershipConflictMarker = "RenderedRelease exists but is not owned by this binding"
@@ -39,6 +40,10 @@ type Reconciler struct {
 	// instance holds CEL env and program caches; reuse it across reconciles
 	// to keep them warm.
 	Pipeline *resourcepipeline.Pipeline
+
+	// CELCostLimit bounds the accumulated cost of a single CEL expression.
+	// Zero selects the template engine's built-in default.
+	CELCostLimit uint64
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcereleasebindings,verbs=get;list;watch;create;update;patch;delete
@@ -179,6 +184,12 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		return ctrl.Result{}, err
 	}
 
+	// Seed one cost budget for the whole reconcile so manifest rendering, output
+	// resolution and every readyWhen evaluation draw from the same pool. The budget is an
+	// inert context value carrying no deadline, so it rides ctx from here on rather than
+	// needing a second context threaded to whatever renders.
+	ctx = template.WithReconcileBudget(ctx, r.CELCostLimit)
+
 	rr, err := r.renderAndEmit(ctx, binding, release, environment, dataPlane, resource, project)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -223,7 +234,10 @@ func (r *Reconciler) renderAndEmit(
 		Environment:            envCtx,
 	}
 
-	output, err := r.Pipeline.RenderManifests(input)
+	// What bounds this render is the per-expression cost limit and the budget seeded
+	// above, not a deadline. ctx carries the budget and the caller's cancellation, and
+	// everything after this — CreateOrUpdate, the status writes — runs on the same ctx.
+	output, err := r.Pipeline.RenderManifests(ctx, input)
 	if err != nil {
 		markSyncedFalse(binding, ReasonRenderingFailed,
 			fmt.Sprintf("Failed to render manifests: %v", err))
@@ -453,7 +467,9 @@ func validateReleaseOwner(release *openchoreov1alpha1.ResourceRelease, binding *
 // advance moves a binding forward.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.Pipeline == nil {
-		r.Pipeline = resourcepipeline.NewPipeline()
+		r.Pipeline = resourcepipeline.NewPipeline(
+			resourcepipeline.WithCostLimit(r.CELCostLimit),
+		)
 	}
 
 	if err := r.setupResourceReleaseRefIndex(context.Background(), mgr); err != nil {

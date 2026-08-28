@@ -84,7 +84,7 @@ func TestRenderPlaintextTemplate(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := RenderPlaintextTemplate(tc.template, tc.inputs, logger)
+			got := RenderPlaintextTemplate(t.Context(), tc.template, tc.inputs, logger)
 			assert.Equal(t, tc.want, got)
 		})
 	}
@@ -154,7 +154,7 @@ func TestRenderJSONTemplate(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := RenderJSONTemplate(tc.templateMap, tc.inputs, logger)
+			got, err := RenderJSONTemplate(t.Context(), tc.templateMap, tc.inputs, logger)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -212,7 +212,7 @@ func TestPrepareWebhookPayload(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := prepareWebhookPayload(tc.templateStr, alert, logger)
+			got, err := prepareWebhookPayload(t.Context(), tc.templateStr, alert, logger)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -281,7 +281,7 @@ func TestPrepareEmailContent(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			subject, body, err := prepareEmailContent(tc.emailConfig, alert, logger)
+			subject, body, err := prepareEmailContent(t.Context(), tc.emailConfig, alert, logger)
 			require.NoError(t, err)
 			if tc.check != nil {
 				tc.check(t, subject, body)

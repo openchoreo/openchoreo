@@ -301,7 +301,7 @@ func TestResolveExternalRefs(t *testing.T) {
 
 func TestEvaluateExternalRefName(t *testing.T) {
 	t.Run("returns string from literal", func(t *testing.T) {
-		result, err := evaluateExternalRefName(template.NewEngine(), "my-secret", map[string]any{})
+		result, err := evaluateExternalRefName(t.Context(), template.NewEngine(), "my-secret", map[string]any{})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -311,7 +311,7 @@ func TestEvaluateExternalRefName(t *testing.T) {
 	})
 
 	t.Run("returns empty for empty string", func(t *testing.T) {
-		result, err := evaluateExternalRefName(template.NewEngine(), "", map[string]any{})
+		result, err := evaluateExternalRefName(t.Context(), template.NewEngine(), "", map[string]any{})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -326,7 +326,7 @@ func TestEvaluateExternalRefName(t *testing.T) {
 				"secretName": "resolved-secret",
 			},
 		}
-		result, err := evaluateExternalRefName(template.NewEngine(), "${parameters.secretName}", celCtx)
+		result, err := evaluateExternalRefName(t.Context(), template.NewEngine(), "${parameters.secretName}", celCtx)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -337,7 +337,7 @@ func TestEvaluateExternalRefName(t *testing.T) {
 
 	t.Run("returns error for invalid CEL expression", func(t *testing.T) {
 		// Reference a non-existent variable to trigger a CEL evaluation error
-		_, err := evaluateExternalRefName(template.NewEngine(), "${nonexistent.field}", map[string]any{})
+		_, err := evaluateExternalRefName(t.Context(), template.NewEngine(), "${nonexistent.field}", map[string]any{})
 		if err == nil {
 			t.Fatal("expected error for invalid CEL expression")
 		}
@@ -349,7 +349,7 @@ func TestEvaluateExternalRefName(t *testing.T) {
 				"count": 42,
 			},
 		}
-		_, err := evaluateExternalRefName(template.NewEngine(), "${parameters.count}", celCtx)
+		_, err := evaluateExternalRefName(t.Context(), template.NewEngine(), "${parameters.count}", celCtx)
 		if err == nil {
 			t.Fatal("expected error for non-string CEL result")
 		}

@@ -694,6 +694,13 @@ controllerManager:
       - --leader-elect
       - --health-probe-bind-address=:8081
     # @schema
+    # type: integer
+    # minimum: 0
+    # description: Maximum accumulated cost for a single CEL template expression. This is the controller's own built-in default, stated here so the bound is visible rather than implied; 0 also selects it. Raising it weakens the guard proportionally - the per-reconcile cost budget is derived from it - so treat it as an escape hatch for a legitimate template, not a tuning knob.
+    # default: 2000000
+    # @schema
+    celCostLimit: 2000000
+    # @schema
     # type: object
     # description: Environment variables for the controller-manager
     # @schema
