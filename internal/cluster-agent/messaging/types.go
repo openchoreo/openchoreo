@@ -14,6 +14,18 @@ func GenerateMessageID() string {
 	return uuid.New().String()
 }
 
+// MessageTypeGoAway identifies a GoAway control message from the gateway.
+const MessageTypeGoAway = "goaway"
+
+// GoAway is a drain signal sent by a gateway replica that is shutting down:
+// the agent should reconnect through the load balancer and land on a
+// surviving replica. Agents that do not understand the message simply ignore
+// it and reconnect when the gateway closes the socket.
+type GoAway struct {
+	Type   string `json:"type"` // always MessageTypeGoAway
+	Reason string `json:"reason,omitempty"`
+}
+
 // ErrorDetails provides structured error information
 type ErrorDetails struct {
 	Code    int            `json:"code,omitempty"`

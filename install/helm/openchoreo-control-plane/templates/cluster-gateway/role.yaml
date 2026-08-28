@@ -15,3 +15,8 @@ rules:
 - apiGroups: [""]
   resources: ["configmaps"]
   verbs: ["get", "list", "create", "update", "patch"]
+# Allow watching the headless mesh Service's EndpointSlices for gateway mesh
+# peer discovery
+- apiGroups: ["discovery.k8s.io"]
+  resources: ["endpointslices"]
+  verbs: ["get", "list", "watch"]
