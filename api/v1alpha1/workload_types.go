@@ -178,7 +178,7 @@ type WorkloadConnection struct {
 
 	// Visibility is the visibility level at which this connection consumes the endpoint.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=project;namespace
+	// +kubebuilder:validation:Enum=project;namespace;internal
 	Visibility string `json:"visibility"`
 
 	// EnvBindings maps semantic URL components to environment variable names.
@@ -205,6 +205,12 @@ type ConnectionEnvBindings struct {
 	// BasePath is the optional env var name for just the base path.
 	// +optional
 	BasePath string `json:"basePath,omitempty"`
+
+	// Audience is the optional env var name for the service identity audience
+	// accepted by the target endpoint. It is resolved from the target
+	// ReleaseBinding, rather than copied into every caller configuration.
+	// +optional
+	Audience string `json:"audience,omitempty"`
 }
 
 // WorkloadDependencies defines the dependencies of a workload on other components' endpoints

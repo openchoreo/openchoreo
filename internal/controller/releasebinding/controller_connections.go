@@ -140,6 +140,7 @@ func (r *Reconciler) resolveConnection(
 			Endpoint:   conn.Endpoint,
 			Visibility: conn.Visibility,
 			URL:        *url,
+			Audience:   ep.Audience,
 		}, nil, nil
 	}
 
@@ -174,6 +175,8 @@ func resolveURLForVisibility(
 			}
 		}
 		return nil
+	case openchoreov1alpha1.EndpointVisibilityInternal:
+		return ep.InternalDirectURL
 	default:
 		return nil
 	}
@@ -225,7 +228,7 @@ func buildEnvVarsForConnection(
 	conn openchoreov1alpha1.WorkloadConnection,
 	rc openchoreov1alpha1.ResolvedConnection,
 ) []pipelinecontext.EnvVarEntry {
-	envVars := make([]pipelinecontext.EnvVarEntry, 0, 4)
+	envVars := make([]pipelinecontext.EnvVarEntry, 0, 5)
 
 	if conn.EnvBindings.Address != "" {
 		envVars = append(envVars, pipelinecontext.EnvVarEntry{
@@ -256,6 +259,13 @@ func buildEnvVarsForConnection(
 		envVars = append(envVars, pipelinecontext.EnvVarEntry{
 			Name:  conn.EnvBindings.BasePath,
 			Value: rc.URL.Path,
+		})
+	}
+
+	if conn.EnvBindings.Audience != "" {
+		envVars = append(envVars, pipelinecontext.EnvVarEntry{
+			Name:  conn.EnvBindings.Audience,
+			Value: rc.Audience,
 		})
 	}
 

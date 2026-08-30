@@ -2567,6 +2567,11 @@ func (in *EndpointURLStatus) DeepCopyInto(out *EndpointURLStatus) {
 		*out = new(EndpointURL)
 		**out = **in
 	}
+	if in.InternalDirectURL != nil {
+		in, out := &in.InternalDirectURL, &out.InternalDirectURL
+		*out = new(EndpointURL)
+		**out = **in
+	}
 	if in.InternalURLs != nil {
 		in, out := &in.InternalURLs, &out.InternalURLs
 		*out = new(EndpointGatewayURLs)

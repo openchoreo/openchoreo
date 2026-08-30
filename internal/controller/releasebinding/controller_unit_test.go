@@ -1900,6 +1900,7 @@ func TestBuildConnectionItems(t *testing.T) {
 					Namespace: testNamespace, Project: testProjectName, Component: "svc-a", Endpoint: "api",
 					Visibility: openchoreov1alpha1.EndpointVisibilityProject,
 					URL:        openchoreov1alpha1.EndpointURL{Scheme: "http", Host: "svc-a.ns.svc.cluster.local", Port: 8080, Path: "/v1"},
+					Audience:   "https://api.example.test",
 				},
 			},
 		},
@@ -1916,6 +1917,7 @@ func TestBuildConnectionItems(t *testing.T) {
 					Host:     "SVC_A_HOST",
 					Port:     "SVC_A_PORT",
 					BasePath: "SVC_A_PATH",
+					Audience: "SVC_A_AUDIENCE",
 				},
 			},
 		}
@@ -1926,10 +1928,11 @@ func TestBuildConnectionItems(t *testing.T) {
 		}
 
 		expected := map[string]string{
-			"SVC_A_ADDRESS": "http://svc-a.ns.svc.cluster.local:8080/v1",
-			"SVC_A_HOST":    "svc-a.ns.svc.cluster.local",
-			"SVC_A_PORT":    "8080",
-			"SVC_A_PATH":    "/v1",
+			"SVC_A_ADDRESS":  "http://svc-a.ns.svc.cluster.local:8080/v1",
+			"SVC_A_HOST":     "svc-a.ns.svc.cluster.local",
+			"SVC_A_PORT":     "8080",
+			"SVC_A_PATH":     "/v1",
+			"SVC_A_AUDIENCE": "https://api.example.test",
 		}
 		if len(items[0].EnvVars) != len(expected) {
 			t.Fatalf("expected %d env vars, got %d", len(expected), len(items[0].EnvVars))
@@ -2010,6 +2013,7 @@ func TestResolveURLForVisibility(t *testing.T) {
 		InternalURLs: &openchoreov1alpha1.EndpointGatewayURLs{
 			HTTP: &openchoreov1alpha1.EndpointURL{Scheme: "http", Host: "api.internal", Port: 80},
 		},
+		InternalDirectURL: &openchoreov1alpha1.EndpointURL{Scheme: "http", Host: "api.keda.ns.svc.cluster.local", Port: 3001},
 	}
 
 	t.Run("project visibility returns service URL", func(t *testing.T) {
@@ -2030,6 +2034,13 @@ func TestResolveURLForVisibility(t *testing.T) {
 		url := resolveURLForVisibility(ep, openchoreov1alpha1.EndpointVisibilityExternal)
 		if url == nil || url.Host != "api.example.com" {
 			t.Errorf("expected external URL, got %v", url)
+		}
+	})
+
+	t.Run("internal visibility returns only the published direct URL", func(t *testing.T) {
+		url := resolveURLForVisibility(ep, openchoreov1alpha1.EndpointVisibilityInternal)
+		if url == nil || url.Host != "api.keda.ns.svc.cluster.local" || url.Port != 3001 {
+			t.Errorf("expected internal direct URL, got %v", url)
 		}
 	})
 

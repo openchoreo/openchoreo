@@ -320,10 +320,11 @@ var validEndpointVisibilities = map[openchoreov1alpha1.EndpointVisibility]bool{
 }
 
 // validDependencyVisibilities is the set of allowed visibility values for dependency endpoint connections.
-// WorkloadConnection.Visibility is restricted to project and namespace by the CRD validation.
+// WorkloadConnection.Visibility is restricted to project, namespace and internal by the CRD validation.
 var validDependencyVisibilities = map[openchoreov1alpha1.EndpointVisibility]bool{
 	openchoreov1alpha1.EndpointVisibilityProject:   true,
 	openchoreov1alpha1.EndpointVisibilityNamespace: true,
+	openchoreov1alpha1.EndpointVisibilityInternal:  true,
 }
 
 // addDependenciesFromDescriptor adds dependencies from the descriptor to the workload

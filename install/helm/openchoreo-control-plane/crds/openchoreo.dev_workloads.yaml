@@ -175,6 +175,12 @@ spec:
                                 For HTTP/HTTPS/WS/WSS: scheme://host:port/basePath
                                 For gRPC/TCP/UDP: host:port
                               type: string
+                            audience:
+                              description: |-
+                                Audience is the optional env var name for the service identity audience
+                                accepted by the target endpoint. It is resolved from the target
+                                ReleaseBinding, rather than copied into every caller configuration.
+                              type: string
                             basePath:
                               description: BasePath is the optional env var name for
                                 just the base path.
@@ -205,6 +211,7 @@ spec:
                           enum:
                           - project
                           - namespace
+                          - internal
                           type: string
                       required:
                       - component

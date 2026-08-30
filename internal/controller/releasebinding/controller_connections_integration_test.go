@@ -739,16 +739,17 @@ var _ = Describe("ReleaseBinding connection resolution", func() {
 	// container env var via the dependencies.envVars template binding.
 	Context("S7: when a resolved connection wires env vars into the rendered Deployment", func() {
 		const (
-			rbName   = "rb-conn-s7"
-			crName   = "cr-conn-s7"
-			envName  = "env-conn-s7"
-			dpName   = "dp-conn-s7"
-			compName = "comp-conn-s7"
-			projName = "proj-conn-s7"
-			provComp = "provider-s7"
-			provRB   = "prov-s7"
-			epName   = "api"
-			svcHost  = "provider-s7-svc.default.svc.cluster.local"
+			rbName     = "rb-conn-s7"
+			crName     = "cr-conn-s7"
+			envName    = "env-conn-s7"
+			dpName     = "dp-conn-s7"
+			compName   = "comp-conn-s7"
+			projName   = "proj-conn-s7"
+			provComp   = "provider-s7"
+			provRB     = "prov-s7"
+			epName     = "api"
+			directHost = "provider-s7-keda.default.svc.cluster.local"
+			audience   = "https://provider.example.test"
 		)
 
 		AfterEach(func() {
@@ -779,11 +780,11 @@ var _ = Describe("ReleaseBinding connection resolution", func() {
 			Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
 			Expect(k8sClient.Create(ctx, componentFixture(compName, projName))).To(Succeed())
 
-			By("Creating a deployed provider RB exposing the endpoint via ServiceURL")
+			By("Creating a deployed provider RB exposing a published internal direct URL and audience")
 			Expect(k8sClient.Create(ctx, providerRBFixture(provRB, projName, provComp, envName))).To(Succeed())
 			setProviderEndpoints(&openchoreov1alpha1.ReleaseBinding{ObjectMeta: metav1.ObjectMeta{Name: provRB}},
 				[]openchoreov1alpha1.EndpointURLStatus{
-					{Name: epName, ServiceURL: &openchoreov1alpha1.EndpointURL{Scheme: "http", Host: svcHost, Port: 8080}},
+					{Name: epName, InternalDirectURL: &openchoreov1alpha1.EndpointURL{Scheme: "http", Host: directHost, Port: 3001}, Audience: audience},
 				})
 
 			By("Creating ComponentRelease with a connection and a template projecting dependencies.envVars")
@@ -795,8 +796,8 @@ var _ = Describe("ReleaseBinding connection resolution", func() {
 						Project:     projName,
 						Component:   provComp,
 						Name:        epName,
-						Visibility:  string(openchoreov1alpha1.EndpointVisibilityProject),
-						EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{Host: "DEP_HOST"},
+						Visibility:  string(openchoreov1alpha1.EndpointVisibilityInternal),
+						EnvBindings: openchoreov1alpha1.ConnectionEnvBindings{Host: "DEP_HOST", Audience: "DEP_AUDIENCE"},
 					},
 				},
 			}
@@ -816,7 +817,8 @@ var _ = Describe("ReleaseBinding connection resolution", func() {
 
 			By("ResolvedConnections has the expected host, PendingConnections empty")
 			Expect(rb.Status.ResolvedConnections).To(HaveLen(1))
-			Expect(rb.Status.ResolvedConnections[0].URL.Host).To(Equal(svcHost))
+			Expect(rb.Status.ResolvedConnections[0].URL.Host).To(Equal(directHost))
+			Expect(rb.Status.ResolvedConnections[0].Audience).To(Equal(audience))
 			Expect(rb.Status.PendingConnections).To(BeEmpty())
 			cond := conditionFor(rb, string(ConditionConnectionsResolved))
 			Expect(cond).NotTo(BeNil())
@@ -831,11 +833,15 @@ var _ = Describe("ReleaseBinding connection resolution", func() {
 			)).To(Succeed())
 			deploy := findDeploymentManifest(rendered)
 
-			By("Container.env contains DEP_HOST=" + svcHost)
+			By("Container.env contains the direct host and target-published audience")
 			Expect(deploy.Spec.Template.Spec.Containers).To(HaveLen(1))
 			Expect(deploy.Spec.Template.Spec.Containers[0].Env).To(ContainElement(corev1.EnvVar{
 				Name:  "DEP_HOST",
-				Value: svcHost,
+				Value: directHost,
+			}))
+			Expect(deploy.Spec.Template.Spec.Containers[0].Env).To(ContainElement(corev1.EnvVar{
+				Name:  "DEP_AUDIENCE",
+				Value: audience,
 			}))
 		})
 	})

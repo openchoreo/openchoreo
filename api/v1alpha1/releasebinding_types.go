@@ -63,6 +63,11 @@ type ResolvedConnection struct {
 
 	// URL is the resolved endpoint URL.
 	URL EndpointURL `json:"url"`
+
+	// Audience is the service identity audience accepted by the target endpoint.
+	// It is empty when the target does not publish one.
+	// +optional
+	Audience string `json:"audience,omitempty"`
 }
 
 // PendingConnection represents a connection that could not be resolved.
@@ -266,6 +271,18 @@ type EndpointURLStatus struct {
 	// ServiceURL is the in-cluster service URL for this endpoint.
 	// +optional
 	ServiceURL *EndpointURL `json:"serviceURL,omitempty"`
+
+	// InternalDirectURL is the private cross-cell address for callers which
+	// explicitly request internal visibility. Platform traits populate this with
+	// the wake-capable alias when one is required, or with the ServiceURL when it
+	// is not. The core resolver never guesses or synthesizes this address.
+	// +optional
+	InternalDirectURL *EndpointURL `json:"internalDirectURL,omitempty"`
+
+	// Audience is the service identity audience accepted by this endpoint. It is
+	// published by the provider so callers do not duplicate identity strings.
+	// +optional
+	Audience string `json:"audience,omitempty"`
 
 	// InvokeURL is the resolved public URL for this endpoint, derived from the
 	// rendered HTTPRoute whose backendRef port matches the endpoint port.
