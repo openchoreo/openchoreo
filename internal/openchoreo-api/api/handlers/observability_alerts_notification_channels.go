@@ -79,13 +79,13 @@ func (h *Handler) CreateObservabilityAlertsNotificationChannel(
 		return gen.CreateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genNC, err := convert[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created observability alerts notification channel", "error", err)
 		return gen.CreateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Observability alerts notification channel created successfully", "namespaceName", request.NamespaceName, "channel", created.Name)
 	return gen.CreateObservabilityAlertsNotificationChannel201JSONResponse(genNC), nil
@@ -156,13 +156,13 @@ func (h *Handler) UpdateObservabilityAlertsNotificationChannel(
 		return gen.UpdateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genNC, err := convert[openchoreov1alpha1.ObservabilityAlertsNotificationChannel, gen.ObservabilityAlertsNotificationChannel](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated observability alerts notification channel", "error", err)
 		return gen.UpdateObservabilityAlertsNotificationChannel500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Observability alerts notification channel updated successfully", "namespaceName", request.NamespaceName, "channel", updated.Name)
 	return gen.UpdateObservabilityAlertsNotificationChannel200JSONResponse(genNC), nil

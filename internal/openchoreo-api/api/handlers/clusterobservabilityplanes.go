@@ -107,13 +107,13 @@ func (h *Handler) CreateClusterObservabilityPlane(
 		return gen.CreateClusterObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genCOP, err := convert[openchoreov1alpha1.ClusterObservabilityPlane, gen.ClusterObservabilityPlane](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster observability plane", "error", err)
 		return gen.CreateClusterObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("ClusterObservabilityPlane created successfully", "clusterObservabilityPlane", created.Name)
 	return gen.CreateClusterObservabilityPlane201JSONResponse(genCOP), nil
@@ -156,13 +156,13 @@ func (h *Handler) UpdateClusterObservabilityPlane(
 		return gen.UpdateClusterObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+
 	genCOP, err := convert[openchoreov1alpha1.ClusterObservabilityPlane, gen.ClusterObservabilityPlane](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated cluster observability plane", "error", err)
 		return gen.UpdateClusterObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("ClusterObservabilityPlane updated successfully", "clusterObservabilityPlane", updated.Name)
 	return gen.UpdateClusterObservabilityPlane200JSONResponse(genCOP), nil

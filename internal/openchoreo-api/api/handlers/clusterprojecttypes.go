@@ -80,13 +80,13 @@ func (h *Handler) CreateClusterProjectType(
 		return gen.CreateClusterProjectType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genCPT, err := convert[openchoreov1alpha1.ClusterProjectType, gen.ClusterProjectType](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster project type", "error", err)
 		return gen.CreateClusterProjectType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Cluster project type created successfully", "clusterProjectType", created.Name)
 	return gen.CreateClusterProjectType201JSONResponse(genCPT), nil
@@ -126,13 +126,13 @@ func (h *Handler) UpdateClusterProjectType(
 		return gen.UpdateClusterProjectType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+
 	genCPT, err := convert[openchoreov1alpha1.ClusterProjectType, gen.ClusterProjectType](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated cluster project type", "error", err)
 		return gen.UpdateClusterProjectType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Cluster project type updated successfully", "clusterProjectType", updated.Name)
 	return gen.UpdateClusterProjectType200JSONResponse(genCPT), nil

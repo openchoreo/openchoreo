@@ -113,13 +113,13 @@ func (h *Handler) CreateProjectRelease(
 		return gen.CreateProjectRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genPR, err := convert[openchoreov1alpha1.ProjectRelease, gen.ProjectRelease](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created project release", "error", err)
 		return gen.CreateProjectRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("ProjectRelease created successfully", "namespaceName", request.NamespaceName, "projectRelease", created.Name)
 	return gen.CreateProjectRelease201JSONResponse(genPR), nil

@@ -88,13 +88,13 @@ func (h *Handler) CreateWorkload(
 		return gen.CreateWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genWorkload, err := convert[openchoreov1alpha1.Workload, gen.Workload](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created workload", "error", err)
 		return gen.CreateWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Workload created successfully", "namespaceName", request.NamespaceName, "workload", created.Name)
 	return gen.CreateWorkload201JSONResponse(genWorkload), nil
@@ -166,13 +166,13 @@ func (h *Handler) UpdateWorkload(
 		return gen.UpdateWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genWorkload, err := convert[openchoreov1alpha1.Workload, gen.Workload](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated workload", "error", err)
 		return gen.UpdateWorkload500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Workload updated successfully", "namespaceName", request.NamespaceName, "workload", updated.Name)
 	return gen.UpdateWorkload200JSONResponse(genWorkload), nil

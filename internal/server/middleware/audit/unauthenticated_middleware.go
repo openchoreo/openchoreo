@@ -33,7 +33,19 @@ import (
 // double-emitting the same panic on both would be worse than the asymmetry
 // it would otherwise leave (a panic in auth itself, or between the two
 // middlewares, going unaudited).
-func NewUnauthenticatedMiddleware(emitter *Emitter, enabled bool) func(http.Handler) http.Handler {
+//
+// origin stamps the surface the rejected request was aimed at. It is a
+// parameter rather than a constant because the same middleware guards more
+// than one surface: the generated REST routes and the exec/wirelogs routes
+// are OriginAPI, while /mcp is OriginMCP. Without it every MCP token
+// rejection would be recorded as if it had arrived over REST.
+//
+// The event it emits carries a nil Operation, so Action, Category,
+// OperationID and ResourceType are all empty (see buildEvent) and every
+// operation-derived policy selector short-circuits on them (see
+// Selector.matches). A rejection is therefore selectable only by origins,
+// results, actor_types and actors — on either surface.
+func NewUnauthenticatedMiddleware(emitter *Emitter, origin Origin, enabled bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !enabled {
@@ -62,7 +74,7 @@ func NewUnauthenticatedMiddleware(emitter *Emitter, enabled bool) func(http.Hand
 				}
 
 				_, auditData := NewAuditContext(r.Context(), nil)
-				EmitFromContext(r.Context(), emitter, nil, OriginAPI, result, auditData, r.Header, r.RemoteAddr)
+				EmitFromContext(r.Context(), emitter, nil, origin, result, auditData, r.Header, r.RemoteAddr)
 
 				if p != nil {
 					panic(p)

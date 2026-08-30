@@ -99,7 +99,7 @@ func APIMiddlewares(opts APIMiddlewareOptions) ([]gen.MiddlewareFunc, error) {
 		return nil, fmt.Errorf("audit: %w", err)
 	}
 
-	unauthenticatedAuditMw := audit.NewUnauthenticatedMiddleware(opts.AuditEmitter, opts.AuditEnabled)
+	unauthenticatedAuditMw := audit.NewUnauthenticatedMiddleware(opts.AuditEmitter, audit.OriginAPI, opts.AuditEnabled)
 
 	loggerMw := apilogger.LoggerMiddleware(opts.Logger.With("component", "openapi"))
 

@@ -112,13 +112,13 @@ func (h *Handler) CreateNamespace(
 		return gen.CreateNamespace500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genNS, err := convert[corev1.Namespace, gen.Namespace](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created namespace", "error", err)
 		return gen.CreateNamespace500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Namespace created successfully", "namespace", created.Name)
 	return gen.CreateNamespace201JSONResponse(genNS), nil
@@ -162,13 +162,13 @@ func (h *Handler) UpdateNamespace(
 		return gen.UpdateNamespace500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+
 	genNS, err := convert[corev1.Namespace, gen.Namespace](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated namespace", "error", err)
 		return gen.UpdateNamespace500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Namespace updated successfully", "namespace", updated.Name)
 	return gen.UpdateNamespace200JSONResponse(genNS), nil

@@ -110,13 +110,13 @@ func (h *Handler) CreateObservabilityPlane(
 		return gen.CreateObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genOP, err := convert[openchoreov1alpha1.ObservabilityPlane, gen.ObservabilityPlane](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created observability plane", "error", err)
 		return gen.CreateObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("ObservabilityPlane created successfully", "namespaceName", request.NamespaceName, "observabilityPlane", created.Name)
 	return gen.CreateObservabilityPlane201JSONResponse(genOP), nil
@@ -159,13 +159,13 @@ func (h *Handler) UpdateObservabilityPlane(
 		return gen.UpdateObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genOP, err := convert[openchoreov1alpha1.ObservabilityPlane, gen.ObservabilityPlane](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated observability plane", "error", err)
 		return gen.UpdateObservabilityPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("ObservabilityPlane updated successfully", "namespaceName", request.NamespaceName, "observabilityPlane", updated.Name)
 	return gen.UpdateObservabilityPlane200JSONResponse(genOP), nil

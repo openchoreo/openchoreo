@@ -155,14 +155,24 @@ func (e Event) MarshalJSON() ([]byte, error) {
 		Metadata:    e.Metadata,
 	}
 	if e.ResourceType != "" || e.Resource != nil || e.Hierarchy != (Hierarchy{}) {
+		// Namespace defaults to the hierarchy's and is overridden by a
+		// non-empty Resource.Namespace — the same precedence buildEvent's
+		// withHierarchyNamespaceFallback applies, repeated here so this
+		// render path is correct for any Event, not only one that came
+		// through the emitter. Without it, an Event carrying a hierarchy but
+		// no Resource at all would publish resource.project while silently
+		// dropping resource.namespace.
 		out.Resource = &resourceJSON{
 			Type:      e.ResourceType,
+			Namespace: e.Hierarchy.Namespace,
 			Project:   e.Hierarchy.Project,
 			Component: e.Hierarchy.Component,
 			Resource:  e.Hierarchy.Resource,
 		}
 		if e.Resource != nil {
-			out.Resource.Namespace = e.Resource.Namespace
+			if e.Resource.Namespace != "" {
+				out.Resource.Namespace = e.Resource.Namespace
+			}
 			out.Resource.ID = e.Resource.ID
 			out.Resource.Name = e.Resource.Name
 			out.Resource.Metadata = e.Resource.Metadata

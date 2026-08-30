@@ -90,13 +90,13 @@ func (h *Handler) CreateResource(
 		return gen.CreateResource500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genR, err := convert[openchoreov1alpha1.Resource, gen.ResourceInstance](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created resource", "error", err)
 		return gen.CreateResource500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Resource created successfully", "namespaceName", request.NamespaceName, "resource", created.Name)
 	return gen.CreateResource201JSONResponse(genR), nil
@@ -165,13 +165,13 @@ func (h *Handler) UpdateResource(
 		return gen.UpdateResource500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genR, err := convert[openchoreov1alpha1.Resource, gen.ResourceInstance](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated resource", "error", err)
 		return gen.UpdateResource500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Resource updated successfully", "namespaceName", request.NamespaceName, "resource", updated.Name)
 	return gen.UpdateResource200JSONResponse(genR), nil

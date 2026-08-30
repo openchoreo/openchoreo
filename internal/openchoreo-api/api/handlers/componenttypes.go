@@ -80,13 +80,13 @@ func (h *Handler) CreateComponentType(
 		return gen.CreateComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genCT, err := convert[openchoreov1alpha1.ComponentType, gen.ComponentType](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created component type", "error", err)
 		return gen.CreateComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Component type created successfully", "namespaceName", request.NamespaceName, "componentType", created.Name)
 	return gen.CreateComponentType201JSONResponse(genCT), nil
@@ -158,13 +158,13 @@ func (h *Handler) UpdateComponentType(
 		return gen.UpdateComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genCT, err := convert[openchoreov1alpha1.ComponentType, gen.ComponentType](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated component type", "error", err)
 		return gen.UpdateComponentType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Component type updated successfully", "namespaceName", request.NamespaceName, "componentType", updated.Name)
 	return gen.UpdateComponentType200JSONResponse(genCT), nil

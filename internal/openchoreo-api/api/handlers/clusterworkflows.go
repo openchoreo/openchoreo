@@ -79,13 +79,13 @@ func (h *Handler) CreateClusterWorkflow(
 		return gen.CreateClusterWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genCWF, err := convert[openchoreov1alpha1.ClusterWorkflow, gen.ClusterWorkflow](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster workflow", "error", err)
 		return gen.CreateClusterWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Cluster workflow created successfully", "clusterWorkflow", created.Name)
 	return gen.CreateClusterWorkflow201JSONResponse(genCWF), nil
@@ -128,13 +128,13 @@ func (h *Handler) UpdateClusterWorkflow(
 		return gen.UpdateClusterWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+
 	genCWF, err := convert[openchoreov1alpha1.ClusterWorkflow, gen.ClusterWorkflow](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated cluster workflow", "error", err)
 		return gen.UpdateClusterWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Cluster workflow updated successfully", "clusterWorkflow", updated.Name)
 	return gen.UpdateClusterWorkflow200JSONResponse(genCWF), nil

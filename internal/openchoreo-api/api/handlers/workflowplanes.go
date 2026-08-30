@@ -104,13 +104,13 @@ func (h *Handler) CreateWorkflowPlane(
 		return gen.CreateWorkflowPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genBP, err := convert[openchoreov1alpha1.WorkflowPlane, gen.WorkflowPlane](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created workflow plane", "error", err)
 		return gen.CreateWorkflowPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("WorkflowPlane created successfully", "namespaceName", request.NamespaceName, "workflowPlane", created.Name)
 	return gen.CreateWorkflowPlane201JSONResponse(genBP), nil
@@ -153,13 +153,13 @@ func (h *Handler) UpdateWorkflowPlane(
 		return gen.UpdateWorkflowPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genBP, err := convert[openchoreov1alpha1.WorkflowPlane, gen.WorkflowPlane](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated workflow plane", "error", err)
 		return gen.UpdateWorkflowPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("WorkflowPlane updated successfully", "namespaceName", request.NamespaceName, "workflowPlane", updated.Name)
 	return gen.UpdateWorkflowPlane200JSONResponse(genBP), nil

@@ -82,13 +82,13 @@ func (h *Handler) CreateClusterTrait(
 		return gen.CreateClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genCT, err := convert[openchoreov1alpha1.ClusterTrait, gen.ClusterTrait](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster trait", "error", err)
 		return gen.CreateClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Cluster trait created successfully", "clusterTrait", created.Name)
 	return gen.CreateClusterTrait201JSONResponse(genCT), nil
@@ -131,13 +131,13 @@ func (h *Handler) UpdateClusterTrait(
 		return gen.UpdateClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+
 	genCT, err := convert[openchoreov1alpha1.ClusterTrait, gen.ClusterTrait](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated cluster trait", "error", err)
 		return gen.UpdateClusterTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Cluster trait updated successfully", "clusterTrait", updated.Name)
 	return gen.UpdateClusterTrait200JSONResponse(genCT), nil

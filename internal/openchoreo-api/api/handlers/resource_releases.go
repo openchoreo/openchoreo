@@ -113,13 +113,13 @@ func (h *Handler) CreateResourceRelease(
 		return gen.CreateResourceRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genRR, err := convert[openchoreov1alpha1.ResourceRelease, gen.ResourceRelease](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created resource release", "error", err)
 		return gen.CreateResourceRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("ResourceRelease created successfully", "namespaceName", request.NamespaceName, "resourceRelease", created.Name)
 	return gen.CreateResourceRelease201JSONResponse(genRR), nil

@@ -80,13 +80,13 @@ func (h *Handler) CreateClusterResourceType(
 		return gen.CreateClusterResourceType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genCRT, err := convert[openchoreov1alpha1.ClusterResourceType, gen.ClusterResourceType](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster resource type", "error", err)
 		return gen.CreateClusterResourceType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Cluster resource type created successfully", "clusterResourceType", created.Name)
 	return gen.CreateClusterResourceType201JSONResponse(genCRT), nil
@@ -126,13 +126,13 @@ func (h *Handler) UpdateClusterResourceType(
 		return gen.UpdateClusterResourceType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+
 	genCRT, err := convert[openchoreov1alpha1.ClusterResourceType, gen.ClusterResourceType](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated cluster resource type", "error", err)
 		return gen.UpdateClusterResourceType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Cluster resource type updated successfully", "clusterResourceType", updated.Name)
 	return gen.UpdateClusterResourceType200JSONResponse(genCRT), nil

@@ -82,13 +82,13 @@ func (h *Handler) CreateClusterDataPlane(
 		return gen.CreateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genCDP, err := convert[openchoreov1alpha1.ClusterDataPlane, gen.ClusterDataPlane](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster data plane", "error", err)
 		return gen.CreateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("ClusterDataPlane created successfully", "clusterDataPlane", created.Name)
 	return gen.CreateClusterDataPlane201JSONResponse(genCDP), nil
@@ -159,13 +159,13 @@ func (h *Handler) UpdateClusterDataPlane(
 		return gen.UpdateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+
 	genCDP, err := convert[openchoreov1alpha1.ClusterDataPlane, gen.ClusterDataPlane](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated cluster data plane", "error", err)
 		return gen.UpdateClusterDataPlane500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("ClusterDataPlane updated successfully", "clusterDataPlane", updated.Name)
 	return gen.UpdateClusterDataPlane200JSONResponse(genCDP), nil

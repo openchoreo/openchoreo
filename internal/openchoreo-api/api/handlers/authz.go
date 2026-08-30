@@ -361,13 +361,13 @@ func (h *Handler) CreateClusterRole(
 		return gen.CreateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genRole, err := convert[openchoreov1alpha1.ClusterAuthzRole, gen.ClusterAuthzRole](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster role", "error", err)
 		return gen.CreateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Cluster role created successfully", "name", created.Name)
 	return gen.CreateClusterRole201JSONResponse(genRole), nil
@@ -438,13 +438,13 @@ func (h *Handler) UpdateClusterRole(
 		return gen.UpdateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+
 	genRole, err := convert[openchoreov1alpha1.ClusterAuthzRole, gen.ClusterAuthzRole](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated cluster role", "error", err)
 		return gen.UpdateClusterRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Cluster role updated successfully", "name", updated.Name)
 	return gen.UpdateClusterRole200JSONResponse(genRole), nil
@@ -545,13 +545,13 @@ func (h *Handler) CreateClusterRoleBinding(
 		return gen.CreateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
+
 	genBinding, err := convert[openchoreov1alpha1.ClusterAuthzRoleBinding, gen.ClusterAuthzRoleBinding](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created cluster role binding", "error", err)
 		return gen.CreateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Cluster role binding created successfully", "name", created.Name)
 	return gen.CreateClusterRoleBinding201JSONResponse(genBinding), nil
@@ -622,13 +622,13 @@ func (h *Handler) UpdateClusterRoleBinding(
 		return gen.UpdateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
+
 	genBinding, err := convert[openchoreov1alpha1.ClusterAuthzRoleBinding, gen.ClusterAuthzRoleBinding](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated cluster role binding", "error", err)
 		return gen.UpdateClusterRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Cluster role binding updated successfully", "name", updated.Name)
 	return gen.UpdateClusterRoleBinding200JSONResponse(genBinding), nil
@@ -723,13 +723,13 @@ func (h *Handler) CreateNamespaceRole(
 		return gen.CreateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genRole, err := convert[openchoreov1alpha1.AuthzRole, gen.AuthzRole](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created namespace role", "error", err)
 		return gen.CreateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Namespace role created successfully", "namespace", request.NamespaceName, "name", created.Name)
 	return gen.CreateNamespaceRole201JSONResponse(genRole), nil
@@ -800,13 +800,13 @@ func (h *Handler) UpdateNamespaceRole(
 		return gen.UpdateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genRole, err := convert[openchoreov1alpha1.AuthzRole, gen.AuthzRole](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated namespace role", "error", err)
 		return gen.UpdateNamespaceRole500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Namespace role updated successfully", "namespace", request.NamespaceName, "name", updated.Name)
 	return gen.UpdateNamespaceRole200JSONResponse(genRole), nil
@@ -904,13 +904,13 @@ func (h *Handler) CreateNamespaceRoleBinding(
 		return gen.CreateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genBinding, err := convert[openchoreov1alpha1.AuthzRoleBinding, gen.AuthzRoleBinding](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created namespace role binding", "error", err)
 		return gen.CreateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Namespace role binding created successfully", "namespace", request.NamespaceName, "name", created.Name)
 	return gen.CreateNamespaceRoleBinding201JSONResponse(genBinding), nil
@@ -981,13 +981,13 @@ func (h *Handler) UpdateNamespaceRoleBinding(
 		return gen.UpdateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genBinding, err := convert[openchoreov1alpha1.AuthzRoleBinding, gen.AuthzRoleBinding](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated namespace role binding", "error", err)
 		return gen.UpdateNamespaceRoleBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Namespace role binding updated successfully", "namespace", request.NamespaceName, "name", updated.Name)
 	return gen.UpdateNamespaceRoleBinding200JSONResponse(genBinding), nil

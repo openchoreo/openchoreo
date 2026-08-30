@@ -80,13 +80,13 @@ func (h *Handler) CreateTrait(
 		return gen.CreateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genTrait, err := convert[openchoreov1alpha1.Trait, gen.Trait](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created trait", "error", err)
 		return gen.CreateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Trait created successfully", "namespaceName", request.NamespaceName, "trait", created.Name)
 	return gen.CreateTrait201JSONResponse(genTrait), nil
@@ -158,13 +158,13 @@ func (h *Handler) UpdateTrait(
 		return gen.UpdateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genTrait, err := convert[openchoreov1alpha1.Trait, gen.Trait](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated trait", "error", err)
 		return gen.UpdateTrait500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Trait updated successfully", "namespaceName", request.NamespaceName, "trait", updated.Name)
 	return gen.UpdateTrait200JSONResponse(genTrait), nil

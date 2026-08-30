@@ -99,13 +99,13 @@ func (h *Handler) CreateComponent(
 		return gen.CreateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genComponent, err := convert[openchoreov1alpha1.Component, gen.Component](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created component", "error", err)
 		return gen.CreateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Component created successfully", "namespaceName", request.NamespaceName, "component", created.Name)
 	return gen.CreateComponent201JSONResponse(genComponent), nil
@@ -254,13 +254,13 @@ func (h *Handler) UpdateComponent(
 		return gen.UpdateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genComponent, err := convert[openchoreov1alpha1.Component, gen.Component](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated component", "error", err)
 		return gen.UpdateComponent500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Component updated successfully", "namespaceName", request.NamespaceName, "component", updated.Name)
 	return gen.UpdateComponent200JSONResponse(genComponent), nil
@@ -369,13 +369,13 @@ func (h *Handler) GenerateRelease(
 		return gen.GenerateRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(release.UID), Name: release.Name})
+
 	genRelease, err := convert[openchoreov1alpha1.ComponentRelease, gen.ComponentRelease](*release)
 	if err != nil {
 		h.logger.Error("Failed to convert component release", "error", err)
 		return gen.GenerateRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(release.UID), Name: release.Name})
 
 	return gen.GenerateRelease201JSONResponse(genRelease), nil
 }

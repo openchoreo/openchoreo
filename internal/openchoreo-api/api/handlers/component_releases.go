@@ -115,13 +115,13 @@ func (h *Handler) CreateComponentRelease(
 		return gen.CreateComponentRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genCR, err := convert[openchoreov1alpha1.ComponentRelease, gen.ComponentRelease](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created component release", "error", err)
 		return gen.CreateComponentRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("ComponentRelease created successfully", "namespaceName", request.NamespaceName, "componentRelease", created.Name)
 	return gen.CreateComponentRelease201JSONResponse(genCR), nil

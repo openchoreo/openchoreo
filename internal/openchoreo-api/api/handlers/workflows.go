@@ -81,13 +81,13 @@ func (h *Handler) CreateWorkflow(
 		return gen.CreateWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genWf, err := convert[openchoreov1alpha1.Workflow, gen.Workflow](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created workflow", "error", err)
 		return gen.CreateWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Workflow created successfully", "namespaceName", request.NamespaceName, "workflow", created.Name)
 	return gen.CreateWorkflow201JSONResponse(genWf), nil
@@ -158,13 +158,13 @@ func (h *Handler) UpdateWorkflow(
 		return gen.UpdateWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genWf, err := convert[openchoreov1alpha1.Workflow, gen.Workflow](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated workflow", "error", err)
 		return gen.UpdateWorkflow500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Workflow updated successfully", "namespaceName", request.NamespaceName, "workflow", updated.Name)
 	return gen.UpdateWorkflow200JSONResponse(genWf), nil
@@ -287,13 +287,13 @@ func (h *Handler) CreateWorkflowRun(
 		return gen.CreateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genWfRun, err := convert[openchoreov1alpha1.WorkflowRun, gen.WorkflowRun](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created workflow run", "error", err)
 		return gen.CreateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("WorkflowRun created successfully", "namespaceName", request.NamespaceName, "workflowRun", created.Name)
 	return gen.CreateWorkflowRun201JSONResponse(genWfRun), nil
@@ -370,13 +370,13 @@ func (h *Handler) UpdateWorkflowRun(
 		return gen.UpdateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genWfRun, err := convert[openchoreov1alpha1.WorkflowRun, gen.WorkflowRun](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated workflow run", "error", err)
 		return gen.UpdateWorkflowRun500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("WorkflowRun updated successfully", "namespaceName", request.NamespaceName, "workflowRun", updated.Name)
 	return gen.UpdateWorkflowRun200JSONResponse(genWfRun), nil

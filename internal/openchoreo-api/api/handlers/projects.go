@@ -80,13 +80,13 @@ func (h *Handler) CreateProject(
 		return gen.CreateProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genProject, err := convert[openchoreov1alpha1.Project, gen.Project](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created project", "error", err)
 		return gen.CreateProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Project created successfully", "namespaceName", request.NamespaceName, "project", created.Name)
 	return gen.CreateProject201JSONResponse(genProject), nil
@@ -158,13 +158,13 @@ func (h *Handler) UpdateProject(
 		return gen.UpdateProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genProject, err := convert[openchoreov1alpha1.Project, gen.Project](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated project", "error", err)
 		return gen.UpdateProject500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Project updated successfully", "namespaceName", request.NamespaceName, "project", updated.Name)
 	return gen.UpdateProject200JSONResponse(genProject), nil

@@ -82,13 +82,13 @@ func (h *Handler) CreateDeploymentPipeline(
 		return gen.CreateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genDP, err := convert[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created deployment pipeline", "error", err)
 		return gen.CreateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("Deployment pipeline created successfully", "namespaceName", request.NamespaceName, "deploymentPipeline", created.Name)
 	return gen.CreateDeploymentPipeline201JSONResponse(genDP), nil
@@ -159,13 +159,13 @@ func (h *Handler) UpdateDeploymentPipeline(
 		return gen.UpdateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genDP, err := convert[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated deployment pipeline", "error", err)
 		return gen.UpdateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("Deployment pipeline updated successfully", "namespaceName", request.NamespaceName, "deploymentPipeline", updated.Name)
 	return gen.UpdateDeploymentPipeline200JSONResponse(genDP), nil

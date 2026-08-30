@@ -86,13 +86,13 @@ func (h *Handler) CreateResourceReleaseBinding(
 		return gen.CreateResourceReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genRB, err := convert[openchoreov1alpha1.ResourceReleaseBinding, gen.ResourceReleaseBinding](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created resource release binding", "error", err)
 		return gen.CreateResourceReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	h.logger.Info("ResourceReleaseBinding created successfully", "namespaceName", request.NamespaceName, "resourceReleaseBinding", created.Name)
 	return gen.CreateResourceReleaseBinding201JSONResponse(genRB), nil
@@ -161,13 +161,13 @@ func (h *Handler) UpdateResourceReleaseBinding(
 		return gen.UpdateResourceReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
+
 	genRB, err := convert[openchoreov1alpha1.ResourceReleaseBinding, gen.ResourceReleaseBinding](*updated)
 	if err != nil {
 		h.logger.Error("Failed to convert updated resource release binding", "error", err)
 		return gen.UpdateResourceReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
-
-	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	h.logger.Info("ResourceReleaseBinding updated successfully", "namespaceName", request.NamespaceName, "resourceReleaseBinding", updated.Name)
 	return gen.UpdateResourceReleaseBinding200JSONResponse(genRB), nil

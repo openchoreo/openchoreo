@@ -28,6 +28,112 @@ func newTestAuditEmitter(t *testing.T, logger *slog.Logger) *audit.Emitter {
 	return emitter
 }
 
+// TestExecWirelogsAuth401IsAudited proves the composition main.go uses for
+// both routes — audit.NewUnauthenticatedMiddleware wrapping jwtMiddleware
+// wrapping the pattern-map middleware — records a token rejection.
+//
+// The inner middleware cannot: auth answers a rejected request itself and
+// never calls next, so nothing pattern-map-driven ever runs. Both routes
+// reach the data plane (a live shell, a live traffic stream), so a rejected
+// attempt on them is exactly the event worth having.
+//
+// fakeAuth stands in for jwtMiddleware and is deliberately shaped like it —
+// writing its own 401 and returning without calling next — because that
+// short-circuit is the entire reason the outer instance exists.
+func TestExecWirelogsAuth401IsAudited(t *testing.T) {
+	// next is deliberately dropped: that short-circuit is what the outer
+	// instance exists to cover.
+	fakeAuth := func(_ http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+		})
+	}
+
+	for _, tc := range []struct {
+		name    string
+		pattern string
+		target  string
+	}{
+		{"exec", ExecRoutePattern, "/exec/namespaces/ns-a/components/c-a"},
+		{"wirelogs", WirelogsRoutePattern, "/api/v1/namespaces/ns-a/environments/dev-a/wirelogs"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			logger := slog.New(slog.NewJSONHandler(&buf, nil))
+			emitter := newTestAuditEmitter(t, logger)
+			mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.OriginAPI, true)
+
+			inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				t.Error("handler must not run on a rejected request")
+			})
+
+			mux := http.NewServeMux()
+			mux.Handle(tc.pattern, unauthedMw(fakeAuth(mw.Handler(inner))))
+
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tc.target, nil))
+
+			if rec.Code != http.StatusUnauthorized {
+				t.Fatalf("status = %d, want 401", rec.Code)
+			}
+			records := auditRecords(t, &buf)
+			if len(records) != 1 {
+				t.Fatalf("expected exactly one AUDIT-LOG record, got %d:\n%s", len(records), buf.String())
+			}
+			if records[0]["result"] != "unauthenticated" {
+				t.Errorf("result = %v, want unauthenticated", records[0]["result"])
+			}
+			if records[0]["origin"] != string(audit.OriginAPI) {
+				t.Errorf("origin = %v, want %q", records[0]["origin"], audit.OriginAPI)
+			}
+			actor, ok := records[0]["actor"].(map[string]any)
+			if !ok || actor["id"] != "anonymous" {
+				t.Errorf("actor = %v, want an anonymous actor", records[0]["actor"])
+			}
+		})
+	}
+}
+
+// TestExecWirelogsAuthenticatedRequestEmitsExactlyOnce is the other half of
+// the mutual-exclusion contract: when auth passes, the inner pattern-map
+// middleware owns the event and the outer instance must stay silent. Without
+// this, a change that made the outer one fire unconditionally would still
+// pass the 401 test above while double-auditing every real exec session.
+func TestExecWirelogsAuthenticatedRequestEmitsExactlyOnce(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+	emitter := newTestAuditEmitter(t, logger)
+	mw, err := NewExecWirelogsAuditMiddleware(logger, emitter, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	unauthedMw := audit.NewUnauthenticatedMiddleware(emitter, audit.OriginAPI, true)
+
+	passthroughAuth := func(next http.Handler) http.Handler { return next }
+	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	mux := http.NewServeMux()
+	mux.Handle(ExecRoutePattern, unauthedMw(passthroughAuth(mw.Handler(inner))))
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/exec/namespaces/ns-a/components/c-a", nil))
+
+	records := auditRecords(t, &buf)
+	if len(records) != 1 {
+		t.Fatalf("expected exactly one AUDIT-LOG record, got %d:\n%s", len(records), buf.String())
+	}
+	if records[0]["action"] != "exec_component" {
+		t.Errorf("action = %v, want exec_component (the inner instance's event, not the outer's)",
+			records[0]["action"])
+	}
+}
+
 // TestFindFlusher_SeesThroughAuditWrapper guards the fix this deliverable
 // depends on: wirelogs.go's flush check must find a Flusher through the
 // audit middleware's responseWriter wrapper (which implements Unwrap() but
