@@ -120,3 +120,50 @@ def test_file_change_mount_path_alias_round_trips():
     fc = FileChange.model_validate({"key": "config.yaml", "mountPath": "/app/", "value": "data"})
     assert fc.mount_path == "/app/"
     assert fc.model_dump(by_alias=True)["mountPath"] == "/app/"
+
+
+def test_resource_release_binding_accepts_fields_only():
+    from src.models.remediation_result import FieldChange, ResourceChange
+
+    change = ResourceChange(
+        target_kind="ResourceReleaseBinding",
+        release_binding="snip-postgres-development",
+        fields=[FieldChange(json_pointer="/spec/resourceTypeEnvironmentConfigs/replicas", value=2)],
+    )
+    assert change.env == []
+    assert change.files == []
+
+
+def test_resource_release_binding_rejects_env():
+    from src.models.remediation_result import EnvVarChange, ResourceChange
+
+    with pytest.raises(ValidationError):
+        ResourceChange(
+            target_kind="ResourceReleaseBinding",
+            release_binding="snip-postgres-development",
+            env=[EnvVarChange(key="POSTGRES_DSN", value="x")],
+        )
+
+
+def test_resource_release_binding_rejects_files():
+    from src.models.remediation_result import FileChange, ResourceChange
+
+    with pytest.raises(ValidationError):
+        ResourceChange(
+            target_kind="ResourceReleaseBinding",
+            release_binding="snip-postgres-development",
+            files=[FileChange(key="config.yaml", mount_path="/app/", value="data")],
+        )
+
+
+def test_release_binding_still_accepts_env_and_files():
+    from src.models.remediation_result import EnvVarChange, FileChange, ResourceChange
+
+    change = ResourceChange(
+        target_kind="ReleaseBinding",
+        release_binding="api-service-development",
+        env=[EnvVarChange(key="POSTGRES_DSN", value="x")],
+        files=[FileChange(key="config.yaml", mount_path="/app/", value="data")],
+    )
+    assert change.env[0].key == "POSTGRES_DSN"
+    assert change.files[0].mount_path == "/app/"

@@ -4,7 +4,7 @@
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ActionStatus(StrEnum):
@@ -93,6 +93,15 @@ class ResourceChange(BaseModel):
         default_factory=list,
         description="Field-level changes for non-array paths (e.g. trait overrides, componentType overrides)",
     )
+
+    @model_validator(mode="after")
+    def _validate_target_kind_payload(self) -> "ResourceChange":
+        if self.target_kind == "ResourceReleaseBinding" and (self.env or self.files):
+            raise ValueError(
+                "ResourceReleaseBinding targets support only `fields` "
+                "(paths under /spec/resourceTypeEnvironmentConfigs) — not `env` or `files`."
+            )
+        return self
 
 
 class RemediationAction(BaseModel):
