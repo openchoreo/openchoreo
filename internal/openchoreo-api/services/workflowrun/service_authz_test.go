@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -186,8 +187,10 @@ func TestUpdateWorkflowRun_Authz(t *testing.T) {
 		mockSvc := wfrmocks.NewMockService(t)
 		mockPDP := authzmocks.NewMockPDP(t)
 
+		stored := newWorkflowRun(testRunName, testProjectName, testComponentName)
 		update := newWorkflowRun(testRunName, "", "")
 		update.Labels = map[string]string{"env": "prod"}
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(stored, nil)
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(allowDecision(), nil)
 		mockSvc.EXPECT().UpdateWorkflowRun(mock.Anything, testNamespace, update).Return(update, nil)
 
@@ -201,22 +204,46 @@ func TestUpdateWorkflowRun_Authz(t *testing.T) {
 		mockSvc := wfrmocks.NewMockService(t)
 		mockPDP := authzmocks.NewMockPDP(t)
 
+		stored := newWorkflowRun(testRunName, testProjectName, testComponentName)
 		update := newWorkflowRun(testRunName, "", "")
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(stored, nil)
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(denyDecision(), nil)
+		// mockSvc.UpdateWorkflowRun should NOT be called
 
 		svc := newAuthzService(t, mockSvc, mockPDP)
 		_, err := svc.UpdateWorkflowRun(ctxWithSubject(), testNamespace, update)
 		require.ErrorIs(t, err, services.ErrForbidden)
 	})
 
-	t.Run("checks correct action", func(t *testing.T) {
+	t.Run("not found does not check authz", func(t *testing.T) {
 		mockSvc := wfrmocks.NewMockService(t)
 		mockPDP := authzmocks.NewMockPDP(t)
 
-		update := newWorkflowRun(testRunName, "", "")
+		update := newWorkflowRun("nonexistent", "", "")
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, "nonexistent").
+			Return(nil, workflowrun.ErrWorkflowRunNotFound)
+		// PDP.Evaluate should NOT be called
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.UpdateWorkflowRun(ctxWithSubject(), testNamespace, update)
+		require.ErrorIs(t, err, workflowrun.ErrWorkflowRunNotFound)
+	})
+
+	t.Run("checks correct action and hierarchy from stored labels, not request body", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+
+		// Stored run belongs to proj-b/comp-b; the request body carries no labels at all
+		// (or different ones). Authz must be decided on the stored labels/workflow ref,
+		// never on what the caller submitted.
+		stored := newWorkflowRun(testRunName, "proj-b", "comp-b")
+		update := newWorkflowRun(testRunName, testProjectName, testComponentName)
+		mockSvc.EXPECT().GetWorkflowRun(mock.Anything, testNamespace, testRunName).Return(stored, nil)
 		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
 			return req.Action == authz.ActionUpdateWorkflowRun &&
 				req.Resource.Type == workflowrun.ExportResourceType &&
+				req.Resource.Hierarchy.Project == "proj-b" &&
+				req.Resource.Hierarchy.Component == "comp-b" &&
 				req.Context.Resource.Workflow == testNamespace+"/"+testWorkflowName
 		})).Return(allowDecision(), nil)
 		mockSvc.EXPECT().UpdateWorkflowRun(mock.Anything, testNamespace, update).Return(update, nil)
@@ -702,4 +729,41 @@ func TestFormatWorkflowAttr(t *testing.T) {
 			require.Equal(t, tt.want, workflowrun.ExportFormatWorkflowAttr(tt.namespace, tt.kind, tt.wfName))
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// UpdateWorkflowRun end-to-end authz test (real internal service + fake k8s
+// client, so authz denial and object mutation can both be observed together).
+// ---------------------------------------------------------------------------
+
+func TestUpdateWorkflowRun_AuthzUsesStoredOwnership(t *testing.T) {
+	t.Run("caller without access to the stored owner cannot update by echoing different labels in the body", func(t *testing.T) {
+		stored := newWorkflowRun(testRunName, "proj-b", "comp-b")
+		fakeClient := testutil.NewFakeClient(stored)
+		internal := workflowrun.NewService(fakeClient, nil, nil, testutil.TestLogger())
+
+		mockPDP := authzmocks.NewMockPDP(t)
+		// PDP grants access to proj-a/comp-a only, not to the stored owner proj-b/comp-b.
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.MatchedBy(func(req *authz.EvaluateRequest) bool {
+			return req.Resource.Hierarchy.Project == testProjectName && req.Resource.Hierarchy.Component == testComponentName
+		})).Return(allowDecision(), nil).Maybe()
+		mockPDP.EXPECT().Evaluate(mock.Anything, mock.Anything).Return(denyDecision(), nil).Once()
+
+		svc := workflowrun.NewTestServiceWithAuthz(internal, fakeClient, mockPDP, testutil.TestLogger())
+
+		// The request body names the stored run but carries proj-a/comp-a labels, which
+		// the caller does have access to. Authz must be decided on the stored owner
+		// (proj-b/comp-b), not on what the body claims.
+		body := newWorkflowRun(testRunName, testProjectName, testComponentName)
+		body.Annotations = map[string]string{"caller": "proj-a"}
+
+		_, err := svc.UpdateWorkflowRun(ctxWithSubject(), testNamespace, body)
+		require.ErrorIs(t, err, services.ErrForbidden)
+
+		reread := &openchoreov1alpha1.WorkflowRun{}
+		require.NoError(t, fakeClient.Get(context.Background(), client.ObjectKey{Name: testRunName, Namespace: testNamespace}, reread))
+		assert.Equal(t, "proj-b", reread.Labels[ocLabels.LabelKeyProjectName])
+		assert.Equal(t, "comp-b", reread.Labels[ocLabels.LabelKeyComponentName])
+		assert.NotContains(t, reread.Annotations, "caller")
+	})
 }

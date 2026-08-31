@@ -142,6 +142,112 @@ func TestUpdateWorkflowRun(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "other-workflow", result.Spec.Workflow.Name)
 	})
+
+	t.Run("rejects changing the project/component ownership labels", func(t *testing.T) {
+		existing := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		existing.Labels = map[string]string{
+			ocLabels.LabelKeyProjectName:   "proj-a",
+			ocLabels.LabelKeyComponentName: "comp-a",
+		}
+		svc := newService(t, existing)
+
+		update := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		update.Labels = map[string]string{
+			ocLabels.LabelKeyProjectName:   "proj-b",
+			ocLabels.LabelKeyComponentName: "comp-b",
+		}
+
+		_, err := svc.UpdateWorkflowRun(ctx, testNamespace, update)
+		var vErr *services.ValidationError
+		require.ErrorAs(t, err, &vErr)
+
+		stored := &openchoreov1alpha1.WorkflowRun{}
+		require.NoError(t, svc.(*workflowRunService).k8sClient.Get(ctx, client.ObjectKey{Name: testRunName, Namespace: testNamespace}, stored))
+		assert.Equal(t, "proj-a", stored.Labels[ocLabels.LabelKeyProjectName])
+		assert.Equal(t, "comp-a", stored.Labels[ocLabels.LabelKeyComponentName])
+	})
+
+	t.Run("reuses stored ownership labels when the request omits them entirely", func(t *testing.T) {
+		existing := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		existing.Labels = map[string]string{
+			ocLabels.LabelKeyProjectName:   "proj-a",
+			ocLabels.LabelKeyComponentName: "comp-a",
+		}
+		svc := newService(t, existing)
+
+		update := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		// Labels intentionally left nil, as a caller unaware of ownership labels would.
+		update.Annotations = map[string]string{"note": "updated"}
+
+		result, err := svc.UpdateWorkflowRun(ctx, testNamespace, update)
+		require.NoError(t, err)
+		assert.Equal(t, "proj-a", result.Labels[ocLabels.LabelKeyProjectName])
+		assert.Equal(t, "comp-a", result.Labels[ocLabels.LabelKeyComponentName])
+		assert.Equal(t, "updated", result.Annotations["note"])
+	})
+
+	t.Run("reuses stored ownership label when the request omits only one of them", func(t *testing.T) {
+		existing := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		existing.Labels = map[string]string{
+			ocLabels.LabelKeyProjectName:   "proj-a",
+			ocLabels.LabelKeyComponentName: "comp-a",
+		}
+		svc := newService(t, existing)
+
+		update := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		update.Labels = map[string]string{
+			ocLabels.LabelKeyProjectName: "proj-a",
+			// component label omitted
+		}
+
+		result, err := svc.UpdateWorkflowRun(ctx, testNamespace, update)
+		require.NoError(t, err)
+		assert.Equal(t, "proj-a", result.Labels[ocLabels.LabelKeyProjectName])
+		assert.Equal(t, "comp-a", result.Labels[ocLabels.LabelKeyComponentName])
+	})
+
+	t.Run("rejects adding ownership labels to a previously-standalone run", func(t *testing.T) {
+		// No project/component labels stored at all (a standalone run).
+		existing := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		svc := newService(t, existing)
+
+		update := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		update.Labels = map[string]string{
+			ocLabels.LabelKeyProjectName:   "proj-a",
+			ocLabels.LabelKeyComponentName: "comp-a",
+		}
+
+		_, err := svc.UpdateWorkflowRun(ctx, testNamespace, update)
+		var vErr *services.ValidationError
+		require.ErrorAs(t, err, &vErr)
+
+		stored := &openchoreov1alpha1.WorkflowRun{}
+		require.NoError(t, svc.(*workflowRunService).k8sClient.Get(ctx, client.ObjectKey{Name: testRunName, Namespace: testNamespace}, stored))
+		assert.Empty(t, stored.Labels[ocLabels.LabelKeyProjectName])
+		assert.Empty(t, stored.Labels[ocLabels.LabelKeyComponentName])
+	})
+
+	t.Run("positive control: matching labels with other field changes succeeds", func(t *testing.T) {
+		existing := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		existing.Labels = map[string]string{
+			ocLabels.LabelKeyProjectName:   "proj-a",
+			ocLabels.LabelKeyComponentName: "comp-a",
+		}
+		svc := newService(t, existing)
+
+		update := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		update.Labels = map[string]string{
+			ocLabels.LabelKeyProjectName:   "proj-a",
+			ocLabels.LabelKeyComponentName: "comp-a",
+		}
+		update.Annotations = map[string]string{"note": "updated"}
+
+		result, err := svc.UpdateWorkflowRun(ctx, testNamespace, update)
+		require.NoError(t, err)
+		assert.Equal(t, "updated", result.Annotations["note"])
+		assert.Equal(t, "proj-a", result.Labels[ocLabels.LabelKeyProjectName])
+		assert.Equal(t, "comp-a", result.Labels[ocLabels.LabelKeyComponentName])
+	})
 }
 
 func TestListWorkflowRuns(t *testing.T) {
