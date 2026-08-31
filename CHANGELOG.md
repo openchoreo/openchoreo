@@ -6,7 +6,7 @@ All notable changes to OpenChoreo are documented in this file.
 
 Changes since [v1.2.3](https://github.com/openchoreo/openchoreo/releases/tag/v1.2.3).
 
-### Features
+### Enhancements
 
 - **(Cluster Gateway)** The cluster gateway can now run multiple replicas behind an ordinary Service, via an opt-in gateway mesh that replicates the agent connection registry across replicas and forwards each request to the replica owning the connection. Pre-release and disabled by default (`clusterGateway.mesh.enabled`). ([#4580](https://github.com/openchoreo/openchoreo/pull/4580))
 - **(Cluster Gateway)** Cluster agents can now be authenticated from a client certificate forwarded in an `X-Forwarded-Client-Cert` header by a trusted TLS-terminating proxy, as an alternative to the TLS handshake, selected via `clusterGateway.agentAuth.mode`. ([#4340](https://github.com/openchoreo/openchoreo/pull/4340), [#4574](https://github.com/openchoreo/openchoreo/pull/4574))
