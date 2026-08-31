@@ -1903,14 +1903,14 @@ openchoreoApi:
       policies: []
     # @schema
     # type: object
-    # description: "`occ local` dep-connect: resolve/authorize endpoints + the per-project+env dep-agent the control plane provisions into the data plane."
+    # description: "`occ remote` remote-connect: resolve/authorize endpoints + the per-project+env remote-agent the control plane provisions into the data plane."
     # @schema
-    depConnect:
+    remoteConnect:
       # @schema
       # type: boolean
       # description: |
-      #   Enable the dep-connect resolve/authorize endpoints and dep-agent provisioning.
-      #   Requires depConnectRouter.enabled on each data plane and a reachable
+      #   Enable the remote-connect resolve/authorize endpoints and remote-agent provisioning.
+      #   Requires remoteAgentRouter.enabled on each data plane and a reachable
       #   entrypointAddress; off by default because both are deployment-specific.
       # default: false
       # @schema
@@ -1918,15 +1918,15 @@ openchoreoApi:
       # @schema
       # type: string
       # description: PEM Ed25519 signing key mount path (from the secret below) used to sign/verify capabilities.
-      # default: "/etc/dep-connect/signing.pem"
+      # default: "/etc/remote-connect/signing.pem"
       # @schema
-      signingKeyPath: "/etc/dep-connect/signing.pem"
+      signingKeyPath: "/etc/remote-connect/signing.pem"
       # @schema
       # type: string
       # description: Secret holding signing.pem, mounted at signingKeyPath. Created by the chart unless generateSigningKey is false.
-      # default: "dep-connect-signing-key"
+      # default: "remote-connect-signing-key"
       # @schema
-      signingKeySecretName: "dep-connect-signing-key"
+      signingKeySecretName: "remote-connect-signing-key"
       # @schema
       # type: boolean
       # description: |
@@ -1935,7 +1935,7 @@ openchoreoApi:
       #   then already exist, or openchoreo-api will not start.
       #   Reuse relies on a cluster lookup, which is unavailable to client-side renderers
       #   (helm template, Argo CD without server-side lookup) — those regenerate the key on
-      #   every render, invalidating live `occ local` sessions. Manage the secret yourself
+      #   every render, invalidating live `occ remote` sessions. Manage the secret yourself
       #   in those setups.
       # default: true
       # @schema
@@ -1943,9 +1943,9 @@ openchoreoApi:
       # @schema
       # type: string
       # description: JWT kid header for capability signing-key rotation.
-      # default: "dep-connect-1"
+      # default: "remote-connect-1"
       # @schema
-      keyId: "dep-connect-1"
+      keyId: "remote-connect-1"
       # @schema
       # type: string
       # description: Capability JWT issuer (iss) claim.
@@ -1959,15 +1959,15 @@ openchoreoApi:
       # @schema
       ttlSeconds: 1800
       # @schema
-      # description: Container image for the provisioned dep-agent Deployment
+      # description: Container image for the provisioned remote-agent Deployment
       # @schema
       agentImage:
         # @schema
         # type: string
-        # description: Dep-agent image repository
-        # default: ghcr.io/openchoreo/dep-agent
+        # description: Remote-agent image repository
+        # default: ghcr.io/openchoreo/remote-agent
         # @schema
-        repository: ghcr.io/openchoreo/dep-agent
+        repository: ghcr.io/openchoreo/remote-agent
 
         # @schema
         # type: string
@@ -1977,7 +1977,7 @@ openchoreoApi:
         tag: ""
       # @schema
       # type: integer
-      # description: TLS tunnel port the provisioned dep-agent listens on.
+      # description: TLS tunnel port the provisioned remote-agent listens on.
       # default: 8443
       # minimum: 1
       # maximum: 65535
@@ -1986,39 +1986,39 @@ openchoreoApi:
       # @schema
       # type: string
       # description: |
-      #   host:port of the shared dep-connect SNI router that occ dials, as reachable from a
+      #   host:port of the shared remote-connect SNI router that occ dials, as reachable from a
       #   developer machine (one per data plane; see the openchoreo-data-plane chart's
-      #   depConnectRouter). Required when enabled; no default, as it is site-specific.
+      #   remoteAgentRouter). Required when enabled; no default, as it is site-specific.
       # default: ""
       # @schema
       entrypointAddress: ""
       # @schema
       # type: string
       # description: Suffix appended to the data-plane namespace to form each agent's SNI host.
-      # default: "dep-connect"
+      # default: "remote-connect"
       # @schema
-      sniSuffix: "dep-connect"
+      sniSuffix: "remote-connect"
       # @schema
       # type: string
-      # description: Control-plane authorize endpoint the dep-agent calls per stream, as reachable from the DP.
-      # default: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080/api/v1/dep-connect:authorize"
+      # description: Control-plane authorize endpoint the remote-agent calls per stream, as reachable from the DP.
+      # default: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080/api/v1/remote-connect:authorize"
       # @schema
-      authorizeUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080/api/v1/dep-connect:authorize"
+      authorizeUrl: "http://openchoreo-api.openchoreo-control-plane.svc.cluster.local:8080/api/v1/remote-connect:authorize"
       # @schema
       # type: boolean
-      # description: Skip TLS verification when the dep-agent calls the control plane (development only).
+      # description: Skip TLS verification when the remote-agent calls the control plane (development only).
       # default: false
       # @schema
       authorizeInsecure: false
       # @schema
       # type: integer
-      # description: How often the idle-dep-agent reaper runs, in seconds.
+      # description: How often the idle-remote-agent reaper runs, in seconds.
       # default: 300
       # @schema
       reaperIntervalSeconds: 300
       # @schema
       # type: integer
-      # description: How long a dep-agent may be idle before the reaper deletes it, in seconds.
+      # description: How long a remote-agent may be idle before the reaper deletes it, in seconds.
       # default: 1800
       # @schema
       reaperTtlSeconds: 1800

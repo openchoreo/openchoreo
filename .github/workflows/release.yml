@@ -95,8 +95,8 @@ jobs:
             openchoreo-cli
             cluster-gateway
             cluster-agent
-            dep-agent
-            dep-connect-router
+            remote-agent
+            remote-agent-router
           )
           for image in "${IMAGES[@]}"; do
             FULL_REF="ghcr.io/openchoreo/${image}:${{ env.RELEASE_TAG }}"

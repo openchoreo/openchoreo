@@ -132,17 +132,17 @@ jobs:
           name: cluster-agent
           path: bin/dist/**/cluster-agent
 
-      - name: Upload dep-agent binaries
+      - name: Upload remote-agent binaries
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: dep-agent
-          path: bin/dist/**/dep-agent
+          name: remote-agent
+          path: bin/dist/**/remote-agent
 
-      - name: Upload dep-connect-router binaries
+      - name: Upload remote-agent-router binaries
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: dep-connect-router
-          path: bin/dist/**/dep-connect-router
+          name: remote-agent-router
+          path: bin/dist/**/remote-agent-router
 
   agent-tests:
     name: Agent Tests
@@ -220,16 +220,16 @@ jobs:
           name: cluster-agent
           path: bin/dist
 
-      - name: Download dep-agent binaries
+      - name: Download remote-agent binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: dep-agent
+          name: remote-agent
           path: bin/dist
 
-      - name: Download dep-connect-router binaries
+      - name: Download remote-agent-router binaries
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: dep-connect-router
+          name: remote-agent-router
           path: bin/dist
 
       - name: Set executable permissions
@@ -258,7 +258,7 @@ jobs:
         run: |
           SHA=$(git rev-parse --short=8 HEAD)
           ALL_EXIST=true
-          for IMG in controller quick-start openchoreo-api observer event-forwarder sre-agent finops-agent portal-assistant openchoreo-cli cluster-gateway cluster-agent dep-agent dep-connect-router; do
+          for IMG in controller quick-start openchoreo-api observer event-forwarder sre-agent finops-agent portal-assistant openchoreo-cli cluster-gateway cluster-agent remote-agent remote-agent-router; do
             if docker buildx imagetools inspect "ghcr.io/openchoreo/${IMG}:${SHA}" >/dev/null 2>&1; then
               echo "  ✅ ${IMG}:${SHA} exists"
             else

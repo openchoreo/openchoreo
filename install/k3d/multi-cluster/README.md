@@ -215,7 +215,7 @@ kubectl --context k3d-openchoreo-dp wait -n openchoreo-data-plane \
   --for=condition=available --timeout=300s deployment --all
 ```
 
-Local development tunnels (`occ local`) need no extra steps — the k3d values files already enable the dep-connect SNI router on NodePort 30443 (`values-dp.yaml`, mapped to the host in `config-dp.yaml`) and `depConnect` on the control plane (`values-cp.yaml`, with `authorizeUrl` pointed at `api.openchoreo.localhost` so the dep-agent can reach the control plane from this cluster). See [samples/local-development](../../../samples/local-development/README.md).
+Local development tunnels (`occ remote`) need no extra steps — the k3d values files already enable the remote-connect SNI router on NodePort 30443 (`values-dp.yaml`, mapped to the host in `config-dp.yaml`) and `remoteConnect` on the control plane (`values-cp.yaml`, with `authorizeUrl` pointed at `api.openchoreo.localhost` so the remote-agent can reach the control plane from this cluster). See [samples/local-development](../../../samples/local-development/README.md).
 
 ### Register Data Plane
 
@@ -863,20 +863,20 @@ kubectl --context k3d-openchoreo-cp patch clusterworkflowplane default -n defaul
 
 All ports are mapped 1:1 (host:container) unless noted.
 
-| Port  | Plane         | Service                 |
-| ----- | ------------- | ----------------------- |
-| 8080  | Control       | Gateway HTTP            |
-| 8443  | Control       | Gateway HTTPS           |
-| 19080 | Data          | Gateway HTTP            |
-| 19443 | Data          | Gateway HTTPS           |
-| 30443 | Data          | dep-connect SNI router  |
-| 10081 | Build         | Argo Workflows UI       |
-| 10082 | Build         | Container Registry      |
-| 11080 | Observability | Observer API (HTTP)     |
-| 11081 | Observability | OpenSearch Dashboards\* |
-| 11082 | Observability | OpenSearch API\*        |
-| 11084 | Observability | Prometheus\*            |
-| 11086 | Observability | OpenTelemetry\*         |
+| Port  | Plane         | Service                   |
+|-------|---------------|---------------------------|
+| 8080  | Control       | Gateway HTTP              |
+| 8443  | Control       | Gateway HTTPS             |
+| 19080 | Data          | Gateway HTTP              |
+| 19443 | Data          | Gateway HTTPS             |
+| 30443 | Data          | remote-connect SNI router |
+| 10081 | Build         | Argo Workflows UI         |
+| 10082 | Build         | Container Registry        |
+| 11080 | Observability | Observer API (HTTP)       |
+| 11081 | Observability | OpenSearch Dashboards\*   |
+| 11082 | Observability | OpenSearch API\*          |
+| 11084 | Observability | Prometheus\*              |
+| 11086 | Observability | OpenTelemetry\*           |
 
 \*Not 1:1 mappings (11081:5601, 11082:9200, 11084:9091, 11086:4317).
 

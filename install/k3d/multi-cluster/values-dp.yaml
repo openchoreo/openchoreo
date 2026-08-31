@@ -9,8 +9,8 @@ gateway:
   tls:
     enabled: false
 
-# `occ local` SNI router. NodePort must match the config-dp.yaml host port mapping.
-depConnectRouter:
+# `occ remote` SNI router. NodePort must match the config-dp.yaml host port mapping.
+remoteAgentRouter:
   enabled: true
   service:
     type: NodePort

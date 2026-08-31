@@ -7,16 +7,16 @@ openchoreoApi:
   config:
     server:
       publicUrl: "http://api.openchoreo.localhost:8080"
-    depConnect:
-      # `occ local` tunnels. Router NodePort 30443 is mapped to the host in config-dp.yaml.
+    remoteConnect:
+      # `occ remote` tunnels. Router NodePort 30443 is mapped to the host in config-dp.yaml.
       enabled: true
       entrypointAddress: "127.0.0.1:30443"
       agentImage:
         tag: latest-dev
-      # The dep-agent calls this from the data-plane cluster, where the chart default
+      # The remote-agent calls this from the data-plane cluster, where the chart default
       # (in-cluster CP service DNS) does not resolve. coredns-custom rewrites
       # *.openchoreo.localhost to host.k3d.internal.
-      authorizeUrl: "http://api.openchoreo.localhost:8080/api/v1/dep-connect:authorize"
+      authorizeUrl: "http://api.openchoreo.localhost:8080/api/v1/remote-connect:authorize"
 
 backstage:
   secretName: backstage-secrets

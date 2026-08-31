@@ -26,7 +26,6 @@ import (
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
-	"github.com/openchoreo/openchoreo/internal/depconnect"
 	"github.com/openchoreo/openchoreo/internal/logging"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	openapihandlers "github.com/openchoreo/openchoreo/internal/openchoreo-api/api/handlers"
@@ -38,6 +37,7 @@ import (
 	autobuildsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/autobuild"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
+	"github.com/openchoreo/openchoreo/internal/remoteconnect"
 	"github.com/openchoreo/openchoreo/internal/server"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
@@ -249,44 +249,44 @@ func main() {
 		baseMux.Handle("/mcp", mcpHandler)
 	}
 
-	// Dep-connect resolve endpoint (only if enabled). Plain JSON handler registered on
+	// Remote-connect resolve endpoint (only if enabled). Plain JSON handler registered on
 	// the baseMux like /mcp — authenticated by the JWT middleware, with authorization
 	// (component:connect) enforced inside the handler. Not part of the strict OpenAPI
 	// chain. The stream endpoint that consumes its capability is registered further
 	// down, alongside exec/wirelogs, once the cluster gateway is known to be available.
-	var depConnectHandler *openapihandlers.DepConnectHandler
-	if cfg.DepConnect.Enabled {
-		depConnectAuthzChecker := svcpkg.NewAuthzChecker(runtime.pdp, logger.With("component", "dep-connect-authz"))
-		depConnectHandler, err = openapihandlers.NewDepConnectHandler(
-			k8sClient, planeClientProvider, depConnectAuthzChecker, cfg.DepConnect, logger)
+	var remoteConnectHandler *openapihandlers.RemoteConnectHandler
+	if cfg.RemoteConnect.Enabled {
+		remoteConnectAuthzChecker := svcpkg.NewAuthzChecker(runtime.pdp, logger.With("component", "remote-connect-authz"))
+		remoteConnectHandler, err = openapihandlers.NewRemoteConnectHandler(
+			k8sClient, planeClientProvider, remoteConnectAuthzChecker, cfg.RemoteConnect, logger)
 		if err != nil {
-			logger.Error("Failed to initialize dep-connect handler", slog.Any("error", err))
+			logger.Error("Failed to initialize remote-connect handler", slog.Any("error", err))
 			os.Exit(1)
 		}
 		// Resolve: authenticated by the JWT middleware; authorization (component:connect)
 		// enforced inside the handler.
-		baseMux.Handle("POST /api/v1/dep-connect:resolve", jwtMiddleware(depConnectHandler))
-		// Authorize: the dep-agent's per-stream callback. Registered WITHOUT the JWT
-		// middleware — the dep-agent has no user JWT; the CP-signed capability in the
+		baseMux.Handle("POST /api/v1/remote-connect:resolve", jwtMiddleware(remoteConnectHandler))
+		// Authorize: the remote-agent's per-stream callback. Registered WITHOUT the JWT
+		// middleware — the remote-agent has no user JWT; the CP-signed capability in the
 		// request body is the credential, verified inside the handler.
-		authorizeHandler := openapihandlers.NewDepConnectAuthorizeHandler(
-			depConnectHandler.VerifyKey(), depConnectHandler.TouchAgent, logger)
-		baseMux.Handle("POST "+depconnect.AuthorizePath, authorizeHandler)
-		// Heartbeat: the dep-agent's periodic liveness callback while it has live
+		authorizeHandler := openapihandlers.NewRemoteConnectAuthorizeHandler(
+			remoteConnectHandler.VerifyKey(), remoteConnectHandler.TouchAgent, logger)
+		baseMux.Handle("POST "+remoteconnect.AuthorizePath, authorizeHandler)
+		// Heartbeat: the remote-agent's periodic liveness callback while it has live
 		// sessions. Also unauthenticated at the middleware layer — the presented
 		// capability is the credential (verified, expiry tolerated, inside the handler).
-		heartbeatHandler := openapihandlers.NewDepConnectHeartbeatHandler(
-			depConnectHandler.VerifyKey(), depConnectHandler.TouchAgent, logger)
-		baseMux.Handle("POST "+depconnect.HeartbeatPath, heartbeatHandler)
-		logger.Info("Dep-connect resolve + authorize + heartbeat endpoints registered",
-			"resolve", "/api/v1/dep-connect:resolve",
-			"authorize", depconnect.AuthorizePath, "heartbeat", depconnect.HeartbeatPath)
+		heartbeatHandler := openapihandlers.NewRemoteConnectHeartbeatHandler(
+			remoteConnectHandler.VerifyKey(), remoteConnectHandler.TouchAgent, logger)
+		baseMux.Handle("POST "+remoteconnect.HeartbeatPath, heartbeatHandler)
+		logger.Info("Remote-connect resolve + authorize + heartbeat endpoints registered",
+			"resolve", "/api/v1/remote-connect:resolve",
+			"authorize", remoteconnect.AuthorizePath, "heartbeat", remoteconnect.HeartbeatPath)
 
-		// Reaper: GC dep-agents idle past the configured TTL, across every data plane.
-		reaper := openapihandlers.NewDepAgentReaper(k8sClient, planeClientProvider, cfg.DepConnect, logger)
+		// Reaper: GC remote-agents idle past the configured TTL, across every data plane.
+		reaper := openapihandlers.NewRemoteAgentReaper(k8sClient, planeClientProvider, cfg.RemoteConnect, logger)
 		go reaper.Start(ctx)
-		logger.Info("Dep-connect dep-agent reaper started",
-			"interval", cfg.DepConnect.ReaperInterval(), "ttl", cfg.DepConnect.ReaperTTL())
+		logger.Info("Remote-connect remote-agent reaper started",
+			"interval", cfg.RemoteConnect.ReaperInterval(), "ttl", cfg.RemoteConnect.ReaperTTL())
 	}
 
 	// Create OpenAPI handler with middleware chain. The chain's ordering rationale
@@ -340,9 +340,9 @@ func main() {
 		topMux.Handle("/exec/", authedExecHandler)
 		topMux.Handle("GET /api/v1/namespaces/{namespace}/environments/{environment}/wirelogs", authedWirelogsHandler)
 
-		// dep-connect is not served through this gateway mux: occ dials the
-		// per-project+env dep-agent's dedicated L4 Service directly. The control plane
-		// only resolves + provisions and authorizes streams via the dep-agent callback
+		// remote-connect is not served through this gateway mux: occ dials the
+		// per-project+env remote-agent's dedicated L4 Service directly. The control plane
+		// only resolves + provisions and authorizes streams via the remote-agent callback
 		// (both on baseMux).
 
 		topMux.Handle("/", handler)

@@ -84,9 +84,9 @@ data:
         {{- end }}
         insecure: {{ .Values.openchoreoApi.clusterGateway.tls.insecure }}
 
-    {{- with .Values.openchoreoApi.config.depConnect }}
+    {{- with .Values.openchoreoApi.config.remoteConnect }}
     {{- if .enabled }}
-    dep_connect:
+    remote_connect:
       enabled: true
       signing_key_path: {{ .signingKeyPath | quote }}
       key_id: {{ .keyId | quote }}

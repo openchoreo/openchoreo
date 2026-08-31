@@ -63,7 +63,7 @@ func TestBuildRootCmd_Subcommands(t *testing.T) {
 		"workload",
 		"deploymentpipeline",
 		"observabilityalertsnotificationchannel",
-		"local",
+		"remote",
 	}
 
 	commands := cmd.Commands()

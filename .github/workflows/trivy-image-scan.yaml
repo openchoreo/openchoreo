@@ -21,8 +21,8 @@ jobs:
           - event-forwarder
           - cluster-gateway
           - cluster-agent
-          - dep-agent
-          - dep-connect-router
+          - remote-agent
+          - remote-agent-router
           - sre-agent
           - finops-agent
           - portal-assistant

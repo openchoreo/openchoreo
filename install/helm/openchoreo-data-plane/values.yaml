@@ -799,27 +799,27 @@ clusterAgent:
 # @schema
 # type: object
 # description: |
-#   dep-connect SNI router: a single per-data-plane L4 entrypoint for `occ local`.
-#   It SNI-routes each occ tunnel to the matching per-project+env dep-agent
+#   remote-connect SNI router: a single per-data-plane L4 entrypoint for `occ remote`.
+#   It SNI-routes each occ tunnel to the matching per-project+env remote-agent
 #   (TLS terminates at the agent, not here). One exposed port for all agents.
 # @schema
-depConnectRouter:
+remoteAgentRouter:
   # @schema
   # type: boolean
-  # description: Enable the shared dep-connect SNI router.
+  # description: Enable the shared remote-connect SNI router.
   # default: false
   # @schema
   enabled: false
   # @schema
-  # description: Container image configuration for the dep-connect SNI router
+  # description: Container image configuration for the remote-connect SNI router
   # @schema
   image:
     # @schema
     # type: string
-    # description: Dep-connect SNI router image repository
-    # default: ghcr.io/openchoreo/dep-connect-router
+    # description: Remote-connect SNI router image repository
+    # default: ghcr.io/openchoreo/remote-agent-router
     # @schema
-    repository: ghcr.io/openchoreo/dep-connect-router
+    repository: ghcr.io/openchoreo/remote-agent-router
 
     # @schema
     # type: string
@@ -887,7 +887,7 @@ depConnectRouter:
     # type: integer
     # description: |
     #   Fixed nodePort when type is NodePort (must match the k3d host port mapping and
-    #   openchoreoApi.config.depConnect.entrypointAddress). Ignored for LoadBalancer.
+    #   openchoreoApi.config.remoteConnect.entrypointAddress). Ignored for LoadBalancer.
     # default: 30443
     # @schema
     nodePort: 30443
