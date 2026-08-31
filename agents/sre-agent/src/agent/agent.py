@@ -286,7 +286,7 @@ async def run_analysis(
             usage_callback = UsageMetadataCallbackHandler()
 
             rca_agent, rca_logging = await RCA_AGENT.create(
-                auth=get_oauth2_auth(), usage_callback=usage_callback
+                auth=get_oauth2_auth(), usage_callback=usage_callback, context={"scope": scope}
             )
 
             content = render(
