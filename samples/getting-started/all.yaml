@@ -1341,6 +1341,9 @@ spec:
           # Only present when persistenceEnabled is true. A StatefulSet's
           # volumeClaimTemplates-backed PVCs survive pod recreation (e.g. a
           # rolling update triggered by changing `memory`), unlike emptyDir.
+          # volumeClaimTemplates is immutable after StatefulSet creation, so
+          # persistenceEnabled effectively only takes effect at create time —
+          # toggling it afterward will fail to apply.
           volumeClaimTemplates: |
             ${environmentConfigs.persistenceEnabled
               ? [{"metadata": {"name": "data"},
