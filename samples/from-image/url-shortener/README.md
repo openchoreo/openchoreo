@@ -19,7 +19,7 @@ kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/sa
 `project.yaml` also includes the `ProjectReleaseBinding`s for each pipeline environment, which own the project's data-plane namespaces. Wait for the development one to become `Ready=True` before continuing, otherwise the Resource and Component steps below will fail to render with a `namespace ... not found` error:
 
 ```bash
-kubectl get projectreleasebinding url-shortener-development -n default -w
+kubectl wait --for=condition=Ready --timeout=5m projectreleasebinding url-shortener-development -n default
 ```
 
 Postgres is provisioned as a `Resource` from the shipped `postgres` `ClusterResourceType` rather than as a Component, so it needs an explicit `ResourceReleaseBinding` (Components get one automatically via `autoDeploy`). The `urls`/`clicks` schema — previously baked into a custom Postgres image — is now seeded via the CRT's `initSQL` parameter (see `resources/postgres.yaml`), so no separate migration step is needed.
