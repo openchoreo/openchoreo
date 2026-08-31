@@ -9,13 +9,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from common.auth.authz_models import SubjectContext
 from src.api.report_routes import router as report_router
 from src.auth import (
     require_authn,
     require_reports_authz,
     require_reports_update_authz,
 )
-from src.auth.authz_models import SubjectContext
 from src.helpers import AlertScope
 
 SCOPE = AlertScope(

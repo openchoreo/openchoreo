@@ -4,26 +4,57 @@
 package audit
 
 import (
-	"context"
+	"fmt"
+	"log/slog"
 	"net/http"
-	"strings"
 
-	"github.com/google/uuid"
-
-	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
-// Middleware handles audit logging for HTTP requests
+// Middleware handles audit logging for HTTP requests. It is service-agnostic:
+// patternMap is built from the caller's own Operations and its own OpenAPI
+// spec (see BuildPatternMap), so any REST service can construct one of these
+// from its own data. openchoreo-api is the only one that does today —
+// observer has its own unrelated NewHTTPServer and no audit middleware.
 type Middleware struct {
-	logger   *Logger
-	resolver *ActionResolver
+	logger     *slog.Logger // pre-flight "should never happen" logging only, see Handler
+	patternMap map[string]*Operation
+	emitter    *Emitter
+	enabled    bool
 }
 
-// NewMiddleware creates a new audit middleware
-func NewMiddleware(logger *Logger, resolver *ActionResolver) *Middleware {
+// NewMiddleware builds the pattern map from ops and the caller's OpenAPI spec
+// (getSwagger — pass gen.GetSwagger directly, the signature matches), then
+// constructs the Middleware. One call so each REST service doesn't repeat
+// the fetch-spec/cross-reference/wire sequence itself.
+//
+// enabled controls whether the middleware emits events; it stays in the
+// request chain unconditionally so no configuration path can remove audit
+// coverage without a code change.
+func NewMiddleware(
+	logger *slog.Logger, ops []Operation, getSwagger func() (*openapi3.T, error), emitter *Emitter, enabled bool,
+) (*Middleware, error) {
+	swagger, err := getSwagger()
+	if err != nil {
+		return nil, fmt.Errorf("audit: failed to load OpenAPI spec: %w", err)
+	}
+	patternMap, err := BuildPatternMap(ops, swagger)
+	if err != nil {
+		return nil, err
+	}
+	return newMiddleware(logger, patternMap, emitter, enabled), nil
+}
+
+// newMiddleware constructs a Middleware from an already-built pattern map.
+// Exported callers go through NewMiddleware; this stays unexported so tests
+// in this package can construct one directly from a hand-built patternMap
+// without needing a real OpenAPI spec.
+func newMiddleware(logger *slog.Logger, patternMap map[string]*Operation, emitter *Emitter, enabled bool) *Middleware {
 	return &Middleware{
-		logger:   logger,
-		resolver: resolver,
+		logger:     logger,
+		patternMap: patternMap,
+		emitter:    emitter,
+		enabled:    enabled,
 	}
 }
 
@@ -49,129 +80,81 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	return rw.ResponseWriter.Write(b)
 }
 
+// Unwrap exposes the underlying ResponseWriter to http.ResponseController, so
+// a handler behind this middleware can still reach optional interfaces
+// (Flusher, Hijacker, the deadline setters) implemented by the real
+// ResponseWriter but not by this wrapper.
+func (rw *responseWriter) Unwrap() http.ResponseWriter {
+	return rw.ResponseWriter
+}
+
 // Handler returns the HTTP middleware handler
 func (m *Middleware) Handler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Try to resolve action from request
-		actionDef := m.resolver.Resolve(r)
-		if actionDef == nil {
-			// No audit action defined for this route, skip audit logging
+		if !m.enabled {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// Create mutable audit data container and add to context
-		auditData := &AuditData{}
-		ctx := context.WithValue(r.Context(), auditDataKey, auditData)
+		if r.Pattern == "" {
+			// Should be unreachable when BaseRouter is a Go 1.22+ ServeMux —
+			// routing always runs before this middleware. But BaseRouter is
+			// declared as an interface (gen.StdHTTPServerOptions.BaseRouter),
+			// so a caller could wire in a router that never sets r.Pattern; this
+			// fires for every one of the 102+ unaudited routes too, not just
+			// audited ones. Panicking here would turn a dropped-connection-style
+			// router mismatch into a 500 on the entire API. Log loudly and pass
+			// through instead — construction time (BuildPatternMap) is where an
+			// audit-config problem should fail loudly; this is a request-time
+			// signal, not a place to sever the response.
+			m.logger.Error("audit: request has no matched route pattern (r.Pattern is empty); "+
+				"skipping audit for this request", "method", r.Method, "path", r.URL.Path)
+			next.ServeHTTP(w, r)
+			return
+		}
 
-		// Wrap response writer to capture status code
+		op, ok := m.patternMap[r.Pattern]
+		if !ok {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Seed a placeholder resource (path-derived namespace and name, where
+		// the operation has a path parameter) before calling next: a PDP
+		// denial raised inside the handler never reaches the SetResource call
+		// that would otherwise set it, so this is the only source of
+		// resource.namespace/name on a denied or failed request. Every
+		// audited route is nested under /namespaces/{namespaceName}/..., so
+		// the path parameter name is fixed across all of them. resource.type
+		// needs no seed here — it is stamped from op.ResourceType at emit
+		// time regardless of whether a resource was ever set (see
+		// buildEvent). Mirrors the MCP adapter's pre-call seed (see
+		// mcpaudit.newAuditMiddleware).
+		ctx, auditData := NewAuditContext(r.Context(), &Resource{
+			Namespace: r.PathValue("namespaceName"),
+			Name:      r.PathValue(op.RESTResourceParam),
+		})
+
 		rw := &responseWriter{
 			ResponseWriter: w,
 			statusCode:     http.StatusOK,
 			written:        false,
 		}
 
-		// Extract actor from authentication context
-		actor := m.extractActor(r)
+		// A panic in next must still produce an audit record — recover just
+		// long enough to emit as a failure, then re-panic so the response
+		// behavior above is unchanged.
+		defer func() {
+			if p := recover(); p != nil {
+				EmitFromContext(ctx, m.emitter, op, OriginAPI, ResultFailure, auditData, r.Header, r.RemoteAddr)
+				panic(p)
+			}
+			result := determineResult(rw.statusCode)
+			EmitFromContext(ctx, m.emitter, op, OriginAPI, result, auditData, r.Header, r.RemoteAddr)
+		}()
 
-		// Get request ID from logger context
-		requestID := getRequestID(r)
-
-		// Get source IP
-		sourceIP := getSourceIP(r)
-
-		// Process request with audit-enabled context
 		next.ServeHTTP(rw, r.WithContext(ctx))
-
-		// Determine result based on status code
-		result := determineResult(rw.statusCode)
-
-		// Get resource and metadata from audit data (may be nil)
-		resource := auditData.Resource
-		metadata := auditData.Metadata
-
-		// Create and emit audit event
-		event := &Event{
-			Actor:     actor,
-			Action:    actionDef.Action,
-			Category:  actionDef.Category,
-			Resource:  resource,
-			Result:    result,
-			RequestID: requestID,
-			SourceIP:  sourceIP,
-			Metadata:  metadata,
-		}
-
-		m.logger.LogEvent(event)
 	})
-}
-
-// extractActor extracts actor information from the authentication context
-func (m *Middleware) extractActor(r *http.Request) Actor {
-	// Try to get subject context from authentication middleware
-	subjectCtx, ok := auth.GetSubjectContextFromContext(r.Context())
-	if !ok || subjectCtx == nil {
-		return Actor{
-			Type: "anonymous",
-			ID:   "anonymous",
-		}
-	}
-
-	// Determine actor type based on subject type
-	actorType := subjectCtx.Type
-	if actorType == "" {
-		actorType = "user"
-	}
-
-	// Extract actor ID from entitlement values (first value is typically the user ID/email)
-	actorID := "unknown"
-	if len(subjectCtx.EntitlementValues) > 0 {
-		actorID = subjectCtx.ID
-	}
-
-	return Actor{
-		Type: actorType,
-		Entitlements: map[string]any{
-			subjectCtx.EntitlementClaim: subjectCtx.EntitlementValues,
-		},
-		ID: actorID,
-	}
-}
-
-// getRequestID extracts or generates the request ID
-func getRequestID(r *http.Request) string {
-	// Try to get it from X-Request-ID header (set by logger middleware)
-	requestID := r.Header.Get("X-Request-ID")
-	if requestID == "" {
-		// Generate a new UUID v7 for request correlation
-		if id, err := uuid.NewV7(); err == nil {
-			requestID = id.String()
-		} else {
-			// Fallback to v4 if v7 generation fails
-			requestID = uuid.New().String()
-		}
-	}
-	return requestID
-}
-
-// getSourceIP extracts the client IP address from the request
-func getSourceIP(r *http.Request) string {
-	// Check X-Forwarded-For header first (proxy/load balancer)
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// Take the first IP in the list
-		if idx := strings.Index(xff, ","); idx != -1 {
-			return strings.TrimSpace(xff[:idx])
-		}
-		return strings.TrimSpace(xff)
-	}
-
-	// Check X-Real-IP header
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
-	}
-
-	// Fall back to RemoteAddr
-	return r.RemoteAddr
 }
 
 // determineResult maps HTTP status code to audit result

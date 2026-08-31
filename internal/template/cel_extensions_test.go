@@ -596,7 +596,7 @@ portStr: ${string(parameters.port)}
 			var input map[string]any
 			require.NoError(t, json.Unmarshal([]byte(tt.inputs), &input))
 
-			rendered, err := engine.Render(tpl, input)
+			rendered, err := engine.Render(t.Context(), tpl, input)
 			require.NoError(t, err)
 
 			cleaned := RemoveOmittedFields(rendered)

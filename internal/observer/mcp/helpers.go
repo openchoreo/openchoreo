@@ -5,8 +5,11 @@ package mcp
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 )
+
+var granularityPattern = regexp.MustCompile(`^[1-9][0-9]*[hdw]$`)
 
 // strPtr returns a pointer to the string, or nil if the string is empty.
 func strPtr(s string) *string {
@@ -46,6 +49,28 @@ func validateComponentScope(namespace, project, component string) error {
 	}
 	if component != "" && project == "" {
 		return fmt.Errorf("project is required when component is provided")
+	}
+	return nil
+}
+
+// validateFinOpsScope validates the scope fields for FinOps queries, which
+// additionally require an environment.
+func validateFinOpsScope(namespace, environment, project, component string) error {
+	if namespace == "" {
+		return fmt.Errorf("namespace is required")
+	}
+	if environment == "" {
+		return fmt.Errorf("environment is required")
+	}
+	if component != "" && project == "" {
+		return fmt.Errorf("project is required when component is provided")
+	}
+	return nil
+}
+
+func validateGranularity(granularity string) error {
+	if granularity != "" && !granularityPattern.MatchString(granularity) {
+		return fmt.Errorf("granularity must match <count><unit> notation (e.g. 1h, 2d, 3w)")
 	}
 	return nil
 }

@@ -44,6 +44,16 @@ type ResourceMetricsQueryResponse struct {
 	MemoryUsage    []MetricsTimeSeriesItem `json:"memoryUsage,omitempty"`
 	MemoryRequests []MetricsTimeSeriesItem `json:"memoryRequests,omitempty"`
 	MemoryLimits   []MetricsTimeSeriesItem `json:"memoryLimits,omitempty"`
+
+	// NetworkReceiveBytes and NetworkTransmitBytes are omitted by adapters that
+	// do not expose a per-component network I/O equivalent.
+	NetworkReceiveBytes  []MetricsTimeSeriesItem `json:"networkReceiveBytes,omitempty"`
+	NetworkTransmitBytes []MetricsTimeSeriesItem `json:"networkTransmitBytes,omitempty"`
+
+	// DiskReadBytes and DiskWriteBytes are omitted by adapters that do not
+	// expose a per-component disk I/O equivalent.
+	DiskReadBytes  []MetricsTimeSeriesItem `json:"diskReadBytes,omitempty"`
+	DiskWriteBytes []MetricsTimeSeriesItem `json:"diskWriteBytes,omitempty"`
 }
 
 // HTTPMetricsQueryResponse is the response for metric="http" queries

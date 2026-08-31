@@ -1194,12 +1194,16 @@ type RecommendationResponse struct {
 
 // ResourceMetricsTimeSeries defines model for ResourceMetricsTimeSeries.
 type ResourceMetricsTimeSeries struct {
-	CpuLimits      *[]MetricsTimeSeriesItem `json:"cpuLimits,omitempty"`
-	CpuRequests    *[]MetricsTimeSeriesItem `json:"cpuRequests,omitempty"`
-	CpuUsage       *[]MetricsTimeSeriesItem `json:"cpuUsage,omitempty"`
-	MemoryLimits   *[]MetricsTimeSeriesItem `json:"memoryLimits,omitempty"`
-	MemoryRequests *[]MetricsTimeSeriesItem `json:"memoryRequests,omitempty"`
-	MemoryUsage    *[]MetricsTimeSeriesItem `json:"memoryUsage,omitempty"`
+	CpuLimits            *[]MetricsTimeSeriesItem `json:"cpuLimits,omitempty"`
+	CpuRequests          *[]MetricsTimeSeriesItem `json:"cpuRequests,omitempty"`
+	CpuUsage             *[]MetricsTimeSeriesItem `json:"cpuUsage,omitempty"`
+	DiskReadBytes        *[]MetricsTimeSeriesItem `json:"diskReadBytes,omitempty"`
+	DiskWriteBytes       *[]MetricsTimeSeriesItem `json:"diskWriteBytes,omitempty"`
+	MemoryLimits         *[]MetricsTimeSeriesItem `json:"memoryLimits,omitempty"`
+	MemoryRequests       *[]MetricsTimeSeriesItem `json:"memoryRequests,omitempty"`
+	MemoryUsage          *[]MetricsTimeSeriesItem `json:"memoryUsage,omitempty"`
+	NetworkReceiveBytes  *[]MetricsTimeSeriesItem `json:"networkReceiveBytes,omitempty"`
+	NetworkTransmitBytes *[]MetricsTimeSeriesItem `json:"networkTransmitBytes,omitempty"`
 }
 
 // ResourceProfile Resource requests, limits, and resulting cost. Resource fields use
@@ -1390,6 +1394,11 @@ type SpanStatus struct {
 
 // SpanStatusCode The status code of the span. One of "ok", "error", or "unset".
 type SpanStatusCode string
+
+// TraceSpanDetailsRequest defines model for TraceSpanDetailsRequest.
+type TraceSpanDetailsRequest struct {
+	SearchScope ComponentSearchScope `json:"searchScope"`
+}
 
 // TraceSpanDetailsResponse defines model for TraceSpanDetailsResponse.
 type TraceSpanDetailsResponse struct {
@@ -1637,6 +1646,9 @@ type QueryTracesJSONRequestBody = TracesQueryRequest
 
 // QuerySpansForTraceJSONRequestBody defines body for QuerySpansForTrace for application/json ContentType.
 type QuerySpansForTraceJSONRequestBody = TracesQueryRequest
+
+// QuerySpanDetailsForTraceJSONRequestBody defines body for QuerySpanDetailsForTrace for application/json ContentType.
+type QuerySpanDetailsForTraceJSONRequestBody = TraceSpanDetailsRequest
 
 // AsComponentSearchScope returns the union data inside the EventsQueryRequest_SearchScope as a ComponentSearchScope
 func (t EventsQueryRequest_SearchScope) AsComponentSearchScope() (ComponentSearchScope, error) {

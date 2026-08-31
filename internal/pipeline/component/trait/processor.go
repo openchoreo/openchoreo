@@ -8,6 +8,7 @@
 package trait
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -19,9 +20,32 @@ import (
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
+// maxPatchOperations bounds the total number of rendered JSON Patch operations applied
+// across all target resources in one component render.
+//
+// forEach multiplies on both sides of a patch: a ComponentType can expand to hundreds of
+// resources, and a trait patch with its own forEach applies once per item to every matching
+// target, so items x targets grows as a product. That product is JSON-Patch work, not CEL
+// evaluation, so neither the per-expression cost limit nor the reconcile cost budget can see
+// it - each iteration renders the same cheap operations and then does unmetered work
+// proportional to the size of the resource it patches.
+//
+// The bound is per render because the counter lives on the Processor, which the component
+// pipeline builds fresh for each RenderComponent call, so every trait on a component draws
+// from the same allowance. Real samples measure in the tens of operations; 10,000 leaves
+// two orders of magnitude of headroom while capping the cross product well below the
+// million-application shape a hostile pair of forEach expressions can otherwise reach.
+const maxPatchOperations uint64 = 10_000
+
 // Processor handles trait creates and patches.
+//
+// A Processor is scoped to one component render: the pipeline constructs one per
+// RenderComponent call, which is what makes patchOperations a per-render count.
+// It is not safe for concurrent use.
 type Processor struct {
 	templateEngine *template.Engine
+
+	patchOperations uint64
 }
 
 // TargetSpec describes how to locate a resource when applying patches.
@@ -50,25 +74,26 @@ func NewProcessor(templateEngine *template.Engine) *Processor {
 // Removes runs last so a single trait can fully express a substitution: create a
 // replacement, optionally patch siblings, then drop the unwanted base resource.
 func (p *Processor) ProcessTraits(
+	ctx context.Context,
 	resources []renderer.RenderedResource,
 	trait *v1alpha1.Trait,
 	traitContext map[string]any,
 ) ([]renderer.RenderedResource, error) {
 	// Apply creates first
 	var err error
-	resources, err = p.ApplyTraitCreates(resources, trait, traitContext)
+	resources, err = p.ApplyTraitCreates(ctx, resources, trait, traitContext)
 	if err != nil {
 		return nil, err
 	}
 
 	// Then apply patches
-	err = p.ApplyTraitPatches(resources, trait, traitContext)
+	err = p.ApplyTraitPatches(ctx, resources, trait, traitContext)
 	if err != nil {
 		return nil, err
 	}
 
 	// Finally apply removes
-	resources, err = p.ApplyTraitRemoves(resources, trait, traitContext)
+	resources, err = p.ApplyTraitRemoves(ctx, resources, trait, traitContext)
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +104,7 @@ func (p *Processor) ProcessTraits(
 // ApplyTraitCreates renders and adds new resources from trait.spec.creates with targetPlane metadata.
 // Supports includeWhen for conditional creation and forEach for generating multiple resources.
 func (p *Processor) ApplyTraitCreates(
+	ctx context.Context,
 	resources []renderer.RenderedResource,
 	trait *v1alpha1.Trait,
 	traitContext map[string]any,
@@ -87,7 +113,7 @@ func (p *Processor) ApplyTraitCreates(
 		createPath := fmt.Sprintf("trait %s create #%d", trait.Name, i)
 
 		// Check includeWhen condition using shared helper
-		include, err := renderer.ShouldInclude(p.templateEngine, createTemplate.IncludeWhen, traitContext)
+		include, err := renderer.ShouldInclude(ctx, p.templateEngine, createTemplate.IncludeWhen, traitContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate includeWhen for %s: %w", createPath, err)
 		}
@@ -97,19 +123,19 @@ func (p *Processor) ApplyTraitCreates(
 
 		// Handle forEach or single render
 		if createTemplate.ForEach != "" {
-			itemContexts, err := renderer.EvalForEach(p.templateEngine, createTemplate.ForEach, createTemplate.Var, traitContext)
+			itemContexts, err := renderer.EvalForEach(ctx, p.templateEngine, createTemplate.ForEach, createTemplate.Var, traitContext)
 			if err != nil {
 				return nil, fmt.Errorf("failed to evaluate forEach for %s: %w", createPath, err)
 			}
 			for _, itemContext := range itemContexts {
-				rendered, err := p.renderSingleCreate(createTemplate, itemContext, createPath)
+				rendered, err := p.renderSingleCreate(ctx, createTemplate, itemContext, createPath)
 				if err != nil {
 					return nil, err
 				}
 				resources = append(resources, rendered)
 			}
 		} else {
-			rendered, err := p.renderSingleCreate(createTemplate, traitContext, createPath)
+			rendered, err := p.renderSingleCreate(ctx, createTemplate, traitContext, createPath)
 			if err != nil {
 				return nil, err
 			}
@@ -122,8 +148,9 @@ func (p *Processor) ApplyTraitCreates(
 
 // renderSingleCreate renders a single TraitCreate template and returns a RenderedResource.
 func (p *Processor) renderSingleCreate(
+	ctx context.Context,
 	create v1alpha1.TraitCreate,
-	context map[string]any,
+	celContext map[string]any,
 	path string,
 ) (renderer.RenderedResource, error) {
 	var templateData any
@@ -131,7 +158,7 @@ func (p *Processor) renderSingleCreate(
 		return renderer.RenderedResource{}, fmt.Errorf("failed to unmarshal create template for %s: %w", path, err)
 	}
 
-	rendered, err := p.templateEngine.Render(templateData, context)
+	rendered, err := p.templateEngine.Render(ctx, templateData, celContext)
 	if err != nil {
 		return renderer.RenderedResource{}, fmt.Errorf("failed to render create template for %s: %w", path, err)
 	}
@@ -167,12 +194,13 @@ func (p *Processor) renderSingleCreate(
 // The patch package itself only handles the low-level mechanics of applying
 // operations to a single resource.
 func (p *Processor) ApplyTraitPatches(
+	ctx context.Context,
 	resources []renderer.RenderedResource,
 	trait *v1alpha1.Trait,
 	traitContext map[string]any,
 ) error {
 	for i, traitPatch := range trait.Spec.Patches {
-		if err := p.applyPatch(resources, trait.Name, i, traitPatch, traitContext); err != nil {
+		if err := p.applyPatch(ctx, resources, trait.Name, i, traitPatch, traitContext); err != nil {
 			return fmt.Errorf("failed to apply trait patch #%d for trait %s: %w", i, trait.Name, err)
 		}
 	}
@@ -183,6 +211,7 @@ func (p *Processor) ApplyTraitPatches(
 // applyPatch applies a single patch specification to resources.
 // Handles forEach iteration, targeting, filtering, targetPlane matching, and CEL rendering.
 func (p *Processor) applyPatch(
+	ctx context.Context,
 	resources []renderer.RenderedResource,
 	traitName string,
 	patchIndex int,
@@ -191,16 +220,17 @@ func (p *Processor) applyPatch(
 ) error {
 	// Handle forEach iteration if specified
 	if traitPatch.ForEach != "" {
-		return p.applyPatchWithForEach(resources, traitName, patchIndex, traitPatch, baseContext)
+		return p.applyPatchWithForEach(ctx, resources, traitName, patchIndex, traitPatch, baseContext)
 	}
 
 	// No forEach - apply once with base context
-	return p.applyPatchOnce(resources, traitName, patchIndex, traitPatch, baseContext)
+	return p.applyPatchOnce(ctx, resources, traitName, patchIndex, traitPatch, baseContext)
 }
 
 // applyPatchWithForEach handles forEach iteration for a patch.
 // Supports both arrays and maps. For maps, items are {key, value} entries sorted by key.
 func (p *Processor) applyPatchWithForEach(
+	ctx context.Context,
 	resources []renderer.RenderedResource,
 	traitName string,
 	patchIndex int,
@@ -208,13 +238,13 @@ func (p *Processor) applyPatchWithForEach(
 	baseContext map[string]any,
 ) error {
 	// Evaluate the forEach expression to get the list of items
-	itemsRaw, err := p.templateEngine.Render(traitPatch.ForEach, baseContext)
+	itemsRaw, err := p.templateEngine.Render(ctx, traitPatch.ForEach, baseContext)
 	if err != nil {
-		return fmt.Errorf("failed to evaluate forEach expression '%s' for trait %s patch #%d: %w", traitPatch.ForEach, traitName, patchIndex, err)
+		return fmt.Errorf("failed to evaluate forEach expression '%s' for trait %s patch #%d: %w", template.TruncateFragment(traitPatch.ForEach), traitName, patchIndex, err)
 	}
 
 	// Convert result to iterable items (supports arrays and maps)
-	items, err := renderer.ToIterableItems(itemsRaw)
+	items, err := renderer.ToIterableItems(ctx, itemsRaw)
 	if err != nil {
 		return fmt.Errorf("invalid forEach result for trait %s patch #%d: %w", traitName, patchIndex, err)
 	}
@@ -236,7 +266,7 @@ func (p *Processor) applyPatchWithForEach(
 		iterContext[varName] = item
 
 		// Apply patch operations with this iteration's context
-		if err := p.applyPatchOnce(resources, traitName, patchIndex, traitPatch, iterContext); err != nil {
+		if err := p.applyPatchOnce(ctx, resources, traitName, patchIndex, traitPatch, iterContext); err != nil {
 			return fmt.Errorf("forEach iteration %d failed: %w", i, err)
 		}
 	}
@@ -247,11 +277,12 @@ func (p *Processor) applyPatchWithForEach(
 // applyPatchOnce applies a patch to all matching targets with a given context.
 // Respects targetPlane - only patches resources in the same plane.
 func (p *Processor) applyPatchOnce(
+	ctx context.Context,
 	resources []renderer.RenderedResource,
 	traitName string,
 	patchIndex int,
 	traitPatch v1alpha1.TraitPatch,
-	context map[string]any,
+	celContext map[string]any,
 ) error {
 	// Find target resources based on targetPlane and Kind/Group/Version
 	target := TargetSpec{
@@ -271,7 +302,7 @@ func (p *Processor) applyPatchOnce(
 	// Filter targets using where clause if specified
 	var targets []renderer.RenderedResource
 	if target.Where != "" {
-		filtered, err := p.filterTargets(matchedResources, target.Where, context, traitName, patchIndex)
+		filtered, err := p.filterTargets(ctx, matchedResources, target.Where, celContext, traitName, patchIndex)
 		if err != nil {
 			return err
 		}
@@ -281,20 +312,33 @@ func (p *Processor) applyPatchOnce(
 	}
 
 	// Render patch operations with CEL
-	renderedOps, err := p.renderOperations(traitPatch.Operations, context, traitName, patchIndex)
+	renderedOps, err := p.renderOperations(ctx, traitPatch.Operations, celContext, traitName, patchIndex)
 	if err != nil {
 		return err
+	}
+
+	// Every patch application in this render funnels through the loop below. Charge each
+	// operation for every target before applying the batch.
+	if err := p.chargePatchOperations(uint64(len(targets)), uint64(len(renderedOps))); err != nil {
+		return fmt.Errorf("trait %s patch #%d: %w", traitName, patchIndex, err)
 	}
 
 	// Apply rendered operations to each target using the simple patch function
 	// Note: patches modify the Resource field in-place
 	for _, rr := range targets {
+		// Applying a patch performs no CEL evaluation, so the engine's own cancellation
+		// checks never run here. The whole batch was charged up front, and without this
+		// check the remaining applications would run to completion after the render
+		// deadline has already expired.
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("trait %s patch #%d interrupted: %w", traitName, patchIndex, err)
+		}
 		if err := patch.ApplyPatches(rr.Resource, renderedOps); err != nil {
 			// Extract resource identity for better error message
 			kind, _ := rr.Resource["kind"].(string)
 			metadata, _ := rr.Resource["metadata"].(map[string]any)
 			name, _ := metadata["name"].(string)
-			resourceID := fmt.Sprintf("%s/%s", kind, name)
+			resourceID := fmt.Sprintf("%s/%s", template.TruncateFragment(kind), template.TruncateFragment(name))
 			if resourceID == "/" {
 				resourceID = "unknown resource"
 			}
@@ -305,9 +349,34 @@ func (p *Processor) applyPatchOnce(
 	return nil
 }
 
+// chargePatchOperations adds targets x operations to this render's running total.
+//
+// The error wraps template.ErrExpansionLimitExceeded because the count depends only on the
+// component's own shape - how many resources it renders and how many items its trait
+// patches iterate - so an unchanged object produces the same count on every reconcile.
+// The message names the total the batch would have reached and the cap; both are deterministic for
+// fixed inputs, so it is stable enough to sit in a status condition, and the total is what
+// tells an operator whether they are marginally or wildly over.
+func (p *Processor) chargePatchOperations(targets, operations uint64) error {
+	if targets == 0 || operations == 0 {
+		return nil
+	}
+
+	// Divide rather than multiply: targets x operations is compared against what is left,
+	// so the check itself cannot overflow the counter it is protecting.
+	remaining := maxPatchOperations - p.patchOperations
+	if targets > remaining/operations {
+		return fmt.Errorf("%w: trait patches would apply %d operations in one render, exceeding the limit of %d",
+			template.ErrExpansionLimitExceeded, p.patchOperations+targets*operations, maxPatchOperations)
+	}
+	p.patchOperations += targets * operations
+	return nil
+}
+
 // filterTargets filters resources based on a where clause.
 // The where clause is evaluated as a CEL expression with "resource" bound to each target's Resource field.
 func (p *Processor) filterTargets(
+	ctx context.Context,
 	targets []renderer.RenderedResource,
 	whereClause string,
 	baseContext map[string]any,
@@ -324,7 +393,7 @@ func (p *Processor) filterTargets(
 		baseContext["resource"] = rr.Resource
 
 		// Evaluate the where clause
-		result, err := p.templateEngine.Render(whereClause, baseContext)
+		result, err := p.templateEngine.Render(ctx, whereClause, baseContext)
 		if err != nil {
 			// Restore previous binding before returning error
 			if had {
@@ -332,7 +401,7 @@ func (p *Processor) filterTargets(
 			} else {
 				delete(baseContext, "resource")
 			}
-			return nil, fmt.Errorf("failed to evaluate where clause '%s' for trait %s patch #%d: %w", whereClause, traitName, patchIndex, err)
+			return nil, fmt.Errorf("failed to evaluate where clause '%s' for trait %s patch #%d: %w", template.TruncateFragment(whereClause), traitName, patchIndex, err)
 		}
 
 		// Check if result is boolean true
@@ -344,7 +413,7 @@ func (p *Processor) filterTargets(
 			} else {
 				delete(baseContext, "resource")
 			}
-			return nil, fmt.Errorf("where clause '%s' must evaluate to boolean for trait %s patch #%d, got %T", whereClause, traitName, patchIndex, result)
+			return nil, fmt.Errorf("where clause '%s' must evaluate to boolean for trait %s patch #%d, got %T", template.TruncateFragment(whereClause), traitName, patchIndex, result)
 		}
 
 		if boolResult {
@@ -365,8 +434,9 @@ func (p *Processor) filterTargets(
 // renderOperations renders all patch operations using CEL.
 // Both the path and value of each operation may contain ${...} expressions.
 func (p *Processor) renderOperations(
+	ctx context.Context,
 	operations []v1alpha1.JSONPatchOperation,
-	context map[string]any,
+	celContext map[string]any,
 	traitName string,
 	patchIndex int,
 ) ([]patch.JSONPatchOperation, error) {
@@ -374,7 +444,7 @@ func (p *Processor) renderOperations(
 
 	for i, op := range operations {
 		// Render the path (which may contain CEL expressions)
-		pathValue, err := p.templateEngine.Render(op.Path, context)
+		pathValue, err := p.templateEngine.Render(ctx, op.Path, celContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to render path '%s' for trait %s patch #%d operation #%d: %w", op.Path, traitName, patchIndex, i, err)
 		}
@@ -394,7 +464,7 @@ func (p *Processor) renderOperations(
 				}
 
 				// Render the value (which may contain CEL expressions)
-				value, err = p.templateEngine.Render(value, context)
+				value, err = p.templateEngine.Render(ctx, value, celContext)
 				if err != nil {
 					return nil, fmt.Errorf("failed to render value for trait %s patch #%d operation #%d: %w", traitName, patchIndex, i, err)
 				}
@@ -470,6 +540,7 @@ func FindTargetResources(resources []renderer.RenderedResource, target TargetSpe
 //
 // Returns the (possibly shorter) resource slice with matched resources excluded.
 func (p *Processor) ApplyTraitRemoves(
+	ctx context.Context,
 	resources []renderer.RenderedResource,
 	trait *v1alpha1.Trait,
 	traitContext map[string]any,
@@ -484,7 +555,7 @@ func (p *Processor) ApplyTraitRemoves(
 
 	for i := range trait.Spec.Removes {
 		remove := trait.Spec.Removes[i]
-		if err := p.collectRemovalsForEntry(resources, trait.Name, i, remove, traitContext, toRemove); err != nil {
+		if err := p.collectRemovalsForEntry(ctx, resources, trait.Name, i, remove, traitContext, toRemove); err != nil {
 			return nil, fmt.Errorf("failed to apply trait remove #%d for trait %s: %w", i, trait.Name, err)
 		}
 	}
@@ -507,6 +578,7 @@ func (p *Processor) ApplyTraitRemoves(
 // records every matching resource into toRemove. Resources are tracked by their
 // address in the original slice so the caller can do one pass to rebuild.
 func (p *Processor) collectRemovalsForEntry(
+	ctx context.Context,
 	resources []renderer.RenderedResource,
 	traitName string,
 	removeIndex int,
@@ -515,15 +587,15 @@ func (p *Processor) collectRemovalsForEntry(
 	toRemove map[*renderer.RenderedResource]struct{},
 ) error {
 	if remove.ForEach == "" {
-		return p.collectRemovalsOnce(resources, traitName, removeIndex, remove, baseContext, toRemove)
+		return p.collectRemovalsOnce(ctx, resources, traitName, removeIndex, remove, baseContext, toRemove)
 	}
 
-	itemsRaw, err := p.templateEngine.Render(remove.ForEach, baseContext)
+	itemsRaw, err := p.templateEngine.Render(ctx, remove.ForEach, baseContext)
 	if err != nil {
-		return fmt.Errorf("failed to evaluate forEach expression '%s' for trait %s remove #%d: %w", remove.ForEach, traitName, removeIndex, err)
+		return fmt.Errorf("failed to evaluate forEach expression '%s' for trait %s remove #%d: %w", template.TruncateFragment(remove.ForEach), traitName, removeIndex, err)
 	}
 
-	items, err := renderer.ToIterableItems(itemsRaw)
+	items, err := renderer.ToIterableItems(ctx, itemsRaw)
 	if err != nil {
 		return fmt.Errorf("invalid forEach result for trait %s remove #%d: %w", traitName, removeIndex, err)
 	}
@@ -537,7 +609,7 @@ func (p *Processor) collectRemovalsForEntry(
 		iterContext := maps.Clone(baseContext)
 		iterContext[varName] = item
 
-		if err := p.collectRemovalsOnce(resources, traitName, removeIndex, remove, iterContext, toRemove); err != nil {
+		if err := p.collectRemovalsOnce(ctx, resources, traitName, removeIndex, remove, iterContext, toRemove); err != nil {
 			return fmt.Errorf("forEach iteration %d failed: %w", i, err)
 		}
 	}
@@ -548,11 +620,12 @@ func (p *Processor) collectRemovalsForEntry(
 // collectRemovalsOnce finds resources matching the remove's target+where and
 // records them by pointer in toRemove.
 func (p *Processor) collectRemovalsOnce(
+	ctx context.Context,
 	resources []renderer.RenderedResource,
 	traitName string,
 	removeIndex int,
 	remove v1alpha1.TraitRemove,
-	context map[string]any,
+	celContext map[string]any,
 	toRemove map[*renderer.RenderedResource]struct{},
 ) error {
 	target := TargetSpec{
@@ -564,12 +637,12 @@ func (p *Processor) collectRemovalsOnce(
 	}
 
 	// Walk resources by index so we can record stable pointers into the original slice.
-	previous, had := context["resource"]
+	previous, had := celContext["resource"]
 	defer func() {
 		if had {
-			context["resource"] = previous
+			celContext["resource"] = previous
 		} else {
-			delete(context, "resource")
+			delete(celContext, "resource")
 		}
 	}()
 
@@ -580,14 +653,14 @@ func (p *Processor) collectRemovalsOnce(
 		}
 
 		if target.Where != "" {
-			context["resource"] = rr.Resource
-			result, err := p.templateEngine.Render(target.Where, context)
+			celContext["resource"] = rr.Resource
+			result, err := p.templateEngine.Render(ctx, target.Where, celContext)
 			if err != nil {
-				return fmt.Errorf("failed to evaluate where clause '%s' for trait %s remove #%d: %w", target.Where, traitName, removeIndex, err)
+				return fmt.Errorf("failed to evaluate where clause '%s' for trait %s remove #%d: %w", template.TruncateFragment(target.Where), traitName, removeIndex, err)
 			}
 			boolResult, ok := result.(bool)
 			if !ok {
-				return fmt.Errorf("where clause '%s' must evaluate to boolean for trait %s remove #%d, got %T", target.Where, traitName, removeIndex, result)
+				return fmt.Errorf("where clause '%s' must evaluate to boolean for trait %s remove #%d, got %T", template.TruncateFragment(target.Where), traitName, removeIndex, result)
 			}
 			if !boolResult {
 				continue

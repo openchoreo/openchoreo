@@ -454,6 +454,12 @@ func (r *Reconciler) deleteResources(ctx context.Context, planeClient client.Cli
 	for _, obj := range staleResources {
 		resourceID := obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
 
+		// Skip resources already terminating on the target plane (re-deleting over
+		// the gateway tunnel is a wasted round-trip on the most expensive I/O path).
+		if obj.GetDeletionTimestamp() != nil {
+			continue
+		}
+
 		// Delete the resource from the target plane
 		if err := planeClient.Delete(ctx, obj); err != nil {
 			return fmt.Errorf("failed to delete stale resource %s: %w", resourceID, err)

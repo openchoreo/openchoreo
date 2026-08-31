@@ -68,6 +68,20 @@ function resolveOccBinary(): string {
 }
 
 test.describe('pkce-login: occ login drives PKCE through the Backstage browser', () => {
+  // `occ login` holds the fixed callback port until it exits, so a spec that
+  // fails mid-flow has to be reaped or every retry hits "address already in use".
+  let loginProc: ReturnType<typeof spawn> | undefined;
+
+  test.afterEach(async () => {
+    const proc = loginProc;
+    loginProc = undefined;
+    if (!proc || proc.exitCode !== null || proc.signalCode !== null) return;
+    // Await the exit so the port is released before the next attempt spawns occ.
+    const exited = new Promise<void>(resolve => proc.once('exit', () => resolve()));
+    proc.kill('SIGKILL');
+    await exited;
+  });
+
   test('occ login → consent → token persisted → occ get components succeeds', async ({
     page,
   }) => {
@@ -126,6 +140,7 @@ test.describe('pkce-login: occ login drives PKCE through the Backstage browser',
     );
 
     const child = spawn(occ, ['login', '--credential', 'ui-pkce'], { env });
+    loginProc = child;
 
     // Capture occ's output so a non-zero exit surfaces the cause (the token
     // exchange is host-side and never appears in the browser trace).

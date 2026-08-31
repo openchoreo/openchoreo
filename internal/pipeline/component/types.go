@@ -4,6 +4,8 @@
 package component
 
 import (
+	"time"
+
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	pipelinecontext "github.com/openchoreo/openchoreo/internal/pipeline/component/context"
 	"github.com/openchoreo/openchoreo/internal/pipeline/component/renderer"
@@ -15,6 +17,15 @@ import (
 // to generate fully resolved Kubernetes resource manifests.
 type Pipeline struct {
 	templateEngine *template.Engine
+
+	// celCostLimit bounds the accumulated cost of a single CEL expression.
+	// Zero selects the template engine's built-in default.
+	celCostLimit uint64
+
+	// renderTimeout bounds the wall-clock duration of each public entry point on this
+	// pipeline. The deadline is derived per call, so a caller that renders more than once
+	// gets a fresh one each time. Zero or negative means no deadline.
+	renderTimeout time.Duration
 }
 
 // RenderInput contains all inputs needed to render a component's resources.

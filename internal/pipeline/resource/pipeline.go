@@ -25,10 +25,12 @@
 package resourcepipeline
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -37,13 +39,45 @@ import (
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
+// Option is a function that configures a Pipeline.
+type Option func(*Pipeline)
+
+// WithCostLimit sets the maximum accumulated cost for a single CEL expression
+// evaluated by this pipeline's template engine. Zero selects the engine's
+// built-in safe default; it never means unlimited.
+func WithCostLimit(limit uint64) Option {
+	return func(p *Pipeline) {
+		p.celCostLimit = limit
+	}
+}
+
+// WithRenderTimeout bounds the wall-clock duration of each call into this pipeline. The
+// deadline is derived inside every entry point rather than by the caller, so it covers
+// exactly one rendering step and never spans the work around it - an API read before, a
+// status write after. Zero or negative means no deadline; the CEL cost limits remain the
+// primary bound.
+func WithRenderTimeout(timeout time.Duration) Option {
+	return func(p *Pipeline) {
+		p.renderTimeout = timeout
+	}
+}
+
 // NewPipeline returns a Pipeline backed by a fresh template.Engine. The
 // engine's CEL env and program caches accumulate across calls; reuse the
 // Pipeline instance to keep them warm.
-func NewPipeline() *Pipeline {
-	return &Pipeline{
-		templateEngine: template.NewEngine(),
+func NewPipeline(opts ...Option) *Pipeline {
+	p := &Pipeline{}
+	for _, opt := range opts {
+		opt(p)
 	}
+	// Guarded so a future engine-injecting Option (as the component pipeline has for
+	// benchmarking) is not silently overwritten here.
+	if p.templateEngine == nil {
+		p.templateEngine = template.NewEngineWithOptions(
+			template.WithCostLimit(p.celCostLimit),
+		)
+	}
+	return p
 }
 
 // RenderManifests walks ResourceTypeSpec.Resources[] and returns one
@@ -52,13 +86,16 @@ func NewPipeline() *Pipeline {
 // verbatim so the binding controller can correlate the observed applied
 // status back to the originating template entry when calling ResolveOutputs.
 // CEL evaluation errors abort the call and return a nil RenderOutput.
-func (p *Pipeline) RenderManifests(input *RenderInput) (*RenderOutput, error) {
+func (p *Pipeline) RenderManifests(ctx context.Context, input *RenderInput) (*RenderOutput, error) {
+	ctx, cancel := template.WithRenderTimeout(ctx, p.renderTimeout)
+	defer cancel()
+
 	if err := validateInput(input); err != nil {
 		return nil, err
 	}
 
 	spec := resourceTypeSpec(input)
-	ctx, err := buildBaseContext(input)
+	celContext, err := buildBaseContext(input)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +104,7 @@ func (p *Pipeline) RenderManifests(input *RenderInput) (*RenderOutput, error) {
 	for i := range spec.Resources {
 		entry := &spec.Resources[i]
 
-		include, err := p.shouldInclude(entry.IncludeWhen, ctx)
+		include, err := p.shouldInclude(ctx, entry.IncludeWhen, celContext)
 		if err != nil {
 			return nil, fmt.Errorf("evaluate includeWhen for resource %q: %w", entry.ID, err)
 		}
@@ -75,7 +112,7 @@ func (p *Pipeline) RenderManifests(input *RenderInput) (*RenderOutput, error) {
 			continue
 		}
 
-		obj, err := p.renderTemplate(entry.Template, ctx)
+		obj, err := p.renderTemplate(ctx, entry.Template, celContext)
 		if err != nil {
 			return nil, fmt.Errorf("render resource %q: %w", entry.ID, err)
 		}
@@ -93,11 +130,11 @@ func (p *Pipeline) RenderManifests(input *RenderInput) (*RenderOutput, error) {
 // expression means "always include". The expression is required to be
 // ${...}-wrapped at the CRD level; here we just delegate to the template
 // engine and assert the result is a bool.
-func (p *Pipeline) shouldInclude(expr string, ctx map[string]any) (bool, error) {
+func (p *Pipeline) shouldInclude(ctx context.Context, expr string, celContext map[string]any) (bool, error) {
 	if expr == "" {
 		return true, nil
 	}
-	result, err := p.templateEngine.Render(expr, ctx)
+	result, err := p.templateEngine.Render(ctx, expr, celContext)
 	if err != nil {
 		return false, err
 	}
@@ -139,7 +176,14 @@ func resourceTypeSpec(input *RenderInput) *v1alpha1.ResourceTypeSpec {
 // The observed argument maps each ResourceType.spec.resources[].id to its
 // .status content (the controller decodes this from the RawExtension at
 // RenderedRelease.status.resources[<id>].status before calling).
-func (p *Pipeline) ResolveOutputs(input *RenderInput, observed map[string]map[string]any) ([]ResolvedOutput, error) {
+func (p *Pipeline) ResolveOutputs(
+	ctx context.Context,
+	input *RenderInput,
+	observed map[string]map[string]any,
+) ([]ResolvedOutput, error) {
+	ctx, cancel := template.WithRenderTimeout(ctx, p.renderTimeout)
+	defer cancel()
+
 	if err := validateInput(input); err != nil {
 		return nil, err
 	}
@@ -149,15 +193,18 @@ func (p *Pipeline) ResolveOutputs(input *RenderInput, observed map[string]map[st
 	if err != nil {
 		return nil, err
 	}
-	ctx := withApplied(base, observed)
+	celContext := withApplied(base, observed)
 
 	resolved := make([]ResolvedOutput, 0, len(spec.Outputs))
 	var errs []error
 	for i := range spec.Outputs {
 		out := &spec.Outputs[i]
-		ro, err := p.resolveOutput(out, ctx)
+		ro, err := p.resolveOutput(ctx, out, celContext)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("output %q: %w", out.Name, err))
+			if template.IsRenderAborted(err) {
+				break
+			}
 			continue
 		}
 		resolved = append(resolved, ro)
@@ -168,24 +215,28 @@ func (p *Pipeline) ResolveOutputs(input *RenderInput, observed map[string]map[st
 
 // resolveOutput dispatches on the source kind declared on a single
 // ResourceTypeOutput and renders the relevant CEL expressions.
-func (p *Pipeline) resolveOutput(out *v1alpha1.ResourceTypeOutput, ctx map[string]any) (ResolvedOutput, error) {
+func (p *Pipeline) resolveOutput(
+	ctx context.Context,
+	out *v1alpha1.ResourceTypeOutput,
+	celContext map[string]any,
+) (ResolvedOutput, error) {
 	res := ResolvedOutput{Name: out.Name}
 
 	switch {
 	case out.Value != "":
-		v, err := p.renderStringValue(out.Value, ctx)
+		v, err := p.renderStringValue(ctx, out.Value, celContext)
 		if err != nil {
 			return res, err
 		}
 		res.Value = v
 	case out.SecretKeyRef != nil:
-		ref, err := p.renderKeyRef(out.SecretKeyRef.Name, out.SecretKeyRef.Key, ctx)
+		ref, err := p.renderKeyRef(ctx, out.SecretKeyRef.Name, out.SecretKeyRef.Key, celContext)
 		if err != nil {
 			return res, err
 		}
 		res.SecretKeyRef = &v1alpha1.SecretKeyRef{Name: ref.name, Key: ref.key}
 	case out.ConfigMapKeyRef != nil:
-		ref, err := p.renderKeyRef(out.ConfigMapKeyRef.Name, out.ConfigMapKeyRef.Key, ctx)
+		ref, err := p.renderKeyRef(ctx, out.ConfigMapKeyRef.Name, out.ConfigMapKeyRef.Key, celContext)
 		if err != nil {
 			return res, err
 		}
@@ -203,12 +254,16 @@ type renderedKeyRef struct {
 
 // renderKeyRef evaluates the {name, key} pair shared by SecretKeyRef and
 // ConfigMapKeyRef outputs.
-func (p *Pipeline) renderKeyRef(nameExpr, keyExpr string, ctx map[string]any) (renderedKeyRef, error) {
-	name, err := p.renderStringValue(nameExpr, ctx)
+func (p *Pipeline) renderKeyRef(
+	ctx context.Context,
+	nameExpr, keyExpr string,
+	celContext map[string]any,
+) (renderedKeyRef, error) {
+	name, err := p.renderStringValue(ctx, nameExpr, celContext)
 	if err != nil {
 		return renderedKeyRef{}, fmt.Errorf("name: %w", err)
 	}
-	key, err := p.renderStringValue(keyExpr, ctx)
+	key, err := p.renderStringValue(ctx, keyExpr, celContext)
 	if err != nil {
 		return renderedKeyRef{}, fmt.Errorf("key: %w", err)
 	}
@@ -218,8 +273,8 @@ func (p *Pipeline) renderKeyRef(nameExpr, keyExpr string, ctx map[string]any) (r
 // renderStringValue evaluates a CEL-templated string expression and asserts
 // the result is a string. Used for output values, secret/configmap names
 // and keys, all of which the API documents as string-typed.
-func (p *Pipeline) renderStringValue(expr string, ctx map[string]any) (string, error) {
-	result, err := p.templateEngine.Render(expr, ctx)
+func (p *Pipeline) renderStringValue(ctx context.Context, expr string, celContext map[string]any) (string, error) {
+	result, err := p.templateEngine.Render(ctx, expr, celContext)
 	if err != nil {
 		return "", err
 	}
@@ -238,10 +293,18 @@ func (p *Pipeline) renderStringValue(expr string, ctx map[string]any) (string, e
 // readyWhen is a ${...}-wrapped CEL expression matching the IncludeWhen
 // pattern; CRD validation enforces the wrapping at admission. The
 // expression must evaluate to a boolean.
-func (p *Pipeline) EvaluateReadyWhen(input *RenderInput, observed map[string]map[string]any, expr string) (bool, error) {
+func (p *Pipeline) EvaluateReadyWhen(
+	ctx context.Context,
+	input *RenderInput,
+	observed map[string]map[string]any,
+	expr string,
+) (bool, error) {
 	if expr == "" {
 		return true, nil
 	}
+	ctx, cancel := template.WithRenderTimeout(ctx, p.renderTimeout)
+	defer cancel()
+
 	if err := validateInput(input); err != nil {
 		return false, err
 	}
@@ -250,9 +313,9 @@ func (p *Pipeline) EvaluateReadyWhen(input *RenderInput, observed map[string]map
 	if err != nil {
 		return false, err
 	}
-	ctx := withApplied(base, observed)
+	celContext := withApplied(base, observed)
 
-	result, err := p.templateEngine.Render(expr, ctx)
+	result, err := p.templateEngine.Render(ctx, expr, celContext)
 	if err != nil {
 		return false, err
 	}
@@ -266,7 +329,11 @@ func (p *Pipeline) EvaluateReadyWhen(input *RenderInput, observed map[string]map
 // renderTemplate JSON-decodes a runtime.RawExtension template body into a
 // map, evaluates CEL expressions in keys and values against ctx, and strips
 // omit-sentinel keys.
-func (p *Pipeline) renderTemplate(raw *runtime.RawExtension, ctx map[string]any) (map[string]any, error) {
+func (p *Pipeline) renderTemplate(
+	ctx context.Context,
+	raw *runtime.RawExtension,
+	celContext map[string]any,
+) (map[string]any, error) {
 	if raw == nil || len(raw.Raw) == 0 {
 		return nil, fmt.Errorf("template is empty")
 	}
@@ -276,7 +343,7 @@ func (p *Pipeline) renderTemplate(raw *runtime.RawExtension, ctx map[string]any)
 		return nil, fmt.Errorf("unmarshal template: %w", err)
 	}
 
-	rendered, err := p.templateEngine.Render(data, ctx)
+	rendered, err := p.templateEngine.Render(ctx, data, celContext)
 	if err != nil {
 		return nil, err
 	}
@@ -327,13 +394,28 @@ func buildBaseContext(input *RenderInput) (map[string]any, error) {
 		md.Annotations = map[string]string{}
 	}
 
+	// The top-level gateway alias must always be present in the rendered
+	// map, even when no gateway is configured anywhere: buildEnv (see
+	// internal/template/engine.go) declares CEL variables only for keys
+	// actually present after the JSON round-trip, so a nil (omitempty)
+	// pointer here makes the bare "gateway" identifier undeclared and any
+	// expression referencing it fails to *compile* rather than safely
+	// evaluating has(gateway...) to false. environment.gateway and
+	// dataplane.gateway are unaffected: those stay nil so
+	// has(environment.gateway) / has(dataplane.gateway) keep working as
+	// documented.
+	gateway := input.Environment.Gateway
+	if gateway == nil {
+		gateway = &GatewayData{}
+	}
+
 	return structToMap(BaseContext{
 		Metadata:           md,
 		Parameters:         parameters,
 		EnvironmentConfigs: envConfigs,
 		DataPlane:          input.DataPlane,
 		Environment:        input.Environment,
-		Gateway:            input.Environment.Gateway,
+		Gateway:            gateway,
 	})
 }
 

@@ -99,12 +99,17 @@ func (r *Reconciler) hasOwnedReleases(ctx context.Context, releaseBinding *openc
 		return false, nil
 	}
 
-	// Delete all Releases owned by this ReleaseBinding
+	// Delete owned Releases that are not already terminating (re-deleting a
+	// terminating Release is a wasted round-trip repeated every requeue).
 	logger.Info("Deleting owned Releases", "count", len(releaseList.Items))
-	if err := r.DeleteAllOf(ctx, &openchoreov1alpha1.RenderedRelease{},
-		client.InNamespace(releaseBinding.Namespace),
-		matchingLabels); err != nil {
-		return false, fmt.Errorf("failed to delete releases: %w", err)
+	for i := range releaseList.Items {
+		release := &releaseList.Items[i]
+		if !release.DeletionTimestamp.IsZero() {
+			continue
+		}
+		if err := client.IgnoreNotFound(r.Delete(ctx, release)); err != nil {
+			return false, fmt.Errorf("failed to delete release %s: %w", release.Name, err)
+		}
 	}
 
 	return true, nil

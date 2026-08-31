@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from src.api import agent_router, report_router
-from src.auth import check_oauth2_connection, get_oauth2_auth
+from src.auth import check_oauth2_connection, get_jwt_validator, get_oauth2_auth
 from src.clients import MCPClient, get_model, get_report_backend
 from src.config import settings
 from src.logging_config import setup_logging
@@ -28,6 +28,13 @@ async def lifespan(_app: FastAPI):
     mcp_client = None
 
     try:
+        logger.info("Initialising JWT validator...")
+        try:
+            get_jwt_validator()
+        except Exception as e:
+            logger.error("JWT validator initialization failed: %s", type(e).__name__)
+            raise RuntimeError("JWT validator initialization failed") from e
+
         logger.info("Starting up: Testing LLM connection...")
         try:
             model = get_model()

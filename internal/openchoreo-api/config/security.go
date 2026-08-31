@@ -55,6 +55,26 @@ func (c *SecurityConfig) Validate(path *config.Path) config.ValidationErrors {
 	return errs
 }
 
+// KnownActorTypes returns every actor.Type value ExtractActor can produce:
+// "anonymous" (no subject context), "user" (a subject context with no Type
+// configured — audit.ExtractActor's fallback), and every configured subject
+// type name. Used to validate audit.policies[].match.actor_types against the
+// same set audit.Actor.Type is actually drawn from, so a typo there doesn't
+// silently produce a selector that never matches.
+func (c *SecurityConfig) KnownActorTypes() []string {
+	types := make([]string, 0, len(c.Subjects)+2)
+	types = append(types, "anonymous", "user")
+	subjectNames := make([]string, 0, len(c.Subjects))
+	for name := range c.Subjects {
+		subjectNames = append(subjectNames, name)
+	}
+	// Subjects is a map, so its iteration order is randomized per run —
+	// sorting keeps the "must be one of: ..." validation message (and any
+	// test asserting it) deterministic across runs.
+	sort.Strings(subjectNames)
+	return append(types, subjectNames...)
+}
+
 // validateSubjects validates the subjects map configuration.
 func (c *SecurityConfig) validateSubjects(path *config.Path) config.ValidationErrors {
 	var errs config.ValidationErrors

@@ -52,6 +52,10 @@ const (
 	// so the Project controller can list all bindings of a project regardless of author
 	// (labels are optional on externally authored bindings).
 	IndexKeyProjectReleaseBindingOwner = "projectreleasebinding.spec.owner.projectName"
+
+	// IndexKeyProjectReleaseOwner indexes ProjectRelease by owner project name
+	// so the Project controller can list and delete all releases of a project.
+	IndexKeyProjectReleaseOwner = "projectrelease.spec.owner.projectName"
 )
 
 // MakeReleaseBindingOwnerEnvKey creates the composite index key for ReleaseBinding lookups
@@ -172,6 +176,11 @@ func SetupSharedIndexes(ctx context.Context, mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup ProjectReleaseBinding owner index: %w", err)
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ProjectRelease{},
+		IndexKeyProjectReleaseOwner, IndexProjectReleaseOwner); err != nil {
+		return fmt.Errorf("failed to setup ProjectRelease owner index: %w", err)
+	}
+
 	return nil
 }
 
@@ -221,6 +230,17 @@ func IndexProjectReleaseBindingOwner(obj client.Object) []string {
 		return nil
 	}
 	return []string{prb.Spec.Owner.ProjectName}
+}
+
+// IndexProjectReleaseOwner extracts the owner project name from a
+// ProjectRelease. Exported for fake-client tests so they can register
+// the same indexer the production setup uses.
+func IndexProjectReleaseOwner(obj client.Object) []string {
+	pr := obj.(*openchoreov1alpha1.ProjectRelease)
+	if pr.Spec.Owner.ProjectName == "" {
+		return nil
+	}
+	return []string{pr.Spec.Owner.ProjectName}
 }
 
 // HierarchyWatchHandler is a function that creates a watch handler for a specific hierarchy.

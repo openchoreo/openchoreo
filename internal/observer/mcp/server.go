@@ -324,14 +324,28 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Name:        "get_span_details",
 		Description: "Get full details for a specific span within a trace in OpenChoreo. Returns complete span information including attributes, resource attributes, parent span ID, and timing details. Use trace_id and span_id from query_trace_spans results.",
 		InputSchema: createSchema(map[string]any{
-			"trace_id": stringProperty("Trace ID containing the span (required)"),
-			"span_id":  stringProperty("Span ID to retrieve details for (required)"),
-		}, []string{"trace_id", "span_id"}),
+			"trace_id":    stringProperty("Trace ID containing the span (required)"),
+			"span_id":     stringProperty("Span ID to retrieve details for (required)"),
+			"namespace":   stringProperty("Organization namespace (required)"),
+			"project":     stringProperty("Project name"),
+			"component":   stringProperty("Component name"),
+			"environment": stringProperty("Environment name"),
+		}, []string{"trace_id", "span_id", "namespace"}),
 	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
-		TraceID string `json:"trace_id"`
-		SpanID  string `json:"span_id"`
+		TraceID     string `json:"trace_id"`
+		SpanID      string `json:"span_id"`
+		Namespace   string `json:"namespace"`
+		Project     string `json:"project"`
+		Component   string `json:"component"`
+		Environment string `json:"environment"`
 	}) (*mcpsdk.CallToolResult, any, error) {
-		result, err := handler.GetSpanDetails(ctx, args.TraceID, args.SpanID)
+		if err := validateComponentScope(args.Namespace, args.Project, args.Component); err != nil {
+			return nil, nil, err
+		}
+		result, err := handler.GetSpanDetails(ctx,
+			args.TraceID, args.SpanID,
+			args.Namespace, args.Project, args.Component, args.Environment,
+		)
 		return handleToolResult(result, err)
 	})
 
@@ -403,7 +417,63 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		return handleToolResult(result, err)
 	})
 
-	// Tool 10: query_dora_metrics
+	// Tool 10: query_costs
+	mcpsdk.AddTool(s, &mcpsdk.Tool{
+		Name:        "query_costs",
+		Description: "Query infrastructure costs in OpenChoreo. Returns a flat list of per-component cost records (CPU cost, memory cost, and resource efficiency) for a namespace within the given environment and time range. By default the query covers every component in the namespace+environment; set 'project' to scope it to one project, or 'project'+'component' to scope it to a single component. Useful for cost attribution and spotting inefficient workloads.",
+		InputSchema: createSchema(map[string]any{
+			"namespace":   stringProperty("Organization namespace (required)"),
+			"environment": stringProperty("Environment name (required, e.g., 'development', 'production')"),
+			"project":     stringProperty("Project name. When set, narrows the query to components in this project"),
+			"component":   stringProperty("Component name. When set, narrows the query to this single component. Requires project"),
+			"start_time":  stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":    stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+			"granularity": stringProperty("Optional time bucket size in <count><unit> notation where unit is h (hours), d (days), or w (weeks), e.g. '1h', '2d', '3w'. Splits each component into one record per bucket"),
+		}, []string{"namespace", "environment", "start_time", "end_time"}),
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
+		Namespace   string `json:"namespace"`
+		Environment string `json:"environment"`
+		Project     string `json:"project"`
+		Component   string `json:"component"`
+		StartTime   string `json:"start_time"`
+		EndTime     string `json:"end_time"`
+		Granularity string `json:"granularity"`
+	}) (*mcpsdk.CallToolResult, any, error) {
+		result, err := handler.QueryCosts(ctx,
+			args.Namespace, args.Environment, args.Project, args.Component,
+			args.StartTime, args.EndTime, args.Granularity,
+		)
+		return handleToolResult(result, err)
+	})
+
+	// Tool 11: query_recommendations
+	mcpsdk.AddTool(s, &mcpsdk.Tool{
+		Name:        "query_recommendations",
+		Description: "Query right-sizing recommendations in OpenChoreo. Returns per-component recommendations comparing current CPU/memory requests and limits against recommended values derived from observed usage, with associated costs, for a namespace within the given environment and time range. By default the query covers every component in the namespace+environment; set 'project' to scope it to one project, or 'project'+'component' to scope it to a single component. Useful for reducing over-provisioning.",
+		InputSchema: createSchema(map[string]any{
+			"namespace":   stringProperty("Organization namespace (required)"),
+			"environment": stringProperty("Environment name (required, e.g., 'development', 'production')"),
+			"project":     stringProperty("Project name. When set, narrows the query to components in this project"),
+			"component":   stringProperty("Component name. When set, narrows the query to this single component. Requires project"),
+			"start_time":  stringProperty("Start of time range in RFC3339 format (e.g., 2025-11-04T08:29:02.452Z)"),
+			"end_time":    stringProperty("End of time range in RFC3339 format (e.g., 2025-11-04T09:29:02.452Z)"),
+		}, []string{"namespace", "environment", "start_time", "end_time"}),
+	}, func(ctx context.Context, req *mcpsdk.CallToolRequest, args struct {
+		Namespace   string `json:"namespace"`
+		Environment string `json:"environment"`
+		Project     string `json:"project"`
+		Component   string `json:"component"`
+		StartTime   string `json:"start_time"`
+		EndTime     string `json:"end_time"`
+	}) (*mcpsdk.CallToolResult, any, error) {
+		result, err := handler.QueryRecommendations(ctx,
+			args.Namespace, args.Environment, args.Project, args.Component,
+			args.StartTime, args.EndTime,
+		)
+		return handleToolResult(result, err)
+	})
+
+	// Tool 12: query_dora_metrics
 	mcpsdk.AddTool(s, &mcpsdk.Tool{
 		Name: "query_dora_metrics",
 		Description: "Query DORA (DevOps Research and Assessment) delivery performance metrics for " +

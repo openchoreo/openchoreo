@@ -20,6 +20,7 @@ type MCPHandler struct {
 	metricsService       service.MetricsQuerier
 	alertIncidentService service.AlertIncidentService
 	tracesService        service.TracesQuerier
+	finopsService        service.FinOpsQuerier
 	insightsService      service.InsightsService
 	logger               *slog.Logger
 }
@@ -31,6 +32,7 @@ func NewMCPHandler(
 	metricsService service.MetricsQuerier,
 	alertIncidentService service.AlertIncidentService,
 	tracesService service.TracesQuerier,
+	finopsService service.FinOpsQuerier,
 	insightsService service.InsightsService,
 	logger *slog.Logger,
 ) (*MCPHandler, error) {
@@ -52,6 +54,9 @@ func NewMCPHandler(
 	if tracesService == nil {
 		return nil, fmt.Errorf("missing tracesService")
 	}
+	if finopsService == nil {
+		return nil, fmt.Errorf("missing finopsService")
+	}
 	if insightsService == nil {
 		return nil, fmt.Errorf("missing insightsService")
 	}
@@ -65,6 +70,7 @@ func NewMCPHandler(
 		metricsService:       metricsService,
 		alertIncidentService: alertIncidentService,
 		tracesService:        tracesService,
+		finopsService:        finopsService,
 		insightsService:      insightsService,
 		logger:               logger,
 	}, nil
@@ -237,8 +243,15 @@ func (h *MCPHandler) QueryTraceSpans(ctx context.Context, traceID, namespace, pr
 	return h.tracesService.QuerySpans(ctx, traceID, req)
 }
 
-func (h *MCPHandler) GetSpanDetails(ctx context.Context, traceID, spanID string) (any, error) {
-	return h.tracesService.GetSpanDetails(ctx, traceID, spanID)
+func (h *MCPHandler) GetSpanDetails(ctx context.Context, traceID, spanID,
+	namespace, project, component, environment string) (any, error) {
+	scope := types.ComponentSearchScope{
+		Namespace:   namespace,
+		Project:     project,
+		Component:   component,
+		Environment: environment,
+	}
+	return h.tracesService.QuerySpanDetails(ctx, traceID, spanID, scope)
 }
 
 func (h *MCPHandler) QueryAlerts(ctx context.Context, namespace, project, component, environment,
@@ -293,6 +306,42 @@ func (h *MCPHandler) QueryIncidents(ctx context.Context, namespace, project, com
 		},
 	}
 	return h.alertIncidentService.QueryIncidents(ctx, req)
+}
+
+func (h *MCPHandler) QueryCosts(ctx context.Context, namespace, environment, project, component,
+	startTime, endTime, granularity string) (any, error) {
+	if err := validateFinOpsScope(namespace, environment, project, component); err != nil {
+		return nil, err
+	}
+	if err := validateGranularity(granularity); err != nil {
+		return nil, err
+	}
+	req := &types.CostQueryRequest{
+		Namespace:   namespace,
+		Environment: environment,
+		Project:     project,
+		Component:   component,
+		StartTime:   startTime,
+		EndTime:     endTime,
+		Granularity: granularity,
+	}
+	return h.finopsService.GetComponentCosts(ctx, req)
+}
+
+func (h *MCPHandler) QueryRecommendations(ctx context.Context, namespace, environment, project, component,
+	startTime, endTime string) (any, error) {
+	if err := validateFinOpsScope(namespace, environment, project, component); err != nil {
+		return nil, err
+	}
+	req := &types.RecommendationQueryRequest{
+		Namespace:   namespace,
+		Environment: environment,
+		Project:     project,
+		Component:   component,
+		StartTime:   startTime,
+		EndTime:     endTime,
+	}
+	return h.finopsService.GetRecommendations(ctx, req)
 }
 
 func (h *MCPHandler) QueryDoraMetrics(ctx context.Context, namespace, project, component, environment,

@@ -386,6 +386,101 @@ func TestQueryWorkflowEvents(t *testing.T) {
 	})
 }
 
+func TestQueryCosts(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("builds cost request and forwards to finops service", func(t *testing.T) {
+		finopsSvc := mocks.NewMockFinOpsQuerier(t)
+		finopsSvc.EXPECT().
+			GetComponentCosts(mock.Anything, mock.MatchedBy(func(req *types.CostQueryRequest) bool {
+				return req.Namespace == testNamespace &&
+					req.Environment == testEnvironment &&
+					req.Project == testProject &&
+					req.Component == testComponent &&
+					req.StartTime == testStartTime &&
+					req.EndTime == testEndTime &&
+					req.Granularity == "1d"
+			})).
+			Return(map[string]any{}, nil)
+
+		h := newTestMCPHandler(t, withFinOpsService(finopsSvc))
+		_, err := h.QueryCosts(ctx, testNamespace, testEnvironment, testProject, testComponent,
+			testStartTime, testEndTime, "1d")
+		require.NoError(t, err)
+	})
+
+	t.Run("missing environment is rejected", func(t *testing.T) {
+		h := newTestMCPHandler(t)
+		_, err := h.QueryCosts(ctx, testNamespace, "", "", "", testStartTime, testEndTime, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "environment is required")
+	})
+
+	t.Run("component without project is rejected", func(t *testing.T) {
+		h := newTestMCPHandler(t)
+		_, err := h.QueryCosts(ctx, testNamespace, testEnvironment, "", testComponent, testStartTime, testEndTime, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "project is required")
+	})
+
+	t.Run("invalid granularity is rejected", func(t *testing.T) {
+		h := newTestMCPHandler(t)
+		_, err := h.QueryCosts(ctx, testNamespace, testEnvironment, "", "", testStartTime, testEndTime, "5x")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "granularity")
+	})
+
+	t.Run("finops service error propagated", func(t *testing.T) {
+		finopsSvc := mocks.NewMockFinOpsQuerier(t)
+		finopsSvc.EXPECT().GetComponentCosts(mock.Anything, mock.Anything).Return(nil, errors.New("backend down"))
+
+		h := newTestMCPHandler(t, withFinOpsService(finopsSvc))
+		_, err := h.QueryCosts(ctx, testNamespace, testEnvironment, "", "", testStartTime, testEndTime, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "backend down")
+	})
+}
+
+func TestQueryRecommendations(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("builds recommendation request and forwards to finops service", func(t *testing.T) {
+		finopsSvc := mocks.NewMockFinOpsQuerier(t)
+		finopsSvc.EXPECT().
+			GetRecommendations(mock.Anything, mock.MatchedBy(func(req *types.RecommendationQueryRequest) bool {
+				return req.Namespace == testNamespace &&
+					req.Environment == testEnvironment &&
+					req.Project == testProject &&
+					req.Component == testComponent &&
+					req.StartTime == testStartTime &&
+					req.EndTime == testEndTime
+			})).
+			Return(map[string]any{}, nil)
+
+		h := newTestMCPHandler(t, withFinOpsService(finopsSvc))
+		_, err := h.QueryRecommendations(ctx, testNamespace, testEnvironment, testProject, testComponent,
+			testStartTime, testEndTime)
+		require.NoError(t, err)
+	})
+
+	t.Run("missing environment is rejected", func(t *testing.T) {
+		h := newTestMCPHandler(t)
+		_, err := h.QueryRecommendations(ctx, testNamespace, "", "", "", testStartTime, testEndTime)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "environment is required")
+	})
+
+	t.Run("finops service error propagated", func(t *testing.T) {
+		finopsSvc := mocks.NewMockFinOpsQuerier(t)
+		finopsSvc.EXPECT().GetRecommendations(mock.Anything, mock.Anything).Return(nil, errors.New("backend down"))
+
+		h := newTestMCPHandler(t, withFinOpsService(finopsSvc))
+		_, err := h.QueryRecommendations(ctx, testNamespace, testEnvironment, "", "", testStartTime, testEndTime)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "backend down")
+	})
+}
+
 func TestQueryDoraMetrics(t *testing.T) {
 	ctx := context.Background()
 

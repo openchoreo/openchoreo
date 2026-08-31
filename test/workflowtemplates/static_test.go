@@ -193,10 +193,19 @@ func TestCheckoutSource_AuthAndProviderContract(t *testing.T) {
 		requireContains(t, s, "git-codecommit", "${SSH_KEY_ID}@")
 	})
 
-	t.Run("basic-auth percent-encodes credentials", func(t *testing.T) {
-		// %40 == '@', %3A == ':' — sentinel of the URL-encoding sed.
-		requireContains(t, s, "USERNAME_ENCODED", "PASSWORD_ENCODED", "%40", "%3A")
-		requireContains(t, s, "credential.helper store")
+	t.Run("basic-auth supplies credentials via askpass", func(t *testing.T) {
+		requireContains(t, s,
+			"export GIT_SECRET_PATH",
+			"chmod 700 /tmp/git-askpass.sh",
+			"export GIT_ASKPASS=/tmp/git-askpass.sh",
+			"export GIT_TERMINAL_PROMPT=0",
+		)
+		requireNotContains(t, s, "USERNAME_ENCODED",
+			"basic auth must not build a credential-bearing clone URL")
+		requireNotContains(t, s, "PASSWORD_ENCODED",
+			"basic auth must not build a credential-bearing clone URL")
+		requireNotContains(t, s, "credential.helper",
+			"basic auth must not configure a git credential helper")
 	})
 
 	t.Run("checkout by branch and by commit", func(t *testing.T) {

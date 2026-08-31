@@ -145,6 +145,7 @@ type MockTracesQuerier struct {
 	spansRequests       []*types.TracesQueryRequest
 	spanDetailsTraceIDs []string
 	spanDetailsSpanIDs  []string
+	spanDetailsScopes   []types.ComponentSearchScope
 	tracesResponse      *types.TracesQueryResponse
 	spansResponse       *types.SpansQueryResponse
 	spanInfo            *types.SpanInfo
@@ -195,9 +196,12 @@ func (m *MockTracesQuerier) QuerySpans(_ context.Context, traceID string, req *t
 	return m.spansResponse, nil
 }
 
-func (m *MockTracesQuerier) GetSpanDetails(_ context.Context, traceID string, spanID string) (*types.SpanInfo, error) {
+func (m *MockTracesQuerier) QuerySpanDetails(_ context.Context, traceID string, spanID string,
+	scope types.ComponentSearchScope,
+) (*types.SpanInfo, error) {
 	m.spanDetailsTraceIDs = append(m.spanDetailsTraceIDs, traceID)
 	m.spanDetailsSpanIDs = append(m.spanDetailsSpanIDs, spanID)
+	m.spanDetailsScopes = append(m.spanDetailsScopes, scope)
 	if m.spanDetailsErr != nil {
 		return nil, m.spanDetailsErr
 	}
@@ -223,6 +227,7 @@ func (m *MockTracesQuerier) reset() {
 	m.spansRequests = nil
 	m.spanDetailsTraceIDs = nil
 	m.spanDetailsSpanIDs = nil
+	m.spanDetailsScopes = nil
 }
 
 type MockAlertIncidentService struct {
@@ -278,6 +283,57 @@ func (m *MockAlertIncidentService) lastIncidentsRequest() *gen.IncidentsQueryReq
 func (m *MockAlertIncidentService) reset() {
 	m.alertsRequests = nil
 	m.incidentsRequests = nil
+}
+
+type MockFinOpsQuerier struct {
+	costsRequests           []*types.CostQueryRequest
+	recommendationsRequests []*types.RecommendationQueryRequest
+	costsResponse           any
+	recommendationsResponse any
+	getCostsErr             error
+	getRecommendationsErr   error
+}
+
+func NewMockFinOpsQuerier() *MockFinOpsQuerier {
+	return &MockFinOpsQuerier{
+		costsResponse:           map[string]any{"items": []any{}},
+		recommendationsResponse: map[string]any{"items": []any{}},
+	}
+}
+
+func (m *MockFinOpsQuerier) GetComponentCosts(_ context.Context, req *types.CostQueryRequest) (any, error) {
+	m.costsRequests = append(m.costsRequests, req)
+	if m.getCostsErr != nil {
+		return nil, m.getCostsErr
+	}
+	return m.costsResponse, nil
+}
+
+func (m *MockFinOpsQuerier) GetRecommendations(_ context.Context, req *types.RecommendationQueryRequest) (any, error) {
+	m.recommendationsRequests = append(m.recommendationsRequests, req)
+	if m.getRecommendationsErr != nil {
+		return nil, m.getRecommendationsErr
+	}
+	return m.recommendationsResponse, nil
+}
+
+func (m *MockFinOpsQuerier) lastCostsRequest() *types.CostQueryRequest {
+	if len(m.costsRequests) == 0 {
+		return nil
+	}
+	return m.costsRequests[len(m.costsRequests)-1]
+}
+
+func (m *MockFinOpsQuerier) lastRecommendationsRequest() *types.RecommendationQueryRequest {
+	if len(m.recommendationsRequests) == 0 {
+		return nil
+	}
+	return m.recommendationsRequests[len(m.recommendationsRequests)-1]
+}
+
+func (m *MockFinOpsQuerier) reset() {
+	m.costsRequests = nil
+	m.recommendationsRequests = nil
 }
 
 type MockInsightsService struct {
@@ -336,6 +392,7 @@ type testServices struct {
 	metrics         *MockMetricsQuerier
 	traces          *MockTracesQuerier
 	alertsIncidents *MockAlertIncidentService
+	finops          *MockFinOpsQuerier
 	insights        *MockInsightsService
 }
 
@@ -346,6 +403,7 @@ func newTestServices() *testServices {
 		metrics:         NewMockMetricsQuerier(),
 		traces:          NewMockTracesQuerier(),
 		alertsIncidents: NewMockAlertIncidentService(),
+		finops:          NewMockFinOpsQuerier(),
 		insights:        NewMockInsightsService(),
 	}
 }
@@ -356,6 +414,7 @@ func (s *testServices) resetAll() {
 	s.metrics.reset()
 	s.traces.reset()
 	s.alertsIncidents.reset()
+	s.finops.reset()
 	s.insights.reset()
 }
 
@@ -365,8 +424,7 @@ func buildMCPHandler(svcs *testServices) (*MCPHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewMCPHandler(
-		healthSvc, svcs.logs, svcs.events, svcs.metrics, svcs.alertsIncidents, svcs.traces, svcs.insights, logger)
+	return NewMCPHandler(healthSvc, svcs.logs, svcs.events, svcs.metrics, svcs.alertsIncidents, svcs.traces, svcs.finops, svcs.insights, logger)
 }
 
 func setupTestServer(t *testing.T) (*mcpsdk.ClientSession, *testServices) {
@@ -673,19 +731,29 @@ var allToolSpecs = []toolTestSpec{
 		name:                "get_span_details",
 		descriptionKeywords: []string{"span"},
 		descriptionMinLen:   20,
-		requiredParams:      []string{"trace_id", "span_id"},
-		optionalParams:      []string{},
+		requiredParams:      []string{"trace_id", "span_id", "namespace"},
+		optionalParams:      []string{"project", "component", "environment"},
 		testArgs: map[string]any{
-			"trace_id": testTraceID,
-			"span_id":  testSpanID,
+			"trace_id":    testTraceID,
+			"span_id":     testSpanID,
+			"namespace":   testNamespace,
+			"project":     testProject,
+			"component":   testComponent,
+			"environment": testEnvironment,
 		},
 		validateCall: func(t *testing.T, svcs *testServices) {
 			t.Helper()
-			require.NotEmpty(t, svcs.traces.spanDetailsTraceIDs, "Expected GetSpanDetails to be called")
-			require.NotEmpty(t, svcs.traces.spanDetailsSpanIDs, "Expected GetSpanDetails to be called")
+			require.NotEmpty(t, svcs.traces.spanDetailsTraceIDs, "Expected QuerySpanDetails to be called")
+			require.NotEmpty(t, svcs.traces.spanDetailsSpanIDs, "Expected QuerySpanDetails to be called")
+			require.NotEmpty(t, svcs.traces.spanDetailsScopes, "Expected QuerySpanDetails scope to be recorded")
 			lastIdx := len(svcs.traces.spanDetailsSpanIDs) - 1
 			assert.Equal(t, testTraceID, svcs.traces.spanDetailsTraceIDs[lastIdx])
 			assert.Equal(t, testSpanID, svcs.traces.spanDetailsSpanIDs[lastIdx])
+			scope := svcs.traces.spanDetailsScopes[lastIdx]
+			assert.Equal(t, testNamespace, scope.Namespace)
+			assert.Equal(t, testProject, scope.Project)
+			assert.Equal(t, testComponent, scope.Component)
+			assert.Equal(t, testEnvironment, scope.Environment)
 		},
 	},
 	{
@@ -763,6 +831,60 @@ var allToolSpecs = []toolTestSpec{
 		},
 	},
 	{
+		name:                "query_costs",
+		descriptionKeywords: []string{"cost"},
+		descriptionMinLen:   20,
+		requiredParams:      []string{"namespace", "environment", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component", "granularity"},
+		testArgs: map[string]any{
+			"namespace":   testNamespace,
+			"environment": testEnvironment,
+			"project":     testProject,
+			"component":   testComponent,
+			"start_time":  testStartTime,
+			"end_time":    testEndTime,
+			"granularity": "1d",
+		},
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.finops.lastCostsRequest()
+			require.NotNil(t, req, "Expected GetComponentCosts to be called")
+			assert.Equal(t, testNamespace, req.Namespace)
+			assert.Equal(t, testEnvironment, req.Environment)
+			assert.Equal(t, testProject, req.Project)
+			assert.Equal(t, testComponent, req.Component)
+			assert.Equal(t, testStartTime, req.StartTime)
+			assert.Equal(t, testEndTime, req.EndTime)
+			assert.Equal(t, "1d", req.Granularity)
+		},
+	},
+	{
+		name:                "query_recommendations",
+		descriptionKeywords: []string{"recommendation"},
+		descriptionMinLen:   20,
+		requiredParams:      []string{"namespace", "environment", "start_time", "end_time"},
+		optionalParams:      []string{"project", "component"},
+		testArgs: map[string]any{
+			"namespace":   testNamespace,
+			"environment": testEnvironment,
+			"project":     testProject,
+			"component":   testComponent,
+			"start_time":  testStartTime,
+			"end_time":    testEndTime,
+		},
+		validateCall: func(t *testing.T, svcs *testServices) {
+			t.Helper()
+			req := svcs.finops.lastRecommendationsRequest()
+			require.NotNil(t, req, "Expected GetRecommendations to be called")
+			assert.Equal(t, testNamespace, req.Namespace)
+			assert.Equal(t, testEnvironment, req.Environment)
+			assert.Equal(t, testProject, req.Project)
+			assert.Equal(t, testComponent, req.Component)
+			assert.Equal(t, testStartTime, req.StartTime)
+			assert.Equal(t, testEndTime, req.EndTime)
+		},
+	},
+	{
 		name:                "query_dora_metrics",
 		descriptionKeywords: []string{"dora", "lead time"},
 		descriptionMinLen:   20,
@@ -815,6 +937,7 @@ func TestNewMCPHandlerValidation(t *testing.T) {
 	events := NewMockEventsQuerier()
 	metrics := NewMockMetricsQuerier()
 	traces := NewMockTracesQuerier()
+	finops := NewMockFinOpsQuerier()
 
 	tests := []struct {
 		name                 string
@@ -824,23 +947,24 @@ func TestNewMCPHandlerValidation(t *testing.T) {
 		metrics              service.MetricsQuerier
 		alertIncidentService service.AlertIncidentService
 		traces               service.TracesQuerier
+		finops               service.FinOpsQuerier
 		insights             service.InsightsService
 		log                  *slog.Logger
 	}{
-		{"nil healthService", nil, logs, events, metrics, alertIncidentSvc, traces, insightsSvc, logger},
-		{"nil logsService", healthSvc, nil, events, metrics, alertIncidentSvc, traces, insightsSvc, logger},
-		{"nil eventsService", healthSvc, logs, nil, metrics, alertIncidentSvc, traces, insightsSvc, logger},
-		{"nil metricsService", healthSvc, logs, events, nil, alertIncidentSvc, traces, insightsSvc, logger},
-		{"nil alertIncidentService", healthSvc, logs, events, metrics, nil, traces, insightsSvc, logger},
-		{"nil tracesService", healthSvc, logs, events, metrics, alertIncidentSvc, nil, insightsSvc, logger},
-		{"nil insightsService", healthSvc, logs, events, metrics, alertIncidentSvc, traces, nil, logger},
-		{"nil logger", healthSvc, logs, events, metrics, alertIncidentSvc, traces, insightsSvc, nil},
+		{"nil healthService", nil, logs, events, metrics, alertIncidentSvc, traces, finops, insightsSvc, logger},
+		{"nil logsService", healthSvc, nil, events, metrics, alertIncidentSvc, traces, finops, insightsSvc, logger},
+		{"nil eventsService", healthSvc, logs, nil, metrics, alertIncidentSvc, traces, finops, insightsSvc, logger},
+		{"nil metricsService", healthSvc, logs, events, nil, alertIncidentSvc, traces, finops, insightsSvc, logger},
+		{"nil alertIncidentService", healthSvc, logs, events, metrics, nil, traces, finops, insightsSvc, logger},
+		{"nil tracesService", healthSvc, logs, events, metrics, alertIncidentSvc, nil, finops, insightsSvc, logger},
+		{"nil finopsService", healthSvc, logs, events, metrics, alertIncidentSvc, traces, nil, insightsSvc, logger},
+		{"nil insightsService", healthSvc, logs, events, metrics, alertIncidentSvc, traces, finops, nil, logger},
+		{"nil logger", healthSvc, logs, events, metrics, alertIncidentSvc, traces, finops, insightsSvc, nil},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewMCPHandler(
-				tt.health, tt.logs, tt.events, tt.metrics, tt.alertIncidentService, tt.traces, tt.insights, tt.log)
+			_, err := NewMCPHandler(tt.health, tt.logs, tt.events, tt.metrics, tt.alertIncidentService, tt.traces, tt.finops, tt.insights, tt.log)
 			require.Error(t, err, "Expected error for %s", tt.name)
 		})
 	}
@@ -1118,8 +1242,9 @@ func TestMinimalParameterSets(t *testing.T) {
 			name:     "get_span_details_minimal",
 			toolName: "get_span_details",
 			args: map[string]any{
-				"trace_id": testTraceID,
-				"span_id":  testSpanID,
+				"trace_id":  testTraceID,
+				"span_id":   testSpanID,
+				"namespace": testNamespace,
 			},
 		},
 		{
@@ -1275,8 +1400,9 @@ func TestHandlerErrorPropagation(t *testing.T) {
 			name:     "span_details_service_error",
 			toolName: "get_span_details",
 			args: map[string]any{
-				"trace_id": testTraceID,
-				"span_id":  testSpanID,
+				"trace_id":  testTraceID,
+				"span_id":   testSpanID,
+				"namespace": testNamespace,
 			},
 			setupErr: func(s *testServices) { s.traces.spanDetailsErr = errors.New("span not found") },
 		},
@@ -1660,8 +1786,12 @@ func TestSchemaPropertyTypes(t *testing.T) {
 			"sort_order":  "string",
 		},
 		"get_span_details": {
-			"trace_id": "string",
-			"span_id":  "string",
+			"trace_id":    "string",
+			"span_id":     "string",
+			"namespace":   "string",
+			"project":     "string",
+			"component":   "string",
+			"environment": "string",
 		},
 	}
 

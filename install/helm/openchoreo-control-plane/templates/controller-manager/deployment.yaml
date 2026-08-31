@@ -62,15 +62,27 @@ spec:
         - /manager
         args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
         - --cluster-gateway-url={{ .Values.controllerManager.clusterGateway.url }}
-        {{- if .Values.clusterGateway.tls.enabled }}
         - --cluster-gateway-ca-cert={{ .Values.controllerManager.clusterGateway.tls.caPath }}
-        {{- end }}
-        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        {{- if .Values.clusterGateway.internalMtls.enabled }}
         - --cluster-gateway-client-cert={{ .Values.controllerManager.clusterGateway.tls.clientCertPath }}
         - --cluster-gateway-client-key={{ .Values.controllerManager.clusterGateway.tls.clientKeyPath }}
         {{- end }}
         {{- if .Values.controllerManager.clusterGateway.tls.insecure }}
         - --cluster-gateway-insecure
+        {{- end }}
+        {{- if .Values.controllerManager.manager.maxConcurrentReconciles }}
+        - --max-concurrent-reconciles={{ .Values.controllerManager.manager.maxConcurrentReconciles }}
+        {{- end }}
+        {{- if .Values.controllerManager.manager.logLevel }}
+        - --zap-log-level={{ .Values.controllerManager.manager.logLevel }}
+        {{- end }}
+        {{- if .Values.controllerManager.manager.celCostLimit }}
+        {{- /* int64: Helm decodes values.yaml numbers as float64, so a bare render emits
+               2e+06, which the controller's uint64 flag parser rejects at startup. */}}
+        - --cel-cost-limit={{ int64 .Values.controllerManager.manager.celCostLimit }}
+        {{- end }}
+        {{- if and .Values.controllerManager.manager.renderTimeout (ne .Values.controllerManager.manager.renderTimeout "0") }}
+        - --render-timeout={{ .Values.controllerManager.manager.renderTimeout }}
         {{- end }}
         env:
         - name: ENABLE_WEBHOOKS
@@ -79,10 +91,8 @@ spec:
           value: {{ quote .Values.kubernetesClusterDomain }}
         - name: CLUSTER_GATEWAY_URL
           value: {{ quote .Values.controllerManager.clusterGateway.url }}
-        {{- if .Values.clusterGateway.tls.enabled }}
         - name: CLUSTER_GATEWAY_CA_CERT
           value: {{ quote .Values.controllerManager.clusterGateway.tls.caPath }}
-        {{- end }}
         ports:
         - containerPort: 8080
           name: metrics
@@ -122,12 +132,10 @@ spec:
           name: cert
           readOnly: true
         {{- end }}
-        {{- if .Values.clusterGateway.tls.enabled }}
         - mountPath: /etc/cluster-gateway
           name: cluster-gateway-ca
           readOnly: true
-        {{- end }}
-        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        {{- if .Values.clusterGateway.internalMtls.enabled }}
         - mountPath: /etc/cluster-gateway-client
           name: cluster-gateway-client-tls
           readOnly: true
@@ -139,12 +147,15 @@ spec:
           defaultMode: 420
           secretName: {{ .Values.controllerManager.name }}-webhook-server-cert
       {{- end }}
-      {{- if .Values.clusterGateway.tls.enabled }}
+      # Trust anchor for verifying the gateway. Only ca.crt is mounted; the
+      # signing key in that secret stays out of this pod.
       - name: cluster-gateway-ca
         secret:
-          secretName: {{ .Values.controllerManager.clusterGateway.tls.caSecret }}
-      {{- end }}
-      {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+          secretName: {{ .Values.clusterGateway.tls.existingSecret | default .Values.controllerManager.clusterGateway.tls.caSecret }}
+          items:
+          - key: ca.crt
+            path: ca.crt
+      {{- if .Values.clusterGateway.internalMtls.enabled }}
       - name: cluster-gateway-client-tls
         secret:
           secretName: {{ .Values.controllerManager.clusterGateway.tls.clientSecret }}

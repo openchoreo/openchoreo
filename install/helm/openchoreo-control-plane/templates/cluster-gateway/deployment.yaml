@@ -61,13 +61,48 @@ spec:
         - --server-key=/certs/tls.key
         - --heartbeat-interval={{ .Values.clusterGateway.heartbeatInterval }}
         - --heartbeat-timeout={{ .Values.clusterGateway.heartbeatTimeout }}
-        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        - --drain-window={{ .Values.clusterGateway.drainWindow }}
+        {{- if .Values.clusterGateway.internalMtls.enabled }}
         - --internal-mtls=true
         - --internal-client-ca-cert=/internal-ca/ca.crt
         {{- else }}
         - --internal-mtls=false
         {{- end }}
+        - --agent-auth-mode={{ .Values.clusterGateway.agentAuth.mode }}
+        {{- if eq .Values.clusterGateway.agentAuth.mode "forwarded-header" }}
+        - --agent-auth-forwarded-header={{ .Values.clusterGateway.agentAuth.forwardedHeaderName }}
+        {{- end }}
+        {{- if .Values.clusterGateway.mesh.enabled }}
+        - --mesh=true
+        - --mesh-port={{ .Values.clusterGateway.mesh.port }}
+        - --mesh-service={{ include "openchoreo-control-plane.clusterGateway.name" . }}-mesh
+        # Mesh peers verify each other against ca.crt from the serving
+        # certificate secret mounted at /certs (mTLS in both directions). That
+        # secret is either chart-issued or the operator's own
+        # (clusterGateway.tls.existingSecret); both must carry ca.crt, and the
+        # gateway fails closed at startup rather than run an unverified mesh.
+        # A cert-manager issuer that does not populate ca.crt (e.g. ACME)
+        # cannot back the mesh.
+        - --mesh-ca-cert=/certs/ca.crt
+        {{- else }}
+        - --mesh=false
+        {{- end }}
         - --log-level={{ .Values.clusterGateway.logLevel }}
+        {{- if .Values.clusterGateway.mesh.enabled }}
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        {{- end }}
         ports:
         - name: websocket
           containerPort: {{ .Values.clusterGateway.port }}
@@ -75,6 +110,11 @@ spec:
         - name: internal-api
           containerPort: 8444
           protocol: TCP
+        {{- if .Values.clusterGateway.mesh.enabled }}
+        - name: mesh
+          containerPort: {{ .Values.clusterGateway.mesh.port }}
+          protocol: TCP
+        {{- end }}
         - name: health
           containerPort: 8080
           protocol: TCP
@@ -85,11 +125,23 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 30
         readinessProbe:
+          # /ready reports 503 in two cases, and both need to be acted on
+          # quickly:
+          #   - draining, so the pod leaves Service endpoints before its
+          #     agents are spread onto surviving replicas
+          #   - mesh registry not yet converged, so a fresh pod does not take
+          #     traffic while it still has no idea which peer owns which agent
+          # A slow probe defeats both: it would keep a draining pod receiving
+          # requests, and admit a new one before it can route. Hence a short
+          # period and a single failure to react.
           httpGet:
-            path: /health
+            path: /ready
             port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 10
+          initialDelaySeconds: {{ .Values.clusterGateway.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.clusterGateway.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.clusterGateway.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.clusterGateway.readinessProbe.failureThreshold }}
+          successThreshold: 1
         resources:
           {{- toYaml .Values.clusterGateway.resources | nindent 10 }}
         {{- with .Values.clusterGateway.securityContext }}
@@ -100,16 +152,19 @@ spec:
         - name: server-certs
           mountPath: /certs
           readOnly: true
-        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        {{- if .Values.clusterGateway.internalMtls.enabled }}
         - name: internal-client-ca
           mountPath: /internal-ca
           readOnly: true
         {{- end }}
       volumes:
+      # Either the cert-manager-issued serving certificate or the operator's own
+      # (clusterGateway.tls.existingSecret). Both must carry tls.crt, tls.key
+      # and ca.crt: ca.crt is what mesh peers verify each other against.
       - name: server-certs
         secret:
-          secretName: {{ .Values.clusterGateway.tls.secretName }}
-      {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+          secretName: {{ .Values.clusterGateway.tls.existingSecret | default .Values.clusterGateway.tls.secretName }}
+      {{- if .Values.clusterGateway.internalMtls.enabled }}
       # Only ca.crt is mounted; the internal CA private key stays out of the pod
       - name: internal-client-ca
         secret:

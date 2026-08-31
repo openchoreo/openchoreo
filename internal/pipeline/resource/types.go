@@ -4,6 +4,8 @@
 package resourcepipeline
 
 import (
+	"time"
+
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
@@ -14,6 +16,15 @@ import (
 // (controller, webhook, future CLI) instantiate one Pipeline and reuse it.
 type Pipeline struct {
 	templateEngine *template.Engine
+
+	// celCostLimit bounds the accumulated cost of a single CEL expression.
+	// Zero selects the template engine's built-in default.
+	celCostLimit uint64
+
+	// renderTimeout bounds the wall-clock duration of each public entry point on this
+	// pipeline. The deadline is derived per call, so a caller that renders more than once
+	// gets a fresh one each time. Zero or negative means no deadline.
+	renderTimeout time.Duration
 }
 
 // RenderInput carries everything RenderManifests, ResolveOutputs, and
@@ -211,8 +222,11 @@ type BaseContext struct {
 	// ${gateway.ingress.external.https.host} is identical to
 	// ${environment.gateway.ingress.external.https.host}.
 	//
-	// Templates that may evaluate against a missing gateway must guard via
-	// has(environment.gateway) — has(gateway) is invalid CEL because the
-	// top-level alias is omitted from the marshaled map when nil.
+	// Unlike Environment.Gateway/DataPlane.Gateway, this field is always
+	// non-nil (buildBaseContext substitutes an empty &GatewayData{} when
+	// Environment.Gateway is nil) so the "gateway" CEL variable is always
+	// declared and has(gateway.ingress...) can be used directly without
+	// first guarding has(gateway) — a bare, undeclared "gateway" identifier
+	// would otherwise fail to *compile*, not just evaluate false.
 	Gateway *GatewayData `json:"gateway,omitempty"`
 }

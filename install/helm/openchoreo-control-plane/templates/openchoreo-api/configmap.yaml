@@ -62,17 +62,23 @@ data:
       toolsets:
         {{- toYaml .Values.openchoreoApi.config.mcp.toolsets | nindent 8 }}
 
+    audit:
+      enabled: {{ .Values.openchoreoApi.config.audit.enabled }}
+      defaults:
+        {{- toYaml .Values.openchoreoApi.config.audit.defaults | nindent 8 }}
+      policies:
+        {{- toYaml .Values.openchoreoApi.config.audit.policies | nindent 8 }}
+
     secret_management:
       enabled: {{ .Values.features.secretManagement.enabled }}
+      remote_key_prefix: {{ .Values.features.secretManagement.remoteKeyPrefix | quote }}
 
     cluster_gateway:
       enabled: {{ if hasKey .Values.openchoreoApi.clusterGateway "enabled" }}{{ .Values.openchoreoApi.clusterGateway.enabled }}{{ else }}true{{ end }}
       url: {{ .Values.openchoreoApi.clusterGateway.url | quote }}
       tls:
-        {{- if .Values.clusterGateway.tls.enabled }}
         ca_cert_path: {{ .Values.openchoreoApi.clusterGateway.tls.caPath | quote }}
-        {{- end }}
-        {{- if and .Values.clusterGateway.tls.enabled .Values.clusterGateway.internalMtls.enabled }}
+        {{- if .Values.clusterGateway.internalMtls.enabled }}
         client_cert_path: {{ .Values.openchoreoApi.clusterGateway.tls.clientCertPath | quote }}
         client_key_path: {{ .Values.openchoreoApi.clusterGateway.tls.clientKeyPath | quote }}
         {{- end }}

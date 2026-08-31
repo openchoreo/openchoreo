@@ -199,7 +199,7 @@ func BenchmarkPipeline_RenderWithRealSample(b *testing.B) {
 	pipeline := NewPipeline()
 
 	// Verify it works before benchmarking
-	output, err := pipeline.Render(input)
+	output, err := pipeline.Render(b.Context(), input)
 	if err != nil {
 		b.Fatalf("Pipeline render failed: %v", err)
 	}
@@ -218,7 +218,7 @@ func BenchmarkPipeline_RenderWithRealSample(b *testing.B) {
 
 	// Run benchmark
 	for b.Loop() {
-		_, err := pipeline.Render(input)
+		_, err := pipeline.Render(b.Context(), input)
 		if err != nil {
 			b.Fatalf("Pipeline render failed: %v", err)
 		}
@@ -242,7 +242,7 @@ func BenchmarkPipeline_RenderWithRealSample_NewPipelinePerRender(b *testing.B) {
 
 	// Verify it works before benchmarking
 	pipeline := NewPipeline()
-	output, err := pipeline.Render(input)
+	output, err := pipeline.Render(b.Context(), input)
 	if err != nil {
 		b.Fatalf("Pipeline render failed: %v", err)
 	}
@@ -257,7 +257,7 @@ func BenchmarkPipeline_RenderWithRealSample_NewPipelinePerRender(b *testing.B) {
 	// This simulates the old controller behavior (cold cache every time)
 	for b.Loop() {
 		pipeline := NewPipeline() // ← NEW INSTANCE per iteration
-		_, err := pipeline.Render(input)
+		_, err := pipeline.Render(b.Context(), input)
 		if err != nil {
 			b.Fatalf("Pipeline render failed: %v", err)
 		}
@@ -439,7 +439,7 @@ spec:
 	pipeline := NewPipeline()
 
 	// Verify it works
-	_, err := pipeline.Render(input)
+	_, err := pipeline.Render(b.Context(), input)
 	if err != nil {
 		b.Fatalf("Pipeline render failed: %v", err)
 	}
@@ -447,7 +447,7 @@ spec:
 	b.ResetTimer()
 
 	for b.Loop() {
-		_, err := pipeline.Render(input)
+		_, err := pipeline.Render(b.Context(), input)
 		if err != nil {
 			b.Fatalf("Pipeline render failed: %v", err)
 		}
@@ -639,7 +639,7 @@ spec:
 	b.ResetTimer()
 
 	for b.Loop() {
-		_, err := pipeline.Render(input)
+		_, err := pipeline.Render(b.Context(), input)
 		if err != nil {
 			b.Fatalf("Pipeline render failed: %v", err)
 		}

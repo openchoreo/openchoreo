@@ -264,6 +264,43 @@ func TestAgent_HandleConnection(t *testing.T) {
 	assert.Equal(t, http.StatusOK, got.StatusCode)
 }
 
+// A GOAWAY is a planned handover, so it must be reported as graceful: Start()
+// uses that to reconnect immediately rather than serving out the reconnect
+// backoff, which would otherwise leave the plane unroutable for the whole
+// delay while a healthy replica is already waiting.
+func TestAgent_HandleConnection_GoAwayIsGraceful(t *testing.T) {
+	goAway, err := json.Marshal(messaging.GoAway{
+		Type:   messaging.MessageTypeGoAway,
+		Reason: "gateway draining",
+	})
+	require.NoError(t, err)
+
+	mock := &mockConnection{readMessages: [][]byte{goAway}}
+	agent := newTestAgent(t, "ws://unused", newTestRouter(t, map[string]*Route{}))
+	agent.conn = mock
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	assert.True(t, agent.handleConnection(ctx),
+		"GOAWAY must be reported as graceful so the reconnect backoff is skipped")
+}
+
+// An unexpected drop must NOT be reported as graceful: backing off there is
+// what stops the agent hammering a gateway that is genuinely unhealthy.
+func TestAgent_HandleConnection_DropIsNotGraceful(t *testing.T) {
+	// No messages queued: ReadMessage fails immediately, as on a dropped socket.
+	mock := &mockConnection{}
+	agent := newTestAgent(t, "ws://unused", newTestRouter(t, map[string]*Route{}))
+	agent.conn = mock
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	assert.False(t, agent.handleConnection(ctx),
+		"an unexpected disconnect must keep the reconnect backoff")
+}
+
 func TestAgent_HandleConnection_InvalidMessage(t *testing.T) {
 	mock := &mockConnection{
 		readMessages: [][]byte{[]byte("not json")},
@@ -546,7 +583,7 @@ func TestAgent_New_TLSDisabled(t *testing.T) {
 
 func TestAgent_New_TLSEnabled_BadCert(t *testing.T) {
 	cfg := &Config{
-		ServerURL:      "ws://localhost:8443",
+		ServerURL:      "wss://localhost:8443",
 		PlaneType:      "dataplane",
 		PlaneID:        "test",
 		TLSEnabled:     true,
@@ -665,10 +702,12 @@ func TestAgent_New_TLSEnabled_BadServerCA(t *testing.T) {
 	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
 
 	agent, err := New(cfg, nil, k8sConfig, testLogger())
-	// Should succeed but serverCA pool is nil (warn logged, not fatal)
-	require.NoError(t, err)
-	assert.NotNil(t, agent)
-	assert.Nil(t, agent.serverCA)
+	// Fail closed: an unparsable CA must not silently downgrade to an
+	// unverified tunnel, which any host answering the gateway's address
+	// could then impersonate.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse server CA certificate")
+	assert.Nil(t, agent)
 }
 
 func TestAgent_New_TLSEnabled_MissingServerCA(t *testing.T) {
@@ -687,9 +726,32 @@ func TestAgent_New_TLSEnabled_MissingServerCA(t *testing.T) {
 	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
 
 	agent, err := New(cfg, nil, k8sConfig, testLogger())
-	// Should succeed (warn logged, continues without server verification)
-	require.NoError(t, err)
-	assert.NotNil(t, agent)
+	// Fail closed: an unreadable CA path is a misconfiguration, not a
+	// reason to drop server verification.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read server CA certificate")
+	assert.Nil(t, agent)
+}
+
+// TLS on with no CA configured at all is the same misconfiguration: it must
+// be rejected rather than connecting unverified.
+func TestAgent_New_TLSEnabled_NoServerCAConfigured(t *testing.T) {
+	certPath, keyPath, _ := generateTestCertFiles(t)
+
+	cfg := &Config{
+		ServerURL:      "wss://localhost:8443",
+		PlaneType:      "dataplane",
+		PlaneID:        "test",
+		TLSEnabled:     true,
+		ClientCertPath: certPath,
+		ClientKeyPath:  keyPath,
+		ServerCAPath:   "",
+	}
+
+	agent, err := New(cfg, nil, &rest.Config{Host: "https://kubernetes.default.svc"}, testLogger())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no server CA is configured")
+	assert.Nil(t, agent)
 }
 
 func TestAgent_HandleConnection_UnexpectedCloseError(t *testing.T) {
@@ -751,4 +813,147 @@ func (b *blockingConnection) Close() error {
 		close(b.readCh)
 	}
 	return nil
+}
+
+// TLS on with a ws:// URL must be rejected: the websocket dialer picks the
+// transport from the scheme, so the agent would load its certificates and then
+// tunnel the plane's Kubernetes API over plaintext, unauthenticated in both
+// directions, while its logs claim TLS is configured.
+func TestAgent_New_TLSEnabled_PlaintextURLFailsClosed(t *testing.T) {
+	certPath, keyPath, caPath := generateTestCertFiles(t)
+
+	cfg := &Config{
+		ServerURL:      "ws://localhost:8443",
+		PlaneType:      "dataplane",
+		PlaneID:        "test",
+		TLSEnabled:     true,
+		ClientCertPath: certPath,
+		ClientKeyPath:  keyPath,
+		ServerCAPath:   caPath,
+	}
+
+	k8sConfig := &rest.Config{Host: "https://kubernetes.default.svc"}
+
+	agent, err := New(cfg, nil, k8sConfig, testLogger())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "use wss://")
+	assert.Nil(t, agent)
+}
+
+// When handleConnection returns, its context watcher must be gone. A watcher
+// left parked on the agent's context outlives the connection it was started
+// for and fires at shutdown against whatever socket is current by then — so a
+// healthy session inherits the closes owed to sessions that ended long ago.
+func TestAgent_HandleConnection_CancelWatcherRetiredOnExit(t *testing.T) {
+	// No queued messages: ReadMessage fails at once, as on a dropped socket.
+	agent := newTestAgent(t, "ws://unused", newTestRouter(t, map[string]*Route{}))
+	agent.conn = &mockConnection{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	agent.handleConnection(ctx)
+
+	// Stand in the next session's connection, then cancel: only a watcher that
+	// outlived the first connection could reach this one.
+	current := &mockConnection{}
+	agent.conn = current
+	cancel()
+	time.Sleep(50 * time.Millisecond)
+
+	assert.False(t, current.isClosed(),
+		"a watcher from an ended connection must not close the current one")
+}
+
+// Start must not dial at all once it has already been told to stop. Without
+// the pre-dial check, a Stop that lands between iterations would still open one
+// more connection to a gateway the agent is walking away from.
+func TestAgent_Start_StopBeforeFirstDial(t *testing.T) {
+	var dials int32
+	srv := newTestWSServer(t, func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&dials, 1)
+	})
+	defer srv.Close()
+
+	agent := newTestAgent(t, toWSURL(srv.URL), newTestRouter(t, map[string]*Route{}))
+	agent.Stop() // already stopped before Start runs
+
+	done := make(chan error, 1)
+	go func() { done <- agent.Start(context.Background()) }()
+
+	select {
+	case err := <-done:
+		assert.NoError(t, err, "a stopped agent must exit cleanly")
+	case <-time.After(5 * time.Second):
+		t.Fatal("Start did not return for an already-stopped agent")
+	}
+	assert.Zero(t, atomic.LoadInt32(&dials), "a stopped agent must not dial")
+}
+
+// The same guard applies to a context cancelled before Start: the agent exits
+// with the context error rather than opening a connection first.
+func TestAgent_Start_CancelledBeforeFirstDial(t *testing.T) {
+	var dials int32
+	srv := newTestWSServer(t, func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&dials, 1)
+	})
+	defer srv.Close()
+
+	agent := newTestAgent(t, toWSURL(srv.URL), newTestRouter(t, map[string]*Route{}))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	done := make(chan error, 1)
+	go func() { done <- agent.Start(ctx) }()
+
+	select {
+	case err := <-done:
+		assert.ErrorIs(t, err, context.Canceled)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Start did not return for a cancelled context")
+	}
+	assert.Zero(t, atomic.LoadInt32(&dials), "a cancelled agent must not dial")
+}
+
+// A GOAWAY is a planned handover: the agent reconnects after a short jitter
+// instead of serving the full reconnect delay, so the plane stays routable.
+// With a 30s reconnect delay, only the GOAWAY path can produce a second dial
+// inside this test's window.
+func TestAgent_Start_GoAwayReconnectsWithoutBackoff(t *testing.T) {
+	goAway, err := json.Marshal(messaging.GoAway{
+		Type:   messaging.MessageTypeGoAway,
+		Reason: "gateway draining",
+	})
+	require.NoError(t, err)
+
+	var dials int32
+	upgrader := websocket.Upgrader{}
+	srv := newTestWSServer(t, func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		atomic.AddInt32(&dials, 1)
+		_ = conn.WriteMessage(websocket.TextMessage, goAway)
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	})
+	defer srv.Close()
+
+	agent := newTestAgent(t, toWSURL(srv.URL), newTestRouter(t, map[string]*Route{}))
+	agent.config.ReconnectDelay = 30 * time.Second
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { _ = agent.Start(ctx) }()
+
+	require.Eventually(t, func() bool { return atomic.LoadInt32(&dials) >= 2 },
+		5*time.Second, 20*time.Millisecond,
+		"GOAWAY must skip the reconnect backoff; the agent never redialled")
+
+	agent.Stop()
 }
