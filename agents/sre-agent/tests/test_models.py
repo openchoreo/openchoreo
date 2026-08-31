@@ -156,6 +156,18 @@ def test_resource_release_binding_rejects_files():
         )
 
 
+def test_resource_release_binding_accepts_valid_postgres_memory_field():
+    from src.models.remediation_result import FieldChange, ResourceChange
+
+    change = ResourceChange(
+        target_kind="ResourceReleaseBinding",
+        release_binding="snip-postgres-development",
+        fields=[FieldChange(json_pointer="/spec/resourceTypeEnvironmentConfigs/memory", value="256Mi")],
+    )
+    assert change.fields[0].json_pointer == "/spec/resourceTypeEnvironmentConfigs/memory"
+    assert change.fields[0].value == "256Mi"
+
+
 def test_release_binding_still_accepts_env_and_files():
     from src.models.remediation_result import EnvVarChange, FileChange, ResourceChange
 

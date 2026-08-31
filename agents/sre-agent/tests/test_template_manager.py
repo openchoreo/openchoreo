@@ -91,3 +91,20 @@ def test_remed_prompt_requires_environment_match_for_resource_binding_selection(
     )
     assert "spec.environment" in rendered
     assert "staging" in rendered
+
+
+def test_remed_prompt_separates_schema_source_by_target_kind():
+    rendered = tm.render(
+        "prompts/remed_agent_prompt.j2",
+        {"tools": [], "scope": _make_scope("staging")},
+    )
+    fields_bullet = next(
+        line for line in rendered.splitlines() if line.strip().startswith("- `fields`:")
+    )
+    assert "get_component_release_schema" in fields_bullet
+    assert "get_resource_release_binding" in fields_bullet
+
+    constraints_line = next(
+        line for line in rendered.splitlines() if "get_component_release_schema" in line and "ReleaseBinding`" in line
+    )
+    assert "get_resource_release_binding" in constraints_line
