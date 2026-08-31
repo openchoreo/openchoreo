@@ -119,7 +119,25 @@ func renderRESTSection(ops []audit.Operation) string {
 // name alone can hold only one of a scope-collapsed tool's two bindings, and
 // which one survives depends on Go's randomized map iteration order.
 type boundRow struct {
-	tool, scope, opID, action string
+	tool, scope, opID, action, identity string
+}
+
+// mcpResourceIdentity describes where a bound tool's audit event gets its
+// resource identity, mirroring the REST table's column. The two halves come
+// from different places: resource.name is seeded from the call's raw arguments
+// by mcpaudit's middleware before the handler runs (so it survives a denial),
+// while resource.id can only ever come from the handler recording the persisted
+// object — see mcphandlers.setAuditResource. A binding with no ResourceArg has no
+// argument naming the resource at all, so both fields wait on the handler.
+func mcpResourceIdentity(resourceArg string) string {
+	if resourceArg == "" {
+		return "handler-supplied on success (the call carries no argument naming this resource); " +
+			"no name or id on a denied/failed call"
+	}
+	return fmt.Sprintf(
+		"name from the `%s` argument, available even on denial; id added by the handler on success",
+		resourceArg,
+	)
 }
 
 func renderMCPSection(perms map[string]tools.ToolPermission, bindings map[audit.MCPBindingKey]audit.MCPBinding) string {
@@ -127,7 +145,13 @@ func renderMCPSection(perms map[string]tools.ToolPermission, bindings map[audit.
 	rows := make([]boundRow, 0, len(bindings))
 	for key, b := range bindings {
 		boundToolNames[key.ToolName] = true
-		rows = append(rows, boundRow{tool: key.ToolName, scope: key.Scope, opID: b.Operation.ID, action: b.Operation.Action})
+		rows = append(rows, boundRow{
+			tool:     key.ToolName,
+			scope:    key.Scope,
+			opID:     b.Operation.ID,
+			action:   b.Operation.Action,
+			identity: mcpResourceIdentity(b.ResourceArg),
+		})
 	}
 	sort.Slice(rows, func(i, j int) bool {
 		if rows[i].tool != rows[j].tool {
@@ -153,13 +177,13 @@ func renderMCPSection(perms map[string]tools.ToolPermission, bindings map[audit.
 		len(perms), len(boundToolNames)+len(exempted), len(readOnly))
 
 	out += fmt.Sprintf("### Bound (%d tools, %d bindings)\n\n", len(boundToolNames), len(rows))
-	out += "| Tool | Scope | Operation ID | Action |\n|---|---|---|---|\n"
+	out += "| Tool | Scope | Operation ID | Action | Resource identity |\n|---|---|---|---|---|\n"
 	for _, r := range rows {
 		scope := r.scope
 		if scope == "" {
 			scope = "—"
 		}
-		out += fmt.Sprintf("| `%s` | %s | %s | `%s` |\n", r.tool, scope, r.opID, r.action)
+		out += fmt.Sprintf("| `%s` | %s | %s | `%s` | %s |\n", r.tool, scope, r.opID, r.action, r.identity)
 	}
 	out += "\n"
 
