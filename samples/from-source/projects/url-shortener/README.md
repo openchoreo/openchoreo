@@ -24,7 +24,7 @@ kubectl get projectreleasebinding url-shortener-development -n default -w
 
 Postgres is provisioned as a `Resource` from the shipped `postgres` `ClusterResourceType` rather than as a Component, so it needs an explicit `ResourceReleaseBinding` (Components get one automatically via `autoDeploy`). The `urls`/`clicks` schema — previously baked into a custom Postgres image built from source — is now seeded via the CRT's `initSQL` parameter (see `resources/postgres.yaml`), so no separate build or migration step is needed.
 
-`initSQL` support was added to the `postgres` CRT after the initial `getting-started/all.yaml` install most setups run — if your cluster already had the CRT installed, `resources/postgres.yaml`'s `initSQL` will silently do nothing until the CRT itself is updated. Re-apply it (idempotent, safe even if already up to date) before deploying the Resource:
+`initSQL` support was added to the `postgres` CRT after the initial `getting-started/all.yaml` install that most setups run — if your cluster already had the CRT installed, `resources/postgres.yaml`'s `initSQL` will silently do nothing until the CRT itself is updated. Re-apply it (idempotent, safe even if already up to date) before deploying the Resource:
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/openchoreo/openchoreo/main/samples/getting-started/cluster-resource-types/postgres.yaml
