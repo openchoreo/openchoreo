@@ -117,6 +117,15 @@ func (s *workflowRunService) CreateWorkflowRun(ctx context.Context, namespaceNam
 	return wfRun, nil
 }
 
+// normalizeWorkflowRefKind returns kind with the CRD's default applied, so an omitted
+// kind compares equal to an explicit ClusterWorkflow.
+func normalizeWorkflowRefKind(kind openchoreov1alpha1.WorkflowRefKind) openchoreov1alpha1.WorkflowRefKind {
+	if kind == "" {
+		return openchoreov1alpha1.WorkflowRefKindClusterWorkflow
+	}
+	return kind
+}
+
 func (s *workflowRunService) UpdateWorkflowRun(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
 	if wfRun == nil {
 		return nil, fmt.Errorf("workflow run cannot be nil")
@@ -160,6 +169,14 @@ func (s *workflowRunService) UpdateWorkflowRun(ctx context.Context, namespaceNam
 			if incomingValue != existingValue {
 				return &services.ValidationError{Msg: fmt.Sprintf("label %s is immutable", key)}
 			}
+		}
+
+		// The referenced workflow is immutable after creation (spec.workflow.kind/name
+		// carry a CEL "self == oldSelf" rule at the CRD level); reject it here too so the
+		// request fails cleanly instead of relying solely on that CRD-level validation.
+		if wfRun.Spec.Workflow.Name != existing.Spec.Workflow.Name ||
+			normalizeWorkflowRefKind(wfRun.Spec.Workflow.Kind) != normalizeWorkflowRefKind(existing.Spec.Workflow.Kind) {
+			return &services.ValidationError{Msg: "spec.workflow.kind/name is immutable"}
 		}
 
 		// Only apply user-mutable fields to the existing object, preserving server-managed fields

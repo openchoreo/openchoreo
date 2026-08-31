@@ -136,11 +136,52 @@ func TestUpdateWorkflowRun(t *testing.T) {
 		svc := newService(t, existing)
 
 		update := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
-		update.Spec.Workflow.Name = "other-workflow"
+		update.Spec.Workflow.Parameters = &runtime.RawExtension{Raw: []byte(`{"foo":"bar"}`)}
 
 		result, err := svc.UpdateWorkflowRun(ctx, testNamespace, update)
 		require.NoError(t, err)
-		assert.Equal(t, "other-workflow", result.Spec.Workflow.Name)
+		assert.Equal(t, `{"foo":"bar"}`, string(result.Spec.Workflow.Parameters.Raw))
+	})
+
+	t.Run("rejects changing the referenced workflow name", func(t *testing.T) {
+		existing := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		svc := newService(t, existing)
+
+		update := testutil.NewWorkflowRun(testNamespace, "other-workflow", testRunName)
+
+		_, err := svc.UpdateWorkflowRun(ctx, testNamespace, update)
+		var vErr *services.ValidationError
+		require.ErrorAs(t, err, &vErr)
+
+		stored := &openchoreov1alpha1.WorkflowRun{}
+		require.NoError(t, svc.(*workflowRunService).k8sClient.Get(ctx, client.ObjectKey{Name: testRunName, Namespace: testNamespace}, stored))
+		assert.Equal(t, testWorkflowName, stored.Spec.Workflow.Name)
+	})
+
+	t.Run("rejects changing the referenced workflow kind", func(t *testing.T) {
+		existing := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		existing.Spec.Workflow.Kind = openchoreov1alpha1.WorkflowRefKindWorkflow
+		svc := newService(t, existing)
+
+		update := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		update.Spec.Workflow.Kind = openchoreov1alpha1.WorkflowRefKindClusterWorkflow
+
+		_, err := svc.UpdateWorkflowRun(ctx, testNamespace, update)
+		var vErr *services.ValidationError
+		require.ErrorAs(t, err, &vErr)
+	})
+
+	t.Run("tolerates an omitted kind that normalizes to the stored value", func(t *testing.T) {
+		existing := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		existing.Spec.Workflow.Kind = openchoreov1alpha1.WorkflowRefKindClusterWorkflow
+		svc := newService(t, existing)
+
+		update := testutil.NewWorkflowRun(testNamespace, testWorkflowName, testRunName)
+		update.Spec.Workflow.Kind = "" // omitted by the caller, normalizes to ClusterWorkflow
+
+		result, err := svc.UpdateWorkflowRun(ctx, testNamespace, update)
+		require.NoError(t, err)
+		assert.Equal(t, testWorkflowName, result.Spec.Workflow.Name)
 	})
 
 	t.Run("rejects changing the project/component ownership labels", func(t *testing.T) {

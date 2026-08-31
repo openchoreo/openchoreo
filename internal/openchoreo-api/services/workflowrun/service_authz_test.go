@@ -183,6 +183,17 @@ func TestCreateWorkflowRun_Authz(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestUpdateWorkflowRun_Authz(t *testing.T) {
+	t.Run("nil input returns error without calling the internal service", func(t *testing.T) {
+		mockSvc := wfrmocks.NewMockService(t)
+		mockPDP := authzmocks.NewMockPDP(t)
+		// Neither GetWorkflowRun nor Evaluate should be called.
+
+		svc := newAuthzService(t, mockSvc, mockPDP)
+		_, err := svc.UpdateWorkflowRun(ctxWithSubject(), testNamespace, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot be nil")
+	})
+
 	t.Run("allowed delegates to internal service", func(t *testing.T) {
 		mockSvc := wfrmocks.NewMockService(t)
 		mockPDP := authzmocks.NewMockPDP(t)
