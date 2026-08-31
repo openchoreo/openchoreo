@@ -92,7 +92,7 @@ func NewHTTPServer(
 	}
 
 	// go-sdk wraps middleware[0] outermost in AddReceivingMiddleware — the
-	// opposite of APIMiddlewares' last-is-outermost convention. Audit goes
+	// opposite of OpenAPIMiddlewares' last-is-outermost convention. Audit goes
 	// first so it observes the authz filter's denials as well as tool
 	// successes and failures.
 	server.AddReceivingMiddleware(auditMw, filterMw)

@@ -73,7 +73,7 @@ func auditRecords(t *testing.T, buf *bytes.Buffer) []map[string]any {
 // TestAuditMiddlewareWired guards against a repeat of #2588 (audit silently
 // dropped during a refactor with no test catching it). It drives a real
 // request through newTestHTTPHandlerWithLogger, which builds its chain via
-// the same APIMiddlewares constructor production uses — removing audit from
+// the same OpenAPIMiddlewares constructor production uses — removing audit from
 // that function fails this test.
 func TestAuditMiddlewareWired(t *testing.T) {
 	var buf bytes.Buffer
@@ -224,7 +224,7 @@ func TestAuditMiddlewareWired_TraitCRUD(t *testing.T) {
 // counterpart to TestAuditMiddlewareWired_AllOperations' representative
 // sample: it proves every spec-derived apiaudit.GetOperations() entry
 // resolves against the live OpenAPI spec with a valid RESTResourceParam,
-// using the same construction path production takes (APIMiddlewares ->
+// using the same construction path production takes (OpenAPIMiddlewares ->
 // audit.NewMiddleware -> BuildPatternMap). A renamed operationId, a pattern
 // collision, or a RESTResourceParam typo fails here, not just at server
 // startup. Operations with NotInOpenAPISpec set (Exec, Wirelogs) are
@@ -379,7 +379,7 @@ var rejectingAuth gen.MiddlewareFunc = func(_ http.Handler) http.Handler {
 
 // TestAuditMiddlewareWired_UnauthenticatedRejection proves the outer
 // NewUnauthenticatedMiddleware instance is really wired into the production
-// chain (APIMiddlewares) and fires exactly once on a real auth rejection —
+// chain (OpenAPIMiddlewares) and fires exactly once on a real auth rejection —
 // a gap the inner instance alone can't close, since auth short-circuits
 // before ever calling next.
 func TestAuditMiddlewareWired_UnauthenticatedRejection(t *testing.T) {
@@ -395,7 +395,7 @@ func TestAuditMiddlewareWired_UnauthenticatedRejection(t *testing.T) {
 	h := &Handler{services: &handlerservices.Services{}, logger: logger}
 	strictHandler := gen.NewStrictHandler(h, nil)
 	mux := http.NewServeMux()
-	middlewares, err := APIMiddlewares(APIMiddlewareOptions{
+	middlewares, err := OpenAPIMiddlewares(OpenAPIMiddlewareOptions{
 		Logger:         logger,
 		AuthMiddleware: rejectingAuth,
 		AuditEmitter:   emitter,
@@ -446,17 +446,17 @@ func TestAuditMiddlewareWired_PanicOnAuthenticatedRouteEmitsExactlyOnce(t *testi
 	assert.Equal(t, "failure", records[0]["result"])
 }
 
-// TestAPIMiddlewares_ErrorsOnNilEmitter guards the loud-failure guard itself:
+// TestOpenAPIMiddlewares_ErrorsOnNilEmitter guards the loud-failure guard itself:
 // a nil AuditEmitter must fail at wiring time — as an error main.go turns
 // into a clean startup-failure log line, not a panic's stack trace — rather
 // than let audit silently disappear from the chain.
-func TestAPIMiddlewares_ErrorsOnNilEmitter(t *testing.T) {
-	middlewares, err := APIMiddlewares(APIMiddlewareOptions{
+func TestOpenAPIMiddlewares_ErrorsOnNilEmitter(t *testing.T) {
+	middlewares, err := OpenAPIMiddlewares(OpenAPIMiddlewareOptions{
 		Logger:         slog.Default(),
 		AuthMiddleware: injectTestSubject,
 		AuditEmitter:   nil,
 		AuditEnabled:   true,
 	})
-	require.Error(t, err, "expected APIMiddlewares to error when AuditEmitter is nil")
+	require.Error(t, err, "expected OpenAPIMiddlewares to error when AuditEmitter is nil")
 	assert.Nil(t, middlewares)
 }

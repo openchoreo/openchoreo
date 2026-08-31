@@ -51,7 +51,7 @@ func fakeAuth(authenticated bool) func(http.Handler) http.Handler {
 }
 
 // chain composes outer(fakeAuth(inner(handler))) — exactly the production
-// ordering (see APIMiddlewares: logger -> unauthenticatedAudit -> auth ->
+// ordering (see OpenAPIMiddlewares: logger -> unauthenticatedAudit -> auth ->
 // audit -> handler, with logger irrelevant to this package's tests).
 func chain(outer, auth func(http.Handler) http.Handler, inner *Middleware, handler http.Handler) http.Handler {
 	return outer(auth(inner.Handler(handler)))

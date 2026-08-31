@@ -246,7 +246,7 @@ func main() {
 			os.Exit(1)
 		}
 		// The audit middleware goes outside jwtMiddleware for the same reason
-		// it does in APIMiddlewares: auth answers a rejected request itself
+		// it does in OpenAPIMiddlewares: auth answers a rejected request itself
 		// and never calls next, so mcpaudit's own middleware — which lives
 		// inside the MCP server, below all of this — never sees a 401.
 		// Auth401Interceptor only adds a WWW-Authenticate header; it emits
@@ -299,21 +299,21 @@ func main() {
 	}
 
 	// Create OpenAPI handler with middleware chain. The chain's ordering rationale
-	// lives in openapihandlers.APIMiddlewares, the single place route middleware is
-	// composed. The generated routes are registered on the baseMux alongside /mcp.
-	apiMiddlewares, err := openapihandlers.APIMiddlewares(openapihandlers.APIMiddlewareOptions{
+	// lives in openapihandlers.OpenAPIMiddlewares, the single place route middleware
+	// is composed. The generated routes are registered on the baseMux alongside /mcp.
+	openapiMiddlewares, err := openapihandlers.OpenAPIMiddlewares(openapihandlers.OpenAPIMiddlewareOptions{
 		Logger:         logger,
 		AuthMiddleware: authMiddleware,
 		AuditEmitter:   auditEmitter,
 		AuditEnabled:   cfg.Audit.Enabled,
 	})
 	if err != nil {
-		logger.Error("Failed to build API middlewares", slog.Any("error", err))
+		logger.Error("Failed to build OpenAPI middlewares", slog.Any("error", err))
 		os.Exit(1)
 	}
 	handler := gen.HandlerWithOptions(strictHandler, gen.StdHTTPServerOptions{
 		BaseRouter:  baseMux,
-		Middlewares: apiMiddlewares,
+		Middlewares: openapiMiddlewares,
 	})
 
 	// Exec WebSocket and wirelogs endpoints are registered on a top-level mux
@@ -329,7 +329,7 @@ func main() {
 			logger.Error("Failed to build exec/wirelogs audit middleware", slog.Any("error", err))
 			os.Exit(1)
 		}
-		// Outside jwtMiddleware, mirroring APIMiddlewares' ordering: auth
+		// Outside jwtMiddleware, mirroring OpenAPIMiddlewares' ordering: auth
 		// short-circuits a rejected request and never calls next, so the
 		// pattern-map-driven middleware inside it never runs on a 401. These
 		// two routes reach the data plane — a live shell and a live traffic
