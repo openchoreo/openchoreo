@@ -16,21 +16,252 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/oapi-codegen/runtime"
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	externalRef0 "github.com/openchoreo/openchoreo/internal/observer/api/gen"
 )
 
+// Defines values for AlertRuleRequestConditionOperator.
+const (
+	AlertRuleRequestConditionOperatorEq  AlertRuleRequestConditionOperator = "eq"
+	AlertRuleRequestConditionOperatorGt  AlertRuleRequestConditionOperator = "gt"
+	AlertRuleRequestConditionOperatorGte AlertRuleRequestConditionOperator = "gte"
+	AlertRuleRequestConditionOperatorLt  AlertRuleRequestConditionOperator = "lt"
+	AlertRuleRequestConditionOperatorLte AlertRuleRequestConditionOperator = "lte"
+	AlertRuleRequestConditionOperatorNeq AlertRuleRequestConditionOperator = "neq"
+)
+
+// Defines values for AlertRuleRequestSourceMetric.
+const (
+	AlertRuleRequestSourceMetricBudget      AlertRuleRequestSourceMetric = "budget"
+	AlertRuleRequestSourceMetricCpuUsage    AlertRuleRequestSourceMetric = "cpu_usage"
+	AlertRuleRequestSourceMetricMemoryUsage AlertRuleRequestSourceMetric = "memory_usage"
+)
+
+// Defines values for AlertRuleRequestSourceType.
+const (
+	AlertRuleRequestSourceTypeBudget AlertRuleRequestSourceType = "budget"
+	AlertRuleRequestSourceTypeLog    AlertRuleRequestSourceType = "log"
+	AlertRuleRequestSourceTypeMetric AlertRuleRequestSourceType = "metric"
+)
+
+// Defines values for AlertRuleResponseConditionOperator.
+const (
+	AlertRuleResponseConditionOperatorEq  AlertRuleResponseConditionOperator = "eq"
+	AlertRuleResponseConditionOperatorGt  AlertRuleResponseConditionOperator = "gt"
+	AlertRuleResponseConditionOperatorGte AlertRuleResponseConditionOperator = "gte"
+	AlertRuleResponseConditionOperatorLt  AlertRuleResponseConditionOperator = "lt"
+	AlertRuleResponseConditionOperatorLte AlertRuleResponseConditionOperator = "lte"
+	AlertRuleResponseConditionOperatorNeq AlertRuleResponseConditionOperator = "neq"
+)
+
+// Defines values for AlertRuleResponseSourceMetric.
+const (
+	AlertRuleResponseSourceMetricBudget      AlertRuleResponseSourceMetric = "budget"
+	AlertRuleResponseSourceMetricCpuUsage    AlertRuleResponseSourceMetric = "cpu_usage"
+	AlertRuleResponseSourceMetricMemoryUsage AlertRuleResponseSourceMetric = "memory_usage"
+)
+
+// Defines values for AlertRuleResponseSourceType.
+const (
+	AlertRuleResponseSourceTypeBudget AlertRuleResponseSourceType = "budget"
+	AlertRuleResponseSourceTypeLog    AlertRuleResponseSourceType = "log"
+	AlertRuleResponseSourceTypeMetric AlertRuleResponseSourceType = "metric"
+)
+
+// Defines values for AlertWebhookResponseStatus.
+const (
+	AlertWebhookResponseStatusError   AlertWebhookResponseStatus = "error"
+	AlertWebhookResponseStatusSuccess AlertWebhookResponseStatus = "success"
+)
+
+// Defines values for AlertingRuleSyncResponseAction.
+const (
+	AlertingRuleSyncResponseActionCreated   AlertingRuleSyncResponseAction = "created"
+	AlertingRuleSyncResponseActionDeleted   AlertingRuleSyncResponseAction = "deleted"
+	AlertingRuleSyncResponseActionUnchanged AlertingRuleSyncResponseAction = "unchanged"
+	AlertingRuleSyncResponseActionUpdated   AlertingRuleSyncResponseAction = "updated"
+)
+
+// Defines values for AlertingRuleSyncResponseStatus.
+const (
+	AlertingRuleSyncResponseStatusFailed AlertingRuleSyncResponseStatus = "failed"
+	AlertingRuleSyncResponseStatusSynced AlertingRuleSyncResponseStatus = "synced"
+)
+
+// AlertRuleRequest defines model for AlertRuleRequest.
+type AlertRuleRequest struct {
+	Condition struct {
+		// Enabled Whether the alert rule is enabled
+		Enabled bool `json:"enabled"`
+
+		// Interval The interval of time to query for the alert rule
+		Interval string `json:"interval"`
+
+		// Operator The operator to use for the alert rule
+		Operator AlertRuleRequestConditionOperator `json:"operator"`
+
+		// Threshold The threshold value to use for the alert rule
+		Threshold float32 `json:"threshold"`
+
+		// Window The window of time to query for the alert rule
+		Window string `json:"window"`
+	} `json:"condition"`
+	Metadata struct {
+		// ComponentUid The OpenChoreo component UID to query
+		ComponentUid openapi_types.UUID `json:"componentUid"`
+
+		// EnvironmentUid The OpenChoreo environment UID to query
+		EnvironmentUid openapi_types.UUID `json:"environmentUid"`
+
+		// Name The name of the alert rule
+		Name string `json:"name"`
+
+		// Namespace The namespace of the alert rule CR
+		Namespace string `json:"namespace"`
+
+		// ProjectUid The OpenChoreo project UID to query
+		ProjectUid openapi_types.UUID `json:"projectUid"`
+	} `json:"metadata"`
+	Source struct {
+		// Metric The metric to query for metric based alerts
+		Metric *AlertRuleRequestSourceMetric `json:"metric,omitempty"`
+
+		// Query The query to execute for log based alerts
+		Query *string `json:"query,omitempty"`
+
+		// Type The type of the source
+		Type AlertRuleRequestSourceType `json:"type"`
+	} `json:"source"`
+}
+
+// AlertRuleRequestConditionOperator The operator to use for the alert rule
+type AlertRuleRequestConditionOperator string
+
+// AlertRuleRequestSourceMetric The metric to query for metric based alerts
+type AlertRuleRequestSourceMetric string
+
+// AlertRuleRequestSourceType The type of the source
+type AlertRuleRequestSourceType string
+
+// AlertRuleResponse defines model for AlertRuleResponse.
+type AlertRuleResponse struct {
+	Condition *struct {
+		// Enabled Whether the alert rule is enabled
+		Enabled *bool `json:"enabled,omitempty"`
+
+		// Interval The interval of time to query for the alert rule
+		Interval *string `json:"interval,omitempty"`
+
+		// Operator The operator to use for the alert rule
+		Operator *AlertRuleResponseConditionOperator `json:"operator,omitempty"`
+
+		// Threshold The threshold value to use for the alert rule
+		Threshold *float32 `json:"threshold,omitempty"`
+
+		// Window The window of time to query for the alert rule
+		Window *string `json:"window,omitempty"`
+	} `json:"condition,omitempty"`
+	Metadata *struct {
+		// ComponentUid The OpenChoreo component UID to query
+		ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
+
+		// EnvironmentUid The OpenChoreo environment UID to query
+		EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
+
+		// Name The name of the alert rule
+		Name *string `json:"name,omitempty"`
+
+		// Namespace The namespace of the alert rule CR
+		Namespace *string `json:"namespace,omitempty"`
+
+		// ProjectUid The OpenChoreo project UID to query
+		ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+	} `json:"metadata,omitempty"`
+	Source *struct {
+		// Metric The metric to query for metric based alerts
+		Metric *AlertRuleResponseSourceMetric `json:"metric,omitempty"`
+
+		// Query The query to execute for log based alerts
+		Query *string `json:"query,omitempty"`
+
+		// Type The type of the source
+		Type *AlertRuleResponseSourceType `json:"type,omitempty"`
+	} `json:"source,omitempty"`
+}
+
+// AlertRuleResponseConditionOperator The operator to use for the alert rule
+type AlertRuleResponseConditionOperator string
+
+// AlertRuleResponseSourceMetric The metric to query for metric based alerts
+type AlertRuleResponseSourceMetric string
+
+// AlertRuleResponseSourceType The type of the source
+type AlertRuleResponseSourceType string
+
+// AlertWebhookRequest defines model for AlertWebhookRequest.
+type AlertWebhookRequest struct {
+	// AlertTimestamp The timestamp of the alert
+	AlertTimestamp *time.Time `json:"alertTimestamp,omitempty"`
+
+	// AlertValue The value of the alert
+	AlertValue *float32 `json:"alertValue,omitempty"`
+
+	// RuleName The name of the alert rule
+	RuleName *string `json:"ruleName,omitempty"`
+
+	// RuleNamespace The namespace of the alert rule
+	RuleNamespace *string `json:"ruleNamespace,omitempty"`
+}
+
+// AlertWebhookResponse defines model for AlertWebhookResponse.
+type AlertWebhookResponse struct {
+	// Message The message of the alert webhook
+	Message *string `json:"message,omitempty"`
+
+	// Status The status of the alert webhook
+	Status *AlertWebhookResponseStatus `json:"status,omitempty"`
+}
+
+// AlertWebhookResponseStatus The status of the alert webhook
+type AlertWebhookResponseStatus string
+
+// AlertingRuleSyncResponse defines model for AlertingRuleSyncResponse.
+type AlertingRuleSyncResponse struct {
+	// Action The action taken on the alert rule
+	Action *AlertingRuleSyncResponseAction `json:"action,omitempty"`
+
+	// LastSyncedAt The timestamp of the last sync
+	LastSyncedAt *string `json:"lastSyncedAt,omitempty"`
+
+	// RuleBackendId The backend ID (UID from observability backend) of the alert rule
+	RuleBackendId *string `json:"ruleBackendId,omitempty"`
+
+	// RuleLogicalId The logical ID (name) of the alert rule
+	RuleLogicalId *string `json:"ruleLogicalId,omitempty"`
+
+	// Status The status of the alert rule
+	Status *AlertingRuleSyncResponseStatus `json:"status,omitempty"`
+}
+
+// AlertingRuleSyncResponseAction The action taken on the alert rule
+type AlertingRuleSyncResponseAction string
+
+// AlertingRuleSyncResponseStatus The status of the alert rule
+type AlertingRuleSyncResponseStatus string
+
 // CreateAlertRuleJSONRequestBody defines body for CreateAlertRule for application/json ContentType.
-type CreateAlertRuleJSONRequestBody = externalRef0.AlertRuleRequest
+type CreateAlertRuleJSONRequestBody = AlertRuleRequest
 
 // UpdateAlertRuleJSONRequestBody defines body for UpdateAlertRule for application/json ContentType.
-type UpdateAlertRuleJSONRequestBody = externalRef0.AlertRuleRequest
+type UpdateAlertRuleJSONRequestBody = AlertRuleRequest
 
 // HandleAlertWebhookJSONRequestBody defines body for HandleAlertWebhook for application/json ContentType.
-type HandleAlertWebhookJSONRequestBody = externalRef0.AlertWebhookRequest
+type HandleAlertWebhookJSONRequestBody = AlertWebhookRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -339,7 +570,7 @@ type CreateAlertRuleResponseObject interface {
 	VisitCreateAlertRuleResponse(w http.ResponseWriter) error
 }
 
-type CreateAlertRule201JSONResponse externalRef0.AlertingRuleSyncResponse
+type CreateAlertRule201JSONResponse AlertingRuleSyncResponse
 
 func (response CreateAlertRule201JSONResponse) VisitCreateAlertRuleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -384,7 +615,7 @@ type DeleteAlertRuleResponseObject interface {
 	VisitDeleteAlertRuleResponse(w http.ResponseWriter) error
 }
 
-type DeleteAlertRule200JSONResponse externalRef0.AlertingRuleSyncResponse
+type DeleteAlertRule200JSONResponse AlertingRuleSyncResponse
 
 func (response DeleteAlertRule200JSONResponse) VisitDeleteAlertRuleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -429,7 +660,7 @@ type GetAlertRuleResponseObject interface {
 	VisitGetAlertRuleResponse(w http.ResponseWriter) error
 }
 
-type GetAlertRule200JSONResponse externalRef0.AlertRuleResponse
+type GetAlertRule200JSONResponse AlertRuleResponse
 
 func (response GetAlertRule200JSONResponse) VisitGetAlertRuleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -475,7 +706,7 @@ type UpdateAlertRuleResponseObject interface {
 	VisitUpdateAlertRuleResponse(w http.ResponseWriter) error
 }
 
-type UpdateAlertRule200JSONResponse externalRef0.AlertingRuleSyncResponse
+type UpdateAlertRule200JSONResponse AlertingRuleSyncResponse
 
 func (response UpdateAlertRule200JSONResponse) VisitUpdateAlertRuleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -519,7 +750,7 @@ type HandleAlertWebhookResponseObject interface {
 	VisitHandleAlertWebhookResponse(w http.ResponseWriter) error
 }
 
-type HandleAlertWebhook200JSONResponse externalRef0.AlertWebhookResponse
+type HandleAlertWebhook200JSONResponse AlertWebhookResponse
 
 func (response HandleAlertWebhook200JSONResponse) VisitHandleAlertWebhookResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -749,44 +980,44 @@ func (sh *strictHandler) HandleAlertWebhook(w http.ResponseWriter, r *http.Reque
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"1Ebq8P8KdOO6eMLV26t/BwAA///8MgOZ4ysAAA==",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

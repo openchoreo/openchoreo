@@ -89,6 +89,9 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// GetOAuthProtectedResourceMetadata request
+	GetOAuthProtectedResourceMetadata(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// QueryEventsWithBody request with any body
 	QueryEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -145,6 +148,18 @@ type ClientInterface interface {
 
 	// Health request
 	Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) GetOAuthProtectedResourceMetadata(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetOAuthProtectedResourceMetadataRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) QueryEventsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -409,6 +424,33 @@ func (c *Client) Health(ctx context.Context, reqEditors ...RequestEditorFn) (*ht
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewGetOAuthProtectedResourceMetadataRequest generates requests for GetOAuthProtectedResourceMetadata
+func NewGetOAuthProtectedResourceMetadataRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/.well-known/oauth-protected-resource")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewQueryEventsRequest calls the generic QueryEvents builder with application/json body
@@ -1118,6 +1160,9 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// GetOAuthProtectedResourceMetadataWithResponse request
+	GetOAuthProtectedResourceMetadataWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOAuthProtectedResourceMetadataResp, error)
+
 	// QueryEventsWithBodyWithResponse request with any body
 	QueryEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryEventsResp, error)
 
@@ -1174,6 +1219,28 @@ type ClientWithResponsesInterface interface {
 
 	// HealthWithResponse request
 	HealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthResp, error)
+}
+
+type GetOAuthProtectedResourceMetadataResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *OAuthProtectedResourceMetadata
+}
+
+// Status returns HTTPResponse.Status
+func (r GetOAuthProtectedResourceMetadataResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetOAuthProtectedResourceMetadataResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type QueryEventsResp struct {
@@ -1520,6 +1587,15 @@ func (r HealthResp) StatusCode() int {
 	return 0
 }
 
+// GetOAuthProtectedResourceMetadataWithResponse request returning *GetOAuthProtectedResourceMetadataResp
+func (c *ClientWithResponses) GetOAuthProtectedResourceMetadataWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOAuthProtectedResourceMetadataResp, error) {
+	rsp, err := c.GetOAuthProtectedResourceMetadata(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetOAuthProtectedResourceMetadataResp(rsp)
+}
+
 // QueryEventsWithBodyWithResponse request with arbitrary body returning *QueryEventsResp
 func (c *ClientWithResponses) QueryEventsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryEventsResp, error) {
 	rsp, err := c.QueryEventsWithBody(ctx, contentType, body, reqEditors...)
@@ -1707,6 +1783,32 @@ func (c *ClientWithResponses) HealthWithResponse(ctx context.Context, reqEditors
 		return nil, err
 	}
 	return ParseHealthResp(rsp)
+}
+
+// ParseGetOAuthProtectedResourceMetadataResp parses an HTTP response from a GetOAuthProtectedResourceMetadataWithResponse call
+func ParseGetOAuthProtectedResourceMetadataResp(rsp *http.Response) (*GetOAuthProtectedResourceMetadataResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetOAuthProtectedResourceMetadataResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OAuthProtectedResourceMetadata
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseQueryEventsResp parses an HTTP response from a QueryEventsWithResponse call

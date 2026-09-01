@@ -126,9 +126,7 @@ func TestQueryLogs_ScopeAuthFailed_Returns500WithCode(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", validLogsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryLogs(rr, req)
+	rr := serve(t, h, req)
 
 	assertScopeAuthFailedResponse(t, rr)
 }
@@ -145,9 +143,7 @@ func TestQueryMetrics_ScopeAuthFailed_Returns500WithCode(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/metrics/query", validMetricsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryMetrics(rr, req)
+	rr := serve(t, h, req)
 
 	assertScopeAuthFailedResponse(t, rr)
 }
@@ -164,9 +160,7 @@ func TestQueryTraces_ScopeAuthFailed_Returns500WithCode(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryTraces(rr, req)
+	rr := serve(t, h, req)
 
 	assertScopeAuthFailedResponse(t, rr)
 }
@@ -183,10 +177,7 @@ func TestQuerySpans_ScopeAuthFailed_Returns500WithCode(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query", validTracesRequestBody(t))
-	req.SetPathValue("traceId", "trace-1")
-	rr := httptest.NewRecorder()
-
-	h.QuerySpansForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	assertScopeAuthFailedResponse(t, rr)
 }
@@ -203,11 +194,7 @@ func TestGetSpanDetails_ScopeAuthFailed_Returns500WithCode(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
-	req.SetPathValue("traceId", "trace-1")
-	req.SetPathValue("spanId", "span-1")
-	rr := httptest.NewRecorder()
-
-	h.GetSpanDetailsForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	assertScopeAuthFailedResponse(t, rr)
 }

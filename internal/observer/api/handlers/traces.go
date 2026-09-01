@@ -4,26 +4,26 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
-	"github.com/openchoreo/openchoreo/internal/observer/httputil"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 // QueryTraces handles POST /api/v1alpha1/traces/query
-func (h *Handler) QueryTraces(w http.ResponseWriter, r *http.Request) {
-	// 1. BIND REQUEST (from generated type)
-	var genReq gen.TracesQueryRequest
-	if err := httputil.BindJSON(r, &genReq); err != nil {
-		h.logger.Error("Failed to bind request", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", "Invalid request format")
-		return
+func (h *Handler) QueryTraces(
+	ctx context.Context,
+	request gen.QueryTracesRequestObject,
+) (gen.QueryTracesResponseObject, error) {
+	if request.Body == nil {
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", "Invalid request format"), nil
 	}
+	genReq := *request.Body
 
 	// Convert from generated type to internal type
 	sort := defaultSortOrder
@@ -47,82 +47,70 @@ func (h *Handler) QueryTraces(w http.ResponseWriter, r *http.Request) {
 	// 2. VALIDATE REQUEST
 	if err := ValidateTracesQueryRequest(&genReq); err != nil {
 		h.logger.Debug("Validation failed", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, types.ErrorCodeV1TracesInvalidRequest, err.Error())
-		return
+		return errorResponse(http.StatusBadRequest, gen.BadRequest,
+			types.ErrorCodeV1TracesInvalidRequest, err.Error()), nil
 	}
 
 	// 3. CHECK SERVICE INITIALIZATION
-	ctx := r.Context()
 	if h.tracesService == nil {
 		h.logger.Error("Traces service is not initialized")
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			types.ErrorCodeV1TracesServiceNotReady,
 			"Traces service is not initialized",
-		)
-		return
+		), nil
 	}
 
 	// 4. CALL SERVICE (authorization is enforced by the service layer)
 	result, err := h.tracesService.QueryTraces(ctx, req)
 	if err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
-			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
-			return
+			return errorResponse(http.StatusForbidden, gen.Forbidden, "", "Access denied"), nil
 		}
 		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
-			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
-			return
+			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
 		}
 		h.logger.Error("Failed to query traces", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
 		case errors.Is(err, service.ErrScopeAuthFailed):
-			h.writeErrorResponse(
-				w,
+			return errorResponse(
 				http.StatusInternalServerError,
 				gen.InternalServerError,
 				types.ErrorCodeV1ScopeAuthFailed,
 				"",
-			)
-			return
+			), nil
 		case errors.Is(err, service.ErrTracesResolveSearchScope):
 			errorCode = types.ErrorCodeV1TracesResolverFailed
 		case errors.Is(err, service.ErrTracesRetrieval):
 			errorCode = types.ErrorCodeV1TracesRetrievalFailed
 		case errors.Is(err, service.ErrTracesInvalidRequest):
 			errorCode = types.ErrorCodeV1TracesInvalidRequest
-			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, errorCode, "Invalid request")
-			return
+			return errorResponse(http.StatusBadRequest, gen.BadRequest, errorCode, "Invalid request"), nil
 		}
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			errorCode,
 			"Failed to retrieve traces",
-		)
-		return
+		), nil
 	}
 
 	// 5. CONVERT TO GENERATED TYPE AND RETURN
-	genResp := convertTracesResponseToGen(result)
-	h.writeJSON(w, http.StatusOK, genResp)
+	return jsonResponse(http.StatusOK, convertTracesResponseToGen(result)), nil
 }
 
 // QuerySpansForTrace handles POST /api/v1alpha1/traces/{traceId}/spans/query
-func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
-	traceID := r.PathValue("traceId")
-
-	// 1. BIND REQUEST (from generated type)
-	var genReq gen.TracesQueryRequest
-	if err := httputil.BindJSON(r, &genReq); err != nil {
-		h.logger.Error("Failed to bind request", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", "Invalid request format")
-		return
+func (h *Handler) QuerySpansForTrace(
+	ctx context.Context,
+	request gen.QuerySpansForTraceRequestObject,
+) (gen.QuerySpansForTraceResponseObject, error) {
+	if request.Body == nil {
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", "Invalid request format"), nil
 	}
+	traceID := request.TraceId
+	genReq := *request.Body
 
 	// Convert from generated type to internal type
 	sort := defaultSortOrder
@@ -147,138 +135,121 @@ func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
 	// 2. VALIDATE REQUEST
 	if err := ValidateTracesQueryRequest(&genReq); err != nil {
 		h.logger.Debug("Validation failed", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, types.ErrorCodeV1TracesInvalidRequest, err.Error())
-		return
+		return errorResponse(http.StatusBadRequest, gen.BadRequest,
+			types.ErrorCodeV1TracesInvalidRequest, err.Error()), nil
 	}
 
 	// 3. CHECK SERVICE INITIALIZATION
-	ctx := r.Context()
 	if h.tracesService == nil {
 		h.logger.Error("Traces service is not initialized")
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			types.ErrorCodeV1TracesServiceNotReady,
 			"Traces service is not initialized",
-		)
-		return
+		), nil
 	}
 
 	// 4. CALL SERVICE (authorization is enforced by the service layer)
 	result, err := h.tracesService.QuerySpans(ctx, traceID, req)
 	if err != nil {
 		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
-			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
-			return
+			return errorResponse(http.StatusForbidden, gen.Forbidden, "", "Access denied"), nil
 		}
 		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
-			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
-			return
+			return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized"), nil
 		}
 		h.logger.Error("Failed to query spans", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
 		case errors.Is(err, service.ErrScopeAuthFailed):
-			h.writeErrorResponse(
-				w,
+			return errorResponse(
 				http.StatusInternalServerError,
 				gen.InternalServerError,
 				types.ErrorCodeV1ScopeAuthFailed,
 				"",
-			)
-			return
+			), nil
 		case errors.Is(err, service.ErrTracesRetrieval):
 			errorCode = types.ErrorCodeV1TracesRetrievalFailed
 		case errors.Is(err, service.ErrTracesInvalidRequest):
 			errorCode = types.ErrorCodeV1TracesInvalidRequest
-			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, errorCode, "Invalid request")
-			return
+			return errorResponse(http.StatusBadRequest, gen.BadRequest, errorCode, "Invalid request"), nil
 		}
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			errorCode,
 			"Failed to retrieve spans",
-		)
-		return
+		), nil
 	}
 
 	// 5. CONVERT TO GENERATED TYPE AND RETURN
-	genResp := convertSpansResponseToGen(result, req.IncludeAttributes)
-	h.writeJSON(w, http.StatusOK, genResp)
+	return jsonResponse(http.StatusOK, convertSpansResponseToGen(result, req.IncludeAttributes)), nil
 }
 
 // GetSpanDetailsForTrace handles GET /api/v1alpha1/traces/{traceId}/spans/{spanId}
-func (h *Handler) GetSpanDetailsForTrace(w http.ResponseWriter, r *http.Request) {
-	traceID := r.PathValue("traceId")
-	spanID := r.PathValue("spanId")
+func (h *Handler) GetSpanDetailsForTrace(
+	ctx context.Context,
+	request gen.GetSpanDetailsForTraceRequestObject,
+) (gen.GetSpanDetailsForTraceResponseObject, error) {
+	traceID := request.TraceId
+	spanID := request.SpanId
 
 	h.logger.Debug("GetSpanDetailsForTrace called", "traceId", traceID, "spanId", spanID)
 
 	// 1. VALIDATE PATH PARAMETERS
 	if traceID == "" {
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, types.ErrorCodeV1TracesInvalidRequest, "traceId is required")
-		return
+		return errorResponse(http.StatusBadRequest, gen.BadRequest,
+			types.ErrorCodeV1TracesInvalidRequest, "traceId is required"), nil
 	}
 	if spanID == "" {
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, types.ErrorCodeV1TracesInvalidRequest, "spanId is required")
-		return
+		return errorResponse(http.StatusBadRequest, gen.BadRequest,
+			types.ErrorCodeV1TracesInvalidRequest, "spanId is required"), nil
 	}
 
 	// 2. CHECK SERVICE INITIALIZATION
 	if h.tracesService == nil {
 		h.logger.Error("Traces service is not initialized")
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			types.ErrorCodeV1TracesServiceNotReady,
 			"Traces service is not initialized",
-		)
-		return
+		), nil
 	}
 
 	// 3. CALL SERVICE
-	ctx := r.Context()
 	spanInfo, err := h.tracesService.GetSpanDetails(ctx, traceID, spanID)
 	if err != nil {
 		h.logger.Error("Failed to get span details", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
 		case errors.Is(err, service.ErrScopeAuthFailed):
-			h.writeErrorResponse(
-				w,
+			return errorResponse(
 				http.StatusInternalServerError,
 				gen.InternalServerError,
 				types.ErrorCodeV1ScopeAuthFailed,
 				"",
-			)
-			return
+			), nil
 		case errors.Is(err, service.ErrSpanNotFound):
-			h.writeErrorResponse(w, http.StatusNotFound, gen.NotFound, types.ErrorCodeV1TracesSpanNotFound, "Span not found")
-			return
+			return errorResponse(http.StatusNotFound, gen.NotFound,
+				types.ErrorCodeV1TracesSpanNotFound, "Span not found"), nil
 		case errors.Is(err, service.ErrTracesRetrieval):
 			errorCode = types.ErrorCodeV1TracesRetrievalFailed
 		case errors.Is(err, service.ErrTracesInvalidRequest):
 			errorCode = types.ErrorCodeV1TracesInvalidRequest
-			h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, errorCode, "Invalid request")
-			return
+			return errorResponse(http.StatusBadRequest, gen.BadRequest, errorCode, "Invalid request"), nil
 		}
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			errorCode,
 			"Failed to retrieve span details",
-		)
-		return
+		), nil
 	}
 
 	// 4. CONVERT TO GENERATED TYPE AND RETURN
-	genResp := convertSpanDetailsToGen(spanInfo)
-	h.writeJSON(w, http.StatusOK, genResp)
+	return jsonResponse(http.StatusOK, convertSpanDetailsToGen(spanInfo)), nil
 }
 
 // Helper functions

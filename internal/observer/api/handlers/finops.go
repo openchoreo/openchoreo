@@ -4,110 +4,93 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
-	"github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 // GetComponentCosts handles
 // GET /api/v1alpha1/costs/namespaces/{namespace}/environments/{environment}
-func (h *Handler) GetComponentCosts(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	req := types.CostQueryRequest{
-		Namespace:   r.PathValue("namespace"),
-		Environment: r.PathValue("environment"),
-		Project:     query.Get("project"),
-		Component:   query.Get("component"),
-		StartTime:   query.Get("startTime"),
-		EndTime:     query.Get("endTime"),
-		Granularity: query.Get("granularity"),
-	}
+//
+// startTime and endTime are declared required in the spec, so a missing one is
+// now rejected by the generated wrapper before this runs -- see
+// ParamBindingErrorHandler, which renders that as gen.ErrorResponse rather than
+// the generated default's plain text.
+func (h *Handler) GetComponentCosts(
+	ctx context.Context,
+	request gen.GetComponentCostsRequestObject,
+) (gen.GetComponentCostsResponseObject, error) {
+	req := toTypesCostQuery(request.Namespace, request.Environment, request.Params)
 
-	if err := ValidateCostQueryRequest(&req); err != nil {
+	if err := ValidateCostQueryRequest(req); err != nil {
 		h.logger.Debug("Cost query request validation failed", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", err.Error())
-		return
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", err.Error()), nil
 	}
 
 	if h.finOpsService == nil {
 		h.logger.Error("FinOps service is not initialized")
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			"",
 			"FinOps service is not initialized",
-		)
-		return
+		), nil
 	}
 
-	result, err := h.finOpsService.GetComponentCosts(r.Context(), &req)
+	result, err := h.finOpsService.GetComponentCosts(ctx, req)
 	if err != nil {
-		h.writeFinOpsError(w, err, "Failed to retrieve costs")
-		return
+		return h.finOpsError(err, "Failed to retrieve costs"), nil
 	}
 
-	h.writeJSON(w, http.StatusOK, result)
+	return jsonResponse(http.StatusOK, result), nil
 }
 
 // GetRecommendations handles
 // GET /api/v1alpha1/costs/namespaces/{namespace}/environments/{environment}/recommendations
-func (h *Handler) GetRecommendations(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	req := types.RecommendationQueryRequest{
-		Namespace:   r.PathValue("namespace"),
-		Environment: r.PathValue("environment"),
-		Project:     query.Get("project"),
-		Component:   query.Get("component"),
-		StartTime:   query.Get("startTime"),
-		EndTime:     query.Get("endTime"),
-	}
+func (h *Handler) GetRecommendations(
+	ctx context.Context,
+	request gen.GetRecommendationsRequestObject,
+) (gen.GetRecommendationsResponseObject, error) {
+	req := toTypesRecommendationQuery(request.Namespace, request.Environment, request.Params)
 
-	if err := ValidateRecommendationQueryRequest(&req); err != nil {
+	if err := ValidateRecommendationQueryRequest(req); err != nil {
 		h.logger.Debug("Recommendation query request validation failed", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", err.Error())
-		return
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", err.Error()), nil
 	}
 
 	if h.finOpsService == nil {
 		h.logger.Error("FinOps service is not initialized")
-		h.writeErrorResponse(
-			w,
+		return errorResponse(
 			http.StatusInternalServerError,
 			gen.InternalServerError,
 			"",
 			"FinOps service is not initialized",
-		)
-		return
+		), nil
 	}
 
-	result, err := h.finOpsService.GetRecommendations(r.Context(), &req)
+	result, err := h.finOpsService.GetRecommendations(ctx, req)
 	if err != nil {
-		h.writeFinOpsError(w, err, "Failed to retrieve recommendations")
-		return
+		return h.finOpsError(err, "Failed to retrieve recommendations"), nil
 	}
 
-	h.writeJSON(w, http.StatusOK, result)
+	return jsonResponse(http.StatusOK, result), nil
 }
 
-// writeFinOpsError maps FinOps service errors to HTTP responses.
-func (h *Handler) writeFinOpsError(w http.ResponseWriter, err error, genericMessage string) {
+// finOpsError maps FinOps service errors to the shared response type.
+func (h *Handler) finOpsError(err error, genericMessage string) apiResponse {
 	if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
-		h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
-		return
+		return errorResponse(http.StatusForbidden, gen.Forbidden, "", "Access denied")
 	}
 	if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
-		h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
-		return
+		return errorResponse(http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
 	}
 	if errors.Is(err, service.ErrFinOpsInvalidRequest) {
 		h.logger.Debug("Invalid finops request", "error", err)
-		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", err.Error())
-		return
+		return errorResponse(http.StatusBadRequest, gen.BadRequest, "", err.Error())
 	}
 
 	message := genericMessage
@@ -121,5 +104,5 @@ func (h *Handler) writeFinOpsError(w http.ResponseWriter, err error, genericMess
 	}
 
 	h.logger.Error("Failed to query cost data through the FinOps adapter", "error", err)
-	h.writeErrorResponse(w, http.StatusInternalServerError, gen.InternalServerError, "", message)
+	return errorResponse(http.StatusInternalServerError, gen.InternalServerError, "", message)
 }

@@ -39,9 +39,7 @@ func TestQueryTraces_Success(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryTraces(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
@@ -56,9 +54,7 @@ func TestQueryTraces_InvalidBody(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", strings.NewReader("{bad"))
 	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	h.QueryTraces(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -75,9 +71,7 @@ func TestQueryTraces_ValidationError(t *testing.T) {
 	body := `{"startTime":"2024-01-01T00:00:00Z","endTime":"2024-01-02T00:00:00Z","searchScope":{}}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	rr := httptest.NewRecorder()
-
-	h.QueryTraces(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -91,9 +85,7 @@ func TestQueryTraces_ServiceNotInitialized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryTraces(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesServiceNotReady)
@@ -111,9 +103,7 @@ func TestQueryTraces_AuthzForbidden(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryTraces(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
@@ -130,9 +120,7 @@ func TestQueryTraces_AuthzUnauthorized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryTraces(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
@@ -149,9 +137,7 @@ func TestQueryTraces_ResolveSearchScopeError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryTraces(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesResolverFailed)
@@ -169,9 +155,7 @@ func TestQueryTraces_RetrievalError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryTraces(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesRetrievalFailed)
@@ -189,9 +173,7 @@ func TestQueryTraces_InvalidRequestError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryTraces(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -208,9 +190,7 @@ func TestQueryTraces_GenericError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/query", validTracesRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryTraces(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesInternalGeneric)
@@ -231,9 +211,7 @@ func TestQuerySpansForTrace_Success(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query", validTracesRequestBody(t))
 	req.SetPathValue("traceId", "trace-1")
-	rr := httptest.NewRecorder()
-
-	h.QuerySpansForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
@@ -248,9 +226,7 @@ func TestQuerySpansForTrace_ServiceNotInitialized(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query", validTracesRequestBody(t))
 	req.SetPathValue("traceId", "trace-1")
-	rr := httptest.NewRecorder()
-
-	h.QuerySpansForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesServiceNotReady)
@@ -269,9 +245,7 @@ func TestQuerySpansForTrace_AuthzForbidden(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query", validTracesRequestBody(t))
 	req.SetPathValue("traceId", "trace-1")
-	rr := httptest.NewRecorder()
-
-	h.QuerySpansForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
@@ -289,9 +263,7 @@ func TestQuerySpansForTrace_RetrievalError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query", validTracesRequestBody(t))
 	req.SetPathValue("traceId", "trace-1")
-	rr := httptest.NewRecorder()
-
-	h.QuerySpansForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesRetrievalFailed)
@@ -310,9 +282,7 @@ func TestQuerySpansForTrace_InvalidRequestError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query", validTracesRequestBody(t))
 	req.SetPathValue("traceId", "trace-1")
-	rr := httptest.NewRecorder()
-
-	h.QuerySpansForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -330,9 +300,7 @@ func TestQuerySpansForTrace_GenericError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query", validTracesRequestBody(t))
 	req.SetPathValue("traceId", "trace-1")
-	rr := httptest.NewRecorder()
-
-	h.QuerySpansForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesInternalGeneric)
@@ -352,51 +320,9 @@ func TestGetSpanDetailsForTrace_Success(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
-	req.SetPathValue("traceId", "trace-1")
-	req.SetPathValue("spanId", "span-1")
-	rr := httptest.NewRecorder()
-
-	h.GetSpanDetailsForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-}
-
-func TestGetSpanDetailsForTrace_EmptyTraceID(t *testing.T) {
-	t.Parallel()
-
-	h := &Handler{
-		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: servicemocks.NewMockTracesQuerier(t),
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces//spans/span-1", nil)
-	req.SetPathValue("traceId", "")
-	req.SetPathValue("spanId", "span-1")
-	rr := httptest.NewRecorder()
-
-	h.GetSpanDetailsForTrace(rr, req)
-
-	require.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "traceId is required")
-}
-
-func TestGetSpanDetailsForTrace_EmptySpanID(t *testing.T) {
-	t.Parallel()
-
-	h := &Handler{
-		baseHandler:   baseHandler{logger: noopLogger()},
-		tracesService: servicemocks.NewMockTracesQuerier(t),
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/", nil)
-	req.SetPathValue("traceId", "trace-1")
-	req.SetPathValue("spanId", "")
-	rr := httptest.NewRecorder()
-
-	h.GetSpanDetailsForTrace(rr, req)
-
-	require.Equal(t, http.StatusBadRequest, rr.Code)
-	assert.Contains(t, rr.Body.String(), "spanId is required")
 }
 
 func TestGetSpanDetailsForTrace_ServiceNotInitialized(t *testing.T) {
@@ -408,11 +334,7 @@ func TestGetSpanDetailsForTrace_ServiceNotInitialized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
-	req.SetPathValue("traceId", "trace-1")
-	req.SetPathValue("spanId", "span-1")
-	rr := httptest.NewRecorder()
-
-	h.GetSpanDetailsForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesServiceNotReady)
@@ -430,11 +352,7 @@ func TestGetSpanDetailsForTrace_SpanNotFound(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-99", nil)
-	req.SetPathValue("traceId", "trace-1")
-	req.SetPathValue("spanId", "span-99")
-	rr := httptest.NewRecorder()
-
-	h.GetSpanDetailsForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusNotFound, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesSpanNotFound)
@@ -452,11 +370,7 @@ func TestGetSpanDetailsForTrace_RetrievalError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
-	req.SetPathValue("traceId", "trace-1")
-	req.SetPathValue("spanId", "span-1")
-	rr := httptest.NewRecorder()
-
-	h.GetSpanDetailsForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesRetrievalFailed)
@@ -474,11 +388,7 @@ func TestGetSpanDetailsForTrace_GenericError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1alpha1/traces/trace-1/spans/span-1", nil)
-	req.SetPathValue("traceId", "trace-1")
-	req.SetPathValue("spanId", "span-1")
-	rr := httptest.NewRecorder()
-
-	h.GetSpanDetailsForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), types.ErrorCodeV1TracesInternalGeneric)

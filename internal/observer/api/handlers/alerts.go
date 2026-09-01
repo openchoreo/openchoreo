@@ -19,17 +19,6 @@ import (
 // becomes a build error here rather than a silent routing divergence.
 var _ internalgen.StrictServerInterface = (*InternalHandler)(nil)
 
-// internalError builds the standard observer error payload. Every error path on
-// the internal API returns this shape, matching the pre-migration
-// writeErrorResponse output byte for byte.
-func internalError(title gen.ErrorResponseTitle, errorCode, message string) gen.ErrorResponse {
-	return gen.ErrorResponse{
-		Title:     &title,
-		ErrorCode: &errorCode,
-		Message:   &message,
-	}
-}
-
 // errNilServiceResponse guards a service returning (nil, nil), which the
 // AlertRuleService contract does not permit. The strict response types are value
 // types, so dereferencing without this check would panic. Before the migration
@@ -44,25 +33,25 @@ func (h *InternalHandler) CreateAlertRule(
 ) (internalgen.CreateAlertRuleResponseObject, error) {
 	if err := validateSourceType(request.SourceType); err != nil {
 		return internalgen.CreateAlertRule400JSONResponse(
-			internalError(gen.BadRequest, "INVALID_SOURCE_TYPE", err.Error())), nil
+			errorPayload(gen.BadRequest, "INVALID_SOURCE_TYPE", err.Error())), nil
 	}
 
 	if request.Body == nil {
 		return internalgen.CreateAlertRule400JSONResponse(
-			internalError(gen.BadRequest, "INVALID_REQUEST_BODY", "request body is required")), nil
+			errorPayload(gen.BadRequest, "INVALID_REQUEST_BODY", "request body is required")), nil
 	}
-	// The generated request-body type is an alias of gen.AlertRuleRequest, so
-	// this is the same type the service layer already takes.
+	// The generated request-body type is an alias of internalgen.AlertRuleRequest,
+	// so this is the same type the service layer already takes.
 	req := *request.Body
 
 	if err := validateAlertRuleRequest(req); err != nil {
 		return internalgen.CreateAlertRule400JSONResponse(
-			internalError(gen.BadRequest, "VALIDATION_ERROR", err.Error())), nil
+			errorPayload(gen.BadRequest, "VALIDATION_ERROR", err.Error())), nil
 	}
 
 	if string(req.Source.Type) != request.SourceType {
 		return internalgen.CreateAlertRule400JSONResponse(
-			internalError(gen.BadRequest, "SOURCE_TYPE_MISMATCH",
+			errorPayload(gen.BadRequest, "SOURCE_TYPE_MISMATCH",
 				fmt.Sprintf("path sourceType %q does not match body source.type %q",
 					request.SourceType, string(req.Source.Type)))), nil
 	}
@@ -71,18 +60,18 @@ func (h *InternalHandler) CreateAlertRule(
 	if err != nil {
 		if errors.Is(err, service.ErrAlertRuleAlreadyExists) {
 			return internalgen.CreateAlertRule409JSONResponse(
-				internalError(gen.Conflict, "ALREADY_EXISTS", err.Error())), nil
+				errorPayload(gen.Conflict, "ALREADY_EXISTS", err.Error())), nil
 		}
 		h.logger.Error("Failed to create alert rule", "error", err)
 		return internalgen.CreateAlertRule500JSONResponse(
-			internalError(gen.InternalServerError, "CREATE_FAILED",
+			errorPayload(gen.InternalServerError, "CREATE_FAILED",
 				"failed to create alert rule: "+err.Error())), nil
 	}
 
 	if resp == nil {
 		h.logger.Error("Failed to create alert rule", "error", errNilServiceResponse)
 		return internalgen.CreateAlertRule500JSONResponse(
-			internalError(gen.InternalServerError, "CREATE_FAILED",
+			errorPayload(gen.InternalServerError, "CREATE_FAILED",
 				"failed to create alert rule: "+errNilServiceResponse.Error())), nil
 	}
 
@@ -96,12 +85,12 @@ func (h *InternalHandler) GetAlertRule(
 ) (internalgen.GetAlertRuleResponseObject, error) {
 	if err := validateSourceType(request.SourceType); err != nil {
 		return internalgen.GetAlertRule400JSONResponse(
-			internalError(gen.BadRequest, "INVALID_SOURCE_TYPE", err.Error())), nil
+			errorPayload(gen.BadRequest, "INVALID_SOURCE_TYPE", err.Error())), nil
 	}
 
 	if request.RuleName == "" {
 		return internalgen.GetAlertRule400JSONResponse(
-			internalError(gen.BadRequest, "INVALID_RULE_NAME",
+			errorPayload(gen.BadRequest, "INVALID_RULE_NAME",
 				"ruleName path parameter is required")), nil
 	}
 
@@ -109,18 +98,18 @@ func (h *InternalHandler) GetAlertRule(
 	if err != nil {
 		if errors.Is(err, service.ErrAlertRuleNotFound) {
 			return internalgen.GetAlertRule404JSONResponse(
-				internalError(gen.NotFound, "NOT_FOUND", err.Error())), nil
+				errorPayload(gen.NotFound, "NOT_FOUND", err.Error())), nil
 		}
 		h.logger.Error("Failed to get alert rule", "error", err)
 		return internalgen.GetAlertRule500JSONResponse(
-			internalError(gen.InternalServerError, "GET_FAILED",
+			errorPayload(gen.InternalServerError, "GET_FAILED",
 				"failed to get alert rule: "+err.Error())), nil
 	}
 
 	if resp == nil {
 		h.logger.Error("Failed to get alert rule", "error", errNilServiceResponse)
 		return internalgen.GetAlertRule500JSONResponse(
-			internalError(gen.InternalServerError, "GET_FAILED",
+			errorPayload(gen.InternalServerError, "GET_FAILED",
 				"failed to get alert rule: "+errNilServiceResponse.Error())), nil
 	}
 
@@ -134,31 +123,31 @@ func (h *InternalHandler) UpdateAlertRule(
 ) (internalgen.UpdateAlertRuleResponseObject, error) {
 	if err := validateSourceType(request.SourceType); err != nil {
 		return internalgen.UpdateAlertRule400JSONResponse(
-			internalError(gen.BadRequest, "INVALID_SOURCE_TYPE", err.Error())), nil
+			errorPayload(gen.BadRequest, "INVALID_SOURCE_TYPE", err.Error())), nil
 	}
 
 	if request.RuleName == "" {
 		return internalgen.UpdateAlertRule400JSONResponse(
-			internalError(gen.BadRequest, "INVALID_RULE_NAME",
+			errorPayload(gen.BadRequest, "INVALID_RULE_NAME",
 				"ruleName path parameter is required")), nil
 	}
 
 	if request.Body == nil {
 		return internalgen.UpdateAlertRule400JSONResponse(
-			internalError(gen.BadRequest, "INVALID_REQUEST_BODY", "request body is required")), nil
+			errorPayload(gen.BadRequest, "INVALID_REQUEST_BODY", "request body is required")), nil
 	}
-	// The generated request-body type is an alias of gen.AlertRuleRequest, so
-	// this is the same type the service layer already takes.
+	// The generated request-body type is an alias of internalgen.AlertRuleRequest,
+	// so this is the same type the service layer already takes.
 	req := *request.Body
 
 	if err := validateAlertRuleRequest(req); err != nil {
 		return internalgen.UpdateAlertRule400JSONResponse(
-			internalError(gen.BadRequest, "VALIDATION_ERROR", err.Error())), nil
+			errorPayload(gen.BadRequest, "VALIDATION_ERROR", err.Error())), nil
 	}
 
 	if string(req.Source.Type) != request.SourceType {
 		return internalgen.UpdateAlertRule400JSONResponse(
-			internalError(gen.BadRequest, "SOURCE_TYPE_MISMATCH",
+			errorPayload(gen.BadRequest, "SOURCE_TYPE_MISMATCH",
 				fmt.Sprintf("path sourceType %q does not match body source.type %q",
 					request.SourceType, string(req.Source.Type)))), nil
 	}
@@ -167,18 +156,18 @@ func (h *InternalHandler) UpdateAlertRule(
 	if err != nil {
 		if errors.Is(err, service.ErrAlertRuleNotFound) {
 			return internalgen.UpdateAlertRule404JSONResponse(
-				internalError(gen.NotFound, "NOT_FOUND", err.Error())), nil
+				errorPayload(gen.NotFound, "NOT_FOUND", err.Error())), nil
 		}
 		h.logger.Error("Failed to update alert rule", "error", err)
 		return internalgen.UpdateAlertRule500JSONResponse(
-			internalError(gen.InternalServerError, "UPDATE_FAILED",
+			errorPayload(gen.InternalServerError, "UPDATE_FAILED",
 				"failed to update alert rule: "+err.Error())), nil
 	}
 
 	if resp == nil {
 		h.logger.Error("Failed to update alert rule", "error", errNilServiceResponse)
 		return internalgen.UpdateAlertRule500JSONResponse(
-			internalError(gen.InternalServerError, "UPDATE_FAILED",
+			errorPayload(gen.InternalServerError, "UPDATE_FAILED",
 				"failed to update alert rule: "+errNilServiceResponse.Error())), nil
 	}
 
@@ -192,12 +181,12 @@ func (h *InternalHandler) DeleteAlertRule(
 ) (internalgen.DeleteAlertRuleResponseObject, error) {
 	if err := validateSourceType(request.SourceType); err != nil {
 		return internalgen.DeleteAlertRule400JSONResponse(
-			internalError(gen.BadRequest, "INVALID_SOURCE_TYPE", err.Error())), nil
+			errorPayload(gen.BadRequest, "INVALID_SOURCE_TYPE", err.Error())), nil
 	}
 
 	if request.RuleName == "" {
 		return internalgen.DeleteAlertRule400JSONResponse(
-			internalError(gen.BadRequest, "INVALID_RULE_NAME",
+			errorPayload(gen.BadRequest, "INVALID_RULE_NAME",
 				"ruleName path parameter is required")), nil
 	}
 
@@ -205,18 +194,18 @@ func (h *InternalHandler) DeleteAlertRule(
 	if err != nil {
 		if errors.Is(err, service.ErrAlertRuleNotFound) {
 			return internalgen.DeleteAlertRule404JSONResponse(
-				internalError(gen.NotFound, "NOT_FOUND", err.Error())), nil
+				errorPayload(gen.NotFound, "NOT_FOUND", err.Error())), nil
 		}
 		h.logger.Error("Failed to delete alert rule", "error", err)
 		return internalgen.DeleteAlertRule500JSONResponse(
-			internalError(gen.InternalServerError, "DELETE_FAILED",
+			errorPayload(gen.InternalServerError, "DELETE_FAILED",
 				"failed to delete alert rule: "+err.Error())), nil
 	}
 
 	if resp == nil {
 		h.logger.Error("Failed to delete alert rule", "error", errNilServiceResponse)
 		return internalgen.DeleteAlertRule500JSONResponse(
-			internalError(gen.InternalServerError, "DELETE_FAILED",
+			errorPayload(gen.InternalServerError, "DELETE_FAILED",
 				"failed to delete alert rule: "+errNilServiceResponse.Error())), nil
 	}
 
@@ -230,32 +219,32 @@ func (h *InternalHandler) HandleAlertWebhook(
 ) (internalgen.HandleAlertWebhookResponseObject, error) {
 	if request.Body == nil {
 		return internalgen.HandleAlertWebhook400JSONResponse(
-			internalError(gen.BadRequest, "INVALID_REQUEST_BODY", "request body is required")), nil
+			errorPayload(gen.BadRequest, "INVALID_REQUEST_BODY", "request body is required")), nil
 	}
-	// Alias of gen.AlertWebhookRequest — see CreateAlertRule.
+	// Alias of internalgen.AlertWebhookRequest — see CreateAlertRule.
 	req := *request.Body
 
 	if req.RuleName == nil || *req.RuleName == "" {
 		return internalgen.HandleAlertWebhook400JSONResponse(
-			internalError(gen.BadRequest, "MISSING_RULE_NAME", "ruleName is required")), nil
+			errorPayload(gen.BadRequest, "MISSING_RULE_NAME", "ruleName is required")), nil
 	}
 	if req.RuleNamespace == nil || *req.RuleNamespace == "" {
 		return internalgen.HandleAlertWebhook400JSONResponse(
-			internalError(gen.BadRequest, "MISSING_RULE_NAMESPACE", "ruleNamespace is required")), nil
+			errorPayload(gen.BadRequest, "MISSING_RULE_NAMESPACE", "ruleNamespace is required")), nil
 	}
 
 	resp, err := h.alertService.HandleAlertWebhook(ctx, req)
 	if err != nil {
 		h.logger.Error("Failed to handle alert webhook", "error", err)
 		return internalgen.HandleAlertWebhook500JSONResponse(
-			internalError(gen.InternalServerError, "WEBHOOK_FAILED",
+			errorPayload(gen.InternalServerError, "WEBHOOK_FAILED",
 				"failed to handle alert webhook: "+err.Error())), nil
 	}
 
 	if resp == nil {
 		h.logger.Error("Failed to handle alert webhook", "error", errNilServiceResponse)
 		return internalgen.HandleAlertWebhook500JSONResponse(
-			internalError(gen.InternalServerError, "WEBHOOK_FAILED",
+			errorPayload(gen.InternalServerError, "WEBHOOK_FAILED",
 				"failed to handle alert webhook: "+errNilServiceResponse.Error())), nil
 	}
 

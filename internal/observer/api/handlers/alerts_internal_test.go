@@ -237,9 +237,9 @@ func TestCreateAlertRule_ServiceError(t *testing.T) {
 func TestCreateAlertRule_Success(t *testing.T) {
 	t.Parallel()
 
-	action := gen.AlertingRuleSyncResponseAction("created")
+	action := internalgen.AlertingRuleSyncResponseAction("created")
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("CreateAlertRule", mock.Anything, mock.Anything).Return(&gen.AlertingRuleSyncResponse{Action: &action}, nil)
+	svc.On("CreateAlertRule", mock.Anything, mock.Anything).Return(&internalgen.AlertingRuleSyncResponse{Action: &action}, nil)
 
 	rr := do(t, svc, http.MethodPost, rulesURL(sourceTypeLog), validAlertRuleBody(t))
 
@@ -307,7 +307,7 @@ func TestGetAlertRule_Success(t *testing.T) {
 	t.Parallel()
 
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&gen.AlertRuleResponse{}, nil)
+	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&internalgen.AlertRuleResponse{}, nil)
 
 	rr := do(t, svc, http.MethodGet, ruleURL(sourceTypeLog, "r1"), nil)
 
@@ -321,7 +321,7 @@ func TestGetAlertRule_PassesRuleNameFromPath(t *testing.T) {
 
 	svc := servicemocks.NewMockAlertRuleService(t)
 	svc.On("GetAlertRule", mock.Anything, "my-rule", sourceTypeLog).
-		Return(&gen.AlertRuleResponse{}, nil)
+		Return(&internalgen.AlertRuleResponse{}, nil)
 
 	rr := do(t, svc, http.MethodGet, ruleURL(sourceTypeLog, "my-rule"), nil)
 
@@ -393,9 +393,9 @@ func TestUpdateAlertRule_ServiceError(t *testing.T) {
 func TestUpdateAlertRule_Success(t *testing.T) {
 	t.Parallel()
 
-	action := gen.AlertingRuleSyncResponseAction("updated")
+	action := internalgen.AlertingRuleSyncResponseAction("updated")
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("UpdateAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&gen.AlertingRuleSyncResponse{Action: &action}, nil)
+	svc.On("UpdateAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&internalgen.AlertingRuleSyncResponse{Action: &action}, nil)
 
 	rr := do(t, svc, http.MethodPut, ruleURL(sourceTypeLog, "r1"), validAlertRuleBody(t))
 
@@ -452,9 +452,9 @@ func TestDeleteAlertRule_ServiceError(t *testing.T) {
 func TestDeleteAlertRule_Success(t *testing.T) {
 	t.Parallel()
 
-	action := gen.AlertingRuleSyncResponseAction("deleted")
+	action := internalgen.AlertingRuleSyncResponseAction("deleted")
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("DeleteAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&gen.AlertingRuleSyncResponse{Action: &action}, nil)
+	svc.On("DeleteAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&internalgen.AlertingRuleSyncResponse{Action: &action}, nil)
 
 	rr := do(t, svc, http.MethodDelete, ruleURL(sourceTypeLog, "r1"), nil)
 
@@ -479,7 +479,7 @@ func TestHandleAlertWebhook_MissingRuleName(t *testing.T) {
 	t.Parallel()
 
 	ns := testNS
-	b, err := json.Marshal(gen.AlertWebhookRequest{RuleNamespace: &ns})
+	b, err := json.Marshal(internalgen.AlertWebhookRequest{RuleNamespace: &ns})
 	require.NoError(t, err)
 
 	rr := do(t, servicemocks.NewMockAlertRuleService(t),
@@ -493,7 +493,7 @@ func TestHandleAlertWebhook_MissingRuleNamespace(t *testing.T) {
 	t.Parallel()
 
 	name := testRuleName
-	b, err := json.Marshal(gen.AlertWebhookRequest{RuleName: &name})
+	b, err := json.Marshal(internalgen.AlertWebhookRequest{RuleName: &name})
 	require.NoError(t, err)
 
 	rr := do(t, servicemocks.NewMockAlertRuleService(t),
@@ -510,7 +510,7 @@ func TestHandleAlertWebhook_ServiceError(t *testing.T) {
 	svc.On("HandleAlertWebhook", mock.Anything, mock.Anything).Return(nil, errors.New("processing failed"))
 
 	name, ns := testRuleName, testNS
-	b, err := json.Marshal(gen.AlertWebhookRequest{RuleName: &name, RuleNamespace: &ns})
+	b, err := json.Marshal(internalgen.AlertWebhookRequest{RuleName: &name, RuleNamespace: &ns})
 	require.NoError(t, err)
 
 	rr := do(t, svc, http.MethodPost, webhookURL, bytes.NewReader(b))
@@ -523,13 +523,13 @@ func TestHandleAlertWebhook_Success(t *testing.T) {
 	t.Parallel()
 
 	msg := "processed"
-	status := gen.AlertWebhookResponseStatus("ok")
+	status := internalgen.AlertWebhookResponseStatus("ok")
 	svc := servicemocks.NewMockAlertRuleService(t)
 	svc.On("HandleAlertWebhook", mock.Anything, mock.Anything).
-		Return(&gen.AlertWebhookResponse{Message: &msg, Status: &status}, nil)
+		Return(&internalgen.AlertWebhookResponse{Message: &msg, Status: &status}, nil)
 
 	name, ns := testRuleName, testNS
-	b, err := json.Marshal(gen.AlertWebhookRequest{RuleName: &name, RuleNamespace: &ns})
+	b, err := json.Marshal(internalgen.AlertWebhookRequest{RuleName: &name, RuleNamespace: &ns})
 	require.NoError(t, err)
 
 	rr := do(t, svc, http.MethodPost, webhookURL, bytes.NewReader(b))
@@ -543,9 +543,9 @@ func TestHandleAlertWebhook_Success(t *testing.T) {
 func TestCreateAlertRule_Budget_Success(t *testing.T) {
 	t.Parallel()
 
-	action := gen.AlertingRuleSyncResponseAction("created")
+	action := internalgen.AlertingRuleSyncResponseAction("created")
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("CreateAlertRule", mock.Anything, mock.Anything).Return(&gen.AlertingRuleSyncResponse{Action: &action}, nil)
+	svc.On("CreateAlertRule", mock.Anything, mock.Anything).Return(&internalgen.AlertingRuleSyncResponse{Action: &action}, nil)
 
 	// Budget alert: no query or metric needed, just threshold and window.
 	uid := "00000000-0000-0000-0000-000000000001"
@@ -581,7 +581,7 @@ func TestGetAlertRule_Budget_Success(t *testing.T) {
 	t.Parallel()
 
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&gen.AlertRuleResponse{}, nil)
+	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&internalgen.AlertRuleResponse{}, nil)
 
 	rr := do(t, svc, http.MethodGet, ruleURL(sourceTypeBudget, "r1"), nil)
 
@@ -646,7 +646,7 @@ func TestInternalHandlers_NilServiceResponse(t *testing.T) {
 			body: func(t *testing.T) io.Reader {
 				t.Helper()
 				name, ns := testRuleName, testNS
-				b, err := json.Marshal(gen.AlertWebhookRequest{RuleName: &name, RuleNamespace: &ns})
+				b, err := json.Marshal(internalgen.AlertWebhookRequest{RuleName: &name, RuleNamespace: &ns})
 				require.NoError(t, err)
 				return bytes.NewReader(b)
 			},

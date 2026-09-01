@@ -15,74 +15,6 @@ const (
 	BearerAuthScopes = "BearerAuth.Scopes"
 )
 
-// Defines values for AlertRuleRequestConditionOperator.
-const (
-	AlertRuleRequestConditionOperatorEq  AlertRuleRequestConditionOperator = "eq"
-	AlertRuleRequestConditionOperatorGt  AlertRuleRequestConditionOperator = "gt"
-	AlertRuleRequestConditionOperatorGte AlertRuleRequestConditionOperator = "gte"
-	AlertRuleRequestConditionOperatorLt  AlertRuleRequestConditionOperator = "lt"
-	AlertRuleRequestConditionOperatorLte AlertRuleRequestConditionOperator = "lte"
-	AlertRuleRequestConditionOperatorNeq AlertRuleRequestConditionOperator = "neq"
-)
-
-// Defines values for AlertRuleRequestSourceMetric.
-const (
-	AlertRuleRequestSourceMetricBudget      AlertRuleRequestSourceMetric = "budget"
-	AlertRuleRequestSourceMetricCpuUsage    AlertRuleRequestSourceMetric = "cpu_usage"
-	AlertRuleRequestSourceMetricMemoryUsage AlertRuleRequestSourceMetric = "memory_usage"
-)
-
-// Defines values for AlertRuleRequestSourceType.
-const (
-	AlertRuleRequestSourceTypeBudget AlertRuleRequestSourceType = "budget"
-	AlertRuleRequestSourceTypeLog    AlertRuleRequestSourceType = "log"
-	AlertRuleRequestSourceTypeMetric AlertRuleRequestSourceType = "metric"
-)
-
-// Defines values for AlertRuleResponseConditionOperator.
-const (
-	AlertRuleResponseConditionOperatorEq  AlertRuleResponseConditionOperator = "eq"
-	AlertRuleResponseConditionOperatorGt  AlertRuleResponseConditionOperator = "gt"
-	AlertRuleResponseConditionOperatorGte AlertRuleResponseConditionOperator = "gte"
-	AlertRuleResponseConditionOperatorLt  AlertRuleResponseConditionOperator = "lt"
-	AlertRuleResponseConditionOperatorLte AlertRuleResponseConditionOperator = "lte"
-	AlertRuleResponseConditionOperatorNeq AlertRuleResponseConditionOperator = "neq"
-)
-
-// Defines values for AlertRuleResponseSourceMetric.
-const (
-	AlertRuleResponseSourceMetricBudget      AlertRuleResponseSourceMetric = "budget"
-	AlertRuleResponseSourceMetricCpuUsage    AlertRuleResponseSourceMetric = "cpu_usage"
-	AlertRuleResponseSourceMetricMemoryUsage AlertRuleResponseSourceMetric = "memory_usage"
-)
-
-// Defines values for AlertRuleResponseSourceType.
-const (
-	AlertRuleResponseSourceTypeBudget AlertRuleResponseSourceType = "budget"
-	AlertRuleResponseSourceTypeLog    AlertRuleResponseSourceType = "log"
-	AlertRuleResponseSourceTypeMetric AlertRuleResponseSourceType = "metric"
-)
-
-// Defines values for AlertWebhookResponseStatus.
-const (
-	AlertWebhookResponseStatusError   AlertWebhookResponseStatus = "error"
-	AlertWebhookResponseStatusSuccess AlertWebhookResponseStatus = "success"
-)
-
-// Defines values for AlertingRuleSyncResponseAction.
-const (
-	Created   AlertingRuleSyncResponseAction = "created"
-	Deleted   AlertingRuleSyncResponseAction = "deleted"
-	Unchanged AlertingRuleSyncResponseAction = "unchanged"
-	Updated   AlertingRuleSyncResponseAction = "updated"
-)
-
-// Defines values for AlertingRuleSyncResponseStatus.
-const (
-	Failed AlertingRuleSyncResponseStatus = "failed"
-	Synced AlertingRuleSyncResponseStatus = "synced"
-)
-
 // Defines values for AlertsQueryRequestSortOrder.
 const (
 	AlertsQueryRequestSortOrderAsc  AlertsQueryRequestSortOrder = "asc"
@@ -198,9 +130,9 @@ const (
 
 // Defines values for SpanStatusCode.
 const (
-	SpanStatusCodeError SpanStatusCode = "error"
-	SpanStatusCodeOk    SpanStatusCode = "ok"
-	SpanStatusCodeUnset SpanStatusCode = "unset"
+	Error SpanStatusCode = "error"
+	Ok    SpanStatusCode = "ok"
+	Unset SpanStatusCode = "unset"
 )
 
 // Defines values for TracesQueryRequestSortOrder.
@@ -208,167 +140,6 @@ const (
 	Asc  TracesQueryRequestSortOrder = "asc"
 	Desc TracesQueryRequestSortOrder = "desc"
 )
-
-// AlertRuleRequest defines model for AlertRuleRequest.
-type AlertRuleRequest struct {
-	Condition struct {
-		// Enabled Whether the alert rule is enabled
-		Enabled bool `json:"enabled"`
-
-		// Interval The interval of time to query for the alert rule
-		Interval string `json:"interval"`
-
-		// Operator The operator to use for the alert rule
-		Operator AlertRuleRequestConditionOperator `json:"operator"`
-
-		// Threshold The threshold value to use for the alert rule
-		Threshold float32 `json:"threshold"`
-
-		// Window The window of time to query for the alert rule
-		Window string `json:"window"`
-	} `json:"condition"`
-	Metadata struct {
-		// ComponentUid The OpenChoreo component UID to query
-		ComponentUid openapi_types.UUID `json:"componentUid"`
-
-		// EnvironmentUid The OpenChoreo environment UID to query
-		EnvironmentUid openapi_types.UUID `json:"environmentUid"`
-
-		// Name The name of the alert rule
-		Name string `json:"name"`
-
-		// Namespace The namespace of the alert rule CR
-		Namespace string `json:"namespace"`
-
-		// ProjectUid The OpenChoreo project UID to query
-		ProjectUid openapi_types.UUID `json:"projectUid"`
-	} `json:"metadata"`
-	Source struct {
-		// Metric The metric to query for metric based alerts
-		Metric *AlertRuleRequestSourceMetric `json:"metric,omitempty"`
-
-		// Query The query to execute for log based alerts
-		Query *string `json:"query,omitempty"`
-
-		// Type The type of the source
-		Type AlertRuleRequestSourceType `json:"type"`
-	} `json:"source"`
-}
-
-// AlertRuleRequestConditionOperator The operator to use for the alert rule
-type AlertRuleRequestConditionOperator string
-
-// AlertRuleRequestSourceMetric The metric to query for metric based alerts
-type AlertRuleRequestSourceMetric string
-
-// AlertRuleRequestSourceType The type of the source
-type AlertRuleRequestSourceType string
-
-// AlertRuleResponse defines model for AlertRuleResponse.
-type AlertRuleResponse struct {
-	Condition *struct {
-		// Enabled Whether the alert rule is enabled
-		Enabled *bool `json:"enabled,omitempty"`
-
-		// Interval The interval of time to query for the alert rule
-		Interval *string `json:"interval,omitempty"`
-
-		// Operator The operator to use for the alert rule
-		Operator *AlertRuleResponseConditionOperator `json:"operator,omitempty"`
-
-		// Threshold The threshold value to use for the alert rule
-		Threshold *float32 `json:"threshold,omitempty"`
-
-		// Window The window of time to query for the alert rule
-		Window *string `json:"window,omitempty"`
-	} `json:"condition,omitempty"`
-	Metadata *struct {
-		// ComponentUid The OpenChoreo component UID to query
-		ComponentUid *openapi_types.UUID `json:"componentUid,omitempty"`
-
-		// EnvironmentUid The OpenChoreo environment UID to query
-		EnvironmentUid *openapi_types.UUID `json:"environmentUid,omitempty"`
-
-		// Name The name of the alert rule
-		Name *string `json:"name,omitempty"`
-
-		// Namespace The namespace of the alert rule CR
-		Namespace *string `json:"namespace,omitempty"`
-
-		// ProjectUid The OpenChoreo project UID to query
-		ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
-	} `json:"metadata,omitempty"`
-	Source *struct {
-		// Metric The metric to query for metric based alerts
-		Metric *AlertRuleResponseSourceMetric `json:"metric,omitempty"`
-
-		// Query The query to execute for log based alerts
-		Query *string `json:"query,omitempty"`
-
-		// Type The type of the source
-		Type *AlertRuleResponseSourceType `json:"type,omitempty"`
-	} `json:"source,omitempty"`
-}
-
-// AlertRuleResponseConditionOperator The operator to use for the alert rule
-type AlertRuleResponseConditionOperator string
-
-// AlertRuleResponseSourceMetric The metric to query for metric based alerts
-type AlertRuleResponseSourceMetric string
-
-// AlertRuleResponseSourceType The type of the source
-type AlertRuleResponseSourceType string
-
-// AlertWebhookRequest defines model for AlertWebhookRequest.
-type AlertWebhookRequest struct {
-	// AlertTimestamp The timestamp of the alert
-	AlertTimestamp *time.Time `json:"alertTimestamp,omitempty"`
-
-	// AlertValue The value of the alert
-	AlertValue *float32 `json:"alertValue,omitempty"`
-
-	// RuleName The name of the alert rule
-	RuleName *string `json:"ruleName,omitempty"`
-
-	// RuleNamespace The namespace of the alert rule
-	RuleNamespace *string `json:"ruleNamespace,omitempty"`
-}
-
-// AlertWebhookResponse defines model for AlertWebhookResponse.
-type AlertWebhookResponse struct {
-	// Message The message of the alert webhook
-	Message *string `json:"message,omitempty"`
-
-	// Status The status of the alert webhook
-	Status *AlertWebhookResponseStatus `json:"status,omitempty"`
-}
-
-// AlertWebhookResponseStatus The status of the alert webhook
-type AlertWebhookResponseStatus string
-
-// AlertingRuleSyncResponse defines model for AlertingRuleSyncResponse.
-type AlertingRuleSyncResponse struct {
-	// Action The action taken on the alert rule
-	Action *AlertingRuleSyncResponseAction `json:"action,omitempty"`
-
-	// LastSyncedAt The timestamp of the last sync
-	LastSyncedAt *string `json:"lastSyncedAt,omitempty"`
-
-	// RuleBackendId The backend ID (UID from observability backend) of the alert rule
-	RuleBackendId *string `json:"ruleBackendId,omitempty"`
-
-	// RuleLogicalId The logical ID (name) of the alert rule
-	RuleLogicalId *string `json:"ruleLogicalId,omitempty"`
-
-	// Status The status of the alert rule
-	Status *AlertingRuleSyncResponseStatus `json:"status,omitempty"`
-}
-
-// AlertingRuleSyncResponseAction The action taken on the alert rule
-type AlertingRuleSyncResponseAction string
-
-// AlertingRuleSyncResponseStatus The status of the alert rule
-type AlertingRuleSyncResponseStatus string
 
 // AlertsQueryRequest defines model for AlertsQueryRequest.
 type AlertsQueryRequest struct {
@@ -964,6 +735,29 @@ type MetricsTimeSeriesItem struct {
 
 	// Value The value of the time series item
 	Value *float64 `json:"value,omitempty"`
+}
+
+// OAuthProtectedResourceMetadata OAuth 2.0 protected resource metadata as defined in RFC 9728.
+// `openchoreo_security_enabled` is an OpenChoreo extension, permitted by
+// RFC 9728 §2.
+type OAuthProtectedResourceMetadata struct {
+	// AuthorizationServers List of authorization server URLs
+	AuthorizationServers []string `json:"authorization_servers"`
+
+	// BearerMethodsSupported Supported bearer token methods
+	BearerMethodsSupported []string `json:"bearer_methods_supported"`
+
+	// OpenchoreoSecurityEnabled Whether authentication is enforced on this server
+	OpenchoreoSecurityEnabled *bool `json:"openchoreo_security_enabled,omitempty"`
+
+	// Resource URL of the protected resource
+	Resource string `json:"resource"`
+
+	// ResourceName Human-readable name of the protected resource
+	ResourceName string `json:"resource_name"`
+
+	// ScopesSupported Supported OAuth scopes
+	ScopesSupported []string `json:"scopes_supported"`
 }
 
 // RecommendationResponse defines model for RecommendationResponse.

@@ -41,10 +41,7 @@ func TestUpdateIncident_AuthzForbidden(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
 		bytes.NewReader([]byte(`{"status":"active"}`)))
-	req.SetPathValue("incidentId", "inc-1")
-	rr := httptest.NewRecorder()
-
-	h.UpdateIncident(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
@@ -62,10 +59,7 @@ func TestUpdateIncident_AuthzUnauthorized(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
 		bytes.NewReader([]byte(`{"status":"active"}`)))
-	req.SetPathValue("incidentId", "inc-1")
-	rr := httptest.NewRecorder()
-
-	h.UpdateIncident(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
@@ -83,10 +77,7 @@ func TestUpdateIncident_AuthzServiceUnavailable(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
 		bytes.NewReader([]byte(`{"status":"active"}`)))
-	req.SetPathValue("incidentId", "inc-1")
-	rr := httptest.NewRecorder()
-
-	h.UpdateIncident(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 }
@@ -104,10 +95,7 @@ func TestUpdateIncident_InvalidStatusTransition(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
 		bytes.NewReader([]byte(`{"status":"active"}`)))
-	req.SetPathValue("incidentId", "inc-1")
-	rr := httptest.NewRecorder()
-
-	h.UpdateIncident(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "INVALID_STATUS_TRANSITION")
@@ -126,10 +114,7 @@ func TestUpdateIncident_GenericError(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
 		bytes.NewReader([]byte(`{"status":"active"}`)))
-	req.SetPathValue("incidentId", "inc-1")
-	rr := httptest.NewRecorder()
-
-	h.UpdateIncident(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "UPDATE_INCIDENT_FAILED")
@@ -145,10 +130,7 @@ func TestUpdateIncident_ServiceNotInitialized(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
 		bytes.NewReader([]byte(`{"status":"active"}`)))
-	req.SetPathValue("incidentId", "inc-1")
-	rr := httptest.NewRecorder()
-
-	h.UpdateIncident(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "SERVICE_NOT_READY")
@@ -162,12 +144,13 @@ func TestUpdateIncident_EmptyIncidentID(t *testing.T) {
 		alertIncidentService: servicemocks.NewMockAlertIncidentService(t),
 	}
 
-	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/",
+	// A whitespace-only incidentId, percent-encoded so the mux still matches the
+	// {incidentId} segment (it only rejects an empty one). This is the case the
+	// handler's TrimSpace check exists for: routing accepts it, the handler must
+	// not.
+	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/%20%20%20",
 		bytes.NewReader([]byte(`{"status":"active"}`)))
-	req.SetPathValue("incidentId", "   ") // whitespace only
-	rr := httptest.NewRecorder()
-
-	h.UpdateIncident(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "INVALID_INCIDENT_ID")
@@ -240,10 +223,7 @@ func TestUpdateIncident_InvalidBody(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
 		bytes.NewReader([]byte("{bad json")))
-	req.SetPathValue("incidentId", "inc-1")
-	rr := httptest.NewRecorder()
-
-	h.UpdateIncident(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "INVALID_REQUEST_BODY")
@@ -260,10 +240,7 @@ func TestUpdateIncident_ValidationError(t *testing.T) {
 	// status "pending" is not a valid value → ValidateIncidentPutRequest returns error.
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1",
 		bytes.NewReader([]byte(`{"status":"pending"}`)))
-	req.SetPathValue("incidentId", "inc-1")
-	rr := httptest.NewRecorder()
-
-	h.UpdateIncident(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
@@ -313,10 +290,7 @@ func TestQuerySpansForTrace_InvalidBody(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query",
 		bytes.NewReader([]byte("{bad")))
 	req.Header.Set("Content-Type", "application/json")
-	req.SetPathValue("traceId", "trace-1")
-	rr := httptest.NewRecorder()
-
-	h.QuerySpansForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -336,10 +310,7 @@ func TestQuerySpansForTrace_ValidationError(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/traces/trace-1/spans/query",
 		bytes.NewReader(raw))
-	req.SetPathValue("traceId", "trace-1")
-	rr := httptest.NewRecorder()
-
-	h.QuerySpansForTrace(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -358,9 +329,7 @@ func TestQueryIncidents_AuthzServiceUnavailable(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 }

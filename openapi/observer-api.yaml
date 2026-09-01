@@ -14,13 +14,6 @@ info:
     This spec covers the observer's **public** API, served on the main server
     port and reachable through the gateway. Every operation here requires a
     Bearer token except `/health`.
-
-    **Moved:** the internal alert-rule CRUD and alert-webhook operations that
-    this spec used to declare now live in `observer-internal-api.yaml`. They are
-    served on the observer's internal port (`INTERNAL_PORT`, default 8081) as a
-    cluster-local ClusterIP Service and were never reachable from outside the
-    cluster, so no externally reachable endpoint changed. Shared schemas remain
-    defined here and are referenced from the internal spec.
   version: 1.0.0
   contact:
     name: OpenChoreo Team
@@ -74,6 +67,28 @@ paths:
                   error:
                     type: string
                     example: "opensearch: connection failed"
+
+  /.well-known/oauth-protected-resource:
+    get:
+      tags:
+        - Operations
+      summary: Get OAuth protected resource metadata
+      description: |
+        Returns OAuth 2.0 protected resource metadata as defined in RFC 9728,
+        describing the observer's `/mcp` endpoint. MCP clients fetch this to
+        discover the authorization server and the scopes to request.
+
+        Public by specification: a client must be able to read this before it
+        has a token.
+      operationId: getOAuthProtectedResourceMetadata
+      security: []
+      responses:
+        "200":
+          description: OAuth protected resource metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthProtectedResourceMetadata"
 
   # Logs query endpoint
   /api/v1/logs/query:
@@ -1539,211 +1554,6 @@ components:
             Developer-facing human-readable status description. Typically set
             only when code is "error".
 
-    # Request schemas for alert rules
-    AlertRuleRequest:
-      type: object
-      required: [metadata, source, condition]
-      properties:
-        metadata:
-          type: object
-          required: [name, namespace, projectUid, environmentUid, componentUid]
-          properties:
-            name:
-              type: string
-              description: The name of the alert rule
-            namespace:
-              type: string
-              description: The namespace of the alert rule CR
-            projectUid:
-              type: string
-              description: The OpenChoreo project UID to query
-              format: uuid
-            environmentUid:
-              type: string
-              description: The OpenChoreo environment UID to query
-              format: uuid
-            componentUid:
-              type: string
-              description: The OpenChoreo component UID to query
-              format: uuid
-        source:
-          type: object
-          required: [type]
-          properties:
-            type:
-              type: string
-              description: The type of the source
-              enum:
-                - log
-                - metric
-                - budget
-            query:
-              type: string
-              description: The query to execute for log based alerts
-            metric:
-              type: string
-              description: The metric to query for metric based alerts
-              enum:
-                - cpu_usage
-                - memory_usage
-                - budget
-        condition:
-          type: object
-          required: [enabled, window, interval, operator, threshold]
-          properties:
-            enabled:
-              type: boolean
-              description: Whether the alert rule is enabled
-            window:
-              type: string
-              description: The window of time to query for the alert rule
-            interval:
-              type: string
-              description: The interval of time to query for the alert rule
-            operator:
-              type: string
-              description: The operator to use for the alert rule
-              enum:
-                - gt
-                - gte
-                - lt
-                - lte
-                - eq
-                - neq
-            threshold:
-              type: number
-              description: The threshold value to use for the alert rule
-
-    # Response schemas for alert rules
-    AlertRuleResponse:
-      type: object
-      properties:
-        metadata:
-          type: object
-          properties:
-            name:
-              type: string
-              description: The name of the alert rule
-            namespace:
-              type: string
-              description: The namespace of the alert rule CR
-            projectUid:
-              type: string
-              description: The OpenChoreo project UID to query
-              format: uuid
-            environmentUid:
-              type: string
-              description: The OpenChoreo environment UID to query
-              format: uuid
-            componentUid:
-              type: string
-              description: The OpenChoreo component UID to query
-              format: uuid
-        source:
-          type: object
-          properties:
-            type:
-              type: string
-              description: The type of the source
-              enum:
-                - log
-                - metric
-                - budget
-            query:
-              type: string
-              description: The query to execute for log based alerts
-            metric:
-              type: string
-              description: The metric to query for metric based alerts
-              enum:
-                - cpu_usage
-                - memory_usage
-                - budget
-        condition:
-          type: object
-          properties:
-            enabled:
-              type: boolean
-              description: Whether the alert rule is enabled
-            window:
-              type: string
-              description: The window of time to query for the alert rule
-            interval:
-              type: string
-              description: The interval of time to query for the alert rule
-            operator:
-              type: string
-              description: The operator to use for the alert rule
-              enum:
-                - gt
-                - gte
-                - lt
-                - lte
-                - eq
-                - neq
-            threshold:
-              type: number
-              description: The threshold value to use for the alert rule
-
-    AlertingRuleSyncResponse:
-      type: object
-      properties:
-        action:
-          type: string
-          description: The action taken on the alert rule
-          enum:
-            - created
-            - updated
-            - unchanged
-            - deleted
-        lastSyncedAt:
-          type: string
-          description: The timestamp of the last sync
-        status:
-          type: string
-          description: The status of the alert rule
-          enum:
-            - synced
-            - failed
-        ruleLogicalId:
-          type: string
-          description: The logical ID (name) of the alert rule
-        ruleBackendId:
-          type: string
-          description: The backend ID (UID from observability backend) of the alert rule
-
-    # Request schema for alert webhook
-    AlertWebhookRequest:
-      type: object
-      properties:
-        ruleName:
-          type: string
-          description: The name of the alert rule
-        ruleNamespace:
-          type: string
-          description: The namespace of the alert rule
-        alertValue:
-          type: number
-          description: The value of the alert
-        alertTimestamp:
-          type: string
-          description: The timestamp of the alert
-          format: date-time
-
-    # Response schema for alert webhook
-    AlertWebhookResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          description: The message of the alert webhook
-        status:
-          type: string
-          description: The status of the alert webhook
-          enum:
-            - success
-            - error
-
     # Request schema for alerts query
     AlertsQueryRequest:
       type: object
@@ -2252,6 +2062,48 @@ components:
           type: number
           format: float
           description: Memory cost for the selected time window at these resource settings.
+
+    OAuthProtectedResourceMetadata:
+      type: object
+      description: |
+        OAuth 2.0 protected resource metadata as defined in RFC 9728.
+        `openchoreo_security_enabled` is an OpenChoreo extension, permitted by
+        RFC 9728 §2.
+      required:
+        - resource_name
+        - resource
+        - authorization_servers
+        - bearer_methods_supported
+        - scopes_supported
+      properties:
+        resource_name:
+          type: string
+          description: Human-readable name of the protected resource
+          example: OpenChoreo Observer MCP Server
+        resource:
+          type: string
+          description: URL of the protected resource
+          example: https://observer.openchoreo.dev/mcp
+        authorization_servers:
+          type: array
+          description: List of authorization server URLs
+          items:
+            type: string
+        bearer_methods_supported:
+          type: array
+          description: Supported bearer token methods
+          items:
+            type: string
+          example:
+            - header
+        scopes_supported:
+          type: array
+          description: Supported OAuth scopes
+          items:
+            type: string
+        openchoreo_security_enabled:
+          type: boolean
+          description: Whether authentication is enforced on this server
 
     # New error response schema
     ErrorResponse:

@@ -47,5 +47,17 @@ generate:
   embedded-spec: true
 output-options:
   skip-prune: true
+
+# Enum constants are prefixed with their type name unconditionally.
+#
+# Without this, oapi-codegen only prefixes on collision, so this small package
+# would emit bare `Success` and `Error` constants for AlertWebhookResponseStatus
+# -- names that are both fragile (a second enum with a "success" value silently
+# renames them) and startlingly generic for exported identifiers. The larger
+# `gen` package already prefixes because it has collisions, so this also keeps
+# the two packages stylistically consistent.
+compatibility:
+  always-prefix-enum-values: true
+
 import-mapping:
   ./observer-api.yaml: github.com/openchoreo/openchoreo/internal/observer/api/gen

@@ -5,39 +5,27 @@ package handlers
 
 import (
 	"log/slog"
-	"net/http"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
-	"github.com/openchoreo/openchoreo/internal/observer/httputil"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 )
 
-// baseHandler holds helpers shared by Handler and InternalHandler.
+// baseHandler holds state shared by Handler and InternalHandler.
+//
+// It used to carry writeJSON and writeErrorResponse helpers too. Those are gone:
+// handlers no longer touch an http.ResponseWriter, they return a response object
+// and the generated strict layer writes it. The equivalents now live in
+// gen_adapters.go as jsonResponse and errorResponse.
 type baseHandler struct {
 	logger *slog.Logger
 }
 
-// writeJSON writes JSON response and logs any error.
-func (b *baseHandler) writeJSON(w http.ResponseWriter, status int, v any) {
-	if err := httputil.WriteJSON(w, status, v); err != nil {
-		b.logger.Error("Failed to write JSON response", "error", err)
-	}
-}
-
-// writeErrorResponse writes a standardized error response.
-func (b *baseHandler) writeErrorResponse(
-	w http.ResponseWriter,
-	status int,
-	title gen.ErrorResponseTitle,
-	errorCode string,
-	message string,
-) {
-	b.writeJSON(w, status, gen.ErrorResponse{
-		Title:     &title,
-		ErrorCode: &errorCode,
-		Message:   &message,
-	})
-}
+// Compile-time check that Handler implements the generated public strict server
+// interface. Together with the internal one in alerts.go, this is what makes the
+// specs authoritative: an operation added, removed or reshaped in
+// openapi/observer-api.yaml becomes a build error here rather than a silent
+// routing divergence.
+var _ gen.StrictServerInterface = (*Handler)(nil)
 
 // Handler contains the HTTP handlers for the public observer API (v1/v1alpha1).
 // Routes are JWT-protected. Authorization is enforced by the service layer —
@@ -52,6 +40,7 @@ type Handler struct {
 	alertIncidentService service.AlertIncidentService
 	tracesService        service.TracesQuerier
 	finOpsService        service.FinOpsQuerier
+	oauthMetadata        OAuthMetadataConfig
 }
 
 // NewHandler creates a new public Handler instance.
@@ -63,6 +52,7 @@ func NewHandler(
 	alertIncidentService service.AlertIncidentService,
 	tracesService service.TracesQuerier,
 	finOpsService service.FinOpsQuerier,
+	oauthMetadata OAuthMetadataConfig,
 	logger *slog.Logger,
 ) *Handler {
 	return &Handler{
@@ -74,6 +64,7 @@ func NewHandler(
 		alertIncidentService: alertIncidentService,
 		tracesService:        tracesService,
 		finOpsService:        finOpsService,
+		oauthMetadata:        oauthMetadata,
 	}
 }
 

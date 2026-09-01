@@ -78,27 +78,37 @@ func TestSpecTopology(t *testing.T) {
 		}
 	}
 
-	if got, want := len(pubOps)+len(internalOps), 18; got != want {
+	// 14 public + 5 internal. The migration started from 18 hand-registered
+	// routes; getOAuthProtectedResourceMetadata is the nineteenth, previously
+	// hand-registered outside the spec entirely.
+	if got, want := len(pubOps)+len(internalOps), 19; got != want {
 		t.Errorf("total operations across both specs = %d, want %d (public=%d internal=%d)",
 			got, want, len(pubOps), len(internalOps))
 	}
 }
 
-// TestPublicSpecHealthIsTheOnlyUnauthenticatedOperation guards the one line that
-// keeps Kubernetes liveness probes working.
+// TestPublicSpecUnauthenticatedOperations pins the exact set of public
+// operations that require no token, and it is the line that keeps Kubernetes
+// liveness probes working.
 //
-// Before the migration, /health was registered outside the JWT-protected route
-// group by hand (cmd/observer/main.go). After it, /health is inside the generated
-// router and its publicness comes entirely from `security: []` on that operation
-// in observer-api.yaml: auth.OpenAPIAuth treats an operation as public only when
-// the generated wrapper set no scopes context key, which happens only for that
-// override.
+// Before the migration /health was registered outside the JWT-protected route
+// group by hand (cmd/observer/main.go). Now it is inside the generated router and
+// its publicness comes entirely from `security: []` on that operation:
+// auth.OpenAPIAuth treats an operation as public only when the generated wrapper
+// set no scopes context key, which happens only for that override.
 //
-// Delete that one YAML line and every probe starts getting a 401 -- from a spec
-// edit, with no code change and nothing else to notice it. Conversely, adding
-// `security: []` to any other public operation silently un-authenticates it.
-// Both directions fail here.
-func TestPublicSpecHealthIsTheOnlyUnauthenticatedOperation(t *testing.T) {
+// Delete that one YAML line and every probe starts getting a 401, from a spec
+// edit with no code change and nothing else to notice it. Adding `security: []`
+// to any other operation silently un-authenticates it. Both directions fail here.
+//
+// Two operations are expected, and each is public for a different reason:
+//
+//   - /health, because probes send no Authorization header.
+//   - /.well-known/oauth-protected-resource, because RFC 9728 metadata is how a
+//     client discovers where to get a token, so requiring one is circular.
+//
+// Any third entry is a bug.
+func TestPublicSpecUnauthenticatedOperations(t *testing.T) {
 	pub, err := gen.GetSwagger()
 	if err != nil {
 		t.Fatalf("public GetSwagger: %v", err)
@@ -121,10 +131,18 @@ func TestPublicSpecHealthIsTheOnlyUnauthenticatedOperation(t *testing.T) {
 	}
 	sort.Strings(unauthenticated)
 
-	want := []string{"GET /health (Health)"}
-	if len(unauthenticated) != len(want) || unauthenticated[0] != want[0] {
-		t.Errorf("unauthenticated operations in the public spec = %v, want %v",
+	want := []string{
+		"GET /.well-known/oauth-protected-resource (GetOAuthProtectedResourceMetadata)",
+		"GET /health (Health)",
+	}
+	if len(unauthenticated) != len(want) {
+		t.Fatalf("unauthenticated operations in the public spec = %v, want %v",
 			unauthenticated, want)
+	}
+	for i, w := range want {
+		if unauthenticated[i] != w {
+			t.Errorf("unauthenticated op[%d] = %q, want %q", i, unauthenticated[i], w)
+		}
 	}
 }
 

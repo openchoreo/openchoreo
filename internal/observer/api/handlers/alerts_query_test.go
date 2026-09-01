@@ -66,9 +66,7 @@ func TestQueryAlerts_Success(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
@@ -82,9 +80,7 @@ func TestQueryAlerts_InvalidBody(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", bytes.NewReader([]byte("{bad")))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -105,9 +101,7 @@ func TestQueryAlerts_ValidationError(t *testing.T) {
 	}
 	b, _ := json.Marshal(raw)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", bytes.NewReader(b))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")
@@ -122,9 +116,7 @@ func TestQueryAlerts_ServiceNotInitialized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "SERVICE_NOT_READY")
@@ -142,9 +134,7 @@ func TestQueryAlerts_AuthzForbidden(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
@@ -161,9 +151,7 @@ func TestQueryAlerts_AuthzUnauthorized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
@@ -180,9 +168,7 @@ func TestQueryAlerts_AuthzServiceUnavailable(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 }
@@ -199,9 +185,7 @@ func TestQueryAlerts_AuthzTimeout(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
 }
@@ -220,9 +204,7 @@ func TestQueryAlerts_ScopeNotFound(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "SCOPE_NOT_FOUND")
@@ -242,9 +224,7 @@ func TestQueryAlerts_ResolveScopeFailed(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "RESOLVE_SCOPE_FAILED")
@@ -262,9 +242,7 @@ func TestQueryAlerts_GenericError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/alerts/query", validAlertsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryAlerts(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "QUERY_ALERTS_FAILED")
@@ -284,9 +262,7 @@ func TestQueryIncidents_Success(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 }
@@ -300,9 +276,7 @@ func TestQueryIncidents_InvalidBody(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", bytes.NewReader([]byte("!!!")))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -322,9 +296,7 @@ func TestQueryIncidents_ValidationError(t *testing.T) {
 	}
 	b, _ := json.Marshal(raw)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", bytes.NewReader(b))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 }
@@ -338,9 +310,7 @@ func TestQueryIncidents_ServiceNotInitialized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "SERVICE_NOT_READY")
@@ -358,9 +328,7 @@ func TestQueryIncidents_AuthzForbidden(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusForbidden, rr.Code)
 }
@@ -377,9 +345,7 @@ func TestQueryIncidents_AuthzUnauthorized(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
@@ -396,9 +362,7 @@ func TestQueryIncidents_GenericError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1alpha1/incidents/query", validIncidentsRequestBody(t))
-	rr := httptest.NewRecorder()
-
-	h.QueryIncidents(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	assert.Contains(t, rr.Body.String(), "QUERY_INCIDENTS_FAILED")

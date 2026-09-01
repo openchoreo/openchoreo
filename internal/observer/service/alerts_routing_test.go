@@ -16,20 +16,20 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 	"github.com/openchoreo/openchoreo/internal/observer/api/logsadapterclientgen"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 )
 
-func newLogAlertRoutingRequest(ruleName string) gen.AlertRuleRequest {
+func newLogAlertRoutingRequest(ruleName string) internalgen.AlertRuleRequest {
 	query := "level=error"
-	return gen.AlertRuleRequest{
+	return internalgen.AlertRuleRequest{
 		Source: struct {
-			Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
-			Query  *string                           `json:"query,omitempty"`
-			Type   gen.AlertRuleRequestSourceType    `json:"type"`
+			Metric *internalgen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
+			Query  *string                                   `json:"query,omitempty"`
+			Type   internalgen.AlertRuleRequestSourceType    `json:"type"`
 		}{
-			Type:  gen.AlertRuleRequestSourceTypeLog,
+			Type:  internalgen.AlertRuleRequestSourceTypeLog,
 			Query: &query,
 		},
 		//nolint:revive,staticcheck
@@ -44,15 +44,15 @@ func newLogAlertRoutingRequest(ruleName string) gen.AlertRuleRequest {
 			Namespace: "test-ns",
 		},
 		Condition: struct {
-			Enabled   bool                                  `json:"enabled"`
-			Interval  string                                `json:"interval"`
-			Operator  gen.AlertRuleRequestConditionOperator `json:"operator"`
-			Threshold float32                               `json:"threshold"`
-			Window    string                                `json:"window"`
+			Enabled   bool                                          `json:"enabled"`
+			Interval  string                                        `json:"interval"`
+			Operator  internalgen.AlertRuleRequestConditionOperator `json:"operator"`
+			Threshold float32                                       `json:"threshold"`
+			Window    string                                        `json:"window"`
 		}{
 			Enabled:   true,
 			Interval:  "1m",
-			Operator:  gen.AlertRuleRequestConditionOperatorGt,
+			Operator:  internalgen.AlertRuleRequestConditionOperatorGt,
 			Threshold: float32(10),
 			Window:    "5m",
 		},
@@ -98,9 +98,9 @@ func TestLogAlertRoutesViaAdapter(t *testing.T) {
 				adapterCallCount.Add(1)
 				w.Header().Set("Content-Type", "application/json")
 				if r.Method == http.MethodGet {
-					_ = json.NewEncoder(w).Encode(gen.AlertRuleResponse{})
+					_ = json.NewEncoder(w).Encode(internalgen.AlertRuleResponse{})
 				} else {
-					_ = json.NewEncoder(w).Encode(gen.AlertingRuleSyncResponse{})
+					_ = json.NewEncoder(w).Encode(internalgen.AlertingRuleSyncResponse{})
 				}
 			}))
 			defer ts.Close()
@@ -183,13 +183,13 @@ func TestBudgetAlertServiceRouting(t *testing.T) {
 
 	ruleName := "budget-rule"
 
-	budgetAlertReq := gen.AlertRuleRequest{
+	budgetAlertReq := internalgen.AlertRuleRequest{
 		Source: struct {
-			Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
-			Query  *string                           `json:"query,omitempty"`
-			Type   gen.AlertRuleRequestSourceType    `json:"type"`
+			Metric *internalgen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
+			Query  *string                                   `json:"query,omitempty"`
+			Type   internalgen.AlertRuleRequestSourceType    `json:"type"`
 		}{
-			Type: gen.AlertRuleRequestSourceTypeBudget,
+			Type: internalgen.AlertRuleRequestSourceTypeBudget,
 		},
 		//nolint:revive,staticcheck
 		Metadata: struct {
@@ -203,15 +203,15 @@ func TestBudgetAlertServiceRouting(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Condition: struct {
-			Enabled   bool                                  `json:"enabled"`
-			Interval  string                                `json:"interval"`
-			Operator  gen.AlertRuleRequestConditionOperator `json:"operator"`
-			Threshold float32                               `json:"threshold"`
-			Window    string                                `json:"window"`
+			Enabled   bool                                          `json:"enabled"`
+			Interval  string                                        `json:"interval"`
+			Operator  internalgen.AlertRuleRequestConditionOperator `json:"operator"`
+			Threshold float32                                       `json:"threshold"`
+			Window    string                                        `json:"window"`
 		}{
 			Enabled:   true,
 			Interval:  "1h",
-			Operator:  gen.AlertRuleRequestConditionOperatorGt,
+			Operator:  internalgen.AlertRuleRequestConditionOperatorGt,
 			Threshold: float32(5),
 			Window:    "24h",
 		},
@@ -223,19 +223,19 @@ func TestBudgetAlertServiceRouting(t *testing.T) {
 		adapterCallCount.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		if r.Method == http.MethodGet {
-			_ = json.NewEncoder(w).Encode(gen.AlertRuleResponse{})
+			_ = json.NewEncoder(w).Encode(internalgen.AlertRuleResponse{})
 		} else {
-			status := gen.Synced
-			action := gen.Created
+			status := internalgen.AlertingRuleSyncResponseStatusSynced
+			action := internalgen.AlertingRuleSyncResponseActionCreated
 			if r.Method == http.MethodPut {
-				action = gen.Updated
+				action = internalgen.AlertingRuleSyncResponseActionUpdated
 			} else if r.Method == http.MethodDelete {
-				action = gen.Deleted
+				action = internalgen.AlertingRuleSyncResponseActionDeleted
 			}
 			logicalID := ruleName
 			backendID := "backend-id"
 			lastSynced := "2024-01-01T00:00:00Z"
-			_ = json.NewEncoder(w).Encode(gen.AlertingRuleSyncResponse{
+			_ = json.NewEncoder(w).Encode(internalgen.AlertingRuleSyncResponse{
 				Status:        &status,
 				Action:        &action,
 				RuleLogicalId: &logicalID,
@@ -292,13 +292,13 @@ func TestBudgetAlertWithoutAdapter(t *testing.T) {
 	t.Parallel()
 
 	ruleName := "budget-rule"
-	budgetAlertReq := gen.AlertRuleRequest{
+	budgetAlertReq := internalgen.AlertRuleRequest{
 		Source: struct {
-			Metric *gen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
-			Query  *string                           `json:"query,omitempty"`
-			Type   gen.AlertRuleRequestSourceType    `json:"type"`
+			Metric *internalgen.AlertRuleRequestSourceMetric `json:"metric,omitempty"`
+			Query  *string                                   `json:"query,omitempty"`
+			Type   internalgen.AlertRuleRequestSourceType    `json:"type"`
 		}{
-			Type: gen.AlertRuleRequestSourceTypeBudget,
+			Type: internalgen.AlertRuleRequestSourceTypeBudget,
 		},
 		//nolint:revive,staticcheck
 		Metadata: struct {
@@ -312,15 +312,15 @@ func TestBudgetAlertWithoutAdapter(t *testing.T) {
 			Namespace: "test-ns",
 		},
 		Condition: struct {
-			Enabled   bool                                  `json:"enabled"`
-			Interval  string                                `json:"interval"`
-			Operator  gen.AlertRuleRequestConditionOperator `json:"operator"`
-			Threshold float32                               `json:"threshold"`
-			Window    string                                `json:"window"`
+			Enabled   bool                                          `json:"enabled"`
+			Interval  string                                        `json:"interval"`
+			Operator  internalgen.AlertRuleRequestConditionOperator `json:"operator"`
+			Threshold float32                                       `json:"threshold"`
+			Window    string                                        `json:"window"`
 		}{
 			Enabled:   true,
 			Interval:  "1h",
-			Operator:  gen.AlertRuleRequestConditionOperatorGt,
+			Operator:  internalgen.AlertRuleRequestConditionOperatorGt,
 			Threshold: float32(100),
 			Window:    "24h",
 		},

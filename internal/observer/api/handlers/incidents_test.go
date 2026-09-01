@@ -69,10 +69,7 @@ func TestUpdateIncident_Success(t *testing.T) {
 	require.NoError(t, err, "failed to marshal request")
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/inc-1", bytes.NewReader(raw))
-	req.SetPathValue("incidentId", "inc-1")
-	rr := httptest.NewRecorder()
-
-	h.UpdateIncident(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusOK, rr.Code)
 
@@ -101,10 +98,7 @@ func TestUpdateIncident_NotFound(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/incidents/non-existent", bytes.NewReader([]byte(`{"status":"active"}`)))
-	req.SetPathValue("incidentId", "non-existent")
-	rr := httptest.NewRecorder()
-
-	h.UpdateIncident(rr, req)
+	rr := serve(t, h, req)
 
 	require.Equal(t, http.StatusNotFound, rr.Code)
 }
