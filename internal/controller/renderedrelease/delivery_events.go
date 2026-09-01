@@ -142,10 +142,39 @@ func hasOpenFailureEpisode(d *openchoreov1alpha1.DeliveryStatus) bool {
 	return d.RecoveredAt == nil || d.RecoveredAt.Time.Before(d.FailedAt.Time)
 }
 
+// emitDeliveryEvents runs the delivery lifecycle emission for releases that have
+// one (component workloads on the data plane); it is a no-op otherwise. Logs and
+// returns the first emission failure so the caller can persist the markers that
+// did succeed before requeueing.
+func (r *Reconciler) emitDeliveryEvents(
+	ctx context.Context,
+	planeClient client.Client,
+	release *openchoreov1alpha1.RenderedRelease,
+	dc *deliveryContext,
+	resourceStatuses []openchoreov1alpha1.RenderedManifestStatus,
+	liveResources []*unstructured.Unstructured,
+) error {
+	if dc == nil {
+		return nil
+	}
+	err := r.reconcileDeliveryEvents(ctx, planeClient, release, dc, resourceStatuses, liveResources)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "Failed to emit delivery lifecycle events; remaining phases deferred")
+	}
+	return err
+}
+
 // reconcileDeliveryEvents emits the delivery lifecycle events implied by the
 // current health of the release's resources. Called after a successful apply
 // with freshly built resource statuses; markers are only set when the event
 // reached the data plane, so a failed emission retries next reconcile.
+//
+// Returns the first emission error and stops, leaving the remaining phases for
+// the retry. Phase order is part of the contract: a consumer folding these
+// chronologically must never see Succeeded or Failed before Started, which is
+// what would happen if a failed Started emission let the health transition run
+// anyway and emitted Started on a later reconcile. The caller persists whatever
+// markers were set before the failure, then requeues.
 func (r *Reconciler) reconcileDeliveryEvents(
 	ctx context.Context,
 	planeClient client.Client,
@@ -153,17 +182,25 @@ func (r *Reconciler) reconcileDeliveryEvents(
 	dc *deliveryContext,
 	resourceStatuses []openchoreov1alpha1.RenderedManifestStatus,
 	liveResources []*unstructured.Unstructured,
-) {
+) error {
 	d := deliveryState(release, dc)
 	now := metav1.Now()
 
 	if d.StartedAt == nil {
-		if err := r.emitDeliveryEvent(ctx, planeClient, dc, reasonDeploymentStarted, "", ""); err == nil {
-			d.StartedAt = &now
+		if err := r.emitDeliveryEvent(ctx, planeClient, dc, reasonDeploymentStarted, "", ""); err != nil {
+			return err
 		}
+		d.StartedAt = &now
 	}
 
 	allHealthy, degradedID := summarizeHealth(resourceStatuses)
+
+	if allHealthy && d.FailedAt == nil {
+		if err := r.restoreLostFailureEpisode(ctx, planeClient, dc, d); err != nil {
+			return err
+		}
+	}
+
 	openEpisode := hasOpenFailureEpisode(d)
 
 	switch {
@@ -171,25 +208,75 @@ func (r *Reconciler) reconcileDeliveryEvents(
 		reason := degradedFailureReason(degradedID, liveResources)
 		episode := d.FailureEpisode + 1
 		if err := r.emitDeliveryEvent(
-			ctx, planeClient, dc, reasonDeploymentFailed, reason, episodeSuffix(episode)); err == nil {
-			d.FailedAt = &now
-			d.FailureEpisode = episode
+			ctx, planeClient, dc, reasonDeploymentFailed, reason, episodeSuffix(episode)); err != nil {
+			return err
 		}
+		d.FailedAt = &now
+		d.FailureEpisode = episode
 	case allHealthy:
 		if d.SucceededAt == nil {
-			if err := r.emitDeliveryEvent(ctx, planeClient, dc, reasonDeploymentSucceeded, "", ""); err == nil {
-				d.SucceededAt = &now
+			if err := r.emitDeliveryEvent(ctx, planeClient, dc, reasonDeploymentSucceeded, "", ""); err != nil {
+				return err
 			}
+			d.SucceededAt = &now
 		}
 		if openEpisode {
 			// Same episode number as the failure it closes.
 			if err := r.emitDeliveryEvent(
 				ctx, planeClient, dc, reasonDeploymentRecovered, "",
-				episodeSuffix(d.FailureEpisode)); err == nil {
-				d.RecoveredAt = &now
+				episodeSuffix(d.FailureEpisode)); err != nil {
+				return err
 			}
+			d.RecoveredAt = &now
 		}
 	}
+	return nil
+}
+
+// restoreLostFailureEpisode rebuilds the markers for a failure episode whose
+// DeploymentFailed reached the data plane but whose status update did not.
+//
+// Without it such an episode never closes. DeploymentRecovered is gated on
+// FailedAt, so once that marker is lost a release that goes straight back to
+// healthy emits nothing, and the failure stays open forever with no recovery to
+// measure against it. The degraded path repairs itself -- while resources stay
+// unhealthy the same episode is re-derived and re-emitted -- but a
+// degraded-to-healthy transition in the window between the lost write and the
+// retry does not.
+//
+// The Events are the durable record and their names are derived purely from the
+// rollout identity, so the marker can be read back from the data plane. Only the
+// episode immediately after the last recorded one is checked: markers are lost by
+// a single failed status write, so at most one episode can be missing.
+func (r *Reconciler) restoreLostFailureEpisode(
+	ctx context.Context,
+	planeClient client.Client,
+	dc *deliveryContext,
+	d *openchoreov1alpha1.DeliveryStatus,
+) error {
+	episode := d.FailureEpisode + 1
+	key := client.ObjectKey{
+		Namespace: dc.primary.GetNamespace(),
+		Name:      deliveryEventName(dc, reasonDeploymentFailed, episodeSuffix(episode)),
+	}
+
+	event := &corev1.Event{}
+	if err := planeClient.Get(ctx, key, event); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil // nothing was lost
+		}
+		return err
+	}
+
+	// Prefer the event's own timestamp over "now" so the recovery duration a
+	// consumer derives spans the real outage rather than starting at the repair.
+	failedAt := event.FirstTimestamp
+	if failedAt.IsZero() {
+		failedAt = metav1.NewTime(event.EventTime.Time)
+	}
+	d.FailedAt = &failedAt
+	d.FailureEpisode = episode
+	return nil
 }
 
 // episodeSuffix names the events of one failure episode. Derived from the persisted
@@ -197,6 +284,20 @@ func (r *Reconciler) reconcileDeliveryEvents(
 // the same event name and collapses via AlreadyExists.
 func episodeSuffix(episode int32) string {
 	return fmt.Sprintf("e%d", episode)
+}
+
+// deliveryEventName derives the Event name for one phase of a rollout. It is a
+// pure function of the rollout identity, which is what makes a re-emission after
+// a lost status update collapse into AlreadyExists instead of creating a
+// duplicate -- and what lets a lost marker be rebuilt by looking the Event up
+// again. Emission and recovery share it so the two cannot drift apart.
+func deliveryEventName(dc *deliveryContext, reason, nameSuffix string) string {
+	name := fmt.Sprintf("oc-delivery-%s-%s", shortHash(dc.rolloutID),
+		strings.ToLower(strings.TrimPrefix(reason, "Deployment")))
+	if nameSuffix != "" {
+		name = fmt.Sprintf("%s-%s", name, nameSuffix)
+	}
+	return name
 }
 
 // markDeliveryApplyFailure emits DeploymentFailed for a rollout whose resources
@@ -329,10 +430,7 @@ func (r *Reconciler) emitDeliveryEvent(
 		eventType = corev1.EventTypeWarning
 	}
 
-	name := fmt.Sprintf("oc-delivery-%s-%s", shortHash(dc.rolloutID), strings.ToLower(payload.Phase))
-	if nameSuffix != "" {
-		name = fmt.Sprintf("%s-%s", name, nameSuffix)
-	}
+	name := deliveryEventName(dc, reason, nameSuffix)
 
 	now := metav1.Now()
 	event := &corev1.Event{

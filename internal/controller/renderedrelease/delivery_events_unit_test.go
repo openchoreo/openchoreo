@@ -6,15 +6,18 @@ package renderedrelease
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -73,6 +76,16 @@ func listDeliveryEvents(t *testing.T, cl client.Client) []corev1.Event {
 		t.Fatalf("list events: %v", err)
 	}
 	return list.Items
+}
+
+// mustReconcileDelivery runs a delivery reconcile that is expected to succeed.
+func mustReconcileDelivery(t *testing.T, r *Reconciler, ctx context.Context, cl client.Client,
+	release *openchoreov1alpha1.RenderedRelease, dc *deliveryContext,
+	statuses []openchoreov1alpha1.RenderedManifestStatus) {
+	t.Helper()
+	if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, statuses, nil); err != nil {
+		t.Fatalf("reconcileDeliveryEvents returned %v, want nil", err)
+	}
 }
 
 func findEventByReason(events []corev1.Event, reason string) *corev1.Event {
@@ -203,7 +216,7 @@ func TestReconcileDeliveryEvents(t *testing.T) {
 		statuses := []openchoreov1alpha1.RenderedManifestStatus{
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusProgressing),
 		}
-		r.reconcileDeliveryEvents(ctx, cl, release, dc, statuses, nil)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc, statuses)
 
 		events := listDeliveryEvents(t, cl)
 		if len(events) != 1 {
@@ -258,8 +271,8 @@ func TestReconcileDeliveryEvents(t *testing.T) {
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
 		}
 
-		r.reconcileDeliveryEvents(ctx, cl, release, dc, statuses, nil)
-		r.reconcileDeliveryEvents(ctx, cl, release, dc, statuses, nil)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc, statuses)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc, statuses)
 
 		events := listDeliveryEvents(t, cl)
 		if len(events) != 2 {
@@ -288,9 +301,9 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 		degraded := []openchoreov1alpha1.RenderedManifestStatus{
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusDegraded),
 		}
-		r.reconcileDeliveryEvents(ctx, cl, release, dc, degraded, nil)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc, degraded)
 		// Second degraded reconcile must not duplicate the open episode.
-		r.reconcileDeliveryEvents(ctx, cl, release, dc, degraded, nil)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc, degraded)
 
 		events := listDeliveryEvents(t, cl)
 		failed := findEventByReason(events, reasonDeploymentFailed)
@@ -320,7 +333,7 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 		healthy := []openchoreov1alpha1.RenderedManifestStatus{
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
 		}
-		r.reconcileDeliveryEvents(ctx, cl, release, dc, healthy, nil)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc, healthy)
 
 		events = listDeliveryEvents(t, cl)
 		if findEventByReason(events, reasonDeploymentRecovered) == nil {
@@ -342,13 +355,13 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 		healthy := []openchoreov1alpha1.RenderedManifestStatus{
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
 		}
-		r.reconcileDeliveryEvents(ctx, cl, release, dc, healthy, nil)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc, healthy)
 
 		// New ComponentRelease bound: rollout identity changes.
 		release.Labels[labels.LabelKeyComponentReleaseUID] = "cr-uid-8"
 		release.Labels[labels.LabelKeyComponentReleaseName] = "checkout-service-8"
 		dc2 := deliveryContextFor(release, desired)
-		r.reconcileDeliveryEvents(ctx, cl, release, dc2, healthy, nil)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc2, healthy)
 
 		if release.Status.Delivery.RolloutID != "cr-uid-8.rr-uid-1" {
 			t.Errorf("RolloutID = %q, want cr-uid-8.rr-uid-1", release.Status.Delivery.RolloutID)
@@ -373,7 +386,7 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 			manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
 		}
 
-		r.reconcileDeliveryEvents(ctx, cl, release, dc, degraded, nil)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc, degraded)
 		if got := release.Status.Delivery.FailureEpisode; got != 1 {
 			t.Fatalf("FailureEpisode = %d, want 1 for the first episode", got)
 		}
@@ -385,7 +398,7 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 		// The status update is lost, so the next reconcile must derive the same episode
 		// number and collapse rather than open a second episode.
 		release.Status.Delivery = nil
-		r.reconcileDeliveryEvents(ctx, cl, release, dc, degraded, nil)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc, degraded)
 		if got := countEventsByReason(listDeliveryEvents(t, cl), reasonDeploymentFailed); got != 1 {
 			t.Errorf("Failed events = %d, want 1 (re-emission must collapse)", got)
 		}
@@ -394,7 +407,7 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 		}
 
 		// Heal: the recovery closes episode 1 and carries its number.
-		r.reconcileDeliveryEvents(ctx, cl, release, dc, healthy, nil)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc, healthy)
 		recovered := findEventByReason(listDeliveryEvents(t, cl), reasonDeploymentRecovered)
 		if recovered == nil || !strings.HasSuffix(recovered.Name, "-e1") {
 			t.Fatalf("Recovered event name = %q, want the -e1 suffix of the episode it closes",
@@ -402,7 +415,7 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 		}
 
 		// A second failure opens episode 2 with its own name.
-		r.reconcileDeliveryEvents(ctx, cl, release, dc, degraded, nil)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc, degraded)
 		if got := release.Status.Delivery.FailureEpisode; got != 2 {
 			t.Errorf("FailureEpisode = %d, want 2 for a new episode", got)
 		}
@@ -420,9 +433,9 @@ func TestReconcileDeliveryEventsEpisodes(t *testing.T) {
 		}
 
 		// Emit once, then wipe the marker as if the status update was lost.
-		r.reconcileDeliveryEvents(ctx, cl, release, dc, statuses, nil)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc, statuses)
 		release.Status.Delivery = nil
-		r.reconcileDeliveryEvents(ctx, cl, release, dc, statuses, nil)
+		mustReconcileDelivery(t, r, ctx, cl, release, dc, statuses)
 
 		events := listDeliveryEvents(t, cl)
 		if len(events) != 1 {
@@ -487,4 +500,209 @@ func eventName(e *corev1.Event) string {
 		return "<no event>"
 	}
 	return e.Name
+}
+
+// TestReconcileDeliveryEventsStopsOnEmissionFailure pins the phase ordering
+// contract: a consumer folds these events chronologically, so a failed emission
+// must defer the phases behind it rather than letting a later phase overtake the
+// one that could not be written.
+func TestReconcileDeliveryEventsStopsOnEmissionFailure(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	deployment := makeDeliveryDeployment()
+	desired := []*unstructured.Unstructured{deployment}
+
+	// failCreateFor rejects the named Event once, letting every other write through.
+	failCreateFor := func(name string, failed *bool) interceptor.Funcs {
+		return interceptor.Funcs{
+			Create: func(ctx context.Context, cl client.WithWatch, obj client.Object,
+				opts ...client.CreateOption) error {
+				if event, ok := obj.(*corev1.Event); ok && event.Name == name && !*failed {
+					*failed = true
+					return apierrors.NewInternalError(errors.New("data plane unavailable"))
+				}
+				return cl.Create(ctx, obj, opts...)
+			},
+		}
+	}
+
+	t.Run("failed Started defers Succeeded to the retry", func(t *testing.T) {
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, desired)
+		startedName := deliveryEventName(dc, reasonDeploymentStarted, "")
+
+		failed := false
+		cl := fake.NewClientBuilder().WithInterceptorFuncs(failCreateFor(startedName, &failed)).Build()
+
+		statuses := []openchoreov1alpha1.RenderedManifestStatus{
+			manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
+		}
+
+		err := r.reconcileDeliveryEvents(ctx, cl, release, dc, statuses, nil)
+		if err == nil {
+			t.Fatal("expected the Started emission failure to be returned so the reconcile requeues")
+		}
+
+		if events := listDeliveryEvents(t, cl); len(events) != 0 {
+			t.Fatalf("expected no events after a failed Started, got %d (%s)",
+				len(events), events[0].Reason)
+		}
+		if d := release.Status.Delivery; d.StartedAt != nil || d.SucceededAt != nil {
+			t.Errorf("no markers should be set after a failed Started: startedAt=%v succeededAt=%v",
+				d.StartedAt, d.SucceededAt)
+		}
+
+		// The retry emits both phases, in order.
+		if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, statuses, nil); err != nil {
+			t.Fatalf("retry returned %v, want nil", err)
+		}
+		events := listDeliveryEvents(t, cl)
+		if len(events) != 2 {
+			t.Fatalf("expected Started and Succeeded after the retry, got %d", len(events))
+		}
+		if findEventByReason(events, reasonDeploymentStarted) == nil {
+			t.Error("expected DeploymentStarted after the retry")
+		}
+		if findEventByReason(events, reasonDeploymentSucceeded) == nil {
+			t.Error("expected DeploymentSucceeded after the retry")
+		}
+	})
+
+	t.Run("failed Succeeded leaves Started recorded and does not mark success", func(t *testing.T) {
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, desired)
+		succeededName := deliveryEventName(dc, reasonDeploymentSucceeded, "")
+
+		failed := false
+		cl := fake.NewClientBuilder().WithInterceptorFuncs(failCreateFor(succeededName, &failed)).Build()
+
+		statuses := []openchoreov1alpha1.RenderedManifestStatus{
+			manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
+		}
+
+		if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, statuses, nil); err == nil {
+			t.Fatal("expected the Succeeded emission failure to be returned")
+		}
+		if d := release.Status.Delivery; d.StartedAt == nil {
+			t.Error("Started succeeded, so its marker must be kept for the retry")
+		} else if d.SucceededAt != nil {
+			t.Error("SucceededAt must not be set when the event was not written")
+		}
+	})
+}
+
+// TestRestoreLostFailureEpisode covers the ordering hazard where DeploymentFailed
+// reaches the data plane but the status update carrying its marker does not. The
+// episode is genuinely open, but nothing in status says so, and a release that
+// returns to healthy would otherwise never emit DeploymentRecovered -- leaving the
+// failure open forever with no recovery to measure against it.
+func TestRestoreLostFailureEpisode(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	deployment := makeDeliveryDeployment()
+	desired := []*unstructured.Unstructured{deployment}
+
+	degraded := []openchoreov1alpha1.RenderedManifestStatus{
+		manifestStatus("deployment", openchoreov1alpha1.HealthStatusDegraded),
+	}
+	healthy := []openchoreov1alpha1.RenderedManifestStatus{
+		manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
+	}
+
+	t.Run("recovers an episode whose marker was lost before the healthy transition", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, desired)
+
+		if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, degraded, nil); err != nil {
+			t.Fatalf("degraded reconcile: %v", err)
+		}
+		if release.Status.Delivery.FailedAt == nil {
+			t.Fatal("expected a DeploymentFailed marker after the degraded reconcile")
+		}
+		failedEvent := findEventByReason(listDeliveryEvents(t, cl), reasonDeploymentFailed)
+		if failedEvent == nil {
+			t.Fatal("expected a DeploymentFailed event")
+		}
+
+		// The status write carrying FailedAt/FailureEpisode is lost; the Event
+		// itself already reached the data plane and survives.
+		release.Status.Delivery.FailedAt = nil
+		release.Status.Delivery.FailureEpisode = 0
+
+		if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, healthy, nil); err != nil {
+			t.Fatalf("healthy reconcile: %v", err)
+		}
+
+		events := listDeliveryEvents(t, cl)
+		if findEventByReason(events, reasonDeploymentRecovered) == nil {
+			t.Fatal("expected DeploymentRecovered after the lost marker was restored")
+		}
+		if findEventByReason(events, reasonDeploymentSucceeded) == nil {
+			t.Error("expected DeploymentSucceeded on the healthy transition")
+		}
+
+		d := release.Status.Delivery
+		if d.FailureEpisode != 1 {
+			t.Errorf("failureEpisode = %d, want the restored episode 1", d.FailureEpisode)
+		}
+		if d.RecoveredAt == nil {
+			t.Error("expected RecoveredAt to be set")
+		}
+		// The restored marker must carry the original failure time, or the recovery
+		// duration a consumer derives starts at the repair instead of the outage.
+		if d.FailedAt == nil {
+			t.Fatal("expected FailedAt to be restored")
+		}
+		if !d.FailedAt.Time.Equal(failedEvent.FirstTimestamp.Time) {
+			t.Errorf("restored failedAt = %v, want the event's timestamp %v",
+				d.FailedAt.Time, failedEvent.FirstTimestamp.Time)
+		}
+	})
+
+	t.Run("recovered event closes the episode exactly once", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, desired)
+
+		if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, degraded, nil); err != nil {
+			t.Fatalf("degraded reconcile: %v", err)
+		}
+		release.Status.Delivery.FailedAt = nil
+		release.Status.Delivery.FailureEpisode = 0
+
+		for i := range 3 {
+			if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, healthy, nil); err != nil {
+				t.Fatalf("healthy reconcile %d: %v", i, err)
+			}
+		}
+
+		var recovered int
+		for _, e := range listDeliveryEvents(t, cl) {
+			if e.Reason == reasonDeploymentRecovered {
+				recovered++
+			}
+		}
+		if recovered != 1 {
+			t.Errorf("emitted %d DeploymentRecovered events, want exactly 1", recovered)
+		}
+	})
+
+	t.Run("healthy rollout with no failure history emits no recovery", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, desired)
+
+		if err := r.reconcileDeliveryEvents(ctx, cl, release, dc, healthy, nil); err != nil {
+			t.Fatalf("healthy reconcile: %v", err)
+		}
+
+		events := listDeliveryEvents(t, cl)
+		if findEventByReason(events, reasonDeploymentRecovered) != nil {
+			t.Error("a rollout that never failed must not emit DeploymentRecovered")
+		}
+		if d := release.Status.Delivery; d.FailedAt != nil || d.FailureEpisode != 0 {
+			t.Errorf("no failure markers expected: failedAt=%v episode=%d", d.FailedAt, d.FailureEpisode)
+		}
+	})
 }
