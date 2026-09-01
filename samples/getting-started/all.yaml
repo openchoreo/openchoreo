@@ -1108,9 +1108,6 @@ spec:
             instead of emptyDir. The PVC survives pod recreation (e.g. a
             StatefulSet rolling update triggered by changing `memory`), so
             data is not lost when the pod restarts or is rescheduled.
-            volumeClaimTemplates is immutable after StatefulSet creation, so
-            this only takes effect at create time — toggling it after the
-            first deploy will fail to apply.
         storageSize:
           type: string
           default: 1Gi
