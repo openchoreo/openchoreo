@@ -17,8 +17,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -665,10 +668,23 @@ func addJitter(base time.Duration, maxJitter time.Duration) time.Duration {
 	return base + jitter
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager sets up the controller with the Manager. Watches on
+// DataPlane / ClusterDataPlane recover a repointed data plane: the release
+// resolves its plane client from the referenced Environment at apply time,
+// but without these handlers nothing re-enqueues it when that resolution
+// changes to a different physical cluster. Filtered to generation changes
+// (spec, where planeID lives) so the DataPlane controller's frequent
+// status-only heartbeat updates don't inflate the reconcile/remote-apply
+// cadence for every release tied to that data plane.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.RenderedRelease{}).
+		Watches(&openchoreov1alpha1.DataPlane{},
+			handler.EnqueueRequestsFromMapFunc(r.releasesForDataPlane),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Watches(&openchoreov1alpha1.ClusterDataPlane{},
+			handler.EnqueueRequestsFromMapFunc(r.releasesForClusterDataPlane),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Named("renderedrelease").
 		Complete(r)
 }
