@@ -84,6 +84,25 @@ data:
         {{- end }}
         insecure: {{ .Values.openchoreoApi.clusterGateway.tls.insecure }}
 
+    {{- with .Values.openchoreoApi.config.remoteConnect }}
+    {{- if .enabled }}
+    remote_connect:
+      enabled: true
+      signing_key_path: {{ .signingKeyPath | quote }}
+      key_id: {{ .keyId | quote }}
+      issuer: {{ .issuer | quote }}
+      ttl_seconds: {{ .ttlSeconds }}
+      agent_image: "{{ include "openchoreo-control-plane.image" (dict "context" $ "image" .agentImage) }}"
+      agent_listen_port: {{ .agentListenPort }}
+      entrypoint_address: {{ .entrypointAddress | quote }}
+      sni_suffix: {{ .sniSuffix | quote }}
+      authorize_url: {{ .authorizeUrl | quote }}
+      authorize_insecure: {{ .authorizeInsecure }}
+      reaper_interval_seconds: {{ .reaperIntervalSeconds }}
+      reaper_ttl_seconds: {{ .reaperTtlSeconds }}
+    {{- end }}
+    {{- end }}
+
     logging:
       {{- toYaml .Values.openchoreoApi.config.logging | nindent 6 }}
 {{- end }}

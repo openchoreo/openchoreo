@@ -6,3 +6,10 @@ gateway:
   httpsPort: 19443
   tls:
     enabled: false
+
+# `occ remote` SNI router. NodePort must match the config.yaml host port mapping.
+remoteAgentRouter:
+  enabled: true
+  service:
+    type: NodePort
+    nodePort: 30443

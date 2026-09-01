@@ -36,6 +36,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/projectreleasebinding"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/projecttype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/remote"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resource"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcerelease"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcereleasebinding"
@@ -106,6 +107,7 @@ func BuildRootCmd() *cobra.Command {
 		workload.NewWorkloadCmd(f),
 		deploymentpipeline.NewDeploymentPipelineCmd(f),
 		observabilityalertsnotificationchannel.NewObservabilityAlertsNotificationChannelCmd(f),
+		remote.NewRemoteCmd(),
 	)
 
 	return rootCmd
