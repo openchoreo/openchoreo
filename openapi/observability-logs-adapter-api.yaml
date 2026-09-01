@@ -148,8 +148,7 @@ paths:
 
 
         Clients MUST treat a 400 on an unscoped sweep as "capability
-        unavailable" and fall back rather than retrying. Per-adapter support is
-        tracked in openchoreo/openchoreo#4333.
+        unavailable" and fall back rather than retrying.
       operationId: queryEvents
       requestBody:
         required: true
@@ -610,19 +609,10 @@ components:
             permitted only together with `reasons` (machine consumers reading
             controller-emitted events across all namespaces). Interactive queries
             must always be scoped. Unscoped sweeps are an OPTIONAL adapter
-            capability -- see the queryEvents description for what an adapter that
-            does not implement them must do.
-      # Relaxing `required` here widens what the contract allows, so the rules an
-      # adapter must apply are spelled out on the endpoint itself (queryEvents
-      # description). In short: a request with neither searchScope nor reasons must be
-      # rejected with 400, and an adapter that does not implement unscoped sweeps must
-      # also reject with 400 rather than broadening the query.
-      #
-      # The condition is deliberately NOT expressed as
-      # `anyOf: [required: [searchScope], required: [reasons]]`: oapi-codegen turns a
-      # schema-level anyOf into a union type with a custom marshaller on this request,
-      # and since this spec generates a client only, that buys no validation here. The
-      # adapter implementation is the enforcement point.
+            capability; see the queryEvents description for the rules that apply.
+      # The "unscoped only with reasons" rule cannot be expressed here without
+      # changing the generated request type, so it is stated normatively in the
+      # queryEvents description and enforced by the adapter.
       required: [startTime, endTime]
 
     # Response schemas for events
