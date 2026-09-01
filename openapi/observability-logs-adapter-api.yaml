@@ -118,6 +118,64 @@ paths:
                 errorCode: "OBS-V1-L-29"
                 message: ""
 
+  /api/v1alpha1/cluster-logs/query:
+    post:
+      tags:
+        - Logs
+      summary: Query cluster-wide pod logs
+      description: |
+        Query logs by raw Kubernetes coordinates, with no project/component/environment
+        correlation. Backs `GET /api/v1alpha1/cluster-logs` on the observer.
+
+      operationId: queryClusterLogs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClusterLogsQueryRequest"
+      responses:
+        "200":
+          description: Cluster logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClusterLogsResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "501":
+          description: Not Implemented
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                title: "notImplemented"
+                errorCode: ""
+                message: "cluster logs are not supported by this adapter"
+
   /api/v1/events/query:
     post:
       tags:
@@ -517,6 +575,128 @@ components:
         tookMs:
           type: integer
           description: The time taken to query the logs in milliseconds
+
+    # Cluster log schemas
+    ClusterLogsQueryRequest:
+      type: object
+      description: |
+        A flat set of Kubernetes coordinates. Multi-value fields OR within a field; fields
+        AND with each other. An absent field is not a filter.
+      properties:
+        startTime:
+          type: string
+          description: Inclusive lower bound of the log window
+          format: date-time
+        endTime:
+          type: string
+          description: Exclusive upper bound of the log window
+          format: date-time
+        limit:
+          type: integer
+          default: 100
+          minimum: 1
+          maximum: 1000
+          description: The maximum number of entries to return
+        sortOrder:
+          type: string
+          description: Sort direction on the log timestamp
+          enum:
+            - asc
+            - desc
+          default: desc
+        clusterInstance:
+          type: array
+          uniqueItems: true
+          description: Clusters the records were collected from, as stamped by the collector
+          items:
+            type: string
+        namespace:
+          type: array
+          uniqueItems: true
+          description: Kubernetes namespaces of the pods
+          items:
+            type: string
+        podName:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+        containerName:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+        labels:
+          type: object
+          description: |
+            Pod labels every returned record must carry, ANDed. The observer parses the
+            equality-based selector it receives and passes the resulting pairs, so the
+            adapter does not implement selector syntax. Plane attribution arrives here.
+          additionalProperties:
+            type: string
+        logLevels:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: ["DEBUG", "INFO", "WARN", "ERROR"]
+        searchPhrase:
+          type: string
+      required: [startTime, endTime]
+
+    ClusterLog:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          description: The timestamp of the log entry
+          format: date-time
+        log:
+          type: string
+          description: The log message
+        level:
+          type: string
+          description: |
+            Log severity. Derived from the message text where the backend does not supply
+            one; omitted when it cannot be determined.
+        clusterInstance:
+          type: string
+        namespaceName:
+          type: string
+        podName:
+          type: string
+        containerName:
+          type: string
+        podIp:
+          type: string
+        nodeName:
+          type: string
+          description: Node the pod was scheduled on.
+        containerImage:
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+          description: |
+            Pod labels carried on the record, as the backend stores them, with any
+            backend-specific key mangling already undone by the adapter.
+
+    ClusterLogsResponse:
+      type: object
+      properties:
+        logs:
+          type: array
+          description: The logs queried successfully
+          items:
+            $ref: "#/components/schemas/ClusterLog"
+        total:
+          type: integer
+          description: The total number of matching log entries, capped at 1000
+        tookMs:
+          type: integer
+          description: The time taken to query the logs in milliseconds
+      required: [logs, total, tookMs]
 
     # Request schema for events
     EventsQueryRequest:

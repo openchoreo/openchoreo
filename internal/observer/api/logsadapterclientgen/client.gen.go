@@ -64,6 +64,20 @@ const (
 	Synced AlertingRuleSyncResponseStatus = "synced"
 )
 
+// Defines values for ClusterLogsQueryRequestLogLevels.
+const (
+	ClusterLogsQueryRequestLogLevelsDEBUG ClusterLogsQueryRequestLogLevels = "DEBUG"
+	ClusterLogsQueryRequestLogLevelsERROR ClusterLogsQueryRequestLogLevels = "ERROR"
+	ClusterLogsQueryRequestLogLevelsINFO  ClusterLogsQueryRequestLogLevels = "INFO"
+	ClusterLogsQueryRequestLogLevelsWARN  ClusterLogsQueryRequestLogLevels = "WARN"
+)
+
+// Defines values for ClusterLogsQueryRequestSortOrder.
+const (
+	ClusterLogsQueryRequestSortOrderAsc  ClusterLogsQueryRequestSortOrder = "asc"
+	ClusterLogsQueryRequestSortOrderDesc ClusterLogsQueryRequestSortOrder = "desc"
+)
+
 // Defines values for ErrorResponseTitle.
 const (
 	BadRequest          ErrorResponseTitle = "badRequest"
@@ -83,16 +97,16 @@ const (
 
 // Defines values for LogsQueryRequestLogLevels.
 const (
-	DEBUG LogsQueryRequestLogLevels = "DEBUG"
-	ERROR LogsQueryRequestLogLevels = "ERROR"
-	INFO  LogsQueryRequestLogLevels = "INFO"
-	WARN  LogsQueryRequestLogLevels = "WARN"
+	LogsQueryRequestLogLevelsDEBUG LogsQueryRequestLogLevels = "DEBUG"
+	LogsQueryRequestLogLevelsERROR LogsQueryRequestLogLevels = "ERROR"
+	LogsQueryRequestLogLevelsINFO  LogsQueryRequestLogLevels = "INFO"
+	LogsQueryRequestLogLevelsWARN  LogsQueryRequestLogLevels = "WARN"
 )
 
 // Defines values for LogsQueryRequestSortOrder.
 const (
-	LogsQueryRequestSortOrderAsc  LogsQueryRequestSortOrder = "asc"
-	LogsQueryRequestSortOrderDesc LogsQueryRequestSortOrder = "desc"
+	Asc  LogsQueryRequestSortOrder = "asc"
+	Desc LogsQueryRequestSortOrder = "desc"
 )
 
 // AlertRuleRequest defines model for AlertRuleRequest.
@@ -222,6 +236,82 @@ type AlertingRuleSyncResponseAction string
 
 // AlertingRuleSyncResponseStatus The status of the alert rule
 type AlertingRuleSyncResponseStatus string
+
+// ClusterLog defines model for ClusterLog.
+type ClusterLog struct {
+	ClusterInstance *string `json:"clusterInstance,omitempty"`
+	ContainerImage  *string `json:"containerImage,omitempty"`
+	ContainerName   *string `json:"containerName,omitempty"`
+
+	// Labels Pod labels carried on the record, as the backend stores them, with any
+	// backend-specific key mangling already undone by the adapter.
+	Labels *map[string]string `json:"labels,omitempty"`
+
+	// Level Log severity. Derived from the message text where the backend does not supply
+	// one; omitted when it cannot be determined.
+	Level *string `json:"level,omitempty"`
+
+	// Log The log message
+	Log           *string `json:"log,omitempty"`
+	NamespaceName *string `json:"namespaceName,omitempty"`
+
+	// NodeName Node the pod was scheduled on.
+	NodeName *string `json:"nodeName,omitempty"`
+	PodIp    *string `json:"podIp,omitempty"`
+	PodName  *string `json:"podName,omitempty"`
+
+	// Timestamp The timestamp of the log entry
+	Timestamp *time.Time `json:"timestamp,omitempty"`
+}
+
+// ClusterLogsQueryRequest A flat set of Kubernetes coordinates. Multi-value fields OR within a field; fields
+// AND with each other. An absent field is not a filter.
+type ClusterLogsQueryRequest struct {
+	// ClusterInstance Clusters the records were collected from, as stamped by the collector
+	ClusterInstance *[]string `json:"clusterInstance,omitempty"`
+	ContainerName   *[]string `json:"containerName,omitempty"`
+
+	// EndTime Exclusive upper bound of the log window
+	EndTime time.Time `json:"endTime"`
+
+	// Labels Pod labels every returned record must carry, ANDed. The observer parses the
+	// equality-based selector it receives and passes the resulting pairs, so the
+	// adapter does not implement selector syntax. Plane attribution arrives here.
+	Labels *map[string]string `json:"labels,omitempty"`
+
+	// Limit The maximum number of entries to return
+	Limit     *int                                `json:"limit,omitempty"`
+	LogLevels *[]ClusterLogsQueryRequestLogLevels `json:"logLevels,omitempty"`
+
+	// Namespace Kubernetes namespaces of the pods
+	Namespace    *[]string `json:"namespace,omitempty"`
+	PodName      *[]string `json:"podName,omitempty"`
+	SearchPhrase *string   `json:"searchPhrase,omitempty"`
+
+	// SortOrder Sort direction on the log timestamp
+	SortOrder *ClusterLogsQueryRequestSortOrder `json:"sortOrder,omitempty"`
+
+	// StartTime Inclusive lower bound of the log window
+	StartTime time.Time `json:"startTime"`
+}
+
+// ClusterLogsQueryRequestLogLevels defines model for ClusterLogsQueryRequest.LogLevels.
+type ClusterLogsQueryRequestLogLevels string
+
+// ClusterLogsQueryRequestSortOrder Sort direction on the log timestamp
+type ClusterLogsQueryRequestSortOrder string
+
+// ClusterLogsResponse defines model for ClusterLogsResponse.
+type ClusterLogsResponse struct {
+	// Logs The logs queried successfully
+	Logs []ClusterLog `json:"logs"`
+
+	// TookMs The time taken to query the logs in milliseconds
+	TookMs int `json:"tookMs"`
+
+	// Total The total number of matching log entries, capped at 1000
+	Total int `json:"total"`
+}
 
 // ComponentLogEntry defines model for ComponentLogEntry.
 type ComponentLogEntry struct {
@@ -462,6 +552,9 @@ type UpdateAlertRuleJSONRequestBody = AlertRuleRequest
 
 // HandleAlertWebhookJSONRequestBody defines body for HandleAlertWebhook for application/json ContentType.
 type HandleAlertWebhookJSONRequestBody = HandleAlertWebhookJSONBody
+
+// QueryClusterLogsJSONRequestBody defines body for QueryClusterLogs for application/json ContentType.
+type QueryClusterLogsJSONRequestBody = ClusterLogsQueryRequest
 
 // AsComponentSearchScope returns the union data inside the EventsQueryRequest_SearchScope as a ComponentSearchScope
 func (t EventsQueryRequest_SearchScope) AsComponentSearchScope() (ComponentSearchScope, error) {
@@ -753,6 +846,11 @@ type ClientInterface interface {
 
 	HandleAlertWebhook(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// QueryClusterLogsWithBody request with any body
+	QueryClusterLogsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	QueryClusterLogs(ctx context.Context, body QueryClusterLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// Health request
 	Health(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
@@ -891,6 +989,30 @@ func (c *Client) HandleAlertWebhookWithBody(ctx context.Context, contentType str
 
 func (c *Client) HandleAlertWebhook(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewHandleAlertWebhookRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryClusterLogsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryClusterLogsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryClusterLogs(ctx context.Context, body QueryClusterLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryClusterLogsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1188,6 +1310,46 @@ func NewHandleAlertWebhookRequestWithBody(server string, contentType string, bod
 	return req, nil
 }
 
+// NewQueryClusterLogsRequest calls the generic QueryClusterLogs builder with application/json body
+func NewQueryClusterLogsRequest(server string, body QueryClusterLogsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewQueryClusterLogsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewQueryClusterLogsRequestWithBody generates requests for QueryClusterLogs with any type of body
+func NewQueryClusterLogsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1alpha1/cluster-logs/query")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewHealthRequest generates requests for Health
 func NewHealthRequest(server string) (*http.Request, error) {
 	var err error
@@ -1288,6 +1450,11 @@ type ClientWithResponsesInterface interface {
 	HandleAlertWebhookWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*HandleAlertWebhookResp, error)
 
 	HandleAlertWebhookWithResponse(ctx context.Context, body HandleAlertWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*HandleAlertWebhookResp, error)
+
+	// QueryClusterLogsWithBodyWithResponse request with any body
+	QueryClusterLogsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryClusterLogsResp, error)
+
+	QueryClusterLogsWithResponse(ctx context.Context, body QueryClusterLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryClusterLogsResp, error)
 
 	// HealthWithResponse request
 	HealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*HealthResp, error)
@@ -1470,6 +1637,33 @@ func (r HandleAlertWebhookResp) StatusCode() int {
 	return 0
 }
 
+type QueryClusterLogsResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ClusterLogsResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+	JSON501      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryClusterLogsResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryClusterLogsResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type HealthResp struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1599,6 +1793,23 @@ func (c *ClientWithResponses) HandleAlertWebhookWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseHandleAlertWebhookResp(rsp)
+}
+
+// QueryClusterLogsWithBodyWithResponse request with arbitrary body returning *QueryClusterLogsResp
+func (c *ClientWithResponses) QueryClusterLogsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryClusterLogsResp, error) {
+	rsp, err := c.QueryClusterLogsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryClusterLogsResp(rsp)
+}
+
+func (c *ClientWithResponses) QueryClusterLogsWithResponse(ctx context.Context, body QueryClusterLogsJSONRequestBody, reqEditors ...RequestEditorFn) (*QueryClusterLogsResp, error) {
+	rsp, err := c.QueryClusterLogs(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryClusterLogsResp(rsp)
 }
 
 // HealthWithResponse request returning *HealthResp
@@ -1947,6 +2158,67 @@ func ParseHandleAlertWebhookResp(rsp *http.Response) (*HandleAlertWebhookResp, e
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryClusterLogsResp parses an HTTP response from a QueryClusterLogsWithResponse call
+func ParseQueryClusterLogsResp(rsp *http.Response) (*QueryClusterLogsResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryClusterLogsResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClusterLogsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
 
 	}
 
