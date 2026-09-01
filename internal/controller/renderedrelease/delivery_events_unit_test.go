@@ -706,3 +706,54 @@ func TestRestoreLostFailureEpisode(t *testing.T) {
 		}
 	})
 }
+
+// TestEmitDeliveryEventsWrapsError pins the context on the error that reaches the
+// reconcile boundary. controller-runtime reports the request, not which rollout
+// was being emitted for, so the rollout identity has to travel on the error.
+func TestEmitDeliveryEventsWrapsError(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+	deployment := makeDeliveryDeployment()
+	desired := []*unstructured.Unstructured{deployment}
+	statuses := []openchoreov1alpha1.RenderedManifestStatus{
+		manifestStatus("deployment", openchoreov1alpha1.HealthStatusHealthy),
+	}
+
+	t.Run("no delivery context is a no-op", func(t *testing.T) {
+		cl := fake.NewClientBuilder().Build()
+		release := makeDeliveryRelease()
+		if err := r.emitDeliveryEvents(ctx, cl, release, nil, statuses, nil); err != nil {
+			t.Fatalf("emitDeliveryEvents with no context returned %v, want nil", err)
+		}
+		if events := listDeliveryEvents(t, cl); len(events) != 0 {
+			t.Errorf("expected no events, got %d", len(events))
+		}
+	})
+
+	t.Run("emission failure is wrapped with the rollout and still unwraps", func(t *testing.T) {
+		release := makeDeliveryRelease()
+		dc := deliveryContextFor(release, desired)
+		inner := apierrors.NewInternalError(errors.New("data plane unavailable"))
+
+		cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, cl client.WithWatch, obj client.Object,
+				opts ...client.CreateOption) error {
+				if _, ok := obj.(*corev1.Event); ok {
+					return inner
+				}
+				return cl.Create(ctx, obj, opts...)
+			},
+		}).Build()
+
+		err := r.emitDeliveryEvents(ctx, cl, release, dc, statuses, nil)
+		if err == nil {
+			t.Fatal("expected an error from a failed emission")
+		}
+		if !strings.Contains(err.Error(), dc.rolloutID) {
+			t.Errorf("error %q does not name the rollout %q", err, dc.rolloutID)
+		}
+		if !errors.Is(err, inner) {
+			t.Errorf("wrapped error must still unwrap to the data plane failure, got %v", err)
+		}
+	})
+}

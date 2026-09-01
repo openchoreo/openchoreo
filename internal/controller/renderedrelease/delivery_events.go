@@ -143,9 +143,9 @@ func hasOpenFailureEpisode(d *openchoreov1alpha1.DeliveryStatus) bool {
 }
 
 // emitDeliveryEvents runs the delivery lifecycle emission for releases that have
-// one (component workloads on the data plane); it is a no-op otherwise. Logs and
-// returns the first emission failure so the caller can persist the markers that
-// did succeed before requeueing.
+// one (component workloads on the data plane); it is a no-op otherwise. Returns
+// the first emission failure, wrapped with the rollout it belongs to, so the
+// caller can persist the markers that did succeed before requeueing.
 func (r *Reconciler) emitDeliveryEvents(
 	ctx context.Context,
 	planeClient client.Client,
@@ -157,11 +157,14 @@ func (r *Reconciler) emitDeliveryEvents(
 	if dc == nil {
 		return nil
 	}
-	err := r.reconcileDeliveryEvents(ctx, planeClient, release, dc, resourceStatuses, liveResources)
-	if err != nil {
-		log.FromContext(ctx).Error(err, "Failed to emit delivery lifecycle events; remaining phases deferred")
+	if err := r.reconcileDeliveryEvents(ctx, planeClient, release, dc, resourceStatuses, liveResources); err != nil {
+		// Wrapped rather than logged here: controller-runtime already reports the
+		// error at the reconcile boundary, so logging it too would report the same
+		// failure twice. The rollout identity is what that report otherwise lacks.
+		return fmt.Errorf("failed to emit delivery lifecycle events for rollout %s, "+
+			"remaining phases deferred: %w", dc.rolloutID, err)
 	}
-	return err
+	return nil
 }
 
 // reconcileDeliveryEvents emits the delivery lifecycle events implied by the
