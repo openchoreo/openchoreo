@@ -178,6 +178,9 @@ func (s *workflowRunService) UpdateWorkflowRun(ctx context.Context, namespaceNam
 			normalizeWorkflowRefKind(wfRun.Spec.Workflow.Kind) != normalizeWorkflowRefKind(existing.Spec.Workflow.Kind) {
 			return &services.ValidationError{Msg: "spec.workflow.kind/name is immutable"}
 		}
+		// The check above confirmed the kind is unchanged once normalized; persist the
+		// stored value so an omitted kind in the request doesn't clear it to "".
+		wfRun.Spec.Workflow.Kind = existing.Spec.Workflow.Kind
 
 		// Only apply user-mutable fields to the existing object, preserving server-managed fields
 		existing.Labels = wfRun.Labels

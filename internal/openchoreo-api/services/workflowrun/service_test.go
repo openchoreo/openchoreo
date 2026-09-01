@@ -182,6 +182,11 @@ func TestUpdateWorkflowRun(t *testing.T) {
 		result, err := svc.UpdateWorkflowRun(ctx, testNamespace, update)
 		require.NoError(t, err)
 		assert.Equal(t, testWorkflowName, result.Spec.Workflow.Name)
+		assert.Equal(t, openchoreov1alpha1.WorkflowRefKindClusterWorkflow, result.Spec.Workflow.Kind)
+
+		stored := &openchoreov1alpha1.WorkflowRun{}
+		require.NoError(t, svc.(*workflowRunService).k8sClient.Get(ctx, client.ObjectKey{Name: testRunName, Namespace: testNamespace}, stored))
+		assert.Equal(t, openchoreov1alpha1.WorkflowRefKindClusterWorkflow, stored.Spec.Workflow.Kind)
 	})
 
 	t.Run("rejects changing the project/component ownership labels", func(t *testing.T) {
