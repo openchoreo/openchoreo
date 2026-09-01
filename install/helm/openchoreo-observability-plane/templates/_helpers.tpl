@@ -123,6 +123,26 @@ app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
 {{/*
+Platform identity labels
+Attribution labels for platform components observability. They let the
+observability plane tell which OpenChoreo plane a log record came from.
+
+MUST be applied to pod templates ONLY - never to spec.selector.matchLabels or a
+Service's spec.selector. Selectors are immutable, so a label that reaches one
+makes `helm upgrade` fail on an existing install instead of adding the label.
+
+Usage:
+  {{ include "openchoreo-observability-plane.platformIdentityLabels" . }}
+
+Parameters:
+  - The current Helm context (usually .)
+*/}}
+{{- define "openchoreo-observability-plane.platformIdentityLabels" -}}
+openchoreo.dev/plane: observabilityplane
+openchoreo.dev/plane-id: {{ .Values.clusterAgent.planeID | default .Release.Name | quote }}
+{{- end }}
+
+{{/*
 Cluster Agent name
 */}}
 {{- define "openchoreo-observability-plane.clusterAgent.name" -}}

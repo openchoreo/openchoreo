@@ -6,6 +6,18 @@
       "additionalProperties": true,
       "description": "Argo Workflows sub-chart configuration. See https://github.com/argoproj/argo-helm/tree/main/charts/argo-workflows for all options.",
       "properties": {
+        "commonLabels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {
+            "openchoreo.dev/plane": "workflowplane"
+          },
+          "description": "Labels applied to all Argo Workflows resources, pod templates included.\nCarries platform identity for system-component observability. Subchart\nvalues are not templated, so plane-id cannot be derived from\nclusterAgent.planeID here - set openchoreo.dev/plane-id explicitly when\nmore than one workflow plane shares a cluster.\n",
+          "required": [],
+          "title": "commonLabels",
+          "type": "object"
+        },
         "controller": {
           "additionalProperties": true,
           "description": "Argo Workflows controller configuration",

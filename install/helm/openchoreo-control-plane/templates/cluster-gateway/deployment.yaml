@@ -21,6 +21,7 @@ spec:
         app: cluster-gateway
         app.kubernetes.io/component: cluster-gateway
         {{- include "openchoreo-control-plane.selectorLabels" . | nindent 8 }}
+        {{- include "openchoreo-control-plane.platformIdentityLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "openchoreo-control-plane.clusterGateway.serviceAccountName" . }}
       {{- with .Values.global.imagePullSecrets }}

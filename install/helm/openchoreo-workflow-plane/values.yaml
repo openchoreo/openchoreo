@@ -46,6 +46,22 @@ argo-workflows:
 
   # @schema
   # type: object
+  # description: |
+  #   Labels applied to all Argo Workflows resources, pod templates included.
+  #   Carries platform identity for system-component observability. Subchart
+  #   values are not templated, so plane-id cannot be derived from
+  #   clusterAgent.planeID here - set openchoreo.dev/plane-id explicitly when
+  #   more than one workflow plane shares a cluster.
+  # properties: {}
+  # additionalProperties:
+  #   type: string
+  # default: {"openchoreo.dev/plane": "workflowplane"}
+  # @schema
+  commonLabels:
+    openchoreo.dev/plane: workflowplane
+
+  # @schema
+  # type: object
   # additionalProperties: true
   # description: Argo Workflows controller configuration
   # @schema
