@@ -353,7 +353,7 @@ type EventsQueryRequest struct {
 	// SearchAfter Opaque pagination cursor from a previous response's nextCursor. Enables deep pagination beyond the limit cap for machine consumers.
 	SearchAfter *string `json:"searchAfter,omitempty"`
 
-	// SearchScope Scope of the query. May be omitted only for reason-filtered sweeps (machine consumers reading controller-emitted events across all namespaces); interactive queries must always be scoped.
+	// SearchScope Scope of the query. Omitting it requests an unscoped sweep, which is permitted only together with `reasons` (machine consumers reading controller-emitted events across all namespaces). Interactive queries must always be scoped. Unscoped sweeps are an OPTIONAL adapter capability -- see the queryEvents description for what an adapter that does not implement them must do.
 	SearchScope *EventsQueryRequest_SearchScope `json:"searchScope,omitempty"`
 
 	// SortOrder The sort order of the query
@@ -363,7 +363,7 @@ type EventsQueryRequest struct {
 	StartTime time.Time `json:"startTime"`
 }
 
-// EventsQueryRequest_SearchScope Scope of the query. May be omitted only for reason-filtered sweeps (machine consumers reading controller-emitted events across all namespaces); interactive queries must always be scoped.
+// EventsQueryRequest_SearchScope Scope of the query. Omitting it requests an unscoped sweep, which is permitted only together with `reasons` (machine consumers reading controller-emitted events across all namespaces). Interactive queries must always be scoped. Unscoped sweeps are an OPTIONAL adapter capability -- see the queryEvents description for what an adapter that does not implement them must do.
 type EventsQueryRequest_SearchScope struct {
 	union json.RawMessage
 }
