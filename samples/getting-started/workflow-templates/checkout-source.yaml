@@ -10,6 +10,12 @@ spec:
           - name: git-revision
             valueFrom:
               path: /tmp/git-revision.txt
+          - name: commit-sha
+            valueFrom:
+              path: /tmp/commit-sha.txt
+          - name: commit-authored-at
+            valueFrom:
+              path: /tmp/commit-authored-at.txt
       volumes:
         - name: git-secret
           secret:
@@ -141,7 +147,8 @@ spec:
                 git config --global advice.detachedHead false
                 git fetch --depth 1 origin "$COMMIT"
                 git checkout "$COMMIT"
-                echo -n "$COMMIT" | cut -c1-8 > /tmp/git-revision.txt
+                COMMIT_SHA=$(git rev-parse HEAD)
+                echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
                 echo ">> Checked out commit: $COMMIT"
             else
                 git clone --single-branch --branch "$BRANCH" --depth 1 -- "$REPO" /mnt/vol/source
@@ -150,6 +157,12 @@ spec:
                 echo -n "$COMMIT_SHA" | cut -c1-8 > /tmp/git-revision.txt
                 echo ">> Checked out branch: $BRANCH (commit: $COMMIT_SHA)"
             fi
+
+            # Full resolved commit SHA and author timestamp, for WorkloadSource
+            # provenance (consumed by the generate-workload step).
+            COMMIT_AUTHORED_AT=$(git show -s --format=%aI HEAD)
+            echo -n "$COMMIT_SHA" > /tmp/commit-sha.txt
+            echo -n "$COMMIT_AUTHORED_AT" > /tmp/commit-authored-at.txt
 
             echo ">> Repository cloned successfully"
             echo ">> Source directory contents:"

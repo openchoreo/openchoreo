@@ -149,6 +149,14 @@ func TestCIWorkflows_RunTemplateStepHandoffs(t *testing.T) {
 				"generate-workload step must receive the image published by publish-image")
 			requireParameterValue(t, workload.Arguments, "run-name", "{{workflow.parameters.workflowrun-name}}",
 				"generate-workload step must receive the WorkflowRun name for annotations")
+			requireParameterValue(t, workload.Arguments, "source-commit", "{{steps.checkout-source.outputs.parameters.commit-sha}}",
+				"generate-workload step must receive the resolved commit SHA from checkout-source output")
+			requireParameterValue(t, workload.Arguments, "source-branch", "{{workflow.parameters.branch}}",
+				"generate-workload step must receive the requested branch workflow parameter")
+			requireParameterValue(t, workload.Arguments, "source-repository", "{{workflow.parameters.git-repo}}",
+				"generate-workload step must receive the git-repo workflow parameter")
+			requireParameterValue(t, workload.Arguments, "source-authored-at", "{{steps.checkout-source.outputs.parameters.commit-authored-at}}",
+				"generate-workload step must receive the commit author timestamp from checkout-source output")
 		})
 	}
 }

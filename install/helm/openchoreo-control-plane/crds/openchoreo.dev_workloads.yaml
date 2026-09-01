@@ -350,6 +350,29 @@ spec:
                 x-kubernetes-validations:
                 - message: spec.owner is immutable
                   rule: self == oldSelf
+              source:
+                description: |-
+                  Source records the commit provenance of the image in Container, for Delivery
+                  Insights' Lead Time for Changes metric.
+                properties:
+                  authoredAt:
+                    description: |-
+                      AuthoredAt is when the commit was authored, not when it was committed or
+                      built. This is the timestamp Lead Time for Changes measures from.
+                    format: date-time
+                    type: string
+                  branch:
+                    description: Branch is the VCS branch the commit was built from.
+                    type: string
+                  commit:
+                    description: Commit is the VCS commit SHA the running image was
+                      built from.
+                    type: string
+                  repository:
+                    description: Repository is the VCS repository URL the commit belongs
+                      to.
+                    type: string
+                type: object
             required:
             - container
             - owner

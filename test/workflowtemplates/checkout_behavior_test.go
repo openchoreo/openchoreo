@@ -36,10 +36,13 @@ case "$1" in
   rev-parse)
     echo "abcdef1234567890abcdef1234567890abcdef12"
     ;;
+  show)
+    echo "2026-01-15T10:30:00+00:00"
+    ;;
   config|fetch|checkout)
     ;;
   *)
-    echo "unexpected git subcommand: $1 (expected clone/config/fetch/checkout/rev-parse)" >&2
+    echo "unexpected git subcommand: $1 (expected clone/config/fetch/checkout/rev-parse/show)" >&2
     exit 127
     ;;
 esac
@@ -68,13 +71,15 @@ type checkoutInput struct {
 }
 
 type checkoutResult struct {
-	exitCode  int
-	output    string
-	gitCalls  []string
-	cloneRepo string // the repo URL passed to `git clone`, after transformation
-	root      string
-	askpass   string // path to the GIT_ASKPASS helper the script wrote
-	secretDir string // the mounted git-secret dir the helper reads from
+	exitCode         int
+	output           string
+	gitCalls         []string
+	cloneRepo        string // the repo URL passed to `git clone`, after transformation
+	root             string
+	askpass          string // path to the GIT_ASKPASS helper the script wrote
+	secretDir        string // the mounted git-secret dir the helper reads from
+	commitSHA        string // contents of the commit-sha output parameter file
+	commitAuthoredAt string // contents of the commit-authored-at output parameter file
 }
 
 // runCheckout prepares an isolated environment and runs the checkout script.
@@ -90,6 +95,8 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 	secretDir := filepath.Join(root, "git-secret")
 	stubDir := filepath.Join(root, "bin")
 	revFile := filepath.Join(root, "git-revision.txt")
+	commitSHAFile := filepath.Join(root, "commit-sha.txt")
+	commitAuthoredAtFile := filepath.Join(root, "commit-authored-at.txt")
 	gitCalls := filepath.Join(root, "git-calls.log")
 	askpass := filepath.Join(root, "git-askpass.sh")
 	require.NoError(t, os.MkdirAll(home, 0o755))
@@ -119,6 +126,8 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 		"/mnt/vol/source", source,
 		"/tmp/git-revision.txt", revFile,
 		"/tmp/git-askpass.sh", askpass,
+		"/tmp/commit-sha.txt", commitSHAFile,
+		"/tmp/commit-authored-at.txt", commitAuthoredAtFile,
 	}
 	script = strings.NewReplacer(replacements...).Replace(script)
 
@@ -144,6 +153,13 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 		} else {
 			res.exitCode = -1
 		}
+	}
+
+	if data, rerr := os.ReadFile(commitSHAFile); rerr == nil {
+		res.commitSHA = string(data)
+	}
+	if data, rerr := os.ReadFile(commitAuthoredAtFile); rerr == nil {
+		res.commitAuthoredAt = string(data)
 	}
 
 	if data, rerr := os.ReadFile(gitCalls); rerr == nil {
@@ -478,6 +494,32 @@ func TestCheckout_ByCommit_UsesNoCheckoutCloneAndFetch(t *testing.T) {
 		"commit checkout must checkout the requested commit SHA")
 	requireCheckoutOutputContains(t, res, "Checked out commit: 1234567890abcdef",
 		"commit checkout should report the checked out commit")
+}
+
+// --- WorkloadSource provenance outputs (scenario 23) ---
+
+func TestCheckout_ByBranch_EmitsCommitProvenance(t *testing.T) {
+	res := runCheckout(t, checkoutInput{
+		repo:   "https://github.com/org/repo.git",
+		branch: "feature-x",
+	})
+	requireCheckoutSuccess(t, res, "Branch checkout should succeed so commit provenance outputs are written")
+	requireEqualContract(t, res.commitSHA, "abcdef1234567890abcdef1234567890abcdef12",
+		"branch checkout must write the full resolved commit SHA to commit-sha.txt")
+	requireEqualContract(t, res.commitAuthoredAt, "2026-01-15T10:30:00+00:00",
+		"branch checkout must write the commit author timestamp to commit-authored-at.txt")
+}
+
+func TestCheckout_ByCommit_EmitsCommitProvenance(t *testing.T) {
+	res := runCheckout(t, checkoutInput{
+		repo:   "https://github.com/org/repo.git",
+		commit: "1234567890abcdef",
+	})
+	requireCheckoutSuccess(t, res, "Commit checkout should succeed so commit provenance outputs are written")
+	requireEqualContract(t, res.commitSHA, "abcdef1234567890abcdef1234567890abcdef12",
+		"commit checkout must canonicalize the requested commit via rev-parse before writing commit-sha.txt")
+	requireEqualContract(t, res.commitAuthoredAt, "2026-01-15T10:30:00+00:00",
+		"commit checkout must write the commit author timestamp to commit-authored-at.txt")
 }
 
 func hasCall(calls []string, prefix string) bool {
