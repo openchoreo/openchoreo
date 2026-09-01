@@ -123,7 +123,33 @@ paths:
       tags:
         - Events
       summary: Query events
-      description: Query Kubernetes events from the observer service
+      description: >
+        Query Kubernetes events from the observer service.
+
+
+        `searchScope` is optional, but omitting it is legal only together with
+        `reasons` (an unscoped, reason-filtered sweep, used by machine consumers
+        such as the delivery insights aggregator). Because a missing scope
+        otherwise widens a query to every namespace, adapters MUST apply all
+        three rules below:
+
+
+        1. A request with neither `searchScope` nor `reasons` MUST be rejected
+        with 400. A missing scope MUST NEVER be treated as "all namespaces" on
+        its own.
+
+        2. Unscoped sweeps are an OPTIONAL capability. An adapter that does not
+        implement them MUST reject an unscoped request with 400, rather than
+        ignoring the omission and running a broader query than the caller asked
+        for.
+
+        3. An unscoped sweep MUST be authorized as an installation-wide read
+        rather than a scoped one, and MUST filter to the requested `reasons`.
+
+
+        Clients MUST treat a 400 on an unscoped sweep as "capability
+        unavailable" and fall back rather than retrying. Per-adapter support is
+        tracked in openchoreo/openchoreo#4333.
       operationId: queryEvents
       requestBody:
         required: true
@@ -144,10 +170,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                title: "badRequest"
-                errorCode: ""
-                message: "Missing required fields 'startTime' and 'endTime'"
+              examples:
+                missingRequiredFields:
+                  summary: startTime/endTime absent
+                  value:
+                    title: "badRequest"
+                    errorCode: ""
+                    message: "Missing required fields 'startTime' and 'endTime'"
+                unscopedWithoutReasons:
+                  summary: No searchScope and no reasons filter
+                  value:
+                    title: "badRequest"
+                    errorCode: ""
+                    message: "searchScope is required unless reasons is set for an unscoped sweep"
+                unscopedNotSupported:
+                  summary: Adapter does not implement unscoped sweeps
+                  value:
+                    title: "badRequest"
+                    errorCode: ""
+                    message: "this adapter does not support unscoped event queries; set searchScope"
         "401":
           description: Unauthorized
           content:
@@ -565,13 +606,21 @@ components:
             - $ref: "#/components/schemas/ComponentSearchScope"
             - $ref: "#/components/schemas/WorkflowSearchScope"
           description: >
-            Scope of the query. May be omitted only for reason-filtered sweeps
-            (machine consumers reading controller-emitted events across all
-            namespaces); interactive queries must always be scoped.
-      # A request carrying neither searchScope nor reasons asks for every event in
-      # every namespace, and must be rejected. The rule is deliberately NOT expressed
-      # as `anyOf: [required: [searchScope], required: [reasons]]`: oapi-codegen turns
-      # a schema-level anyOf into a union type with a custom marshaller on this request,
+            Scope of the query. Omitting it requests an unscoped sweep, which is
+            permitted only together with `reasons` (machine consumers reading
+            controller-emitted events across all namespaces). Interactive queries
+            must always be scoped. Unscoped sweeps are an OPTIONAL adapter
+            capability -- see the queryEvents description for what an adapter that
+            does not implement them must do.
+      # Relaxing `required` here widens what the contract allows, so the rules an
+      # adapter must apply are spelled out on the endpoint itself (queryEvents
+      # description). In short: a request with neither searchScope nor reasons must be
+      # rejected with 400, and an adapter that does not implement unscoped sweeps must
+      # also reject with 400 rather than broadening the query.
+      #
+      # The condition is deliberately NOT expressed as
+      # `anyOf: [required: [searchScope], required: [reasons]]`: oapi-codegen turns a
+      # schema-level anyOf into a union type with a custom marshaller on this request,
       # and since this spec generates a client only, that buys no validation here. The
       # adapter implementation is the enforcement point.
       required: [startTime, endTime]
