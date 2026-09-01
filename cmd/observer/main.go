@@ -18,6 +18,7 @@ import (
 	"syscall"
 
 	apihandler "github.com/openchoreo/openchoreo/internal/observer/api/handlers"
+	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	k8s "github.com/openchoreo/openchoreo/internal/observer/clients"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
@@ -328,24 +329,43 @@ func main() {
 	}
 
 	// ===== Internal Server (port 8081) — v1alpha1 alert CRUD =====
+	//
+	// All five routes are registered by generated code from
+	// openapi/observer-internal-api.yaml, so the spec and the served routes
+	// cannot diverge — there is no hand-written pattern string here to drift.
+	//
+	// No auth middleware: the internal spec declares no security scheme because
+	// this port has none, and the ObservabilityAlertRule controller that calls
+	// it sends no Authorization header. See TestInternalSpecDeclaresNoSecurity.
+	internalAPILogger := logger.With("component", "internal-api")
 	internalMux := http.NewServeMux()
-	internalRoutes := middleware.NewRouteBuilder(internalMux).With(loggerMiddleware, recoveryMiddleware)
-	internalRoutes.HandleFunc(
-		"POST /api/v1alpha1/alerts/sources/{sourceType}/rules", internalHandler.CreateAlertRule)
-	internalRoutes.HandleFunc(
-		"GET /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", internalHandler.GetAlertRule)
-	internalRoutes.HandleFunc(
-		"PUT /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", internalHandler.UpdateAlertRule)
-	internalRoutes.HandleFunc(
-		"DELETE /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}", internalHandler.DeleteAlertRule)
 
-	// ===== v1alpha1 Alert Webhook Endpoint  =====
-	internalRoutes.HandleFunc("POST /api/v1alpha1/alerts/webhook", internalHandler.HandleAlertWebhook)
+	// The strict handler decodes bodies and writes typed responses. Both error
+	// hooks are supplied explicitly so a malformed body returns observer's
+	// gen.ErrorResponse JSON rather than the generated default's plain text.
+	internalStrictHandler := internalgen.NewStrictHandlerWithOptions(
+		internalHandler,
+		nil,
+		internalgen.StrictHTTPServerOptions{
+			RequestErrorHandlerFunc:  apihandler.StrictRequestErrorHandler(internalAPILogger),
+			ResponseErrorHandlerFunc: apihandler.StrictResponseErrorHandler(internalAPILogger),
+		},
+	)
+
+	// Middleware ordering lives in apihandler.InternalMiddlewares, the single
+	// place the internal chain is composed; main.go supplies dependencies only.
+	internalHTTPHandler := internalgen.HandlerWithOptions(internalStrictHandler, internalgen.StdHTTPServerOptions{
+		BaseRouter: internalMux,
+		Middlewares: apihandler.InternalMiddlewares(apihandler.InternalMiddlewareOptions{
+			Logger: internalAPILogger,
+		}),
+		ErrorHandlerFunc: apihandler.ParamBindingErrorHandler(internalAPILogger),
+	})
 
 	internalAddr := fmt.Sprintf(":%d", cfg.Server.InternalPort)
 	internalServer := &http.Server{
 		Addr:         internalAddr,
-		Handler:      internalMux,
+		Handler:      internalHTTPHandler,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}

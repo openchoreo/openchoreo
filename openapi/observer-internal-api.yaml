@@ -1,0 +1,258 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+openapi: 3.0.3
+info:
+  title: OpenChoreo Observer Internal API
+  description: |
+    The OpenChoreo Observer Internal API is served on the observer's internal
+    port (INTERNAL_PORT, default 8081) and exposed only as a cluster-local
+    ClusterIP Service (observer-internal). It is NOT routed through the
+    gateway and is NOT reachable from outside the cluster.
+
+    Callers are in-cluster components, not end users:
+      - the control plane's ObservabilityAlertRule controller (alert rule CRUD)
+      - the alerting backend (alert webhook)
+
+    Authentication: this API declares no security scheme, because none is
+    enforced. Network reachability is the control. This accurately describes
+    the deployed topology rather than an aspiration -- see the note below.
+
+    **Not self-contained.** Every schema here is an external `$ref` into
+    `observer-api.yaml`, which keeps shared types (AlertRuleRequest,
+    ErrorResponse, ...) single-sourced and means the Go models are not
+    duplicated. The trade-off is that this file cannot be loaded on its own:
+    any tool that reads it standalone -- a docs publish, a spectral/redocly
+    lint, third-party SDK generation -- must resolve `./observer-api.yaml`
+    from the same directory. Keep both files together in `openapi/`, and
+    bundle them (e.g. `redocly bundle`) before handing this spec to anything
+    that cannot follow relative file refs.
+  version: 1.0.0
+  contact:
+    name: OpenChoreo Team
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+tags:
+  - name: Alerts
+    description: Internal alert rule CRUD and alert webhook endpoints
+
+# NOTE: There is deliberately no global `security:` block here, and no
+# `security: []` on individual operations.
+#
+# The observer's internal port has no JWT layer, and the ObservabilityAlertRule
+# controller that drives alert rule CRUD sends no Authorization header (it has
+# no token source: the reconciler acts for no user). Declaring BearerAuth here
+# would make the generated router demand a token that no caller sends, breaking
+# alert rule reconciliation.
+#
+# Do NOT add a security scheme to this spec on its own. Requiring auth on these
+# operations is a deliberate, separate change that must land together with a
+# service-account token source in internal/controller/observabilityalertrule.
+
+paths:
+  /api/v1alpha1/alerts/sources/{sourceType}/rules:
+    parameters:
+      - name: sourceType
+        in: path
+        required: true
+        description: The source type of the alert rule (log, metric, or budget)
+        schema:
+          type: string
+          enum:
+            - log
+            - metric
+            - budget
+    post:
+      tags:
+        - Alerts
+      summary: Create alert rule
+      description: Create an alert rule in the observer service
+      operationId: createAlertRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./observer-api.yaml#/components/schemas/AlertRuleRequest"
+      responses:
+        "201":
+          description: Alert rule created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/AlertingRuleSyncResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"
+        "409":
+          description: Alert rule already exists
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"
+
+  /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}:
+    parameters:
+      - name: sourceType
+        in: path
+        required: true
+        description: The source type of the alert rule (log, metric, or budget)
+        schema:
+          type: string
+          enum:
+            - log
+            - metric
+            - budget
+      - name: ruleName
+        in: path
+        required: true
+        description: The name of the alert rule
+        schema:
+          type: string
+    get:
+      tags:
+        - Alerts
+      summary: Get alert rule
+      description: Get an alert rule in the observer service
+      operationId: getAlertRule
+      responses:
+        "200":
+          description: Alert rule retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/AlertRuleResponse"
+        "404":
+          description: Alert rule not found
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"
+    put:
+      tags:
+        - Alerts
+      summary: Update alert rule
+      description: Update an alert rule in the observer service
+      operationId: updateAlertRule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./observer-api.yaml#/components/schemas/AlertRuleRequest"
+      responses:
+        "200":
+          description: Alert rule updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/AlertingRuleSyncResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"
+        # The handler has always returned 404 on ErrAlertRuleNotFound; the
+        # pre-split spec simply never declared it. Documented here rather than
+        # dropped, so the generated strict interface can express the behavior
+        # the service actually has.
+        "404":
+          description: Alert rule not found
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"
+    delete:
+      tags:
+        - Alerts
+      summary: Delete alert rule
+      description: Delete an alert rule in the observer service
+      operationId: deleteAlertRule
+      responses:
+        "200":
+          description: Alert rule deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/AlertingRuleSyncResponse"
+        "404":
+          description: Alert rule not found
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"
+
+  /api/v1alpha1/alerts/webhook:
+    post:
+      tags:
+        - Alerts
+      summary: Handles triggered alerts from the alerting backend
+      description: Handles triggered alerts from the alerting backend
+      operationId: handleAlertWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "./observer-api.yaml#/components/schemas/AlertWebhookRequest"
+      responses:
+        "200":
+          description: Alert webhook handled successfully
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/AlertWebhookResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "./observer-api.yaml#/components/schemas/ErrorResponse"

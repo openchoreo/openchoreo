@@ -274,14 +274,8 @@ func TestUpdateIncident_ValidationError(t *testing.T) {
 func TestUpdateAlertRule_InvalidBody(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
-	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/alerts/sources/log/rules/r1",
-		bytes.NewReader([]byte("{bad")))
-	req.SetPathValue("sourceType", "log")
-	req.SetPathValue("ruleName", "r1")
-	rr := httptest.NewRecorder()
-
-	h.UpdateAlertRule(rr, req)
+	rr := do(t, servicemocks.NewMockAlertRuleService(t),
+		http.MethodPut, ruleURL(sourceTypeLog, "r1"), bytes.NewReader([]byte("{bad")))
 
 	require.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "INVALID_REQUEST_BODY")
@@ -290,20 +284,16 @@ func TestUpdateAlertRule_InvalidBody(t *testing.T) {
 func TestUpdateAlertRule_ValidationError(t *testing.T) {
 	t.Parallel()
 
-	h := newInternalHandler(servicemocks.NewMockAlertRuleService(t))
 	// Missing metadata.name → validation error.
-	raw, _ := json.Marshal(map[string]any{
+	raw, err := json.Marshal(map[string]any{
 		"metadata":  map[string]any{"name": ""},
 		"source":    map[string]any{"type": "log"},
 		"condition": map[string]any{},
 	})
-	req := httptest.NewRequest(http.MethodPut, "/api/v1alpha1/alerts/sources/log/rules/r1",
-		bytes.NewReader(raw))
-	req.SetPathValue("sourceType", "log")
-	req.SetPathValue("ruleName", "r1")
-	rr := httptest.NewRecorder()
+	require.NoError(t, err)
 
-	h.UpdateAlertRule(rr, req)
+	rr := do(t, servicemocks.NewMockAlertRuleService(t),
+		http.MethodPut, ruleURL(sourceTypeLog, "r1"), bytes.NewReader(raw))
 
 	require.Equal(t, http.StatusBadRequest, rr.Code)
 	assert.Contains(t, rr.Body.String(), "VALIDATION_ERROR")

@@ -1393,15 +1393,6 @@ type QueryMetricsJSONRequestBody = MetricsQueryRequest
 // QueryAlertsJSONRequestBody defines body for QueryAlerts for application/json ContentType.
 type QueryAlertsJSONRequestBody = AlertsQueryRequest
 
-// CreateAlertRuleJSONRequestBody defines body for CreateAlertRule for application/json ContentType.
-type CreateAlertRuleJSONRequestBody = AlertRuleRequest
-
-// UpdateAlertRuleJSONRequestBody defines body for UpdateAlertRule for application/json ContentType.
-type UpdateAlertRuleJSONRequestBody = AlertRuleRequest
-
-// HandleAlertWebhookJSONRequestBody defines body for HandleAlertWebhook for application/json ContentType.
-type HandleAlertWebhookJSONRequestBody = AlertWebhookRequest
-
 // QueryIncidentsJSONRequestBody defines body for QueryIncidents for application/json ContentType.
 type QueryIncidentsJSONRequestBody = IncidentsQueryRequest
 

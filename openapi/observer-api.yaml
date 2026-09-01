@@ -10,6 +10,17 @@ info:
     as well as logs from workflows.
     It integrates with separate observability modules to fetch the actual data via
     API calls to the adaptors provided by the modules.
+
+    This spec covers the observer's **public** API, served on the main server
+    port and reachable through the gateway. Every operation here requires a
+    Bearer token except `/health`.
+
+    **Moved:** the internal alert-rule CRUD and alert-webhook operations that
+    this spec used to declare now live in `observer-internal-api.yaml`. They are
+    served on the observer's internal port (`INTERNAL_PORT`, default 8081) as a
+    cluster-local ClusterIP Service and were never reachable from outside the
+    cluster, so no externally reachable endpoint changed. Shared schemas remain
+    defined here and are referenced from the internal spec.
   version: 1.0.0
   contact:
     name: OpenChoreo Team
@@ -549,202 +560,6 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "403":
           description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/v1alpha1/alerts/sources/{sourceType}/rules:
-    parameters:
-      - name: sourceType
-        in: path
-        required: true
-        description: The source type of the alert rule (log, metric, or budget)
-        schema:
-          type: string
-          enum:
-            - log
-            - metric
-            - budget
-    post:
-      tags:
-        - Alerts
-      summary: Create alert rule
-      description: Create an alert rule in the observer service
-      operationId: createAlertRule
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AlertRuleRequest"
-      responses:
-        "201":
-          description: Alert rule created successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AlertingRuleSyncResponse"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "409":
-          description: Alert rule already exists
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}:
-    parameters:
-      - name: sourceType
-        in: path
-        required: true
-        description: The source type of the alert rule (log, metric, or budget)
-        schema:
-          type: string
-          enum:
-            - log
-            - metric
-            - budget
-      - name: ruleName
-        in: path
-        required: true
-        description: The name of the alert rule
-        schema:
-          type: string
-    get:
-      tags:
-        - Alerts
-      summary: Get alert rule
-      description: Get an alert rule in the observer service
-      operationId: getAlertRule
-      responses:
-        "200":
-          description: Alert rule retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AlertRuleResponse"
-        "404":
-          description: Alert rule not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    put:
-      tags:
-        - Alerts
-      summary: Update alert rule
-      description: Update an alert rule in the observer service
-      operationId: updateAlertRule
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AlertRuleRequest"
-      responses:
-        "200":
-          description: Alert rule updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AlertingRuleSyncResponse"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    delete:
-      tags:
-        - Alerts
-      summary: Delete alert rule
-      description: Delete an alert rule in the observer service
-      operationId: deleteAlertRule
-      responses:
-        "200":
-          description: Alert rule deleted successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AlertingRuleSyncResponse"
-        "404":
-          description: Alert rule not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/v1alpha1/alerts/webhook:
-    post:
-      security: []
-      tags:
-        - Alerts
-      summary: Handles triggered alerts from the alerting backend
-      description: Handles triggered alerts from the alerting backend
-      operationId: handleAlertWebhook
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AlertWebhookRequest"
-      responses:
-        "200":
-          description: Alert webhook handled successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AlertWebhookResponse"
-        "400":
-          description: Invalid request
           content:
             application/json:
               schema:

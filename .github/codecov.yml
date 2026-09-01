@@ -20,7 +20,9 @@ ignore:
   - "api/v1alpha1/groupversion_info.go"                        # Generated CRD group/version boilerplate
   - "internal/openchoreo-api/api/gen"                          # Generated OpenAPI server, client, and models
   - "internal/observer/api/gen"                                # Generated observer, client, and models
+  - "internal/observer/api/internalgen"                        # Generated observer internal API server and models
   - "internal/observer/api/logsadapterclientgen"
+  - "internal/observer/api/finopsadapterclientgen"
   # Test utilities
   - "test"                                                     # Test helpers and utilities
   - "internal/openchoreo-api/services/testutil"

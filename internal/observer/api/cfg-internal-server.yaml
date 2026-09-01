@@ -1,0 +1,51 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+
+# oapi-codegen configuration for generating the Observer *internal* API server
+# interface and embedded spec. The internal API is served on INTERNAL_PORT
+# (default 8081) as a cluster-local ClusterIP Service, separate from the public
+# API on Server.Port.
+#
+# Why a config separate from cfg-server.yaml rather than another spec passed to
+# it: the two specs must generate into two different Go packages. Both emit
+# ServerInterface, StrictServerInterface, HandlerWithOptions, NewStrictHandler,
+# StdHTTPServerOptions and GetSwagger, so generating them into one package would
+# be a pile of duplicate declarations. Two packages means two configs.
+#
+# `models: true` is bundled here rather than split into its own config, matching
+# how every other SINGLE-artifact generated package in this repo is configured:
+# cfg-logs-adapter-client.yaml and cfg-finops-adapter-client.yaml both set
+# `models: true` alongside `client: true` and emit one file.
+#
+# The rule the repo actually follows is that models must be generated exactly
+# once per Go package. The multi-artifact packages (openchoreo-api/api/gen and
+# observer/api/gen, each with models + server + client) therefore need a
+# dedicated cfg-models.yaml, with `models: false` on the server and client
+# configs. internalgen has a server and nothing else, so there is no second
+# consumer to share with and a separate config would buy nothing.
+#
+# Every schema here is an external $ref anyway, so this pass adds only the three
+# `<Operation>JSONRequestBody` aliases the strict server needs.
+#
+# Split models into their own config if internalgen ever gains a second
+# artifact -- most likely a generated client, so the ObservabilityAlertRule
+# controller can stop hand-rolling http.NewRequestWithContext.
+#
+# Shared schemas are NOT regenerated: import-mapping points the internal spec's
+# external $refs at the existing `gen` package, so AlertRuleRequest,
+# ErrorResponse and friends remain single-sourced in gen/models.gen.go and the
+# service layer keeps using them unchanged. The mapping key must match the $ref
+# string literally, including the leading "./".
+# See: https://github.com/oapi-codegen/oapi-codegen
+
+package: internalgen
+output: internal/observer/api/internalgen/server.gen.go
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true
+  embedded-spec: true
+output-options:
+  skip-prune: true
+import-mapping:
+  ./observer-api.yaml: github.com/openchoreo/openchoreo/internal/observer/api/gen
