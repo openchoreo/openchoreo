@@ -72,11 +72,19 @@ type environment struct {
 func parseEnvironments(value string) ([]environment, error) {
 	names := strings.Split(value, ",")
 	envs := make([]environment, 0, len(names))
+	seen := make(map[string]struct{}, len(names))
 	for _, raw := range names {
 		name := strings.TrimSpace(raw)
 		if name == "" {
 			continue
 		}
+		// Release UIDs are derived from the environment name, so a repeated name
+		// generates a second history with colliding UIDs. seedIncidentEntries keys
+		// facts by release UID and would silently attach incidents to the wrong one.
+		if _, dup := seen[name]; dup {
+			return nil, fmt.Errorf("duplicate environment name %q", name)
+		}
+		seen[name] = struct{}{}
 		envs = append(envs, environment{name: name, rateFactor: 1.5})
 	}
 	if len(envs) == 0 {
