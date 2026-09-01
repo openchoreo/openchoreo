@@ -5,6 +5,7 @@ package workflowrun
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -69,11 +70,20 @@ func (s *workflowRunServiceWithAuthz) CreateWorkflowRun(ctx context.Context, nam
 }
 
 func (s *workflowRunServiceWithAuthz) UpdateWorkflowRun(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
+	if wfRun == nil {
+		return nil, fmt.Errorf("workflow run cannot be nil")
+	}
+	// Fetch the existing workflow run to get owner info for authz, mirroring the pattern
+	// used by workload/service_authz.go and friends.
+	existing, err := s.internal.GetWorkflowRun(ctx, namespaceName, wfRun.Name)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       authz.ActionUpdateWorkflowRun,
 		ResourceType: resourceTypeWorkflowRun,
-		ResourceID:   wfRun.Name,
-		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, wfRun.Labels),
+		ResourceID:   existing.Name,
+		Hierarchy:    constructHierarchyForAuthzCheck(namespaceName, existing.Labels),
 	}); err != nil {
 		return nil, err
 	}
