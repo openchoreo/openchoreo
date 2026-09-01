@@ -238,7 +238,9 @@ func mountPath(t *testing.T, filename, volumeName string) string {
 }
 
 // inputParamDefault returns the `default` of the named input parameter on the
-// first template, or "" if not found.
+// first template. A missing parameter fails the test rather than returning "",
+// so that asserting on an empty default cannot be satisfied by the parameter
+// not existing at all -- which is the very thing such an assertion guards.
 func inputParamDefault(t *testing.T, filename, paramName string) string {
 	t.Helper()
 	wt := loadTemplate(t, filename)
@@ -248,6 +250,8 @@ func inputParamDefault(t *testing.T, filename, paramName string) string {
 			return p.Default
 		}
 	}
+	require.FailNowf(t, "input parameter not found",
+		"template %s has no input parameter %q", filename, paramName)
 	return ""
 }
 

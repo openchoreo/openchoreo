@@ -80,6 +80,7 @@ type checkoutResult struct {
 	secretDir        string // the mounted git-secret dir the helper reads from
 	commitSHA        string // contents of the commit-sha output parameter file
 	commitAuthoredAt string // contents of the commit-authored-at output parameter file
+	sourceBranch     string // contents of the source-branch output parameter file
 }
 
 // runCheckout prepares an isolated environment and runs the checkout script.
@@ -97,6 +98,7 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 	revFile := filepath.Join(root, "git-revision.txt")
 	commitSHAFile := filepath.Join(root, "commit-sha.txt")
 	commitAuthoredAtFile := filepath.Join(root, "commit-authored-at.txt")
+	sourceBranchFile := filepath.Join(root, "source-branch.txt")
 	gitCalls := filepath.Join(root, "git-calls.log")
 	askpass := filepath.Join(root, "git-askpass.sh")
 	require.NoError(t, os.MkdirAll(home, 0o755))
@@ -128,6 +130,7 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 		"/tmp/git-askpass.sh", askpass,
 		"/tmp/commit-sha.txt", commitSHAFile,
 		"/tmp/commit-authored-at.txt", commitAuthoredAtFile,
+		"/tmp/source-branch.txt", sourceBranchFile,
 	}
 	script = strings.NewReplacer(replacements...).Replace(script)
 
@@ -160,6 +163,9 @@ func runCheckout(t *testing.T, in checkoutInput) checkoutResult {
 	}
 	if data, rerr := os.ReadFile(commitAuthoredAtFile); rerr == nil {
 		res.commitAuthoredAt = string(data)
+	}
+	if data, rerr := os.ReadFile(sourceBranchFile); rerr == nil {
+		res.sourceBranch = string(data)
 	}
 
 	if data, rerr := os.ReadFile(gitCalls); rerr == nil {
@@ -565,4 +571,35 @@ func normalizeCheckoutPath(res checkoutResult, s string) string {
 		return s
 	}
 	return strings.ReplaceAll(s, res.root, "$TEST_ROOT")
+}
+
+// TestCheckoutSourceBranchProvenance pins which branch a build is attributed to.
+// A commit-pinned run checks out a detached commit and never consults the branch
+// parameter, so reporting the requested branch would claim the build came from a
+// branch that was never checked out -- and a commit can belong to any number of
+// branches, so there is no correct value to report.
+func TestCheckoutSourceBranchProvenance(t *testing.T) {
+	t.Run("branch checkout records the branch it cloned", func(t *testing.T) {
+		res := runCheckout(t, checkoutInput{
+			repo:   "https://github.com/acme/widgets.git",
+			branch: "feature-x",
+		})
+		require.Equal(t, 0, res.exitCode, "checkout should succeed: %s", res.output)
+		require.Equal(t, "feature-x", res.sourceBranch,
+			"a branch checkout must report the branch it actually cloned")
+	})
+
+	t.Run("commit checkout records no branch", func(t *testing.T) {
+		res := runCheckout(t, checkoutInput{
+			repo:   "https://github.com/acme/widgets.git",
+			branch: "feature-x",
+			commit: "1234567890abcdef",
+		})
+		require.Equal(t, 0, res.exitCode, "checkout should succeed: %s", res.output)
+		require.Empty(t, res.sourceBranch,
+			"a commit-pinned checkout never uses the branch parameter, so it must not "+
+				"report feature-x as this build's branch")
+		require.NotEmpty(t, res.commitSHA,
+			"commit provenance must still be recorded on the commit path")
+	})
 }

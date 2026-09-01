@@ -151,8 +151,10 @@ func TestCIWorkflows_RunTemplateStepHandoffs(t *testing.T) {
 				"generate-workload step must receive the WorkflowRun name for annotations")
 			requireParameterValue(t, workload.Arguments, "source-commit", "{{steps.checkout-source.outputs.parameters.commit-sha}}",
 				"generate-workload step must receive the resolved commit SHA from checkout-source output")
-			requireParameterValue(t, workload.Arguments, "source-branch", "{{workflow.parameters.branch}}",
-				"generate-workload step must receive the requested branch workflow parameter")
+			requireParameterValue(t, workload.Arguments, "source-branch", "{{steps.checkout-source.outputs.parameters.source-branch}}",
+				"generate-workload step must take the branch from checkout-source, not the workflow parameter: "+
+					"a commit-pinned build checks out a detached commit and never uses the branch, so forwarding "+
+					"the requested branch would record provenance for a branch that was not built")
 			requireParameterValue(t, workload.Arguments, "source-repository", "{{workflow.parameters.git-repo}}",
 				"generate-workload step must receive the git-repo workflow parameter")
 			requireParameterValue(t, workload.Arguments, "source-authored-at", "{{steps.checkout-source.outputs.parameters.commit-authored-at}}",

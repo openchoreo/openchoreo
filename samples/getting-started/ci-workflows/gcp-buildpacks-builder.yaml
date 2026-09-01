@@ -142,7 +142,7 @@ spec:
                     - name: source-commit
                       value: "{{steps.checkout-source.outputs.parameters.commit-sha}}"
                     - name: source-branch
-                      value: "{{workflow.parameters.branch}}"
+                      value: "{{steps.checkout-source.outputs.parameters.source-branch}}"
                     - name: source-repository
                       value: "{{workflow.parameters.git-repo}}"
                     - name: source-authored-at
