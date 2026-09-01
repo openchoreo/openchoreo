@@ -183,6 +183,50 @@ spec:
                   - type
                   type: object
                 type: array
+              delivery:
+                description: |-
+                  Delivery tracks which delivery lifecycle events have been emitted for the
+                  current rollout, so each phase is emitted exactly once per rollout even
+                  though the emitted Events themselves are garbage-collected by Kubernetes.
+                properties:
+                  failedAt:
+                    description: |-
+                      FailedAt is when DeploymentFailed was last emitted. A failure episode is
+                      open while FailedAt is set and RecoveredAt is unset or earlier than FailedAt.
+                    format: date-time
+                    type: string
+                  failureEpisode:
+                    description: |-
+                      FailureEpisode counts the failure episodes seen for this rollout, and names the
+                      DeploymentFailed/DeploymentRecovered events of the current one. It exists so
+                      those event names are deterministic per episode: if an event reaches the data
+                      plane but the status update that records it is lost, the next reconcile derives
+                      the same episode number, so the re-emission collapses via AlreadyExists instead
+                      of creating a duplicate the aggregator would fold twice.
+                    format: int32
+                    type: integer
+                  recoveredAt:
+                    description: RecoveredAt is when DeploymentRecovered was last
+                      emitted.
+                    format: date-time
+                    type: string
+                  rolloutId:
+                    description: RolloutID identifies the rollout the markers below
+                      refer to.
+                    type: string
+                  startedAt:
+                    description: StartedAt is when DeploymentStarted was emitted for
+                      this rollout.
+                    format: date-time
+                    type: string
+                  succeededAt:
+                    description: SucceededAt is when DeploymentSucceeded was emitted
+                      for this rollout.
+                    format: date-time
+                    type: string
+                required:
+                - rolloutId
+                type: object
               resources:
                 description: Resources contain the list of resources that have been
                   successfully applied to the data plane

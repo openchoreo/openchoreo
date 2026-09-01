@@ -63,6 +63,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterobservabilityplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",resources=events,verbs=create
 // +kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -142,6 +143,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
+	deliveryCtx := deliveryContextFor(release, desiredResources)
+
 	// PHASE 1: Apply desired resources to the target plane
 	// This ensures all resources in the spec are created/updated with proper tracking labels
 	if err := r.applyResources(ctx, planeClient, desiredResources); err != nil {
@@ -150,6 +153,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		changed := controller.MarkFalseCondition(release, controller.ConditionType(ConditionResourcesApplied),
 			controller.ConditionReason(ReasonApplyFailed),
 			fmt.Sprintf("Failed to apply resources to target plane: %v", err))
+		if deliveryCtx != nil && r.markDeliveryApplyFailure(ctx, planeClient, release, deliveryCtx) {
+			changed = true
+		}
 		if changed {
 			if statusErr := r.Status().Update(ctx, release); statusErr != nil {
 				logger.Error(statusErr, "Failed to update Release status with apply error")
@@ -186,9 +192,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	// Build the resource statuses first so delivery events and the status update
+	// share one health evaluation
+	resourceStatuses := r.buildResourceStatus(ctx, old, desiredResources, liveResources)
+
+	// Emit delivery lifecycle events implied by the health transition (component
+	// workloads on the data plane only). Best-effort: emission markers live in
+	// status and are persisted by the status update below.
+	if deliveryCtx != nil {
+		r.reconcileDeliveryEvents(ctx, planeClient, release, deliveryCtx, resourceStatuses, liveResources)
+	}
+
 	// PHASE 4: Update status with applied resources inventory (done last after all operations)
 	// This maintains an inventory of what we applied for future cleanup operations
-	if statusUpdated, err := r.updateStatus(ctx, old, release, desiredResources, liveResources); err != nil || statusUpdated {
+	if statusUpdated, err := r.updateStatus(ctx, old, release, resourceStatuses); err != nil || statusUpdated {
 		// Return after updating the status to ensure it is persisted before continuing
 		return ctrl.Result{}, err
 	}
