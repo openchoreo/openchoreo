@@ -117,6 +117,15 @@ func (s *workflowRunService) CreateWorkflowRun(ctx context.Context, namespaceNam
 	return wfRun, nil
 }
 
+// normalizeWorkflowRefKind returns kind with the CRD's default applied, so an omitted
+// kind compares equal to an explicit ClusterWorkflow.
+func normalizeWorkflowRefKind(kind openchoreov1alpha1.WorkflowRefKind) openchoreov1alpha1.WorkflowRefKind {
+	if kind == "" {
+		return openchoreov1alpha1.WorkflowRefKindClusterWorkflow
+	}
+	return kind
+}
+
 func (s *workflowRunService) UpdateWorkflowRun(ctx context.Context, namespaceName string, wfRun *openchoreov1alpha1.WorkflowRun) (*openchoreov1alpha1.WorkflowRun, error) {
 	if wfRun == nil {
 		return nil, fmt.Errorf("workflow run cannot be nil")
@@ -139,6 +148,40 @@ func (s *workflowRunService) UpdateWorkflowRun(ctx context.Context, namespaceNam
 			return fmt.Errorf("failed to get workflow run: %w", err)
 		}
 
+		// The project/component labels are the ownership record for a WorkflowRun, so they
+		// are immutable after creation, same as spec.workflow.kind/name. A request that
+		// doesn't specify one of these labels at all carries over the stored value instead
+		// of being treated as clearing it, so callers that aren't aware of ownership labels
+		// (or that predate WorkflowRuns always carrying them) can still update other fields.
+		// A request that explicitly supplies a different value is rejected.
+		for _, key := range []string{ocLabels.LabelKeyProjectName, ocLabels.LabelKeyComponentName} {
+			existingValue := existing.Labels[key]
+			incomingValue, present := wfRun.Labels[key]
+			if !present {
+				if existingValue != "" {
+					if wfRun.Labels == nil {
+						wfRun.Labels = make(map[string]string, len(existing.Labels))
+					}
+					wfRun.Labels[key] = existingValue
+				}
+				continue
+			}
+			if incomingValue != existingValue {
+				return &services.ValidationError{Msg: fmt.Sprintf("label %s is immutable", key)}
+			}
+		}
+
+		// The referenced workflow is immutable after creation (spec.workflow.kind/name
+		// carry a CEL "self == oldSelf" rule at the CRD level); reject it here too so the
+		// request fails cleanly instead of relying solely on that CRD-level validation.
+		if wfRun.Spec.Workflow.Name != existing.Spec.Workflow.Name ||
+			normalizeWorkflowRefKind(wfRun.Spec.Workflow.Kind) != normalizeWorkflowRefKind(existing.Spec.Workflow.Kind) {
+			return &services.ValidationError{Msg: "spec.workflow.kind/name is immutable"}
+		}
+		// The check above confirmed the kind is unchanged once normalized; persist the
+		// stored value so an omitted kind in the request doesn't clear it to "".
+		wfRun.Spec.Workflow.Kind = existing.Spec.Workflow.Kind
+
 		// Only apply user-mutable fields to the existing object, preserving server-managed fields
 		existing.Labels = wfRun.Labels
 		existing.Annotations = wfRun.Annotations
@@ -150,6 +193,10 @@ func (s *workflowRunService) UpdateWorkflowRun(ctx context.Context, namespaceNam
 		if errors.Is(err, ErrWorkflowRunNotFound) {
 			s.logger.Warn("Workflow run not found", "namespace", namespaceName, "name", wfRun.Name)
 			return nil, ErrWorkflowRunNotFound
+		}
+		if vErr, ok := errors.AsType[*services.ValidationError](err); ok {
+			s.logger.Error("Workflow run update rejected by validation", "error", err)
+			return nil, vErr
 		}
 		if vErr := services.ExtractValidationError(err); vErr != nil {
 			s.logger.Error("Workflow run update rejected by validation", "error", err)
