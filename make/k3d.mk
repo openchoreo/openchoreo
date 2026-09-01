@@ -11,8 +11,10 @@ K3D_DP_NAMESPACE := openchoreo-data-plane
 K3D_WP_NAMESPACE := openchoreo-workflow-plane
 K3D_OP_NAMESPACE := openchoreo-observability-plane
 
-# Components that can be built locally
-K3D_BUILD_COMPONENTS := controller openchoreo-api observer cluster-gateway cluster-agent
+# Components that can be built locally. k3d.build/k3d.load iterate this, so a new
+# component only has to be added here.
+K3D_BUILD_COMPONENTS := controller openchoreo-api observer cluster-gateway cluster-agent \
+	remote-agent remote-agent-router
 
 # Helper functions
 define k3d_check_cluster
@@ -28,11 +30,9 @@ endef
 .PHONY: k3d.build
 k3d.build: ## Build all OpenChoreo components with latest-dev tag
 	@$(call log_info, Building all OpenChoreo components...)
-	@$(MAKE) docker.build.controller TAG=$(OPENCHOREO_IMAGE_TAG)
-	@$(MAKE) docker.build.openchoreo-api TAG=$(OPENCHOREO_IMAGE_TAG)
-	@$(MAKE) docker.build.observer TAG=$(OPENCHOREO_IMAGE_TAG)
-	@$(MAKE) docker.build.cluster-gateway TAG=$(OPENCHOREO_IMAGE_TAG)
-	@$(MAKE) docker.build.cluster-agent TAG=$(OPENCHOREO_IMAGE_TAG)
+	@for c in $(K3D_BUILD_COMPONENTS); do \
+		$(MAKE) docker.build.$$c TAG=$(OPENCHOREO_IMAGE_TAG) || exit 1; \
+	done
 	@$(call log_success, All components built!)
 
 .PHONY: k3d.build.controller
@@ -61,11 +61,7 @@ k3d.load: ## Import all images into k3d cluster (bulk load for speed)
 	$(call k3d_check_cluster)
 	@$(call log_info, Loading all OpenChoreo images into k3d cluster...)
 	@k3d image import \
-		$(IMAGE_REPO_PREFIX)/controller:$(OPENCHOREO_IMAGE_TAG) \
-		$(IMAGE_REPO_PREFIX)/openchoreo-api:$(OPENCHOREO_IMAGE_TAG) \
-		$(IMAGE_REPO_PREFIX)/observer:$(OPENCHOREO_IMAGE_TAG) \
-		$(IMAGE_REPO_PREFIX)/cluster-gateway:$(OPENCHOREO_IMAGE_TAG) \
-		$(IMAGE_REPO_PREFIX)/cluster-agent:$(OPENCHOREO_IMAGE_TAG) \
+		$(foreach c,$(K3D_BUILD_COMPONENTS),$(IMAGE_REPO_PREFIX)/$(c):$(OPENCHOREO_IMAGE_TAG)) \
 		--cluster $(K3D_CLUSTER_NAME)
 	@$(call log_success, All images loaded!)
 
@@ -153,6 +149,8 @@ k3d.update: ## Rebuild, load, and restart all components
 		dep=$$(kubectl get deployment -n $$ns --context k3d-$(K3D_CLUSTER_NAME) -l app=cluster-agent -o name 2>/dev/null); \
 		if [ -n "$$dep" ]; then kubectl rollout restart $$dep -n $$ns --context k3d-$(K3D_CLUSTER_NAME) || true; fi; \
 	done
+	@dep=$$(kubectl get deployment -n $(K3D_DP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) -l app=openchoreo-remote-agent-router -o name 2>/dev/null); \
+	if [ -n "$$dep" ]; then kubectl rollout restart $$dep -n $(K3D_DP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) || true; fi
 	@$(call log_info, Waiting for rollouts to complete...)
 	@kubectl rollout status deployment/controller-manager -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s || true
 	@kubectl rollout status deployment/openchoreo-api -n $(K3D_CP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s || true
@@ -162,6 +160,8 @@ k3d.update: ## Rebuild, load, and restart all components
 		dep=$$(kubectl get deployment -n $$ns --context k3d-$(K3D_CLUSTER_NAME) -l app=cluster-agent -o name 2>/dev/null); \
 		if [ -n "$$dep" ]; then kubectl rollout status $$dep -n $$ns --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s || true; fi; \
 	done
+	@dep=$$(kubectl get deployment -n $(K3D_DP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) -l app=openchoreo-remote-agent-router -o name 2>/dev/null); \
+	if [ -n "$$dep" ]; then kubectl rollout status $$dep -n $(K3D_DP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s || true; fi
 	@$(call log_success, All components updated!)
 
 .PHONY: k3d.update.controller
@@ -213,6 +213,46 @@ k3d.update.cluster-agent: ## Update cluster-agent: build, load, restart across a
 		fi; \
 	done
 	@$(call log_success, Cluster-agent updated across all planes!)
+
+# The remote-agent is provisioned on demand by openchoreo-api per project+env namespace
+# (not a statically-deployed component), so k3d only needs its image built + imported;
+# there is no long-lived Deployment to roll out.
+.PHONY: k3d.build.remote-agent
+k3d.build.remote-agent: ## Build remote-agent image
+	@$(MAKE) docker.build.remote-agent TAG=$(OPENCHOREO_IMAGE_TAG)
+
+.PHONY: k3d.load.remote-agent
+k3d.load.remote-agent: ## Import remote-agent image into k3d
+	$(call k3d_check_cluster)
+	@$(call log_info, Loading remote-agent image...)
+	@k3d image import $(IMAGE_REPO_PREFIX)/remote-agent:$(OPENCHOREO_IMAGE_TAG) --cluster $(K3D_CLUSTER_NAME)
+	@$(call log_success, Remote-agent image loaded!)
+
+.PHONY: k3d.update.remote-agent
+k3d.update.remote-agent: ## Update remote-agent image: build + load (provisioned agents pull it on next resolve)
+	@$(MAKE) k3d.build.remote-agent
+	@$(MAKE) k3d.load.remote-agent
+
+.PHONY: k3d.build.remote-agent-router
+k3d.build.remote-agent-router: ## Build remote-connect SNI router image
+	@$(MAKE) docker.build.remote-agent-router TAG=$(OPENCHOREO_IMAGE_TAG)
+
+.PHONY: k3d.load.remote-agent-router
+k3d.load.remote-agent-router: ## Import remote-connect SNI router image into k3d
+	$(call k3d_check_cluster)
+	@$(call log_info, Loading remote-agent-router image...)
+	@k3d image import $(IMAGE_REPO_PREFIX)/remote-agent-router:$(OPENCHOREO_IMAGE_TAG) --cluster $(K3D_CLUSTER_NAME)
+	@$(call log_success, Remote-agent-router image loaded!)
+
+.PHONY: k3d.update.remote-agent-router
+k3d.update.remote-agent-router: ## Update remote-connect SNI router: build, load, restart
+	@$(MAKE) k3d.build.remote-agent-router
+	@$(MAKE) k3d.load.remote-agent-router
+	@dep=$$(kubectl get deployment -n $(K3D_DP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) -l app=openchoreo-remote-agent-router -o name 2>/dev/null); \
+	if [ -n "$$dep" ]; then \
+		kubectl rollout restart $$dep -n $(K3D_DP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME); \
+		kubectl rollout status $$dep -n $(K3D_DP_NAMESPACE) --context k3d-$(K3D_CLUSTER_NAME) --timeout=300s; \
+	fi
 
 # Helper Targets
 .PHONY: k3d.status

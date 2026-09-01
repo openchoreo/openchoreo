@@ -17,6 +17,12 @@ ports:
   - port: 19443:19443
     nodeFilters:
       - loadbalancer
+  # `occ remote` SNI router. Needs remoteAgentRouter.service type NodePort with this
+  # nodePort, and a matching remoteConnect.entrypointAddress on the control plane.
+  # Multi-cluster also needs remoteConnect.authorizeUrl overridden (see values-cp.yaml).
+  - port: 30443:30443
+    nodeFilters:
+      - loadbalancer
 options:
   k3s:
     extraArgs:

@@ -1,0 +1,45 @@
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: service-test
+  namespace: default
+spec:
+  owner:
+    projectName: default
+
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+  autoDeploy: true
+
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: service-test
+  namespace: default
+spec:
+  owner:
+    componentName: service-test
+    projectName: default
+  endpoints:
+    http:
+      type: HTTP
+      port: 8080
+      visibility: [project]
+  dependencies:
+    endpoints:
+      - project: greeter
+        component: greeter-service
+        name: http
+        visibility: namespace
+        envBindings:
+          address: HTTP_SERVICE_URL
+      - project: grpc-demo
+        component: grpc-greeter
+        name: grpc
+        visibility: namespace
+        envBindings:
+          address: GRPC_SERVICE_URL
+  container:
+    image: ghcr.io/openchoreo/samples/service-test:latest

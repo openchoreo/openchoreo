@@ -40,11 +40,12 @@ const (
 	ActionDeleteProject = "project:delete"
 
 	// Component actions
-	ActionCreateComponent = "component:create"
-	ActionViewComponent   = "component:view"
-	ActionUpdateComponent = "component:update"
-	ActionDeleteComponent = "component:delete"
-	ActionExecComponent   = "component:exec"
+	ActionCreateComponent  = "component:create"
+	ActionViewComponent    = "component:view"
+	ActionUpdateComponent  = "component:update"
+	ActionDeleteComponent  = "component:delete"
+	ActionExecComponent    = "component:exec"
+	ActionConnectComponent = "component:connect"
 
 	// Resource actions
 	ActionCreateResource = "resource:create"
@@ -312,6 +313,7 @@ var systemActions = []Action{
 	{Name: ActionUpdateComponent, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionDeleteComponent, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionExecComponent, LowestScope: ScopeComponent, IsInternal: false},
+	{Name: ActionConnectComponent, LowestScope: ScopeComponent, IsInternal: false},
 
 	// Resource
 	{Name: ActionCreateResource, LowestScope: ScopeProject, IsInternal: false},

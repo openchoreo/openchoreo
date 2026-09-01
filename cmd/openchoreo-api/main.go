@@ -37,6 +37,7 @@ import (
 	autobuildsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/autobuild"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/handlerservices"
 	workflowrunsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/workflowrun"
+	"github.com/openchoreo/openchoreo/internal/remoteconnect"
 	"github.com/openchoreo/openchoreo/internal/server"
 	"github.com/openchoreo/openchoreo/internal/server/middleware"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
@@ -248,6 +249,46 @@ func main() {
 		baseMux.Handle("/mcp", mcpHandler)
 	}
 
+	// Remote-connect resolve endpoint (only if enabled). Plain JSON handler registered on
+	// the baseMux like /mcp — authenticated by the JWT middleware, with authorization
+	// (component:connect) enforced inside the handler. Not part of the strict OpenAPI
+	// chain. The stream endpoint that consumes its capability is registered further
+	// down, alongside exec/wirelogs, once the cluster gateway is known to be available.
+	var remoteConnectHandler *openapihandlers.RemoteConnectHandler
+	if cfg.RemoteConnect.Enabled {
+		remoteConnectAuthzChecker := svcpkg.NewAuthzChecker(runtime.pdp, logger.With("component", "remote-connect-authz"))
+		remoteConnectHandler, err = openapihandlers.NewRemoteConnectHandler(
+			k8sClient, planeClientProvider, remoteConnectAuthzChecker, cfg.RemoteConnect, logger)
+		if err != nil {
+			logger.Error("Failed to initialize remote-connect handler", slog.Any("error", err))
+			os.Exit(1)
+		}
+		// Resolve: authenticated by the JWT middleware; authorization (component:connect)
+		// enforced inside the handler.
+		baseMux.Handle("POST /api/v1/remote-connect:resolve", jwtMiddleware(remoteConnectHandler))
+		// Authorize: the remote-agent's per-stream callback. Registered WITHOUT the JWT
+		// middleware — the remote-agent has no user JWT; the CP-signed capability in the
+		// request body is the credential, verified inside the handler.
+		authorizeHandler := openapihandlers.NewRemoteConnectAuthorizeHandler(
+			remoteConnectHandler.VerifyKey(), remoteConnectHandler.TouchAgent, logger)
+		baseMux.Handle("POST "+remoteconnect.AuthorizePath, authorizeHandler)
+		// Heartbeat: the remote-agent's periodic liveness callback while it has live
+		// sessions. Also unauthenticated at the middleware layer — the presented
+		// capability is the credential (verified, expiry tolerated, inside the handler).
+		heartbeatHandler := openapihandlers.NewRemoteConnectHeartbeatHandler(
+			remoteConnectHandler.VerifyKey(), remoteConnectHandler.TouchAgent, logger)
+		baseMux.Handle("POST "+remoteconnect.HeartbeatPath, heartbeatHandler)
+		logger.Info("Remote-connect resolve + authorize + heartbeat endpoints registered",
+			"resolve", "/api/v1/remote-connect:resolve",
+			"authorize", remoteconnect.AuthorizePath, "heartbeat", remoteconnect.HeartbeatPath)
+
+		// Reaper: GC remote-agents idle past the configured TTL, across every data plane.
+		reaper := openapihandlers.NewRemoteAgentReaper(k8sClient, planeClientProvider, cfg.RemoteConnect, logger)
+		go reaper.Start(ctx)
+		logger.Info("Remote-connect remote-agent reaper started",
+			"interval", cfg.RemoteConnect.ReaperInterval(), "ttl", cfg.RemoteConnect.ReaperTTL())
+	}
+
 	// Create OpenAPI handler with middleware chain. The chain's ordering rationale
 	// lives in openapihandlers.APIMiddlewares, the single place route middleware is
 	// composed. The generated routes are registered on the baseMux alongside /mcp.
@@ -298,6 +339,12 @@ func main() {
 		topMux := http.NewServeMux()
 		topMux.Handle("/exec/", authedExecHandler)
 		topMux.Handle("GET /api/v1/namespaces/{namespace}/environments/{environment}/wirelogs", authedWirelogsHandler)
+
+		// remote-connect is not served through this gateway mux: occ dials the
+		// per-project+env remote-agent's dedicated L4 Service directly. The control plane
+		// only resolves + provisions and authorizes streams via the remote-agent callback
+		// (both on baseMux).
+
 		topMux.Handle("/", handler)
 		topHandler = topMux
 		logger.Info("Exec endpoint registered", "path", "/exec/namespaces/{ns}/components/{name}")
