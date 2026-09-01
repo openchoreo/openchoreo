@@ -197,15 +197,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	resourceStatuses := r.buildResourceStatus(ctx, old, desiredResources, liveResources)
 
 	// Emit delivery lifecycle events implied by the health transition (component
-	// workloads on the data plane only). Best-effort: emission markers live in
-	// status and are persisted by the status update below.
-	if deliveryCtx != nil {
-		r.reconcileDeliveryEvents(ctx, planeClient, release, deliveryCtx, resourceStatuses, liveResources)
-	}
+	// workloads on the data plane only). Emission markers live in status and are
+	// persisted by the status update below. A failure stops the remaining phases
+	// so they cannot be emitted out of order; it is surfaced after the status
+	// update so the markers that did succeed are not re-emitted on the retry.
+	deliveryErr := r.emitDeliveryEvents(ctx, planeClient, release, deliveryCtx, resourceStatuses, liveResources)
 
 	// PHASE 4: Update status with applied resources inventory (done last after all operations)
 	// This maintains an inventory of what we applied for future cleanup operations
-	if statusUpdated, err := r.updateStatus(ctx, old, release, resourceStatuses); err != nil || statusUpdated {
+	statusUpdated, err := r.updateStatus(ctx, old, release, resourceStatuses)
+	if err == nil {
+		// Surface the emission failure only after the markers that did succeed are
+		// persisted, so the retry resumes at the phase that failed.
+		err = deliveryErr
+	}
+	if err != nil || statusUpdated {
 		// Return after updating the status to ensure it is persisted before continuing
 		return ctrl.Result{}, err
 	}
