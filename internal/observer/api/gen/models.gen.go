@@ -984,6 +984,11 @@ type RuntimeTopologySummary struct {
 	StartTime   time.Time `json:"startTime"`
 }
 
+// TraceSpanDetailsRequest defines model for TraceSpanDetailsRequest.
+type TraceSpanDetailsRequest struct {
+	SearchScope ComponentSearchScope `json:"searchScope"`
+}
+
 // TraceSpanDetailsResponse defines model for TraceSpanDetailsResponse.
 type TraceSpanDetailsResponse struct {
 	Attributes *[]struct {
@@ -1173,6 +1178,9 @@ type QueryTracesJSONRequestBody = TracesQueryRequest
 
 // QuerySpansForTraceJSONRequestBody defines body for QuerySpansForTrace for application/json ContentType.
 type QuerySpansForTraceJSONRequestBody = TracesQueryRequest
+
+// QuerySpanDetailsForTraceJSONRequestBody defines body for QuerySpanDetailsForTrace for application/json ContentType.
+type QuerySpanDetailsForTraceJSONRequestBody = TraceSpanDetailsRequest
 
 // AsComponentSearchScope returns the union data inside the LogsQueryRequest_SearchScope as a ComponentSearchScope
 func (t LogsQueryRequest_SearchScope) AsComponentSearchScope() (ComponentSearchScope, error) {

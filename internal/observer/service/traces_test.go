@@ -13,6 +13,8 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
+const testSpanID1 = "span-1"
+
 func newTestTracesService() *TracesService {
 	cfg := &config.Config{}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -60,7 +62,7 @@ func TestTracesService_ConvertToResponse(t *testing.T) {
 				StartTime:    now,
 				EndTime:      now.Add(1 * time.Second),
 				DurationNs:   1000000000,
-				RootSpanID:   "span-1",
+				RootSpanID:   testSpanID1,
 				RootSpanName: "http.request",
 				TraceName:    "http.request",
 				RootSpanKind: "INTERNAL",
@@ -104,7 +106,7 @@ func TestTracesService_ConvertToResponse_MultipleTraces(t *testing.T) {
 				StartTime:    now,
 				EndTime:      now.Add(100 * time.Millisecond),
 				DurationNs:   100000000,
-				RootSpanID:   "span-1",
+				RootSpanID:   testSpanID1,
 				RootSpanName: "http.request",
 				TraceName:    "http.request",
 			},
@@ -171,7 +173,7 @@ func TestTracesService_ConvertSpansToResponse(t *testing.T) {
 				SpanCount: 2,
 				Spans: []observability.TraceSpan{
 					{
-						SpanID:    "span-1",
+						SpanID:    testSpanID1,
 						Name:      "http.request",
 						SpanKind:  "SERVER",
 						StartTime: now,
@@ -181,7 +183,7 @@ func TestTracesService_ConvertSpansToResponse(t *testing.T) {
 						SpanID:       "span-2",
 						Name:         "db.query",
 						SpanKind:     "CLIENT",
-						ParentSpanID: "span-1",
+						ParentSpanID: testSpanID1,
 						StartTime:    now.Add(20 * time.Millisecond),
 						EndTime:      now.Add(80 * time.Millisecond),
 					},
@@ -207,7 +209,7 @@ func TestTracesService_ConvertSpansToResponse(t *testing.T) {
 		t.Errorf("Expected total 2, got %d", resp.Total)
 	}
 
-	if resp.Spans[0].SpanID != "span-1" {
+	if resp.Spans[0].SpanID != testSpanID1 {
 		t.Errorf("Expected first span ID 'span-1', got %s", resp.Spans[0].SpanID)
 	}
 	if resp.Spans[0].SpanKind != "SERVER" {
@@ -229,7 +231,7 @@ func TestTracesService_ConvertSpansToResponse_MultipleTraces(t *testing.T) {
 				TraceID: "trace-1",
 				Spans: []observability.TraceSpan{
 					{
-						SpanID: "span-1",
+						SpanID: testSpanID1,
 						Name:   "http.request",
 					},
 					{

@@ -210,14 +210,22 @@ func (h *Handler) QuerySpansForTrace(w http.ResponseWriter, r *http.Request) {
 	h.writeJSON(w, http.StatusOK, genResp)
 }
 
-// GetSpanDetailsForTrace handles GET /api/v1alpha1/traces/{traceId}/spans/{spanId}
-func (h *Handler) GetSpanDetailsForTrace(w http.ResponseWriter, r *http.Request) {
+// QuerySpanDetailsForTrace handles POST /api/v1alpha1/traces/{traceId}/spans/{spanId}
+func (h *Handler) QuerySpanDetailsForTrace(w http.ResponseWriter, r *http.Request) {
 	traceID := r.PathValue("traceId")
 	spanID := r.PathValue("spanId")
 
-	h.logger.Debug("GetSpanDetailsForTrace called", "traceId", traceID, "spanId", spanID)
+	h.logger.Debug("QuerySpanDetailsForTrace called", "traceId", traceID, "spanId", spanID)
 
-	// 1. VALIDATE PATH PARAMETERS
+	// 1. BIND REQUEST (from generated type)
+	var genReq gen.TraceSpanDetailsRequest
+	if err := httputil.BindJSON(r, &genReq); err != nil {
+		h.logger.Error("Failed to bind request", "error", err)
+		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, "", "Invalid request format")
+		return
+	}
+
+	// 2. VALIDATE REQUEST
 	if traceID == "" {
 		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, types.ErrorCodeV1TracesInvalidRequest, "traceId is required")
 		return
@@ -226,8 +234,23 @@ func (h *Handler) GetSpanDetailsForTrace(w http.ResponseWriter, r *http.Request)
 		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, types.ErrorCodeV1TracesInvalidRequest, "spanId is required")
 		return
 	}
+	if genReq.SearchScope.Namespace == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, types.ErrorCodeV1TracesInvalidRequest, "searchScope.namespace is required")
+		return
+	}
 
-	// 2. CHECK SERVICE INITIALIZATION
+	scope := types.ComponentSearchScope{
+		Namespace:   genReq.SearchScope.Namespace,
+		Project:     derefString(genReq.SearchScope.Project),
+		Component:   derefString(genReq.SearchScope.Component),
+		Environment: derefString(genReq.SearchScope.Environment),
+	}
+	if scope.Component != "" && scope.Project == "" {
+		h.writeErrorResponse(w, http.StatusBadRequest, gen.BadRequest, types.ErrorCodeV1TracesInvalidRequest, "searchScope.project is required when searchScope.component is provided")
+		return
+	}
+
+	// 3. CHECK SERVICE INITIALIZATION
 	if h.tracesService == nil {
 		h.logger.Error("Traces service is not initialized")
 		h.writeErrorResponse(
@@ -240,10 +263,18 @@ func (h *Handler) GetSpanDetailsForTrace(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// 3. CALL SERVICE
+	// 4. CALL SERVICE (authorization is enforced by the service layer)
 	ctx := r.Context()
-	spanInfo, err := h.tracesService.GetSpanDetails(ctx, traceID, spanID)
+	spanInfo, err := h.tracesService.QuerySpanDetails(ctx, traceID, spanID, scope)
 	if err != nil {
+		if errors.Is(err, observerAuthz.ErrAuthzForbidden) {
+			h.writeErrorResponse(w, http.StatusForbidden, gen.Forbidden, "", "Access denied")
+			return
+		}
+		if errors.Is(err, observerAuthz.ErrAuthzUnauthorized) {
+			h.writeErrorResponse(w, http.StatusUnauthorized, gen.Unauthorized, "", "Unauthorized")
+			return
+		}
 		h.logger.Error("Failed to get span details", "error", err)
 		errorCode := types.ErrorCodeV1TracesInternalGeneric
 		switch {
@@ -276,7 +307,7 @@ func (h *Handler) GetSpanDetailsForTrace(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// 4. CONVERT TO GENERATED TYPE AND RETURN
+	// 5. CONVERT TO GENERATED TYPE AND RETURN
 	genResp := convertSpanDetailsToGen(spanInfo)
 	h.writeJSON(w, http.StatusOK, genResp)
 }
