@@ -61,6 +61,10 @@ This deploys four components (snip-redis, snip-api-service, snip-analytics-servi
 
 To set up alerting and the RCA agent, follow the steps in the [Alerting & RCA Agent](../../../from-image/url-shortener/README.md#alerting--rca-agent) section of the from-image README.
 
+## Troubleshooting
+
+If you're re-running Deploy above against a namespace left over from an earlier attempt, see [Stale schema from a pre-existing Postgres pod](../../../from-image/url-shortener/README.md#stale-schema-from-a-pre-existing-postgres-pod) in the from-image README — Postgres is provisioned identically here, so the same re-init steps apply.
+
 ## Cleanup
 
 Deleting the `Project` cascades the deletion to its Components and Resources via the project finalizer — this also tears down Postgres's `StatefulSet` and its PVC (via `persistentVolumeClaimRetentionPolicy.whenDeleted: Delete`, set when `persistenceEnabled` is true):
