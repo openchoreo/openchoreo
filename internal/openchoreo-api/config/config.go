@@ -8,7 +8,9 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
+	apiaudit "github.com/openchoreo/openchoreo/internal/openchoreo-api/audit"
 )
 
 // Config is the top-level configuration for openchoreo-api.
@@ -99,7 +101,8 @@ func (c *Config) Validate() error {
 	errs = append(errs, c.MCP.ValidateMCPConfig(coreconfig.NewPath("mcp"))...)
 	errs = append(errs, c.Logging.Validate(coreconfig.NewPath("logging"))...)
 	errs = append(errs, c.ClusterGateway.Validate(coreconfig.NewPath("cluster_gateway"))...)
-	errs = append(errs, c.Audit.Validate(coreconfig.NewPath("audit"), c.Security.KnownActorTypes())...)
+	errs = append(errs, c.Audit.Validate(
+		coreconfig.NewPath("audit"), auditconfig.NewVocabulary(apiaudit.GetOperations()), c.Security.KnownActorTypes())...)
 	errs = append(errs, c.RemoteConnect.Validate(coreconfig.NewPath("remote_connect"))...)
 
 	return errs.OrNil()

@@ -5,6 +5,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,39 +13,89 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/mcp/tools"
 )
 
-// committedMatrixPath is relative to this package's directory.
-const committedMatrixPath = "../../docs/audit/coverage-matrix.md"
+// repoRelative resolves a service's defaultOut (repo-root-relative) against
+// this package's directory, which is where `go test` runs.
+func repoRelative(p string) string {
+	return filepath.Join("..", "..", p)
+}
 
 // TestRender_Deterministic guards the fix for a real bug: renderMCPSection
 // used to key a scope-collapsed tool's two bindings by tool name alone, so
-// which one survived depended on Go's randomized map iteration order —
-// three consecutive runs could each produce a different file. Rendering
-// twice in the same process and diffing catches any reintroduction of a
-// map-keyed-by-tool-name-alone bug, without needing to actually observe
-// iteration-order flakiness (which by definition doesn't reproduce reliably
-// in a single run).
+// which one survived depended on map iteration order. Rendering twice and
+// diffing catches a reintroduction without needing to observe the flakiness.
+//
+// Run per registered service, so a future service is covered on joining.
 func TestRender_Deterministic(t *testing.T) {
-	a, err := render()
-	if err != nil {
-		t.Fatalf("render() error: %v", err)
-	}
-	b, err := render()
-	if err != nil {
-		t.Fatalf("render() error: %v", err)
-	}
-	if a != b {
-		t.Fatal("render() produced different output across two calls in the same process — " +
-			"non-deterministic map iteration is leaking into the rendered output")
+	for name, svc := range services {
+		t.Run(name, func(t *testing.T) {
+			a, err := render(svc)
+			if err != nil {
+				t.Fatalf("render() error: %v", err)
+			}
+			b, err := render(svc)
+			if err != nil {
+				t.Fatalf("render() error: %v", err)
+			}
+			if a != b {
+				t.Fatal("render() produced different output across two calls in the same process — " +
+					"non-deterministic map iteration is leaking into the rendered output")
+			}
+		})
 	}
 }
 
-// TestRenderMCPSection_FlagsUndocumentedExemption is a direct, isolated unit
-// test for a state the real registry can't produce today (every real
-// non-read-only, unbound tool has an apiaudit.MCPToolExemptions entry — see
-// TestAuditCoverage's assertion 4) but that the coverage gate exists
-// specifically to catch if it ever did: a tool that's neither bound nor
-// read-only, with no exemption reason on file, must render as visibly
-// UNDOCUMENTED rather than silently dropping out of the matrix.
+// TestCoverageMatrix_IsFresh guards each committed matrix against drifting
+// from the code it describes. These aren't wired into code.gen-check
+// (reporting only), so this is the freshness gate — and it only works because
+// render() is deterministic (see TestRender_Deterministic).
+func TestCoverageMatrix_IsFresh(t *testing.T) {
+	for name, svc := range services {
+		t.Run(name, func(t *testing.T) {
+			want, err := render(svc)
+			if err != nil {
+				t.Fatalf("render() error: %v", err)
+			}
+			path := repoRelative(svc.defaultOut)
+			got, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("failed to read committed matrix at %s: %v", path, err)
+			}
+			if string(got) != want {
+				t.Errorf("%s is stale — run `make %s` and commit the result", svc.defaultOut, svc.makeTarget)
+			}
+		})
+	}
+}
+
+// TestServiceRegistry_IsComplete pins that every registered service declares
+// the fields render() reads. A zero-valued title or defaultOut would produce
+// a matrix with no heading, or write it to "" — both silent.
+func TestServiceRegistry_IsComplete(t *testing.T) {
+	for name, svc := range services {
+		t.Run(name, func(t *testing.T) {
+			if svc.title == "" {
+				t.Error("title must not be empty")
+			}
+			if svc.defaultOut == "" {
+				t.Error("defaultOut must not be empty")
+			}
+			if svc.makeTarget == "" {
+				t.Error("makeTarget must not be empty")
+			}
+			if svc.operations == nil {
+				t.Error("operations must not be nil")
+			}
+			if svc.knownNonEvents == "" {
+				t.Error("knownNonEvents must not be empty")
+			}
+		})
+	}
+}
+
+// TestRenderMCPSection_FlagsUndocumentedExemption covers a state the real
+// registry can't produce today but the gate exists to catch: a tool neither
+// bound nor read-only, with no exemption reason, must render as visibly
+// UNDOCUMENTED rather than dropping out of the matrix.
 func TestRenderMCPSection_FlagsUndocumentedExemption(t *testing.T) {
 	perms := map[string]tools.ToolPermission{
 		"mystery_tool": {Action: "widget:create"},
@@ -56,26 +107,5 @@ func TestRenderMCPSection_FlagsUndocumentedExemption(t *testing.T) {
 	}
 	if !strings.Contains(out, "UNDOCUMENTED") {
 		t.Errorf("renderMCPSection() output = %q, want the UNDOCUMENTED fallback for a tool with no exemption reason", out)
-	}
-}
-
-// TestCoverageMatrix_IsFresh guards docs/audit/coverage-matrix.md against
-// drifting from the code it describes: make audit-coverage-matrix must be
-// re-run and the result committed whenever a change to the audit tables
-// would change this file's content. Unlike tools/auditgen's generated file,
-// this isn't wired into code.gen-check (it's reporting only, doesn't affect
-// what's audited) — this test is the freshness gate instead, and only works
-// now that render() is deterministic (see TestRender_Deterministic).
-func TestCoverageMatrix_IsFresh(t *testing.T) {
-	want, err := render()
-	if err != nil {
-		t.Fatalf("render() error: %v", err)
-	}
-	got, err := os.ReadFile(committedMatrixPath)
-	if err != nil {
-		t.Fatalf("failed to read committed matrix at %s: %v", committedMatrixPath, err)
-	}
-	if string(got) != want {
-		t.Errorf("%s is stale — run `make audit-coverage-matrix` and commit the result", committedMatrixPath)
 	}
 }

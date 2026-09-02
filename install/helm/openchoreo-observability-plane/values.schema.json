@@ -1343,6 +1343,47 @@
           "title": "alertSuppressionWindow",
           "type": "string"
         },
+        "audit": {
+          "additionalProperties": false,
+          "description": "Audit logging configuration",
+          "properties": {
+            "defaults": {
+              "additionalProperties": false,
+              "description": "Policy settings applied when no policies entry matches",
+              "properties": {
+                "publish": {
+                  "default": true,
+                  "description": "Emit an audit event by default",
+                  "title": "publish",
+                  "type": "boolean"
+                }
+              },
+              "required": [],
+              "title": "defaults",
+              "type": "object"
+            },
+            "enabled": {
+              "default": true,
+              "description": "Enable audit event emission for state-modifying observer API requests",
+              "title": "enabled",
+              "type": "boolean"
+            },
+            "policies": {
+              "default": [],
+              "description": "Ordered, first-match-wins policy overrides. Each entry has a `match` selector and a `set` block of overrides. See the audit logging docs for the selector-admissibility rules enforced at startup.\n",
+              "items": {
+                "additionalProperties": true,
+                "required": [],
+                "type": "object"
+              },
+              "title": "policies",
+              "type": "array"
+            }
+          },
+          "required": [],
+          "title": "audit",
+          "type": "object"
+        },
         "authzTlsInsecureSkipVerify": {
           "default": false,
           "description": "Skip TLS certificate verification when calling the control plane authz service (use for self-signed certs)",

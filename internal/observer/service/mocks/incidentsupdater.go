@@ -22,6 +22,77 @@ func (_m *MockIncidentsUpdater) EXPECT() *MockIncidentsUpdater_Expecter {
 	return &MockIncidentsUpdater_Expecter{mock: &_m.Mock}
 }
 
+// IncidentScope provides a mock function with given fields: ctx, incidentID
+func (_m *MockIncidentsUpdater) IncidentScope(ctx context.Context, incidentID string) (string, string, string, error) {
+	ret := _m.Called(ctx, incidentID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IncidentScope")
+	}
+
+	var r0 string
+	var r1 string
+	var r2 string
+	var r3 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (string, string, string, error)); ok {
+		return rf(ctx, incidentID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) string); ok {
+		r0 = rf(ctx, incidentID)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) string); ok {
+		r1 = rf(ctx, incidentID)
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, string) string); ok {
+		r2 = rf(ctx, incidentID)
+	} else {
+		r2 = ret.Get(2).(string)
+	}
+
+	if rf, ok := ret.Get(3).(func(context.Context, string) error); ok {
+		r3 = rf(ctx, incidentID)
+	} else {
+		r3 = ret.Error(3)
+	}
+
+	return r0, r1, r2, r3
+}
+
+// MockIncidentsUpdater_IncidentScope_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IncidentScope'
+type MockIncidentsUpdater_IncidentScope_Call struct {
+	*mock.Call
+}
+
+// IncidentScope is a helper method to define mock.On call
+//   - ctx context.Context
+//   - incidentID string
+func (_e *MockIncidentsUpdater_Expecter) IncidentScope(ctx interface{}, incidentID interface{}) *MockIncidentsUpdater_IncidentScope_Call {
+	return &MockIncidentsUpdater_IncidentScope_Call{Call: _e.mock.On("IncidentScope", ctx, incidentID)}
+}
+
+func (_c *MockIncidentsUpdater_IncidentScope_Call) Run(run func(ctx context.Context, incidentID string)) *MockIncidentsUpdater_IncidentScope_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockIncidentsUpdater_IncidentScope_Call) Return(namespace string, project string, component string, err error) *MockIncidentsUpdater_IncidentScope_Call {
+	_c.Call.Return(namespace, project, component, err)
+	return _c
+}
+
+func (_c *MockIncidentsUpdater_IncidentScope_Call) RunAndReturn(run func(context.Context, string) (string, string, string, error)) *MockIncidentsUpdater_IncidentScope_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateIncident provides a mock function with given fields: ctx, incidentID, req
 func (_m *MockIncidentsUpdater) UpdateIncident(ctx context.Context, incidentID string, req gen.IncidentPutRequest) (*gen.IncidentPutResponse, error) {
 	ret := _m.Called(ctx, incidentID, req)

@@ -472,6 +472,41 @@ observer:
 
   # @schema
   # type: object
+  # description: Audit logging configuration
+  # @schema
+  audit:
+    # @schema
+    # type: boolean
+    # description: Enable audit event emission for state-modifying observer API requests
+    # default: true
+    # @schema
+    enabled: true
+    # @schema
+    # type: object
+    # description: Policy settings applied when no policies entry matches
+    # @schema
+    defaults:
+      # @schema
+      # type: boolean
+      # description: Emit an audit event by default
+      # default: true
+      # @schema
+      publish: true
+    # @schema
+    # type: array
+    # description: >
+    #   Ordered, first-match-wins policy overrides. Each entry has a `match`
+    #   selector and a `set` block of overrides. See the audit logging docs
+    #   for the selector-admissibility rules enforced at startup.
+    # items:
+    #   type: object
+    #   additionalProperties: true
+    # default: []
+    # @schema
+    policies: []
+
+  # @schema
+  # type: object
   # description: Configurations for tracing adapter connectivity
   # @schema
   tracingAdapter:

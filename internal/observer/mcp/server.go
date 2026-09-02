@@ -13,6 +13,19 @@ import (
 
 // NewHTTPServer creates a new MCP HTTP server for the observer API
 func NewHTTPServer(handler *MCPHandler) http.Handler {
+	server := NewServer(handler)
+
+	return mcpsdk.NewStreamableHTTPHandler(func(r *http.Request) *mcpsdk.Server {
+		return server
+	}, nil)
+}
+
+// NewServer creates the MCP server with every observer tool registered.
+//
+// Exported so the audit coverage gate can enumerate the registered tools over
+// the protocol rather than trusting a hand-maintained list — the SDK offers no
+// way to read tools back off a *Server directly.
+func NewServer(handler *MCPHandler) *mcpsdk.Server {
 	server := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    "openchoreo-observer",
 		Version: "1.0.0",
@@ -20,9 +33,7 @@ func NewHTTPServer(handler *MCPHandler) http.Handler {
 
 	registerTools(server, handler)
 
-	return mcpsdk.NewStreamableHTTPHandler(func(r *http.Request) *mcpsdk.Server {
-		return server
-	}, nil)
+	return server
 }
 
 // handleToolResult marshals the result to JSON and wraps it in MCP CallToolResult format

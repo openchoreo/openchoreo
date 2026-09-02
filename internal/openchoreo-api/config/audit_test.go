@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/openchoreo/openchoreo/internal/auditconfig"
+	apiaudit "github.com/openchoreo/openchoreo/internal/openchoreo-api/audit"
 )
 
 func TestAuditConfig_ValidPoliciesRoundTrip(t *testing.T) {
@@ -32,7 +35,7 @@ audit:
 		t.Fatalf("Validate() error = %v, want none", err)
 	}
 
-	ps, err := cfg.Audit.BuildPolicySet(cfg.Security.KnownActorTypes())
+	ps, err := cfg.Audit.BuildPolicySet(auditconfig.NewVocabulary(apiaudit.GetOperations()), cfg.Security.KnownActorTypes())
 	if err != nil {
 		t.Fatalf("BuildPolicySet() error = %v", err)
 	}

@@ -21,6 +21,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	"github.com/openchoreo/openchoreo/internal/authz"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	gatewayClient "github.com/openchoreo/openchoreo/internal/clients/gateway"
@@ -203,7 +204,8 @@ func main() {
 	// a policy applies identically regardless of which one produced the event.
 	// cfg.Validate() (above) already ran the same conversion and would have
 	// failed startup on an invalid policy; a non-nil error here is defensive.
-	auditPolicies, err := cfg.Audit.BuildPolicySet(cfg.Security.KnownActorTypes())
+	auditVocab := auditconfig.NewVocabulary(apiaudit.GetOperations())
+	auditPolicies, err := cfg.Audit.BuildPolicySet(auditVocab, cfg.Security.KnownActorTypes())
 	if err != nil {
 		logger.Error("Failed to build audit policy set", slog.Any("error", err))
 		os.Exit(1)

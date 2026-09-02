@@ -178,6 +178,29 @@ func (s *AlertService) QueryIncidents(ctx context.Context, req gen.IncidentsQuer
 	}, nil
 }
 
+// IncidentScope reads the incident's namespace/project/component so an
+// authorization check can be made against its real hierarchy. See
+// IncidentsUpdater.
+func (s *AlertService) IncidentScope(ctx context.Context, id string) (string, string, string, error) {
+	if s.incidentEntryStore == nil {
+		return "", "", "", fmt.Errorf("incident entry store is not initialized")
+	}
+
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return "", "", "", fmt.Errorf("incident id is required")
+	}
+
+	entry, err := s.incidentEntryStore.GetIncidentEntry(ctx, id)
+	if err != nil {
+		return "", "", "", err
+	}
+	return strings.TrimSpace(entry.NamespaceName),
+		strings.TrimSpace(entry.ProjectName),
+		strings.TrimSpace(entry.ComponentName),
+		nil
+}
+
 func (s *AlertService) UpdateIncident(ctx context.Context, id string, req gen.IncidentPutRequest) (*gen.IncidentPutResponse, error) {
 	if s.incidentEntryStore == nil {
 		return nil, fmt.Errorf("incident entry store is not initialized")
