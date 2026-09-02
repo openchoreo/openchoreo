@@ -115,7 +115,7 @@ func TestResolveBinding(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b, bound := resolveBinding(bindings, callToolName(tt.req), tt.req)
+			b, bound := resolveBinding(bindings, callToolName(tt.req), parseCallArguments(tt.req))
 			if bound != tt.wantBound {
 				t.Fatalf("bound = %v, want %v", bound, tt.wantBound)
 			}
@@ -257,6 +257,41 @@ func TestNewMiddleware_SuccessEmitsSuccessResult(t *testing.T) {
 	}
 }
 
+// TestNewMiddleware_SeedsHierarchyFromCallArguments guards that the pre-call
+// seed reads namespace_name/project_name/component_name/resource_name — the
+// identical convention callToolScope uses — so a filter-layer denial (which
+// never reaches AuthzChecker.Check) still carries a hierarchy in the audit
+// record.
+func TestNewMiddleware_SeedsHierarchyFromCallArguments(t *testing.T) {
+	sink := &recordingSink{}
+	emitter := testEmitter(t, sink)
+	mw := testMiddleware(t, MiddlewareOptions{Emitter: emitter, Bindings: testBindings(), Enabled: true})
+
+	next := func(context.Context, string, mcp.Request) (mcp.Result, error) {
+		return &mcp.CallToolResult{}, nil
+	}
+
+	req := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+		Params: &mcp.CallToolParamsRaw{
+			Name: "create_project",
+			Arguments: json.RawMessage(
+				`{"name":"proj-1","namespace_name":"ns-1","project_name":"p1","component_name":"c1","resource_name":"r1"}`,
+			),
+		},
+	}
+
+	if _, err := mw(next)(context.Background(), methodCallTool, req); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(sink.events) != 1 {
+		t.Fatalf("expected exactly one audit event, got %d", len(sink.events))
+	}
+	want := audit.Hierarchy{Namespace: "ns-1", Project: "p1", Component: "c1", Resource: "r1"}
+	if sink.events[0].Hierarchy != want {
+		t.Errorf("Hierarchy = %+v, want %+v", sink.events[0].Hierarchy, want)
+	}
+}
+
 func TestClassifyResult(t *testing.T) {
 	tests := []struct {
 		name string
@@ -270,7 +305,7 @@ func TestClassifyResult(t *testing.T) {
 			name: "no error, IsError result is failure",
 			res:  &mcp.CallToolResult{IsError: true}, err: nil, want: audit.ResultFailure,
 		},
-		{name: "ErrNoSubject is denied", res: nil, err: tools.ErrNoSubject, want: audit.ResultDenied},
+		{name: "ErrNoSubject is unauthenticated", res: nil, err: tools.ErrNoSubject, want: audit.ResultUnauthenticated},
 		{name: "ErrForbidden is denied", res: nil, err: tools.ErrForbidden, want: audit.ResultDenied},
 		{name: "ErrPDPFailure is failure, not denied", res: nil, err: tools.ErrPDPFailure, want: audit.ResultFailure},
 		{

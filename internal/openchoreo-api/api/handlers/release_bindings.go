@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListReleaseBindings returns a paginated list of release bindings within a namespace.
@@ -99,6 +100,8 @@ func (h *Handler) CreateReleaseBinding(
 		return gen.CreateReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
 
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
+
 	genRB, err := convert[openchoreov1alpha1.ReleaseBinding, gen.ReleaseBinding](*created)
 	if err != nil {
 		h.logger.Error("Failed to convert created release binding", "error", err)
@@ -178,6 +181,8 @@ func (h *Handler) UpdateReleaseBinding(
 		h.logger.Error("Failed to update release binding", "error", err)
 		return gen.UpdateReleaseBinding500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	genRB, err := convert[openchoreov1alpha1.ReleaseBinding, gen.ReleaseBinding](*updated)
 	if err != nil {

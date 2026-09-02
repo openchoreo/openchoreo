@@ -11,6 +11,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	resourcetypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcetype"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListResourceTypes returns a paginated list of resource types within a namespace.
@@ -76,6 +77,8 @@ func (h *Handler) CreateResourceType(
 		h.logger.Error("Failed to create resource type", "error", err)
 		return gen.CreateResourceType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	genRT, err := convert[openchoreov1alpha1.ResourceType, gen.ResourceType](*created)
 	if err != nil {
@@ -149,6 +152,8 @@ func (h *Handler) UpdateResourceType(
 		h.logger.Error("Failed to update resource type", "error", err)
 		return gen.UpdateResourceType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	genRT, err := convert[openchoreov1alpha1.ResourceType, gen.ResourceType](*updated)
 	if err != nil {

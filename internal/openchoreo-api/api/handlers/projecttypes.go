@@ -11,6 +11,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	projecttypesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/projecttype"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListProjectTypes returns a paginated list of project types within a namespace.
@@ -76,6 +77,8 @@ func (h *Handler) CreateProjectType(
 		h.logger.Error("Failed to create project type", "error", err)
 		return gen.CreateProjectType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	genPT, err := convert[openchoreov1alpha1.ProjectType, gen.ProjectType](*created)
 	if err != nil {
@@ -149,6 +152,8 @@ func (h *Handler) UpdateProjectType(
 		h.logger.Error("Failed to update project type", "error", err)
 		return gen.UpdateProjectType500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	genPT, err := convert[openchoreov1alpha1.ProjectType, gen.ProjectType](*updated)
 	if err != nil {

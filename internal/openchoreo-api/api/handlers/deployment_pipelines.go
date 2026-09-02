@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	deploymentpipelinesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/deploymentpipeline"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListDeploymentPipelines returns a paginated list of deployment pipelines within a namespace.
@@ -80,6 +81,8 @@ func (h *Handler) CreateDeploymentPipeline(
 		h.logger.Error("Failed to create deployment pipeline", "error", err)
 		return gen.CreateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	genDP, err := convert[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](*created)
 	if err != nil {
@@ -155,6 +158,8 @@ func (h *Handler) UpdateDeploymentPipeline(
 		h.logger.Error("Failed to update deployment pipeline", "error", err)
 		return gen.UpdateDeploymentPipeline500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(updated.UID), Name: updated.Name})
 
 	genDP, err := convert[openchoreov1alpha1.DeploymentPipeline, gen.DeploymentPipeline](*updated)
 	if err != nil {

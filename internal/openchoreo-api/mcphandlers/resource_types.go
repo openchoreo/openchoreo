@@ -86,6 +86,7 @@ func (h *MCPHandler) CreateResourceType(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -115,6 +116,7 @@ func (h *MCPHandler) UpdateResourceType(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 
@@ -183,6 +185,7 @@ func (h *MCPHandler) CreateClusterResourceType(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -212,6 +215,7 @@ func (h *MCPHandler) UpdateClusterResourceType(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 

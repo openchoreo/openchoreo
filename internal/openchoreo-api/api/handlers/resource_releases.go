@@ -11,6 +11,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
 	resourcereleasesvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/resourcerelease"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 )
 
 // ListResourceReleases returns a paginated list of resource releases within a namespace.
@@ -111,6 +112,8 @@ func (h *Handler) CreateResourceRelease(
 		h.logger.Error("Failed to create resource release", "error", err)
 		return gen.CreateResourceRelease500JSONResponse{InternalErrorJSONResponse: internalError()}, nil
 	}
+
+	audit.SetResource(ctx, &audit.Resource{Namespace: request.NamespaceName, ID: string(created.UID), Name: created.Name})
 
 	genRR, err := convert[openchoreov1alpha1.ResourceRelease, gen.ResourceRelease](*created)
 	if err != nil {

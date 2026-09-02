@@ -56,8 +56,8 @@ func InitJWTMiddleware(cfg *config.Config, logger *slog.Logger) func(http.Handle
 	return jwt.Middleware(jwtCfg.ToJWTMiddlewareConfig(&cfg.Identity.OIDC, logger, resolver, cfg.Security.Enabled))
 }
 
-// APIMiddlewareOptions carries the dependencies APIMiddlewares needs.
-type APIMiddlewareOptions struct {
+// OpenAPIMiddlewareOptions carries the dependencies OpenAPIMiddlewares needs.
+type OpenAPIMiddlewareOptions struct {
 	Logger         *slog.Logger
 	AuthMiddleware func(http.Handler) http.Handler // auth.OpenAPIAuth(...) in production
 	// AuditEmitter is the single *audit.Emitter shared with the MCP adapter,
@@ -67,15 +67,24 @@ type APIMiddlewareOptions struct {
 	AuditEnabled bool
 }
 
-// APIMiddlewares returns the ordered middleware chain for the generated OpenAPI routes.
+// OpenAPIMiddlewares returns the ordered middleware chain for the generated
+// OpenAPI routes — those and only those. Named for the spec rather than for
+// REST because exec and wirelogs are REST endpoints too, and they are wired
+// separately in main.go: being outside the generated routes, they have no
+// operationId to resolve against the spec and carry their own hand-declared
+// audit middleware (NewExecWirelogsAuditMiddleware).
 //
 // oapi-codegen applies these last-to-first, so the last entry is outermost:
 //
-//	logger → auth → audit → webhookRawBody → handler
+//	logger → unauthenticatedAudit → auth → audit → webhookRawBody → handler
 //
-// audit sits inside auth so SubjectContext is already populated; auditing
-// auth failures themselves needs a separate outer instance (P1).
-// webhookRawBody stays innermost so HMAC validation sees the raw bytes.
+// audit sits inside auth so SubjectContext is already populated for it.
+// unauthenticatedAudit sits outside auth — the only position that can see a
+// request auth itself rejects, since auth short-circuits and never calls
+// next. The two are mutually exclusive by construction: the outer one only
+// emits on a 401 with no SubjectContext, exactly when the inner one never
+// runs at all. webhookRawBody stays innermost so HMAC validation sees the
+// raw bytes.
 //
 // This is the single definition of the chain — main.go supplies dependencies
 // but owns no ordering, and TestAuditMiddlewareWired drives exactly this
@@ -85,15 +94,17 @@ type APIMiddlewareOptions struct {
 // or audit.NewMiddleware failing to build its pattern map) so main can report
 // it through the same logger.Error + os.Exit(1) path as every other startup
 // failure, instead of an unhandled panic's stack trace.
-func APIMiddlewares(opts APIMiddlewareOptions) ([]gen.MiddlewareFunc, error) {
+func OpenAPIMiddlewares(opts OpenAPIMiddlewareOptions) ([]gen.MiddlewareFunc, error) {
 	if opts.AuditEmitter == nil {
-		return nil, errors.New("audit: APIMiddlewareOptions.AuditEmitter must not be nil")
+		return nil, errors.New("audit: OpenAPIMiddlewareOptions.AuditEmitter must not be nil")
 	}
 
 	auditMw, err := audit.NewMiddleware(opts.Logger, apiaudit.GetOperations(), gen.GetSwagger, opts.AuditEmitter, opts.AuditEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("audit: %w", err)
 	}
+
+	unauthenticatedAuditMw := audit.NewUnauthenticatedMiddleware(opts.AuditEmitter, audit.OriginAPI, opts.AuditEnabled)
 
 	loggerMw := apilogger.LoggerMiddleware(opts.Logger.With("component", "openapi"))
 
@@ -102,6 +113,7 @@ func APIMiddlewares(opts APIMiddlewareOptions) ([]gen.MiddlewareFunc, error) {
 		OptionalTriggerBodyMiddleware,
 		auditMw.Handler,
 		opts.AuthMiddleware,
+		unauthenticatedAuditMw,
 		loggerMw,
 	}, nil
 }

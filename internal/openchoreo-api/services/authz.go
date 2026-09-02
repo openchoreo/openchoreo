@@ -9,6 +9,7 @@ import (
 	"log/slog"
 
 	authz "github.com/openchoreo/openchoreo/internal/authz/core"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/audit"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
 
@@ -34,6 +35,23 @@ func NewAuthzChecker(pdp authz.PDP, logger *slog.Logger) *AuthzChecker {
 
 // Check performs a single authorization check.
 func (c *AuthzChecker) Check(ctx context.Context, req CheckRequest) error {
+	// Recorded before the PDP evaluates, so a denial and a PDP error both
+	// carry the hierarchy the decision was made on. If this request already
+	// triggered another Check (e.g. a handler resolving a referenced object
+	// via another *ServiceWithAuthz before reaching this one), this call's
+	// hierarchy wins — see audit.SetHierarchy's doc comment for why the last
+	// Check in a request is reliably the operation actually being audited.
+	// It's recorded here, in the shared authz-check path, rather than on a
+	// REST path parameter or a handler's SetResource call, so both REST
+	// handlers and MCP tools (pkg/mcp/mcpaudit) get the hierarchy for free
+	// instead of each caller having to capture it individually.
+	audit.SetHierarchy(ctx, audit.Hierarchy{
+		Namespace: req.Hierarchy.Namespace,
+		Project:   req.Hierarchy.Project,
+		Component: req.Hierarchy.Component,
+		Resource:  req.Hierarchy.Resource,
+	})
+
 	authSubjectCtx, _ := auth.GetSubjectContextFromContext(ctx)
 	authzSubjectCtx := authz.GetAuthzSubjectContext(authSubjectCtx)
 

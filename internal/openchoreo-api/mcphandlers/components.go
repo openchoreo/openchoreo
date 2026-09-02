@@ -88,6 +88,7 @@ func (h *MCPHandler) CreateComponent(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created", map[string]any{
 		"componentType": created.Spec.ComponentType.Name,
 	}), nil
@@ -150,6 +151,7 @@ func (h *MCPHandler) CreateComponentRelease(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, cr)
 	return mutationResult(cr, "created"), nil
 }
 
@@ -239,6 +241,10 @@ func (h *MCPHandler) CreateReleaseBinding(
 	if err != nil {
 		return nil, err
 	}
+	// create_release_binding's call carries no argument naming the binding — its
+	// name is derived here from the component and environment — so this is the
+	// only source of resource.name for the event, not just of resource.id.
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -294,6 +300,7 @@ func (h *MCPHandler) UpdateReleaseBinding(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "patched"), nil
 }
 
@@ -378,6 +385,10 @@ func (h *MCPHandler) CreateWorkload(
 	if err != nil {
 		return nil, err
 	}
+	// create_workload's "name" argument is the parent component, not the workload,
+	// so the middleware seeds no resource.name for this operation — the workload's
+	// own name (componentName + "-workload") first exists here.
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created"), nil
 }
 
@@ -410,6 +421,7 @@ func (h *MCPHandler) UpdateWorkload(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "updated"), nil
 }
 
@@ -497,6 +509,7 @@ func (h *MCPHandler) PatchComponent(
 	if err != nil {
 		return nil, err
 	}
+	setAuditResource(ctx, updated)
 	return mutationResult(updated, "patched"), nil
 }
 
@@ -571,6 +584,11 @@ func (h *MCPHandler) CreateWorkflowRun(ctx context.Context, namespaceName, workf
 	if err != nil {
 		return nil, err
 	}
+	// The run is created with GenerateName, so its name exists only once the
+	// server has assigned one — and create_workflow_run's "name" argument is the
+	// Workflow being executed, not the run. Without this the event would carry
+	// neither resource.name nor resource.id.
+	setAuditResource(ctx, created)
 	return mutationResult(created, "created", map[string]any{
 		"workflowName": workflowName,
 	}), nil
@@ -760,6 +778,9 @@ func (h *MCPHandler) TriggerWorkflowRun(
 	if err != nil {
 		return nil, err
 	}
+	// Same GenerateName case as CreateWorkflowRun: trigger_workflow_run names a
+	// component, never the run it creates.
+	setAuditResource(ctx, created)
 	return mutationResult(created, "triggered", map[string]any{
 		"workflowName": component.Spec.Workflow.Name,
 	}), nil
