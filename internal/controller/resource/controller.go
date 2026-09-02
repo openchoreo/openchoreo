@@ -20,6 +20,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/localdevaddresses"
 )
 
 // Reconciler reconciles a Resource object
@@ -79,7 +80,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, res *openchoreov1alpha1
 		}
 	}()
 
-	rtSnapshot, err := r.resolveType(ctx, res)
+	snapshot, err := r.resolveType(ctx, res)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			msg := fmt.Sprintf("%s %q not found", resolvedKind(res.Spec.Type.Kind), res.Spec.Type.Name)
@@ -90,13 +91,14 @@ func (r *Reconciler) reconcile(ctx context.Context, old, res *openchoreov1alpha1
 	}
 
 	releaseHash := computeReleaseHash(ReleaseSpec{
-		ResourceType: rtSnapshot,
-		Parameters:   res.Spec.Parameters,
-	}, nil)
+		ResourceType:      snapshot.resourceType,
+		Parameters:        res.Spec.Parameters,
+		LocalDevAddresses: snapshot.localDevAddresses,
+	})
 
 	if res.Status.LatestRelease == nil || res.Status.LatestRelease.Hash != releaseHash {
 		rrName := fmt.Sprintf("%s-%s", res.Name, releaseHash)
-		if err := r.ensureResourceRelease(ctx, res, rtSnapshot, rrName); err != nil {
+		if err := r.ensureResourceRelease(ctx, res, snapshot, rrName); err != nil {
 			return ctrl.Result{}, err
 		}
 		res.Status.LatestRelease = &openchoreov1alpha1.LatestResourceRelease{
@@ -111,11 +113,18 @@ func (r *Reconciler) reconcile(ctx context.Context, old, res *openchoreov1alpha1
 	return ctrl.Result{}, nil
 }
 
+// typeSnapshot is what a Resource pins from its (Cluster)ResourceType: the spec
+// snapshot, plus the raw local-dev-addresses annotation.
+type typeSnapshot struct {
+	resourceType      openchoreov1alpha1.ResourceReleaseResourceType
+	localDevAddresses string
+}
+
 // resolveType fetches the (Cluster)ResourceType referenced by res.Spec.Type and
 // returns the snapshot to embed in a ResourceRelease. Returns an
 // apierrors.IsNotFound error when the referenced template is missing.
 func (r *Reconciler) resolveType(ctx context.Context, res *openchoreov1alpha1.Resource) (
-	openchoreov1alpha1.ResourceReleaseResourceType, error,
+	typeSnapshot, error,
 ) {
 	kind := resolvedKind(res.Spec.Type.Kind)
 	name := res.Spec.Type.Name
@@ -124,25 +133,31 @@ func (r *Reconciler) resolveType(ctx context.Context, res *openchoreov1alpha1.Re
 	case openchoreov1alpha1.ResourceTypeRefKindClusterResourceType:
 		crt := &openchoreov1alpha1.ClusterResourceType{}
 		if err := r.Get(ctx, types.NamespacedName{Name: name}, crt); err != nil {
-			return openchoreov1alpha1.ResourceReleaseResourceType{}, err
+			return typeSnapshot{}, err
 		}
 		// ClusterResourceTypeSpec is structurally identical to ResourceTypeSpec
 		// today; if it ever diverges, this cast breaks at compile time and
 		// ResourceReleaseResourceType.Spec needs a kind discriminator.
-		return openchoreov1alpha1.ResourceReleaseResourceType{
-			Kind: kind,
-			Name: name,
-			Spec: openchoreov1alpha1.ResourceTypeSpec(crt.Spec),
+		return typeSnapshot{
+			resourceType: openchoreov1alpha1.ResourceReleaseResourceType{
+				Kind: kind,
+				Name: name,
+				Spec: openchoreov1alpha1.ResourceTypeSpec(crt.Spec),
+			},
+			localDevAddresses: crt.Annotations[localdevaddresses.AnnotationKey],
 		}, nil
 	default:
 		rt := &openchoreov1alpha1.ResourceType{}
 		if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: res.Namespace}, rt); err != nil {
-			return openchoreov1alpha1.ResourceReleaseResourceType{}, err
+			return typeSnapshot{}, err
 		}
-		return openchoreov1alpha1.ResourceReleaseResourceType{
-			Kind: kind,
-			Name: name,
-			Spec: rt.Spec,
+		return typeSnapshot{
+			resourceType: openchoreov1alpha1.ResourceReleaseResourceType{
+				Kind: kind,
+				Name: name,
+				Spec: rt.Spec,
+			},
+			localDevAddresses: rt.Annotations[localdevaddresses.AnnotationKey],
 		}, nil
 	}
 }
@@ -155,20 +170,21 @@ func (r *Reconciler) resolveType(ctx context.Context, res *openchoreov1alpha1.Re
 func (r *Reconciler) ensureResourceRelease(
 	ctx context.Context,
 	res *openchoreov1alpha1.Resource,
-	rt openchoreov1alpha1.ResourceReleaseResourceType,
+	snapshot typeSnapshot,
 	name string,
 ) error {
 	rr := &openchoreov1alpha1.ResourceRelease{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: res.Namespace,
+			Name:        name,
+			Namespace:   res.Namespace,
+			Annotations: localDevAddressesAnnotation(snapshot.localDevAddresses),
 		},
 		Spec: openchoreov1alpha1.ResourceReleaseSpec{
 			Owner: openchoreov1alpha1.ResourceReleaseOwner{
 				ProjectName:  res.Spec.Owner.ProjectName,
 				ResourceName: res.Name,
 			},
-			ResourceType: rt,
+			ResourceType: snapshot.resourceType,
 			Parameters:   res.Spec.Parameters,
 		},
 	}
@@ -189,6 +205,15 @@ func (r *Reconciler) ensureResourceRelease(
 			name, existing.Spec.Owner.ResourceName, res.Name)
 	}
 	return nil
+}
+
+// localDevAddressesAnnotation puts the declarations on the release, so a pinned release
+// keeps the ones it was cut with.
+func localDevAddressesAnnotation(value string) map[string]string {
+	if value == "" {
+		return nil
+	}
+	return map[string]string{localdevaddresses.AnnotationKey: value}
 }
 
 // resolvedKind returns the Kind to use for type resolution, defaulting an empty

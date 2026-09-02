@@ -48,10 +48,17 @@ const (
 	ActionConnectComponent = "component:connect"
 
 	// Resource actions
-	ActionCreateResource = "resource:create"
-	ActionViewResource   = "resource:view"
-	ActionUpdateResource = "resource:update"
-	ActionDeleteResource = "resource:delete"
+	ActionCreateResource  = "resource:create"
+	ActionViewResource    = "resource:view"
+	ActionUpdateResource  = "resource:update"
+	ActionDeleteResource  = "resource:delete"
+	ActionConnectResource = "resource:connect"
+	// ActionReadResourceSecrets authorizes reading the VALUES of a resource's
+	// secret-backed outputs, as `occ remote` does to populate a local process. It is
+	// deliberately separate from ActionConnectResource: a tunnel to a database and the
+	// database's password are different grants, and an installation must be able to
+	// give one without the other.
+	ActionReadResourceSecrets = "resource:read-secrets"
 
 	// ComponentRelease actions
 	ActionCreateComponentRelease = "componentrelease:create"
@@ -320,6 +327,8 @@ var systemActions = []Action{
 	{Name: ActionViewResource, LowestScope: ScopeResource, IsInternal: false},
 	{Name: ActionUpdateResource, LowestScope: ScopeResource, IsInternal: false},
 	{Name: ActionDeleteResource, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionConnectResource, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionReadResourceSecrets, LowestScope: ScopeResource, IsInternal: false},
 
 	// ComponentRelease
 	{Name: ActionViewComponentRelease, LowestScope: ScopeComponent, IsInternal: false},

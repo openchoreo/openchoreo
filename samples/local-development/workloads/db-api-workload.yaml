@@ -1,0 +1,35 @@
+# A service that depends on the Postgres resource and serves an endpoint of its own.
+# `web-app` depends on that endpoint, so passing both files to one `occ remote` wires
+# them together locally instead of tunnelling this one.
+#
+# `occ remote` reads this file from disk and only looks at spec.endpoints and
+# spec.dependencies — the component does not need to exist in OpenChoreo and this
+# sample never deploys it, so container.image is a placeholder for whatever you
+# build locally.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: db-api
+  namespace: default
+spec:
+  owner:
+    componentName: db-api
+    projectName: default
+  endpoints:
+    http:
+      type: HTTP
+      port: 4000
+      visibility: [project]
+  dependencies:
+    resources:
+      - ref: local-dev-postgres
+        envBindings:
+          host: DB_HOST
+          port: DB_PORT
+          username: DB_USER
+          password: DB_PASSWORD
+          database: DB_NAME
+  container:
+    # Placeholder — this image does not exist. Nothing pulls it: `occ remote` never
+    # deploys the workload. Replace it with your own if you deploy this component.
+    image: my-registry.example.com/db-api:latest
