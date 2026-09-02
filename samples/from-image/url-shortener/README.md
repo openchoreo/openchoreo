@@ -47,14 +47,6 @@ Wait for the binding to reach `Ready=True`:
 kubectl wait --for=condition=Ready --timeout=5m resourcereleasebinding snip-postgres-development -n default
 ```
 
-`initSQL` only runs on Postgres's first boot (initdb), so if you already had a running Postgres pod before promoting the binding above, delete it — and its PVC, since `resources/postgres.yaml` enables `persistenceEnabled` — to force a clean re-init against an empty data volume. Find the data-plane namespace and pod (named `r-snip-postgres-development-<hash>`, not `snip-postgres`) and delete both:
-
-```bash
-ns=$(kubectl get ns -o name | grep url-shortener-development | cut -d/ -f2)
-kubectl delete -n "$ns" $(kubectl get pods -n "$ns" -o name | grep snip-postgres)
-kubectl delete -n "$ns" $(kubectl get pvc -n "$ns" -o name | grep snip-postgres)
-```
-
 The frontend component has a log-based alert rule attached (`observability-alert-rule` trait, triggers when `status=500` appears more than 5 times within 1 minute). The trait's `enabled` defaults to `true`, and a notification channel is mandatory for any enabled alert rule — so `enable-alert.yaml` (which wires the trait to the `webhook-notification-channel-development` channel) must be applied *before* `frontend.yaml`. Applying it first means `autoDeploy` finds this `ReleaseBinding` already in place when the frontend Component is created and only patches in the release name, leaving the trait config untouched. Applying it after leaves the frontend's first render permanently failing validation (`A notification channel is mandatory for alert rules`) until you apply it:
 
 ```bash
@@ -104,6 +96,20 @@ kubectl patch resourcereleasebinding snip-postgres-development -n default --type
 ```
 
 Note this removes only the `memory` override, not the whole `resourceTypeEnvironmentConfigs` map — `persistenceEnabled: true` (set in `resources/postgres.yaml`) needs to stay in place, otherwise Postgres would fall back to `emptyDir` on the next pod recreate and the data would be lost anyway.
+
+## Troubleshooting
+
+### Stale schema from a pre-existing Postgres pod
+
+`initSQL` only runs on Postgres's first boot (initdb). This only matters if a Postgres pod for this Resource was already running *before* you promoted the `snip-postgres-development` binding above (e.g. you re-ran the Deploy steps against a namespace left over from an earlier attempt) — a fresh install has no pod yet when `initSQL` first runs, so this step is not part of normal setup.
+
+If you're in that situation, delete the pod (named `r-snip-postgres-development-<hash>`, not `snip-postgres`) and its PVC (since `resources/postgres.yaml` enables `persistenceEnabled`) to force a clean re-init against an empty data volume. Find the data-plane namespace, then mark the PVC for deletion *before* the pod — deleting the pod first races the StatefulSet controller, which may schedule a replacement pod onto the same PVC before you get to delete it, and PVC protection will then leave the delete command waiting on that replacement pod indefinitely. Marking the PVC first (non-blocking, since it stays pinned in `Terminating` via the `pvc-protection` finalizer until the pod is gone) prevents a replacement pod from binding it in between, and deleting the pod afterward lets the finalizer clear and the PVC actually disappear:
+
+```bash
+ns=$(kubectl get ns -o name | grep url-shortener-development | cut -d/ -f2)
+kubectl delete -n "$ns" --wait=false $(kubectl get pvc -n "$ns" -o name | grep snip-postgres)
+kubectl delete -n "$ns" $(kubectl get pods -n "$ns" -o name | grep snip-postgres)
+```
 
 ## Cleanup
 
